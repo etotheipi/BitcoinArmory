@@ -499,8 +499,9 @@ public:
    bool getStoredTx_byDBKey( StoredTx & stx,
                              BinaryDataRef dbKey);
 
-   bool getStoredTx_byHash(  StoredTx & stx,
-                             BinaryDataRef txHash);
+   bool getStoredTx_byHash(  BinaryDataRef txHash,
+                             StoredTx* stx=nullptr,
+                             BinaryData* DBkey=nullptr);
 
    bool getStoredTx(         StoredTx & st,
                              uint32_t blkHgt,
@@ -529,11 +530,17 @@ public:
                              uint16_t txIndex,
                              uint16_t txOutIndex);
 
+   bool getStoredTxOut(      StoredTxOut & stxo,
+                             const BinaryData& DBkey);
+
+
 
    void putStoredScriptHistory( StoredScriptHistory & ssh);
 
-   void getStoredScriptHistory( StoredScriptHistory & ssh,
-                                BinaryDataRef scrAddrStr);
+   bool getStoredScriptHistory( StoredScriptHistory & ssh,
+                                BinaryDataRef scrAddrStr,
+                                uint32_t startBlock=0,
+                                uint32_t endBlock=UINT32_MAX);
 
    void getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                        BinaryDataRef scrAddrStr);
@@ -597,7 +604,9 @@ public:
                               StoredTxOut & stxo);
 
    bool readStoredScriptHistoryAtIter(LDBIter & iter, 
-                                      StoredScriptHistory & ssh);
+                                      StoredScriptHistory & ssh,
+                                      uint32_t startBlock,
+                                      uint32_t endBlock);
 
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct

@@ -6,17 +6,11 @@
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
 #include "ThreadSafeContainer.h"
-#include "pthread.h"
 
 class BlockDataManager_LevelDB;
 
-typedef map<BinaryData, RegisteredScrAddr> rsaMap;
-typedef ts_pair_container<rsaMap> ts_rsaMap;
-
 typedef map<BinaryData, ScrAddrObj> saMap;
 typedef ts_pair_container<saMap> ts_saMap;
-
-typedef ts_container<set<pthread_t> > ts_threadIDs;
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
@@ -61,10 +55,10 @@ class BtcWallet
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm)
       : bdmPtr_(bdm),
-      allScannedUpToBlk_(0), 
       lastScanned_(0),
       ignoreLastScanned_(true),
-      isInitialized_(false)
+      isInitialized_(false),
+      isRegistered_(false)
    {}
    ~BtcWallet(void);
 
@@ -109,22 +103,12 @@ public:
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newer than
    // the block
-   pair<bool,bool> isMineBulkFilter( Tx & tx,   
-                                     bool withMultiSig = false) const;
-   void scanTx(Tx & tx, 
-               uint32_t txIndex = UINT32_MAX,
-               uint32_t blktime = UINT32_MAX,
-               uint32_t blknum  = UINT32_MAX);
 
    void scanNonStdTx(uint32_t    blknum, 
                      uint32_t    txidx, 
                      Tx &        txref,
                      uint32_t    txoutidx,
                      ScrAddrObj& addr);
-
-   LedgerEntry calcLedgerEntryForTx(Tx & tx);
-   LedgerEntry calcLedgerEntryForTx(TxRef & txref);
-   LedgerEntry calcLedgerEntryForTxStr(BinaryData txStr);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is
@@ -137,34 +121,15 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
                                   bool includeAllZeroConf=false) const;
 
-
-   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(
       uint32_t currBlk=0,
       bool ignoreAllZeroConf=false
    ) const;
-   void clearZeroConfPool(void);
 
-   const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a) const
-   {
-      const ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-      const ts_saMap::const_iterator i = saSnapshot.find(a);
-      
-      if (i == saSnapshot.end())
-         throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
-      return i->second;
-   }
-
-   uint32_t removeInvalidEntries(void);
-
-   const vector<LedgerEntry> 
-      getZeroConfLedger(BinaryData const * scrAddr = nullptr) const;
-   vector<LedgerEntry> 
+   vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const; 
-   vector<LedgerEntry> 
+   vector<LedgerEntry>
       getTxLedger() const; 
-
-   bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger() const;
    void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false) const;
@@ -174,52 +139,12 @@ public:
    
    vector<AddressBookEntry> createAddressBook(void) const;
 
-   //for 1:1 wallets
-   bool registerNewScrAddr(HashString scraddr);
-   bool registerImportedScrAddr(HashString scraddr, uint32_t createBlk);
-
-   void insertRegisteredTxIfNew(RegisteredTx & regTx)
-   {
-      // .insert() function returns pair<iter,bool> with bool true if inserted
-      if(registeredTxSet_.insert(regTx.getTxHash()).second == true)
-         registeredTxList_.push_back(regTx);
-   }
-   vector<TxIOPair> getHistoryForScrAddr(
+   map<BinaryData, TxIOPair> getHistoryForScrAddr(
       BinaryDataRef uniqKey, 
-      bool withMultisig=false);
-
-   vector<TxIOPair> getHistoryForScrAddr(
-      BinaryDataRef uniqKey,
+      uint32_t startBlock,
+      uint32_t endBlock,
       bool withMultisig=false) const;
 
-   void registerOutPoint(const OutPoint &op) {registeredOutPoints_.insert(op);}
-   int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}
-   void insertRegisteredTxIfNew(HashString txHash);
-   bool scrAddrIsRegistered(HashString scraddr) const
-   {
-      ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
-      return rsaSS.find(scraddr) != rsaSS.end();
-   }
-   void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
-   void updateRegisteredScrAddrs(uint32_t newTopBlk);
-   uint32_t numBlocksToRescan(uint32_t endBlk) const;
-   const RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey) const
-   {
-      const ts_rsaMap::const_snapshot rsaMap_snapshot(registeredScrAddrMap_);
-      const ts_rsaMap::const_iterator rsaMap_iter = rsaMap_snapshot.find(uniqKey);
-      
-      if (rsaMap_iter == rsaMap_snapshot.end())
-         throw std::runtime_error("Could not find RegisteredScrAddr with key=" + uniqKey.toHexStr());
-      return rsaMap_iter->second;
-   }
-   ts_rsaMap* getRegisteredScrAddrMap(void)
-         { return &registeredScrAddrMap_; }
-   void eraseTx(const BinaryData& txHash);
-   vector<LedgerEntry> & getTxLedgerForComments(void)
-                     { return txLedgerForComments_; }
-   void reorgChangeBlkNum(uint32_t blkNum);
-   void setIgnoreLastScanned(void) {ignoreLastScanned_ = true;}
-      
    void reset(void);
 
    //new all purpose wallet scanning call
@@ -228,70 +153,52 @@ public:
                    bool forceRescan=false);
    
    //wallet side reorg processing
-   void updateAfterReorg(uint32_t lastValidBlockHeight);
+   void updateAfterReorg(uint32_t lastValidBlockHeight);   
+   void scanWalletZeroConf(uint32_t height);
+   
+   const map<BinaryData, ScrAddrObj> getScrAddrMap(void) const
+   { return scrAddrMap_; }
 
-   void scanBlocksAgainstRegisteredScrAddr(uint32_t blk0, 
-                                           uint32_t blk1 = UINT32_MAX);
-   
-   void registeredScrAddrScan(Tx & theTx);
-   void registeredScrAddrScan(uint8_t const * txptr,
-      uint32_t txSize = 0,
-      vector<uint32_t> * txInOffsets = NULL,
-      vector<uint32_t> * txOutOffsets = NULL,
-      bool withSecondOrderMultisig = true);
-
-   bool removeRegisteredTx(BinaryData const & txHash);
-   void rescanWalletZeroConf(void);
-   uint32_t evalLowestBlockNextScan() const;
-   
-   //saving scrAddr data to the DB from wallet side
-   void saveScrAddrHistories(void);
-   
-   void terminateThreads(void);
-
-   //end of 1:1 wallets
-   
    uint32_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
-   void fetchDBRegisteredScrAddrData(void);
-   void fetchDBRegisteredScrAddrData(BinaryData const & scrAddr);
+   void fetchDBScrAddrData(uint32_t startBlock, uint32_t endBlock);
+   void fetchDBScrAddrData(ScrAddrObj & scrAddr, 
+                                     uint32_t startBlock, uint32_t endBlock);
 
+   void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
+   void purgeZeroConfTxIO(const set<BinaryData>& invalidatedTxIO);
+
+   const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const
+   {
+      auto saIter = scrAddrMap_.find(key);
+      if (saIter != scrAddrMap_.end())
+         return &saIter->second;
+
+      return nullptr;
+   }
+
+   void updateLedgers(uint32_t startBlock, uint32_t endBlock);
+   void purgeLedgerFromHeight(uint32_t height);
+
+   LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;
 
 private:
-   vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
+   const vector<LedgerEntry>& getEmptyLedger(void) 
+   { EmptyLedger_.clear(); return EmptyLedger_; }
    void sortLedger();
 
 private:
-   BlockDataManager_LevelDB*const     bdmPtr_;
-   ts_saMap                           scrAddrMap_;
-   map<OutPoint, TxIOPair>            txioMap_;
-
-   //for 1:1 wallets
-   ts_rsaMap                          registeredScrAddrMap_;
-
-   //ongoing threads for this wallet
-   ts_threadIDs                       threadIDs_;
-
-   list<RegisteredTx>                 registeredTxList_;
-   set<HashString>                    registeredTxSet_;
-   set<OutPoint>                      registeredOutPoints_;
-   uint32_t                           allScannedUpToBlk_; // one past top
-   uint32_t                           lastScanned_;
-   bool                               ignoreLastScanned_;
-
-   vector<LedgerEntry>          ledgerAllAddr_;  
-   vector<LedgerEntry>          ledgerAllAddrZC_;  
-   vector<LedgerEntry>          txLedgerForComments_;
-
-   // For non-std transactions
-   map<OutPoint, TxIOPair>      nonStdTxioMap_;
-   set<OutPoint>                nonStdUnspentOutPoints_;
-
-   static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
-
-   //marks if the DB was scanned against registeredScrAddrMap, to fill its
-   //registeredTxList with existing data
-   bool                         isInitialized_;
+   BlockDataManager_LevelDB*const      bdmPtr_;
+   map<BinaryData, ScrAddrObj>         scrAddrMap_;
    
+   bool                                ignoreLastScanned_;
+   vector<LedgerEntry>                 ledgerAllAddr_;
+   static vector<LedgerEntry>          EmptyLedger_; // just a null-reference object
+
+   bool                                isInitialized_;
+   bool                                isRegistered_;
+
+   uint32_t                            lastScanned_;
+
    BtcWallet(const BtcWallet&); // no copies
 };
 

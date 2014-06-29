@@ -190,7 +190,22 @@ void OutPoint::unserialize(BinaryDataRef const & bdRef)
    unserialize(bdRef.getPtr(), bdRef.getSize());
 }
 
+const BinaryDataRef OutPoint::getDBkey(InterfaceToLDB* db) const
+{
+   if (DBkey_.getSize() == 8)
+      return DBkey_;
 
+   if (db != nullptr)
+   {
+      if (db->getStoredTx_byHash(txHash_, nullptr, &DBkey_))
+      {
+         DBkey_.append(WRITE_UINT16_BE((uint16_t)txOutIndex_));
+         return DBkey_;
+      }
+   }
+
+   return BinaryDataRef();
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -782,38 +797,29 @@ TxIOPair::TxIOPair(void) :
    amount_(0),
    indexOfOutput_(0),
    indexOfInput_(0),
-   txOfOutputZC_(NULL),
-   indexOfOutputZC_(0),
-   txOfInputZC_(NULL),
-   indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false) {}
+   isMultisig_(false),
+   indexedByTxIn_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(uint64_t  amount) :
    amount_(amount),
    indexOfOutput_(0),
    indexOfInput_(0),
-   txOfOutputZC_(NULL),
-   indexOfOutputZC_(0),
-   txOfInputZC_(NULL),
-   indexOfInputZC_(0) ,
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false) {}
+   isMultisig_(false),
+   indexedByTxIn_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
    amount_(0),
    indexOfInput_(0) ,
-   txOfOutputZC_(NULL),
-   indexOfOutputZC_(0),
-   txOfInputZC_(NULL),
-   indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   indexedByTxIn_(false)
 { 
    setTxOut(txPtrO, txoutIndex);
 }
@@ -824,13 +830,10 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
                    TxRef     txPtrI, 
                    uint32_t  txinIndex) :
    amount_(0),
-   txOfOutputZC_(NULL),
-   indexOfOutputZC_(0),
-   txOfInputZC_(NULL),
-   indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   indexedByTxIn_(false)
 { 
    setTxOut(txPtrO, txoutIndex);
    setTxIn (txPtrI, txinIndex );
@@ -841,23 +844,25 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
    amount_(val),
    indexOfOutput_(0),
    indexOfInput_(0),
-   txOfOutputZC_(NULL),
-   indexOfOutputZC_(0),
-   txOfInputZC_(NULL),
-   indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   indexedByTxIn_(false)
 {
    setTxOut(txOutKey8B);
 }
  //////////////////////////////////////////////////////////////////////////////
 HashString TxIOPair::getTxHashOfOutput(InterfaceToLDB *db) const
 {
-   if(!hasTxOut())
+   if (!hasTxOut())
       return BtcUtils::EmptyHash();
-   else if(txRefOfOutput_.isInitialized())
-      return txRefOfOutput_.attached(db).getThisHash();
+   else if (txHashOfOutput_.getSize() == 32)
+      return txHashOfOutput_;
+   else if (txRefOfOutput_.isInitialized())
+   {
+      txHashOfOutput_ = txRefOfOutput_.attached(db).getThisHash();
+      return txHashOfOutput_;
+   }
    else
       return BinaryData(0);
 }
@@ -865,10 +870,15 @@ HashString TxIOPair::getTxHashOfOutput(InterfaceToLDB *db) const
 //////////////////////////////////////////////////////////////////////////////
 HashString TxIOPair::getTxHashOfInput(InterfaceToLDB *db) const
 {
-   if(!hasTxIn())
+   if (!hasTxIn())
       return BtcUtils::EmptyHash();
-   else if(txRefOfInput_.isInitialized())
-      return txRefOfInput_.attached(db).getThisHash();
+   else if (txHashOfInput_.getSize() == 32)
+      return txHashOfInput_;
+   else if (txRefOfInput_.isInitialized())
+   {
+      txHashOfInput_ = txRefOfInput_.attached(db).getThisHash();
+      return txHashOfInput_;
+   }
    else
       return BinaryData(0);
 }
@@ -880,8 +890,8 @@ TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db) const
    // first in the calling code (hasTxOut/hasTxOutZC)
    if(hasTxOut())
       return txRefOfOutput_.attached(db).getTxOutCopy(indexOfOutput_);
-   else
-      return getTxOutZC();
+   /*else
+      return getTxOutZC();*/
 }
 
 
@@ -893,8 +903,8 @@ TxIn TxIOPair::getTxInCopy(InterfaceToLDB *db) const
    // first in the calling code (hasTxIn/hasTxInZC)
    if(hasTxIn())
       return txRefOfInput_.attached(db).getTxInCopy(indexOfInput_);
-   else
-      return getTxInZC();
+   /*else
+      return getTxInZC();*/
 }
 
 
@@ -903,8 +913,6 @@ bool TxIOPair::setTxIn(TxRef  txref, uint32_t index)
 { 
    txRefOfInput_  = txref;
    indexOfInput_  = index;
-   txOfInputZC_   = NULL;
-   indexOfInputZC_= 0;
 
    return true;
 }
@@ -912,35 +920,37 @@ bool TxIOPair::setTxIn(TxRef  txref, uint32_t index)
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::setTxIn(BinaryData dbKey8B)
 {
-   BinaryRefReader brr(dbKey8B);
-   BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-   uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
-   return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
+   if (dbKey8B.getSize() == 8)
+   {
+      BinaryRefReader brr(dbKey8B);
+      BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
+      uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
+      return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
+   }
+   else
+   {
+      //pass a 0 byte dbkey to reset the txin
+      setTxIn(TxRef(), 0);
+      return false;
+   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::setTxOut(BinaryData dbKey8B)
 {
-   BinaryRefReader brr(dbKey8B);
-   BinaryDataRef txKey6B  = brr.get_BinaryDataRef(6);
-   uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
-   return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxInZC(InterfaceToLDB *db, Tx* tx, uint32_t index)
-{ 
-   if(hasTxInInMain(db) || hasTxInZC())
-      return false;
+   if (dbKey8B.getSize() == 8)
+   {
+      BinaryRefReader brr(dbKey8B);
+      BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
+      uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
+      return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
+   }
    else
    {
-      txRefOfInput_    = TxRef();
-      indexOfInput_    = 0;
-      txOfInputZC_     = tx;
-      indexOfInputZC_  = index;
+      //pass 0 byte dbkey to reset the txout
+      setTxOut(TxRef(), 0);
+      return false;
    }
-
-   return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -948,25 +958,9 @@ bool TxIOPair::setTxOut(TxRef txref, uint32_t index)
 {
    txRefOfOutput_   = txref; 
    indexOfOutput_   = index;
-   txOfOutputZC_    = NULL;
-   indexOfOutputZC_ = 0;
    return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOutZC(InterfaceToLDB *db, Tx* tx, uint32_t index)
-{
-   if(hasTxOutInMain(db) || hasTxOutZC())
-      return false;
-   else
-   {
-      txRefOfOutput_   = TxRef();
-      indexOfOutput_   = 0;
-      txOfOutputZC_    = tx;
-      indexOfOutputZC_ = index;
-   }
-   return true;
-}
 
 //////////////////////////////////////////////////////////////////////////////
 pair<bool,bool> TxIOPair::reassessValidity(InterfaceToLDB *db)
@@ -996,7 +990,8 @@ bool TxIOPair::isUnspent(InterfaceToLDB *db) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(InterfaceToLDB *db, uint32_t currBlk, bool ignoreAllZeroConf) const
+bool TxIOPair::isSpendable(InterfaceToLDB *db, 
+                           uint32_t currBlk, bool ignoreAllZeroConf) const
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
@@ -1058,23 +1053,13 @@ bool TxIOPair::hasTxInInMain(InterfaceToLDB *db) const
 
 bool TxIOPair::hasTxOutZC(void) const
 { 
-   return (txOfOutputZC_!=NULL && txOfOutputZC_->isInitialized()); 
+   return txRefOfOutput_.getDBKey().startsWith(READHEX("ffff"));
 }
 
 bool TxIOPair::hasTxInZC(void) const
 { 
-   return (txOfInputZC_!=NULL && txOfInputZC_->isInitialized());
+   return txRefOfInput_.getDBKey().startsWith(READHEX("ffff"));
 }
-
-void TxIOPair::clearZCFields(void)
-{
-   txOfOutputZC_ = NULL;
-   txOfInputZC_  = NULL;
-   indexOfOutputZC_ = 0;
-   indexOfInputZC_  = 0;
-   //isTxOutFromSelf_ = false;
-}
-
 
 void TxIOPair::pprintOneLine(InterfaceToLDB *db) const
 {

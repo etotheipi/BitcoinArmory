@@ -186,11 +186,14 @@ void BlockDataManagerThread::run()
    {
       if(bdm->rescanZC_)
       {
-         bdm->scanWallets(0, 0);
          bdm->rescanZC_ = false;
+         if (bdm->parseNewZeroConfTx() == true)
+         {
+            bdm->scanWallets(0, 0);
 
-         //notify ZC
-         callback->run(3, 0);
+            //notify ZC
+            callback->run(3, 0);
+         }
       }
 
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();

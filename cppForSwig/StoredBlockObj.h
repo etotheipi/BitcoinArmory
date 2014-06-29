@@ -558,6 +558,8 @@ public:
                              BinaryData  txInKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
+   void duplicateSpentTxOut(InterfaceToLDB *db, BinaryData txOutKey8B);
+
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
@@ -587,7 +589,7 @@ class StoredSubHistory
 {
 public:
 
-   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0) {}
+   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0) {}
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -601,7 +603,7 @@ public:
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
-   uint64_t      getTxioCount(void) const {return (uint64_t)txioSet_.size();}
+   uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
 
    //void pprintOneLine(uint32_t indent=3);
    //void pprintFullSSH(uint32_t indent=3);
@@ -633,7 +635,9 @@ public:
    // Store all TxIOs for this ScrAddr and block
    BinaryData     uniqueKey_;  // includes the prefix byte!
    BinaryData     hgtX_;
-   map<BinaryData, TxIOPair> txioSet_;
+   map<BinaryData, TxIOPair> txioMap_;
+   uint32_t height_;
+   uint8_t  dupID_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

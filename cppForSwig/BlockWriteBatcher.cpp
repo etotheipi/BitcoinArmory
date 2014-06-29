@@ -134,12 +134,15 @@ static StoredScriptHistory* makeSureSSHInMap(
    // If sub-history for this block doesn't exist, add an empty one before
    // returning the pointer to the SSH.  Since we haven't actually inserted
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
-   uint32_t prevSize = sshptr->subHistMap_.size();
-   iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
-   uint32_t newSize = sshptr->subHistMap_.size();
+   if (hgtX.getSize() == 4)
+   {
+      uint32_t prevSize = sshptr->subHistMap_.size();
+      iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
+      uint32_t newSize = sshptr->subHistMap_.size();
 
-   if (additionalSize)
-      *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+      if (additionalSize)
+         *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+   }
    return sshptr;
 }
 
@@ -208,7 +211,8 @@ BlockWriteBatcher::~BlockWriteBatcher()
    commit();
 }
 
-void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
+void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
+   ScrAddrScanData* scrAddrData)
 {
    if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
    {
@@ -235,14 +239,13 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
       // and then it will modify either the pulled StoredTx or pre-existing
       // one.  This means that if a single Tx is affected by multiple TxIns
       // or TxOuts, earlier changes will not be overwritten by newer changes.
-      applyTxToBatchWriteData(iter->second, &sud);
+      applyTxToBatchWriteData(iter->second, &sud, scrAddrData);
    }
 
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
    sbh.blockAppliedToDB_ = true;
    updateBlkDataHeader(config_, iface_, sbh);
-   //iface_->putStoredHeader(sbh, false);
 
    { // we want to commit the undo data at the same time as actual changes
       InterfaceToLDB::Batch batch(iface_, BLKDATA);
@@ -260,16 +263,18 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
    }
 }
 
-void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup)
+void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
+   ScrAddrScanData* scrAddrData)
 {
    StoredHeader sbh;
    iface_->getStoredHeader(sbh, hgt, dup);
-   applyBlockToDB(sbh);
+   applyBlockToDB(sbh, scrAddrData);
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
+void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud, 
+                                        ScrAddrScanData* scrAddrData)
 {
    SCOPED_TIMER("undoBlockFromDB");
 
@@ -282,19 +287,32 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
    }
    
    mostRecentBlockApplied_ = sud.blockHeight_;
+   uint32_t scannedFrom = 0;
+   if (scrAddrData != nullptr)
+      scannedFrom = scrAddrData->scanFrom();
 
    // In the future we will accommodate more user modes
    if(config_.armoryDbType != ARMORY_DB_SUPER)
    {
       LOGERR << "Don't know what to do this in non-supernode mode!";
    }
-   
+
    ///// Put the STXOs back into the DB which were removed by this block
    // Process the stxOutsRemovedByBlock_ in reverse order
    // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
    for(int32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
    {
       StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
+
+      if (scrAddrData != nullptr)
+      {
+         if (!scrAddrData->hasScrAddress(sudStxo.getScrAddress()))
+            continue;
+         
+         //UTxO is for one of our scrAddr, add it
+         scrAddrData->addUTxO(sudStxo.getDBKey(false));
+      }
+
       StoredTx * stxptr = makeSureSTXInMap( 
                iface_,
                sudStxo.blockHeight_,
@@ -349,7 +367,6 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
          ////// Finished updating STX, now update the SSH in the DB
          // Updating the SSH objects works the same regardless of pruning
          map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
-         //if(iter == stxptr->stxoMap_.end())
          if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
          {
             LOGERR << "Somehow STXO DNE even though we should've just added it!";
@@ -358,6 +375,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
 
          StoredTxOut & stxoReAdd = iter->second;
          BinaryData uniqKey = stxoReAdd.getScrAddress();
+
          BinaryData hgtX    = stxoReAdd.getHgtX();
          StoredScriptHistory* sshptr = makeSureSSHInMap(
                iface_, uniqKey, hgtX, sshToModify_, &dbUpdateSize_
@@ -434,6 +452,14 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
          StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
          BinaryData    stxoKey = stxo.getDBKey(false);
 
+         if (scrAddrData != nullptr)
+         {
+            //eraseUTxO returns true if the element was erased, implying that
+            //UTxO needs revertedin SSH too.
+            if (!scrAddrData->eraseUTxO(stxoKey) == 0)
+               continue;
+         }
+
    
          // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
          BinaryData uniqKey = stxo.getScrAddress();
@@ -490,7 +516,8 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
 //        block that it is handled correctly, etc.
 bool BlockWriteBatcher::applyTxToBatchWriteData(
                         StoredTx &       thisSTX,
-                        StoredUndoData * sud)
+                        StoredUndoData * sud,
+                        ScrAddrScanData* scrAddrData)
 {
    SCOPED_TIMER("applyTxToBatchWriteData");
 
@@ -518,6 +545,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    dbUpdateSize_ += thisSTX.numBytes_;
    
    // Go through and find all the previous TxOuts that are affected by this tx
+   BinaryData txInScrAddr;
+   BinaryData txOutHashnId;
+
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       TxIn txin = tx.getTxInCopy(iin);
@@ -525,15 +555,63 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          continue;
 
       // Get the OutPoint data of TxOut being spent
-      const OutPoint      op       = txin.getOutPoint();
+      const OutPoint      op = txin.getOutPoint();
       const BinaryDataRef opTxHash = op.getTxHashRef();
       const uint32_t      opTxoIdx = op.getTxOutIndex();
+      BinaryData          txOutDBkey;
+
+      BinaryDataRef       fetchBy = opTxHash;
+      StoredTx*           stxptr = nullptr;
+
+      //For scanning a predefined set of addresses purpose, check if this txin 
+      //consumes one of our utxo
+      if (scrAddrData != nullptr)
+      {
+         //leveraging the stx map in RAM
+         auto stxIter = stxToModify_.find(opTxHash);
+         if (ITER_IN_MAP(stxIter, stxToModify_))
+         {
+            stxptr = &(stxIter->second);
+            const StoredTxOut& stxo = stxptr->stxoMap_[opTxoIdx];
+
+            if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
+               continue;
+
+            scrAddrData->eraseUTxO(stxo.getDBKey(false));
+         }
+         else
+         {
+            //grab UTxO DBkey for comparison first
+            iface_->getStoredTx_byHash(opTxHash, nullptr, &txOutDBkey);
+            txOutDBkey.append(WRITE_UINT16_BE(opTxoIdx));
+            fetchBy = txOutDBkey.getSliceRef(0, 6);
+
+            int8_t hasKey = scrAddrData->hasUTxO(txOutDBkey);
+         
+            if (hasKey == 0) continue;
+            else if (hasKey == -1)
+            {
+               stxptr = makeSureSTXInMap(iface_, fetchBy,
+                  stxToModify_, &dbUpdateSize_);
+
+               const StoredTxOut& stxo = stxptr->stxoMap_[opTxoIdx];
+
+               if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
+                  continue;
+            }
+
+            //if we got this far this txin spends one of our utxo, 
+            //remove it from utxo set
+            scrAddrData->eraseUTxO(txOutDBkey);
+         }
+      }
 
       // This will fetch the STX from DB and put it in the stxToModify
       // map if it's not already there.  Or it will do nothing if it's
       // already part of the map.  In both cases, it returns a pointer
       // to the STX that will be written to DB that we can modify.
-      StoredTx    * stxptr = makeSureSTXInMap(iface_, opTxHash, stxToModify_, &dbUpdateSize_);
+      if(stxptr == nullptr) 
+         stxptr = makeSureSTXInMap(iface_, fetchBy, stxToModify_, &dbUpdateSize_);
       StoredTxOut & stxo   = stxptr->stxoMap_[opTxoIdx];
       BinaryData    uniqKey   = stxo.getScrAddress();
 
@@ -541,7 +619,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
       
       // Some sanity checks
-      //if(iter == stxptr->stxoMap_.end())
       if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
       {
          LOGERR << "Needed to get OutPoint for a TxIn, but DNE";
@@ -566,11 +643,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       stxoSpend.spentness_      = TXOUT_SPENT;
       stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
 
-      if(config_.armoryDbType != ARMORY_DB_SUPER)
-      {
-         LOGERR << "Don't know what to do this in non-supernode mode!";
-      }
-
       ////// Now update the SSH to show this TxIOPair was spent
       // Same story as stxToModify above, except this will actually create a new
       // SSH if it doesn't exist in the map or the DB
@@ -593,6 +665,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          config_.armoryDbType,
          config_.pruneType
       );
+
+      sshptr->duplicateSpentTxOut(iface_, stxoSpend.getDBKey(false));
    }
 
 
@@ -605,6 +679,17 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       StoredTxOut & stxoToAdd = thisSTX.stxoMap_[iout];
       BinaryData uniqKey = stxoToAdd.getScrAddress();
       BinaryData hgtX    = stxoToAdd.getHgtX();
+      
+      if (scrAddrData != nullptr)
+      {
+         if (!scrAddrData->hasScrAddress(uniqKey))
+            continue;
+
+         //if we got this far, this utxo points to one of the address in our 
+         //list, add it to the utxo set
+         scrAddrData->addUTxO(stxoToAdd.getDBKey(false));
+      }
+      
       StoredScriptHistory* sshptr = makeSureSSHInMap(
             iface_,
             uniqKey,
@@ -728,7 +813,7 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
           iterSub++)
       {
          StoredSubHistory & subssh = iterSub->second;
-         if(subssh.txioSet_.size() == 0)
+         if(subssh.txioMap_.size() == 0)
             keysToDelete.insert(subssh.getDBKey(true));
       }
    

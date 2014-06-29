@@ -19,8 +19,7 @@ ScrAddrObj::ScrAddrObj(InterfaceToLDB *db, HashString    addr,
       lastBlockNum_(lastBlockNum), 
       lastTimestamp_(lastTimestamp)
 { 
-   relevantTxIOPtrs_.clear();
-   relevantTxIOPtrsZC_.clear();
+   relevantTxIO_.clear();
 } 
 
 
@@ -31,15 +30,10 @@ uint64_t ScrAddrObj::getSpendableBalance(
 ) const
 {
    uint64_t balance = 0;
-   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   for(auto txio : relevantTxIO_)
    {
-     if(relevantTxIOPtrs_[i]->isSpendable(db_, currBlk, ignoreAllZC))
-         balance += relevantTxIOPtrs_[i]->getValue();
-   }
-   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
-   {
-     if(relevantTxIOPtrsZC_[i]->isSpendable(db_, currBlk, ignoreAllZC))
-         balance += relevantTxIOPtrsZC_[i]->getValue();
+     if(txio.second.isSpendable(db_, currBlk, ignoreAllZC))
+         balance += txio.second.getValue();
    }
    return balance;
 }
@@ -51,15 +45,10 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ) const
 {
    uint64_t balance = 0;
-   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   for (auto txio : relevantTxIO_)
    {
-      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(db_, currBlk, inclAllZC))
-         balance += relevantTxIOPtrs_[i]->getValue();
-   }
-   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
-   {
-      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(db_, currBlk, inclAllZC))
-         balance += relevantTxIOPtrsZC_[i]->getValue();
+      if(txio.second.isMineButUnconfirmed(db_, currBlk, inclAllZC))
+         balance += txio.second.getValue();
    }
    return balance;
 }
@@ -68,17 +57,10 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 uint64_t ScrAddrObj::getFullBalance() const
 {
    uint64_t balance = 0;
-   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   for(auto txio : relevantTxIO_)
    {
-      TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isUnspent(db_))
-         balance += txio.getValue();
-   }
-   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
-   {
-      TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isUnspent(db_))
-         balance += txio.getValue();
+      if(txio.second.isUnspent(db_))
+         balance += txio.second.getValue();
    }
    return balance;
 }
@@ -87,25 +69,14 @@ uint64_t ScrAddrObj::getFullBalance() const
 vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
    uint32_t blkNum,
    bool ignoreAllZC
-)
+) const
 {
    vector<UnspentTxOut> utxoList(0);
-   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   for (auto txio : relevantTxIO_)
    {
-      TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isSpendable(db_, blkNum, ignoreAllZC))
+      if(txio.second.isSpendable(db_, blkNum, ignoreAllZC))
       {
-         TxOut txout = txio.getTxOutCopy(db_);
-         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
-      }
-   }
-
-   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
-   {
-      TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isSpendable(db_, blkNum, ignoreAllZC))
-      {
-         TxOut txout = txio.getTxOutCopy(db_);
+         TxOut txout = txio.second.getTxOutCopy(db_);
          utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
       }
    }
@@ -113,95 +84,278 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t blkNum) const
 {
    vector<UnspentTxOut> utxoList(0);
-   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   for (auto txio : relevantTxIO_)
    {
-      TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isUnspent(db_))
+      if(txio.second.isUnspent(db_))
       {
-         TxOut txout = txio.getTxOutCopy(db_);
-         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
-      }
-   }
-   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
-   {
-      TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isUnspent(db_))
-      {
-         TxOut txout = txio.getTxOutCopy(db_);
+         TxOut txout = txio.second.getTxOutCopy(db_);
          utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
       }
    }
    return utxoList;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint32_t ScrAddrObj::removeInvalidEntries(void)   
-{
-   vector<LedgerEntry> newLedger(0);
-   uint32_t leRemoved = 0;
-   for(uint32_t i=0; i<ledger_.size(); i++)
-   {
-      if(!ledger_[i].isValid())
-         leRemoved++;
-      else
-         newLedger.push_back(ledger_[i]);
-   }
-   ledger_.clear();
-   ledger_ = newLedger;
-   return leRemoved;
 }
    
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::sortLedger(void)
-{
-   sort(ledger_.begin(), ledger_.end());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::addLedgerEntry(LedgerEntry const & le, bool isZeroConf)
+void ScrAddrObj::addTxIO(TxIOPair& txio, bool isZeroConf)
 { 
-   if(isZeroConf)
-      ledgerZC_.push_back(le);
-   else
-      ledger_.push_back(le);
+   relevantTxIO_[txio.getDBKeyOfOutput()] = txio;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::addTxIO(TxIOPair * txio, bool isZeroConf)
-{ 
-   if(isZeroConf)
-      relevantTxIOPtrsZC_.push_back(txio);
-   else
-      relevantTxIOPtrs_.push_back(txio);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::pprintLedger() const
+void ScrAddrObj::pprintLedger() const 
 { 
    cout << "Address Ledger: " << getScrAddr().toHexStr() << endl;
-   for(uint32_t i=0; i<ledger_.size(); i++)
-      ledger_[i].pprintOneLine();
-   for(uint32_t i=0; i<ledgerZC_.size(); i++)
-      ledgerZC_[i].pprintOneLine();
+   for(const auto ledger : ledger_)
+      ledger.second.pprintOneLine();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::clearBlkData(void)
 {
-   relevantTxIOPtrs_.clear();
-   relevantTxIOPtrsZC_.clear();
+   relevantTxIO_.clear();
    ledger_.clear();
-   ledgerZC_.clear();
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::clearZeroConfPool(void)
+void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 {
-   ledgerZC_.clear();
-   relevantTxIOPtrsZC_.clear();
+   for (auto txio : txio_map)
+      relevantTxIO_[txio.first] = txio.second;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap, 
+                        uint32_t height)
+{
+   for (auto zcIter : zcTxIOMap)
+   {
+      //UPDATE LEDGERS AFTER ZC
+
+      //if this txio is for our scrAddr, add or overwrite into relevantTxIO_
+      map<BinaryData, TxIOPair> selectedZC;
+
+      if (zcIter.second.getZCscrAddr() == scrAddr_)
+      {
+         relevantTxIO_[zcIter.first] = zcIter.second;
+         selectedZC.insert(zcIter);
+      }
+
+      if (selectedZC.size() > 0)
+         updateLedgers(nullptr, selectedZC, height);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
+{
+   for (auto zc : invalidatedTxOutKeys)
+   {
+      auto txioIter = relevantTxIO_.find(zc);
+
+      if (ITER_IN_MAP(txioIter, relevantTxIO_))
+      {
+         TxIOPair& txio = txioIter->second;
+
+         if (txio.hasTxOutZC())
+         {
+            //purged ZC chain, remove the TxIO
+            relevantTxIO_.erase(txioIter);
+         }
+         else if (txio.hasTxInZC())
+         {
+            //ZC consumes UTxO, reset the TxIn to mark the TxOut as unspent
+            txio.setTxIn(BinaryData(0));
+            txio.setTxHashOfInput(BinaryData(0));
+         }
+
+         //erase both possible keys for the ZC (txin and txout)
+         ledger_.erase(zc);
+         BinaryData zcLedgerKey = getLedgerKey(zc, true);
+         ledger_.erase(zcLedgerKey);
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ScrAddrObj::updateAfterReorg(uint32_t lastValidBlockHeight)
+{
+   auto txioIter = relevantTxIO_.begin();
+
+   uint32_t height;
+   while (txioIter != relevantTxIO_.end())
+   {
+      //txio pairs are saved by TxOut DBkey, if the key points to a block 
+      //higher than the reorg point, delete the txio
+      height = DBUtils::hgtxToHeight(txioIter->first.getSliceCopy(0, 4));
+
+      if (height >= 0xFF000000)
+      {
+         //ZC chain, already dealt with by the call to purgeZC from 
+         //readBlkFileUpdate
+         continue;
+      }
+      else if (height <= lastValidBlockHeight)
+      {
+         TxIOPair& txio = txioIter->second;
+         if (txio.hasTxIn())
+         {
+            //if the txio is spent, check the block of the txin
+            height = DBUtils::hgtxToHeight(
+               txio.getDBKeyOfInput().getSliceCopy(0, 4));
+
+            if (height > lastValidBlockHeight && height < 0xFF000000)
+            {
+               //clear the TxIn by setting it to an empty BinaryData
+               txio.setTxIn(BinaryData(0));
+               txio.setTxHashOfInput(BinaryData(0));
+            }
+         }
+
+         ++txioIter;
+      }
+      else
+         relevantTxIO_.erase(txioIter++);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData ScrAddrObj::getLedgerKey(const BinaryData& DBkey, bool isTxOut)
+{
+   /***converts DBkey to Ledger key.
+   DBkeys are:
+      hgtX/txid/txoutid
+   and for ZC transactions:
+      0xFF/ZCid/txout-or-in_id
+
+   for a total of 8 bytes. DBkeys are unique within TxOuts, as well as within
+   TxIns. However, since they use the same format, they can collide when mixed.
+   There is no collision issues with TxIOPairs, as the class differenciates 
+   the 2 type of keys and uses the respective DB wrapper methods to fetch them 
+   from DB.
+
+   For ZC, TxOuts are differentiated from TxIns in the last 2 bytes 
+   (txout-or-in_id). If the top bit is flagged, the key refers to a txin.
+   The same method will be used to differentiate TxIns and TxOuts within ledger
+   keys.
+
+   While TxIOPairs keep TxIns associated with their originating TxOuts, ledgers 
+   separate them, and saves them by their DBkey, which mixes TxOut and TxIn 
+   DBkeys.
+   
+   This method is used to convert DBkeys to Ledger keys, in order to avoid 
+   collisions at ledger level.
+
+   This method has no effect on TxOut DBkeys.
+   ***/
+
+   if (!isTxOut && DBkey.getSize()==8)
+   {
+      BinaryData LedgerKey = DBkey;
+      
+      uint8_t* keyPtr = LedgerKey.getPtr();
+      keyPtr[6] |= 0xF0;
+
+      return LedgerKey;
+   }
+
+   return DBkey;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ScrAddrObj::updateLedgers(const Blockchain* bc,
+                               map<BinaryData, TxIOPair>& newTxio, 
+                               uint32_t height)
+{
+   /***
+   Nothing too complicated here. A map of new TxIOPair ordered by TxOut DBkey
+   are parsed to create the respective scrAddr ledger entries. 
+   
+   A TxIn is a spend, thus the ledger entry value will be negative. 
+   A TxOut marks received funds, and will have a positive value. 
+
+   TxIOPairs carry the coinbase distiction at SSH level.
+   There is no concept of change at scrAddr level.
+
+   Height and index are derived from DBkeys.
+   
+   The TxHash is queried from the db since it isn't carried by the TxIOPair.
+   The timestamp is the block timestamp. Blockchain objects do not allow to
+   query blocks by height AND dup, and will only block headers for the main
+   for any given height, however that is irrelevant here, as only main branch 
+   transactions make it into SSH objects.
+   ***/
+
+   BinaryData opKey;
+   BinaryData inKey;
+   BlockHeader*  bhptr;
+   uint32_t txtime;
+
+   uint32_t opHeight;
+   uint32_t inHeight;
+
+   for (auto txioPair : newTxio)
+   {
+      const TxIOPair& txio = txioPair.second;
+      opKey = txio.getDBKeyOfOutput();
+
+      if (ledger_.find(opKey) == ledger_.end())
+      {
+         if ((uint16_t)*opKey.getSliceRef(0, 2).getPtr() == 0xFF)
+            opHeight = height;
+         else
+            opHeight = DBUtils::hgtxToHeight(opKey.getSliceRef(0, 4));
+            
+         uint16_t opIdx = READ_UINT16_BE(opKey.getSliceRef(6, 2));
+
+         if (bc != nullptr)
+         {
+            bhptr = &bc->getHeaderByHeight(opHeight);
+            txtime = bhptr->getTimestamp();
+         }
+         else txtime = txio.getTxTime();
+
+         LedgerEntry le(scrAddr_,
+            txio.getValue(),
+            opHeight,
+            txio.getTxHashOfOutput(db_),
+            opIdx,
+            txtime,
+            txio.isFromCoinbase());
+
+         ledger_[opKey] = le;
+      }
+
+      if (txio.hasTxIn())
+      {
+         inKey = getLedgerKey(txio.getDBKeyOfInput(), false);
+         if (ledger_.find(inKey) == ledger_.end())
+         {
+            if ((uint16_t)*inKey.getSliceRef(0, 2).getPtr() == 0xFF)
+               inHeight = height;
+            else
+               inHeight = DBUtils::hgtxToHeight(inKey.getSliceRef(0, 4));
+            
+            uint16_t  inIdx = READ_UINT16_BE(inKey.getSliceRef(6, 2));
+            
+            if (bc != nullptr)
+            {
+               bhptr = &bc->getHeaderByHeight(inHeight);
+               txtime = bhptr->getTimestamp();
+            }
+            else txtime = txio.getTxTime();
+
+            LedgerEntry le(scrAddr_,
+               (int64_t)txio.getValue() * -1,
+               inHeight,
+               txio.getTxHashOfInput(db_),
+               inIdx,
+               txtime);
+         
+            ledger_[inKey] = le;
+         }
+      }
+   }
+}

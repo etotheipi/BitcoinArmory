@@ -1339,14 +1339,14 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db
 
       map<BinaryData, StoredSubHistory>::const_iterator iter;
       iter = subHistMap_.begin();
-      if(iter->second.txioSet_.size() != 1)
+      if(iter->second.txioMap_.size() != 1)
       {
-         LOGERR << "One subSSH but " << iter->second.txioSet_.size() << " TxIOs?";
+         LOGERR << "One subSSH but " << iter->second.txioMap_.size() << " TxIOs?";
          return;
       }
 
       // Iter is pointing to the first SubSSH, now get the first/only TxIOPair
-      TxIOPair const & txio = iter->second.txioSet_.begin()->second;
+      TxIOPair const & txio = iter->second.txioMap_.begin()->second;
       BinaryData key8B = txio.getDBKeyOfOutput();
 
       BitPacker<uint8_t> bitpack;
@@ -1471,13 +1471,13 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
       }
 
       StoredSubHistory & subSSH = subHistMap_.begin()->second;
-      if(subSSH.txioSet_.size() != 1)
+      if(subSSH.txioMap_.size() != 1)
       {
          LOGERR << "totalTxioCount_ and subSSH.txioSet_.size() do not agree!";
          return NULL;
       }
 
-      TxIOPair* outptr = &(subSSH.txioSet_.begin()->second);
+      TxIOPair* outptr = &(subSSH.txioMap_.begin()->second);
       if(!includeMultisig && outptr->isMultisig())
          return NULL;
 
@@ -1618,11 +1618,11 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh)
       StoredSubHistory & subsshTriedToAdd   = subssh;
       LOGINFO << "SubSSH already in SSH...should this happen?";
       map<BinaryData, TxIOPair>::iterator iter;
-      for(iter  = subsshTriedToAdd.txioSet_.begin();
-          iter != subsshTriedToAdd.txioSet_.end();
+      for(iter  = subsshTriedToAdd.txioMap_.begin();
+          iter != subsshTriedToAdd.txioMap_.end();
           iter++)
       {
-         subsshAlreadyInRAM.txioSet_[iter->first] = iter->second;
+         subsshAlreadyInRAM.txioMap_[iter->first] = iter->second;
       }
    }
    return true;
@@ -1707,9 +1707,9 @@ uint64_t StoredScriptHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData tx
    }
 
    StoredSubHistory & subssh = iter->second;
-   uint32_t prevSize = subssh.txioSet_.size();
+   uint32_t prevSize = subssh.txioMap_.size();
    uint64_t val = subssh.markTxOutUnspent(db, txOutKey8B, dbType, pruneType, value, isCoinbase, isMultisig);
-   uint32_t newSize = subssh.txioSet_.size();
+   uint32_t newSize = subssh.txioMap_.size();
 
    // Value returned above is zero if it's multisig, so no need to check here
    // Also, markTxOutUnspent doesn't indicate whether a new entry was added,
@@ -1790,14 +1790,14 @@ bool StoredScriptHistory::getFullTxioMap( map<BinaryData, TxIOPair> & mapToFill,
       if(withMultisig)
       {
          // If with multisig, we can just copy everything
-         mapToFill.insert(subssh.txioSet_.begin(), subssh.txioSet_.end());
+         mapToFill.insert(subssh.txioMap_.begin(), subssh.txioMap_.end());
       }
       else
       {
          // Otherwise, we have to filter out the multisig TxIOs
          map<BinaryData, TxIOPair>::iterator iterTxio;
-         for(iterTxio  = subssh.txioSet_.begin();
-             iterTxio != subssh.txioSet_.end();
+         for(iterTxio  = subssh.txioMap_.begin();
+             iterTxio != subssh.txioMap_.end();
              iterTxio++)
          {
             if(!iterTxio->second.isMultisig())
@@ -1807,6 +1807,29 @@ bool StoredScriptHistory::getFullTxioMap( map<BinaryData, TxIOPair> & mapToFill,
       }
    }
    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::duplicateSpentTxOut(InterfaceToLDB *db,
+                                              BinaryData txOutKey8B)
+{
+   TxIOPair txio = *findTxio(txOutKey8B);
+   txio.setIndexedByTxIn();
+
+   BinaryData txInHgtX = txio.getDBKeyOfInput().getSliceCopy(0, 4);
+   StoredSubHistory &subssh = subHistMap_[txInHgtX];
+   if (subssh.uniqueKey_.getSize() == 0) //uninitialized subSSH
+   {
+      subssh.uniqueKey_ = uniqueKey_;
+      subssh.hgtX_ = txInHgtX;
+   }
+   uint32_t prevSize = subssh.txioMap_.size();
+   subssh.insertTxio(txio, true);
+   uint32_t newSize = subssh.txioMap_.size();
+
+   totalTxioCount_ += (newSize - prevSize);
+
+   useMultipleEntries_ = true;
 }
 
 
@@ -1831,32 +1854,49 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       return;
    }
 
-   BinaryData fullTxOutKey(8);
-   hgtX_.copyTo(fullTxOutKey.getPtr());
+   BinaryData fullTxKey(8);
+   hgtX_.copyTo(fullTxKey.getPtr());
 
    uint32_t numTxo = (uint32_t)(brr.get_var_int());
    for(uint32_t i=0; i<numTxo; i++)
    {
       BitUnpacker<uint8_t> bitunpack(brr);
-      bool isFromSelf  = bitunpack.getBit();
-      bool isCoinbase  = bitunpack.getBit();
-      bool isSpent     = bitunpack.getBit();
-      bool isMulti     = bitunpack.getBit();
+      bool isFromSelf      = bitunpack.getBit();
+      bool isCoinbase      = bitunpack.getBit();
+      bool isSpent         = bitunpack.getBit();
+      bool isMulti         = bitunpack.getBit();
+      bool indexedByTxIn   = bitunpack.getBit();
 
       // We always include the 8-byte value
       uint64_t txoValue  = brr.get_uint64_t();
+      TxIOPair txio;
+      txio.setValue(txoValue);
 
-      // First 4 bytes is same for all TxIOs, and was copied outside the loop.
-      // So we grab the last four bytes and copy it to the end.
-      brr.get_BinaryData(fullTxOutKey.getPtr()+4, 4);
-      TxIOPair txio(fullTxOutKey, txoValue);
+      if (!indexedByTxIn)
+      {
+         // First 4 bytes is same for all TxIOs, and was copied outside the loop.
+         // So we grab the last four bytes and copy it to the end.
+         brr.get_BinaryData(fullTxKey.getPtr() + 4, 4);
+         txio.setTxOut(fullTxKey);
 
-      if(isSpent)
-         txio.setTxIn(brr.get_BinaryDataRef(8));
+         if (isSpent)
+            txio.setTxIn(brr.get_BinaryDataRef(8));
+      }
+      else
+      {
+         //Dup entry, TxOut will always carry a full DBkey
+         txio.setTxOut(brr.get_BinaryDataRef(8));
+
+         //Dup entries are always spent
+         brr.get_BinaryData(fullTxKey.getPtr() + 4, 4);
+         txio.setTxIn(fullTxKey);
+      }
 
       txio.setTxOutFromSelf(isFromSelf);
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMulti);
+      txio.setIndexedByTxIn(indexedByTxIn);
+
       insertTxio(txio);
    }
 }
@@ -1864,9 +1904,9 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
 ////////////////////////////////////////////////////////////////////////////////
 void StoredSubHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType) const
 {
-   bw.put_var_int(txioSet_.size());
+   bw.put_var_int(txioMap_.size());
    map<BinaryData, TxIOPair>::const_iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
    {
       TxIOPair const & txio = iter->second;
       bool isSpent = txio.hasTxInInMain(db);
@@ -1884,25 +1924,45 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, A
          }
       }
 
-      // We need to write
       BinaryData key8B = txio.getDBKeyOfOutput();
-      if(!key8B.startsWith(hgtX_))
-         LOGERR << "How did TxIO key not match hgtX_??";
+      if (txio.isIndexedByTxIn())
+         key8B = txio.getDBKeyOfInput();
+
+      // We need to write
+      if (!key8B.startsWith(hgtX_))
+        LOGERR << "How did TxIO key not match hgtX_??";
+
 
       BitPacker<uint8_t> bitpack;
       bitpack.putBit(txio.isTxOutFromSelf());
       bitpack.putBit(txio.isFromCoinbase());
       bitpack.putBit(txio.hasTxInInMain(db));
       bitpack.putBit(txio.isMultisig());
+      bitpack.putBit(txio.isIndexedByTxIn());
       bw.put_BitPacker(bitpack);
 
-      // Always write the value and last 4 bytes of dbkey (first 4 is in dbkey)
-      bw.put_uint64_t(txio.getValue());
-      bw.put_BinaryData(key8B.getSliceCopy(4,4));
+      if (!txio.isIndexedByTxIn())
+      {
+         // Always write the value and last 4 bytes of dbkey (first 4 is in dbkey)
+         bw.put_uint64_t(txio.getValue());
+         bw.put_BinaryData(key8B.getSliceCopy(4, 4));
 
-      // If not supposed to write the TxIn, we would've bailed earlier
-      if(isSpent)
-         bw.put_BinaryData(txio.getDBKeyOfInput());
+         // If not supposed to write the TxIn, we would've bailed earlier
+         if (isSpent)
+            bw.put_BinaryData(txio.getDBKeyOfInput());
+      }
+      else
+      {
+         //duplicate entry that marks the spent TxOut at the TxIn hgtX
+         
+         //write the full TxOut dbkey, since this is saved at TxIn hgtX
+         bw.put_uint64_t(txio.getValue());
+         bw.put_BinaryData(txio.getDBKeyOfOutput());
+
+         //dup TxIO are always spent. The subssh dbkey has the first 4
+         //bytes, only write the last 4
+         bw.put_BinaryData(key8B.getSliceCopy(4, 4));
+      }
    }
 }
 
@@ -1935,6 +1995,15 @@ void StoredSubHistory::unserializeDBKey(BinaryDataRef key, bool withPrefix)
 
    brr.get_BinaryData(uniqueKey_, sz-4);
    brr.get_BinaryData(hgtX_, 4);
+
+   uint8_t* hgtXptr = (uint8_t*)hgtX_.getPtr();
+   height_ = 0;
+   uint8_t* hgt = (uint8_t*)&height_;
+
+   dupID_ = hgtXptr[3];
+   hgt[0] = hgtXptr[2];
+   hgt[1] = hgtXptr[1];
+   hgt[2] = hgtXptr[0];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1971,7 +2040,7 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 
    // Print all the txioVects
    map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
    {
       for(uint32_t ind=0; ind<indent+3; ind++)
          cout << " ";
@@ -2012,8 +2081,8 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 ////////////////////////////////////////////////////////////////////////////////
 TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 {
-   map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
-   if(ITER_NOT_IN_MAP(iter, txioSet_))
+   map<BinaryData, TxIOPair>::iterator iter = txioMap_.find(dbKey8B);
+   if(ITER_NOT_IN_MAP(iter, txioMap_))
       return NULL;
    else
    {
@@ -2028,6 +2097,9 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, bool withOverwrite)
 {
    BinaryData key8B = txio.getDBKeyOfOutput();
+   if (txio.isIndexedByTxIn())
+      key8B = txio.getDBKeyOfInput();
+
    if(!key8B.startsWith(hgtX_))
    {
       LOGERR << "This txio does not belong in this subSSH";
@@ -2039,7 +2111,7 @@ TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, bool withOverwrite
    pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
 
    // This returns pair<ExistingOrInsertedIter, wasInserted>
-   txioInsertResult = txioSet_.insert(txioInsertPair);
+   txioInsertResult = txioMap_.insert(txioInsertPair);
 
    // If not inserted, then it was already there.  Overwrite if requested
    if(!txioInsertResult.second && withOverwrite)
@@ -2061,8 +2133,8 @@ uint64_t StoredSubHistory::eraseTxio(InterfaceToLDB *db, TxIOPair const & txio)
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredSubHistory::eraseTxio(InterfaceToLDB *db, BinaryData const & dbKey8B)
 {
-   map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
-   if(ITER_NOT_IN_MAP(iter, txioSet_))
+   map<BinaryData, TxIOPair>::iterator iter = txioMap_.find(dbKey8B);
+   if(ITER_NOT_IN_MAP(iter, txioMap_))
       return UINT64_MAX;
    else
    {
@@ -2071,7 +2143,7 @@ uint64_t StoredSubHistory::eraseTxio(InterfaceToLDB *db, BinaryData const & dbKe
       if(txio.hasTxInInMain(db) || txio.isMultisig())
          valueRemoved = 0;
 
-      txioSet_.erase(iter);
+      txioMap_.erase(iter);
       return valueRemoved;
    }
 }
@@ -2082,8 +2154,8 @@ uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
 {
    uint64_t bal = 0;
    map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
-      if(!iter->second.isMultisig() || withMultisig)
+   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
+   if (!iter->second.isIndexedByTxIn() && (!iter->second.isMultisig() || withMultisig))
          bal += iter->second.getValue();
    
    return bal;
@@ -2094,7 +2166,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 {
    uint64_t bal = 0;
    map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
    {
       if(!iter->second.hasTxIn())
          if(!iter->second.isMultisig() || withMultisig)

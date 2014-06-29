@@ -88,7 +88,7 @@ public:
 
    SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
 
-   void setScrAddr(BinaryData const & bd) { scrAddr_.copyFrom(bd); }
+   void setScrAddr(BinaryData const & bd) { scrAddr_= bd; }
    void setValid(bool b=true) { isValid_ = b; }
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
@@ -110,7 +110,7 @@ private:
    bool             isValid_;
    bool             isCoinbase_;
    bool             isSentToSelf_;
-   bool             isChangeBack_;;
+   bool             isChangeBack_;
 
 
    

@@ -2173,7 +2173,6 @@ class ArmoryMainWindow(QMainWindow):
          if self.forceOnline:
             LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
          self.switchNetworkMode(NETWORKMODE.Offline)
-         TheBDM.setOnlineMode(False, wait=False)
       elif self.onlineModeIsPossible():
          # Track number of times we start loading the blockchain.
          # We will decrement the number when loading finishes
@@ -2278,7 +2277,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       TheBDM.bdm.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
-      self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
+      self.newZeroConfSinceLastUpdate.append(pytxObj)
       LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
 
@@ -6177,15 +6176,15 @@ class ArmoryMainWindow(QMainWindow):
       transaction will be passed along to a user notification queue.
       '''
       while len(self.newZeroConfSinceLastUpdate)>0:
-         rawTx = self.newZeroConfSinceLastUpdate.pop()
+         Tx = self.newZeroConfSinceLastUpdate.pop()
 
          # Iterate through the Python wallets and create a ledger entry for the
          # transaction. If the transaction is for us, put it on the notification
          # queue, create the combined ledger, and reset the Qt table model.
          for wltID in self.walletMap.keys():
             wlt = self.walletMap[wltID]
-            le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
-            if not le.getTxHash() == '\x00' * 32:
+            le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
+            if len(le.getTxHash()) == 32:
                LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
                         % wltID)
                notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
@@ -6203,8 +6202,8 @@ class ArmoryMainWindow(QMainWindow):
          # notification queue, create the combined ledger, and reset the Qt
          # table models.
          for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-            le = cppWlt.calcLedgerEntryForTxStr(rawTx)
-            if not le.getTxHash() == '\x00' * 32:
+            le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
+            if len(le.getTxHash()) == 32:
                LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
                # notifiedAleready = False, isSingleAddr = True
                self.notifyQueue.append([lbID, le, False, False])

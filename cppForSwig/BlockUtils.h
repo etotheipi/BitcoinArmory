@@ -28,6 +28,7 @@
 #include "StoredBlockObj.h"
 #include "BlockDataManagerConfig.h"
 #include "leveldb_wrapper.h"
+#include "ScrAddrObj.h"
 
 #include "cryptlib.h"
 #include "sha.h"
@@ -84,11 +85,271 @@ struct ZeroConfData
 typedef set<BtcWallet*> set_BtcWallet;
 typedef ts_container<set_BtcWallet> ts_setBtcWallet;
 
-typedef map<HashString, ZeroConfData> ZCMap;
 typedef map<HashString, BinaryData>   BinDataMap;
 
-typedef ts_pair_container<BinDataMap> ts_BinDataMap;
-typedef ts_pair_container<ZCMap>      ts_ZCMap;
+
+class ScrAddrScanData
+{
+   /***
+   This class keeps track of all registered scrAddr to be scanned by the DB.
+   If the DB isn't running in supernode, this class also acts as a helper to
+   filter transactions, which is required in order to save only relevant SSH
+
+   The transaction filter isn't exact however. It gets more efficient as it 
+   encounters more UTxO.
+
+   The basic principle of the filter is that it expect to have a complete
+   list of UTxO's starting a given height, usually where the DB picked up
+   at initial load. It can then guarantee a TxIn isn't spending a tracked 
+   UTxO by checking the UTxO DBkey instead of fetching the entire stored TxOut.
+   If the DBkey carries a height lower than the cut off, the filter will
+   fail to give a definitive answer, in which case the TxOut script will be 
+   pulled from the DB, using the DBkey, as it would have otherwise.
+
+   Registering addresses while the BDM isn't initialized will return instantly
+   Otherwise, the following steps are taken:
+
+   1) Check SSH entries in the DB for this scrAddr. If there is none, this
+   DB never saw this address (full/lite node). Else mark the top scanned block.
+
+   -- Non supernode operations --
+   2.a) If the address is new, create an empty SSH header for that scrAddr 
+   in the DB, marked at the current top height
+   2.b) If the address isn't new, scan it from its last seen block, or its 
+   block creation, or 0 if none of the above is available. This will create 
+   the SSH entries for the address, which will have the current top height as 
+   its scanned height.
+   --
+
+   3) Add address to scrAddrMap_
+
+   4) Signal the wallet that the address is ready. Wallet object will take it 
+   up from there.
+   ***/
+
+private:
+
+   struct ScrAddrMeta
+   {
+      /***
+      scrAddrMap_ is a map so it can only have meta per scrAddr. This means
+      only 1 wallet can be registered per post BDM init address scan. 
+      ***/
+      uint32_t lastScannedHeight_;
+      BtcWallet* wltPtr_;
+
+      ScrAddrMeta(void) :
+         lastScannedHeight_(0),
+         wltPtr_(nullptr) {}
+
+      ScrAddrMeta(uint32_t height, BtcWallet* wltPtr = nullptr) :
+         lastScannedHeight_(height),
+         wltPtr_(wltPtr) {}
+   };
+
+   //map of scrAddr and their respective last scanned block
+   //this is used only for the inital load currently
+   map<BinaryData, ScrAddrMeta>   scrAddrMap_;
+   
+   set<BinaryData>                UTxO_;
+   mutable uint32_t               blockHeightCutOff_;
+   BlockDataManager_LevelDB*      bdmPtr_;
+   
+   //
+   ScrAddrScanData*               parent_;
+   set<BinaryData>                UTxOToMerge_;
+   map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
+   atomic<int32_t>                mergeLock_;
+   bool                           mergeFlag_;
+
+public:
+   ScrAddrScanData(BlockDataManager_LevelDB* bdmPtr) :
+      blockHeightCutOff_(0),
+      mergeLock_(0),
+      mergeFlag_(false)
+   {}
+
+   const map<BinaryData, ScrAddrMeta>& getScrAddrMap(void) const
+   {
+      return scrAddrMap_;
+   }
+
+   void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
+   { 
+      auto& scrAddrIter = scrAddrMap_.find(scrAddr);
+      if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
+      {
+         scrAddrIter->second.lastScannedHeight_ = blkHgt;
+         blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
+      } 
+   }
+
+   uint32_t numScrAddr(void) const
+   { return scrAddrMap_.size(); }
+
+   uint32_t scanFrom(void) const
+   { 
+      uint32_t lowestBlock = UINT32_MAX;
+      blockHeightCutOff_ = 0;
+
+      for (auto scrAddr : scrAddrMap_)
+      {
+         lowestBlock = min(lowestBlock, scrAddr.second.lastScannedHeight_);
+      }
+
+      LOGERR << "blockHeightCutOff: " << blockHeightCutOff_;
+      return lowestBlock;
+   }
+
+   bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr);
+
+   void unregisterScrAddr(BinaryData& scrAddrIn)
+   {
+      //simplistic, same as above
+      scrAddrMap_.erase(scrAddrIn);
+   }
+
+   void reset()
+   {
+      UTxO_.clear();
+      blockHeightCutOff_ = 0;
+   }
+
+   bool hasScrAddress(const BinaryData & sa) const
+   { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
+
+   int8_t hasUTxO(const BinaryData& dbkey) const
+   { 
+      /*** return values:
+      -1: don't know
+       0: utxo is not for our addresses
+       1: our utxo
+      ***/
+
+      if (UTxO_.find(dbkey) == UTxO_.end())
+      {
+         uint32_t height = DBUtils::hgtxToHeight(dbkey.getSliceRef(0, 4));
+         if (height < blockHeightCutOff_)
+            return -1;
+
+         return 0;
+      }
+
+      return 1;
+   }
+   
+   void addUTxO(pair<const BinaryData, TxIOPair>& txio)
+   {
+      if (txio.first.getSize() == 8)
+      {
+         if (txio.second.hasTxOut() && !txio.second.hasTxIn())
+            UTxO_.insert(txio.first);
+      }
+   }
+
+   void addUTxO(const BinaryData& dbkey)
+   {
+      if (dbkey.getSize() == 8)
+         UTxO_.insert(dbkey);
+   }
+
+   bool eraseUTxO(const BinaryData& dbkey)
+   { return UTxO_.erase(dbkey) == 1; }
+
+   void getScrAddrCurrentSyncState();
+   void ScrAddrScanData::getScrAddrCurrentSyncState(
+      BinaryData const & scrAddr);
+
+   map<BinaryData, TxIOPair> ZCisMineBulkFilter(const Tx & tx,
+      const BinaryData& ZCkey, InterfaceToLDB *db,
+      uint32_t txtime,
+      const map<HashString, BinaryData>* ZCtxHashMap=nullptr,
+      const map<HashString, TxIOPair>* ZCtxioMap=nullptr,
+      bool withSecondOrderMultisig = true) const;
+
+   void setSSHLastScanned(InterfaceToLDB *db, uint32_t height);
+
+   void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom, 
+                          BtcWallet* wltPtr)
+   { scrAddrMap_[scrAddr] = ScrAddrMeta(scanFrom, wltPtr); }
+
+   void scanScrAddrMapInNewThread(void);
+   void addrIsReady(const ScrAddrObj& sa, BtcWallet* wltPtr);
+
+   BlockDataManager_LevelDB* getBDM(void) const { return bdmPtr_; }
+
+   void setParent(ScrAddrScanData* sca) { parent_ = sca; }
+   void merge(void);
+   void checkForMerge(void);
+};
+
+class ZeroConfContainer
+{
+   /***
+   This class does not support parsing ZC without a ScrAddrScanData object to
+   filter by scrAddr. This means no undiscriminated ZC tracking is available
+   for supernode. However turning the feature on is trivial at this point.
+
+   This class stores and represents ZC transactions by DBkey. While the ZC txn
+   do not hit the DB, they are assigned a 6 bytes key like mined transaction
+   to unify TxIn parsing by DBkey.
+
+   DBkeys are unique. They are preferable to outPoints because they're cheaper 
+   (8 bytes vs 22), and do not incur extra processing to recover when a TxOut
+   script is pulled from the DB to recover its scrAddr. They also carry height,
+   dupID and TxId natively.
+
+   The first 2 bytes of ZC DBkey will always be 0xFF. The 
+   transaction index having to be unique, will be 4 bytes long instead, and 
+   produced by atomically incrementing topId_.
+
+   Indeed, at 7 tx/s, including limbo, it is possible a 2 bytes index will 
+   overflow on long run cycles.
+
+   Methods:
+      addRawTx takes in a raw tx, hashes it and verifies it isnt already added.
+      It then unserializes the transaction to a Tx Object, assigns it a key and
+      parses it to populate the TxIO map. It returns the Tx key if valid, or an
+      empty BinaryData object otherwise.
+   ***/
+
+   private:
+      map<HashString, HashString> txHashToDBKey_;
+      map<HashString, Tx>         txMap_;
+      map<HashString, TxIOPair>   txioMap_;
+
+      std::atomic<uint32_t>       topId_;
+
+      ScrAddrScanData*            scrAddrDataPtr_;
+
+      atomic<uint32_t>            lock_;
+
+      //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
+      //The code has a thread pushing new ZC, and set the BDM thread flag
+      //to parse it
+
+      map<BinaryData, Tx> newZCMap_;
+
+      BinaryData getNewZCkey(void);
+      bool RemoveTxByKey(const BinaryData key);
+      bool RemoveTxByHash(const BinaryData txHash);
+
+   public:
+      ZeroConfContainer(ScrAddrScanData* sadPtr) : 
+         scrAddrDataPtr_(sadPtr), topId_(0) {}
+
+      void addRawTx(const BinaryData& rawTx, uint32_t txtime);
+      
+      bool hasTxByHash(const BinaryData& txHash) const;
+      bool getTxByHash(const BinaryData& txHash, Tx& tx) const;
+
+      set<BinaryData> purge(InterfaceToLDB *db);
+
+      const map<HashString, TxIOPair>& getTxioMap(void) const
+      { return txioMap_; }
+
+      bool parseNewZC(InterfaceToLDB* db);
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,7 +359,6 @@ typedef ts_pair_container<ZCMap>      ts_ZCMap;
 // of the BDM class, and then its public members can be used to access the 
 // block data that is sitting in memory.
 //
-
 
 class BlockDataManager_LevelDB
 {
@@ -112,8 +372,6 @@ private:
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
    // it, when necessary
-   ts_BinDataMap                      zeroConfRawTxMap_;
-   ts_ZCMap                           zeroConfMap_;
    bool                               zcEnabled_;
    bool                               zcLiteMode_;
    string                             zcFilename_;
@@ -147,8 +405,10 @@ private:
    // Reorganization details
 
    bool                               corruptHeadersDB_;
-
    int32_t                            lastScannedBlock_;
+
+   ScrAddrScanData                    scrAddrData_;
+   ZeroConfContainer                  ZeroConfCont_;
 
 private:
   
@@ -169,7 +429,7 @@ private:
    // comment being written), then we don't have anything to track -- the DB
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
-   ts_setBtcWallet                    registeredWallets_;
+   set<BtcWallet*>                    registeredWallets_;
    uint32_t                           allScannedUpToBlk_; // one past top
 
    // list of block headers that appear to be missing 
@@ -287,10 +547,6 @@ public:
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
    void     unregisterWallet(BtcWallet* wltPtr);
 
-   uint32_t evalLowestBlockNextScan(void);
-   uint32_t evalLowestScrAddrCreationBlock(void);
-   bool     evalRescanIsRequired(void);
-
    bool     walletIsRegistered(BtcWallet & wlt) const;
    bool     scrAddrIsRegistered(BinaryData scrAddr);
 
@@ -334,7 +590,8 @@ public:
 private:
    void addRawBlockToDB(BinaryRefReader & brr);
 public:
-   void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+   void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX,
+      ScrAddrScanData* scrAddrData = NULL);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -356,47 +613,30 @@ public:
    bool isZcEnabled() {return zcEnabled_;}
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
    InterfaceToLDB *getIFace(void) {return iface_;}
-   vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
-                                          bool withMultisig=false);
-   uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk) const;
    
    void scanWallets(uint32_t startBlock=UINT32_MAX, 
                     uint32_t endBlock=UINT32_MAX, 
                     bool forceScan=false);
    
    LDBIter getIterator(DB_SELECT db, bool fill_cache = true)
-   {
-      return iface_->getIterator(db, fill_cache);
-   }
+   { return iface_->getIterator(db, fill_cache); }
    
    bool readStoredBlockAtIter(LDBIter & iter, StoredHeader & sbh)
-   {
-      return iface_->readStoredBlockAtIter(iter, sbh);
-   }
+   { return iface_->readStoredBlockAtIter(iter, sbh); }
 
    uint8_t getValidDupIDForHeight(uint32_t blockHgt)
-   {
-      return iface_->getValidDupIDForHeight(blockHgt);
-   }
-
-   const ts_BinDataMap * getZeroConfRawTxMap() const
-   {
-      return &zeroConfRawTxMap_;
-   }
-
-   const ts_ZCMap * getZeroConfMap() const
-   {
-      return &zeroConfMap_;
-   }
-
+   { return iface_->getValidDupIDForHeight(blockHgt); }
 
    // Check for availability of data with a given hash
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
    bool hasTxWithHash(BinaryData const & txhash);
    bool hasTxWithHashInDB(BinaryData const & txhash);
 
+   bool parseNewZeroConfTx(void);
+   bool hasWallet(BtcWallet* wltPtr) 
+      { return registeredWallets_.find(wltPtr) != registeredWallets_.end(); }
+
 public:
-   //uint32_t getNumTx(void) const { return txHintMap_.size(); }
    StoredHeader getMainBlockFromDB(uint32_t hgt);
    uint8_t      getMainDupFromDB(uint32_t hgt);
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
@@ -414,7 +654,8 @@ public:
    void enableZeroConf(string filename, bool zcLite=true);
    void disableZeroConf(void);
    void readZeroConfFile(string filename);
-   bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
+   void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, 
+      bool writeToFile);
    void purgeZeroConfPool(void);
    void pprintZeroConfPool(void) const;
    void rewriteZeroConfFile(void);
@@ -438,7 +679,7 @@ public:
 // this class with gtest code
 //private: 
 
-   void pprintSSHInfoAboutHash160(BinaryData const & a160);
+   //void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
    // Simple wrapper around the logger so that they are easy to access from SWIG
    static void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
@@ -459,6 +700,25 @@ public:
    vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
+
+   /*vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey,
+                                         bool withMultisig = false) const;*/
+
+   ScrAddrScanData* getScrAddrScanData(void)
+   {
+      if (config_.armoryDbType != ARMORY_DB_SUPER)
+         return &scrAddrData_;
+
+      return nullptr;
+   }
+
+   bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr=nullptr)
+   {
+      return scrAddrData_.registerScrAddr(sa, wltPtr);
+   }
+
+   const map<BinaryData, TxIOPair>& getZeroConfTxIOMap(void) const
+   { return ZeroConfCont_.getTxioMap(); }
 };
 
 

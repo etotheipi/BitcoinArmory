@@ -12,6 +12,7 @@
 #include "../leveldb_wrapper.h"
 #include "../EncryptionUtils.h"
 #include "../BlockUtils.h"
+#include "../ScrAddrObj.h"
 #include "../BtcWallet.h"
 
 
@@ -24,7 +25,7 @@
    #include "win32_posix.h"
 	#undef close
 
-   #ifdef _DEBUG
+   /*#ifdef _DEBUG
       #define _CRTDBG_MAP_ALLOC
       #include <stdlib.h>
       #include <crtdbg.h>
@@ -33,7 +34,7 @@
          #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
          #define new DBG_NEW
       #endif
-   #endif
+   #endif*/
 #endif
 
 #define READHEX BinaryData::CreateFromHex
@@ -4195,9 +4196,9 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    StoredSubHistory & subssh = ssh.subHistMap_[hgtX0];
    EXPECT_EQ(   subssh.uniqueKey_, uniq);
    EXPECT_EQ(   subssh.hgtX_, hgtX0);
-   EXPECT_EQ(   subssh.txioSet_.size(), 1);
-   ASSERT_NE(   subssh.txioSet_.find(txioKey), subssh.txioSet_.end());
-   TxIOPair & txio = subssh.txioSet_[txioKey];
+   EXPECT_EQ(   subssh.txioMap_.size(), 1);
+   ASSERT_NE(   subssh.txioMap_.find(txioKey), subssh.txioMap_.end());
+   TxIOPair & txio = subssh.txioMap_[txioKey];
    EXPECT_EQ(   txio.getValue(), READ_UINT64_HEX_LE("0100000000000000"));
    EXPECT_EQ(   txio.getDBKeyOfOutput(), READHEX("0000ff0000010001"));
 
@@ -4229,13 +4230,13 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
 
    EXPECT_EQ(   subssh1.uniqueKey_,  uniq);
    EXPECT_EQ(   subssh1.hgtX_,       hgtX0);
-   EXPECT_EQ(   subssh1.txioSet_.size(), 2);
-   ASSERT_NE(   subssh1.txioSet_.find(txio0key), subssh1.txioSet_.end());
-   ASSERT_NE(   subssh1.txioSet_.find(txio1key), subssh1.txioSet_.end());
-   EXPECT_EQ(   subssh1.txioSet_[txio0key].getValue(), val0);
-   EXPECT_EQ(   subssh1.txioSet_[txio1key].getValue(), val1);
-   EXPECT_EQ(   subssh1.txioSet_[txio0key].getDBKeyOfOutput(), txio0key);
-   EXPECT_EQ(   subssh1.txioSet_[txio1key].getDBKeyOfOutput(), txio1key);
+   EXPECT_EQ(   subssh1.txioMap_.size(), 2);
+   ASSERT_NE(   subssh1.txioMap_.find(txio0key), subssh1.txioMap_.end());
+   ASSERT_NE(   subssh1.txioMap_.find(txio1key), subssh1.txioMap_.end());
+   EXPECT_EQ(   subssh1.txioMap_[txio0key].getValue(), val0);
+   EXPECT_EQ(   subssh1.txioMap_[txio1key].getValue(), val1);
+   EXPECT_EQ(   subssh1.txioMap_[txio0key].getDBKeyOfOutput(), txio0key);
+   EXPECT_EQ(   subssh1.txioMap_[txio1key].getDBKeyOfOutput(), txio1key);
    
    ssh.mergeSubHistory(subssh1);
    EXPECT_EQ(   ssh.subHistMap_.size(), 1);
@@ -4244,13 +4245,13 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    StoredSubHistory & subref = ssh.subHistMap_[hgtX0];
    EXPECT_EQ(   subref.uniqueKey_, uniq);
    EXPECT_EQ(   subref.hgtX_,      hgtX0);
-   EXPECT_EQ(   subref.txioSet_.size(), 2);
-   ASSERT_NE(   subref.txioSet_.find(txio0key), subref.txioSet_.end());
-   ASSERT_NE(   subref.txioSet_.find(txio1key), subref.txioSet_.end());
-   EXPECT_EQ(   subref.txioSet_[txio0key].getValue(), val0);
-   EXPECT_EQ(   subref.txioSet_[txio1key].getValue(), val1);
-   EXPECT_EQ(   subref.txioSet_[txio0key].getDBKeyOfOutput(), txio0key);
-   EXPECT_EQ(   subref.txioSet_[txio1key].getDBKeyOfOutput(), txio1key);
+   EXPECT_EQ(   subref.txioMap_.size(), 2);
+   ASSERT_NE(   subref.txioMap_.find(txio0key), subref.txioMap_.end());
+   ASSERT_NE(   subref.txioMap_.find(txio1key), subref.txioMap_.end());
+   EXPECT_EQ(   subref.txioMap_[txio0key].getValue(), val0);
+   EXPECT_EQ(   subref.txioMap_[txio1key].getValue(), val1);
+   EXPECT_EQ(   subref.txioMap_[txio0key].getDBKeyOfOutput(), txio0key);
+   EXPECT_EQ(   subref.txioMap_[txio1key].getDBKeyOfOutput(), txio1key);
    
 
 
@@ -5535,9 +5536,9 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    subptr = &sshtemp.subHistMap_[hgtX0];
    EXPECT_EQ(subptr->uniqueKey_, uniq);
    EXPECT_EQ(subptr->hgtX_, hgtX0);
-   ASSERT_EQ(subptr->txioSet_.size(), 1);
-   ASSERT_NE(subptr->txioSet_.find(dbkey0), subptr->txioSet_.end());
-   txioptr = &subptr->txioSet_[dbkey0];
+   ASSERT_EQ(subptr->txioMap_.size(), 1);
+   ASSERT_NE(subptr->txioMap_.find(dbkey0), subptr->txioMap_.end());
+   txioptr = &subptr->txioMap_[dbkey0];
    EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
    EXPECT_EQ(txioptr->getValue(), val0);
    EXPECT_FALSE(txioptr->isMultisig());
@@ -5561,13 +5562,13 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    subptr = &sshtemp.subHistMap_[hgtX0];
    EXPECT_EQ(subptr->uniqueKey_, uniq);
    EXPECT_EQ(subptr->hgtX_, hgtX0);
-   ASSERT_EQ(subptr->txioSet_.size(), 2);
-   ASSERT_NE(subptr->txioSet_.find(dbkey0), subptr->txioSet_.end());
-   txioptr = &subptr->txioSet_[dbkey0];
+   ASSERT_EQ(subptr->txioMap_.size(), 2);
+   ASSERT_NE(subptr->txioMap_.find(dbkey0), subptr->txioMap_.end());
+   txioptr = &subptr->txioMap_[dbkey0];
    EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
    EXPECT_EQ(txioptr->getValue(), val0);
    EXPECT_FALSE(txioptr->isMultisig());
-   txioptr = &subptr->txioSet_[dbkey1];
+   txioptr = &subptr->txioMap_[dbkey1];
    EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey1);
    EXPECT_EQ(txioptr->getValue(), val1);
    EXPECT_FALSE(txioptr->isMultisig());
@@ -5593,12 +5594,12 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    subptr = &sshtemp.subHistMap_[hgtX0];
    EXPECT_EQ(subptr->uniqueKey_, uniq);
    EXPECT_EQ(subptr->hgtX_, hgtX0);
-   ASSERT_EQ(subptr->txioSet_.size(), 2);
-   ASSERT_NE(subptr->txioSet_.find(dbkey0), subptr->txioSet_.end());
-   txioptr = &subptr->txioSet_[dbkey0];
+   ASSERT_EQ(subptr->txioMap_.size(), 2);
+   ASSERT_NE(subptr->txioMap_.find(dbkey0), subptr->txioMap_.end());
+   txioptr = &subptr->txioMap_[dbkey0];
    EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
    EXPECT_EQ(txioptr->getValue(), val0);
-   txioptr = &subptr->txioSet_[dbkey1];
+   txioptr = &subptr->txioMap_[dbkey1];
    EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey1);
    EXPECT_EQ(txioptr->getValue(), val1);
    EXPECT_FALSE(txioptr->isMultisig());
@@ -5607,9 +5608,9 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    subptr = &sshtemp.subHistMap_[hgtX1];
    EXPECT_EQ(subptr->uniqueKey_, uniq);
    EXPECT_EQ(subptr->hgtX_, hgtX1);
-   ASSERT_EQ(subptr->txioSet_.size(), 1);
-   ASSERT_NE(subptr->txioSet_.find(dbkey3), subptr->txioSet_.end());
-   txioptr = &subptr->txioSet_[dbkey3];
+   ASSERT_EQ(subptr->txioMap_.size(), 1);
+   ASSERT_NE(subptr->txioMap_.find(dbkey3), subptr->txioMap_.end());
+   txioptr = &subptr->txioMap_[dbkey3];
    EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey3);
    EXPECT_EQ(txioptr->getValue(), val3);
    EXPECT_TRUE(txioptr->isMultisig());
@@ -6130,7 +6131,6 @@ protected:
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
-      BlockDataManagerConfig config;
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
       config.homeDirLocation = homedir_;
@@ -6157,11 +6157,13 @@ protected:
       addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
       addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
       addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
+      addrE_ = READHEX("0000664fb0e55cdc5c0cea73b4aad97ec8343232");
 
       scrAddrA_ = HASH160PREFIX + addrA_;
       scrAddrB_ = HASH160PREFIX + addrB_;
       scrAddrC_ = HASH160PREFIX + addrC_;
       scrAddrD_ = HASH160PREFIX + addrD_;
+      scrAddrE_ = HASH160PREFIX + addrE_;
 
    }
 
@@ -6203,6 +6205,7 @@ protected:
       delete[] syscmd;
    }
 #endif
+   BlockDataManagerConfig config;
 
    InterfaceToLDB* iface_;
    BinaryData magic_;
@@ -6228,10 +6231,13 @@ protected:
    BinaryData addrB_;
    BinaryData addrC_;
    BinaryData addrD_;
+   BinaryData addrE_;
+
    BinaryData scrAddrA_;
    BinaryData scrAddrB_;
    BinaryData scrAddrC_;
    BinaryData scrAddrD_;
+   BinaryData scrAddrE_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6248,18 +6254,18 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   //wlt.addScrAddress(scrAddrD_);
    
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    const ScrAddrObj *scrobj;
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   try
+   /*try
    {
       scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
       EXPECT_TRUE(false);  //unreachable
@@ -6267,7 +6273,7 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    catch (...)
    {
       // hasn't been scanned yet
-   }
+   }*/
 
    EXPECT_EQ(wlt.getFullBalance(), 150*COIN);
 }
@@ -6280,17 +6286,24 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   //wlt.addScrAddress(scrAddrD_);
    
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {}); 
-   //TheBDM.scanBlockchainForTx(wlt);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
    
+   const ScrAddrObj * scrobj;
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.readBlkFileUpdate(); 
    TheBDM.scanWallets();
@@ -6298,14 +6311,13 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
 
-   const ScrAddrObj * scrobj;
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   try
+   /*try
    {
       scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
       EXPECT_TRUE(false);  //unreachable
@@ -6313,19 +6325,19 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    catch (...)
    {
       // hasn't been scanned yet
-   }
+   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
+TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
 {
-   BtcWallet wlt(theBDM);
+   BtcWallet* wlt = new BtcWallet(theBDM);
    TheBDM.enableZeroConf("");
-   wlt.addScrAddress(scrAddrA_);
-   wlt.addScrAddress(scrAddrB_);
-   wlt.addScrAddress(scrAddrC_);
-   TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   wlt->addScrAddress(scrAddrA_);
+   wlt->addScrAddress(scrAddrB_);
+   wlt->addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(wlt);
+   wlt->addScrAddress(scrAddrE_);
    
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
@@ -6337,40 +6349,72 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
    
    const ScrAddrObj * scrobj;
    
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
-   uint64_t fullBalance = wlt.getFullBalance();
-   uint64_t spendableBalance = wlt.getSpendableBalance(4);
-   uint64_t unconfirmedBalance = wlt.getUnconfirmedBalance(4);
+   uint64_t fullBalance = wlt->getFullBalance();
+   uint64_t spendableBalance = wlt->getSpendableBalance(4);
+   uint64_t unconfirmedBalance = wlt->getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 150*COIN);
    EXPECT_EQ(spendableBalance, 0*COIN);
    EXPECT_EQ(unconfirmedBalance, 150*COIN);
 
-   BinaryData rawZC(131);
+   //restart bdm
+   delete wlt;
+   delete theBDM;
+
+   theBDM = new BlockDataManager_LevelDB(config);
+   iface_ = theBDM->getIFace();
+
+   BtcWallet wlt2(theBDM);
+   TheBDM.enableZeroConf("");
+   wlt2.addScrAddress(scrAddrA_);
+   wlt2.addScrAddress(scrAddrB_);
+   wlt2.addScrAddress(scrAddrC_);
+   wlt2.addScrAddress(scrAddrE_);
+   TheBDM.registerWallet(&wlt2);
+   TheBDM.doInitialSyncOnLoad([](double, unsigned) {});
+
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+
+   fullBalance = wlt2.getFullBalance();
+   spendableBalance = wlt2.getSpendableBalance(4);
+   unconfirmedBalance = wlt2.getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 150 * COIN);
+   EXPECT_EQ(spendableBalance, 0 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 150 * COIN);
+
+   //add ZC
+   BinaryData rawZC(159);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 131, 1, ff);
+   fread(rawZC.getPtr(), 159, 1, ff);
    fclose(ff);
 
    TheBDM.addNewZeroConfTx(rawZC, 0, false);
+   TheBDM.parseNewZeroConfTx();
    TheBDM.scanWallets();
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
-   EXPECT_EQ(scrobj->getFullBalance(), 100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0*COIN);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
-   fullBalance = wlt.getFullBalance();
-   spendableBalance = wlt.getSpendableBalance(4);
-   unconfirmedBalance = wlt.getUnconfirmedBalance(4);
-   EXPECT_EQ(fullBalance, 200*COIN);
+   fullBalance = wlt2.getFullBalance();
+   spendableBalance = wlt2.getSpendableBalance(4);
+   unconfirmedBalance = wlt2.getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 100*COIN);
    EXPECT_EQ(spendableBalance, 0*COIN);
-   EXPECT_EQ(unconfirmedBalance, 200*COIN);
+   EXPECT_EQ(unconfirmedBalance, 100*COIN);
 
    
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
@@ -6381,21 +6425,21 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
-   fullBalance = wlt.getFullBalance();
-   spendableBalance = wlt.getSpendableBalance(5);
-   unconfirmedBalance = wlt.getUnconfirmedBalance(5);
+   fullBalance = wlt2.getFullBalance();
+   spendableBalance = wlt2.getSpendableBalance(5);
+   unconfirmedBalance = wlt2.getUnconfirmedBalance(5);
    EXPECT_EQ(fullBalance, 150*COIN);
    EXPECT_EQ(spendableBalance, 0*COIN);
    EXPECT_EQ(unconfirmedBalance, 150*COIN);
 
-   try
+   /*try
    {
       scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
       EXPECT_TRUE(false);  //unreachable
@@ -6403,7 +6447,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
    catch (...)
    {
       // hasn't been scanned yet
-   }
+   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6414,7 +6458,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   //wlt.addScrAddress(scrAddrD_);
 
    BtcWallet wlt2(theBDM);
    wlt2.addScrAddress(scrAddrD_);
@@ -6432,11 +6476,11 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    TheBDM.scanWallets(prevBlock);
 
    const ScrAddrObj * scrobj;
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),150*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(), 10*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
    //scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
    //EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
@@ -6452,7 +6496,7 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   //wlt.addScrAddress(scrAddrD_);
 
    BtcWallet wlt2(theBDM);
    wlt2.addScrAddress(scrAddrD_);
@@ -6486,9 +6530,9 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    //TheBDM.scanBlockchainForTx(wlt2);
 
    const ScrAddrObj * scrobj;
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(), 0*COIN);
    //scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
    //EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
@@ -6509,41 +6553,41 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    // Regular sync
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
    // Rebuild on-the-fly
    TheBDM.doRebuildDatabases([] (double,unsigned) {});
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
    // Rebuild on-the-fly
    TheBDM.doFullRescanRegardlessOfSync([] (double,unsigned) {});
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    
 
    TheBDM.doSyncIfNeeded([] (double,unsigned) {});
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
    // Now add a new addr (with balance) and rescan
@@ -6566,11 +6610,11 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
    //TheBDM.scanBlockchainForTx(wlt);
 
    const ScrAddrObj * scrobj;
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 }
 
@@ -6590,11 +6634,11 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
    //TheBDM.scanBlockchainForTx(wlt);
 
    const ScrAddrObj * scrobj;
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 }
 
@@ -6610,32 +6654,29 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
-   //TheBDM.scanBlockchainForTx(wlt);
 
    wlt.addScrAddress(scrAddrD_);
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
 
    ///////////////////////////////////////////
    TheBDM.doFullRescanRegardlessOfSync([] (double,unsigned) {});
    ///////////////////////////////////////////
    
-   //TheBDM.scanBlockchainForTx(wlt);
-
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 
    ///////////////////////////////////////////
@@ -6644,13 +6685,13 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    
    //TheBDM.scanBlockchainForTx(wlt);
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 }
 
@@ -6670,13 +6711,13 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    wlt.addScrAddress(scrAddrD_);
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
 
    ///////////////////////////////////////////
@@ -6685,13 +6726,13 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    //TheBDM.scanBlockchainForTx(wlt);
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 
    ///////////////////////////////////////////
@@ -6700,13 +6741,13 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    //TheBDM.scanBlockchainForTx(wlt);
 
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 }
 
@@ -7285,12 +7326,12 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
    iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
+   EXPECT_EQ(ssh.totalTxioCount_,       6);
 
    iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       2);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
 
    iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
@@ -7501,10 +7542,10 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
    BinaryData scrAddr4 = READHEX("6c22eb00e3f93acac5ae5d81a9db78a645dfc9c7");
    EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
-   TheBDM.pprintSSHInfoAboutHash160(scrAddr);
+   /*TheBDM.pprintSSHInfoAboutHash160(scrAddr);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr3);
-   TheBDM.pprintSSHInfoAboutHash160(scrAddr4);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr4);*/
    blkdir_ = oldblkdir;
    LOGINFO << "waiting... (please copy the DB dir...)";
    int pause;
@@ -7659,7 +7700,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   wlt.addScrAddress(scrAddrD_);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
@@ -7669,22 +7710,22 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    uint64_t balanceWlt;
    uint64_t balanceDB;
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
    EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
    EXPECT_EQ(balanceWlt,    0*COIN);
    EXPECT_EQ(balanceDB,     0*COIN);
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
-   try
+   /*try
    {
       balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
       EXPECT_TRUE(false);  //unreachable
@@ -7692,7 +7733,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    catch (...)
    {
        // D is not part of the wallet
-   }
+   }*/
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceDB,   100*COIN);
 }
@@ -7709,29 +7750,29 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   wlt.registerNewScrAddr(scrAddrD_);
+   wlt.addScrAddress(scrAddrD_);
 
    TheBDM.scanWallets();
 
    uint64_t balanceWlt;
    uint64_t balanceDB;
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
    EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
    EXPECT_EQ(balanceWlt,    0*COIN);
    EXPECT_EQ(balanceDB,     0*COIN);
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
-   try
+   /*try
    {
       balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
       EXPECT_TRUE(false);  //unreachable
@@ -7739,7 +7780,7 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    catch (...)
    {
       // D is not part of the wallet
-   }
+   }*/
    
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceDB,   100*COIN);
@@ -8003,10 +8044,10 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    TheBDM.scanWallets();
 
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  50*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),   0*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance(),   0*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_)->getFullBalance(),   0*COIN);
    
    BinaryData txWithChangeHash = READHEX(
       "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
@@ -8021,12 +8062,13 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 
    /////
    TheBDM.addNewZeroConfTx(txWithChange, 1300000000, false);
+   TheBDM.parseNewZeroConfTx();
    TheBDM.scanWallets();
 
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  40*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),  10*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance(),  40*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance(),  10*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_)->getFullBalance(),   0*COIN);
 }
 
 // This was really just to time the logging to determine how much impact it 
@@ -8058,9 +8100,9 @@ TEST(TimeDebugging, WriteNull)
 ////////////////////////////////////////////////////////////////////////////////
 GTEST_API_ int main(int argc, char **argv) 
 {
-   #ifdef _MSC_VER
+   /*#ifdef _MSC_VER
       _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-   #endif
+   #endif*/
 
    std::cout << "Running main() from gtest_main.cc\n";
 

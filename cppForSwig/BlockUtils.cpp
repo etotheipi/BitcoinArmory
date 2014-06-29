@@ -102,7 +102,8 @@ public:
       const Blockchain::ReorganizationState& state,
       Blockchain *blockchain,
       InterfaceToLDB* iface,
-      const BlockDataManagerConfig &config
+      const BlockDataManagerConfig &config,
+      ScrAddrScanData *scrAddrData=NULL
    )
       : blockchain_(blockchain)
       , iface_(iface)
@@ -111,7 +112,8 @@ public:
       reassessAfterReorg(
          state.prevTopBlock,
          &blockchain_->top(),
-         state.reorgBranchPoint
+         state.reorgBranchPoint,
+         scrAddrData
       );
    }
    
@@ -122,7 +124,8 @@ private:
    void reassessAfterReorg(
       BlockHeader* oldTopPtr,
       BlockHeader* newTopPtr,
-      BlockHeader* branchPtr
+      BlockHeader* branchPtr,
+      ScrAddrScanData *scrAddrData=NULL
    )
    {
       SCOPED_TIMER("reassessAfterReorg");
@@ -141,20 +144,20 @@ private:
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
 
-         if(config_.armoryDbType != ARMORY_DB_BARE)
+         //if(config_.armoryDbType != ARMORY_DB_BARE)
          {
             // Added with leveldb... in addition to reversing blocks in RAM, 
             // we also need to undo the blocks in the DB
             StoredUndoData sud;
             createUndoDataFromBlock(iface_, hgt, dup, sud);
-            blockWrites.undoBlockFromDB(sud);
+            blockWrites.undoBlockFromDB(sud, scrAddrData);
          }
          
-         StoredHeader sbh;
+         /*StoredHeader sbh;
          iface_->getStoredHeader(sbh, hgt, dup, true);
 
          // This is the original, tested, reorg code
-         /*previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
+         previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
          for(uint32_t i=0; i<sbh.numTx_; i++)
          {
             StoredTx & stx = sbh.stxMap_[i];
@@ -185,8 +188,8 @@ private:
          StoredHeader sbh;
          iface_->getStoredHeader(sbh, hgt, dup, true);
 
-         if(config_.armoryDbType != ARMORY_DB_BARE)
-            blockWrites.applyBlockToDB(sbh);
+         //if(config_.armoryDbType != ARMORY_DB_BARE)
+         blockWrites.applyBlockToDB(sbh, scrAddrData);
 
          /*for(uint32_t i=0; i<sbh.numTx_; i++)
          {
@@ -330,6 +333,8 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    : config_(bdmConfig)
    , iface_(new InterfaceToLDB)
    , blockchain_(config_.genesisBlockHash)
+   , scrAddrData_(this)
+   , ZeroConfCont_(&scrAddrData_)
 {
    LOGINFO << "Set home directory: " << config_.homeDirLocation;
    LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
@@ -395,14 +400,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
 /////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 {
-   ts_setBtcWallet::snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::iterator wltIter;
-
-   for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end(); ++wltIter)
-   {
-      registeredWallets_.erase(*wltIter);
-   }
-   
+   registeredWallets_.clear();
    iface_->closeDatabases();
    delete iface_;
 }
@@ -849,12 +847,10 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
-      ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
-      ts_ZCMap::const_iterator iter = zcSS.find(txhash);
-      if(iter == zcSS.end())
-         return Tx();
-      else
-         return iter->second.txobj_;
+      Tx tx;
+      ZeroConfCont_.getTxByHash(txhash, tx);
+
+      return tx;
    }
 }
 
@@ -864,8 +860,7 @@ TX_AVAILABILITY BlockDataManager_LevelDB::getTxHashAvail(BinaryDataRef txHash)
 {
    if(getTxRefByHash(txHash).isNull())
    {
-      ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
-      if (zcSS.find(txHash) == zcSS.end())
+      if (!ZeroConfCont_.hasTxByHash(txHash))
          return TX_DNE;  // No tx at all
       else
          return TX_ZEROCONF;  // Zero-conf tx
@@ -886,10 +881,7 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
    if(iface_->getTxRef(txHash).isInitialized())
       return true;
    else
-   {
-      ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
-      return ( zcSS.find(txHash) != zcSS.end() );
-   }
+      return ZeroConfCont_.hasTxByHash(txHash);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -979,11 +971,12 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
    SCOPED_TIMER("registerWallet");
    // Check if the wallet is already registered
-   ts_setBtcWallet::const_snapshot btcWltSS(registeredWallets_);
-   if (btcWltSS.find(wltPtr) != btcWltSS.end()) return false;
+   if (registeredWallets_.find(wltPtr) != registeredWallets_.end()) 
+      return false;
 
    // Add it to the list of wallets to watch
-   registeredWallets_.push_back(wltPtr);
+   registeredWallets_.insert(wltPtr);
+   wltPtr->setRegistered();
 
    return true;
 }
@@ -994,7 +987,7 @@ void BlockDataManager_LevelDB::unregisterWallet(BtcWallet* wltPtr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
+/*uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
 {
    SCOPED_TIMER("evalLowestBlockNextScan");
 
@@ -1007,11 +1000,11 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
       lowestBlk = min(lowestBlk, wlt->evalLowestBlockNextScan());
    }
    return lowestBlk;
-}
+}*/
 
 /////////////////////////////////////////////////////////////////////////////
 // This method isn't really used yet...
-uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
+/*uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
 {
    SCOPED_TIMER("evalLowestAddressCreationBlock");
 
@@ -1037,19 +1030,7 @@ uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
       }
    }
    return lowestBlk;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::evalRescanIsRequired(void)
-{
-   // This method tells us whether we have to scan ANY blocks from disk
-   // in order to produce accurate balances and TxOut lists.  If this
-   // returns false, we can get away without any disk access at all, and
-   // just use the registeredTxList_ object to get our information.
-   allScannedUpToBlk_ = evalLowestBlockNextScan();
-   return (allScannedUpToBlk_ < blockchain_.top().getBlockHeight()+1);
-}
-
+}*/
 
 /////////////////////////////////////////////////////////////////////////////
 // This method needs to be callable from another thread.  Therefore, I don't
@@ -1066,49 +1047,33 @@ bool BlockDataManager_LevelDB::isDirty(
    return (numBlocksBehind > numBlocksToBeConsideredDirty);
 }
 
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
-                                                       uint32_t endBlk) const
-{
-   return wlt.numBlocksToRescan(endBlk);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 {
    SCOPED_TIMER("resetRegisteredWallets");
 
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
-
-   for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end(); ++wltIter)
+   for (auto wltPtr : registeredWallets_)
    {
       // I'm not sure if there's anything else to do
       // I think it's all encapsulated in this call!
-      (*wltIter)->reset();
+      wltPtr->reset();
    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt) const
 {
-   ts_setBtcWallet::const_snapshot btcWltSS(registeredWallets_);
-   return (btcWltSS.find(&wlt) != btcWltSS.end());
+   return (registeredWallets_.find(&wlt) != registeredWallets_.end());
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::scrAddrIsRegistered(BinaryData scraddr)
 {
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
-
-   for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end();
-      ++wltIter)
+   for (const auto wltPtr : registeredWallets_)
    {
-      ts_rsaMap::const_snapshot
-         regScrAddrMap((*(*wltIter)->getRegisteredScrAddrMap()));
-      if(regScrAddrMap.find(scraddr) != regScrAddrMap.end()) return true;
+      
+      const auto wltScrAddrMap = wltPtr->getScrAddrMap();
+      if(wltScrAddrMap.find(scraddr) != wltScrAddrMap.end()) return true;
    }
 
    return false;
@@ -1121,9 +1086,11 @@ bool BlockDataManager_LevelDB::scrAddrIsRegistered(BinaryData scraddr)
 // raw blockdata is stored in the DB with no SSH objects.  This goes through
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
-void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
+void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, 
+   uint32_t blk1, ScrAddrScanData* scrAddrData)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
+   LOGERR << "blk0: " << blk0 << ", blk1: " << blk1;
 
    blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
 
@@ -1136,12 +1103,13 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
    // Start scanning and timer
    //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
    BlockWriteBatcher blockWrites(config_, iface_);
+   uint32_t hgt;
 
    do
    {
       StoredHeader sbh;
       iface_->readStoredBlockAtIter(ldbIter, sbh);
-      const uint32_t hgt = sbh.blockHeight_;
+      hgt = sbh.blockHeight_;
       const uint8_t dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)
          break;
@@ -1161,22 +1129,19 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       // to have each method create its own iterator... TODO:  profile/test
       // this idea.  For now we will just save the current DB key, and 
       // re-seek to it afterwards.
-      blockWrites.applyBlockToDB(hgt, dup); 
+
+      //hack to update SSH top block
+      blockWrites.applyBlockToDB(hgt, dup, scrAddrData); 
 
       bytesReadSoFar_ += sbh.numBytes_;
 
-      //writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
-
    } while(iface_->advanceToNextBlock(ldbIter, false));
-
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 {
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-
-   for (const BtcWallet *wlt : wltSnapshot)
+   for (const BtcWallet *wlt : registeredWallets_)
    {
       cout << "Wallet:";
       wlt->pprintAlittle(cout);
@@ -1230,8 +1195,8 @@ vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
        iterSubSSH++)
    {
       StoredSubHistory & subSSH = iterSubSSH->second;
-      for(iterTxio  = subSSH.txioSet_.begin(); 
-          iterTxio != subSSH.txioSet_.end(); 
+      for(iterTxio  = subSSH.txioMap_.begin(); 
+          iterTxio != subSSH.txioMap_.end(); 
           iterTxio++)
       {
          TxIOPair & txio = iterTxio->second;
@@ -1688,6 +1653,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       forceRescan = true;
       skipFetch = true;
       destroyAndResetDatabases();
+      scrAddrData_.reset();
    }
 
    // If we're going to be rescanning, reset the wallets
@@ -1697,6 +1663,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       skipFetch = true;
       deleteHistories();
       resetRegisteredWallets();
+      scrAddrData_.reset();
+   }
+
+   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan)
+   {
+      LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_.numScrAddr() << " registered addresses";
+      scrAddrData_.getScrAddrCurrentSyncState();
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -1765,12 +1738,17 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    LOGINFO << "Processed " << blocksReadSoFar_ << " raw blocks DB (" 
            <<  (int)timeElapsed << " seconds)";
 
-   // If bare mode, we don't do
-   if (config_.armoryDbType != ARMORY_DB_BARE)
+   // scan addresses from BDM
+   if (config_.armoryDbType == ARMORY_DB_SUPER)
+      applyBlockRangeToDB(startApplyHgt_,
+                          blockchain_.top().getBlockHeight() + 1);
+   else
    {
-      // In any DB type other than bare, we will be walking through the blocks
-      // and updating the spentness fields and script histories
-      applyBlockRangeToDB(startApplyHgt_, blockchain_.top().getBlockHeight() + 1);
+      if (scrAddrData_.numScrAddr() > 0)
+         applyBlockRangeToDB(scrAddrData_.scanFrom(),
+                             blockchain_.top().getBlockHeight() + 1,
+                             &scrAddrData_);
+      scrAddrData_.setSSHLastScanned(iface_, blockchain_.top().getBlockHeight());
    }
 
    // We need to maintain the physical size of all blkXXXX.dat files together
@@ -1792,8 +1770,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    }
 
    allScannedUpToBlk_ = lastTopBlock_;
-
-   purgeZeroConfPool();
 
    #ifdef _DEBUG
       UniversalTimer::instance().printCSV(string("timings.csv"));
@@ -2111,6 +2087,8 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       is.close();
    }
 
+   //
+   scrAddrData_.checkForMerge();
 
    // Walk through each of the new blocks, adding each one to RAM and DB
    // Do a full update of everything after each block, for simplicity
@@ -2157,10 +2135,10 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          if(!state.prevTopBlockStillValid)
          {
             LOGWARN << "Blockchain Reorganization detected!";
-            ReorgUpdater reorg(state, &blockchain_, iface_, config_);
+            ReorgUpdater reorg(state, &blockchain_, iface_, config_, 
+               getScrAddrScanData());
             
             prevTopBlk = state.reorgBranchPoint->getBlockHeight();
-            //purgeZeroConfPool();
          }
          else if(state.hasNewTop)
          {
@@ -2168,12 +2146,10 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             uint32_t hgt = bh.getBlockHeight();
             uint8_t  dup = bh.getDuplicateID();
       
-            if(config_.armoryDbType != ARMORY_DB_BARE) 
-            {
-               LOGINFO << "Applying block to DB!";
-               BlockWriteBatcher batcher(config_, iface_);
-               batcher.applyBlockToDB(hgt, dup);
-            }
+            LOGINFO << "Applying block to DB!";
+            BlockWriteBatcher batcher(config_, iface_);
+            
+            batcher.applyBlockToDB(hgt, dup, getScrAddrScanData());
          }
          else
          {
@@ -2554,7 +2530,7 @@ void BlockDataManager_LevelDB::disableZeroConf(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx, 
+void BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx, 
                                                 uint32_t txtime,
                                                 bool writeToFile)
 {
@@ -2563,44 +2539,20 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    if(txtime==0)
       txtime = (uint32_t)time(NULL);
 
-   HashString txHash = BtcUtils::getHash256(rawTx);
+   ZeroConfCont_.addRawTx(rawTx, txtime);
+   rescanZC_ = true;
 
-   // If this is already in the zero-conf map or in the blockchain, ignore it
-   if(hasTxWithHash(txHash))
-      return false;
-
-
-   // In zero-conf-lite-mode, we only actually add the ZC if it's related
-   // to one of our registered wallets.  
-   if(zcLiteMode_)
-   {
-      // The bulk filter
-      Tx txObj(rawTx);
-
-      bool isOurs = false;
-      ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-      ts_setBtcWallet::const_iterator wltIter;
-
-      for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end(); ++wltIter)
-      {
-         // The bulk filter returns pair<isRelatedToUs, inputIsOurs>
-         isOurs = isOurs || (*wltIter)->isMineBulkFilter(txObj).first;
-      }
-
-      if(!isOurs)
-         return false;
-   }
-    
+   //return false;
    
-   zeroConfRawTxMap_[txHash] = rawTx;
+/*   zeroConfRawTxMap_[txHash] = rawTx;
    
    ZeroConfData zc;
    zc.txobj_.unserialize(rawTx);
    zc.txtime_ = txtime;
-   zeroConfMap_[txHash] = zc;
+   zeroConfMap_[txHash] = zc;*/
 
    // Record time.  Write to file
-   if(writeToFile)
+/*   if(writeToFile)
    {
       ofstream zcFile(OS_TranslatePath(zcFilename_).c_str(), ios::app | ios::binary);
       zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
@@ -2608,8 +2560,7 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
       zcFile.close();
    }
 
-   rescanZC_ = true;
-   return true;
+   return true;*/
 }
 
 
@@ -2617,38 +2568,19 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::purgeZeroConfPool(void)
 {
-   SCOPED_TIMER("purgeZeroConfPool");
-   vector< ts_ZCMap::const_iterator > mapRmList;
+   set<BinaryData> invalidatedTxIOKeys = ZeroConfCont_.purge(iface_);
 
-   // Find all zero-conf transactions that made it into the blockchain
-   ts_ZCMap::const_snapshot ssZCMap(zeroConfMap_);
-   
-   for (ts_ZCMap::const_iterator i = ssZCMap.begin(); i != ssZCMap.end(); ++i)
+   for (auto wltPtr : registeredWallets_)
    {
-      if (!getTxRefByHash(i->first).isNull())
-         mapRmList.push_back(i);
+      wltPtr->purgeZeroConfTxIO(invalidatedTxIOKeys);
    }
-
-   // We've made a list of the zc tx to remove, now let's remove them
-   // I decided this was safer than erasing the data as we were iterating
-   // over it in the previous loop
-   for(const ts_ZCMap::const_iterator &rm : mapRmList)
-   {
-      zeroConfRawTxMap_.erase( rm->first );
-      zeroConfMap_.erase( rm->first );
-   }
-
-   // Rewrite the zero-conf pool file
-   if(mapRmList.size() > 0)
-      rewriteZeroConfFile();
-
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::rewriteZeroConfFile(void)
 {
-   SCOPED_TIMER("rewriteZeroConfFile");
+   /*SCOPED_TIMER("rewriteZeroConfFile");
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
    ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
@@ -2663,12 +2595,12 @@ void BlockDataManager_LevelDB::rewriteZeroConfFile(void)
       zcFile.write( (char*)(zcd.txobj_.getPtr()),  zcd.txobj_.getSize());
    }
 
-   zcFile.close();
+   zcFile.close();*/
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160)
+/*void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160)
 {
    StoredScriptHistory ssh;
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + a160);
@@ -2694,12 +2626,12 @@ void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160
 
    cout << "Full SSH info:" << endl; 
    ssh.pprintFullSSH();
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintZeroConfPool(void) const
 {
-   ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
+   /*ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
 
    for (ts_BinDataMap::const_iterator iter = listSS.begin();
       iter != listSS.end(); ++iter
@@ -2711,7 +2643,7 @@ void BlockDataManager_LevelDB::pprintZeroConfPool(void) const
       for(uint32_t i=0; i<tx.getNumTxOut(); i++)
          cout << tx.getTxOutCopy(i).getValue() << " ";
       cout << endl;
-   }
+   }*/
 }
 
 
@@ -2837,87 +2769,539 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    iface_->putStoredHeader(sbh, true);
 }
 
-vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(BinaryDataRef uniqKey, 
-                                          bool withMultisig)
-{
-   vector<TxIOPair> rt_TxIOPair, wltTxIOPair;
-
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
-
-   for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end();
-      ++wltIter)
-   {
-      wltTxIOPair = (*wltIter)->getHistoryForScrAddr(uniqKey, withMultisig);
-      rt_TxIOPair.insert(rt_TxIOPair.end(), wltTxIOPair.begin(), wltTxIOPair.end());
-   }
-
-   return rt_TxIOPair;
-}
-
-
-struct walletArg
-{
-   BtcWallet *wlt_;
-   uint32_t startBlock_;
-   uint32_t endBlock_;
-   bool forceScan_;
-
-   void Set(BtcWallet *wlt, uint32_t startBlock, 
-            uint32_t endBlock, bool forceScan)
-   {
-      wlt_        = wlt;
-      startBlock_ = startBlock;
-      endBlock_   = endBlock;
-      forceScan_  = forceScan;
-   }
-   
-   void ScanWallet()
-   {
-      if (wlt_)
-         wlt_->scanWallet(startBlock_, endBlock_, forceScan_);
-   }
-};
-
-void* scanWallet(void* arg)
-{
-   walletArg *WA = (walletArg*)arg;
-
-   WA->ScanWallet();
-
-   return 0;
-}
-
 void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
                                            uint32_t endBlock, 
                                            bool forceScan)
 {
-   /*uint32_t nWallets = registeredWallets_.size();
-   walletArg *wltArgs = (walletArg*)malloc( \
-      sizeof(walletArg) * nWallets);
-
-   pthread_t *tID = (pthread_t*)malloc(\
-      sizeof(pthread_t) * nWallets);*/
-
-   ts_setBtcWallet::snapshot wltSnapshot(registeredWallets_);
-
-   //uint32_t i = 0;
-   for (BtcWallet* wallet : wltSnapshot)
+   for (BtcWallet* walletPtr : registeredWallets_)
    {
-      /*wltArgs[i].Set(wallet, 0, endBlock, forceScan);
-
-      pthread_create(tID + i, NULL, scanWallet, wltArgs + i);
-      i++;*/
-
-      wallet->scanWallet(startBlock, endBlock, forceScan);
+      walletPtr->scanWallet(startBlock, endBlock, forceScan);
    }
+}
 
-   /*for (i = 0; i < nWallets; i++)
-      pthread_join(tID[i], 0);
-
-   free(wltArgs);
-   free(tID);*/
+bool BlockDataManager_LevelDB::parseNewZeroConfTx()
+{
+   scrAddrData_.checkForMerge();
+   return ZeroConfCont_.parseNewZC(iface_);
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//ScrAddrScanData Methods
+///////////////////////////////////////////////////////////////////////////////
+
+void ScrAddrScanData::getScrAddrCurrentSyncState()
+{
+   for (auto scrAddrPair : scrAddrMap_)
+      getScrAddrCurrentSyncState(scrAddrPair.first);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrScanData::getScrAddrCurrentSyncState(
+   BinaryData const & scrAddr)
+{
+   //grab SSH for scrAddr
+   StoredScriptHistory ssh;
+   bdmPtr_->getIFace()->getStoredScriptHistorySummary(ssh, scrAddr);
+
+   //update scrAddrData lowest scanned block
+   setScrAddrLastScanned(scrAddr, ssh.alreadyScannedUpToBlk_);
+
+   if (ssh.totalTxioCount_ == 1)
+   {
+      //scrAddr only has one UTxO, coming along the SSH summary, let's save it
+      auto subsshIter = ssh.subHistMap_.begin();
+      auto txioIter = subsshIter->second.txioMap_.begin();
+      addUTxO(*txioIter);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
+   const BinaryData & ZCkey,
+   InterfaceToLDB* db, 
+   uint32_t txtime,
+   const map<HashString, BinaryData>* ZCtxHashMap,
+   const map<HashString, TxIOPair>* ZCtxioMap,
+   bool withSecondOrderMultisig) const
+{
+   // Since 99.999%+ of all transactions are not ours, let's do the 
+   // fastest bulk filter possible, even though it will add 
+   // redundant computation to the tx that are ours.  In fact,
+   // we will skip the TxIn/TxOut convenience methods and follow the
+   // pointers directly to the data we want
+
+   map<BinaryData, TxIOPair> processedTxIO;
+
+   OutPoint op; // reused
+   uint8_t const * txStartPtr = tx.getPtr();
+   for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
+   {
+      // We have the txin, now check if it contains one of our TxOuts
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin),
+         tx.getSize() - tx.getTxInOffset(iin));
+
+      //fetch the TxOut from DB
+      BinaryData opKey = op.getDBkey(db);
+      if (opKey.getSize() == 8)
+      {
+         //found outPoint DBKey, grab the StoredTxOut
+         StoredTxOut stxOut;
+         if (db->getStoredTxOut(stxOut, 
+                                WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA) + 
+                                opKey))
+         {
+            if (stxOut.isSpent() == true)
+            {
+               //spent TxOut, ZC is invalid
+               return map<BinaryData, TxIOPair>();
+            }
+
+            BinaryData sa = stxOut.getScrAddress();
+            if (scrAddrMap_.find(sa) != scrAddrMap_.end())
+            {
+               TxIOPair txio(TxRef(opKey.getSliceRef(0, 6)), op.getTxOutIndex(),
+                             TxRef(ZCkey), iin);
+
+               txio.setTxHashOfInput(tx.getThisHash());
+               txio.setZCscrAddr(sa);
+               txio.setValue(stxOut.getValue());
+               txio.setTxTime(txtime);
+
+               processedTxIO[opKey] = txio;
+               continue;
+            }
+         }
+
+         //couldnt find a DBkey for the outPoint, check if the ZC is trying to
+         //spend a ZC TxOut
+         if (ZCtxHashMap != nullptr && ZCtxioMap != nullptr)
+         {
+            auto iter = ZCtxHashMap->find(op.getTxHash());
+            if (iter != ZCtxHashMap->end())
+            {
+               TxRef outPointRef(iter->second);
+               uint16_t outPointId = op.getTxOutIndex();
+               TxIOPair txio(outPointRef, outPointId,
+                             TxRef(ZCkey), iin);
+
+               const TxIOPair& parentTxIO = 
+                  ZCtxioMap->find(txio.getDBKeyOfOutput())->second;
+
+               txio.setTxHashOfInput(op.getTxHash());
+               txio.setTxHashOfOutput(tx.getThisHash());
+
+               txio.setZCscrAddr(parentTxIO.getZCscrAddr());
+               txio.setValue(parentTxIO.getValue());
+               txio.setTxTime(txtime);
+
+               processedTxIO[txio.getDBKeyOfOutput()] = txio;
+            }
+         }
+      }
+   }
+
+   // Simply convert the TxOut scripts to scrAddrs and check if registered
+   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
+   {
+      TxOut txout = tx.getTxOutCopy(iout);
+      BinaryData scrAddr = txout.getScrAddressStr();
+      if (hasScrAddress(scrAddr))
+      {
+         TxIOPair txio(TxRef(ZCkey), iout);
+
+         txio.setZCscrAddr(scrAddr);
+         txio.setValue(txout.getValue());
+         processedTxIO[txio.getDBKeyOfOutput()] = txio;
+         continue;
+      }
+
+      // It's still possible this is a multisig addr involving one of our 
+      // existing scrAddrs, even if we aren't explicitly looking for this multisig
+      if (withSecondOrderMultisig && txout.getScriptType() ==
+         TXOUT_SCRIPT_MULTISIG)
+      {
+         BinaryRefReader brrmsig(scrAddr);
+         uint8_t PREFIX = brrmsig.get_uint8_t();
+         uint8_t M = brrmsig.get_uint8_t();
+         uint8_t N = brrmsig.get_uint8_t();
+         for (uint8_t a = 0; a<N; a++)
+         if (hasScrAddress(HASH160PREFIX +brrmsig.get_BinaryDataRef(20)))
+         {
+            TxIOPair txio(TxRef(ZCkey), iout);
+
+            txio.setZCscrAddr(scrAddr);
+            txio.setValue(txout.getValue());
+            txio.setTxTime(txtime);
+
+            processedTxIO[txio.getDBKeyOfOutput()] = txio;
+         }
+      }
+   }
+
+   // If we got here, it's either non std or not ours
+   return processedTxIO;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrScanData::setSSHLastScanned(InterfaceToLDB* db, uint32_t height)
+{
+   InterfaceToLDB::Batch batch(db, BLKDATA);
+   for (const auto scrAddrPair : scrAddrMap_)
+   {
+      StoredScriptHistory ssh;
+      db->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
+      if (!ssh.isInitialized())
+         ssh.uniqueKey_ = scrAddrPair.first;
+
+      ssh.alreadyScannedUpToBlk_ = height;
+
+      db->putStoredScriptHistory(ssh);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
+{
+   const BinaryData& scrAddr = sa.getScrAddr();
+
+   //check if the BDM is initialized. There ought to be a better way than
+   //checking the top block
+   if (bdmPtr_->getTopBlockHeight() != 0)
+   {
+      //BDM is initialized and maintenance thread is running, check mode
+      if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
+      {
+         //super node, nothing to do, signal the wallet that its scrAddr is ready
+         addrIsReady(sa, wltPtr);
+
+         return false;
+      }
+
+      //check DB for the scrAddr's SSH
+      InterfaceToLDB *db = bdmPtr_->getIFace();
+
+      StoredScriptHistory ssh;
+      db->getStoredScriptHistorySummary(ssh, scrAddr);
+
+      uint32_t startBlock = max(sa.getFirstBlockNum(), ssh.alreadyScannedUpToBlk_);
+      ScrAddrScanData sca(bdmPtr_);
+      sca.setParent(this);
+      sca.regScrAddrForScan(scrAddr, startBlock, wltPtr);
+      sca.scanScrAddrMapInNewThread();
+   }
+   else
+   {
+      //BDM isnt initialized yet, the maintenance isnt running, just register
+      //the scrAddr and return true.
+      scrAddrMap_.insert(make_pair(scrAddr, 0));
+      return true;
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void* scanScrAddrThread(void *in)
+{
+   ScrAddrScanData* sasd = static_cast<ScrAddrScanData*>(in);
+
+   BlockDataManager_LevelDB* bdmPtr = sasd->getBDM();
+   uint32_t startBlock = sasd->scanFrom();
+   uint32_t endBlock = bdmPtr->blockchain().top().getBlockHeight() + 1;
+
+   while (startBlock < endBlock)
+   {
+      bdmPtr->applyBlockRangeToDB(startBlock, endBlock, sasd);
+
+      startBlock = endBlock;
+      endBlock = bdmPtr->blockchain().top().getBlockHeight() + 1;
+   }
+   
+   //merge with main ScrAddrScanData object
+   sasd->merge();
+
+   //notify the wallets that the scrAddr are ready
+   BtcWallet* wltPtr;
+   for (auto scrAddrPair : sasd->getScrAddrMap())
+   {
+      wltPtr = scrAddrPair.second.wltPtr_;
+      
+      //make sure the wallet is still loaded
+      if (bdmPtr->hasWallet(wltPtr))
+         wltPtr->preloadScrAddr(scrAddrPair.first);
+   }
+
+   return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrScanData::scanScrAddrMapInNewThread()
+{
+   pthread_t tid;
+
+   pthread_create(&tid, 0, scanScrAddrThread, this);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrScanData::merge()
+{
+   /***
+   Merge in the scrAddrMap and UTxOs scanned in a side thread with the BDM's 
+   main ScrAddrScanData
+   ***/
+
+   if (parent_ != nullptr)
+   {
+      //grab merge lock
+      while (parent_->mergeLock_.fetch_or(1, memory_order_acquire));
+
+      //merge scrAddrMap_
+      parent_->scrAddrMapToMerge_.insert(
+         scrAddrMap_.begin(), scrAddrMap_.end());
+
+      //copy only the UTxOs past the height cutoff
+      BinaryData cutoffHeight = 
+         DBUtils::heightAndDupToHgtx(parent_->blockHeightCutOff_, 0);
+      cutoffHeight.append(WRITE_UINT16_BE(0));
+
+      auto iter = UTxO_.begin();
+      while (iter != UTxO_.end())
+      {
+         if (*iter > cutoffHeight || *iter == cutoffHeight)
+            break;
+
+         ++iter;
+      }
+            
+      parent_->UTxOToMerge_.insert(iter, UTxO_.end());
+
+      //set mergeFlag
+      mergeFlag_ = true;
+
+      //release merge lock
+      parent_->mergeLock_.store(0, memory_order_release);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrScanData::checkForMerge()
+{
+   if (mergeFlag_ == true)
+   {
+      //grab merge lock
+      while (mergeLock_.fetch_or(1, memory_order_acquire));
+
+      scrAddrMap_.insert(scrAddrMapToMerge_.begin(), scrAddrMapToMerge_.end());
+      UTxO_.insert(UTxOToMerge_.begin(), UTxOToMerge_.end());
+
+      scrAddrMapToMerge_.clear();
+      UTxOToMerge_.clear();
+
+      mergeFlag_ = false;
+
+      //release lock
+      mergeLock_.store(0, memory_order_release);
+   }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//ZeroConfContainer Methods
+///////////////////////////////////////////////////////////////////////////////
+BinaryData ZeroConfContainer::getNewZCkey()
+{
+   uint32_t newId = topId_.fetch_add(1, memory_order_relaxed);
+   BinaryData newKey = READHEX("ffff");
+   newKey.append(WRITE_UINT32_BE(newId));
+
+   return newKey;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ZeroConfContainer::getTxByHash(const BinaryData& txHash, Tx& tx) const
+{
+   const auto keyIter = txHashToDBKey_.find(txHash);
+
+   if (ITER_IN_MAP(keyIter, txHashToDBKey_))
+   {
+      tx = txMap_.find(keyIter->second)->second;
+      return true;
+   }
+
+   return false;
+}
+///////////////////////////////////////////////////////////////////////////////
+bool ZeroConfContainer::hasTxByHash(const BinaryData& txHash) const
+{
+   return (txHashToDBKey_.find(txHash) != txHashToDBKey_.end());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
+{
+   /***
+   Saves new ZC by txtime. txtime will always be unique, as it is grabbed
+   locally and the protocol enforces a limit of 7 Tx per seconds, guaranteeing
+   sufficient time granularity.
+   ***/
+
+   //convert raw ZC to a Tx object
+   BinaryData ZCkey = getNewZCkey();
+   Tx zcTx(rawTx);
+   zcTx.setTxTime(txtime);
+
+   //grab container lock
+   while (lock_.fetch_or(1, memory_order_acquire));
+
+   newZCMap_[ZCkey] = zcTx;
+
+   //release lock
+   lock_.store(0, memory_order_release);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+set<BinaryData> ZeroConfContainer::purge(InterfaceToLDB *db)
+{
+   set<BinaryData> invalidatedKeys;
+   
+   if (db == nullptr)
+      return invalidatedKeys;
+
+   /***
+   When a new block appears, it will have added some ZC, but it also may
+   invalidate other ZC, by adding a transcation that consumes the TxOut of one
+   of our ZC (maleability is a good example).
+
+   This would break a ZC chain starting off that one invalidated ZC, 
+   taking away the whole chain. The simpliest way to track down all 
+   invalidated  ZC is to reparse them all, and compare the new list to the 
+   old one.
+   
+   For ZC chains to be parsed properly, it is important ZC transactions are 
+   parsed in the order they appeared.
+   ***/
+   SCOPED_TIMER("purgeZeroConfPool");
+
+   map<HashString, HashString> txHashToDBKey;
+   map<BinaryData, Tx>           txMap;
+   map<HashString, TxIOPair>   txioMap;
+
+   //parse ZCs anew
+   for (auto ZCPair : txMap_)
+   {
+      const BinaryData& txHash = ZCPair.second.getThisHash();
+
+      if (scrAddrDataPtr_ != nullptr)
+      {
+         BinaryData ZCkey = getNewZCkey();
+         map<BinaryData, TxIOPair> newTxIO =
+            scrAddrDataPtr_->ZCisMineBulkFilter(ZCPair.second,
+            ZCkey, db,
+            ZCPair.second.getTxTime(),
+            &txHashToDBKey,
+            &txioMap);
+
+         if (newTxIO.size() > 0)
+         {
+            txHashToDBKey[txHash] = ZCkey;
+            txMap[ZCPair.first] = ZCPair.second;
+
+            txioMap.insert(newTxIO.begin(), newTxIO.end());
+         }
+      }
+   }
+
+   //intersect with current container map
+   for (auto txioPair : txioMap_)
+   {
+      if (txioMap.find(txioPair.first) == txioMap.end())
+         invalidatedKeys.insert(txioPair.first);
+   }
+
+   //copy new containers over
+   txHashToDBKey_ = txHashToDBKey;
+   txMap_ = txMap;
+   txioMap_ = txioMap;
+
+   return invalidatedKeys;
+
+   /*
+   // Rewrite the zero-conf pool file
+   if (hashRmVec.size() > 0)
+      rewriteZeroConfFile();
+      */
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
+{
+   /***
+   ZC transcations are pushed to the BDM by another thread (usually the thread
+   managing network connections). This is processed by addRawTx, which is meant
+   to return fast. It grabs the container lock, inserts the new Tx object in 
+   the newZCMap_ and return, and sets the new ZC flag. 
+
+   The BDM main thread checks the ZC flag and calls this method. This method
+   processes all new ZC and clears the newZCMap_. It checks how many ZC have 
+   been processed against the newZCMap_ size to make sure it can clear the map
+   without deleting any new ZC that may have been added during the process.
+
+   Note: there is no concurency interference with purging the container 
+   (for reorgs and new blocks), as they methods called by the BDM main thread.
+   ***/
+   uint32_t nProcessed = 0;
+
+   bool zcIsOurs = false;
+   
+   while (1)
+   {
+      for (auto newZCPair : newZCMap_)
+      {
+         nProcessed++;
+
+         const BinaryData& txHash = newZCPair.second.getThisHash();
+         if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
+            continue; //already have this ZC
+
+         LOGWARN << "new ZC transcation: " << txHash.toHexStr();
+
+         if (scrAddrDataPtr_ != nullptr)
+         {
+            map<BinaryData, TxIOPair> newTxIO = 
+               scrAddrDataPtr_->ZCisMineBulkFilter(newZCPair.second, 
+                                                   newZCPair.first, db,
+                                                   newZCPair.second.getTxTime(),
+                                                   &txHashToDBKey_,
+                                                   &txioMap_);
+
+            if (newTxIO.size() > 0)
+            {
+               txHashToDBKey_[txHash] = newZCPair.first;
+               txMap_[newZCPair.first] = newZCPair.second;
+
+               txioMap_.insert(newTxIO.begin(), newTxIO.end());
+               zcIsOurs = true;
+            }
+         }
+      }
+      
+      //grab ZC container lock
+      while (lock_.fetch_or(1, memory_order_acquire));
+
+      if (nProcessed >= newZCMap_.size())
+      {
+         //clear map and release lock
+         newZCMap_.clear();
+         lock_.store(0, memory_order_release);
+         
+         //break out of the loop
+         break;
+      }
+      
+      //reset counter and release lock
+      lock_.store(0, memory_order_release);
+      nProcessed = 0;
+   }
+
+   return zcIsOurs;
+}
 // kate: indent-width 3; replace-tabs on;

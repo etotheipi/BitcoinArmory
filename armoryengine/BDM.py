@@ -83,11 +83,7 @@ def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    return (time0, TheBDM.getCurrBlock())
    
-################################################################################
-# Let's create a thread-wrapper for the blockchain utilities.  Enable the
-# ability for multi-threaded blockchain scanning -- have a main thread and 
-# a blockchain thread:  blockchain can scan, and main thread will check back
-# every now and then to see if it's done
+
 BLOCKCHAINMODE  = enum('Offline', \
                        'Uninitialized', \
                        'Full', \
@@ -96,9 +92,9 @@ BLOCKCHAINMODE  = enum('Offline', \
                        'FullPrune', \
                        'Lite')
 
-def newTheBDM(isOffline=False, blocking=False):
-   global TheBDM
-   TheBDM = BlockDataManagerThread(isOffline=isOffline, blocking=blocking)
+#def newTheBDM(isOffline=False, blocking=False):
+ #  global TheBDM
+  # TheBDM = BlockDataManagerThread(isOffline=isOffline, blocking=blocking)
    
 
 # Make TheBDM act like it's a singleton. Always use the global singleton TheBDM

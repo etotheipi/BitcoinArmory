@@ -2,6 +2,8 @@
 #define SCRADDROBJ_H
 
 #include "BinaryData.h"
+#include "leveldb_wrapper.h"
+#include "Blockchain.h"
 #include "BlockObj.h"
 #include "LedgerEntry.h"
 
@@ -35,8 +37,10 @@ public:
    ScrAddrObj() :
       db_(nullptr),
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
-      lastBlockNum_(0), lastTimestamp_(0), 
-      relevantTxIOPtrs_(0), ledger_(0) {}
+      lastBlockNum_(0), lastTimestamp_(0) 
+   {
+      relevantTxIO_.clear();
+   }
 
    ScrAddrObj(InterfaceToLDB *db, BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
@@ -56,9 +60,6 @@ public:
 
    void           setScrAddr(InterfaceToLDB *db, BinaryData bd) { db_ = db; scrAddr_.copyFrom(bd);}
 
-   void     sortLedger(void);
-   uint32_t removeInvalidEntries(void);
-
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is
    // only a convenience, if you want to be able to calculate numConf from
@@ -73,32 +74,39 @@ public:
       uint32_t currBlk, 
       bool includeAllZeroConf=false
    ) const;
-   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
    vector<UnspentTxOut> getSpendableTxOutList(
       uint32_t currBlk=0, 
       bool ignoreAllZeroConf=false
-   );
-   void clearZeroConfPool(void);
+   ) const;
 
 
-   vector<LedgerEntry> & getTxLedger(void)       { return ledger_;   }
-   vector<LedgerEntry> & getZeroConfLedger(void) { return ledgerZC_; }
+   const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
+   { return ledger_; }
 
-   vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
-   const vector<TxIOPair*> & getTxIOList(void) const 
-                           { return relevantTxIOPtrs_; }
+   map<BinaryData, TxIOPair> &   getTxIOMap(void) { return relevantTxIO_; }
+   const map<BinaryData, TxIOPair> & getTxIOMap(void) const 
+                           { return relevantTxIO_; }
 
 
-   void addTxIO(TxIOPair * txio, bool isZeroConf=false);
-   void addLedgerEntry(LedgerEntry const & le, bool isZeroConf=false); 
+   void addTxIO(TxIOPair & txio, bool isZeroConf=false);
 
    void pprintLedger(void) const;
    void clearBlkData(void);
 
    bool operator== (const ScrAddrObj& rhs) const
-   {
-      return (scrAddr_ == rhs.scrAddr_);
-   }
+   { return (scrAddr_ == rhs.scrAddr_); }
+
+   void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
+
+   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap, uint32_t height);
+   void purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
+
+   void updateAfterReorg(uint32_t lastValidBlockHeight);
+
+   BinaryData getLedgerKey(const BinaryData& DBkey, bool isTxOut=true);
+   void updateLedgers(const Blockchain* bc,
+                      map<BinaryData, TxIOPair>& newTxio, uint32_t height=0);
 
 private:
    InterfaceToLDB *db_;
@@ -113,16 +121,11 @@ private:
    bool           hasMultisigEntries_;
 
    // Each address will store a list of pointers to its transactions
-   vector<TxIOPair*>     relevantTxIOPtrs_;
-   vector<TxIOPair*>     relevantTxIOPtrsZC_;
-   vector<LedgerEntry>   ledger_;
-   vector<LedgerEntry>   ledgerZC_;
+   map<BinaryData, TxIOPair>     relevantTxIO_;
+   map<BinaryData, LedgerEntry>  ledger_;
 
    // Used to be part of the RegisteredScrAddr class
-   uint32_t alreadyScannedUpToBlk_;
+   uint32_t                      alreadyScannedUpToBlk_;
 };
-
-
-
 
 #endif

@@ -963,7 +963,9 @@ bool InterfaceToLDB::seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash)
 
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
-                                                   StoredScriptHistory & ssh)
+                                                   StoredScriptHistory & ssh,
+                                                   uint32_t startBlock,
+                                                   uint32_t endBlock)
 {
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
 
@@ -980,11 +982,26 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    if(ssh.totalTxioCount_ == 0)
       LOGWARN << "How did we end up with zero Txios in an SSH?";
       
-   // If for some reason we hit the end of the DB without any tx, bail
-   if( !ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
+   uint32_t sz = sshKey.getSize();
+   BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
+   uint32_t scrAddrSize = scrAddr.getSize();
+
+   if (startBlock != 0)
    {
-      LOGERR << "No sub-SSH entries after the SSH";
-      return false;  
+      BinaryData dbkey_withHgtX(sshKey);
+      dbkey_withHgtX.append(DBUtils::heightAndDupToHgtx(startBlock, 0));
+      
+      if (!ldbIter.seekTo(dbkey_withHgtX))
+         return false;
+   }
+   else
+   {
+      // If for some reason we hit the end of the DB without any tx, bail
+      if( !ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
+      {
+         LOGERR << "No sub-SSH entries after the SSH";
+         return false;
+      }
    }
 
    // Now start iterating over the sub histories
@@ -1000,14 +1017,19 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       pair<BinaryData, StoredSubHistory> keyValPair;
       keyValPair.first = keyNoPrefix.getSliceCopy(sz-5, 4);
       keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+
+      //iter is at the right ssh, make sure hgtX <= endBlock
+      if (keyValPair.second.height_ > endBlock)
+         break;
+
       keyValPair.second.unserializeDBValue(ldbIter.getValueReader());
       iter = ssh.subHistMap_.insert(keyValPair).first;
-      numTxioRead += iter->second.txioSet_.size(); 
+      numTxioRead += iter->second.txioMap_.size(); 
    } while( ldbIter.advanceAndRead(DB_PREFIX_SCRIPT) );
 
    if(numTxioRead != ssh.totalTxioCount_)
    {
-      LOGERR << "Number of TXIOs read does not match SSH entry value";
+      //LOGERR << "Number of TXIOs read does not match SSH entry value";
       ssh.totalTxioCount_ = numTxioRead;
    }
    return true;
@@ -1036,7 +1058,7 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
        iter++)
    {
       StoredSubHistory & subssh = iter->second;
-      if(subssh.txioSet_.size() > 0)
+      if(subssh.txioMap_.size() > 0)
          putValue(BLKDATA, subssh.getDBKey(),
             serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
          );
@@ -1061,18 +1083,20 @@ void InterfaceToLDB::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
-                                             BinaryDataRef scrAddrStr)
+bool InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
+                                             BinaryDataRef scrAddrStr,
+                                             uint32_t startBlock,
+                                             uint32_t endBlock)
 {
    SCOPED_TIMER("getStoredScriptHistory");
    LDBIter ldbIter = getIterator(BLKDATA);
-   if(!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
+   if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
    {
       ssh.uniqueKey_.resize(0);
-      return;
+      return false;
    }
 
-   readStoredScriptHistoryAtIter(ldbIter, ssh);
+   return readStoredScriptHistoryAtIter(ldbIter, ssh, startBlock, endBlock);
 }
 
 
@@ -1156,8 +1180,8 @@ bool InterfaceToLDB::getFullUTXOMapForSSH(
        iterSubSSH++)
    {
       StoredSubHistory & subSSH = iterSubSSH->second;
-      for(iterTxio  = subSSH.txioSet_.begin(); 
-          iterTxio != subSSH.txioSet_.end(); 
+      for(iterTxio  = subSSH.txioMap_.begin(); 
+          iterTxio != subSSH.txioMap_.end(); 
           iterTxio++)
       {
          TxIOPair & txio = iterTxio->second;
@@ -2119,7 +2143,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
 {
    uint32_t sz = txHashOrDBKey.getSize();
    if(sz == 32)
-      return getStoredTx_byHash(stx, txHashOrDBKey);
+      return getStoredTx_byHash(txHashOrDBKey, &stx);
    else if(sz == 6 || sz == 7)
       return getStoredTx_byDBKey(stx, txHashOrDBKey);
    else
@@ -2157,10 +2181,15 @@ bool InterfaceToLDB::getStoredTx_byDBKey( StoredTx & stx,
 // when we mark a transaction/block valid, we need to make sure all the hints
 // lists have the correct one in front.  Luckily, the TXHINTS entries are tiny 
 // and the number of modifications to make for each reorg is small.
-bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
-                                         BinaryDataRef txHash)
+bool InterfaceToLDB::getStoredTx_byHash( BinaryDataRef txHash,
+                                         StoredTx* stx,
+                                         BinaryData *DBkey)
 {
    SCOPED_TIMER("getStoredTx");
+
+   if (stx == nullptr && DBkey == nullptr)
+      return false;
+
    BinaryData hash4(txHash.getSliceRef(0,4));
    BinaryData hintsDBVal = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
    uint32_t valSize = hintsDBVal.getSize();
@@ -2206,7 +2235,13 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
       if(ldbIter.getValueReader().get_BinaryDataRef(32) == txHash)
       {
          ldbIter.resetReaders();
-         return readStoredTxAtIter(ldbIter, height, dup, stx);
+         if (stx!=nullptr)
+            return readStoredTxAtIter(ldbIter, height, dup, *stx);
+         else
+         {
+            DBkey->copyFrom(key6);
+            return true;
+         }
       }
    }
 
@@ -2287,6 +2322,27 @@ void InterfaceToLDB::putStoredTxOut( StoredTxOut const & stxo)
    putValue(BLKDATA, DB_PREFIX_TXDATA, ldbKey, bw);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredTxOut(
+   StoredTxOut & stxo, const BinaryData& DBkey)
+{
+   BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
+   if (brr.getSize() == 0)
+   {
+      LOGERR << "BLKDATA DB does not have the requested TxOut";
+      return false;
+   }
+
+   stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
+   stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));;
+   stxo.txIndex_     = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
+   stxo.txOutIndex_  = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
+
+   stxo.unserializeDBValue(brr);
+
+   return true;
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredTxOut(      
@@ -2299,16 +2355,16 @@ bool InterfaceToLDB::getStoredTxOut(
    SCOPED_TIMER("getStoredTxOut");
    BinaryData blkKey = DBUtils::getBlkDataKey(blockHeight, dupID, txIndex, txOutIndex);
    BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
-   if(brr.getSize() == 0)
+   if (brr.getSize() == 0)
    {
       LOGERR << "BLKDATA DB does not have the requested TxOut";
       return false;
    }
 
    stxo.blockHeight_ = blockHeight;
-   stxo.duplicateID_  = dupID;
-   stxo.txIndex_     = txIndex;
-   stxo.txOutIndex_  = txOutIndex;
+   stxo.duplicateID_ = dupID;
+   stxo.txIndex_ = txIndex;
+   stxo.txOutIndex_ = txOutIndex;
 
    stxo.unserializeDBValue(brr);
 
@@ -2742,8 +2798,6 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
       }
          
    }
-
-   
 }
 
 /*

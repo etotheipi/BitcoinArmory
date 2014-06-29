@@ -376,18 +376,18 @@ class PyBtcWallet(object):
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
       ledgBlkChain = self.cppWallet.getTxLedger()
-      ledgZeroConf = self.cppWallet.getZeroConfLedger()
-      if ledgType.lower() in ('full','all','ultimate'):
-         ledg = []
-         ledg.extend(ledgBlkChain)
-         ledg.extend(ledgZeroConf)
-         return ledg
-      elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
-         return ledgBlkChain
-      elif ledgType.lower() in ('zeroconf', 'zero'):
-         return ledgZeroConf
-      else:
-         raise TypeError('Unknown ledger type! "' + ledgType + '"')
+      #ledgZeroConf = self.cppWallet.getZeroConfLedger()
+      #if ledgType.lower() in ('full','all','ultimate'):
+      ledg = []
+      ledg.extend(ledgBlkChain)
+         #ledg.extend(ledgZeroConf)
+      return ledg
+      #elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
+         #return ledgBlkChain
+      #elif ledgType.lower() in ('zeroconf', 'zero'):
+         #return ledgZeroConf
+      #else:
+         #raise TypeError('Unknown ledger type! "' + ledgType + '"')
 
 
 

@@ -1,7 +1,7 @@
 #include "BtcWallet.h"
 #include "BlockUtils.h"
 
-vector<LedgerEntry> BtcWallet::EmptyLedger_(0);
+vector<LedgerEntry> BtcWallet::EmptyLedger_;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -31,47 +31,58 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
                               uint32_t      lastTimestamp,
                               uint32_t      lastBlockNum)
 {
-   ts_saMap::const_snapshot saSS(scrAddrMap_);
-   if (saSS.find(scrAddr) != saSS.end())
+   if (scrAddr.getSize() != 21)
+   {
+      LOGERR << "scrAddr is " << scrAddr.getSize() << " bytes long!";
+      return;
+   }
+   if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
 
-   ScrAddrObj addrPtr(
+   ScrAddrObj addr(
       bdmPtr_->getIFace(),
       scrAddr,
       firstTimestamp, firstBlockNum,
       lastTimestamp,  lastBlockNum
    );
-   scrAddrMap_[scrAddr] = addrPtr;
+   
+   if(bdmPtr_ != nullptr) 
+      if (!bdmPtr_->registerScrAddr(addr, this))
+         return;
+   
+   scrAddrMap_[scrAddr] = addr;
 
-   registerImportedScrAddr(scrAddr, firstBlockNum);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 {
-   ts_saMap::const_snapshot saSS(scrAddrMap_);
-   if (saSS.find(scrAddr) != saSS.end())
+   if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
 
-   ScrAddrObj addrPtr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, 0, 0, 0, 0);
-   scrAddrMap_[scrAddr] = addrPtr;
+   ScrAddrObj addr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, 0, 0, 0, 0);
 
-   if(bdmPtr_)
-      registerNewScrAddr(scrAddr);
+   if(bdmPtr_ != nullptr)
+      if (!bdmPtr_->registerScrAddr(addr, this))
+         return;
+   
+   scrAddrMap_[scrAddr] = addr;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
 {
-   ts_saMap::const_snapshot saSS(scrAddrMap_);
-   if (saSS.find(newScrAddr.getScrAddr()) != saSS.end())
+   if (scrAddrMap_.find(newScrAddr.getScrAddr()) != scrAddrMap_.end())
       return;
 
-   if(newScrAddr.getScrAddr().getSize() > 0)
-      scrAddrMap_[newScrAddr.getScrAddr()] = newScrAddr;
+   if (newScrAddr.getScrAddr().getSize() == 0)
+      return;
 
-   registerImportedScrAddr(newScrAddr.getScrAddr(), 
-                                       newScrAddr.getFirstBlockNum());
+   if (bdmPtr_ != nullptr)
+      if (!bdmPtr_->registerScrAddr(newScrAddr, this))
+         return;
+   
+   scrAddrMap_[newScrAddr.getScrAddr()] = newScrAddr;
 }
 
 
@@ -112,68 +123,14 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 /////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
-   ts_saMap::const_snapshot saSS(scrAddrMap_);
-   return (saSS.find(scrAddr) != saSS.end());
+   return (scrAddrMap_.find(scrAddr) != scrAddrMap_.end());
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
-pair<bool,bool> BtcWallet::isMineBulkFilter(
-   Tx & tx, 
-   bool withSecondOrderMultisig
-) const
-{
-   map<OutPoint, TxIOPair> const & txiomap = txioMap_;
-   
-   // Since 99.999%+ of all transactions are not ours, let's do the 
-   // fastest bulk filter possible, even though it will add 
-   // redundant computation to the tx that are ours.  In fact,
-   // we will skip the TxIn/TxOut convenience methods and follow the
-   // pointers directly to the data we want
-
-   OutPoint op; // reused
-   uint8_t const * txStartPtr = tx.getPtr();
-   for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
-   {
-      // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin),
-         tx.getSize() - tx.getTxInOffset(iin));
-      if (KEY_IN_MAP(op, txiomap))
-         return make_pair(true, true);
-   }
-
-   // Simply convert the TxOut scripts to scrAddrs and check if registered
-   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
-   {
-      TxOut txout = tx.getTxOutCopy(iout);
-      BinaryData scrAddr = txout.getScrAddressStr();
-      if (hasScrAddress(scrAddr))
-         return make_pair(true, false);
-
-      // It's still possible this is a multisig addr involving one of our 
-      // existing scrAddrs, even if we aren't explicitly looking for this multisig
-      if (withSecondOrderMultisig && txout.getScriptType() == TXOUT_SCRIPT_MULTISIG)
-      {
-         BinaryRefReader brrmsig(scrAddr);
-         uint8_t PREFIX = brrmsig.get_uint8_t();
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
-         for (uint8_t a = 0; a<N; a++)
-         if (hasScrAddress(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
-            return make_pair(true, false);
-      }
-   }
-
-   // If we got here, it's either non std or not ours
-   return make_pair(false, false);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr) const
+void BtcWallet::pprintAlot(InterfaceToLDB *db, 
+                           uint32_t topBlk, bool withAddr) const
 {
    uint32_t numLedg = ledgerAllAddr_.size();
-   uint32_t numLedgZC = ledgerAllAddrZC_.size();
 
    cout << "Wallet PPRINT:" << endl;
    cout << "Tot: " << getFullBalance() << endl;
@@ -181,24 +138,18 @@ void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr) c
    cout << "Ucn: " << getUnconfirmedBalance(topBlk) << endl;
 
    cout << "Ledger: " << endl;
-   for(uint32_t i=0; i<numLedg; i++)
-      ledgerAllAddr_[i].pprintOneLine();
+   for(const auto ledger : ledgerAllAddr_)
+      ledger.pprintOneLine();
 
-   cout << "LedgerZC: " << endl;
-   for(uint32_t i=0; i<numLedgZC; i++)
-      ledgerAllAddrZC_[i].pprintOneLine();
-
-   cout << "TxioMap:" << endl;
+   /*cout << "TxioMap:" << endl;
    for( const auto &txio : txioMap_)
    {
       txio.second.pprintOneLine(db);
-   }
+   }*/
 
    if(withAddr)
    {
-      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-
-      for(const auto &sa : saSnapshot)
+      for(const auto &sa : scrAddrMap_)
       {
          const ScrAddrObj & addr = sa.second;
          HashString scraddr = addr.getScrAddr();
@@ -208,24 +159,15 @@ void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr) c
          cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
                   
          cout << "   Ledger: " << endl;
-         for(uint32_t i=0; i<addr.ledger_.size(); i++)
-            addr.ledger_[i].pprintOneLine();
-      
-         cout << "   LedgerZC: " << endl;
-         for(uint32_t i=0; i<addr.ledgerZC_.size(); i++)
-            addr.ledgerZC_[i].pprintOneLine();
-      
+         const auto& saLedgers = addr.getTxLedger();
+         for(const auto ledger : saLedgers)
+            ledger.second.pprintOneLine();
+            
          cout << "   TxioPtrs (Blockchain):" << endl;
          map<OutPoint, TxIOPair>::iterator iter;
-         for(uint32_t t=0; t<addr.relevantTxIOPtrs_.size(); t++)
+         for(auto txio : addr.relevantTxIO_)
          {
-            addr.relevantTxIOPtrs_[t]->pprintOneLine(db);
-         }
-
-         cout << "   TxioPtrs (Zero-conf):" << endl;
-         for(uint32_t t=0; t<addr.relevantTxIOPtrsZC_.size(); t++)
-         {
-            addr.relevantTxIOPtrsZC_[t]->pprintOneLine(db);
+            txio.second.pprintOneLine(db);
          }
       }
    }
@@ -235,9 +177,9 @@ void BtcWallet::pprintAlittle(std::ostream &os) const
 {
    os << "\tBalance: " << getFullBalance();
    os << "\tNAddr:   " << getNumScrAddr();
-   os << "\tNTxio:   " << txioMap_.size();
+//   os << "\tNTxio:   " << .size();
    os << "\tNLedg:   " << getTxLedger().size();
-   os << "\tNZC:     " << getZeroConfLedger().size() << endl;      
+ //  os << "\tNZC:     " << getZeroConfLedger().size() << endl;      
 
 }
 
@@ -248,7 +190,7 @@ void BtcWallet::pprintAlittle(std::ostream &os) const
 //
 // You must clear the zero-conf pool for this address, before you do a 
 // rescan of the wallet (it's done in rescanWalletZeroConf)
-void BtcWallet::scanTx(Tx & tx, 
+/*void BtcWallet::scanTx(Tx & tx, 
                        uint32_t txIndex,
                        uint32_t txtime,
                        uint32_t blknum)
@@ -274,8 +216,7 @@ void BtcWallet::scanTx(Tx & tx,
    bool anyNewTxOutIsOurs  = false;
    bool isCoinbaseTx       = false;
 
-   ts_saMap::snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::iterator addrIter;
+   map<BinaryData, ScrAddrObj>::iterator addrIter;
    ScrAddrObj         thisAddr;
    HashString         scraddr;
 
@@ -308,9 +249,9 @@ void BtcWallet::scanTx(Tx & tx,
 
          // It's our TxIn, so address should be in this wallet
          scraddr  = txout.getScrAddressStr();
-         addrIter = saSnapshot.find(scraddr);
+         addrIter = scrAddrMap_.find(scraddr);
          //if( addrIter == scrAddrMap_.end())
-         if(addrIter == saSnapshot.end())
+         if(ITER_NOT_IN_MAP(addrIter, scrAddrMap_))
          {
             // Have TxIO but address is not in the map...?
             LOGERR << "ERROR: TxIn in TxIO map, but addr not in wallet...?";
@@ -424,7 +365,7 @@ void BtcWallet::scanTx(Tx & tx,
                // and now being re-added
                txioIter->second.setTxOutZC(bdmPtr_->getIFace(), &tx, iout);
                txioIter->second.setValue((uint64_t)thisVal);
-               thisAddr.addTxIO( &txioIter->second, isZeroConf);
+               thisAddr.addTxIO(txioIter->second, isZeroConf);
                doAddLedgerEntry = true;
             }
             else
@@ -440,7 +381,7 @@ void BtcWallet::scanTx(Tx & tx,
                // but that will be removed)
                txioIter->second.setTxOut(tx.getTxRef(), iout);
                txioIter->second.setValue((uint64_t)thisVal);
-               thisAddr.addTxIO( &txioIter->second, isZeroConf);
+               thisAddr.addTxIO(txioIter->second, isZeroConf);
                doAddLedgerEntry = true;
             }
          }
@@ -454,7 +395,7 @@ void BtcWallet::scanTx(Tx & tx,
                newTxio.setTxOut(tx.getTxRef(), iout);
 
             txioIter = txioMap_.insert(make_pair(outpt, newTxio)).first;
-            thisAddr.addTxIO( &txioIter->second, isZeroConf);
+            thisAddr.addTxIO(txioIter->second, isZeroConf);
             doAddLedgerEntry = true;
          }
 
@@ -491,8 +432,6 @@ void BtcWallet::scanTx(Tx & tx,
          // Update last seen on the network
          thisAddr.setLastTimestamp(txtime);
          thisAddr.setLastBlockNum(blknum);
-
-         addrIter.update(thisAddr);
       }
    } // loop over TxOuts
 
@@ -527,7 +466,7 @@ void BtcWallet::scanTx(Tx & tx,
       else
          ledgerAllAddr_.push_back(le);
    }
-}
+}*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -539,7 +478,7 @@ void BtcWallet::scanTx(Tx & tx,
 // the behavior of ScanTx.  But scanTx has been exhaustively tested with all
 // the crazy input variations and conditional paths, I don't want to touch 
 // it to try to accommodate this use case.
-LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
+/*LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
 {
    int64_t totalValue = 0;
    uint8_t const * txStartPtr = tx.getPtr();
@@ -604,28 +543,17 @@ LedgerEntry BtcWallet::calcLedgerEntryForTxStr(BinaryData txStr)
 {
    Tx tx(txStr);
    return calcLedgerEntryForTx(tx);
-}
+}*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::clearBlkData(void)
 {
-   txioMap_.clear();
    ledgerAllAddr_.clear();
-   ledgerAllAddrZC_.clear();
-   nonStdTxioMap_.clear();
-   nonStdUnspentOutPoints_.clear();
 
-   ts_saMap::snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::iterator saIter;
-
-   for (saIter = saSnapshot.begin();
-      saIter != saSnapshot.end(); ++saIter)
-   {
-      ScrAddrObj sa = (*saIter).second;
-      sa.clearBlkData();
-      saIter.update(sa);
-   }
+   for (auto saIter = scrAddrMap_.begin();
+      saIter != scrAddrMap_.end(); ++saIter)
+   { saIter->second.clearBlkData(); }
 }
 
 
@@ -669,10 +597,10 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 
 
       OutPoint outpt(tx.getThisHash(), txoutidx);      
-      nonStdUnspentOutPoints_.insert(outpt);
+      /*nonStdUnspentOutPoints_.insert(outpt);
       nonStdTxioMap_.insert(
          make_pair(outpt, TxIOPair(tx.getTxRef(),txoutidx))
-      );
+      );*/
    }
 
 }
@@ -682,14 +610,9 @@ uint64_t BtcWallet::getSpendableBalance(\
                     uint32_t currBlk, bool ignoreAllZC) const
 {
    uint64_t balance = 0;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for(iter  = txioMap_.begin();
-       iter != txioMap_.end();
-       iter++)
-   {
-      if(iter->second.isSpendable(bdmPtr_->getIFace(), currBlk, ignoreAllZC))
-         balance += iter->second.getValue();      
-   }
+   for(const auto scrAddr : scrAddrMap_)
+      balance += scrAddr.second.getSpendableBalance(currBlk, ignoreAllZC);
+   
    return balance;
 }
 
@@ -698,49 +621,21 @@ uint64_t BtcWallet::getUnconfirmedBalance(
                     uint32_t currBlk, bool inclAllZC) const
 {
    uint64_t balance = 0;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for(iter  = txioMap_.begin();
-       iter != txioMap_.end();
-       iter++)
-   {
-      if(iter->second.isMineButUnconfirmed(bdmPtr_->getIFace(), currBlk, inclAllZC))
-         balance += iter->second.getValue();      
-   }
+   for (const auto scrAddr : scrAddrMap_)
+      balance += scrAddr.second.getUnconfirmedBalance(currBlk, inclAllZC);
+   
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t BtcWallet::getFullBalance() const
 {
-   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
-   {
-      uint64_t balance = 0;
-      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
+   uint64_t balance = 0;
 
-      for(const auto &sa : saSnapshot)
-      {
-         const ScrAddrObj & addr = sa.second;
-         for(const TxIOPair &txio : getHistoryForScrAddr(addr.getScrAddr()))
-         {
-            if (txio.isUnspent(bdmPtr_->getIFace()))
-            {
-               balance += txio.getValue();
-            }
-         }
-      }
-      return balance;
-   }
-   else
-   {
-      uint64_t balance = 0;
-      for(const auto &tio : txioMap_)
-      {
-         if(tio.second.isUnspent(bdmPtr_->getIFace()))
-            balance += tio.second.getValue();      
-      }
-      return balance;
-
-   }
+   for(const auto scrAddr : scrAddrMap_)
+      balance += scrAddr.second.getFullBalance();
+   
+   return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -750,83 +645,23 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(
 ) const
 {
    vector<UnspentTxOut> utxoList;
-   for(const auto &tio : txioMap_)
+   vector<UnspentTxOut> saUtxoList;
+
+   for (const auto scrAddr : scrAddrMap_)
    {
-      const TxIOPair & txio = tio.second;
-      if(txio.isSpendable(bdmPtr_->getIFace(), blkNum, ignoreAllZC))
-      {
-         TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
-         utxoList.push_back(UnspentTxOut(bdmPtr_->getIFace(), txout, blkNum) );
-      }
+      saUtxoList = scrAddr.second.getSpendableTxOutList();
+      utxoList.insert(utxoList.end(), saUtxoList.begin(), saUtxoList.end());
    }
    return utxoList;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getFullTxOutList(uint32_t blkNum)
-{
-   vector<UnspentTxOut> utxoList;
-   for(const auto &tio : txioMap_)
-   {
-      const TxIOPair & txio = tio.second;
-      if(txio.isUnspent(bdmPtr_->getIFace()))
-      {
-         TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
-         utxoList.push_back(UnspentTxOut(bdmPtr_->getIFace(), txout, blkNum) );
-      }
-   }
-   return utxoList;
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-uint32_t BtcWallet::removeInvalidEntries(void)   
-{
-   vector<LedgerEntry> newLedger(0);
-   uint32_t leRemoved = 0;
-   for(uint32_t i=0; i<ledgerAllAddr_.size(); i++)
-   {
-      if(!ledgerAllAddr_[i].isValid())
-         leRemoved++;
-      else
-         newLedger.push_back(ledgerAllAddr_[i]);
-   }
-   ledgerAllAddr_.clear();
-   ledgerAllAddr_ = newLedger;
-   return leRemoved;
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::sortLedger()
-{
-   sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::isOutPointMine(HashString const & hsh, uint32_t idx)
-{
-   OutPoint op(hsh, idx);
-   //return (txioMap_.find(op)!=txioMap_.end());
-   return KEY_IN_MAP(op, txioMap_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::pprintLedger() const
 { 
    cout << "Wallet Ledger:  " << getFullBalance()/1e8 << endl;
-   for(uint32_t i=0; i<ledgerAllAddr_.size(); i++)
-      ledgerAllAddr_[i].pprintOneLine();
-   for(uint32_t i=0; i<ledgerAllAddrZC_.size(); i++)
-      ledgerAllAddrZC_[i].pprintOneLine();
+   for(const auto ledger : ledgerAllAddr_)
+      ledger.pprintOneLine();
 }
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Return a list of addresses this wallet has ever sent to (w/o change addr)
@@ -843,41 +678,45 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
    set<HashString> perTxAddrSet;
 
    // Go through all TxIO for this wallet, collect outgoing transactions
-   for(const auto &tio : txioMap_)
+   for (const auto scrAddr : scrAddrMap_)
    {
-      const TxIOPair & txio = tio.second;
+      const auto& scrAddrTxioMap = scrAddr.second.getTxIOMap();
 
-      // It's only outgoing if it has a TxIn
-      if( !txio.hasTxIn() )
-         continue;
-
-      Tx thisTx = txio.getTxRefOfInput().attached(bdmPtr_->getIFace()).getTxCopy();
-      HashString txHash = thisTx.getThisHash();
-
-      if(allTxList.count(txHash) > 0)
-         continue;
-      else
-         allTxList.insert(txHash);
-
-
-      // Iterate over all TxOut in this Tx for recipients
-      perTxAddrSet.clear();
-      for(uint32_t iout=0; iout<thisTx.getNumTxOut(); iout++)
+      for (const auto &tio : scrAddrTxioMap)
       {
-         HashString scraddr = thisTx.getTxOutCopy(iout).getScrAddressStr();
+         const TxIOPair & txio = tio.second;
 
-         // Skip this address if it's in our wallet (usually change addr)
-         if( hasScrAddress(scraddr) || perTxAddrSet.count(scraddr)>0)
-            continue; 
+         // It's only outgoing if it has a TxIn
+         if (!txio.hasTxIn())
+            continue;
 
-         // It's someone else's address for sure, add it to the map if necessary
-         if(sentToMap.count(scraddr)==0)
-            sentToMap[scraddr] = AddressBookEntry(scraddr);
+         Tx thisTx = txio.getTxRefOfInput().attached(bdmPtr_->getIFace()).getTxCopy();
+         HashString txHash = thisTx.getThisHash();
 
-         sentToMap[scraddr].addTx(thisTx);
-         perTxAddrSet.insert(scraddr);
+         if (allTxList.count(txHash) > 0)
+            continue;
+         else
+            allTxList.insert(txHash);
+
+
+         // Iterate over all TxOut in this Tx for recipients
+         perTxAddrSet.clear();
+         for (uint32_t iout = 0; iout<thisTx.getNumTxOut(); iout++)
+         {
+            HashString scraddr = thisTx.getTxOutCopy(iout).getScrAddressStr();
+
+            // Skip this address if it's in our wallet (usually change addr)
+            if (hasScrAddress(scraddr) || perTxAddrSet.count(scraddr)>0)
+               continue;
+
+            // It's someone else's address for sure, add it to the map if necessary
+            if (sentToMap.count(scraddr) == 0)
+               sentToMap[scraddr] = AddressBookEntry(scraddr);
+
+            sentToMap[scraddr].addTx(thisTx);
+            perTxAddrSet.insert(scraddr);
+         }
       }
-      
    }
 
 
@@ -893,746 +732,102 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::clearZeroConfPool(void)
-{
-   SCOPED_TIMER("clearZeroConfPool");
-   ledgerAllAddrZC_.clear();
-
-   ts_saMap::snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::iterator saIter;
-
-   for (saIter = saSnapshot.begin();
-      saIter != saSnapshot.end(); ++saIter)
-   {
-      ScrAddrObj sa = (*saIter).second;
-      sa.clearZeroConfPool();
-      saIter.update(sa);
-   }
-
-
-   // Need to "unlock" the TxIOPairs that were locked with zero-conf txs
-   vector< map<OutPoint, TxIOPair>::iterator > rmList;
-   
-   for(map<OutPoint, TxIOPair>::iterator iter = txioMap_.begin();
-       iter != txioMap_.end();
-       ++iter)
-   {
-      iter->second.clearZCFields();
-      if(!iter->second.hasTxOut())
-         rmList.push_back(iter);
-   }
-
-   // If a TxIOPair exists only because of the TxOutZC, then we should 
-   // remove to ensure that it won't conflict with any logic that only 
-   // checks for the *existence* of a TxIOPair, whereas the TxIOPair might 
-   // actually be "empty" but would throw off some other logic.
-   for(auto rmIter = rmList.begin();
-       rmIter != rmList.end();
-       rmIter++)
-   {
-      txioMap_.erase(*rmIter);
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> BtcWallet::getTxLedger(HashString const & scraddr) const
+vector<LedgerEntry> BtcWallet::getTxLedger(HashString const & scraddr)
+   const
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
-   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
-   {
-      vector<LedgerEntry> ledgerEntries;
-      for(const TxIOPair &txio : getHistoryForScrAddr(scraddr))
-      {
-         const TxOut& txout = txio.getTxOutCopy(bdmPtr_->getIFace());
-         //const TxIn txin = txio.getTxInCopy(bdmPtr_->getIFace());
-         const DBTxRef tx = txout.getParentTxRef().attached(bdmPtr_->getIFace());
-         
-         LedgerEntry e(
-            scraddr,
-            txout.getValue(),
-            txout.getParentHeight(),
-            tx.getThisHash(),
-            tx.getBlockTxIndex(),
-            tx.getBlockTimestamp()
-         );
-         
-         ledgerEntries.push_back(e);
-      }
-      return ledgerEntries;
-   }
-   else
-   {
-      ts_saMap::const_snapshot saSS(scrAddrMap_);
-      if(saSS.find(scraddr) == saSS.end())
-         return vector<LedgerEntry>();
-      else
-      {
-         ScrAddrObj sa = scrAddrMap_[scraddr];
-         return sa.getTxLedger();
-      }
-   }
+   /*auto saIter = scrAddrMap_.find(scraddr);
+   if (ITER_IN_MAP(saIter, scrAddrMap_))
+      return saIter->second.getTxLedger();*/
+
+   return vector<LedgerEntry>();
 }
 
 vector<LedgerEntry> BtcWallet::getTxLedger() const
 {
-   SCOPED_TIMER("BtcWallet::getTxLedger");
-
-   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
-   {
-      vector<LedgerEntry> ledgerEntries;
-      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-      for(const auto &sa : saSnapshot)
-      {
-         const ScrAddrObj & addr = sa.second;
-         const vector<LedgerEntry> e = getTxLedger(addr.getScrAddr());
-         copy(e.begin(), e.end(), back_inserter(ledgerEntries));
-      }
-      return ledgerEntries;
-   }
-   else
-   {
-      return ledgerAllAddr_;
-   }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry> 
-   BtcWallet::getZeroConfLedger(HashString const * scraddr) const
-{
-   SCOPED_TIMER("BtcWallet::getZeroConfLedger");
-
-   // Make sure to rebuild the ZC ledgers before calling this method
-   if(!scraddr)
-      return ledgerAllAddrZC_;
-   else
-   {
-      ts_saMap::const_snapshot saSS(scrAddrMap_);
-      if (saSS.find(*scraddr) == saSS.end())
-         return vector<LedgerEntry>(0);
-      else
-      {
-         ScrAddrObj sa = scrAddrMap_[*scraddr];
-         return sa.getZeroConfLedger();
-      }
-   }
-}
-
-void BtcWallet::insertRegisteredTxIfNew(HashString txHash)
-{
-   // .insert() function returns pair<iter,bool> with bool true if inserted
-   if(registeredTxSet_.insert(txHash).second == true)
-   {
-      DBTxRef txref = bdmPtr_->getTxRefByHash(txHash).attached(bdmPtr_->getIFace());
-      RegisteredTx regTx(txref,
-                         txref.getThisHash(),
-                         txref.getBlockHeight(),
-                         txref.getBlockTxIndex());
-      registeredTxList_.push_back(regTx);
-   }
-}
-
-void BtcWallet::scanRegisteredTxList(uint32_t blkStart, uint32_t blkEnd)
-{
-   SCOPED_TIMER("scanRegisteredTxForWallet");
-
-   // Make sure RegisteredTx objects have correct data, then sort.
-   // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
-   //        I was able to sort correctly without this step, before...?
-
-
-   for(RegisteredTx &rtx : registeredTxList_)
-   {
-      if(rtx.txIndex_ > UINT32_MAX/2)
-      {
-         // fix this iterator issue (assignement)
-         // what iterator issue? ~CS
-
-         // The RegisteredTx was created before the chain was organized
-         rtx.blkNum_ = rtx.txRefObj_.getBlockHeight();
-         rtx.txIndex_ = rtx.txRefObj_.getBlockTxIndex();
-      }
-   }
-   registeredTxList_.sort();
-   
-   ///// LOOP OVER ALL RELEVANT TX ////
-   for(RegisteredTx &rtx : registeredTxList_)
-   {
-      // Pull the tx from disk and check it for the supplied wallet
-      Tx theTx = rtx.getTxCopy(bdmPtr_->getIFace());
-      if( !theTx.isInitialized() )
-      {
-         LOGWARN << "***WARNING: How did we get a NULL tx?";
-         continue;
-      }
-
-      
-      const BlockHeader* bhptr;
-      try
-      {
-         bhptr = bdmPtr_->getHeaderPtrForTx(theTx);
-      }
-      catch (...)
-      {
-         // This condition happens on invalid Tx (like invalid P2Pool coinbases)
-         // or when the blockheader isn't on the main branch
-         continue;
-      }
-
-      if (!bhptr->isMainBranch())
-         continue;
-
-      uint32_t thisBlk = bhptr->getBlockHeight();
-      if(thisBlk < blkStart  ||  thisBlk >= blkEnd)
-         continue;
-
-      if( !bdmPtr_->isTxFinal(theTx) )
-         continue;
-
-      // If we made it here, we want to scan this tx!
-      scanTx(theTx, rtx.txIndex_, bhptr->getTimestamp(), thisBlk);
-   }
- 
-   sortLedger();
-
-
-   // We should clean up any dangling TxIOs in the wallet then rescan
-   if(bdmPtr_->isZcEnabled())
-      rescanWalletZeroConf();
-}
-
-void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)
-{
-   ts_rsaMap::snapshot rsaSnapshot(registeredScrAddrMap_);
-   ts_rsaMap::iterator rsaIter;
-
-   for (rsaIter = rsaSnapshot.begin(); 
-      rsaIter != rsaSnapshot.end(); ++rsaIter)
-   {
-      RegisteredScrAddr rsa = rsaIter->second;
-
-      rsa.alreadyScannedUpToBlk_ = newTopBlk;
-      rsaIter.update(rsa);
-   }
-}
-
-uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
-{
-   SCOPED_TIMER("numBlocksToRescan");
-   // This method tells us whether we have to scan ANY blocks from disk
-   // in order to produce accurate balances and TxOut lists.  If this
-   // returns false, we can get away without any disk access at all, and
-   // just use the registeredTxList_ object to get our information.
-   uint32_t currNextBlk = bdmPtr_->getTopBlockHeight() + 1;
-   endBlk = min(endBlk, currNextBlk);
-
-   // The wallet isn't registered with the BDM, but there's a chance that 
-   // each of its addresses are -- if any one is not, do rescan
-   uint32_t maxAddrBehind = 0;
-
-   ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::const_iterator saIter;
-   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
-
-   for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
-   {
-      const ScrAddrObj & addr = (*saIter).second;
-
-      // If any address is not registered, will have to do a full scan
-      if(rsaSS.find(addr.getScrAddr()) == rsaSS.end())
-         return endBlk;  // Gotta do a full rescan!
-
-      ts_rsaMap::const_iterator getRai = rsaSS.find(addr.getScrAddr());
-      if (getRai == rsaSS.end())
-      {
-         LOGWARN << "item not found in registeredScrAddrMap_";
-         continue;
-      }
-      const RegisteredScrAddr & ra = (*getRai).second;
-      maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
-   }
-
-   // If we got here, then all addr are already registered and current
-   return maxAddrBehind;
+   return ledgerAllAddr_;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::registerNewScrAddr(HashString scraddr)
-{
-   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
-
-   if(rsaSS.find(scraddr) != rsaSS.end())
-      return false;
-
-   uint32_t currBlk = bdmPtr_->getTopBlockHeight();
-   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, currBlk);
-   
-   return true;
-}
-
-bool BtcWallet::registerImportedScrAddr(HashString scraddr,
-                                                    uint32_t createBlk)
-{
-   SCOPED_TIMER("registerImportedScrAddr");
-   
-   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
-
-   if(rsaSS.find(scraddr) != rsaSS.end())
-      return false;
-
-   // In some cases we may have used UINT32_MAX to specify "don't know"
-   if(createBlk==UINT32_MAX)
-      createBlk = 0;
-
-   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, createBlk);
-   allScannedUpToBlk_ = min(createBlk, allScannedUpToBlk_);
-
-   return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
-   BinaryDataRef uniqKey,
-   bool withMultisig
-)
+map<BinaryData, TxIOPair> BtcWallet::getHistoryForScrAddr(
+   BinaryDataRef uniqKey, 
+   uint32_t startBlock, uint32_t endBlock,
+   bool withMultisig) const
 {
    InterfaceToLDB *const iface_ = bdmPtr_->getIFace();
 
    StoredScriptHistory ssh;
-   iface_->getStoredScriptHistory(ssh, uniqKey);
-
-   // "withMultisig" usually refers to whether we want to get the
-   // multisig outputs associated with a non-multisig scrAddr.  However,
-   // if this scrAddr is, itself, a multisig scrAddr, we obviously 
-   // should include its direct history
-   if (uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
-      withMultisig = true;
-
-   
-   ts_rsaMap::snapshot rsaSS(registeredScrAddrMap_);
-   ts_rsaMap::iterator iter = rsaSS.find(uniqKey);
-
-   iter = rsaSS.find(uniqKey);
-   if (ITER_IN_MAP(iter, rsaSS))
-   {
-      RegisteredScrAddr rsaI = iter->second;
-      rsaI.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
-      iter.update(rsaI);
-   }
-   
-   vector<TxIOPair> outVect;
-   if(!ssh.isInitialized())
-      return outVect;
-
-   outVect.reserve(ssh.totalTxioCount_);
-   for(auto &subSSHEntry : ssh.subHistMap_)
-   {
-      StoredSubHistory & subssh = subSSHEntry.second;
-      for( auto &txiop : subssh.txioSet_)
-      {
-         const TxIOPair & txio = txiop.second;
-         if(withMultisig || !txio.isMultisig())
-            outVect.push_back(txio);   
-      }
-   }
-   
-   return outVect;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
-   BinaryDataRef uniqKey,
-   bool withMultisig
-   ) const
-{
-   InterfaceToLDB *const iface_ = bdmPtr_->getIFace();
-
-   StoredScriptHistory ssh;
-   iface_->getStoredScriptHistory(ssh, uniqKey);
+   iface_->getStoredScriptHistory(ssh, uniqKey, startBlock, endBlock);
 
    if (uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
       withMultisig = true;
 
-   vector<TxIOPair> outVect;
+   map<BinaryData, TxIOPair> outMap;
    if (!ssh.isInitialized())
-      return outVect;
+      return outMap;
 
-   outVect.reserve(ssh.totalTxioCount_);
    for (auto &subSSHEntry : ssh.subHistMap_)
    {
       StoredSubHistory & subssh = subSSHEntry.second;
-      for (auto &txiop : subssh.txioSet_)
+      for (auto &txiop : subssh.txioMap_)
       {
          const TxIOPair & txio = txiop.second;
          if (withMultisig || !txio.isMultisig())
-            outVect.push_back(txio);
+            outMap[txiop.first] = txio;
       }
    }
 
-   return outVect;
+   return outMap;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-void BtcWallet::eraseTx(const BinaryData& txHash)
-{
-   if(registeredTxSet_.erase(txHash))
-   {
-      removeRegisteredTx(txHash);
-   }
-}
-
-void BtcWallet::fetchDBRegisteredScrAddrData()
+void BtcWallet::fetchDBScrAddrData(uint32_t startBlock, 
+                                             uint32_t endBlock)
 {
    SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
-   ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::const_iterator saIter;
-
-   for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
+   for (auto saIter = scrAddrMap_.begin(); 
+      saIter != scrAddrMap_.end(); 
+      saIter++)
    {
-      const ScrAddrObj & scrAddrObj = (*saIter).second;
-      fetchDBRegisteredScrAddrData(scrAddrObj.getScrAddr());
+      fetchDBScrAddrData(saIter->second, startBlock, endBlock);
    }
 }
 
-void BtcWallet::fetchDBRegisteredScrAddrData(BinaryData const & scrAddr)
+void BtcWallet::fetchDBScrAddrData(ScrAddrObj & scrAddr, 
+                                   uint32_t startBlock,
+                                   uint32_t endBlock)
 {
    InterfaceToLDB *const iface = bdmPtr_->getIFace();
 
-   const vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
-
-   for(uint32_t i=0; i<hist.size(); i++)
-   {
-      // Fetch the full tx of the arriving coins
-      TxRef txref = hist[i].getTxRefOfOutput();
-      StoredTx stx;
-      iface->getStoredTx(stx, txref.getDBKey());
-      RegisteredTx regTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
-      insertRegisteredTxIfNew(regTx);
-      registerOutPoint(hist[i].getOutPoint(iface));
-
-      txref = hist[i].getTxRefOfInput();
-      if(txref.isNull())
-         continue;
-
-      // If the coins were spent, also fetch the tx in which they were spent
-      iface->getStoredTx(stx, txref.getDBKey());
-      regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
-      insertRegisteredTxIfNew(regTx);
-   }
+   map<BinaryData, TxIOPair> hist = getHistoryForScrAddr(scrAddr.getScrAddr(), 
+                                                      startBlock, endBlock);   
+   scrAddr.updateTxIOMap(hist);
+   scrAddr.updateLedgers(&bdmPtr_->blockchain(), hist);
 }
-
-void BtcWallet::reorgChangeBlkNum(uint32_t blkNum)
-{
-   if(blkNum<lastScanned_) 
-   {
-      lastScanned_ = blkNum;
-   }
-}
-
-void BtcWallet::registeredScrAddrScan(
-   uint8_t const * txptr,
-   uint32_t txSize,
-   vector<uint32_t> * txInOffsets,
-   vector<uint32_t> * txOutOffsets,
-   bool withSecondOrderMultisig)
-{
-   if (registeredScrAddrMap_.size() == 0)
-      return;
-
-   vector<uint32_t> localOffsIn;
-   vector<uint32_t> localOffsOut;
-
-   if (txSize == 0 || !txInOffsets || !txOutOffsets)
-   {
-      txInOffsets = &localOffsIn;
-      txOutOffsets = &localOffsOut;
-      BtcUtils::TxCalcLength(txptr, txSize, txInOffsets, txOutOffsets);
-   }
-
-   uint32_t nTxIn = txInOffsets->size() - 1;
-   uint32_t nTxOut = txOutOffsets->size() - 1;
-   
-   OutPoint op; // reused for performance
-
-   uint8_t const * txStartPtr = txptr;
-   for (uint32_t iin = 0; iin<nTxIn; iin++)
-   {
-      // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + (*txInOffsets)[iin], txSize - (*txInOffsets)[iin]);
-
-      if (countOutPoints(op) > 0)
-      {
-         insertRegisteredTxIfNew(BtcUtils::getHash256(txptr, txSize));
-         break;
-      }
-   }
-
-   // We have to scan all TxOuts regardless, to make sure our list of 
-   // registeredOutPoints_ is up-to-date so that we can identify TxIns that are
-   // ours on future to-be-scanned transactions
-   for (uint32_t iout = 0; iout<nTxOut; iout++)
-   {
-      uint32_t viStart = (*txOutOffsets)[iout] + 8;
-      uint32_t txOutEnd = (*txOutOffsets)[iout + 1];
-
-      BinaryRefReader brr(txStartPtr + viStart, txOutEnd - viStart);
-      uint32_t scrsz = (uint32_t)brr.get_var_int();
-      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
-
-      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
-      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
-
-      if (scrAddrIsRegistered(scrAddr))
-      {
-         HashString txHash = BtcUtils::getHash256(txptr, txSize);
-         insertRegisteredTxIfNew(txHash);
-         registerOutPoint(OutPoint(txHash, iout));
-      }
-
-      if (withSecondOrderMultisig && txoType == TXOUT_SCRIPT_MULTISIG)
-      {
-         BinaryRefReader  brrmsig(scrAddr);
-         uint8_t PREFIX = brrmsig.get_uint8_t();
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
-         for (uint8_t a = 0; a<N; a++)
-         {
-            BinaryDataRef bdrAddr160 = brrmsig.get_BinaryDataRef(20);
-            if (scrAddrIsRegistered(HASH160PREFIX + bdrAddr160))
-            {
-               HashString txHash = BtcUtils::getHash256(txptr, txSize);
-               insertRegisteredTxIfNew(txHash);
-               registerOutPoint(OutPoint(txHash, iout));
-            }
-         }
-      }
-   }
-}
-
-void BtcWallet::registeredScrAddrScan(Tx & theTx)
-{
-   registeredScrAddrScan(
-      theTx.getPtr(),
-      theTx.getSize(),
-      &theTx.offsetsTxIn_,
-      &theTx.offsetsTxOut_
-   );
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanBlocksAgainstRegisteredScrAddr(uint32_t blk0, 
-                                                   uint32_t blk1)
-{
-   SCOPED_TIMER("scanDBForRegisteredTx");
-
-   bool doScanProgressThing = (blk1 - blk0 > NUM_BLKS_IS_DIRTY);
-   if (doScanProgressThing)
-   {
-      //if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
-      //remove(bfile.c_str());
-   }
-
-   LDBIter ldbIter = bdmPtr_->getIterator(BLKDATA, BULK_SCAN);
-   BinaryData firstKey = DBUtils::getBlkDataKey(blk0, 0);
-   ldbIter.seekTo(firstKey);
-
-   TIMER_START("ScanBlockchain");
-   while (ldbIter.isValid(DB_PREFIX_TXDATA))
-   {
-      // Get the full block from the DB
-      StoredHeader sbh;
-      bdmPtr_->readStoredBlockAtIter(ldbIter, sbh);
-
-      uint32_t hgt = sbh.blockHeight_;
-      uint8_t  dup = sbh.duplicateID_;
-      uint8_t  dupMain = bdmPtr_->getValidDupIDForHeight(hgt);
-      if (!sbh.isMainBranch_ || dup != dupMain)
-         continue;
-
-      if (hgt >= blk1)
-         break;
-
-      // If we're here, we need to check the tx for relevance to the 
-      // global scrAddr list.  Add to registered Tx map if so
-      for ( auto &storedTx : sbh.stxMap_)
-      {
-         StoredTx & stx = storedTx.second;
-         Tx tx = stx.getTxCopy();
-         registeredScrAddrScan(tx.getPtr(), tx.getSize());
-      }
-   }
-   TIMER_STOP("ScanBlockchain");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::removeRegisteredTx(BinaryData const & txHash)
-{
-   list<RegisteredTx>::iterator rtx
-      = std::find_if(
-         registeredTxList_.begin(),
-         registeredTxList_.end(),
-         [&txHash] (const RegisteredTx &rtx) { return rtx.txHash_ == txHash; }
-      );
-   if (rtx != registeredTxList_.end())
-   {
-      registeredTxSet_.erase(rtx->txHash_);
-      registeredTxList_.erase(rtx);
-      return true;
-   }
-
-   return false;
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 {
-   //Build list of invalidated transactions
-   set<HashString> txJustInvalidated;
-
-   for(RegisteredTx &rtx : registeredTxList_)
+   for (auto& scrAddr : scrAddrMap_)
    {
-      if (rtx.blkNum_ > lastValidBlockHeight)
-         txJustInvalidated.insert(rtx.txHash_);
-   }
-
-   for (const HashString &invalidTx : txJustInvalidated)
-   {
-      removeRegisteredTx(invalidTx);
-   }
-
-   // turning this thing off for now, as calling getTxLedger without
-   // an arg results in returning an empty ledger
-   /*vector<LedgerEntry> & ledg = getTxLedger();
-   for (uint32_t i = 0; i<ledg.size(); i++)
-   {
-      HashString const & txHash = ledg[i].getTxHash();
-      if (txJustInvalidated.count(txHash) > 0)
-         ledg[i].setValid(false);
-   }*/
-
-   // Now fix the individual address ledgers
-   ts_saMap::snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::iterator saIter;
-
-   for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
-   {
-      ScrAddrObj addr = (*saIter).second;
-      vector<LedgerEntry> & addrLedg = addr.getTxLedger();
-      for (uint32_t i = 0; i<addrLedg.size(); i++)
-      {
-         HashString const & txHash = addrLedg[i].getTxHash();
-         if (txJustInvalidated.count(txHash) > 0)
-            addrLedg[i].setValid(false);
-      }
-
-      saIter.update(addr);
+      scrAddr.second.updateAfterReorg(lastValidBlockHeight);
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::rescanWalletZeroConf()
+void BtcWallet::scanWalletZeroConf(uint32_t height)
 {
+   /***
+   Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
+   a block height, which should be the current top block.
+   ***/
    SCOPED_TIMER("rescanWalletZeroConf");
-   // Clear the whole list, rebuild
-   clearZeroConfPool();
 
-   const ts_BinDataMap *zeroConfRawTxMap = bdmPtr_->getZeroConfRawTxMap();
-   const ts_ZCMap *zeroConfMap = bdmPtr_->getZeroConfMap();
+   const map<BinaryData, TxIOPair>& ZCtxioMap = bdmPtr_->getZeroConfTxIOMap();
 
-
-   HashString txHash(32);
-   ts_BinDataMap::const_snapshot zcListSS(*zeroConfRawTxMap);
-   ts_ZCMap::const_snapshot zcSS(*zeroConfMap);
-
-   for (ts_BinDataMap::const_iterator iter = zcListSS.begin();
-      iter != zcListSS.end();
-      ++iter)
-   {
-
-      if (iter->second.getSize() == 0)
-         continue;
-
-      ts_ZCMap::const_iterator zcdFR = zcSS.find(iter->first);
-
-      if (zcdFR != zcSS.end())
-      {
-         if (!bdmPtr_->isTxFinal(zcdFR->second.txobj_))
-            continue;
-
-         Tx &tx = const_cast<Tx&>(zcdFR->second.txobj_);
-         scanTx(tx, 0, zcdFR->second.txtime_,
-            UINT32_MAX);
-      }
-   }
-}
-
-uint32_t BtcWallet::evalLowestBlockNextScan(void) const
-{
-   SCOPED_TIMER("evalLowestBlockNextScan");
-
-   uint32_t lowestBlk = UINT32_MAX;
-
-   ts_rsaMap::const_snapshot rsaSnapshot(registeredScrAddrMap_);
-   ts_rsaMap::const_iterator rsaIter;
-
-   for (rsaIter = rsaSnapshot.begin(); rsaIter != rsaSnapshot.end();
-         ++rsaIter)
-   {
-      // If we happen to have any imported addresses, this will set the
-      // lowest block to 0, which will require a full rescan
-      lowestBlk = min(lowestBlk, (*rsaIter).second.alreadyScannedUpToBlk_);
-   }
-   
-   return lowestBlk;
-}
-
-void BtcWallet::saveScrAddrHistories()
-{
-   if (bdmPtr_->config().armoryDbType != ARMORY_DB_BARE)
-   {
-      LOGERR << "Should only use saveScrAddrHistories in ARMORY_DB_BARE mode";
-      LOGERR << "Aborting save operation.";
-      return;
-   }
-
-   InterfaceToLDB* iface = bdmPtr_->getIFace();
-   InterfaceToLDB::Batch batch(iface, BLKDATA);
-
-   ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-   ts_saMap::const_iterator saIter;
-   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
-
-   for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
-   {
-      const ScrAddrObj & scrAddr = (*saIter).second;
-      BinaryData uniqKey = scrAddr.getScrAddr();
-
-      if (rsaSS.find(uniqKey) == rsaSS.end())
-      {
-         LOGERR << "How does the wallet have a non-registered ScrAddr?";
-         LOGERR << uniqKey.toHexStr().c_str();
-         continue;
-      }
-
-      const RegisteredScrAddr & rsa = getRegisteredScrAddr(uniqKey);
-      const vector<TxIOPair*> & txioList = scrAddr.getTxIOList();
-
-      StoredScriptHistory ssh;
-      ssh.uniqueKey_ = scrAddr.getScrAddr();
-      ssh.version_ = ARMORY_DB_VERSION;
-      ssh.alreadyScannedUpToBlk_ = rsa.alreadyScannedUpToBlk_;
-      for (uint32_t t = 0; t<txioList.size(); t++)
-         ssh.insertTxio(bdmPtr_->getIFace(), *txioList[t]);
-
-      iface->putStoredScriptHistory(ssh);
-   }
-
-   LOGINFO << "Saved wallet history to DB";
+   for (auto& scrAddr : scrAddrMap_)
+      scrAddr.second.scanZC(ZCtxioMap, height);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1699,9 +894,6 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
    current top height.
    ***/
 
-   pthread_t thrSelf = pthread_self();
-   threadIDs_.push_back(thrSelf);
-
    if (startBlock == UINT32_MAX)
       startBlock = lastScanned_;
    if (endBlock == UINT32_MAX)
@@ -1709,98 +901,158 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
 
    if (startBlock < endBlock)
    {
-      if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
+      //new top block
+
+      if (lastScanned_ > startBlock)
       {
-         uint32_t scanDBFrom = startBlock;
-
-         if (forceScan)
-         {
-            //reset the wallet block data
-            clearBlkData();
-            updateRegisteredScrAddrs(0);
-            isInitialized_ = false;
-
-            //scan wallets registered scrAddr from block 0
-            scanBlocksAgainstRegisteredScrAddr(0);
-            startBlock = 0;
-            scanDBFrom = 0;
-         }
-
-         if (!isInitialized_)
-         {
-            //look for existing scrAddr data in DB
-            fetchDBRegisteredScrAddrData();
-
-            //then evaluate the lowest unscanned block from the DB scrAddr data
-            scanDBFrom = evalLowestBlockNextScan();
-
-            //take 4 days off for the good measure
-            scanDBFrom = max(0, (int32_t)scanDBFrom - 576);
-
-            isInitialized_ = true;
-         }
-
-
-         if (!forceScan)
-         {
-            if (lastScanned_ > startBlock)
-            {
-               //reorg
-               updateAfterReorg(startBlock);
-            }
-
-            scanBlocksAgainstRegisteredScrAddr(scanDBFrom);
-         }
+         //reorg
+         updateAfterReorg(startBlock);
       }
-      else
-      {
-         fetchDBRegisteredScrAddrData();
-         isInitialized_ = true;
-      }
+         
+      fetchDBScrAddrData(startBlock, endBlock);
+      scanWalletZeroConf(endBlock);
 
-      updateRegisteredScrAddrs(endBlock);
-
-      //scan the registered Tx list for balance and history
-      scanRegisteredTxList(startBlock, endBlock);
-
-      //save scanned scrAddr dat to DB
-      saveScrAddrHistories();
+      updateLedgers(startBlock, endBlock);
 
       lastScanned_ = endBlock;
    }
    else
    {
-      //no new block, only have to check for new ZC
+      //top block didnt change, only have to check for new ZC
       if (bdmPtr_->isZcEnabled())
-         rescanWalletZeroConf();
-   }
-
-   threadIDs_.erase(thrSelf);
-}
-
-void BtcWallet::terminateThreads()
-{
-   while (threadIDs_.size())
-   {
-      LOGINFO << "terminating " << threadIDs_.size() << " threads";
-      ts_threadIDs::const_snapshot thrSS(threadIDs_);
-      ts_threadIDs::const_iterator iter;
-
-      for (iter = thrSS.begin(); iter != thrSS.end(); ++iter)
-      {
-         pthread_cancel(*iter);
-      }
-
-      threadIDs_.clear();
+         scanWalletZeroConf(endBlock);
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::reset()
 {
-   //terminateThreads();
    clearBlkData();
-   updateRegisteredScrAddrs(0);
    isInitialized_ = false;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::purgeZeroConfTxIO(const set<BinaryData>& invalidatedTxIO)
+{
+   for (auto& scrAddr : scrAddrMap_)
+   {
+      scrAddr.second.purgeZC(invalidatedTxIO);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::purgeLedgerFromHeight(uint32_t height)
+{
+   /***
+   Remove all entries starting this height, included.
+   Since ledger entries are always sorted, find the first to >= height and
+   delete everything starting that index
+   ***/
+
+   uint32_t i = 0;
+   for (auto le : ledgerAllAddr_)
+   {
+      if (le.getBlockNum() >= height)
+         break;
+
+      i++;
+   }
+
+   ledgerAllAddr_.erase(ledgerAllAddr_.begin() + i, ledgerAllAddr_.end());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::updateLedgers(uint32_t startBlock, uint32_t endBlock)
+{
+   //nuke every entry from startBlock onwards before adding the freshly updated
+   //ledgers from each scrAddr
+   purgeLedgerFromHeight(startBlock);
+
+   uint32_t zero = 0;
+   BinaryData startHgtX = DBUtils::heightAndDupToHgtx(startBlock, 0);
+   BinaryData endHgtX = DBUtils::heightAndDupToHgtx(endBlock + 1, 0);
+
+   startHgtX.append((uint8_t*)&zero, 4);
+   endHgtX.append((uint8_t*)&zero, 4);
+
+   map<BinaryData, vector<LedgerEntry>> arrangeByHash;
+
+   vector<LedgerEntry>* leVec;
+
+   //arrange scrAddr ledger entries by txHash, within start/endBlock range
+   for (const auto scrAddrPair : scrAddrMap_)
+   {
+      const ScrAddrObj& scrAddr = scrAddrPair.second;
+      const map<BinaryData, LedgerEntry>& saLe = scrAddr.getTxLedger();
+
+      auto leRange = saLe.equal_range(startHgtX);
+      map<BinaryData, LedgerEntry>::const_iterator leIter = leRange.first;
+      
+      while (leIter != saLe.end())
+      {
+         if (leIter->first < endHgtX)
+         {
+            leVec = &arrangeByHash[leIter->second.getTxHash()];
+            leVec->push_back(leIter->second);
+
+            ++leIter;
+         }
+         else break;
+      }
+   }
+
+   //parse ledger entries per txHash
+   int64_t ledgerVal;
+   bool isCoinbase;
+   bool isSendToSelf;
+   uint32_t blockNum;
+   uint32_t txTime;
+
+   for (const auto txHashPair : arrangeByHash)
+   {
+      ledgerVal = 0;
+      isCoinbase = false;
+      isSendToSelf = false;
+
+      auto leIter = txHashPair.second.begin();
+      blockNum = (*leIter).getBlockNum();
+      txTime = (*leIter).getTxTime();
+
+      while (leIter != txHashPair.second.end())
+      {
+         isCoinbase |= (*leIter).isCoinbase();
+
+         ledgerVal += (*leIter).getValue();
+
+         ++leIter;
+      }
+
+      LedgerEntry le(BinaryData(0),
+         ledgerVal,
+         blockNum,
+         txHashPair.first,
+         0,
+         txTime,
+         isCoinbase,
+         isSendToSelf);
+
+      ledgerAllAddr_.push_back(le);
+   }
+
+   sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+LedgerEntry BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) const
+{
+   for (auto& le : ledgerAllAddr_)
+   {
+      if (le.getTxHash() == txHash)
+         return le;
+   }
+
+   return LedgerEntry();
+}
+
 
 // kate: indent-width 3; replace-tabs on;

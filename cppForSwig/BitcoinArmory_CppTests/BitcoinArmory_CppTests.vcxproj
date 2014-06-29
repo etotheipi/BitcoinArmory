@@ -175,6 +175,7 @@
     <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h" />
     <ClInclude Include="..\leveldb_wrapper.h" />
     <ClInclude Include="..\log.h" />
+    <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeContainer.h" />
     <ClInclude Include="..\UniversalTimer.h" />

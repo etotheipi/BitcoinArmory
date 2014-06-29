@@ -87,7 +87,7 @@ public:
       assert(isInitialized_);
       return dataCopy_.getSize();
    }
-   uint32_t        isInitialized(void) const { return isInitialized_; }
+   bool            isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const { return numBlockBytes_; }
    void            setBlockSize(uint32_t sz) { numBlockBytes_ = sz; }
    void            setNumTx(uint32_t ntx) { numTx_ = ntx; }
@@ -279,11 +279,15 @@ public:
    void        unserialize(BinaryDataRef const & bdRef);
 
    void unserialize_swigsafe_(BinaryData const & rawOP) { unserialize(rawOP); }
+   const BinaryDataRef getDBkey(InterfaceToLDB* db=nullptr) const;
 
 private:
    BinaryData txHash_;
    uint32_t   txOutIndex_;
 
+   //this member isn't set by ctor, but processed after the first call to
+   //get DBKey
+   mutable BinaryData DBkey_;
 };
 
 
@@ -580,6 +584,9 @@ public:
       return false;
    }
 
+   void setTxTime(uint32_t txtime) { txTime_ = txtime; }
+   uint32_t getTxTime(void) const { return txTime_; }
+
 private:
    // Full copy of the serialized tx
    BinaryData    dataCopy_;
@@ -598,6 +605,8 @@ private:
    // To be calculated later
    //BlockHeader*  headerPtr_;
    TxRef         txRefObj_;
+
+   uint32_t      txTime_;
 };
 
 
@@ -646,8 +655,6 @@ public:
    void      setValue(uint64_t newVal) { amount_ = newVal;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOutCopy(indexOfOutputZC_);}
-   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxInCopy(indexOfInputZC_);}
    TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
    TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
    uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
@@ -661,6 +668,8 @@ public:
    void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
    bool  isMultisig(void) const { return isMultisig_; }
    void setMultisig(bool isTrue=true) { isMultisig_ = isTrue; }
+   bool isIndexedByTxIn(void) const { return indexedByTxIn_; }
+   void setIndexedByTxIn(bool isTrue = true) { indexedByTxIn_ = isTrue; }
 
    BinaryData getDBKeyOfOutput(void) const
                { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
@@ -670,6 +679,12 @@ public:
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(InterfaceToLDB *db) const;
    BinaryData    getTxHashOfOutput(InterfaceToLDB *db) const;
+
+   void setTxHashOfInput(const BinaryData& txHash)
+   { txHashOfInput_ = txHash; }
+   void setTxHashOfOutput(const BinaryData& txHash)
+   { txHashOfOutput_ = txHash; }
+
    TxOut getTxOutCopy(InterfaceToLDB *db) const;
    TxIn getTxInCopy(InterfaceToLDB *db) const;
 
@@ -677,8 +692,6 @@ public:
    bool setTxIn   (BinaryData dbKey8B);
    bool setTxOut  (TxRef  txref, uint32_t index);
    bool setTxOut  (BinaryData dbKey8B);
-   bool setTxInZC (InterfaceToLDB *db, Tx*    tx,    uint32_t index);
-   bool setTxOutZC(InterfaceToLDB *db, Tx*    tx,    uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
@@ -693,13 +706,20 @@ public:
       InterfaceToLDB *db,
       uint32_t currBlk, bool includeAllZeroConf=false
    ) const;
-   void clearZCFields(void);
    void pprintOneLine(InterfaceToLDB *db) const;
 
    bool operator<(TxIOPair const & t2)
       { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
    bool operator==(TxIOPair const & t2)
       { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
+
+   BinaryDataRef getZCscrAddr(void) const
+   { return ZCscrAddr_; }
+   void setZCscrAddr(const BinaryData& scrAddr)
+   { ZCscrAddr_ = scrAddr; }
+
+   void setTxTime(uint32_t t) { txtime_ = t; }
+   uint32_t getTxTime(void) const { return txtime_; }
 
 private:
    uint64_t  amount_;
@@ -709,15 +729,22 @@ private:
    TxRef     txRefOfInput_;
    uint32_t  indexOfInput_;
 
-   // Zero-conf data isn't on disk, yet, so can't use TxRef
-   Tx*       txOfOutputZC_;
-   uint32_t  indexOfOutputZC_;
-   Tx*       txOfInputZC_;
-   uint32_t  indexOfInputZC_;
+   mutable BinaryData txHashOfOutput_;
+   mutable BinaryData txHashOfInput_;
 
+   // Zero-conf data isn't on disk, yet, so can't use TxRef
    bool      isTxOutFromSelf_;
    bool      isFromCoinbase_;
    bool      isMultisig_;
+
+   //for serialize/unserialize purposes, ignore otherwise
+   bool      indexedByTxIn_;
+
+   //for ZC preprocessing
+   BinaryData ZCscrAddr_;
+
+   //for ZC ledgers
+   uint32_t txtime_;
 };
 
 
@@ -858,7 +885,6 @@ public:
    uint32_t          blkCreated_;
    uint32_t          alreadyScannedUpToBlk_;
 };
-
 
 
 ////////////////////////////////////////////////////////////////////////////////

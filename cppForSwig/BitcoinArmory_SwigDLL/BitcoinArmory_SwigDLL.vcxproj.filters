@@ -84,6 +84,12 @@
     <ClInclude Include="..\ThreadSafeContainer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\LedgerEntry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ScrAddrObj.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">

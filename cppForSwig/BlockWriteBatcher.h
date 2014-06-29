@@ -3,6 +3,7 @@
 
 #include "BinaryData.h"
 #include "BlockObj.h"
+#include "BlockUtils.h"
 
 class StoredHeader;
 class StoredUndoData;
@@ -22,9 +23,14 @@ public:
    BlockWriteBatcher(const BlockDataManagerConfig &config, InterfaceToLDB* iface);
    ~BlockWriteBatcher();
    
-   void applyBlockToDB(StoredHeader &sbh);
-   void applyBlockToDB(uint32_t hgt, uint8_t dup);
-   void undoBlockFromDB(StoredUndoData &sud);
+   void applyBlockToDB(StoredHeader &sbh,
+      ScrAddrScanData* scrAddrData);
+   void applyBlockToDB(uint32_t hgt, uint8_t dup,
+      ScrAddrScanData* scrAddrData);
+   void undoBlockFromDB(StoredUndoData &sud, 
+                        ScrAddrScanData* scrAddrData);
+
+   void preloadSSH(InterfaceToLDB *db, const ScrAddrScanData& sasd);
 
 private:
    // We have accumulated enough data, actually write it to the db
@@ -36,7 +42,8 @@ private:
    
    bool applyTxToBatchWriteData(
                            StoredTx &       thisSTX,
-                           StoredUndoData * sud);
+                           StoredUndoData * sud,
+                           ScrAddrScanData* scrAddrMap);
 private:
    const BlockDataManagerConfig &config_;
    InterfaceToLDB* const iface_;
