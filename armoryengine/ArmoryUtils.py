@@ -50,7 +50,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  99, 7)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  99, 8)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -1155,9 +1155,13 @@ def GetExecDir():
    if OS_WINDOWS and srcpath.endswith('.zip'):
       srcpath = os.path.dirname(srcpath)
 
+   # Right now we are at the armoryengine dir... walk up one more
+   srcpath = os.path.dirname(srcpath)
+
+   LOGINFO('Determined that execution dir is: %s' % srcpath)
    if not os.path.exists(srcpath):
-      LOGERROR('Determined that exec dir is %s but it does not exist' % srcpath)
-      return None
+      LOGERROR('Exec dir %s does not exist!' % srcpath)
+      LOGERROR('Continuing anyway...' % srcpath)
 
    return srcpath
 

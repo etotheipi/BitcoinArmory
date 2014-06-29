@@ -872,11 +872,12 @@ class ArmoryMainWindow(QMainWindow):
       """
       This method checks for any .py files in the exec directory
       """ 
-      moduleDir = os.path.join(GetExecDir(), '../modules')
-      LOGWARN('Attempting to load modules from: %s' % moduleDir)
-      if not os.path.exists(moduleDir):
+      moduleDir = os.path.join(GetExecDir(), 'modules')
+      print moduleDir, os.path.exists(moduleDir)
+      if not moduleDir or os.path.exists(moduleDir):
          return
 
+      LOGWARN('Attempting to load modules from: %s' % moduleDir)
 
       from dynamicImport import getModuleList, dynamicImport
 
@@ -2235,7 +2236,7 @@ class ArmoryMainWindow(QMainWindow):
       # If it's still not there, look for a default file
       if self.announceFetcher.getFileModTime('bootstrap') == 0:
          LOGERROR('Could not get announce bootstrap; using default')
-         srcTorrent = os.path.join(GetExecDir(), '../default_bootstrap.torrent')
+         srcTorrent = os.path.join(GetExecDir(), 'default_bootstrap.torrent')
       else:
          srcTorrent = self.announceFetcher.getAnnounceFilePath('bootstrap')
 

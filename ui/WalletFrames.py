@@ -682,19 +682,12 @@ class WalletBackupFrame(ArmoryFrame):
          is included in all backups.   Therefore, all addresses that you have
          generated so far <b>and</b> will ever generate with this wallet, are
          protected by this backup! """))
-      if not self.hasImportedAddr:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
+         <i>This wallet <u>does not</u> currently have any imported
+         addresses, so you can safely ignore this feature!</i>.
+         When imported addresses are present, backups only protects those
+         imported before the backup was made!  You must replace that
+         backup if you import more addresses! """))
       self.featuresTips[F.LostPass] = self.main.createToolTipWidget(tr("""
          Lost/forgotten passphrases are, <b>by far</b>, the most common
          reason for users losing bitcoins.  It is critical you have
@@ -785,19 +778,14 @@ class WalletBackupFrame(ArmoryFrame):
       pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
       self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
          'Protects Imported Addresses'), color=pcolor)
-      if not self.hasImportedAddr:
-         self.featuresTips[self.FEATURES.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[self.FEATURES.ProtImport] = self.main.createToolTipWidget(tr("""
+
+      if self.hasImportedAddr:
+         self.featuresTips[self.FEATURES.ProtImport].setToolTip(tr("""
             When imported addresses are present, backups only protects those
             imported before the backup was made!  You must replace that
             backup if you import more addresses!
             <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+
       self.lblTitle.setText(tr("""
          <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
 
