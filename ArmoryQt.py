@@ -874,7 +874,7 @@ class ArmoryMainWindow(QMainWindow):
       """ 
       moduleDir = os.path.join(GetExecDir(), 'modules')
       print moduleDir, os.path.exists(moduleDir)
-      if not moduleDir or os.path.exists(moduleDir):
+      if not moduleDir or not os.path.exists(moduleDir):
          return
 
       LOGWARN('Attempting to load modules from: %s' % moduleDir)
