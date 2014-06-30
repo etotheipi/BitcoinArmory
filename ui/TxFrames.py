@@ -604,6 +604,15 @@ class SendBitcoinsFrame(ArmoryFrame):
                                              len(scriptValPairs))[1]
 
 
+      if minFee > 99*MIN_RELAY_TX_FEE:
+         QMessageBox.critical(self, tr('Minimum Transaction Fee Is Too Large'), tr("""
+            The minimum fee for this transaction is <b>%s BTC</b>. That fee is too
+            large and indicates that there are probably too many small inputs to fit
+            into a single transaction. To send these Bitcoins, this transaction must
+            be broken up into to smaller pieces.            
+            """) % coin2strNZS(minFee), QMessageBox.Ok)
+         return False
+         
       # We now have a min-fee that we know we can match if the user agrees
       if fee < minFee:
 
@@ -653,7 +662,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             <br><br>
             If you do not want this fee, click "No" and then change the fee
             at the bottom of the "Send Bitcoins" window before trying 
-            again.""") % (fee, minFee), QMessageBox.Yes | QMessageBox.No)
+            again.""") % (coin2strNZS(fee), coin2strNZS(minFee)), QMessageBox.Yes | QMessageBox.No)
 
          if not reply==QMessageBox.Yes:
             return False
