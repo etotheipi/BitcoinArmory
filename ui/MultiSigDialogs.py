@@ -685,51 +685,11 @@ class DlgLockboxManager(ArmoryDialog):
 
       self.txtLockboxInfo = QTextEdit()
       self.txtLockboxInfo.acceptRichText()
-      self.txtLockboxInfo.setStyleSheet('QTextEdit { background-color : %s }' % htmlColor('SlightBkgdLight'))
+      self.txtLockboxInfo.setStyleSheet('QTextEdit { background-color : %s }' %\
+                                                 htmlColor('SlightBkgdLight'))
       self.txtLockboxInfo.setReadOnly(True)
       self.txtLockboxInfo.setFont(GETFONT('Fixed', 9))
 
-
-      """
-      self.btnCreate = QPushButton(tr('Create New'))
-      self.btnImport = QPushButton(tr('Import New'))
-      self.btnEdit   = QPushButton(tr('Edit'))
-      self.btnExport = QPushButton(tr('Export'))
-      self.btnDelete = QPushButton(tr('Remove'))
-      self.btnFundIt = QPushButton(tr('Deposit Funds'))
-      self.btnSimul  = QPushButton(tr('Simulfunding'))
-      self.btnSpend  = QPushButton(tr('Spend Funds'))
-
-      self.connect(self.btnCreate,   SIGNAL('clicked()'), self.doCreate)
-      self.connect(self.btnImport,   SIGNAL('clicked()'), self.doImport)
-      self.connect(self.btnEdit,     SIGNAL('clicked()'), self.doEdit)
-      self.connect(self.btnExport,   SIGNAL('clicked()'), self.doExport)
-      self.connect(self.btnDelete,   SIGNAL('clicked()'), self.doDelete)
-      self.connect(self.btnFundIt,   SIGNAL('clicked()'), self.doFundIt)
-      self.connect(self.btnSimul,    SIGNAL('clicked()'), self.doSimul)
-      self.connect(self.btnSpend,    SIGNAL('clicked()'), self.doSpend)
-      
-      frmManageBtns = makeVertFrame([ 'Stretch',
-                                      QRichLabel(tr('<b>Create:</b>')),
-                                      self.btnCreate, 
-                                      self.btnImport,
-                                      'Space(10)',
-                                      QRichLabel(tr('<b>Selected:</b>')),
-                                      self.btnEdit,
-                                      self.btnExport,
-                                      self.btnDelete,
-                                      'Space(10)',
-                                      self.btnFundIt,
-                                      self.btnSimul,
-                                      self.btnSpend,
-                                      'Stretch'])
-
-      if not TheBDM.getBDMState()=='BlockchainReady':
-         self.btnSpend.setDisabled(True)
-         self.btnFundIt.setDisabled(True)
-            
-      frmManageBtns.layout().setSpacing(2)
-      """
 
       lbGuideURL = "https://bitcoinarmory.com/about/using-lockboxes/"
       lblLinkToMSWebpage = QRichLabel(tr("""Consult our 
@@ -929,24 +889,24 @@ class DlgLockboxManager(ArmoryDialog):
                'select':  tr('Select lockbox to edit'),
                'offline': None},
 
-         'RegFund':    { \
-               'button':  tr('Fund Lockbox'),
-               'callbk':  self.doFundIt,
-               'organiz': False,
-               'lbltxt':  tr('Fund selected lockbox from any wallet'),
-               'tiptxt':  tr("""If you would like to fund this lockbox
-                                from another lockbox, select the funding 
-                                lockbox in the table and click the
-                                "Create Spending Tx" button.  Use the 
-                                address book to select this lockbox as the
-                                recipient of that transaction. 
-                                <br><br> 
-                                If multiple people will be funding
-                                this lockbox and not all of them are fully 
-                                trusted, click the "Simul" checkbox on the 
-                                left to see the "simulfunding" options."""),
-               'select':  tr('Select a lockbox to fund<br>'),
-               'offline': tr('Must be online to fund<br>')},
+         #'RegFund':    { \
+               #'button':  tr('Fund Lockbox'),
+               #'callbk':  self.doFundIt,
+               #'organiz': False,
+               #'lbltxt':  tr('Fund selected lockbox from any wallet'),
+               #'tiptxt':  tr("""If you would like to fund this lockbox
+                                #from another lockbox, select the funding 
+                                #lockbox in the table and click the
+                                #"Create Spending Tx" button.  Use the 
+                                #address book to select this lockbox as the
+                                #recipient of that transaction. 
+                                #<br><br> 
+                                #If multiple people will be funding
+                                #this lockbox and not all of them are fully 
+                                #trusted, click the "Simul" checkbox on the 
+                                #left to see the simulfunding options."""),
+               #'select':  tr('Select a lockbox to fund<br>'),
+               #'offline': tr('Must be online to fund<br>')},
                # Added <br> to the labels to force to be two lines... this
                # is a hack to make sure that the row inits to a reasonable
                # size on open
@@ -1031,9 +991,9 @@ class DlgLockboxManager(ArmoryDialog):
 
       ttipSimulTxt = tr("""
          If this lockbox will be funded by multiple parties and not all
-         parties are 100% trusted, then you should use "simulfunding" to
-         make sure that all funds are committed at the same time.  Check
-         the "Simul" box to show the simulfunding options on in the table.""")
+         parties are fully trusted, use "simulfunding" to ensure that funds 
+         are committed at the same time.  Check the "Simul" box to show 
+         simulfunding options in the table.""")
       ttipSimulA = self.main.createToolTipWidget(ttipSimulTxt)
       ttipSimulB = self.main.createToolTipWidget(ttipSimulTxt)
          
@@ -1168,6 +1128,93 @@ class DlgLockboxManager(ArmoryDialog):
          frmCell.setMinimumHeight(5.5*h)
 
          return frmCell
+
+
+      ##### REGULAR FUNDING - Special Cell ####
+      # This FUND row for regular funding will be totally unlike the others
+      # Create it here instead of with the the createCell() function
+      self.lblDispAddr = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
+      self.lblDispAddr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                               Qt.TextSelectableByKeyboard)
+      self.btnFundRegular = QPushButton(tr('Fund from Wallet'))
+      self.btnQRCodeDisp  = QPushButton(tr('QR Code'))
+      self.btnFundRequest = QPushButton(tr('Request Payment'))
+      self.btnCopyClip = QPushButton(tr('Copy Address'))
+
+      def funcCopyClip():  
+         lbox = self.getSelectedLockbox()
+         if not lbox:
+            return
+         self.btnCopyClip.setText('Copied!')
+         clipb = QApplication.clipboard()
+         clipb.clear()
+         clipb.setText(scrAddr_to_addrStr(lbox.p2shScrAddr))
+         from twisted.internet import reactor
+         reactor.callLater(1, lambda: self.btnCopyClip.setText('Copy Address'))
+
+      def funcReqPayment():  
+         lbox = self.getSelectedLockbox()
+         if not lbox:
+            return
+         p2shAddr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+         DlgRequestPayment(self, self.main, p2shAddr).exec_()
+
+      def funcQRCode():
+         lbox = self.getSelectedLockbox()
+         if not lbox:
+            return
+         p2shAddr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+         lboxDisp = 'Lockbox %d-of-%d: "%s" (%s)' % (lbox.M, lbox.N, 
+                           lbox.shortName, lbox.uniqueIDB58)
+         DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, lboxDisp).exec_()
+
+      self.connect(self.btnCopyClip,    SIGNAL('clicked()'), funcCopyClip)
+      self.connect(self.btnQRCodeDisp,  SIGNAL('clicked()'), funcQRCode)
+      self.connect(self.btnFundRequest, SIGNAL('clicked()'), funcReqPayment)
+      self.connect(self.btnFundRegular, SIGNAL('clicked()'), self.doFundIt)
+
+      def updateRegFundCell(hasSelect, isOnline):
+         lbox = self.getSelectedLockbox()
+         self.btnCopyClip.setText(tr('Copy Address'))
+         if not hasSelect or not lbox:
+            self.btnQRCodeDisp.setEnabled(False)
+            self.btnFundRegular.setEnabled(False)
+            self.btnFundRequest.setEnabled(False)
+            self.btnCopyClip.setEnabled(False)
+            self.lblDispAddr.setEnabled(False)
+            self.lblDispAddr.setText('No lockbox selected')
+         else:
+            p2shAddr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+            self.btnFundRegular.setEnabled(isOnline)
+            self.btnQRCodeDisp.setEnabled(True)
+            self.btnFundRequest.setEnabled(True)
+            self.btnCopyClip.setEnabled(True)
+            self.lblDispAddr.setEnabled(True)
+            self.lblDispAddr.setText(tr("""
+               Anyone can send funds to this lockbox using this
+               Bitcoin address: <br><b>%s</b>""") % p2shAddr)
+
+      self.updateDashFuncs.append(updateRegFundCell)
+
+      layoutFundRow = QGridLayout()
+      layoutFundRow.addWidget( self.btnFundRegular,  0,2)
+      layoutFundRow.addWidget( self.btnQRCodeDisp,   0,3)
+      layoutFundRow.addWidget( self.btnFundRequest,  0,4)
+      layoutFundRow.addWidget( self.btnCopyClip,     0,5)
+      layoutFundRow.addWidget( self.lblDispAddr,     1,1, 1,6)
+      layoutFundRow.setColumnStretch(0, 1)
+      layoutFundRow.setColumnStretch(1, 1)
+      layoutFundRow.setColumnStretch(2, 0)
+      layoutFundRow.setColumnStretch(3, 0)
+      layoutFundRow.setColumnStretch(4, 0)
+      layoutFundRow.setColumnStretch(5, 0)
+      layoutFundRow.setColumnStretch(6, 1)
+      layoutFundRow.setColumnStretch(7, 1)
+      frmFundRegCell = QFrame()
+      frmFundRegCell.setLayout(layoutFundRow)
+      frmFundRegCell.setFrameStyle(STYLE_RAISED)
+
+      ##### REGULAR FUNDING - Special Cell ####
             
 
       # First frame is for regular funding.  Switch to frmMulti if chkSimulfundA
@@ -1175,7 +1222,7 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout = QGridLayout()
 
       firstRow  = createCell(0, ['CreateLB', 'SelectKey', 'ExportLB', 'ImportLB'], HORIZONTAL)
-      secondRow = createCell(0, ['RegFund'], HORIZONTAL)
+      #secondRow = createCell(0, ['RegFund'], HORIZONTAL)
       thirdRow  = createCell(0, ['CreateTx', 'RevSign', 'MergeSigs'], HORIZONTAL)
 
       frmSingleLayout.addWidget(createHeaderCell('CREATE'),    0,0)
@@ -1183,7 +1230,7 @@ class DlgLockboxManager(ArmoryDialog):
 
       frmSingleLayout.addWidget(createHeaderCell('FUND', 
                             [self.chkSimulfundA, ttipSimulA]), 1,0)
-      frmSingleLayout.addWidget(secondRow,                     1,1,  1,3)
+      frmSingleLayout.addWidget(frmFundRegCell,                   1,1,  1,3)
 
       frmSingleLayout.addWidget(createHeaderCell('SPEND'),     2,0)
       frmSingleLayout.addWidget(thirdRow,                      2,1,  1,3)
@@ -2962,11 +3009,6 @@ class DlgMultiSpendReview(ArmoryDialog):
 
    def doBroadcast(self):
       finalTx = self.ustx.getSignedPyTx(doVerifySigs=True)
-      print "TXIN BINSCRIPT: " + ph(finalTx.inputs[0].binScript)
-      print "PPRINTHEX----------------------------------"
-      finalTx.pprintHex()
-      print "PPRINT-------------------------------------------"
-      finalTx.pprint()
       if not finalTx:
          self.ustx.evaluateSigningStatus().pprint()
          QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
@@ -2983,10 +3025,12 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
       try:
-         self.parent.tabbedDisplay.setCurrentIndex(1)
+         self.parent.tabbedDisplay.setCurrentIndex(2)
       except:
-         #LOGEXCEPT('Failed to switch parent tabs')
-         pass
+         try:
+            self.parent.parent.tabbedDisplay.setCurrentIndex(2)
+         except:
+            pass
       self.accept()
          
 

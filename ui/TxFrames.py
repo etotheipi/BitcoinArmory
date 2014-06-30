@@ -707,8 +707,6 @@ class SendBitcoinsFrame(ArmoryFrame):
             ustx.ustxInputs[i].contribID = self.lbox.uniqueIDB58
 
          for i in range(len(ustx.decorTxOuts)):
-            print binary_to_hex(ustx.decorTxOuts[i].binScript)
-            print binary_to_hex(self.lbox.binScript)
             if ustx.decorTxOuts[i].binScript == self.lbox.binScript:
                ustx.decorTxOuts[i].contribID = self.lbox.uniqueIDB58
 
@@ -1766,7 +1764,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       if not self.fileLoaded == None and self.enoughSigs and self.sigsValid:
          newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
-         print newSaveFile
+         LOGINFO('New save file: %s' % newSaveFile)
          f = open(newSaveFile, 'w')
          f.write(str(self.txtUSTX.toPlainText()))
          f.close()
@@ -1816,12 +1814,10 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       if len(str(filename)) > 0:
          LOGINFO('Selected transaction file to load: %s', filename)
-         print filename
          f = open(filename, 'r')
          self.txtUSTX.setText(f.read())
          f.close()
          self.fileLoaded = filename
-         print self.fileLoaded
 
 
    def copyTx(self):
