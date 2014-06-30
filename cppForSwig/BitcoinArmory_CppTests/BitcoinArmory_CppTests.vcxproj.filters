@@ -54,6 +54,9 @@
     <ClInclude Include="..\ScrAddrObj.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Blockchain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">

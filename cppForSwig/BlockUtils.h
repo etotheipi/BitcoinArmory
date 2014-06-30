@@ -164,6 +164,7 @@ private:
 
 public:
    ScrAddrScanData(BlockDataManager_LevelDB* bdmPtr) :
+      bdmPtr_(bdmPtr),
       blockHeightCutOff_(0),
       mergeLock_(0),
       mergeFlag_(false)
@@ -274,7 +275,6 @@ public:
    { scrAddrMap_[scrAddr] = ScrAddrMeta(scanFrom, wltPtr); }
 
    void scanScrAddrMapInNewThread(void);
-   void addrIsReady(const ScrAddrObj& sa, BtcWallet* wltPtr);
 
    BlockDataManager_LevelDB* getBDM(void) const { return bdmPtr_; }
 

@@ -185,6 +185,7 @@ public:
    void preloadScrAddr(const BinaryData& scrAddr);
 
    void merge(void);
+   bool getMergeFlag(void) { return mergeFlag_; }
 
 private:
    const vector<LedgerEntry>& getEmptyLedger(void) 

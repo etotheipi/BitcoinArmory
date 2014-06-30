@@ -929,6 +929,8 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::reset()
 {
+   merge();
+
    clearBlkData();
    isInitialized_ = false;
 }

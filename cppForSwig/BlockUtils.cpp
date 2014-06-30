@@ -2963,17 +2963,21 @@ void ScrAddrScanData::setSSHLastScanned(InterfaceToLDB* db, uint32_t height)
 ///////////////////////////////////////////////////////////////////////////////
 bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 {
+   /***
+   Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
+   in which case wltPtr will be called back with the address once it is ready
+   ***/
    const BinaryData& scrAddr = sa.getScrAddr();
 
    //check if the BDM is initialized. There ought to be a better way than
    //checking the top block
-   if (bdmPtr_->getTopBlockHeight() != 0)
+   if (bdmPtr_->blockchain().numHeaders() != 0)
    {
       //BDM is initialized and maintenance thread is running, check mode
       if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
       {
-         //super node, nothing to do, signal the wallet that its scrAddr is ready
-         addrIsReady(sa, wltPtr);
+         //supernode: nothing to do, signal the wallet that its scrAddr is ready
+         wltPtr->preloadScrAddr(scrAddr);
 
          return false;
       }
@@ -2985,10 +2989,12 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
       db->getStoredScriptHistorySummary(ssh, scrAddr);
 
       uint32_t startBlock = max(sa.getFirstBlockNum(), ssh.alreadyScannedUpToBlk_);
-      ScrAddrScanData sca(bdmPtr_);
-      sca.setParent(this);
-      sca.regScrAddrForScan(scrAddr, startBlock, wltPtr);
-      sca.scanScrAddrMapInNewThread();
+      ScrAddrScanData* sca = new ScrAddrScanData(bdmPtr_);
+      sca->setParent(this);
+      sca->regScrAddrForScan(scrAddr, startBlock, wltPtr);
+      sca->scanScrAddrMapInNewThread();
+
+      return false;
    }
    else
    {
@@ -3032,6 +3038,9 @@ void* scanScrAddrThread(void *in)
       if (bdmPtr->hasWallet(wltPtr))
          wltPtr->preloadScrAddr(scrAddrPair.first);
    }
+
+   //clean up
+   delete sasd;
 
    return 0;
 }

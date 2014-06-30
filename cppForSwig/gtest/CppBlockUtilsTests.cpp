@@ -6655,7 +6655,12 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
+   //post initial load address registration
    wlt.addScrAddress(scrAddrD_);
+
+   //wait on the address scan
+   while (wlt.getMergeFlag() == false)
+      Sleep(100);
 
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6664,7 +6669,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
-   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   EXPECT_EQ(scrobj,  nullptr);
 
    ///////////////////////////////////////////
    TheBDM.doFullRescanRegardlessOfSync([] (double,unsigned) {});
@@ -6711,6 +6716,10 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    wlt.addScrAddress(scrAddrD_);
 
+   //wait on the address scan
+   while (wlt.getMergeFlag() == false)
+      Sleep(100);
+
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
    scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
@@ -6718,7 +6727,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt.getScrAddrObjByKey(scrAddrD_);
-   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   EXPECT_EQ(scrobj, nullptr);
 
    ///////////////////////////////////////////
    TheBDM.doSyncIfNeeded([] (double,unsigned) {});
@@ -6738,8 +6747,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    ///////////////////////////////////////////
    TheBDM.doSyncIfNeeded([] (double,unsigned) {});
    ///////////////////////////////////////////
-
-   //TheBDM.scanBlockchainForTx(wlt);
 
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
