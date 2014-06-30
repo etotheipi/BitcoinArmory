@@ -10,7 +10,6 @@ import unittest
 
 sys.argv.append('--nologging')
 sys.argv.append('--testnet')
-sys.path.append('..')
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon, AmountToJSON
@@ -62,6 +61,7 @@ class ArmoryDTest(unittest.TestCase):
    def setUpClass(self):
       # This is not a UI so no need to worry about the main thread being blocked.
       # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
+      TheBDM.Reset()
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(True)
       while not TheBDM.getBDMState()=='BlockchainReady':
@@ -98,9 +98,9 @@ class ArmoryDTest(unittest.TestCase):
 
    # Can't test with actual transactions in this environment. See ARMORY-34.
    # This wallet has no txs
-   def testListunspent(self):
-      actualResult = self.jsonServer.jsonrpc_listunspent()
-      self.assertEqual(actualResult, [])
+   # def testListunspent(self):
+   #    actualResult = self.jsonServer.jsonrpc_listunspent()
+   #    self.assertEqual(actualResult, [])
       
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)

@@ -4,7 +4,8 @@ import sys
 import time
 import unittest
 
-sys.path.append('..')
+sys.argv.append('--nologging')
+sys.argv.append('--testnet')
 
 from armoryengine.ALL import *
 from announcefetch import AnnounceDataFetcher

@@ -151,6 +151,7 @@ class ArmoryMainWindow(QMainWindow):
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
       self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
+      self.connect(self, SIGNAL('checkForkedImports'), self.checkForkedImports)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -1669,7 +1670,7 @@ class ArmoryMainWindow(QMainWindow):
          maxExclude = maxVerStr.startswith('<')
          maxVerStr  = maxVerStr[1:] if maxExclude else maxVerStr
          maxVerInt  = getVersionInt(readVersionString(maxVerStr))
-         minVerInt -= 1 if gtstrict else 0
+         maxVerInt -= 1 if maxExclude else 0
          if thisVerInt > maxVerInt:
             return False
       except:
@@ -2529,8 +2530,8 @@ class ArmoryMainWindow(QMainWindow):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
          
-         for wltID in self.walletMap.iterkeys():
-            TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
+         #for wltID in self.walletMap.iterkeys():
+          #  TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
@@ -6177,6 +6178,18 @@ class ArmoryMainWindow(QMainWindow):
          toInit.status = 1
 
    #############################################################################
+   def checkForkedImports(self):
+      
+      forkedImports = []
+      
+      for wlt in self.walletMap:
+         if self.walletMap[wlt].hasForkedImports:
+            forkedImports.append(self.walletMap[wlt].uniqueIDB58)
+            
+      if len(forkedImports):
+         DlgForkedImports(forkedImports, self, self).show()            
+      
+   #############################################################################
    @AllowAsync
    def CheckWalletConsistency(self, wallets, prgAt=None):
 
@@ -6193,6 +6206,7 @@ class ArmoryMainWindow(QMainWindow):
       i=0
       dlgrdy = [0]
       nerrors = 0
+
       for wlt in wallets:
          if prgAt:
             prgAt[0] = i
@@ -6201,7 +6215,7 @@ class ArmoryMainWindow(QMainWindow):
             i = f +i
 
          self.wltCstStatus = WalletConsistencyCheck(wallets[wlt], prgAt)
-         if self.wltCstStatus != 0:
+         if self.wltCstStatus != 0 and (not isinstance(self.wltCstStatus, dict) or self.wltCstStatus['nErrors'] != 0):
             self.WltCstError(wallets[wlt], self.wltCstStatus, dlgrdy)
             while not dlgrdy[0]:
                time.sleep(0.01)
@@ -6217,12 +6231,13 @@ class ArmoryMainWindow(QMainWindow):
          time.sleep(0.1)
       if nerrors == 0:
          self.emit(SIGNAL('UWCS'), [1, 'No Wallet Error Found', 10000, dlgrdy])
+         self.emit(SIGNAL('checkForkedImports'))
       else:
          while not dlgrdy:
             self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
             time.sleep(1)
 
-         #make sure nothing is running right before forcing the fix your wallet dialog up
+         #make sure nothing is running right before forcing the 'fix your wallet' dialog up
          self.checkRdyForFix()
 
    def checkRdyForFix(self):

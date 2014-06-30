@@ -12,6 +12,9 @@ def execAndWait(cli_str, timeout=0, usepipes=True):
    would've been more appropriate.  But I didn't know about check_output at 
    the time...
    """
+   if isinstance(cli_str, (list, tuple)):
+      cli_str = ' '.join(cli_str)
+   print 'Executing:', '"' + cli_str + '"'
    if usepipes:
       process = Popen(cli_str, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
    else:
