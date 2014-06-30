@@ -528,31 +528,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   break
             targAddr160 = recipVals[0][0]
             changeAddr160 = ''
-            
-
-         # We always add one entry for the total balance diff on outgoing tx
-         if totalBalDiff<-feeCoin:
-            category = 'send'
-            amt =  AmountToJSON(le.getValue()+feeCoin)
-            fee = -AmountToJSON(feeCoin)
-            tx_info = {
-                        "account" :        "",
-                        "address" :        hash160_to_addrStr(targAddr160),
-                        "category" :       category,
-                        "amount" :         amt,
-                        "fee" :            fee,
-                        "confirmations" :  nconf,
-                        "blockhash" :      blockHash,
-                        "blockindex" :     blockIndex,
-                        "blocktime" :      blockTime,
-                        "txid" :           txHashHex,
-                        "time" :           blockTime,
-                        "timereceived" :   blockTime 
-                     }
-            final_tx_list.append(tx_info)
-
-
-
 
          for a160,val in recipVals:
             # Change outputs have already been removed
