@@ -873,6 +873,7 @@ class ArmoryMainWindow(QMainWindow):
       This method checks for any .py files in the exec directory
       """ 
       moduleDir = os.path.join(GetExecDir(), 'modules')
+      #print moduleDir, os.path.exists(moduleDir)
       if not moduleDir or not os.path.exists(moduleDir):
          return
 

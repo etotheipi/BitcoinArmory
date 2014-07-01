@@ -5862,7 +5862,7 @@ def extractTxInfo(pytx, rcvTime=None):
                txinFromList[-1].append(prevTxOut.getScript())
             else:
                LOGERROR('How did we get a bad parent pointer? (extractTxInfo)')
-               prevTxOut.pprint()
+               #prevTxOut.pprint()
                txinFromList[-1].append('')
                txinFromList[-1].append('')
                txinFromList[-1].append('')
