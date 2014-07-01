@@ -2415,7 +2415,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          required signatures for the tx to be valid.  White
          means it has not yet been signed, and cannot be signed by you.  Green
          represents signatures that can be added by one of your wallets.
-         Gray keyholes are already signed.Untitled
+         Gray keyholes are already signed.
          <br><br>
          Change outputs have been hidden where it is obvious (such as coins
          returning to the same lockbox from where it came).  If there is 
