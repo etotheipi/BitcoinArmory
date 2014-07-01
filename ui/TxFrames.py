@@ -736,7 +736,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          ustx = UnsignedTransaction().createFromTxOutSelection( \
                                        utxoSelect, scriptValPairs, pubKeyMap)
 
-      ustx.pprint()
+      #ustx.pprint()
 
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
@@ -830,7 +830,6 @@ class SendBitcoinsFrame(ArmoryFrame):
                # Trying to avoid a swig bug involving iteration over vector<> types
                utxos = self.wlt.getAddrTxOutList(a160)
                for i in range(len(utxos)):
-                  utxos[i].pprintOneLine(290000)
                   utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
             return utxoList
       else:
@@ -845,7 +844,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             script = self.lbox.binScript
             pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i], script)
             pyUtxoList.append( pyUtxo)
-            pyUtxoList[-1].pprint()
+            #pyUtxoList[-1].pprint()
          return pyUtxoList
 
 
@@ -1116,6 +1115,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.lblChangeAddr.setVisible(b)
       self.edtChangeAddr.setVisible(b)
       self.btnChangeAddr.setVisible(b)
+      self.lblAutoDetect.setVisible(b)
 
    #############################################################################
    def toggleChngAddr(self, b):
@@ -1124,6 +1124,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.ttipFeedback.setVisible(b)
       self.ttipSpecify.setVisible(b)
       self.chkRememberChng.setVisible(b)
+      self.lblAutoDetect.setVisible(b)
       self.vertLine.setVisible(b)
       if not self.radioFeedback.isChecked() and not self.radioSpecify.isChecked():
          self.radioFeedback.setChecked(True)
