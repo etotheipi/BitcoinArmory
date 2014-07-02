@@ -359,3 +359,14 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
       }
    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntry> ScrAddrObj::getTxLedgerAsVector(void) const
+{
+   vector<LedgerEntry> vle;
+
+   for (auto lePair : ledger_)
+      vle.push_back(lePair.second);
+
+   return vle;
+}

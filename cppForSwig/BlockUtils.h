@@ -127,13 +127,12 @@ class ScrAddrScanData
    up from there.
    ***/
 
-private:
-
+public:
    struct ScrAddrMeta
    {
       /***
       scrAddrMap_ is a map so it can only have meta per scrAddr. This means
-      only 1 wallet can be registered per post BDM init address scan. 
+      only 1 wallet can be registered per post BDM init address scan.
       ***/
       uint32_t lastScannedHeight_;
       BtcWallet* wltPtr_;
@@ -147,6 +146,7 @@ private:
          wltPtr_(wltPtr) {}
    };
 
+private:
    //map of scrAddr and their respective last scanned block
    //this is used only for the inital load currently
    map<BinaryData, ScrAddrMeta>   scrAddrMap_;

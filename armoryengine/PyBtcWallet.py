@@ -401,17 +401,14 @@ class PyBtcWallet(object):
          return []
       else:
          scrAddr = Hash160ToScrAddr(addr160)
-         ledgBlkChain = self.cppWallet.getScrAddrObjByKey(scrAddr).getTxLedger()
-         ledgZeroConf = self.cppWallet.getScrAddrObjByKey(scrAddr).getZeroConfLedger()
+         ledgBlkChain = self.cppWallet.getScrAddrObjByKey(scrAddr).\
+                        getTxLedgerAsVector()
          if ledgType.lower() in ('full','all','ultimate'):
             ledg = []
             ledg.extend(ledgBlkChain)
-            ledg.extend(ledgZeroConf)
             return ledg
          elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
             return ledgBlkChain
-         elif ledgType.lower() in ('zeroconf', 'zero'):
-            return ledgZeroConf
          else:
             raise TypeError('Unknown ledger type! "' + ledgType + '"')
 

@@ -84,6 +84,13 @@ public:
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
    { return ledger_; }
 
+   uint32_t getTxLedgerSize(void) const
+   { return ledger_.size(); }
+
+   vector<LedgerEntry> getTxLedgerAsVector(void) const;
+
+
+
    map<BinaryData, TxIOPair> &   getTxIOMap(void) { return relevantTxIO_; }
    const map<BinaryData, TxIOPair> & getTxIOMap(void) const 
                            { return relevantTxIO_; }

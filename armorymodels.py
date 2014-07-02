@@ -608,8 +608,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant('')
          if col==COL.NumTx: 
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            return QVariant( len(cppAddr.getTxLedger()) + \
-                             len(cppAddr.getZeroConfLedger()))
+            return QVariant( cppAddr.getTxLedgerSize())
          if col==COL.ChainIdx:
             if self.wlt.addrMap[addr160].chainIndex==-2:
                return QVariant('Imported')
@@ -639,7 +638,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = len(self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedger())>0
+         hasTx = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedgerSize()>0
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 
