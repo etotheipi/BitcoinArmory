@@ -31,14 +31,14 @@ def EmailOutput(send_from, server, password, send_to, subject='Armory Output'):
 
    return ActualEmailOutputDecorator
 
-# windows does not handle extensions very well in QFileDialog.getSaveFileName
+
+# Windows does not handle extensions very well in QFileDialog.getSaveFileName
 # When double extensions (e.g. .sigcollect.tx) are used windows will return duplicates.
 # 
 # This decorator removes just the longest repeating extension
 # Examples:
 #     filename.a.b.c.a.b.c will reduce to filename.a.b.c
 #     filename.a.b.b.a.b.b will reduce to filename.a.b
-
 def RemoveRepeatingExtensions(func):
    def inner(*args, **kwargs):
       rv = func(*args, **kwargs)
@@ -52,6 +52,7 @@ def RemoveRepeatingExtensions(func):
       return '.'.join(segs)
    return inner
 
+
 # A decorator meant for the JSON RPC functions. It's important to both log
 # errors on the server and notify the client that an error occurred. This
 # decorator sets up a standardized way to catch errors that occur in a function
@@ -62,25 +63,54 @@ def catchErrsForJSON(func):
    def inner(*args, **kwargs):
       jsonPrefix = "jsonrpc_"
       rv = None
+      errTB = None
+      errFrame = None
+      errDepth = 0
 
       # Just call the funct. If no errs are thrown, or if errs are caught before
       # returning, we'll get through this. Otherwise, get the error info and
       # place it in the log.
       try:
          rv = func(*args, **kwargs)
+
       except:
-         (errType, errVal) = sys.exc_info()[:2]
-         errStr = 'An error occurred in %s.' % func.__name__[len(jsonPrefix):]
+         # get the error info and ignore the 1st frame (i.e., this funct).
+         (errType, errVal, errTB) = sys.exc_info()
+         errFrame = errTB.tb_frame.f_back
+
+         # Save basic info on the trace.
+         rv = {}
+         errStr = 'An error occurred in %s' % func.__name__[len(jsonPrefix):]
          errTypeStr = 'Error Type = \'%s\'' % errType.__name__
          errValStr = 'Error Value = \'%s\'' % errVal
-
-         rv = []
-         rv.append(errStr)
-         rv.append(errTypeStr)
-         rv.append(errValStr)
+         rv['Error'] = errStr
+         rv['Error Type'] = errType.__name__
+         rv['Error Value'] = str(errVal) # If type has no val, this'll be blank
          LOGERROR(errStr)
          LOGERROR(errTypeStr)
          LOGERROR(errValStr)
+
+         # Log each error line but don't return to the user. The user really
+         # doesn't need to see the trace. Also, unless directly called, the
+         # JSON functs will just lead back to where the JSON server started.
+         # The trace can go almost 30 levels deep! So, we'll limit the reported
+         # levels to 10 so that the logs aren't crushed.
+         while errFrame != None and errDepth < 10:
+            errFile = errFrame.f_code.co_filename
+            errFileStr = 'Error File = \'%s\'' % errFile
+            errFileNumStr = 'Error Line Number = \'%d\'' % errFrame.f_lineno
+            LOGERROR(errFileStr)
+            LOGERROR(errFileNumStr)
+            errFrame = errFrame.f_back
+            errDepth += 1
+
+         if errFrame != None and errDepth == 10:
+            LOGERROR('Trace stopped so as to not overwhelm the logs')
+
       finally:
+         # Delete circular references and return the error dict.
+         if errTB:
+            del errTB 
+            del errFrame  # Not totally sure this is necessary. Just in case....
          return rv
    return inner

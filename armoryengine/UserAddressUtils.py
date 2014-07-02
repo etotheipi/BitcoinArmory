@@ -70,10 +70,9 @@ def getScriptForUserString(userStr, wltMap, lboxList):
                hasAddrInIt = False
                break
       elif len(userStr) in [66,130]:
-         # This might be a public key; if 65 bytes, make sure it's a valid key
-         sbdKey = SecureBinaryData(hex_to_binary(userStr))
-         if sbdKey.getSize()==33 or (sbdKey.getSize()==65 and \
-                     CryptoECDSA().VerifyPublicKeyValid(sbdKey)):
+         # This might be a public key. Confirm it's valid before proceeding.
+         if isValidPK(userStr, True):
+            sbdKey = SecureBinaryData(hex_to_binary(userStr))
             a160 = sbdKey.getHash160()
             outScript = hash160_to_p2pkhash_script(a160)
             hasAddrInIt = False
