@@ -978,14 +978,14 @@ bool TxIOPair::isSpent(InterfaceToLDB *db) const
    // Not sure whether we should verify hasTxOut.  It wouldn't make much 
    // sense to have TxIn but not TxOut, but there might be a preferred 
    // behavior in such awkward circumstances
-   return (hasTxInInMain(db) || hasTxInZC());
+   return (hasTxInZC() || hasTxInInMain(db));
 }
 
 
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isUnspent(InterfaceToLDB *db) const
 { 
-   return ( (hasTxOutInMain(db) || hasTxOutZC()) && !isSpent(db));
+   return ( (hasTxOutZC() || hasTxOutInMain(db)) && !isSpent(db));
 
 }
 
@@ -995,7 +995,7 @@ bool TxIOPair::isSpendable(InterfaceToLDB *db,
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
-   if( hasTxInInMain(db) || hasTxInZC() )
+   if ( hasTxInZC() ||hasTxInInMain(db))
       return false;
    
    if( hasTxOutInMain(db) )
@@ -1023,7 +1023,7 @@ bool TxIOPair::isMineButUnconfirmed(
    if(isTxOutFromSelf())
       return false;   
 
-   if( (hasTxIn() && txRefOfInput_.attached(db).isMainBranch()) || hasTxInZC() )
+   if (hasTxInZC() || (hasTxIn() && txRefOfInput_.attached(db).isMainBranch()))
       return false;
 
    if(hasTxOutInMain(db))
