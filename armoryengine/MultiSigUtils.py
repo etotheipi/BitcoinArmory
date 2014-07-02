@@ -249,7 +249,7 @@ class MultiSigLockbox(AsciiSerializable):
       script = pubkeylist_to_multisig_script(binPubKeys, self.M, True)
 
       # Computed some derived members
-      self.binScript = script
+      self.binScript    = script
       self.scrAddr      = script_to_scrAddr(script)
       self.p2shScrAddr  = script_to_scrAddr(script_to_p2sh_script(script))
       self.uniqueIDB58  = calcLockboxID(script)

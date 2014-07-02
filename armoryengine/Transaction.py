@@ -327,13 +327,16 @@ def getMultisigScriptInfo(rawScript):
    M==0 (output[0]==0) indicates this isn't a multisig script
    """
 
+   if not getTxOutScriptType(rawScript)==CPP_TXOUT_MULTISIG:
+      return [0, 0, None, None]
+
    scrAddr = ''
    addr160List = []
    pubKeyList   = []
 
    M,N = 0,0
 
-   pubKeyStr  = Cpp.BtcUtils().getMultisigPubKeyInfoStr(rawScript)
+   pubKeyStr = Cpp.BtcUtils().getMultisigPubKeyInfoStr(rawScript)
 
    bu = BinaryUnpacker(pubKeyStr)
    M = bu.get(UINT8)
