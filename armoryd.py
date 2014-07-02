@@ -421,7 +421,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       utxoList = []
 
       # Get the UTXO balance & list for each address.
-      inB58 = inB58.split(":")
+      inB58 = inB58.split(",")
       for b in inB58:
          curTxOut = 1
          utxoEntries = {}
@@ -1323,13 +1323,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
-         return {'error': 'armoryd is offline'}
+         return {'Error': 'armoryd is offline'}
 
       binhash = hex_to_binary(txHash, BIGENDIAN)
       tx = TheBDM.getTxByHash(binhash)
       if not tx.isInitialized():
-         return {'error': 'transaction not found'}
-      
+         return {'Error': 'transaction not found'}
+
       out = {}
       out['txid'] = txHash
       out['mainbranch'] = tx.isMainBranch()
@@ -1502,10 +1502,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       PARAMETERS:
       numM - The number of signatures required to spend lockbox funds.
       numN - The total number of signatures associated with a lockbox.
-      args - The wallets or public keys associated with a lockbox, which must
-             match <numN> in number. The wallets are represented by their Base58
-             IDs. The may be compressed or uncompressed, although the former
-             will be decompressed before being used by the lockbox. 
+      args - The public keys associated with a lockbox, which must match <numN>
+             in number. The keys may be compressed or uncompressed, although
+             the former will be decompressed before being used by the lockbox.
       RETURN:
       An ASCII-formatted lockbox, like the ones created within Armory.
       """
@@ -1513,36 +1512,34 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       m = int(numM)
       n = int(numN)
       errStr = ''
-      result = ''
+      result = {}
 
       # Do some basic error checking before proceeding.
       if m > n:
          errStr = 'The user requires more addresses to unlock a lockbox (%d) ' \
                   'than are required to create a lockbox (%d).' % (m, n)
          LOGERROR(errStr)
-         result = errStr
+         result['Error'] = errStr
       elif m > LB_MAXM:
          errStr = 'The number of signatures required to unlock a lockbox ' \
                   '(%d) exceeds the maximum allowed (%d)' % (m, LB_MAXM)
          LOGERROR(errStr)
-         result = errStr
+         result['Error'] = errStr
       elif n > LB_MAXN:
          errStr = 'The number of wallets required to create a lockbox (%d) ' \
                   'exceeds the maximum allowed (%d)' % (n, LB_MAXN)
          LOGERROR(errStr)
-         result = errStr
+         result['Error'] = errStr
       elif args and len(args) > n:
-         errStr = 'The number of arguments specified to create a lockbox ' \
-                  '(%d) exceeds the number required to create the lockbox ' \
-                  '(%d)' % (len(args), n)
+         errStr = 'The number of keys required to create the lockbox (%d) ' \
+                  'exceeds the number of supplied keys (%d)' % (len(args), n)
          LOGERROR(errStr)
-         result = errStr
-      elif not args and n > len(self.serverWltSet):
-         errStr = 'The number of addresses required to create a lockbox ' \
-                  '(%d) exceeds the number of loaded wallets (%d)' % \
-                  (n, len(self.serverWltSet))
+         result['Error'] = errStr
+      elif args and len(args) < n:
+         errStr = 'The number of keys required to create the lockbox (%d) is ' \
+                  'less than the number of supplied keys (%d)' % (len(args), n)
          LOGERROR(errStr)
-         result = errStr
+         result['Error'] = errStr
       else:
          allArgsValid = True
          badArg = ''
@@ -1552,60 +1549,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          # We need to determine which args are keys, which are wallets and which
          # are garbage.
-         if args:
-            for lockboxItem in args:
-               # First, check if the arg is a wallet ID. If not, check if it's a
-               # valid pub key. If not, the input's invalid.
-               try:
-                  # If search item's a pub key, it'll cause a KeyError to be
-                  # thrown. That's fine. We can catch it and keep on truckin'.
-                  lbWlt = self.serverWltSet[lockboxItem]
-                  lbWltHighestIdx = lbWlt.getHighestUsedIndex()
-                  lbWltPK = self.getPKFromWallet(lbWlt, lbWltHighestIdx)
-                  addrList.append(lbWltPK)
-                  addrName = 'Addr %d from wallet %s' % (lbWltHighestIdx, \
-                                                         lockboxItem)
+         for userStr in args:
+            if len(userStr) in [66,130]:
+               # This might be a public key. Confirm it's valid before proceeding.
+               if isValidPK(userStr, True):
+                  addrList.append(userStr)
+                  addrName = 'Public key %s' % userStr
                   addrNameList.append(addrName)
-
-               except KeyError:
-                  # A screwy wallet ID will end up here, so we need to catch a
-                  # TypeError. End of the line if the error's thrown.
-                  try:
-                     # A pub key could be fake but in the proper form, so we
-                     # have a second place where a value can fail. Catch it.
-                     if isValidPK(lockboxItem, True):
-                        addrList.append(lockboxItem)
-                        addrName = 'Addr starting with %s' % lockboxItem[0:12]
-                        addrNameList.append(addrName)
-                     else:
-                        badArg = lockboxItem
-                        allArgsValid = False
-                        break
-
-                  except TypeError:
-                     badArg = lockboxItem
-                     allArgsValid = False
-                     break
-
-         else:
-            # If we have no args, we'll just dip into the loaded wallets. Just
-            # make sure we get the proper # of wallets. For now, the wallets we
-            # use will essentially be chosen at random.
-            numWlts = min(n, len(self.serverWltSet))
-            for lbWlt in islice(self.serverWltSet.values(), 0, numWlts):
-               lbWltHighestIdx = lbWlt.getHighestUsedIndex()
-               lbWltPK = self.getPKFromWallet(lbWlt, lbWltHighestIdx)
-               addrList.append(lbWltPK)
-               addrName = 'Addr %d from wallet %s' % (lbWltHighestIdx, \
-                                                      lbWlt.uniqueIDB58)
-               addrNameList.append(addrName)
+               else:
+                  badArg = userStr
+                  allArgsValid = False
+                  break
 
          # Do some basic error checking before proceeding.
          if allArgsValid == False:
             errStr = 'The user has specified an argument (%s) that is ' \
                      'invalid.' % badArg
             LOGERROR(errStr)
-            result = errStr
+            result['Error'] = errStr
          else:
             # We must sort the addresses and comments together. It's important
             # to keep this code in sync with any other code creating lockboxes.
@@ -1633,8 +1594,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # a copy.
             if lbID in self.serverLBSet.keys():
                errStr = 'Lockbox %s already exists' % lbID
-               LOGWARN(errStr)
-               result = errStr
+               LOGERROR(errStr)
+               result['Error'] = errStr
             else:
                # Write to the "master" LB list used by Armory and an individual
                # file, and load the LB into our LB set.
@@ -1646,7 +1607,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                writeLockboxesFile([lockbox], lbFilePath, False)
                self.serverLBSet[lbID] = lockbox
 
-               result = lockbox.serializeAscii()
+               result = lockbox.toJSONMap()
 
       return result
 

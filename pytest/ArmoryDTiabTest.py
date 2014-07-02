@@ -94,24 +94,32 @@ class ArmoryDTiabTest(TiabTest):
    def setUp(self):
       self.verifyBlockHeight()
       # Load the primary file from the test net in a box
-      self.fileA    = os.path.join(self.tiab.tiabDirectory, 'tiab','armory','armory_%s_.wallet' % FIRST_WLT_NAME)
-      self.wlt = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
-      fileB    = os.path.join(self.tiab.tiabDirectory, 'tiab','armory','armory_%s_.wallet' % SECOND_WLT_NAME)
-      wltB = PyBtcWallet().readWalletFile(fileB, doScanNow=True)
-      fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab','armory','armory_%s_.wallet' % THIRD_WLT_NAME)
-      wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, inWltSet={SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
-                           armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab','armory'))
-      TheBDM.registerWallet(self.wlt)
-      
+      self.fileA = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
+                                'armory_%s_.wallet' % FIRST_WLT_NAME)
+      self.wltA  = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
+      self.fileB = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
+                                'armory_%s_.wallet' % SECOND_WLT_NAME)
+      self.wltB  = PyBtcWallet().readWalletFile(self.fileB, doScanNow=True)
+      self.fileC = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
+                                'armory_%s_.wallet' % THIRD_WLT_NAME)
+      self.wltC  = PyBtcWallet().readWalletFile(self.fileC, doScanNow=True)
+      self.jsonServer = Armory_Json_Rpc_Server(self.wltA, \
+                                    inWltSet={SECOND_WLT_NAME : self.wltB, \
+                                              THIRD_WLT_NAME : self.wltC}, \
+                       armoryHomeDir=os.path.join(self.tiab.tiabDirectory, \
+                                                  'tiab','armory'))
+      TheBDM.registerWallet(self.wltA)
+
+
    def testActiveWallet(self):
       self.jsonServer.jsonrpc_setactivewallet(FIRST_WLT_NAME)
       result = self.jsonServer.jsonrpc_getactivewallet()
       self.assertEqual(result, FIRST_WLT_NAME)
-      
+
       bogusResult = self.jsonServer.jsonrpc_setactivewallet('bogus wallet name')
       self.assertTrue('does not exist' in bogusResult)
-      
+
+
    # Tests all of the address meta data functions at once
    def testAddressMetaData(self):
       testInput = {TIAB_WLT_1_ADDR_1:
@@ -127,60 +135,83 @@ class ArmoryDTiabTest(TiabTest):
       self.jsonServer.jsonrpc_clearaddressmetadata()
       testOutput2=self.jsonServer.jsonrpc_getaddressmetadata()
       self.assertEqual(testOutput2, {})
-      
+
+
    def testListloadedwallets(self):
       result = self.jsonServer.jsonrpc_listloadedwallets()
       self.assertEqual(len(result.keys()), 3)
       self.assertTrue(FIRST_WLT_NAME in result.values())
       self.assertTrue(SECOND_WLT_NAME in result.values())
       self.assertTrue(THIRD_WLT_NAME in result.values())
-      
+
+
    def getPrivateKey(self, address):
       hash160 = addrStr_to_hash160(address)[1]
-      if self.wlt.isLocked:
-         self.wlt.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
+      if self.wltA.isLocked:
+         self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                                tempKeyLifetime=1000000)
-      return self.wlt.addrMap[hash160].binPrivKey32_Plain.toBinStr()
-   
+      return self.wltA.addrMap[hash160].binPrivKey32_Plain.toBinStr()
+
+
    # Test Create lockbox and list loaded lockbox at the same time.
    # Also test set and get active lockbox.
    def testLockboxMethods(self):
       self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), None)
-      addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wlt, self.wlt.getHighestUsedIndex())
-      actualResult1 = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
-      self.assertTrue(TWO_OF_THREE_LB_NAME in actualResult1)
+      addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wltA, \
+                                                self.wltA.getHighestUsedIndex())
+      addrFromSecondWlt = self.jsonServer.getPKFromWallet(self.wltB, \
+                                                self.wltB.getHighestUsedIndex())
+      addrFromThirdWlt = self.jsonServer.getPKFromWallet(self.wltC, \
+                                                self.wltC.getHighestUsedIndex())
+
+      actualResult1 = self.jsonServer.jsonrpc_createlockbox(2, 3, \
+                                                            addrFromFirstWlt, \
+                                                            addrFromSecondWlt, \
+                                                            addrFromThirdWlt)
+      self.assertTrue(TWO_OF_THREE_LB_NAME in actualResult1['id'])
       listResult1 = self.jsonServer.jsonrpc_listloadedlockboxes()
       self.assertEqual(len(listResult1.keys()), 1)
       self.assertTrue(TWO_OF_THREE_LB_NAME in listResult1.values())
-      
-      actualResult2 = self.jsonServer.jsonrpc_createlockbox(2, 2, SECOND_WLT_NAME, THIRD_WLT_NAME)
-      self.assertTrue(TWO_OF_TWO_LB_NAME in actualResult2)
+
+      actualResult2 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
+                                                            addrFromSecondWlt, \
+                                                            addrFromThirdWlt)
+      self.assertTrue(TWO_OF_TWO_LB_NAME in actualResult2['id'])
       listResult2 = self.jsonServer.jsonrpc_listloadedlockboxes()
       self.assertEqual(len(listResult2.keys()), 2)
       self.assertTrue(TWO_OF_TWO_LB_NAME in listResult2.values())
+
       self.jsonServer.jsonrpc_setactivelockbox(TWO_OF_TWO_LB_NAME)
-      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), TWO_OF_TWO_LB_NAME)
+      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), \
+                       TWO_OF_TWO_LB_NAME)
       self.jsonServer.jsonrpc_setactivelockbox(TWO_OF_THREE_LB_NAME)
-      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), TWO_OF_THREE_LB_NAME)
-      
+      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), \
+                       TWO_OF_THREE_LB_NAME)
+
+
    def  testVerifysignature(self):
-      clearSignMessage = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_1), TEST_MESSAGE)
+      clearSignMessage = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_1), \
+                                TEST_MESSAGE)
       result = self.jsonServer.jsonrpc_verifysignature(clearSignMessage)
       self.assertEqual(result['message'], TEST_MESSAGE)
       self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
-      
-   def  testReceivedfromsigner(self):      
-      clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), TEST_MESSAGE)
+
+
+   def  testReceivedfromsigner(self):
+      clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), \
+                                 TEST_MESSAGE)
       result2 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage2)
       self.assertEqual(result2['message'], TEST_MESSAGE)
       self.assertEqual(result2['amount'], 0)
-   
+
+
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
       self.assertEqual(result, 0)
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_3)
       self.assertEqual(result, 0)
-   
+
+
    def testGettransaction(self):
       tx = self.jsonServer.jsonrpc_gettransaction('db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4')
       self.assertEqual(tx, {'category': 'send', 'inputs': [{'fromtxid': '04b865ecf5fca3a56f6ce73a571a09a668f4b7aa5a7547a5f51fae08eadcdbb5',
@@ -191,13 +222,15 @@ class ArmoryDTiabTest(TiabTest):
                             'txid': 'db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4', 'confirmations': 10,
                             'orderinblock': 1, 'mainbranch': True, 'numtxin': 1, 'time': 3947917907L, 'numtxout': 2,
                             'netdiff': -20.0001, 'infomissing': False})
-   
+
+
    def testGetblock(self):
       block = self.jsonServer.jsonrpc_getblock('0000000064a1ad1f15981a713a6ef08fd98f69854c781dc7b8789cc5f678e01f')
       # This method is broken in a couple ways.
       # For no just verify that raw transaction is correct
       self.assertEqual(block['rawheader'], '02000000d8778a50d43d3e02c4c20bdd0ed97077a3c4bef3e86ce58975f6f43a00000000d25912cfc67228748494d421512c7a6cc31668fa82b72265261558802a89f4c2e0350153ffff001d10bcc285',)
-      
+
+
    def testGetinfo(self):
       info = self.jsonServer.jsonrpc_getarmorydinfo()
       self.assertEqual(info['blocks'], TOP_TIAB_BLOCK)
@@ -205,7 +238,8 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(info['walletversionstr'], '1.35')
       self.assertEqual(info['difficulty'], 1.0)
       self.assertEqual(info['balance'], FIRST_WLT_BALANCE)
-      
+
+
    def testListtransactions(self):
       txList = self.jsonServer.jsonrpc_listtransactions(100)
       self.assertTrue(len(txList)>10)
@@ -214,16 +248,16 @@ class ArmoryDTiabTest(TiabTest):
                   'category': 'receive', 'account': '',
                   'txid': '04b865ecf5fca3a56f6ce73a571a09a668f4b7aa5a7547a5f51fae08eadcdbb5',
                   'blocktime': 1392588256, 'amount': 1000.0, 'timereceived': 1392588256, 'time': 1392588256})
-            
-      
+
+
    def testGetledgersimple(self):
       ledger = self.jsonServer.jsonrpc_getledgersimple()
       self.assertTrue(len(ledger)>4)
       amountList = [row['amount'] for row in ledger]
       expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0]
       self.assertEqual(amountList[:5], expectedAmountList)
-      
-      
+
+
    def testGetledger(self):
       ledger = self.jsonServer.jsonrpc_getledger()
       self.assertTrue(len(ledger)>6)
@@ -237,11 +271,12 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(ledger[0]['recipother'][0]['amount'], 49.997)
       self.assertEqual(len(ledger[0]['senderme']), 0)
       self.assertEqual(len(ledger[0]['senderother']), 21)
- 
+
       self.assertEqual(ledger[1]['direction'], 'send')
       self.assertEqual(len(ledger[1]['senderother']), 0)
       self.assertEqual(len(ledger[1]['senderme']), 1)
       self.assertEqual(ledger[1]['senderme'][0]['amount'], 1000.0)
+
 
    def testSendtoaddress(self):
       # Send 1 BTC
@@ -257,16 +292,16 @@ class ArmoryDTiabTest(TiabTest):
             self.assertEqual(txout.value, JSONtoAmount(BTC_TO_SEND))
             foundTxOut = True
       self.assertTrue(foundTxOut)
-      
+
       # Test two paths through signing method and make sure they are equal
       # Wallets in the TIAB start out unencrypted
       serializedSignedTxUnencrypted = self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx,'')
       self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
       serializedSignedTxEncrypted = self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx,PASSPHRASE1)
       # Other tests expect wallet to be unencrypted
-      self.wlt.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
+      self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                             tempKeyLifetime=1000000)
-      self.wlt.changeWalletEncryption()
+      self.wltA.changeWalletEncryption()
       signedTxUnencrypted = UnsignedTransaction().unserializeAscii(serializedSignedTxUnencrypted)
       signedTxEncrypted = UnsignedTransaction().unserializeAscii(serializedSignedTxEncrypted)
       # check number of outputs 1 Btc goes to a single output and the other goes to change
@@ -305,6 +340,7 @@ class ArmoryDTiabTest(TiabTest):
             txOutsFound += 1
       self.assertEqual(txOutsFound, 2)
 
+
    def testListUnspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
 
@@ -330,7 +366,7 @@ class ArmoryDTiabTest(TiabTest):
 
 
    def testListAddrUnspent(self):
-      totStr = '%s:%s' % (TIAB_WLT_1_ADDR_3, TIAB_WLT_1_ADDR_8)
+      totStr = '%s,%s' % (TIAB_WLT_1_ADDR_3, TIAB_WLT_1_ADDR_8)
       totBal = TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8
       actualResult = self.jsonServer.jsonrpc_listaddrunspent(totStr)
 
@@ -379,7 +415,7 @@ class ArmoryDTiabTest(TiabTest):
       for balanceType in balances.keys():
          result = self.jsonServer.jsonrpc_getbalance(balanceType)
          self.assertEqual(result,
-                          AmountToJSON(self.wlt.getBalance(balanceType)))
+                          AmountToJSON(self.wltA.getBalance(balanceType)))
 
 
 if __name__ == "__main__":
