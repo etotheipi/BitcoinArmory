@@ -212,6 +212,7 @@ public:
 
    void reset()
    {
+      checkForMerge();
       UTxO_.clear();
       blockHeightCutOff_ = 0;
    }

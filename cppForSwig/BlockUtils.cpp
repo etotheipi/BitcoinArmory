@@ -3073,7 +3073,7 @@ void ScrAddrScanData::merge()
       //copy only the UTxOs past the height cutoff
       BinaryData cutoffHeight = 
          DBUtils::heightAndDupToHgtx(parent_->blockHeightCutOff_, 0);
-      cutoffHeight.append(WRITE_UINT16_BE(0));
+      cutoffHeight.append(WRITE_UINT32_LE(0));
 
       auto iter = UTxO_.begin();
       while (iter != UTxO_.end())
@@ -3087,7 +3087,7 @@ void ScrAddrScanData::merge()
       parent_->UTxOToMerge_.insert(iter, UTxO_.end());
 
       //set mergeFlag
-      mergeFlag_ = true;
+      parent_->mergeFlag_ = true;
 
       //release merge lock
       parent_->mergeLock_.store(0, memory_order_release);
