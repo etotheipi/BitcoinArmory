@@ -567,20 +567,17 @@ class DlgLockboxEditor(ArmoryDialog):
       
       if not USE_TESTNET and isMofNNonStandardToSpend(currM, currN):
          reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
-            Due to limits imposed by the Bitcoin network in Bitcoin Core 
-            versions earlier than 0.10, you will be able to send coins to
-            the lockbox without issue but any spending transactions from it
-            will be "non-standard" and not receive confirmations.  You must 
-            explicitly ask a miner or mining pool to accept it for you.
+            Due to limits imposed by Bitcoin Core nodes running versions 
+            earlier than 0.10, all spending transactions from this lockbox
+            will be rejected by default on the main Bitcoin network 
+            (non-standard).  There will be no problem sending coins  
+            <u>to</u> the lockbox, but subsequent spends <u>from</u> the 
+            lockbox will require an explicit agreement with a mining pool.  
             <br><br>
-            Bitcoin Core version 0.10 and later will accept up to 7-of-7 
-            by default, regardless of when the lockbox was made.  If you 
-            send coins to a non-standard lockbox right now and do not have
-            any connections to mining power, you will have to wait for Bitcoin
-            Core 0.10+ before you can move the funds.
-            <br><br>
-            Do you wish to continue creating the lockbox anyway?"""),
-            (currM, currN), QMessageBox.Yes | QMessageBox.No)
+            Do you wish to continue creating the lockbox, anyway?  Any coins
+            sent to will be difficult to spend until Bitcoin Core 0.10
+            has been released and used by a significant portion of the 
+            Bitcoin network."""), QMessageBox.Yes | QMessageBox.No)
 
          if not reply==QMessageBox.Yes:
             return
@@ -2407,7 +2404,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       super(DlgMultiSpendReview, self).__init__(parent, main)
 
       LOGDEBUG('Debugging information for multi-spend USTX')
-      ustx.pprint()
+      #ustx.pprint()
 
       lblDescr = QRichLabel(tr("""
          The following transaction is a proposed spend of funds controlled
@@ -2415,7 +2412,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          required signatures for the tx to be valid.  White
          means it has not yet been signed, and cannot be signed by you.  Green
          represents signatures that can be added by one of your wallets.
-         Gray keyholes are already signed.Untitled
+         Gray keyholes are already signed.
          <br><br>
          Change outputs have been hidden where it is obvious (such as coins
          returning to the same lockbox from where it came).  If there is 
@@ -3010,7 +3007,7 @@ class DlgMultiSpendReview(ArmoryDialog):
    def doBroadcast(self):
       finalTx = self.ustx.getSignedPyTx(doVerifySigs=True)
       if not finalTx:
-         self.ustx.evaluateSigningStatus().pprint()
+         #self.ustx.evaluateSigningStatus().pprint()
          QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
             Somehow not all inputs have valid sigantures!  You can choose  
             to attempt to broadcast anyway, in case you think Armory is
@@ -3330,7 +3327,7 @@ class DlgCreatePromNote(ArmoryDialog):
 
       # Create the change DTXO
       # TODO:  Expand this to allow simulfunding from lockbox(es)
-      pprintUnspentTxOutList(utxoSelect)
+      #pprintUnspentTxOutList(utxoSelect)
       changeAmt = sumTxOutList(utxoSelect) - (valueAmt + feeAmt)
       dtxoChange = None
       if changeAmt > 0:
@@ -3552,7 +3549,7 @@ class DlgMergePromNotes(ArmoryDialog):
       promnote = None
       if dlgImport.returnObj:
          promnote = dlgImport.returnObj
-         promnote.pprint()
+         #promnote.pprint()
 
       if not promnote:
          QMessageBox.critical(self, tr('Invalid Promissory Note'), tr("""
