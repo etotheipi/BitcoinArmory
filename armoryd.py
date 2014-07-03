@@ -229,7 +229,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.armoryHomeDir = armoryHomeDir
       if wallet != None:
          wltID = wallet.uniqueIDB58
-         self.serverWltSet[wltID] = wallet
+         if self.serverWltSet.get(wltID) == None:
+            self.serverWltSet[wltID] = wallet
 
       # If any variables rely on whether or not Testnet in a Box is running,
       # we'll set everything up here.
@@ -856,13 +857,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_createustxtoaddress(self, bitcoinaddress, amount):
+   def jsonrpc_createustxtoaddress(self, recAddr, amount):
       """
       DESCRIPTION:
       Create an unsigned transaction to be sent to one recipient from the
       currently loaded wallet.
       PARAMETERS:
-      bitcoinaddress - The Base58 address of the recipient.
+      recAddr - The recipient. This can be an address, a P2SH script address, a
+                lockbox (e.g., "Lockbox[83jcAqz9]" or "Lockbox[Bare:83jcAqz9]"),
+                or a public key (compressed or uncompressed) string.
       amount - The number of Bitcoins to send to the recipient.
       RETURN:
       An ASCII-formatted unsigned transaction, similar to the one output by
@@ -871,9 +874,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
-      script = addrStr_to_script(bitcoinaddress)
+      ustxScr = getScriptForUserString(recAddr, self.serverWltSet, \
+                                       self.convLBDictToList())
       amtCoin = JSONtoAmount(amount)
-      return self.create_unsigned_transaction([[script, amtCoin]])
+      return self.create_unsigned_transaction([[str(ustxScr['Script']), \
+                                                amtCoin]])
 
 
    #############################################################################
@@ -884,8 +889,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Create an unsigned transaction to be sent to multiple recipients from
       the currently loaded wallet.
       PARAMETERS:
-      args - An indefinite number of strings with a Base58 address recipient, a
-             colon, and the number of Bitcoins to send to the recipient.
+      args - An indefinite number of comma-separated sets of recipients and the
+             number of Bitcoins to send to the recipients. The recipients can be
+             an address, a P2SH script address, a lockbox (e.g.,
+             "Lockbox[83jcAqz9]" or "Lockbox[Bare:83jcAqz9]"), or a public key
+             (compressed or uncompressed) string.
       RETURN:
       An ASCII-formatted unsigned transaction, similar to the one output by
       Armory for offline signing.
@@ -896,8 +904,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       scriptValuePairs = []
       for a in args:
-         r,v = a.split(':')
-         scriptValuePairs.append([addrStr_to_script(r), JSONtoAmount(v)])
+         r,v = a.split(',')
+         ustxScr = getScriptForUserString(r, self.serverWltSet, \
+                                          self.convLBDictToList())
+         scriptValuePairs.append([ustxScr['Script'], JSONtoAmount(v)])
 
       return self.create_unsigned_transaction(scriptValuePairs)
 
@@ -1461,9 +1471,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if totalChange > 0:
          if spendFromLboxID is None:
             nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
-            outputPairs.append( [addrStr_to_script(nextAddr), totalChange] )
+            ustxScr = getScriptForUserString(nextAddr, self.serverWltSet, \
+                                             self.convLBDictToList())
+            outputPairs.append( [ustxScr['Script'], totalChange] )
          else:
-            outputPairs.append( [lbox.binScript, totalChange] )
+            ustxScr = getScriptForUserString(lbox.binScript, self.serverWltSet, \
+                                             self.convLBDictToList())
+            outputPairs.append( [ustxScr['Script'], totalChange] )
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
@@ -2238,6 +2252,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # Helper funct that converts the lockbox dict into a list.
+   def convLBDictToList(self):
+      retList = []
+
+      for lb in self.serverLBSet.values():
+         retList.append(lb)
+
+      return retList
+
+
+   #############################################################################
    # Get a dictionary with all functions the armoryd server can run.
    @catchErrsForJSON
    def jsonrpc_help(self):
@@ -2490,6 +2515,7 @@ class Armory_Daemon(object):
             LOGWARN('Registering wallet: %s' % wltID)
             TheBDM.registerWallet(wlt)
 
+         # Register each lockbox.
          self.lboxCppWalletMap = {}
          for lbID,lbox in self.lboxMap.iteritems():
             self.lboxCppWalletMap[lbID] = BtcWallet()
@@ -2498,7 +2524,6 @@ class Armory_Daemon(object):
             self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
             self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
             TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
-
 
          TheBDM.setOnlineMode(True)
 

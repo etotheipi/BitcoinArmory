@@ -848,7 +848,7 @@ def approxTxInSizeForTxOut(utxoScript, lboxList=None):
    elif scrType == CPP_TXOUT_MULTISIG:
       M,N,a160s,pubs = getMultisigScriptInfo(rawScript)
       return M*70 + 40
-   elif scrType == CPP_TXOUT_P2SH and not lboxList is None::
+   elif scrType == CPP_TXOUT_P2SH and not lboxList is None:
       scrAddr = script_to_scrAddr(utxoScript)
       for lbox in lboxList:
          if scrAddr == lbox.p2shScrAddr:
