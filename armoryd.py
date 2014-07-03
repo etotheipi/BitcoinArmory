@@ -105,6 +105,7 @@ from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.PyBtcWalletRecovery import *
 from inspect import *
 from jasvet import readSigBlock, verifySignature
+from CppBlockUtils import BtcWallet
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -1413,17 +1414,34 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # contains out-of-date notes regarding how the code works. A slightly more
    # up-to-date comparison can be made against the code in
    # SendBitcoinsFrame::validateInputsGetUSTX() (ui/TxFrames.py).
-   def create_unsigned_transaction(self, scriptValuePairs):
+   def create_unsigned_transaction(self, scriptValuePairs, spendFromLboxID=None):
       # Do initial setup, including choosing the coins you'll use.
       totalSend = long( sum([rv[1] for rv in scriptValuePairs]) )
       fee = 0
-      spendBal = self.curWlt.getBalance('Spendable')
-      utxoList = self.curWlt.getTxOutList('Spendable')
+
+      lbox = None
+      if spendFromLboxID is None:
+         spendBal = self.curWlt.getBalance('Spendable')
+         utxoList = self.curWlt.getTxOutList('Spendable')
+      else:
+         lbox = self.lbSet[spendFromLboxID]
+         cppWlt = self.lboxCppWalletMap[spendFromLboxID]
+         topBlk = TheBDM.getTopBlockHeight()
+         spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
+         utxoList = cppWlt.getSpendableTxOutList(topBlk, IGNOREZC)
+
+
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
       # Calculate the real fee and make sure it's affordable.
-      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee, \
-                                       len(scriptValuePairs))[1]
+      # ACR: created new, more flexible fee-calc function.  Perhaps there's an 
+      #      opportunity to retro-fit this to other places we calc the min fee.
+      #      Keep in mind it relies on having the UTXO script available... the 
+      #      fact that PyUnspentTxOut doesn't requrie that field should probably
+      #      be fixed, but at the moment every code path going into it does set
+      #      that member.
+      minFeeRec = calcMinSuggestedFeesNew(utxoSelect, scriptValuePairs, fee)[1]
+
       if fee < minFeeRec:
          if (totalSend + minFeeRec) > spendBal:
             raise NotEnoughCoinsError, "You can't afford the fee!"
@@ -1441,8 +1459,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Generate and shuffle the recipient list.
       outputPairs = scriptValuePairs[:]
       if totalChange > 0:
-         nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
-         outputPairs.append( [addrStr_to_script(nextAddr), totalChange] )
+         if spendFromLboxID is None:
+            nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
+            outputPairs.append( [addrStr_to_script(nextAddr), totalChange] )
+         else:
+            outputPairs.append( [lbox.binScript, totalChange] )
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
@@ -1469,12 +1490,20 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # on an index value.
    def getPKFromWallet(self, inWlt, inIdx):
       retStr = ''
-      lbWltAddrList = inWlt.getAddrList()
-      if lbWltAddrList[inIdx].hasPubKey():
-         retStr = lbWltAddrList[inIdx].getPubKey().toHexStr()
-      else:
-         retStr = 'Wallet %s doesn\'t have a public key at index %d' % \
-                  (inWlt.uniqueIDB58, inIdx)
+      # ACR: should use wallet's built-in method here for getting by chain index
+      #lbWltAddrList = inWlt.getAddrList()
+      #if lbWltAddrList[inIdx].hasPubKey():
+         #retStr = lbWltAddrList[inIdx].getPubKey().toHexStr()
+      #else:
+         #retStr = 'Wallet %s doesn\'t have a public key at index %d' % \
+                  #(inWlt.uniqueIDB58, inIdx)
+
+      try:
+         addr160 = inWlt.getAddress160ByChainIndex(inIdx)
+      except:
+         LOGEXCEPT('Error fetching public key in wlt %s for chain index: %d' % \
+                                             (inWlt.uniqueIDB58, inIdx))
+
       return retStr
 
 
@@ -2460,6 +2489,17 @@ class Armory_Daemon(object):
          for wltID, wlt in self.wltSet.iteritems():
             LOGWARN('Registering wallet: %s' % wltID)
             TheBDM.registerWallet(wlt)
+
+         self.lboxCppWalletMap = {}
+         for lbID,lbox in self.lboxMap.iteritems():
+            self.lboxCppWalletMap[lbID] = BtcWallet()
+            scraddrReg = script_to_scrAddr(lbox.binScript)
+            scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
+            self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
+            self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
+            TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
+
+
          TheBDM.setOnlineMode(True)
 
          LOGINFO('Blockchain loading')

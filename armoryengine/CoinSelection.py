@@ -84,14 +84,15 @@ class PyUnspentTxOut(object):
 
 
    #############################################################################
-   def createFromCppUtxo(self, cppUtxo, fullScript=None):
+   def createFromCppUtxo(self, cppUtxo):
       scrAddr= cppUtxo.getRecipientScrAddr()
       val    = cppUtxo.getValue()
       conf   = cppUtxo.getNumConfirm()
       txHash = cppUtxo.getTxHash()
       txoIdx = cppUtxo.getTxOutIndex()
+      script = cppUtxo.getScript()
 
-      self.initialize(scrAddr, txHash, txoIdx, val, conf, fullScript)
+      self.initialize(scrAddr, txHash, txoIdx, val, conf, script)
       return self
 
    #############################################################################
@@ -826,4 +827,107 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
 
 
 
+
+################################################################################
+def approxTxInSizeForTxOut(utxoScript, lboxList=None):
+   """
+   Since this is always used for fee estimation, we overestimate the size to
+   be conservative.  However, if this is P2SH, we won't have a clue what the
+   hashed script is, so unless we find it in our lockbox map, we assume the 
+   max-max which is 1,650 bytes.
+
+   Otherwise the TxIn is always:
+      PrevTxHash(32), PrevTxOutIndex(4), Script(_), Sequence(4)
+   """
+
+   scrType = getTxOutScriptType(utxoScript)
+   if scrType == CPP_TXOUT_STDHASH160:
+      return 180
+   elif scrType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
+      return 110
+   elif scrType == CPP_TXOUT_MULTISIG:
+      M,N,a160s,pubs = getMultisigScriptInfo(rawScript)
+      return M*70 + 40
+   elif scrType == CPP_TXOUT_P2SH and not lboxList is None::
+      scrAddr = script_to_scrAddr(utxoScript)
+      for lbox in lboxList:
+         if scrAddr == lbox.p2shScrAddr:
+            M,N,a160s,pubs = getMultisigScriptInfo(lbox.binScript)
+            return M*70 + 40
+
+   # If we got here, we didn't identify it at all.  Assume max for TxIn
+   return 1650
+
+
+
+################################################################################
+# I needed a new function that was going to be as accurate as possible for
+# arbitrary coin selections (and recipient lists).  However, this doesn't
+# work in all places tat the old coin selection algo was used, so I am 
+# leaving those calls alone and simply defining this for new methods that
+# have access to full UTXOs scripts and scriptValPairs.
+def calcMinSuggestedFeesNew(selectCoinsResult, scriptValPairs, preSelectedFee,
+                                          changeScript=None):
+   """
+   Returns two fee options:  one for relay, one for include-in-block.
+   In general, relay fees are required to get your block propagated
+   (since most nodes are Satoshi clients), but there's no guarantee
+   it will be included in a block -- though I'm sure there's plenty
+   of miners out there will include your tx for sub-standard fee.
+   However, it's virtually guaranteed that a miner will accept a fee
+   equal to the second return value from this method.
+
+   We have to supply the fee that was used in the selection algorithm,
+   so that we can figure out how much change there will be.  Without
+   this information, we might accidentally declare a tx to be freeAllow
+   when it actually is not.
+   """
+
+   # TODO: this should be updated to accommodate the non-constant 
+   #       TxOut/TxIn size given that it now accepts P2SH and Multisig
+
+   if len(selectCoinsResult)==0:
+      return [-1,-1]
+
+   paid = targetOutVal + preSelectedFee
+   change = sum([u.getValue() for u in selectCoinsResult]) - paid
+
+
+   # Calc approx tx size
+   numBytes  =  10
+   numBytes +=  sum([approxTxInSizeForTxOut(u.getScript()) for u in utxoList])
+   numBytes +=  sum([len(sv[1])+9 for sv in scriptValPairs])
+   if change>0:
+      # If no changeScript is provided, we assume P2PKH or P2SH: approx 35 bytes
+      numBytes += len(changeScript) if changeScript else 35
+
+   numKb = int(numBytes / 1000)
+
+   if numKb>10:
+      return [(1+numKb)*MIN_RELAY_TX_FEE, (1+numKb)*MIN_TX_FEE]
+
+   # Compute raw priority of tx
+   prioritySum = 0
+   for utxo in selectCoinsResult:
+      prioritySum += utxo.getValue() * utxo.getNumConfirm()
+   prioritySum = prioritySum / numBytes
+
+   # Any tiny/dust outputs?
+   haveDustOutputs = (0<change<CENT or targetOutVal<CENT)
+
+   if((not haveDustOutputs) and \
+      prioritySum >= ONE_BTC * 144 / 250. and \
+      numBytes < 10000):
+      return [0,0]
+
+   # This cannot be a free transaction.
+   minFeeMultiplier = (1 + numKb)
+
+   # At the moment this condition never triggers
+   if minFeeMultiplier<1.0 and haveDustOutputs:
+      minFeeMultiplier = 1.0
+
+
+   return [minFeeMultiplier * MIN_RELAY_TX_FEE, \
+           minFeeMultiplier * MIN_TX_FEE]
 
