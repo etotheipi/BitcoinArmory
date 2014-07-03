@@ -24,8 +24,8 @@ TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
 
-TWO_OF_THREE_LB_NAME = '2fhUSuNL'
-TWO_OF_TWO_LB_NAME = 'WZ2pEKAG'
+TWO_OF_THREE_LB_NAME = '3U1JQKkD'
+TWO_OF_TWO_LB_NAME = 'p4iZSRhP'
 
 PASSPHRASE1 = 'abcde'
 UNLOCK_TIMEOUT = 5
@@ -104,7 +104,7 @@ class ArmoryDTiabTest(TiabTest):
                                 'armory_%s_.wallet' % THIRD_WLT_NAME)
       self.wltC  = PyBtcWallet().readWalletFile(self.fileC, doScanNow=True)
       self.jsonServer = Armory_Json_Rpc_Server(self.wltA, \
-                                    inWltSet={SECOND_WLT_NAME : self.wltB, \
+                                    inWltMap={SECOND_WLT_NAME : self.wltB, \
                                               THIRD_WLT_NAME : self.wltC}, \
                        armoryHomeDir=os.path.join(self.tiab.tiabDirectory, \
                                                   'tiab','armory'))
@@ -168,7 +168,7 @@ class ArmoryDTiabTest(TiabTest):
                                                             addrFromFirstWlt, \
                                                             addrFromSecondWlt, \
                                                             addrFromThirdWlt)
-      self.assertTrue(TWO_OF_THREE_LB_NAME in actualResult1['id'])
+      self.assertEqual(TWO_OF_THREE_LB_NAME, actualResult1['id'])
       listResult1 = self.jsonServer.jsonrpc_listloadedlockboxes()
       self.assertEqual(len(listResult1.keys()), 1)
       self.assertTrue(TWO_OF_THREE_LB_NAME in listResult1.values())
@@ -176,7 +176,7 @@ class ArmoryDTiabTest(TiabTest):
       actualResult2 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
                                                             addrFromSecondWlt, \
                                                             addrFromThirdWlt)
-      self.assertTrue(TWO_OF_TWO_LB_NAME in actualResult2['id'])
+      self.assertEqual(TWO_OF_TWO_LB_NAME, actualResult2['id'])
       listResult2 = self.jsonServer.jsonrpc_listloadedlockboxes()
       self.assertEqual(len(listResult2.keys()), 2)
       self.assertTrue(TWO_OF_TWO_LB_NAME in listResult2.values())

@@ -846,7 +846,7 @@ def approxTxInSizeForTxOut(utxoScript, lboxList=None):
    elif scrType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
       return 110
    elif scrType == CPP_TXOUT_MULTISIG:
-      M,N,a160s,pubs = getMultisigScriptInfo(rawScript)
+      M,N,a160s,pubs = getMultisigScriptInfo(utxoScript)
       return M*70 + 40
    elif scrType == CPP_TXOUT_P2SH and not lboxList is None:
       scrAddr = script_to_scrAddr(utxoScript)
@@ -886,17 +886,16 @@ def calcMinSuggestedFeesNew(selectCoinsResult, scriptValPairs, preSelectedFee,
    # TODO: this should be updated to accommodate the non-constant 
    #       TxOut/TxIn size given that it now accepts P2SH and Multisig
 
+   targetOutVal = long( sum([rv[1] for rv in scriptValPairs]) )
    if len(selectCoinsResult)==0:
       return [-1,-1]
-
    paid = targetOutVal + preSelectedFee
    change = sum([u.getValue() for u in selectCoinsResult]) - paid
 
 
    # Calc approx tx size
    numBytes  =  10
-   numBytes +=  sum([approxTxInSizeForTxOut(u.getScript()) for u in utxoList])
-   numBytes +=  sum([len(sv[1])+9 for sv in scriptValPairs])
+   numBytes +=  sum([len(sv[0])+9 for sv in scriptValPairs])
    if change>0:
       # If no changeScript is provided, we assume P2PKH or P2SH: approx 35 bytes
       numBytes += len(changeScript) if changeScript else 35

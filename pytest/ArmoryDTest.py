@@ -142,10 +142,10 @@ class ArmoryDTest(TiabTest):
       
       # Verify that a bogus addrss Raises InvalidBitcoinAddress Exception
       result =  self.jsonServer.jsonrpc_dumpprivkey('bogus')
-      self.assertTrue('InvalidBitcoinAddress' in result[1])
+      self.assertEqual(result['Error Type'],'InvalidBitcoinAddress')
       
       result =  self.jsonServer.jsonrpc_dumpprivkey(addr58)
-      self.assertTrue('PrivateKeyNotFound' in result[1])
+      self.assertEqual(result['Error Type'],'PrivateKeyNotFound')
       
       # verify that the first private key can be found
       firstHash160 = self.wallet.getNextUnusedAddress().getAddr160()
@@ -161,7 +161,7 @@ class ArmoryDTest(TiabTest):
       self.wallet.changeWalletEncryption( securePassphrase=self.passphrase )
       self.wallet.lock()
       result = self.jsonServer.jsonrpc_dumpprivkey(addr58)
-      self.assertTrue('WalletUnlockNeeded' in result[1])
+      self.assertEqual(result['Error Type'],'WalletUnlockNeeded')
       
    def testEncryptwallet(self):
       kdfParams = self.wallet.computeSystemSpecificKdfParams(0.1)
