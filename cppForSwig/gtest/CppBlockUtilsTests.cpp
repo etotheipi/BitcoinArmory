@@ -7333,12 +7333,12 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
    iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       6);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
 
    iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
 
    iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);

@@ -770,6 +770,7 @@ map<BinaryData, TxIOPair> BtcWallet::getHistoryForScrAddr(
    for (auto &subSSHEntry : ssh.subHistMap_)
    {
       StoredSubHistory & subssh = subSSHEntry.second;
+
       for (auto &txiop : subssh.txioMap_)
       {
          const TxIOPair & txio = txiop.second;
@@ -914,7 +915,7 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf(endBlock);
 
-      updateLedgers(startBlock, endBlock);
+      updateWalletLedgers(scrAddrMap_, startBlock, endBlock);
 
       lastScanned_ = endBlock;
    }
@@ -966,11 +967,16 @@ void BtcWallet::purgeLedgerFromHeight(uint32_t height)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::updateLedgers(uint32_t startBlock, uint32_t endBlock)
+void BtcWallet::updateWalletLedgers(
+   const map<BinaryData, ScrAddrObj>& scrAddrMap, 
+   uint32_t startBlock, 
+   uint32_t endBlock,
+   bool purge)
 {
    //nuke every entry from startBlock onwards before adding the freshly updated
    //ledgers from each scrAddr
-   purgeLedgerFromHeight(startBlock);
+   if ( purge==true ) 
+      purgeLedgerFromHeight(startBlock);
 
    uint32_t zero = 0;
    BinaryData startHgtX = DBUtils::heightAndDupToHgtx(startBlock, 0);
@@ -984,7 +990,7 @@ void BtcWallet::updateLedgers(uint32_t startBlock, uint32_t endBlock)
    vector<LedgerEntry>* leVec;
 
    //arrange scrAddr ledger entries by txHash, within start/endBlock range
-   for (const auto scrAddrPair : scrAddrMap_)
+   for (const auto scrAddrPair : scrAddrMap)
    {
       const ScrAddrObj& scrAddr = scrAddrPair.second;
       const map<BinaryData, LedgerEntry>& saLe = scrAddr.getTxLedger();
@@ -1063,9 +1069,6 @@ void BtcWallet::preloadScrAddr(const BinaryData& scrAddr)
 {
    ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), scrAddr);
 
-   //NOTE: add some check in fetchDBScrAddrData to make sure each SSH is 
-   //scanned up to the last block
-
    //fetch scrAddrData
    fetchDBScrAddrData(newScrAddrObj, 0, bdmPtr_->getTopBlockHeight());
 
@@ -1087,9 +1090,25 @@ void BtcWallet::merge(void)
 {
    if (mergeFlag_ == true)
    {
+
       //grab lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
+      
+      //rescan last 100 blocks to account for new blocks and reorgs
+      uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight() + 1;
+      for (auto& scrAddrPair : scrAddrMapToMerge_)
+         fetchDBScrAddrData(scrAddrPair.second, topBlock -100, topBlock);
+      
 
+      /***NOTE: should ledgers just be wiped and fully rebuilt? If the new 
+      addresses are used in shared transactions, the ledgers will be invalid
+      ***/
+
+      //update wallet ledger, pass false to not reset the other ledger entries
+      updateWalletLedgers(scrAddrMapToMerge_, 0, 
+                          bdmPtr_->blockchain().top().getBlockHeight() + 1,
+                          false);
+      
       //merge scrAddrMap
       scrAddrMap_.insert(scrAddrMapToMerge_.begin(), scrAddrMapToMerge_.end());
 

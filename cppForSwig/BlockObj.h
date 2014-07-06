@@ -668,8 +668,6 @@ public:
    void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
    bool  isMultisig(void) const { return isMultisig_; }
    void setMultisig(bool isTrue=true) { isMultisig_ = isTrue; }
-   bool isIndexedByTxIn(void) const { return indexedByTxIn_; }
-   void setIndexedByTxIn(bool isTrue = true) { indexedByTxIn_ = isTrue; }
 
    BinaryData getDBKeyOfOutput(void) const
                { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
@@ -736,9 +734,6 @@ private:
    bool      isTxOutFromSelf_;
    bool      isFromCoinbase_;
    bool      isMultisig_;
-
-   //for serialize/unserialize purposes, ignore otherwise
-   bool      indexedByTxIn_;
 
    //for ZC preprocessing
    BinaryData ZCscrAddr_;

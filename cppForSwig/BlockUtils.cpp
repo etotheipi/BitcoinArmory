@@ -987,52 +987,6 @@ void BlockDataManager_LevelDB::unregisterWallet(BtcWallet* wltPtr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-/*uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
-{
-   SCOPED_TIMER("evalLowestBlockNextScan");
-
-   uint32_t lowestBlk = UINT32_MAX;
-
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-
-   for (BtcWallet* wlt : wltSnapshot)
-   {
-      lowestBlk = min(lowestBlk, wlt->evalLowestBlockNextScan());
-   }
-   return lowestBlk;
-}*/
-
-/////////////////////////////////////////////////////////////////////////////
-// This method isn't really used yet...
-/*uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
-{
-   SCOPED_TIMER("evalLowestAddressCreationBlock");
-
-   uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredScrAddr>::iterator rsaIter;
-   ts_rsaMap* regScrAddrMap;
-
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
-
-   for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end(); ++wltIter)
-   {
-      regScrAddrMap = (*wltIter)->getRegisteredScrAddrMap();
-      ts_rsaMap::const_snapshot rsaSnapshot(*regScrAddrMap);
-      ts_rsaMap::const_iterator rsaIter;
-      
-      for(rsaIter = rsaSnapshot.begin(); 
-         rsaIter != rsaSnapshot.end(); ++rsaIter)
-      {
-         // If we happen to have any imported addresses, this will set the
-         // lowest block to 0, which will require a full rescan
-         lowestBlk = min(lowestBlk, (*rsaIter).second.blkCreated_);
-      }
-   }
-   return lowestBlk;
-}*/
-
-/////////////////////////////////////////////////////////////////////////////
 // This method needs to be callable from another thread.  Therefore, I don't
 // seek an exact answer, instead just estimate it based on the last block, 
 // and the set of currently-registered addresses.  The method called
@@ -2781,10 +2735,8 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
 
 bool BlockDataManager_LevelDB::parseNewZeroConfTx()
 {
-   scrAddrData_.checkForMerge();
    return ZeroConfCont_.parseNewZC(iface_);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //ScrAddrScanData Methods
@@ -3099,10 +3051,23 @@ void ScrAddrScanData::checkForMerge()
 {
    if (mergeFlag_ == true)
    {
+      //rescan last 100 blocks to account for new blocks and reorgs
+      ScrAddrScanData sca(bdmPtr_);
+      sca.scrAddrMap_ = scrAddrMapToMerge_;
+      sca.UTxO_ = UTxOToMerge_;
+
+      sca.blockHeightCutOff_ = blockHeightCutOff_;
+      uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight();
+      uint32_t startBlock = topBlock - 100;
+      if (topBlock < 100) 
+         startBlock = 0;
+      bdmPtr_->applyBlockRangeToDB(startBlock, topBlock + 1, &sca);
+
       //grab merge lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
 
       scrAddrMap_.insert(scrAddrMapToMerge_.begin(), scrAddrMapToMerge_.end());
+
       UTxO_.insert(UTxOToMerge_.begin(), UTxOToMerge_.end());
 
       scrAddrMapToMerge_.clear();

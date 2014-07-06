@@ -178,7 +178,9 @@ public:
       return nullptr;
    }
 
-   void updateLedgers(uint32_t startBlock, uint32_t endBlock);
+   void updateWalletLedgers(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
+                            uint32_t startBlock, uint32_t endBlock, 
+                            bool purge = true);
    void purgeLedgerFromHeight(uint32_t height);
 
    LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;

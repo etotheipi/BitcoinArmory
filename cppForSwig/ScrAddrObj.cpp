@@ -123,7 +123,11 @@ void ScrAddrObj::clearBlkData(void)
 void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 {
    for (auto txio : txio_map)
+   {
       relevantTxIO_[txio.first] = txio.second;
+      //if (txio.second.hasTxIn())
+         //relevantTxIO_.erase(txio)
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -324,12 +324,11 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 
       
       const uint16_t stxoIdx = sudStxo.txOutIndex_;
+      map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
 
       if(config_.pruneType == DB_PRUNE_NONE)
       {
          // If full/super, we have the TxOut in DB, just need mark it unspent
-         map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
-         //if(iter == stxptr->stxoMap_.end())
          if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
          {
             LOGERR << "Expecting to find existing STXO, but DNE";
@@ -351,8 +350,6 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
       {
          // If we're pruning, we should have the Tx in the DB, but without the
          // TxOut because it had been pruned by this block on the forward op
-         map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
-         //if(iter != stxptr->stxoMap_.end())
          if(ITER_IN_MAP(iter, stxptr->stxoMap_))
             LOGERR << "Somehow this TxOut had not been pruned!";
          else
@@ -366,7 +363,6 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
       {
          ////// Finished updating STX, now update the SSH in the DB
          // Updating the SSH objects works the same regardless of pruning
-         map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
          if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
          {
             LOGERR << "Somehow STXO DNE even though we should've just added it!";
@@ -386,7 +382,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
             continue;
          }
 
-         // Now get the TxIOPair in the StoredScriptHistory and mark unspent
+         // Readd the unspent at TxOut hgtX TxIOPair in the StoredScriptHistory
          sshptr->markTxOutUnspent(
             iface_,
             stxoReAdd.getDBKey(false),
@@ -397,7 +393,18 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
             false
          );
 
-         
+         //delete the spent subssh at TxIn hgtX
+         if (sudStxo.spentness_ == TXOUT_SPENT)
+         {
+            hgtX = sudStxo.spentByTxInKey_.getSliceCopy(0, 4);
+            sshptr = makeSureSSHInMap(
+               iface_, uniqKey, hgtX, sshToModify_, &dbUpdateSize_
+               );
+
+            if (sshptr != nullptr)
+               sshptr->eraseSpentTxio(hgtX, sudStxo.getDBKey(false));
+         }
+
          // If multisig, we need to update the SSHs for individual addresses
          if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
          {
@@ -451,18 +458,17 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 
          StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
          BinaryData    stxoKey = stxo.getDBKey(false);
-
-         if (scrAddrData != nullptr)
-         {
-            //eraseUTxO returns true if the element was erased, implying that
-            //UTxO needs revertedin SSH too.
-            if (!scrAddrData->eraseUTxO(stxoKey) == 0)
-               continue;
-         }
-
    
          // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
          BinaryData uniqKey = stxo.getScrAddress();
+         if (scrAddrData != nullptr)
+         {
+            if (!scrAddrData->hasScrAddress(uniqKey))
+               continue;
+
+            scrAddrData->eraseUTxO(stxoKey);
+         }
+
          BinaryData hgtX    = stxo.getHgtX();
          StoredScriptHistory * sshptr = makeSureSSHInMap(
                iface_, uniqKey, 
@@ -655,6 +661,10 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
             &dbUpdateSize_
          );
 
+      //NOTE: can conflict between in and out DBkeys, find a work around
+      sshptr->insertSpentTxio(stxoSpend.getDBKey(false), 
+                                  thisSTX.getDBKeyOfChild(iin, false));
+      
       // Assuming supernode, we don't need to worry about removing references
       // to multisig scripts that reference this script.  Simply find and 
       // update the correct SSH TXIO directly
@@ -666,7 +676,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          config_.pruneType
       );
 
-      sshptr->duplicateSpentTxOut(iface_, stxoSpend.getDBKey(false));
    }
 
 

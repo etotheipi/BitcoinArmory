@@ -558,7 +558,10 @@ public:
                              BinaryData  txInKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
-   void duplicateSpentTxOut(InterfaceToLDB *db, BinaryData txOutKey8B);
+   void insertSpentTxio(const BinaryData& txOutDbKey,
+                         const BinaryData& txInDbKey);
+   bool eraseSpentTxio(const BinaryData& hgtX,
+                        const BinaryData& dbKey8B);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
@@ -612,6 +615,7 @@ public:
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
    uint64_t   eraseTxio(InterfaceToLDB *db, TxIOPair const & txio);
    uint64_t   eraseTxio(InterfaceToLDB *db, BinaryData const & dbKey8B);
+   bool       eraseTxio(BinaryData const & dbKey8B);
 
    
    // This adds the TxOut if it doesn't exist yet
