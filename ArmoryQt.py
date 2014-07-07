@@ -873,7 +873,7 @@ class ArmoryMainWindow(QMainWindow):
       This method checks for any .py files in the exec directory
       """ 
       moduleDir = os.path.join(GetExecDir(), 'modules')
-      #print moduleDir, os.path.exists(moduleDir)
+      # print moduleDir, os.path.exists(moduleDir)
       if not moduleDir or not os.path.exists(moduleDir):
          return
 
@@ -4443,19 +4443,6 @@ class ArmoryMainWindow(QMainWindow):
                                   ffilter=['Text Files (*.txt)'], \
                                   defaultFilename=defaultFN)
 
-
-      def getLastBytesOfFile(filename, nBytes=500*1024):
-         if not os.path.exists(filename):
-            LOGERROR('File does not exist!')
-            return ''
-
-         sz = os.path.getsize(filename)
-         with open(filename, 'rb') as fin:
-            if sz > nBytes:
-               fin.seek(sz - nBytes)
-            return fin.read()
-
-
       if len(unicode(saveFile)) > 0:
          fout = open(saveFile, 'wb')
          fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
@@ -4463,8 +4450,6 @@ class ArmoryMainWindow(QMainWindow):
          fout.close()
 
          LOGINFO('Log saved to %s', saveFile)
-
-
 
    #############################################################################
    def blinkTaskbar(self):

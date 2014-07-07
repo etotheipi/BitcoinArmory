@@ -3316,6 +3316,21 @@ def DeriveChaincodeFromRootKey(sbdPrivKey):
                                      'Derive Chaincode from Root Key'))
 
 
+#############################################################################
+def getLastBytesOfFile(filename, nBytes=500*1024):
+   if not os.path.exists(filename):
+      LOGERROR('File does not exist!')
+      return ''
+
+   sz = os.path.getsize(filename)
+   with open(filename, 'rb') as fin:
+      if sz > nBytes:
+         fin.seek(sz - nBytes)
+      return fin.read()
+
+
+
+
 ################################################################################
 def HardcodedKeyMaskParams():
    paramMap = {}
