@@ -1537,11 +1537,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       PARAMETERS:
       numM - The number of signatures required to spend lockbox funds.
       numN - The total number of signatures associated with a lockbox.
-      args - The public keys associated with a lockbox, which must match <numN>
-             in number. The keys may be compressed or uncompressed, although
-             the former will be decompressed before being used by the lockbox.
+      args - The wallets or public keys associated with a lockbox, the total of
+             which must match <numN> in number. The wallets are represented by
+             their Base58 IDs. If the keys are compressed, the keys will be
+             decompressed before being used by the lockbox. 
       RETURN:
-      An ASCII-formatted lockbox, like the ones created within Armory.
+      A dictionary with information about the new lockbox.
       """
 
       m = int(numM)
@@ -1551,8 +1552,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Do some basic error checking before proceeding.
       if m > n:
-         errStr = 'The user requires more addresses to unlock a lockbox (%d) ' \
-                  'than are required to create a lockbox (%d).' % (m, n)
+         errStr = 'The user requires more keys or wallets to unlock a ' \
+                  'lockbox (%d) than are required to create a lockbox (%d).' % \
+                  (m, n)
          LOGERROR(errStr)
          result['Error'] = errStr
       elif m > LB_MAXM:
@@ -1561,18 +1563,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          LOGERROR(errStr)
          result['Error'] = errStr
       elif n > LB_MAXN:
-         errStr = 'The number of wallets required to create a lockbox (%d) ' \
-                  'exceeds the maximum allowed (%d)' % (n, LB_MAXN)
+         errStr = 'The number of keys or wallets required to create a ' \
+                  'lockbox (%d) exceeds the maximum allowed (%d)' % (n, LB_MAXN)
          LOGERROR(errStr)
          result['Error'] = errStr
-      elif args and len(args) > n:
-         errStr = 'The number of keys required to create the lockbox (%d) ' \
-                  'exceeds the number of supplied keys (%d)' % (len(args), n)
+      elif not args:
+         errStr = 'No keys or wallets were specified. %d wallets or keys are ' \
+                  'required to create the lockbox.' % n
          LOGERROR(errStr)
          result['Error'] = errStr
-      elif args and len(args) < n:
-         errStr = 'The number of keys required to create the lockbox (%d) is ' \
-                  'less than the number of supplied keys (%d)' % (len(args), n)
+      elif len(args) > n:
+         errStr = 'The number of supplied keys or wallets (%d) exceeds the ' \
+                  'number required to create the lockbox (%d)' % (len(args), n)
+         LOGERROR(errStr)
+         result['Error'] = errStr
+      elif len(args) < n:
+         errStr = 'The number of supplied keys or wallets (%d) is less than ' \
+                  'the number of required to create the lockbox (%d)' % \
+                  (len(args), n)
          LOGERROR(errStr)
          result['Error'] = errStr
       else:
@@ -1582,15 +1590,44 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          addrNameList = [] # String list
          lockboxPubKeyList = []
 
-         for userStr in args:
-            if isValidPK(userStr, True):
-               addrList.append(userStr)
-               addrName = 'Public key %s' % userStr
+         # We need to determine which args are keys, which are wallets and which
+         # are garbage.
+         for lockboxItem in args:
+            # First, check if the arg is a wallet ID. If not, check if it's a
+            # valid pub key. If not, the input's invalid.
+            try:
+               # If search item's a pub key, it'll cause a KeyError to be
+               # thrown. That's fine. We can catch it and keep on truckin'.
+               lbWlt = self.serverWltMap[lockboxItem]
+               lbWltHighestIdx = lbWlt.getHighestUsedIndex()
+               lbWltPK = self.getPKFromWallet(lbWlt, lbWltHighestIdx)
+               addrList.append(lbWltPK)
+               addrName = 'Public key %d from wallet %s' % (lbWltHighestIdx, \
+                                                            lockboxItem)
                addrNameList.append(addrName)
-            else:
-               badArg = userStr
-               allArgsValid = False
-               break
+
+            except KeyError:
+               # A screwy wallet ID will cause a TypeError if we check to see if
+               # it's a pub key. Let's catch it.
+               try:
+                  # A pub key could be fake but in the proper form, so we
+                  # have a second place where a value can fail. Catch it.
+                  if isValidPK(lockboxItem, True):
+                     # Make sure we're using an uncompressed key before
+                     # processing it.
+                     lockboxItem = decompressPK(lockboxItem, True)
+                     addrList.append(lockboxItem)
+                     addrName = 'Public key %s' % lockboxItem
+                     addrNameList.append(addrName)
+                  else:
+                     badArg = lockboxItem
+                     allArgsValid = False
+                     break
+
+               except TypeError:
+                  badArg = lockboxItem
+                  allArgsValid = False
+                  break
 
          # Do some basic error checking before proceeding.
          if allArgsValid == False:
@@ -1619,7 +1656,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             lbName = 'Lockbox %s' % lbID
             lbDescrip = '%s - %d-of-%d - Created by armoryd' % (lbID, m, n)
             lockbox = MultiSigLockbox(lbName, lbDescrip, m, n,
-                     lockboxPubKeyList, lbCreateDate)
+                                      lockboxPubKeyList, lbCreateDate)
 
             # To be safe, we'll write the LB only if Armory doesn't already have
             # a copy.

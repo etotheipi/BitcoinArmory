@@ -3247,7 +3247,7 @@ def getBlockID(asciiText, key):
 
 ################################################################################
 # Decompress an incoming public key. The incoming key may be binary or hex. The
-# decompressed key is binary.
+# final key is in the same form (i.e., binary or hex) as the incoming key.
 def decompressPK(inKey, inStr=False):
    outKey = '\x00'
    checkKey = '\x00'
@@ -3267,7 +3267,7 @@ def decompressPK(inKey, inStr=False):
    elif lenInKey != COMP_PK_LEN:
        LOGERROR('The public key has an incorrect size (%d bytes).' % lenInKey)
    else:
-      if checkKey[0] == '\x02' or checkKey[1] == '\x03':
+      if checkKey[0] == '\x02' or checkKey[0] == '\x03':
          cppKeyVal = SecureBinaryData(checkKey)
          outKey = CryptoECDSA().UncompressPoint(cppKeyVal).toBinStr()
          keyStr = binary_to_hex(outKey)
@@ -3275,6 +3275,9 @@ def decompressPK(inKey, inStr=False):
          LOGERROR('The public key\'s first byte (%s) is incorrectly ' \
                   'formatted.' % binary_to_hex(checkKey[0]))
 
+   # Keep consistency by returning a string key if necessary.
+   if inStr:
+      outKey = binary_to_hex(outKey)
    return outKey
 
 
