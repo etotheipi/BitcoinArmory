@@ -1661,7 +1661,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # To be safe, we'll write the LB only if Armory doesn't already have
             # a copy.
             if lbID in self.serverLBSet.keys():
-               errStr = 'Lockbox %s already exists' % lbID
+               errStr = 'Lockbox %s already exists.' % lbID
                LOGERROR(errStr)
                result['Error'] = errStr
             else:

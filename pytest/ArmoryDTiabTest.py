@@ -34,8 +34,9 @@ GOOD_PK_COMP_1 = '02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e3580456074
 GOOD_PK_UNCOMP_2 = '0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281'
 GOOD_PK_COMP_2 = '0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2'
 BAD_WLT_NAME = 'keKoEXp1'
-BAD_PK_UNCOMP = '04000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
-BAD_PK_COMP = '02000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
+BAD_PK = '04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d2927'
+BAD_PK_UNCOMP_1 = '04000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
+BAD_PK_COMP_1 = '02000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
 ERRSTR11 = 'The user requires more keys or wallets to unlock a lockbox (%d) ' \
            'than are required to create a lockbox (%d).' % (3, 2)
 ERRSTR12 = 'The number of signatures required to unlock a lockbox (%d) ' \
@@ -219,14 +220,14 @@ class ArmoryDTiabTest(TiabTest):
       # This test should fail because of a malformed, uncompressed public key.
       actualResult5 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
                                                             addrFromFirstWlt, \
-                                                            BAD_PK_UNCOMP)
-      self.assertTrue(BAD_PK_UNCOMP in actualResult5['Error'])
+                                                            BAD_PK_UNCOMP_1)
+      self.assertTrue(BAD_PK_UNCOMP_1 in actualResult5['Error'])
 
       # This test should fail because of a malformed, compressed public key.
       actualResult6 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
                                                             addrFromFirstWlt, \
-                                                            BAD_PK_COMP)
-      self.assertTrue(BAD_PK_COMP in actualResult6['Error'])
+                                                            BAD_PK_COMP_1)
+      self.assertTrue(BAD_PK_COMP_1 in actualResult6['Error'])
 
       # These tests should succeed.
       foundUncompAddr = False
@@ -305,6 +306,12 @@ class ArmoryDTiabTest(TiabTest):
       actualResult16 = self.jsonServer.jsonrpc_createlockbox(1, 2, \
                                                              addrFromFirstWlt)
       self.assertTrue(ERRSTR16 in actualResult16['Error'])
+
+      # This test should fail due to a malformed public key (incorrect length).
+      actualResult17 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
+                                                             addrFromFirstWlt, \
+                                                             BAD_PK)
+      self.assertTrue(BAD_PK in actualResult17['Error'])
 
       # These tests should succeed.
       self.jsonServer.jsonrpc_setactivelockbox(TWO_OF_TWO_LB_NAME)
