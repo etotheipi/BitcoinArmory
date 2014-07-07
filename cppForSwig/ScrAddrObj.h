@@ -37,7 +37,7 @@ public:
    ScrAddrObj() :
       db_(nullptr),
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
-      lastBlockNum_(0), lastTimestamp_(0) 
+      lastBlockNum_(0), lastTimestamp_(0), hasMultisigEntries_(false)
    {
       relevantTxIO_.clear();
    }

@@ -860,8 +860,8 @@ HashString TxIOPair::getTxHashOfOutput(InterfaceToLDB *db) const
       txHashOfOutput_ = txRefOfOutput_.attached(db).getThisHash();
       return txHashOfOutput_;
    }
-   else
-      return BinaryData(0);
+
+   return BinaryData(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -876,8 +876,8 @@ HashString TxIOPair::getTxHashOfInput(InterfaceToLDB *db) const
       txHashOfInput_ = txRefOfInput_.attached(db).getThisHash();
       return txHashOfInput_;
    }
-   else
-      return BinaryData(0);
+
+   return BinaryData(0);
 }
 //////////////////////////////////////////////////////////////////////////////
 TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db) const

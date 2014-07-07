@@ -47,7 +47,7 @@ public:
       scrAddr_(0),
       value_(0),
       blockNum_(UINT32_MAX),
-      txHash_(BtcUtils::EmptyHash()),
+      txHash_(0),
       index_(UINT32_MAX),
       txTime_(0),
       isValid_(false),

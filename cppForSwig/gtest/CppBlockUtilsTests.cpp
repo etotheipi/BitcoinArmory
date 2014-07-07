@@ -8076,6 +8076,13 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance(),  40*COIN);
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance(),  10*COIN);
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_)->getFullBalance(),   0*COIN);
+
+   //test ledger entry
+   LedgerEntry le = wlt.getLedgerEntryForTx(txWithChangeHash);
+
+   EXPECT_EQ(le.getTxTime(), 1300000000);
+   EXPECT_EQ(le.isSentToSelf(), true);
+   EXPECT_EQ(le.getValue(), 50*COIN);
 }
 
 // This was really just to time the logging to determine how much impact it 

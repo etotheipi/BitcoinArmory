@@ -1620,7 +1620,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       scrAddrData_.reset();
    }
 
-   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan)
+   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan && !skipFetch)
    {
       LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_.numScrAddr() << " registered addresses";
       scrAddrData_.getScrAddrCurrentSyncState();
@@ -2793,6 +2793,34 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
       op.unserialize(txStartPtr + tx.getTxInOffset(iin),
          tx.getSize() - tx.getTxInOffset(iin));
 
+      //check ZC txhash first, always cheaper than grabing a stxo from DB,
+      //and will always be checked if the tx doesn't hit in DB outpoints.
+      if (ZCtxHashMap != nullptr && ZCtxioMap != nullptr)
+      {
+         auto iter = ZCtxHashMap->find(op.getTxHash());
+         if (iter != ZCtxHashMap->end())
+         {
+            TxRef outPointRef(iter->second);
+            uint16_t outPointId = op.getTxOutIndex();
+            TxIOPair txio(outPointRef, outPointId,
+               TxRef(ZCkey), iin);
+
+            const TxIOPair& parentTxIO =
+               ZCtxioMap->find(txio.getDBKeyOfOutput())->second;
+
+            txio.setTxHashOfOutput(op.getTxHash());
+            txio.setTxHashOfInput(tx.getThisHash());
+
+            txio.setZCscrAddr(parentTxIO.getZCscrAddr());
+            txio.setValue(parentTxIO.getValue());
+            txio.setTxTime(txtime);
+
+            processedTxIO[txio.getDBKeyOfOutput()] = txio;
+            continue;
+         }
+      }
+
+
       //fetch the TxOut from DB
       BinaryData opKey = op.getDBkey(db);
       if (opKey.getSize() == 8)
@@ -2815,39 +2843,13 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
                TxIOPair txio(TxRef(opKey.getSliceRef(0, 6)), op.getTxOutIndex(),
                              TxRef(ZCkey), iin);
 
+               txio.setTxHashOfOutput(op.getTxHash());
                txio.setTxHashOfInput(tx.getThisHash());
                txio.setZCscrAddr(sa);
                txio.setValue(stxOut.getValue());
                txio.setTxTime(txtime);
 
                processedTxIO[opKey] = txio;
-               continue;
-            }
-         }
-
-         //couldnt find a DBkey for the outPoint, check if the ZC is trying to
-         //spend a ZC TxOut
-         if (ZCtxHashMap != nullptr && ZCtxioMap != nullptr)
-         {
-            auto iter = ZCtxHashMap->find(op.getTxHash());
-            if (iter != ZCtxHashMap->end())
-            {
-               TxRef outPointRef(iter->second);
-               uint16_t outPointId = op.getTxOutIndex();
-               TxIOPair txio(outPointRef, outPointId,
-                             TxRef(ZCkey), iin);
-
-               const TxIOPair& parentTxIO = 
-                  ZCtxioMap->find(txio.getDBKeyOfOutput())->second;
-
-               txio.setTxHashOfInput(op.getTxHash());
-               txio.setTxHashOfOutput(tx.getThisHash());
-
-               txio.setZCscrAddr(parentTxIO.getZCscrAddr());
-               txio.setValue(parentTxIO.getValue());
-               txio.setTxTime(txtime);
-
-               processedTxIO[txio.getDBKeyOfOutput()] = txio;
             }
          }
       }
@@ -2864,6 +2866,9 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
 
          txio.setZCscrAddr(scrAddr);
          txio.setValue(txout.getValue());
+         txio.setTxHashOfOutput(tx.getThisHash());
+         txio.setTxTime(txtime);
+
          processedTxIO[txio.getDBKeyOfOutput()] = txio;
          continue;
       }
@@ -2882,6 +2887,7 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
          {
             TxIOPair txio(TxRef(ZCkey), iout);
 
+            txio.setTxHashOfOutput(tx.getThisHash());
             txio.setZCscrAddr(scrAddr);
             txio.setValue(txout.getValue());
             txio.setTxTime(txtime);
@@ -3150,7 +3156,7 @@ set<BinaryData> ZeroConfContainer::purge(InterfaceToLDB *db)
 
    This would break a ZC chain starting off that one invalidated ZC, 
    taking away the whole chain. The simpliest way to track down all 
-   invalidated  ZC is to reparse them all, and compare the new list to the 
+   invalidated ZC is to reparse them all, and compare the new list to the 
    old one.
    
    For ZC chains to be parsed properly, it is important ZC transactions are 

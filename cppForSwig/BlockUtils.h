@@ -162,6 +162,16 @@ private:
    atomic<int32_t>                mergeLock_;
    bool                           mergeFlag_;
 
+   void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
+   {
+      auto& scrAddrIter = scrAddrMap_.find(scrAddr);
+      if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
+      {
+         scrAddrIter->second.lastScannedHeight_ = blkHgt;
+         blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
+      }
+   }
+
 public:
    ScrAddrScanData(BlockDataManager_LevelDB* bdmPtr) :
       bdmPtr_(bdmPtr),
@@ -175,23 +185,12 @@ public:
       return scrAddrMap_;
    }
 
-   void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
-   { 
-      auto& scrAddrIter = scrAddrMap_.find(scrAddr);
-      if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
-      {
-         scrAddrIter->second.lastScannedHeight_ = blkHgt;
-         blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
-      } 
-   }
-
    uint32_t numScrAddr(void) const
    { return scrAddrMap_.size(); }
 
    uint32_t scanFrom(void) const
    { 
       uint32_t lowestBlock = UINT32_MAX;
-      blockHeightCutOff_ = 0;
 
       for (auto scrAddr : scrAddrMap_)
       {
@@ -199,6 +198,8 @@ public:
       }
 
       LOGERR << "blockHeightCutOff: " << blockHeightCutOff_;
+      LOGERR << "lowestBlock: " << lowestBlock;
+
       return lowestBlock;
    }
 

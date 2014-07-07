@@ -163,22 +163,22 @@ void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
       {
          TxIOPair& txio = txioIter->second;
 
-         if (txio.hasTxOutZC())
-         {
-            //purged ZC chain, remove the TxIO
-            relevantTxIO_.erase(txioIter);
-         }
-         else if (txio.hasTxInZC())
+         if (txio.hasTxInZC())
          {
             //ZC consumes UTxO, reset the TxIn to mark the TxOut as unspent
+            BinaryData zckey = getLedgerKey(txio.getDBKeyOfInput(), true);
+            ledger_.erase(zckey);
+
             txio.setTxIn(BinaryData(0));
             txio.setTxHashOfInput(BinaryData(0));
          }
 
-         //erase both possible keys for the ZC (txin and txout)
-         ledger_.erase(zc);
-         BinaryData zcLedgerKey = getLedgerKey(zc, true);
-         ledger_.erase(zcLedgerKey);
+         if (txio.hasTxOutZC())
+         {
+            //purged ZC chain, remove the TxIO
+            relevantTxIO_.erase(txioIter);
+            ledger_.erase(zc);
+         }
       }
    }
 }
@@ -308,7 +308,7 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
       if (ledger_.find(opKey) == ledger_.end())
       {
          if ((uint16_t)*opKey.getSliceRef(0, 2).getPtr() == 0xFF)
-            opHeight = height;
+            opHeight = UINT32_MAX;
          else
             opHeight = DBUtils::hgtxToHeight(opKey.getSliceRef(0, 4));
             
@@ -319,7 +319,8 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
             bhptr = &bc->getHeaderByHeight(opHeight);
             txtime = bhptr->getTimestamp();
          }
-         else txtime = txio.getTxTime();
+         else
+            txtime = txio.getTxTime();
 
          LedgerEntry le(scrAddr_,
             txio.getValue(),
@@ -338,7 +339,7 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
          if (ledger_.find(inKey) == ledger_.end())
          {
             if ((uint16_t)*inKey.getSliceRef(0, 2).getPtr() == 0xFF)
-               inHeight = height;
+               inHeight = UINT32_MAX;
             else
                inHeight = DBUtils::hgtxToHeight(inKey.getSliceRef(0, 4));
             
@@ -349,7 +350,8 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
                bhptr = &bc->getHeaderByHeight(inHeight);
                txtime = bhptr->getTimestamp();
             }
-            else txtime = txio.getTxTime();
+            else
+               txtime = txio.getTxTime();
 
             LedgerEntry le(scrAddr_,
                (int64_t)txio.getValue() * -1,

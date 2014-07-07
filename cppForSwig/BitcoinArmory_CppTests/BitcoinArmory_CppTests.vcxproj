@@ -171,6 +171,7 @@
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BlockUtils.h" />
     <ClInclude Include="..\BtcUtils.h" />
+    <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\gtest\gtest.h" />
     <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h" />

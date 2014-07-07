@@ -923,7 +923,10 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
    {
       //top block didnt change, only have to check for new ZC
       if (bdmPtr_->isZcEnabled())
+      {
          scanWalletZeroConf(endBlock);
+         updateWalletLedgers(scrAddrMap_, startBlock, endBlock, false);
+      }
    }
 }
 
@@ -951,7 +954,7 @@ void BtcWallet::purgeLedgerFromHeight(uint32_t height)
    /***
    Remove all entries starting this height, included.
    Since ledger entries are always sorted, find the first to >= height and
-   delete everything starting that index
+   delete everything starting that index. This will always erase ZC entries.
    ***/
 
    uint32_t i = 0;
@@ -984,6 +987,14 @@ void BtcWallet::updateWalletLedgers(
 
    startHgtX.append((uint8_t*)&zero, 4);
    endHgtX.append((uint8_t*)&zero, 4);
+   
+   if (startBlock >= endBlock)
+   {
+      //parsing ZC ledgers only
+      startHgtX = WRITE_UINT64_BE(0xffff000000000000);
+      endHgtX = WRITE_UINT64_BE(0xffffffffffffffff);
+   }
+
 
    map<BinaryData, vector<LedgerEntry>> arrangeByHash;
 
@@ -1013,16 +1024,21 @@ void BtcWallet::updateWalletLedgers(
 
    //parse ledger entries per txHash
    int64_t ledgerVal;
+   int64_t valIn, valOut, val;
    bool isCoinbase;
    bool isSendToSelf;
+   bool isChangeBack;
    uint32_t blockNum;
    uint32_t txTime;
+   uint32_t nHits;
 
    for (const auto txHashPair : arrangeByHash)
    {
-      ledgerVal = 0;
+      ledgerVal = valIn = valOut = 0;
       isCoinbase = false;
       isSendToSelf = false;
+      isChangeBack = false;
+      nHits = 0;
 
       auto leIter = txHashPair.second.begin();
       blockNum = (*leIter).getBlockNum();
@@ -1032,9 +1048,33 @@ void BtcWallet::updateWalletLedgers(
       {
          isCoinbase |= (*leIter).isCoinbase();
 
-         ledgerVal += (*leIter).getValue();
+         val = (*leIter).getValue();
+         if (val > 0)
+            valIn += val;
+         else
+            valOut += val;
+
+         ledgerVal += val;
+
+         if (hasScrAddress((*leIter).getScrAddr()))
+            nHits++;
 
          ++leIter;
+      }
+
+      /*** NOTE: Need a wallet to defined STS and ChangeBack (as opposed
+      to a single scrAddr). STS is signifiant at both address and wallet
+      level, but ChangeBack is only relevant at address level.
+      ***/
+      if (valIn*valOut != 0)
+      {
+         if (nHits == txHashPair.second.size())
+         {
+            ledgerVal = valIn;
+            isSendToSelf = true;
+         }
+         else if (nHits != 0 && (valIn + valOut) < 0)
+            isChangeBack = true;
       }
 
       LedgerEntry le(BinaryData(0),
@@ -1044,7 +1084,8 @@ void BtcWallet::updateWalletLedgers(
          0,
          txTime,
          isCoinbase,
-         isSendToSelf);
+         isSendToSelf,
+         isChangeBack);
 
       ledgerAllAddr_.push_back(le);
    }
