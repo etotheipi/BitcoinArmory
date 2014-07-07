@@ -1518,16 +1518,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # to unlock a lockbox and the number of keys in a lockbox. Optionally, the
    # user may specify the public keys or wallets to use. If wallets are
    # specified, an address will be chosen from the wallet. If public keys are
-   # specified, keys may be compressed or uncompressed. (For now, compressed
-   # keys will be decompressed inside Armory before being used.) If no extra
-   # arguments are specified, the number of addresses in the lockbox must be
-   # less than or equal to the number currently loaded into armoryd, and one
-   # address each will be chosen from a random subset of lockboxes.
+   # specified, keys must be uncompressed. (For now, compressed keys aren't
+   # supported.)
    #
    # Example: We wish to create a 2-of-3 lockbox based on 2 loaded wallets
-   # (27TchD13 and AaAaaAQ4) and a compressed public key. The following command
-   # would be executed.
-   # armoryd 2 3 27TchD13 AaAaaAQ4 02010203040506070809....
+   # (27TchD13 and AaAaaAQ4) and an uncompressed public key. The following
+   # command would be executed.
+   # armoryd 2 3 27TchD13 AaAaaAQ4 04010203040506070809....
    @catchErrsForJSON
    def jsonrpc_createlockbox(self, numM, numN, *args):
       """
@@ -1539,8 +1536,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       numN - The total number of signatures associated with a lockbox.
       args - The wallets or public keys associated with a lockbox, the total of
              which must match <numN> in number. The wallets are represented by
-             their Base58 IDs. If the keys are compressed, the keys will be
-             decompressed before being used by the lockbox. 
+             their Base58 IDs. The keys must be uncompressed. 
       RETURN:
       A dictionary with information about the new lockbox.
       """
@@ -1615,10 +1611,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   if isValidPK(lockboxItem, True):
                      # Make sure we're using an uncompressed key before
                      # processing it.
-                     lockboxItem = decompressPK(lockboxItem, True)
-                     addrList.append(lockboxItem)
-                     addrName = 'Public key %s' % lockboxItem
-                     addrNameList.append(addrName)
+                     if len(lockboxItem) != 130:
+                        badArg = lockboxItem
+                        allArgsValid = False
+                     else:
+                        addrList.append(lockboxItem)
+                        addrName = 'Public key %s' % lockboxItem
+                        addrNameList.append(addrName)
                   else:
                      badArg = lockboxItem
                      allArgsValid = False

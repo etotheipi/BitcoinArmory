@@ -37,17 +37,17 @@ BAD_WLT_NAME = 'keKoEXp1'
 BAD_PK = '04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d2927'
 BAD_PK_UNCOMP_1 = '04000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
 BAD_PK_COMP_1 = '02000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
-ERRSTR11 = 'The user requires more keys or wallets to unlock a lockbox (%d) ' \
+ERRSTR09 = 'The user requires more keys or wallets to unlock a lockbox (%d) ' \
            'than are required to create a lockbox (%d).' % (3, 2)
-ERRSTR12 = 'The number of signatures required to unlock a lockbox (%d) ' \
+ERRSTR10 = 'The number of signatures required to unlock a lockbox (%d) ' \
            'exceeds the maximum allowed (%d)' % (8, LB_MAXM)
-ERRSTR13 = 'The number of keys or wallets required to create a lockbox (%d) ' \
+ERRSTR11 = 'The number of keys or wallets required to create a lockbox (%d) ' \
            'exceeds the maximum allowed (%d)' % (8, LB_MAXN)
-ERRSTR14 = 'No keys or wallets were specified. %d wallets or keys are ' \
+ERRSTR12 = 'No keys or wallets were specified. %d wallets or keys are ' \
            'required to create the lockbox.' % 4
-ERRSTR15 = 'The number of supplied keys or wallets (%d) exceeds the number ' \
+ERRSTR13 = 'The number of supplied keys or wallets (%d) exceeds the number ' \
            'required to create the lockbox (%d)' % (3, 2)
-ERRSTR16 = 'The number of supplied keys or wallets (%d) is less than the ' \
+ERRSTR14 = 'The number of supplied keys or wallets (%d) is less than the ' \
            'number of required to create the lockbox (%d)' % (1, 2)
 
 PASSPHRASE1 = 'abcde'
@@ -229,89 +229,54 @@ class ArmoryDTiabTest(TiabTest):
                                                             BAD_PK_COMP_1)
       self.assertTrue(BAD_PK_COMP_1 in actualResult6['Error'])
 
-      # These tests should succeed.
+      # This test should fail due to a compressed public key being used.
       foundUncompAddr = False
       actualResult7 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
                                                             addrFromFirstWlt, \
                                                             GOOD_PK_COMP_1)
-      self.assertEqual(TWO_OF_TWO_LB_NAME_COMP_1, actualResult7['id'])
-      for addr in actualResult7['pubkeylist']:
-         if addr['pubkeyhex'] == GOOD_PK_UNCOMP_1:
-            foundUncompAddr = True
-      self.assertTrue(foundUncompAddr)
-      listResult7 = self.jsonServer.jsonrpc_listloadedlockboxes()
-      self.assertEqual(len(listResult7.keys()), 3)
-      self.assertTrue(TWO_OF_TWO_LB_NAME_COMP_1 in listResult7.values())
-
-      # These tests should succeed.
-      foundUncompAddr1 = False
-      foundUncompAddr2 = False
-      actualResult8 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
-                                                            GOOD_PK_COMP_1, \
-                                                            GOOD_PK_COMP_2)
-      self.assertEqual(TWO_OF_TWO_LB_NAME_COMP_2, actualResult8['id'])
-      for addr in actualResult8['pubkeylist']:
-         if addr['pubkeyhex'] == GOOD_PK_UNCOMP_1:
-            foundUncompAddr1 = True
-         if addr['pubkeyhex'] == GOOD_PK_UNCOMP_2:
-            foundUncompAddr2 = True
-      self.assertTrue(foundUncompAddr1)
-      self.assertTrue(foundUncompAddr2)
-      listResult8 = self.jsonServer.jsonrpc_listloadedlockboxes()
-      self.assertEqual(len(listResult8.keys()), 4)
-      self.assertTrue(TWO_OF_TWO_LB_NAME_COMP_2 in listResult8.values())
-
-      # These tests should fail because the lockboxes already exist.
-      actualResult9 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
-                                                            addrFromFirstWlt, \
-                                                            GOOD_PK_UNCOMP_1)
-      self.assertTrue(TWO_OF_TWO_LB_NAME_COMP_1 in actualResult9['Error'])
-      actualResult10 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
-                                                             GOOD_PK_UNCOMP_1, \
-                                                             GOOD_PK_UNCOMP_2)
-      self.assertTrue(TWO_OF_TWO_LB_NAME_COMP_2 in actualResult10['Error'])
-
-      # These tests should fail for various reasons related to the # of inputs.
-      actualResult11 = self.jsonServer.jsonrpc_createlockbox(3, 2, \
-                                                             addrFromFirstWlt, \
-                                                             addrFromThirdWlt)
-      self.assertTrue(ERRSTR11 in actualResult11['Error'])
-      actualResult12 = self.jsonServer.jsonrpc_createlockbox(8, 8, \
-                                                             addrFromFirstWlt, \
-                                                             addrFromSecondWlt, \
-                                                             addrFromThirdWlt, \
-                                                             FIRST_WLT_NAME, \
-                                                             SECOND_WLT_NAME, \
-                                                             THIRD_WLT_NAME, \
-                                                             GOOD_PK_UNCOMP_1, \
-                                                             GOOD_PK_UNCOMP_2)
-      self.assertTrue(ERRSTR12 in actualResult12['Error'])
-      actualResult13 = self.jsonServer.jsonrpc_createlockbox(1, 8, \
-                                                             addrFromFirstWlt, \
-                                                             addrFromSecondWlt, \
-                                                             addrFromThirdWlt, \
-                                                             FIRST_WLT_NAME, \
-                                                             SECOND_WLT_NAME, \
-                                                             THIRD_WLT_NAME, \
-                                                             GOOD_PK_UNCOMP_1, \
-                                                             GOOD_PK_UNCOMP_2)
-      self.assertTrue(ERRSTR13 in actualResult13['Error'])
-      actualResult14 = self.jsonServer.jsonrpc_createlockbox(1, 4)
-      self.assertTrue(ERRSTR14 in actualResult14['Error'])
-      actualResult15 = self.jsonServer.jsonrpc_createlockbox(1, 2, \
-                                                             addrFromFirstWlt, \
-                                                             addrFromSecondWlt, \
-                                                             addrFromThirdWlt)
-      self.assertTrue(ERRSTR15 in actualResult15['Error'])
-      actualResult16 = self.jsonServer.jsonrpc_createlockbox(1, 2, \
-                                                             addrFromFirstWlt)
-      self.assertTrue(ERRSTR16 in actualResult16['Error'])
+      self.assertTrue(GOOD_PK_COMP_1 in actualResult7['Error'])
 
       # This test should fail due to a malformed public key (incorrect length).
-      actualResult17 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
+      actualResult8 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
+                                                            addrFromFirstWlt, \
+                                                            BAD_PK)
+      self.assertTrue(BAD_PK in actualResult8['Error'])
+
+      # These tests should fail for various reasons related to the # of inputs.
+      actualResult09 = self.jsonServer.jsonrpc_createlockbox(3, 2, \
                                                              addrFromFirstWlt, \
-                                                             BAD_PK)
-      self.assertTrue(BAD_PK in actualResult17['Error'])
+                                                             addrFromThirdWlt)
+      self.assertTrue(ERRSTR09 in actualResult09['Error'])
+      actualResult10 = self.jsonServer.jsonrpc_createlockbox(8, 8, \
+                                                             addrFromFirstWlt, \
+                                                             addrFromSecondWlt, \
+                                                             addrFromThirdWlt, \
+                                                             FIRST_WLT_NAME, \
+                                                             SECOND_WLT_NAME, \
+                                                             THIRD_WLT_NAME, \
+                                                             GOOD_PK_UNCOMP_1, \
+                                                             GOOD_PK_UNCOMP_2)
+      self.assertTrue(ERRSTR10 in actualResult10['Error'])
+      actualResult11 = self.jsonServer.jsonrpc_createlockbox(1, 8, \
+                                                             addrFromFirstWlt, \
+                                                             addrFromSecondWlt, \
+                                                             addrFromThirdWlt, \
+                                                             FIRST_WLT_NAME, \
+                                                             SECOND_WLT_NAME, \
+                                                             THIRD_WLT_NAME, \
+                                                             GOOD_PK_UNCOMP_1, \
+                                                             GOOD_PK_UNCOMP_2)
+      self.assertTrue(ERRSTR11 in actualResult11['Error'])
+      actualResult12 = self.jsonServer.jsonrpc_createlockbox(1, 4)
+      self.assertTrue(ERRSTR12 in actualResult12['Error'])
+      actualResult13 = self.jsonServer.jsonrpc_createlockbox(1, 2, \
+                                                             addrFromFirstWlt, \
+                                                             addrFromSecondWlt, \
+                                                             addrFromThirdWlt)
+      self.assertTrue(ERRSTR13 in actualResult13['Error'])
+      actualResult14 = self.jsonServer.jsonrpc_createlockbox(1, 2, \
+                                                             addrFromFirstWlt)
+      self.assertTrue(ERRSTR14 in actualResult14['Error'])
 
       # These tests should succeed.
       self.jsonServer.jsonrpc_setactivelockbox(TWO_OF_TWO_LB_NAME)
