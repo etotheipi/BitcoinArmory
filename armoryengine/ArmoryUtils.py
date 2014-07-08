@@ -2916,13 +2916,13 @@ def newBlockSyncRescanZC(bdm, wltMap, prevLedgSize):
 
 
 #############################################################################
-def notifyOnSurpriseTx(blk0, blk1, wltMap, gui, bdm, notifyQueue=None):
+def notifyOnSurpriseTx(blk0, blk1, wltMap, lboxWltMap, isGui, bdm, notifyQueue, settings ):
    # We usually see transactions as zero-conf first, then they show up in
    # a block. It is a "surprise" when the first time we see it is in a block
-   if gui:
-      notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
-      notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
-      notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+   if isGui:
+      notifiedAlready = set([ n[1].getTxHash() for n in notifyQueue ])
+      notifyIn  = settings.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+      notifyOut = settings.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
 
    for blk in range(blk0, blk1):
       sbh = bdm.getMainBlockFromDB(blk)
@@ -2933,7 +2933,7 @@ def notifyOnSurpriseTx(blk0, blk1, wltMap, gui, bdm, notifyQueue=None):
          # transaction, put it on the notification queue.
          for wltID,wlt in wltMap.iteritems():
             le = wlt.cppWallet.calcLedgerEntryForTx(cppTx)
-            if gui and (notifyQueue != None):
+            if isGui and (notifyQueue != None):
                if not le.getTxHash() in notifiedAlready:
                   if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
                      notifyQueue.append([wltID, le, False])
@@ -2945,9 +2945,9 @@ def notifyOnSurpriseTx(blk0, blk1, wltMap, gui, bdm, notifyQueue=None):
          # Iterate through the C++ lockbox wallets and create a ledger entry
          # for the transaction.If we haven't already been notified of the
          # transaction, put it on the notification queue.
-         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+         for lbID,cppWlt in lboxWltMap.iteritems():
             le = cppWlt.calcLedgerEntryForTx(cppTx)
-            if gui and (notifyQueue != None):
+            if isGui and (notifyQueue != None):
                if not le.getTxHash() in notifiedAlready:
                   if (le.getValue()<=0 and notifyOut) or \
                      (le.getValue>0 and notifyIn):
