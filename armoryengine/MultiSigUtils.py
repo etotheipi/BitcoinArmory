@@ -112,7 +112,19 @@ def isP2SHLockbox(addrtext):
    # Bugfix:  Bare prefix includes P2SH prefix, whoops.  Return false if Bare
    return addrtext.startswith(LBP2SHPREFIX) and not isBareLockbox(addrtext)
 
+################################################################################
+def getWltFromB58ID(inB58ID, inWltMap, inLBMap, inLBWltMap):
+   retWlt = None
 
+   if inB58ID in inWltMap.keys():
+      retWlt = inWltMap[inB58ID]
+   elif inB58ID in inLBMap.keys():
+      retWlt = inLBWltMap[inB58ID]
+   else:
+      LOGERROR('Base58 ID %s does not represent a valid wallet or lockbox.' % \
+               inB58ID)
+
+   return retWlt
 
 ################################################################################
 # Function that writes a lockbox to a file. The lockbox can be appended to a

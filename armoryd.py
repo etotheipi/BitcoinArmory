@@ -211,20 +211,37 @@ def addMultLockboxes(inLBPaths, inLboxMap, inLBIDSet):
 
    return newLBList
 
+
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
-   def __init__(self, wallet, lockbox=None, inWltMap={}, inLBSet={}, \
-                inWltIDSet=set(), inLBIDSet=set(), \
+   def __init__(self, wallet, lockbox=None, inWltMap=None, inLBMap=None, \
+                inWltIDSet=None, inLBIDSet=None, inLBCppWalletMap=None, \
                 armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
       self.curWlt = wallet
       self.curLB = lockbox
-      self.serverWltMap = inWltMap
-      self.serverWltIDSet = inWltIDSet
-      self.serverLBSet = inLBSet
-      self.serverLBIDSet = inLBIDSet
+
+      # Dicts, sets and lists (and other container types?), if used as a default
+      # argument, actually become references and subsequent calls to __init__
+      # will not necessarily be empty objects/maps. The proper way to initialize
+      # is to check for None and set to the proper type.
+      if inWltMap == None:
+         inWltMap = {}
+      if inWltIDSet == None:
+         inWltIDSet = set()
+      if inLBMap == None:
+         inLBMap = {}
+      if inLBIDSet == None:
+         inLBIDSet = set()
+      if inLBCppWalletMap == None:
+         inLBCppWalletMap = {}
+      self.serverWltMap = inWltMap                 # Dict
+      self.serverWltIDSet = inWltIDSet             # set()
+      self.serverLBMap = inLBMap                   # Dict
+      self.serverLBIDSet = inLBIDSet               # set()
+      self.serverLBCppWalletMap = inLBCppWalletMap # Dict
 
       self.armoryHomeDir = armoryHomeDir
       if wallet != None:
@@ -914,162 +931,179 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_getledgersimple(self, tx_count=10, from_tx=0):
+   def jsonrpc_getledgersimple(self, inB58ID, tx_count=10, from_tx=0):
       """
       DESCRIPTION:
-      Get a simple version of the wallet ledger.
+      Get a simple version of a wallet or lockbox ledger.
       PARAMETERS:
-      tx_count - (Default=10) The number of entries to get. 
+      inB58ID - The Base58 ID of the wallet or lockbox from which to obtain the
+                ledger. The wallet or lockbox must already be loaded.
+      tx_count - (Default=10) The number of entries to get.
       from_tx - (Default=0) The first entry to get.
       RETURN:
       A dictionary with a wallet ledger of type "simple".
       """
 
-      return self.jsonrpc_getledger(tx_count, from_tx, simple=True)
+      return self.jsonrpc_getledger(inB58ID, tx_count, from_tx, True)
 
 
    #############################################################################
-   # NB: For now, this is incompatible with lockboxes.
+   # Note that, despite what the description says, this is NOT compatible with
+   # lockboxes just yet. There's a bug hiding somewhere....
    @catchErrsForJSON
-   def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
+   def jsonrpc_getledger(self, inB58ID, tx_count=10, from_tx=0, simple=False):
       """
       DESCRIPTION:
-      Get the wallet ledger.
-      tx_count - (Default=10) The number of entries to get. 
+      Get a wallet or lockbox ledger.
+      inB58ID - The Base58 ID of the wallet or lockbox from which to obtain the
+                ledger. The wallet or lockbox must already be loaded.
+      tx_count - (Default=10) The number of entries to get.
       from_tx - (Default=0) The first entry to get.
       simple - (Default=False) Flag indicating if the returned ledger should be
                simple in format.
       RETURN:
-      A dictionary with a wallet ledger.
+      A ledger list with dictionary entries for each transaction.
       """
 
       final_le_list = []
-      tx_count = int(tx_count)
-      from_tx = int(from_tx)
-      ledgerEntries = self.curWlt.getTxLedger('blk')
-         
-      sz = len(ledgerEntries)
-      lower = min(sz, from_tx)
-      upper = min(sz, from_tx+tx_count)
+      self.b58ID = str(inB58ID)
+      self.ledgerWlt = getWltFromB58ID(self.b58ID, self.serverWltMap, self.serverLBMap, \
+                                  self.serverLBCppWalletMap)
 
-      txSet = set([])
+      # Proceed only if the incoming ID is valid.
+      if self.ledgerWlt == None:
+         final_le_list['Error'] = 'Base58 ID %s does not represent a valid ' \
+                                  'wallet or lockbox.' % self.b58ID
+      else:
+         tx_count = int(tx_count)
+         from_tx = int(from_tx)
+         ledgerEntries = self.ledgerWlt.getTxLedger()
 
-      for i in range(lower,upper):
-         le = ledgerEntries[i]
-         txHashBin = le.getTxHash()
-         txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
+         sz = len(ledgerEntries)
+         lower = min(sz, from_tx)
+         upper = min(sz, from_tx+tx_count)
 
-         cppTx = TheBDM.getTxByHash(txHashBin)
-         if not cppTx.isInitialized():
-            LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
+         txSet = set([])
 
-         #cppHead = cppTx.getHeaderPtr()
-         cppHead = TheBDM.getHeaderPtrForTx(cppTx)
-         if not cppHead.isInitialized():
-            LOGERROR('Header pointer is not available!')
-            headHashBin = ''
-            headHashHex = ''
-            headtime    = 0
-         else:
-            headHashBin = cppHead.getThisHash()
-            headHashHex = binary_to_hex(headHashBin, BIGENDIAN)
-            headtime    = cppHead.getTimestamp()
+         for i in range(lower,upper):
+            le = ledgerEntries[i]
+            txHashBin = le.getTxHash()
+            txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
 
-         isToSelf = le.isSentToSelf()
-         netCoins = le.getValue()
-         feeCoins = getFeeForTx(txHashBin)
+            cppTx = TheBDM.getTxByHash(txHashBin)
+            if not cppTx.isInitialized():
+               LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
-         scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in range(cppTx.getNumTxOut())]
-         allRecips = [CheckHash160(r) for r in scrAddrs]
-         first160 = ''
-         if cppTx.getNumTxOut()==1:
-            first160 = allRecips[0]
-            change160 = ''
-         elif isToSelf:
-            # Sent-to-Self tx
-            amtCoins,changeIdx = determineSentToSelfAmt(le, self.curWlt)
-            change160 = allRecips[changeIdx]
-            for iout,recip160 in enumerate(allRecips):
-               if not iout==changeIdx:
-                  first160 = recip160
-                  break
-         elif netCoins<0:
-            # Outgoing transaction (process in reverse order so get first)
-            amtCoins = -1*(netCoins+feeCoins)
-            for recip160 in allRecips[::-1]:
-               if self.curWlt.hasAddr(recip160):
-                  change160 = recip160
-               else:
-                  first160 = recip160
-         else:
-            # Incoming transaction
-            amtCoins = netCoins
-            for recip160 in allRecips[::-1]:
-               if self.curWlt.hasAddr(recip160):
-                  first160 = recip160
-               else:
-                  change160 = recip160
+            #cppHead = cppTx.getHeaderPtr()
+            cppHead = TheBDM.getHeaderPtrForTx(cppTx)
+            if not cppHead.isInitialized():
+               LOGERROR('Header pointer is not available!')
+               headHashBin = ''
+               headHashHex = ''
+               headtime    = 0
+            else:
+               headHashBin = cppHead.getThisHash()
+               headHashHex = binary_to_hex(headHashBin, BIGENDIAN)
+               headtime    = cppHead.getTimestamp()
 
+            isToSelf = le.isSentToSelf()
+            netCoins = le.getValue()
+            feeCoins = getFeeForTx(txHashBin)
 
-         # amtCoins: amt of BTC transacted, always positive (how big are outputs
-         #           minus change?)
-         # netCoins: net effect on wallet (positive or negative)
-         # feeCoins: how much fee was paid for this tx 
+            scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in \
+                       range(cppTx.getNumTxOut())]
+            allRecips = [CheckHash160(r) for r in scrAddrs]
+            first160 = ''
+            if cppTx.getNumTxOut()==1:
+               first160 = allRecips[0]
+               change160 = ''
+            elif isToSelf:
+               # Sent-to-Self tx
+               amtCoins,changeIdx = determineSentToSelfAmt(le, self.ledgerWlt)
+               change160 = allRecips[changeIdx]
+               for iout,recip160 in enumerate(allRecips):
+                  if not iout==changeIdx:
+                     first160 = recip160
+                     break
+            elif netCoins<0:
+               # Outgoing transaction (process in reverse order so get first)
+               amtCoins = -1*(netCoins+feeCoins)
+               for recip160 in allRecips[::-1]:
+                  if self.ledgerWlt.hasAddr(recip160):
+                     change160 = recip160
+                  else:
+                     first160 = recip160
+            else:
+               # Incoming transaction
+               amtCoins = netCoins
+               for recip160 in allRecips[::-1]:
+                  if self.ledgerWlt.hasAddr(recip160):
+                     first160 = recip160
+                  else:
+                     change160 = recip160
 
-         if netCoins < -feeCoins:
-            txDir = 'send'
-         elif netCoins > -feeCoins:
-            txDir = 'receive'
-         else:
-            txDir = 'toself'
+            # amtCoins: amt of BTC transacted, always positive (how big are
+            #           outputs minus change?)
+            # netCoins: net effect on wallet (positive or negative)
+            # feeCoins: how much fee was paid for this tx 
 
-         # Convert to address strings
-         firstAddr = hash160_to_addrStr(first160)
-         changeAddr = '' if len(change160)==0 else hash160_to_addrStr(change160)
+            if netCoins < -feeCoins:
+               txDir = 'send'
+            elif netCoins > -feeCoins:
+               txDir = 'receive'
+            else:
+               txDir = 'toself'
 
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight()-le.getBlockNum()+1
+            # Convert to address strings
+            firstAddr = hash160_to_addrStr(first160)
+            changeAddr = '' if len(change160)==0 else \
+                         hash160_to_addrStr(change160)
 
+            nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+                     le.getBlockNum()) + 1
 
-         myinputs,  otherinputs = [],[]
-         for iin in range(cppTx.getNumTxIn()):
-            sender = CheckHash160(TheBDM.getSenderScrAddr(cppTx.getTxInCopy(iin)))
-            val    = TheBDM.getSentValue(cppTx.getTxInCopy(iin))
-            addTo  = (myinputs if self.curWlt.hasAddr(sender) else otherinputs)
-            addTo.append( {'address': hash160_to_addrStr(sender), \
-                           'amount':  AmountToJSON(val)} )
+            myinputs,  otherinputs = [],[]
+            for iin in range(cppTx.getNumTxIn()):
+               sender = CheckHash160(TheBDM.getSenderScrAddr(cppTx.getTxInCopy(iin)))
+               val    = TheBDM.getSentValue(cppTx.getTxInCopy(iin))
+               addTo  = (myinputs if self.ledgerWlt.hasAddr(sender) else \
+                         otherinputs)
+               addTo.append( {'address': hash160_to_addrStr(sender), \
+                              'amount':  AmountToJSON(val)} )
 
-         myoutputs, otheroutputs = [], []
-         for iout in range(cppTx.getNumTxOut()):
-            recip = CheckHash160(cppTx.getTxOutCopy(iout).getScrAddressStr())
-            val   = cppTx.getTxOutCopy(iout).getValue();
-            addTo = (myoutputs if self.curWlt.hasAddr(recip) else otheroutputs)
-            addTo.append( {'address': hash160_to_addrStr(recip), \
-                           'amount':  AmountToJSON(val)} )
+            myoutputs, otheroutputs = [], []
+            for iout in range(cppTx.getNumTxOut()):
+               recip = CheckHash160(cppTx.getTxOutCopy(iout).getScrAddressStr())
+               val   = cppTx.getTxOutCopy(iout).getValue();
+               addTo = (myoutputs if self.ledgerWlt.hasAddr(recip) else \
+                        otheroutputs)
+               addTo.append( {'address': hash160_to_addrStr(recip), \
+                              'amount':  AmountToJSON(val)} )
 
-         tx_info = {
-                     'direction' :    txDir,
-                     'wallet' :       self.curWlt.uniqueIDB58,
-                     'amount' :       AmountToJSON(amtCoins),
-                     'netdiff' :      AmountToJSON(netCoins),
-                     'fee' :          AmountToJSON(feeCoins),
-                     'txid' :         txHashHex,
-                     'blockhash' :    headHashHex,
-                     'confirmations': nconf,
-                     'txtime' :       le.getTxTime(),
-                     'txsize' :       len(cppTx.serialize()),
-                     'blocktime' :    headtime,
-                     'comment' :      self.curWlt.getComment(txHashBin),
-                     'firstrecip':    firstAddr,
-                     'changerecip':   changeAddr
-                  }
+            tx_info = {
+                        'direction' :    txDir,
+                        'wallet' :       self.ledgerWlt.uniqueIDB58,
+                        'amount' :       AmountToJSON(amtCoins),
+                        'netdiff' :      AmountToJSON(netCoins),
+                        'fee' :          AmountToJSON(feeCoins),
+                        'txid' :         txHashHex,
+                        'blockhash' :    headHashHex,
+                        'confirmations': nconf,
+                        'txtime' :       le.getTxTime(),
+                        'txsize' :       len(cppTx.serialize()),
+                        'blocktime' :    headtime,
+                        'comment' :      self.ledgerWlt.getComment(txHashBin),
+                        'firstrecip':    firstAddr,
+                        'changerecip':   changeAddr
+                      }
 
-         if not simple:
-            tx_info['senderme']     = myinputs
-            tx_info['senderother']  = otherinputs
-            tx_info['recipme']      = myoutputs
-            tx_info['recipother']   = otheroutputs
-         
-         final_le_list.append(tx_info)
+            if not simple:
+               tx_info['senderme']     = myinputs
+               tx_info['senderother']  = otherinputs
+               tx_info['recipme']      = myoutputs
+               tx_info['recipother']   = otheroutputs
+
+            final_le_list.append(tx_info)
 
       return final_le_list
 
@@ -1434,8 +1468,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          spendBal = self.curWlt.getBalance('Spendable')
          utxoList = self.curWlt.getTxOutList('Spendable')
       else:
-         lbox = self.lboxMap[spendFromLboxID]
-         cppWlt = self.lboxCppWalletMap[spendFromLboxID]
+         lbox = self.serverLBMap[spendFromLboxID]
+         cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
          utxoList = cppWlt.getSpendableTxOutList(topBlk, IGNOREZC)
@@ -1659,7 +1693,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             # To be safe, we'll write the LB only if Armory doesn't already have
             # a copy.
-            if lbID in self.serverLBSet.keys():
+            if lbID in self.serverLBMap.keys():
                errStr = 'Lockbox %s already exists.' % lbID
                LOGERROR(errStr)
                result['Error'] = errStr
@@ -1672,7 +1706,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                   os.path.join(self.armoryHomeDir, \
                                                MULTISIG_FILE_NAME), True)
                writeLockboxesFile([lockbox], lbFilePath, False)
-               self.serverLBSet[lbID] = lockbox
+               self.serverLBMap[lbID] = lockbox
 
                result = lockbox.toJSONMap()
 
@@ -1703,7 +1737,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # specified. If an LB ID has been specified, we'll get info on it if the
       # specified LB has been loaded.
       if inLBID in self.serverLBIDSet:
-         self.lbToUse = self.serverLBSet[inLBID]
+         self.lbToUse = self.serverLBMap[inLBID]
       else:
          # Unlike wallets, LBs are optional in armoryd, so we need to make sure
          # the currently loaded LB actually exists.
@@ -1827,14 +1861,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          emailText += ' The lockboxes can be found printed below.\n\n'
          emailText += 'TOTAL LOCKBOXES: %d\n\n' % len(lockboxes)
          for curLB in lockboxes:
-            emailText += self.serverLBSet[curLB].serializeAscii() + '\n\n'
+            emailText += self.serverLBMap[curLB].serializeAscii() + '\n\n'
 
          return emailText
 
       # Do these lockboxes actually exist? If not, let the user know and bail.
       allLBsValid = True
       for curLB in lbIDs:
-         if not curLB in self.serverLBSet.keys():
+         if not curLB in self.serverLBMap.keys():
             LOGERROR('Lockbox %s does not exist! Exiting.' % curLB)
             allLBsValid = False
             retStr = 'sendlockbox command failed. %s does not exist.' % curLB
@@ -1988,7 +2022,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # new wallet. If the change fails, keep the currently active wallet.
       retStr = ''
       try:
-         newLB = self.serverLBSet[newIDB58]
+         newLB = self.serverLBMap[newIDB58]
          self.curLB = newLB  # Separate in case ID's wrong & error's thrown.
          retStr = 'Lockbox %s is now active.' % newIDB58
       except:
@@ -2038,7 +2072,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # the value.
       curKey = 1
       lockboxList = {}
-      for l in self.serverLBSet.keys():
+      for l in self.serverLBMap.keys():
          curLBStr = 'Lockbox %04d' % curKey
          lockboxList[curLBStr] = l
          curKey += 1
@@ -2209,7 +2243,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def convLBDictToList(self):
       retList = []
 
-      for lb in self.serverLBSet.values():
+      for lb in self.serverLBMap.values():
          retList.append(lb)
 
       return retList
@@ -2315,6 +2349,7 @@ class Armory_Daemon(object):
       self.lbIDSet = set()
       self.curWlt = None
       self.curLB = None
+      self.lboxCppWalletMap = {}
 
       # Check if armoryd is already running. If so, just execute the command.
       armorydIsRunning = self.checkForAlreadyRunning()
@@ -2361,12 +2396,22 @@ class Armory_Daemon(object):
             self.curLB = lb
          else:
             # Get the lockboxes in standard Armory LB file and store pointers
-            # to them. Also, set the current LB to the 1st wallet in the set.
-            # (The choice is arbitrary.)
+            # to them, assuming any exist.
             lbPaths = getLockboxFilePaths()
             addMultLockboxes(lbPaths, self.lboxMap, self.lbIDSet)
             if len(self.lboxMap) > 0:
+               # Set the current LB to the 1st wallet in the set. (The choice is
+               # arbitrary.)
                self.curLB = self.lboxMap[self.lboxMap.keys()[0]]
+
+               # Create the CPP wallet map for each lockbox.
+               for lbID,lbox in self.lboxMap.iteritems():
+                  self.lboxCppWalletMap[lbID] = BtcWallet()
+                  scraddrReg = script_to_scrAddr(lbox.binScript)
+                  scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
+                  self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
+                  self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
+
             else:
                LOGWARN('No lockboxes were loaded.')
 
@@ -2418,7 +2463,8 @@ class Armory_Daemon(object):
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
          resource = Armory_Json_Rpc_Server(self.curWlt, self.curLB, \
                                            self.WltMap, self.lboxMap, \
-                                           self.wltIDSet, self.lbIDSet)
+                                           self.wltIDSet, self.lbIDSet, \
+                                           self.lboxCppWalletMap)
          secured_resource = self.set_auth(resource)
 
          # This is LISTEN call for armory RPC server
@@ -2463,19 +2509,13 @@ class Armory_Daemon(object):
       TheBDM.setBlocking(True)
       LOGWARN('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
-         # Put the BDM in online mode only after registering all wallets.
+         # Put the BDM in online mode only after registering all wallets & LBs.
          for wltID, wlt in self.WltMap.iteritems():
             LOGWARN('Registering wallet: %s' % wltID)
             TheBDM.registerWallet(wlt)
 
-         # Register each lockbox.
-         self.lboxCppWalletMap = {}
-         for lbID,lbox in self.lboxMap.iteritems():
-            self.lboxCppWalletMap[lbID] = BtcWallet()
-            scraddrReg = script_to_scrAddr(lbox.binScript)
-            scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
-            self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
-            self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
+         for lbID, lbox in self.lboxMap.iteritems():
+            LOGWARN('Registering lockbox: %s' % lbID)
             TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
 
          TheBDM.setOnlineMode(True)
