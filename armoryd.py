@@ -91,6 +91,7 @@
 ################################################################################
 
 import decimal
+import base64
 
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
@@ -1717,7 +1718,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # Get info for a lockbox by lockbox ID. If no ID is specified, we'll get info
    # on the currently loaded LB if an LB exists.
    @catchErrsForJSON
-   def jsonrpc_getlockboxinfo(self, inLBID=None):
+   def jsonrpc_getlockboxinfo(self, inLBID=None, outForm='JSON'):
       """
       DESCRIPTION:
       Get information on the lockbox associated with a lockbox ID string or, if
@@ -1726,12 +1727,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       inLBID - (Default=None) If used, armoryd will get information on the
                lockbox with the provided Base58 ID instead of the currently
                active armoryd lockbox.
+      outForm - (Default=JSON) If used, armoryd will return the lockbox in a
+                particular format. Choices are "JSON", "Hex", and "Base64".
       RETURN:
       If the lockbox is found, a dictionary with information on the lockbox will
       be returned.
       """
 
       self.lbToUse = self.curLB
+      lbFound = True
+      retDict = {}
 
       # We'll return info on the currently loaded LB if no LB ID has been
       # specified. If an LB ID has been specified, we'll get info on it if the
@@ -1741,11 +1746,27 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:
          # Unlike wallets, LBs are optional in armoryd, so we need to make sure
          # the currently loaded LB actually exists.
-         if inLBID != None or self.lbToUse == None:
-            raise LockboxDoesNotExist
+         if inLBID != None:
+            retDict['Error'] = 'Lockbox %s does not exist.' % inLBID
+            lbFound = False
+         else:
+            if self.lbToUse == None:
+               retDict['Error'] = 'There are no lockboxes on the server.'
+               lbFound = False
 
-      # Return info on the lockbox.
-      return self.lbToUse.toJSONMap()
+      # Get info on the lockbox.
+      if lbFound:
+         self.outForm = outForm.lower()
+         if self.outForm == 'json':
+            retDict['JSON'] = self.lbToUse.toJSONMap()
+         elif self.outForm == 'hex':
+            retDict['Hex'] = binary_to_hex(self.lbToUse.serialize())
+         elif self.outForm == 'base64':
+            retDict['Base64'] = base64.b64encode(binary_to_hex(self.lbToUse.serialize()))
+         else:
+            retDict['Error'] = '%s is an invalid output type.' % self.outForm
+
+      return retDict
 
 
    #############################################################################
