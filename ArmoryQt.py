@@ -44,7 +44,8 @@ from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
 
 from jasvet import verifySignature, readSigBlock
-from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
+from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP,\
+   DEFAULT_FETCH_INTERVAL
 from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
@@ -52,6 +53,7 @@ from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                     DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
+from armoryengine.Block import PyBlock
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -5121,82 +5123,11 @@ class ArmoryMainWindow(QMainWindow):
 
          i += 1
 
-
-
-
-
    #############################################################################
    def explicitCheckAnnouncements(self, waitTime=3):
       self.announceFetcher.fetchRightNow(waitTime)
       self.processAnnounceData()
       self.updateAnnounceTab()
-
-
-   #############################################################################
-   def installSatoshiClient(self, closeWhenDone=False):
-
-      if closeWhenDone:
-         # It's a long story why I need this, and only when closing...
-         TheSDM.stopBitcoind()
-         #self.resetBdmBeforeScan()
-         self.switchNetworkMode(NETWORKMODE.Offline)
-         from twisted.internet import reactor
-         reactor.callLater(1, self.Heartbeat)
-
-      if OS_LINUX:
-         DlgInstallLinux(self,self).exec_()
-      elif OS_WINDOWS:
-         if not 'SATOSHI' in self.downloadDict or \
-            not 'Windows' in self.downloadDict['SATOSHI']:
-            QMessageBox.warning(self, 'Verification Unavaiable', \
-               'Armory cannot verify the authenticity of any downloaded '
-               'files.  You will need t download it yourself from '
-               'bitcoin.org.', QMessageBox.Ok)
-            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
-            self.dashBtns[DASHBTNS.Install][LBL].setText( \
-               'This option is currently unavailable.  Please visit bitcoin.org '
-               'to download and install the software.', color='DisableFG')
-            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
-               'Armory has an internet connection but no way to verify '
-               'the authenticity of the downloaded files.  You should '
-               'download the installer yourself.')
-            webbrowser.open('http://www.bitcoin.org/en/download')
-            return
-
-         theLink = self.downloadDict['SATOSHI']['Windows'][0]
-         theHash = self.downloadDict['SATOSHI']['Windows'][1]
-         dlg = DlgDownloadFile(self, self, theLink, theHash, \
-            'The Bitcoin installer will start when the download is finished '
-            'and digital signatures are verified.  Please finish the installation '
-            'when it appears.')
-         dlg.exec_()
-         fileData = dlg.dlFileData
-         if len(fileData)==0 or dlg.dlVerifyFailed:
-            QMessageBox.critical(self, 'Download Failed', \
-               'The download failed.  Please visit www.bitcoin.org '
-               'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
-            webbrowser.open('http://www.bitcoin.org/en/download')
-            return
-
-         installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
-         LOGINFO('Installer path: %s', installerPath)
-         instFile = open(installerPath, 'wb')
-         instFile.write(fileData)
-         instFile.close()
-
-         def startInstaller():
-            execAndWait('"'+installerPath+'"', useStartInfo=False)
-            self.startBitcoindIfNecessary()
-
-         DlgExecLongProcess(startInstaller, tr("""
-            Please Complete Bitcoin Installation<br> (installer should
-            have opened in your taskbar)"""), self, self).exec_()
-      elif OS_MACOSX:
-         LOGERROR('Cannot install on OSX')
-
-
-      if closeWhenDone:
-         self.closeForReal(None)
 
    #############################################################################
    def closeExistingBitcoin(self):
@@ -6646,7 +6577,8 @@ class ArmoryMainWindow(QMainWindow):
                   self.walletListChanged()
                   notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
                                      self.currBlockNum+1, self.walletMap, \
-                                     True, TheBDM, self.notifyQueue)
+                                     self.cppLockboxWltMap, True, TheBDM, \
+                                     self.notifyQueue, self.settings)
 
                self.createCombinedLedger()
                self.blkReceived  = RightNow()
