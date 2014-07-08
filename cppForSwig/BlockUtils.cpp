@@ -3175,7 +3175,13 @@ set<BinaryData> ZeroConfContainer::purge(InterfaceToLDB *db)
 
       if (scrAddrDataPtr_ != nullptr)
       {
-         BinaryData ZCkey = getNewZCkey();
+         BinaryData ZCkey;
+
+         auto keyIter = txHashToDBKey_.find(txHash);
+         if (ITER_IN_MAP(keyIter, txHashToDBKey_))
+            ZCkey = keyIter->second;
+         else ZCkey = getNewZCkey();
+
          map<BinaryData, TxIOPair> newTxIO =
             scrAddrDataPtr_->ZCisMineBulkFilter(ZCPair.second,
             ZCkey, db,

@@ -166,7 +166,7 @@ void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
          if (txio.hasTxInZC())
          {
             //ZC consumes UTxO, reset the TxIn to mark the TxOut as unspent
-            BinaryData zckey = getLedgerKey(txio.getDBKeyOfInput(), true);
+            BinaryData zckey = getLedgerKey(txio.getDBKeyOfInput(), false);
             ledger_.erase(zckey);
 
             txio.setTxIn(BinaryData(0));

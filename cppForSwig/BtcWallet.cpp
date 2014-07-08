@@ -915,7 +915,7 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf(endBlock);
 
-      updateWalletLedgers(scrAddrMap_, startBlock, endBlock);
+      updateWalletLedgers(scrAddrMap_, startBlock, UINT32_MAX -1);
 
       lastScanned_ = endBlock;
    }

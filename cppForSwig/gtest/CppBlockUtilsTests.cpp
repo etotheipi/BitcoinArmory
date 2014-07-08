@@ -6451,6 +6451,127 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
+{
+   BtcWallet* wlt = new BtcWallet(theBDM);
+   TheBDM.enableZeroConf("");
+   wlt->addScrAddress(scrAddrA_);
+   wlt->addScrAddress(scrAddrB_);
+   wlt->addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(wlt);
+   wlt->addScrAddress(scrAddrE_);
+
+   //copy the first 3 blocks
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
+   TheBDM.doInitialSyncOnLoad([](double, unsigned) {});
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
+
+   const ScrAddrObj * scrobj;
+
+   scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 90 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 10 * COIN);
+
+   uint64_t fullBalance = wlt->getFullBalance();
+   uint64_t spendableBalance = wlt->getSpendableBalance(3);
+   uint64_t unconfirmedBalance = wlt->getUnconfirmedBalance(3);
+   EXPECT_EQ(fullBalance, 150 * COIN);
+   EXPECT_EQ(spendableBalance, 50 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 150 * COIN);
+
+   //add ZC
+   BinaryData rawZC(159);
+   FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
+   fread(rawZC.getPtr(), 159, 1, ff);
+   fclose(ff);
+
+   BinaryData ZChash = READHEX("223212f753be87b7d0f9855196a578055079aa3561dc0532bbd89f2cd6b6df94");
+
+   TheBDM.addNewZeroConfTx(rawZC, 1300000000, false);
+   TheBDM.parseNewZeroConfTx();
+   TheBDM.scanWallets();
+   scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 40 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 10 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(4);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 100 * COIN);
+   EXPECT_EQ(spendableBalance, 50 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 100 * COIN);
+
+   LedgerEntry le = wlt->getLedgerEntryForTx(ZChash);
+   EXPECT_EQ(le.getTxTime(), 1300000000);
+   EXPECT_EQ(le.getValue(), -5000000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   //add 4th block
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
+   TheBDM.readBlkFileUpdate();
+   TheBDM.scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
+
+   scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(5);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
+   EXPECT_EQ(fullBalance, 100 * COIN);
+   EXPECT_EQ(spendableBalance, 0 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 100 * COIN);
+
+   le = wlt->getLedgerEntryForTx(ZChash);
+   EXPECT_EQ(le.getTxTime(), 1300000000);
+   EXPECT_EQ(le.getValue(), -5000000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   //add 5th block
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   TheBDM.scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
+
+   scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 100 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(5);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
+   EXPECT_EQ(fullBalance, 150 * COIN);
+   EXPECT_EQ(spendableBalance, 0 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 150 * COIN);
+
+   le = wlt->getLedgerEntryForTx(ZChash);
+   EXPECT_EQ(le.getTxTime(), 1231008907);
+   EXPECT_EQ(le.getValue(), -5000000000);
+   EXPECT_EQ(le.getBlockNum(), 4);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
 {
    BtcWallet wlt(theBDM);
