@@ -113,8 +113,6 @@ parser.add_option("--verbosity", dest="verbosity", default=None, type="int", hel
 parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 
-
-
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
@@ -290,8 +288,11 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-
-
+# Some miscellaneous variables (e.g., timer lengths) can go here, preferably if
+# they depend on the OS.
+checkTxTimer = 5
+if OS_MACOSX:
+   checkTxTimer = 10
 
 # Get the host operating system
 opsys = platform.system()
