@@ -110,7 +110,8 @@ public:
 
    // fill_cache argument should be false for large bulk scans
    LDBIter(void) { isDirty_=true;}
-   explicit LDBIter(LMDB::Iterator&& move);
+   LDBIter(LMDB::Iterator&& move);
+   LDBIter& operator=(LMDB::Iterator&& move);
 
    bool isNull(void) { return !iter_.isValid(); }
    bool isValid(void) { return iter_.isValid(); }
@@ -118,6 +119,7 @@ public:
 
    bool readIterData(void);
    
+   bool retreat();
    bool advance(void);
    bool advance(DB_PREFIX prefix);
    bool advanceAndRead(void);
@@ -230,7 +232,7 @@ public:
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void openDatabases(string basedir, 
+   void openDatabases(LMDB::Mode dbmode, string basedir, 
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
                       BinaryData const & magic,
@@ -257,7 +259,7 @@ public:
    
    /////////////////////////////////////////////////////////////////////////////
    LDBIter getIterator(DB_SELECT db) const
-      { return LDBIter(dbs_[db].begin()); }
+      { return dbs_[db].begin(); }
    
 
    /////////////////////////////////////////////////////////////////////////////

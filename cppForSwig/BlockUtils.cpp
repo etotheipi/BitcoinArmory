@@ -29,7 +29,8 @@ static void createUndoDataFromBlock(
       LMDBBlockDatabase* iface,
       uint32_t hgt,
       uint8_t  dup,
-      StoredUndoData & sud)
+      StoredUndoData & sud
+   )
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
@@ -379,6 +380,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    }
    
    iface_->openDatabases(
+      LMDB::ReadWrite,
       config_.levelDBLocation, 
       config_.genesisBlockHash, 
       config_.genesisTxHash, 
@@ -499,7 +501,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    
    {
       // Now go through the linear list of main-chain headers, mark valid
-      for(unsigned i=0; i<blockchain_.numHeaders(); i++)
+      for(unsigned i=0; i<=blockchain_.top().getBlockHeight(); i++)
       {
          BinaryDataRef headHash = blockchain_.getHeaderByHeight(i).getThisHashRef();
          StoredHeader & sbh = sbhMap[headHash];
@@ -1577,7 +1579,7 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    {
       LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
          
-      for(unsigned i = 0; i < blockchain_.numHeaders(); ++i)
+      for(unsigned i = 0; i <= blockchain_.top().getBlockHeight(); ++i)
       {
          BlockHeader &block = blockchain_.getHeaderByHeight(i);
          StoredHeader sbh;

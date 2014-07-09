@@ -6,18 +6,13 @@
 
 #include <sstream>
 #include <cstring>
+#include <algorithm>
 
 //#define DISABLE_TRANSACTIONS
 
 static std::string errorString(int rc)
 {
    return mdb_strerror(rc);
-}
-
-void LMDB::Iterator::reset()
-{
-   if (csr_)
-      mdb_cursor_close(csr_);
 }
 
 inline void LMDB::Iterator::checkHasDb() const
@@ -35,20 +30,67 @@ inline void LMDB::Iterator::checkOk() const
    {
       throw std::logic_error("Tried to use invalid LMDB Iterator");
    }
+   
+   if (!hasTx)
+   {
+      const_cast<Iterator*>(this)->openCursor();
+      
+      hasTx=true;
+      
+      if (has_)
+      {
+         const_cast<Iterator*>(this)->seek(key_);
+         if (!has_)
+            throw LMDBException("Cursor could not be regenerated");
+      }
+   }
+   
 }
 
-LMDB::Iterator::Iterator(const LMDB *db)
+void LMDB::Iterator::openCursor()
+{
+   int rc;
+   rc = mdb_cursor_open(db_->txn, db_->dbi, &csr_);
+   if (rc != MDB_SUCCESS)
+   {
+      csr_=nullptr;
+      LMDBException e("Failed to open cursor (" + errorString(rc) + ")");
+      throw e;
+   }
+}
+
+LMDB::Iterator::Iterator(LMDB *db)
    : db_(db), csr_(nullptr), has_(false)
 {
    if (!db->txn)
       throw std::runtime_error("Iterator must be created within Transaction");
    
-   int rc;
-   rc = mdb_cursor_open(db->txn, db->dbi, &csr_);
-   if (rc != MDB_SUCCESS)
+   openCursor();
+   db_->iterators.push_front(this);
+}
+
+LMDB::Iterator::Iterator(const Iterator &copy)
+   : db_(copy.db_), csr_(nullptr), has_(copy.has_)
+{
+   if (!db_->txn)
+      throw std::runtime_error("Iterator must be created within Transaction");
+   
+   operator=(copy);
+}
+
+inline void LMDB::Iterator::reset()
+{
+   if (csr_)
+      mdb_cursor_close(csr_);
+   csr_ = nullptr;
+
+   if (db_)
    {
-      LMDBException e("Failed to open cursor (" + errorString(rc) + ")");
-      throw e;
+      std::deque<Iterator*>::iterator i =
+         std::find( db_->iterators.begin(), db_->iterators.end(), this );
+      if (i != db_->iterators.end())
+         db_->iterators.erase(i);
+      db_ = nullptr;
    }
 }
 
@@ -57,29 +99,48 @@ LMDB::Iterator::~Iterator()
    reset();
 }
 
-LMDB::Iterator::Iterator(const Iterator &copy)
-{
-   operator=(copy);
-}
-
 LMDB::Iterator::Iterator(Iterator &&move)
 {
    operator=(std::move(move));
 }
 
-LMDB::Iterator& LMDB::Iterator::operator=(const Iterator &copy)
-{
-   throw std::logic_error("not implemented");
-}
-
 LMDB::Iterator& LMDB::Iterator::operator=(Iterator &&move)
 {
-   std::swap(db_, move.db_);
+   reset();
+   
+   db_ = move.db_;
    std::swap(csr_, move.csr_);
    std::swap(has_, move.has_);
    std::swap(key_, move.key_);
    std::swap(val_, move.val_);
+   std::swap(hasTx, move.hasTx);
+   
+   move.reset();
+   
+   db_->iterators.push_front(this);
 
+   return *this;
+}
+
+LMDB::Iterator& LMDB::Iterator::operator=(const Iterator &copy)
+{
+   if (&copy == this)
+      return *this;
+   reset();
+   
+   db_ = copy.db_;
+   has_ = copy.has_;
+
+   db_->iterators.push_front(this);
+   
+   openCursor();
+   
+   if (copy.has_)
+   {
+      seek(copy.key_);
+      if (!has_)
+         throw LMDBException("Cursor could not be copied");
+   }
    return *this;
 }
 
@@ -118,6 +179,28 @@ void LMDB::Iterator::advance()
       val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
    }
 }
+
+void LMDB::Iterator::retreat()
+{
+   checkOk();
+   
+   MDB_val mkey;
+   MDB_val mval;
+   
+   int rc = mdb_cursor_get(csr_, &mkey, &mval, MDB_PREV);
+
+   if (rc == MDB_NOTFOUND)
+      has_ = false;
+   else if (rc != MDB_SUCCESS)
+      throw LMDBException("Failed to seek (" + errorString(rc) +")");
+   else
+   {
+      has_ = true;
+      key_ = std::string(static_cast<char*>(mkey.mv_data), mkey.mv_size);
+      val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+   }
+}
+
 
 void LMDB::Iterator::toFirst()
 {
@@ -243,6 +326,12 @@ void LMDB::Transaction::commit()
    if (db->transactionLevel == 0)
    {
       int rc = mdb_txn_commit(db->txn);
+      
+      for (Iterator *i : db->iterators)
+      {
+         i->hasTx=false;
+         i->csr_=nullptr;
+      }
       
       if (rc != MDB_SUCCESS)
       {

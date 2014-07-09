@@ -3,6 +3,7 @@
 
 #include <string>
 #include <stdexcept>
+#include <deque>
 #include <vector>
 #include <pthread.h>
 
@@ -53,12 +54,19 @@ public:
 
 class LMDB
 {
+public:
+   class Iterator;
+private:
    MDB_env *env;
    // exists only with a Tx
    unsigned int dbi;
    MDB_txn *txn;
    
    unsigned transactionLevel;
+   
+   friend class Iterator;
+   
+   std::deque<Iterator*> iterators;
    
    
 public:
@@ -68,18 +76,20 @@ public:
    {
       friend class LMDB;
       
-      const LMDB *db_=nullptr;
-      MDB_cursor *csr_=nullptr;
-         
+      LMDB *db_=nullptr;
+      mutable MDB_cursor *csr_=nullptr;
+      
+      mutable bool hasTx=true;
       bool has_=false;
       std::string key_, val_;
          
       void reset();
       void checkHasDb() const;
       void checkOk() const;
-      void detach();
       
-      Iterator(const LMDB *db);
+      void openCursor();
+      
+      Iterator(LMDB *db);
       
    public:
       Iterator() { }
@@ -88,8 +98,8 @@ public:
       // copying permitted (encouraged!)
       Iterator(const Iterator &copy);
       Iterator(Iterator &&move);
-      Iterator& operator=(const Iterator &copy);
       Iterator& operator=(Iterator &&move);
+      Iterator& operator=(const Iterator &copy);
       
       // Returns true if the key pointed to is identical, or if both iterators
       // are invalid, and false otherwise.
@@ -126,8 +136,9 @@ public:
       // the postfix increment operator is not defined for performance reasons
       Iterator& operator++() { advance(); return *this; }
       void advance();
-      // advance this iterator "count" times
-      //void advance(int count);
+      
+      Iterator& operator--() { retreat(); return *this; }
+      void retreat();
       
       // seek this iterator to the first sequence
       void toFirst();
@@ -201,14 +212,14 @@ public:
    // item
    Iterator begin() const
    {
-      Iterator c(this);
+      Iterator c(const_cast<LMDB*>(this));
       c.toFirst();
       return c;
    }
    // creates a cursor that points to an invalid item
    Iterator end() const
    {
-      Iterator c(this);
+      Iterator c(const_cast<LMDB*>(this));
       return c;
    }
    

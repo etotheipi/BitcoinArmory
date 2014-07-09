@@ -25,6 +25,12 @@ LDBIter::LDBIter(LMDB::Iterator&& mv)
    isDirty_ = true;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+LDBIter& LDBIter::operator=(LMDB::Iterator&& mv)
+{ 
+   iter_ = std::move(mv);
+   return *this;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,6 +46,14 @@ bool LDBIter::isValid(DB_PREFIX dbpref)
 bool LDBIter::advance(void)
 {
    ++iter_;
+   isDirty_ = true;
+   return isValid();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::retreat(void)
+{
+   --iter_;
    isDirty_ = true;
    return isValid();
 }
@@ -322,12 +336,15 @@ LMDBBlockDatabase::~LMDBBlockDatabase(void)
 // take whatever is the current state of database.  You can choose to 
 // manually specify them, if you want to throw an error if it's not what you 
 // were expecting
-void LMDBBlockDatabase::openDatabases(string basedir, 
-                      BinaryData const & genesisBlkHash,
-                      BinaryData const & genesisTxHash,
-                      BinaryData const & magic,
-                      ARMORY_DB_TYPE     dbtype,
-                      DB_PRUNE_TYPE      pruneType)
+void LMDBBlockDatabase::openDatabases(
+   LMDB::Mode dbmode,
+   string basedir,
+   BinaryData const & genesisBlkHash,
+   BinaryData const & genesisTxHash,
+   BinaryData const & magic,
+   ARMORY_DB_TYPE     dbtype,
+   DB_PRUNE_TYPE      pruneType
+)
 {
    SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
@@ -354,52 +371,63 @@ void LMDBBlockDatabase::openDatabases(string basedir,
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
 
-   for(uint32_t db=0; db<DB_COUNT; db++)
+   try
    {
-      DB_SELECT CURRDB = (DB_SELECT)db;
-      
-      dbs_[db].open(dbPaths_[db]);
-      
-      LMDB::Transaction tx(&dbs_[db]);
-
-      StoredDBInfo sdbi;
-      getStoredDBInfo(CURRDB, sdbi, false); 
-      if(!sdbi.isInitialized())
+      for(uint32_t db=0; db<DB_COUNT; db++)
       {
-         // If DB didn't exist yet (dbinfo key is empty), seed it
-         // A new database has the maximum flag settings
-         // Flags can only be reduced.  Increasing requires redownloading
+         DB_SELECT CURRDB = (DB_SELECT)db;
+         
+         dbs_[db].open(dbPaths_[db], dbmode);
+         
+         LMDB::Transaction tx(&dbs_[db]);
+
          StoredDBInfo sdbi;
-         sdbi.magic_      = magicBytes_;
-         sdbi.topBlkHgt_  = 0;
-         sdbi.topBlkHash_ = genesisBlkHash_;
-         sdbi.armoryType_ = armoryDbType_;
-         sdbi.pruneType_ = dbPruneType_;
-         putStoredDBInfo(CURRDB, sdbi);
-      }
-      else
-      {
-         // Check that the magic bytes are correct
-         if(magicBytes_ != sdbi.magic_)
+         getStoredDBInfo(CURRDB, sdbi, false); 
+         if(!sdbi.isInitialized())
          {
-            throw runtime_error("Magic bytes mismatch!  Different blkchain?");
+            // If DB didn't exist yet (dbinfo key is empty), seed it
+            // A new database has the maximum flag settings
+            // Flags can only be reduced.  Increasing requires redownloading
+            StoredDBInfo sdbi;
+            sdbi.magic_      = magicBytes_;
+            sdbi.topBlkHgt_  = 0;
+            sdbi.topBlkHash_ = genesisBlkHash_;
+            sdbi.armoryType_ = armoryDbType_;
+            sdbi.pruneType_ = dbPruneType_;
+            putStoredDBInfo(CURRDB, sdbi);
          }
-   
-         else if(armoryDbType_ != sdbi.armoryType_)
+         else
          {
-            LOGERR << "Mismatch in DB type";
-            LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
-            LOGERR << "Expecting mode: " << sdbi.armoryType_;
-            throw runtime_error("Mismatch in DB type");
-         }
+            if (dbmode == LMDB::ReadOnly)
+               throw runtime_error("Can't open non-existent database as readonly");
+         
+            // Check that the magic bytes are correct
+            if(magicBytes_ != sdbi.magic_)
+            {
+               throw runtime_error("Magic bytes mismatch!  Different blkchain?");
+            }
+      
+            else if(armoryDbType_ != sdbi.armoryType_)
+            {
+               LOGERR << "Mismatch in DB type";
+               LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
+               LOGERR << "Expecting mode: " << sdbi.armoryType_;
+               throw runtime_error("Mismatch in DB type");
+            }
 
-         if(dbPruneType_ != sdbi.pruneType_)
-         {
-            throw runtime_error("Mismatch in DB type");
+            if(dbPruneType_ != sdbi.pruneType_)
+            {
+               throw runtime_error("Mismatch in DB type");
+            }
          }
       }
    }
-
+   catch(...)
+   {
+      closeDatabases();
+      throw;
+   }
+   
    dbIsOpen_ = true;
 }
 
@@ -453,7 +481,9 @@ void LMDBBlockDatabase::closeDatabases(void)
 void LMDBBlockDatabase::destroyAndResetDatabases(void)
 {
    SCOPED_TIMER("destroyAndResetDatabase");
+   throw runtime_error("Not implemented");
 
+#if 0
    // We want to make sure the database is restarted with the same parameters
    // it was called with originally
 
@@ -465,12 +495,14 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    // The close & destroy operations shouldn't have changed any of that.
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, magicBytes_,
       armoryDbType_, dbPruneType_);
+#endif
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
 {
+   LMDBBlockDatabase::Batch batch(this, db);
    StoredDBInfo sdbi;
    getStoredDBInfo(db, sdbi);
    return sdbi.topBlkHash_;
@@ -780,7 +812,10 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    ssh.unserializeDBValue(ldbIter.getValueReader(), this);
 
    if(!ssh.useMultipleEntries_)
+   {
+      ldbIter.advanceAndRead();
       return true;
+   }
 
    if(ssh.totalTxioCount_ == 0)
       LOGWARN << "How did we end up with zero Txios in an SSH?";

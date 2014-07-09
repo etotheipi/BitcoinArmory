@@ -2013,15 +2013,13 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 {
    map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
-   if(ITER_NOT_IN_MAP(iter, txioSet_))
-      return NULL;
-   else
-   {
-      if(!withMulti && iter->second.isMultisig())
-         return NULL;
+   if(iter == txioSet_.end())
+      return nullptr;
+      
+   if(!withMulti && iter->second.isMultisig())
+      return nullptr;
 
-      return &(iter->second);
-   }
+   return &(iter->second);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
