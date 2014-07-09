@@ -11,6 +11,10 @@ clean :
 	$(MAKE) -C cppForSwig clean
 	rm -f osxbuild/build-app.log.txt
 	rm -rf osxbuild/workspace/
+	rm -f CppBlockUtils.py
+	rm -f qrc_img_resources.py
+	rm -f _CppBlockUtils.so
+	rm -f cppForSwig/cryptopp/a.out
 
 install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
