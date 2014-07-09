@@ -22,6 +22,9 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	cp dpkgfiles/armory $(DESTDIR)$(PREFIX)/bin
+	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
 	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
