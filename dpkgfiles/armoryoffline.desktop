@@ -8,3 +8,4 @@ Exec=python /usr/lib/armory/ArmoryQt.py --offline
 Icon=armoryicon
 StartupNotify=false
 Terminal=false
+Keywords=bitcoin;finance;wallet;money;

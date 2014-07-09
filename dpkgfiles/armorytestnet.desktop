@@ -8,3 +8,4 @@ Exec=python /usr/lib/armory/ArmoryQt.py --testnet
 Icon=armorytestneticon
 StartupNotify=false
 Terminal=false
+Keywords=bitcoin;finance;wallet;money;test;testnet;
