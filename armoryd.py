@@ -949,8 +949,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   # Note that, despite what the description says, this is NOT compatible with
-   # lockboxes just yet. There's a bug hiding somewhere....
    @catchErrsForJSON
    def jsonrpc_getledger(self, inB58ID, tx_count=10, from_tx=0, simple=False):
       """
@@ -967,35 +965,50 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       final_le_list = []
+      b58Type = 'wallet'
       self.b58ID = str(inB58ID)
-      self.ledgerWlt = getWltFromB58ID(self.b58ID, self.serverWltMap, self.serverLBMap, \
-                                  self.serverLBCppWalletMap)
+      
+      # Get the wallet.
+      (ledgerWlt, wltIsCPP) = getWltFromB58ID(self.b58ID, self.serverWltMap, \
+                                              self.serverLBMap, \
+                                              self.serverLBCppWalletMap)
 
-      # Proceed only if the incoming ID is valid.
-      if self.ledgerWlt == None:
-         final_le_list['Error'] = 'Base58 ID %s does not represent a valid ' \
-                                  'wallet or lockbox.' % self.b58ID
+      # Proceed only if the incoming ID (and, hence, the wallet) is valid.
+      if ledgerWlt == None:
+         errMsg = 'Error: Base58 ID %s does not represent a valid wallet or ' \
+                  'lockbox.' % self.b58ID
+         LOGERROR(errMsg)
+         final_le_list.append(errMsg)
       else:
+         # For now, lockboxes can only use C++ wallets, which use a different
+         # set of calls and such. If we got back a Python wallet, convert it.
+         if not wltIsCPP:
+            ledgerWlt = ledgerWlt.cppWallet
+         else:
+            b58Type = 'lockbox'
+
+         # Do some setup to determine how many ledger entries we'll get and
+         # which entries we'll get.
          tx_count = int(tx_count)
          from_tx = int(from_tx)
-         ledgerEntries = self.ledgerWlt.getTxLedger()
-
+         ledgerEntries = ledgerWlt.getTxLedger()
          sz = len(ledgerEntries)
          lower = min(sz, from_tx)
          upper = min(sz, from_tx+tx_count)
-
          txSet = set([])
 
+         # Loop through all the potential ledger entries and create what we can.
          for i in range(lower,upper):
+            # Get the exact Tx we're looking for.
             le = ledgerEntries[i]
             txHashBin = le.getTxHash()
             txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
 
+            # If the BDM doesn't have the C++ Tx & header, log errors.
             cppTx = TheBDM.getTxByHash(txHashBin)
             if not cppTx.isInitialized():
                LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
-            #cppHead = cppTx.getHeaderPtr()
             cppHead = TheBDM.getHeaderPtrForTx(cppTx)
             if not cppHead.isInitialized():
                LOGERROR('Header pointer is not available!')
@@ -1007,47 +1020,51 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                headHashHex = binary_to_hex(headHashBin, BIGENDIAN)
                headtime    = cppHead.getTimestamp()
 
-            isToSelf = le.isSentToSelf()
-            netCoins = le.getValue()
-            feeCoins = getFeeForTx(txHashBin)
-
-            scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in \
-                       range(cppTx.getNumTxOut())]
-            allRecips = [CheckHash160(r) for r in scrAddrs]
-            first160 = ''
-            if cppTx.getNumTxOut()==1:
-               first160 = allRecips[0]
-               change160 = ''
-            elif isToSelf:
-               # Sent-to-Self tx
-               amtCoins,changeIdx = determineSentToSelfAmt(le, self.ledgerWlt)
-               change160 = allRecips[changeIdx]
-               for iout,recip160 in enumerate(allRecips):
-                  if not iout==changeIdx:
-                     first160 = recip160
-                     break
-            elif netCoins<0:
-               # Outgoing transaction (process in reverse order so get first)
-               amtCoins = -1*(netCoins+feeCoins)
-               for recip160 in allRecips[::-1]:
-                  if self.ledgerWlt.hasAddr(recip160):
-                     change160 = recip160
-                  else:
-                     first160 = recip160
-            else:
-               # Incoming transaction
-               amtCoins = netCoins
-               for recip160 in allRecips[::-1]:
-                  if self.ledgerWlt.hasAddr(recip160):
-                     first160 = recip160
-                  else:
-                     change160 = recip160
-
+            # Get some more data.
             # amtCoins: amt of BTC transacted, always positive (how big are
             #           outputs minus change?)
             # netCoins: net effect on wallet (positive or negative)
             # feeCoins: how much fee was paid for this tx 
+            nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+                     le.getBlockNum()) + 1
+            isToSelf = le.isSentToSelf()
+            amtCoins = 0.0
+            netCoins = le.getValue()
+            feeCoins = getFeeForTx(txHashBin)
+            scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in \
+                       range(cppTx.getNumTxOut())]
 
+            # Find the first recipient and the change recipient.
+            firstScrAddr = ''
+            changeScrAddr = ''
+            if cppTx.getNumTxOut()==1:
+               firstScrAddr = scrAddrs[0]
+            elif isToSelf:
+               # Sent-to-Self tx
+               amtCoins,changeIdx = determineSentToSelfAmt(le, ledgerWlt)
+               changeScrAddr = scrAddrs[changeIdx]
+               for iout,recipScrAddr in enumerate(scrAddrs):
+                  if not iout==changeIdx:
+                     firstScrAddr = recipScrAddr
+                     break
+            elif netCoins<0:
+               # Outgoing transaction (process in reverse order so get first)
+               amtCoins = -1*(netCoins+feeCoins)
+               for recipScrAddr in scrAddrs[::-1]:
+                  if ledgerWlt.hasScrAddress(recipScrAddr):
+                     changeScrAddr = recipScrAddr
+                  else:
+                     firstScrAddr = recipScrAddr
+            else:
+               # Incoming transaction (process in reverse order so get first)
+               amtCoins = netCoins
+               for recipScrAddr in scrAddrs[::-1]:
+                  if ledgerWlt.hasScrAddress(recipScrAddr):
+                     firstScrAddr = recipScrAddr
+                  else:
+                     changeScrAddr = recipScrAddr
+
+            # Determine the direction of the Tx based on the coin setup.
             if netCoins < -feeCoins:
                txDir = 'send'
             elif netCoins > -feeCoins:
@@ -1055,35 +1072,43 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             else:
                txDir = 'toself'
 
-            # Convert to address strings
-            firstAddr = hash160_to_addrStr(first160)
-            changeAddr = '' if len(change160)==0 else \
-                         hash160_to_addrStr(change160)
+            # Convert the scrAddrs to display strings.
+            firstAddr = scrAddr_to_displayStr(firstScrAddr, self.serverWltMap, \
+                                              self.serverLBMap.values())
+            changeAddr = '' if len(changeScrAddr)==0 else \
+                         scrAddr_to_displayStr(changeScrAddr, \
+                                               self.serverWltMap, \
+                                               self.serverLBMap.values())
 
-            nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
-                     le.getBlockNum()) + 1
-
-            myinputs,  otherinputs = [],[]
+            # Get the address & amount from each TxIn.
+            myinputs, otherinputs = [], []
             for iin in range(cppTx.getNumTxIn()):
-               sender = CheckHash160(TheBDM.getSenderScrAddr(cppTx.getTxInCopy(iin)))
+               sender = TheBDM.getSenderScrAddr(cppTx.getTxInCopy(iin))
                val    = TheBDM.getSentValue(cppTx.getTxInCopy(iin))
-               addTo  = (myinputs if self.ledgerWlt.hasAddr(sender) else \
+               addTo  = (myinputs if ledgerWlt.hasScrAddress(sender) else \
                          otherinputs)
-               addTo.append( {'address': hash160_to_addrStr(sender), \
+               addTo.append( {'address': scrAddr_to_displayStr(sender, \
+                                                            self.serverWltMap, \
+                                                   self.serverLBMap.values()), \
                               'amount':  AmountToJSON(val)} )
 
+            # Get the address & amount from each TxOut.
             myoutputs, otheroutputs = [], []
             for iout in range(cppTx.getNumTxOut()):
-               recip = CheckHash160(cppTx.getTxOutCopy(iout).getScrAddressStr())
+               recip = cppTx.getTxOutCopy(iout).getScrAddressStr()
                val   = cppTx.getTxOutCopy(iout).getValue();
-               addTo = (myoutputs if self.ledgerWlt.hasAddr(recip) else \
+               addTo = (myoutputs if ledgerWlt.hasScrAddress(recip) else \
                         otheroutputs)
-               addTo.append( {'address': hash160_to_addrStr(recip), \
+               addTo.append( {'address': scrAddr_to_displayStr(recip, \
+                                                            self.serverWltMap, \
+                                                   self.serverLBMap.values()), \
                               'amount':  AmountToJSON(val)} )
 
+            # Create the ledger entry. (NB: "comment" isn't doable with C++
+            # wallets. Once the 2.0 wallets are ready, it should be restored.)
             tx_info = {
                         'direction' :    txDir,
-                        'wallet' :       self.ledgerWlt.uniqueIDB58,
+                        b58Type :        inB58ID,
                         'amount' :       AmountToJSON(amtCoins),
                         'netdiff' :      AmountToJSON(netCoins),
                         'fee' :          AmountToJSON(feeCoins),
@@ -1093,18 +1118,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                         'txtime' :       le.getTxTime(),
                         'txsize' :       len(cppTx.serialize()),
                         'blocktime' :    headtime,
-                        'comment' :      self.ledgerWlt.getComment(txHashBin),
+                        #'comment' :      ledgerWlt.getComment(txHashBin),
                         'firstrecip':    firstAddr,
                         'changerecip':   changeAddr
                       }
 
+            # Add more info if it's not a simple ledger.
             if not simple:
                tx_info['senderme']     = myinputs
                tx_info['senderother']  = otherinputs
                tx_info['recipme']      = myoutputs
                tx_info['recipother']   = otheroutputs
 
+            # Add the ledger entry to the ledger list.
             final_le_list.append(tx_info)
+
+         # Wrap everything up before returning the ledger list.
+         numLedgerEntries = len(final_le_list)
+         final_le_list.append('Number of ledger entries: %d' % numLedgerEntries)
 
       return final_le_list
 
@@ -2516,6 +2547,10 @@ class Armory_Daemon(object):
 
 
    #############################################################################
+   # NB: ArmoryQt has a similar function (finishLoadBlockchainGUI) that shares
+   # common functionality via ArmoryUtils (finishLoadBlockchainCommon). If you
+   # mod this function, please be mindful of what goes where, and make sure
+   # any critical functionality makes it into ArmoryQt.
    def start(self):
       #run a wallet consistency check before starting the BDM
       self.checkWallet()
@@ -2530,31 +2565,38 @@ class Armory_Daemon(object):
       TheBDM.setBlocking(True)
       LOGWARN('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
-         # Put the BDM in online mode only after registering all wallets & LBs.
+         # Put the BDM in online mode only after registering all Python wallets.
          for wltID, wlt in self.WltMap.iteritems():
             LOGWARN('Registering wallet: %s' % wltID)
             TheBDM.registerWallet(wlt)
-
-         for lbID, lbox in self.lboxMap.iteritems():
-            LOGWARN('Registering lockbox: %s' % lbID)
-            TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
-
          TheBDM.setOnlineMode(True)
 
-         LOGINFO('Blockchain loading')
-         while not TheBDM.getBDMState()=='BlockchainReady':
-            time.sleep(2)
+         # Initialize the mem pool and sync the wallets. (NB: This shares
+         # critical startup code with ArmoryQt.)
+         self.latestBlockNum = finishLoadBlockchainCommon(self.WltMap, \
+                                                          self.lboxCppWalletMap, \
+                                                          False, TheBDM)[0]
 
-         self.latestBlockNum = TheBDM.getTopBlockHeight()
-         LOGINFO('Blockchain loading finished.  Top block is %d', \
-                 TheBDM.getTopBlockHeight())
+         self.timeReceived = TheBDM.getTopBlockHeader().getTimestamp()
+         LOGINFO('Blockchain loaded. Wallets synced!')
+         LOGINFO('Current block number: %d', self.latestBlockNum)
+         LOGINFO('Current block received at: %d', self.timeReceived)
 
-         mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
-         self.checkMemoryPoolCorruption(mempoolfile)
-         TheBDM.enableZeroConf(mempoolfile)
-         LOGINFO('Syncing wallet: %s' % self.curWlt.uniqueIDB58)
-         self.curWlt.syncWithBlockchain()
-         LOGINFO('Blockchain load and wallet sync finished')
+         vectMissingBlks = TheBDM.missingBlockHashes()
+         LOGINFO('Blockfile corruption check: Missing blocks: %d', \
+                 len(vectMissingBlks))
+         if len(vectMissingBlks) > 0:
+            LOGERROR('Armory has detected an error in the blockchain ' \
+                     'database maintained by the third-party Bitcoin ' \
+                     'software (Bitcoin-Qt or bitcoind). This error is not ' \
+                     'fatal, but may lead to incorrect balances, inability ' \
+                     'to send coins, or application instability. It is ' \
+                     'unlikely that the error affects your wallets, but it ' \
+                     'is possible.  If you experience crashing, or see ' \
+                     'incorrect balances on any wallets, it is strongly ' \
+                     'recommended you re-download the blockchain via the ' \
+                     '"Factory Reset" option in ArmoryQt.')
+
          LOGINFO('Wallet balance: %s' % \
                  coin2str(self.curWlt.getBalance('Spendable')))
 

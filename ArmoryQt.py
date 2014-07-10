@@ -2518,7 +2518,7 @@ class ArmoryMainWindow(QMainWindow):
          return
       elif not TheBDM.getBDMState()=='BlockchainReady':
          # BDM isnt ready yet, saved URI strings in the delayed URIDict to
-         # call later through finishLoadBlockChain
+         # call later through finishLoadBlockChainGUI
          qLen = self.delayedURIData['qLen']
 
          self.delayedURIData[qLen] = uriStr
@@ -2981,46 +2981,24 @@ class ArmoryMainWindow(QMainWindow):
 
 
    @TimeThisFunction
-   def finishLoadBlockchain(self):
-      # Now that the blockchain is loaded, let's populate the wallet info
+   # NB: armoryd has a similar function (Armory_Daemon::start()), and both share
+   # common functionality in ArmoryUtils (finishLoadBlockchainCommon). If you
+   # mod this function, please be mindful of what goes where, and make sure
+   # any critical functionality makes it into armoryd.
+   def finishLoadBlockchainGUI(self):
+      # Let's populate the wallet info after finishing loading the blockchain.
       if TheBDM.isInitialized():
-         
-         #for wltID in self.walletMap.iterkeys():
-          #  TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
-
-         self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
-         if not self.memPoolInit:
-            mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-            clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.flag')
-            if os.path.exists(clearpoolfile):
-               LOGINFO('clearmempool.flag found.  Clearing memory pool')
-               os.remove(clearpoolfile)
-               if os.path.exists(mempoolfile):
-                  os.remove(mempoolfile)
-            else:
-               self.checkMemoryPoolCorruption(mempoolfile)
-               
-            cppMempoolFile = mempoolfile
-            if OS_WINDOWS and isinstance(mempoolfile, unicode):
-               cppMempoolFile = mempoolfile.encode('utf8')
-            TheBDM.enableZeroConf(cppMempoolFile)
-            self.memPoolInit = True
+         (self.currBlockNum, self.memPoolInit) = \
+                                    finishLoadBlockchainCommon(self.walletMap, \
+                                                        self.cppLockboxWltMap, \
+                                                        self.memPoolInit, \
+                                                        TheBDM)
+         self.statusBar().showMessage('Blockchain loaded. Wallets synced!', 10000)
 
-         for wltID in self.walletMap.iterkeys():
-            LOGINFO('Syncing wallet: %s', wltID)
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchainLite(0)
-            self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
-            self.walletMap[wltID].fillAddressPool()
-
-         # The lockboxes are in a raw C++ wallet, not in the list above
-         for lbID,cppWallet in self.cppLockboxWltMap.iteritems():
-            TheBDM.scanRegisteredTxForWallet(cppWallet, 0, wait=True)
-
+         # We still need to put together various bits of info.
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
-         self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
          if self.netMode==NETWORKMODE.Full:
             LOGINFO('Current block number: %d', self.currBlockNum)
             self.lblArmoryStatus.setText(\
@@ -3034,9 +3012,10 @@ class ArmoryMainWindow(QMainWindow):
          currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
          self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
-
+         # If there are missing blocks, continue, but throw up a huge warning.
          vectMissingBlks = TheBDM.missingBlockHashes()
-         LOGINFO('Blockfile corruption check: Missing blocks: %d', len(vectMissingBlks))
+         LOGINFO('Blockfile corruption check: Missing blocks: %d', \
+                 len(vectMissingBlks))
          if len(vectMissingBlks) > 0:
             LOGINFO('Missing blocks: %d', len(vectMissingBlks))
             QMessageBox.critical(self, tr('Blockdata Error'), tr("""
@@ -3053,7 +3032,7 @@ class ArmoryMainWindow(QMainWindow):
                "<i>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
                 QMessageBox.Ok)
 
-
+         # If necessary, throw up a window stating the the blockchain's loaded.
          if self.getSettingOrSetDefault('NotifyBlkFinish',True):
             reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
                'Blockchain Loaded!', 'Blockchain loading is complete.  '
@@ -3067,7 +3046,7 @@ class ArmoryMainWindow(QMainWindow):
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
-         
+         # Execute any extra functions we may have.
          for fn in self.extraGoOnlineFunctions:
             fn(self.currBlockNum)
 
@@ -3097,24 +3076,6 @@ class ArmoryMainWindow(QMainWindow):
       bfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.old')
       if os.path.exists(bfile):
          os.remove(bfile)
-
-   #############################################################################
-   def checkMemoryPoolCorruption(self, mempoolname):
-      if not os.path.exists(mempoolname):
-         return
-
-      memfile = open(mempoolname, 'rb')
-      memdata = memfile.read()
-      memfile.close()
-
-      binunpacker = BinaryUnpacker(memdata)
-      try:
-         while binunpacker.getRemainingSize() > 0:
-            binunpacker.get(UINT64)
-            PyTx().unserialize(binunpacker)
-      except:
-         os.remove(mempoolname);
-         LOGWARN('Memory pool file was corrupt.  Deleted. (no further action is needed)')
 
    #############################################################################
    def changeLedgerSorting(self, col, order):
@@ -3809,20 +3770,12 @@ class ArmoryMainWindow(QMainWindow):
                   blkexplURL_short, supportURL, supportURL), QMessageBox.Ok)
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
-         reactor.callLater(4, sendGetDataMsg)
-         reactor.callLater(checkTxTimer, checkForTxInBDM)
 
-         #QMessageBox.information(self, 'Broadcast Complete!', \
-            #'The transaction has been broadcast to the Bitcoin network.  However '
-            #'there is no way to know for sure whether it was accepted until you '
-            #'see it in the blockchain with 1+ confirmations.  Please search '
-            #'www.blockchain.info for the for recipient\'s address, to '
-            #'verify whether it was accepted or not.  '
-            #'\n\nAlso note: other transactions you send '
-            #'from this wallet may not succeed until that first confirmation is '
-            #'received.  Both issues are a problem with Armory that will be fixed '
-            #'with the next release.', QMessageBox.Ok)
-
+         # Send the Tx after a short delay, give the system time to see the Tx
+         # on the network and process it, and check to see if the Tx was seen.
+         # We may change this setup in the future, but for now....
+         reactor.callLater(3, sendGetDataMsg)
+         reactor.callLater(7, checkForTxInBDM)
 
 
    #############################################################################
@@ -6500,8 +6453,8 @@ class ArmoryMainWindow(QMainWindow):
             #####
             # Blockchain just finished loading.  Do lots of stuff...
             if self.needUpdateAfterScan:
-               LOGDEBUG('Running finishLoadBlockchain')
-               self.finishLoadBlockchain()
+               LOGDEBUG('Running finishLoadBlockchainGUI')
+               self.finishLoadBlockchainGUI()
                self.needUpdateAfterScan = False
                self.setDashboardDetails()
 
