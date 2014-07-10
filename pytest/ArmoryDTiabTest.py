@@ -349,7 +349,7 @@ class ArmoryDTiabTest(TiabTest):
 
 
    def testGetledgersimple(self):
-      ledger = self.jsonServer.jsonrpc_getledgersimple()
+      ledger = self.jsonServer.jsonrpc_getledgersimple(FIRST_WLT_NAME)
       self.assertTrue(len(ledger)>4)
       amountList = [row['amount'] for row in ledger]
       expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0]
@@ -357,7 +357,7 @@ class ArmoryDTiabTest(TiabTest):
 
 
    def testGetledger(self):
-      ledger = self.jsonServer.jsonrpc_getledger()
+      ledger = self.jsonServer.jsonrpc_getledger(FIRST_WLT_NAME)
       self.assertTrue(len(ledger)>6)
       amountList = [row['amount'] for row in ledger]
       expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0, 6.0, 20.0]

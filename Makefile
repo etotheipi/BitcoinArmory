@@ -11,6 +11,10 @@ clean :
 	$(MAKE) -C cppForSwig clean
 	rm -f osxbuild/build-app.log.txt
 	rm -rf osxbuild/workspace/
+	rm -f CppBlockUtils.py
+	rm -f qrc_img_resources.py
+	rm -f _CppBlockUtils.so
+	rm -f cppForSwig/cryptopp/a.out
 
 install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
@@ -22,6 +26,9 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	cp dpkgfiles/armory $(DESTDIR)$(PREFIX)/bin
+	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
 	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/

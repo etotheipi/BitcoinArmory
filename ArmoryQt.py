@@ -3810,7 +3810,7 @@ class ArmoryMainWindow(QMainWindow):
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
          reactor.callLater(4, sendGetDataMsg)
-         reactor.callLater(5, checkForTxInBDM)
+         reactor.callLater(checkTxTimer, checkForTxInBDM)
 
          #QMessageBox.information(self, 'Broadcast Complete!', \
             #'The transaction has been broadcast to the Bitcoin network.  However '
