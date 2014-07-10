@@ -1,11 +1,5 @@
-from os import path
-import base64
-import json
-import ast
-import textwrap      
 from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import *
-from armorycolors import htmlColor
 
 MULTISIG_VERSION = 1
 
@@ -485,63 +479,11 @@ class MultiSigLockbox(AsciiSerializable):
          print '           ', binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...'
          print '           ', hash160_to_addrStr(self.a160List[i])
          print ''
-      
-
 
    #############################################################################
    def pprintOneLine(self):
       print 'LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58, 
          self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName)
-
-   #############################################################################
-   def getDisplayRichText(self, tr=None, dateFmt=None):
-
-      if dateFmt is None:
-         dateFmt = DEFAULT_DATE_FORMAT
-
-      if tr is None:
-         tr = lambda x: unicode(x)
-
-      EMPTYLINE = u''
-
-      shortName = toUnicode(self.shortName)
-      if len(shortName.strip())==0:
-         shortName = u'<No Lockbox Name'
-
-      longDescr = toUnicode(self.longDescr)
-      if len(longDescr.strip())==0:
-         longDescr = '--- No Extended Info ---'
-      longDescr = longDescr.replace('\n','<br>')
-      longDescr = textwrap.fill(longDescr, width=60)
-
-
-      formattedDate = unixTimeToFormatStr(self.createDate, dateFmt)
-      
-      lines = []
-      lines.append(tr("""<font color="%s" size=4><center><u>Lockbox Information for 
-         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
-      lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (self.M, self.N))
-      lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % self.uniqueIDB58)
-      lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(self.binScript))
-      lines.append(tr('<b>Lockbox Name:</b>&nbsp;&nbsp;%s') % self.shortName)
-      lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
-      lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
-      lines.append(tr('<b>Stored Key Details</b>'))
-      for i in range(len(self.dPubKeys)):
-         comm = self.dPubKeys[i].keyComment
-         addr = hash160_to_addrStr(self.a160List[i])
-         pubk = binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...'
-
-         if len(comm.strip())==0:
-            comm = '<No Info>'
-
-         lines.append(tr('&nbsp;&nbsp;<b>Key #%d</b>') % (i+1))
-         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Name/ID:</b>&nbsp;%s') % comm)
-         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Address:</b>&nbsp;%s') % addr)
-         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>PubKey:</b>&nbsp;&nbsp;%s') % pubk)
-         lines.append(EMPTYLINE)
-      lines.append(tr('</font>'))
-      return '<br>'.join(lines)
 
 
    ################################################################################

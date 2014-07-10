@@ -16,6 +16,7 @@ import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
 import cStringIO
+import textwrap
 
 #############################################################################
 class DlgLockboxEditor(ArmoryDialog):
@@ -1531,13 +1532,61 @@ class DlgLockboxManager(ArmoryDialog):
          return self.main.getLockboxByID(lbID)
       return None
 
+   #############################################################################
+   def getDisplayRichText(self, lb, tr=None, dateFmt=None):
 
+      if dateFmt is None:
+         dateFmt = DEFAULT_DATE_FORMAT
+
+      if tr is None:
+         tr = lambda x: unicode(x)
+
+      EMPTYLINE = u''
+
+      shortName = toUnicode(lb.shortName)
+      if len(shortName.strip())==0:
+         shortName = u'<No Lockbox Name'
+
+      longDescr = toUnicode(lb.longDescr)
+      if len(longDescr.strip())==0:
+         longDescr = '--- No Extended Info ---'
+      longDescr = longDescr.replace('\n','<br>')
+      longDescr = textwrap.fill(longDescr, width=60)
+
+
+      formattedDate = unixTimeToFormatStr(lb.createDate, dateFmt)
+      
+      lines = []
+      lines.append(tr("""<font color="%s" size=4><center><u>Lockbox Information for 
+         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), lb.uniqueIDB58))
+      lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (lb.M, lb.N))
+      lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % lb.uniqueIDB58)
+      lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(lb.binScript))
+      lines.append(tr('<b>Lockbox Name:</b>&nbsp;&nbsp;%s') % lb.shortName)
+      lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
+      lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
+      lines.append(tr('<b>Stored Key Details</b>'))
+      for i in range(len(lb.dPubKeys)):
+         comm = lb.dPubKeys[i].keyComment
+         addr = hash160_to_addrStr(lb.a160List[i])
+         pubk = binary_to_hex(lb.dPubKeys[i].binPubKey)[:40] + '...'
+
+         if len(comm.strip())==0:
+            comm = '<No Info>'
+
+         lines.append(tr('&nbsp;&nbsp;<b>Key #%d</b>') % (i+1))
+         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Name/ID:</b>&nbsp;%s') % comm)
+         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Address:</b>&nbsp;%s') % addr)
+         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>PubKey:</b>&nbsp;&nbsp;%s') % pubk)
+         lines.append(EMPTYLINE)
+      lines.append(tr('</font>'))
+      return '<br>'.join(lines)
 
    #############################################################################
    def singleClickLockbox(self, index=None, *args):
       lb = self.getSelectedLockbox()
       if lb:
-         self.txtLockboxInfo.setText(lb.getDisplayRichText())
+         self.txtLockboxInfo.setText(self.getDisplayRichText(lb))
       else:
          self.txtLockboxInfo.setText('')
 

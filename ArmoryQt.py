@@ -2990,10 +2990,9 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.isInitialized():
          self.setDashboardDetails()
          (self.currBlockNum, self.memPoolInit) = \
-                                    finishLoadBlockchainCommon(self.walletMap, \
+                                    TheBDM.finishLoadBlockchainCommon(self.walletMap, \
                                                         self.cppLockboxWltMap, \
-                                                        self.memPoolInit, \
-                                                        TheBDM)
+                                                        self.memPoolInit)
          self.statusBar().showMessage('Blockchain loaded. Wallets synced!', 10000)
 
          # We still need to put together various bits of info.

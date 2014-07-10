@@ -1,4 +1,5 @@
 from ArmoryUtils import makeAsciiBlock, readAsciiBlock
+from armoryengine.ArmoryUtils import LOGERROR, UnserializeError
 
 class AsciiSerializable(object):
    """

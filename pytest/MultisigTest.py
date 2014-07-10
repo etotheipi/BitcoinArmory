@@ -774,8 +774,6 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
       lbox.pprintOneLine()
       lbox.pprint()
       
-      resultStr = lbox.getDisplayRichText()
-      self.assertTrue(lbox.uniqueIDB58 in resultStr)
       self.assertTrue(binScript_to_p2shAddrStr(lbox.binScript))
    
    

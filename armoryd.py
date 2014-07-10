@@ -2573,9 +2573,9 @@ class Armory_Daemon(object):
 
          # Initialize the mem pool and sync the wallets. (NB: This shares
          # critical startup code with ArmoryQt.)
-         self.latestBlockNum = finishLoadBlockchainCommon(self.WltMap, \
+         self.latestBlockNum = TheBDM.finishLoadBlockchainCommon(self.WltMap, \
                                                           self.lboxCppWalletMap, \
-                                                          False, TheBDM)[0]
+                                                          False)[0]
 
          self.timeReceived = TheBDM.getTopBlockHeader().getTimestamp()
          LOGINFO('Blockchain loaded. Wallets synced!')
@@ -2745,25 +2745,6 @@ class Armory_Daemon(object):
    #############################################################################
    def showOnlineMsg(self):
       LOGINFO('Online - tracking blockchain')
-
-
-   #############################################################################
-   def checkMemoryPoolCorruption(self, mempoolname):
-      if not os.path.exists(mempoolname):
-         return
-
-      memfile = open(mempoolname, 'r')
-      memdata = memfile.read()
-      memfile.close()
-
-      binunpacker = BinaryUnpacker(memdata)
-      try:
-         while binunpacker.getRemainingSize() > 0:
-            binunpacker.get(UINT64)
-            PyTx().unserialize(binunpacker)
-      except:
-         os.remove(mempoolname);
-
 
    #############################################################################
    @AllowAsync

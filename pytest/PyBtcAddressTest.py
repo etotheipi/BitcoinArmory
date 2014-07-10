@@ -7,7 +7,6 @@ import sys
 sys.path.append('..')
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK
 
-import sys
 import unittest
 
 from CppBlockUtils import CryptoECDSA, SecureBinaryData

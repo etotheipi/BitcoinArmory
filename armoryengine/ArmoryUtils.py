@@ -3391,72 +3391,6 @@ def HardcodedKeyMaskParams():
    paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
    return paramMap
 
-
-################################################################################
-def checkMemoryPoolCorruption(mempoolname):
-   if not os.path.exists(mempoolname):
-      return
-
-   memfile = open(mempoolname, 'rb')
-   memdata = memfile.read()
-   memfile.close()
-
-   binunpacker = BinaryUnpacker(memdata)
-   try:
-      while binunpacker.getRemainingSize() > 0:
-         binunpacker.get(UINT64)
-         PyTx().unserialize(binunpacker)
-   except:
-      os.remove(mempoolname)
-      LOGWARN('Memory pool file was corrupt and has been deleted. No further ' \
-              'action is required.')
-
-
-#########################
-# This is critical code used when kicking off ArmoryQt and armoryd. Ideally, all
-# initialization would happen here, but there's too much GUI stuff to make it
-# work. So, we'll do what we can here, which is a significant amount.
-# INPUT: A Python wallet map, a C++ lockbox wallet map, a flag indicating if the
-#        memory pool has been initialized, and the BDM.
-# OUTPUT: The top block height and a flag indicating that the mem pool has been
-#         initialized.
-def finishLoadBlockchainCommon(inWltMap, inLBWltMap, initMemPool, inBDM):
-   retVal = inBDM.getTopBlockHeight()
-
-   # If necessary, initialize the mem pool.
-   if not initMemPool:
-      mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-      clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.flag')
-      if os.path.exists(clearpoolfile):
-         LOGINFO('clearmempool.flag found.  Clearing memory pool')
-         os.remove(clearpoolfile)
-         if os.path.exists(mempoolfile):
-            os.remove(mempoolfile)
-      else:
-         checkMemoryPoolCorruption(mempoolfile)
-               
-      cppMempoolFile = mempoolfile
-      if OS_WINDOWS and isinstance(mempoolfile, unicode):
-         cppMempoolFile = mempoolfile.encode('utf8')
-      inBDM.enableZeroConf(cppMempoolFile)
-
-   # Sync each Python wallet.
-   for wltID in inWltMap.iterkeys():
-      LOGINFO('Syncing wallet: %s', wltID)
-      inWltMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-      inWltMap[wltID].syncWithBlockchainLite(0)
-      inWltMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
-      inWltMap[wltID].fillAddressPool()
-
-   # The lockboxes use C++ wallets 'til the 2.0 wallets are ready. We just need
-   # to scan each wallet.
-   for lbID,cppWallet in inLBWltMap.iteritems():
-      inBDM.scanRegisteredTxForWallet(cppWallet, 0, wait=True)
-
-   LOGINFO('Blockchain load and wallet sync finished')
-   return (retVal, True)
-
-
 ################################################################################
 ################################################################################
 class SettingsFile(object):
@@ -3673,6 +3607,3 @@ except:
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
 
-# Unwind circular dependencies here.
-from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY
