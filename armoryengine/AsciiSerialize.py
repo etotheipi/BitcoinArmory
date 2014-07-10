@@ -30,7 +30,6 @@ class AsciiSerializable(object):
    class MyClass(AsciiSerializable):
       BLKSTRING       = "MyObject"
       EQ_ATTRS_SIMPLE = ['myInt', 'myStr']
-      EQ_ATTRS_SERIAL = ['myInt', 'myStr']
       EQ_ATTRS_LISTS  = ['myVect']
       EQ_ATTRS_MAPS   = ['myMapA', 'myMapB']
 
@@ -43,15 +42,14 @@ class AsciiSerializable(object):
       
    If you would like to do more in the __eq__ function than just compare those
    simple things, call this first inside your overridden __eq__ func, then 
-   define your extra logic 
-
+   define your extra logic:
    
       def __eq__(self, obj2):
          if not super(MyClass, self).__eq__(obj2):
             return False
             
          # We'll consider them equal if the first is a multiple of the second
-         return (self.myInt % obj2.myInt)==0
+         return (self.modulus % obj2.modulus)==0
 
    """
 

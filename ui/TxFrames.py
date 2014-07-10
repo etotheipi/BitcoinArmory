@@ -841,10 +841,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          txoList = cppWlt.getSpendableTxOutList(self.main.currBlockNum, IGNOREZC)
          pyUtxoList = []
          for i in range(len(txoList)):
-            script = self.lbox.binScript
-            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i], script)
-            pyUtxoList.append( pyUtxo)
-            #pyUtxoList[-1].pprint()
+            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i])
+            pyUtxoList.append(pyUtxo)
          return pyUtxoList
 
 

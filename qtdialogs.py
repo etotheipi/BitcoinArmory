@@ -4008,7 +4008,7 @@ class DlgAddressInfo(ArmoryDialog):
          return
 
       if outVal==0:
-         print 'NO FUNDS'
+         #print 'NO FUNDS'
          QMessageBox.critical(self, 'Nothing to do', \
             'This address does not contain any funds.  There is nothing to sweep.', \
             QMessageBox.Ok)
@@ -6498,7 +6498,7 @@ class DlgDispTxInfo(ArmoryDialog):
    def copyRawTx(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      print "Binscript: " + binary_to_hex(self.pytx.inputs[0].binScript)
+      #print "Binscript: " + binary_to_hex(self.pytx.inputs[0].binScript)
       clipb.setText(binary_to_hex(self.pytx.serialize()))
       self.lblCopied.setText('<i>Copied to Clipboard!</i>')
 
@@ -6655,7 +6655,7 @@ class DlgDisplayTxIn(ArmoryDialog):
          scrType = getTxOutScriptType(script)
 
          dispInfo = self.main.getDisplayStringForScript(script, 100, prefIDOverAddr=True)
-         print dispInfo
+         #print dispInfo
          addrStr = dispInfo['String']
          wltID   = dispInfo['WltID']
          if not wltID:
@@ -6726,7 +6726,7 @@ class DlgDisplayTxOut(ArmoryDialog):
       scrType = getTxOutScriptType(script)
 
       dispInfo = self.main.getDisplayStringForScript(script, 100, prefIDOverAddr=True)
-      print dispInfo
+      #print dispInfo
       addrStr = dispInfo['String']
       wltID   = dispInfo['WltID']
       if not wltID:
@@ -10379,7 +10379,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
 
       # Setup the long descr
       def openLink(url):
-         print 'opening ', url
+         #print 'opening ', url
          import webbrowser
          webbrowser.open(str(url))
 
@@ -10935,7 +10935,7 @@ class DlgInstallLinux(ArmoryDialog):
                QMessageBox.Ok)
          return
 
-      print dlDict['SATOSHI']['Linux']
+      #print dlDict['SATOSHI']['Linux']
       theLink = dlDict['SATOSHI']['Linux'][0]
       theHash = dlDict['SATOSHI']['Linux'][1]
       dlg = DlgDownloadFile(self, self.main, theLink, theHash)
@@ -11009,8 +11009,8 @@ class DlgInstallLinux(ArmoryDialog):
 ################################################################################
 def tryInstallLinux(main):
    def doit():
-      print '\n'
-      print '***** Executing auto-install in linux...'
+      #print '\n'
+      #print '***** Executing auto-install in linux...'
       out, err = execAndWait('gksudo "apt-get remove -y bitcoin-qt bitcoind"', \
                              timeout=20)
       out, err = execAndWait(('gksudo apt-add-repository ppa:bitcoin/bitcoin; '
@@ -11134,7 +11134,7 @@ class DlgDownloadFile(ArmoryDialog):
       def startBackgroundDownload(dlg):
          thr = PyBackgroundThread(dlg.startDL)
          thr.start()
-      print 'Starting download in 1s...'
+      #print 'Starting download in 1s...'
       from twisted.internet import reactor
       reactor.callLater(1, startBackgroundDownload, self)
       self.main.extraHeartbeatSpecial.append(self.checkDownloadProgress)
@@ -11170,7 +11170,7 @@ class DlgDownloadFile(ArmoryDialog):
             if nTries > 2:
                keepTrying = False
          except:
-            print sys.exc_info()
+            LOGEXCEPT('Error while trying to urlopen the download link')
             break
 
       if self.httpObj == None:
@@ -12058,7 +12058,7 @@ class DlgFragBackup(ArmoryDialog):
       M = self.M
       sec = 'secure.' if doMask else ''
       defaultFn = 'wallet_%s_%s_num%d_need%d.%sfrag' % (wid, pref, fnum, M, sec)
-      print 'FragFN:', defaultFn
+      #print 'FragFN:', defaultFn
       savepath = self.main.getFileSave(tr('Save Fragment'), \
                                        [tr('Wallet Fragments (*.frag)')], \
                                        defaultFn)
@@ -14134,7 +14134,8 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.setMinimumWidth(550)
       
    def rdClicked(self):
-      print "cliocked"
+      # TODO:  Why does this do nohting?  Was it a stub that was forgotten?
+      LOGINFO("clicked")
 
    def promptWalletRecovery(self):
       """
