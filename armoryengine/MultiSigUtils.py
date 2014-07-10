@@ -107,6 +107,18 @@ def readLockboxEntryStr(addrtext):
 def isBareLockbox(addrtext):
    return addrtext.startswith(LBPREFIX)
 
+def scrAddr_to_displayStr(scrAddr, wltMap, lbMap):
+   retStr = ''
+   if scrAddr[0] in (SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE):
+      retStr = scrAddr_to_addrStr(scrAddr)
+   elif scrAddr[0] == SCRADDR_MULTISIG_BYTE:
+      retStr = getDisplayStringForScript(scrAddr[1:], wltMap, lbMap)
+   else:
+      LOGERROR('scrAddr %s is invalid.' % binary_to_hex(scrAddr))
+
+   return retStr
+
+
 ################################################################################
 def isP2SHLockbox(addrtext):
    # Bugfix:  Bare prefix includes P2SH prefix, whoops.  Return false if Bare
@@ -115,16 +127,18 @@ def isP2SHLockbox(addrtext):
 ################################################################################
 def getWltFromB58ID(inB58ID, inWltMap, inLBMap, inLBWltMap):
    retWlt = None
+   retWltIsCPP = True
 
    if inB58ID in inWltMap.keys():
       retWlt = inWltMap[inB58ID]
+      retWltIsCPP = False
    elif inB58ID in inLBMap.keys():
       retWlt = inLBWltMap[inB58ID]
    else:
       LOGERROR('Base58 ID %s does not represent a valid wallet or lockbox.' % \
                inB58ID)
 
-   return retWlt
+   return (retWlt, retWltIsCPP)
 
 ################################################################################
 # Function that writes a lockbox to a file. The lockbox can be appended to a
@@ -1109,17 +1123,5 @@ class MultiSigPromissoryNote(AsciiSerializable):
       print '   LB Key Info :', self.promLabel
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Resolve circular dependencies here.
+from armoryengine.UserAddressUtils import getDisplayStringForScript
