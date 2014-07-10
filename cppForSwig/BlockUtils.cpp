@@ -2809,7 +2809,7 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
             Tx chainedZC;
             zcd->getTxByHash(op.getTxHash(), chainedZC);
 
-            TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
+            const TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
 
             txio.setTxHashOfOutput(op.getTxHash());
             txio.setTxHashOfInput(tx.getThisHash());

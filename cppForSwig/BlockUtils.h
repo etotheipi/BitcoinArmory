@@ -165,7 +165,8 @@ private:
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
-      auto& scrAddrIter = scrAddrMap_.find(scrAddr);
+      map<BinaryData, ScrAddrMeta>::iterator scrAddrIter = 
+					scrAddrMap_.find(scrAddr);
       if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
       {
          scrAddrIter->second.lastScannedHeight_ = blkHgt;
@@ -261,8 +262,7 @@ public:
    { return UTxO_.erase(dbkey) == 1; }
 
    void getScrAddrCurrentSyncState();
-   void ScrAddrScanData::getScrAddrCurrentSyncState(
-      BinaryData const & scrAddr);
+   void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
 
    map<BinaryData, map<BinaryData, TxIOPair> > 
       ZCisMineBulkFilter(const Tx & tx,

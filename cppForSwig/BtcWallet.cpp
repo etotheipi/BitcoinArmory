@@ -830,7 +830,8 @@ void BtcWallet::scanWalletZeroConf()
 
    for (auto& scrAddrTxio : ZCtxioMap)
    {
-      auto& scrAddr = scrAddrMap_.find(scrAddrTxio.first);
+      map<BinaryData, ScrAddrObj>::iterator scrAddr = 
+	scrAddrMap_.find(scrAddrTxio.first);
 
       if (scrAddr != scrAddrMap_.end())
          scrAddr->second.scanZC(scrAddrTxio.second);
@@ -951,7 +952,8 @@ void BtcWallet::purgeZeroConfTxIO(
 {
    for (auto& txioVec : invalidatedTxIO)
    {
-      auto& scrAddr = scrAddrMap_.find(txioVec.first);
+      map<BinaryData, ScrAddrObj>::iterator scrAddr = 
+	scrAddrMap_.find(txioVec.first);
 
       if (scrAddr != scrAddrMap_.end())
          scrAddr->second.purgeZC(txioVec.second);

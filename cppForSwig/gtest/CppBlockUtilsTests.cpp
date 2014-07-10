@@ -6781,7 +6781,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 
    //wait on the address scan
    while (wlt.getMergeFlag() == false)
-      Sleep(100);
+      usleep(100);
 
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6839,7 +6839,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    //wait on the address scan
    while (wlt.getMergeFlag() == false)
-      Sleep(100);
+      usleep(100);
 
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
