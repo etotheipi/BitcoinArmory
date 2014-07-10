@@ -339,7 +339,7 @@ class ZeroConfContainer
 
    public:
       ZeroConfContainer(ScrAddrScanData* sadPtr) : 
-         scrAddrDataPtr_(sadPtr), topId_(0) {}
+         scrAddrDataPtr_(sadPtr), topId_(0), lock_(0) {}
 
       void addRawTx(const BinaryData& rawTx, uint32_t txtime);
       
