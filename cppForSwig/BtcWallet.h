@@ -156,7 +156,7 @@ public:
    
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);   
-   void scanWalletZeroConf(uint32_t height);
+   void scanWalletZeroConf();
    
    const map<BinaryData, ScrAddrObj> getScrAddrMap(void) const
    { return scrAddrMap_; }
@@ -167,7 +167,8 @@ public:
                                      uint32_t startBlock, uint32_t endBlock);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
-   void purgeZeroConfTxIO(const set<BinaryData>& invalidatedTxIO);
+   void purgeZeroConfTxIO(
+      const map<BinaryData, vector<BinaryData> >& invalidatedTxIO);
 
    const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const
    {

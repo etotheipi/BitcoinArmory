@@ -106,14 +106,14 @@ public:
 
    void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
 
-   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap, uint32_t height);
-   void purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
+   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap);
+   void purgeZC(const vector<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 
    BinaryData getLedgerKey(const BinaryData& DBkey, bool isTxOut=true);
    void updateLedgers(const Blockchain* bc,
-                      map<BinaryData, TxIOPair>& newTxio, uint32_t height=0);
+      const map<BinaryData, TxIOPair>& newTxio);
 
 private:
    InterfaceToLDB *db_;

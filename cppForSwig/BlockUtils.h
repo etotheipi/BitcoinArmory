@@ -87,6 +87,7 @@ typedef ts_container<set_BtcWallet> ts_setBtcWallet;
 
 typedef map<HashString, BinaryData>   BinDataMap;
 
+class ZeroConfContainer;
 
 class ScrAddrScanData
 {
@@ -263,11 +264,11 @@ public:
    void ScrAddrScanData::getScrAddrCurrentSyncState(
       BinaryData const & scrAddr);
 
-   map<BinaryData, TxIOPair> ZCisMineBulkFilter(const Tx & tx,
+   map<BinaryData, map<BinaryData, TxIOPair> > 
+      ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey, InterfaceToLDB *db,
       uint32_t txtime,
-      const map<HashString, BinaryData>* ZCtxHashMap=nullptr,
-      const map<HashString, TxIOPair>* ZCtxioMap=nullptr,
+      const ZeroConfContainer *zcd,
       bool withSecondOrderMultisig = true) const;
 
    void setSSHLastScanned(InterfaceToLDB *db, uint32_t height);
@@ -316,9 +317,9 @@ class ZeroConfContainer
    ***/
 
    private:
-      map<HashString, HashString> txHashToDBKey_;
-      map<HashString, Tx>         txMap_;
-      map<HashString, TxIOPair>   txioMap_;
+      map<HashString, HashString>                  txHashToDBKey_;
+      map<HashString, Tx>                          txMap_;
+      map<HashString, map<BinaryData, TxIOPair> >  txioMap_;
 
       std::atomic<uint32_t>       topId_;
 
@@ -345,12 +346,23 @@ class ZeroConfContainer
       bool hasTxByHash(const BinaryData& txHash) const;
       bool getTxByHash(const BinaryData& txHash, Tx& tx) const;
 
-      set<BinaryData> purge(InterfaceToLDB *db);
+      map<BinaryData, vector<BinaryData> > purge(InterfaceToLDB *db);
 
-      const map<HashString, TxIOPair>& getTxioMap(void) const
+      const map<HashString, map<BinaryData, TxIOPair> >& getTxioMap(void) const
       { return txioMap_; }
 
       bool parseNewZC(InterfaceToLDB* db);
+
+      bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const
+      {
+         const auto& hashPair = txHashToDBKey_.find(txHash);
+         if (hashPair != txHashToDBKey_.end())
+         {
+            zcKey = hashPair->second;
+            return true;
+         }
+         return false;
+      }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -719,7 +731,8 @@ public:
       return scrAddrData_.registerScrAddr(sa, wltPtr);
    }
 
-   const map<BinaryData, TxIOPair>& getZeroConfTxIOMap(void) const
+   const map<BinaryData, map<BinaryData, TxIOPair> >& 
+      getZeroConfTxIOMap(void) const
    { return ZeroConfCont_.getTxioMap(); }
 };
 

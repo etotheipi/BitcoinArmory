@@ -711,11 +711,6 @@ public:
    bool operator==(TxIOPair const & t2)
       { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
 
-   BinaryDataRef getZCscrAddr(void) const
-   { return ZCscrAddr_; }
-   void setZCscrAddr(const BinaryData& scrAddr)
-   { ZCscrAddr_ = scrAddr; }
-
    void setTxTime(uint32_t t) { txtime_ = t; }
    uint32_t getTxTime(void) const { return txtime_; }
 
@@ -735,10 +730,8 @@ private:
    bool      isFromCoinbase_;
    bool      isMultisig_;
 
-   //for ZC preprocessing
-   BinaryData ZCscrAddr_;
-
-   //for ZC ledgers
+   //mainly for ZC ledgers. Could replace the need for a blockchain 
+   //object to build scrAddrObj ledgers.
    uint32_t txtime_;
 };
 

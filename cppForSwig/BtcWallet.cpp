@@ -817,7 +817,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanWalletZeroConf(uint32_t height)
+void BtcWallet::scanWalletZeroConf()
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
@@ -825,10 +825,16 @@ void BtcWallet::scanWalletZeroConf(uint32_t height)
    ***/
    SCOPED_TIMER("rescanWalletZeroConf");
 
-   const map<BinaryData, TxIOPair>& ZCtxioMap = bdmPtr_->getZeroConfTxIOMap();
+   const map<BinaryData, map<BinaryData, TxIOPair> >& ZCtxioMap = 
+      bdmPtr_->getZeroConfTxIOMap();
 
-   for (auto& scrAddr : scrAddrMap_)
-      scrAddr.second.scanZC(ZCtxioMap, height);
+   for (auto& scrAddrTxio : ZCtxioMap)
+   {
+      auto& scrAddr = scrAddrMap_.find(scrAddrTxio.first);
+
+      if (scrAddr != scrAddrMap_.end())
+         scrAddr->second.scanZC(scrAddrTxio.second);
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -913,7 +919,7 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       }
          
       fetchDBScrAddrData(startBlock, endBlock);
-      scanWalletZeroConf(endBlock);
+      scanWalletZeroConf();
 
       updateWalletLedgers(scrAddrMap_, startBlock, UINT32_MAX -1);
 
@@ -924,7 +930,7 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       //top block didnt change, only have to check for new ZC
       if (bdmPtr_->isZcEnabled())
       {
-         scanWalletZeroConf(endBlock);
+         scanWalletZeroConf();
          updateWalletLedgers(scrAddrMap_, startBlock, endBlock, false);
       }
    }
@@ -940,11 +946,15 @@ void BtcWallet::reset()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::purgeZeroConfTxIO(const set<BinaryData>& invalidatedTxIO)
+void BtcWallet::purgeZeroConfTxIO(
+   const map<BinaryData, vector<BinaryData> >& invalidatedTxIO)
 {
-   for (auto& scrAddr : scrAddrMap_)
+   for (auto& txioVec : invalidatedTxIO)
    {
-      scrAddr.second.purgeZC(invalidatedTxIO);
+      auto& scrAddr = scrAddrMap_.find(txioVec.first);
+
+      if (scrAddr != scrAddrMap_.end())
+         scrAddr->second.purgeZC(txioVec.second);
    }
 }
 

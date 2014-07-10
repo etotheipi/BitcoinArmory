@@ -2522,7 +2522,8 @@ void BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::purgeZeroConfPool(void)
 {
-   set<BinaryData> invalidatedTxIOKeys = ZeroConfCont_.purge(iface_);
+   map<BinaryData, vector<BinaryData> > invalidatedTxIOKeys = 
+                                        ZeroConfCont_.purge(iface_);
 
    for (auto wltPtr : registeredWallets_)
    {
@@ -2769,12 +2770,12 @@ void ScrAddrScanData::getScrAddrCurrentSyncState(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
+map<BinaryData, map<BinaryData, TxIOPair> > 
+ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
    const BinaryData & ZCkey,
    InterfaceToLDB* db, 
    uint32_t txtime,
-   const map<HashString, BinaryData>* ZCtxHashMap,
-   const map<HashString, TxIOPair>* ZCtxioMap,
+   const ZeroConfContainer *zcd,
    bool withSecondOrderMultisig) const
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
@@ -2783,7 +2784,7 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
    // we will skip the TxIn/TxOut convenience methods and follow the
    // pointers directly to the data we want
 
-   map<BinaryData, TxIOPair> processedTxIO;
+   map<BinaryData, map<BinaryData, TxIOPair> > processedTxIO;
 
    OutPoint op; // reused
    uint8_t const * txStartPtr = tx.getPtr();
@@ -2795,27 +2796,30 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
 
       //check ZC txhash first, always cheaper than grabing a stxo from DB,
       //and will always be checked if the tx doesn't hit in DB outpoints.
-      if (ZCtxHashMap != nullptr && ZCtxioMap != nullptr)
+      if (zcd != nullptr)
       {
-         auto iter = ZCtxHashMap->find(op.getTxHash());
-         if (iter != ZCtxHashMap->end())
+         BinaryData opZcKey;
+         if (zcd->getKeyForTxHash(op.getTxHash(), opZcKey))
          {
-            TxRef outPointRef(iter->second);
+            TxRef outPointRef(opZcKey);
             uint16_t outPointId = op.getTxOutIndex();
             TxIOPair txio(outPointRef, outPointId,
                TxRef(ZCkey), iin);
 
-            const TxIOPair& parentTxIO =
-               ZCtxioMap->find(txio.getDBKeyOfOutput())->second;
+            Tx chainedZC;
+            zcd->getTxByHash(op.getTxHash(), chainedZC);
+
+            TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
 
             txio.setTxHashOfOutput(op.getTxHash());
             txio.setTxHashOfInput(tx.getThisHash());
 
-            txio.setZCscrAddr(parentTxIO.getZCscrAddr());
-            txio.setValue(parentTxIO.getValue());
+            txio.setValue(chainedTxOut.getValue());
             txio.setTxTime(txtime);
 
-            processedTxIO[txio.getDBKeyOfOutput()] = txio;
+            auto& key_txioPair = processedTxIO[chainedTxOut.getScrAddressStr()];
+
+            key_txioPair[txio.getDBKeyOfOutput()] = txio;
             continue;
          }
       }
@@ -2834,7 +2838,7 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
             if (stxOut.isSpent() == true)
             {
                //spent TxOut, ZC is invalid
-               return map<BinaryData, TxIOPair>();
+               return map<BinaryData, map<BinaryData, TxIOPair> >();
             }
 
             BinaryData sa = stxOut.getScrAddress();
@@ -2845,11 +2849,12 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
 
                txio.setTxHashOfOutput(op.getTxHash());
                txio.setTxHashOfInput(tx.getThisHash());
-               txio.setZCscrAddr(sa);
                txio.setValue(stxOut.getValue());
                txio.setTxTime(txtime);
 
-               processedTxIO[opKey] = txio;
+               auto& key_txioPair = processedTxIO[sa];
+
+               key_txioPair[txio.getDBKeyOfOutput()] = txio;
             }
          }
       }
@@ -2864,12 +2869,13 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
       {
          TxIOPair txio(TxRef(ZCkey), iout);
 
-         txio.setZCscrAddr(scrAddr);
          txio.setValue(txout.getValue());
          txio.setTxHashOfOutput(tx.getThisHash());
          txio.setTxTime(txtime);
 
-         processedTxIO[txio.getDBKeyOfOutput()] = txio;
+         auto& key_txioPair = processedTxIO[scrAddr];
+
+         key_txioPair[txio.getDBKeyOfOutput()] = txio;
          continue;
       }
 
@@ -2888,11 +2894,12 @@ map<BinaryData, TxIOPair> ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
             TxIOPair txio(TxRef(ZCkey), iout);
 
             txio.setTxHashOfOutput(tx.getThisHash());
-            txio.setZCscrAddr(scrAddr);
             txio.setValue(txout.getValue());
             txio.setTxTime(txtime);
 
-            processedTxIO[txio.getDBKeyOfOutput()] = txio;
+            auto& key_txioPair = processedTxIO[scrAddr];
+
+            key_txioPair[txio.getDBKeyOfOutput()] = txio;
          }
       }
    }
@@ -3142,9 +3149,9 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-set<BinaryData> ZeroConfContainer::purge(InterfaceToLDB *db)
+map<BinaryData, vector<BinaryData> > ZeroConfContainer::purge(InterfaceToLDB *db)
 {
-   set<BinaryData> invalidatedKeys;
+   map<BinaryData, vector<BinaryData> > invalidatedKeys;
    
    if (db == nullptr)
       return invalidatedKeys;
@@ -3166,7 +3173,7 @@ set<BinaryData> ZeroConfContainer::purge(InterfaceToLDB *db)
 
    map<HashString, HashString> txHashToDBKey;
    map<BinaryData, Tx>           txMap;
-   map<HashString, TxIOPair>   txioMap;
+   map<HashString, map<BinaryData, TxIOPair> >  txioMap;
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -3182,28 +3189,42 @@ set<BinaryData> ZeroConfContainer::purge(InterfaceToLDB *db)
             ZCkey = keyIter->second;
          else ZCkey = getNewZCkey();
 
-         map<BinaryData, TxIOPair> newTxIO =
+         map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
             scrAddrDataPtr_->ZCisMineBulkFilter(ZCPair.second,
             ZCkey, db,
             ZCPair.second.getTxTime(),
-            &txHashToDBKey,
-            &txioMap);
+            this);
 
+         //if a relevant ZC was found, add it to our map
          if (newTxIO.size() > 0)
          {
             txHashToDBKey[txHash] = ZCkey;
             txMap[ZCPair.first] = ZCPair.second;
 
-            txioMap.insert(newTxIO.begin(), newTxIO.end());
+            for (const auto& scrAddrTxio : newTxIO)
+            {
+               auto& txioPair = txioMap[scrAddrTxio.first];
+
+               txioPair.insert(scrAddrTxio.second.begin(), 
+                               scrAddrTxio.second.end());
+            }
          }
       }
    }
 
    //intersect with current container map
-   for (auto txioPair : txioMap_)
+   for (const auto& saMapPair : txioMap_)
    {
-      if (txioMap.find(txioPair.first) == txioMap.end())
-         invalidatedKeys.insert(txioPair.first);
+      auto& saTxio = txioMap[saMapPair.first];
+
+      for (const auto& txioPair : saMapPair.second)
+      {
+         if (saTxio.find(txioPair.first) == saTxio.end())
+         {
+            auto& txioVec = invalidatedKeys[saMapPair.first];
+            txioVec.push_back(txioPair.first);
+         }
+      }
    }
 
    //copy new containers over
@@ -3255,19 +3276,24 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
 
          if (scrAddrDataPtr_ != nullptr)
          {
-            map<BinaryData, TxIOPair> newTxIO = 
+            map<BinaryData, map<BinaryData, TxIOPair> > newTxIO = 
                scrAddrDataPtr_->ZCisMineBulkFilter(newZCPair.second, 
                                                    newZCPair.first, db,
                                                    newZCPair.second.getTxTime(),
-                                                   &txHashToDBKey_,
-                                                   &txioMap_);
-
+                                                   this);
             if (newTxIO.size() > 0)
             {
                txHashToDBKey_[txHash] = newZCPair.first;
                txMap_[newZCPair.first] = newZCPair.second;
 
-               txioMap_.insert(newTxIO.begin(), newTxIO.end());
+               for (const auto& saTxio : newTxIO)
+               {
+                  auto& txioPair = txioMap_[saTxio.first];
+
+                  txioPair.insert(saTxio.second.begin(), 
+                                  saTxio.second.end());
+               }
+
                zcIsOurs = true;
             }
          }

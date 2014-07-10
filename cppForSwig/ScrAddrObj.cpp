@@ -131,29 +131,16 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap, 
-                        uint32_t height)
+void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap)
 {
-   for (auto zcIter : zcTxIOMap)
-   {
-      //UPDATE LEDGERS AFTER ZC
+   for (auto txioPair : zcTxIOMap)
+      relevantTxIO_[txioPair.first] = txioPair.second;
 
-      //if this txio is for our scrAddr, add or overwrite into relevantTxIO_
-      map<BinaryData, TxIOPair> selectedZC;
-
-      if (zcIter.second.getZCscrAddr() == scrAddr_)
-      {
-         relevantTxIO_[zcIter.first] = zcIter.second;
-         selectedZC.insert(zcIter);
-      }
-
-      if (selectedZC.size() > 0)
-         updateLedgers(nullptr, selectedZC, height);
-   }
+   updateLedgers(nullptr, zcTxIOMap);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
+void ScrAddrObj::purgeZC(const vector<BinaryData>& invalidatedTxOutKeys)
 {
    for (auto zc : invalidatedTxOutKeys)
    {
@@ -270,8 +257,7 @@ BinaryData ScrAddrObj::getLedgerKey(const BinaryData& DBkey, bool isTxOut)
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::updateLedgers(const Blockchain* bc,
-                               map<BinaryData, TxIOPair>& newTxio, 
-                               uint32_t height)
+                               const map<BinaryData, TxIOPair>& newTxio)
 {
    /***
    Nothing too complicated here. A map of new TxIOPair ordered by TxOut DBkey
