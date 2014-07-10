@@ -1,4 +1,5 @@
 import sys
+from twisted.trial._synctest import SkipTest
 sys.path.append('..')
 from pytest.Tiab import TiabTest
 
@@ -65,7 +66,8 @@ class Test:
       return self.success
    
 
-
+# Disabling this test because it's not actually testing Armory.
+@SkipTest
 class TiabSendTxTest(TiabTest):
   
    def test_sendtx(self):
