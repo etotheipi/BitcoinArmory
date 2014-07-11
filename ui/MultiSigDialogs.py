@@ -111,7 +111,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
          addrWidgets = self.main.createAddressEntryWidgets(self, '', 60, 2, 
-                                       getPubKey=True, showLockBoxes=False)
+                                       getPubKey=True, showLockboxes=False)
          self.widgetMap[i]['QLE_PUBK'] = addrWidgets['QLE_ADDR']
          self.widgetMap[i]['BTN_BOOK'] = addrWidgets['BTN_BOOK']
          self.widgetMap[i]['LBL_DETECT']=addrWidgets['LBL_DETECT']
@@ -2164,7 +2164,7 @@ class DlgSelectPublicKey(ArmoryDialog):
       frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
 
       addrWidgets = self.main.createAddressEntryWidgets(self, '', 60, 2, 
-                                       getPubKey=True, showLockBoxes=False)
+                                       getPubKey=True, showLockboxes=False)
 
       self.edtPubKey   = addrWidgets['QLE_ADDR']
       self.btnAddrBook = addrWidgets['BTN_BOOK']
