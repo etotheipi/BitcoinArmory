@@ -531,12 +531,17 @@ def compile_qt():
    #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
    #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
    #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
-   # For now, Qt requires a patch to compile on 10.10.
+
+   # Put Qt patches here.
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), \
+               cwd=qtBuildDir)
+   # For now, Qt requires a patch to compile on 10.10, and may require a more
+   # comprehensive patch later.
    osMjrVer = os.uname()[2].split('.')[0]
    if osMjrVer == '14':
       execAndWait('patch -p0 < %s' % path.join(os.getcwd(), \
                                                'QTBUG-39644.patch'), \
-                                     cwd=qtBuildDir)
+                  cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
