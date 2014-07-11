@@ -1394,7 +1394,7 @@ class DlgLockboxManager(ArmoryDialog):
 
       if True:  actionCopyAddr    = menu.addAction("Copy P2SH address")
       if True:  actionShowQRCode  = menu.addAction("Display address QR code")
-      if True:  actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
+      if not USE_TESTNET:  actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
       if True:  actionReqPayment  = menu.addAction("Request payment to this lockbox")
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
