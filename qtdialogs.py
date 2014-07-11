@@ -7190,10 +7190,10 @@ class DlgPrintBackup(ArmoryDialog):
       self.connect(self.chkSecurePrint, SIGNAL("clicked()"), self.redrawBackup)
 
 
-      btnPrint = QPushButton('&Print...')
-      btnPrint.setMinimumWidth(3 * tightSizeStr(btnPrint, 'Print...')[0])
+      self.btnPrint = QPushButton('&Print...')
+      self.btnPrint.setMinimumWidth(3 * tightSizeStr(self.btnPrint, 'Print...')[0])
       self.btnCancel = QPushButton('&Cancel')
-      self.connect(btnPrint, SIGNAL(CLICKED), self.print_)
+      self.connect(self.btnPrint, SIGNAL(CLICKED), self.print_)
       self.connect(self.btnCancel, SIGNAL(CLICKED), self.accept)
 
       if self.doPrintFrag:
@@ -7231,7 +7231,7 @@ class DlgPrintBackup(ArmoryDialog):
                                        self.ttipSecurePrint,
                                        STRETCH])
 
-      frmButtons = makeHorizFrame([self.btnCancel, STRETCH, btnPrint])
+      frmButtons = makeHorizFrame([self.btnCancel, STRETCH, self.btnPrint])
 
       layout = QVBoxLayout()
       layout.addWidget(frmDescr)
@@ -11603,12 +11603,12 @@ class DlgWODataPrintBackup(ArmoryDialog):
       frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
 
       # Buttons shown below the sheet to be printed.
-      btnPrint = QPushButton('&Print...')
-      btnPrint.setMinimumWidth(3 * tightSizeStr(btnPrint, 'Print...')[0])
+      self.btnPrint = QPushButton('&Print...')
+      self.btnPrint.setMinimumWidth(3 * tightSizeStr(self.btnPrint, 'Print...')[0])
       self.btnCancel = QPushButton('&Cancel')
-      self.connect(btnPrint, SIGNAL(CLICKED), self.print_)
+      self.connect(self.btnPrint, SIGNAL(CLICKED), self.print_)
       self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
-      frmButtons = makeHorizFrame([self.btnCancel, STRETCH, btnPrint])
+      frmButtons = makeHorizFrame([self.btnCancel, STRETCH, self.btnPrint])
 
       # Draw the sheet for the first time.
       self.redrawBackup()
