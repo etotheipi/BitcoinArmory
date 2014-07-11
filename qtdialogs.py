@@ -127,6 +127,8 @@ class DlgUnlockWallet(ArmoryDialog):
       self.btnShowOSD = QPushButton('Show Keyboard >>>')
       self.btnShowOSD.setCheckable(True)
       self.btnShowOSD.setChecked(showOSD)
+      if showOSD:
+         self.toggleOSD()
       self.connect(self.btnShowOSD, SIGNAL('toggled(bool)'), self.toggleOSD)
       frmAccept = makeHorizFrame([self.btnShowOSD, ttipScramble, STRETCH, buttonBox])
 
@@ -146,7 +148,7 @@ class DlgUnlockWallet(ArmoryDialog):
 
 
    #############################################################################
-   def toggleOSD(self):
+   def toggleOSD(self, *args):
       isChk = self.btnShowOSD.isChecked()
       self.main.settings.set('KeybdOSD', isChk)
       self.frmLower.setVisible(isChk)
@@ -8292,7 +8294,7 @@ class DlgAddressBook(ArmoryDialog):
                                     selectExistingOnly=False, \
                                     selectMineOnly=False, \
                                     getPubKey=False,
-                                    showLockBoxes=True):
+                                    showLockboxes=True):
       super(DlgAddressBook, self).__init__(parent, main)
 
       self.target = putResultInWidget
@@ -8366,9 +8368,9 @@ class DlgAddressBook(ArmoryDialog):
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
       if not selectMineOnly:
          self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
-      # DISPLAY Lockboxes - Regardles off what showLockBoxes says only show
+      # DISPLAY Lockboxes - Regardles off what showLockboxes says only show
       # Lockboxes in Expert mode
-      if showLockBoxes and self.main.usermode == USERMODE.Expert:
+      if showLockboxes and self.main.usermode == USERMODE.Expert:
          self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
                                     self.main.getPreferredDateFormat())
@@ -8844,7 +8846,7 @@ class DlgAddressBook(ArmoryDialog):
 ################################################################################
 def createAddrBookButton(parent, targWidget, defaultWltID=None, actionStr="Select",
                          selectExistingOnly=False, selectMineOnly=False, getPubKey=False,
-                         showLockBoxes=True):
+                         showLockboxes=True):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
@@ -8855,7 +8857,7 @@ def createAddrBookButton(parent, targWidget, defaultWltID=None, actionStr="Selec
          return
       dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWltID, 
                     actionStr, selectExistingOnly, selectMineOnly, getPubKey,
-                           showLockBoxes)
+                           showLockboxes)
       dlg.exec_()
 
    btn.setMaximumWidth(24)
@@ -14122,6 +14124,18 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layout_btnH = QHBoxLayout()
       layout_btnH.addWidget(self.btnRecover, 1)
       layout_btnH.addWidget(self.btnCancel, 1)
+
+      def updateBtn(qstr):
+         if os.path.exists(unicode(qstr).strip()):
+            self.btnRecover.setEnabled(True)
+            self.btnRecover.setToolTip('')
+         else:
+            self.btnRecover.setEnabled(False)
+            self.btnRecover.setToolTip(tr('The entered path does not exist'))
+            
+      updateBtn('')
+      self.connect(self.edtWalletPath, SIGNAL('textChanged(QString)'), updateBtn)
+      
 
       layoutMgmt.addLayout(layout_btnH, 14, 1, 1, 2)
 

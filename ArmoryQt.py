@@ -703,7 +703,7 @@ class ArmoryMainWindow(QMainWindow):
       actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
-      actRecoverWlt   = self.createAction('Fix Damaged Wallet',        self.RecoverWallet)
+      actRecoverWlt   = self.createAction('&Fix Damaged Wallet',        self.RecoverWallet)
       #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
       #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
@@ -6187,7 +6187,7 @@ class ArmoryMainWindow(QMainWindow):
          def createAddrBookButton(parent, targWidget, defaultWltID=None, 
                                   actionStr="Select", selectExistingOnly=False, 
                                   selectMineOnly=False, getPubKey=False,
-                                  showLockBoxes=True)
+                                  showLockboxes=True)
 
       Returns three widgets that can be put into layouts:
          [[QLineEdit: addr/pubkey]]  [[Button: Addrbook]]

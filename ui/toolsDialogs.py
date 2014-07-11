@@ -64,7 +64,7 @@ class MessageSigningWidget(QWidget):
       addressLabel = QLabel('Sign with Address:')
       self.addressLineEdit = QLineEdit()
       self.addressBookButton = createAddrBookButton(self, self.addressLineEdit, None,
-                                                    selectMineOnly=True)
+                                                    selectMineOnly=True, showLockboxes=False)
       signMessageLayout.addWidget(addressLabel,      0, 0)
       signMessageLayout.addWidget(self.addressLineEdit,  0, 1)
       signMessageLayout.addWidget(self.addressBookButton,  0, 2)
@@ -281,7 +281,7 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
       addressLabel = QLabel('Signing Address:')
       self.addressLineEdit = QLineEdit()
       self.addressBookButton = createAddrBookButton(self, self.addressLineEdit, None,
-                                                    selectMineOnly=True)
+                                                    selectMineOnly=True, showLockboxes=False)
       self.signMessageLayout.addWidget(addressLabel,      0, 0)
       self.signMessageLayout.addWidget(self.addressLineEdit,  0, 1)
       self.signMessageLayout.addWidget(self.addressBookButton,  0, 2)
