@@ -1,0 +1,11 @@
+--- src/gui/kernel/qeventdispatcher_mac.mm	2014-04-10 14:37:12.000000000 -0400
++++ src/gui/kernel/qeventdispatcher_mac.mm	2014-07-11 18:37:43.000000000 -0400
+@@ -1044,7 +1044,7 @@ inline static void processPostedEvents(Q
+     }
+ 
+ #ifdef QT_MAC_USE_COCOA
+-    if (d->cleanupModalSessionsNeeded)
++    if (d->cleanupModalSessionsNeeded && d->currentExecIsNSAppRun)
+         d->cleanupModalSessions();
+ #endif
+ 

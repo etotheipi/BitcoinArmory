@@ -20,11 +20,12 @@ pythonVer  = '2.7.6'
 setToolVer = '2.1.2'
 pipVer     = '1.5.2'
 psutilVer  = '1.2.1'
+zopeVer    = '4.1.1'
 twistedVer = '13.2.0'
 libpngVer  = '1.6.8'
 qtVer      = '4.8.6'
-sipVer     = '4.15.5' # NB: I'm occasionally forced to upgrade alongside PyQt.
-pyQtVer    = '4.10.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+sipVer     = '4.16.2' # NB: I'm occasionally forced to upgrade alongside PyQt.
+pyQtVer    = '4.11.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -91,6 +92,7 @@ def main():
    install_qt()
    compile_sip()
    compile_pyqt()
+   compile_zope()
    compile_twisted()
    compile_psutil()
    #unzip_swig()
@@ -396,13 +398,18 @@ distfiles.append( [ "Webkit-for-Qt", \
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    'a5f6342dbb3cdc1fb61440ee8acb805f5fec3c41' ] )
+                    '4d3ebce6ec7c31d8a862a6ee307a5f6c3e67349b' ] )
+
+distfiles.append( [ "zope", \
+                    "zope.interface-%s.tar.gz" % zopeVer, \
+                    "https://pypi.python.org/packages/source/z/zope.interface/zope.interface-%s.tar.gz" % zopeVer, \
+                    '20a9284429e29eb8cc63eee5ed686c257c01b1fc' ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    'ba5465f92fb43c9f0a5b948fa25df5045f160bf0' ] )
+                    '9d7478758957c60ac5007144a0dc7f157f4a5836' ] )
 
 #distfiles.append( [ "pyqt", \
 #                    "PyQt-gpl-5.2.tar.gz", \
@@ -524,12 +531,17 @@ def compile_qt():
    #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
    #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
    #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
-   # For now, Qt requires a patch to compile on 10.10.
+
+   # Put Qt patches here.
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), \
+               cwd=qtBuildDir)
+   # For now, Qt requires a patch to compile on 10.10, and may require a more
+   # comprehensive patch later.
    osMjrVer = os.uname()[2].split('.')[0]
    if osMjrVer == '14':
       execAndWait('patch -p0 < %s' % path.join(os.getcwd(), \
                                                'QTBUG-39644.patch'), \
-                                     cwd=qtBuildDir)
+                  cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
@@ -656,6 +668,17 @@ def compile_twisted():
    else:
       command = "python -s setup.py --no-user-cfg install --force --verbose"
       twpath = unpack(tarfilesToDL['Twisted'])
+      execAndWait(command, cwd=twpath)
+
+################################################################################
+def compile_zope():
+   logprint('Installing python-zope')
+
+   if glob.glob(PYSITEPKGS + '/zope*'):
+      logprint('zope already installed')
+   else:
+      command = "python -s setup.py --no-user-cfg install --force --verbose"
+      twpath = unpack(tarfilesToDL['zope'])
       execAndWait(command, cwd=twpath)
 
 ################################################################################
