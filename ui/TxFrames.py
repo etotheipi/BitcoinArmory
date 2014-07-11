@@ -17,14 +17,12 @@ from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    calcMinSuggestedFeesHackMS, PyUnspentTxOut
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
-      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isLockbox,\
+      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
    isP2SHLockbox
  
 
 
 class SendBitcoinsFrame(ArmoryFrame):
-   COLS = enum('LblAddr', 'Addr', 'AddrBook', 'LblWltID', 'LblAmt', 'Btc', \
-               'LblUnit', 'BtnMax', 'LblComm', 'Comm')
    def __init__(self, parent, main, initLabel='',
                  wlt=None, prefill=None, wltIDList=None,
                  selectWltCallback = None, onlyOfflineWallets=False,
@@ -75,10 +73,19 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
       self.radioFeedback = QRadioButton('Send change to first input address')
       self.radioSpecify = QRadioButton('Specify a change address')
-      self.lblChangeAddr = QRichLabel('Send Change To:')
-      self.edtChangeAddr = QLineEdit()
-      self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
-                                       None, 'Send change to')
+      self.lblChangeAddr = QRichLabel('Change:')
+
+      # Replaced with createAddressEntryWidgets
+      #self.edtChangeAddr = QLineEdit()
+      #self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
+                                       #None, 'Send change to')
+      addrWidgets = self.main.createAddressEntryWidgets(self, maxDetectLen=36, 
+                                                      defaultWltID=self.wltID)
+      self.edtChangeAddr  = addrWidgets['QLE_ADDR']
+      self.btnChangeAddr  = addrWidgets['BTN_BOOK']
+      self.lblAutoDetect  = addrWidgets['LBL_DETECT']
+      self.getUserChangeScript = addrWidgets['CALLBACK_GETSCRIPT']
+
       self.chkRememberChng = QCheckBox('Remember for future transactions')
       self.vertLine = VLINE()
 
@@ -122,16 +129,14 @@ class SendBitcoinsFrame(ArmoryFrame):
                                     VERTICAL,
                                     self.lbox.uniqueIDB58)
 
-      componentList = [ QLabel('Fee:'), \
-                        self.edtFeeAmt, \
-                        feetip, \
-                        STRETCH]
+
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
+      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, 'Stretch']
       if self.createUnsignedTxCallback:
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
-         frmUnsigned = makeHorizFrame([self.unsignedCheckbox, self.ttipUnsigned])
-         componentList.append(frmUnsigned)
+         componentList.append(self.unsignedCheckbox)
+         componentList.append(self.ttipUnsigned)
       
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
@@ -139,13 +144,13 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
          componentList.append(self.btnSend)
          
-      txFrm = makeLayoutFrame(HORIZONTAL, componentList)
+      txFrm = makeHorizFrame(componentList, condenseMargins=True)
 
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
-      ttipEnterURI = self.main.createToolTipWidget(\
-         'Armory does not always succeed at registering itself to handle '
-         'URL links from webpages and email.  '
-         'Click this button to copy a link directly into Armory')
+      ttipEnterURI = self.main.createToolTipWidget( tr("""
+         Armory does not always succeed at registering itself to handle 
+         URL links from webpages and email.  
+         Click this button to copy a "bitcoin:" link directly into Armory."""))
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
       fromFrameList = [self.frmSelectedWlt]
       if not USE_TESTNET:
@@ -156,19 +161,29 @@ class SendBitcoinsFrame(ArmoryFrame):
             'You will have the ability to change the donation amount '
             'before finalizing the transaction.')
          self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
-         frmDonate = makeHorizFrame([btnDonate, ttipDonate])
+         frmDonate = makeHorizFrame([btnDonate, ttipDonate], condenseMargins=True)
          fromFrameList.append(frmDonate)
 
       if not self.main.usermode == USERMODE.Standard:
-         frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
+         frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI], condenseMargins=True)
          fromFrameList.append(frmEnterURI)
 
       ########################################################################
       # In Expert usermode, allow the user to modify source addresses
       if self.main.usermode == USERMODE.Expert:
 
+         sendChangeToFrame = QFrame()
+         sendChangeToLayout = QGridLayout()
+         sendChangeToLayout.addWidget(self.lblChangeAddr,  0,0)
+         sendChangeToLayout.addWidget(self.edtChangeAddr,  0,1)
+         sendChangeToLayout.addWidget(self.btnChangeAddr,  0,2)
+         sendChangeToLayout.addWidget(self.lblAutoDetect,  1,1, 1,2)
+         sendChangeToLayout.setColumnStretch(0,0)
+         sendChangeToLayout.setColumnStretch(1,1)
+         sendChangeToLayout.setColumnStretch(2,0)
+         sendChangeToFrame.setLayout(sendChangeToLayout)
+         
 
-         # Make sure that there can only be one selection
          btngrp = QButtonGroup(self)
          btngrp.addButton(self.radioFeedback)
          btngrp.addButton(self.radioSpecify)
@@ -178,17 +193,14 @@ class SendBitcoinsFrame(ArmoryFrame):
          frmChngLayout = QGridLayout()
          i = 0;
          frmChngLayout.addWidget(self.chkDefaultChangeAddr, i, 0, 1, 6)
-         frmChngLayout.addWidget(self.ttipSendChange, i, 6, 1, 2)
+         frmChngLayout.addWidget(self.ttipSendChange,       i, 6, 1, 2)
          i += 1
-         frmChngLayout.addWidget(self.radioFeedback, i, 1, 1, 5)
-         frmChngLayout.addWidget(self.ttipFeedback, i, 6, 1, 2)
+         frmChngLayout.addWidget(self.radioFeedback,        i, 1, 1, 5)
+         frmChngLayout.addWidget(self.ttipFeedback,         i, 6, 1, 2)
          i += 1
-         frmChngLayout.addWidget(self.radioSpecify, i, 1, 1, 5)
-         frmChngLayout.addWidget(self.ttipSpecify, i, 6, 1, 2)
+         frmChngLayout.addWidget(self.radioSpecify,         i, 1, 1, 5)
+         frmChngLayout.addWidget(self.ttipSpecify,          i, 6, 1, 2)
          i += 1
-         sendChangeToFrame = makeHorizFrame([self.lblChangeAddr,
-                                            self.edtChangeAddr,
-                                            self.btnChangeAddr])
          frmChngLayout.addWidget(sendChangeToFrame, i, 1, 1, 6)
          i += 1
          frmChngLayout.addWidget(self.chkRememberChng, i, 1, 1, 7)
@@ -204,21 +216,23 @@ class SendBitcoinsFrame(ArmoryFrame):
          frmChangeAddr = QFrame()
          frmChangeAddr.setLayout(frmChngLayout)
          frmChangeAddr.setFrameStyle(STYLE_SUNKEN)
-         fromFrameList.append(STRETCH)
+         fromFrameList.append('Stretch')
          fromFrameList.append(frmChangeAddr)
       else:
-         fromFrameList.append(STRETCH)
-      frmBottomLeft = makeVertFrame(fromFrameList, STYLE_RAISED)
+         fromFrameList.append('Stretch')
+      frmBottomLeft = makeVertFrame(fromFrameList, STYLE_RAISED, condenseMargins=True)
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
 
-      leftFrame = makeVertFrame([lblSend, frmBottomLeft])
-      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm])
+      leftFrame = makeVertFrame([lblSend, frmBottomLeft], condenseMargins=True)
+      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], condenseMargins=True)
       layout = QHBoxLayout()
-      layout.addWidget(leftFrame)
-      layout.addWidget(rightFrame)
+      layout.addWidget(leftFrame, 0)
+      layout.addWidget(rightFrame, 1)
+      layout.setContentsMargins(0,0,0,0)
+      layout.setSpacing(0)
       self.setLayout(layout)
 
       self.makeRecipFrame(1)
@@ -317,10 +331,9 @@ class SendBitcoinsFrame(ArmoryFrame):
       if label is not None:
          self.wlt.setComment(addr160, label)
 
-      COLS = self.COLS
       lastIsEmpty = True
-      for col in (COLS.Addr, COLS.Btc, COLS.Comm):
-         if len(str(self.widgetTable[-1][col].text())) > 0:
+      for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
+         if len(str(self.widgetTable[-1][widg].text())) > 0:
             lastIsEmpty = False
 
       if not lastIsEmpty:
@@ -332,12 +345,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       if plainText is None:
          plainText = hash160_to_addrStr(addr160)
 
-      self.widgetTable[-1][self.COLS.Addr].setText(plainText)
-      self.widgetTable[-1][self.COLS.Addr].setCursorPosition(0)
-      self.widgetTable[-1][self.COLS.Btc].setText(amt)
-      self.widgetTable[-1][self.COLS.Btc].setCursorPosition(0)
-      self.widgetTable[-1][self.COLS.Comm].setText(msg)
-      self.widgetTable[-1][self.COLS.Comm].setCursorPosition(0)
+      self.widgetTable[-1]['QLE_ADDR'].setText(plainText)
+      self.widgetTable[-1]['QLE_ADDR'].setCursorPosition(0)
+      self.widgetTable[-1]['QLE_AMT'].setText(amt)
+      self.widgetTable[-1]['QLE_AMT'].setCursorPosition(0)
+      self.widgetTable[-1]['QLE_COMM'].setText(msg)
+      self.widgetTable[-1]['QLE_COMM'].setCursorPosition(0)
+
 
    #############################################################################
    # Now that the wallet can change in the context of the send dialog, this
@@ -401,25 +415,32 @@ class SendBitcoinsFrame(ArmoryFrame):
    #############################################################################
    def validateInputsGetUSTX(self):
 
-      COLS = self.COLS
       self.freeOfErrors = True
       scripts = []
       addrList = []
       self.comments = []
-      for i in range(len(self.widgetTable)):
+
+      isSendToNonStandardLockbox = False
+      for row in range(len(self.widgetTable)):
          # Verify validity of address strings
-         addrStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
-         self.widgetTable[i][COLS.Addr].setText(addrStr) # overwrite w/ stripped
+         addrStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
+         self.widgetTable[row]['QLE_ADDR'].setText(addrStr) # overwrite w/ stripped
          addrIsValid = True
          addrList.append(addrStr)
          try:
-            scripts.append(getScriptForInputStr(addrStr, self.main))
+            enteredScript = self.widgetTable[row]['FUNC_GETSCRIPT']()['Script']
+            if not enteredScript:
+               addrIsValid = False
+            else:
+               scripts.append(enteredScript)
          except:
             LOGEXCEPT('Failed to parse entered address: %s', addrStr)
             addrIsValid = False
+
+         if not addrIsValid:
             scripts.append('')
             self.freeOfErrors = False
-            self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
+            self.updateAddrColor(row, Colors.SlightRed)
 
 
       numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
@@ -429,17 +450,17 @@ class SendBitcoinsFrame(ArmoryFrame):
            The @{error has|errors have}@ been highlighted on the 
            entry screen.""", numChkFail, numChkFail), QMessageBox.Ok)
 
-         for i in range(len(self.widgetTable)):
+         for row in range(len(self.widgetTable)):
             try:
-               atype, a160 = addrStr_to_hash160(addrList[i]) 
+               atype, a160 = addrStr_to_hash160(addrList[row]) 
                if atype == -1 or not atype in [ADDRBYTE,P2SHBYTE]:
                   net = 'Unknown Network'
-                  if NETWORKS.has_key(addrList[i][0]):
-                     net = NETWORKS[addrList[i][0]]
+                  if NETWORKS.has_key(addrList[row][0]):
+                     net = NETWORKS[addrList[row][0]]
                   QMessageBox.warning(self, tr('Wrong Network!'), tr("""
                      Address %d is for the wrong network!  You are on the <b>%s</b>
                      and the address you supplied is for the the <b>%s</b>!""") % \
-                     (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                     (row+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
             except:
                pass
 
@@ -448,27 +469,27 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Construct recipValuePairs and check that all metrics check out
       scriptValPairs = []
       totalSend = 0
-      for i in range(len(self.widgetTable)):
+      for row in range(len(self.widgetTable)):
          try:
-            recipStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
-            valueStr = str(self.widgetTable[i][COLS.Btc].text()).strip()
+            recipStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
+            valueStr = str(self.widgetTable[row]['QLE_AMT'].text()).strip()
             value = str2coin(valueStr, negAllowed=False)
             if value == 0:
                QMessageBox.critical(self, 'Zero Amount', \
                   'You cannot send 0 BTC to any recipients.  <br>Please enter '
-                  'a positive amount for recipient %d.' % (i + 1), QMessageBox.Ok)
+                  'a positive amount for recipient %d.' % (row+1), QMessageBox.Ok)
                return False
 
          except NegativeValueError:
             QMessageBox.critical(self, 'Negative Value', \
                'You have specified a negative amount for recipient %d. <br>Only '
-               'positive values are allowed!.' % (i + 1), QMessageBox.Ok)
+               'positive values are allowed!.' % (row + 1), QMessageBox.Ok)
             return False
          except TooMuchPrecisionError:
             QMessageBox.critical(self, 'Too much precision', \
                'Bitcoins can only be specified down to 8 decimal places. '
                'The smallest value that can be sent is  0.0000 0001 BTC. '
-               'Please enter a new amount for recipient %d.' % (i + 1), QMessageBox.Ok)
+               'Please enter a new amount for recipient %d.' % (row + 1), QMessageBox.Ok)
             return False
          except ValueError:
             QMessageBox.critical(self, 'Missing recipient amount', \
@@ -477,16 +498,47 @@ class SendBitcoinsFrame(ArmoryFrame):
          except:
             QMessageBox.critical(self, 'Invalid Value String', \
                'The amount you specified '
-               'to send to address %d is invalid (%s).' % (i + 1, valueStr), QMessageBox.Ok)
+               'to send to address %d is invalid (%s).' % (row + 1, valueStr), QMessageBox.Ok)
             LOGERROR('Invalid amount specified: "%s"', valueStr)
             return False
 
          totalSend += value
-         script = getScriptForInputStr(recipStr, self.main)
-         scraddr = script_to_scrAddr(script)
+
+         script = self.widgetTable[row]['FUNC_GETSCRIPT']()['Script']
+         #scraddr = script_to_scrAddr(script)
+
+         # Checking for sending bitcoins to a Lockbox using P2SH that is
+         # non-standard to spend.
+         # only P2SH matters, if it's a bare multi sig, you won't be able to
+         # deposit if it's non-standard. In other words if it standard to spend from
+         # a bare sig lockbox it's standard to deposit into it.
+         # This is not necessarily so for P2SH. Must warn the user or else they
+         # may get some bitcoins stuck in a lockbox until they upgrade to bitcoin
+         # 0.10.0
+         if isP2SHLockbox(recipStr):
+            lbox = self.main.getLockboxByID(readLockboxEntryStr(recipStr))
+            if isMofNNonStandardToSpend(lbox.M, lbox.N):
+               reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
+                  Due to the Lockbox size (%d-of-%d) of recipient %d, spending
+                  funds from this Lockbox is valid but non-standard for versions
+                  of Bitcoin prior to 0.10.0. This means if your version of
+                  Bitcoin is 0.9.x or below, and you try to broadcast a
+                  transaction that spends from this Lockbox the transaction
+                  will not be accepted. If you have version 0.10.0, but all
+                  of your peers have an older version your transaction will
+                  not be forwarded to the rest of the network. If you deposit
+                  Bitcoins into this Lockbox you may have to wait until you
+                  and at least some of your peers have upgraded to 0.10.0
+                  before those Bitcoins can be spent. Alternatively, if you
+                  have enough computing power to mine your own transactions,
+                  or know someone who does, you can arrange to have any valid
+                  but non-standard transaction included in the block chain.""") % \
+                  (lbox.M, lbox.N, row+1), QMessageBox.Ok | QMessageBox.Cancel)
+               if not reply==QMessageBox.Ok:
+                  return
 
          scriptValPairs.append([script, value])
-         self.comments.append((str(self.widgetTable[i][COLS.Comm].text()), value))
+         self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
 
       try:
          feeStr = str(self.edtFeeAmt.text())
@@ -552,6 +604,15 @@ class SendBitcoinsFrame(ArmoryFrame):
                                              len(scriptValPairs))[1]
 
 
+      if minFee > 99*MIN_RELAY_TX_FEE:
+         QMessageBox.critical(self, tr('Minimum Transaction Fee Is Too Large'), tr("""
+            The minimum fee for this transaction is <b>%s BTC</b>. That fee is too
+            large and indicates that there are probably too many small inputs to fit
+            into a single transaction. To send these Bitcoins, this transaction must
+            be broken up into to smaller pieces.            
+            """) % coin2strNZS(minFee), QMessageBox.Ok)
+         return False
+         
       # We now have a min-fee that we know we can match if the user agrees
       if fee < minFee:
 
@@ -601,7 +662,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             <br><br>
             If you do not want this fee, click "No" and then change the fee
             at the bottom of the "Send Bitcoins" window before trying 
-            again.""") % (fee, minFee), QMessageBox.Yes | QMessageBox.No)
+            again.""") % (coin2strNZS(fee), coin2strNZS(minFee)), QMessageBox.Yes | QMessageBox.No)
 
          if not reply==QMessageBox.Yes:
             return False
@@ -620,29 +681,20 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.changeScrAddr = ''
+      self.changeScript = ''
       self.selectedBehavior = ''
-      if self.lbox is None:
-         if totalChange > 0:
-            self.changeScrAddr = self.determineChangeAddr(utxoSelect)
-            # For now assume that change is always CPP_TXOUT_HAS_ADDRSTR
-            changeScript = scrAddr_to_script(self.changeScrAddr)
-            LOGINFO('Change address behavior: %s', self.selectedBehavior)
-            if not self.changeScrAddr:
-               return False
-            scriptValPairs.append([changeScript, totalChange])
-         else:
-            if self.main.usermode == USERMODE.Expert and \
-               self.chkDefaultChangeAddr.isChecked():
-               self.selectedBehavior = NO_CHANGE
+      if totalChange > 0:
+         script,behavior = self.determineChangeScript(utxoSelect)
+         self.changeScript = script
+         self.selectedBehavior = behavior
+         scriptValPairs.append([self.changeScript, totalChange])
+         LOGINFO('Change address behavior: %s', self.selectedBehavior)
+      else:
+         self.selectedBehavior = NO_CHANGE
          
-         changePair = None
-         if len(self.selectedBehavior) > 0:
-            changePair = (self.changeScrAddr, self.selectedBehavior)
-      elif totalChange > 0:
-         changePair = (self.lbox.scrAddr, 'Feedback')
-         LOGWARN('Change from LOCKBOX tx goes back to the same LOCKBOX!')
-         scriptValPairs.append([self.lbox.binScript, totalChange])
+      changePair = None
+      if len(self.selectedBehavior) > 0:
+         changePair = (self.changeScript, self.selectedBehavior)
 
       # Keep a copy of the originally-sorted list for display
       origSVPairs = scriptValPairs[:]
@@ -664,8 +716,6 @@ class SendBitcoinsFrame(ArmoryFrame):
             ustx.ustxInputs[i].contribID = self.lbox.uniqueIDB58
 
          for i in range(len(ustx.decorTxOuts)):
-            print binary_to_hex(ustx.decorTxOuts[i].binScript)
-            print binary_to_hex(self.lbox.binScript)
             if ustx.decorTxOuts[i].binScript == self.lbox.binScript:
                ustx.decorTxOuts[i].contribID = self.lbox.uniqueIDB58
 
@@ -686,12 +736,12 @@ class SendBitcoinsFrame(ArmoryFrame):
          ustx = UnsignedTransaction().createFromTxOutSelection( \
                                        utxoSelect, scriptValPairs, pubKeyMap)
 
-      ustx.pprint()
+      #ustx.pprint()
 
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
          dlg = DlgConfirmSend(self.wlt, origSVPairs, txValues[1], self, \
-                                                  self.main, True, changePair)
+                                                  self.main, True, ustx)
    
          if not dlg.exec_():
             return False
@@ -779,7 +829,6 @@ class SendBitcoinsFrame(ArmoryFrame):
                # Trying to avoid a swig bug involving iteration over vector<> types
                utxos = self.wlt.getAddrTxOutList(a160)
                for i in range(len(utxos)):
-                  utxos[i].pprintOneLine(290000)
                   utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
             return utxoList
       else:
@@ -791,57 +840,61 @@ class SendBitcoinsFrame(ArmoryFrame):
          txoList = cppWlt.getSpendableTxOutList(TheBDM.getCurrBlock(), IGNOREZC)
          pyUtxoList = []
          for i in range(len(txoList)):
-            script = self.lbox.binScript
-            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i], script)
-            pyUtxoList.append( pyUtxo)
-            pyUtxoList[-1].pprint()
+            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i])
+            pyUtxoList.append(pyUtxo)
          return pyUtxoList
 
 
    #############################################################################
-   def determineChangeAddr(self, utxoList):
+   def determineChangeScript(self, utxoList):
+      changeScript = ''
       changeAddrStr = ''
       changeAddr160 = ''
-      changeScrAddr = ''
-      self.selectedBehavior = 'NewAddr'
-      addrStr = ''
-      if not self.main.usermode == USERMODE.Expert:
-         changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
-         changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
-         changeScrAddr = addrStr_to_scrAddr(changeAddrStr)
-         self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
-      else:
-         if not self.chkDefaultChangeAddr.isChecked():
+
+      selectedBehavior = 'NewAddr' if self.lbox is None else 'Feedback'
+      
+      if not self.main.usermode == USERMODE.Expert or \
+         not self.chkDefaultChangeAddr.isChecked():
+         # Default behavior for regular wallets is 'NewAddr', but for lockboxes
+         # the default behavior is "Feedback" (send back to the original addr
+         if self.lbox is None:
             changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
             changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
-            changeScrAddr = addrStr_to_scrAddr(changeAddrStr)
+            changeScript  = scrAddr_to_script(addrStr_to_scrAddr(changeAddrStr))
             self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
-            # If generate new address, remove previously-remembered behavior
-            self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
+         else:
+            changeScript  = script_to_p2sh_script(self.lbox.binScript)
+
+      if self.main.usermode == USERMODE.Expert:
+         if not self.chkDefaultChangeAddr.isChecked():
+            self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
          else:
             if self.radioFeedback.isChecked():
-               changeScrAddr = utxoList[0].getRecipientScrAddr()
-               self.selectedBehavior = 'Feedback'
+               selectedBehavior = 'Feedback'
+               changeScript = utxoList[0].getScript()
             elif self.radioSpecify.isChecked():
-               addrStr = str(self.edtChangeAddr.text()).strip()
-               if not checkAddrStrValid(addrStr):
+               selectedBehavior = 'Specify'
+               changeScript = self.getUserChangeScript()['Script']
+               if changeScript is None:
                   QMessageBox.warning(self, tr('Invalid Address'), tr("""
                      You specified an invalid change address for this 
                      transcation."""), QMessageBox.Ok)
-                  return '', False
-               changeScrAddr = addrStr_to_scrAddr(addrStr)
-               if addrStr_to_hash160(addrStr)[0]==P2SHBYTE:
-                  LOGWARN('P2SH address used in change output')
-               self.selectedBehavior = 'Specify'
+                  return None
+               scrType = getTxOutScriptType(changeScript)
+               if scrType in CPP_TXOUT_HAS_ADDRSTR:
+                  changeAddrStr = script_to_addrStr(changeScript)
+               elif scrType==CPP_TXOUT_MULTISIG:
+                  scrP2SH = script_to_p2sh_script(changeScript)
+                  changeAddrStr = script_to_addrStr(scrP2SH)
 
       if self.main.usermode == USERMODE.Expert and self.chkRememberChng.isChecked():
-         self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
-         if self.selectedBehavior == 'Specify' and len(addrStr) > 0:
-            self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
+         if selectedBehavior == 'Specify' and len(changeAddrStr) > 0:
+            self.main.setWltSetting(self.wltID, 'ChangeAddr', changeAddrStr)
       else:
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
 
-      return changeScrAddr
+      return changeScript,selectedBehavior
 
    #####################################################################
    def setMaximum(self, targWidget):
@@ -853,11 +906,11 @@ class SendBitcoinsFrame(ArmoryFrame):
          txFee = str2coin(str(self.edtFeeAmt.text()))
          while r < nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
-            if targWidget == self.widgetTable[r][self.COLS.Btc]:
+            if targWidget == self.widgetTable[r]['QLE_AMT']:
                r += 1
                continue
 
-            amtStr = str(self.widgetTable[r][self.COLS.Btc].text()).strip()
+            amtStr = str(self.widgetTable[r]['QLE_AMT'].text()).strip()
             if len(amtStr) > 0:
                totalOther += str2coin(amtStr)
             r += 1
@@ -902,93 +955,81 @@ class SendBitcoinsFrame(ArmoryFrame):
       for i in range(nRecip):
          if i < prevNRecip and i < nRecip:
             inputs.append([])
-            for j in (self.COLS.Addr, self.COLS.Btc, self.COLS.Comm):
-               inputs[-1].append(str(self.widgetTable[i][j].text()))
+            for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
+               inputs[-1].append(str(self.widgetTable[i][widg].text()))
 
 
       frmRecip = QFrame()
       frmRecip.setFrameStyle(QFrame.NoFrame)
       frmRecipLayout = QVBoxLayout()
 
-      COLS = self.COLS
 
-      def changeColorCallback(row):
+      def revertColorCallback(row):
          def callbk():
-            self.updateAddrField(row, COLS.Addr, Colors.Background)
+            self.updateAddrColor(row, Colors.Background)
          return callbk
          
 
       self.widgetTable = []
       for r in range(nRecip):
-         self.widgetTable.append([])
+         self.widgetTable.append({})
 
-         self.widgetTable[r].append(QLabel('Address %d:' % (r + 1,)))
+         self.widgetTable[r]['LBL_ADDR'] = QLabel('Address %d:' % (r+1))
 
-         self.widgetTable[r].append(QLineEdit())
-         self.widgetTable[r][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
-         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[r][-1].setFont(GETFONT('var', 9))
+         addrEntryWidgets = self.main.createAddressEntryWidgets(self, maxDetectLen=45, boldDetectParts=1)
+         self.widgetTable[r]['FUNC_GETSCRIPT'] = addrEntryWidgets['CALLBACK_GETSCRIPT']
+         self.widgetTable[r]['QLE_ADDR'] = addrEntryWidgets['QLE_ADDR']
+         self.widgetTable[r]['QLE_ADDR'].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 20)[0])
+         self.widgetTable[r]['QLE_ADDR'].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r]['QLE_ADDR'].setFont(GETFONT('var', 9))
 
-         self.connect(self.widgetTable[r][-1], SIGNAL('textChanged(QString)'), 
-                                                        changeColorCallback(r))
+         self.connect(self.widgetTable[r]['QLE_ADDR'], SIGNAL('textChanged(QString)'), 
+                                                        revertColorCallback(r))
 
+         self.widgetTable[r]['BTN_BOOK'] = addrEntryWidgets['BTN_BOOK']
+         self.widgetTable[r]['LBL_DETECT'] = addrEntryWidgets['LBL_DETECT']
 
-         addrEntryBox = self.widgetTable[r][-1]
-         self.widgetTable[r].append(createAddrBookButton(self.parent(), addrEntryBox, \
-                                      None, 'Send to'))
+         self.widgetTable[r]['LBL_AMT'] = QLabel('Amount:')
+         self.widgetTable[r]['QLE_AMT'] = QLineEdit()
+         self.widgetTable[r]['QLE_AMT'].setFont(GETFONT('Fixed'))
+         self.widgetTable[r]['QLE_AMT'].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
+         self.widgetTable[r]['QLE_AMT'].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r]['QLE_AMT'].setAlignment(Qt.AlignLeft)
 
+         self.widgetTable[r]['LBL_BTC'] = QLabel('BTC')
+         self.widgetTable[r]['LBL_BTC'].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-         self.widgetTable[r].append(QRichLabel(''))
-         self.widgetTable[r][-1].setVisible(False)
+         self.widgetTable[r]['BTN_MAX'] = \
+                           self.createSetMaxButton(self.widgetTable[r]['QLE_AMT'])
 
-
-         self.widgetTable[r].append(QLabel('Amount:'))
-
-         self.widgetTable[r].append(QLineEdit())
-         self.widgetTable[r][-1].setFont(GETFONT('Fixed'))
-         self.widgetTable[r][-1].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
-         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[r][-1].setAlignment(Qt.AlignLeft)
-
-         self.widgetTable[r].append(QLabel('BTC'))
-         self.widgetTable[r][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-
-         # self.widgetTable[r].append( QPushButton('MAX') )
-         # self.widgetTable[r][-1].setMaximumWidth( relaxedSizeStr(self, 'MAX')[0])
-         # self.widgetTable[r][-1].setToolTip( \
-                           # 'Fills in the maximum spendable amount minus amounts '
-                           # 'specified for other recipients and the transaction fee ')
-         # self.connect(self.widgetTable[r][-1], SIGNAL(CLICKED),  setMaxFunc)
-         self.widgetTable[r].append(self.createSetMaxButton(self.widgetTable[r][COLS.Btc]))
-
-         self.widgetTable[r].append(QLabel('Comment:'))
-         self.widgetTable[r].append(QLineEdit())
-         self.widgetTable[r][-1].setFont(GETFONT('var', 9))
-         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r]['LBL_COMM'] = QLabel('Comment:')
+         self.widgetTable[r]['QLE_COMM'] = QLineEdit()
+         self.widgetTable[r]['QLE_COMM'].setFont(GETFONT('var', 9))
+         self.widgetTable[r]['QLE_COMM'].setMaximumHeight(self.maxHeight)
 
          if r < nRecip and r < prevNRecip:
-            self.widgetTable[r][COLS.Addr].setText(inputs[r][0])
-            self.widgetTable[r][COLS.Btc ].setText(inputs[r][1])
-            self.widgetTable[r][COLS.Comm].setText(inputs[r][2])
+            self.widgetTable[r]['QLE_ADDR'].setText(inputs[r][0])
+            self.widgetTable[r]['QLE_AMT'].setText(inputs[r][1])
+            self.widgetTable[r]['QLE_COMM'].setText(inputs[r][2])
 
          subfrm = QFrame()
          subfrm.setFrameStyle(STYLE_RAISED)
          subLayout = QGridLayout()
-         subLayout.addWidget(self.widgetTable[r][COLS.LblAddr], 0, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.Addr], 0, 1, 1, 5)
-         subLayout.addWidget(self.widgetTable[r][COLS.AddrBook], 0, 6, 1, 1)
+         subLayout.addWidget(self.widgetTable[r]['LBL_ADDR'],  0,0, 1,1)
+         subLayout.addWidget(self.widgetTable[r]['QLE_ADDR'],  0,1, 1,5)
+         subLayout.addWidget(self.widgetTable[r]['BTN_BOOK'],  0,6, 1,1)
 
-         subLayout.addWidget(self.widgetTable[r][COLS.LblWltID], 1, 1, 1, 5)
+         subLayout.addWidget(self.widgetTable[r]['LBL_DETECT'], 1,1, 1,6)
 
-         subLayout.addWidget(self.widgetTable[r][COLS.LblAmt], 2, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.Btc], 2, 1, 1, 2)
-         subLayout.addWidget(self.widgetTable[r][COLS.LblUnit], 2, 3, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.BtnMax], 2, 4, 1, 1)
+         subLayout.addWidget(self.widgetTable[r]['LBL_AMT'],   2,0, 1,1)
+         subLayout.addWidget(self.widgetTable[r]['QLE_AMT'],   2,1, 1,2)
+         subLayout.addWidget(self.widgetTable[r]['LBL_BTC'],   2,3, 1,1)
+         subLayout.addWidget(self.widgetTable[r]['BTN_MAX'],   2,4, 1,1)
          subLayout.addWidget(QLabel(''), 2, 5, 1, 2)
 
-         subLayout.addWidget(self.widgetTable[r][COLS.LblComm], 3, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.Comm], 3, 1, 1, 6)
-         subLayout.setContentsMargins(15, 15, 15, 15)
+         subLayout.addWidget(self.widgetTable[r]['LBL_COMM'],  3,0, 1,1)
+         subLayout.addWidget(self.widgetTable[r]['QLE_COMM'],  3,1, 1,6)
+         subLayout.setContentsMargins(5, 5, 5, 5)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
 
@@ -1009,29 +1050,27 @@ class SendBitcoinsFrame(ArmoryFrame):
       btnLayout.addWidget(lbtnRmRecip)
       btnFrm.setLayout(btnLayout)
 
-      # widgetsForWidth = [COLS.LblAddr, COLS.Addr, COLS.LblAmt, COLS.Btc]
-      # minScrollWidth = sum([self.widgetTable[0][col].width() for col in widgetsForWidth])
       frmRecipLayout.addWidget(btnFrm)
       frmRecipLayout.addStretch()
       frmRecip.setLayout(frmRecipLayout)
       # return frmRecip
       self.scrollRecipArea.setWidget(frmRecip)
+      self.scrollRecipArea.setWidgetResizable(True)
 
 
    #############################################################################
    def addDonation(self, amt=DONATION):
-      COLS = self.COLS
       lastIsEmpty = True
-      for col in (COLS.Addr, COLS.Btc, COLS.Comm):
-         if len(str(self.widgetTable[-1][col].text())) > 0:
+      for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
+         if len(str(self.widgetTable[-1][widg].text())) > 0:
             lastIsEmpty = False
 
       if not lastIsEmpty:
          self.makeRecipFrame(len(self.widgetTable) + 1)
 
-      self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
-      self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
-      self.widgetTable[-1][self.COLS.Comm].setText(\
+      self.widgetTable[-1]['QLE_ADDR'].setText(ARMORY_DONATION_ADDR)
+      self.widgetTable[-1]['QLE_AMT'].setText(coin2str(amt, maxZeros=2).strip())
+      self.widgetTable[-1]['QLE_COMM'].setText(\
             'Donation to Armory developers.  Thank you for your generosity!')
 
    #############################################################################
@@ -1040,19 +1079,18 @@ class SendBitcoinsFrame(ArmoryFrame):
       dlg.exec_()
 
       if len(dlg.uriDict) > 0:
-         COLS = self.COLS
          lastIsEmpty = True
-         for col in (COLS.Addr, COLS.Btc, COLS.Comm):
-            if len(str(self.widgetTable[-1][col].text())) > 0:
+         for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
+            if len(str(self.widgetTable[-1][widg].text())) > 0:
                lastIsEmpty = False
 
          if not lastIsEmpty:
             self.makeRecipFrame(len(self.widgetTable) + 1)
 
-         self.widgetTable[-1][self.COLS.Addr].setText(dlg.uriDict['address'])
+         self.widgetTable[-1]['QLE_ADDR'].setText(dlg.uriDict['address'])
          if dlg.uriDict.has_key('amount'):
             amtStr = coin2str(dlg.uriDict['amount'], maxZeros=1).strip()
-            self.widgetTable[-1][self.COLS.Btc].setText(amtStr)
+            self.widgetTable[-1]['QLE_AMT'].setText(amtStr)
 
 
          haveLbl = dlg.uriDict.has_key('label')
@@ -1066,7 +1104,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          elif haveLbl and not haveMsg:
             dispComment = dlg.uriDict['label']
 
-         self.widgetTable[-1][self.COLS.Comm].setText(dispComment)
+         self.widgetTable[-1]['QLE_COMM'].setText(dispComment)
 
       
    #############################################################################
@@ -1074,6 +1112,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.lblChangeAddr.setVisible(b)
       self.edtChangeAddr.setVisible(b)
       self.btnChangeAddr.setVisible(b)
+      self.lblAutoDetect.setVisible(b)
 
    #############################################################################
    def toggleChngAddr(self, b):
@@ -1082,6 +1121,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.ttipFeedback.setVisible(b)
       self.ttipSpecify.setVisible(b)
       self.chkRememberChng.setVisible(b)
+      self.lblAutoDetect.setVisible(b)
       self.vertLine.setVisible(b)
       if not self.radioFeedback.isChecked() and not self.radioSpecify.isChecked():
          self.radioFeedback.setChecked(True)
@@ -1089,43 +1129,12 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
    #############################################################################
-   def updateAddrField(self, idx, col, color):
+   def updateAddrColor(self, idx, color):
       palette = QPalette()
       palette.setColor(QPalette.Base, color)
-      self.widgetTable[idx][col].setPalette(palette);
-      self.widgetTable[idx][col].setAutoFillBackground(True);
-      try:
-         idCol = self.COLS.LblWltID
-         addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
-         if addrStr_is_p2sh(addrtext):
-            lboxID = self.main.getLockboxByP2SHAddrStr(addrtext) 
-         else:
-            lboxID = readLockboxEntryStr(addrtext)
+      self.widgetTable[idx]['QLE_ADDR'].setPalette(palette);
+      self.widgetTable[idx]['QLE_ADDR'].setAutoFillBackground(True);
 
-         if lboxID:
-            lbox = self.main.getLockboxByID(lboxID)
-            if lbox:
-               dispStr = '<b>%s-of-%s</b>: %s' % (lbox.M, lbox.N, 
-                                                      lbox.shortName)
-            else:
-               dispStr = 'Unrecognized Lockbox'
-
-            self.widgetTable[idx][idCol].setVisible(True)
-            self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
-            return
-
-         wltID = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
-         if wltID:
-            wlt = self.main.walletMap[wltID]
-            dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
-            self.widgetTable[idx][idCol].setVisible(True)
-            self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
-            return
-
-         self.widgetTable[idx][idCol].setVisible(False)
-
-      except:
-         self.widgetTable[idx][idCol].setVisible(False)
 
 
 class ReviewOfflineTxFrame(ArmoryDialog):
@@ -1166,7 +1175,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       # forcing them very explicitly
       self.txtUSTX = QTextEdit()
       self.txtUSTX.setFont(GETFONT('Fixed', 8))
-      w,h = relaxedSizeNChar(self.txtUSTX, 85)[0], int(12 * 8.2)
+      w,h = relaxedSizeNChar(self.txtUSTX, 68)[0], int(12 * 8.2)
       self.txtUSTX.setMinimumWidth(w)
       self.txtUSTX.setMinimumHeight(h)
       self.txtUSTX.setReadOnly(True)
@@ -1262,9 +1271,6 @@ class ReviewOfflineTxFrame(ArmoryDialog):
                       'Save Unsigned Transaction', \
                       ['Armory Transactions (*.unsigned.tx)'], \
                       'armory_%s_%s' % (dpid, suffix))
-      # In windows, we get all these superfluous file suffixes
-      toSave = toSave.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
-      toSave = toSave.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
       LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
@@ -1298,7 +1304,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       self.txtUSTX = QTextEdit()
       self.txtUSTX.setFont(GETFONT('Fixed', 8))
-      w,h = relaxedSizeNChar(self.txtUSTX, 80)
+      w,h = relaxedSizeNChar(self.txtUSTX, 68)
       #self.txtUSTX.sizeHint = lambda: QSize(w, h)
       self.txtUSTX.setMinimumWidth(w)
       self.txtUSTX.setMinimumHeight(8*h)
@@ -1383,7 +1389,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                                          HLINE(), \
                                          self.lblStatus, \
                                          HLINE(), \
-                                         STRETCH, \
+                                         'Stretch', \
                                          frmMoreInfo])
 
       frmBtn.setMaximumWidth(tightSizeNChar(QPushButton(''), 30)[0])
@@ -1502,7 +1508,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
-      for scrAddr, amt, a, b, c in data[FIELDS.InList]:
+      for scrAddr, amt, a, b, c, script in data[FIELDS.InList]:
          wltID = self.main.getWalletForAddr160(scrAddr[1:])
          if not wltID == '':
             fromWlts.add(wltID)
@@ -1659,7 +1665,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             confirming the transaction on the next screen.""") % \
             len(svpairs), QMessageBox.Ok)
 
-      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
+      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main, pytxOrUstx=ustx)
       if not dlg.exec_():
          return
 
@@ -1730,7 +1736,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       doIt = True
       if self.wlt:
-         dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
+         dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main, 
+                                          sendNow=True, pytxOrUstx=ustx)
          doIt = dlg.exec_()
 
       if doIt:
@@ -1764,7 +1771,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       if not self.fileLoaded == None and self.enoughSigs and self.sigsValid:
          newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
-         print newSaveFile
+         LOGINFO('New save file: %s' % newSaveFile)
          f = open(newSaveFile, 'w')
          f.write(str(self.txtUSTX.toPlainText()))
          f.close()
@@ -1801,12 +1808,6 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       filename = self.main.getFileSave('Save Transaction', \
                              [ffilt], \
                              defaultFilename)
-
-      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
-      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
-      filename = filename.replace('signed.tx.signed.tx', 'signed.tx')
-      filename = filename.replace('signed.tx.signed.tx', 'signed.tx')
-      filename = filename.replace('unsigned.tx.signed.tx', 'signed.tx')
       if len(str(filename)) > 0:
          LOGINFO('Saving transaction file: %s', filename)
          f = open(filename, 'w')
@@ -1820,12 +1821,10 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       if len(str(filename)) > 0:
          LOGINFO('Selected transaction file to load: %s', filename)
-         print filename
          f = open(filename, 'r')
          self.txtUSTX.setText(f.read())
          f.close()
          self.fileLoaded = filename
-         print self.fileLoaded
 
 
    def copyTx(self):
@@ -1843,8 +1842,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
-from qtdialogs import CLICKED, STRETCH, createAddrBookButton,\
-      DlgConfirmSend, DlgUriCopyAndPaste, DlgUnlockWallet,\
-   extractTxInfo, DlgDispTxInfo, NO_CHANGE
+from qtdialogs import CLICKED, DlgConfirmSend, DlgUriCopyAndPaste, \
+         DlgUnlockWallet, extractTxInfo, DlgDispTxInfo, NO_CHANGE
 
 

@@ -239,6 +239,13 @@ class PyBtcWallet(object):
       #flags the wallet if it has off chain imports (from a consistency repair)
       self.hasNegativeImports = False
       
+   #############################################################################
+   def isWltSigningAnyLockbox(self, lockboxList):
+      for lockbox in lockboxList:
+         for addr160 in lockbox.a160List:
+            if self.addrMap.has_key(addr160):
+               return True
+      return False
 
    #############################################################################
    def getWalletVersion(self):
@@ -533,12 +540,21 @@ class PyBtcWallet(object):
    #############################################################################
    # Copy the wallet file to backup
    def backupWalletFile(self, backupPath = None):
+      '''Function that attempts to make a backup copy of the wallet to the file
+         in a given path and returns whether or not the copy succeeded.'''
+
+      # Assume upfront that the copy will work.
+      retVal = True
+
       walletFileBackup = self.getWalletPath('backup') if backupPath == None \
                                                                else backupPath
       try:
          shutil.copy(self.walletPath, walletFileBackup)
       except IOERROR, errPath:
          print 'Unable to copy file %s' % errPath
+         retVal = False
+
+      return retVal
 
 
    #############################################################################
@@ -640,7 +656,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def createNewWalletFromPKCC(self, plainPubKey, chaincode, newWalletFilePath=None, \
-                               isActuallyNew=True, doRegisterWithBDM=True, \
+                               isActuallyNew=False, doRegisterWithBDM=True, \
                                skipBackupFile=False):
       """
       This method will create a new wallet based on a root public key, chain
@@ -748,7 +764,7 @@ class PyBtcWallet(object):
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
                              shortLabel='', longLabel='', isActuallyNew=True, \
                              doRegisterWithBDM=True, skipBackupFile=False, \
-                             extraEntropy=None, Progress=emptyFunc):
+                             extraEntropy=None, Progress=emptyFunc, armoryHomeDir = ARMORY_HOME_DIR):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -864,7 +880,7 @@ class PyBtcWallet(object):
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
          newName = buildWltFileName(self.uniqueIDB58)
-         self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
+         self.walletPath = os.path.join(armoryHomeDir, newName)
 
       LOGINFO('   New wallet will be written to: %s', self.walletPath)
       newfile = open(self.walletPath, 'wb')
@@ -1279,7 +1295,9 @@ class PyBtcWallet(object):
       rootIDConcatChksum = computeChecksum(wltRootIDConcat, nBytes=2)
       wltRootIDConcat += rootIDConcatChksum
       if et16 == True:
-         wltRootIDConcat = binary_to_easyType16(wltRootIDConcat)
+         lineNoSpaces = binary_to_easyType16(wltRootIDConcat)
+         pcs = [lineNoSpaces[i*4:(i+1)*4] for i in range((len(lineNoSpaces)-1)/4+1)]
+         wltRootIDConcat = ' '.join(pcs)
 
       # Get 4 rows of PK & CC data. Convert to ET16 data if necessary.
       pkccLines = []
@@ -1299,7 +1317,6 @@ class PyBtcWallet(object):
       '''Make a copy of this wallet with only the public key and chain code.'''
       # Open the PKCC file for writing.
       newFile = open(newPath, 'wb')
-      bp = BinaryPacker()
 
       # Write the data to the file. The file format is as follows:
       # PKCC data format version  (UINT8)
@@ -1307,15 +1324,14 @@ class PyBtcWallet(object):
       # Number of PKCC lines  (UINT8)
       # PKCC lines  (VAR_STR)
       outRootIDET16, outPKCCET16Lines = self.getRootPKCCBackupData(True)
-      bp.put(UINT8, PYROOTPKCCVER)
-      bp.put(VAR_STR, outRootIDET16)
-      bp.put(UINT8, len(outPKCCET16Lines))
+      newFile.write(str(PYROOTPKCCVER) + '\n')
+      newFile.write(outRootIDET16 + '\n')
       for a in outPKCCET16Lines:
-         bp.put(VAR_STR, a)
+         newFile.write(a + '\n')
 
-      # Write to the file and clean everything up.
-      newFile.write(bp.getBinaryString())
+      # Clean everything up.
       newFile.close()
+
 
    #############################################################################
    def forkOnlineWallet(self, newWalletFile, shortLabel='', longLabel=''):
@@ -2849,26 +2865,30 @@ class PyBtcWallet(object):
       #       input for PyBtcAddress::lock for "I don't have it".  In most 
       #       cases, it is actually possible to lock the wallet without the 
       #       kdfKey because we saved the encrypted versions before unlocking
-      LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
-      i=1
-      nAddr = len(self.addrMap)
-      try:
-         for addr160,addrObj in self.addrMap.iteritems():
-            Progress(i, nAddr)
-            i = i +1
-            
-            self.addrMap[addr160].lock(self.kdfKey)
-
-         if self.kdfKey:
-            self.kdfKey.destroy()
-            self.kdfKey = None
-         self.isLocked = True
-      except WalletLockError:
-         LOGERROR('Locking wallet requires encryption key.  This error')
-         LOGERROR('Usually occurs on newly-encrypted wallets that have')
-         LOGERROR('never been encrypted before.')
-         raise WalletLockError('Unlock with passphrase before locking again')
-      LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
+      if self.useEncryption:
+         LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
+         i=1
+         nAddr = len(self.addrMap)
+         try:
+            for addr160,addrObj in self.addrMap.iteritems():
+               Progress(i, nAddr)
+               i = i +1
+               
+               self.addrMap[addr160].lock(self.kdfKey)
+   
+            if self.kdfKey:
+               self.kdfKey.destroy()
+               self.kdfKey = None
+            self.isLocked = True
+         except WalletLockError:
+            LOGERROR('Locking wallet requires encryption key.  This error')
+            LOGERROR('Usually occurs on newly-encrypted wallets that have')
+            LOGERROR('never been encrypted before.')
+            raise WalletLockError('Unlock with passphrase before locking again')
+         LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
+      else:
+         LOGWARN('Attempted to lock unencrypted wallet: %s', self.uniqueIDB58)
+         
 
    #############################################################################
    def getAddrListSortedByChainIndex(self, withRoot=False):
@@ -2912,7 +2932,7 @@ class PyBtcWallet(object):
                addrList.append(addr)
          
       return addrList
-      
+
 
    #############################################################################
    def getAddress160ByChainIndex(self, desiredIdx):
@@ -2929,7 +2949,6 @@ class PyBtcWallet(object):
          # that a bug may lead to generation of billions of addresses, which
          # would saturate the system's resources and fill the HDD.
          raise WalletAddressError('Chain index is out of range')
-         
 
       if self.chainIndexMap.has_key(desiredIdx):
          return self.chainIndexMap[desiredIdx]
@@ -2971,7 +2990,6 @@ class PyBtcWallet(object):
                addrObj.pprint(indent=indent)
 
 
-
    #############################################################################
    def isEqualTo(self, wlt2, debug=False):
       isEqualTo = True
@@ -3008,7 +3026,42 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
-   
+
+
+   #############################################################################
+   def toJSONMap(self):
+      outjson = {}
+      outjson['name']             = self.labelName
+      outjson['description']      = self.labelDescr
+      outjson['walletversion']    = getVersionString(PYBTCWALLET_VERSION)
+      outjson['balance']          =  AmountToJSON(self.getBalance('Spend'))
+      outjson['keypoolsize']      =  self.addrPoolSize
+      outjson['numaddrgen']       = len(self.addrMap)
+      outjson['highestusedindex'] = self.highestUsedChainIndex
+      outjson['watchingonly']     = self.watchingOnly
+      outjson['createdate']       = self.wltCreateDate
+      outjson['walletid']         = self.uniqueIDB58
+
+      return outjson
+
+
+   #############################################################################
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
+      self.labelName   = jsonMap['name']
+      self.labelDescr  = jsonMap['description']
+      self.addrPoolSize  = jsonMap['keypoolsize']
+      self.highestUsedChainIndex  = jsonMap['highestusedindex']
+      self.watchingOnly  = jsonMap['watchingonly']
+      self.wltCreateDate  = jsonMap['createdate']
+      self.uniqueIDB58  = jsonMap['walletid']
+      jsonVer = hex_to_binary(jsonMap['walletversion'])
+
+      # Issue a warning if the versions don't match
+      if not jsonVer == getVersionString(PYBTCWALLET_VERSION):
+         LOGWARN('Unserializing wallet of different version')
+         LOGWARN('   Wallet Version: %d' % jsonVer)
+         LOGWARN('   Armory Version: %d' % UNSIGNED_TX_VERSION)
+
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

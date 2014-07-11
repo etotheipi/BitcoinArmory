@@ -524,6 +524,12 @@ def compile_qt():
    #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
    #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
    #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
+   # For now, Qt requires a patch to compile on 10.10.
+   osMjrVer = os.uname()[2].split('.')[0]
+   if osMjrVer == '14':
+      execAndWait('patch -p0 < %s' % path.join(os.getcwd(), \
+                                               'QTBUG-39644.patch'), \
+                                     cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
@@ -673,12 +679,15 @@ def compile_armory():
    with open(pypathpath, 'w') as f:
       f.write(pypathData)
 
-   appscript = path.join(APPDIR, 'Contents/MacOS/Armory')
+   armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
+   armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
    pydir = path.join(APPDIR, 'Contents/MacOS/py')
    execAndWait('make all', cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
-   copyfile('Armory-script.sh', appscript)
-   execAndWait('chmod +x "%s"' % appscript)
+   copyfile('Armory-script.sh', armoryAppScript)
+   copyfile('armoryd-script.sh', armorydAppScript)
+   execAndWait('chmod +x "%s"' % armoryAppScript)
+   execAndWait('chmod +x "%s"' % armorydAppScript)
 
 ################################################################################
 def make_resources():

@@ -137,7 +137,7 @@ class PyBtcAddress(object):
    ##############################################################################
    def getPubKey(self):
       '''Return the uncompressed public key of the address.'''
-      if len(self.binPublicKey65) != 65:
+      if self.binPublicKey65.getSize() != 65:
          raise KeyDataError, 'PyBtcAddress does not have a public key!'
       return self.binPublicKey65
 
@@ -1022,8 +1022,8 @@ class PyBtcAddress(object):
          TheBDM.registerWallet(cppWlt, wait=True)
          TheBDM.scanBlockchainForTx(cppWlt, wait=True)
 
-         utxoList = cppWlt.getUnspentTxOutList()
-         bal = cppWlt.getSpendableBalance(-1, IGNOREZC)
+         utxoList = cppWlt.getSpendableTxOutList()
+         bal = cppWlt.getSpendableBalance(0, IGNOREZC)
          return (bal, utxoList)
       else:
          return (-1, [])

@@ -46,14 +46,20 @@ class LockboxSelectFrame(ArmoryFrame):
          lbl.setText('<b>' + str(lbls[i].text()) + '</b>')
          layoutDetails.addWidget(lbl, i+1, 0)
          
+      # LockboxID
       self.dispID = QRichLabel(spendFromLBID)
+
+      # Lockbox Short Description/Name
       self.dispName = QRichLabel(self.lbox.shortName)
       self.dispName.setWordWrap(True)
-      # This line fixes squished text when word wrapping
       self.dispName.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      self.dispDescr = QRichLabel(self.lbox.longDescr)
+
+      # Lockbox long descr
+      dispDescr = self.lbox.longDescr[:253]
+      if len(self.lbox.longDescr)>253:
+         dispDescr += '...'
+      self.dispDescr = QRichLabel(dispDescr)
       self.dispDescr.setWordWrap(True)
-      # This line fixes squished text when word wrapping
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
       bal = self.cppWlt.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
       self.dispBal = QMoneyLabel(bal, wBold=True)
@@ -673,37 +679,35 @@ class WalletBackupFrame(ArmoryFrame):
          Every time you click "Receive Bitcoins," a new address is generated.
          All of these addresses are generated from a single seed value, which
          is included in all backups.   Therefore, all addresses that you have
-         generated so far <b>and</b> will ever generate with this wallet, are
-         protected by this backup! """))
-      if not self.hasImportedAddr:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+         generated so far <b>and</b> will ever be generated with this wallet, 
+         are protected by this backup! """))
+
+      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
+         <i>This wallet <u>does not</u> currently have any imported
+         addresses, so you can safely ignore this feature!</i>
+         When imported addresses are present, backups only protects those
+         imported before the backup was made.  You must replace that
+         backup if you import more addresses! """))
+
       self.featuresTips[F.LostPass] = self.main.createToolTipWidget(tr("""
          Lost/forgotten passphrases are, <b>by far</b>, the most common
          reason for users losing bitcoins.  It is critical you have
          at least one backup that works if you forget your wallet
          passphrase. """))
+
       self.featuresTips[F.Durable] = self.main.createToolTipWidget(tr("""
          USB drives and CD/DVD disks are not intended for long-term storage.
          They will <i>probably</i> last many years, but not guaranteed
          even for 3-5 years.   On the other hand, printed text on paper will
          last many decades, and useful even when thoroughly faded. """))
+
       self.featuresTips[F.Visual] = self.main.createToolTipWidget(tr("""
          The ability to look at a backup and determine if
          it is still usable.   If a digital backup is stored in a safe
          deposit box, you have no way to verify its integrity unless
          you take a secure computer/device with you.  A simple glance at
          a paper backup is enough to verify that it is still intact. """))
+
       self.featuresTips[F.Physical] = self.main.createToolTipWidget(tr("""
          If multiple pieces/fragments are required to restore this wallet.
          For instance, encrypted backups require the backup
@@ -778,19 +782,16 @@ class WalletBackupFrame(ArmoryFrame):
       pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
       self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
          'Protects Imported Addresses'), color=pcolor)
-      if not self.hasImportedAddr:
-         self.featuresTips[self.FEATURES.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[self.FEATURES.ProtImport] = self.main.createToolTipWidget(tr("""
+
+      if self.hasImportedAddr:
+         self.featuresTips[self.FEATURES.ProtImport].setText(tr("""
             When imported addresses are present, backups only protects those
             imported before the backup was made!  You must replace that
             backup if you import more addresses!
             <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+
+
+         
       self.lblTitle.setText(tr("""
          <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
 

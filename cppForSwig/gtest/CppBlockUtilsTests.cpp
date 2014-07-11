@@ -8013,6 +8013,16 @@ TEST_F(TestCryptoECDSA, SECP256K1MultScalars)
    EXPECT_EQ(multRes, testRes);
 }
 
+// Verify that some public keys (compressed and uncompressed) are valid.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, VerifyPubKeyValidity)
+{
+   EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(compPointPub1));
+   EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(compPointPub2));
+   EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub1));
+   EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub2));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /* Never got around to finishing this...
 class TestMainnetBlkchain: public ::testing::Test

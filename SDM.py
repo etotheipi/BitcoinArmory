@@ -19,27 +19,9 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    BITCOIN_RPC_PORT, binary_to_base58, isASCII, USE_TESTNET, GIGABYTE, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
-   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM
+   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
+   MEGABYTE, ARMORY_HOME_DIR
 from bitcoinrpc_jsonrpc import authproxy
-
-
-#############################################################################
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
-
-   if not isinstance(port, (list,tuple)):
-      port = [port]
-
-   for p in port:
-      s = socket.socket()
-      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-      try:
-         s.connect((host, p))
-         s.close()
-         return p
-      except:
-         pass
-
-   return 0
 
 
 ################################################################################
@@ -172,6 +154,19 @@ class SatoshiDaemonManager(object):
          return False
 
       bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
+      bootfilePart = bootfile + '.partial'
+      bootfileOld  = bootfile + '.old'
+
+      # cleartorrent.flag means we should remove any pre-existing files
+      delTorrentFlag = os.path.join(ARMORY_HOME_DIR, 'cleartorrent.flag')
+      if os.path.exists(delTorrentFlag):
+         LOGWARN('Flag found to delete any pre-existing torrent files')
+         if os.path.exists(bootfile):       os.remove(bootfile)
+         if os.path.exists(bootfilePart):   os.remove(bootfilePart)
+         if os.path.exists(bootfileOld):    os.remove(bootfileOld)
+         if os.path.exists(delTorrentFlag): os.remove(delTorrentFlag)
+
+
       TheTDM.setupTorrent(torrentPath, bootfile)
       if not TheTDM.getTDMState()=='ReadyToStart':
          LOGERROR('Unknown error trying to start torrent manager')
@@ -214,14 +209,29 @@ class SatoshiDaemonManager(object):
          self.launchBitcoindAndGuardian()
 
       #####
-      def torrentFailed():
+      def warnUserHashFail():
+         from PyQt4.QtGui import QMessageBox
+         QMessageBox.warning(self, tr('Hash Failure'), tr("""The torrent download 
+            is currently encountering too many packet hash failures to allow it to 
+            progress properly. As a result, the torrent engine has been halted. You 
+            should report this incident to the Armory team and turn off this feature 
+            until further notice."""), QMessageBox.Ok)      
+      
+      #####
+      def torrentFailed(errMsg=''):
          # Not sure there's actually anything we need to do here...
+         if errMsg == 'hashFail':
+            warnUserHashFail()
+            
          bootsz = '<Unknown>'
          if os.path.exists(bootfile):
             bootsz = bytesToHumanSize(os.path.getsize(bootfile))
 
          LOGERROR('Torrent failed; size of %s is %s', torrentPath, bootsz)
          self.launchBitcoindAndGuardian()
+         
+
+ 
  
       TheTDM.setSecondsBetweenUpdates(90)
       TheTDM.setCallback('displayFunc',  torrentLogToFile)

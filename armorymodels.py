@@ -32,8 +32,8 @@ ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
-                                       'ScrType', 'Sequence', 'Script')
-TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script')
+                               'ScrType', 'Sequence', 'Script', 'AddrStr')
+TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script', 'AddrStr')
 PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
 
@@ -729,7 +729,7 @@ class TxInDispModel(QAbstractTableModel):
    def __init__(self,  pytx, txinListFromBDM=None, main=None):
       super(TxInDispModel, self).__init__()
       self.main = main
-      self.txInList = []
+      self.txInList = txinListFromBDM[:]
       self.dispTable = []
 
       # If this is actually a USTX in here, then let's use that
@@ -748,14 +748,15 @@ class TxInDispModel(QAbstractTableModel):
          scrType = getTxInScriptType(txin)
          if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
-            scrAddr,val,blk,hsh,idx = txinListFromBDM[i]
-            if scrType==CPP_TXIN_SPENDMULTI:
-               M,N = [binary_to_int(a) for a in scrAddr[1:3]]
-               addrStr = 'Multisig (%d-of-%d)' % (M,N)
-            else:
-               addrStr = scrAddr_to_addrStr(scrAddr)
-            if main:
-               wltID = self.main.getWalletForAddr160(scrAddr[1:])
+            scrAddr,val,blk,hsh,idx,script = txinListFromBDM[i]
+            dispInfo = self.main.getDisplayStringForScript(script, 60)
+            addrStr = dispInfo['String']
+            wltID   = dispInfo['WltID']
+            if not wltID:
+               wltID  = dispInfo['LboxID']
+            if not wltID:
+               wltID = ''
+
             dispcoin  = '' if not val else coin2str(val,maxZeros=1)
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(addrStr)
@@ -766,7 +767,6 @@ class TxInDispModel(QAbstractTableModel):
             if ustx is None:
                self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
-               # TODO:  Assume NO multi-sig... will be updated soon!
                isSigned = ustx.ustxInputs[i].evaluateSigningStatus().allSigned
                self.dispTable[-1].append('Signed' if isSigned else 'Unsigned')
                
@@ -798,7 +798,7 @@ class TxInDispModel(QAbstractTableModel):
       return len(self.dispTable)
 
    def columnCount(self, index=QModelIndex()):
-      return 9
+      return 10
 
    #TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', 'ScrType', 'Sequence', 'Script')
    def data(self, index, role=Qt.DisplayRole):
@@ -816,7 +816,7 @@ class TxInDispModel(QAbstractTableModel):
          elif col in (COLS.Btc,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         if self.dispTable[row][COLS.WltID]:
+         if self.dispTable[row][COLS.WltID] and wltID in self.main.walletMap:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
                return QVariant( Colors.TblWltOther )
@@ -867,58 +867,40 @@ class TxOutDispModel(QAbstractTableModel):
       self.wltIDList = []
       self.idxGray = idxGray[:]
       for i,txout in enumerate(self.tx.outputs):
-         recip160 = script_to_scrAddr(txout.binScript)[1:]
          self.txOutList.append(txout)
-         if main:
-            self.wltIDList.append(main.getWalletForAddr160(recip160))
-         else:
-            self.wltIDList.append('')
 
    def rowCount(self, index=QModelIndex()):
       return len(self.txOutList)
 
    def columnCount(self, index=QModelIndex()):
-      return 5
+      return 6
 
    #TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType')
    def data(self, index, role=Qt.DisplayRole):
       COLS = TXOUTCOLS
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
+      dispInfo = self.main.getDisplayStringForScript(txout.binScript, 60)
+      wltID = ''
+      if dispInfo['WltID']:
+         wltID = dispInfo['WltID']
+      elif dispInfo['LboxID']:
+         wltID = dispInfo['LboxID']
+      
+
       stype = BtcUtils().getTxOutScriptTypeInt(txout.binScript)
       stypeStr = CPP_TXOUT_SCRIPT_NAMES[stype]
-      wltID = self.wltIDList[row]
       if stype==CPP_TXOUT_MULTISIG:
          M,N = getMultisigScriptInfo(txout.binScript)[:2]
-         stypeStr = 'MultiSig(%d-of-%d)' % (M,N)
+         stypeStr = 'MultiSig[%d-of-%d]' % (M,N)
+
       if role==Qt.DisplayRole:
          if col==COLS.WltID:   return QVariant(wltID)
          if col==COLS.ScrType: return QVariant(stypeStr)
          if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
          if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if col==COLS.Recip:   
-            if stype in CPP_TXOUT_HAS_ADDRSTR:
-               addrText = script_to_addrStr(txout.binScript)
-               if stype == CPP_TXOUT_P2SH:
-                  lboxID = self.main.getLockboxByP2SHAddrStr(addrText) 
-                  lbox = self.main.getLockboxByID(lboxID)
-                  if lbox:
-                     dispStr = 'Lockbox %d-of-%d (%s) ' % (lbox.M, lbox.N, 
-                                                      lboxID)
-                  else:
-                     dispStr = '(Unrecognized Lockbox) '
-                  return QVariant(dispStr + addrText)
-               else:
-                  return QVariant(addrText)
-            elif stype==CPP_TXOUT_MULTISIG:
-               lbID = calcLockboxID(txout.binScript)
-               lb = self.main.getLockboxByID(lbID)
-               if not lb:
-                  return QVariant('[[Multiple]]')
-               else:
-                  return QVariant('Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lbID))
-            elif stype==CPP_TXOUT_NONSTANDARD:
-               return QVariant('[[Non-Standard]]')
+         if col==COLS.Recip:   return QVariant(dispInfo['String'])
+         if col==COLS.AddrStr: return QVariant(dispInfo['AddrStr'])
       elif role==Qt.TextAlignmentRole:
          if col==COLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          if col==COLS.Btc:     return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
@@ -927,7 +909,7 @@ class TxOutDispModel(QAbstractTableModel):
          if row in self.idxGray:
             return QVariant(Colors.Mid)
       elif role==Qt.BackgroundColorRole:
-         if wltID:
+         if wltID and wltID in self.main.walletMap:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
                return QVariant( Colors.TblWltOther )
