@@ -2475,7 +2475,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Verify the URI is for the same network as this Armory instnance
       theAddrByte = checkAddrType(base58_to_binary(uriDict['address']))
-      if theAddrByte!=-1 and theAddrByte!=ADDRBYTE:
+      if theAddrByte!=-1 and not theAddrByte in [ADDRBYTE, P2SHBYTE]:
          net = 'Unknown Network'
          if NETWORKS.has_key(theAddrByte):
             net = NETWORKS[theAddrByte]
