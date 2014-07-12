@@ -738,7 +738,7 @@ def cleanup_app():
       removetree(testdir)
    print "Removing .pyo and unneeded .py files."
    remove_python_files(PYPREFIX)
-   remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'))
+   remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'), False)
    show_app_size()
 
 ################################################################################
@@ -770,8 +770,9 @@ def show_app_size():
    execAndWait('du -hs "%s"' % APPDIR)
 
 ################################################################################
-def remove_python_files(top):
-   "Remove .pyo files and any .py files where the .pyc file exists."
+def remove_python_files(top, removePy=True):
+   """Remove .pyo files and, if desired, any .py files where the .pyc file
+      exists."""
    n_pyo = 0
    n_py_rem = 0
    n_py_kept = 0
@@ -782,10 +783,15 @@ def remove_python_files(top):
             removefile(path.join(dirname, f))
             n_pyo += 1
          elif ext == '.py':
-            if (f + 'c') in files:
-               removefile(path.join(dirname, f))
-               n_py_rem += 1
+            if removePy:
+               if (f + 'c') in files:
+                  removefile(path.join(dirname, f))
+                  n_py_rem += 1
+               else:
+                  n_py_kept += 1
             else:
+               if (f + 'c') in files:
+                  removefile(path.join(dirname, (f + 'c')))
                n_py_kept += 1
    logprint("Removes %i .py files (kept %i)." % (n_py_rem, n_py_kept))
 
