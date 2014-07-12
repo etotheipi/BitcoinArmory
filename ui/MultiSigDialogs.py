@@ -1327,6 +1327,7 @@ class DlgLockboxManager(ArmoryDialog):
       lboxId  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
       lbox = self.main.allLockboxes[self.main.lockboxIDMap[lboxId]]
       wltID = None
+      wlt = None
       for a160 in lbox.a160List:
          wltID = self.main.getWalletForAddr160(a160)
          if len(wltID)>0:

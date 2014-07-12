@@ -34,6 +34,7 @@ class VerifyOfflinePackageDialog(QDialog):
       self.saveFileButton.setEnabled(False)
       layoutsave.addWidget(self.saveFileButton)
       self.connect(self.saveFileButton, SIGNAL('clicked()'), self.save)
+      self.setWindowTitle('Verify Signed Package')
 
       
    def load(self):
