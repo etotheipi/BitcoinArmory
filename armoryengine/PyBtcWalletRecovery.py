@@ -1,7 +1,7 @@
 from armoryengine.BinaryUnpacker import BinaryUnpacker
 from armoryengine.ArmoryUtils import UINT32_MAX, KeyDataError, \
                                      verifyChecksum, int_to_bitset, \
-                                     KILOBYTE, RightNowStr
+                                     KILOBYTE, RightNowStr, hex_to_binary
 from armoryengine.BinaryPacker import UINT16, UINT32, UINT64, INT64, \
                                       BINARY_CHUNK
 from armoryengine.PyBtcAddress import PyBtcAddress
@@ -459,6 +459,7 @@ class PyBtcWalletRecovery(object):
       #TODO: try to salvage broken header
       #      compare uniqueIDB58 with recovered wallet
       
+
       self.UIreport = '<b>Analyzing wallet:</b> %s<br>' % (toRecover.labelName \
                        if len(toRecover.labelName) != 0 \
                        else os.path.basename(WalletPath))
@@ -1289,7 +1290,7 @@ class PyBtcWalletRecovery(object):
          return self.BuildLogFile(-2, Progress, returnError) 
       
       return RecoveredWallet
-      
+   ############################################################################
    def LookForFurtherEntry(self, rawdata, loc):
       """
       Attempts to find valid data entries in wallet file by skipping known byte
@@ -1770,7 +1771,7 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
             errStr = '<br><b>An error occurred moving wallet files:</b> %s' % e
             Progress(fixer.UIreport + errStr)
             
-            return -1, fixer.UIreport + errSt, fixer
+            return -1, fixer.UIreport + errStr, fixer
    else:
       Progress(fixer.UIreport + fixer.EndLog)
       return -1, fixer.UIreport + fixer.EndLog, fixer
@@ -1869,16 +1870,4 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    else: 
       return wltStatus
 
-###############################################################################
 
-"""
-TODO: setup an array of tests:
-2) broken header
-3) oversized comment entries
-4) comments for non existant addr or txn entries
-
-possible wallet corruption vectors:
-1) PyBtcAddress.unlock verifies consistency between private and public key, \
-   unless SkipCheck is forced to false and private key is already computed. 
-   Look for this scenario
-"""

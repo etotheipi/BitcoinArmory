@@ -16,16 +16,17 @@ from subprocess import Popen, PIPE
 
 # Set some constants up front
 #swigBinVer = '2.0.12'
-pythonVer  = '2.7.6'
-setToolVer = '2.1.2'
-pipVer     = '1.5.2'
-psutilVer  = '1.2.1'
+pythonVer  = '2.7.8'
+setToolVer = '5.4.1'
+pipVer     = '1.5.6'
+psutilVer  = '2.1.1'
 zopeVer    = '4.1.1'
-twistedVer = '13.2.0'
-libpngVer  = '1.6.8'
+twistedVer = '14.0.0'
+libpngVer  = '1.6.12'
 qtVer      = '4.8.6'
 sipVer     = '4.16.2' # NB: I'm occasionally forced to upgrade alongside PyQt.
 pyQtVer    = '4.11.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev  = '170685'
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -319,33 +320,33 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "8321636af2acbeaa68fc635d7dda7369ed446a80" ] )
+                    "9c6281eeace0c3646fa556c8087bb1b7e033c9c4" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
                     "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "6a35e881a3aa2e06a1d5d4e966a9def296ec23e8" ] )
+                    "113e5688a7fab03004f7b793aa2f718f949515d0" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
                     "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-                    "4f43a6b04f83b8d83bee702750ff35be2a2b6af1" ] )
+                    "e6cd9e6f2fd8d28c9976313632ef8aa8ac31249e" ] )
 
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
                     "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
-                    "c8c1842bf1c63b9068ac25a37f7aae11fcecd57f" ] )
+                    "0c20a20ed316e69f2b0881530439213988229916" ] )
 
 distfiles.append( [ 'Twisted', \
                     "Twisted-%s.tar.bz2" % twistedVer, \
                     "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
-                    "e1d43645fd3d84dc2867f36b60d2e469a71eb01d" ] )
+                    "a90fae98072f8e28b9459875ce9b77f5524bbc48" ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
                     "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
                     "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "666d5ba290d72b0cfa13366232eb0ffcc701d21f" ] )
+                    "6b82dd8fc966b83b15ab27224f864a384b7b766d" ] )
 
 #distfiles.append( [ "Qt", \
                     #"qt-4.8.5.mountain_lion.bottle.2.tar.gz", \
@@ -377,8 +378,8 @@ distfiles.append( [ "Qt", \
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterfaceMavericks.a", \
-                    "http://trac.webkit.org/export/167824/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
-                    "ca6a8292cf0e0c44b38e3916e56139cff2a41ae7" ] )
+                    "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a" % webkitRev, \
+                    "fb544ee9346765843ddb9c0d97df99b31a3307e4" ] )
 
 #distfiles.append( [ "Qt-p1", \
                     #"Ie9a72e3b.patch", \

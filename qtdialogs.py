@@ -42,7 +42,7 @@ BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
 BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
 MAX_QR_SIZE = 198
-
+MAX_SATOSHIS = 2100000000000000
 
 ################################################################################
 class DlgUnlockWallet(ArmoryDialog):
@@ -10099,6 +10099,9 @@ class DlgRequestPayment(ArmoryDialog):
             amt = None
          else:
             amt = str2coin(amtStr)
+            
+            if amt > MAX_SATOSHIS:
+               amt = None
 
          lastTry = 'Message'
          msgStr = str(self.edtMessage.text()).strip()
@@ -10133,7 +10136,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.dispText += 'If clicking on the line above does not work, use this payment info:'
       self.dispText += '<br>'
       self.dispText += '<b>Pay to</b>:\t%s<br>' % addr
-      if amtStr:
+      if amt:
          self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amt, maxZeros=0).strip()
       if msgStr:
          self.dispText += '<b>Message</b>:\t%s<br>' % msgStr
@@ -10148,7 +10151,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.plainText = str(self.edtLinkText.text()) + '\n'
       self.plainText += 'If clicking on the line above does not work, use this payment info:\n'
       self.plainText += 'Pay to:  %s' % addr
-      if amtStr:
+      if amt:
          self.plainText += '\nAmount:  %s BTC' % coin2str(amt, maxZeros=0).strip()
       if msgStr:
          self.plainText += '\nMessage: %s' % msgStr
