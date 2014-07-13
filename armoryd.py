@@ -395,6 +395,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             curUTXODict['numconf'] = u.getNumConfirm()
             curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
             curUTXODict['priority'] = utxoVal * u.getNumConfirm()
+            try:
+               curUTXODict['addrstr']  = script_to_addrStr(u.getScript())
+            except:
+               LOGEXCEPT('Error parse UTXO script -- multisig or non-standard')
+               curUTXODict['addrstr']  = ''
+
             utxoOutList.append(curUTXODict)
             totBal += utxoVal
       else:
