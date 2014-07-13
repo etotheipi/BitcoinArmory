@@ -568,12 +568,12 @@ class SendBitcoinsFrame(ArmoryFrame):
          valMax = coin2str(bal, maxZeros=2).strip()
          if self.altBalance == None:
             QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
-            You just tried to send %s BTC, including fee, but you only 
+            You just tried to send more Bitcoins than you have available. You only 
             have %s BTC (spendable) in this wallet!""") % \
-            (valTry, valMax), QMessageBox.Ok)
+            valMax, QMessageBox.Ok)
          else:
             QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
-            You just tried to send %s BTC, including fee, but you only 
+            You just tried to send more Bitcoins than you have available. You only 
             have %s BTC with this coin control selection!""") % \
             (valTry, valMax), QMessageBox.Ok)
          return False
