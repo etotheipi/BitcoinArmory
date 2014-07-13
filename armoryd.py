@@ -320,26 +320,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       for entry in ledgerEntries:
          cppTx = TheBDM.getTxByHash(entry.getTxHash())
          if cppTx.isInitialized():
-            txBinary = cppTx.serialize()
-            pyTx = PyTx().unserialize(txBinary)
-            inputsFromSender = 0
-            for txin in pyTx.inputs:
-               txInAddr = TxInExtractAddrStrIfAvail(txin)
-               if sender == txInAddr:
-                  inputsFromSender += 1
+            # Only consider the first for determining received from address
+            # This function should assume it is online, and actually request the previous
+            # TxOut script from the BDM -- which guarantees we know the sender.  
+            # Use TheBDM.getSenderScrAddr(txin).  This takes a C++ txin (which we have)
+            # and it will grab the TxOut being spent by that TxIn and return the
+            # scraddr of it.  This will succeed 100% of the time.
+            cppTxin = cppTx.getTxInCopy(0)
+            txInAddr = scrAddr_to_addrStr(TheBDM.getSenderScrAddr(cppTxin))
+            fromSender =  sender == txInAddr
 
-            if inputsFromSender == len(pyTx.inputs):
+            if fromSender:
+               txBinary = cppTx.serialize()
+               pyTx = PyTx().unserialize(txBinary)
                for txout in pyTx.outputs:
                   if self.curWlt.hasAddr(script_to_addrStr(txout.getScript())):
                      totalReceived += txout.value
-            elif inputsFromSender > 0:
-               # Some inputs are from the sender and other are not
-               # TODO: Find the best way to handle this case
-               # for now require all inputs to be from the sender to be included
-               # in the tally
-               LOGERROR('Inputs not from the sender are detected. 0 will be ' \
-                        'returned.')
-               pass
 
       return AmountToJSON(totalReceived)
 
@@ -1164,9 +1160,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # Add the ledger entry to the ledger list.
             final_le_list.append(tx_info)
 
-         # Wrap everything up before returning the ledger list.
-         numLedgerEntries = len(final_le_list)
-         final_le_list.append('Number of ledger entries: %d' % numLedgerEntries)
 
       return final_le_list
 
