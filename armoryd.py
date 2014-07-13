@@ -1153,9 +1153,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # Add the ledger entry to the ledger list.
             final_le_list.append(tx_info)
 
-         # Wrap everything up before returning the ledger list.
-         numLedgerEntries = len(final_le_list)
-         final_le_list.append('Number of ledger entries: %d' % numLedgerEntries)
 
       return final_le_list
 

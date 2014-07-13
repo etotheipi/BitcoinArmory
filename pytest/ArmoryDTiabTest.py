@@ -469,20 +469,20 @@ class ArmoryDTiabTest(TiabTest):
       actualResult = self.jsonServer.jsonrpc_listaddrunspent(totStr)
 
       self.assertEqual(len(actualResult), 4)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Balance'], \
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['addrbalance'], \
                        TIAB_WLT_1_PK_UTXO_BAL_3)
       #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Confirmations'], \
       #                 EXPECTED_UNSPENT_TX2_CONF)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Hex'], \
-                       TIAB_WLT_1_PK_UTXO_HEX_3)
+      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Hex'], \
+      #                 TIAB_WLT_1_PK_UTXO_HEX_3)
       #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Priority'], \
       #                 EXPECTED_UNSPENT_TX2_PRI)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Balance'], \
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['addrbalance'], \
                        TIAB_WLT_1_PK_UTXO_BAL_8)
       #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Confirmations'], \
       #                 EXPECTED_UNSPENT_TX2_CONF)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Hex'], \
-                       TIAB_WLT_1_PK_UTXO_HEX_8)
+      # self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Hex'], \
+      #                 TIAB_WLT_1_PK_UTXO_HEX_8)
       #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Priority'], \
       #                 EXPECTED_UNSPENT_TX2_PRI)
 
