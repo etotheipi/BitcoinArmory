@@ -421,6 +421,7 @@ class MultiSigLockbox(AsciiSerializable):
 
       outjson['txoutscript'] = binary_to_hex(self.binScript)
       outjson['p2shscript']  = binary_to_hex(scrAddr_to_script(self.p2shScrAddr))
+      outjson['p2shaddr']    = scrAddr_to_addrStr(self.p2shScrAddr)
       outjson['createdate']  = self.createDate
 
       return outjson
