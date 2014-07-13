@@ -5,7 +5,7 @@ from armoryengine.parseAnnounce import *
 from armorycolors import htmlColor
 
 
-class VerifyOfflinePackageDialog(QDialog):
+class VerifyOfflinePackageDialog(ArmoryDialog):
    def __init__(self, parent, main):
       super(VerifyOfflinePackageDialog, self).__init__(parent)
       self.main = main

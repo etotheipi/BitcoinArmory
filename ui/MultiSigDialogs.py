@@ -323,7 +323,7 @@ class DlgLockboxEditor(ArmoryDialog):
    #############################################################################
    def setLongDescr(self):
 
-      class DlgSetLongDescr(QDialog):
+      class DlgSetLongDescr(ArmoryDialog):
          def __init__(self, parent, currDescr=''):
             super(DlgSetLongDescr, self).__init__(parent)
             lbl = QRichLabel(tr("""
@@ -2052,7 +2052,7 @@ class DlgSimulfundSelect(ArmoryDialog):
       self.accept()
 
 ################################################################################
-class DlgImportAsciiBlock(QDialog):
+class DlgImportAsciiBlock(ArmoryDialog):
    def __init__(self, parent, main, titleStr, descrStr, fileTypes, importType):
       super(DlgImportAsciiBlock, self).__init__(parent)
       self.main = main
@@ -2364,7 +2364,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
 
 ################################################################################
-class DlgImportLockbox(QDialog):
+class DlgImportLockbox(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgImportLockbox, self).__init__(parent)
       self.main = main
@@ -2420,7 +2420,6 @@ class DlgImportLockbox(QDialog):
          self.importedLockbox = MultiSigLockbox().unserializeAscii(txt)
       except:
          LOGEXCEPT('Error unserializing the entered text')
-         return
       if self.importedLockbox == None:
          QMessageBox.critical(self, tr('Non-lockbox'), tr("""
                You are attempting to load something that is not a Lockbox.
