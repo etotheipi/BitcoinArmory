@@ -448,7 +448,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       curTxOut = 0
       topBlk = TheBDM.getTopBlockHeight()
       for addrStr in addrList:
-         curTxOut += 1
          utxoEntries = {}
 
          # For now, prevent the caller from accidentally inducing a 20 min rescan
@@ -480,6 +479,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # UTXO - and then add it to the UTXO entry dict.
          utxoListBal = 0
          for u in utxoList:
+            curTxOut += 1
             curUTXODict = {}
 
             # Get the UTXO info. The # of confirmations isn't calculated
@@ -2827,97 +2827,111 @@ class Armory_Daemon(object):
       run every 2 seconds, or whatever is specified in the nextBeatSec
       argument.
       """
-      # Check for new blocks in the latest blk0XXXX.dat file.
-      if TheBDM.getBDMState()=='BlockchainReady':
-         #check wallet every checkStep seconds
-         nextCheck = self.lastChecked + self.checkStep
-         if RightNow() >= nextCheck:
-            self.checkWallet()
 
-         # If there's a new block, use this to determine it affected our wallets.
-         # NB: We may wish to alter this to reflect only the active wallet.
-         #prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-         #                                    for wltID in WltMap.keys()])
+      try:
 
+         for wltID,wlt in self.WltMap.iteritems():
+            wlt.checkWalletLockTimeout()
 
-         # Check for new blocks in the blk000X.dat file
-         prevTopBlock = TheBDM.getTopBlockHeight()
-         newBlks = TheBDM.readBlkFileUpdate()
-
-         # If we have new zero-conf transactions, scan them and update ledger
-         if len(self.newZeroConfSinceLastUpdate)>0:
-            self.newZeroConfSinceLastUpdate.reverse()
-            for wltID in self.WltMap.keys():
-               wlt = self.WltMap[wltID]
-               TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
-
-            for lbID,cppWlt in self.lboxCppWalletMap.iteritems():
-               TheBDM.rescanWalletZeroConf(cppWlt, wait=True)
-                  
-         # We had a notification thing going in ArmoryQt using checkNewZeroConf()
-         # but we didn't need it here (yet), so I simply remove it and clear the
-         # ZC list as if we called it
-         #self.checkNewZeroConf()
-         del self.newZeroConfSinceLastUpdate[:]
-
-         if newBlks>0:
-            self.latestBlockNum = TheBDM.getTopBlockHeight()
-            self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
-
-      
-            # This tracks every wallet and lockbox registered, runs standard
-            # update functions after new blocks come in.  "After scan" also
-            # means after we've updated the blockchain with a new block.
-            TheBDM.updateWalletsAfterScan(wait=True)
-
-            # On very rare occasions, we could come across a new Tx in a block
-            # instead of seeing it on the network first. Let's check for this
-            # case and, if desired, execute NewTx user functs.
-            # NB: As written, this code is probably wrong! We only care about
-            # the active wallet, but we're passing in the entire wallet set.
-            # We probably ought to add awareness of the current wallet in the
-            # daemon. Be sure to get the initial wallet and do post-processing
-            # when a user wants to change the active wallet. (For that matter,
-            # we should probably add post-processing when adding wallets so
-            # that we can track what we have.)
-            #surpriseTx = newBlockSyncRescanZC(TheBDM, WltMap, prevLedgSize)
-            #if surpriseTx:
-               #LOGINFO('New Block contained a transaction relevant to us!')
-               # THIS NEEDS TO BE CHECKED! IT STILL USES ARMORYQT VALUES!!!
-               # WltMap SHOULD ALSO PROBABLY BE CHANGED TO THE CURRENT WALLET!
-               #notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-               #                   self.currBlockNum+1, WltMap, False, TheBDM)
-
-               # If there's user-executed code on a new Tx, execute here before
-               # dealing with any new blocks.
-               # NB: THIS IS PLACEHOLDER CODE THAT MAY BE WRONG!!!
-               #for txFunc in self.newTxFunctions:
-                  #txFunc(pytxObj)
-
-            # If there are no new block functions to run, just skip all this.
-            if len(self.newBlockFunctions) > 0:
-               # Here's where we actually execute the new-block calls, because
-               # this code is guaranteed to execute AFTER the TheBDM has processed
-               # the new block data.
-               # We walk through headers by block height in case the new block 
-               # didn't extend the main chain (this won't run), or there was a 
-               # reorg with multiple blocks and we only want to process the new
-               # blocks on the main chain, not the invalid ones
-               for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
-                  cppHeader = TheBDM.getHeaderByHeight(blknum)
-                  pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
-                  
-                  cppBlock = TheBDM.getMainBlockFromDB(blknum)
-                  pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
-                                 i in range(cppBlock.getNumTx())]
-                  for funcKey in self.newBlockFunctions:
-                     for blockFunc in self.newBlockFunctions[funcKey]:
-                        blockFunc(pyHeader, pyTxList)
-
-      self.curWlt.checkWalletLockTimeout()
-      reactor.callLater(nextBeatSec, self.Heartbeat)
-
-
+         # Check for new blocks in the latest blk0XXXX.dat file.
+         if TheBDM.getBDMState()=='BlockchainReady':
+            #check wallet every checkStep seconds
+            nextCheck = self.lastChecked + self.checkStep
+            if RightNow() >= nextCheck:
+               self.checkWallet()
+   
+            # If there's a new block, use this to determine it affected our wallets.
+            # NB: We may wish to alter this to reflect only the active wallet.
+            #prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
+            #                                    for wltID in WltMap.keys()])
+   
+   
+            # Check for new blocks in the blk000X.dat file
+            prevTopBlock = TheBDM.getTopBlockHeight()
+            newBlks = TheBDM.readBlkFileUpdate(wait=True)
+   
+            # If we have new zero-conf transactions, scan them and update ledger
+            if len(self.newZeroConfSinceLastUpdate)>0:
+               self.newZeroConfSinceLastUpdate.reverse()
+               for wltID in self.WltMap.keys():
+                  wlt = self.WltMap[wltID]
+                  TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
+   
+               for lbID,cppWlt in self.lboxCppWalletMap.iteritems():
+                  TheBDM.rescanWalletZeroConf(cppWlt, wait=True)
+                     
+            # We had a notification thing going in ArmoryQt using checkNewZeroConf()
+            # but we didn't need it here (yet), so I simply remove it and clear the
+            # ZC list as if we called it
+            #self.checkNewZeroConf()
+            del self.newZeroConfSinceLastUpdate[:]
+   
+            if newBlks>0:
+               self.latestBlockNum = TheBDM.getTopBlockHeight()
+               self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
+   
+         
+               # This tracks every wallet and lockbox registered, runs standard
+               # update functions after new blocks come in.  "After scan" also
+               # means after we've updated the blockchain with a new block.
+               TheBDM.updateWalletsAfterScan(wait=True)
+   
+               # On very rare occasions, we could come across a new Tx in a block
+               # instead of seeing it on the network first. Let's check for this
+               # case and, if desired, execute NewTx user functs.
+               # NB: As written, this code is probably wrong! We only care about
+               # the active wallet, but we're passing in the entire wallet set.
+               # We probably ought to add awareness of the current wallet in the
+               # daemon. Be sure to get the initial wallet and do post-processing
+               # when a user wants to change the active wallet. (For that matter,
+               # we should probably add post-processing when adding wallets so
+               # that we can track what we have.)
+               #surpriseTx = newBlockSyncRescanZC(TheBDM, WltMap, prevLedgSize)
+               #if surpriseTx:
+                  #LOGINFO('New Block contained a transaction relevant to us!')
+                  # THIS NEEDS TO BE CHECKED! IT STILL USES ARMORYQT VALUES!!!
+                  # WltMap SHOULD ALSO PROBABLY BE CHANGED TO THE CURRENT WALLET!
+                  #notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
+                  #                   self.currBlockNum+1, WltMap, False, TheBDM)
+   
+                  # If there's user-executed code on a new Tx, execute here before
+                  # dealing with any new blocks.
+                  # NB: THIS IS PLACEHOLDER CODE THAT MAY BE WRONG!!!
+                  #for txFunc in self.newTxFunctions:
+                     #txFunc(pytxObj)
+   
+               # If there are no new block functions to run, just skip all this.
+               if len(self.newBlockFunctions) > 0:
+                  # Here's where we actually execute the new-block calls, because
+                  # this code is guaranteed to execute AFTER the TheBDM has processed
+                  # the new block data.
+                  # We walk through headers by block height in case the new block 
+                  # didn't extend the main chain (this won't run), or there was a 
+                  # reorg with multiple blocks and we only want to process the new
+                  # blocks on the main chain, not the invalid ones
+                  for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
+                     cppHeader = TheBDM.getHeaderByHeight(blknum)
+                     pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
+                     
+                     cppBlock = TheBDM.getMainBlockFromDB(blknum)
+                     pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
+                                    i in range(cppBlock.getNumTx())]
+                     for funcKey in self.newBlockFunctions:
+                        for blockFunc in self.newBlockFunctions[funcKey]:
+                           blockFunc(pyHeader, pyTxList)
+   
+      except:
+         # When getting the error info, don't collect the traceback in order to
+         # avoid circular references. https://docs.python.org/2/library/sys.html
+         # has more info.
+         LOGEXCEPT('Error in heartbeat function')
+         (errType, errVal) = sys.exc_info()[:2]
+         errStr = 'Error Type: %s\nError Value: %s' % (errType, errVal)
+         LOGERROR(errStr)
+      finally:
+         reactor.callLater(nextBeatSec, self.Heartbeat)
+   
+   
 if __name__ == "__main__":
    rpc_server = Armory_Daemon()
    rpc_server.start()
