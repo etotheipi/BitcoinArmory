@@ -10523,7 +10523,8 @@ class DlgUriCopyAndPaste(ArmoryDialog):
    def clickedOkay(self):
       uriStr = str(self.txtUriString.text())
       self.uriDict = self.main.parseUriLink(uriStr, 'enter')
-      self.accept()
+      if len(self.uriDict.keys()) > 0:
+         self.accept()
 
 
 

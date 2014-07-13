@@ -2438,10 +2438,17 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def parseUriLink(self, uriStr, clickOrEnter='click'):
+      if len(uriStr) < 1:
+         QMessageBox.critical(self, 'No URL String', \
+               'You have not entered a URL String yet. '
+               'Please go back and enter a URL String.', \
+               QMessageBox.Ok)
+         return {}
       ClickOrEnter = clickOrEnter[0].upper() + clickOrEnter[1:]
       LOGINFO('URI link clicked!')
       LOGINFO('The following URI string was parsed:')
       LOGINFO(uriStr.replace('%','%%'))
+
       uriDict = parseBitcoinURI(uriStr)
       if TheBDM.getBDMState() in ('Offline','Uninitialized'):
          LOGERROR('%sed "bitcoin:" link in offline mode.' % ClickOrEnter)
