@@ -386,25 +386,27 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       utxoDict = {}
       curTxOut = 0
       totBal = 0
+      utxoOutList = []
 
       if TheBDM.getBDMState()=='BlockchainReady':
          for u in utxoList:
             curUTXODict = {}
             curTxOut += 1
 
-            curTxOutStr = 'UTXO %05d' % curTxOut
-            utxoBal = AmountToJSON(u.getValue())
-            curUTXODict['Balance'] = utxoBal
-            curUTXODict['Confirmations'] = u.getNumConfirm()
-            curUTXODict['Hex'] = binary_to_hex(u.getOutPoint().serialize())
-            curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
-            utxoDict[curTxOutStr] = curUTXODict
-            totBal += utxoBal
+            curTxOutStr = 'utxo%05d' % curTxOut
+            utxoVal = AmountToJSON(u.getValue())
+            curUTXODict['value'] = utxoVal
+            curUTXODict['numconf'] = u.getNumConfirm()
+            curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
+            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
+            utxoOutList.append(curUTXODict)
+            totBal += utxoVal
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
 
-      utxoDict['Total UTXOs'] = curTxOut
-      utxoDict['Total Balance'] = totBal
+      utxoDict['utxolist'] = utxoOutList
+      utxoDict['numutxo'] = curTxOut
+      utxoDict['totalbalance'] = totBal
       return utxoDict
 
 
@@ -435,6 +437,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       associated with the given Base58 address, along with information about
       each UTXO.
       """
+      # TODO:  We should probably add paging to this...
 
       totalTxOuts = 0
       totalBal = 0
@@ -447,8 +450,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addrList = [a.strip() for a in inB58.split(",")] 
       curTxOut = 0
       topBlk = TheBDM.getTopBlockHeight()
+      addrBalanceMap = {}
+      utxoEntries = []
       for addrStr in addrList:
-         utxoEntries = {}
 
          # For now, prevent the caller from accidentally inducing a 20 min rescan
          # If they want the unspent list for a non-registered addr, they can
@@ -486,23 +490,27 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # properly in this case. We'll leave it out for now, along with
             # the priority, which relies on the # of confs.
             curTxOutStr = 'utxo%05d' % curTxOut
-            utxoBal = AmountToJSON(u.getValue())
-            curUTXODict['value'] = utxoBal
-            curUTXODict['numconf'] = u.getNumConfirm()
-            curUTXODict['priority'] = utxoBal * u.getNumConfirm()
+            utxoVal = AmountToJSON(u.getValue())
+            curUTXODict['value']    = utxoVal
+            curUTXODict['numconf']  = u.getNumConfirm()
+            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
             curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
-            utxoEntries[curTxOutStr] = curUTXODict
+            curUTXODict['addrstr']  = addrStr
+            utxoEntries.append(curUTXODict)
             totalTxOuts += 1
-            utxoListBal += utxoBal
+            utxoListBal += u.getValue()
+            totalBal    += u.getValue()
+
 
          # Add up the UTXO balances for each address and add it to the UTXO
          # entry dict, then add the UTXO entry dict to the master dict.
-         utxoEntries['addrbalance'] = utxoListBal
-         utxoDict[addrStr] = utxoEntries
+         addrBalanceMap[addrStr] = AmountToJSON(utxoListBal)
 
       # Let's round out the master dict with more info.
-      utxoDict['numutxo'] = totalTxOuts
-      utxoDict['allbalance'] = AmountToJSON(sumTxOutList(utxoList))
+      utxoDict['utxolist']     = utxoEntries
+      utxoDict['numutxo']      = totalTxOuts
+      utxoDict['addrbalance']  = addrBalanceMap
+      utxoDict['totalbalance'] = AmountToJSON(totalBal)
 
       return utxoDict
 
@@ -518,6 +526,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       RETURN:
       None
       """
+
+      if self.curWlt.useEncryption and not self.curWlt.isLocked():
+         raise WalletUnlockNeeded
 
       self.curWlt.importExternalAddressData(privKey=privkey)
 
@@ -2864,7 +2875,8 @@ class Armory_Daemon(object):
             # but we didn't need it here (yet), so I simply remove it and clear the
             # ZC list as if we called it
             #self.checkNewZeroConf()
-            del self.newZeroConfSinceLastUpdate[:]
+            #del self.newZeroConfSinceLastUpdate[:]
+            self.newZeroConfSinceLastUpdate = []
    
             if newBlks>0:
                self.latestBlockNum = TheBDM.getTopBlockHeight()

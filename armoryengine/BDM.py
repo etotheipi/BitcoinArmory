@@ -1160,7 +1160,17 @@ class BlockDataManagerThread(threading.Thread):
 
 
       for pyWlt in self.pyWltList:
+         # We use "calledFromBDM" to avoid deadlocking -- no other messages
+         # on the BDM queue can be processed until this function returns, but 
+         # the syncWithBlockchain call will put a request on the queue
+         # and wait for the BDM to process it.  We use "calledFromBDM" to 
+         # request that the call go around the queue, right to the self.bdm
+         # object.
+         prevCFB = pyWlt.calledFromBDM
+         pyWlt.calledFromBDM = True
          pyWlt.syncWithBlockchain()
+         pyWlt.calledFromBDM = prevCFB
+
 
       for cppWlt in self.cppWltList:
          # The pre-leveldb version of Armory specifically required to call
@@ -1177,6 +1187,10 @@ class BlockDataManagerThread(threading.Thread):
          # which only scans the registered tx that are already collected 
          # (including new blocks, but not previous blocks).  
          #
+         # NOTE:  In versions 0.90-0.92, the following paragraph is not
+         #        actually true:  we don't have supernode support.  Yet,
+         #        we never converted this back to scanRegisteredTxForWallet.
+         #        Hmmm...
          # However, with the leveldb stuff only supporting super-node, there
          # is no rescanning, thus it's safe to always call scanBlockchainForTx,
          # which grabs everything from the database almost instantaneously.  
@@ -1331,6 +1345,7 @@ class BlockDataManagerThread(threading.Thread):
    
       LOGINFO('Blockchain load and wallet sync finished')
       return (retVal, True)
+
 
    @ActLikeASingletonBDM
    def run(self):
