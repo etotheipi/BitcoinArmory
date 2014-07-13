@@ -1500,10 +1500,6 @@ def addrStr_to_scrAddr(addrStr):
    if not checkAddrStrValid(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
-   # Okay this doesn't work because of the issue outlined before, where the
-   # SCRADDR prefixes don't match the ADDRSTR prefixes.  Whoops
-   #return addrBin[:21]
-
    atype, a160 = addrStr_to_hash160(addrStr)
    if atype==ADDRBYTE:
       return SCRADDR_P2PKH_BYTE + a160
@@ -2900,11 +2896,14 @@ def getRSFromDERSig(derSig):
 
 #############################################################################
 def newBlockSyncRescanZC(bdm, wltMap, prevLedgSize):
-   for wltID in wltMap.keys():
-      wltMap[wltID].syncWithBlockchainLite()
-      bdm.rescanWalletZeroConf(wltMap[wltID].cppWallet)
-      newLedgerSize = len(wltMap[wltID].getTxLedger())
-      if prevLedgSize[wltID] != newLedgerSize:
+   newLedgSize = {}
+   for wltID,wlt in wltMap.iteritems():
+      wlt.syncWithBlockchainLite()
+      bdm.rescanWalletZeroConf(wlt.cppWallet)
+      newLedgSize[wltID] = len(wlt.getTxLedger())
+
+   for wltID,wlt in wltMap.iteritems():
+      if prevLedgSize[wltID] != newLedgSize[wltID]:
          return True
 
    return False

@@ -86,9 +86,12 @@ def catchErrsForJSON(func):
          rv['Error'] = errStr
          rv['Error Type'] = errType.__name__
          rv['Error Value'] = str(errVal) # If type has no val, this'll be blank
-         LOGERROR(errStr)
-         LOGERROR(errTypeStr)
-         LOGERROR(errValStr)
+         LOGRAWDATA(errStr)
+         LOGRAWDATA(errTypeStr)
+         LOGRAWDATA(errValStr)
+         #LOGERROR(errStr)
+         #LOGERROR(errTypeStr)
+         #LOGERROR(errValStr)
 
          # Log each error line but don't return to the user. The user really
          # doesn't need to see the trace. Also, unless directly called, the
