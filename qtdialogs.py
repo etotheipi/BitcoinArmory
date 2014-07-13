@@ -7179,7 +7179,7 @@ class DlgPrintBackup(ArmoryDialog):
          private keys when you send it to the printer.  If you turn on
          SecurePrint\xe2\x84\xa2 <u>you must write the code on the page after
          it is done printing!</u>  Turn off this feature if you copy the
-         "Root Key" and "Chaincode" by hand."""))
+         "Root Key" by hand."""))
       self.lblSecurePrint = QRichLabel(tr("""
          <b><font color="%s"><u>IMPORTANT:</u>  You must write the SecurePrint\xe2\x84\xa2
          encryption code on each printed backup page!  Your SecurePrint\xe2\x84\xa2 code is </font>
@@ -11868,7 +11868,7 @@ class DlgFragBackup(ArmoryDialog):
       dlgLayout = QVBoxLayout()
       dlgLayout.addWidget(frmDescr)
       dlgLayout.addWidget(self.scrollArea)
-      dlgLayout.addWidget(self.chkSecurePrint)
+      dlgLayout.addWidget(frmChkSP)
       dlgLayout.addWidget(self.lblSecurePrint)
       dlgLayout.addWidget(frmBottomBtn)
       setLayoutStretch(dlgLayout, 0, 1, 0, 0, 0)
