@@ -9649,12 +9649,15 @@ class DlgExportTxHistory(ArmoryDialog):
       i += 1
       dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
 
-      i += 1
-      dlgLayout.addWidget(QRichLabel('Sort Table:'), i, 0)
-      dlgLayout.addWidget(self.cmbSortSelect, i, 1)
-
-      i += 1
-      dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
+      
+      # ACR:  Had some sorting issues that seemed unnecessary, so I just 
+      #       disabled the sort option entirely.  The user can sort it
+      #       however they want once it's loaded into their spreadsheet app
+      #i += 1
+      #dlgLayout.addWidget(QRichLabel('Sort Table:'), i, 0)
+      #dlgLayout.addWidget(self.cmbSortSelect, i, 1)
+      #i += 1
+      #dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
 
       i += 1
       dlgLayout.addWidget(QRichLabel('Date Format:'), i, 0)
@@ -9759,6 +9762,7 @@ class DlgExportTxHistory(ArmoryDialog):
          row.append(allBalances)
 
       
+      """
       sortTxt = str(self.cmbSortSelect.currentText())
       if 'newest' in sortTxt:
          ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
@@ -9771,6 +9775,7 @@ class DlgExportTxHistory(ArmoryDialog):
       else:
          LOGERROR('***ERROR: bad sort string!?')
          return
+      """
 
 
       wltSelectStr = str(self.cmbWltSelect.currentText()).replace(' ', '_')
@@ -9821,10 +9826,10 @@ class DlgExportTxHistory(ArmoryDialog):
             txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
             if float(wltEffect) >= 0:
                vals.append(wltEffect.strip())
-               vals.append(' ')
-               vals.append(' ')
+               vals.append('')
+               vals.append('')
             else:
-               vals.append(' ')
+               vals.append('')
                vals.append(wltEffect.strip()[1:]) # remove negative sign
                vals.append(coin2str(txFee).strip())
 
