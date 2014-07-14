@@ -13,6 +13,7 @@ from SDM import SatoshiDaemonManager
 from armoryengine.Timer import TimeThisFunction
 import CppBlockUtils as Cpp
 from armoryengine.BinaryUnpacker import BinaryUnpacker
+from armoryengine.BinaryPacker import UINT64
 
 BDMcurrentBlock = [UINT32_MAX, 0]
 
@@ -1318,7 +1319,7 @@ class BlockDataManagerThread(threading.Thread):
             binunpacker = BinaryUnpacker(memdata)
             try:
                while binunpacker.getRemainingSize() > 0:
-                  binunpacker.get(PyTx)
+                  binunpacker.get(UINT64)
                   PyTx().unserialize(binunpacker)
             except:
                os.remove(mempoolfile)
