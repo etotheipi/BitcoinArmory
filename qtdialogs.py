@@ -9862,7 +9862,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.edtMessage = QLineEdit()
       self.edtMessage.setMaxLength(128)
       if msg:
-         self.edtMessage.setText(msg)
+         self.edtMessage.setText(msg[:128])
 
       self.edtMessage.setCursorPosition(0)
 
@@ -9878,6 +9878,7 @@ class DlgRequestPayment(ArmoryDialog):
       linkText = hex_to_binary(self.main.getSettingOrSetDefault('DefaultLinkText', defaultText))
       self.edtLinkText.setText(linkText)
       self.edtLinkText.setCursorPosition(0)
+      self.edtLinkText.setMaxLength(80)
 
       qpal = QPalette()
       qpal.setColor(QPalette.Text, Colors.TextBlue)
@@ -9965,11 +9966,11 @@ class DlgRequestPayment(ArmoryDialog):
       ttipAddress = self.main.createToolTipWidget(\
          'The person clicking the link will be sending bitcoins to this address')
       ttipMessage = self.main.createToolTipWidget(\
-         'This text will be pre-filled as the label/comment field '
-         'after the user clicks on the link. They '
-         'can modify it to meet their own needs, but you can '
-         'provide useful information such as contact details and '
-         'purchase info as a convenience to them.')
+         'This will be pre-filled as the label/comment field '
+         'after the user clicks the link. They '
+         'can modify it if desired, but you can '
+         'provide useful info such as contact details, order number, '
+         'etc, as convenience to them.')
 
 
       btnClose = QPushButton('Close')
