@@ -7175,11 +7175,12 @@ class DlgPrintBackup(ArmoryDialog):
 
       self.ttipSecurePrint = self.main.createToolTipWidget(tr("""
          SecurePrint\xe2\x84\xa2 encrypts your backup with a code displayed on
-         the screen, so that no other devices on your network see the plain
-         private keys when you send it to the printer.  If you turn on
+         the screen, so that no other devices on your network see the sensitive
+         data when you send it to the printer.  If you turn on
          SecurePrint\xe2\x84\xa2 <u>you must write the code on the page after
-         it is done printing!</u>  Turn off this feature if you copy the
-         "Root Key" by hand."""))
+         it is done printing!</u>  There is no point in using this feature if 
+         you copy the data by hand."""))
+
       self.lblSecurePrint = QRichLabel(tr("""
          <b><font color="%s"><u>IMPORTANT:</u>  You must write the SecurePrint\xe2\x84\xa2
          encryption code on each printed backup page!  Your SecurePrint\xe2\x84\xa2 code is </font>
@@ -7187,6 +7188,7 @@ class DlgPrintBackup(ArmoryDialog):
          if this code is lost!</font> """) % \
          (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
          htmlColor('TextWarn')))
+
       self.connect(self.chkSecurePrint, SIGNAL("clicked()"), self.redrawBackup)
 
 

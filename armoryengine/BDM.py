@@ -1580,8 +1580,13 @@ else:
    if OS_WINDOWS and isinstance(cppLogFile, unicode):
       cpplf = cppLogFile.encode('utf8')
    
-   TheBDM.StartCppLogging(cpplf, 4)
-   TheBDM.EnableCppLogStdOut()
+   # For C++ logging, higher levels is more logging, 0 is disabled
+   # For Python logging (in ArmoryUtils) it's reversed
+   if CLI_OPTIONS.logDisable:
+      TheBDM.StartCppLogging(cpplf, 0)
+   else:
+      TheBDM.StartCppLogging(cpplf, 4)
+      TheBDM.EnableCppLogStdOut()
 
    # 32-bit linux has an issue with max open files.  Rather than modifying
    # the system, we can tell LevelDB to take it easy with max files to open

@@ -735,19 +735,6 @@ def LOGEXCEPT(msg, *a):
 
 
 
-DEFAULT_CONSOLE_LOGTHRESH = logging.WARNING
-DEFAULT_FILE_LOGTHRESH    = logging.INFO
-
-DEFAULT_PPRINT_LOGLEVEL   = logging.DEBUG
-DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
-
-rootLogger = logging.getLogger('')
-if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
-   # Drop it all one level: console will see INFO, file will see DEBUG
-   DEFAULT_CONSOLE_LOGTHRESH  -= 20
-   DEFAULT_FILE_LOGTHRESH     -= 20
-
-
 def chopLogFile(filename, size):
    if not os.path.exists(filename):
       print 'Log file doesn\'t exist [yet]'
@@ -775,6 +762,23 @@ chopLogFile(ARMORY_LOG_FILE, 1024*1024)
 
 
 # Now set loglevels
+DEFAULT_CONSOLE_LOGTHRESH = logging.WARNING
+DEFAULT_FILE_LOGTHRESH    = logging.INFO
+
+DEFAULT_PPRINT_LOGLEVEL   = logging.DEBUG
+DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
+
+rootLogger = logging.getLogger('')
+if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
+   # Drop it all one level: console will see INFO, file will see DEBUG
+   DEFAULT_CONSOLE_LOGTHRESH  -= 20
+   DEFAULT_FILE_LOGTHRESH     -= 20
+
+if CLI_OPTIONS.logDisable:
+   DEFAULT_CONSOLE_LOGTHRESH  += 100
+   DEFAULT_FILE_LOGTHRESH     += 100
+
+
 DateFormat = '%Y-%m-%d %H:%M'
 logging.getLogger('').setLevel(logging.DEBUG)
 fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(message)s', \
