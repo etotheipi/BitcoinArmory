@@ -446,7 +446,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
    Creates a message box with custom button text and icon
    """
 
-   class dlgWarn(QDialog):
+   class dlgWarn(ArmoryDialog):
       def __init__(self, dtype, dtitle, wmsg, withCancel=False, yesStr=None, noStr=None):
          super(dlgWarn, self).__init__(None)
          
@@ -531,7 +531,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
    checkbox.  Will return a pair  (response, DNAA-is-checked)
    """
 
-   class dlgWarn(QDialog):
+   class dlgWarn(ArmoryDialog):
       def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
          super(dlgWarn, self).__init__(None)
          

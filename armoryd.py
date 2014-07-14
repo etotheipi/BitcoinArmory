@@ -320,26 +320,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       for entry in ledgerEntries:
          cppTx = TheBDM.getTxByHash(entry.getTxHash())
          if cppTx.isInitialized():
-            txBinary = cppTx.serialize()
-            pyTx = PyTx().unserialize(txBinary)
-            inputsFromSender = 0
-            for txin in pyTx.inputs:
-               txInAddr = TxInExtractAddrStrIfAvail(txin)
-               if sender == txInAddr:
-                  inputsFromSender += 1
+            # Only consider the first for determining received from address
+            # This function should assume it is online, and actually request the previous
+            # TxOut script from the BDM -- which guarantees we know the sender.  
+            # Use TheBDM.getSenderScrAddr(txin).  This takes a C++ txin (which we have)
+            # and it will grab the TxOut being spent by that TxIn and return the
+            # scraddr of it.  This will succeed 100% of the time.
+            cppTxin = cppTx.getTxInCopy(0)
+            txInAddr = scrAddr_to_addrStr(TheBDM.getSenderScrAddr(cppTxin))
+            fromSender =  sender == txInAddr
 
-            if inputsFromSender == len(pyTx.inputs):
+            if fromSender:
+               txBinary = cppTx.serialize()
+               pyTx = PyTx().unserialize(txBinary)
                for txout in pyTx.outputs:
                   if self.curWlt.hasAddr(script_to_addrStr(txout.getScript())):
                      totalReceived += txout.value
-            elif inputsFromSender > 0:
-               # Some inputs are from the sender and other are not
-               # TODO: Find the best way to handle this case
-               # for now require all inputs to be from the sender to be included
-               # in the tally
-               LOGERROR('Inputs not from the sender are detected. 0 will be ' \
-                        'returned.')
-               pass
 
       return AmountToJSON(totalReceived)
 
@@ -386,25 +382,33 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       utxoDict = {}
       curTxOut = 0
       totBal = 0
+      utxoOutList = []
 
       if TheBDM.getBDMState()=='BlockchainReady':
          for u in utxoList:
             curUTXODict = {}
             curTxOut += 1
 
-            curTxOutStr = 'UTXO %05d' % curTxOut
-            utxoBal = AmountToJSON(u.getValue())
-            curUTXODict['Balance'] = utxoBal
-            curUTXODict['Confirmations'] = u.getNumConfirm()
-            curUTXODict['Hex'] = binary_to_hex(u.getOutPoint().serialize())
-            curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
-            utxoDict[curTxOutStr] = curUTXODict
-            totBal += utxoBal
+            curTxOutStr = 'utxo%05d' % curTxOut
+            utxoVal = AmountToJSON(u.getValue())
+            curUTXODict['value'] = utxoVal
+            curUTXODict['numconf'] = u.getNumConfirm()
+            curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
+            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
+            try:
+               curUTXODict['addrstr']  = script_to_addrStr(u.getScript())
+            except:
+               LOGEXCEPT('Error parse UTXO script -- multisig or non-standard')
+               curUTXODict['addrstr']  = ''
+
+            utxoOutList.append(curUTXODict)
+            totBal += utxoVal
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
 
-      utxoDict['Total UTXOs'] = curTxOut
-      utxoDict['Total Balance'] = totBal
+      utxoDict['utxolist'] = utxoOutList
+      utxoDict['numutxo'] = curTxOut
+      utxoDict['totalbalance'] = totBal
       return utxoDict
 
 
@@ -435,6 +439,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       associated with the given Base58 address, along with information about
       each UTXO.
       """
+      # TODO:  We should probably add paging to this...
 
       totalTxOuts = 0
       totalBal = 0
@@ -447,8 +452,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addrList = [a.strip() for a in inB58.split(",")] 
       curTxOut = 0
       topBlk = TheBDM.getTopBlockHeight()
+      addrBalanceMap = {}
+      utxoEntries = []
       for addrStr in addrList:
-         utxoEntries = {}
 
          # For now, prevent the caller from accidentally inducing a 20 min rescan
          # If they want the unspent list for a non-registered addr, they can
@@ -459,7 +465,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
             # Already checked it's registered, regardless if in a loaded wallet
-            utxoList = getUnspentTxOutsForAddr160List([a160], 'spendable')
+            utxoList = getUnspentTxOutsForAddr160List([a160], 'spendable', 0)
          elif atype==P2SHBYTE:
             # For P2SH, we'll require we have a loaded lockbox
             lbox = self.getLockboxByP2SHAddrStr(addrStr)
@@ -486,23 +492,27 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # properly in this case. We'll leave it out for now, along with
             # the priority, which relies on the # of confs.
             curTxOutStr = 'utxo%05d' % curTxOut
-            utxoBal = AmountToJSON(u.getValue())
-            curUTXODict['value'] = utxoBal
-            curUTXODict['numconf'] = u.getNumConfirm()
-            curUTXODict['priority'] = utxoBal * u.getNumConfirm()
+            utxoVal = AmountToJSON(u.getValue())
+            curUTXODict['value']    = utxoVal
+            curUTXODict['numconf']  = u.getNumConfirm()
+            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
             curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
-            utxoEntries[curTxOutStr] = curUTXODict
+            curUTXODict['addrstr']  = addrStr
+            utxoEntries.append(curUTXODict)
             totalTxOuts += 1
-            utxoListBal += utxoBal
+            utxoListBal += u.getValue()
+            totalBal    += u.getValue()
+
 
          # Add up the UTXO balances for each address and add it to the UTXO
          # entry dict, then add the UTXO entry dict to the master dict.
-         utxoEntries['addrbalance'] = utxoListBal
-         utxoDict[addrStr] = utxoEntries
+         addrBalanceMap[addrStr] = AmountToJSON(utxoListBal)
 
       # Let's round out the master dict with more info.
-      utxoDict['numutxo'] = totalTxOuts
-      utxoDict['allbalance'] = AmountToJSON(sumTxOutList(utxoList))
+      utxoDict['utxolist']     = utxoEntries
+      utxoDict['numutxo']      = totalTxOuts
+      utxoDict['addrbalance']  = addrBalanceMap
+      utxoDict['totalbalance'] = AmountToJSON(totalBal)
 
       return utxoDict
 
@@ -518,6 +528,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       RETURN:
       None
       """
+
+      if self.curWlt.useEncryption and not self.curWlt.isLocked():
+         raise WalletUnlockNeeded
 
       self.curWlt.importExternalAddressData(privKey=privkey)
 
@@ -860,14 +873,36 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                          'ultimate','unspent', 'full']:
-         LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
-      else:
-         # For now, allow only Base58 addresses.
-         a160 = addrStr_to_hash160(inB58, False)[1]
-         if self.curWlt.addrMap.has_key(a160):
-            retVal = AmountToJSON(self.curWlt.getAddrBalance(a160, baltype))
+         raise BadInputError('Unrecognized getaddrbalance type: %s' % baltype) 
 
-      return retVal
+
+      topBlk = TheBDM.getTopBlockHeight()
+      addrList = [a.strip() for a in inB58.split(",")] 
+      retBalance = 0
+      for addrStr in addrList:
+      
+         if not TheBDM.scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
+            raise BitcoindError('Address is not registered, requires rescan')
+
+         atype,a160 = addrStr_to_hash160(addrStr)
+         if atype==ADDRBYTE:
+            # Already checked it's registered, regardless if in a loaded wallet
+            utxoList = getUnspentTxOutsForAddr160List([a160], baltype, 0)
+         elif atype==P2SHBYTE:
+            # For P2SH, we'll require we have a loaded lockbox
+            lbox = self.getLockboxByP2SHAddrStr(addrStr)
+            if not lbox:
+               raise BitcoindError('Import lockbox before getting P2SH unspent')
+
+            # We simply grab the UTXO list for the lbox, both p2sh and multisig
+            cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
+            utxoList = cppWallet.getSpendableTxOutList(topBlk, IGNOREZC)
+         else:
+            raise NetworkIDError('Addr for the wrong network!')
+         
+         retBalance += sumTxOutList(utxoList)
+
+      return AmountToJSON(retBalance)
 
 
    #############################################################################
@@ -2861,7 +2896,8 @@ class Armory_Daemon(object):
             # but we didn't need it here (yet), so I simply remove it and clear the
             # ZC list as if we called it
             #self.checkNewZeroConf()
-            del self.newZeroConfSinceLastUpdate[:]
+            #del self.newZeroConfSinceLastUpdate[:]
+            self.newZeroConfSinceLastUpdate = []
    
             if newBlks>0:
                self.latestBlockNum = TheBDM.getTopBlockHeight()

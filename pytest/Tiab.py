@@ -4,6 +4,9 @@ import sys
 # TODO: Fix the code base so that nothing is started during imports.
 sys.argv.append('--testnet')
 sys.argv.append('--debug')
+import armoryengine
+sys.argv.pop()
+sys.argv.pop()
 
 import os
 import time
