@@ -873,14 +873,36 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                          'ultimate','unspent', 'full']:
-         LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
-      else:
-         # For now, allow only Base58 addresses.
-         a160 = addrStr_to_hash160(inB58, False)[1]
-         if self.curWlt.addrMap.has_key(a160):
-            retVal = AmountToJSON(self.curWlt.getAddrBalance(a160, baltype))
+         raise BadInputError('Unrecognized getaddrbalance type: %s' % baltype) 
 
-      return retVal
+
+      topBlk = TheBDM.getTopBlockHeight()
+      addrList = [a.strip() for a in inB58.split(",")] 
+      retBalance = 0
+      for addrStr in addrList:
+      
+         if not TheBDM.scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
+            raise BitcoindError('Address is not registered, requires rescan')
+
+         atype,a160 = addrStr_to_hash160(addrStr)
+         if atype==ADDRBYTE:
+            # Already checked it's registered, regardless if in a loaded wallet
+            utxoList = getUnspentTxOutsForAddr160List([a160], baltype, 0)
+         elif atype==P2SHBYTE:
+            # For P2SH, we'll require we have a loaded lockbox
+            lbox = self.getLockboxByP2SHAddrStr(addrStr)
+            if not lbox:
+               raise BitcoindError('Import lockbox before getting P2SH unspent')
+
+            # We simply grab the UTXO list for the lbox, both p2sh and multisig
+            cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
+            utxoList = cppWallet.getSpendableTxOutList(topBlk, IGNOREZC)
+         else:
+            raise NetworkIDError('Addr for the wrong network!')
+         
+         retBalance += sumTxOutList(utxoList)
+
+      return AmountToJSON(retBalance)
 
 
    #############################################################################

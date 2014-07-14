@@ -3119,13 +3119,16 @@ class PyBtcWallet(object):
       outjson['name']             = self.labelName
       outjson['description']      = self.labelDescr
       outjson['walletversion']    = getVersionString(PYBTCWALLET_VERSION)
-      outjson['balance']          =  AmountToJSON(self.getBalance('Spend'))
-      outjson['keypoolsize']      =  self.addrPoolSize
+      outjson['balance']          = AmountToJSON(self.getBalance('Spend'))
+      outjson['keypoolsize']      = self.addrPoolSize
       outjson['numaddrgen']       = len(self.addrMap)
       outjson['highestusedindex'] = self.highestUsedChainIndex
       outjson['watchingonly']     = self.watchingOnly
       outjson['createdate']       = self.wltCreateDate
       outjson['walletid']         = self.uniqueIDB58
+      outjson['isencrypted']      = self.useEncryption
+      outjson['islocked']         = self.isLocked if self.useEncryption else False
+      outjson['keylifetime']      = self.defaultKeyLifetime
 
       return outjson
 
@@ -3146,6 +3149,7 @@ class PyBtcWallet(object):
          LOGWARN('Unserializing wallet of different version')
          LOGWARN('   Wallet Version: %d' % jsonVer)
          LOGWARN('   Armory Version: %d' % UNSIGNED_TX_VERSION)
+
 
 
 ###############################################################################
