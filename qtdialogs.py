@@ -1952,7 +1952,12 @@ class DlgWalletDetails(ArmoryDialog):
    def dblClickAddressView(self, index):
       model = index.model()
       if index.column() == ADDRESSCOLS.Comment:
+         # Update the address's comment. We apparently need to reset the model
+         # to get an immediate comment update on OS X, unlike Linux or Windows.
          self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
+         if OS_MACOSX:
+            self.wltAddrView.reset()
+
       else:
          addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
          atype, addr160 = addrStr_to_hash160(addrStr, False)
