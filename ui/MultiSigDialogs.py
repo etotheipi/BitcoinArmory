@@ -1238,6 +1238,7 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout.setColumnStretch(2,1)
       frmSingleLayout.setColumnStretch(3,1)
       frmSingleLayout.setSpacing(1)
+      frmSingleLayout.setColumnMinimumWidth(0,100)
 
       frmSingle.setLayout(frmSingleLayout)
       frmSingle.setFrameStyle(STYLE_STYLED)
@@ -1270,6 +1271,9 @@ class DlgLockboxManager(ArmoryDialog):
       frmMultiLayout.setColumnStretch(2,1)
       frmMultiLayout.setColumnStretch(3,1)
       frmMultiLayout.setSpacing(1)
+      frmMultiLayout.setRowMinimumHeight(1,100)
+      frmMultiLayout.setRowMinimumHeight(2,100)
+      frmMultiLayout.setColumnMinimumWidth(0,100)
 
       frmMulti.setLayout(frmMultiLayout)
       frmMulti.setFrameStyle(STYLE_STYLED)
