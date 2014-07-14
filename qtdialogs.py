@@ -6033,7 +6033,7 @@ class DlgDispTxInfo(ArmoryDialog):
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '
-                     'this transaction entered the blockchain.  A transaciton '
+                     'this transaction entered the blockchain.  A transaction '
                      'with 6 or more confirmations is nearly impossible to reverse.'))
                lbls[-1].append(QLabel('Confirmations:'))
                lbls[-1].append(QRichLabel(str(nConf)))
