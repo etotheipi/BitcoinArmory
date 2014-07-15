@@ -2631,8 +2631,8 @@ class Armory_Daemon(object):
          with open(passwordfile,'a') as f:
             # Don't wait for Python or the OS to write the file. Flush buffers.
             try:
-               genVal = SecureBinaryData().GenerateRandom(32).toBinStr()
-               f.write('generated_by_armory:%s' % binary_to_base58(genVal))
+               genVal = SecureBinaryData().GenerateRandom(32)
+               f.write('generated_by_armory:%s' % binary_to_base58(genVal.toBinStr()))
                f.flush()
                os.fsync(f.fileno())
             finally:
