@@ -621,9 +621,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
       else:
-         sbdPassphrase = SecureBinaryData(str(passphrase))
-         self.curWlt.changeWalletEncryption(securePassphrase=sbdPassphrase)
-         self.curWlt.lock()
+         try:
+            self.sbdPassphrase = SecureBinaryData(str(passphrase))
+            self.curWlt.changeWalletEncryption(securePassphrase=self.sbdPassphrase)
+            self.curWlt.lock()
+         finally:
+            self.sbdPassphrase.destroy() # Ensure SBD is destroyed.
 
       return retStr
 
@@ -646,9 +649,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       retStr = 'Wallet %s is already unlocked.' % self.curWlt
 
       if self.curWlt.isLocked:
-         self.curWlt.unlock(securePassphrase=SecureBinaryData(str(passphrase)),
-                            tempKeyLifetime=int(timeout))
-         retStr = 'Wallet %s has been unlocked.' % self.curWlt
+         try:
+            self.sbdPassphrase = SecureBinaryData(str(passphrase))
+            self.curWlt.unlock(securePassphrase=self.sbdPassphrase,
+                               tempKeyLifetime=int(timeout))
+            retStr = 'Wallet %s has been unlocked.' % self.curWlt
+         finally:
+            self.sbdPassphrase.destroy() # Ensure SBD is destroyed.
 
       return retStr
 
@@ -2284,17 +2291,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # If the wallet is encrypted, attempt to decrypt it.
       decrypted = False
       if self.curWlt.useEncryption:
-         passwd = SecureBinaryData(str(wltPasswd))
-         if not self.curWlt.verifyPassphrase(passwd):
-            LOGERROR('Passphrase was incorrect! Wallet could not be ' \
-                     'unlocked. Signed transaction will not be created.')
-            retStr = 'Passphrase was incorrect! Wallet could not be ' \
-                     'unlocked. Signed transaction will not be created.'
-         else:
-            self.curWlt.unlock(securePassphrase=passwd)
-            decrypted = True
-
-         passwd.destroy()
+         try:
+            passwd = SecureBinaryData(str(wltPasswd))
+            if not self.curWlt.verifyPassphrase(passwd):
+               LOGERROR('Passphrase was incorrect! Wallet could not be ' \
+                        'unlocked. Signed transaction will not be created.')
+               retStr = 'Passphrase was incorrect! Wallet could not be ' \
+                        'unlocked. Signed transaction will not be created.'
+            else:
+               self.curWlt.unlock(securePassphrase=passwd)
+               decrypted = True
+         finally:
+            passwd.destroy()
 
       # If the wallet's unencrypted, we want to continue.
       else:
@@ -2622,10 +2630,13 @@ class Armory_Daemon(object):
       if not os.path.exists(passwordfile):
          with open(passwordfile,'a') as f:
             # Don't wait for Python or the OS to write the file. Flush buffers.
-            genVal = SecureBinaryData().GenerateRandom(32).toBinStr()
-            f.write('generated_by_armory:%s' % binary_to_base58(genVal))
-            f.flush()
-            os.fsync(f.fileno())
+            try:
+               genVal = SecureBinaryData().GenerateRandom(32).toBinStr()
+               f.write('generated_by_armory:%s' % binary_to_base58(genVal))
+               f.flush()
+               os.fsync(f.fileno())
+            finally:
+               genVal.destroy()
 
       checker = FilePasswordDB(passwordfile)
       realmName = "Armory JSON-RPC App"

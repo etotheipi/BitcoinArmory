@@ -510,12 +510,7 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
       self.assertRaises(UnpackerError, bu.get, UNKNOWN_TYPE)
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)
 
-
-
-
-
-
-
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testArmoryEngine']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

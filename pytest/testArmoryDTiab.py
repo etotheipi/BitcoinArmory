@@ -442,24 +442,23 @@ class ArmoryDTiabTest(TiabTest):
    def testListUnspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
 
-      self.assertEqual(len(actualResult), 7)
-      self.assertEqual(actualResult['Total Balance'], EXPECTED_UNSPENT_TX_TOT)
-      self.assertEqual(actualResult['Total UTXOs'], 5)
-      self.assertEqual(actualResult['UTXO 00001']['Balance'], \
+      self.assertEqual(actualResult['totalbalance'], EXPECTED_UNSPENT_TX_TOT)
+      self.assertEqual(actualResult['numutxo'], 5)
+      self.assertEqual(actualResult['utxolist'][0]['value'], \
                        EXPECTED_UNSPENT_TX1_BAL)
-      self.assertEqual(actualResult['UTXO 00001']['Confirmations'], \
+      self.assertEqual(actualResult['utxolist'][0]['numconf'], \
                        EXPECTED_UNSPENT_TX1_CONF)
-      self.assertEqual(actualResult['UTXO 00001']['Hex'], \
+      self.assertEqual(actualResult['utxolist'][0]['outpoint'], \
                        EXPECTED_UNSPENT_TX1_HEX)
-      self.assertEqual(actualResult['UTXO 00001']['Priority'], \
+      self.assertEqual(actualResult['utxolist'][0]['priority'], \
                        EXPECTED_UNSPENT_TX1_PRI)
-      self.assertEqual(actualResult['UTXO 00005']['Balance'], \
+      self.assertEqual(actualResult['utxolist'][4]['value'], \
                        EXPECTED_UNSPENT_TX5_BAL)
-      self.assertEqual(actualResult['UTXO 00005']['Confirmations'], \
+      self.assertEqual(actualResult['utxolist'][4]['numconf'], \
                        EXPECTED_UNSPENT_TX5_CONF)
-      self.assertEqual(actualResult['UTXO 00005']['Hex'], \
+      self.assertEqual(actualResult['utxolist'][4]['outpoint'], \
                        EXPECTED_UNSPENT_TX5_HEX)
-      self.assertEqual(actualResult['UTXO 00005']['Priority'], \
+      self.assertEqual(actualResult['utxolist'][4]['priority'], \
                        EXPECTED_UNSPENT_TX5_PRI)
 
 
@@ -468,32 +467,14 @@ class ArmoryDTiabTest(TiabTest):
       totBal = TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8
       actualResult = self.jsonServer.jsonrpc_listaddrunspent(totStr)
 
-      self.assertEqual(len(actualResult), 4)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['addrbalance'], \
+      self.assertEqual(actualResult['addrbalance'][TIAB_WLT_1_ADDR_3], \
                        TIAB_WLT_1_PK_UTXO_BAL_3)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Confirmations'], \
-      #                 EXPECTED_UNSPENT_TX2_CONF)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Hex'], \
-      #                 TIAB_WLT_1_PK_UTXO_HEX_3)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Priority'], \
-      #                 EXPECTED_UNSPENT_TX2_PRI)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['addrbalance'], \
+      self.assertEqual(actualResult['addrbalance'][TIAB_WLT_1_ADDR_8], \
                        TIAB_WLT_1_PK_UTXO_BAL_8)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Confirmations'], \
-      #                 EXPECTED_UNSPENT_TX2_CONF)
-      # self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Hex'], \
-      #                 TIAB_WLT_1_PK_UTXO_HEX_8)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Priority'], \
-      #                 EXPECTED_UNSPENT_TX2_PRI)
-
       # NB: Ideally, the TAB asserts would be against addresses with multiple
       # UTXOs. As is, this test case works but could be better.
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['Total Address Balance'], \
-                       TIAB_WLT_1_PK_UTXO_BAL_3)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['Total Address Balance'], \
-                       TIAB_WLT_1_PK_UTXO_BAL_8)
-      self.assertEqual(actualResult['Total UTXOs'], 2)
-      self.assertEqual(actualResult['Total UTXO Balance'], totBal)
+      self.assertEqual(actualResult['totalbalance'], TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8 )
+      self.assertEqual(actualResult['numutxo'], 2)
 
 
    def testGetNewAddress(self):
@@ -515,7 +496,7 @@ class ArmoryDTiabTest(TiabTest):
          self.assertEqual(result,
                           AmountToJSON(self.wltA.getBalance(balanceType)))
 
-
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

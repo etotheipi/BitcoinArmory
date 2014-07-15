@@ -95,7 +95,7 @@ class SplitSecretTest(TiabTest):
       print 'Splitting secret took: %0.5f sec' % tsplit
       print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
 
-
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

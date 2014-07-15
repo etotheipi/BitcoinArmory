@@ -3,10 +3,9 @@ import sys
 # If not, it will run the tests in Mainnet.
 # TODO: Fix the code base so that nothing is started during imports.
 sys.argv.append('--testnet')
-sys.argv.append('--debug')
-import armoryengine
-sys.argv.pop()
-sys.argv.pop()
+# Uncomment when debugging
+# sys.argv.append('--debug')
+sys.argv.append('--nologging')
 
 import os
 import time

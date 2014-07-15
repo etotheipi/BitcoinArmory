@@ -1238,6 +1238,7 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout.setColumnStretch(2,1)
       frmSingleLayout.setColumnStretch(3,1)
       frmSingleLayout.setSpacing(1)
+      frmSingleLayout.setColumnMinimumWidth(0,100)
 
       frmSingle.setLayout(frmSingleLayout)
       frmSingle.setFrameStyle(STYLE_STYLED)
@@ -1270,6 +1271,9 @@ class DlgLockboxManager(ArmoryDialog):
       frmMultiLayout.setColumnStretch(2,1)
       frmMultiLayout.setColumnStretch(3,1)
       frmMultiLayout.setSpacing(1)
+      frmMultiLayout.setRowMinimumHeight(1,100)
+      frmMultiLayout.setRowMinimumHeight(2,100)
+      frmMultiLayout.setColumnMinimumWidth(0,100)
 
       frmMulti.setLayout(frmMultiLayout)
       frmMulti.setFrameStyle(STYLE_STYLED)
@@ -1395,7 +1399,10 @@ class DlgLockboxManager(ArmoryDialog):
 
       if True:  actionCopyAddr    = menu.addAction("Copy P2SH address")
       if True:  actionShowQRCode  = menu.addAction("Display address QR code")
-      if not USE_TESTNET:  actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
+      if not USE_TESTNET:
+         actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
+      else:
+         actionBlkChnInfo = None
       if True:  actionReqPayment  = menu.addAction("Request payment to this lockbox")
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
@@ -3553,19 +3560,25 @@ class DlgMergePromNotes(ArmoryDialog):
 
       btnCancel = QPushButton(tr('Cancel'))
       self.chkBareMS = QCheckBox(tr('Use bare multisig (no P2SH)'))
+      self.ttipBareMS = self.main.createToolTipWidget(\
+         'Check this box to make the Multi-Sig public keys'
+         ' transparent in the blockchain.')
       btnFinish = QPushButton(tr('Continue'))
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       self.connect(btnFinish, SIGNAL('clicked()'), self.mergeNotesCreateUSTX)
       frmButtons = makeHorizFrame([btnCancel, 
                                    'Stretch', 
                                    self.chkBareMS, 
+                                   self.ttipBareMS,
                                    btnFinish])
 
       # If this was opened with default lockbox, set visibility, save ms script
       # If opened generic, this will be set first time importNote() is called
       self.chkBareMS.setVisible(False)
+      self.ttipBareMS.setVisible(False)
       if self.lbox is not None:
          self.chkBareMS.setVisible(True)
+         self.ttipBareMS.setVisible(True)
          self.msTarget = self.lbox.binScript   
 
       
@@ -3660,6 +3673,7 @@ class DlgMergePromNotes(ArmoryDialog):
          # then provide the option to use bare multi-sig (which may be 
          # desriable in certain contexts).
          self.chkBareMS.setVisible(False)
+         self.ttipBareMS.setVisible(False)
          for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
             if cppWlt.hasScrAddress(promTarget):
                LOGINFO('Have lockbox for the funding target: %s' % lbID)
@@ -3667,7 +3681,8 @@ class DlgMergePromNotes(ArmoryDialog):
                if lb and lb.binScript and \
                       getTxOutScriptType(lb.binScript)==CPP_TXOUT_MULTISIG:
                   self.msTarget = lb.binScript   
-                  self.chkBareMS.setVisible(True)                   
+                  self.chkBareMS.setVisible(True)  
+                  self.ttipBareMS.setVisible(True)                 
                   break
                
 
