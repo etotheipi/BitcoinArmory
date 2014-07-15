@@ -3560,19 +3560,25 @@ class DlgMergePromNotes(ArmoryDialog):
 
       btnCancel = QPushButton(tr('Cancel'))
       self.chkBareMS = QCheckBox(tr('Use bare multisig (no P2SH)'))
+      self.ttipBareMS = self.main.createToolTipWidget(\
+         'Check this box to make the Multi-Sig public keys'
+         ' transparent in the blockchain.')
       btnFinish = QPushButton(tr('Continue'))
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       self.connect(btnFinish, SIGNAL('clicked()'), self.mergeNotesCreateUSTX)
       frmButtons = makeHorizFrame([btnCancel, 
                                    'Stretch', 
                                    self.chkBareMS, 
+                                   self.ttipBareMS,
                                    btnFinish])
 
       # If this was opened with default lockbox, set visibility, save ms script
       # If opened generic, this will be set first time importNote() is called
       self.chkBareMS.setVisible(False)
+      self.ttipBareMS.setVisible(False)
       if self.lbox is not None:
          self.chkBareMS.setVisible(True)
+         self.ttipBareMS.setVisible(True)
          self.msTarget = self.lbox.binScript   
 
       
@@ -3667,6 +3673,7 @@ class DlgMergePromNotes(ArmoryDialog):
          # then provide the option to use bare multi-sig (which may be 
          # desriable in certain contexts).
          self.chkBareMS.setVisible(False)
+         self.ttipBareMS.setVisible(False)
          for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
             if cppWlt.hasScrAddress(promTarget):
                LOGINFO('Have lockbox for the funding target: %s' % lbID)
@@ -3674,7 +3681,8 @@ class DlgMergePromNotes(ArmoryDialog):
                if lb and lb.binScript and \
                       getTxOutScriptType(lb.binScript)==CPP_TXOUT_MULTISIG:
                   self.msTarget = lb.binScript   
-                  self.chkBareMS.setVisible(True)                   
+                  self.chkBareMS.setVisible(True)  
+                  self.ttipBareMS.setVisible(True)                 
                   break
                
 

@@ -8419,6 +8419,10 @@ class DlgAddressBook(ArmoryDialog):
       self.btnSelectWlt = QPushButton('No Wallet Selected')
       self.useBareMultiSigCheckBox = QCheckBox('Use Bare Multi-Sig (No P2SH)')
       self.useBareMultiSigCheckBox.setVisible(False)
+      self.ttipBareMS = self.main.createToolTipWidget(\
+         'Check this box to make the Multi-Sig public keys'
+         ' transparent in the blockchain.')
+      self.ttipBareMS.setVisible(False)
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
       self.btnSelectAddr.setEnabled(False)
@@ -8426,7 +8430,6 @@ class DlgAddressBook(ArmoryDialog):
 
       if self.isBrowsingOnly:
          self.btnSelectWlt.setVisible(False)
-         self.useBareMultiSigCheckBox.setVisible(False)
          self.btnSelectAddr.setVisible(False)
          self.lblSelectWlt.setVisible(False)
          btnCancel = QPushButton('<<< Go Back')
@@ -8453,7 +8456,7 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(HLINE(), 5, 0)
       dlgLayout.addWidget(lblToAddr, 6, 0)
       dlgLayout.addWidget(self.tabWidget, 7, 0)
-      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.btnSelectAddr]), 8, 0)
+      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.ttipBareMS, self.btnSelectAddr]), 8, 0)
       dlgLayout.addWidget(HLINE(), 9, 0)
       dlgLayout.addWidget(makeHorizFrame([btnCancel, STRETCH]), 10, 0)
       dlgLayout.setRowStretch(3, 1)
@@ -8546,6 +8549,7 @@ class DlgAddressBook(ArmoryDialog):
       if not self.isBrowsingOnly:
          if self.tabWidget.currentWidget() == self.lboxView:
             self.useBareMultiSigCheckBox.setVisible(self.btnSelectAddr.isVisible())
+            self.ttipBareMS.setVisible(self.btnSelectAddr.isVisible())
             selectedLockBox = self.getSelectedLBID()
             self.btnSelectAddr.setEnabled(selectedLockBox != None)
             if selectedLockBox:
@@ -8556,6 +8560,7 @@ class DlgAddressBook(ArmoryDialog):
                self.disableSelectButtons()
          elif self.tabWidget.currentWidget() == self.addrBookTxView:
             self.useBareMultiSigCheckBox.setVisible(False)
+            self.ttipBareMS.setVisible(False)
             selection = self.addrBookTxView.selectedIndexes()
             if len(selection)==0:
                self.disableSelectButtons()
@@ -8563,6 +8568,7 @@ class DlgAddressBook(ArmoryDialog):
                self.addrTableTxClicked(selection[0])
          elif self.tabWidget.currentWidget() == self.addrBookRxView:
             self.useBareMultiSigCheckBox.setVisible(False)
+            self.ttipBareMS.setVisible(False)
             selection = self.addrBookRxView.selectedIndexes()
             if len(selection)==0:
                self.disableSelectButtons()
