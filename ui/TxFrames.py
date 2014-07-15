@@ -1606,8 +1606,9 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             'Transaction data is invalid and cannot be shown!', QMessageBox.Ok)
          return
 
+      leVal = 0 if self.leValue is None else -self.leValue
       dlgTxInfo = DlgDispTxInfo(self.ustxObj, self.wlt, self.parent(), self.main, \
-                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue, txtime=-1)
+                          precomputeIdxGray=self.idxSelf, precomputeAmt=leVal, txtime=-1)
       dlgTxInfo.exec_()
 
 
