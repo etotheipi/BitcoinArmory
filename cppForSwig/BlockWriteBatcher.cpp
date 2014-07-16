@@ -550,9 +550,12 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    // This tx itself needs to be added to the map, which makes it accessible 
    // to future tx in the same block which spend outputs from this tx, without
    // doing anything crazy in the code here
-   //stxToModify_[tx.getThisHash()] = thisSTX;
 
-   dbUpdateSize_ += thisSTX.numBytes_;
+   if (config_.armoryDbType == ARMORY_DB_SUPER)
+   {
+      stxToModify_[tx.getThisHash()] = thisSTX;
+      dbUpdateSize_ += thisSTX.numBytes_;
+   }
    
    // Go through and find all the previous TxOuts that are affected by this tx
    BinaryData txInScrAddr;
@@ -616,7 +619,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          }
       }
 
-      stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX));
+      if(stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX)).second == true)
+         dbUpdateSize_ += thisSTX.numBytes_;
+
 
       // This will fetch the STX from DB and put it in the stxToModify
       // map if it's not already there.  Or it will do nothing if it's
@@ -704,7 +709,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          scrAddrData->addUTxO(stxoToAdd.getDBKey(false));
       }
       
-      stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX));
+      if (stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX)).second == true)
+         dbUpdateSize_ += thisSTX.numBytes_;
 
       StoredScriptHistory* sshptr = makeSureSSHInMap(
             iface_,

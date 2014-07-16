@@ -29,12 +29,16 @@ uint64_t ScrAddrObj::getSpendableBalance(
    uint32_t currBlk, bool ignoreAllZC
 ) const
 {
-   uint64_t balance = 0;
-   for(auto txio : relevantTxIO_)
+   //ignoreing the currBlk for now, until the partial history loading is solid
+   uint64_t balance = getFullBalance();
+
+   for (auto txio : relevantTxIO_)
    {
-     if(txio.second.isSpendable(db_, currBlk, ignoreAllZC))
-         balance += txio.second.getValue();
+      if (!txio.second.isSpendable(db_, currBlk, ignoreAllZC) && 
+          !txio.second.hasTxIn())
+         balance -= txio.second.getValue();
    }
+
    return balance;
 }
 
@@ -56,10 +60,15 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getFullBalance() const
 {
-   uint64_t balance = 0;
-   for(auto txio : relevantTxIO_)
+   StoredScriptHistory ssh;
+   db_->getStoredScriptHistorySummary(ssh, scrAddr_);
+   uint64_t balance = ssh.getScriptBalance(false);
+
+   for (auto txio : relevantTxIO_)
    {
-      if(txio.second.isUnspent(db_))
+      if (txio.second.hasTxInZC())
+         balance -= txio.second.getValue();
+      else if (txio.second.hasTxOutZC())
          balance += txio.second.getValue();
    }
    return balance;
