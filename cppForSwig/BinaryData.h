@@ -779,7 +779,7 @@ public:
 
       if(start_pos + nChar > nBytes_)
       {
-         cerr << "getSliceRef: Invalid BinaryData access" << endl;
+         //cerr << "getSliceRef: Invalid BinaryData access" << endl;
          return BinaryDataRef();
       }
       return BinaryDataRef( getPtr()+start_pos, nChar);
@@ -793,7 +793,7 @@ public:
 
       if(start_pos + nChar > nBytes_)
       {
-         cerr << "getSliceRef: Invalid BinaryData access" << endl;
+         //cerr << "getSliceCopy: Invalid BinaryData access" << endl;
          return BinaryDataRef();
       }
       return BinaryData( getPtr()+start_pos, nChar);

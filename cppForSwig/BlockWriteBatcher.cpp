@@ -245,7 +245,8 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
    sbh.blockAppliedToDB_ = true;
-   updateBlkDataHeader(config_, iface_, sbh);
+   sbhToUpdate_.push_back(sbh);
+   dbUpdateSize_ += sbh.numBytes_;
 
    { // we want to commit the undo data at the same time as actual changes
       InterfaceToLDB::Batch batch(iface_, BLKDATA);
@@ -253,13 +254,16 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
       // Now actually write all the changes to the DB all at once
       // if we've gotten to that threshold
       if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
+      {
+         LOGWARN << "dumping " << dbUpdateSize_ << " bytes in the DB";
          commit();
+      }
 
       // Only if pruning, we need to store 
       // TODO: this is going to get run every block, probably should batch it 
       //       like we do with the other data...when we actually implement pruning
-      if(config_.pruneType == DB_PRUNE_ALL)
-         iface_->putStoredUndoData(sud);
+      //if(config_.pruneType == DB_PRUNE_ALL)
+         //iface_->putStoredUndoData(sud);
    }
 }
 
@@ -546,7 +550,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    // This tx itself needs to be added to the map, which makes it accessible 
    // to future tx in the same block which spend outputs from this tx, without
    // doing anything crazy in the code here
-   stxToModify_[tx.getThisHash()] = thisSTX;
+   //stxToModify_[tx.getThisHash()] = thisSTX;
 
    dbUpdateSize_ += thisSTX.numBytes_;
    
@@ -612,6 +616,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          }
       }
 
+      stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX));
+
       // This will fetch the STX from DB and put it in the stxToModify
       // map if it's not already there.  Or it will do nothing if it's
       // already part of the map.  In both cases, it returns a pointer
@@ -642,8 +648,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
       // Just about to {remove-if-pruning, mark-spent-if-not} STXO
       // Record it in the StoredUndoData object
-      if(sud != NULL)
-         sud->stxOutsRemovedByBlock_.push_back(stxoSpend);
+      /*if(sud != NULL)
+         sud->stxOutsRemovedByBlock_.push_back(stxoSpend);*/
 
       // Need to modify existing UTXOs, so that we can delete or mark as spent
       stxoSpend.spentness_      = TXOUT_SPENT;
@@ -661,7 +667,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
             &dbUpdateSize_
          );
 
-      //NOTE: can conflict between in and out DBkeys, find a work around
       sshptr->insertSpentTxio(stxoSpend.getDBKey(false), 
                                   thisSTX.getDBKeyOfChild(iin, false));
       
@@ -699,6 +704,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          scrAddrData->addUTxO(stxoToAdd.getDBKey(false));
       }
       
+      stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX));
+
       StoredScriptHistory* sshptr = makeSureSSHInMap(
             iface_,
             uniqKey,
@@ -759,6 +766,13 @@ void BlockWriteBatcher::commit()
    // objects
    const set<BinaryData> keysToDelete = searchForSSHKeysToDelete();
    
+   TIMER_RESTART("commitToDB");
+
+   LOGWARN << "# stxToModify: " << stxToModify_.size();
+   LOGWARN << "# sshToModify: " << sshToModify_.size();
+   LOGWARN << "# keys to delete: " << keysToDelete.size();
+   LOGWARN << "# sbh to udapte: " << sbhToUpdate_.size();
+
    {
       InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
@@ -775,6 +789,10 @@ void BlockWriteBatcher::commit()
       {
          iface_->putStoredScriptHistory(iter_ssh->second);
       }
+
+      for (auto& sbh : sbhToUpdate_)
+         updateBlkDataHeader(config_, iface_, sbh);
+
 
       for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();
          iter_del != keysToDelete.end();
@@ -799,8 +817,16 @@ void BlockWriteBatcher::commit()
    }
    
    stxToModify_.clear();
-   sshToModify_.clear();
+   sbhToUpdate_.clear();
+
+   if (config_.armoryDbType == ARMORY_DB_SUPER)
+      sshToModify_.clear();
    dbUpdateSize_ = 0;
+
+   TIMER_STOP("commitToDB");
+   double timeElapsed = TIMER_READ_SEC("commitToDB");
+
+   LOGWARN << "Time Elapsed: " << timeElapsed;
 }
 
 set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
@@ -817,13 +843,16 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
       
       StoredScriptHistory & ssh = iterSSH->second;
       
-      for(map<BinaryData, StoredSubHistory>::iterator iterSub = ssh.subHistMap_.begin(); 
-          iterSub != ssh.subHistMap_.end(); 
-          iterSub++)
+      map<BinaryData, StoredSubHistory>::iterator iterSub = ssh.subHistMap_.begin(); 
+      while(iterSub != ssh.subHistMap_.end())
       {
          StoredSubHistory & subssh = iterSub->second;
-         if(subssh.txioMap_.size() == 0)
+         if (subssh.txioMap_.size() == 0)
+         {
             keysToDelete.insert(subssh.getDBKey(true));
+            ssh.subHistMap_.erase(iterSub++);
+         }
+         else ++iterSub;
       }
    
       // If the full SSH is empty (not just sub history), mark it to be removed

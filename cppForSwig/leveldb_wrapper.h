@@ -403,6 +403,9 @@ public:
    BinaryData getRawHeader(BinaryData const & headerHash);
    //bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
+   map<uint32_t, uint32_t> getSSHSummary(BinaryDataRef scrAddrStr,
+                                         uint32_t endBlock);
+
 
 private:
    /////////////////////////////////////////////////////////////////////////////

@@ -47,6 +47,49 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+// HistoryPages
+//
+////////////////////////////////////////////////////////////////////////////////
+
+class HistoryPages
+{
+   private:
+
+      struct Page
+      {
+         uint32_t blockStart_;
+         uint32_t blockEnd_;
+         uint32_t count_;
+
+         vector<LedgerEntry> pageLedgers_;
+
+         Page(void) : blockStart_(UINT32_MAX), blockEnd_(UINT32_MAX), count_(0)
+         {}
+
+         Page(uint32_t count, uint32_t bottom, uint32_t top) :
+            blockStart_(bottom), blockEnd_(top), count_(count)
+         {}
+
+         bool operator< (const Page& rhs) const
+         { return this->blockStart_ < rhs.blockStart_; }
+      };
+
+      BtcWallet* wltPtr_;
+      vector<Page> pages_;
+      
+   public:
+      HistoryPages(void) : wltPtr_(nullptr) {}
+
+      void mapPages(BtcWallet& wlt);
+
+      vector<LedgerEntry> getPage(uint32_t pageId);
+      void reset(void) { pages_.clear(); }
+      void addPage(uint32_t count, uint32_t bottom, uint32_t top);
+      void sort(void) { std::sort(pages_.begin(), pages_.end()); }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//
 // BtcWallet
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +103,10 @@ public:
       isInitialized_(false),
       isRegistered_(false),
       mergeLock_(0),
-      mergeFlag_(false)
+      mergeFlag_(false),
+      txioDensity_(0),
+      txnPerPage_(100),
+      histBottomHeight_(0)
    {}
    ~BtcWallet(void);
 
@@ -179,7 +225,8 @@ public:
       return nullptr;
    }
 
-   void updateWalletLedgers(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
+   void updateWalletLedgers(vector<LedgerEntry>& le,
+                            const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                             uint32_t startBlock, uint32_t endBlock, 
                             bool purge = true);
    void purgeLedgerFromHeight(uint32_t height);
@@ -189,6 +236,19 @@ public:
 
    void merge(void);
    bool getMergeFlag(void) { return mergeFlag_; }
+
+   void calculateTxioDensity();
+   void fetchWalletHistoryRange(vector<LedgerEntry>& le, 
+                                    uint32_t startBlock,
+                                    uint32_t endBlock);
+
+   uint32_t getHistBottomHeight(void) const { return histBottomHeight_; }
+
+   BlockDataManager_LevelDB* getBdmPtr(void) const { return bdmPtr_; }
+   void grabMergeLock(void) { while (mergeLock_.fetch_or(1, memory_order_acquire)); }
+   void releaseMergeLock(void) { mergeLock_.store(0, memory_order_release); }
+   HistoryPages& getHistoryPages(void) { return histPages_; }
+   uint32_t getTxnPerPage(void) { return txnPerPage_; }
 
 private:
    const vector<LedgerEntry>& getEmptyLedger(void) 
@@ -201,7 +261,9 @@ private:
    
    bool                                ignoreLastScanned_;
    vector<LedgerEntry>                 ledgerAllAddr_;
-   static vector<LedgerEntry>          EmptyLedger_; // just a null-reference object
+   
+   // just a null-reference object
+   static vector<LedgerEntry>          EmptyLedger_; 
 
    bool                                isInitialized_;
    bool                                isRegistered_;
@@ -213,6 +275,18 @@ private:
    atomic<uint32_t>                    mergeLock_;
    map<BinaryData, ScrAddrObj>         scrAddrMapToMerge_;
    bool                                mergeFlag_;
+   
+   //rough estimate of TxIOs per block
+   float                               txioDensity_;
+
+   //target txn history per page
+   uint32_t                            txnPerPage_;
+
+   //block height from which the history has been loaded
+   uint32_t                            histBottomHeight_;
+
+   //manages history pages
+   HistoryPages histPages_;
 };
 
 #endif

@@ -592,7 +592,8 @@ class StoredSubHistory
 {
 public:
 
-   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0) {}
+   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
+                            txioCount_(0) {}
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -603,6 +604,7 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
+   void       getSummary(BinaryRefReader & brr);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
@@ -642,6 +644,7 @@ public:
    map<BinaryData, TxIOPair> txioMap_;
    uint32_t height_;
    uint8_t  dupID_;
+   uint32_t txioCount_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

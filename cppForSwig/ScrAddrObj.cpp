@@ -117,6 +117,7 @@ void ScrAddrObj::clearBlkData(void)
 {
    relevantTxIO_.clear();
    ledger_.clear();
+   totalTxioCount_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -285,6 +286,8 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
 
    uint32_t opHeight;
    uint32_t inHeight;
+   uint32_t opIdx;
+   uint32_t inIdx;
 
    for (auto txioPair : newTxio)
    {
@@ -294,11 +297,15 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
       if (ledger_.find(opKey) == ledger_.end())
       {
          if ((uint16_t)*opKey.getSliceRef(0, 2).getPtr() == 0xFF)
+         {
             opHeight = UINT32_MAX;
+            opIdx = READ_UINT32_BE(opKey.getSliceRef(2, 4));
+         }
          else
+         {
             opHeight = DBUtils::hgtxToHeight(opKey.getSliceRef(0, 4));
-            
-         uint16_t opIdx = READ_UINT16_BE(opKey.getSliceRef(6, 2));
+            opIdx = READ_UINT16_BE(opKey.getSliceRef(6, 2));
+         }
 
          if (bc != nullptr)
          {
@@ -325,11 +332,15 @@ void ScrAddrObj::updateLedgers(const Blockchain* bc,
          if (ledger_.find(inKey) == ledger_.end())
          {
             if ((uint16_t)*inKey.getSliceRef(0, 2).getPtr() == 0xFF)
+            {
                inHeight = UINT32_MAX;
+               inIdx = READ_UINT32_BE(inKey.getSliceRef(2, 4));
+            }
             else
+            {
                inHeight = DBUtils::hgtxToHeight(inKey.getSliceRef(0, 4));
-            
-            uint16_t  inIdx = READ_UINT16_BE(inKey.getSliceRef(6, 2));
+               inIdx = READ_UINT16_BE(inKey.getSliceRef(6, 2));
+            }
             
             if (bc != nullptr)
             {

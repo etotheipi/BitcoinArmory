@@ -43,13 +43,15 @@ class PySide_CallBack(Cpp.BDM_CallBack):
    
       cppPushTrigger[0](act, arglist)
    def progress(self, state, prog, seconds):
+      return
+      '''
       try:
          self.bdm.progressComplete = prog
          self.bdm.secondsRemaining = seconds
       except:
          LOGEXCEPT('Error in running progress callback')
          print sys.exc_info()
-
+      '''
 class BDM_Inject(Cpp.BDM_Inject):
    def __init__(self):
       Cpp.BDM_Inject.__init__(self)

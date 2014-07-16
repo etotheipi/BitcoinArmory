@@ -2097,6 +2097,8 @@ class PyBtcWallet(object):
                self.lastComputedChainIndex   = newAddr.chainIndex
                self.lastComputedChainAddr160 = newAddr.getAddr160()
                
+            if newAddr.chainIndex == -2:
+               abc = 1
             if newAddr.chainIndex < -2:
                newAddr.chainIndex = -2
                self.hasNegativeImports = True

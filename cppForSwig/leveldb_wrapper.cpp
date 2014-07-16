@@ -1027,11 +1027,6 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       numTxioRead += iter->second.txioMap_.size(); 
    } while( ldbIter.advanceAndRead(DB_PREFIX_SCRIPT) );
 
-   if(numTxioRead != ssh.totalTxioCount_)
-   {
-      //LOGERR << "Number of TXIOs read does not match SSH entry value";
-      ssh.totalTxioCount_ = numTxioRead;
-   }
    return true;
 } 
 
@@ -2798,6 +2793,72 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
       }
          
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<uint32_t, uint32_t> InterfaceToLDB::getSSHSummary(BinaryDataRef scrAddrStr, 
+   uint32_t endBlock)
+{
+   SCOPED_TIMER("getSSHSummary");
+
+   map<uint32_t, uint32_t> SSHsummary;
+
+   LDBIter ldbIter = getIterator(BLKDATA);
+   if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
+      return SSHsummary;
+
+   StoredScriptHistory ssh;
+   BinaryDataRef sshKey = ldbIter.getKeyRef();
+   ssh.unserializeDBKey(sshKey, true);
+   ssh.unserializeDBValue(ldbIter.getValueReader(), this);
+
+   if (ssh.totalTxioCount_ == 0)
+   {
+      //LOGWARN << "How did we end up with zero Txios in an SSH?";
+      return SSHsummary;
+   }
+
+   if (!ssh.useMultipleEntries_)
+   {
+      auto txioIter = ssh.subHistMap_.begin();
+      SSHsummary[txioIter->second.height_] = 1;
+      return SSHsummary;
+   }
+
+
+   uint32_t sz = sshKey.getSize();
+   BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
+   uint32_t scrAddrSize = scrAddr.getSize();
+
+   if (!ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
+   {
+      LOGERR << "No sub-SSH entries after the SSH";
+      return SSHsummary;
+   }
+
+   // Now start iterating over the sub histories
+   map<BinaryData, StoredSubHistory>::iterator iter;
+   uint32_t numTxioRead = 0;
+   do
+   {
+      uint32_t sz = ldbIter.getKeyRef().getSize();
+      BinaryDataRef keyNoPrefix = ldbIter.getKeyRef().getSliceRef(1, sz - 1);
+      if (!keyNoPrefix.startsWith(ssh.uniqueKey_))
+         break;
+
+      pair<BinaryData, StoredSubHistory> keyValPair;
+      keyValPair.first = keyNoPrefix.getSliceCopy(sz - 5, 4);
+      keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+
+      //iter is at the right ssh, make sure hgtX <= endBlock
+      if (keyValPair.second.height_ > endBlock)
+         break;
+
+      keyValPair.second.getSummary(ldbIter.getValueReader());
+      SSHsummary[keyValPair.second.height_] = keyValPair.second.txioCount_;
+   } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+
+   return SSHsummary;
 }
 
 /*

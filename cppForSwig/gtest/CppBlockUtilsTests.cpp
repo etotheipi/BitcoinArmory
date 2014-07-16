@@ -6879,6 +6879,16 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 }
 
+TEST_F(BlockUtilsBare, TestAddressFilter)
+{
+   const ScrAddrObj * scrobj;
+   BtcWallet wlt(theBDM);
+   wlt.addScrAddress(scrAddrE_);
+   TheBDM.registerWallet(&wlt);
+
+   // This is just a regular load
+   TheBDM.doInitialSyncOnLoad([](double, unsigned) {});
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

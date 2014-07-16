@@ -37,7 +37,8 @@ public:
    ScrAddrObj() :
       db_(nullptr),
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
-      lastBlockNum_(0), lastTimestamp_(0), hasMultisigEntries_(false)
+      lastBlockNum_(0), lastTimestamp_(0), hasMultisigEntries_(false),
+      totalTxioCount_(0)
    {
       relevantTxIO_.clear();
    }
@@ -115,6 +116,9 @@ public:
    void updateLedgers(const Blockchain* bc,
       const map<BinaryData, TxIOPair>& newTxio);
 
+   void setTxioCount(uint64_t count) { totalTxioCount_ = count; }
+   uint64_t getTxioCount(void) const { return totalTxioCount_; }
+
 private:
    InterfaceToLDB *db_;
    
@@ -130,9 +134,8 @@ private:
    // Each address will store a list of pointers to its transactions
    map<BinaryData, TxIOPair>     relevantTxIO_;
    map<BinaryData, LedgerEntry>  ledger_;
-
-   // Used to be part of the RegisteredScrAddr class
-   uint32_t                      alreadyScannedUpToBlk_;
+   
+   uint64_t totalTxioCount_;
 };
 
 #endif

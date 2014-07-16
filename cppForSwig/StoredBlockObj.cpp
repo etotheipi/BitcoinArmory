@@ -1460,7 +1460,7 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
       return NULL;
 
    // Optimize case of 1 txio -- don't bother with extra copies or map.find ops
-   if(totalTxioCount_ == 1)
+   /*if(totalTxioCount_ == 1)
    {
       // We gotta do some simple checks to avoid segfaulting in case 
       // totalTxioCount_ is wrong (which shouldn't ever happen)
@@ -1483,7 +1483,7 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
 
       return (outptr->getDBKeyOfOutput() == dbKey8B ? outptr : NULL);
    }
-   else
+   else*/
    {
       // Otherwise, we go searching...
       BinaryData first4 = dbKey8B.getSliceCopy(0,4);
@@ -1657,9 +1657,15 @@ uint64_t StoredScriptHistory::markTxOutSpent(InterfaceToLDB *db, BinaryData txOu
       return UINT64_MAX;
    }
 
+   uint32_t subSSHTxioCount = iter->second.txioMap_.size();
    uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, txInKey8B, dbType, pruneType);
    if(val != UINT64_MAX)
       totalUnspent_ -= val;
+
+   subSSHTxioCount -= iter->second.txioMap_.size();
+   totalTxioCount_ -= subSSHTxioCount;
+
+   useMultipleEntries_ = (totalTxioCount_ > 1);
 
    return val;
 }
@@ -1708,7 +1714,10 @@ uint64_t StoredScriptHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData tx
 
    StoredSubHistory & subssh = iter->second;
    uint32_t prevSize = subssh.txioMap_.size();
-   uint64_t val = subssh.markTxOutUnspent(db, txOutKey8B, dbType, pruneType, value, isCoinbase, isMultisig);
+   uint64_t val = subssh.markTxOutUnspent(db, txOutKey8B, 
+                                          dbType, pruneType, 
+                                          value, isCoinbase, 
+                                          isMultisig);
    uint32_t newSize = subssh.txioMap_.size();
 
    // Value returned above is zero if it's multisig, so no need to check here
@@ -1837,8 +1846,8 @@ void StoredScriptHistory::insertSpentTxio(const BinaryData& txOutDbKey,
 
    totalTxioCount_ += (newSize - prevSize);
 
-   if (totalTxioCount_ > 1) useMultipleEntries_ = true;
-   else useMultipleEntries_ = false;
+   useMultipleEntries_ = (totalTxioCount_ > 1);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1900,8 +1909,8 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
    BinaryData fullTxKey(8);
    hgtX_.copyTo(fullTxKey.getPtr());
 
-   uint32_t numTxo = (uint32_t)(brr.get_var_int());
-   for(uint32_t i=0; i<numTxo; i++)
+   txioCount_ = (uint32_t)(brr.get_var_int());
+   for (uint32_t i = 0; i<txioCount_; i++)
    {
       BitUnpacker<uint8_t> bitunpack(brr);
       bool isFromSelf      = bitunpack.getBit();
@@ -1937,6 +1946,23 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
 
       insertTxio(txio);
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredSubHistory::getSummary(BinaryRefReader & brr)
+{
+   //grab subssh txioCount from DB
+   if (hgtX_.getSize() != 4)
+   {
+      LOGERR << "Cannot unserialize DB value until key is set (hgt&dup)";
+      uniqueKey_.resize(0);
+      return;
+   }
+
+   BinaryData fullTxKey(8);
+   hgtX_.copyTo(fullTxKey.getPtr());
+
+   txioCount_ = (uint32_t)(brr.get_var_int());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

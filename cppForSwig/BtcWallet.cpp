@@ -554,6 +554,8 @@ void BtcWallet::clearBlkData(void)
    for (auto saIter = scrAddrMap_.begin();
       saIter != scrAddrMap_.end(); ++saIter)
    { saIter->second.clearBlkData(); }
+
+   histPages_.reset();
 }
 
 
@@ -831,7 +833,7 @@ void BtcWallet::scanWalletZeroConf()
    for (auto& scrAddrTxio : ZCtxioMap)
    {
       map<BinaryData, ScrAddrObj>::iterator scrAddr = 
-	scrAddrMap_.find(scrAddrTxio.first);
+	      scrAddrMap_.find(scrAddrTxio.first);
 
       if (scrAddr != scrAddrMap_.end())
          scrAddr->second.scanZC(scrAddrTxio.second);
@@ -842,66 +844,6 @@ void BtcWallet::scanWalletZeroConf()
 void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, 
                            bool forceScan)
 {
-   /***All purpose wallet scanning call.
-   This call is meant to completely separate blockchain maintenance from
-   wallet scanning.
-
-   Blockchain maintenance should be limited to reading last sync state from DB,
-   adding missing blocks to the DB, reading new blocks and dealing with reorgs
-
-   Wallet scanning is meant to maintain the list of registered Tx, ledger
-   entries and balance for each wallet object.
-
-   The arguments are:
-      
-      startBlock: The height scanning should start at. For initializing purposes
-      or forcedScan, should be 0. To scan newly found blocks, should be set to 
-      the last valid scanned block height. Default to UINT32_MAX, which will be 
-      replaced by lastScannedBlock_
-
-      endBlock: The height scanning should stop at. For scanning maintenance
-      purpose, always pass the highest block heigh in DB. Default to
-      UINT32_MAX, which will be replaced by the current top block height.
-
-      forceScan: set to true to force scanning DB against registered scrAddr map
-      from block 0. Defaults to false.
-
-   Uninitialized wallets will first call fetchDBRegisteredScrAddrData,
-   to look for existing scrAddr data in the DB.
-
-   The maintenance process then breaks down into 3 calls:
-   
-   1) scanBlocksAgainstRegisteredScrAddr: parses blocks in the DB, updates DB 
-   with scrAddr data, starting from startBlock. 
-   When new blocks appear, scanWallet should be called with the last scanned
-   valid block height, passed as startBlock so that each wallet parses the 
-   transactions found in the new blocks, and updates the DB with the relevant 
-   scrAddr data.
-
-   If forceScan is set to true, each wallet will call 
-   scanBlocksAgainstRegisteredScrAddr(0), to rescan the wallet and rebuild all 
-   scrAddr data up to the current block.
-   
-   If the DB is in supernode, scanBlocksAgainstRegisteredScrAddr shoudln't be 
-   called, as scrAddr data is updated for all encountered scrAddr 
-   (not just those registered by wallets)
-
-   This call also updates the registeredTxList object for each block it parses.
-   In this regard, fetchDBRegisteredScrAddrData is only useful as an initial
-   DB scan call.
-   
-   2) udpateRegisteredScrAddr: updates alreadyScannedUpToBlk_ member for each
-   registered scrAddr object in the wallet. Fairly simple call, not sure why
-   it isnt part of scanBlocksAgainstRegisteredScrAddr, no harm leaving it as 
-   is for now.
-
-   This call is passed endBlock, which is the highest known block.
-
-   3) scanRegisteredTxList: builds registered Txs Ledger and wallet balance.
-   Should always be called with the last scanned valid block height, and the 
-   current top height.
-   ***/
-
    merge();
 
    if (startBlock == UINT32_MAX)
@@ -909,7 +851,40 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
    if (endBlock == UINT32_MAX)
       endBlock = bdmPtr_->getTopBlockHeight() + 1;
 
-   if (startBlock < endBlock)
+   if (isInitialized_ == false)
+   {
+      calculateTxioDensity();
+      int32_t step = uint32_t((float)txnPerPage_ / txioDensity_) + 1;
+
+      int32_t top = bdmPtr_->getTopBlockHeight() + 1;
+      int32_t bottom = bdmPtr_->getTopBlockHeight() + 1;
+
+      LOGINFO << "fetching history. step: " << step << " txioDensity: " << txioDensity_;
+      do
+      {
+         bottom -= step;
+         if (bottom < 0)
+            bottom = 0;
+
+         fetchWalletHistoryRange(ledgerAllAddr_, bottom, top);
+         top -= step;
+
+         LOGINFO << "ledge size " << ledgerAllAddr_.size();
+      } while (ledgerAllAddr_.size() < txnPerPage_ && bottom > 0);
+
+      LOGINFO << "bottom: " << bottom;
+      histBottomHeight_ = bottom;
+
+      if (bottom != 0)
+         histPages_.mapPages(*this);
+
+      LOGINFO << "updating ZC";
+      scanWalletZeroConf();
+
+      lastScanned_ = endBlock;
+      isInitialized_ = true;
+   }
+   else if (startBlock < endBlock)
    {
       //new top block
 
@@ -922,7 +897,8 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf();
 
-      updateWalletLedgers(scrAddrMap_, startBlock, UINT32_MAX -1);
+      updateWalletLedgers(ledgerAllAddr_, scrAddrMap_, 
+                          startBlock, UINT32_MAX -1);
 
       lastScanned_ = endBlock;
    }
@@ -932,7 +908,8 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       if (bdmPtr_->isZcEnabled())
       {
          scanWalletZeroConf();
-         updateWalletLedgers(scrAddrMap_, startBlock, endBlock, false);
+         updateWalletLedgers(ledgerAllAddr_, scrAddrMap_, 
+                             startBlock, endBlock, false);
       }
    }
 }
@@ -944,6 +921,7 @@ void BtcWallet::reset()
 
    clearBlkData();
    isInitialized_ = false;
+   histBottomHeight_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -983,6 +961,7 @@ void BtcWallet::purgeLedgerFromHeight(uint32_t height)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::updateWalletLedgers(
+   vector<LedgerEntry>& walletLedgers,
    const map<BinaryData, ScrAddrObj>& scrAddrMap, 
    uint32_t startBlock, 
    uint32_t endBlock,
@@ -1043,6 +1022,7 @@ void BtcWallet::updateWalletLedgers(
    uint32_t blockNum;
    uint32_t txTime;
    uint32_t nHits;
+   uint32_t txIndex;
 
    for (const auto txHashPair : arrangeByHash)
    {
@@ -1055,6 +1035,7 @@ void BtcWallet::updateWalletLedgers(
       auto leIter = txHashPair.second.begin();
       blockNum = (*leIter).getBlockNum();
       txTime = (*leIter).getTxTime();
+      txIndex = (*leIter).getIndex();
 
       while (leIter != txHashPair.second.end())
       {
@@ -1074,7 +1055,7 @@ void BtcWallet::updateWalletLedgers(
          ++leIter;
       }
 
-      /*** NOTE: Need a wallet to defined STS and ChangeBack (as opposed
+      /*** NOTE: Need a wallet to define STS and ChangeBack (as opposed
       to a single scrAddr). STS is signifiant at both address and wallet
       level, but ChangeBack is only relevant at address level.
       ***/
@@ -1093,16 +1074,21 @@ void BtcWallet::updateWalletLedgers(
          ledgerVal,
          blockNum,
          txHashPair.first,
-         0,
+         txIndex,
          txTime,
          isCoinbase,
          isSendToSelf,
          isChangeBack);
 
-      ledgerAllAddr_.push_back(le);
+      walletLedgers.push_back(le);
    }
 
-   sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
+   //sort the ledgers by blocknum and txid
+   sort(walletLedgers.begin(), walletLedgers.end());
+
+   //delete duplicates
+   walletLedgers.erase(unique(walletLedgers.begin(), walletLedgers.end()), 
+                       walletLedgers.end());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1158,7 +1144,7 @@ void BtcWallet::merge(void)
       ***/
 
       //update wallet ledger, pass false to not reset the other ledger entries
-      updateWalletLedgers(scrAddrMapToMerge_, 0, 
+      updateWalletLedgers(ledgerAllAddr_, scrAddrMapToMerge_, 0, 
                           bdmPtr_->blockchain().top().getBlockHeight() + 1,
                           false);
       
@@ -1176,4 +1162,151 @@ void BtcWallet::merge(void)
 
    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::calculateTxioDensity()
+{
+   /***
+   Evaluates how many blocks of history are needed starting from endBlock to
+   display approximately histLength transactions
+   ***/
+
+   //we start from the assumption that there isn't enough history in this wallet
+   //to fulfill histLength of history, so we're starting at bottom = 0, to cover 
+   //the entire wallet history
+   uint64_t totalTxio = 0;
+
+   InterfaceToLDB* db = bdmPtr_->getIFace();
+
+   //parse all SSH summaries
+   for (auto& scrAddrPair : scrAddrMap_)
+   {
+      StoredScriptHistory ssh;
+      db->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
+
+      scrAddrPair.second.setTxioCount(ssh.totalTxioCount_);
+
+      totalTxio += ssh.totalTxioCount_;
+   }
+
+   txioDensity_ = float(totalTxio * 2) / 
+                  float(bdmPtr_->blockchain().top().getBlockHeight());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::fetchWalletHistoryRange(vector<LedgerEntry>& le, 
+                                            uint32_t startBlock,
+                                            uint32_t endBlock)
+{
+   /***grab txios for all addresses from startBlock to endBlock, build the ledger
+   entries in le
+   ***/
+   
+   fetchDBScrAddrData(startBlock, endBlock);
+   updateWalletLedgers(le, scrAddrMap_, startBlock, endBlock, false);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// HistoryPages
+//
+////////////////////////////////////////////////////////////////////////////////
+void* mapPagesThread(void *in)
+{
+   BtcWallet *wlt = static_cast<BtcWallet*>(in);
+
+   uint32_t wltFirstHistoryBlock = wlt->getHistBottomHeight(); 
+   uint32_t txnPerPage = wlt->getTxnPerPage();
+   
+   //grab merge lock, make a copy of the addrMap then release
+   wlt->grabMergeLock();
+   map<BinaryData, ScrAddrObj> addrMap = wlt->getScrAddrMap();
+   wlt->releaseMergeLock();
+
+   InterfaceToLDB* db = wlt->getBdmPtr()->getIFace();
+   map<uint32_t, uint32_t> histSummary;
+
+   for (auto scrAddrPair : addrMap)
+   {
+      map<uint32_t, uint32_t> txioSum = 
+         db->getSSHSummary(scrAddrPair.first, wltFirstHistoryBlock);
+
+      for (auto histPair : txioSum)
+         histSummary[histPair.first] += histPair.second;
+   }
+
+   HistoryPages &pages = wlt->getHistoryPages();
+   pages.reset();
+
+   auto histIter = histSummary.cbegin();
+   uint32_t threshold = 0;
+   uint32_t top;
+   
+   while (histIter != histSummary.cend())
+   {
+      if (threshold == 0)
+         top = histIter->first;
+
+      threshold += histIter->second;
+      if (threshold > txnPerPage)
+      {
+         pages.addPage(threshold, histIter->first, top);
+
+         threshold = 0;
+      }
+      
+      ++histIter;
+   }
+
+   if (threshold != 0)
+      pages.addPage(threshold, 0, top);
+
+   pages.sort();
+
+   return nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void HistoryPages::mapPages(BtcWallet& wlt)
+{
+   wltPtr_ = &wlt;
+   pthread_t tid;
+   pthread_create(&tid, nullptr, mapPagesThread, static_cast<void*>(&wlt));
+   //pthread_join(tid, nullptr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void HistoryPages::addPage(uint32_t count, uint32_t bottom, uint32_t top)
+{
+   Page newPage(count, bottom, top);
+   pages_.push_back(newPage);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntry> HistoryPages::getPage(uint32_t pageId)
+{
+   if (wltPtr_ == nullptr || pageId > pages_.size())
+      return vector<LedgerEntry>();
+
+   Page& page = pages_[pageId];
+
+   if (page.pageLedgers_.size() != 0)
+      return page.pageLedgers_;
+
+   InterfaceToLDB* db = wltPtr_->getBdmPtr()->getIFace();
+   const map<BinaryData, ScrAddrObj>& scrAddrMap = wltPtr_->getScrAddrMap();
+   map<BinaryData, ScrAddrObj> tempSAMap;
+
+   for (const auto& scrAddrPair : scrAddrMap)
+   {
+      ScrAddrObj& sa = tempSAMap[scrAddrPair.first];
+      wltPtr_->fetchDBScrAddrData(sa, page.blockStart_, page.blockEnd_);
+   }
+
+   wltPtr_->updateWalletLedgers(page.pageLedgers_, tempSAMap, page.blockStart_, page.blockEnd_);
+
+   return page.pageLedgers_;
+}
+
+
 // kate: indent-width 3; replace-tabs on;

@@ -52,6 +52,7 @@ private:
    uint64_t dbUpdateSize_;
    map<BinaryData, StoredTx>              stxToModify_;
    map<BinaryData, StoredScriptHistory>   sshToModify_;
+   vector<StoredHeader>                   sbhToUpdate_;
    
    // (theoretically) incremented for each
    // applyBlockToDB and decremented for each

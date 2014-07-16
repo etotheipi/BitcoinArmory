@@ -167,9 +167,10 @@ void BlockDataManagerThread::run()
       const auto progress
          = [&] (double prog,unsigned time)
       {
+         return;
          if (prog == lastprog && time==lasttime)
             return; // don't go to python if nothing's changed
-         callback->progress("blk", prog, time);
+         //callback->progress("blk", prog, time);
          lastprog = prog;
          lasttime = time;
       };

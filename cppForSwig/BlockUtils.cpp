@@ -1698,11 +1698,18 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                           blockchain_.top().getBlockHeight() + 1);
    else
    {
+      TIMER_START("applyBlockRangeToDB");
+
       if (scrAddrData_.numScrAddr() > 0)
          applyBlockRangeToDB(scrAddrData_.scanFrom(),
                              blockchain_.top().getBlockHeight() + 1,
                              &scrAddrData_);
       scrAddrData_.setSSHLastScanned(iface_, blockchain_.top().getBlockHeight());
+
+      TIMER_STOP("applyBlockRangeToDB");
+      double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
+
+      LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
    }
 
    // We need to maintain the physical size of all blkXXXX.dat files together
@@ -2728,8 +2735,13 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
                                            uint32_t endBlock, 
                                            bool forceScan)
 {
+   LOGINFO << registeredWallets_.size() << " wallets loaded";
+   uint32_t i = 0;
    for (BtcWallet* walletPtr : registeredWallets_)
    {
+      LOGINFO << "initializing wallet #" << i;
+      i++;
+
       walletPtr->scanWallet(startBlock, endBlock, forceScan);
    }
 }
@@ -3272,7 +3284,7 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
          if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
             continue; //already have this ZC
 
-         LOGWARN << "new ZC transcation: " << txHash.toHexStr();
+         //LOGWARN << "new ZC transcation: " << txHash.toHexStr();
 
          if (scrAddrDataPtr_ != nullptr)
          {
