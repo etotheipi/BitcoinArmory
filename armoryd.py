@@ -351,12 +351,23 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       PARAMETERS:
       backupFilePath - Path to the location where the backup will be saved.
       RETURN:
-      A string indicating whether or not the backup succeeded or failed.
+      A dictionary indicating whether or not the backup succeeded or failed,
+      with the reason for failure given if applicable.
       """
 
-      retVal = "Backup succeeded."
-      if not self.curWlt.backupWalletFile(backupFilePath):
-         retVal = "Backup failed."
+      retVal = {}
+      if not os.path.isfile(backupFilePath):
+          retVal = {}
+          retVal['Error'] = 'File %s does not exist.' % backupFilePath
+      elif not os.access(backupFilePath, os.R_OK):
+          retVal['Error'] = 'User not allowed to read file %s' % backupFilePath
+      else:
+          if not self.curWlt.backupWalletFile(backupFilePath):
+             # If we have a failure here, we probably won't know why. Not much
+             # to do other than ask the user to check the armoryd server.
+             retVal['Error'] = "Backup failed. Check the armoryd server logs."
+          else:
+             retVal['Result'] = "Backup succeeded."
 
       return retVal
 
@@ -616,7 +627,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       A string indicating that the encryption was successful.
       """
 
-      retStr = 'Wallet %s has been encrypted.' % self.curWlt
+      retStr = 'Wallet %s has been encrypted.' % self.curWlt.uniqueIDB58
 
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
@@ -653,7 +664,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             self.sbdPassphrase = SecureBinaryData(str(passphrase))
             self.curWlt.unlock(securePassphrase=self.sbdPassphrase,
                                tempKeyLifetime=int(timeout))
-            retStr = 'Wallet %s has been unlocked.' % self.curWlt
+            retStr = 'Wallet %s has been unlocked.' % self.curWlt.uniqueIDB58
          finally:
             self.sbdPassphrase.destroy() # Ensure SBD is destroyed.
 
