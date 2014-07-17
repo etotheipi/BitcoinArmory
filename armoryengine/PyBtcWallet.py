@@ -619,8 +619,9 @@ class PyBtcWallet(object):
                                                                else backupPath
       try:
          shutil.copy(self.walletPath, walletFileBackup)
-      except IOERROR, errPath:
-         print 'Unable to copy file %s' % errPath
+      except IOError, errReason:
+         LOGERROR('Unable to copy file %s' % backupPath)
+         LOGERROR('Reason for copy failure: %s' % errReason)
          retVal = False
 
       return retVal
