@@ -19,7 +19,7 @@ class BlockWriteBatcher
 {
 public:
    static const uint64_t UPDATE_BYTES_THRESH = 96*1024*1024;
-   
+
    BlockWriteBatcher(const BlockDataManagerConfig &config, InterfaceToLDB* iface);
    ~BlockWriteBatcher();
    

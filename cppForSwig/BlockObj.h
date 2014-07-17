@@ -262,6 +262,7 @@ public:
    BinaryData const &   getTxHash(void)     const { return txHash_; }
    BinaryDataRef        getTxHashRef(void)  const { return BinaryDataRef(txHash_); }
    uint32_t             getTxOutIndex(void) const { return txOutIndex_; }
+   bool                 isCoinbase(void) const { return txHash_ == BtcUtils::EmptyHash_; }
 
    void setTxHash(BinaryData const & hash) { txHash_.copyFrom(hash); }
    void setTxOutIndex(uint32_t idx) { txOutIndex_ = idx; }
@@ -561,8 +562,9 @@ public:
    // These are not pointers to persistent object, these methods actually 
    // CREATES the TxIn/TxOut.  But the construction is fast, so it's
    // okay to do it on the fly
-   TxIn   getTxInCopy(int i) const;
-   TxOut  getTxOutCopy(int i) const;
+   TxIn     getTxInCopy(int i) const;
+   TxOut    getTxOutCopy(int i) const;
+   OutPoint getOutPointFromTxIn(uint32_t i) const;
 
 
    /////////////////////////////////////////////////////////////////////////////

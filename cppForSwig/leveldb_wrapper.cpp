@@ -2191,7 +2191,7 @@ bool InterfaceToLDB::getStoredTx_byHash( BinaryDataRef txHash,
 
    if(valSize < 2)
    {
-      LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
+      //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
       return false;
    }
 

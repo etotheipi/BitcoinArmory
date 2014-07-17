@@ -6134,7 +6134,7 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel(str(self.data[FIELDS.Blk]) + idxStr))
             if TheBDM.getState() == 'BlockchainReady':
-               nConf = TheBDM.runBDM( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()) - data[FIELDS.Blk] + 1
+               nConf = TheBDM.getCurrBlock() - self.data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '

@@ -214,6 +214,7 @@ BlockWriteBatcher::~BlockWriteBatcher()
 void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    ScrAddrScanData* scrAddrData)
 {
+   TIMER_START("applyBlockToDBinternal");
    if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
    {
       LOGERR << "Dup requested is not the main branch for the given height!";
@@ -265,6 +266,8 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
       //if(config_.pruneType == DB_PRUNE_ALL)
          //iface_->putStoredUndoData(sud);
    }
+
+   TIMER_STOP("applyBlockToDBinternal");
 }
 
 void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
@@ -561,20 +564,30 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    BinaryData txInScrAddr;
    BinaryData txOutHashnId;
 
+   TIMER_START("TxInParsing");
+
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
-      TxIn txin = tx.getTxInCopy(iin);
-      if(txin.isCoinbase())
-         continue;
-
+      TIMER_START("grabTxIn");
       // Get the OutPoint data of TxOut being spent
-      const OutPoint      op = txin.getOutPoint();
+      TIMER_START("getOutPoint");
+      const OutPoint      op = tx.getOutPointFromTxIn(iin);
+      if (op.isCoinbase() == true)
+      {
+         TIMER_STOP("getOutPoint");
+         continue;
+      }
+
+      TIMER_STOP("getOutPoint");
+      
       const BinaryDataRef opTxHash = op.getTxHashRef();
       const uint32_t      opTxoIdx = op.getTxOutIndex();
       BinaryData          txOutDBkey;
 
       BinaryDataRef       fetchBy = opTxHash;
       StoredTx*           stxptr = nullptr;
+
+      TIMER_STOP("grabTxIn");
 
       //For scanning a predefined set of addresses purpose, check if this txin 
       //consumes one of our utxo
@@ -584,33 +597,55 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          auto stxIter = stxToModify_.find(opTxHash);
          if (ITER_IN_MAP(stxIter, stxToModify_))
          {
+            TIMER_START("leverageStxInRAM");
             stxptr = &(stxIter->second);
             const StoredTxOut& stxo = stxptr->stxoMap_[opTxoIdx];
-
-            if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
+            
+            //Since this STX is already in map, we have processed it, thus
+            //all the relevant outpoints of this STX are already in RAM
+            if (scrAddrData->hasUTxO(stxo.getDBKey(false)) < 1)
+            {
+               TIMER_STOP("leverageStxInRAM");
                continue;
+            }
+            //if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
+               //continue;
 
             scrAddrData->eraseUTxO(stxo.getDBKey(false));
+            TIMER_STOP("leverageStxInRAM");
          }
          else
          {
+            TIMER_START("fecthOutPointFromDB");
             //grab UTxO DBkey for comparison first
             iface_->getStoredTx_byHash(opTxHash, nullptr, &txOutDBkey);
+            if (txOutDBkey.getSize() != 6)
+               continue;
             txOutDBkey.append(WRITE_UINT16_BE(opTxoIdx));
-            fetchBy = txOutDBkey.getSliceRef(0, 6);
 
             int8_t hasKey = scrAddrData->hasUTxO(txOutDBkey);
          
+            TIMER_STOP("fecthOutPointFromDB");
+
             if (hasKey == 0) continue;
             else if (hasKey == -1)
             {
+               TIMER_START("fullFecthOutPointFromDB");
+
+               fetchBy = txOutDBkey.getSliceRef(0, 6);
                stxptr = makeSureSTXInMap(iface_, fetchBy,
-                  stxToModify_, &dbUpdateSize_);
+                  stxToModify_, nullptr);
 
                const StoredTxOut& stxo = stxptr->stxoMap_[opTxoIdx];
 
                if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
+               {
+                  TIMER_STOP("fullFecthOutPointFromDB");
                   continue;
+               }
+               else
+                  TIMER_STOP("fullFecthOutPointFromDB");
+
             }
 
             //if we got this far this txin spends one of our utxo, 
@@ -619,6 +654,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          }
       }
 
+      TIMER_START("CommitTxIn");
       if(stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX)).second == true)
          dbUpdateSize_ += thisSTX.numBytes_;
 
@@ -627,8 +663,11 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // map if it's not already there.  Or it will do nothing if it's
       // already part of the map.  In both cases, it returns a pointer
       // to the STX that will be written to DB that we can modify.
-      if(stxptr == nullptr) 
+      if (stxptr == nullptr)
          stxptr = makeSureSTXInMap(iface_, fetchBy, stxToModify_, &dbUpdateSize_);
+      else
+         dbUpdateSize_ += stxptr->numBytes_;
+
       StoredTxOut & stxo   = stxptr->stxoMap_[opTxoIdx];
       BinaryData    uniqKey   = stxo.getScrAddress();
 
@@ -686,10 +725,12 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          config_.pruneType
       );
 
+      TIMER_STOP("CommitTxIn");
    }
 
+   TIMER_STOP("TxInParsing");
 
-
+   TIMER_START("TxOutParsing");
    // We don't need to update any TXDATA, since it is part of writing thisSTX
    // to the DB ... but we do need to update the StoredScriptHistory objects
    // with references to the new [unspent] TxOuts
@@ -760,6 +801,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       }
    }
 
+   TIMER_STOP("TxOutParsing");
+
    return true;
 }
 
@@ -796,8 +839,14 @@ void BlockWriteBatcher::commit()
          iface_->putStoredScriptHistory(iter_ssh->second);
       }
 
+      uint32_t sbhSize = 0;
       for (auto& sbh : sbhToUpdate_)
+      {
          updateBlkDataHeader(config_, iface_, sbh);
+         sbhSize += sbh.numBytes_;
+      }
+
+      LOGWARN << "# sbh byte size: " << sbhSize;
 
 
       for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();

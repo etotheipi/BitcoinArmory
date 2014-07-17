@@ -1059,6 +1059,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    BlockWriteBatcher blockWrites(config_, iface_);
    uint32_t hgt;
 
+   TIMER_START("applyBlockRangeToDBIter");
    do
    {
       StoredHeader sbh;
@@ -1085,11 +1086,51 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
       // re-seek to it afterwards.
 
       //hack to update SSH top block
+
+      TIMER_STOP("applyBlockRangeToDBIter");
+
       blockWrites.applyBlockToDB(hgt, dup, scrAddrData); 
 
+      TIMER_START("applyBlockRangeToDBIter");
       bytesReadSoFar_ += sbh.numBytes_;
 
    } while(iface_->advanceToNextBlock(ldbIter, false));
+
+   double applyBlockRangeToDBIter = TIMER_READ_SEC("applyBlockRangeToDBIter");
+   LOGWARN << "applyBlockRangeToDBIter: " << applyBlockRangeToDBIter << " sec";
+
+   double applyBlockToDBinternal = TIMER_READ_SEC("applyBlockToDBinternal");
+   LOGWARN << "applyBlockToDBinternal: " << applyBlockToDBinternal << " sec";
+
+   double applyTxToBatchWriteData = TIMER_READ_SEC("applyTxToBatchWriteData");
+   LOGWARN << "applyTxToBatchWriteData: " << applyTxToBatchWriteData << " sec";
+
+   double TxInParsing = TIMER_READ_SEC("TxInParsing");
+   LOGWARN << "TxInParsing: " << TxInParsing << " sec";
+
+   double TxOutParsing = TIMER_READ_SEC("TxOutParsing");
+   LOGWARN << "TxOutParsing: " << TxOutParsing << " sec";
+
+   double leverageStxInRAM = TIMER_READ_SEC("leverageStxInRAM");
+   LOGWARN << "leverageStxInRAM: " << leverageStxInRAM << " sec";
+
+   double fecthOutPointFromDB = TIMER_READ_SEC("fecthOutPointFromDB");
+   LOGWARN << "fecthOutPointFromDB: " << fecthOutPointFromDB << " sec";
+
+   double fullFecthOutPointFromDB = TIMER_READ_SEC("fullFecthOutPointFromDB");
+   LOGWARN << "fullFecthOutPointFromDB: " << fullFecthOutPointFromDB << " sec";
+
+   double grabTxIn = TIMER_READ_SEC("grabTxIn");
+   LOGWARN << "grabTxIn: " << grabTxIn << " sec";
+
+   double CommitTxIn = TIMER_READ_SEC("CommitTxIn");
+   LOGWARN << "CommitTxIn: " << CommitTxIn << " sec";
+
+   double getTxInCopy = TIMER_READ_SEC("getTxInCopy");
+   LOGWARN << "getTxInCopy: " << getTxInCopy << " sec";
+
+   double getOutPoint = TIMER_READ_SEC("getOutPoint");
+   LOGWARN << "getOutPoint: " << getOutPoint << " sec";
 }
 
 /////////////////////////////////////////////////////////////////////////////

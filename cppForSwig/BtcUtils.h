@@ -270,9 +270,10 @@ public:
 class BtcUtils
 {
    static const BinaryData        BadAddress_;
-   static const BinaryData        EmptyHash_;
 
 public:
+   static const BinaryData        EmptyHash_;
+   
    // Block of code to be called by SWIG -- i.e. made available to python
    BtcUtils(void) {}
    static BinaryData hash256(BinaryData const & str) {return getHash256(str);}

@@ -594,6 +594,19 @@ TxOut Tx::getTxOutCopy(int i) const
    return out;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+OutPoint Tx::getOutPointFromTxIn(uint32_t i) const
+{
+   /***
+   Grabbing the TxIn from the Tx is expensive and unecessary if the end goal 
+   is to grab the referenced OutPoint. This is the cheap version to get
+   straight to the OutPoint
+   ***/
+
+   assert(isInitialized());
+   return OutPoint(dataCopy_.getPtr() + +offsetsTxIn_[i], 36);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 void Tx::pprint(ostream & os, int nIndent, bool pBigendian) 

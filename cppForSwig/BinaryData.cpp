@@ -166,7 +166,7 @@ BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 
    if(start_pos + nChar > getSize())
    {
-      //cerr << "getSliceRef: Invalid BinaryData access" << endl;
+      cerr << "getSliceRef: Invalid BinaryData access" << endl;
       return BinaryDataRef();
    }
    return BinaryDataRef( getPtr()+start_pos, nChar);
