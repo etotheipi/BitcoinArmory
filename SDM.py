@@ -20,7 +20,7 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
-   MEGABYTE, ARMORY_HOME_DIR
+   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS
 from bitcoinrpc_jsonrpc import authproxy
 
 
@@ -513,10 +513,13 @@ class SatoshiDaemonManager(object):
             ctypes.windll.Advapi32.GetUserNameW(ctypes.byref(username_u16), 
                                                 ctypes.byref(str_length))
             
-            LOGINFO('Setting permissions on bitcoin.conf')
-            cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
-            icacls_out = subprocess_check_output(cmd_icacls, shell=True)
-            LOGINFO('icacls returned: %s', icacls_out)
+            if not CLI_OPTIONS.disableConfPermis:
+               LOGINFO('Setting permissions on bitcoin.conf')
+               cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
+               icacls_out = subprocess_check_output(cmd_icacls, shell=True)
+               LOGINFO('icacls returned: %s', icacls_out)
+            else:
+               LOGWARN('Skipped setting permissions on bitcoin.conf file')
             
       else:
          LOGINFO('Setting permissions on bitcoin.conf')

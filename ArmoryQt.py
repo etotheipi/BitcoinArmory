@@ -3124,12 +3124,26 @@ class ArmoryMainWindow(QMainWindow):
          unconfFunds += wlt.getBalance('Unconfirmed')
 
 
+      def keyFuncNumConf(x):
+         numConf = x[1].getBlockNum() - currBlk  # returns neg for reverse sort
+         txTime  = x[1].getTxTime() 
+         txhash  = x[1].getTxHash()
+         value   = x[1].getValue()
+         return (numConf, txTime, txhash, value)
+
+      def keyFuncTxTime(x):
+         numConf = x[1].getBlockNum() - currBlk  # returns neg for reverse sort
+         txTime  = x[1].getTxTime() 
+         txhash  = x[1].getTxHash()
+         value   = x[1].getValue()
+         return (txTime, numConf, txhash, value)
+
       # Apply table sorting -- this is very fast
       sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
       if self.sortLedgCol == LEDGERCOLS.NumConf:
-         self.combinedLedger.sort(key=lambda x: currBlk-x[1].getBlockNum()+1, reverse=not sortDir)
+         self.combinedLedger.sort(key=keyFuncNumConf, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.DateStr:
-         self.combinedLedger.sort(key=lambda x: x[1].getTxTime(), reverse=sortDir)
+         self.combinedLedger.sort(key=keyFuncTxTime, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.WltName:
          self.combinedLedger.sort(key=lambda x: self.walletMap[x[0]].labelName, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Comment:
