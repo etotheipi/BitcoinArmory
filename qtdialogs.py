@@ -8419,9 +8419,14 @@ class DlgAddressBook(ArmoryDialog):
       self.btnSelectWlt = QPushButton('No Wallet Selected')
       self.useBareMultiSigCheckBox = QCheckBox('Use Bare Multi-Sig (No P2SH)')
       self.useBareMultiSigCheckBox.setVisible(False)
-      self.ttipBareMS = self.main.createToolTipWidget(\
-         'Check this box to make the Multi-Sig public keys'
-         ' transparent in the blockchain.')
+      self.ttipBareMS = self.main.createToolTipWidget( tr("""
+         EXPERT OPTION:  Do not check this box unless you know what it means
+                         and you need it!  Forces Armory to exposes public 
+                         to the blockchain before the funds are spent.  
+                         This is only needed for very specific use cases, 
+                         and otherwise creates blockchain bloat."""))
+         
+         
       self.ttipBareMS.setVisible(False)
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
@@ -9892,8 +9897,14 @@ class DlgRequestPayment(ArmoryDialog):
 
       # Link Text:
       self.edtLinkText = QLineEdit()
-      defaultText = binary_to_hex('Click here to pay for your order!')
-      linkText = hex_to_binary(self.main.getSettingOrSetDefault('DefaultLinkText', defaultText))
+      defaultHex = binary_to_hex('Click here to pay for your order!')
+      savedHex = self.main.getSettingOrSetDefault('DefaultLinkText', defaultHex)
+      if savedHex.startswith('FFFFFFFF'):
+         # An unfortunate hack until we change our settings storage mechanism
+         # See comment in saveLinkText function for details
+         savedHex = savedHex[8:] 
+
+      linkText = hex_to_binary(savedHex)  
       self.edtLinkText.setText(linkText)
       self.edtLinkText.setCursorPosition(0)
       self.edtLinkText.setMaxLength(80)
@@ -10080,7 +10091,17 @@ class DlgRequestPayment(ArmoryDialog):
    def saveLinkText(self):
       linktext = str(self.edtLinkText.text()).strip()
       if len(linktext) > 0:
-         hexText = binary_to_hex(linktext)
+         # TODO:  We desperately need a new settings file format -- the one
+         #        we use was more of an experiment in how quickly I could 
+         #        create a simple settings file, but it has quirky behavior
+         #        that makes cryptic hacks like below necessary.  Simply put,
+         #        if the hex of the text is all digits (no hex A-F), then 
+         #        the settings file will read the value as a long int instead
+         #        of a string.  We add 8 F's to make sure it's interpretted
+         #        as a hex string, but someone looking at the file wouldn't
+         #        mistake it for meaningful data.  We remove it upon reading
+         #        the value from the settings file.
+         hexText = 'FFFFFFFF'+binary_to_hex(linktext)
          self.main.writeSetting('DefaultLinkText', hexText)
 
 
