@@ -1259,14 +1259,19 @@ def makeAsciiBlock(binStr, headStr='', wid=64, newline='\n'):
 
 ################################################################################
 def readAsciiBlock(ablock, headStr=''):
-   lines = ablock.strip().split()
-   if not lines[0].startswith('=====%s' % headStr) or \
-      not lines[-1].startswith('======'):
-      LOGERROR('Attempting to unserialize something not an ASCII block')
-      return lines[0].strip('='), None
+   headStr = ''
+   rawData = None
 
-   headStr = lines[0].strip('=')
-   rawData = base64.b64decode(''.join(lines[1:-1]))
+   # Contiue only if we actually get data.
+   if len(ablock) > 0:
+      lines = ablock.strip().split()
+      if not lines[0].startswith('=====%s' % headStr) or \
+         not lines[-1].startswith('======'):
+         LOGERROR('Attempting to unserialize something not an ASCII block')
+         return lines[0].strip('='), None
+
+      headStr = lines[0].strip('=')
+      rawData = base64.b64decode(''.join(lines[1:-1]))
 
    return (headStr, rawData)
 

@@ -126,14 +126,14 @@ class ArmoryDTest(TiabTest):
       self.assertEqual(len(actualDD['vout']), 2)
       self.assertEqual(actualDD['vout'][0]['value'], 20.0)
       self.assertEqual(actualDD['vout'][0]['n'], 0)
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['reqSigs'], 1)
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['hex'], '76a91462d978319c7d7ac6cceed722c3d08aa81b37101288ac')
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['addresses'], ['mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'])
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], expectScriptStr)
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'], 'Standard (PKH)')
-      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'Standard (PKH)')
-      
-      
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['reqSigs'], 1)
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['hex'], '76a91462d978319c7d7ac6cceed722c3d08aa81b37101288ac')
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['addresses'], ['mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'])
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['asm'], expectScriptStr)
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['type'], 'Standard (PKH)')
+      self.assertEqual(actualDD['vout'][1]['scriptAddrStrs']['type'], 'Standard (PKH)')
+
+
    def testDumpprivkey(self):
 
       testPrivKey = self.privKey.toBinStr()
