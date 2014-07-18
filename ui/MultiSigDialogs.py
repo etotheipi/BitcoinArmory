@@ -3560,9 +3560,12 @@ class DlgMergePromNotes(ArmoryDialog):
 
       btnCancel = QPushButton(tr('Cancel'))
       self.chkBareMS = QCheckBox(tr('Use bare multisig (no P2SH)'))
-      self.ttipBareMS = self.main.createToolTipWidget(\
-         'Check this box to make the Multi-Sig public keys'
-         ' transparent in the blockchain.')
+      self.ttipBareMS = self.main.createToolTipWidget( tr("""
+         EXPERT OPTION:  Do not check this box unless you know what it means
+                         and you need it!  Forces Armory to exposes public 
+                         keys to the blockchain before the funds are spent.  
+                         This is only needed for very specific use cases, 
+                         and otherwise creates blockchain bloat."""))
       btnFinish = QPushButton(tr('Continue'))
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       self.connect(btnFinish, SIGNAL('clicked()'), self.mergeNotesCreateUSTX)

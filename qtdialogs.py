@@ -8422,7 +8422,7 @@ class DlgAddressBook(ArmoryDialog):
       self.ttipBareMS = self.main.createToolTipWidget( tr("""
          EXPERT OPTION:  Do not check this box unless you know what it means
                          and you need it!  Forces Armory to exposes public 
-                         to the blockchain before the funds are spent.  
+                         keys to the blockchain before the funds are spent.  
                          This is only needed for very specific use cases, 
                          and otherwise creates blockchain bloat."""))
          
