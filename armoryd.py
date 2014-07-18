@@ -691,7 +691,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def getScriptPubKey(self, txOut):
+   def getScriptAddrStrs(self, txOut):
       addrList = []
       scriptType = getTxOutScriptType(txOut.binScript)
       if scriptType in CPP_TXOUT_STDSINGLESIG:
@@ -754,7 +754,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       for n,txout in enumerate(pyTx.outputs):
          voutList.append( { 'value' : AmountToJSON(txout.value),
                             'n' : n,
-                            'scriptPubKey' : self.getScriptPubKey(txout) } )
+                            'scriptAddrStrs' : self.getScriptAddrStrs(txout) } )
 
 
       #####
@@ -1576,7 +1576,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
          utxoList = cppWlt.getSpendableTxOutList(topBlk, IGNOREZC)
 
-
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
       # Calculate the real fee and make sure it's affordable.
@@ -1651,16 +1650,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Create a multisig lockbox. The user must specify the number of keys needed
-   # to unlock a lockbox and the number of keys in a lockbox. Optionally, the
-   # user may specify the public keys or wallets to use. If wallets are
-   # specified, an address will be chosen from the wallet. If public keys are
-   # specified, keys must be uncompressed. (For now, compressed keys aren't
-   # supported.)
+   # to unlock a lockbox, the number of keys in a lockbox, and the exact keys or
+   # wallets to use. If wallets are specified, an address will be chosen from
+   # the wallet. If public keys are specified, the keys must be uncompressed.
+   # (For now, compressed keys aren't supported.)
    #
    # Example: We wish to create a 2-of-3 lockbox based on 2 loaded wallets
    # (27TchD13 and AaAaaAQ4) and an uncompressed public key. The following
    # command would be executed.
-   # armoryd 2 3 27TchD13 AaAaaAQ4 04010203040506070809....
+   # armoryd createlockbox 2 3 27TchD13 AaAaaAQ4 04010203040506070809....
    @catchErrsForJSON
    def jsonrpc_createlockbox(self, numM, numN, *args):
       """
@@ -2657,9 +2655,9 @@ class Armory_Daemon(object):
 
    #############################################################################
    # NB: ArmoryQt has a similar function (finishLoadBlockchainGUI) that shares
-   # common functionality via ArmoryUtils (finishLoadBlockchainCommon). If you
-   # mod this function, please be mindful of what goes where, and make sure
-   # any critical functionality makes it into ArmoryQt.
+   # common functionality via the BDM (finishLoadBlockchainCommon). If you mod
+   # this function, please be mindful of what goes where, and make sure any
+   # critical functionality makes it into ArmoryQt.
    def start(self):
       #run a wallet consistency check before starting the BDM
       self.checkWallet()
@@ -2680,8 +2678,7 @@ class Armory_Daemon(object):
             TheBDM.registerWallet(wlt)
          TheBDM.setOnlineMode(True)
 
-         # Initialize the mem pool and sync the wallets. (NB: This shares
-         # critical startup code with ArmoryQt.)
+         # Initialize the mem pool and sync the wallets.
          self.latestBlockNum = TheBDM.finishLoadBlockchainCommon(self.WltMap, \
                                                           self.lboxCppWalletMap, \
                                                           False)[0]
