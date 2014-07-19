@@ -6591,6 +6591,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    TheBDM.readBlkFileUpdate();
    BtcUtils::copyFile("../reorgTest/blk_4A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
+
    BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
    uint32_t prevBlock = TheBDM.readBlkFileUpdate();
 
@@ -6603,8 +6604,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    EXPECT_EQ(scrobj->getFullBalance(), 10*COIN);
    scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
-   //scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
-   //EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
+   
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
 
    EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
 }
@@ -7453,12 +7455,12 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
    iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
+   EXPECT_EQ(ssh.totalTxioCount_,       6);
 
    iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       2);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
 
    iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
@@ -7531,12 +7533,12 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
    iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),   10*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       4);
+   EXPECT_EQ(ssh.totalTxioCount_,       7);
 
    iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  10*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       1);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
 
    iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  140*COIN);

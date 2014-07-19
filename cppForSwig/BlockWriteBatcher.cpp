@@ -713,12 +713,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
             &dbUpdateSize_
          );
 
-      sshptr->insertSpentTxio(stxoSpend.getDBKey(false), 
-                                  thisSTX.getDBKeyOfChild(iin, false));
-      
-      // Assuming supernode, we don't need to worry about removing references
-      // to multisig scripts that reference this script.  Simply find and 
-      // update the correct SSH TXIO directly
+      // update the txio in its subSSH
       sshptr->markTxOutSpent(
          iface_,
          stxoSpend.getDBKey(false),
@@ -727,6 +722,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          config_.pruneType
       );
 
+      //mirror the spent txio at txin height
+      sshptr->insertSpentTxio(stxoSpend.getDBKey(false), 
+                              thisSTX.getDBKeyOfChild(iin, false));
       TIMER_STOP("CommitTxIn");
    }
 

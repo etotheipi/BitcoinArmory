@@ -799,7 +799,8 @@ TxIOPair::TxIOPair(void) :
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
    isMultisig_(false),
-   txtime_(0)
+   txtime_(0),
+   isUTXO_(false)
    {}
 
 //////////////////////////////////////////////////////////////////////////////
@@ -810,7 +811,8 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
    isMultisig_(false),
-   txtime_(0)
+   txtime_(0),
+   isUTXO_(false)
    {}
 
 //////////////////////////////////////////////////////////////////////////////
@@ -820,7 +822,8 @@ TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
    isMultisig_(false),
-   txtime_(0)
+   txtime_(0),
+   isUTXO_(false)
 { 
    setTxOut(txPtrO, txoutIndex);
 }
@@ -834,7 +837,8 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
    isMultisig_(false),
-   txtime_(0)
+   txtime_(0),
+   isUTXO_(false)
 { 
    setTxOut(txPtrO, txoutIndex);
    setTxIn (txPtrI, txinIndex );
@@ -848,7 +852,8 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
    isMultisig_(false),
-   txtime_(0)
+   txtime_(0),
+   isUTXO_(false)
 {
    setTxOut(txOutKey8B);
 }

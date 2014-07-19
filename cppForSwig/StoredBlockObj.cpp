@@ -1917,11 +1917,13 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       bool isCoinbase      = bitunpack.getBit();
       bool isSpent         = bitunpack.getBit();
       bool isMulti         = bitunpack.getBit();
+      bool isUTXO          = bitunpack.getBit();
 
       // We always include the 8-byte value
       uint64_t txoValue  = brr.get_uint64_t();
       TxIOPair txio;
       txio.setValue(txoValue);
+      txio.setUTXO(isUTXO);
 
       if (!isSpent)
       {
@@ -2002,6 +2004,7 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, A
       bitpack.putBit(txio.isFromCoinbase());
       bitpack.putBit(txio.hasTxInInMain(db));
       bitpack.putBit(txio.isMultisig());
+      bitpack.putBit(txio.isUTXO());
       bw.put_BitPacker(bitpack);
 
       if (!isSpent)
@@ -2204,8 +2207,8 @@ uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
    uint64_t bal = 0;
    map<BinaryData, TxIOPair>::iterator iter;
    for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
-      if (!iter->second.isMultisig() || withMultisig)
-         bal += iter->second.getValue();
+   if (!iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
+      bal += iter->second.getValue();
    
    return bal;
 }
@@ -2245,12 +2248,10 @@ uint64_t StoredSubHistory::markTxOutSpent(
       return UINT64_MAX;
    }
 
+   txioptr->setUTXO(false);
+
    // Return value spent only if not multisig
-   uint64_t retval = (txioptr->isMultisig() ? 0 : txioptr->getValue());
-
-   txioMap_.erase(txOutKey8B);
-
-   return retval;
+   return (txioptr->isMultisig() ? 0 : txioptr->getValue());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2296,13 +2297,14 @@ uint64_t StoredSubHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData txOut
          return 0;
       }
 
-      if(!txioptr->hasTxInInMain(db))
+      if(txioptr->isUTXO() == true)
       {
          LOGWARN << "STXO already marked unspent in SSH";
          return 0;
       }
 
       txioptr->setTxIn(TxRef(), UINT32_MAX);
+      txioptr->setUTXO(true);
       return (txioptr->isMultisig() ? 0 : txioptr->getValue());
    }
    else
@@ -2318,6 +2320,7 @@ uint64_t StoredSubHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData txOut
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMultisigRef);
       txio.setTxOutFromSelf(false); // in super-node mode, we don't use this
+      txio.setUTXO(true);
       insertTxio(txio);
       return (isMultisigRef ? 0 : value);
    }

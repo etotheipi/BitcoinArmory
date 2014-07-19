@@ -136,11 +136,7 @@ void ScrAddrObj::clearBlkData(void)
 void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 {
    for (auto txio : txio_map)
-   {
       relevantTxIO_[txio.first] = txio.second;
-      //if (txio.second.hasTxIn())
-         //relevantTxIO_.erase(txio)
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -226,6 +222,14 @@ void ScrAddrObj::updateAfterReorg(uint32_t lastValidBlockHeight)
       else
          relevantTxIO_.erase(txioIter++);
    }
+
+   //clean up ledgers
+   BinaryData cutOffHghtX = DBUtils::heightAndDupToHgtx(lastValidBlockHeight + 1, 0);
+   uint16_t zero = 0;
+   cutOffHghtX.append((uint8_t*)&zero, 2);
+
+   auto leRange = ledger_.equal_range(cutOffHghtX);
+   ledger_.erase(leRange.first, ledger_.end());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

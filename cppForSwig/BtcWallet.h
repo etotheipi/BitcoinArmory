@@ -135,7 +135,7 @@ public:
 
    vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const; 
-   vector<LedgerEntry>
+   const vector<LedgerEntry>&
       getTxLedger() const; 
 
    void pprintLedger() const;
@@ -155,7 +155,7 @@ public:
    
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);   
-   void scanWalletZeroConf();
+   void scanWalletZeroConf(bool withReorg=false);
    
    const map<BinaryData, ScrAddrObj> getScrAddrMap(void) const
    { return scrAddrMap_; }

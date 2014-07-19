@@ -715,6 +715,9 @@ public:
    void setTxTime(uint32_t t) { txtime_ = t; }
    uint32_t getTxTime(void) const { return txtime_; }
 
+   bool isUTXO(void) const { return isUTXO_; }
+   void setUTXO(bool val) { isUTXO_ = val; }
+
 private:
    uint64_t  amount_;
 
@@ -734,6 +737,18 @@ private:
    //mainly for ZC ledgers. Could replace the need for a blockchain 
    //object to build scrAddrObj ledgers.
    uint32_t txtime_;
+
+   /***marks txio as spent for serialize/deserialize operations. It signifies 
+   whether a subSSH entry with only a TxOut DBkey is spent. 
+
+   To allow for partial parsing of SSH history, txouts need to be visible at
+   the height they appeared, while spent txouts need to be visible at the 
+   spending txin height. 
+   
+   While spent txouts at txin height are unique, spent txouts at txout height
+   need to be differenciated from utxo.
+   ***/
+   bool isUTXO_;
 };
 
 

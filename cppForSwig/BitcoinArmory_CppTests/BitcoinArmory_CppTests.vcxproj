@@ -166,6 +166,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\BDM_supportClasses.h" />
     <ClInclude Include="..\BinaryData.h" />
     <ClInclude Include="..\Blockchain.h" />
     <ClInclude Include="..\BlockObj.h" />
@@ -184,6 +185,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BDM_mainthread.cpp" />
+    <ClCompile Include="..\BDM_supportClasses.cpp" />
     <ClCompile Include="..\BinaryData.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />

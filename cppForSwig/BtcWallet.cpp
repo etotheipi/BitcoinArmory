@@ -733,8 +733,6 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
       }
    }
 
-
-
    vector<AddressBookEntry> outputVect;
    for(const auto &entry : sentToMap)
    {
@@ -751,14 +749,22 @@ vector<LedgerEntry> BtcWallet::getTxLedger(HashString const & scraddr)
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
-   /*auto saIter = scrAddrMap_.find(scraddr);
+   auto saIter = scrAddrMap_.find(scraddr);
    if (ITER_IN_MAP(saIter, scrAddrMap_))
-      return saIter->second.getTxLedger();*/
+   {
+      const auto& saLedger = saIter->second.getTxLedger();
+      vector<LedgerEntry> vle;
+
+      for (const auto& lePair : saLedger)
+         vle.push_back(lePair.second);
+
+      return vle;
+   }
 
    return vector<LedgerEntry>();
 }
 
-vector<LedgerEntry> BtcWallet::getTxLedger() const
+const vector<LedgerEntry>& BtcWallet::getTxLedger() const
 {
    return ledgerAllAddr_;
 }
@@ -789,7 +795,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanWalletZeroConf()
+void BtcWallet::scanWalletZeroConf(bool withReorg)
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
@@ -797,8 +803,16 @@ void BtcWallet::scanWalletZeroConf()
    ***/
    SCOPED_TIMER("rescanWalletZeroConf");
 
-   const map<BinaryData, map<BinaryData, TxIOPair> >& ZCtxioMap = 
+   map<BinaryData, map<BinaryData, TxIOPair> >& ZCtxioMap = 
       bdmPtr_->getNewZeroConfTxIOMap();
+
+   if (withReorg==true)
+   {
+      //scanning ZC after a reorg, Everything beyond the last valid block has
+      //been wiped out of RAM, thus grab the full ZC txio map. Still need a call
+      //to getNewZeroConfTxIOMap to clear the new ZC map
+      ZCtxioMap = bdmPtr_->getFullZeroConfTxIOMap();
+   }
 
    for (auto& scrAddrTxio : ZCtxioMap)
    {
@@ -857,11 +871,13 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
    else if (startBlock < endBlock)
    {
       //new top block
+      bool withReorg = false;
 
       if (lastScanned_ > startBlock)
       {
          //reorg
          updateAfterReorg(startBlock);
+         withReorg = true;
       }
          
       fetchDBScrAddrData(startBlock, endBlock);
