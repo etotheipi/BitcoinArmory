@@ -595,20 +595,6 @@ TxOut Tx::getTxOutCopy(int i) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-OutPoint Tx::getOutPointFromTxIn(uint32_t i) const
-{
-   /***
-   Grabbing the TxIn from the Tx is expensive and unecessary if the end goal 
-   is to grab the referenced OutPoint. This is the cheap version to get
-   straight to the OutPoint
-   ***/
-
-   assert(isInitialized());
-   return OutPoint(dataCopy_.getPtr() + +offsetsTxIn_[i], 36);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
 void Tx::pprint(ostream & os, int nIndent, bool pBigendian) 
 {
    string indent = "";
@@ -812,7 +798,8 @@ TxIOPair::TxIOPair(void) :
    indexOfInput_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   txtime_(0)
    {}
 
 //////////////////////////////////////////////////////////////////////////////
@@ -822,7 +809,8 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    indexOfInput_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   txtime_(0)
    {}
 
 //////////////////////////////////////////////////////////////////////////////
@@ -831,7 +819,8 @@ TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
    indexOfInput_(0) ,
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   txtime_(0)
 { 
    setTxOut(txPtrO, txoutIndex);
 }
@@ -844,7 +833,8 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
    amount_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   txtime_(0)
 { 
    setTxOut(txPtrO, txoutIndex);
    setTxIn (txPtrI, txinIndex );
@@ -857,7 +847,8 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
    indexOfInput_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false),
-   isMultisig_(false)
+   isMultisig_(false),
+   txtime_(0)
 {
    setTxOut(txOutKey8B);
 }

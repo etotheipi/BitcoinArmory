@@ -570,7 +570,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          addrList = filter(notChange, addrList)
 
       if self.usedOnly and TheBDM.getState()=='BlockchainReady':
-         isUsed = lambda a: (len(self.wlt.getAddrTxLedger(a.getAddr160(), 'Full')) > 0)
+         isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(a.getAddr160()))
          addrList = filter(isUsed, addrList)
          
       self.addr160List = [a.getAddr160() for a in addrList]
@@ -608,7 +608,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant('')
          if col==COL.NumTx: 
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            return QVariant( cppAddr.getTxLedgerSize())
+            return QVariant( cppAddr.getTxioCountFromSSH())
          if col==COL.ChainIdx:
             if self.wlt.addrMap[addr160].chainIndex==-2:
                return QVariant('Imported')

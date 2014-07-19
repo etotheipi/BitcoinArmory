@@ -564,7 +564,6 @@ public:
    // okay to do it on the fly
    TxIn     getTxInCopy(int i) const;
    TxOut    getTxOutCopy(int i) const;
-   OutPoint getOutPointFromTxIn(uint32_t i) const;
 
 
    /////////////////////////////////////////////////////////////////////////////

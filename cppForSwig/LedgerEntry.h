@@ -47,7 +47,7 @@ public:
       scrAddr_(0),
       value_(0),
       blockNum_(UINT32_MAX),
-      txHash_(0),
+      txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
       txTime_(0),
       isValid_(false),
@@ -85,6 +85,7 @@ public:
    bool                isCoinbase(void) const   { return isCoinbase_;    }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
+   void                setValue(int64_t val)    { value_ = val; }
 
    SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
 

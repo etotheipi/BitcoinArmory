@@ -8212,7 +8212,7 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 
    EXPECT_EQ(le.getTxTime(), 1300000000);
    EXPECT_EQ(le.isSentToSelf(), true);
-   EXPECT_EQ(le.getValue(), 50*COIN);
+   EXPECT_EQ(le.getValue(), 10*COIN);
 }
 
 // This was really just to time the logging to determine how much impact it 

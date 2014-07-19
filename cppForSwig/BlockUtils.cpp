@@ -2844,8 +2844,7 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
    for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin),
-         tx.getSize() - tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 36);
 
       //check ZC txhash first, always cheaper than grabing a stxo from DB,
       //and will always be checked if the tx doesn't hit in DB outpoints.
@@ -3268,11 +3267,14 @@ map<BinaryData, vector<BinaryData> > ZeroConfContainer::purge(InterfaceToLDB *db
    //intersect with current container map
    for (const auto& saMapPair : txioMap_)
    {
-      auto& saTxio = txioMap[saMapPair.first];
+      auto& saTxioIter = txioMap.find(saMapPair.first);
+      if (saTxioIter == txioMap.end())
+         continue;
 
       for (const auto& txioPair : saMapPair.second)
       {
-         if (saTxio.find(txioPair.first) == saTxio.end())
+         if (saTxioIter->second.find(txioPair.first) == 
+             saTxioIter->second.end())
          {
             auto& txioVec = invalidatedKeys[saMapPair.first];
             txioVec.push_back(txioPair.first);
@@ -3284,6 +3286,30 @@ map<BinaryData, vector<BinaryData> > ZeroConfContainer::purge(InterfaceToLDB *db
    txHashToDBKey_ = txHashToDBKey;
    txMap_ = txMap;
    txioMap_ = txioMap;
+
+   //now purge newTxioMap_
+   for (auto& newSaTxioPair : newTxioMap_)
+   {
+      auto validTxioIter = txioMap_.find(newSaTxioPair.first);
+
+      if (ITER_NOT_IN_MAP(validTxioIter, txioMap_))
+      {
+         newSaTxioPair.second.clear();
+         continue;
+      }
+
+      auto& validSaTxioMap = validTxioIter->second;
+      auto& newSaTxioMap = newSaTxioPair.second;
+
+      auto newTxioIter = newSaTxioMap.begin();
+      
+      while (newTxioIter != newSaTxioMap.end())
+      {
+         if (KEY_NOT_IN_MAP(newTxioIter->first, validSaTxioMap))
+            newSaTxioMap.erase(newTxioIter++);
+         else ++newTxioIter;
+      }
+   }
 
    return invalidatedKeys;
 
@@ -3314,10 +3340,20 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
    uint32_t nProcessed = 0;
 
    bool zcIsOurs = false;
+
+   //grab ZC container lock
+   while (lock_.fetch_or(1, memory_order_acquire));
+   
+   //copy new ZC map
+   map<BinaryData, Tx> zcMap = newZCMap_;
+   
+   //release lock
+   lock_.store(0, memory_order_release);
+
    
    while (1)
    {
-      for (auto newZCPair : newZCMap_)
+      for (const auto& newZCPair : zcMap)
       {
          nProcessed++;
 
@@ -3342,9 +3378,12 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
                for (const auto& saTxio : newTxIO)
                {
                   auto& txioPair = txioMap_[saTxio.first];
-
                   txioPair.insert(saTxio.second.begin(), 
                                   saTxio.second.end());
+
+                  auto& newTxioPair = newTxioMap_[saTxio.first];
+                  newTxioPair.insert(saTxio.second.begin(),
+                     saTxio.second.end());
                }
 
                zcIsOurs = true;
@@ -3355,6 +3394,7 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
       //grab ZC container lock
       while (lock_.fetch_or(1, memory_order_acquire));
 
+      //check if newZCMap_ doesnt have new Txn
       if (nProcessed >= newZCMap_.size())
       {
          //clear map and release lock
@@ -3365,6 +3405,19 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
          break;
       }
       
+      //else search the new ZC container for unseen ZC
+      map<BinaryData, Tx>::const_iterator newZcIter = newZCMap_.begin();
+
+      while (newZcIter != newZCMap_.begin())
+      {
+         if (ITER_IN_MAP(zcMap.find(newZcIter->first), zcMap))
+            newZCMap_.erase(newZcIter++);
+         else
+            ++newZcIter;
+      }
+
+      zcMap = newZCMap_;
+
       //reset counter and release lock
       lock_.store(0, memory_order_release);
       nProcessed = 0;
@@ -3372,4 +3425,27 @@ bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
 
    return zcIsOurs;
 }
-// kate: indent-width 3; replace-tabs on;
+
+///////////////////////////////////////////////////////////////////////////////
+bool ZeroConfContainer::getKeyForTxHash(const BinaryData& txHash, 
+                                        BinaryData zcKey) const
+{
+   const auto& hashPair = txHashToDBKey_.find(txHash);
+   if (hashPair != txHashToDBKey_.end())
+   {
+      zcKey = hashPair->second;
+      return true;
+   }
+   return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+map<HashString, map<BinaryData, TxIOPair> > 
+   ZeroConfContainer::getNewTxioMap()
+{
+   //Copy zcTxioMap_, clear it and return the copy
+   map<HashString, map<BinaryData, TxIOPair> > newZcTxioCopy = newTxioMap_;
+   newTxioMap_.clear();
+
+   return newZcTxioCopy;
+}

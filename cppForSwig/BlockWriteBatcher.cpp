@@ -571,7 +571,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       TIMER_START("grabTxIn");
       // Get the OutPoint data of TxOut being spent
       TIMER_START("getOutPoint");
-      const OutPoint      op = tx.getOutPointFromTxIn(iin);
+      OutPoint op; 
+      op.unserialize(tx.getPtr() + tx.getTxInOffset(iin), 36);
+
       if (op.isCoinbase() == true)
       {
          TIMER_STOP("getOutPoint");

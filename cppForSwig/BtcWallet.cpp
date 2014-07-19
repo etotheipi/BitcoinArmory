@@ -41,6 +41,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
 
    ScrAddrObj addr(
       bdmPtr_->getIFace(),
+      &bdmPtr_->blockchain(),
       scrAddr,
       firstTimestamp, firstBlockNum,
       lastTimestamp,  lastBlockNum
@@ -60,7 +61,8 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
    if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
 
-   ScrAddrObj addr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, 0, 0, 0, 0);
+   ScrAddrObj addr = ScrAddrObj(bdmPtr_->getIFace(), &bdmPtr_->blockchain(),
+      scrAddr, 0, 0, 0, 0);
 
    if(bdmPtr_ != nullptr)
       if (!bdmPtr_->registerScrAddr(addr, this))
@@ -641,6 +643,16 @@ uint64_t BtcWallet::getFullBalance() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& addr) const
+{
+   const ScrAddrObj* addrPtr = getScrAddrObjByKey(addr);
+   if (addrPtr != nullptr)
+      return addrPtr->getTxioCountFromSSH();
+
+   return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(
    uint32_t blkNum, 
    bool ignoreAllZC
@@ -752,61 +764,19 @@ vector<LedgerEntry> BtcWallet::getTxLedger() const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, TxIOPair> BtcWallet::getHistoryForScrAddr(
-   BinaryDataRef uniqKey, 
-   uint32_t startBlock, uint32_t endBlock,
-   bool withMultisig) const
-{
-   InterfaceToLDB *const iface_ = bdmPtr_->getIFace();
-
-   StoredScriptHistory ssh;
-   iface_->getStoredScriptHistory(ssh, uniqKey, startBlock, endBlock);
-
-   if (uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
-      withMultisig = true;
-
-   map<BinaryData, TxIOPair> outMap;
-   if (!ssh.isInitialized())
-      return outMap;
-
-   for (auto &subSSHEntry : ssh.subHistMap_)
-   {
-      StoredSubHistory & subssh = subSSHEntry.second;
-
-      for (auto &txiop : subssh.txioMap_)
-      {
-         const TxIOPair & txio = txiop.second;
-         if (withMultisig || !txio.isMultisig())
-            outMap[txiop.first] = txio;
-      }
-   }
-
-   return outMap;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 void BtcWallet::fetchDBScrAddrData(uint32_t startBlock, 
                                              uint32_t endBlock)
 {
    SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
+
+   const Blockchain* bc = &bdmPtr_->blockchain();
+
    for (auto saIter = scrAddrMap_.begin(); 
       saIter != scrAddrMap_.end(); 
       saIter++)
    {
-      fetchDBScrAddrData(saIter->second, startBlock, endBlock);
+      saIter->second.fetchDBScrAddrData(startBlock, endBlock);
    }
-}
-
-void BtcWallet::fetchDBScrAddrData(ScrAddrObj & scrAddr, 
-                                   uint32_t startBlock,
-                                   uint32_t endBlock)
-{
-   InterfaceToLDB *const iface = bdmPtr_->getIFace();
-
-   map<BinaryData, TxIOPair> hist = getHistoryForScrAddr(scrAddr.getScrAddr(), 
-                                                      startBlock, endBlock);   
-   scrAddr.updateTxIOMap(hist);
-   scrAddr.updateLedgers(&bdmPtr_->blockchain(), hist);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -828,7 +798,7 @@ void BtcWallet::scanWalletZeroConf()
    SCOPED_TIMER("rescanWalletZeroConf");
 
    const map<BinaryData, map<BinaryData, TxIOPair> >& ZCtxioMap = 
-      bdmPtr_->getZeroConfTxIOMap();
+      bdmPtr_->getNewZeroConfTxIOMap();
 
    for (auto& scrAddrTxio : ZCtxioMap)
    {
@@ -876,7 +846,7 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       histBottomHeight_ = bottom;
 
       if (bottom != 0)
-         histPages_.mapPages(*this);
+         mapPages();
 
       LOGINFO << "updating ZC";
       scanWalletZeroConf();
@@ -931,7 +901,7 @@ void BtcWallet::purgeZeroConfTxIO(
    for (auto& txioVec : invalidatedTxIO)
    {
       map<BinaryData, ScrAddrObj>::iterator scrAddr = 
-	scrAddrMap_.find(txioVec.first);
+	      scrAddrMap_.find(txioVec.first);
 
       if (scrAddr != scrAddrMap_.end())
          scrAddr->second.purgeZC(txioVec.second);
@@ -976,22 +946,22 @@ void BtcWallet::updateWalletLedgers(
    BinaryData startHgtX = DBUtils::heightAndDupToHgtx(startBlock, 0);
    BinaryData endHgtX = DBUtils::heightAndDupToHgtx(endBlock + 1, 0);
 
-   startHgtX.append((uint8_t*)&zero, 4);
-   endHgtX.append((uint8_t*)&zero, 4);
+   startHgtX.append((uint8_t*)&zero, 2);
+   endHgtX.append((uint8_t*)&zero, 2);
    
    if (startBlock >= endBlock)
    {
       //parsing ZC ledgers only
-      startHgtX = WRITE_UINT64_BE(0xffff000000000000);
-      endHgtX = WRITE_UINT64_BE(0xffffffffffffffff);
+      startHgtX = WRITE_UINT64_BE(0xffff000000000000).getSliceCopy(0, 6);
+      endHgtX   = WRITE_UINT64_BE(0xffffffffffffffff).getSliceCopy(0, 6);
    }
 
 
-   map<BinaryData, vector<LedgerEntry>> arrangeByHash;
+   map<BinaryData, vector<LedgerEntry>> arrangeByTxn;
 
    vector<LedgerEntry>* leVec;
 
-   //arrange scrAddr ledger entries by txHash, within start/endBlock range
+   //arrange scrAddr ledger entries by transaction, within start/endBlock range
    for (const auto scrAddrPair : scrAddrMap)
    {
       const ScrAddrObj& scrAddr = scrAddrPair.second;
@@ -1004,7 +974,7 @@ void BtcWallet::updateWalletLedgers(
       {
          if (leIter->first < endHgtX)
          {
-            leVec = &arrangeByHash[leIter->second.getTxHash()];
+            leVec = &arrangeByTxn[leIter->first];
             leVec->push_back(leIter->second);
 
             ++leIter;
@@ -1023,8 +993,9 @@ void BtcWallet::updateWalletLedgers(
    uint32_t txTime;
    uint32_t nHits;
    uint32_t txIndex;
+   BinaryData txHash;
 
-   for (const auto txHashPair : arrangeByHash)
+   for (const auto txLedgersPair : arrangeByTxn)
    {
       ledgerVal = valIn = valOut = 0;
       isCoinbase = false;
@@ -1032,12 +1003,13 @@ void BtcWallet::updateWalletLedgers(
       isChangeBack = false;
       nHits = 0;
 
-      auto leIter = txHashPair.second.begin();
+      auto leIter = txLedgersPair.second.begin();
       blockNum = (*leIter).getBlockNum();
       txTime = (*leIter).getTxTime();
       txIndex = (*leIter).getIndex();
+      txHash = (*leIter).getTxHash();
 
-      while (leIter != txHashPair.second.end())
+      while (leIter != txLedgersPair.second.end())
       {
          isCoinbase |= (*leIter).isCoinbase();
 
@@ -1045,12 +1017,14 @@ void BtcWallet::updateWalletLedgers(
          if (val > 0)
             valIn += val;
          else
+         {
             valOut += val;
+            if (hasScrAddress((*leIter).getScrAddr()))
+               nHits++;
+         }
 
          ledgerVal += val;
 
-         if (hasScrAddress((*leIter).getScrAddr()))
-            nHits++;
 
          ++leIter;
       }
@@ -1059,21 +1033,18 @@ void BtcWallet::updateWalletLedgers(
       to a single scrAddr). STS is signifiant at both address and wallet
       level, but ChangeBack is only relevant at address level.
       ***/
-      if (valIn*valOut != 0)
+      if (valIn + valOut == 0)
       {
-         if (nHits == txHashPair.second.size())
-         {
-            ledgerVal = valIn;
-            isSendToSelf = true;
-         }
-         else if (nHits != 0 && (valIn + valOut) < 0)
-            isChangeBack = true;
+         ledgerVal = valIn;
+         isSendToSelf = true;
       }
+      else if (nHits != 0 && (valIn + valOut) < 0)
+         isChangeBack = true;
 
       LedgerEntry le(BinaryData(0),
          ledgerVal,
          blockNum,
-         txHashPair.first,
+         txHash,
          txIndex,
          txTime,
          isCoinbase,
@@ -1106,10 +1077,12 @@ LedgerEntry BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) const
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::preloadScrAddr(const BinaryData& scrAddr)
 {
-   ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), scrAddr);
+   ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), 
+                            &bdmPtr_->blockchain(), 
+                            scrAddr);
 
    //fetch scrAddrData
-   fetchDBScrAddrData(newScrAddrObj, 0, bdmPtr_->getTopBlockHeight());
+   newScrAddrObj.fetchDBScrAddrData(0, bdmPtr_->getTopBlockHeight());
 
    //grab merge lock
    while (mergeLock_.fetch_or(1, memory_order_acquire));
@@ -1136,7 +1109,7 @@ void BtcWallet::merge(void)
       //rescan last 100 blocks to account for new blocks and reorgs
       uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight() + 1;
       for (auto& scrAddrPair : scrAddrMapToMerge_)
-         fetchDBScrAddrData(scrAddrPair.second, topBlock -100, topBlock);
+         scrAddrPair.second.fetchDBScrAddrData(topBlock - 100, topBlock);
       
 
       /***NOTE: should ledgers just be wiped and fully rebuilt? If the new 
@@ -1207,10 +1180,6 @@ void BtcWallet::fetchWalletHistoryRange(vector<LedgerEntry>& le,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//
-// HistoryPages
-//
-////////////////////////////////////////////////////////////////////////////////
 void* mapPagesThread(void *in)
 {
    BtcWallet *wlt = static_cast<BtcWallet*>(in);
@@ -1220,7 +1189,10 @@ void* mapPagesThread(void *in)
    
    //grab merge lock, make a copy of the addrMap then release
    wlt->grabMergeLock();
-   map<BinaryData, ScrAddrObj> addrMap = wlt->getScrAddrMap();
+   map<BinaryData, ScrAddrObj*> addrMap;
+   for (auto& addrPair : wlt->getScrAddrMap())
+      addrMap[addrPair.first] = &addrPair.second;
+
    wlt->releaseMergeLock();
 
    InterfaceToLDB* db = wlt->getBdmPtr()->getIFace();
@@ -1228,11 +1200,16 @@ void* mapPagesThread(void *in)
 
    for (auto scrAddrPair : addrMap)
    {
-      map<uint32_t, uint32_t> txioSum = 
-         db->getSSHSummary(scrAddrPair.first, wltFirstHistoryBlock);
+      scrAddrPair.second->mapHistory();
+      const map<uint32_t, uint32_t>& txioSum = 
+         scrAddrPair.second->getHistSSHsummary();
 
-      for (auto histPair : txioSum)
+      for (const auto& histPair : txioSum)
+      {
+         if (histPair.first >= wltFirstHistoryBlock)
+            break;
          histSummary[histPair.first] += histPair.second;
+      }
    }
 
    HistoryPages &pages = wlt->getHistoryPages();
@@ -1261,52 +1238,19 @@ void* mapPagesThread(void *in)
    if (threshold != 0)
       pages.addPage(threshold, 0, top);
 
-   pages.sort();
+   pages.sortPages();
 
    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void HistoryPages::mapPages(BtcWallet& wlt)
+void BtcWallet::mapPages()
 {
-   wltPtr_ = &wlt;
    pthread_t tid;
-   pthread_create(&tid, nullptr, mapPagesThread, static_cast<void*>(&wlt));
+   pthread_create(&tid, nullptr, mapPagesThread, static_cast<void*>(this));
    //pthread_join(tid, nullptr);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-void HistoryPages::addPage(uint32_t count, uint32_t bottom, uint32_t top)
-{
-   Page newPage(count, bottom, top);
-   pages_.push_back(newPage);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> HistoryPages::getPage(uint32_t pageId)
-{
-   if (wltPtr_ == nullptr || pageId > pages_.size())
-      return vector<LedgerEntry>();
-
-   Page& page = pages_[pageId];
-
-   if (page.pageLedgers_.size() != 0)
-      return page.pageLedgers_;
-
-   InterfaceToLDB* db = wltPtr_->getBdmPtr()->getIFace();
-   const map<BinaryData, ScrAddrObj>& scrAddrMap = wltPtr_->getScrAddrMap();
-   map<BinaryData, ScrAddrObj> tempSAMap;
-
-   for (const auto& scrAddrPair : scrAddrMap)
-   {
-      ScrAddrObj& sa = tempSAMap[scrAddrPair.first];
-      wltPtr_->fetchDBScrAddrData(sa, page.blockStart_, page.blockEnd_);
-   }
-
-   wltPtr_->updateWalletLedgers(page.pageLedgers_, tempSAMap, page.blockStart_, page.blockEnd_);
-
-   return page.pageLedgers_;
-}
 
 
 // kate: indent-width 3; replace-tabs on;

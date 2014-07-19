@@ -788,6 +788,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #if DO_WALLET_CHECK: 
          #self.checkWallets()
+
       self.blkReceived = RightNow()
 
       self.setDashboardDetails()
@@ -6296,6 +6297,7 @@ class ArmoryMainWindow(QMainWindow):
       determines if any incoming transactions were created by Armory. If so, the
       transaction will be passed along to a user notification queue.
       '''
+
       while len(self.newZeroConfSinceLastUpdate)>0:
          Tx = self.newZeroConfSinceLastUpdate.pop()
 
@@ -6305,7 +6307,7 @@ class ArmoryMainWindow(QMainWindow):
          for wltID in self.walletMap.keys():
             wlt = self.walletMap[wltID]
             le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
-            if len(le.getTxHash()) == 32:
+            if not le.getTxHash() == '\x00' * 32:
                LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
                         % wltID)
                notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
@@ -6550,10 +6552,6 @@ class ArmoryMainWindow(QMainWindow):
                self.setDashboardDetails()
 
    
-            # If there's a new block, use this to determine it affected our wallets
-            prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-                                                for wltID in self.walletMap.keys()])
-
             # Trigger any notifications, if we have them...
             self.doTheSystemTrayThing()
 

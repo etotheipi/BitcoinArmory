@@ -326,12 +326,18 @@ class ZeroConfContainer
       ScrAddrScanData*            scrAddrDataPtr_;
 
       atomic<uint32_t>            lock_;
+      bool                        parsing_;
 
       //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
       //The code has a thread pushing new ZC, and set the BDM thread flag
       //to parse it
-
       map<BinaryData, Tx> newZCMap_;
+
+      //newTxioMap_ is ephemeral too. It's contains ZC txios that have not been
+      //seen by the scrAddrObj. It's content is returned then wiped by each call
+      //to getNewTxioMap
+      map<HashString, map<BinaryData, TxIOPair> >  newTxioMap_;
+
 
       BinaryData getNewZCkey(void);
       bool RemoveTxByKey(const BinaryData key);
@@ -348,21 +354,16 @@ class ZeroConfContainer
 
       map<BinaryData, vector<BinaryData> > purge(InterfaceToLDB *db);
 
-      const map<HashString, map<BinaryData, TxIOPair> >& getTxioMap(void) const
-      { return txioMap_; }
+      map<HashString, map<BinaryData, TxIOPair> > getNewTxioMap(void);
+      const map<HashString, map<BinaryData, TxIOPair> >& 
+         getFullTxioMap(void) const { return txioMap_; }
+
 
       bool parseNewZC(InterfaceToLDB* db);
+      //bool setNewZC(void);
+      //bool hasNewZC(void);
 
-      bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const
-      {
-         const auto& hashPair = txHashToDBKey_.find(txHash);
-         if (hashPair != txHashToDBKey_.end())
-         {
-            zcKey = hashPair->second;
-            return true;
-         }
-         return false;
-      }
+      bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -731,9 +732,9 @@ public:
       return scrAddrData_.registerScrAddr(sa, wltPtr);
    }
 
-   const map<BinaryData, map<BinaryData, TxIOPair> >& 
-      getZeroConfTxIOMap(void) const
-   { return ZeroConfCont_.getTxioMap(); }
+   map<BinaryData, map<BinaryData, TxIOPair> >
+      getNewZeroConfTxIOMap(void)
+   { return ZeroConfCont_.getNewTxioMap(); }
 };
 
 

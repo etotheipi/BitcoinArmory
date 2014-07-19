@@ -29,6 +29,58 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
+
+class ScrAddrObj;
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// HistoryPages
+//
+////////////////////////////////////////////////////////////////////////////////
+
+class HistoryPages
+{
+private:
+
+   struct Page
+   {
+      uint32_t blockStart_;
+      uint32_t blockEnd_;
+      uint32_t count_;
+
+      vector<LedgerEntry> pageLedgers_;
+
+      Page(void) : blockStart_(UINT32_MAX), blockEnd_(UINT32_MAX), count_(0)
+      {}
+
+      Page(uint32_t count, uint32_t bottom, uint32_t top) :
+         blockStart_(bottom), blockEnd_(top), count_(count)
+      {}
+
+      bool operator< (const Page& rhs) const
+      {
+         return this->blockStart_ < rhs.blockStart_;
+      }
+   };
+
+   vector<Page> pages_;
+   map<uint32_t, uint32_t> SSHsummary_;
+
+public:
+   HistoryPages(void) {}
+
+   vector<LedgerEntry> getPage(const ScrAddrObj* sa, uint32_t pageId);
+   void reset(void) { pages_.clear();}
+   void addPage(uint32_t count, uint32_t bottom, uint32_t top);
+   void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
+   void mapScrAddrHistory(InterfaceToLDB* db,
+                          const BinaryData& scrAddr, 
+                          uint32_t txnPerPage);
+   const map<uint32_t, uint32_t>& getSSHsummary(void) const
+   { return SSHsummary_; }
+};
+
 class ScrAddrObj
 {
    friend class BtcWallet;
@@ -36,14 +88,16 @@ public:
 
    ScrAddrObj() :
       db_(nullptr),
-      scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
+      bc_(nullptr),
+      scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0),
       lastBlockNum_(0), lastTimestamp_(0), hasMultisigEntries_(false),
-      totalTxioCount_(0)
+      totalTxioCount_(0), txnPerPage_(100)
    {
       relevantTxIO_.clear();
    }
 
-   ScrAddrObj(InterfaceToLDB *db, BinaryData    addr, 
+   ScrAddrObj(InterfaceToLDB *db, Blockchain *bc, 
+              BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
@@ -76,10 +130,9 @@ public:
       bool includeAllZeroConf=false
    ) const;
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
-   vector<UnspentTxOut> getSpendableTxOutList(
-      uint32_t currBlk=0, 
-      bool ignoreAllZeroConf=false
-   ) const;
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0, 
+                                              bool ignoreAllZeroConf=false
+                                             ) const;
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
@@ -112,15 +165,35 @@ public:
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 
-   BinaryData getLedgerKey(const BinaryData& DBkey, bool isTxOut=true);
-   void updateLedgers(const Blockchain* bc,
-      const map<BinaryData, TxIOPair>& newTxio);
+  /* BinaryData getLedgerKey(const BinaryData& DBkey, 
+                           bool isTxOut=true) const;*/
+   void updateLedgers(map<BinaryData, LedgerEntry>& le,
+                      const map<BinaryData, TxIOPair>& newTxio) const;
+
+   void updateLedgers(const map<BinaryData, TxIOPair>& newTxio)
+   { updateLedgers(ledger_, newTxio); }
 
    void setTxioCount(uint64_t count) { totalTxioCount_ = count; }
    uint64_t getTxioCount(void) const { return totalTxioCount_; }
+   uint64_t getTxioCountFromSSH(void) const;
+
+   void mapHistory(void)
+   { hist_.mapScrAddrHistory(db_, scrAddr_, txnPerPage_); }
+
+   const map<uint32_t, uint32_t>& getHistSSHsummary(void) const
+   { return hist_.getSSHsummary(); }
+
+   void fetchDBScrAddrData(uint32_t startBlock, 
+                           uint32_t endBlock);
+
+   map<BinaryData, TxIOPair> ScrAddrObj::getHistoryForScrAddr(
+      uint32_t startBlock, uint32_t endBlock,
+      bool withMultisig = false) const;
+
 
 private:
    InterfaceToLDB *db_;
+   Blockchain     *bc_;
    
    BinaryData     scrAddr_; // this includes the prefix byte!
    uint32_t       firstBlockNum_;
@@ -136,6 +209,10 @@ private:
    map<BinaryData, LedgerEntry>  ledger_;
    
    uint64_t totalTxioCount_;
+
+   //prebuild history indexes for quick fetch from SSH
+   HistoryPages hist_;
+   uint32_t txnPerPage_;
 };
 
 #endif

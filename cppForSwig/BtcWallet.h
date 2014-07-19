@@ -45,51 +45,6 @@ private:
    vector<RegisteredTx> txList_;
 };
 
-class BtcWallet;
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// HistoryPages
-//
-////////////////////////////////////////////////////////////////////////////////
-
-class HistoryPages
-{
-   private:
-
-      struct Page
-      {
-         uint32_t blockStart_;
-         uint32_t blockEnd_;
-         uint32_t count_;
-
-         vector<LedgerEntry> pageLedgers_;
-
-         Page(void) : blockStart_(UINT32_MAX), blockEnd_(UINT32_MAX), count_(0)
-         {}
-
-         Page(uint32_t count, uint32_t bottom, uint32_t top) :
-            blockStart_(bottom), blockEnd_(top), count_(count)
-         {}
-
-         bool operator< (const Page& rhs) const
-         { return this->blockStart_ < rhs.blockStart_; }
-      };
-
-      BtcWallet* wltPtr_;
-      vector<Page> pages_;
-      
-   public:
-      HistoryPages(void) : wltPtr_(nullptr) {}
-
-      void mapPages(BtcWallet& wlt);
-
-      vector<LedgerEntry> getPage(uint32_t pageId);
-      void reset(void) { pages_.clear(); }
-      void addPage(uint32_t count, uint32_t bottom, uint32_t top);
-      void sort(void) { std::sort(pages_.begin(), pages_.end()); }
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // BtcWallet
@@ -171,6 +126,8 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
                                   bool includeAllZeroConf=false) const;
 
+   uint64_t getAddrTotalTxnCount(const BinaryData& addr) const;
+
    vector<UnspentTxOut> getSpendableTxOutList(
       uint32_t currBlk=0,
       bool ignoreAllZeroConf=false
@@ -189,12 +146,6 @@ public:
    
    vector<AddressBookEntry> createAddressBook(void) const;
 
-   map<BinaryData, TxIOPair> getHistoryForScrAddr(
-      BinaryDataRef uniqKey, 
-      uint32_t startBlock,
-      uint32_t endBlock,
-      bool withMultisig=false) const;
-
    void reset(void);
 
    //new all purpose wallet scanning call
@@ -209,10 +160,11 @@ public:
    const map<BinaryData, ScrAddrObj> getScrAddrMap(void) const
    { return scrAddrMap_; }
 
+   map<BinaryData, ScrAddrObj> getScrAddrMap(void)
+   { return scrAddrMap_; }
+
    uint32_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
    void fetchDBScrAddrData(uint32_t startBlock, uint32_t endBlock);
-   void fetchDBScrAddrData(ScrAddrObj & scrAddr, 
-                                     uint32_t startBlock, uint32_t endBlock);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
    void purgeZeroConfTxIO(
@@ -251,6 +203,7 @@ public:
    void releaseMergeLock(void) { mergeLock_.store(0, memory_order_release); }
    HistoryPages& getHistoryPages(void) { return histPages_; }
    uint32_t getTxnPerPage(void) { return txnPerPage_; }
+   void mapPages(void);
 
 private:
    const vector<LedgerEntry>& getEmptyLedger(void) 
