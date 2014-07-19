@@ -2135,7 +2135,7 @@ class DlgSelectPublicKey(ArmoryDialog):
          addresses most users are accustomed to.  A public key is much longer
          than a regular bitcoin address, usually starting with "02", "03" or
          "04".  Once you have selected a public key, send it to the lockbox 
-         organizer (person or device).  The oragnizer will create the lockbox 
+         organizer (person or device).  The organizer will create the lockbox 
          which then must be imported by all devices that will track the funds
          and/or sign transactions.
          <br><br>
