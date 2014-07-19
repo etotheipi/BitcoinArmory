@@ -746,6 +746,8 @@ class SendBitcoinsFrame(ArmoryFrame):
    
          if not dlg.exec_():
             return False
+      else:
+         self.main.warnNewUSTXFormat()
       
       return ustx
    

@@ -1514,8 +1514,9 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
+
    #############################################################################
-   def execOfflineTx(self):
+   def warnNewUSTXFormat(self):
       if not self.getSettingOrSetDefault('DNAA_Version092Warn', False):
          reply = MsgBoxWithDNAA(MSGBOX.Warning, tr("Version Warning"), tr("""
             Since Armory version 0.92 the formats for offline transaction
@@ -1528,6 +1529,11 @@ class ArmoryMainWindow(QMainWindow):
             system, you will need to reinstall an older version of Armory
             on this system."""), dnaaMsg='Do not show this warning again')
          self.writeSetting('DNAA_Version092Warn', reply[1])
+
+
+   #############################################################################
+   def execOfflineTx(self):
+      self.warnNewUSTXFormat()
 
 
       dlgSelect = DlgOfflineSelect(self, self)
