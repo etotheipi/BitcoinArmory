@@ -236,7 +236,7 @@ class SignatureVerificationWidget(QWidget):
                htmlColor('TextGreen')
       else:
          ownerStr = tr("""
-         'The owner of the following Bitcoin address...
+         The owner of the following Bitcoin address...
          <br>
          <blockquote>
          <font face="Courier" size=4 color="#000060"><b>%s</b></font>
