@@ -81,7 +81,7 @@
 # - If a returned string has a newline char, JSON will convert it to the string
 #   "\n" (minus quotation marks).
 # - In general, if you need to pass an actual newline via the command line, type
-#   $'\n' instead of \n or \\n. (Files have no special requirements.)
+#   $'\n' instead of \n or \\n. (Newlines in files can be left alone.)
 # - The code sometimes returns "bitcoinrpc_jsonrpc.authproxy.JSONRPCException"
 #   if values are returned as binary data. This is something to keep in mind if
 #   bugs occur.
@@ -137,6 +137,20 @@ class AddressNotInWallet(Exception): pass
 jsonFunctDict = {}
 
 NOT_IMPLEMENTED = '--Not Implemented--'
+
+################################################################################
+# armoryd is still somewhat immature. We'll print a warning to let people know
+# that armoryd is still beta software and that the API may change.
+print '************************************************************************'
+print '* Please note that armoryd v%s is beta software and is still in ' % \
+      getVersionString(BTCARMORY_VERSION)
+print '* development. Whenever applicable, the interface is designed to match '
+print '* that of bitcoind, with function parameters and return values closely '
+print '* matching those of bitcoind. Despite this, the function parameters and '
+print '* return values may change, both for ported bitcoind function and '
+print '* Armory-specific functions.'
+print '************************************************************************'
+
 
 ################################################################################
 # Utility function that takes a list of wallet paths, gets the paths and adds
@@ -530,20 +544,46 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_importprivkey(self, privkey):
+   def jsonrpc_importprivkey(self, privKey):
       """
       DESCRIPTION:
       Import a private key into the current wallet.
       PARAMETERS:
-      privKey - The 32 byte private key to import.
+      privKey - A private key in any format supported by Armory, including
+                Base58 private keys supported by bitcoind (uncompressed public
+                key support only).
       RETURN:
-      None
+      A string of the private key's accompanying hexadecimal public key.
       """
 
-      if self.curWlt.useEncryption and not self.curWlt.isLocked():
+      # Convert string to binary
+      retDict = {}
+      privKey = str(privKey)
+      privKeyValid = True
+      if self.curWlt.useEncryption and self.curWlt.isLocked:
          raise WalletUnlockNeeded
 
-      self.curWlt.importExternalAddressData(privKey=privkey)
+      # Make sure the key is one we can support
+      try:
+         self.binPrivKey, self.privKeyType = parsePrivateKeyData(privKey)
+      except:
+         (errType, errVal) = sys.exc_info()[:2]
+         LOGEXCEPT('Error parsing incoming private key.')
+         LOGERROR('Error Type: %s' % errType)
+         LOGERROR('Error Value: %s' % errVal)
+         retDict['Error'] = 'Error type %s while parsing incoming private ' \
+                            'key.' % errType
+         privKeyValid = False
+
+      if privKeyValid:
+         self.thePubKey = self.curWlt.importExternalAddressData(self.binPrivKey)
+         if self.thePubKey != None:
+            retDict['PubKey'] = binary_to_hex(self.thePubKey)
+         else:
+            LOGERROR('Attempt to import a private key failed.')
+            retDict['Error'] = 'Attempt to import your private key failed. ' \
+                               'Check if the key is already in your wallet.'
+      return retDict
 
 
    #############################################################################
@@ -917,7 +957,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             utxoList = cppWallet.getSpendableTxOutList(topBlk, IGNOREZC)
          else:
             raise NetworkIDError('Addr for the wrong network!')
-         
+
          retBalance += sumTxOutList(utxoList)
 
       return AmountToJSON(retBalance)
@@ -973,6 +1013,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # Create an unsigned Tx to be sent from the currently loaded wallet.
+   #
+   # Example: We wish to send 1 BTC to a lockbox and 0.12 BTC to a standard
+   # Bitcoin address. (Publick keys and P2SH scripts can also be specified as
+   # recipients but we don't use either one in this example.)
+   # armoryd createustxformany Lockbox[83jcAqz9],1.0 mwpw68XWmvQKfsCJXETkDX2CWHPdchY6fi,0.12
    @catchErrsForJSON
    def jsonrpc_createustxformany(self, *args):
       """
@@ -2274,6 +2320,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       return self.retStr
 
+
    ##################################
    # Take the ASCII representation of an unsigned Tx (i.e., the data that is
    # signed by Armory's offline Tx functionality) and returns an ASCII
@@ -2290,11 +2337,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                         used by Armory for offline transactions.
       wltPasswd - (Default=None) If needed, the current wallet's password.
       RETURN:
-      A string with the ASCII-formatted signed transaction or, if the signing
-      failed, a string indicating failure.
+      A dictionary containing a string with the ASCII-formatted signed
+      transaction or, if the signing failed, a string indicating failure.
       """
 
-      retStr = ''
+      retDict = {}
       unsignedTx = UnsignedTransaction().unserializeAscii(unsignedTxASCII)
 
       # If the wallet is encrypted, attempt to decrypt it.
@@ -2305,8 +2352,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             if not self.curWlt.verifyPassphrase(passwd):
                LOGERROR('Passphrase was incorrect! Wallet could not be ' \
                         'unlocked. Signed transaction will not be created.')
-               retStr = 'Passphrase was incorrect! Wallet could not be ' \
-                        'unlocked. Signed transaction will not be created.'
+               retDict['Error'] = 'Passphrase was incorrect! Wallet could ' \
+                                  'not be unlocked. Signed transaction will ' \
+                                  'not be created.'
             else:
                self.curWlt.unlock(securePassphrase=passwd)
                decrypted = True
@@ -2322,15 +2370,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          unsignedTx = self.curWlt.signUnsignedTx(unsignedTx)
          self.curWlt.advanceHighestIndex()
          if not unsignedTx.verifySigsAllInputs():
-            LOGERROR('Error signing transaction. Most likely this is not the ' \
-                     'correct wallet.')
-            retStr = 'Error signing transaction. Most likely this is not the ' \
-                     'correct wallet.'
+            LOGERROR('Error signing transaction. The correct wallet was ' \
+                     'probably not used.')
+            retDict['Error'] = 'Error signing transaction. The correct ' \
+                               'wallet was probably not used.'
          else:
             # The signed Tx is valid.
-            retStr = unsignedTx.serializeAscii()
+            retDict['SignedTx'] = unsignedTx.serializeAscii()
 
-      return retStr
+      return retDict
 
 
    #############################################################################
@@ -2467,7 +2515,8 @@ for curJFunct in jFuncts:
          if functSplit[1] == 'None':
             functParams.append(functSplit[1])
          else:
-            functSplit2 = filter(None, (re.split('([^\s]+) - ', functSplit[1])))
+            functSplit2 = filter(None, (re.split(r'([^\s]+) - ', \
+                                                 functSplit[1])))
             functSplit3 = getDualIterable(functSplit2)
             for pName, pDescrip in functSplit3:
                pDescripClean = re.sub(r' *\n *', ' ', pDescrip).strip()
@@ -2971,19 +3020,19 @@ class Armory_Daemon(object):
                      for funcKey in self.newBlockFunctions:
                         for blockFunc in self.newBlockFunctions[funcKey]:
                            blockFunc(pyHeader, pyTxList)
-   
+
       except:
          # When getting the error info, don't collect the traceback in order to
          # avoid circular references. https://docs.python.org/2/library/sys.html
          # has more info.
          LOGEXCEPT('Error in heartbeat function')
          (errType, errVal) = sys.exc_info()[:2]
-         errStr = 'Error Type: %s\nError Value: %s' % (errType, errVal)
-         LOGERROR(errStr)
+         LOGERROR('Error Type: %s' % errType)
+         LOGERROR('Error Value: %s' % errVal)
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
-   
-   
+
+
 if __name__ == "__main__":
    rpc_server = Armory_Daemon()
    rpc_server.start()
