@@ -803,7 +803,7 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
    ***/
    SCOPED_TIMER("rescanWalletZeroConf");
 
-   map<BinaryData, map<BinaryData, TxIOPair> >& ZCtxioMap = 
+   map<BinaryData, map<BinaryData, TxIOPair> > ZCtxioMap = 
       bdmPtr_->getNewZeroConfTxIOMap();
 
    if (withReorg==true)

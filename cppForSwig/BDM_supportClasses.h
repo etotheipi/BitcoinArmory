@@ -6,6 +6,7 @@
 
 #include "BinaryData.h"
 #include "ScrAddrObj.h"
+#include "BtcWallet.h"
 
 class ZeroConfContainer;
 

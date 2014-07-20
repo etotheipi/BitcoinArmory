@@ -22,7 +22,7 @@ LINK = $(CXX)
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
-	BDM_mainthread.o \
+	BDM_mainthread.o BDM_supportClasses.o \
 	libcryptopp.a libleveldb.a 
 
 #if python is specified, use it

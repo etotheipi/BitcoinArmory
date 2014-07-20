@@ -186,7 +186,7 @@ public:
    void fetchDBScrAddrData(uint32_t startBlock, 
                            uint32_t endBlock);
 
-   map<BinaryData, TxIOPair> ScrAddrObj::getHistoryForScrAddr(
+   map<BinaryData, TxIOPair> getHistoryForScrAddr(
       uint32_t startBlock, uint32_t endBlock,
       bool withMultisig = false) const;
 

@@ -1,6 +1,6 @@
 #include "BDM_supportClasses.h"
 #include "BlockUtils.h"
-#include "BtcWallet.h"
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //ScrAddrScanData Methods
@@ -479,7 +479,7 @@ map<BinaryData, vector<BinaryData> > ZeroConfContainer::purge(InterfaceToLDB *db
    //intersect with current container map
    for (const auto& saMapPair : txioMap_)
    {
-      auto& saTxioIter = txioMap.find(saMapPair.first);
+      auto saTxioIter = txioMap.find(saMapPair.first);
       if (saTxioIter == txioMap.end())
          continue;
 
