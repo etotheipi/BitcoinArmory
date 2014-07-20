@@ -534,11 +534,13 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 {
    SCOPED_TIMER("applyTxToBatchWriteData");
 
-   Tx tx = thisSTX.getTxCopy();
+   vector<uint32_t> TxInIndexes;
+   BtcUtils::TxInCalcLength(thisSTX.dataCopy_.getPtr(), thisSTX.dataCopy_.getSize(),
+                          &TxInIndexes);
 
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
-   if(KEY_IN_MAP(tx.getThisHash(), stxToModify_))
+   if(KEY_IN_MAP(thisSTX.thisHash_, stxToModify_))
       LOGERR << "How did we already add this tx?";
 
    // I just noticed we never set TxOuts to TXOUT_UNSPENT.  Might as well do 
@@ -556,7 +558,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
    if (config_.armoryDbType == ARMORY_DB_SUPER)
    {
-      stxToModify_[tx.getThisHash()] = thisSTX;
+      stxToModify_[thisSTX.thisHash_] = thisSTX;
       dbUpdateSize_ += thisSTX.numBytes_;
    }
    
@@ -566,26 +568,23 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
    TIMER_START("TxInParsing");
 
-   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   for (uint32_t iin=0; iin < TxInIndexes.size() -1; iin++)
    {
       TIMER_START("grabTxIn");
       // Get the OutPoint data of TxOut being spent
-      TIMER_START("getOutPoint");
-      OutPoint op; 
-      op.unserialize(tx.getPtr() + tx.getTxInOffset(iin), 36);
+      const BinaryDataRef opTxHash = 
+         thisSTX.dataCopy_.getSliceRef(TxInIndexes[iin], 32);
 
-      if (op.isCoinbase() == true)
+      if (opTxHash == BtcUtils::EmptyHash_)
       {
-         TIMER_STOP("getOutPoint");
+         TIMER_STOP("grabTxIn");
          continue;
       }
-
-      TIMER_STOP("getOutPoint");
       
-      const BinaryDataRef opTxHash = op.getTxHashRef();
-      const uint32_t      opTxoIdx = op.getTxOutIndex();
-      BinaryData          txOutDBkey;
+      const uint32_t opTxoIdx = static_cast<uint32_t>
+         (*(thisSTX.dataCopy_.getPtr() + TxInIndexes[iin] + 32));
 
+      BinaryData          txOutDBkey;
       BinaryDataRef       fetchBy = opTxHash;
       StoredTx*           stxptr = nullptr;
 
@@ -657,7 +656,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       }
 
       TIMER_START("CommitTxIn");
-      if(stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX)).second == true)
+      if (stxToModify_.insert(make_pair(thisSTX.thisHash_, thisSTX)).second == true)
          dbUpdateSize_ += thisSTX.numBytes_;
 
 
@@ -734,9 +733,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    // We don't need to update any TXDATA, since it is part of writing thisSTX
    // to the DB ... but we do need to update the StoredScriptHistory objects
    // with references to the new [unspent] TxOuts
-   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   for(auto& stxoToAddPair : thisSTX.stxoMap_)
    {
-      StoredTxOut & stxoToAdd = thisSTX.stxoMap_[iout];
+      StoredTxOut & stxoToAdd = stxoToAddPair.second;
       BinaryData uniqKey = stxoToAdd.getScrAddress();
       BinaryData hgtX    = stxoToAdd.getHgtX();
       
@@ -750,7 +749,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          scrAddrData->addUTxO(stxoToAdd.getDBKey(false));
       }
       
-      if (stxToModify_.insert(make_pair(tx.getThisHash(), thisSTX)).second == true)
+      if (stxToModify_.insert(make_pair(thisSTX.thisHash_, thisSTX)).second == true)
          dbUpdateSize_ += thisSTX.numBytes_;
 
       StoredScriptHistory* sshptr = makeSureSSHInMap(

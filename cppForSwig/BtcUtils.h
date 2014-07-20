@@ -699,6 +699,30 @@ public:
       uint32_t scrLen = (uint32_t)readVarInt(ptr+36, &viLen);
       return (36 + viLen + scrLen + 4);
    }
+
+   static void TxInCalcLength(uint8_t const * ptr, uint32_t size, 
+                       vector<uint32_t> * offsetsIn)
+   {
+      BinaryRefReader brr(ptr, size);
+
+      if (brr.getSizeRemaining() < 4)
+         throw BlockDeserializingException();
+      // Tx Version;
+      brr.advance(4);
+
+      // TxIn List
+      uint32_t nIn = (uint32_t)brr.get_var_int();
+      if (offsetsIn != NULL)
+      {
+         offsetsIn->resize(nIn + 1);
+         for (uint32_t i = 0; i<nIn; i++)
+         {
+            (*offsetsIn)[i] = brr.getPosition();
+            brr.advance(TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
+         }
+         (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
+      }
+   }
    
    static uint32_t TxInCalcLength(uint8_t const * ptr, uint32_t size)
    {

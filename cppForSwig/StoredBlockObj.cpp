@@ -1135,7 +1135,6 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
    return *this;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 StoredTxOut & StoredTxOut::createFromTxOut(TxOut & txout)
 {
