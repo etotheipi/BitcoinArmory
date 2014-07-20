@@ -291,7 +291,8 @@ class ArmoryDTiabTest(TiabTest):
    def  testVerifysignature(self):
       clearSignMessage = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_1), \
                                 TEST_MESSAGE)
-      result = self.jsonServer.jsonrpc_verifysignature(clearSignMessage)
+      inMsg = '\"' + clearSignMessage + '\"'
+      result = self.jsonServer.jsonrpc_verifysignature(inMsg)
       self.assertEqual(result['message'], TEST_MESSAGE)
       self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
 
@@ -299,7 +300,8 @@ class ArmoryDTiabTest(TiabTest):
    def  testReceivedfromsigner(self):
       clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), \
                                  TEST_MESSAGE)
-      result2 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage2)
+      inMsg2 = '\"' + clearSignMessage2 + '\"'
+      result2 = self.jsonServer.jsonrpc_receivedfromsigner(inMsg2)
       self.assertEqual(result2['message'], TEST_MESSAGE)
       self.assertEqual(result2['amount'], 0)
 
@@ -393,13 +395,13 @@ class ArmoryDTiabTest(TiabTest):
 
       # Test two paths through signing method and make sure they are equal
       # Wallets in the TIAB start out unencrypted
-      serializedSignedTxUnencrypted['SignedTx'] = \
+      serializedSignedTxUnencrypted = \
             self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
-                                                         '')
+                                                         '')['SignedTx']
       self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
-      serializedSignedTxEncrypted['SignedTx'] = \
+      serializedSignedTxEncrypted = \
             self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
-                                                         PASSPHRASE1)
+                                                         PASSPHRASE1)['SignedTx']
       # Other tests expect wallet to be unencrypted
       self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                             tempKeyLifetime=1000000)
