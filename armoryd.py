@@ -2360,6 +2360,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       retDict = {}
+
+      # As a courtesy to people who use them, we'll strip quotation marks
+      # from the beginning and/or end of the string.
+      unsignedTxASCII = str(unsignedTxASCII)
+      if unsignedTxASCII[0] == '\"':
+         unsignedTxASCII = unsignedTxASCII[1:]
+      if unsignedTxASCII[-1] == '\"':
+         unsignedTxASCII = unsignedTxASCII[:-1]
+
       unsignedTx = UnsignedTransaction().unserializeAscii(unsignedTxASCII)
 
       # If the wallet is encrypted, attempt to decrypt it.
