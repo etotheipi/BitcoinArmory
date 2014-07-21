@@ -97,6 +97,7 @@ import json
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
 from twisted.web import server
+from twisted.internet.protocol import ClientFactory # REMOVE IN 0.93
 from txjsonrpc.auth import wrapResource
 from txjsonrpc.web import jsonrpc
 
@@ -150,6 +151,109 @@ print '* matching those of bitcoind. Despite this, the function parameters and '
 print '* return values may change, both for ported bitcoind function and '
 print '* Armory-specific functions.'
 print '************************************************************************'
+
+
+############################################
+# Copied from ArmoryQt. Remove in 0.93.
+class armorydInstanceListener(Protocol):
+   def connectionMade(self):
+      LOGINFO('Another armoryd instance just tried to open.')
+      self.factory.func_conn_made()
+
+   def dataReceived(self, data):
+      LOGINFO('Received data from alternate armoryd instance')
+      self.factory.func_recv_data(data)
+      self.transport.loseConnection()
+
+
+############################################
+# Copied from ArmoryQt. Remove in 0.93.
+class armorydListenerFactory(ClientFactory):
+   protocol = armorydInstanceListener
+   def __init__(self, fn_conn_made, fn_recv_data):
+      self.func_conn_made = fn_conn_made
+      self.func_recv_data = fn_recv_data
+
+
+#############################################################################
+# Helper function from ArmoryQt. Check to see if we can go online.
+# (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
+def onlineModeIsPossible(internetAvail, forceOnline):
+   return ((internetAvail or forceOnline) and \
+            satoshiIsAvailable() and \
+            checkHaveBlockfiles())
+
+
+#############################################################################
+# Helper function from ArmoryQt. Check to see if we have the blk*.dat files.
+# (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
+def checkHaveBlockfiles():
+   return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
+
+
+#############################################################################
+# Check to see if an Internet connection is available. Code lifted from
+# ArmoryQt. (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
+def setupNetworking():
+   LOGINFO('Setting up networking...')
+   internetAvail = False
+
+   # Prevent Armory from being opened twice
+   from twisted.internet import reactor
+   import twisted
+   def uriClick_partial(a):
+      self.uriLinkClicked(a)
+
+   if CLI_OPTIONS.interport > 1:
+      try:
+         InstanceListener = armorydListenerFactory(False, \
+                                                        uriClick_partial )
+         reactor.listenTCP(CLI_OPTIONS.interport, InstanceListener)
+      except twisted.internet.error.CannotListenError:
+         LOGWARN('Socket already occupied!  This must be a duplicate armoryd')
+         os._exit(0)
+   else:
+      LOGWARN('*** Listening port is disabled.  URI-handling will not work')
+
+#  Partially GUI-only
+#   settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
+#   forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
+   forceOnline = CLI_OPTIONS.forceOnline
+   if forceOnline:
+      LOGINFO('Forced online mode: True')
+
+   # Check general internet connection
+   internetAvail = False
+   if not forceOnline:
+      try:
+         import urllib2
+         response=urllib2.urlopen('http://google.com', \
+                                  timeout=CLI_OPTIONS.nettimeout)
+         internetAvail = True
+      except ImportError:
+         LOGERROR('No module urllib2 -- cannot determine if internet is ' \
+                  'available')
+      except urllib2.URLError:
+         # In the extremely rare case that google might be down (or just to try
+         # again...)
+         try:
+            response=urllib2.urlopen('http://microsoft.com', \
+                                     timeout=CLI_OPTIONS.nettimeout)
+         except:
+            LOGEXCEPT('Error checking for internet connection')
+            LOGERROR('Run --skip-online-check if you think this is an error')
+            internetAvail = False
+      except:
+         LOGEXCEPT('Error checking for internet connection')
+         LOGERROR('Run --skip-online-check if you think this is an error')
+         internetAvail = False
+
+   canGoOnline = onlineModeIsPossible(internetAvail, forceOnline)
+   LOGINFO('Internet connection is Available: %s', str(internetAvail))
+   LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailable())
+   LOGINFO('The first blk*.dat was Available: %s', str(checkHaveBlockfiles()))
+   LOGINFO('Online mode currently possible:   %s', canGoOnline)
+   return canGoOnline
 
 
 ################################################################################
@@ -2588,131 +2692,140 @@ class Armory_Daemon(object):
 
       self.newZeroConfSinceLastUpdate = []
 
-      # Check if armoryd is already running. If so, just execute the command.
+      # Check if armoryd is already running. If so, just execute the command,
+      # otherwise prepare to act as the server.
       armorydIsRunning = self.checkForAlreadyRunning()
       if armorydIsRunning == True:
          # Execute the command and return to the command line.
          self.executeCommand()
          os._exit(0)
       else:
-         self.lock = threading.Lock()
-         self.lastChecked = None
+         # Make sure we're actually able to do something before proceeding.
+         if setupNetworking():
+            self.lock = threading.Lock()
+            self.lastChecked = None
 
-         #check wallet consistency every hour
-         self.checkStep = 3600
+            #check wallet consistency every hour
+            self.checkStep = 3600
 
-         print ''
-         print '*'*80
-         print '* '
-         print '* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!'
-         print '*           DO NOT run armoryd at the same time as ArmoryQt if '
-         print '*           they are managing the same wallet file.  If you want '
-         print '*           to manage the same wallet with both applications '
-         print '*           you must make a digital copy/backup of the wallet file '
-         print '*           into another directory and point armoryd at that one.  '
-         print '*           '
-         print '*           As long as the two processes do not share the same '
-         print '*           actual file, there is no risk of wallet corruption. '
-         print '*           Just be aware that addresses may end up being reused '
-         print '*           if you execute transactions at approximately the same '
-         print '*           time with both apps. '
-         print '* '
-         print '*'*80
-         print ''
+            print ''
+            print '*'*80
+            print '* '
+            print '* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!'
+            print '*           DO NOT run armoryd at the same time as ArmoryQt if '
+            print '*           they are managing the same wallet file.  If you want '
+            print '*           to manage the same wallet with both applications '
+            print '*           you must make a digital copy/backup of the wallet file '
+            print '*           into another directory and point armoryd at that one.  '
+            print '*           '
+            print '*           As long as the two processes do not share the same '
+            print '*           actual file, there is no risk of wallet corruption. '
+            print '*           Just be aware that addresses may end up being reused '
+            print '*           if you execute transactions at approximately the same '
+            print '*           time with both apps. '
+            print '* '
+            print '*'*80
+            print ''
 
-         # Otherwise, set up the server. This includes a defaultdict with a list
-         # of functs to execute. This is done so that multiple functs can be
-         # associated with the same search key.
-         self.newTxFunctions = []
-         self.heartbeatFunctions = []
-         self.newBlockFunctions = defaultdict(list)
+            # Otherwise, set up the server. This includes a defaultdict with a
+            # list of functs to execute. This is done so that multiple functs
+            # can be associated with the same search key.
+            self.newTxFunctions = []
+            self.heartbeatFunctions = []
+            self.newBlockFunctions = defaultdict(list)
 
-         # armoryd can take a default lockbox. If it's not passed in, load some
-         # lockboxes.
-         if lb:
-            self.curLB = lb
-         else:
-            # Get the lockboxes in standard Armory LB file and store pointers
-            # to them, assuming any exist.
-            lbPaths = getLockboxFilePaths()
-            addMultLockboxes(lbPaths, self.lboxMap, self.lbIDSet)
-            if len(self.lboxMap) > 0:
-               # Set the current LB to the 1st wallet in the set. (The choice is
-               # arbitrary.)
-               self.curLB = self.lboxMap[self.lboxMap.keys()[0]]
-
-               # Create the CPP wallet map for each lockbox.
-               for lbID,lbox in self.lboxMap.iteritems():
-                  self.lboxCppWalletMap[lbID] = BtcWallet()
-                  scraddrReg = script_to_scrAddr(lbox.binScript)
-                  scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
-                  self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
-                  self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
-                  LOGWARN('Registering lockbox: %s' % lbID)
-                  TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
-
+            # armoryd can take a default lockbox. If it's not passed in, load
+            # some lockboxes.
+            if lb:
+               self.curLB = lb
             else:
-               LOGWARN('No lockboxes were loaded.')
+               # Get the lockboxes in standard Armory LB file and store pointers
+               # to them, assuming any exist.
+               lbPaths = getLockboxFilePaths()
+               addMultLockboxes(lbPaths, self.lboxMap, self.lbIDSet)
+               if len(self.lboxMap) > 0:
+                  # Set the current LB to the 1st wallet in the set. (The choice
+                  # is arbitrary.)
+                  self.curLB = self.lboxMap[self.lboxMap.keys()[0]]
 
-         # armoryd can take a default wallet. If it's not passed in, load some
-         # wallets.
-         if wlt:
-            self.curWlt = wlt
-         else:
-            # Get the wallets in the Armory data directory and store pointers
-            # to them. Also, set the current wallet to the 1st wallet in the
-            # set. (The choice is arbitrary.)
-            wltPaths = readWalletFiles()
-            addMultWallets(wltPaths, self.WltMap, self.wltIDSet)
-            if len(self.WltMap) > 0:
-               self.curWlt = self.WltMap[self.WltMap.keys()[0]]
-               self.WltMap[self.curWlt.uniqueIDB58] = self.curWlt
-               self.wltIDSet.add(self.curWlt.uniqueIDB58)
+                  # Create the CPP wallet map for each lockbox.
+                  for lbID,lbox in self.lboxMap.iteritems():
+                     self.lboxCppWalletMap[lbID] = BtcWallet()
+                     scraddrReg = script_to_scrAddr(lbox.binScript)
+                     scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
+                     self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
+                     self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
+                     LOGWARN('Registering lockbox: %s' % lbID)
+                     TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
+
+               else:
+                  LOGWARN('No lockboxes were loaded.')
+
+            # armoryd can take a default wallet. If it's not passed in, load
+            # some wallets.
+            if wlt:
+               self.curWlt = wlt
             else:
-               LOGERROR('No wallets could be loaded! armoryd will exit.')
+               # Get the wallets in the Armory data directory and store pointers
+               # to them. Also, set the current wallet to the 1st wallet in the
+               # set. (The choice is arbitrary.)
+               wltPaths = readWalletFiles()
+               addMultWallets(wltPaths, self.WltMap, self.wltIDSet)
+               if len(self.WltMap) > 0:
+                  self.curWlt = self.WltMap[self.WltMap.keys()[0]]
+                  self.WltMap[self.curWlt.uniqueIDB58] = self.curWlt
+                  self.wltIDSet.add(self.curWlt.uniqueIDB58)
+               else:
+                  LOGERROR('No wallets could be loaded! armoryd will exit.')
 
-         # Log info on the wallets we've loaded.
-         numWallets = len(self.WltMap)
-         LOGINFO('Number of wallets read in: %d', numWallets)
-         for wltID, wlt in self.WltMap.iteritems():
-            dispStr  = ('   Wallet (%s):' % wltID).ljust(25)
-            dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
-            dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
-            LOGINFO(dispStr)
+            # Log info on the wallets we've loaded.
+            numWallets = len(self.WltMap)
+            LOGINFO('Number of wallets read in: %d', numWallets)
+            for wltID, wlt in self.WltMap.iteritems():
+               dispStr  = ('   Wallet (%s):' % wltID).ljust(25)
+               dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
+               dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
+               LOGINFO(dispStr)
 
-         # Log info on the lockboxes we've loaded.
-         numLockboxes = len(self.lboxMap)
-         LOGINFO('Number of lockboxes read in: %d', numLockboxes)
-         for lockboxID, lockbox in self.lboxMap.iteritems():
-            dispStr  = ('   Lockbox (%s):' % lockboxID).ljust(25)
-            dispStr += '"' + lockbox.shortName.ljust(32) + '"'
-            LOGINFO(dispStr)
+            # Log info on the lockboxes we've loaded.
+            numLockboxes = len(self.lboxMap)
+            LOGINFO('Number of lockboxes read in: %d', numLockboxes)
+            for lockboxID, lockbox in self.lboxMap.iteritems():
+               dispStr  = ('   Lockbox (%s):' % lockboxID).ljust(25)
+               dispStr += '"' + lockbox.shortName.ljust(32) + '"'
+               LOGINFO(dispStr)
 
-         # Check and make sure we have at least 1 wallet. If we don't, stop
-         # immediately.
-         if numWallets > 0:
-            LOGWARN('Active wallet is set to %s' % self.curWlt.uniqueIDB58)
+            # Check and make sure we have at least 1 wallet. If we don't, stop
+            # immediately.
+            if numWallets > 0:
+               LOGWARN('Active wallet is set to %s' % self.curWlt.uniqueIDB58)
+            else:
+               os._exit(0)
+
+            # Check to see if we have 1+ lockbox. If so, log the active one.
+            if numLockboxes > 0:
+               LOGWARN('Active lockbox is set to %s' % self.curLB.uniqueIDB58)
+
+            LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
+            resource = Armory_Json_Rpc_Server(self.curWlt, self.curLB, \
+                                              self.WltMap, self.lboxMap, \
+                                              self.wltIDSet, self.lbIDSet, \
+                                              self.lboxCppWalletMap)
+            secured_resource = self.set_auth(resource)
+
+            # This is LISTEN call for armory RPC server
+            reactor.listenTCP(ARMORY_RPC_PORT, \
+                              server.Site(secured_resource), \
+                              interface="127.0.0.1")
+
+            # Setup the heartbeat function to run every 
+            reactor.callLater(3, self.Heartbeat)
          else:
+            errStr = 'armoryd is not ready to run! Please check to see if ' \
+                     'bitcoind is running and the Blockchain files ' \
+                     '(blk*.dat) are available.'
+            LOGERROR(errStr)
             os._exit(0)
-
-         # Check to see if we have at least 1 lockbox. If we don't, it's okay.
-         if numLockboxes > 0:
-            LOGWARN('Active lockbox is set to %s' % self.curLB.uniqueIDB58)
-
-         LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
-         resource = Armory_Json_Rpc_Server(self.curWlt, self.curLB, \
-                                           self.WltMap, self.lboxMap, \
-                                           self.wltIDSet, self.lbIDSet, \
-                                           self.lboxCppWalletMap)
-         secured_resource = self.set_auth(resource)
-
-         # This is LISTEN call for armory RPC server
-         reactor.listenTCP(ARMORY_RPC_PORT, \
-                           server.Site(secured_resource), \
-                           interface="127.0.0.1")
-
-         # Setup the heartbeat function to run every 
-         reactor.callLater(3, self.Heartbeat)
 
 
    #############################################################################
