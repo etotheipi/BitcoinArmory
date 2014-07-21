@@ -708,7 +708,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          self.thePubKey = self.curWlt.importExternalAddressData(self.binPrivKey)
          if self.thePubKey != None:
             retDict['PubKey'] = binary_to_hex(self.thePubKey)
-            print 'DOUG DEBUG: SUCCESS'
          else:
             LOGERROR('Attempt to import a private key failed.')
             retDict['Error'] = 'Attempt to import your private key failed. ' \
