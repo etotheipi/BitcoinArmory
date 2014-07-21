@@ -59,11 +59,11 @@ NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet
 EXPECTED_TIAB_NEXT_ADDR  = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
 EXPECTED_UNSPENT_TX1_BAL  = 20.0
 EXPECTED_UNSPENT_TX1_CONF = 3
-EXPECTED_UNSPENT_TX1_HEX  = '4434b3eab23189af20d56a81a7bc5ac560f42f4097a90f834535cb94a8d5578201000000'
+EXPECTED_UNSPENT_TX1_HEX  = '8257d5a894cb3545830fa997402ff460c55abca7816ad520af8931b2eab33444'
 EXPECTED_UNSPENT_TX1_PRI  = 60.0
 EXPECTED_UNSPENT_TX5_BAL  = 938.8997
 EXPECTED_UNSPENT_TX5_CONF = 8
-EXPECTED_UNSPENT_TX5_HEX  = '721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
+EXPECTED_UNSPENT_TX5_HEX  = '111842cb336995ac460f302f9f611e94e5b27222368d79cfd7db4c7cbc071572'
 EXPECTED_UNSPENT_TX5_PRI  = 7511.1976
 EXPECTED_UNSPENT_TX_TOT   = 964.8997
 EXPECTED_RECEIVED_FROM_TIAB_WLT_1_ADDR_2 = 979.9999
@@ -448,23 +448,21 @@ class ArmoryDTiabTest(TiabTest):
    def testListUnspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
 
-      self.assertEqual(actualResult['totalbalance'], EXPECTED_UNSPENT_TX_TOT)
-      self.assertEqual(actualResult['numutxo'], 5)
-      self.assertEqual(actualResult['utxolist'][0]['value'], \
+      self.assertEqual(actualResult[0]['amount'], \
                        EXPECTED_UNSPENT_TX1_BAL)
-      self.assertEqual(actualResult['utxolist'][0]['numconf'], \
+      self.assertEqual(actualResult[0]['confirmations'], \
                        EXPECTED_UNSPENT_TX1_CONF)
-      self.assertEqual(actualResult['utxolist'][0]['outpoint'], \
+      self.assertEqual(actualResult[0]['txid'], \
                        EXPECTED_UNSPENT_TX1_HEX)
-      self.assertEqual(actualResult['utxolist'][0]['priority'], \
+      self.assertEqual(actualResult[0]['priority'], \
                        EXPECTED_UNSPENT_TX1_PRI)
-      self.assertEqual(actualResult['utxolist'][4]['value'], \
+      self.assertEqual(actualResult[4]['amount'], \
                        EXPECTED_UNSPENT_TX5_BAL)
-      self.assertEqual(actualResult['utxolist'][4]['numconf'], \
+      self.assertEqual(actualResult[4]['confirmations'], \
                        EXPECTED_UNSPENT_TX5_CONF)
-      self.assertEqual(actualResult['utxolist'][4]['outpoint'], \
+      self.assertEqual(actualResult[4]['txid'], \
                        EXPECTED_UNSPENT_TX5_HEX)
-      self.assertEqual(actualResult['utxolist'][4]['priority'], \
+      self.assertEqual(actualResult[4]['priority'], \
                        EXPECTED_UNSPENT_TX5_PRI)
 
 

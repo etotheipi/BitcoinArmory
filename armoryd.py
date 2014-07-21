@@ -483,7 +483,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_backupwallet(self, backupFilePath):
       """
       DESCRIPTION:
-      Back up the current wallet to a file at a given location.
+      Back up the current wallet to a file at a given location. The backup will
+      occur only if the file does not exist yet.
       PARAMETERS:
       backupFilePath - Path to the location where the backup will be saved.
       RETURN:
@@ -492,11 +493,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       retVal = {}
-      if not os.path.isfile(backupFilePath):
+      if os.path.isfile(backupFilePath):
           retVal = {}
-          retVal['Error'] = 'File %s does not exist.' % backupFilePath
-      elif not os.access(backupFilePath, os.R_OK):
-          retVal['Error'] = 'User not allowed to read file %s' % backupFilePath
+          retVal['Error'] = 'File %s already exists. Will not overwrite.' % \
+                            backupFilePath
       else:
           if not self.curWlt.backupWalletFile(backupFilePath):
              # If we have a failure here, we probably won't know why. Not much
@@ -708,6 +708,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          self.thePubKey = self.curWlt.importExternalAddressData(self.binPrivKey)
          if self.thePubKey != None:
             retDict['PubKey'] = binary_to_hex(self.thePubKey)
+            print 'DOUG DEBUG: SUCCESS'
          else:
             LOGERROR('Attempt to import a private key failed.')
             retDict['Error'] = 'Attempt to import your private key failed. ' \

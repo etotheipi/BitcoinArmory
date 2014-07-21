@@ -56,7 +56,7 @@ class ArmoryDTest(TiabTest):
       theIV     = SecureBinaryData(hex_to_binary('77'*16))
       self.passphrase  = SecureBinaryData('A self.passphrase')
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
-      
+
       self.wallet = PyBtcWallet().createNewWallet(withEncrypt=False, \
                                           plainRootKey=self.privKey, \
                                           chaincode=self.chainstr,   \
@@ -76,12 +76,14 @@ class ArmoryDTest(TiabTest):
    # def testListunspent(self):
    #    actualResult = self.jsonServer.jsonrpc_listunspent()
    #    self.assertEqual(actualResult, [])
-      
+
+   # The password is apparently incorrect, so this fails due to a bad unlock.
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)
+      self.jsonServer.jsonrpc_unlockwallet(PASSPHRASE1, UNLOCK_TIMEOUT)
       self.jsonServer.jsonrpc_importprivkey(self.privKey2)
       self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
-      
+
    def testGettxout(self):
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 0)
       self.assertEquals(txOut['value'],TX_ID1_OUTPUT0_VALUE)
