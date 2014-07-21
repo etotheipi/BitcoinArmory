@@ -415,14 +415,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       PARAMETERS:
       None
       RETURN:
-      A dictionary containing all UTXOs for the currently loaded wallet, along
-      with information about each UTXO.
+      A dictionary listing information about each UTXO in the currently loaded
+      wallet. The dictionary is similar to the one returned by the bitcoind
+      call of the same name.
       """
 
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
       utxoList = self.curWlt.getTxOutList('unspent')
-      utxoDict = {}
+      utxoOutList = {}
       curTxOut = 0
       totBal = 0
       utxoOutList = []
@@ -434,25 +435,26 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             curTxOutStr = 'utxo%05d' % curTxOut
             utxoVal = AmountToJSON(u.getValue())
-            curUTXODict['value'] = utxoVal
-            curUTXODict['numconf'] = u.getNumConfirm()
-            curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
-            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
+            curUTXODict['txid'] = binary_to_hex(u.getOutPoint().getTxHash(), \
+                                                BIGENDIAN, LITTLEENDIAN)
+            curUTXODict['vout'] = u.getTxOutIndex()
             try:
-               curUTXODict['addrstr']  = script_to_addrStr(u.getScript())
+               curUTXODict['address']  = script_to_addrStr(u.getScript())
             except:
                LOGEXCEPT('Error parse UTXO script -- multisig or non-standard')
-               curUTXODict['addrstr']  = ''
+               curUTXODict['address']  = ''
+            curUTXODict['scriptPubKey'] = binary_to_hex(u.getScript())
+            curUTXODict['amount'] = utxoVal
+            curUTXODict['confirmations'] = u.getNumConfirm()
+            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
 
             utxoOutList.append(curUTXODict)
             totBal += utxoVal
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
 
-      utxoDict['utxolist'] = utxoOutList
-      utxoDict['numutxo'] = curTxOut
-      utxoDict['totalbalance'] = totBal
-      return utxoDict
+      # Maybe we'll add more later, but for now, return what we have.
+      return utxoOutList
 
 
    #############################################################################
@@ -460,21 +462,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # address passed into the function. By default, zero-conf UTXOs are included.
    # The basic layout of the dictionary is as follows.
    # {
-   #    Base58Addr : {
-   #                    Address Info
-   #                    UTXO Dict : {
-   #                                   UTXO Info
-   #                                }
-   #                 }
-   #    Overall Amounts
+   #    addrbalance  : {
+   #                     Address : Balance
+   #                   }
+   #    numutxo      : int
+   #    totalbalance : float
+   #    utxolist     : {
+   #                     Same information as listunspent
+   #                   }
    # }
    @catchErrsForJSON
    def jsonrpc_listaddrunspent(self, inB58):
       """
       DESCRIPTION:
       Get a list of unspent transactions for the currently loaded wallet that
-      are associated with a given list of Base58 addresses from the wallet. By
-      default, zero-conf UTXOs are included.
+      are associated with a given, comma-separated list of Base58 addresses from
+      the wallet. By default, zero-conf UTXOs are included.
       PARAMETERS:
       inB58 - The Base58 address to check against the current wallet.
       RETURN:
@@ -521,31 +524,35 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          else:
             raise NetworkIDError('Addr for the wrong network!')
 
-            
          # Place each UTXO in the return dict. Each entry should specify which
-         # address is associated with which UTXO. 
-         # Create a dict for each UTXO entry - it'll contain info on each
-         # UTXO - and then add it to the UTXO entry dict.
+         # address is associated with which UTXO.
+         # (DR: For 0.93, this ought to be merged with the listunspent code, and
+         # maybe moved around a bit to make the info easier to process.)
          utxoListBal = 0
          for u in utxoList:
             curTxOut += 1
             curUTXODict = {}
 
-            # Get the UTXO info. The # of confirmations isn't calculated
-            # properly in this case. We'll leave it out for now, along with
-            # the priority, which relies on the # of confs.
+            # Get the UTXO info.
             curTxOutStr = 'utxo%05d' % curTxOut
             utxoVal = AmountToJSON(u.getValue())
-            curUTXODict['value']    = utxoVal
-            curUTXODict['numconf']  = u.getNumConfirm()
+            curUTXODict['txid'] = binary_to_hex(u.getOutPoint().getTxHash(), \
+                                                BIGENDIAN, LITTLEENDIAN)
+            curUTXODict['vout'] = u.getTxOutIndex()
+            try:
+               curUTXODict['address']  = script_to_addrStr(u.getScript())
+            except:
+               LOGEXCEPT('Error parse UTXO script -- multisig or non-standard')
+               curUTXODict['address']  = ''
+            curUTXODict['scriptPubKey'] = binary_to_hex(u.getScript())
+            curUTXODict['amount'] = utxoVal
+            curUTXODict['confirmations'] = u.getNumConfirm()
             curUTXODict['priority'] = utxoVal * u.getNumConfirm()
-            curUTXODict['outpoint'] = binary_to_hex(u.getOutPoint().serialize())
-            curUTXODict['addrstr']  = addrStr
+
             utxoEntries.append(curUTXODict)
             totalTxOuts += 1
             utxoListBal += u.getValue()
             totalBal    += u.getValue()
-
 
          # Add up the UTXO balances for each address and add it to the UTXO
          # entry dict, then add the UTXO entry dict to the master dict.
