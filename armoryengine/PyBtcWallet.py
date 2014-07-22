@@ -550,8 +550,9 @@ class PyBtcWallet(object):
                                                                else backupPath
       try:
          shutil.copy(self.walletPath, walletFileBackup)
-      except IOERROR, errPath:
-         print 'Unable to copy file %s' % errPath
+      except IOError, errReason:
+         LOGERROR('Unable to copy file %s' % backupPath)
+         LOGERROR('Reason for copy failure: %s' % errReason)
          retVal = False
 
       return retVal
@@ -2424,14 +2425,15 @@ class PyBtcWallet(object):
       #             the wallet from file
       wltPath = self.walletPath
       self.readWalletFile(wltPath, doScanNow=True)
-      
+
 
    #############################################################################
    def importExternalAddressData(self, privKey=None, privChk=None, \
                                        pubKey=None,  pubChk=None, \
                                        addr20=None,  addrChk=None, \
-                                       firstTime=UINT32_MAX,  firstBlk=UINT32_MAX, \
-                                       lastTime=0,   lastBlk=0):
+                                       firstTime=UINT32_MAX, \
+                                       firstBlk=UINT32_MAX, lastTime=0, \
+                                       lastBlk=0):
       """
       This wallet fully supports importing external keys, even though it is
       a deterministic wallet: determinism only adds keys to the pool based
@@ -2452,7 +2454,7 @@ class PyBtcWallet(object):
       if self.calledFromBDM:
          LOGERROR('Called importExternalAddressData() from BDM method!')
          LOGERROR('Don\'t do this!')
-         return ''
+         return None
 
       if not privKey and not self.watchingOnly:
          LOGERROR('')
@@ -2462,8 +2464,6 @@ class PyBtcWallet(object):
          LOGERROR('watching-only wallet to import this address.')
          LOGERROR('(actually, this is currently, completely disabled)')
          raise WalletAddressError('Cannot import non-private-key addresses')
-
-
 
       # First do all the necessary type conversions and error corrections
       computedPubKey = None
@@ -2495,11 +2495,10 @@ class PyBtcWallet(object):
          if addrChk:
             addr20 = verifyChecksum(addr20, addrChk)
 
-
       # Now a few sanity checks
       if self.addrMap.has_key(addr20):
-         LOGWARN('This address is already in your wallet!')
-         return
+         LOGWARN('The private key address is already in your wallet!')
+         return None
 
       #if pubKey and not computedPubkey==pubKey:
          #raise ECDSA_Error('Private and public keys to be imported do not match!')
@@ -2507,8 +2506,9 @@ class PyBtcWallet(object):
          #raise ECDSA_Error('Supplied address hash does not match key data!')
 
       addr20 = computedAddr20
-      
+
       if self.addrMap.has_key(addr20):
+         LOGERROR('The computed private key address is already in your wallet!')
          return None
 
       # If a private key is supplied and this wallet is encrypted&locked, then 
@@ -2516,14 +2516,14 @@ class PyBtcWallet(object):
       if self.useEncryption and privKey and not self.kdfKey:
          raise WalletLockError('Cannot import private key when wallet is locked!')
 
-
       if privKey:
          # For priv key, lots of extra encryption and verification options
-         newAddr = PyBtcAddress().createFromPlainKeyData( addr160=addr20, \
-                                  plainPrivKey=privKey, publicKey65=computedPubkey,  \
-                                  willBeEncr=self.useEncryption, \
-                                  generateIVIfNecessary=self.useEncryption, \
-                                  skipCheck=True, skipPubCompute=True)
+         newAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, \
+                                                         self.useEncryption, \
+                                                         self.useEncryption, \
+                                                         publicKey65=computedPubkey, \
+                                                         skipCheck=True,
+                                                         skipPubCompute=True)
          if self.useEncryption:
             newAddr.lock(self.kdfKey)
             newAddr.unlock(self.kdfKey)
@@ -2532,7 +2532,6 @@ class PyBtcWallet(object):
          newAddr = PyBtcAddress().createFromPublicKeyData(securePubKey)
       else:
          newAddr = PyBtcAddress().createFromPublicKeyHash160(addr20)
-
 
       newAddr.chaincode  = SecureBinaryData('\xff'*32)
       newAddr.chainIndex = -2
@@ -2556,8 +2555,6 @@ class PyBtcWallet(object):
 
       # The following line MAY deadlock if this method is called from the BDM
       # thread.  Do not write any BDM methods that calls this method!
-
-      return newAddr160
 
 
    #############################################################################
@@ -3036,13 +3033,16 @@ class PyBtcWallet(object):
       outjson['name']             = self.labelName
       outjson['description']      = self.labelDescr
       outjson['walletversion']    = getVersionString(PYBTCWALLET_VERSION)
-      outjson['balance']          =  AmountToJSON(self.getBalance('Spend'))
-      outjson['keypoolsize']      =  self.addrPoolSize
+      outjson['balance']          = AmountToJSON(self.getBalance('Spend'))
+      outjson['keypoolsize']      = self.addrPoolSize
       outjson['numaddrgen']       = len(self.addrMap)
       outjson['highestusedindex'] = self.highestUsedChainIndex
       outjson['watchingonly']     = self.watchingOnly
       outjson['createdate']       = self.wltCreateDate
       outjson['walletid']         = self.uniqueIDB58
+      outjson['isencrypted']      = self.useEncryption
+      outjson['islocked']         = self.isLocked if self.useEncryption else False
+      outjson['keylifetime']      = self.defaultKeyLifetime
 
       return outjson
 
@@ -3063,6 +3063,7 @@ class PyBtcWallet(object):
          LOGWARN('Unserializing wallet of different version')
          LOGWARN('   Wallet Version: %d' % jsonVer)
          LOGWARN('   Armory Version: %d' % UNSIGNED_TX_VERSION)
+
 
 
 ###############################################################################

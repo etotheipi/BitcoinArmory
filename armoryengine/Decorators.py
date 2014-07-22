@@ -40,6 +40,7 @@ def EmailOutput(send_from, server, password, send_to, subject='Armory Output'):
 #     filename.a.b.c.a.b.c will reduce to filename.a.b.c
 #     filename.a.b.b.a.b.b will reduce to filename.a.b
 def RemoveRepeatingExtensions(func):
+   @functools.wraps(func)  # Pull in certain "helper" data from dec'd func
    def inner(*args, **kwargs):
       rv = func(*args, **kwargs)
       segs = rv.split('.')
@@ -60,6 +61,7 @@ def RemoveRepeatingExtensions(func):
 # try/catches won't have access to this functionality since those errors will
 # have been caught.
 def catchErrsForJSON(func):
+   @functools.wraps(func)  # Pull in certain "helper" data from dec'd func
    def inner(*args, **kwargs):
       jsonPrefix = "jsonrpc_"
       rv = None
@@ -86,9 +88,12 @@ def catchErrsForJSON(func):
          rv['Error'] = errStr
          rv['Error Type'] = errType.__name__
          rv['Error Value'] = str(errVal) # If type has no val, this'll be blank
-         LOGERROR(errStr)
-         LOGERROR(errTypeStr)
-         LOGERROR(errValStr)
+         LOGRAWDATA(errStr)
+         LOGRAWDATA(errTypeStr)
+         LOGRAWDATA(errValStr)
+         #LOGERROR(errStr)
+         #LOGERROR(errTypeStr)
+         #LOGERROR(errValStr)
 
          # Log each error line but don't return to the user. The user really
          # doesn't need to see the trace. Also, unless directly called, the

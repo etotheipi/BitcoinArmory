@@ -15,6 +15,7 @@ from armoryengine.ArmoryUtils import *
 from SDM import SatoshiDaemonManager
 from armoryengine.Timer import TimeThisFunction
 import CppBlockUtils as Cpp
+from armoryengine.BinaryPacker import UINT64
 
 
 class PySide_CallBack(Cpp.BDM_CallBack):

@@ -1,0 +1,37 @@
+--- src/gui/kernel/qeventdispatcher_mac.mm	2014-07-12 16:19:53.000000000 -0400
++++ src/gui/kernel/qeventdispatcher_mac.mm	2014-07-12 16:24:57.000000000 -0400
+@@ -609,6 +609,12 @@ bool QEventDispatcherMac::processEvents(
+                     // 'session' as well. As a result, we need to restart all internal sessions:
+                     d->temporarilyStopAllModalSessions();
+                 }
++
++                // Clean up the modal session list, call endModalSession.
++                    if (d->cleanupModalSessionsNeeded) {
++                    d->cleanupModalSessions();
++                }
++
+             } else {
+                 d->nsAppRunCalledByQt = true;
+                 QBoolBlocker execGuard(d->currentExecIsNSAppRun, true);
+@@ -633,6 +639,12 @@ bool QEventDispatcherMac::processEvents(
+                         // 'session' as well. As a result, we need to restart all internal sessions:
+                         d->temporarilyStopAllModalSessions();
+                     }
++
++                    // Clean up the modal session list, call endModalSession.
++                    if (d->cleanupModalSessionsNeeded) {
++                        d->cleanupModalSessions();
++                    }
++
+                     retVal = true;
+                 } else do {
+                     // Dispatch all non-user events (but que non-user events up for later). In
+@@ -1044,7 +1056,7 @@ inline static void processPostedEvents(Q
+     }
+ 
+ #ifdef QT_MAC_USE_COCOA
+-    if (d->cleanupModalSessionsNeeded)
++    if (d->cleanupModalSessionsNeeded && d->currentExecIsNSAppRun)
+         d->cleanupModalSessions();
+ #endif
+ 

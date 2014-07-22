@@ -293,8 +293,8 @@ class PyTXTest(TiabTest):
       self.assertRaises(NotImplementedError, testBlkComp.unserialize)  
    
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
-   
-   
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

@@ -286,18 +286,8 @@ class parseNotifyTest(TiabTest):
       # self.assertEqual(notifyMap['113c948a']['MAXVERSION'], '0.91.99.7')
       self.assertTrue(notifyMap['113c948a']['LONGDESCR'].strip().startswith('The new version'))
 
-      #for nid,fields in notifyMap.iteritems():
-         #print 'Notification ID: ', nid
-         #for key,val in fields.iteritems():
-            #print '   %s: %s' % (key.ljust(16), val)
-
-
-if __name__ == "__main__":
-
-   # This is just a fun way to look at the download data
-   #dl = downloadLinkParser(filetext=downloadTestText)
-   #dl.printDownloadMap()
-
-   unittest.main()
-
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()
 

@@ -42,7 +42,7 @@ BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
 BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
 MAX_QR_SIZE = 198
-
+MAX_SATOSHIS = 2100000000000000
 
 ################################################################################
 class DlgUnlockWallet(ArmoryDialog):
@@ -1952,7 +1952,12 @@ class DlgWalletDetails(ArmoryDialog):
    def dblClickAddressView(self, index):
       model = index.model()
       if index.column() == ADDRESSCOLS.Comment:
+         # Update the address's comment. We apparently need to reset the model
+         # to get an immediate comment update on OS X, unlike Linux or Windows.
          self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
+         if OS_MACOSX:
+            self.wltAddrView.reset()
+
       else:
          addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
          atype, addr160 = addrStr_to_hash160(addrStr, False)
@@ -6094,7 +6099,7 @@ class DlgDispTxInfo(ArmoryDialog):
       lbls.append([])
       lbls[-1].append(self.main.createToolTipWidget('Comment stored for this transaction in this wallet'))
       lbls[-1].append(QLabel('User Comment:'))
-      if wlt.getComment(txHash):
+      if haveWallet and wlt.getComment(txHash):
          lbls[-1].append(QRichLabel(wlt.getComment(txHash)))
       else:
          lbls[-1].append(QRichLabel('<font color="gray">[None]</font>'))
@@ -7171,11 +7176,12 @@ class DlgPrintBackup(ArmoryDialog):
 
       self.ttipSecurePrint = self.main.createToolTipWidget(tr("""
          SecurePrint\xe2\x84\xa2 encrypts your backup with a code displayed on
-         the screen, so that no other devices on your network see the plain
-         private keys when you send it to the printer.  If you turn on
+         the screen, so that no other devices on your network see the sensitive
+         data when you send it to the printer.  If you turn on
          SecurePrint\xe2\x84\xa2 <u>you must write the code on the page after
-         it is done printing!</u>  Turn off this feature if you copy the
-         "Root Key" and "Chaincode" by hand."""))
+         it is done printing!</u>  There is no point in using this feature if 
+         you copy the data by hand."""))
+
       self.lblSecurePrint = QRichLabel(tr("""
          <b><font color="%s"><u>IMPORTANT:</u>  You must write the SecurePrint\xe2\x84\xa2
          encryption code on each printed backup page!  Your SecurePrint\xe2\x84\xa2 code is </font>
@@ -7183,6 +7189,7 @@ class DlgPrintBackup(ArmoryDialog):
          if this code is lost!</font> """) % \
          (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
          htmlColor('TextWarn')))
+
       self.connect(self.chkSecurePrint, SIGNAL("clicked()"), self.redrawBackup)
 
 
@@ -8408,6 +8415,15 @@ class DlgAddressBook(ArmoryDialog):
       self.btnSelectWlt = QPushButton('No Wallet Selected')
       self.useBareMultiSigCheckBox = QCheckBox('Use Bare Multi-Sig (No P2SH)')
       self.useBareMultiSigCheckBox.setVisible(False)
+      self.ttipBareMS = self.main.createToolTipWidget( tr("""
+         EXPERT OPTION:  Do not check this box unless you know what it means
+                         and you need it!  Forces Armory to exposes public 
+                         keys to the blockchain before the funds are spent.  
+                         This is only needed for very specific use cases, 
+                         and otherwise creates blockchain bloat."""))
+         
+         
+      self.ttipBareMS.setVisible(False)
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
       self.btnSelectAddr.setEnabled(False)
@@ -8415,7 +8431,6 @@ class DlgAddressBook(ArmoryDialog):
 
       if self.isBrowsingOnly:
          self.btnSelectWlt.setVisible(False)
-         self.useBareMultiSigCheckBox.setVisible(False)
          self.btnSelectAddr.setVisible(False)
          self.lblSelectWlt.setVisible(False)
          btnCancel = QPushButton('<<< Go Back')
@@ -8442,7 +8457,7 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(HLINE(), 5, 0)
       dlgLayout.addWidget(lblToAddr, 6, 0)
       dlgLayout.addWidget(self.tabWidget, 7, 0)
-      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.btnSelectAddr]), 8, 0)
+      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.ttipBareMS, self.btnSelectAddr]), 8, 0)
       dlgLayout.addWidget(HLINE(), 9, 0)
       dlgLayout.addWidget(makeHorizFrame([btnCancel, STRETCH]), 10, 0)
       dlgLayout.setRowStretch(3, 1)
@@ -8535,6 +8550,7 @@ class DlgAddressBook(ArmoryDialog):
       if not self.isBrowsingOnly:
          if self.tabWidget.currentWidget() == self.lboxView:
             self.useBareMultiSigCheckBox.setVisible(self.btnSelectAddr.isVisible())
+            self.ttipBareMS.setVisible(self.btnSelectAddr.isVisible())
             selectedLockBox = self.getSelectedLBID()
             self.btnSelectAddr.setEnabled(selectedLockBox != None)
             if selectedLockBox:
@@ -8545,6 +8561,7 @@ class DlgAddressBook(ArmoryDialog):
                self.disableSelectButtons()
          elif self.tabWidget.currentWidget() == self.addrBookTxView:
             self.useBareMultiSigCheckBox.setVisible(False)
+            self.ttipBareMS.setVisible(False)
             selection = self.addrBookTxView.selectedIndexes()
             if len(selection)==0:
                self.disableSelectButtons()
@@ -8552,6 +8569,7 @@ class DlgAddressBook(ArmoryDialog):
                self.addrTableTxClicked(selection[0])
          elif self.tabWidget.currentWidget() == self.addrBookRxView:
             self.useBareMultiSigCheckBox.setVisible(False)
+            self.ttipBareMS.setVisible(False)
             selection = self.addrBookRxView.selectedIndexes()
             if len(selection)==0:
                self.disableSelectButtons()
@@ -9643,12 +9661,15 @@ class DlgExportTxHistory(ArmoryDialog):
       i += 1
       dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
 
-      i += 1
-      dlgLayout.addWidget(QRichLabel('Sort Table:'), i, 0)
-      dlgLayout.addWidget(self.cmbSortSelect, i, 1)
-
-      i += 1
-      dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
+      
+      # ACR:  Had some sorting issues that seemed unnecessary, so I just 
+      #       disabled the sort option entirely.  The user can sort it
+      #       however they want once it's loaded into their spreadsheet app
+      #i += 1
+      #dlgLayout.addWidget(QRichLabel('Sort Table:'), i, 0)
+      #dlgLayout.addWidget(self.cmbSortSelect, i, 1)
+      #i += 1
+      #dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
 
       i += 1
       dlgLayout.addWidget(QRichLabel('Date Format:'), i, 0)
@@ -9753,6 +9774,7 @@ class DlgExportTxHistory(ArmoryDialog):
          row.append(allBalances)
 
       
+      """
       sortTxt = str(self.cmbSortSelect.currentText())
       if 'newest' in sortTxt:
          ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
@@ -9765,6 +9787,7 @@ class DlgExportTxHistory(ArmoryDialog):
       else:
          LOGERROR('***ERROR: bad sort string!?')
          return
+      """
 
 
       wltSelectStr = str(self.cmbWltSelect.currentText()).replace(' ', '_')
@@ -9815,10 +9838,10 @@ class DlgExportTxHistory(ArmoryDialog):
             txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
             if float(wltEffect) >= 0:
                vals.append(wltEffect.strip())
-               vals.append(' ')
-               vals.append(' ')
+               vals.append('')
+               vals.append('')
             else:
-               vals.append(' ')
+               vals.append('')
                vals.append(wltEffect.strip()[1:]) # remove negative sign
                vals.append(coin2str(txFee).strip())
 
@@ -9858,7 +9881,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.edtMessage = QLineEdit()
       self.edtMessage.setMaxLength(128)
       if msg:
-         self.edtMessage.setText(msg)
+         self.edtMessage.setText(msg[:128])
 
       self.edtMessage.setCursorPosition(0)
 
@@ -9870,10 +9893,17 @@ class DlgRequestPayment(ArmoryDialog):
 
       # Link Text:
       self.edtLinkText = QLineEdit()
-      defaultText = binary_to_hex('Click here to pay for your order!')
-      linkText = hex_to_binary(self.main.getSettingOrSetDefault('DefaultLinkText', defaultText))
+      defaultHex = binary_to_hex('Click here to pay for your order!')
+      savedHex = self.main.getSettingOrSetDefault('DefaultLinkText', defaultHex)
+      if savedHex.startswith('FFFFFFFF'):
+         # An unfortunate hack until we change our settings storage mechanism
+         # See comment in saveLinkText function for details
+         savedHex = savedHex[8:] 
+
+      linkText = hex_to_binary(savedHex)  
       self.edtLinkText.setText(linkText)
       self.edtLinkText.setCursorPosition(0)
+      self.edtLinkText.setMaxLength(80)
 
       qpal = QPalette()
       qpal.setColor(QPalette.Text, Colors.TextBlue)
@@ -9961,11 +9991,11 @@ class DlgRequestPayment(ArmoryDialog):
       ttipAddress = self.main.createToolTipWidget(\
          'The person clicking the link will be sending bitcoins to this address')
       ttipMessage = self.main.createToolTipWidget(\
-         'This text will be pre-filled as the label/comment field '
-         'after the user clicks on the link. They '
-         'can modify it to meet their own needs, but you can '
-         'provide useful information such as contact details and '
-         'purchase info as a convenience to them.')
+         'This will be pre-filled as the label/comment field '
+         'after the user clicks the link. They '
+         'can modify it if desired, but you can '
+         'provide useful info such as contact details, order number, '
+         'etc, as convenience to them.')
 
 
       btnClose = QPushButton('Close')
@@ -10057,7 +10087,17 @@ class DlgRequestPayment(ArmoryDialog):
    def saveLinkText(self):
       linktext = str(self.edtLinkText.text()).strip()
       if len(linktext) > 0:
-         hexText = binary_to_hex(linktext)
+         # TODO:  We desperately need a new settings file format -- the one
+         #        we use was more of an experiment in how quickly I could 
+         #        create a simple settings file, but it has quirky behavior
+         #        that makes cryptic hacks like below necessary.  Simply put,
+         #        if the hex of the text is all digits (no hex A-F), then 
+         #        the settings file will read the value as a long int instead
+         #        of a string.  We add 8 F's to make sure it's interpretted
+         #        as a hex string, but someone looking at the file wouldn't
+         #        mistake it for meaningful data.  We remove it upon reading
+         #        the value from the settings file.
+         hexText = 'FFFFFFFF'+binary_to_hex(linktext)
          self.main.writeSetting('DefaultLinkText', hexText)
 
 
@@ -10095,6 +10135,9 @@ class DlgRequestPayment(ArmoryDialog):
             amt = None
          else:
             amt = str2coin(amtStr)
+            
+            if amt > MAX_SATOSHIS:
+               amt = None
 
          lastTry = 'Message'
          msgStr = str(self.edtMessage.text()).strip()
@@ -10129,7 +10172,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.dispText += 'If clicking on the line above does not work, use this payment info:'
       self.dispText += '<br>'
       self.dispText += '<b>Pay to</b>:\t%s<br>' % addr
-      if amtStr:
+      if amt:
          self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amt, maxZeros=0).strip()
       if msgStr:
          self.dispText += '<b>Message</b>:\t%s<br>' % msgStr
@@ -10144,7 +10187,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.plainText = str(self.edtLinkText.text()) + '\n'
       self.plainText += 'If clicking on the line above does not work, use this payment info:\n'
       self.plainText += 'Pay to:  %s' % addr
-      if amtStr:
+      if amt:
          self.plainText += '\nAmount:  %s BTC' % coin2str(amt, maxZeros=0).strip()
       if msgStr:
          self.plainText += '\nMessage: %s' % msgStr
@@ -10516,7 +10559,8 @@ class DlgUriCopyAndPaste(ArmoryDialog):
    def clickedOkay(self):
       uriStr = str(self.txtUriString.text())
       self.uriDict = self.main.parseUriLink(uriStr, 'enter')
-      self.accept()
+      if len(self.uriDict.keys()) > 0:
+         self.accept()
 
 
 
@@ -11860,7 +11904,7 @@ class DlgFragBackup(ArmoryDialog):
       dlgLayout = QVBoxLayout()
       dlgLayout.addWidget(frmDescr)
       dlgLayout.addWidget(self.scrollArea)
-      dlgLayout.addWidget(self.chkSecurePrint)
+      dlgLayout.addWidget(frmChkSP)
       dlgLayout.addWidget(self.lblSecurePrint)
       dlgLayout.addWidget(frmBottomBtn)
       setLayoutStretch(dlgLayout, 0, 1, 0, 0, 0)

@@ -1142,7 +1142,7 @@ class UnsignedTxInput(AsciiSerializable):
       return zip(self.pubKeys, self.wltLocators)
 
    #############################################################################
-   def createSigScript(self):
+   def createSigScript(self, stripExtraSigs=True):
       """
       Here, we don't care what the orig script was in the TxOut being spent,
       unless it was P2SH.  It's because this method assumes that all the sigs
@@ -1159,14 +1159,11 @@ class UnsignedTxInput(AsciiSerializable):
       to the end of it.
       """
 
-      numPubs = len(filter(lambda x: len(x)>0, self.pubKeys))
-      numSigs = len(filter(lambda x: len(x)>0, self.signatures))
-      scrType = self.scriptType
-
       outScript = ''
 
       if self.scriptType in CPP_TXOUT_STDSINGLESIG and not self.signatures[0]:
          return ''
+
 
       # All signatures are already DER-encoded. 
       if self.scriptType == CPP_TXOUT_P2SH:
@@ -1181,10 +1178,16 @@ class UnsignedTxInput(AsciiSerializable):
          outScript = serSig + serPubKey
       elif self.scriptType==CPP_TXOUT_MULTISIG:
          # Serialize non-empty sigs, replace empty ones with OP_0
+         sigList = self.signatures[:]
+         countSigs = lambda slist: sum([ (1 if s else 0)  for s in slist ])
+         if stripExtraSigs:
+            # Mainnet appears to treat extra sigs as non-std.  Remove if req
+            while countSigs(sigList) > self.sigsNeeded:
+               sigList.pop()
+
          OP_0 = getOpCode('OP_0')
          pushSig = lambda sig: (scriptPushData(sig) if sig else '')
-         serSigList = [pushSig(s) for s in self.signatures]
-         outScript = OP_0 + ''.join(serSigList)
+         outScript = OP_0 + ''.join([pushSig(s) for s in sigList])
       else:
          raise InvalidScriptError('Non-std script, cannot create sig script')
 
@@ -2418,7 +2421,7 @@ class UnsignedTransaction(AsciiSerializable):
 
 
    #############################################################################
-   def getSignedPyTx(self, doVerifySigs=True):
+   def getSignedPyTx(self, doVerifySigs=True, stripExtraSigs=True):
       # Make sure the USTXI list is synchronous with the pytx input list
       if not self.verifyInputsMatchPyTxObj():
          LOGERROR('Invalid USTXI set or ordering')
@@ -2439,7 +2442,7 @@ class UnsignedTransaction(AsciiSerializable):
       # Iterate through the lists
       for iin in range(len(self.ustxInputs)):
          ustxi = self.ustxInputs[iin]
-         sigScript = ustxi.createSigScript()
+         sigScript = ustxi.createSigScript(stripExtraSigs=stripExtraSigs)
          if not sigScript:
             return None
          finalTx.inputs[iin].binScript = sigScript

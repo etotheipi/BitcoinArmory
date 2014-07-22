@@ -94,14 +94,6 @@ class ArmoryMainWindow(QMainWindow):
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
-         QMessageBox.warning(self, tr('Dangerous Armory Version!'), tr("""
-               This version of Armory implements Multi-signature transactions which is an 
-               <b>EXPERIMENTAL</b> feature.  It is 
-               <u><b>not</b></u> intended to be used with real money, until all 
-               the warnings like this one go away.
-               <br><br>
-               <b>Use at your own risk!</b>"""), QMessageBox.Ok)
-
          self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h44.png'))
@@ -1525,8 +1517,9 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
+
    #############################################################################
-   def execOfflineTx(self):
+   def warnNewUSTXFormat(self):
       if not self.getSettingOrSetDefault('DNAA_Version092Warn', False):
          reply = MsgBoxWithDNAA(MSGBOX.Warning, tr("Version Warning"), tr("""
             Since Armory version 0.92 the formats for offline transaction
@@ -1539,6 +1532,11 @@ class ArmoryMainWindow(QMainWindow):
             system, you will need to reinstall an older version of Armory
             on this system."""), dnaaMsg='Do not show this warning again')
          self.writeSetting('DNAA_Version092Warn', reply[1])
+
+
+   #############################################################################
+   def execOfflineTx(self):
+      self.warnNewUSTXFormat()
 
 
       dlgSelect = DlgOfflineSelect(self, self)
@@ -2439,10 +2437,17 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def parseUriLink(self, uriStr, clickOrEnter='click'):
+      if len(uriStr) < 1:
+         QMessageBox.critical(self, 'No URL String', \
+               'You have not entered a URL String yet. '
+               'Please go back and enter a URL String.', \
+               QMessageBox.Ok)
+         return {}
       ClickOrEnter = clickOrEnter[0].upper() + clickOrEnter[1:]
       LOGINFO('URI link clicked!')
       LOGINFO('The following URI string was parsed:')
       LOGINFO(uriStr.replace('%','%%'))
+
       uriDict = parseBitcoinURI(uriStr)
       if TheBDM.getState() in ('Offline','Uninitialized'):
          LOGERROR('%sed "bitcoin:" link in offline mode.' % ClickOrEnter)
@@ -2476,7 +2481,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Verify the URI is for the same network as this Armory instnance
       theAddrByte = checkAddrType(base58_to_binary(uriDict['address']))
-      if theAddrByte!=-1 and theAddrByte!=ADDRBYTE:
+      if theAddrByte!=-1 and not theAddrByte in [ADDRBYTE, P2SHBYTE]:
          net = 'Unknown Network'
          if NETWORKS.has_key(theAddrByte):
             net = NETWORKS[theAddrByte]
@@ -3146,12 +3151,26 @@ class ArmoryMainWindow(QMainWindow):
          unconfFunds += wlt.getBalance('Unconfirmed')
 
 
+      def keyFuncNumConf(x):
+         numConf = x[1].getBlockNum() - currBlk  # returns neg for reverse sort
+         txTime  = x[1].getTxTime() 
+         txhash  = x[1].getTxHash()
+         value   = x[1].getValue()
+         return (numConf, txTime, txhash, value)
+
+      def keyFuncTxTime(x):
+         numConf = x[1].getBlockNum() - currBlk  # returns neg for reverse sort
+         txTime  = x[1].getTxTime() 
+         txhash  = x[1].getTxHash()
+         value   = x[1].getValue()
+         return (txTime, numConf, txhash, value)
+
       # Apply table sorting -- this is very fast
       sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
       if self.sortLedgCol == LEDGERCOLS.NumConf:
-         self.combinedLedger.sort(key=lambda x: currBlk-x[1].getBlockNum()+1, reverse=not sortDir)
+         self.combinedLedger.sort(key=keyFuncNumConf, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.DateStr:
-         self.combinedLedger.sort(key=lambda x: x[1].getTxTime(), reverse=sortDir)
+         self.combinedLedger.sort(key=keyFuncTxTime, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.WltName:
          self.combinedLedger.sort(key=lambda x: self.walletMap[x[0]].labelName, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Comment:

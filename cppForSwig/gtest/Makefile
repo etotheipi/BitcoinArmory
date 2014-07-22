@@ -26,7 +26,10 @@ CPPFLAGS += -I$(GTEST_DIR) \
 				-I$(USER_DIR)/leveldb/include \
 				-D__STDC_LIMIT_MACROS \
 				-D_DEBUG \
-				-g
+				-g \
+				-fprofile-arcs \
+				-ftest-coverage \
+				--coverage 
 
 HEADERS += 	$(wildcard $(USER_DIR)/*.h)
 
@@ -49,7 +52,7 @@ all : $(TESTS)
 	rm -rf blkfiletest fakehomedir ldbtestdir/leveldb_*
 
 clean :
-	rm -f $(TESTS) gtest.a gtest_main.a *.o
+	rm -f $(TESTS) gtest.a gtest_main.a *.o *.gcda *.gcno
 
 # Builds gtest.a and gtest_main.a.
 

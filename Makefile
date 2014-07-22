@@ -31,7 +31,7 @@ install : all
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
 	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
-	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
+	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(PREFIX)/share/armory/
 	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
 	cp bitcoinrpc_jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
 	cp -r txjsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc

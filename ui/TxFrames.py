@@ -261,20 +261,21 @@ class SendBitcoinsFrame(ArmoryFrame):
       elif not self.main == None and \
            loadCount % donateFreq == (donateFreq-1) and \
            not loadCount == lastPestering and \
-           not dnaaDonate:
-         result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
-            '<i>Armory</i> is the result of over 5,000 hours of development '
-            'and dozens of late nights bug-hunting and testing.  Yet, this software '
-            'has been given to you for free to benefit the greater Bitcoin '
-            'community! '
-            '<br><br>However, continued development may not be possible without '
-            'donations.  If you are satisfied with this software, please consider '
-            'donating what you think this software would be worth as a commercial '
-            'application.'
-            '<br><br><b>Are you willing to donate to the Armory developers?</b> If you '
-            'select "Yes," a donation field will be added to your '
-            'next transaction.  You will have the opportunity to remove or change '
-            'the amount before sending the transaction.', None)
+           not dnaaDonate and \
+           not USE_TESTNET:
+         result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', tr("""
+            <i>Armory</i> is the result of thousands of hours of development 
+            by very talented coders.  Yet, this software 
+            has been given to you for free to benefit the greater Bitcoin 
+            community! 
+            <br><br>
+            If you are satisfied with this software, please consider 
+            donating what you think this software would be worth as a commercial 
+            application.
+            <br><br><b>Are you willing to donate to the Armory developers?</b> If you 
+            select "Yes," a donation field will be added to your 
+            next transaction.  You will have the opportunity to remove it or change 
+            the amount before sending the transaction."""), None)
          self.main.writeSetting('DonateLastPester', loadCount)
 
          if result[0] == True:
@@ -568,12 +569,12 @@ class SendBitcoinsFrame(ArmoryFrame):
          valMax = coin2str(bal, maxZeros=2).strip()
          if self.altBalance == None:
             QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
-            You just tried to send %s BTC, including fee, but you only 
+            You just tried to send more Bitcoins than you have available. You only 
             have %s BTC (spendable) in this wallet!""") % \
-            (valTry, valMax), QMessageBox.Ok)
+            valMax, QMessageBox.Ok)
          else:
             QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
-            You just tried to send %s BTC, including fee, but you only 
+            You just tried to send more Bitcoins than you have available. You only 
             have %s BTC with this coin control selection!""") % \
             (valTry, valMax), QMessageBox.Ok)
          return False
@@ -745,6 +746,8 @@ class SendBitcoinsFrame(ArmoryFrame):
    
          if not dlg.exec_():
             return False
+      else:
+         self.main.warnNewUSTXFormat()
       
       return ustx
    
@@ -1605,8 +1608,9 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             'Transaction data is invalid and cannot be shown!', QMessageBox.Ok)
          return
 
+      leVal = 0 if self.leValue is None else -self.leValue
       dlgTxInfo = DlgDispTxInfo(self.ustxObj, self.wlt, self.parent(), self.main, \
-                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue, txtime=-1)
+                          precomputeIdxGray=self.idxSelf, precomputeAmt=leVal, txtime=-1)
       dlgTxInfo.exec_()
 
 

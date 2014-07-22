@@ -425,6 +425,7 @@ class PyBtcWalletTest(TiabTest):
       self.assertEqual(c3, comment3)
       self.assertEqual(c2, comment2)
 
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

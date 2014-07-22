@@ -459,7 +459,7 @@ class UserAddressToScript(TiabTest):
          self.assertEqual(scrInfo['WltID'], None)
          self.assertEqual(scrInfo['LboxID'], None)
 
-
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testArmoryEngine']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

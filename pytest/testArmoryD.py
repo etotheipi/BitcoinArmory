@@ -56,7 +56,7 @@ class ArmoryDTest(TiabTest):
       theIV     = SecureBinaryData(hex_to_binary('77'*16))
       self.passphrase  = SecureBinaryData('A self.passphrase')
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
-      
+
       self.wallet = PyBtcWallet().createNewWallet(withEncrypt=False, \
                                           plainRootKey=self.privKey, \
                                           chaincode=self.chainstr,   \
@@ -76,12 +76,14 @@ class ArmoryDTest(TiabTest):
    # def testListunspent(self):
    #    actualResult = self.jsonServer.jsonrpc_listunspent()
    #    self.assertEqual(actualResult, [])
-      
+
+   # The password is apparently incorrect, so this fails due to a bad unlock.
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)
+      self.jsonServer.jsonrpc_unlockwallet(PASSPHRASE1, UNLOCK_TIMEOUT)
       self.jsonServer.jsonrpc_importprivkey(self.privKey2)
       self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
-      
+
    def testGettxout(self):
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 0)
       self.assertEquals(txOut['value'],TX_ID1_OUTPUT0_VALUE)
@@ -126,14 +128,14 @@ class ArmoryDTest(TiabTest):
       self.assertEqual(len(actualDD['vout']), 2)
       self.assertEqual(actualDD['vout'][0]['value'], 20.0)
       self.assertEqual(actualDD['vout'][0]['n'], 0)
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['reqSigs'], 1)
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['hex'], '76a91462d978319c7d7ac6cceed722c3d08aa81b37101288ac')
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['addresses'], ['mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'])
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], expectScriptStr)
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'], 'Standard (PKH)')
-      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'Standard (PKH)')
-      
-      
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['reqSigs'], 1)
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['hex'], '76a91462d978319c7d7ac6cceed722c3d08aa81b37101288ac')
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['addresses'], ['mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'])
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['asm'], expectScriptStr)
+      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['type'], 'Standard (PKH)')
+      self.assertEqual(actualDD['vout'][1]['scriptAddrStrs']['type'], 'Standard (PKH)')
+
+
    def testDumpprivkey(self):
 
       testPrivKey = self.privKey.toBinStr()
@@ -203,6 +205,7 @@ class ArmoryDTest(TiabTest):
                           AmountToJSON(self.wallet.getBalance(ballanceType)))
       
       
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

@@ -59,13 +59,14 @@ NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet
 EXPECTED_TIAB_NEXT_ADDR  = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
 EXPECTED_UNSPENT_TX1_BAL  = 20.0
 EXPECTED_UNSPENT_TX1_CONF = 3
-EXPECTED_UNSPENT_TX1_HEX  = '4434b3eab23189af20d56a81a7bc5ac560f42f4097a90f834535cb94a8d5578201000000'
+EXPECTED_UNSPENT_TX1_HEX  = '8257d5a894cb3545830fa997402ff460c55abca7816ad520af8931b2eab33444'
 EXPECTED_UNSPENT_TX1_PRI  = 60.0
 EXPECTED_UNSPENT_TX5_BAL  = 938.8997
 EXPECTED_UNSPENT_TX5_CONF = 8
-EXPECTED_UNSPENT_TX5_HEX  = '721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
+EXPECTED_UNSPENT_TX5_HEX  = '111842cb336995ac460f302f9f611e94e5b27222368d79cfd7db4c7cbc071572'
 EXPECTED_UNSPENT_TX5_PRI  = 7511.1976
 EXPECTED_UNSPENT_TX_TOT   = 964.8997
+EXPECTED_RECEIVED_FROM_TIAB_WLT_1_ADDR_2 = 979.9999
 
 TIAB_WLT_1_ADDR_1 = 'muxkzd4sitPbMz4BXmkEJKT6ccshxDFsrn'
 TIAB_WLT_1_PK_1 = '92vsXfvjpbTj1sN75VSV2M7DWyqoVx5nayp3dE7ZaG9rRVRYU4P'
@@ -290,7 +291,8 @@ class ArmoryDTiabTest(TiabTest):
    def  testVerifysignature(self):
       clearSignMessage = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_1), \
                                 TEST_MESSAGE)
-      result = self.jsonServer.jsonrpc_verifysignature(clearSignMessage)
+      inMsg = '\"' + clearSignMessage + '\"'
+      result = self.jsonServer.jsonrpc_verifysignature(inMsg)
       self.assertEqual(result['message'], TEST_MESSAGE)
       self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
 
@@ -298,7 +300,8 @@ class ArmoryDTiabTest(TiabTest):
    def  testReceivedfromsigner(self):
       clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), \
                                  TEST_MESSAGE)
-      result2 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage2)
+      inMsg2 = '\"' + clearSignMessage2 + '\"'
+      result2 = self.jsonServer.jsonrpc_receivedfromsigner(inMsg2)
       self.assertEqual(result2['message'], TEST_MESSAGE)
       self.assertEqual(result2['amount'], 0)
 
@@ -306,9 +309,8 @@ class ArmoryDTiabTest(TiabTest):
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
       self.assertEqual(result, 0)
-      result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_3)
-      self.assertEqual(result, 0)
-
+      result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_2)
+      self.assertEqual(result, EXPECTED_RECEIVED_FROM_TIAB_WLT_1_ADDR_2)
 
    def testGettransaction(self):
       tx = self.jsonServer.jsonrpc_gettransaction('db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4')
@@ -393,9 +395,13 @@ class ArmoryDTiabTest(TiabTest):
 
       # Test two paths through signing method and make sure they are equal
       # Wallets in the TIAB start out unencrypted
-      serializedSignedTxUnencrypted = self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx,'')
+      serializedSignedTxUnencrypted = \
+            self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
+                                                         '')['SignedTx']
       self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
-      serializedSignedTxEncrypted = self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx,PASSPHRASE1)
+      serializedSignedTxEncrypted = \
+            self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
+                                                         PASSPHRASE1)['SignedTx']
       # Other tests expect wallet to be unencrypted
       self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                             tempKeyLifetime=1000000)
@@ -442,24 +448,21 @@ class ArmoryDTiabTest(TiabTest):
    def testListUnspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
 
-      self.assertEqual(len(actualResult), 7)
-      self.assertEqual(actualResult['Total Balance'], EXPECTED_UNSPENT_TX_TOT)
-      self.assertEqual(actualResult['Total UTXOs'], 5)
-      self.assertEqual(actualResult['UTXO 00001']['Balance'], \
+      self.assertEqual(actualResult[0]['amount'], \
                        EXPECTED_UNSPENT_TX1_BAL)
-      self.assertEqual(actualResult['UTXO 00001']['Confirmations'], \
+      self.assertEqual(actualResult[0]['confirmations'], \
                        EXPECTED_UNSPENT_TX1_CONF)
-      self.assertEqual(actualResult['UTXO 00001']['Hex'], \
+      self.assertEqual(actualResult[0]['txid'], \
                        EXPECTED_UNSPENT_TX1_HEX)
-      self.assertEqual(actualResult['UTXO 00001']['Priority'], \
+      self.assertEqual(actualResult[0]['priority'], \
                        EXPECTED_UNSPENT_TX1_PRI)
-      self.assertEqual(actualResult['UTXO 00005']['Balance'], \
+      self.assertEqual(actualResult[4]['amount'], \
                        EXPECTED_UNSPENT_TX5_BAL)
-      self.assertEqual(actualResult['UTXO 00005']['Confirmations'], \
+      self.assertEqual(actualResult[4]['confirmations'], \
                        EXPECTED_UNSPENT_TX5_CONF)
-      self.assertEqual(actualResult['UTXO 00005']['Hex'], \
+      self.assertEqual(actualResult[4]['txid'], \
                        EXPECTED_UNSPENT_TX5_HEX)
-      self.assertEqual(actualResult['UTXO 00005']['Priority'], \
+      self.assertEqual(actualResult[4]['priority'], \
                        EXPECTED_UNSPENT_TX5_PRI)
 
 
@@ -468,32 +471,14 @@ class ArmoryDTiabTest(TiabTest):
       totBal = TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8
       actualResult = self.jsonServer.jsonrpc_listaddrunspent(totStr)
 
-      self.assertEqual(len(actualResult), 4)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Balance'], \
+      self.assertEqual(actualResult['addrbalance'][TIAB_WLT_1_ADDR_3], \
                        TIAB_WLT_1_PK_UTXO_BAL_3)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Confirmations'], \
-      #                 EXPECTED_UNSPENT_TX2_CONF)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Hex'], \
-                       TIAB_WLT_1_PK_UTXO_HEX_3)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Priority'], \
-      #                 EXPECTED_UNSPENT_TX2_PRI)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Balance'], \
+      self.assertEqual(actualResult['addrbalance'][TIAB_WLT_1_ADDR_8], \
                        TIAB_WLT_1_PK_UTXO_BAL_8)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Confirmations'], \
-      #                 EXPECTED_UNSPENT_TX2_CONF)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Hex'], \
-                       TIAB_WLT_1_PK_UTXO_HEX_8)
-      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Priority'], \
-      #                 EXPECTED_UNSPENT_TX2_PRI)
-
       # NB: Ideally, the TAB asserts would be against addresses with multiple
       # UTXOs. As is, this test case works but could be better.
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['Total Address Balance'], \
-                       TIAB_WLT_1_PK_UTXO_BAL_3)
-      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['Total Address Balance'], \
-                       TIAB_WLT_1_PK_UTXO_BAL_8)
-      self.assertEqual(actualResult['Total UTXOs'], 2)
-      self.assertEqual(actualResult['Total UTXO Balance'], totBal)
+      self.assertEqual(actualResult['totalbalance'], TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8 )
+      self.assertEqual(actualResult['numutxo'], 2)
 
 
    def testGetNewAddress(self):
@@ -515,7 +500,7 @@ class ArmoryDTiabTest(TiabTest):
          self.assertEqual(result,
                           AmountToJSON(self.wltA.getBalance(balanceType)))
 
-
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()

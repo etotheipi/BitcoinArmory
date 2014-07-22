@@ -108,7 +108,8 @@ class ArmoryDStartupTest(TiabTest):
       actualResult2 = self.armoryDSession.callArmoryD(['getwalletinfo'])
       self.assertEqual(actualResult2['name'], 'Third Wallet')
 
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()
 
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()

@@ -752,8 +752,8 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          # Cannot verify that pprint or pprintOneLine does the correct thing,
          # but at least this will verify that it doesn't crash
          # and the output can be examined for manual verification.
-         lbox.pprintOneLine()
-         lbox.pprint()
+         #lbox.pprintOneLine()
+         #lbox.pprint()
 
    #############################################################################
    def testLockbox_serializeAscii_roundtrip(self):
@@ -771,8 +771,8 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
       lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
       # Cannot verify that pprint or pprintOneLine does the correct thing,
       # but at least this will verify that it doesn't crash
-      lbox.pprintOneLine()
-      lbox.pprint()
+      #lbox.pprintOneLine()
+      #lbox.pprint()
       
       self.assertTrue(binScript_to_p2shAddrStr(lbox.binScript))
    
@@ -945,16 +945,16 @@ class PubKeyBlockTest(unittest.TestCase):
       txoutA.value = 50 * ONE_BTC
       txoutA.binScript = '\x76\xa9\x14' + addrA.getAddr160() + '\x88\xac'
       # Test pprint
-      print '\nTest pretty print PyTxIn, expect PrevTXHash all 0s'
-      testTxIn.pprint()
+      #print '\nTest pretty print PyTxIn, expect PrevTXHash all 0s'
+      #testTxIn.pprint()
    
       # test binary unpacker in unserialize
       testTxOut = PyTxOut().unserialize(txoutA.serialize())
       self.assertEqual(txoutA.getScript(), testTxOut.getScript())
       self.assertEqual(txoutA.value, testTxOut.getValue())
       # Test pprint
-      print '\nTest pretty print PyTxOut'
-      testTxOut.pprint()
+      #print '\nTest pretty print PyTxOut'
+      #testTxOut.pprint()
       
       tx1 = PyTx()
       tx1.version    = 1
@@ -1040,8 +1040,8 @@ class PubKeyBlockTest(unittest.TestCase):
    def testPPrintPyOutPoint(self):
       # No return value - Should just print 0s
       outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
-      print "PyOutPoint PPrint Test. Expect all 0s: "
-      outpoint.pprint()
+      #print "PyOutPoint PPrint Test. Expect all 0s: "
+      #outpoint.pprint()
    
    '''
    Does not pass because fromCpp is missing
@@ -1060,8 +1060,8 @@ class PubKeyBlockTest(unittest.TestCase):
    
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
    """
-   
-   
-if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testName']
-   unittest.main()
+
+# Running tests with "python <module name>" will NOT work for any Armory tests
+# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
+# if __name__ == "__main__":
+#    unittest.main()
