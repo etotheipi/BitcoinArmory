@@ -691,8 +691,6 @@ public:
    bool setTxIn   (BinaryData dbKey8B);
    bool setTxOut  (TxRef  txref, uint32_t index);
    bool setTxOut  (BinaryData dbKey8B);
-   bool setTxInZC (LMDBBlockDatabase *db, Tx*    tx,    uint32_t index);
-   bool setTxOutZC(LMDBBlockDatabase *db, Tx*    tx,    uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
