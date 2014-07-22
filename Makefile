@@ -52,7 +52,7 @@ all-test-tools: all
 
 test: all-test-tools
 	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
-	(cd pytest && python RunPyTest.py)
+	python -m unittest discover
 
 osx :
 	chmod +x osxbuild/deploy.sh
