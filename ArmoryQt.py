@@ -510,7 +510,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
       self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
-      verStr = 'v%s-multisig / %s' % (getVersionString(BTCARMORY_VERSION),
+      verStr = 'Armory %s / %s User' % (getVersionString(BTCARMORY_VERSION),
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -1534,7 +1534,6 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def execOfflineTx(self):
       self.warnNewUSTXFormat()
-
 
       dlgSelect = DlgOfflineSelect(self, self)
       if dlgSelect.exec_():
