@@ -134,12 +134,12 @@ public:
    ) const;
 
    vector<LedgerEntry>
-      getTxLedger(BinaryData const &scrAddr) const; 
+      getTxLedger(BinaryData const &scrAddr) const;
    const vector<LedgerEntry>&
       getTxLedger() const; 
 
    void pprintLedger() const;
-   void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false) const;
+   void pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk=0, bool withAddr=false) const;
    void pprintAlittle(std::ostream &os) const;
 
    void clearBlkData(void);

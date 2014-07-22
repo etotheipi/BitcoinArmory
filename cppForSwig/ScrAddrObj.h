@@ -2,7 +2,7 @@
 #define SCRADDROBJ_H
 
 #include "BinaryData.h"
-#include "leveldb_wrapper.h"
+#include "lmdb_wrapper.h"
 #include "Blockchain.h"
 #include "BlockObj.h"
 #include "LedgerEntry.h"
@@ -74,7 +74,7 @@ public:
    void reset(void) { pages_.clear();}
    void addPage(uint32_t count, uint32_t bottom, uint32_t top);
    void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
-   void mapScrAddrHistory(InterfaceToLDB* db,
+   void mapScrAddrHistory(LMDBBlockDatabase* db,
                           const BinaryData& scrAddr, 
                           uint32_t txnPerPage);
    const map<uint32_t, uint32_t>& getSSHsummary(void) const
@@ -96,7 +96,7 @@ public:
       relevantTxIO_.clear();
    }
 
-   ScrAddrObj(InterfaceToLDB *db, Blockchain *bc, 
+   ScrAddrObj(LMDBBlockDatabase *db, Blockchain *bc,
               BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
@@ -113,7 +113,7 @@ public:
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   void           setScrAddr(InterfaceToLDB *db, BinaryData bd) { db_ = db; scrAddr_.copyFrom(bd);}
+   void           setScrAddr(LMDBBlockDatabase *db, BinaryData bd) { db_ = db; scrAddr_.copyFrom(bd);}
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is
@@ -192,7 +192,7 @@ public:
 
 
 private:
-   InterfaceToLDB *db_;
+   LMDBBlockDatabase *db_;
    Blockchain     *bc_;
    
    BinaryData     scrAddr_; // this includes the prefix byte!

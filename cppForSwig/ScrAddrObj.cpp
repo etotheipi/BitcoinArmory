@@ -7,7 +7,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-ScrAddrObj::ScrAddrObj(InterfaceToLDB *db, Blockchain *bc,
+ScrAddrObj::ScrAddrObj(LMDBBlockDatabase *db, Blockchain *bc,
                        HashString    addr, 
                        uint32_t      firstBlockNum,
                        uint32_t      firstTimestamp,
@@ -490,7 +490,7 @@ vector<LedgerEntry> HistoryPages::getPage(const ScrAddrObj* sa, uint32_t pageId)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void HistoryPages::mapScrAddrHistory(InterfaceToLDB *db,
+void HistoryPages::mapScrAddrHistory(LMDBBlockDatabase *db,
                                      const BinaryData& scrAddr, 
                                      uint32_t txnPerPage)
 {

@@ -129,8 +129,56 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::pprintAlot(InterfaceToLDB *db, 
+/*void BtcWallet::pprintAlot(LMDBBlockDatabase *db, 
                            uint32_t topBlk, bool withAddr) const
+{
+   map<OutPoint, TxIOPair> const & txiomap = txioMap_;
+   
+   // Since 99.999%+ of all transactions are not ours, let's do the 
+   // fastest bulk filter possible, even though it will add 
+   // redundant computation to the tx that are ours.  In fact,
+   // we will skip the TxIn/TxOut convenience methods and follow the
+   // pointers directly to the data we want
+
+   OutPoint op; // reused
+   uint8_t const * txStartPtr = tx.getPtr();
+   for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
+   {
+      // We have the txin, now check if it contains one of our TxOuts
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin),
+         tx.getSize() - tx.getTxInOffset(iin));
+      if (KEY_IN_MAP(op, txiomap))
+         return make_pair(true, true);
+   }
+
+   // Simply convert the TxOut scripts to scrAddrs and check if registered
+   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
+   {
+      TxOut txout = tx.getTxOutCopy(iout);
+      BinaryData scrAddr = txout.getScrAddressStr();
+      if (hasScrAddress(scrAddr))
+         return make_pair(true, false);
+
+      // It's still possible this is a multisig addr involving one of our 
+      // existing scrAddrs, even if we aren't explicitly looking for this multisig
+      if (withSecondOrderMultisig && txout.getScriptType() == TXOUT_SCRIPT_MULTISIG)
+      {
+         BinaryRefReader brrmsig(scrAddr);
+         uint8_t PREFIX = brrmsig.get_uint8_t();
+         uint8_t M = brrmsig.get_uint8_t();
+         uint8_t N = brrmsig.get_uint8_t();
+         for (uint8_t a = 0; a<N; a++)
+         if (hasScrAddress(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
+            return make_pair(true, false);
+      }
+   }
+
+   // If we got here, it's either non std or not ours
+   return make_pair(false, false);
+}*/
+
+/////////////////////////////////////////////////////////////////////////////
+void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr) const
 {
    uint32_t numLedg = ledgerAllAddr_.size();
 
@@ -1165,7 +1213,7 @@ void BtcWallet::calculateTxioDensity()
    //the entire wallet history
    uint64_t totalTxio = 0;
 
-   InterfaceToLDB* db = bdmPtr_->getIFace();
+   LMDBBlockDatabase* db = bdmPtr_->getIFace();
 
    //parse all SSH summaries
    for (auto& scrAddrPair : scrAddrMap_)
@@ -1211,7 +1259,7 @@ void* mapPagesThread(void *in)
 
    wlt->releaseMergeLock();
 
-   InterfaceToLDB* db = wlt->getBdmPtr()->getIFace();
+   LMDBBlockDatabase* db = wlt->getBdmPtr()->getIFace();
    map<uint32_t, uint32_t> histSummary;
 
    for (auto scrAddrPair : addrMap)

@@ -1242,7 +1242,7 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
 // implementing this DB stuff correctly is making sure both conditions 
 // above are adhered to, despite TxIOPair objects being used in RAM to store
 // zero-confirmation data as well as in-blockchain data.
-void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, InterfaceToLDB *db)
+void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDatabase *db)
 {
    // Now read the stored data fro this registered address
    BitUnpacker<uint16_t> bitunpack(brr);
@@ -1304,7 +1304,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, InterfaceToL
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
+void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
 {
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
@@ -1367,14 +1367,14 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::unserializeDBValue(BinaryData const & bd, InterfaceToLDB *db)
+void StoredScriptHistory::unserializeDBValue(BinaryData const & bd, LMDBBlockDatabase *db)
 {
    BinaryRefReader brr(bd);
    unserializeDBValue(brr, db);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::unserializeDBValue(BinaryDataRef bdr, InterfaceToLDB *db)
+void StoredScriptHistory::unserializeDBValue(BinaryDataRef bdr, LMDBBlockDatabase *db)
 {
    BinaryRefReader brr(bdr);
    unserializeDBValue(brr, db);
@@ -1505,7 +1505,7 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
 
 ////////////////////////////////////////////////////////////////////////////////
 TxIOPair& StoredScriptHistory::insertTxio(
-   InterfaceToLDB *db,
+   LMDBBlockDatabase *db,
    TxIOPair const & txio, 
    bool withOverwrite,
    bool skipTally
@@ -1549,13 +1549,13 @@ TxIOPair& StoredScriptHistory::insertTxio(
 // For subtle bugginess reasons, even if we are pruning and reduce the total
 // TxIO count to one, we will keep "useMultipleEntries_=true".  Once true, always
 // true, regardless of how many TxIO we have.  
-bool StoredScriptHistory::eraseTxio(InterfaceToLDB *db, TxIOPair const & txio)
+bool StoredScriptHistory::eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio)
 {
    return eraseTxio(db, txio.getDBKeyOfOutput());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool StoredScriptHistory::eraseTxio(InterfaceToLDB *db, BinaryData const & dbKey8B)
+bool StoredScriptHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B)
 {
    if(!isInitialized())
       return false;
@@ -1627,38 +1627,37 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh)
    return true;
 }
 
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // This adds the TxOut if it doesn't exist yet
-uint64_t StoredScriptHistory::markTxOutSpent(InterfaceToLDB *db, BinaryData txOutKey8B, 
-                                             BinaryData txInKey8B,
-                                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+uint64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
+   BinaryData txOutKey8B,
+   BinaryData txInKey8B,
+   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
-   if(!isInitialized())
+   if (!isInitialized())
       return UINT64_MAX;
 
-   if(txOutKey8B.getSize() != 8 || txInKey8B.getSize() != 8)
+   if (txOutKey8B.getSize() != 8 || txInKey8B.getSize() != 8)
    {
       LOGERR << "Invalid input to mark TxOut spent";
       LOGERR << "TxOutKey: '" << txOutKey8B.toHexStr().c_str() << "'";
-      LOGERR << "TxInKey:  '" <<  txInKey8B.toHexStr().c_str() << "'";
+      LOGERR << "TxInKey:  '" << txInKey8B.toHexStr().c_str() << "'";
       return UINT64_MAX;
    }
 
-   BinaryData first4 = txOutKey8B.getSliceCopy(0,4);
+   BinaryData first4 = txOutKey8B.getSliceCopy(0, 4);
    map<BinaryData, StoredSubHistory>::iterator iter;
    iter = subHistMap_.find(first4);
 
-   if(ITER_NOT_IN_MAP(iter, subHistMap_))
+   if (ITER_NOT_IN_MAP(iter, subHistMap_))
    {
       LOGWARN << "Trying to mark TxIO spent, but does not exist!";
       return UINT64_MAX;
    }
 
    uint32_t subSSHTxioCount = iter->second.txioMap_.size();
-   uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, txInKey8B, dbType, pruneType);
-   if(val != UINT64_MAX)
+   uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, dbType, pruneType);
+   if (val != UINT64_MAX)
       totalUnspent_ -= val;
 
    subSSHTxioCount -= iter->second.txioMap_.size();
@@ -1670,7 +1669,7 @@ uint64_t StoredScriptHistory::markTxOutSpent(InterfaceToLDB *db, BinaryData txOu
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredScriptHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B, 
+uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                uint64_t   value,
                                                bool       isCoinbase,
@@ -1967,7 +1966,10 @@ void StoredSubHistory::getSummary(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredSubHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType) const
+void StoredSubHistory::serializeDBValue(BinaryWriter & bw, 
+                                        LMDBBlockDatabase *db, 
+                                        ARMORY_DB_TYPE dbType, 
+                                        DB_PRUNE_TYPE pruneType) const
 {
    bw.put_var_int(txioMap_.size());
    map<BinaryData, TxIOPair>::const_iterator iter;
@@ -2146,92 +2148,17 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
       return NULL;
    else
    {
-      if(!withMulti && iter->second.isMultisig())
+      if (!withMulti && iter->second.isMultisig())
          return NULL;
-
-      return &(iter->second);
    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, bool withOverwrite)
-{
-   BinaryData key8B = txio.getDBKeyOfOutput();
-      
-   pair<BinaryData, TxIOPair> txioInsertPair(key8B, txio);
-   pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
-
-   // This returns pair<ExistingOrInsertedIter, wasInserted>
-   txioInsertResult = txioMap_.insert(txioInsertPair);
-
-   // If not inserted, then it was already there.  Overwrite if requested
-   if(!txioInsertResult.second && withOverwrite)
-      txioInsertResult.first->second = txio;
-
-   return txioInsertResult.first->second;
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Since the outer-SSH object tracks total unspent balances, we need to pass 
-// out the total amount that was deleted from the sub-history, and of course
-// return zero if nothing was removed.
-uint64_t StoredSubHistory::eraseTxio(InterfaceToLDB *db, TxIOPair const & txio)
-{
-   return eraseTxio(db, txio.getDBKeyOfOutput());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredSubHistory::eraseTxio(InterfaceToLDB *db, BinaryData const & dbKey8B)
-{
-   map<BinaryData, TxIOPair>::iterator iter = txioMap_.find(dbKey8B);
-   if(ITER_NOT_IN_MAP(iter, txioMap_))
-      return UINT64_MAX;
-   else
-   {
-      TxIOPair & txio = iter->second;
-      uint64_t valueRemoved = txio.getValue();
-      if(txio.hasTxInInMain(db) || txio.isMultisig())
-         valueRemoved = 0;
-
-      txioMap_.erase(iter);
-      return valueRemoved;
-   }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
-{
-   uint64_t bal = 0;
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
-   if (!iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
-      bal += iter->second.getValue();
-   
-   return bal;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
-{
-   uint64_t bal = 0;
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
-   {
-      if(!iter->second.hasTxIn())
-         if(!iter->second.isMultisig() || withMultisig)
-            bal += iter->second.getValue();
-   }
-   return bal;
+   return &(iter->second);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredSubHistory::markTxOutSpent(
-   InterfaceToLDB *db,
+   LMDBBlockDatabase *db,
    BinaryData txOutKey8B, 
-   BinaryData txInKey8B, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
-)
+   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    // We found the TxIO we care about 
    if(pruneType != DB_PRUNE_NONE)
@@ -2254,11 +2181,76 @@ uint64_t StoredSubHistory::markTxOutSpent(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
+// Since the outer-SSH object tracks total unspent balances, we need to pass 
+// out the total amount that was deleted from the sub-history, and of course
+// return zero if nothing was removed.
+uint64_t StoredSubHistory::eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio)
 {
-   return txioMap_.erase(dbKey8B) == 1;
+   return eraseTxio(db, txio.getDBKeyOfOutput());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredSubHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B)
+{
+   map<BinaryData, TxIOPair>::iterator iter = txioMap_.find(dbKey8B);
+   if (ITER_NOT_IN_MAP(iter, txioMap_))
+      return UINT64_MAX;
+   else
+   {
+      TxIOPair & txio = iter->second;
+      uint64_t valueRemoved = txio.getValue();
+      if (txio.hasTxInInMain(db) || txio.isMultisig())
+         valueRemoved = 0;
+
+      txioMap_.erase(iter);
+      return valueRemoved;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, bool withOverwrite)
+{
+   BinaryData key8B = txio.getDBKeyOfOutput();
+
+   pair<BinaryData, TxIOPair> txioInsertPair(key8B, txio);
+   pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
+
+   // This returns pair<ExistingOrInsertedIter, wasInserted>
+   txioInsertResult = txioMap_.insert(txioInsertPair);
+
+   // If not inserted, then it was already there.  Overwrite if requested
+   if (!txioInsertResult.second && withOverwrite)
+      txioInsertResult.first->second = txio;
+
+   return txioInsertResult.first->second;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
+{
+   uint64_t bal = 0;
+   map<BinaryData, TxIOPair>::iterator iter;
+   for (iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
+   if (!iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
+      bal += iter->second.getValue();
+
+   return bal;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
+{
+   uint64_t bal = 0;
+   map<BinaryData, TxIOPair>::iterator iter;
+   for (iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
+   {
+      if (!iter->second.hasTxIn())
+      if (!iter->second.isMultisig() || withMultisig)
+         bal += iter->second.getValue();
+   }
+   return bal;
+}
 ////////////////////////////////////////////////////////////////////////////////
 // This method will add the TxIOPair to the SSH object if it doesn't exist,
 // in addition to marking it unspent.  
@@ -2281,7 +2273,7 @@ bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
 //   
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
-uint64_t StoredSubHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B, 
+uint64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                                   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                   uint64_t   value,
                                                   bool       isCoinbase,
@@ -2355,8 +2347,8 @@ vector<uint64_t> StoredSubHistory::getSubHistoryValues(void)
 */
 
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, 
+   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    brr.get_BinaryData(blockHash_, 32);
 

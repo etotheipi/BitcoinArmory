@@ -36,7 +36,7 @@ void ScrAddrScanData::getScrAddrCurrentSyncState(
 map<BinaryData, map<BinaryData, TxIOPair> >
 ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
 const BinaryData & ZCkey,
-InterfaceToLDB* db,
+LMDBBlockDatabase* db,
 uint32_t txtime,
 const ZeroConfContainer *zcd,
 bool withSecondOrderMultisig) const
@@ -173,9 +173,9 @@ bool withSecondOrderMultisig) const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::setSSHLastScanned(InterfaceToLDB* db, uint32_t height)
+void ScrAddrScanData::setSSHLastScanned(LMDBBlockDatabase* db, uint32_t height)
 {
-   InterfaceToLDB::Batch batch(db, BLKDATA);
+   LMDBBlockDatabase::Batch batch(db, BLKDATA);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -200,7 +200,7 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 
    //check if the BDM is initialized. There ought to be a better way than
    //checking the top block
-   if (bdmPtr_->blockchain().numHeaders() != 0)
+   if (bdmPtr_->blockchain().top().getBlockHeight() != 0)
    {
       //BDM is initialized and maintenance thread is running, check mode
       if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
@@ -212,7 +212,7 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
       }
 
       //check DB for the scrAddr's SSH
-      InterfaceToLDB *db = bdmPtr_->getIFace();
+      LMDBBlockDatabase *db = bdmPtr_->getIFace();
 
       StoredScriptHistory ssh;
       db->getStoredScriptHistorySummary(ssh, scrAddr);
@@ -413,7 +413,8 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, vector<BinaryData> > ZeroConfContainer::purge(InterfaceToLDB *db)
+map<BinaryData, vector<BinaryData> > 
+ZeroConfContainer::purge(LMDBBlockDatabase *db)
 {
    map<BinaryData, vector<BinaryData> > invalidatedKeys;
 
@@ -533,7 +534,7 @@ map<BinaryData, vector<BinaryData> > ZeroConfContainer::purge(InterfaceToLDB *db
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::parseNewZC(InterfaceToLDB *db)
+bool ZeroConfContainer::parseNewZC(LMDBBlockDatabase *db)
 {
    /***
    ZC transcations are pushed to the BDM by another thread (usually the thread

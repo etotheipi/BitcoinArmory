@@ -9,8 +9,8 @@
 #include "../BlockObj.h"
 #include "../StoredBlockObj.h"
 #include "../PartialMerkle.h"
-#include "../leveldb_wrapper.h"
 #include "../EncryptionUtils.h"
+#include "../lmdb_wrapper.h"
 #include "../BlockUtils.h"
 #include "../ScrAddrObj.h"
 #include "../BtcWallet.h"
@@ -4364,7 +4364,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
    // In order for for these tests to work properly, the TxIns and TxOuts need
    // to look like they're in the main branch.  Se we set the valid dupID vals
    // so that txio.hasTxInInMain() and txio.hasTxOutInMain() both pass
-   LevelDBWrapper::GetInterfacePtr()->setValidDupIDForHeight(hgt,dup);
+   LSMWrapper::GetInterfacePtr()->setValidDupIDForHeight(hgt,dup);
 
    ssh.uniqueKey_ = HASH160PREFIX + a160;
    ssh.version_ = 1;
@@ -4406,16 +4406,28 @@ protected:
    virtual void SetUp(void) 
    {
       #ifdef _MSC_VER
-         rmdir("./ldbtestdir/level*");
+         rmdir("./ldbtestdir");
+         mkdir("./ldbtestdir");
       #else
-         system("rm -rf ./ldbtestdir/level*");
+         system("rm -rf ./ldbtestdir/lmdb_*");
       #endif
+
+
       
-      iface_ = new InterfaceToLDB;
+      iface_ = new LMDBBlockDatabase;
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
+         
+      config_.armoryDbType = ARMORY_DB_FULL;
+      config_.pruneType = DB_PRUNE_NONE;
+      config_.levelDBLocation = string("ldbtestdir");
+
+      config_.genesisBlockHash = ghash_;
+      config_.genesisTxHash = gentx_;
+      config_.magicBytes = magic_;
+
       // Make sure the global DB type and prune type are reset for each test
       //iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
       //                        ARMORY_DB_BARE, DB_PRUNE_NONE);
@@ -4616,14 +4628,16 @@ protected:
    virtual void TearDown(void)
    {
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
+      delete batchH_;
+      delete batchB_;
       iface_->closeDatabases();
       delete iface_;
       iface_ = NULL;
 
       #ifdef _MSC_VER
-         rmdir("./ldbtestdir/level*");
+         rmdir("./ldbtestdir/*");
       #else
-         system("rm -rf ./ldbtestdir/level*");
+         system("rm -rf ./ldbtestdir/*");
       #endif
    }
 
@@ -4721,10 +4735,18 @@ protected:
    /////
    bool standardOpenDBs(void) 
    {
-      
-      iface_->openDatabases( string("ldbtestdir"), 
-                             ghash_, gentx_, magic_, 
-                             ARMORY_DB_FULL, DB_PRUNE_NONE);
+      iface_->openDatabases(
+         LMDB::ReadWrite,
+         config_.levelDBLocation,
+         config_.genesisBlockHash,
+         config_.genesisTxHash,
+         config_.magicBytes,
+         config_.armoryDbType,
+         config_.pruneType);
+
+                                   
+      batchH_= new LMDBBlockDatabase::Batch(iface_, HEADERS);
+      batchB_= new LMDBBlockDatabase::Batch(iface_, BLKDATA);
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("03100000");
@@ -4736,7 +4758,9 @@ protected:
    }
 
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
+   BlockDataManagerConfig config_;
+   LMDBBlockDatabase::Batch* batchH_ = nullptr, *batchB_ = nullptr;
    vector<pair<BinaryData, BinaryData> > expectOutH_;
    vector<pair<BinaryData, BinaryData> > expectOutB_;
 
@@ -4766,17 +4790,19 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, OpenClose)
 {
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
-   
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    ASSERT_TRUE(iface_->databasesAreOpen());
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 0);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), READHEX(MAINNET_GENESIS_HASH_HEX));
+   EXPECT_EQ(READHEX(MAINNET_GENESIS_HASH_HEX), iface_->getTopBlockHash(HEADERS));
                           
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
    KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
@@ -4808,22 +4834,27 @@ TEST_F(LevelDBTest, OpenCloseOpenNominal)
    // 0000 0010 0001 ---- ---- ---- ---- ----
    BinaryData flags = READHEX("03100000");
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
 
 
    iface_->closeDatabases();
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    ASSERT_TRUE(iface_->databasesAreOpen());
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
@@ -4849,47 +4880,62 @@ TEST_F(LevelDBTest, OpenCloseOpenNominal)
 TEST_F(LevelDBTest, DISABLED_OpenCloseOpenMismatch)
 {
    LOGERR << "Expecting four error messages here:  this is normal";
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    EXPECT_TRUE(iface_->databasesAreOpen());
    iface_->closeDatabases();
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_.getSliceCopy(0, 31) + READHEX("00"),
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    EXPECT_TRUE(iface_->databasesAreOpen());
    iface_->closeDatabases();
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_.getSliceCopy(0,3) + READHEX("00"),
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    EXPECT_FALSE(iface_->databasesAreOpen());
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_SUPER,
-                          DB_PRUNE_WHATEVER);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    EXPECT_FALSE(iface_->databasesAreOpen());
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
-   ASSERT_TRUE( iface_->databasesAreOpen());
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
+   ASSERT_TRUE(iface_->databasesAreOpen());
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
    KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
@@ -4908,13 +4954,18 @@ TEST_F(LevelDBTest, PutGetDelete)
 {
    BinaryData flags = READHEX("03100000");
 
-   iface_->openDatabases( string("ldbtestdir"),
-                          ghash_,
-                          gentx_,
-                          magic_,
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
+   iface_->openDatabases(
+      LMDB::ReadWrite,
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
+      config_.magicBytes,
+      config_.armoryDbType,
+      config_.pruneType);
+
    ASSERT_TRUE(iface_->databasesAreOpen());
+   
+   LMDBBlockDatabase::Batch batch(iface_, BLKDATA);
    
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
@@ -5455,7 +5506,7 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
 
    ///////////////////////////////////////////////////////////////////////////
    // A whole bunch of setup stuff we need for SSH operations to work right
-   InterfaceToLDB *const iface = iface_;
+   LMDBBlockDatabase *const iface = iface_;
    iface->setValidDupIDForHeight(255,0);
    iface->setValidDupIDForHeight(256,0);
 
@@ -6103,26 +6154,17 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp()
    {
-      rmdir(blkdir_);
-      rmdir(homedir_);
       
       LOGDISABLESTDOUT();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-//       DBUtils::setArmoryDbType(ARMORY_DB_BARE);
-//       DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
       blkdir_  = string("./blkfiletest");
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
-      
-//       iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-//                              ARMORY_DB_BARE, DB_PRUNE_NONE);
-//       if(!iface_->databasesAreOpen())
-//          LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
       mkdir(blkdir_);
       mkdir(homedir_);
@@ -6140,9 +6182,21 @@ protected:
       config.genesisBlockHash = ghash_;
       config.genesisTxHash = gentx_;
       config.magicBytes = magic_;
-      
+
       theBDM = new BlockDataManager_LevelDB(config);
       iface_ = theBDM->getIFace();
+
+      /*iface_->openDatabases(
+         LMDB::ReadWrite,
+         config.levelDBLocation,
+         config.genesisBlockHash,
+         config.genesisTxHash,
+         config.magicBytes,
+         config.armoryDbType,
+         config.pruneType);
+
+      if (!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";*/
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -6177,7 +6231,7 @@ protected:
       rmdir(blkdir_);
       rmdir(homedir_);
 
-      string delstr = ldbdir_ + "/level*";
+      string delstr = ldbdir_ + "/lmdb_*";
       rmdir(delstr);
 
       LOGENABLESTDOUT();
@@ -6207,7 +6261,7 @@ protected:
 #endif
    BlockDataManagerConfig config;
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    BinaryData magic_;
    BinaryData ghash_;
    BinaryData gentx_;
@@ -6398,6 +6452,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
    fread(rawZC.getPtr(), 159, 1, ff);
    fclose(ff);
+   LMDBBlockDatabase::Batch batch(iface_, BLKDATA);
 
    TheBDM.addNewZeroConfTx(rawZC, 0, false);
    TheBDM.parseNewZeroConfTx();
@@ -6892,7 +6947,7 @@ protected:
    virtual void SetUp(void) 
    {
       LOGDISABLESTDOUT();
-      //iface_ = LevelDBWrapper::GetInterfacePtr();
+      //iface_ = LSMWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -6920,7 +6975,7 @@ protected:
    BinaryRefReader sliceToRefReader(leveldb::Slice slice)
          { return BinaryRefReader( (uint8_t*)(slice.data()), slice.size()); }
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    BinaryData magic_;
    BinaryData ghash_;
    BinaryData gentx_;
@@ -7206,7 +7261,7 @@ protected:
       delete[] syscmd;
    }
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    BinaryData magic_;
    BinaryData ghash_;
    BinaryData gentx_;
@@ -7321,10 +7376,8 @@ protected:
       rmdir(blkdir_);
       rmdir(homedir_);
 
-      char* delstr = new char[4096];
-      sprintf(delstr, "%s/level*", ldbdir_.c_str());
-      rmdir(delstr);
-      delete[] delstr;
+      std::string d = ldbdir_ + "/*";
+      rmdir(d);
 
       LOGENABLESTDOUT();
    }
@@ -7352,7 +7405,7 @@ protected:
    }
 #endif
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    BinaryData magic_;
    BinaryData ghash_;
    BinaryData gentx_;
@@ -7386,10 +7439,10 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, HeadersOnly)
 {
-   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 0);
+   EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 0);
    TheBDM.processNewHeadersInBlkFiles(0);
    
-   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 5);
+   EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 5);
    EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
    EXPECT_EQ(TheBDM.blockchain().top().getThisHash(), blkHash4);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
@@ -7400,10 +7453,10 @@ TEST_F(BlockUtilsSuper, HeadersOnly)
 TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 {
    SETLOGLEVEL(LogLvlError);
-   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 0);
+   EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 0);
    TheBDM.processNewHeadersInBlkFiles(0);
    
-   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 5);
+   EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 5);
    EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
@@ -7760,7 +7813,7 @@ protected:
       rmdir(homedir_);
 
       char* delstr = new char[4096];
-      sprintf(delstr, "%s/level*", ldbdir_.c_str());
+      sprintf(delstr, "%s/*", ldbdir_.c_str());
       rmdir(delstr);
       delete[] delstr;
 
@@ -7789,7 +7842,7 @@ protected:
    }
 #endif
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    BinaryData magic_;
    BinaryData ghash_;
    BinaryData gentx_;
@@ -8032,7 +8085,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
    {
-      iface_ = LevelDBWrapper::GetInterfacePtr();
+      iface_ = LSMWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -8095,7 +8148,7 @@ protected:
    }
 #endif
 
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    BinaryData magic_;
    BinaryData ghash_;
    BinaryData gentx_;

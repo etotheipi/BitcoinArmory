@@ -48,7 +48,6 @@ public:
    BlockHeader& top() const;
    BlockHeader& getGenesisBlock() const;
    BlockHeader& getHeaderByHeight(unsigned height) const;
-   unsigned numHeaders() const { return headersByHeight_.size(); }
    
    const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
    BlockHeader& getHeaderByHash(HashString const & blkHash);

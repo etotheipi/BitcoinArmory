@@ -36,6 +36,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <stdexcept>
 #include <assert.h>
 
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
@@ -146,6 +147,24 @@ public:
          return NULL;
       else
          return &(data_[0]); 
+   }  
+   
+   /////////////////////////////////////////////////////////////////////////////
+   char const * getCharPtr(void) const
+   { 
+      if(getSize()==0)
+         throw std::runtime_error("Tried to get pointer of empty BinaryData");
+      else
+         return reinterpret_cast<const char*>(&data_[0]);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   char* getCharPtr(void)
+   { 
+      if(getSize()==0)
+         throw std::runtime_error("Tried to get pointer of empty BinaryData");
+      else
+         return reinterpret_cast<char*>(&data_[0]);
    }  
 
    BinaryDataRef getRef(void) const;

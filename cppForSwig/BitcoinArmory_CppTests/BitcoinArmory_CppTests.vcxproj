@@ -95,7 +95,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>cryptopp_d.lib;leveldb_msvc11_port_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp_d.lib;LMDB_Win_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)libs\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -176,7 +176,7 @@
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\gtest\gtest.h" />
     <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h" />
-    <ClInclude Include="..\leveldb_wrapper.h" />
+    <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
@@ -197,8 +197,11 @@
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
     <ClCompile Include="..\LedgerEntry.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\pthread_win32port.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
-    <ClCompile Include="..\leveldb_wrapper.cpp" />
+    <ClCompile Include="..\lmdb_wrapper.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

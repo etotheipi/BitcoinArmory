@@ -12,6 +12,7 @@
 #include "BlockUtils.h"
 #include "BtcWallet.h"
 #include "BlockWriteBatcher.h"
+#include "lmdbpp.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -25,10 +26,11 @@
 //        now (and could save a lookup by skipping it).  But I want unified
 //        code flow for both pruning and non-pruning. 
 static void createUndoDataFromBlock(
-      InterfaceToLDB* iface,
+      LMDBBlockDatabase* iface,
       uint32_t hgt,
       uint8_t  dup,
-      StoredUndoData & sud)
+      StoredUndoData & sud
+   )
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
@@ -87,7 +89,7 @@ static void createUndoDataFromBlock(
 class ReorgUpdater
 {
    Blockchain *const blockchain_;
-   InterfaceToLDB* const iface_;
+   LMDBBlockDatabase* const iface_;
    
    set<HashString> txJustInvalidated_;
    set<HashString> txJustAffected_;
@@ -101,7 +103,7 @@ public:
    ReorgUpdater(
       const Blockchain::ReorganizationState& state,
       Blockchain *blockchain,
-      InterfaceToLDB* iface,
+      LMDBBlockDatabase* iface,
       const BlockDataManagerConfig &config,
       ScrAddrScanData *scrAddrData=NULL
    )
@@ -331,7 +333,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
-   , iface_(new InterfaceToLDB)
+   , iface_(new LMDBBlockDatabase)
    , blockchain_(config_.genesisBlockHash)
    , scrAddrData_(this)
    , ZeroConfCont_(&scrAddrData_)
@@ -382,19 +384,14 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
       throw runtime_error("No blockfiles could be found!");
    }
    
-   iface_->setLdbBlockSize(config_.levelDBBlockSize);
-   iface_->setMaxOpenFiles(config_.levelDBMaxOpenFiles);
-   
-   bool openWithErr = iface_->openDatabases(
+   iface_->openDatabases(
+      LMDB::ReadWrite,
       config_.levelDBLocation, 
       config_.genesisBlockHash, 
       config_.genesisTxHash, 
       config_.magicBytes,
       config_.armoryDbType, 
       config_.pruneType);
-   
-   if (!openWithErr)
-      throw runtime_error("Failed to open LevelDB database \"" + config_.levelDBLocation + "\"");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -502,7 +499,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    
    {
       // Now go through the linear list of main-chain headers, mark valid
-      for(unsigned i=0; i<blockchain_.numHeaders(); i++)
+      for(unsigned i=0; i<=blockchain_.top().getBlockHeight(); i++)
       {
          BinaryDataRef headHash = blockchain_.getHeaderByHeight(i).getThisHashRef();
          StoredHeader & sbh = sbhMap[headHash];
@@ -806,11 +803,9 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 /////////////////////////////////////////////////////////////////////////////
 int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
 {
-   TxRef txrefobj = getTxRefByHash(txHash);
-   if(txrefobj.isNull())
-      return TX_NOT_EXIST;
-   else
+   try
    {
+      const TxRef txrefobj = getTxRefByHash(txHash);
       try
       {
          BlockHeader & txbh = blockchain_.getHeaderByHeight(txrefobj.getBlockHeight());
@@ -827,6 +822,10 @@ int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
          return TX_0_UNCONFIRMED;
       }
    }
+   catch (NoValue&)
+   {
+      return TX_NOT_EXIST;
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -839,6 +838,7 @@ TxRef BlockDataManager_LevelDB::getTxRefByHash(HashString const & txhash)
 /////////////////////////////////////////////////////////////////////////////
 Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
 {
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
 
    TxRef txrefobj = getTxRefByHash(txhash);
 
@@ -878,10 +878,13 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   if(iface_->getTxRef(txHash).isInitialized())
+   try
+   {
+      iface_->getTxRef(txHash);
       return true;
-   else
-      return ZeroConfCont_.hasTxByHash(txHash);
+   }
+   catch (...)
+   {}
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1044,7 +1047,8 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    uint32_t blk1, ScrAddrScanData* scrAddrData)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
-   LOGERR << "blk0: " << blk0 << ", blk1: " << blk1;
+   LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
+   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA]);
 
    blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
 
@@ -1506,14 +1510,11 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    }
 
    {
-
-      //InterfaceToLDB::Batch batch(iface_, HEADERS);
-      map<HashString, BlockHeader>& allHeaders = blockchain_.allHeaders();
-      map<HashString, BlockHeader>::iterator iter;
+      LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
          
-      for(iter = allHeaders.begin(); iter != allHeaders.end(); iter++)
+      for(unsigned i = 0; i <= blockchain_.top().getBlockHeight(); ++i)
       {
-         BlockHeader &block = iter->second;
+         BlockHeader &block = blockchain_.getHeaderByHeight(i);
          StoredHeader sbh;
          sbh.createFromBlockHeader(block);
          uint8_t dup = iface_->putBareHeader(sbh);
@@ -1647,7 +1648,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       forceRebuild = true;
       forceRescan = true;
       skipFetch = true;
-      destroyAndResetDatabases();
+      //destroyAndResetDatabases();
       scrAddrData_.reset();
    }
 
@@ -1820,7 +1821,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    bool breakbreak = false;
    uint32_t locInBlkFile = foffset;
 
-   InterfaceToLDB::Batch batch(iface_, BLKDATA);
+   LMDBBlockDatabase::Batch batchB(iface_, BLKDATA);
+   LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
 
    unsigned failedAttempts=0;
    
@@ -1861,7 +1863,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          {
             LOGERR << e.what() << " (error encountered processing block at byte "
                << locInBlkFile << " file "
-               << blkfile << ", blocksize " << nextBlkSize << ")";
+               << blkfile << ", blocksize " << nextBlkSize
+               << ", top=" << blockchain_.top().getBlockHeight() << ")";
             failedAttempts++;
             
             if (failedAttempts >= 4)
@@ -1894,7 +1897,10 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
          {
             dbUpdateSize = 0;
-            batch.restart();
+            batchB.commit();
+            batchB.begin();
+            batchH.commit();
+            batchH.begin();
          }
 
          blocksReadSoFar_++;
@@ -1943,7 +1949,7 @@ StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt)
+uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt) const
 {
    return iface_->getValidDupIDForHeight(hgt);
 }
@@ -1961,13 +1967,13 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
+   LMDBBlockDatabase::Batch batch(iface_, BLKDATA);
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
    if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
-   InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
    do 
    {
@@ -1994,6 +2000,9 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 //
 uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 {
+   LMDBBlockDatabase::Batch batch(iface_, HEADERS);
+   LMDBBlockDatabase::Batch batch1(iface_, BLKDATA);
+      
    SCOPED_TIMER("readBlkFileUpdate");
 
    // Make sure the file exists and is readable

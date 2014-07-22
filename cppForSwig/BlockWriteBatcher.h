@@ -20,7 +20,7 @@ class BlockWriteBatcher
 public:
    static const uint64_t UPDATE_BYTES_THRESH = 96*1024*1024;
 
-   BlockWriteBatcher(const BlockDataManagerConfig &config, InterfaceToLDB* iface);
+   BlockWriteBatcher(const BlockDataManagerConfig &config, LMDBBlockDatabase* iface);
    ~BlockWriteBatcher();
    
    void applyBlockToDB(StoredHeader &sbh,
@@ -30,7 +30,7 @@ public:
    void undoBlockFromDB(StoredUndoData &sud, 
                         ScrAddrScanData* scrAddrData);
 
-   void preloadSSH(InterfaceToLDB *db, const ScrAddrScanData& sasd);
+   void preloadSSH(LMDBBlockDatabase *db, const ScrAddrScanData& sasd);
 
 private:
    // We have accumulated enough data, actually write it to the db
@@ -46,7 +46,7 @@ private:
                            ScrAddrScanData* scrAddrMap);
 private:
    const BlockDataManagerConfig &config_;
-   InterfaceToLDB* const iface_;
+   LMDBBlockDatabase* const iface_;
 
    // turn off batches by setting this to 0
    uint64_t dbUpdateSize_;

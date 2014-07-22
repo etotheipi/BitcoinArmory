@@ -229,13 +229,13 @@ class Log
 public:
    Log(void) : isInitialized_(false), disableStdout_(false) {}
 
-   static Log & GetInstance(const char * filename=NULL)
+   static Log & GetInstance(const char * filename=nullptr)
    {
-      static Log* theOneLog=NULL;
-      if(theOneLog==NULL || filename!=NULL)
+      static Log* theOneLog = nullptr;
+      if (theOneLog == nullptr || filename != nullptr)
       {
          // Close and delete any existing Log object
-         if(theOneLog != NULL)
+         if (theOneLog != nullptr)
          {
             theOneLog->ds_.close();
             delete theOneLog;
@@ -245,7 +245,7 @@ public:
          theOneLog = new Log;
    
          // Open the filestream if it's open
-         if(filename != NULL)
+         if (filename != nullptr)
          {
             theOneLog->ds_.setLogFile(string(filename));
             theOneLog->isInitialized_ = true;

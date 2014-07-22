@@ -24,7 +24,8 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
-class InterfaceToLDB;  
+class LMDBBlockDatabase; 
+class LMDBBlockDatabase;
 class TxRef;
 class Tx;
 class TxIn;
@@ -35,7 +36,7 @@ class TxOut;
 class BlockHeader
 {
    friend class Blockchain;
-   friend class InterfaceToLDB;
+   friend class LsmBlockDatabase;
 
 public:
 
@@ -166,9 +167,8 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void setRef(BinaryDataRef bdr);
 
-   DBTxRef attached(InterfaceToLDB* db) const;
-   
-     
+   DBTxRef attached(LMDBBlockDatabase* db) const;
+      
    /////////////////////////////////////////////////////////////////////////////
    bool           isInitialized(void)  const {return dbKey6B_.getSize()>0;}
    bool           isNull(void) const { return !isInitialized();}
@@ -215,7 +215,7 @@ class DBTxRef : public TxRef
 public:
    DBTxRef()
    { }
-   DBTxRef( const TxRef &txref, InterfaceToLDB* db)
+   DBTxRef( const TxRef &txref, LMDBBlockDatabase* db)
       : TxRef(txref), db_(db)
    { }
    
@@ -235,11 +235,11 @@ public:
    TxOut getTxOutCopy(uint32_t i);
 
 private:
-   InterfaceToLDB*  db_;  
+   LMDBBlockDatabase*  db_;  
 };
 
 
-inline DBTxRef TxRef::attached(InterfaceToLDB* db) const
+inline DBTxRef TxRef::attached(LMDBBlockDatabase* db) const
 {
    return DBTxRef(*this, db);
 }
@@ -280,7 +280,7 @@ public:
    void        unserialize(BinaryDataRef const & bdRef);
 
    void unserialize_swigsafe_(BinaryData const & rawOP) { unserialize(rawOP); }
-   const BinaryDataRef getDBkey(InterfaceToLDB* db=nullptr) const;
+   const BinaryDataRef getDBkey(LMDBBlockDatabase* db=nullptr) const;
 
 private:
    BinaryData txHash_;
@@ -298,7 +298,7 @@ private:
 class TxIn
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
+   friend class LsmBlockDatabase;
 
 public:
    TxIn(void) : dataCopy_(0), parentHash_(0), parentHeight_(UINT32_MAX),
@@ -342,7 +342,7 @@ public:
 
    uint32_t         getSequence(void)   { return READ_UINT32_LE(getPtr()+getSize()-4); }
 
-   BinaryData       getParentHash(InterfaceToLDB *db);
+   BinaryData       getParentHash(LMDBBlockDatabase *db);
    uint32_t         getParentHeight() const;
 
    void             setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
@@ -405,7 +405,7 @@ private:
 class TxOut
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
+   friend class LsmBlockDatabase;
 
 public:
 
@@ -453,7 +453,7 @@ public:
    BinaryData         serialize(void) { return BinaryData(dataCopy_); }
    BinaryDataRef      serializeRef(void) { return dataCopy_; }
 
-   BinaryData         getParentHash(InterfaceToLDB *db);
+   BinaryData         getParentHash(LMDBBlockDatabase *db);
    uint32_t           getParentHeight() const;
 
    void               setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
@@ -507,7 +507,7 @@ class Tx
 {
    friend class BtcWallet;
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
+   friend class LsmBlockDatabase;
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}
@@ -647,8 +647,8 @@ public:
    // Lots of accessors
    bool      hasTxOut(void) const   { return (txRefOfOutput_.isInitialized()); }
    bool      hasTxIn(void) const    { return (txRefOfInput_.isInitialized()); }
-   bool      hasTxOutInMain(InterfaceToLDB *db) const;
-   bool      hasTxInInMain(InterfaceToLDB *db) const;
+   bool      hasTxOutInMain(LMDBBlockDatabase *db) const;
+   bool      hasTxInInMain(LMDBBlockDatabase *db) const;
    bool      hasTxOutZC(void) const;
    bool      hasTxInZC(void) const;
    bool      hasValue(void) const   { return (amount_!=0); }
@@ -660,9 +660,9 @@ public:
    TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
    uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
    uint32_t  getIndexOfInput(void) const  { return indexOfInput_;  }
-   OutPoint  getOutPoint(InterfaceToLDB *db) const { return OutPoint(getTxHashOfOutput(db),indexOfOutput_);}
+   OutPoint  getOutPoint(LMDBBlockDatabase *db) const { return OutPoint(getTxHashOfOutput(db),indexOfOutput_);}
 
-   pair<bool,bool> reassessValidity(InterfaceToLDB *db);
+   pair<bool,bool> reassessValidity(LMDBBlockDatabase *db);
    bool  isTxOutFromSelf(void) const  { return isTxOutFromSelf_; }
    void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
    bool  isFromCoinbase(void) const { return isFromCoinbase_; }
@@ -676,36 +676,38 @@ public:
                { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(InterfaceToLDB *db) const;
-   BinaryData    getTxHashOfOutput(InterfaceToLDB *db) const;
+   BinaryData    getTxHashOfInput(LMDBBlockDatabase *db) const;
+   BinaryData    getTxHashOfOutput(LMDBBlockDatabase *db) const;
 
    void setTxHashOfInput(const BinaryData& txHash)
    { txHashOfInput_ = txHash; }
    void setTxHashOfOutput(const BinaryData& txHash)
    { txHashOfOutput_ = txHash; }
 
-   TxOut getTxOutCopy(InterfaceToLDB *db) const;
-   TxIn getTxInCopy(InterfaceToLDB *db) const;
+   TxOut getTxOutCopy(LMDBBlockDatabase *db) const;
+   TxIn getTxInCopy(LMDBBlockDatabase *db) const;
 
    bool setTxIn   (TxRef  txref, uint32_t index);
    bool setTxIn   (BinaryData dbKey8B);
    bool setTxOut  (TxRef  txref, uint32_t index);
    bool setTxOut  (BinaryData dbKey8B);
+   bool setTxInZC (LMDBBlockDatabase *db, Tx*    tx,    uint32_t index);
+   bool setTxOutZC(LMDBBlockDatabase *db, Tx*    tx,    uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
 
-   bool isSpent(InterfaceToLDB *db) const;
-   bool isUnspent(InterfaceToLDB *db) const;
+   bool isSpent(LMDBBlockDatabase *db) const;
+   bool isUnspent(LMDBBlockDatabase *db) const;
    bool isSpendable(
-      InterfaceToLDB *db,
+      LMDBBlockDatabase *db,
       uint32_t currBlk=0, bool ignoreAllZeroConf=false
    ) const;
    bool isMineButUnconfirmed(
-      InterfaceToLDB *db,
+      LMDBBlockDatabase *db,
       uint32_t currBlk, bool includeAllZeroConf=false
    ) const;
-   void pprintOneLine(InterfaceToLDB *db) const;
+   void pprintOneLine(LMDBBlockDatabase *db) const;
 
    bool operator<(TxIOPair const & t2)
       { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
@@ -800,7 +802,7 @@ class UnspentTxOut
 {
 public:
    UnspentTxOut(void);
-   UnspentTxOut(InterfaceToLDB *db, TxOut & txout, uint32_t blknum) { init(db, txout, blknum);}
+   UnspentTxOut(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum) { init(db, txout, blknum);}
 
 
    UnspentTxOut(BinaryData const & hash, uint32_t outIndex, uint32_t height, 
@@ -808,7 +810,7 @@ public:
       txHash_(hash), txOutIndex_(outIndex), txHeight_(height),
       value_(val), script_(script) {}
 
-   void init(InterfaceToLDB *db, TxOut & txout, uint32_t blknum, bool isMultiRef=false);
+   void init(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum, bool isMultiRef=false);
 
    BinaryData   getTxHash(void) const      { return txHash_;     }
    uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
@@ -906,7 +908,7 @@ public:
 
 
    TxRef      getTxRef()     { return txRefObj_; }
-   Tx         getTxCopy(InterfaceToLDB *db)
+   Tx         getTxCopy(LMDBBlockDatabase *db)
       { return txRefObj_.attached(db).getTxCopy(); }
    BinaryData getTxHash()    { return txHash_; }
    uint32_t   getBlkNum()    { return blkNum_; }

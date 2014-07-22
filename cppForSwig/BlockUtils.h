@@ -27,13 +27,12 @@
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
 #include "BlockDataManagerConfig.h"
-#include "leveldb_wrapper.h"
+#include "lmdb_wrapper.h"
 #include "ScrAddrObj.h"
 
 #include "cryptlib.h"
 #include "sha.h"
 #include "UniversalTimer.h"
-#include "leveldb/db.h"
 
 #include "pthread.h"
 #include "ThreadSafeContainer.h"
@@ -49,6 +48,7 @@
 using namespace std;
 
 class BlockDataManager_LevelDB;
+class LSM;
 
 typedef enum
 {
@@ -89,11 +89,10 @@ typedef map<HashString, BinaryData>   BinDataMap;
 class BlockDataManager_LevelDB
 {
 private:
-
    BlockDataManagerConfig config_;
    
    // This is our permanent link to the two databases used
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
@@ -338,14 +337,16 @@ public:
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
-   InterfaceToLDB *getIFace(void) {return iface_;}
+   LMDBBlockDatabase *getIFace(void) {return iface_;}
    
    void scanWallets(uint32_t startBlock=UINT32_MAX, 
                     uint32_t endBlock=UINT32_MAX, 
                     bool forceScan=false);
    
-   LDBIter getIterator(DB_SELECT db, bool fill_cache = true)
-   { return iface_->getIterator(db, fill_cache); }
+   LDBIter getIterator(DB_SELECT db)
+   {
+      return iface_->getIterator(db);
+   }
    
    bool readStoredBlockAtIter(LDBIter & iter, StoredHeader & sbh)
    { return iface_->readStoredBlockAtIter(iter, sbh); }
@@ -363,8 +364,9 @@ public:
       { return registeredWallets_.find(wltPtr) != registeredWallets_.end(); }
 
 public:
+
    StoredHeader getMainBlockFromDB(uint32_t hgt);
-   uint8_t      getMainDupFromDB(uint32_t hgt);
+   uint8_t      getMainDupFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
 
 public:

@@ -21,9 +21,6 @@
     <ClInclude Include="..\EncryptionUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\leveldb_wrapper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -63,6 +60,9 @@
     <ClInclude Include="..\BDM_supportClasses.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\lmdb_wrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -78,9 +78,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\EncryptionUtils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\leveldb_wrapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\StoredBlockObj.cpp">
@@ -117,6 +114,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\BDM_supportClasses.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lmdb_wrapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\pthread_win32port.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

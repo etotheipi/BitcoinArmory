@@ -204,12 +204,12 @@ public:
 
    map<BinaryData, map<BinaryData, TxIOPair> >
       ZCisMineBulkFilter(const Tx & tx,
-      const BinaryData& ZCkey, InterfaceToLDB *db,
+      const BinaryData& ZCkey, LMDBBlockDatabase *db,
       uint32_t txtime,
       const ZeroConfContainer *zcd,
       bool withSecondOrderMultisig = true) const;
 
-   void setSSHLastScanned(InterfaceToLDB *db, uint32_t height);
+   void setSSHLastScanned(LMDBBlockDatabase *db, uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom,
       BtcWallet* wltPtr)
@@ -292,14 +292,14 @@ public:
    bool hasTxByHash(const BinaryData& txHash) const;
    bool getTxByHash(const BinaryData& txHash, Tx& tx) const;
 
-   map<BinaryData, vector<BinaryData> > purge(InterfaceToLDB *db);
+   map<BinaryData, vector<BinaryData> > purge(LMDBBlockDatabase *db);
 
    map<HashString, map<BinaryData, TxIOPair> > getNewTxioMap(void);
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 
 
-   bool parseNewZC(InterfaceToLDB* db);
+   bool parseNewZC(LMDBBlockDatabase* db);
    //bool setNewZC(void);
    //bool hasNewZC(void);
 
