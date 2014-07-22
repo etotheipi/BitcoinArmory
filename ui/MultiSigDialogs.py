@@ -647,7 +647,7 @@ class DlgLockboxManager(ArmoryDialog):
          extraTxt = tr('<br>Double-click on a lockbox to edit')
 
       lblDescr = QRichLabel(tr("""
-         <font color="%s" size=4><b>Manage Multi-Sig Lockbox Info</b></font>
+         <font color="%s" size=4><b>Manage Multi-Sig Lockboxes</b></font>
          %s""") % (htmlColor('TextBlue'), extraTxt), hAlign=Qt.AlignHCenter)
       
       frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
