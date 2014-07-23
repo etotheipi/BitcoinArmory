@@ -491,8 +491,8 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
-   /*openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, magicBytes_,
-      armoryDbType_, dbPruneType_);*/
+   openDatabases(LMDB::ReadWrite, baseDir_, genesisBlkHash_, genesisTxHash_, 
+      magicBytes_, armoryDbType_, dbPruneType_);
 }
 
 
@@ -559,8 +559,8 @@ BinaryDataRef LMDBBlockDatabase::getValueRef(DB_SELECT db, BinaryDataRef key) co
 // actually copied to a member variable, and thus the refs are valid only 
 // until the next get* call.
 BinaryDataRef LMDBBlockDatabase::getValueRef(DB_SELECT db, 
-                                                     DB_PREFIX prefix, 
-                                                     BinaryDataRef key) const
+                                             DB_PREFIX prefix, 
+                                             BinaryDataRef key) const
 {
    BinaryWriter bw(key.getSize() + 1);
    bw.put_uint8_t((uint8_t)prefix);
@@ -588,6 +588,7 @@ BinaryRefReader LMDBBlockDatabase::getValueReader(
                                              DB_PREFIX prefix, 
                                              BinaryDataRef key) const
 {
+
    return BinaryRefReader(getValueRef(db, prefix, key));
 }
 
@@ -1922,6 +1923,7 @@ TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 {
    SCOPED_TIMER("getTxHashForLdbKey");
+   LMDB::Transaction tx(&dbs_[BLKDATA]);
    BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(stxVal.getSize()==0)
    {
@@ -2030,6 +2032,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       return false;
 
    BinaryData hash4(txHash.getSliceRef(0,4));
+   LMDB::Transaction tx(&dbs_[BLKDATA]);
    BinaryData hintsDBVal = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
    uint32_t valSize = hintsDBVal.getSize();
 
@@ -2165,6 +2168,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
 bool LMDBBlockDatabase::getStoredTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey)
 {
+   LMDB::Transaction tx(&dbs_[BLKDATA]);
    BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
    if (brr.getSize() == 0)
    {

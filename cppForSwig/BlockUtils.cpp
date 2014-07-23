@@ -337,6 +337,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    , blockchain_(config_.genesisBlockHash)
    , scrAddrData_(this)
    , ZeroConfCont_(&scrAddrData_)
+   , isLoaded_(false)
 {
    LOGINFO << "Set home directory: " << config_.homeDirLocation;
    LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
@@ -1627,7 +1628,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 )
 {
    missingBlockHashes_.clear();
-   
+   isLoaded_ = true; //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
+
    SCOPED_TIMER("buildAndScanDatabases");
 
    
@@ -1648,7 +1650,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       forceRebuild = true;
       forceRescan = true;
       skipFetch = true;
-      //destroyAndResetDatabases();
+      destroyAndResetDatabases();
       scrAddrData_.reset();
    }
 

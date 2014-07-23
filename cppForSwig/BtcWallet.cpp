@@ -1144,6 +1144,7 @@ void BtcWallet::preloadScrAddr(const BinaryData& scrAddr)
    ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), 
                             &bdmPtr_->blockchain(), 
                             scrAddr);
+   //THIS NEEDS TO BUILD THE SCRADDR HIST PAGES.
 
    //fetch scrAddrData
    newScrAddrObj.fetchDBScrAddrData(0, bdmPtr_->getTopBlockHeight());

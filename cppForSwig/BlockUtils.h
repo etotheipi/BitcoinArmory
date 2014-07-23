@@ -172,6 +172,10 @@ private:
 
    Blockchain blockchain_;
    
+   //simplistic flag to let the scrAddrData know if the BDM started loading up
+   //the blockchain
+   bool isLoaded_;
+   
 public:
    BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
    ~BlockDataManager_LevelDB();
@@ -452,6 +456,8 @@ public:
    const map<BinaryData, map<BinaryData, TxIOPair> >&
       getFullZeroConfTxIOMap(void) const
    { return ZeroConfCont_.getFullTxioMap(); }
+
+   bool isLoaded(void) { return isLoaded_; }
 };
 
 

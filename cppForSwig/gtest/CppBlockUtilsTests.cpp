@@ -6186,7 +6186,7 @@ protected:
       theBDM = new BlockDataManager_LevelDB(config);
       iface_ = theBDM->getIFace();
 
-      /*iface_->openDatabases(
+      iface_->openDatabases(
          LMDB::ReadWrite,
          config.levelDBLocation,
          config.genesisBlockHash,
@@ -6196,7 +6196,7 @@ protected:
          config.pruneType);
 
       if (!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";*/
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -6231,9 +6231,13 @@ protected:
       rmdir(blkdir_);
       rmdir(homedir_);
 
-      string delstr = ldbdir_ + "/lmdb_*";
-      rmdir(delstr);
-
+      #ifdef _MSC_VER
+         rmdir("./ldbtestdir");
+         mkdir("./ldbtestdir");
+      #else
+         string delstr = ldbdir_ + "/lmdb_*";
+         rmdir(delstr);
+      #endif
       LOGENABLESTDOUT();
    }
 
