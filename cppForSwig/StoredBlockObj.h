@@ -254,7 +254,8 @@ public:
       merkleIsPartial_(false),
       isMainBranch_(false),
       blockAppliedToDB_(false), 
-      hasBlockHeader_(false)
+      hasBlockHeader_(false),
+      isPartial_(false)
    {}
                            
 

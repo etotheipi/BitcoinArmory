@@ -200,7 +200,7 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 
    //check if the BDM is initialized. There ought to be a better way than
    //checking the top block
-   if (bdmPtr_->isLoaded() == true)
+   if (bdmPtr_->isRunning() == true)
    {
       //BDM is initialized and maintenance thread is running, check mode
       if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
