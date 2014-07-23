@@ -2683,33 +2683,33 @@ class Armory_Daemon(object):
             ################################################################################
             # armoryd is still somewhat immature. We'll print a warning to let people know
             # that armoryd is still beta software and that the API may change.
-            print '************************************************************************'
-            print '* Please note that armoryd v%s is beta software and is still in ' % \
-                  getVersionString(BTCARMORY_VERSION)
-            print '* development. Whenever applicable, the interface is designed to match '
-            print '* that of bitcoind, with function parameters and return values closely '
-            print '* matching those of bitcoind. Despite this, the function parameters and '
-            print '* return values may change, both for ported bitcoind function and '
-            print '* Armory-specific functions.'
-            print '************************************************************************'
-            print ''
-            print '*'*80
-            print '* '
-            print '* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!'
-            print '*           DO NOT run armoryd at the same time as ArmoryQt if '
-            print '*           they are managing the same wallet file.  If you want '
-            print '*           to manage the same wallet with both applications '
-            print '*           you must make a digital copy/backup of the wallet file '
-            print '*           into another directory and point armoryd at that one.  '
-            print '*           '
-            print '*           As long as the two processes do not share the same '
-            print '*           actual file, there is no risk of wallet corruption. '
-            print '*           Just be aware that addresses may end up being reused '
-            print '*           if you execute transactions at approximately the same '
-            print '*           time with both apps. '
-            print '* '
-            print '*'*80
-            print ''
+            LOGWARN('************************************************************************')
+            LOGWARN('* Please note that armoryd v%s is beta software and is still in ' % \
+                  getVersionString(BTCARMORY_VERSION))
+            LOGWARN('* development. Whenever applicable, the interface is designed to match ')
+            LOGWARN('* that of bitcoind, with function parameters and return values closely ')
+            LOGWARN('* matching those of bitcoind. Despite this, the function parameters and ')
+            LOGWARN('* return values may change, both for ported bitcoind function and ')
+            LOGWARN('* Armory-specific functions.')
+            LOGWARN('************************************************************************')
+            LOGWARN('')
+            LOGWARN('*'*80)
+
+            LOGWARN('* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!')
+            LOGWARN('*           DO NOT run armoryd at the same time as ArmoryQt if ')
+            LOGWARN('*           they are managing the same wallet file.  If you want ')
+            LOGWARN('*           to manage the same wallet with both applications ')
+            LOGWARN('*           you must make a digital copy/backup of the wallet file ')
+            LOGWARN('*           into another directory and point armoryd at that one.  ')
+            LOGWARN('*           ')
+            LOGWARN('*           As long as the two processes do not share the same ')
+            LOGWARN('*           actual file, there is no risk of wallet corruption. ')
+            LOGWARN('*           Just be aware that addresses may end up being reused ')
+            LOGWARN('*           if you execute transactions at approximately the same ')
+            LOGWARN('*           time with both apps. ')
+            LOGWARN('*')
+            LOGWARN('*'*80)
+            LOGWARN('')
 
             # Otherwise, set up the server. This includes a defaultdict with a
             # list of functs to execute. This is done so that multiple functs
