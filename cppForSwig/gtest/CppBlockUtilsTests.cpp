@@ -7380,9 +7380,13 @@ protected:
       rmdir(blkdir_);
       rmdir(homedir_);
 
-      std::string d = ldbdir_ + "/*";
-      rmdir(d);
-
+      #ifdef _MSC_VER
+         rmdir(ldbdir_);
+         mkdir(ldbdir_);
+      #else
+         std::string d = ldbdir_ + "/*";
+         rmdir(d);
+      #endif
       LOGENABLESTDOUT();
    }
 
@@ -7443,7 +7447,7 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, HeadersOnly)
 {
-   EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 0);
+   EXPECT_EQ(&TheBDM.blockchain().top(), &TheBDM.blockchain().getGenesisBlock());
    TheBDM.processNewHeadersInBlkFiles(0);
    
    EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 5);
@@ -7457,7 +7461,7 @@ TEST_F(BlockUtilsSuper, HeadersOnly)
 TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 {
    SETLOGLEVEL(LogLvlError);
-   EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 0);
+   EXPECT_EQ(&TheBDM.blockchain().top(), &TheBDM.blockchain().getGenesisBlock());
    TheBDM.processNewHeadersInBlkFiles(0);
    
    EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 5);
@@ -7816,10 +7820,16 @@ protected:
       rmdir(blkdir_);
       rmdir(homedir_);
 
+      #ifdef _MSC_VER
+         rmdir(ldbdir_);
+         mkdir(ldbdir_);
+      #else
+
       char* delstr = new char[4096];
       sprintf(delstr, "%s/*", ldbdir_.c_str());
       rmdir(delstr);
       delete[] delstr;
+      #endif
 
       LOGENABLESTDOUT();
    }

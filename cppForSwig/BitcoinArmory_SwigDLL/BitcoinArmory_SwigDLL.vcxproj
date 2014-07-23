@@ -186,7 +186,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>cryptopp_d.lib;leveldb_msvc11_port_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp_d.lib;LMDB_Win_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)libs\$(Platform)\;C:\Python27\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -290,7 +290,7 @@ C:\Python27_64\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\..\qrc_img_resources.py 
       <EnableCOMDATFolding>false</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(SolutionDir)libs\$(Platform)\;C:\Python27\libs;C:\Python26\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>cryptopp.lib;leveldb_msvc11_port.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp.lib;LMDB_Win.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>
       </DelayLoadDLLs>
     </Link>
@@ -423,7 +423,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\LedgerEntry.h" />
-    <ClInclude Include="..\leveldb_wrapper.h" />
+    <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
@@ -443,8 +443,11 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClCompile Include="..\CppBlockUtils_wrap.cxx" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\pthread_win32port.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
-    <ClCompile Include="..\leveldb_wrapper.cpp" />
+    <ClCompile Include="..\lmdb_wrapper.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

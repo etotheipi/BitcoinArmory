@@ -3654,10 +3654,11 @@ mdb_env_open2(MDB_env *env)
 static void
 mdb_env_reader_dest(void *ptr)
 {
+   MDB_reader *reader;
    if (ptr == NULL)
       return;
 
-	MDB_reader *reader = ptr;
+	reader = ptr;
 
 	reader->mr_pid = 0;
 }

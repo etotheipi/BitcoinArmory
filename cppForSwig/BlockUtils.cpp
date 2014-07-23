@@ -885,7 +885,9 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
       return true;
    }
    catch (...)
-   {}
+   {
+      return false;
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
