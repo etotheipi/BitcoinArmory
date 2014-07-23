@@ -139,7 +139,6 @@ jsonFunctDict = {}
 
 NOT_IMPLEMENTED = '--Not Implemented--'
 
-
 ############################################
 # Copied from ArmoryQt. Remove in 0.93.
 class armorydInstanceListener(Protocol):
@@ -2646,6 +2645,7 @@ for curJFunct in jFuncts:
 ################################################################################
 class Armory_Daemon(object):
    def __init__(self, wlt=None, lb=None):
+
       # NB: These objects contain ONLY wallet/lockbox data loaded at startup.
       # Armory_Json_Rpc_Server will contain the active wallet/LB lists.
 
@@ -2679,7 +2679,19 @@ class Armory_Daemon(object):
 
             #check wallet consistency every hour
             self.checkStep = 3600
-
+                        
+            ################################################################################
+            # armoryd is still somewhat immature. We'll print a warning to let people know
+            # that armoryd is still beta software and that the API may change.
+            print '************************************************************************'
+            print '* Please note that armoryd v%s is beta software and is still in ' % \
+                  getVersionString(BTCARMORY_VERSION)
+            print '* development. Whenever applicable, the interface is designed to match '
+            print '* that of bitcoind, with function parameters and return values closely '
+            print '* matching those of bitcoind. Despite this, the function parameters and '
+            print '* return values may change, both for ported bitcoind function and '
+            print '* Armory-specific functions.'
+            print '************************************************************************'
             print ''
             print '*'*80
             print '* '
