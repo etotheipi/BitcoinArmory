@@ -4,6 +4,7 @@ from pytest.Tiab import *
 import json
 
 from armoryd import Armory_Daemon
+from armoryengine.ArmoryUtils import CLI_OPTIONS
 
 # runs a Test In a Box (TIAB) bitcoind session. By copying a prebuilt
 # testnet with a known state
@@ -46,7 +47,13 @@ class ArmoryDSession:
       armoryDArgs = ['python', self.armorydPath,
             '--testnet',
             '--datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory'),
-            '--satoshi-datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', '1')]
+            '--satoshi-datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', '1'),
+            '--satoshi-port=' + str(TIAB_SATOSHI_PORT),
+            '--skip-online-check']
+            # if this is process is in debug mode, make the subrocess debug too
+      if CLI_OPTIONS.doDebug:
+         armoryDArgs.append('--debug')
+
       armoryDArgs.extend(additionalArgs)
 
       if waitForOutput:
@@ -73,7 +80,7 @@ class ArmoryDSession:
             i += 1
          if i >= 10:
             raise RuntimeError("Cannot have more than one ArmoryD session simultaneously")
-
+            
       except:
          self.clean()
          raise
