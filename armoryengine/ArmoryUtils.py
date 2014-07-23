@@ -234,8 +234,7 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 
 # Use CLI args to determine testnet or not
-USE_TESTNET = CLI_OPTIONS.testnet
-#USE_TESTNET = True
+USE_TESTNET = True
 
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
@@ -456,11 +455,13 @@ else:
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
+   #BLOCKEXPLORE_NAME     = 'blockexplorer.com'
+   #BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s'
+   #BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s'
 
-   # 
-   BLOCKEXPLORE_NAME     = 'blockexplorer.com'
-   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s'
-   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s'
+   BLOCKEXPLORE_NAME     = 'blockchain.info'
+   BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
 
 # These are the same regardless of network
 # They are the way data is stored in the database which is network agnostic
@@ -1979,6 +1980,7 @@ def hash160_to_addrStr(binStr, netbyte=ADDRBYTE):
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
+   netbyte = '\x00' # overridden for testnetlooklikemainnet
 
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
@@ -1992,7 +1994,9 @@ def hash160_to_p2shAddrStr(binStr):
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
 
-   addr21 = P2SHBYTE + binStr
+   netbyte = '\x05' # overridden for testnetlooklikemainnet
+
+   addr21 = netbyte + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
@@ -2031,7 +2035,7 @@ def addrStr_to_hash160(b58Str, p2shAllowed=True):
    if not hash256(binStr[:21])[:4] == binStr[-4:]:
       raise ChecksumError('Address string has invalid checksum')
 
-   if not binStr[0] in (ADDRBYTE, P2SHBYTE):
+   if not binStr[0] in ('\x00', '\x05'):
       raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
 
    return (binStr[0], binStr[1:-4])
@@ -2652,7 +2656,7 @@ def checkAddrBinValid(addrBin, validPrefixes=None):
    (set at the top of pybtcengine.py)
    """
    if validPrefixes is None:
-      validPrefixes = [ADDRBYTE, P2SHBYTE]
+      validPrefixes = ['\x00', '\x05']
 
    if not isinstance(validPrefixes, list):
       validPrefixes = [validPrefixes]

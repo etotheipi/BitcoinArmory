@@ -158,6 +158,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    def getAddrStr(self, netbyte=ADDRBYTE):
+      netbyte = '\x00'  # testnetlooklikemainnet
       chksum = hash256(netbyte + self.addrStr20)[:4]
       return binary_to_base58(netbyte + self.addrStr20 + chksum)
 
@@ -1252,6 +1253,7 @@ class PyBtcAddress(object):
       """
       Forces a recalculation of the address string from the public key
       """
+      netbyte='\x00'
       if not self.hasPubKey():
          raise KeyDataError, 'Cannot compute address without PublicKey'
       keyHash = self.binPublicKey65.getHash160()

@@ -87,7 +87,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # SETUP THE WINDOWS DECORATIONS
       self.lblLogoIcon = QLabel()
-      if USE_TESTNET:
+      if not USE_TESTNET:  # condition swapped for testnetlooklikemainnet branch
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.iconfile = ':/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
