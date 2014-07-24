@@ -1512,9 +1512,9 @@ def addrStr_to_scrAddr(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
    atype, a160 = addrStr_to_hash160(addrStr)
-   if atype==ADDRBYTE:
+   if atype=="\x00":
       return SCRADDR_P2PKH_BYTE + a160
-   elif atype==P2SHBYTE:
+   elif atype=="\x05":
       return SCRADDR_P2SH_BYTE + a160
    else:
       BadAddressError('Invalid address: "%s"' % addrStr)

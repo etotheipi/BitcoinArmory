@@ -743,7 +743,7 @@ class ArmoryDialog(QDialog):
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
 
-      if USE_TESTNET:
+      if not USE_TESTNET:  # modified for testnetlooklikemainnet
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
