@@ -77,11 +77,9 @@ class ArmoryDTest(TiabTest):
    #    actualResult = self.jsonServer.jsonrpc_listunspent()
    #    self.assertEqual(actualResult, [])
 
-   # The password is apparently incorrect, so this fails due to a bad unlock.
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)
-      self.jsonServer.jsonrpc_unlockwallet(PASSPHRASE1, UNLOCK_TIMEOUT)
-      self.jsonServer.jsonrpc_importprivkey(self.privKey2)
+      self.jsonServer.jsonrpc_importprivkey(binary_to_hex(self.privKey2.toBinStr()))
       self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
 
    def testGettxout(self):
