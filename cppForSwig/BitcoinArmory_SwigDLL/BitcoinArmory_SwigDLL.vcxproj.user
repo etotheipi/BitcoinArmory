@@ -5,4 +5,9 @@
     <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --satoshi-datadir="C:\Bitcoin" --dbdir="C:\ArmoryDB\testnet4" --testnet</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --testnet --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin"</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
 </Project>

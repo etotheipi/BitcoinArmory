@@ -533,7 +533,14 @@ BinaryData LMDBBlockDatabase::getValue(DB_SELECT db,
    BinaryData keyFull(key.getSize()+1);
    keyFull[0] = (uint8_t)prefix;
    key.copyTo(keyFull.getPtr()+1, key.getSize());
-   return getValue(db, keyFull.getRef());
+   try
+   {
+      return getValue(db, keyFull.getRef());
+   }
+   catch (...)
+   {
+      return BinaryData(0);
+   }
 }
 
 
