@@ -3804,12 +3804,9 @@ class DlgMergePromNotes(ArmoryDialog):
          the final transaction.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
       defaultFN = 'Simulfund_%s.sigcollect.tx' % ustx.uniqueIDB58
-         
-      if DlgExportAsciiBlock(self, self.main, ustx, title, descr, 
-                                                    ftypes, defaultFN).exec_():
-         # Assume that it has been exported
-         self.accept()
-         DlgMultiSpendReview(self, self.main, ustx).exec_()
+      
+      self.accept()
+      DlgMultiSpendReview(self, self.main, ustx).exec_()
 
 
 
