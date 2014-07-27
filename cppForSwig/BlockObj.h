@@ -418,7 +418,7 @@ public:
          uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } */
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
-   uint32_t        getSize(void) const { return dataCopy_.getSize(); }
+   uint32_t        getSize(void) const { return (uint32_t)dataCopy_.getSize(); }
    uint64_t        getValue(void) const { return READ_UINT64_LE(dataCopy_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }

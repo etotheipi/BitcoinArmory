@@ -594,10 +594,10 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       if (scrAddrData != nullptr)
       {
          //leveraging the stx map in RAM
+         TIMER_START("leverageStxInRAM");
          auto stxIter = stxToModify_.find(opTxHash);
          if (ITER_IN_MAP(stxIter, stxToModify_))
          {
-            TIMER_START("leverageStxInRAM");
             stxptr = &(stxIter->second);
             const StoredTxOut& stxo = stxptr->stxoMap_[opTxoIdx];
             
@@ -616,6 +616,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          }
          else
          {
+            TIMER_STOP("leverageStxInRAM");
             TIMER_START("fecthOutPointFromDB");
             //grab UTxO DBkey for comparison first
             iface_->getStoredTx_byHash(opTxHash, nullptr, &txOutDBkey);
@@ -678,6 +679,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
       {
          LOGERR << "Needed to get OutPoint for a TxIn, but DNE";
+         TIMER_STOP("CommitTxIn");
          continue;
       }
 
@@ -687,6 +689,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       if(stxoSpend.spentness_ == TXOUT_SPENT)
       {
          LOGERR << "Trying to mark TxOut spent, but it's already marked";
+         TIMER_STOP("CommitTxIn");
          continue;
       }
 
@@ -813,7 +816,7 @@ void BlockWriteBatcher::commit()
    // objects
    const set<BinaryData> keysToDelete = searchForSSHKeysToDelete();
    
-   TIMER_RESTART("commitToDB");
+   TIMER_START("commitToDB");
 
    LOGWARN << "# stxToModify: " << stxToModify_.size();
    LOGWARN << "# sshToModify: " << sshToModify_.size();
@@ -877,9 +880,6 @@ void BlockWriteBatcher::commit()
    dbUpdateSize_ = 0;
 
    TIMER_STOP("commitToDB");
-   double timeElapsed = TIMER_READ_SEC("commitToDB");
-
-   LOGWARN << "Time Elapsed: " << timeElapsed;
 }
 
 set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()

@@ -1115,8 +1115,8 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    double TxInParsing = TIMER_READ_SEC("TxInParsing");
    LOGWARN << "TxInParsing: " << TxInParsing << " sec";
 
-   double TxOutParsing = TIMER_READ_SEC("TxOutParsing");
-   LOGWARN << "TxOutParsing: " << TxOutParsing << " sec";
+   double grabTxIn = TIMER_READ_SEC("grabTxIn");
+   LOGWARN << "grabTxIn: " << grabTxIn << " sec";
 
    double leverageStxInRAM = TIMER_READ_SEC("leverageStxInRAM");
    LOGWARN << "leverageStxInRAM: " << leverageStxInRAM << " sec";
@@ -1127,17 +1127,14 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    double fullFecthOutPointFromDB = TIMER_READ_SEC("fullFecthOutPointFromDB");
    LOGWARN << "fullFecthOutPointFromDB: " << fullFecthOutPointFromDB << " sec";
 
-   double grabTxIn = TIMER_READ_SEC("grabTxIn");
-   LOGWARN << "grabTxIn: " << grabTxIn << " sec";
-
    double CommitTxIn = TIMER_READ_SEC("CommitTxIn");
    LOGWARN << "CommitTxIn: " << CommitTxIn << " sec";
+   
+   double TxOutParsing = TIMER_READ_SEC("TxOutParsing");
+   LOGWARN << "TxOutParsing: " << TxOutParsing << " sec";
 
-   double getTxInCopy = TIMER_READ_SEC("getTxInCopy");
-   LOGWARN << "getTxInCopy: " << getTxInCopy << " sec";
-
-   double getOutPoint = TIMER_READ_SEC("getOutPoint");
-   LOGWARN << "getOutPoint: " << getOutPoint << " sec";
+   double commitToDB = TIMER_READ_SEC("commitToDB");
+   LOGWARN << "commitToDB: " << commitToDB << " sec";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1704,33 +1701,34 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       uint64_t totalBytesDoneSoFar=0;
       ProgressMeasurer progressMeasurer(totalBlockchainBytes_);
       
-      for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
-      {
-         string blkfile = blkFileList_[fnum];
-         LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
-         
-         const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
-         
-         auto singleFileProgress =
-            [&progressMeasurer, totalBytesDoneSoFar, &progress] (uint64_t bytes)
+         for (uint32_t fnum = startRawBlkFile_; fnum < numBlkFiles_; fnum++)
+         {
+            string blkfile = blkFileList_[fnum];
+            LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
+
+            const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+
+            auto singleFileProgress =
+               [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
             {
-               progressMeasurer.advance(totalBytesDoneSoFar+bytes);
+               progressMeasurer.advance(totalBytesDoneSoFar + bytes);
                progress(
                   progressMeasurer.fractionCompleted(),
                   progressMeasurer.remainingSeconds()
-               );
+                  );
             };
-         
-         // The supplied offset only applies to the first blockfile we're reading.
-         // After that, the offset is always zero
-         uint32_t startOffset = 0;
-         if(fnum==startRawBlkFile_)
-            startOffset = (uint32_t)startRawOffset_;
-      
-         readRawBlocksInFile(singleFileProgress, fnum, startOffset);
-         
-         totalBytesDoneSoFar += thisfileSize;
-      }
+
+            // The supplied offset only applies to the first blockfile we're reading.
+            // After that, the offset is always zero
+            uint32_t startOffset = 0;
+            if (fnum == startRawBlkFile_)
+               startOffset = (uint32_t)startRawOffset_;
+
+            readRawBlocksInFile(singleFileProgress, fnum, startOffset);
+
+            totalBytesDoneSoFar += thisfileSize;
+         }
+
       TIMER_STOP("dumpRawBlocksToDB");
    }
 
@@ -1829,7 +1827,9 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
 
    unsigned failedAttempts=0;
-   
+   try
+   {
+
    // It turns out that this streambuffering is probably not helping, but
    // it doesn't hurt either, so I'm leaving it alone
    while(bsb.streamPull())
@@ -1927,6 +1927,21 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
       if(isEOF || breakbreak)
          break;
    }
+
+      }
+      catch (LMDBException e)
+      {
+         LOGERR << "LMDB exception: " << e.what();
+      }
+      catch (NoValue e)
+      {
+         LOGERR << "NoValue exception: " << e.what();
+      }
+      catch (...)
+      {
+         LOGERR << "Unknown exception";
+      }
+
 }
 
 
