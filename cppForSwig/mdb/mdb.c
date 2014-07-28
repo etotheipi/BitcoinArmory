@@ -1824,7 +1824,7 @@ mdb_page_alloc(MDB_cursor *mc, int num, MDB_page **mp)
 			i = mop_len;
 			do {
 				pgno = mop[i];
-				if (mop[i-n2] == pgno+n2)
+				if (pgno > 1 && (mop[i-n2] == pgno+n2))
 					goto search_done;
 			} while (--i > n2);
 			if (Max_retries < INT_MAX && --retry < 0)
@@ -3432,7 +3432,7 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
 #ifdef _WIN32
 	int rc;
 	HANDLE mh;
-	LONG sizelo, sizehi;
+	unsigned sizelo, sizehi;
 	sizelo = env->me_mapsize & 0xffffffff;
 	sizehi = env->me_mapsize >> 16 >> 16; /* only needed on Win64 */
 
