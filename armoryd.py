@@ -139,20 +139,6 @@ jsonFunctDict = {}
 
 NOT_IMPLEMENTED = '--Not Implemented--'
 
-################################################################################
-# armoryd is still somewhat immature. We'll print a warning to let people know
-# that armoryd is still beta software and that the API may change.
-print '************************************************************************'
-print '* Please note that armoryd v%s is beta software and is still in ' % \
-      getVersionString(BTCARMORY_VERSION)
-print '* development. Whenever applicable, the interface is designed to match '
-print '* that of bitcoind, with function parameters and return values closely '
-print '* matching those of bitcoind. Despite this, the function parameters and '
-print '* return values may change, both for ported bitcoind function and '
-print '* Armory-specific functions.'
-print '************************************************************************'
-
-
 ############################################
 # Copied from ArmoryQt. Remove in 0.93.
 class armorydInstanceListener(Protocol):
@@ -179,9 +165,17 @@ class armorydListenerFactory(ClientFactory):
 # Helper function from ArmoryQt. Check to see if we can go online.
 # (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
 def onlineModeIsPossible(internetAvail, forceOnline):
-   return ((internetAvail or forceOnline) and \
-            satoshiIsAvailable() and \
-            checkHaveBlockfiles())
+   canGoOnline = True
+   if not forceOnline:
+      satoshiIsAvailableResult = satoshiIsAvailable()
+      hasBlockFiles = checkHaveBlockfiles()
+      canGoOnline = internetAvail and satoshiIsAvailableResult and hasBlockFiles
+      
+      LOGINFO('Internet connection is Available: %s', str(internetAvail))
+      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailableResult)
+      LOGINFO('The first blk*.dat was Available: %s', str(hasBlockFiles))
+      LOGINFO('Online mode currently possible:   %s', canGoOnline)
+   return canGoOnline
 
 
 #############################################################################
@@ -194,30 +188,12 @@ def checkHaveBlockfiles():
 #############################################################################
 # Check to see if an Internet connection is available. Code lifted from
 # ArmoryQt. (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
+# (AO: There are many lines from the original code in ArmoryQt including 
+# some that i have just removed. I have removed them rather than comment them
+# out to reduce the amount of commented code in the repo. If you want to see
+# what I removed compare the revisions and/or refer to ArmoryQt.)
 def setupNetworking():
    LOGINFO('Setting up networking...')
-   internetAvail = False
-
-   # Prevent Armory from being opened twice
-   from twisted.internet import reactor
-   import twisted
-   def uriClick_partial(a):
-      self.uriLinkClicked(a)
-
-   if CLI_OPTIONS.interport > 1:
-      try:
-         InstanceListener = armorydListenerFactory(False, \
-                                                        uriClick_partial )
-         reactor.listenTCP(CLI_OPTIONS.interport, InstanceListener)
-      except twisted.internet.error.CannotListenError:
-         LOGWARN('Socket already occupied!  This must be a duplicate armoryd')
-         os._exit(0)
-   else:
-      LOGWARN('*** Listening port is disabled.  URI-handling will not work')
-
-#  Partially GUI-only
-#   settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-#   forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
    forceOnline = CLI_OPTIONS.forceOnline
    if forceOnline:
       LOGINFO('Forced online mode: True')
@@ -248,12 +224,7 @@ def setupNetworking():
          LOGERROR('Run --skip-online-check if you think this is an error')
          internetAvail = False
 
-   canGoOnline = onlineModeIsPossible(internetAvail, forceOnline)
-   LOGINFO('Internet connection is Available: %s', str(internetAvail))
-   LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailable())
-   LOGINFO('The first blk*.dat was Available: %s', str(checkHaveBlockfiles()))
-   LOGINFO('Online mode currently possible:   %s', canGoOnline)
-   return canGoOnline
+   return onlineModeIsPossible(internetAvail, forceOnline)
 
 
 ################################################################################
@@ -2674,6 +2645,7 @@ for curJFunct in jFuncts:
 ################################################################################
 class Armory_Daemon(object):
    def __init__(self, wlt=None, lb=None):
+
       # NB: These objects contain ONLY wallet/lockbox data loaded at startup.
       # Armory_Json_Rpc_Server will contain the active wallet/LB lists.
 
@@ -2707,25 +2679,37 @@ class Armory_Daemon(object):
 
             #check wallet consistency every hour
             self.checkStep = 3600
+                        
+            ################################################################################
+            # armoryd is still somewhat immature. We'll print a warning to let people know
+            # that armoryd is still beta software and that the API may change.
+            LOGWARN('************************************************************************')
+            LOGWARN('* Please note that armoryd v%s is beta software and is still in ' % \
+                  getVersionString(BTCARMORY_VERSION))
+            LOGWARN('* development. Whenever applicable, the interface is designed to match ')
+            LOGWARN('* that of bitcoind, with function parameters and return values closely ')
+            LOGWARN('* matching those of bitcoind. Despite this, the function parameters and ')
+            LOGWARN('* return values may change, both for ported bitcoind function and ')
+            LOGWARN('* Armory-specific functions.')
+            LOGWARN('************************************************************************')
+            LOGWARN('')
+            LOGWARN('*'*80)
 
-            print ''
-            print '*'*80
-            print '* '
-            print '* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!'
-            print '*           DO NOT run armoryd at the same time as ArmoryQt if '
-            print '*           they are managing the same wallet file.  If you want '
-            print '*           to manage the same wallet with both applications '
-            print '*           you must make a digital copy/backup of the wallet file '
-            print '*           into another directory and point armoryd at that one.  '
-            print '*           '
-            print '*           As long as the two processes do not share the same '
-            print '*           actual file, there is no risk of wallet corruption. '
-            print '*           Just be aware that addresses may end up being reused '
-            print '*           if you execute transactions at approximately the same '
-            print '*           time with both apps. '
-            print '* '
-            print '*'*80
-            print ''
+            LOGWARN('* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!')
+            LOGWARN('*           DO NOT run armoryd at the same time as ArmoryQt if ')
+            LOGWARN('*           they are managing the same wallet file.  If you want ')
+            LOGWARN('*           to manage the same wallet with both applications ')
+            LOGWARN('*           you must make a digital copy/backup of the wallet file ')
+            LOGWARN('*           into another directory and point armoryd at that one.  ')
+            LOGWARN('*           ')
+            LOGWARN('*           As long as the two processes do not share the same ')
+            LOGWARN('*           actual file, there is no risk of wallet corruption. ')
+            LOGWARN('*           Just be aware that addresses may end up being reused ')
+            LOGWARN('*           if you execute transactions at approximately the same ')
+            LOGWARN('*           time with both apps. ')
+            LOGWARN('*')
+            LOGWARN('*'*80)
+            LOGWARN('')
 
             # Otherwise, set up the server. This includes a defaultdict with a
             # list of functs to execute. This is done so that multiple functs
@@ -2926,7 +2910,7 @@ class Armory_Daemon(object):
          # For now, all we want to do is see if the server exists.
          sock = socket.create_connection(('127.0.0.1',ARMORY_RPC_PORT), 0.1);
       except socket.error:
-         LOGINFO('No other armoryd.py instance is running.  We\'re the first.')
+         LOGINFO('No other armoryd.py instance is running.  We\'re the first. %d' % ARMORY_RPC_PORT)
          retVal = False
 
       # Clean up the socket and return the result.
@@ -2971,16 +2955,6 @@ class Armory_Daemon(object):
                   extraArgs.append(json.loads(arg))
                else:
                   extraArgs.append(arg)
-
-            # Just in case we wish to give the user any info/warnings before the
-            # command is executed, do it here.
-            emailWarning = 'WARNING: For now, the password for your e-mail ' \
-                           'account will sit in memory and in your shell ' \
-                           'history. We highly recommend that you use a ' \
-                           'disposable account which may be compromised ' \
-                           'without exposing sensitive information.'
-            if CLI_ARGS[0] == 'watchwallet' or CLI_ARGS[0] == 'sendlockbox':
-               print emailWarning
 
             # Call the user's command (e.g., "getbalance full" ->
             # jsonrpc_getbalance(full)) and print results.

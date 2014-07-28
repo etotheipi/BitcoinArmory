@@ -26,7 +26,7 @@ class DlgLockboxEditor(ArmoryDialog):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
-         <b><u><font size=5 color="%s">Multi-signature Lockboxes</font></u>  
+         <b><u><font size=5 color="%s">Create Multi-signature Lockbox</font></u>  
          """) % htmlColor("TextBlue"), hAlign=Qt.AlignHCenter)
 
       lblDescr2 = QRichLabel(tr("""
@@ -231,7 +231,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       lblBelowM = QRichLabel(tr('<b>Required Signatures (M)</b> '), \
                                        hAlign=Qt.AlignHCenter, doWrap=False)
-      lblBelowN = QRichLabel(tr('<b>Total Public Keys (N)</b> '), \
+      lblBelowN = QRichLabel(tr('<b>Total Signers (N)</b> '), \
                                        hAlign=Qt.AlignHCenter, doWrap=False)
 
       lblOfStr = QRichLabel(tr(' - OF - '))
@@ -243,7 +243,6 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
       layoutMNSelect = QGridLayout()
-      layoutMNSelect.addWidget(lblMNSelect,     0,0, 1,9)
       layoutMNSelect.addWidget(self.comboM,     1,2)
       layoutMNSelect.addWidget(lblOfStr,        1,4)
       layoutMNSelect.addWidget(self.comboN,     1,6)
@@ -3092,7 +3091,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 class DlgCreatePromNote(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, defaultID=None, skipExport=False):
+   def __init__(self, parent, main, defaultIDorAddr=None, skipExport=False):
       super(DlgCreatePromNote, self).__init__(parent, main)
 
       self.finalPromNote = None
@@ -3144,8 +3143,11 @@ class DlgCreatePromNote(ArmoryDialog):
       lblBTC2    = QRichLabel(tr('BTC'))
 
       startStr = ''
-      if defaultID:
-         startStr = createLockboxEntryStr(defaultID)
+      if defaultIDorAddr:
+         if checkAddrStrValid(defaultIDorAddr):
+            startStr = defaultIDorAddr
+         else:
+            startStr = createLockboxEntryStr(defaultIDorAddr)
 
       aewMap = self.main.createAddressEntryWidgets(self, startStr, 
                                        maxDetectLen=72, boldDetectParts=2)
@@ -3635,14 +3637,17 @@ class DlgMergePromNotes(ArmoryDialog):
          return
             
   
-      lbID = None
+      defaultTarg = None
       if self.promMustMatch:
          for lbox in self.main.allLockboxes:
             if lbox.p2shScrAddr == self.promMustMatch:
-               lbID = lbox.uniqueIDB58
+               defaultTarg = lbox.uniqueIDB58
+               break
+         else:
+            defaultTarg = scrAddr_to_addrStr(self.promMustMatch)
                
          
-      dlg = DlgCreatePromNote(self, self.main, lbID, skipExport=True)
+      dlg = DlgCreatePromNote(self, self.main, defaultTarg, skipExport=True)
       dlg.exec_()
       if dlg.finalPromNote:
          self.addNote(dlg.finalPromNote)
@@ -3799,12 +3804,9 @@ class DlgMergePromNotes(ArmoryDialog):
          the final transaction.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
       defaultFN = 'Simulfund_%s.sigcollect.tx' % ustx.uniqueIDB58
-         
-      if DlgExportAsciiBlock(self, self.main, ustx, title, descr, 
-                                                    ftypes, defaultFN).exec_():
-         # Assume that it has been exported
-         self.accept()
-         DlgMultiSpendReview(self, self.main, ustx).exec_()
+      
+      self.accept()
+      DlgMultiSpendReview(self, self.main, ustx).exec_()
 
 
 
