@@ -3695,7 +3695,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Finally, if we got here, we're ready to broadcast!
       if gt1:
-         dispIn  = '<Multiple Addresses>'
+         dispIn  = 'multiple addresses'
       else:
          dispIn  = 'address <b>%s</b>' % sweepList[0].getAddrStr()
 

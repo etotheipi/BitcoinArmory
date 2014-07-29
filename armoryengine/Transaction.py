@@ -2623,13 +2623,12 @@ class UnsignedTransaction(AsciiSerializable):
 def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
    ustx = UnsignedTransaction().createFromUnsignedTxIO(ustxiList, dtxoList)
 
-   for ustxi in ustx.ustxInputs:
-      for iin in range(len(ustxi.scrAddrs)):
-         scrAddr = ustxi.scrAddrs[iin]
+   for ustxiIndex in range(len(ustx.ustxInputs)):
+      for scrAddr in ustx.ustxInputs[ustxiIndex].scrAddrs:
          sbdPriv = sbdPrivKeyMap.get(scrAddr)
          if sbdPriv is None:
             raise SignatureError('Supplied key map cannot sign all inputs')
-         ustx.createAndInsertSignatureForInput(iin, sbdPriv)
+         ustx.createAndInsertSignatureForInput(ustxiIndex, sbdPriv)
 
    # Make sure everythign was good
    if not ustx.verifySigsAllInputs():
