@@ -3536,7 +3536,7 @@ class ArmoryMainWindow(QMainWindow):
                inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
                break
 
-      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)[1]
 
       if minFee > 0:
          LOGDEBUG( 'Subtracting fee from Sweep-output')
