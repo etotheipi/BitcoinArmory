@@ -17,7 +17,7 @@ from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
-from qtdialogs import DlgProgress, DlgConfirmSend
+from qtdialogs import DlgProgress
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -120,7 +120,12 @@ class WalletWizard(ArmoryWizard):
                   self.setPassphrasePage.pageFrame.getPassphrase())         
          self.walletBackupPage.pageFrame.setWallet(self.newWallet)
          
-         # Only hide the back button on wallet backup page  
+         # Hide the back button on wallet backup page  
+         self.setButtonLayout([QWizard.Stretch,
+                                QWizard.NextButton,
+                                QWizard.FinishButton])
+      elif self.currentPage() == self.walletCreationPage:
+         # Hide the back button on the first page  
          self.setButtonLayout([QWizard.Stretch,
                                 QWizard.NextButton,
                                 QWizard.FinishButton])
@@ -182,6 +187,13 @@ class WalletWizard(ArmoryWizard):
          self.setButtonLayout([QWizard.Stretch,
                                QWizard.NextButton,
                                QWizard.FinishButton])
+      # If we are backing up from setPassphrasePage must be going
+      # to the first page.
+      elif self.currentPage() == self.setPassphrasePage:
+         # Hide the back button on the first page
+         self.setButtonLayout([QWizard.Stretch,
+                                QWizard.NextButton,
+                                QWizard.FinishButton])
       else:
          self.setButtonLayout([QWizard.BackButton,
                                QWizard.Stretch,

@@ -15,6 +15,7 @@ import urllib
 from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import *
+from armoryengine.MultiSigUtils import *
 
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
@@ -239,7 +240,7 @@ def relaxedSizeNChar(obj, nChar):
 #############################################################################
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
-      if wndw.getWltSetting(wlt.uniqueIDB58,'IsMine'):
+      if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
          return [WLTTYPES.Offline, 'Offline']
       else:
          return [WLTTYPES.WatchOnly, 'Watching-Only']
@@ -247,6 +248,7 @@ def determineWalletType(wlt, wndw):
       return [WLTTYPES.Crypt, 'Encrypted']
    else:
       return [WLTTYPES.Plain, 'No Encryption']
+
 
 
 
@@ -324,31 +326,33 @@ class QRichLabel(QLabel):
 
 
 class QMoneyLabel(QRichLabel):
-   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False):
+   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, 
+                              wBold=False, txtSize=10):
       QLabel.__init__(self, coin2str(nSatoshi))
 
-      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold)
+      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold, txtSize)
 
 
-   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, wBold=None):
+   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, 
+                                             wBold=None, txtSize=10):
       """
       When we set the text of the QMoneyLabel, remember previous values unless
       explicitly respecified
       """
-      if not ndec==None:
+      if not ndec is None:
          self.ndec = ndec
 
-      if not maxZeros==None:
+      if not maxZeros is None:
          self.max0 = maxZeros
 
-      if not wColor==None:
+      if not wColor is None:
          self.colr = wColor
 
-      if not wBold==None:
+      if not wBold is None:
          self.bold = wBold
          
 
-      theFont = GETFONT("Fixed", 10)
+      theFont = GETFONT("Fixed", txtSize)
       if self.bold:
          theFont.setWeight(QFont.Bold)
 
@@ -442,7 +446,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
    Creates a message box with custom button text and icon
    """
 
-   class dlgWarn(QDialog):
+   class dlgWarn(ArmoryDialog):
       def __init__(self, dtype, dtitle, wmsg, withCancel=False, yesStr=None, noStr=None):
          super(dlgWarn, self).__init__(None)
          
@@ -527,7 +531,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
    checkbox.  Will return a pair  (response, DNAA-is-checked)
    """
 
-   class dlgWarn(QDialog):
+   class dlgWarn(ArmoryDialog):
       def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
          super(dlgWarn, self).__init__(None)
          
@@ -603,7 +607,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
    return (result, dlg.chkDnaa.isChecked())
 
  
-def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
+def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame, condenseMargins=False):
    frm = QFrame()
    frm.setFrameStyle(style)
 
@@ -639,19 +643,23 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
       else:
          frmLayout.addWidget(w)
 
-   frmLayout.setContentsMargins(5,5,5,5)
+   if condenseMargins:
+      frmLayout.setContentsMargins(3,3,3,3)
+      frmLayout.setSpacing(3)
+   else:
+      frmLayout.setContentsMargins(5,5,5,5)
    frm.setLayout(frmLayout)
    return frm
    
 
-def addFrame(widget, style=STYLE_SUNKEN):
-   return makeLayoutFrame(HORIZONTAL, [widget], style)
+def addFrame(widget, style=STYLE_SUNKEN, condenseMargins=False):
+   return makeLayoutFrame(HORIZONTAL, [widget], style, condenseMargins)
    
-def makeVertFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame(VERTICAL, widgetList, style)
+def makeVertFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
+   return makeLayoutFrame(VERTICAL, widgetList, style, condenseMargins)
 
-def makeHorizFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame(HORIZONTAL, widgetList, style)
+def makeHorizFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
+   return makeLayoutFrame(HORIZONTAL, widgetList, style, condenseMargins)
 
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):
