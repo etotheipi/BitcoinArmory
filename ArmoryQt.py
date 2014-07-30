@@ -55,6 +55,10 @@ from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
 from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.Block import PyBlock
 
+# Load our framework with OS X-specific code.
+if OS_MACOSX:
+   import ArmoryMac
+
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
 # switches to another app, and then switches back to Armory). There is a
@@ -99,7 +103,17 @@ class ArmoryMainWindow(QMainWindow):
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h44.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
-      self.setWindowIcon(QIcon(self.iconfile))
+
+      # OS X requires some Objective-C code if we're switching to the testnet
+      # (green) icon. We should also use a larger icon. Otherwise, Info.plist
+      # takes care of everything.
+      if not OS_MACOSX:
+         self.setWindowIcon(QIcon(self.iconfile))
+      else:
+         if USE_TESTNET:
+            self.iconfile = ':/armory_icon_green_fullres.png'
+            ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
+            ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.netMode     = NETWORKMODE.Offline
@@ -790,10 +804,11 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('MinimizeOnOpen is True')
          reactor.callLater(0, self.minimizeArmory)
 
-
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
 
+      if OS_MACOSX:
+         self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
 
    ####################################################
    def getWatchingOnlyWallets(self):
@@ -2374,14 +2389,15 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText( \
                '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
-            if not self.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX):
+            if not self.getSettingOrSetDefault('NotifyDiscon', True):
                return
 
             try:
-               self.sysTray.showMessage('Disconnected', \
-                     'Connection to Bitcoin-Qt client lost!  Armory cannot send \n'
-                     'or receive bitcoins until connection is re-established.', \
-                     QSystemTrayIcon.Critical, 10000)
+               self.showTrayMsg('Disconnected', 'Connection to Bitcoin-Qt ' \
+			                    'client lost!  Armory cannot send nor ' \
+								'receive bitcoins until connection is ' \
+								're-established.', QSystemTrayIcon.Critical, \
+								10000)
             except:
                LOGEXCEPT('Failed to show disconnect notification')
 
@@ -2393,14 +2409,14 @@ class ArmoryMainWindow(QMainWindow):
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' %
                      (htmlColor('TextGreen'), self.currBlockNum))
-            if not self.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX):
+            if not self.getSettingOrSetDefault('NotifyReconn', True):
                return
 
             try:
                if self.connectCount>0:
-                  self.sysTray.showMessage('Connected', \
-                     'Connection to Bitcoin-Qt re-established', \
-                     QSystemTrayIcon.Information, 10000)
+                  self.showTrayMsg('Connected', 'Connection to Bitcoin-Qt ' \
+                                   're-established', \
+								   QSystemTrayIcon.Information, 10000)
                self.connectCount += 1
             except:
                LOGEXCEPT('Failed to show reconnect notification')
@@ -6308,10 +6324,8 @@ class ArmoryMainWindow(QMainWindow):
             if not le.getTxHash() == '\x00' * 32:
                LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
                         % wltID)
-               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
-                                                      not OS_MACOSX)
-               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
-                                                       not OS_MACOSX)
+               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', True)
+               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
                if (le.getValue() <= 0 and notifyOut) or \
                   (le.getValue() > 0 and notifyIn):
                   # notifiedAlready = False, 
@@ -6635,10 +6649,8 @@ class ArmoryMainWindow(QMainWindow):
          dispLines.append('Amount:  %s BTC' % totalStr)
          dispLines.append('Sender:  %s' % dispName)
 
-      self.sysTray.showMessage(title, \
-                               '\n'.join(dispLines),  \
-                               QSystemTrayIcon.Information, \
-                               10000)
+      self.showTrayMsg(title, '\n'.join(dispLines), \
+                       QSystemTrayIcon.Information, 10000)
       LOGINFO(title)
 
 
@@ -6697,21 +6709,19 @@ class ArmoryMainWindow(QMainWindow):
                lname = lname[:17] + '...'
             wltName = 'Lockbox %d-of-%d "%s" (%s)' % (M, N, lname, moneyID)
 
-
          if le.isSentToSelf():
             # Used to display the sent-to-self amount, but if this is a lockbox
             # we only have a cppWallet, and the determineSentToSelfAmt() func
             # only operates on python wallets.  Oh well, the user can double-
             # click on the tx in their ledger if they want to see what's in it.
             # amt = determineSentToSelfAmt(le, cppWlt)[0]
-            # self.sysTray.showMessage('Your bitcoins just did a lap!', \
-            #                  'Wallet "%s" (%s) just sent %s BTC to itself!' % \
+            # self.showTrayMsg('Your bitcoins just did a lap!', \
+            #             'Wallet "%s" (%s) just sent %s BTC to itself!' % \
             #         (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
-            self.sysTray.showMessage('Your bitcoins just did a lap!', \
-                              '%s just sent some BTC to itself!' % wltName, 
-                              QSystemTrayIcon.Information, 10000)
+            self.showTrayMsg('Your bitcoins just did a lap!', \
+                             '%s just sent some BTC to itself!' % wltName, \
+                             QSystemTrayIcon.Information, 10000)
             return
-
 
          # If coins were either received or sent from the loaded wlt/lbox         
          dispLines = []
@@ -6739,8 +6749,8 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append('From:    %s' % wltName)
             dispLines.append('To:      %s' % recipStr)
    
-         self.sysTray.showMessage(title, '\n'.join(dispLines), 
-                                 QSystemTrayIcon.Information, 10000)
+         self.showTrayMsg(title, '\n'.join(dispLines), \
+                          QSystemTrayIcon.Information, 10000)
          LOGINFO(title + '\n' + '\n'.join(dispLines))
 
          # Wait for 5 seconds before processing the next queue object.
@@ -7075,6 +7085,24 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.dlgCptWlt.exec_()
 
+
+   # System tray notifications require specific code for OS X. We'll handle
+   # messages here to hide the ugliness.
+   def showTrayMsg(self, dispTitle, dispText, dispIconType, dispTime):
+      if not OS_MACOSX:
+         self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
+      else:
+         # In theory, Qt can support notifications via Growl on pre-10.8
+         # machines. We're not supporting it for now. Also, according to
+         # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
+         # be accurate, as the official documentation is contradictory),
+         # showMessage() may have direct support for the OS X notification
+         # center in Qt5. Something to experiment with later....
+         osxMinorVer = OS_VARIANT[0].split(".")[1]
+         if int(osxMinorVer) > 7:
+            self.macNotifHdlr.showNotification(dispTitle, dispText)
+         #else:
+            #self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
 
 ############################################
 class ArmoryInstanceListener(Protocol):

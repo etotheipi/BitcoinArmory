@@ -9146,24 +9146,22 @@ class DlgSettings(ArmoryDialog):
 
 
       ###############################################################
-      # System Tray Notifications -- Don't work right on OSX
-      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn = self.main.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
-      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX)
-      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX)
+      # System tray notifications. On OS X, notifications won't work on 10.7.
+      # OS X's built-in notification system was implemented starting in 10.8.
+      osxMinorVer = '0'
+      if OS_MACOSX:
+         osxMinorVer = OS_VARIANT[0].split(".")[1]
 
+      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
       self.chkBtcIn = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
       self.chkDiscon = QCheckBox('Bitcoin-Qt/bitcoind disconnected')
       self.chkReconn = QCheckBox('Bitcoin-Qt/bitcoind reconnected')
-      self.chkBtcIn.setChecked(notifyBtcIn)
-      self.chkBtcOut.setChecked(notifyBtcOut)
-      self.chkDiscon.setChecked(notifyDiscon)
-      self.chkReconn.setChecked(notifyReconn)
 
-      if OS_MACOSX:
-         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available on Mac/OSX</b>')
+      # FYI:If we're not on OS X, the if condition will never be hit.
+      if (OS_MACOSX) and (int(osxMinorVer) < 7):
+         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available ' \
+                                'on your version of OS X.</b>')
          self.chkBtcIn.setChecked(False)
          self.chkBtcOut.setChecked(False)
          self.chkDiscon.setChecked(False)
@@ -9172,7 +9170,15 @@ class DlgSettings(ArmoryDialog):
          self.chkBtcOut.setEnabled(False)
          self.chkDiscon.setEnabled(False)
          self.chkReconn.setEnabled(False)
-
+      else:
+         notifyBtcIn = self.main.getSettingOrSetDefault('NotifyBtcIn', True)
+         notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', True)
+         notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', True)
+         notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', True)
+         self.chkBtcIn.setChecked(notifyBtcIn)
+         self.chkBtcOut.setChecked(notifyBtcOut)
+         self.chkDiscon.setChecked(notifyDiscon)
+         self.chkReconn.setChecked(notifyReconn)
 
       ###############################################################
       # Date format preferences

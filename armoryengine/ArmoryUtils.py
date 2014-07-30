@@ -2925,8 +2925,8 @@ def notifyOnSurpriseTx(blk0, blk1, wltMap, lboxWltMap, isGui, bdm, notifyQueue, 
    # a block. It is a "surprise" when the first time we see it is in a block
    if isGui:
       notifiedAlready = set([ n[1].getTxHash() for n in notifyQueue ])
-      notifyIn  = settings.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
-      notifyOut = settings.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+      notifyIn  = settings.getSettingOrSetDefault('NotifyBtcIn', True)
+      notifyOut = settings.getSettingOrSetDefault('NotifyBtcOut', True)
 
    for blk in range(blk0, blk1):
       sbh = bdm.getMainBlockFromDB(blk)

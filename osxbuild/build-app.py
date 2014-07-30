@@ -13,34 +13,39 @@ import optparse
 import tarfile
 
 from subprocess import Popen, PIPE
+from tempfile import mkstemp
 
 # Set some constants up front
 #swigBinVer = '2.0.12'
-pythonVer  = '2.7.8'
-setToolVer = '5.4.1'
-pipVer     = '1.5.6'
-psutilVer  = '2.1.1'
-zopeVer    = '4.1.1'
-twistedVer = '14.0.0'
-libpngVer  = '1.6.12'
-qtVer      = '4.8.6'
-sipVer     = '4.16.2' # NB: I'm occasionally forced to upgrade alongside PyQt.
-pyQtVer    = '4.11.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev  = '170685'
-LOGFILE    = 'build-app.log.txt'
-LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
-ARMORYDIR  = '..'
-WORKDIR    = path.join(os.getcwd(), 'workspace')
-APPDIR     = path.join(WORKDIR, 'Armory.app') # actually make it local
-DLDIR      = path.join(WORKDIR, 'downloads')
-UNPACKDIR  = path.join(WORKDIR, 'unpackandbuild')
-#SWIGDIR    = path.join(UNPACKDIR, 'swig', swigBinVer)
-INSTALLDIR = path.join(WORKDIR, 'install')
-PYPREFIX   = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/2.7')
-PYSITEPKGS = path.join(PYPREFIX, 'lib/python2.7/site-packages')
-MAKEFLAGS  = '-j4'
+pythonVer    = '2.7.8'
+setToolVer   = '5.4.1'
+pipVer       = '1.5.6'
+psutilVer    = '2.1.1'
+zopeVer      = '4.1.1'
+twistedVer   = '14.0.0'
+libpngVer    = '1.6.12'
+qtVer        = '4.8.6'
+sipVer       = '4.16.2' # NB: I'm occasionally forced to upgrade alongside PyQt.
+pyQtVer      = '4.11.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev    = '170685'
+LOGFILE      = 'build-app.log.txt'
+LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
+ARMORYDIR    = '..'
+OBJCDIR      = path.join(os.getcwd(), 'objc_armory')
+WORKDIR      = path.join(os.getcwd(), 'workspace')
+APPDIR       = path.join(WORKDIR, 'Armory.app') # actually make it local
+DLDIR        = path.join(WORKDIR, 'downloads')
+UNPACKDIR    = path.join(WORKDIR, 'unpackandbuild')
+#SWIGDIR      = path.join(UNPACKDIR, 'swig', swigBinVer)
+INSTALLDIR   = path.join(WORKDIR, 'install')
+PYPREFIX     = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/2.7')
+PYSITEPKGS   = path.join(PYPREFIX, 'lib/python2.7/site-packages')
+MAKEFLAGS    = '-j4'
 
 QTBUILTFLAG = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
+
+XCODECONF_FILE = path.join(os.getcwd(), \
+                           'objc_armory/ArmoryFramework/ArmoryFramework.xcconfig')
 
 #pypath_txt_template=""" PYTHON_INCLUDE=%s/include/python2.7/ PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a PYVER=python2.7 """
 pypathData  =   'PYTHON_INCLUDE=%s/include/python2.7/' % PYPREFIX
@@ -98,6 +103,7 @@ def main():
    compile_psutil()
    #unzip_swig()
    compile_armory()
+   compile_objc_library()
    make_resources()
    cleanup_app()
    # Force Finder to update the Icon
@@ -228,7 +234,10 @@ def getTarUnpackPath(tarName, inDir=None):
       tarPath = path.join(inDir, tarName)
 
    # HACK: XZ support was added to tarfile.open() in Python 3.3. Can't use for
-   # now, so we'll have to apply a hack to get around this.
+   # now, so we'll have to apply a hack to get around this. In addition, the
+   # builder must have the xz binary on their build machine, otherwise the
+   # following error will appear: "tar: Error opening archive: Child process
+   # exited with status 254Child process exited with status 254"
    if tarName == "Python-%s.tar.xz" % pythonVer:
       theDir = "Python-%s" % pythonVer
    else:
@@ -348,11 +357,18 @@ distfiles.append( [ 'libpng', \
                     "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
                     "6b82dd8fc966b83b15ab27224f864a384b7b766d" ] )
 
-#distfiles.append( [ "Qt", \
-                    #"qt-4.8.5.mountain_lion.bottle.2.tar.gz", \
-                    #"https://downloads.sf.net/project/machomebrew/Bottles/qt-4.8.5.mountain_lion.bottle.2.tar.gz", \
-                    #"b361f521d413409c0e4397f2fc597c965ca44e56" #] )
+# Skipping Git for now.
+#distfiles.append( [ "Qt-git", \
+#                    "qt5_git_repo.tar.gz", \
+#                    'git://gitorious.org/qt/qt5.git',
+#                    'stable' ] )
 
+#distfiles.append( [ "Qt-git", \
+#                    "qt4_git_repo.tar.gz", \
+#                    'git://gitorious.org/qt/qt.git',
+#                    '4.8' ] )
+
+# When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
 #                    "qt-everywhere-opensource-src-5.2.1.tar.gz", \
 #                    "http://download.qt-project.org/official_releases/qt/5.2/5.2.1/single/qt-everywhere-opensource-src-5.2.1.tar.gz", \
@@ -365,36 +381,10 @@ distfiles.append( [ "Qt", \
                     "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
 
-# Skipping Git for now.
-#distfiles.append( [ "Qt-git", \
-#                    "qt5_git_repo.tar.gz", \
-#                    'git://gitorious.org/qt/qt5.git',
-#                    'stable' ] )
-
-#distfiles.append( [ "Qt-git", \
-#                    "qt4_git_repo.tar.gz", \
-#                    'git://gitorious.org/qt/qt.git',
-#                    '4.8' ] )
-
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterfaceMavericks.a", \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a" % webkitRev, \
                     "fb544ee9346765843ddb9c0d97df99b31a3307e4" ] )
-
-#distfiles.append( [ "Qt-p1", \
-                    #"Ie9a72e3b.patch", \
-                    #'https://gist.github.com/cliffrowley/f526019bb3182c237836/raw/459bfcfe340baa306eed81720b0734f4bede94d7/Ie9a72e3b.patch', \
-                    #'829a8e9644c143be11c03ee7b2b9c8b042708b41' #] )
-
-#distfiles.append( [ 'Qt-p2', \
-                    #'qt-4.8-libcpp.diff', \
-                    #'https://gist.github.com/cliffrowley/7380124/raw/ff6c681b282bbc1fe4a58e2f0c37905062ebd58b/qt-4.8-libcpp.diff', \
-                    #'4215caf4b8c84236f85093a1f0d24739a1c5ccfd' #] )
-
-#distfiles.append( [ 'Qt-p3', \
-                    #'qt-4.8-libcpp-configure.diff', \
-                    #'https://gist.github.com/cliffrowley/93ce53b9dd8d8bb65530/raw/d3f6a6f039c5826df04fcfa56569394ea5069b9e/qt-4.8-libcpp-configure.diff', \
-                    #'a0b5189097937410113f22b78579c4eac940def9' #] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
@@ -406,16 +396,16 @@ distfiles.append( [ "zope", \
                     "https://pypi.python.org/packages/source/z/zope.interface/zope.interface-%s.tar.gz" % zopeVer, \
                     '20a9284429e29eb8cc63eee5ed686c257c01b1fc' ] )
 
-# Other lines rely on the given version. Patch this up later.
-distfiles.append( [ "pyqt", \
-                    "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
-                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    '9d7478758957c60ac5007144a0dc7f157f4a5836' ] )
-
+# When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
 #                    "PyQt-gpl-5.2.tar.gz", \
 #                    "http://downloads.sf.net/project/pyqt/PyQt5/PyQt-5.2/PyQt-gpl-5.2.tar.gz", \
 #                    'a1c232d34ab268587c127ad3097c725ee1a70cf0' ] )
+
+distfiles.append( [ "pyqt", \
+                    "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
+                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
+                    '9d7478758957c60ac5007144a0dc7f157f4a5836' ] )
 
 # May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
 #distfiles.append( [ 'swig', \
@@ -529,9 +519,6 @@ def compile_qt():
    src = path.join(DLDIR, webkita)
    dst = path.join(qtBuildDir, 'src/3rdparty/webkit/WebKitLibraries', webkita)
    copyfile(src, dst)
-   #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
-   #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
-   #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
 
    # Put Qt patches here.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), \
@@ -560,6 +547,7 @@ def compile_qt():
 
 ################################################################################
 def install_qt():
+      logprint('Installing Qt')
    # We really don't need this arg for now, but maybe it'll be useful later?
    #if CLIOPTS.precompiledQt:
    #   logprint('Unpacking precompiled Qt.')
@@ -583,7 +571,8 @@ def install_qt():
       execAndWait('make install', cwd=qtBuildDir)
 
       newcwd = path.join(APPDIR, 'Contents/Frameworks')
-      for mod in ['QtCore', 'QtGui', 'QtXml', 'QtNetwork']:
+
+      for mod in ['QtCore', 'QtGui', 'QtNetwork']:
          src = path.join(qtInstDir, 'lib', mod+'.framework')
          dst = path.join(APPDIR, 'Contents/Frameworks', mod+'.framework')
          if path.exists(dst):
@@ -626,10 +615,10 @@ def compile_sip():
    # Must run "make install" again even if it was previously built (since
    # the APPDIR and INSTALLDIR are wiped every time the script is run)
    execAndWait('make install', cwd=sipPath)
-      
+
 ################################################################################
 def compile_pyqt():
-   logprint('Install PyQt4')
+   logprint('Installing PyQt4')
    #logprint('Install PyQt5')
    #if path.exists(path.join(PYSITEPKGS, 'PyQt5')):
    if path.exists(path.join(PYSITEPKGS, 'PyQt4')):
@@ -712,6 +701,20 @@ def compile_armory():
    copyfile('armoryd-script.sh', armorydAppScript)
    execAndWait('chmod +x "%s"' % armoryAppScript)
    execAndWait('chmod +x "%s"' % armorydAppScript)
+
+################################################################################
+def compile_objc_library():
+   logprint('Compiling and installing the Armory Objective-C shared library')
+
+   # Execute SIP to create the Python/Obj-C++ glue code, use qmake to create the
+   # Makefile, and make the shared library. Be sure to keep the SIP flags in
+   # sync with generate_sip_module_code() from PyQt's configure-ng.py.
+   sipFlags = '-w -x VendorID -t WS_MACX -t Qt_4_8_6 -x Py_v3 -B Qt_5_0_0 -o ' \
+              '-P -g -c . -I ../workspace/unpackandbuild/PyQt-mac-gpl-4.11.1/sip'
+   execAndWait('../workspace/unpackandbuild/sip-4.16.2/sipgen/sip %s ./ArmoryMac.sip' % sipFlags, cwd=OBJCDIR)
+   execAndWait('../workspace/unpackandbuild/qt-everywhere-opensource-src-4.8.6/bin/qmake ArmoryMac.pro', cwd=OBJCDIR)
+   execAndWait('make', cwd=OBJCDIR)
+
 
 ################################################################################
 def make_resources():
