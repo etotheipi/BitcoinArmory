@@ -10,6 +10,8 @@ import os
 import time
 import shutil
 from release_utils import *
+import json
+from datetime import datetime
 
 #####
 from release_settings import getReleaseParams, getMasterPackageList
@@ -107,7 +109,7 @@ for pkgName,pkgInfo in pkgPairs:
    pkgDict['IsHash']    = False
    pkgDict['IsBundle']  = False
    pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
-   pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+   pkgDict['DownLink']  = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
    uploadsRegular.append(pkgDict)
 
    if pkgInfo['HasBundle']:
@@ -120,7 +122,7 @@ for pkgName,pkgInfo in pkgPairs:
       pkgDict['IsHash']    = False
       pkgDict['IsBundle']  = True
       pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
-      pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+      pkgDict['DownLink']  = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
       uploadsOffline.append(pkgDict)
 
 uploads = uploadsRegular + uploadsOffline
@@ -132,9 +134,16 @@ ascDict['SrcPath']   = os.path.join(inDir, 'installers', ascDict['SrcFile'])
 ascDict['IsHash']    = True
 ascDict['IsBundle']  = False
 ascDict['DstUpload'] = '%s%s' % (s3Release,   ascDict['SrcFile'])
-ascDict['DstHtml']   = '%s%s' % (htmlRelease, ascDict['SrcFile'])
+ascDict['DownLink']   = '%s%s' % (htmlRelease, ascDict['SrcFile'])
 uploads.append(ascDict)
 
+
+jsonOut = {}
+jsonOut['VersionStr'] = topVerStr + topVerType
+jsonOut['ReleaseDate'] = datetime.fromtimestamp(time.time()).strftime("%B %d, %Y")
+jsonOut['Downloads'] = uploads
+
+print json.dumps(jsonOut, indent=4)
 
 for upl in uploads:
    print 'Going to upload:'
@@ -161,7 +170,7 @@ for pkgDict in uploads:
       humanText += ' for %s %s (%s)' % tuple(osParams)
             
    uploadurl = pkgDict['DstUpload']
-   linkurl   = pkgDict['DstHtml']
+   linkurl   = pkgDict['DownLink']
 
    s3cmd = 's3cmd put --acl-public %s %s' % (pkgDict['SrcPath'], uploadurl)
    forumText = '[url=%s]%s[/url]' % (linkurl, humanText)
