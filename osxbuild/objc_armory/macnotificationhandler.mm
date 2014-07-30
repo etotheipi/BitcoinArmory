@@ -1,6 +1,14 @@
-// Copyright (c) 2011-2013 The Bitcoin Core developers
+// Copyright (c) 2011-2014 The Bitcoin Core developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (C) 2011-2014, Armory Technologies, Inc.
+// Distributed under the GNU Affero General Public License (AGPL v3)
+// See LICENSE or http://www.gnu.org/licenses/agpl.html
+//
+////////////////////////////////////////////////////////////////////////////////
 
 #include "ArmoryMac.h"
 

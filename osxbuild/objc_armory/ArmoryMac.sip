@@ -1,10 +1,6 @@
 // SIP definition for the Mac dock icon handler code.
 // See http://pyqt.sourceforge.net/Docs/sip4/directives.html for more info.
 
-//%Platforms {WIN32_PLATFORM POSIX_PLATFORM MACOS_PLATFORM}
-
-//%If(MACOS_PLATFORM)
-
 %Copying
 Copyright (c) 2011-2014 The Bitcoin developers
 Distributed under the MIT/X11 software license. See LICENSE or
@@ -61,5 +57,3 @@ public:
     bool hasUserNotificationCenterSupport();
     static MacNotificationHandler *instance();
 }; // class
-//%End
-

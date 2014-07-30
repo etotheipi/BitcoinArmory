@@ -2,6 +2,14 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (C) 2011-2014, Armory Technologies, Inc.
+// Distributed under the GNU Affero General Public License (AGPL v3)
+// See LICENSE or http://www.gnu.org/licenses/agpl.html
+//
+////////////////////////////////////////////////////////////////////////////////
+
 // NOTE: If this file is altered, you MUST sync the changes with ArmoryMac.sip.
 
 #ifndef ARMORYMAC_H
@@ -15,8 +23,6 @@ class QIcon;
 class QMenu;
 class QWidget;
 QT_END_NAMESPACE
-
-//namespace callCode {
 
 #ifdef __OBJC__
 @class DockIconClickEventHandler;
@@ -70,5 +76,4 @@ public:
     bool hasUserNotificationCenterSupport(void);
     static MacNotificationHandler *instance();
 };
-//}; // namespace
 #endif // ARMORYMAC_H

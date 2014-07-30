@@ -3,6 +3,7 @@
 
 PREFIX=/usr
 DESTDIR=
+UNAME_S := $(shell uname -s)
 
 all :
 	$(MAKE) -C cppForSwig
@@ -11,6 +12,9 @@ clean :
 	$(MAKE) -C cppForSwig clean
 	rm -f osxbuild/build-app.log.txt
 	rm -f osxbuild/armory_*.tar.gz
+	ifeq ($(UNAME_S),Darwin)
+		$(MAKE) -C osxbuild/objc_armory clean
+	endif
 	rm -rf osxbuild/workspace/
 	rm -f CppBlockUtils.py
 	rm -f qrc_img_resources.py
@@ -18,8 +22,7 @@ clean :
 	rm -f cppForSwig/cryptopp/a.out
 	rm -f *.pyc BitTornado/*.pyc bitcoinrpc_jsonrpc/*.pyc ui/*.pyc
 	rm -f armoryengine/*.pyc dialogs/*.pyc BitTornado/BT1/*.pyc
-	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc 
-	$(MAKE) -C osxbuild/objc_armory clean
+	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
 
 install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img

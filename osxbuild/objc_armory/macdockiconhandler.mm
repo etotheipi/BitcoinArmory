@@ -1,12 +1,19 @@
-// Copyright (c) 2011-2013 The Bitcoin Core developers
+// Copyright (c) 2011-2014 The Bitcoin Core developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (C) 2011-2014, Armory Technologies, Inc.
+// Distributed under the GNU Affero General Public License (AGPL v3)
+// See LICENSE or http://www.gnu.org/licenses/agpl.html
+//
+////////////////////////////////////////////////////////////////////////////////
 
 #include "ArmoryMac.h"
 
 #include <QImageWriter>
 #include <QMenu>
-//#include <QTemporaryFile>
 #include <QBuffer>
 #include <QWidget>
 
@@ -96,7 +103,7 @@ void MacDockIconHandler::setIcon(const QIcon &icon)
         QSize size = icon.actualSize(QSize(128, 128));
         QPixmap pixmap = icon.pixmap(size);
 
-        // Armory: Unlike Bitcoin-Qt's file hack, Use a buffer to make the icon.
+        // Write the pixmap to a buffer which will be saved as an image.
         QBuffer notificationBuffer;
         if (!pixmap.isNull() && notificationBuffer.open(QIODevice::ReadWrite)) {
             QImageWriter writer(&notificationBuffer, "PNG");
