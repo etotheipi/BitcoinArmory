@@ -89,7 +89,9 @@ class PyBtcWalletRecoveryTest(TiabTest):
                       "Unmatched Priv/Pub Key Undetected")
       self.assertTrue(len(brkWltResult['misc'])==50, \
                       "Wallet Encryption Inconsistency Undetected")
-      self.assertTrue(brkWltResult['nErrors']==154, \
+      self.assertTrue(len(brkWltResult['importedErr'])==50, \
+                      "Unexpected Errors Found")         
+      self.assertTrue(brkWltResult['nErrors']==204, \
                       "Unexpected Errors Found")   
       
       #check obfuscated keys yield the valid key
@@ -142,10 +144,13 @@ class PyBtcWalletRecoveryTest(TiabTest):
       recThread.join()
       rcvWltResult = recThread.output
       
-      self.assertTrue(rcvWltResult['nErrors']==0, "Unexpected Errors Found")
+      self.assertTrue(len(rcvWltResult['importedErr'])==50, \
+                      "Unexpected Errors Found")         
+      self.assertTrue(rcvWltResult['nErrors']==50, \
+                      "Unexpected Errors Found")   
       self.assertTrue(len(rcvWltResult['negativeImports'])==99, \
                       "Missing neg Imports")
-
+      
 # Running tests with "python <module name>" will NOT work for any Armory tests
 # You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
 # if __name__ == "__main__":

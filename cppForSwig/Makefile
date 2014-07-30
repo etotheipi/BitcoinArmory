@@ -85,3 +85,5 @@ clean:
 	rm -f CppBlockUtils_wrap.cxx 
 	$(MAKE) -C cryptopp clean
 	$(MAKE) -C leveldb clean
+	$(MAKE) -C gtest clean
+
