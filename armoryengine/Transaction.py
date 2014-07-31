@@ -17,6 +17,10 @@ from armoryengine.AsciiSerialize import AsciiSerializable
 
 UNSIGNED_TX_VERSION = 1
 
+SIGHASH_ALL = 1
+SIGHASH_NONE = 2
+SIGHASH_SINGLE = 3
+SIGHASH_ANYONECANPAY = 0x80
 ################################################################################
 # Identify all the codes/strings that are needed for dealing with scripts
 ################################################################################
@@ -894,8 +898,9 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
 
    Right now only supports SIGHASH_ALL
    """
-   if not hashcode==1:
-      LOGERROR('Only hashcode=1 is supported at this time!')
+   
+   if not hashcode in [1, SIGHASH_NONE|SIGHASH_ANYONECANPAY]:
+      LOGERROR('Only hashcode=1 and 82 are supported at this time!')
       LOGERROR('Requested hashcode=%d' % hashcode)
       return None
 
@@ -906,6 +911,11 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
 
    # Set the script of the TxIn being signed, to the previous TxOut script
    txCopy.inputs[txInIndex].binScript = prevTxOutScript
+   
+   # for SIGHASH_NONE|SIGHASH_ANYONECANPAY remove everything except the current input
+   if hashcode == SIGHASH_NONE|SIGHASH_ANYONECANPAY:
+      txCopy.outputs = []
+      txCopy.inputs = [txCopy.inputs[txInIndex]]
 
    hashCode1  = int_to_binary(hashcode, widthBytes=1)
    hashCode4  = int_to_binary(hashcode, widthBytes=4, endOut=LITTLEENDIAN)
@@ -2620,7 +2630,7 @@ class UnsignedTransaction(AsciiSerializable):
 #
 # This method is intended for sweep transaction where a bundle of private keys
 # were provided.
-def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
+def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap, hashcode=1):
    ustx = UnsignedTransaction().createFromUnsignedTxIO(ustxiList, dtxoList)
 
    for ustxiIndex in range(len(ustx.ustxInputs)):
@@ -2628,7 +2638,7 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
          sbdPriv = sbdPrivKeyMap.get(scrAddr)
          if sbdPriv is None:
             raise SignatureError('Supplied key map cannot sign all inputs')
-         ustx.createAndInsertSignatureForInput(ustxiIndex, sbdPriv)
+         ustx.createAndInsertSignatureForInput(ustxiIndex, sbdPriv, hashcode)
 
    # Make sure everythign was good
    if not ustx.verifySigsAllInputs():
