@@ -1,8 +1,3 @@
-# This is a sample plugin file that will be used to create a new tab 
-# in the Armory main window.  All plugin files (such as this one) will 
-# be injected with the globals() from ArmoryQt.py, which includes pretty
-# much all of Bitcoin & Armory related stuff that you need.  So this 
-# file can use any utils or objects accessible to functions in ArmoryQt.py.
 from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget
 
 from armoryengine.ArmoryUtils import getLastBytesOfFile, ARMORY_LOG_FILE,\
@@ -12,18 +7,10 @@ from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
 from PyQt4 import QtGui
 
 
-# ArmoryQt will access this by importing PluginObject and initializing one
-#   -- It adds plugin.getTabToDisplay() to the main window tab list
-#   -- It uses plugin.tabName as the label for that tab.
-#
-# Make sure you test your plugin not only when it's online, but also when
-#   -- Armory is in offline mode, and internet is not accessible
-#   -- Armory is in offline mode, and internet *is* accessible
-#   -- User uses skip-offline-check so online, but service can't be reached
 class PluginObject(object):
 
    tabName = 'Armory Log'
-   maxVersion = '0.92'
+   maxVersion = '0.93'
    
    #############################################################################
    def __init__(self, main):
