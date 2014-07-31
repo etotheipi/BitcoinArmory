@@ -107,6 +107,7 @@ class ArmoryMainWindow(QMainWindow):
       # OS X requires some Objective-C code if we're switching to the testnet
       # (green) icon. We should also use a larger icon. Otherwise, Info.plist
       # takes care of everything.
+      self.notifCtr = ArmoryMac.MacNotificationHandler.None
       if not OS_MACOSX:
          self.setWindowIcon(QIcon(self.iconfile))
       else:
@@ -809,6 +810,18 @@ class ArmoryMainWindow(QMainWindow):
 
       if OS_MACOSX:
          self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
+         if self.macNotifHdlr.hasUserNotificationCenterSupport():
+            self.notifCtr = ArmoryMac.MacNotificationHandler.BuiltIn
+         else:
+            # In theory, Qt can support notifications via Growl on pre-10.8
+            # machines. It's shaky as hell, though, so we'll rely on alternate
+            # code for now. In the future, according to
+            # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
+            # be accurate, as the official documentation is contradictory),
+            # showMessage() may have direct support for the OS X notification
+            # center in Qt5.1. Something to experiment with later....
+            self.notifCtr = self.macNotifHdlr.hasGrowl()
+
 
    ####################################################
    def getWatchingOnlyWallets(self):
@@ -7092,17 +7105,11 @@ class ArmoryMainWindow(QMainWindow):
       if not OS_MACOSX:
          self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
       else:
-         # In theory, Qt can support notifications via Growl on pre-10.8
-         # machines. We're not supporting it for now. Also, according to
-         # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
-         # be accurate, as the official documentation is contradictory),
-         # showMessage() may have direct support for the OS X notification
-         # center in Qt5. Something to experiment with later....
-         osxMinorVer = OS_VARIANT[0].split(".")[1]
-         if int(osxMinorVer) > 7:
+         if self.notifCtr == ArmoryMac.MacNotificationHandler.BuiltIn:
             self.macNotifHdlr.showNotification(dispTitle, dispText)
-         #else:
-            #self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
+         elif (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl12) or \
+              (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl13):
+            self.macNotifHdlr.notifyGrowl(dispTitle, dispText, QIcon(self.iconfile))
 
 ############################################
 class ArmoryInstanceListener(Protocol):
