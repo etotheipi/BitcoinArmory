@@ -137,32 +137,6 @@ jsonFunctDict = {}
 
 NOT_IMPLEMENTED = '--Not Implemented--'
 
-#############################################################################
-# Check to see if an Internet connection is available. Code lifted and modified
-# from ArmoryQt
-def setupNetworking():
-   internetAvail = False
-   LOGINFO('Setting up networking...')
-   forceOnline = CLI_OPTIONS.forceOnline
-   if forceOnline:
-      LOGINFO('Forced online mode: True')
-   else:
-      internetAvail = isInternetAvailable()
-
-   return onlineModeIsPossible(internetAvail, forceOnline)
-
-
-#############################################################################
-# Helper function from ArmoryQt. Check to see if we can go online.
-def onlineModeIsPossible(internetAvail, forceOnline):
-   canGoOnline = True
-   if not forceOnline:
-      satoshiIsAvailableResult = satoshiIsAvailable()
-      hasBlockFiles = os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
-      canGoOnline = internetAvail and satoshiIsAvailableResult and hasBlockFiles
-
-   return canGoOnline
-
 ################################################################################
 # Utility function that takes a list of wallet paths, gets the paths and adds
 # the wallets to a wallet set (actually a dictionary, with the wallet ID as the
@@ -2609,7 +2583,7 @@ class Armory_Daemon(object):
          os._exit(0)
       else:
          # Make sure we're actually able to do something before proceeding.
-         if setupNetworking():
+         if onlineModeIsPossible(TheBDM.btcdir):
             self.lock = threading.Lock()
             self.lastChecked = None
 

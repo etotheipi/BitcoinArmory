@@ -3663,3 +3663,8 @@ def isInternetAvailable():
    return internetAvail
 
 
+# Returns true if Online Mode is possible
+def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
+   return (CLI_OPTIONS.forceOnline or isInternetAvailable()) and \
+      satoshiIsAvailable() and \
+      os.path.exists(os.path.join(btcdir, 'blocks'))

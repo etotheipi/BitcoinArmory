@@ -105,10 +105,10 @@ class ArmoryMainWindow(QMainWindow):
       # OS X requires some Objective-C code if we're switching to the testnet
       # (green) icon. We should also use a larger icon. Otherwise, Info.plist
       # takes care of everything.
-      self.notifCtr = ArmoryMac.MacNotificationHandler.None
       if not OS_MACOSX:
          self.setWindowIcon(QIcon(self.iconfile))
       else:
+         self.notifCtr = ArmoryMac.MacNotificationHandler.None
          if USE_TESTNET:
             self.iconfile = ':/armory_icon_green_fullres.png'
             ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
@@ -2142,9 +2142,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailable())
-      LOGINFO('The first blk*.dat was Available: %s', str(self.checkHaveBlockfiles()))
-      LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
 
 
 
@@ -2337,7 +2334,7 @@ class ArmoryMainWindow(QMainWindow):
             LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
-      elif self.onlineModeIsPossible():
+      elif onlineModeIsPossible():
          # Track number of times we start loading the blockchain.
          # We will decrement the number when loading finishes
          # We can use this to detect problems with mempool or blkxxxx.dat
@@ -2353,16 +2350,6 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
-
-   #############################################################################
-   def checkHaveBlockfiles(self):
-      return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
-
-   #############################################################################
-   def onlineModeIsPossible(self):
-      return ((self.internetAvail or self.forceOnline) and \
-               satoshiIsAvailable() and \
-               self.checkHaveBlockfiles())
 
    #############################################################################
    def switchNetworkMode(self, newMode):
@@ -5744,7 +5731,7 @@ class ArmoryMainWindow(QMainWindow):
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
       """
-      onlineAvail = self.onlineModeIsPossible()
+      onlineAvail = onlineModeIsPossible()
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
@@ -6455,7 +6442,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
          if self.netMode==NETWORKMODE.Disconnected:
-            if self.onlineModeIsPossible():
+            if onlineModeIsPossible():
                self.switchNetworkMode(NETWORKMODE.Full)
 
          if not TheBDM.isDirty() == self.dirtyLastTime:
