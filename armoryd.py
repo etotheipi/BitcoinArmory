@@ -138,8 +138,8 @@ jsonFunctDict = {}
 NOT_IMPLEMENTED = '--Not Implemented--'
 
 #############################################################################
-# Check to see if an Internet connection is available. Code lifted from
-# ArmoryQt.
+# Check to see if an Internet connection is available. Code lifted and modified
+# from ArmoryQt
 def setupNetworking():
    internetAvail = False
    LOGINFO('Setting up networking...')
@@ -147,7 +147,7 @@ def setupNetworking():
    if forceOnline:
       LOGINFO('Forced online mode: True')
    else:
-      internetAvail = isInternetAvailable(forceOnline)
+      internetAvail = isInternetAvailable()
 
    return onlineModeIsPossible(internetAvail, forceOnline)
 
