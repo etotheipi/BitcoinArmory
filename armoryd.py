@@ -103,12 +103,10 @@ from txjsonrpc.web import jsonrpc
 
 from armoryengine.ALL import *
 from collections import defaultdict
-from itertools import islice
 from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.PyBtcWalletRecovery import *
 from inspect import *
 from jasvet import readSigBlock, verifySignature
-from CppBlockUtils import BtcWallet
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -139,93 +137,31 @@ jsonFunctDict = {}
 
 NOT_IMPLEMENTED = '--Not Implemented--'
 
-############################################
-# Copied from ArmoryQt. Remove in 0.93.
-class armorydInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another armoryd instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate armoryd instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-
-
-############################################
-# Copied from ArmoryQt. Remove in 0.93.
-class armorydListenerFactory(ClientFactory):
-   protocol = armorydInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-
-
-#############################################################################
-# Helper function from ArmoryQt. Check to see if we can go online.
-# (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
-def onlineModeIsPossible(internetAvail, forceOnline):
-   canGoOnline = True
-   if not forceOnline:
-      satoshiIsAvailableResult = satoshiIsAvailable()
-      hasBlockFiles = checkHaveBlockfiles()
-      canGoOnline = internetAvail and satoshiIsAvailableResult and hasBlockFiles
-      
-      LOGINFO('Internet connection is Available: %s', str(internetAvail))
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailableResult)
-      LOGINFO('The first blk*.dat was Available: %s', str(hasBlockFiles))
-      LOGINFO('Online mode currently possible:   %s', canGoOnline)
-   return canGoOnline
-
-
-#############################################################################
-# Helper function from ArmoryQt. Check to see if we have the blk*.dat files.
-# (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
-def checkHaveBlockfiles():
-   return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
-
-
 #############################################################################
 # Check to see if an Internet connection is available. Code lifted from
-# ArmoryQt. (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
-# (AO: There are many lines from the original code in ArmoryQt including 
-# some that i have just removed. I have removed them rather than comment them
-# out to reduce the amount of commented code in the repo. If you want to see
-# what I removed compare the revisions and/or refer to ArmoryQt.)
+# ArmoryQt.
 def setupNetworking():
+   internetAvail = False
    LOGINFO('Setting up networking...')
    forceOnline = CLI_OPTIONS.forceOnline
    if forceOnline:
       LOGINFO('Forced online mode: True')
-
-   # Check general internet connection
-   internetAvail = False
-   if not forceOnline:
-      try:
-         import urllib2
-         response=urllib2.urlopen('http://google.com', \
-                                  timeout=CLI_OPTIONS.nettimeout)
-         internetAvail = True
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot determine if internet is ' \
-                  'available')
-      except urllib2.URLError:
-         # In the extremely rare case that google might be down (or just to try
-         # again...)
-         try:
-            response=urllib2.urlopen('http://microsoft.com', \
-                                     timeout=CLI_OPTIONS.nettimeout)
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-            internetAvail = False
-      except:
-         LOGEXCEPT('Error checking for internet connection')
-         LOGERROR('Run --skip-online-check if you think this is an error')
-         internetAvail = False
+   else:
+      internetAvail = isInternetAvailable(forceOnline)
 
    return onlineModeIsPossible(internetAvail, forceOnline)
 
+
+#############################################################################
+# Helper function from ArmoryQt. Check to see if we can go online.
+def onlineModeIsPossible(internetAvail, forceOnline):
+   canGoOnline = True
+   if not forceOnline:
+      satoshiIsAvailableResult = satoshiIsAvailable()
+      hasBlockFiles = os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
+      canGoOnline = internetAvail and satoshiIsAvailableResult and hasBlockFiles
+
+   return canGoOnline
 
 ################################################################################
 # Utility function that takes a list of wallet paths, gets the paths and adds

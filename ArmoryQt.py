@@ -41,15 +41,13 @@ from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
-from ui.UpgradeDownloader import UpgradeDownloaderDialog
 
-from jasvet import verifySignature, readSigBlock
+from jasvet import verifySignature
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP,\
    DEFAULT_FETCH_INTERVAL
 from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
-from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                     DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
@@ -2127,24 +2125,7 @@ class ArmoryMainWindow(QMainWindow):
       # Check general internet connection
       self.internetAvail = False
       if not self.forceOnline:
-         try:
-            import urllib2
-            response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-            self.internetAvail = True
-         except ImportError:
-            LOGERROR('No module urllib2 -- cannot determine if internet is available')
-         except urllib2.URLError:
-            # In the extremely rare case that google might be down (or just to try again...)
-            try:
-               response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-            except:
-               LOGEXCEPT('Error checking for internet connection')
-               LOGERROR('Run --skip-online-check if you think this is an error')
-               self.internetAvail = False
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-            self.internetAvail = False
+         self.internetAvail = isInternetAvailable()
 
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
@@ -2360,7 +2341,6 @@ class ArmoryMainWindow(QMainWindow):
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
 
-
    #############################################################################
    def checkHaveBlockfiles(self):
       return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
@@ -2370,7 +2350,6 @@ class ArmoryMainWindow(QMainWindow):
       return ((self.internetAvail or self.forceOnline) and \
                satoshiIsAvailable() and \
                self.checkHaveBlockfiles())
-
 
    #############################################################################
    def switchNetworkMode(self, newMode):
@@ -2574,9 +2553,6 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('AdvFeature_UseCt', 0)
       else:
          self.writeSetting('Load_Count', (self.settings.get('Load_Count')+1) % 100)
-         firstDate = self.getSettingOrSetDefault('First_Load_Date', RightNow())
-         daysSinceFirst = (RightNow() - firstDate) / (60*60*24)
-
 
       # Set the usermode, default to standard
       self.usermode = USERMODE.Standard
@@ -2615,7 +2591,6 @@ class ArmoryMainWindow(QMainWindow):
       wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
-      wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
       for fpath in wltPaths:
          try:
             wltLoad = PyBtcWallet().readWalletFile(fpath)
@@ -2878,9 +2853,7 @@ class ArmoryMainWindow(QMainWindow):
          return displayInfo['String'], ('LB:%s' % displayInfo['LboxID'])
 
       scriptType = getTxOutScriptType(binScript) 
-      scrAddr = script_to_scrAddr(binScript)
-
-   
+      
       # At this point, we can use the contrib ID (and know we can't sign it)
       if contribID or contribLabel:
          if contribID:
@@ -3115,7 +3088,6 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
-      start = RightNow()
       if wltIDList==None:
          currIdx  = max(self.comboWltSelect.currentIndex(), 0)
          wltIDList = []
@@ -7101,29 +7073,7 @@ class ArmoryMainWindow(QMainWindow):
          osxMinorVer = OS_VARIANT[0].split(".")[1]
          if int(osxMinorVer) > 7:
             self.macNotifHdlr.showNotification(dispTitle, dispText)
-         #else:
-            #self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
-
-############################################
-class ArmoryInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another Armory instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate Armory instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-
-############################################
-class ArmoryListenerFactory(ClientFactory):
-   protocol = ArmoryInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-
-
-
+            
 ############################################
 def checkForAlreadyOpen():
    import socket

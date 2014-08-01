@@ -47,6 +47,7 @@ import psutil
 
 from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
+from twisted.internet.protocol import Protocol, ClientFactory
 
 
 # Version Numbers
@@ -3615,4 +3616,50 @@ except:
 # We only use BITTORRENT for mainnet
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
+
+
+
+############################################
+class ArmoryInstanceListener(Protocol):
+   def connectionMade(self):
+      LOGINFO('Another Armory instance just tried to open.')
+      self.factory.func_conn_made()
+
+   def dataReceived(self, data):
+      LOGINFO('Received data from alternate Armory instance')
+      self.factory.func_recv_data(data)
+      self.transport.loseConnection()
+      
+############################################
+class ArmoryListenerFactory(ClientFactory):
+   protocol = ArmoryInstanceListener
+   def __init__(self, fn_conn_made, fn_recv_data):
+      self.func_conn_made = fn_conn_made
+      self.func_recv_data = fn_recv_data
+      
+# Check general internet connection
+def isInternetAvailable():
+   try:
+      import urllib2
+      urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
+      internetAvail = True
+   except ImportError:
+      LOGERROR('No module urllib2 -- cannot determine if internet is '
+         'available')
+   except urllib2.URLError:
+      # In the extremely rare case that google might be down (or just to try
+      # again...)
+      try:
+         response = urllib2.urlopen('http://microsoft.com', 
+            timeout=CLI_OPTIONS.nettimeout)
+      except:
+         LOGEXCEPT('Error checking for internet connection')
+         LOGERROR('Run --skip-online-check if you think this is an error')
+         internetAvail = False
+   except:
+      LOGEXCEPT('Error checking for internet connection')
+      LOGERROR('Run --skip-online-check if you think this is an error')
+      internetAvail = False
+   return internetAvail
+
 
