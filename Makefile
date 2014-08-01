@@ -12,9 +12,9 @@ clean :
 	$(MAKE) -C cppForSwig clean
 	rm -f osxbuild/build-app.log.txt
 	rm -f osxbuild/armory_*.tar.gz
-	ifeq ($(UNAME_S),Darwin)
-		$(MAKE) -C osxbuild/objc_armory clean
-	endif
+ifeq ($(UNAME_S),Darwin)
+		$(MAKE) -C osxbuild/objc_armory distclean
+endif
 	rm -rf osxbuild/workspace/
 	rm -f CppBlockUtils.py
 	rm -f qrc_img_resources.py

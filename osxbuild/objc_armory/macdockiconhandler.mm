@@ -12,10 +12,11 @@
 
 #include "ArmoryMac.h"
 
-#include <QImageWriter>
 #include <QMenu>
-#include <QBuffer>
 #include <QWidget>
+#if QT_VERSION >= 0x050200
+#include <QtMac>
+#endif
 
 #undef slots
 #include <Cocoa/Cocoa.h>
@@ -103,16 +104,16 @@ void MacDockIconHandler::setIcon(const QIcon &icon)
         QSize size = icon.actualSize(QSize(128, 128));
         QPixmap pixmap = icon.pixmap(size);
 
-        // Write the pixmap to a buffer which will be saved as an image.
-        QBuffer notificationBuffer;
-        if (!pixmap.isNull() && notificationBuffer.open(QIODevice::ReadWrite)) {
-            QImageWriter writer(&notificationBuffer, "PNG");
-            if (writer.write(pixmap.toImage())) {
-                NSData* macImgData = [NSData dataWithBytes:notificationBuffer.buffer().data()
-                                             length:notificationBuffer.buffer().size()];
-                image =  [[NSImage alloc] initWithData:macImgData];
-            }
-        }
+        // Perform a QPixmap -> CGImage -> NSImage conversion.
+#if QT_VERSION < 0x050000
+        image = [[NSImage alloc] initWithCGImage:pixmap.toMacCGImageRef()
+                                 size:(NSSize){128, 128}];
+#else
+        // This only works for Qt 5.2+ but OS X Armory will never run Qt 5.0 or
+        // 5.1.
+        image = [[NSImage alloc] initWithCGImage:(QtMac::toCGImageRef(pixmap))
+                                 size:(NSSize){128, 128}];
+#endif
 
         if(!image) {
             // if testnet image could not be created, load std. app icon

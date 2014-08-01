@@ -44,16 +44,27 @@ private:
     MacDockIconHandler();
 };
 
-class MacNotificationHandler : public QObject {
+class MacNotificationHandler : QObject {
 %TypeHeaderCode
 #include <ArmoryMac.h>
 %End
 
 public:
+    // SIP doesn't seem to like enums unless they're part of a class.
+	enum notifType
+    {
+        None,
+        Growl12,
+        Growl13,
+        BuiltIn
+    };
+
     void showNotification(const QString &title, const QString &text);
 
     void sendAppleScript(const QString &script);
 
     bool hasUserNotificationCenterSupport();
+    MacNotificationHandler::notifType hasGrowl();
+    void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
     static MacNotificationHandler *instance();
 }; // class
