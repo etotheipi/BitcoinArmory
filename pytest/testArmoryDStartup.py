@@ -1,4 +1,5 @@
 import sys
+from twisted.trial._synctest import SkipTest
 sys.path.append('..')
 from pytest.Tiab import *
 import json
@@ -95,6 +96,7 @@ class ArmoryDStartupTest(TiabTest):
    def tearDown(self):
       self.armoryDSession.clean()
             
+   @SkipTest
    def testJSONGetinfo(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'])
@@ -104,6 +106,7 @@ class ArmoryDStartupTest(TiabTest):
       self.assertEqual(actualResult['difficulty'], 1.0)
       self.assertEqual(actualResult['testnet'], True)
       
+   @SkipTest
    def testJSONMultipleWallets(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       wltDictionary = self.armoryDSession.callArmoryD(['listloadedwallets'])
