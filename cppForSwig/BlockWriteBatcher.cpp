@@ -824,8 +824,6 @@ void BlockWriteBatcher::commit()
    LOGWARN << "# sbh to udapte: " << sbhToUpdate_.size();
 
    {
-      LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
-
       for(map<BinaryData, StoredTx>::iterator iter_stx = stxToModify_.begin();
          iter_stx != stxToModify_.end();
          iter_stx++)
@@ -847,8 +845,6 @@ void BlockWriteBatcher::commit()
          sbhSize += sbh.numBytes_;
       }
 
-      LOGWARN << "# sbh byte size: " << sbhSize;
-
 
       for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();
          iter_del != keysToDelete.end();
@@ -857,6 +853,7 @@ void BlockWriteBatcher::commit()
          iface_->deleteValue(BLKDATA, *iter_del);
       }
 
+      LOGWARN << "# sbh byte size: " << sbhSize;
 
       if(mostRecentBlockApplied_ != 0)
       {
@@ -871,7 +868,7 @@ void BlockWriteBatcher::commit()
          }
       }
    }
-   
+
    stxToModify_.clear();
    sbhToUpdate_.clear();
 

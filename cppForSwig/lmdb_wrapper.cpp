@@ -1220,7 +1220,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, bool withBlkData
 {
    SCOPED_TIMER("putStoredHeader");
 
-   Batch b(this, BLKDATA);
+   //Batch b(this, BLKDATA);
    // Put header into HEADERS DB
    uint8_t newDup = putBareHeader(sbh);
 

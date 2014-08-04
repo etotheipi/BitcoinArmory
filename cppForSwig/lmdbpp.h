@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <deque>
 #include <vector>
+#include <atomic>
+#include <map>
 #include <pthread.h>
 
 
@@ -56,28 +58,29 @@ class LMDB
 {
 public:
    class Iterator;
+   class Transaction;
+
 private:
    MDB_env *env;
    // exists only with a Tx
    unsigned int dbi;
-   MDB_txn *txn;
-   
-   unsigned transactionLevel;
-   
-   friend class Iterator;
-   
-   std::deque<Iterator*> iterators;
-   
-   
+
+   //one mother-txn per thread
+   std::map<pthread_t, Transaction> txn_;
+      
+   friend class Iterator;   
+
 public:
    // this class can be used like a C++ iterator,
    // or you can just use isValid() to test for "last item"
+
    class Iterator
    {
       friend class LMDB;
       
       LMDB *db_=nullptr;
       mutable MDB_cursor *csr_=nullptr;
+      Transaction* txnPtr_=nullptr;
       
       mutable bool hasTx=true;
       bool has_=false;
@@ -90,9 +93,10 @@ public:
       void openCursor();
       
       Iterator(LMDB *db);
+
       
    public:
-      Iterator() { }
+      Iterator() : txnPtr_(nullptr) { }
       ~Iterator();
       
       // copying permitted (encouraged!)
@@ -156,9 +160,19 @@ public:
    
    class Transaction
    {
+      friend class LMDB;
+
       LMDB *db;
       bool began;
+
+      MDB_txn *txn_;
+
+      std::deque<Iterator*> iterators_;
+      unsigned transactionLevel_;
+
    public:
+      
+      Transaction();
       // begin a transaction
       Transaction(LMDB *db);
       // commit a transaction if it exists
@@ -234,7 +248,8 @@ public:
    // Create an iterator that points to an invalid item.
    // like end(), the iterator can be repositioned to
    // become a valid entry
-   Iterator cursor() const { return end(); }
+   Iterator cursor() const { 
+      return end(); }
 private:
    LMDB(const LMDB &nocopy);
    Mode mode;

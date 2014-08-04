@@ -175,7 +175,9 @@ bool withSecondOrderMultisig) const
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrScanData::setSSHLastScanned(LMDBBlockDatabase* db, uint32_t height)
 {
-   LMDBBlockDatabase::Batch batch(db, BLKDATA);
+   //LMDBBlockDatabase::Batch batch(db, BLKDATA);
+   LOGWARN << "Updating SSH last scanned";
+   LMDB::Transaction batch(&db->dbs_[BLKDATA]);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -563,6 +565,7 @@ bool ZeroConfContainer::parseNewZC(LMDBBlockDatabase *db)
    //release lock
    lock_.store(0, memory_order_release);
 
+   LMDB::Transaction batch(&db->dbs_[BLKDATA]);
 
    while (1)
    {

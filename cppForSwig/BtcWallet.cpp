@@ -233,369 +233,6 @@ void BtcWallet::pprintAlittle(std::ostream &os) const
 
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Pass this wallet a TxRef and current time/blknumber.  I used to just pass
-// in the BlockHeader with it, but this may be a Tx not in a block yet, 
-// but I still need the time/num 
-//
-// You must clear the zero-conf pool for this address, before you do a 
-// rescan of the wallet (it's done in rescanWalletZeroConf)
-/*void BtcWallet::scanTx(Tx & tx, 
-                       uint32_t txIndex,
-                       uint32_t txtime,
-                       uint32_t blknum)
-{
-   
-   int64_t totalLedgerAmt = 0;
-   bool isZeroConf = blknum==UINT32_MAX;
-
-   vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
-
-   const pair<bool,bool> boolPair = isMineBulkFilter(tx);
-   const bool txIsRelevant  = boolPair.first;
-   const bool anyTxInIsOurs = boolPair.second;
-
-   if( !txIsRelevant )
-      return;
-
-   // We distinguish "any" from "anyNew" because we want to avoid re-adding
-   // transactions/TxIOPairs that are already part of the our tx list/ledger
-   // but we do need to determine if this was sent-to-self, regardless of 
-   // whether it was new.
-   bool anyNewTxInIsOurs   = false;
-   bool anyNewTxOutIsOurs  = false;
-   bool isCoinbaseTx       = false;
-
-   map<BinaryData, ScrAddrObj>::iterator addrIter;
-   ScrAddrObj         thisAddr;
-   HashString         scraddr;
-
-   bool savedAsTxIn = false;
-   ///// LOOP OVER ALL TXIN IN TX /////
-   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
-   {
-      
-      TxIn txin = tx.getTxInCopy(iin);
-      OutPoint outpt = txin.getOutPoint();
-      // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
-      if(outpt.getTxHashRef() == BtcUtils::EmptyHash())
-      {
-         isCoinbaseTx = true;
-         continue;
-      }
-
-      // We have the txin, now check if it contains one of our TxOuts
-      map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-      //bool txioWasInMapAlready = (txioIter != txioMap_.end());
-      bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
-      if(txioWasInMapAlready)
-      {
-         // If we are here, we know that this input is spending an 
-         // output owned by this wallet.
-         // We will get here for every address in the search, even 
-         // though it is only relevant to one of the addresses.
-         TxIOPair & txio  = txioIter->second;
-         TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
-
-         // It's our TxIn, so address should be in this wallet
-         scraddr  = txout.getScrAddressStr();
-         addrIter = scrAddrMap_.find(scraddr);
-         //if( addrIter == scrAddrMap_.end())
-         if(ITER_NOT_IN_MAP(addrIter, scrAddrMap_))
-         {
-            // Have TxIO but address is not in the map...?
-            LOGERR << "ERROR: TxIn in TxIO map, but addr not in wallet...?";
-            continue;
-         }
-         
-         thisAddr = addrIter->second;
-
-         // We need to make sure the ledger entry makes sense, and make
-         // sure we update TxIO objects appropriately
-         int64_t thisVal = (int64_t)txout.getValue();
-         totalLedgerAmt -= thisVal;
-
-         // Skip, if zero-conf-spend, but it's already got a zero-conf
-         if( isZeroConf && txio.hasTxInZC() )
-            return; // this tx can't be valid, might as well bail now
-
-         if( !txio.hasTxInInMain(bdmPtr_->getIFace()) && !(isZeroConf && txio.hasTxInZC())  )
-         {
-            // isValidNew only identifies whether this set-call succeeded
-            // If it didn't, it's because this is from a zero-conf tx but this 
-            // TxIn already exists in the blockchain spending the same output.
-            // (i.e. we have a ref to the prev output, but it's been spent!)
-            bool isValidNew;
-            if(isZeroConf)
-               isValidNew = txio.setTxInZC(bdmPtr_->getIFace(), &tx, iin);
-            else
-               isValidNew = txio.setTxIn(tx.getTxRef(), iin);
-
-            if(!isValidNew)
-               continue;
-
-            anyNewTxInIsOurs = true;
-
-            LedgerEntry newEntry(scraddr, 
-                                -(int64_t)thisVal,
-                                 blknum, 
-                                 tx.getThisHash(), 
-                                 iin,
-                                 txtime,
-                                 isCoinbaseTx,
-                                 false,  // SentToSelf is meaningless for addr ledger
-                                 false); // "isChangeBack" is meaningless for TxIn
-            thisAddr.addLedgerEntry(newEntry, isZeroConf);
-
-            txLedgerForComments_.push_back(newEntry);
-            savedAsTxIn = true;
-
-            // Update last seen on the network
-            thisAddr.setLastTimestamp(txtime);
-            thisAddr.setLastBlockNum(blknum);
-
-            addrIter.update(thisAddr);
-         }
-      }
-      else
-      {
-         // Lots of txins that we won't have, this is a normal conditional
-         // But we should check the non-std txio list since it may actually
-         // be there
-         //if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
-         if(KEY_IN_MAP(outpt, nonStdTxioMap_))
-         {
-            if(isZeroConf)
-               nonStdTxioMap_[outpt].setTxInZC(bdmPtr_->getIFace(), &tx, iin);
-            else
-               nonStdTxioMap_[outpt].setTxIn(tx.getTxRef(), iin);
-            nonStdUnspentOutPoints_.erase(outpt);
-         }
-      }
-   } // loop over TxIns
-
-   ///// LOOP OVER ALL TXOUT IN TX /////
-   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
-   {
-      TxOut txout = tx.getTxOutCopy(iout);
-      if( txout.getScriptType() == TXOUT_SCRIPT_NONSTANDARD )
-      {
-         continue;
-      }
-
-      scraddr   = txout.getScrAddressStr();
-      addrIter = saSnapshot.find(scraddr);
-      if(ITER_IN_MAP(addrIter, saSnapshot))
-      {
-         thisAddr = addrIter->second;
-         // If we got here, at least this TxOut is for this address.
-         // But we still need to find out if it's new and update
-         // ledgers/TXIOs appropriately
-         int64_t thisVal = (int64_t)(txout.getValue());
-         totalLedgerAmt += thisVal;
-
-         OutPoint outpt(tx.getThisHash(), iout);      
-         map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-         bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
-         bool doAddLedgerEntry = false;
-         if(txioWasInMapAlready)
-         {
-            if(isZeroConf) 
-            {
-               // This is a real txOut, in the blockchain
-               if(
-                  txioIter->second.hasTxOutZC()
-                     || txioIter->second.hasTxOutInMain(bdmPtr_->getIFace())
-               )
-                  continue; 
-
-               // If we got here, somehow the Txio existed already, but 
-               // there was no existing TxOut referenced by it.  Probably,
-               // there was, but that TxOut was invalidated due to reorg
-               // and now being re-added
-               txioIter->second.setTxOutZC(bdmPtr_->getIFace(), &tx, iout);
-               txioIter->second.setValue((uint64_t)thisVal);
-               thisAddr.addTxIO(txioIter->second, isZeroConf);
-               doAddLedgerEntry = true;
-            }
-            else
-            {
-               if(txioIter->second.hasTxOutInMain(bdmPtr_->getIFace())) // ...but we already have one
-                  continue;
-
-               // If we got here, we have an in-blockchain TxOut that is 
-               // replacing a zero-conf txOut.  Reset the txio to have 
-               // only this real TxOut, blank out the ZC TxOut.  And the addr 
-               // relevantTxIOPtrs_ does not have this yet so it needs 
-               // to be added (it's already part of the relevantTxIOPtrsZC_
-               // but that will be removed)
-               txioIter->second.setTxOut(tx.getTxRef(), iout);
-               txioIter->second.setValue((uint64_t)thisVal);
-               thisAddr.addTxIO(txioIter->second, isZeroConf);
-               doAddLedgerEntry = true;
-            }
-         }
-         else
-         {
-            // TxIO is not in the map yet -- create and add it
-            TxIOPair newTxio(thisVal);
-            if(isZeroConf)
-               newTxio.setTxOutZC(bdmPtr_->getIFace(), &tx, iout);
-            else
-               newTxio.setTxOut(tx.getTxRef(), iout);
-
-            txioIter = txioMap_.insert(make_pair(outpt, newTxio)).first;
-            thisAddr.addTxIO(txioIter->second, isZeroConf);
-            doAddLedgerEntry = true;
-         }
-
-         if(anyTxInIsOurs)
-            txioIter->second.setTxOutFromSelf(true);
-        
-         if(isCoinbaseTx)
-            txioIter->second.setFromCoinbase(true);
-
-         anyNewTxOutIsOurs = true;
-         thisTxOutIsOurs[iout] = true;
-
-         if(doAddLedgerEntry)
-         {
-            LedgerEntry newLedger(scraddr, 
-                                  thisVal, 
-                                  blknum, 
-                                  tx.getThisHash(), 
-                                  iout,
-                                  txtime,
-                                  isCoinbaseTx, // input was coinbase/generation
-                                  false,   // sentToSelf meaningless for addr ledger
-                                  false);  // we don't actually know
-            thisAddr.addLedgerEntry(newLedger, isZeroConf);
-
-            if(!savedAsTxIn) txLedgerForComments_.push_back(newLedger);
-         }
-         // Check if this is the first time we've seen this
-         if(thisAddr.getFirstTimestamp() == 0)
-         {
-            thisAddr.setFirstBlockNum( blknum );
-            thisAddr.setFirstTimestamp( txtime );
-         }
-         // Update last seen on the network
-         thisAddr.setLastTimestamp(txtime);
-         thisAddr.setLastBlockNum(blknum);
-      }
-   } // loop over TxOuts
-
-
-   bool allTxOutIsOurs = true;
-   bool anyTxOutIsOurs = false;
-   for(uint32_t i=0; i<tx.getNumTxOut(); i++)
-   {
-      if( thisTxOutIsOurs[i] )
-         anyTxOutIsOurs = true;
-      else
-         allTxOutIsOurs = false;
-   }
-
-   bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
-   bool isChangeBack = (anyTxInIsOurs && anyTxOutIsOurs && !isSentToSelf);
-
-   if(anyNewTxInIsOurs || anyNewTxOutIsOurs)
-   {
-      LedgerEntry le( BinaryData(0),
-                      totalLedgerAmt, 
-                      blknum, 
-                      tx.getThisHash(), 
-                      txIndex,
-                      txtime,
-                      isCoinbaseTx,
-                      isSentToSelf,
-                      isChangeBack);
-
-      if(isZeroConf)
-         ledgerAllAddrZC_.push_back(le);
-      else
-         ledgerAllAddr_.push_back(le);
-   }
-}*/
-
-
-////////////////////////////////////////////////////////////////////////////////
-// Soft calculation:  does not affect the wallet at all
-//
-// I really need a method to scan an arbitrary tx, regardless of whether it
-// is new, and return the LedgerEntry it would've created as if it were new.  
-// This is mostly a rewrite of the isMineBulkFilter, and kind of replicates
-// the behavior of ScanTx.  But scanTx has been exhaustively tested with all
-// the crazy input variations and conditional paths, I don't want to touch 
-// it to try to accommodate this use case.
-/*LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
-{
-   int64_t totalValue = 0;
-   uint8_t const * txStartPtr = tx.getPtr();
-   bool anyTxInIsOurs = false;
-   bool allTxOutIsOurs = true;
-   bool isCoinbaseTx = false;
-   OutPoint op; // reused
-   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
-   {
-      // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 
-                     tx.getSize()-tx.getTxInOffset(iin));
-
-      if(op.getTxHashRef() == BtcUtils::EmptyHash())
-         isCoinbaseTx = true;
-
-      //if(txioMap_.find(op) != txioMap_.end())
-      if(KEY_IN_MAP(op, txioMap_))
-      {
-         anyTxInIsOurs = true;
-         totalValue -= txioMap_[op].getValue();
-      }
-   }
-
-
-   // This became much simpler once we implemented arbirtrary scrAddrs
-   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
-   {
-      uint32_t valOffset = tx.getTxOutOffset(iout);
-      if (hasScrAddress(tx.getTxOutCopy(iout).getScrAddressStr()))
-         totalValue += READ_UINT64_LE(txStartPtr + valOffset);
-      else
-         allTxOutIsOurs = false;
-   }
-
-
-   bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
-
-   if (!anyTxInIsOurs && totalValue == 0)
-      return LedgerEntry();
-
-   return LedgerEntry(BinaryData(0),
-      totalValue,
-      0,
-      tx.getThisHash(),
-      0,
-      0,
-      isCoinbaseTx,
-      isSentToSelf,
-      false);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & txref)
-{
-   Tx theTx = txref.attached(bdmPtr_->getIFace()).getTxCopy();
-   return calcLedgerEntryForTx(theTx);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-LedgerEntry BtcWallet::calcLedgerEntryForTxStr(BinaryData txStr)
-{
-   Tx tx(txStr);
-   return calcLedgerEntryForTx(tx);
-}*/
-
-
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::clearBlkData(void)
 {
@@ -877,6 +514,8 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
                            bool forceScan)
 {
    merge();
+
+   LMDB::Transaction batch(&bdmPtr_->getIFace()->dbs_[BLKDATA]);
 
    if (startBlock == UINT32_MAX)
       startBlock = lastScanned_;
@@ -1215,6 +854,7 @@ void BtcWallet::calculateTxioDensity()
    uint64_t totalTxio = 0;
 
    LMDBBlockDatabase* db = bdmPtr_->getIFace();
+   LMDB::Transaction batch(&db->dbs_[BLKDATA]);
 
    //parse all SSH summaries
    for (auto& scrAddrPair : scrAddrMap_)
@@ -1254,14 +894,18 @@ void* mapPagesThread(void *in)
    
    //grab merge lock, make a copy of the addrMap then release
    wlt->grabMergeLock();
+   map<BinaryData, ScrAddrObj>& scrAddrMap = wlt->getScrAddrMap();
    map<BinaryData, ScrAddrObj*> addrMap;
-   for (auto& addrPair : wlt->getScrAddrMap())
+   for (auto& addrPair : scrAddrMap)
       addrMap[addrPair.first] = &addrPair.second;
 
    wlt->releaseMergeLock();
 
    LMDBBlockDatabase* db = wlt->getBdmPtr()->getIFace();
    map<uint32_t, uint32_t> histSummary;
+
+   LMDB::Transaction *batch = new LMDB::Transaction(&db->dbs_[BLKDATA]);
+   LOGERR << "Starting mapPages read Tx";
 
    for (auto scrAddrPair : addrMap)
    {
@@ -1276,6 +920,9 @@ void* mapPagesThread(void *in)
          histSummary[histPair.first] += histPair.second;
       }
    }
+
+   LOGERR << "Deleting mapPages read Tx";
+   delete batch;
 
    HistoryPages &pages = wlt->getHistoryPages();
    pages.reset();
@@ -1305,6 +952,7 @@ void* mapPagesThread(void *in)
 
    pages.sortPages();
 
+   LOGINFO << "mapPages done";
    return nullptr;
 }
 

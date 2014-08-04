@@ -110,9 +110,6 @@
     <ClCompile Include="..\ScrAddrObj.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\BDM_mainthread.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\BDM_supportClasses.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

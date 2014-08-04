@@ -881,6 +881,7 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
    try
    {
+      LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
       iface_->getTxRef(txHash);
       return true;
    }
@@ -2019,9 +2020,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 //
 uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 {
-   LMDBBlockDatabase::Batch batch(iface_, HEADERS);
-   LMDBBlockDatabase::Batch batch1(iface_, BLKDATA);
-      
    SCOPED_TIMER("readBlkFileUpdate");
 
    // Make sure the file exists and is readable
@@ -2125,6 +2123,9 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    // (which means we may be adding a couple blocks, the first of which
    // may appear valid but orphaned by later blocks -- that's okay as 
    // we'll just reverse it when we add the later block -- this is simpler)
+   LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
+   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA]);
+
    BinaryRefReader brr(newBlockDataRaw);
    BinaryData fourBytes(4);
    uint32_t nBlkRead = 0;
