@@ -1,0 +1,47 @@
+--- src/corelib/global/qglobal.cpp	2014-04-10 14:37:11.000000000 -0400
++++ src/corelib/global/qglobal.cpp	2014-08-05 15:10:15.000000000 -0400
+@@ -1185,6 +1185,7 @@
+     \value MV_10_7     OS X 10.7
+     \value MV_10_8     OS X 10.8
+     \value MV_10_9     OS X 10.9
++    \value MV_10_10    OS X 10.10
+     \value MV_Unknown  An unknown and currently unsupported platform
+ 
+     \value MV_CHEETAH  Apple codename for MV_10_0
+@@ -1197,6 +1198,7 @@
+     \value MV_LION     Apple codename for MV_10_7
+     \value MV_MOUNTAINLION Apple codename for MV_10_8
+     \value MV_MAVERICKS    Apple codename for MV_10_9
++    \value MV_YOSEMITE     Apple codename for MV_10_10
+ 
+     \sa WinVersion, SymbianVersion
+ */
+--- src/corelib/global/qglobal.h	2014-04-10 14:37:11.000000000 -0400
++++ src/corelib/global/qglobal.h	2014-08-05 15:20:16.000000000 -0400
+@@ -330,6 +330,9 @@
+ #  if !defined(MAC_OS_X_VERSION_10_9)
+ #       define MAC_OS_X_VERSION_10_9 MAC_OS_X_VERSION_10_8 + 1
+ #  endif
++#  if !defined(MAC_OS_X_VERSION_10_10)
++#       define MAC_OS_X_VERSION_10_10 MAC_OS_X_VERSION_10_9 + 1
++#  endif
+ #endif
+ 
+ #ifdef __LSB_VERSION__
+@@ -1630,6 +1633,7 @@
+         MV_10_7 = 0x0009,
+         MV_10_8 = 0x000A,
+         MV_10_9 = 0x000B,
++        MV_10_10 = 0x000C,
+ 
+         /* codenames */
+         MV_CHEETAH = MV_10_0,
+@@ -1642,6 +1646,7 @@
+         MV_LION = MV_10_7,
+         MV_MOUNTAINLION = MV_10_8,
+-        MV_MAVERICKS = MV_10_9
++        MV_MAVERICKS = MV_10_9,
++        MV_YOSEMITE = MV_10_10
+     };
+     static const MacVersion MacintoshVersion;
+ #endif
