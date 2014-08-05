@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 from pybtcengine import *
 from CppBlockUtils import BlockHeader    as CppBlockHeader
 from CppBlockUtils import BlockHeaderRef as CppBlockHeaderRef

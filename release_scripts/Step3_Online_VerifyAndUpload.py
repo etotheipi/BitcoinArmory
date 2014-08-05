@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 
 # This script doesn't actually do the verification stuff yet.  You should 
 # manually check, after this script completes, that signed_release_unpack:

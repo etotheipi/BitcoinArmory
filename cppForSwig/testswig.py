@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 ################################################################################
 #                                                                              #
 #  Copyright (C) 2011, Alan C. Reiner    <alan.reiner@gmail.com>               #
