@@ -1,4 +1,4 @@
-#! /usr/local/bin/python
+#! /usr/bin/python
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
