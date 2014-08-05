@@ -11,7 +11,7 @@ from PyQt4.Qt import QMessageBox, QPushButton, SIGNAL, QLabel, QLineEdit, Qt, \
 from armorycolors import Colors
 from armoryengine.ArmoryUtils import enum, str2coin, NegativeValueError, \
    TooMuchPrecisionError, LOGEXCEPT, coin2str, script_to_addrStr, \
-   addrStr_to_hash160, SCRADDR_P2PKH_BYTE, CheckHash160
+   addrStr_to_hash160, SCRADDR_P2PKH_BYTE, CheckHash160, binary_to_hex
 from armorymodels import WLTVIEWCOLS
 from qtdefines import QRichLabel, makeHorizFrame, GETFONT, tightSizeNChar, \
    initialColResize, makeVertFrame, saveTableView
@@ -22,7 +22,7 @@ from armoryengine.BDM import TheBDM
 
 
 DUSTCOLS = enum('chainIndex', 'AddrStr', 'Btc', )
-DEFAULT_DUST_LIMIT = 10000
+DEFAULT_DUST_LIMIT = 10000000
 MAX_DUST_LIMIT_STR = '0.00100000'
 
 class PluginObject(object):
@@ -51,43 +51,42 @@ class PluginObject(object):
 
       def sendDust():
          try:
+            utxiList = []
+            for utxo in self.dustTableModel.dustTxOutlist:
+               # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
+               rawTx = TheBDM.getTxByHash(utxo.getTxHash()).serialize()
+               a160 = CheckHash160(utxo.getRecipientScrAddr())
+               for pyAddr in self.dustTableModel.wlt.addrMap.values():
+                  if a160 == pyAddr.getAddr160():
+                     pubKey = pyAddr.binPublicKey65.toBinStr()
+                     txoIdx = utxo.getTxOutIndex()
+                     utxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
+                     break
+            # Make copies, destroy them in the finally clause
+            privKeyMap = {}
+            for addrObj in self.dustTableModel.wlt.addrMap.values():
+               scrAddr = SCRADDR_P2PKH_BYTE + addrObj.getAddr160()
+               if self.dustTableModel.wlt.useEncryption and self.dustTableModel.wlt.isLocked:
+                  # Target wallet is encrypted...
+                  unlockdlg = DlgUnlockWallet(self.dustTableModel.wlt,
+                        self.main, self.main, 'Unlock Wallet to Import')
+                  if not unlockdlg.exec_():
+                     QMessageBox.critical(self, 'Wallet is Locked', \
+                        'Cannot send dust without unlocking the wallet!', \
+                        QMessageBox.Ok)
+                     return
+               privKeyMap[scrAddr] = addrObj.binPrivKey32_Plain.copy()
+            signedTx = PyCreateAndSignTx(utxiList,
+                  [],
+                  privKeyMap, SIGHASH_NONE|SIGHASH_ANYONECANPAY )
             
-            try:
-               utxiList = []
-               for utxo in self.dustTableModel.dustTxOutlist:
-                  # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
-                  rawTx = TheBDM.getTxByHash(utxo.getTxHash()).serialize()
-                  a160 = CheckHash160(utxo.getRecipientScrAddr())
-                  for pyAddr in self.dustTableModel.pyAddrList:
-                     if a160 == pyAddr.getAddr160():
-                        pubKey = pyAddr.binPublicKey65.toBinStr()
-                        txoIdx = utxo.getTxOutIndex()
-                        utxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
-                        break
-               # Make copies, destroy them in the finally clause
-               privKeyMap = {}
-               for addrObj in self.dustTableModel.pyAddrList:
-                  scrAddr = SCRADDR_P2PKH_BYTE + addrObj.getAddr160()
-                  if self.dustTableModel.wlt.useEncryption and self.dustTableModel.wlt.isLocked:
-                     # Target wallet is encrypted...
-                     unlockdlg = DlgUnlockWallet(self.dustTableModel.wlt,
-                           self.main, self.main, 'Unlock Wallet to Import')
-                     if not unlockdlg.exec_():
-                        QMessageBox.critical(self, 'Wallet is Locked', \
-                           'Cannot send dust without unlocking the wallet!', \
-                           QMessageBox.Ok)
-                        return
-                  privKeyMap[scrAddr] = addrObj.binPrivKey32_Plain.copy()
-               signedTx = PyCreateAndSignTx(utxiList,
-                     [],
-                     privKeyMap, SIGHASH_NONE|SIGHASH_ANYONECANPAY )
-               sock = socket.create_connection(('dust-b-gone.bitcoin.petertodd.org',80))
-               sock.send(signedTx.serialize())
-               sock.send(b'\n')
-               sock.close()
-            finally:
-               for scraddr in privKeyMap:
-                  privKeyMap[scraddr].destroy()
+            print "-------------"
+            print binary_to_hex(signedTx.serialize())
+            
+            # sock = socket.create_connection(('dust-b-gone.bitcoin.petertodd.org',80))
+            # sock.send(signedTx.serialize())
+            # sock.send(b'\n')
+            # sock.close()
                   
 
          except socket.error as err:
@@ -102,7 +101,10 @@ class PluginObject(object):
                Bitcoins can only be specified down to 8 decimal places. 
                The smallest unit of a Bitcoin is 0.0000 0001 BTC. 
                Please enter a dust limit of at least 0.0000 0001 and less than %s.""" % MAX_DUST_LIMIT_STR), QMessageBox.Ok)
-
+         finally:
+            for scraddr in privKeyMap:
+               privKeyMap[scraddr].destroy()
+         
          
          
           
@@ -136,7 +138,7 @@ class PluginObject(object):
       self.dustTableView.verticalHeader().hide()
       h = tightSizeNChar(self.dustTableView, 1)[1]
       self.dustTableView.setMinimumHeight(2 * (1.3 * h))
-      self.dustTableView.setMaximumHeight(5 * (1.3 * h))
+      self.dustTableView.setMaximumHeight(10 * (1.3 * h))
       initialColResize(self.dustTableView, [100, .7, .3])
 
       self.dustTableView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -182,7 +184,6 @@ class DustDisplayModel(QAbstractTableModel):
       super(DustDisplayModel, self).__init__()
       self.wlt = None
       self.dustTxOutlist = []
-      self.pyAddrList = []
 
    def updateDustList(self, wlt, dustLimit):
       self.dustTxOutlist = []
@@ -204,7 +205,6 @@ class DustDisplayModel(QAbstractTableModel):
       txout = self.dustTxOutlist[row]
       addrStr = script_to_addrStr(txout.getScript())
       pyAddr = self.wlt.addrMap[addrStr_to_hash160(addrStr)[1]]
-      self.pyAddrList.append(pyAddr)
       chainIndex = pyAddr.chainIndex + 1
       if role==Qt.DisplayRole:
          if col==DUSTCOLS.chainIndex: return QVariant(chainIndex)
