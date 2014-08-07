@@ -4,8 +4,12 @@ from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget,\
 from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
    makeVertFrame
 from armoryengine.ArmoryUtils import addrStr_to_hash160, LOGINFO,\
-   BadAddressError
-
+   BadAddressError, binary_to_hex, coin2str
+# Find the best implementation available on this platform
+try:
+    from cStringIO import StringIO
+except:
+    from StringIO import StringIO
 
 class PluginObject(object):
 
@@ -24,10 +28,10 @@ class PluginObject(object):
                searchHash = addrStr_to_hash160(searchString)[1]
                for wltID, wlt in self.main.walletMap.iteritems():
                   if searchHash in wlt.addrMap:
-                     self.resultsDisplay.setText(wlt.addrMap[searchHash].toString())
+                     self.resultsDisplay.setText(self.getDisplayString(wlt, wlt.addrMap[searchHash]))
                      found = True
                      break
-            except:
+            except BadAddressError:
                self.resultsDisplay.setText("Search string is not a valid address")
                LOGINFO("Search String is not an addresss") 
             if not found:
@@ -59,8 +63,14 @@ class PluginObject(object):
       resultsDisplay.setMinimumHeight(h)
       resultsDisplay.setReadOnly(True)
       return resultsDisplay
-
-
+   
+   def getDisplayString(self, wlt, pyAddr):
+      result = StringIO()
+      print >>result, 'BTC Address :', pyAddr.getAddrStr()
+      print >>result, 'Hash160[BE] :', binary_to_hex(pyAddr.getAddr160())
+      print >>result, 'Ballance    :', coin2str(wlt.getAddrBalance(pyAddr.getAddr160()),rJust=False)
+      print >>result, 'Comment     :', wlt.getComment(pyAddr)
+      return result.getvalue()
       
 
    #############################################################################
