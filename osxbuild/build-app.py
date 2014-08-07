@@ -527,7 +527,7 @@ def compile_qt():
    # Completed bug fixes for modal windows.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
                cwd=qtBuildDir)
-   # Add OS X 10.10 support to Qt4.
+   # Add OS X 10.10 support to Qt4. (Can be removed when Qt 4.8.7 is released.)
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40612.patch'), \
                cwd=qtBuildDir)
    # For now, Qt requires a patch to compile on 10.10, and may require a more
