@@ -1467,12 +1467,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_getblock(self, blkhash):
+   def jsonrpc_getblock(self, blkhash, verbose='True'):
       """
       DESCRIPTION:
       Get the block associated with a given block hash.
       PARAMETERS:
       blkhash - A hex string representing the block to obtain.
+      verbose - (Default=True) If true, data regarding individual pieces of the
+                block is returned. If false, the raw block data is returned.
       RETURN:
       A dictionary listing information on the desired block, or empty if the
       block wasn't found.
@@ -1486,28 +1488,54 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not head:
          return {'error': 'header not found'}
       
-      out = {}
-      out['hash'] = blkhash
-      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
-      # TODO fix size. It returns max int, as does # Tx. They're never set.
-      # out['size'] = head.getBlockSize()
-      out['height'] = head.getBlockHeight()
-      out['time'] = head.getTimestamp()
-      out['nonce'] = head.getNonce()
-      out['difficulty'] = head.getDifficulty()
-      out['difficultysum'] = head.getDifficultySum()
-      out['mainbranch'] = head.isMainBranch()
-      out['bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
-      out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
-      out['version'] = head.getVersion()
-      out['rawheader'] = binary_to_hex(head.serialize())
+      if verbose.lower() == 'true':
+         out = {}
+         out['hash'] = blkhash
+         out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+         # TODO fix size. It returns max int, as does # Tx. They're never set.
+         # out['size'] = head.getBlockSize()
+         out['height'] = head.getBlockHeight()
+         out['version'] = head.getVersion()
+         out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
 
-      # TODO: Fix this part. getTxRefPtrList was never defined.
-      # txlist = head.getTxRefPtrList() 
-      # ntx = len(txlist)
-      # out['tx'] = ['']*ntx
-      # for i in range(ntx):
-      #    out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
+         # TODO: Fix this part. TxRef::getTxRefPtrList() was never defined.
+         #txlist = head.getTxRefPtrList() 
+         #ntx = len(txlist)
+         #out['tx'] = ['']*ntx
+         #for i in range(ntx):
+         #   out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
+
+         out['time'] = head.getTimestamp()
+         out['nonce'] = head.getNonce()
+         out['bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
+         out['difficulty'] = head.getDifficulty()
+
+         # Skip chainwork 'til chainwork data is put in the block header struct.
+         # The basic formula is as follows, as reverse engineered from BC Core.
+         # - For each block, convert the difficulty into an integer.
+         # - Divide 2^256 by the integer.
+         # - Add the result to the chainwork val of the previous block (or 0 if
+         #   calculating the genesis block's chainwork).
+         # - Add 0xF000F001 to the final result.
+         # - Output the result as a 32 byte, big endian integer string.
+
+         out['previousblockhash'] = binary_to_hex(head.getPrevHash(), BIGENDIAN)
+         out['nextblockhash'] = binary_to_hex(head.getNextHash(), BIGENDIAN)
+         out['difficultysum'] = head.getDifficultySum()
+         out['mainbranch'] = head.isMainBranch()
+         out['rawheader'] = binary_to_hex(head.serialize())
+
+      # bitcoind sends a raw block when not verbose. The C++ BlockHeader class
+      # still needs to implement TxRef::getTxRefPtrList(). Until then, we can't
+      # return a raw block.
+      elif verbose.lower() == 'false':
+         out = {}
+         out['Error'] = 'Raw Tx data is not available yet.'
+         #out = TheBDM.getBlockByHash(hex_to_binary(hex_switchEndian(blkhash)))
+      else:
+         out = {}
+         out['Error'] = '\"Verbose\" variable (%s) must be \"True\" or ' \
+                        '\"False\"' % verbose
 
       return out
 
