@@ -18,7 +18,7 @@ void ScrAddrScanData::getScrAddrCurrentSyncState(
 {
    //grab SSH for scrAddr
    StoredScriptHistory ssh;
-   bdmPtr_->getIFace()->getStoredScriptHistorySummary(ssh, scrAddr);
+   lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
 
    //update scrAddrData lowest scanned block
    setScrAddrLastScanned(scrAddr, ssh.alreadyScannedUpToBlk_);
@@ -35,11 +35,10 @@ void ScrAddrScanData::getScrAddrCurrentSyncState(
 ///////////////////////////////////////////////////////////////////////////////
 map<BinaryData, map<BinaryData, TxIOPair> >
 ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
-const BinaryData & ZCkey,
-LMDBBlockDatabase* db,
-uint32_t txtime,
-const ZeroConfContainer *zcd,
-bool withSecondOrderMultisig) const
+   const BinaryData & ZCkey,
+   uint32_t txtime,
+   const ZeroConfContainer *zcd,
+   bool withSecondOrderMultisig) const
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -68,8 +67,7 @@ bool withSecondOrderMultisig) const
             TxIOPair txio(outPointRef, outPointId,
                TxRef(ZCkey), iin);
 
-            Tx chainedZC;
-            zcd->getTxByHash(op.getTxHash(), chainedZC);
+            Tx chainedZC = zcd->getTxByHash(op.getTxHash());
 
             const TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
 
@@ -88,14 +86,16 @@ bool withSecondOrderMultisig) const
 
 
       //fetch the TxOut from DB
-      BinaryData opKey = op.getDBkey(db);
+      BinaryData opKey = op.getDBkey(lmdb_);
       if (opKey.getSize() == 8)
       {
          //found outPoint DBKey, grab the StoredTxOut
          StoredTxOut stxOut;
-         if (db->getStoredTxOut(stxOut,
-            WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA) +
-            opKey))
+         if (lmdb_->getStoredTxOut(
+               stxOut,
+               WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA) + opKey
+            )
+         )
          {
             if (stxOut.isSpent() == true)
             {
@@ -173,21 +173,21 @@ bool withSecondOrderMultisig) const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::setSSHLastScanned(LMDBBlockDatabase* db, uint32_t height)
+void ScrAddrScanData::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDB::Transaction batch(&db->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA]);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
-      db->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
+      lmdb_->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
       if (!ssh.isInitialized())
          ssh.uniqueKey_ = scrAddrPair.first;
 
       ssh.alreadyScannedUpToBlk_ = height;
 
-      db->putStoredScriptHistory(ssh);
+      lmdb_->putStoredScriptHistory(ssh);
    }
 }
 
@@ -202,10 +202,10 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 
    //check if the BDM is initialized. There ought to be a better way than
    //checking the top block
-   if (bdmPtr_->isRunning() == true)
+   if (bdmIsRunning())
    {
       //BDM is initialized and maintenance thread is running, check mode
-      if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
+      if (armoryDbType_ == ARMORY_DB_SUPER)
       {
          //supernode: nothing to do, signal the wallet that its scrAddr is ready
          wltPtr->preloadScrAddr(scrAddr);
@@ -214,13 +214,11 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
       }
 
       //check DB for the scrAddr's SSH
-      LMDBBlockDatabase *db = bdmPtr_->getIFace();
-
       StoredScriptHistory ssh;
-      db->getStoredScriptHistorySummary(ssh, scrAddr);
+      lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
 
       uint32_t startBlock = max(sa.getFirstBlockNum(), ssh.alreadyScannedUpToBlk_);
-      ScrAddrScanData* sca = new ScrAddrScanData(bdmPtr_);
+      ScrAddrScanData* sca = copy();
       sca->setParent(this);
       sca->regScrAddrForScan(scrAddr, startBlock, wltPtr);
       sca->scanScrAddrMapInNewThread();
@@ -237,43 +235,40 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void* scanScrAddrThread(void *in)
+void* ScrAddrScanData::scanScrAddrThread(void *in)
 {
    ScrAddrScanData* sasd = static_cast<ScrAddrScanData*>(in);
 
-   BlockDataManager_LevelDB* bdmPtr = sasd->getBDM();
    uint32_t startBlock = sasd->scanFrom();
-   uint32_t endBlock = bdmPtr->blockchain().top().getBlockHeight() + 1;
+   uint32_t endBlock = sasd->currentTopBlockHeight()+1;
 
    while (startBlock < endBlock)
    {
       //ADD MECHANISM TO DETECT REORGS
-      bdmPtr->applyBlockRangeToDB(startBlock, endBlock, sasd);
+      sasd->applyBlockRangeToDB(startBlock, endBlock);
 
       startBlock = endBlock;
-      endBlock = bdmPtr->blockchain().top().getBlockHeight() + 1;
+      endBlock = sasd->currentTopBlockHeight()+1;
    }
 
-   sasd->setSSHLastScanned(bdmPtr->getIFace(), endBlock);
+   sasd->setSSHLastScanned(endBlock);
 
    //merge with main ScrAddrScanData object
    sasd->merge();
 
    //notify the wallets that the scrAddr are ready
-   BtcWallet* wltPtr;
-   for (auto scrAddrPair : sasd->getScrAddrMap())
+   for (auto& scrAddrPair : sasd->getScrAddrMap())
    {
-      wltPtr = scrAddrPair.second.wltPtr_;
+      BtcWallet* const wltPtr = scrAddrPair.second.wltPtr_;
 
       //make sure the wallet is still loaded
-      if (bdmPtr->hasWallet(wltPtr))
-         wltPtr->preloadScrAddr(scrAddrPair.first);
+      sasd->preloadScrAddr(scrAddrPair.first, wltPtr);
    }
 
    //clean up
    delete sasd;
 
-   return 0;
+   return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,7 +287,7 @@ void ScrAddrScanData::merge()
    main ScrAddrScanData
    ***/
 
-   if (parent_ != nullptr)
+   if (parent_)
    {
       //grab merge lock
       while (parent_->mergeLock_.fetch_or(1, memory_order_acquire));
@@ -331,16 +326,16 @@ void ScrAddrScanData::checkForMerge()
    if (mergeFlag_ == true)
    {
       //rescan last 100 blocks to account for new blocks and reorgs
-      ScrAddrScanData sca(bdmPtr_);
-      sca.scrAddrMap_ = scrAddrMapToMerge_;
-      sca.UTxO_ = UTxOToMerge_;
+      std::shared_ptr<ScrAddrScanData> sca( copy() );
+      sca->scrAddrMap_ = scrAddrMapToMerge_;
+      sca->UTxO_ = UTxOToMerge_;
 
-      sca.blockHeightCutOff_ = blockHeightCutOff_;
-      uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight();
+      sca->blockHeightCutOff_ = blockHeightCutOff_;
+      uint32_t topBlock = currentTopBlockHeight();
       uint32_t startBlock = topBlock - 100;
       if (topBlock < 100)
          startBlock = 0;
-      bdmPtr_->applyBlockRangeToDB(startBlock, topBlock + 1, &sca);
+      applyBlockRangeToDB(startBlock, topBlock + 1);
 
       //grab merge lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
@@ -373,17 +368,14 @@ BinaryData ZeroConfContainer::getNewZCkey()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::getTxByHash(const BinaryData& txHash, Tx& tx) const
+Tx ZeroConfContainer::getTxByHash(const BinaryData& txHash) const
 {
    const auto keyIter = txHashToDBKey_.find(txHash);
 
-   if (ITER_IN_MAP(keyIter, txHashToDBKey_))
-   {
-      tx = txMap_.find(keyIter->second)->second;
-      return true;
-   }
+   if (keyIter == txHashToDBKey_.end())
+      throw runtime_error("Could not find ZC Tx by hash " + txHash.toHexStr());
 
-   return false;
+   return txMap_.find(keyIter->second)->second;
 }
 ///////////////////////////////////////////////////////////////////////////////
 bool ZeroConfContainer::hasTxByHash(const BinaryData& txHash) const
@@ -415,12 +407,11 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, vector<BinaryData> > 
-ZeroConfContainer::purge(LMDBBlockDatabase *db)
+map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge()
 {
-   map<BinaryData, vector<BinaryData> > invalidatedKeys;
+   map<BinaryData, vector<BinaryData>> invalidatedKeys;
 
-   if (db == nullptr)
+   if (!scrAddrDataPtr_->lmdb())
       return invalidatedKeys;
 
    /***
@@ -447,7 +438,7 @@ ZeroConfContainer::purge(LMDBBlockDatabase *db)
    {
       const BinaryData& txHash = ZCPair.second.getThisHash();
 
-      if (scrAddrDataPtr_ != nullptr)
+      if (scrAddrDataPtr_)
       {
          BinaryData ZCkey;
 
@@ -457,13 +448,15 @@ ZeroConfContainer::purge(LMDBBlockDatabase *db)
          else ZCkey = getNewZCkey();
 
          map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
-            scrAddrDataPtr_->ZCisMineBulkFilter(ZCPair.second,
-            ZCkey, db,
-            ZCPair.second.getTxTime(),
-            this);
+            scrAddrDataPtr_->ZCisMineBulkFilter(
+               ZCPair.second,
+               ZCkey,
+               ZCPair.second.getTxTime(),
+               this
+            );
 
          //if a relevant ZC was found, add it to our map
-         if (newTxIO.size() > 0)
+         if (!newTxIO.empty())
          {
             txHashToDBKey[txHash] = ZCkey;
             txMap[ZCPair.first] = ZCPair.second;
@@ -536,7 +529,7 @@ ZeroConfContainer::purge(LMDBBlockDatabase *db)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::parseNewZC(LMDBBlockDatabase *db)
+bool ZeroConfContainer::parseNewZC()
 {
    /***
    ZC transcations are pushed to the BDM by another thread (usually the thread
@@ -565,7 +558,7 @@ bool ZeroConfContainer::parseNewZC(LMDBBlockDatabase *db)
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDB::Transaction batch(&db->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&scrAddrDataPtr_->lmdb()->dbs_[BLKDATA]);
 
    while (1)
    {
@@ -579,14 +572,15 @@ bool ZeroConfContainer::parseNewZC(LMDBBlockDatabase *db)
 
          //LOGWARN << "new ZC transcation: " << txHash.toHexStr();
 
-         if (scrAddrDataPtr_ != nullptr)
+         if (scrAddrDataPtr_)
          {
             map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
                scrAddrDataPtr_->ZCisMineBulkFilter(newZCPair.second,
-               newZCPair.first, db,
-               newZCPair.second.getTxTime(),
-               this);
-            if (newTxIO.size() > 0)
+                  newZCPair.first,
+                  newZCPair.second.getTxTime(),
+                  this
+               );
+            if (!newTxIO.empty())
             {
                txHashToDBKey_[txHash] = newZCPair.first;
                txMap_[newZCPair.first] = newZCPair.second;
@@ -666,3 +660,4 @@ ZeroConfContainer::getNewTxioMap()
    return newZcTxioCopy;
 }
 
+// kate: indent-width 3; replace-tabs on;

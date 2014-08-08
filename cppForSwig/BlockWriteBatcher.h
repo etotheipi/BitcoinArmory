@@ -62,3 +62,4 @@ private:
 
 
 #endif
+// kate: indent-width 3; replace-tabs on;

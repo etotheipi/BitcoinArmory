@@ -132,8 +132,9 @@ private:
    bool                               corruptHeadersDB_;
    int32_t                            lastScannedBlock_;
 
-   ScrAddrScanData                    scrAddrData_;
-   ZeroConfContainer                  ZeroConfCont_;
+   class BDM_ScrAddrScanData;
+   shared_ptr<BDM_ScrAddrScanData>    scrAddrData_;
+   shared_ptr<ZeroConfContainer>      zeroConfCont_;
 
 private:
   
@@ -171,10 +172,6 @@ private:
    //map<OutPoint,   TxIOPair>          txioMap_;
 
    Blockchain blockchain_;
-   
-   //simplistic flag to let the scrAddrData know if the BDM started loading up
-   //the blockchain
-   bool isRunning_;
    
 public:
    BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
@@ -320,7 +317,7 @@ private:
    void addRawBlockToDB(BinaryRefReader & brr);
 public:
    void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX,
-      ScrAddrScanData* scrAddrData = NULL);
+      ScrAddrScanData* scrAddrData = nullptr);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -436,28 +433,15 @@ public:
    /*vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey,
                                          bool withMultisig = false) const;*/
 
-   ScrAddrScanData* getScrAddrScanData(void)
-   {
-      if (config_.armoryDbType != ARMORY_DB_SUPER)
-         return &scrAddrData_;
-
-      return nullptr;
-   }
-
-   bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr=nullptr)
-   {
-      return scrAddrData_.registerScrAddr(sa, wltPtr);
-   }
+   bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr=nullptr);
 
    map<BinaryData, map<BinaryData, TxIOPair> >
-      getNewZeroConfTxIOMap(void)
-   { return ZeroConfCont_.getNewTxioMap(); }
+      getNewZeroConfTxIOMap() const
+   { return zeroConfCont_->getNewTxioMap(); }
 
    const map<BinaryData, map<BinaryData, TxIOPair> >&
-      getFullZeroConfTxIOMap(void) const
-   { return ZeroConfCont_.getFullTxioMap(); }
-
-   bool isRunning(void) { return isRunning_; }
+      getFullZeroConfTxIOMap() const
+   { return zeroConfCont_->getFullTxioMap(); }
 };
 
 

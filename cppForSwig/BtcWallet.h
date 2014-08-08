@@ -55,15 +55,7 @@ class BtcWallet
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm)
       : bdmPtr_(bdm),
-      lastScanned_(0),
-      ignoreLastScanned_(true),
-      isInitialized_(false),
-      isRegistered_(false),
-      mergeLock_(0),
-      mergeFlag_(false),
-      txioDensity_(0),
-      txnPerPage_(100),
-      histBottomHeight_(0)
+      mergeLock_(0)
    {}
    ~BtcWallet(void);
 
@@ -214,31 +206,31 @@ private:
    BlockDataManager_LevelDB*const      bdmPtr_;
    map<BinaryData, ScrAddrObj>         scrAddrMap_;
    
-   bool                                ignoreLastScanned_;
+   bool                                ignoreLastScanned_=true;
    vector<LedgerEntry>                 ledgerAllAddr_;
    
    // just a null-reference object
    static vector<LedgerEntry>          EmptyLedger_; 
 
    bool                                isInitialized_;
-   bool                                isRegistered_;
+   bool                                isRegistered_=false;
 
-   uint32_t                            lastScanned_;
+   uint32_t                            lastScanned_=0;
 
    BtcWallet(const BtcWallet&); // no copies
 
    atomic<uint32_t>                    mergeLock_;
    map<BinaryData, ScrAddrObj>         scrAddrMapToMerge_;
-   bool                                mergeFlag_;
+   bool                                mergeFlag_=false;
    
    //rough estimate of TxIOs per block
-   float                               txioDensity_;
+   float                               txioDensity_=0.0;
 
    //target txn history per page
-   uint32_t                            txnPerPage_;
+   uint32_t                            txnPerPage_=100;
 
    //block height from which the history has been loaded
-   uint32_t                            histBottomHeight_;
+   uint32_t                            histBottomHeight_=0;
 
    //manages history pages
    HistoryPages histPages_;

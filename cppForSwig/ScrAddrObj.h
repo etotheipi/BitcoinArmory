@@ -177,7 +177,7 @@ public:
    uint64_t getTxioCount(void) const { return totalTxioCount_; }
    uint64_t getTxioCountFromSSH(void) const;
 
-   void mapHistory(void)
+   void mapHistory()
    { hist_.mapScrAddrHistory(db_, scrAddr_, txnPerPage_); }
 
    const map<uint32_t, uint32_t>& getHistSSHsummary(void) const

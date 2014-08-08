@@ -323,6 +323,51 @@ public:
    }
 };
 
+class BlockDataManager_LevelDB::BDM_ScrAddrScanData : public ScrAddrScanData
+{
+   BlockDataManager_LevelDB *const bdm_;
+   bool isRunning_=false;
+   
+public:
+   BDM_ScrAddrScanData(BlockDataManager_LevelDB *bdm)
+      : ScrAddrScanData(bdm->getIFace(), bdm->config().armoryDbType)
+      , bdm_(bdm)
+   {
+   
+   }
+   
+   void setRunning(bool running)
+   {
+      isRunning_ = running;
+   }
+   
+protected:
+   virtual bool bdmIsRunning() const
+   {
+      return isRunning_;
+   }
+   
+   virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)
+   {
+      bdm_->applyBlockRangeToDB(startBlock, endBlock, this);
+   }
+   
+   virtual uint32_t currentTopBlockHeight() const
+   {
+      return bdm_->blockchain().top().getBlockHeight();
+   }
+   virtual void preloadScrAddr(const BinaryData &addr, BtcWallet *wallet)
+   {
+      if (bdm_->hasWallet(wallet))
+         wallet->preloadScrAddr(addr);
+   }
+   
+   virtual BDM_ScrAddrScanData *copy()
+   {
+      return new BDM_ScrAddrScanData(bdm_);
+   }
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -335,10 +380,10 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    : config_(bdmConfig)
    , iface_(new LMDBBlockDatabase)
    , blockchain_(config_.genesisBlockHash)
-   , scrAddrData_(this)
-   , ZeroConfCont_(&scrAddrData_)
-   , isRunning_(false)
 {
+   scrAddrData_.reset( new BDM_ScrAddrScanData(this) );
+   zeroConfCont_.reset( new ZeroConfContainer(scrAddrData_.get()) );
+
    LOGINFO << "Set home directory: " << config_.homeDirLocation;
    LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
    LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
@@ -848,10 +893,7 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
-      Tx tx;
-      ZeroConfCont_.getTxByHash(txhash, tx);
-
-      return tx;
+      return zeroConfCont_->getTxByHash(txhash);
    }
 }
 
@@ -861,7 +903,7 @@ TX_AVAILABILITY BlockDataManager_LevelDB::getTxHashAvail(BinaryDataRef txHash)
 {
    if(getTxRefByHash(txHash).isNull())
    {
-      if (!ZeroConfCont_.hasTxByHash(txHash))
+      if (!zeroConfCont_->hasTxByHash(txHash))
          return TX_DNE;  // No tx at all
       else
          return TX_ZEROCONF;  // Zero-conf tx
@@ -1628,7 +1670,9 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 )
 {
    missingBlockHashes_.clear();
-   isRunning_ = true; //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
+
+   //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
+   scrAddrData_->setRunning(true);
 
    SCOPED_TIMER("buildAndScanDatabases");
 
@@ -1651,7 +1695,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       forceRescan = true;
       skipFetch = true;
       destroyAndResetDatabases();
-      scrAddrData_.reset();
+      scrAddrData_->clear();
    }
 
    // If we're going to be rescanning, reset the wallets
@@ -1661,13 +1705,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       skipFetch = true;
       deleteHistories();
       resetRegisteredWallets();
-      scrAddrData_.reset();
+      scrAddrData_->clear();
    }
 
    if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan && !skipFetch)
    {
-      LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_.numScrAddr() << " registered addresses";
-      scrAddrData_.getScrAddrCurrentSyncState();
+      LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_->numScrAddr() << " registered addresses";
+      scrAddrData_->getScrAddrCurrentSyncState();
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -1745,11 +1789,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    {
       TIMER_START("applyBlockRangeToDB");
 
-      if (scrAddrData_.numScrAddr() > 0)
-         applyBlockRangeToDB(scrAddrData_.scanFrom(),
-                             blockchain_.top().getBlockHeight() + 1,
-                             &scrAddrData_);
-      scrAddrData_.setSSHLastScanned(iface_, blockchain_.top().getBlockHeight());
+      if (scrAddrData_->numScrAddr() > 0)
+         applyBlockRangeToDB(scrAddrData_->scanFrom(),
+                             blockchain_.top().getBlockHeight() + 1);
+      scrAddrData_->setSSHLastScanned(blockchain_.top().getBlockHeight());
 
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
@@ -1831,117 +1874,116 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    try
    {
 
-   // It turns out that this streambuffering is probably not helping, but
-   // it doesn't hurt either, so I'm leaving it alone
-   while(bsb.streamPull())
-   {
-      while(bsb.reader().getSizeRemaining() >= 8)
+      // It turns out that this streambuffering is probably not helping, but
+      // it doesn't hurt either, so I'm leaving it alone
+      while(bsb.streamPull())
       {
-         
-         if(!alreadyRead8B)
+         while(bsb.reader().getSizeRemaining() >= 8)
          {
-            bsb.reader().get_BinaryData(firstFour, 4);
-            if(firstFour!=config_.magicBytes)
-            {
-               isEOF = true; 
-               break;
-            }
-            nextBlkSize = bsb.reader().get_uint32_t();
-            bytesReadSoFar_ += 8;
-            locInBlkFile += 8;
-         }
-
-         if(bsb.reader().getSizeRemaining() < nextBlkSize)
-         {
-            alreadyRead8B = true;
-            break;
-         }
-         alreadyRead8B = false;
-
-         BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
-         
-         try
-         {
-            addRawBlockToDB(brr);
-         }
-         catch (BlockDeserializingException &e)
-         {
-            LOGERR << e.what() << " (error encountered processing block at byte "
-               << locInBlkFile << " file "
-               << blkfile << ", blocksize " << nextBlkSize
-               << ", top=" << blockchain_.top().getBlockHeight() << ")";
-            failedAttempts++;
             
-            if (failedAttempts >= 4)
+            if(!alreadyRead8B)
             {
-               // It looks like this file is irredeemably corrupt
-               LOGERR << "Giving up searching " << blkfile
-                  << " after having found 4 block headers with unparseable contents";
-               breakbreak=true;
+               bsb.reader().get_BinaryData(firstFour, 4);
+               if(firstFour!=config_.magicBytes)
+               {
+                  isEOF = true; 
+                  break;
+               }
+               nextBlkSize = bsb.reader().get_uint32_t();
+               bytesReadSoFar_ += 8;
+               locInBlkFile += 8;
+            }
+
+            if(bsb.reader().getSizeRemaining() < nextBlkSize)
+            {
+               alreadyRead8B = true;
                break;
             }
+            alreadyRead8B = false;
+
+            BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
             
-            uint32_t bytesSkipped;
-            const bool next = scanForMagicBytes(bsb, config_.magicBytes, &bytesSkipped);
-            if (!next)
+            try
             {
-               LOGERR << "Could not find another block in the file";
-               breakbreak=true;
+               addRawBlockToDB(brr);
+            }
+            catch (BlockDeserializingException &e)
+            {
+               LOGERR << e.what() << " (error encountered processing block at byte "
+                  << locInBlkFile << " file "
+                  << blkfile << ", blocksize " << nextBlkSize
+                  << ", top=" << blockchain_.top().getBlockHeight() << ")";
+               failedAttempts++;
+               
+               if (failedAttempts >= 4)
+               {
+                  // It looks like this file is irredeemably corrupt
+                  LOGERR << "Giving up searching " << blkfile
+                     << " after having found 4 block headers with unparseable contents";
+                  breakbreak=true;
+                  break;
+               }
+               
+               uint32_t bytesSkipped;
+               const bool next = scanForMagicBytes(bsb, config_.magicBytes, &bytesSkipped);
+               if (!next)
+               {
+                  LOGERR << "Could not find another block in the file";
+                  breakbreak=true;
+                  break;
+               }
+               else
+               {
+                  locInBlkFile += bytesSkipped;
+                  LOGERR << "Found another block header at " << locInBlkFile;
+               }
+
+               continue;
+            }
+            dbUpdateSize += nextBlkSize;
+
+            if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
+            {
+               dbUpdateSize = 0;
+               batchB.commit();
+               batchB.begin();
+               batchH.commit();
+               batchH.begin();
+            }
+
+            blocksReadSoFar_++;
+            bytesReadSoFar_ += nextBlkSize;
+            locInBlkFile += nextBlkSize;
+            bsb.reader().advance(nextBlkSize);
+
+            progress(is.tellg());
+
+            // Don't read past the last header we processed (in case new 
+            // blocks were added since we processed the headers
+            if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
+            {
+               breakbreak = true;
                break;
             }
-            else
-            {
-               locInBlkFile += bytesSkipped;
-               LOGERR << "Found another block header at " << locInBlkFile;
-            }
-
-            continue;
-         }
-         dbUpdateSize += nextBlkSize;
-
-         if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
-         {
-            dbUpdateSize = 0;
-            batchB.commit();
-            batchB.begin();
-            batchH.commit();
-            batchH.begin();
          }
 
-         blocksReadSoFar_++;
-         bytesReadSoFar_ += nextBlkSize;
-         locInBlkFile += nextBlkSize;
-         bsb.reader().advance(nextBlkSize);
 
-         progress(is.tellg());
-
-         // Don't read past the last header we processed (in case new 
-         // blocks were added since we processed the headers
-         if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
-         {
-            breakbreak = true;
+         if(isEOF || breakbreak)
             break;
-         }
       }
-
-
-      if(isEOF || breakbreak)
-         break;
    }
-
-      }
-      catch (LMDBException e)
-      {
-         LOGERR << "LMDB exception: " << e.what();
-      }
-      catch (NoValue e)
-      {
-         LOGERR << "NoValue exception: " << e.what();
-      }
-      catch (...)
-      {
-         LOGERR << "Unknown exception";
-      }
+   catch (NoValue& e)
+   {
+      LOGERR << "NoValue exception: " << e.what();
+   }
+   catch (LMDBException& e)
+   {
+      LOGERR << "LMDB exception: " << e.what();
+   }
+   catch (...)
+   {
+      LOGERR << "Unknown exception";
+   }
 
 }
 
@@ -2116,7 +2158,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    }
 
    //
-   scrAddrData_.checkForMerge();
+   scrAddrData_->checkForMerge();
 
    // Walk through each of the new blocks, adding each one to RAM and DB
    // Do a full update of everything after each block, for simplicity
@@ -2167,7 +2209,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          {
             LOGWARN << "Blockchain Reorganization detected!";
             ReorgUpdater reorg(state, &blockchain_, iface_, config_, 
-               getScrAddrScanData());
+               scrAddrData_.get());
             
             prevTopBlk = state.reorgBranchPoint->getBlockHeight();
          }
@@ -2180,7 +2222,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             LOGINFO << "Applying block to DB!";
             BlockWriteBatcher batcher(config_, iface_);
             
-            batcher.applyBlockToDB(hgt, dup, getScrAddrScanData());
+            batcher.applyBlockToDB(hgt, dup, scrAddrData_.get());
          }
          else
          {
@@ -2568,9 +2610,9 @@ void BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    SCOPED_TIMER("addNewZeroConfTx");
 
    if(txtime==0)
-      txtime = (uint32_t)time(NULL);
+      txtime = (uint32_t)time(nullptr);
 
-   ZeroConfCont_.addRawTx(rawTx, txtime);
+   zeroConfCont_->addRawTx(rawTx, txtime);
    rescanZC_ = true;
 
    //return false;
@@ -2597,12 +2639,12 @@ void BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::purgeZeroConfPool(void)
+void BlockDataManager_LevelDB::purgeZeroConfPool()
 {
-   map<BinaryData, vector<BinaryData> > invalidatedTxIOKeys = 
-                                        ZeroConfCont_.purge(iface_);
+   const map<BinaryData, vector<BinaryData> > invalidatedTxIOKeys
+      = zeroConfCont_->purge();
 
-   for (auto wltPtr : registeredWallets_)
+   for (auto& wltPtr : registeredWallets_)
    {
       wltPtr->purgeZeroConfTxIO(invalidatedTxIOKeys);
    }
@@ -2818,6 +2860,11 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
 
 bool BlockDataManager_LevelDB::parseNewZeroConfTx()
 {
-   return ZeroConfCont_.parseNewZC(iface_);
+   return zeroConfCont_->parseNewZC();
+}
+bool BlockDataManager_LevelDB::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
+{
+   return scrAddrData_->registerScrAddr(sa, wltPtr);
 }
 
+// kate: indent-width 3; replace-tabs on;

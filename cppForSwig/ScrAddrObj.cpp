@@ -233,7 +233,8 @@ void ScrAddrObj::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/*BinaryData ScrAddrObj::getLedgerKey(const BinaryData& DBkey, 
+#if 0
+BinaryData ScrAddrObj::getLedgerKey(const BinaryData& DBkey, 
                                     bool isTxOut) const
 {
    /***converts DBkey to Ledger key.
@@ -263,7 +264,7 @@ void ScrAddrObj::updateAfterReorg(uint32_t lastValidBlockHeight)
    This method has no effect on TxOut DBkeys.
    ***/
 
-/*   if (!isTxOut && DBkey.getSize()==8)
+   if (!isTxOut && DBkey.getSize()==8)
    {
       BinaryData LedgerKey = DBkey;
       
@@ -274,7 +275,9 @@ void ScrAddrObj::updateAfterReorg(uint32_t lastValidBlockHeight)
    }
 
    return DBkey;
-}*/
+}
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::updateLedgers(map<BinaryData, LedgerEntry>& myLedger,

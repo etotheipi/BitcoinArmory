@@ -67,14 +67,10 @@ public:
       scrAddrMap_ is a map so it can only have meta per scrAddr. This means
       only 1 wallet can be registered per post BDM init address scan.
       ***/
-      uint32_t lastScannedHeight_;
-      BtcWallet* wltPtr_;
+      uint32_t lastScannedHeight_=0;
+      BtcWallet* wltPtr_=nullptr;
 
-      ScrAddrMeta(void) :
-         lastScannedHeight_(0),
-         wltPtr_(nullptr) {}
-
-      ScrAddrMeta(uint32_t height, BtcWallet* wltPtr = nullptr) :
+      ScrAddrMeta(uint32_t height=0, BtcWallet* wltPtr = nullptr) :
          lastScannedHeight_(height),
          wltPtr_(wltPtr) {}
    };
@@ -85,15 +81,16 @@ private:
    map<BinaryData, ScrAddrMeta>   scrAddrMap_;
 
    set<BinaryData>                UTxO_;
-   mutable uint32_t               blockHeightCutOff_;
-   BlockDataManager_LevelDB*      bdmPtr_;
+   mutable uint32_t               blockHeightCutOff_=0;
+   LMDBBlockDatabase *const       lmdb_;
+   const ARMORY_DB_TYPE           armoryDbType_;
 
    //
    ScrAddrScanData*               parent_;
    set<BinaryData>                UTxOToMerge_;
    map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
    atomic<int32_t>                mergeLock_;
-   bool                           mergeFlag_;
+   bool                           mergeFlag_=false;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
@@ -107,12 +104,13 @@ private:
    }
 
 public:
-   ScrAddrScanData(BlockDataManager_LevelDB* bdmPtr) :
-      bdmPtr_(bdmPtr),
-      blockHeightCutOff_(0),
-      mergeLock_(0),
-      mergeFlag_(false)
+   ScrAddrScanData(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
+      : lmdb_(lmdb), armoryDbType_(armoryDbType), mergeLock_(0)
    {}
+   
+   virtual ~ScrAddrScanData() { }
+   
+   LMDBBlockDatabase* lmdb() { return lmdb_; }
 
    const map<BinaryData, ScrAddrMeta>& getScrAddrMap(void) const
    {
@@ -147,7 +145,7 @@ public:
       scrAddrMap_.erase(scrAddrIn);
    }
 
-   void reset()
+   void clear()
    {
       checkForMerge();
       UTxO_.clear();
@@ -204,12 +202,12 @@ public:
 
    map<BinaryData, map<BinaryData, TxIOPair> >
       ZCisMineBulkFilter(const Tx & tx,
-      const BinaryData& ZCkey, LMDBBlockDatabase *db,
+      const BinaryData& ZCkey,
       uint32_t txtime,
       const ZeroConfContainer *zcd,
       bool withSecondOrderMultisig = true) const;
 
-   void setSSHLastScanned(LMDBBlockDatabase *db, uint32_t height);
+   void setSSHLastScanned(uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom,
       BtcWallet* wltPtr)
@@ -219,11 +217,19 @@ public:
 
    void scanScrAddrMapInNewThread(void);
 
-   BlockDataManager_LevelDB* getBDM(void) const { return bdmPtr_; }
-
    void setParent(ScrAddrScanData* sca) { parent_ = sca; }
    void merge(void);
    void checkForMerge(void);
+
+protected:
+   virtual bool bdmIsRunning() const=0;
+   virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)=0;
+   virtual uint32_t currentTopBlockHeight() const=0;
+   virtual void preloadScrAddr(const BinaryData &addr, BtcWallet *wallet)=0;
+   virtual ScrAddrScanData *copy()=0;
+   
+private:
+   static void* scanScrAddrThread(void *in);
 };
 
 class ZeroConfContainer
@@ -290,16 +296,16 @@ public:
    void addRawTx(const BinaryData& rawTx, uint32_t txtime);
 
    bool hasTxByHash(const BinaryData& txHash) const;
-   bool getTxByHash(const BinaryData& txHash, Tx& tx) const;
+   Tx getTxByHash(const BinaryData& txHash) const;
 
-   map<BinaryData, vector<BinaryData> > purge(LMDBBlockDatabase *db);
+   map<BinaryData, vector<BinaryData> > purge();
 
    map<HashString, map<BinaryData, TxIOPair> > getNewTxioMap(void);
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 
 
-   bool parseNewZC(LMDBBlockDatabase* db);
+   bool parseNewZC();
    //bool setNewZC(void);
    //bool hasNewZC(void);
 
@@ -307,3 +313,4 @@ public:
 };
 
 #endif
+// kate: indent-width 3; replace-tabs on;

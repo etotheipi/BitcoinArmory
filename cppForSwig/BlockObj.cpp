@@ -898,6 +898,7 @@ TxOut TxIOPair::getTxOutCopy(LMDBBlockDatabase *db) const
       return txRefOfOutput_.attached(db).getTxOutCopy(indexOfOutput_);
    /*else
       return getTxOutZC();*/
+   throw runtime_error("Has not TxOutCopy");
 }
 
 
@@ -911,6 +912,7 @@ TxIn TxIOPair::getTxInCopy(LMDBBlockDatabase *db) const
       return txRefOfInput_.attached(db).getTxInCopy(indexOfInput_);
    /*else
       return getTxInZC();*/
+   throw runtime_error("Has not TxInCopy");
 }
 
 

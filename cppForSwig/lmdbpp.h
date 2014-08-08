@@ -6,7 +6,7 @@
 #include <deque>
 #include <vector>
 #include <atomic>
-#include <map>
+#include <unordered_map>
 #include <pthread.h>
 
 
@@ -66,7 +66,15 @@ private:
    unsigned int dbi;
 
    //one mother-txn per thread
-   std::map<pthread_t, Transaction> txn_;
+   struct ThreadTxInfo
+   {
+      MDB_txn *txn_=nullptr;
+
+      std::deque<Iterator*> iterators_;
+      unsigned transactionLevel_=0;
+   };
+   
+   std::unordered_map<pthread_t, ThreadTxInfo> txForThreads_;
       
    friend class Iterator;   
 
@@ -80,10 +88,10 @@ public:
       
       LMDB *db_=nullptr;
       mutable MDB_cursor *csr_=nullptr;
-      Transaction* txnPtr_=nullptr;
       
       mutable bool hasTx=true;
       bool has_=false;
+      ThreadTxInfo* txnPtr_=nullptr;
       std::string key_, val_;
          
       void reset();
@@ -163,13 +171,7 @@ public:
       friend class LMDB;
 
       LMDB *db;
-      bool began;
-
-      MDB_txn *txn_;
-
-      std::deque<Iterator*> iterators_;
-      unsigned transactionLevel_;
-
+      bool began=false;
    public:
       
       Transaction();
@@ -251,6 +253,9 @@ public:
    Iterator cursor() const { 
       return end(); }
 private:
+   // grow the size of the map on-demand
+   void enlargeMap();
+
    LMDB(const LMDB &nocopy);
    Mode mode;
 };

@@ -7,6 +7,11 @@
 #include <cstring>
 #include <algorithm>
 
+#ifndef _WIN32_
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
+
 //#define DISABLE_TRANSACTIONS
 
 static std::string errorString(int rc)
@@ -62,10 +67,10 @@ void LMDB::Iterator::openCursor()
 LMDB::Iterator::Iterator(LMDB *db)
 : db_(db), csr_(nullptr), has_(false)
 {
-   pthread_t tID = pthread_self();
-   auto txnIter = db->txn_.find(tID);
+   const pthread_t tID = pthread_self();
+   auto txnIter = db->txForThreads_.find(tID);
 
-   if (txnIter == db->txn_.end())
+   if (txnIter == db->txForThreads_.end())
       throw std::runtime_error("Iterator must be created within Transaction");
 
    if (txnIter->second.transactionLevel_ == 0)
@@ -300,11 +305,11 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
 }
 
 LMDB::Transaction::Transaction()
-: db(nullptr), began(false), transactionLevel_(0), txn_(nullptr)
+: db(nullptr)
 {}
 
 LMDB::Transaction::Transaction(LMDB *db)
-: db(db), began(false), transactionLevel_(0), txn_(nullptr)
+: db(db)
 {
    begin();
 }
@@ -321,30 +326,18 @@ void LMDB::Transaction::begin()
    
    began = true;
 
-   //look for an existing transaction in this thread
-   Transaction* thisTx = nullptr;
-   unsigned* thisTxSemaphore = nullptr;
-
-   pthread_t tID = pthread_self();
-   try
-   {
-      thisTx = &db->txn_[tID];
-      thisTxSemaphore = &thisTx->transactionLevel_;
-   }
-   catch (...)
-   {
-      throw LMDBException("Failed to create transaction map entry");
-   }
+   const pthread_t tID = pthread_self();
    
-   if ((*thisTxSemaphore)++ != 0)
+   ThreadTxInfo& thTx = db->txForThreads_[tID];
+   
+   if (thTx.transactionLevel_++ != 0)
       return;
    
-   thisTx->db = db;
    int modef = 0;
    if (db->mode == ReadOnly)
       modef = MDB_RDONLY;
       
-   int rc = mdb_txn_begin(db->env, nullptr, modef, &thisTx->txn_);
+   int rc = mdb_txn_begin(db->env, nullptr, modef, &thTx.txn_);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to create transaction (" + errorString(rc) +")");
 }
@@ -358,18 +351,18 @@ void LMDB::Transaction::commit()
 
    //look for an existing transaction in this thread
    pthread_t tID = pthread_self();
-   auto txnIter = db->txn_.find(tID);
+   auto txnIter = db->txForThreads_.find(tID);
 
-   if (txnIter == db->txn_.end())
+   if (txnIter == db->txForThreads_.end())
       throw LMDBException("Transaction bound to unknown thread");
 
-   Transaction* thisTx = &txnIter->second;
+   ThreadTxInfo& thTx = txnIter->second;
 
-   if (thisTx->transactionLevel_-- == 1)
+   if (thTx.transactionLevel_-- == 1)
    {
-      int rc = mdb_txn_commit(thisTx->txn_);
+      int rc = mdb_txn_commit(thTx.txn_);
       
-      for (Iterator *i : thisTx->iterators_)
+      for (Iterator *i : thTx.iterators_)
       {
          i->hasTx=false;
          i->csr_=nullptr;
@@ -380,8 +373,11 @@ void LMDB::Transaction::commit()
          throw LMDBException("Failed to close db tx (" + errorString(rc) +")");
       }
       
-      db->txn_.erase(tID);
+      db->txForThreads_.erase(txnIter);
    }
+   
+   if (db->txForThreads_.empty())
+      db->enlargeMap();
 }
 
 void LMDB::Transaction::rollback()
@@ -407,7 +403,7 @@ void LMDB::open(const char *filename, Mode mode)
       throw std::logic_error("Database object already open (close it first)");
 
    dbi = 0;
-   txn_.clear();
+   txForThreads_.clear();
    
    int rc;
 
@@ -420,14 +416,13 @@ void LMDB::open(const char *filename, Mode mode)
    rc = mdb_env_create(&env);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
-
-   //mdb_env_set_mapsize(env, 40 * 1024 * 1024 * 1024LL);
-   mdb_env_set_mapsize(env,  3 * 1024 * 1024 * 1024LL);
    
    rc = mdb_env_open(env, filename, modef|MDB_NOSYNC|MDB_NOSUBDIR, 0600);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to open db " + std::string(filename) + " (" + errorString(rc) + ")");
 
+   enlargeMap();
+   
    MDB_txn *txn;
    rc = mdb_txn_begin(env, nullptr, modef, &txn);
    if (rc != MDB_SUCCESS)
@@ -461,9 +456,9 @@ void LMDB::insert(
    MDB_val mval = { value.len, const_cast<char*>(value.data) };
    
    pthread_t tID = pthread_self();
-   auto txnIter = txn_.find(tID);
+   auto txnIter = txForThreads_.find(tID);
 
-   if (txnIter == txn_.end())
+   if (txnIter == txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
    
    int rc = mdb_put(txnIter->second.txn_, dbi, &mkey, &mval, 0);
@@ -474,9 +469,9 @@ void LMDB::insert(
 void LMDB::erase(const CharacterArrayRef& key)
 {
    pthread_t tID = pthread_self();
-   auto txnIter = txn_.find(tID);
+   auto txnIter = txForThreads_.find(tID);
 
-   if (txnIter == txn_.end())
+   if (txnIter == txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
 
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
@@ -492,6 +487,31 @@ std::string LMDB::value(const CharacterArrayRef& key) const
       throw NoValue("No such value with specified key");
    
    return c.value();
+}
+
+void LMDB::enlargeMap()
+{
+   mdb_filehandle_t fd;
+   mdb_env_get_fd(env,&fd);
+   struct stat s;
+   fstat(fd, &s);
+   uint64_t v = s.st_size;
+   if (v < 1024*1024*512)
+   {
+      v = 1024*1024*512;
+   }
+   else
+   {
+      v--;
+      v = (v >> 1) | v;
+      v = (v >> 2) | v;
+      v = (v >> 4) | v;
+      v = (v >> 8) | v;
+      v = (v >> 16) | v;
+      v = (v >> 32) | v;
+   }
+   v *= 2;
+   mdb_env_set_mapsize(env, v);
 }
 
 // kate: indent-width 3; replace-tabs on;

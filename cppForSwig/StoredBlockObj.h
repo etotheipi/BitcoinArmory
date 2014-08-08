@@ -243,22 +243,6 @@ public:
 class StoredHeader
 {
 public:
-   StoredHeader(void)
-      : dataCopy_(0), 
-      thisHash_(0), 
-      numTx_(UINT32_MAX), 
-      numBytes_(UINT32_MAX), 
-      blockHeight_(UINT32_MAX), 
-      duplicateID_(UINT8_MAX), 
-      merkle_(0), 
-      merkleIsPartial_(false),
-      isMainBranch_(false),
-      blockAppliedToDB_(false), 
-      hasBlockHeader_(false),
-      isPartial_(false)
-   {}
-                           
-
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool isNull(void) const {return !isInitialized(); }
    bool haveFullBlock(void) const;
@@ -318,16 +302,16 @@ public:
    
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
-   uint32_t       numTx_;
-   uint32_t       numBytes_;
-   uint32_t       blockHeight_;
-   uint8_t        duplicateID_;
+   uint32_t       numTx_=UINT32_MAX;
+   uint32_t       numBytes_=UINT32_MAX;
+   uint32_t       blockHeight_=UINT32_MAX;
+   uint8_t        duplicateID_=UINT8_MAX;
    BinaryData     merkle_;
-   bool           merkleIsPartial_;
-   bool           isMainBranch_;
-   bool           blockAppliedToDB_;
+   bool           merkleIsPartial_=false;
+   bool           isMainBranch_=false;
+   bool           blockAppliedToDB_=false;
 
-   bool           isPartial_;
+   bool           isPartial_=false;
    map<uint16_t, StoredTx> stxMap_;
 
    // We don't actually enforce these members.  They're solely for recording
@@ -339,7 +323,7 @@ public:
    DB_PRUNE_TYPE   unserPrType_;
    MERKLE_SER_TYPE unserMkType_;
    
-   bool hasBlockHeader_;
+   bool hasBlockHeader_=false;
    
 };
 

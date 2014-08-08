@@ -894,7 +894,7 @@ void* mapPagesThread(void *in)
    
    //grab merge lock, make a copy of the addrMap then release
    wlt->grabMergeLock();
-   map<BinaryData, ScrAddrObj>& scrAddrMap = wlt->getScrAddrMap();
+   map<BinaryData, ScrAddrObj> scrAddrMap = wlt->getScrAddrMap();
    map<BinaryData, ScrAddrObj*> addrMap;
    for (auto& addrPair : scrAddrMap)
       addrMap[addrPair.first] = &addrPair.second;
@@ -907,7 +907,7 @@ void* mapPagesThread(void *in)
    LMDB::Transaction *batch = new LMDB::Transaction(&db->dbs_[BLKDATA]);
    LOGERR << "Starting mapPages read Tx";
 
-   for (auto scrAddrPair : addrMap)
+   for (auto& scrAddrPair : addrMap)
    {
       scrAddrPair.second->mapHistory();
       const map<uint32_t, uint32_t>& txioSum = 
