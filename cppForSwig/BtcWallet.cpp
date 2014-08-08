@@ -510,7 +510,7 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, 
+bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, 
                            bool forceScan)
 {
    merge();
@@ -583,8 +583,12 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
          scanWalletZeroConf();
          updateWalletLedgers(ledgerAllAddr_, scrAddrMap_, 
                              startBlock, endBlock, false);
+
+         return false;
       }
    }
+
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -732,10 +736,6 @@ void BtcWallet::updateWalletLedgers(
          ++leIter;
       }
 
-      /*** NOTE: Need a wallet to define STS and ChangeBack (as opposed
-      to a single scrAddr). STS is signifiant at both address and wallet
-      level, but ChangeBack is only relevant at address level.
-      ***/
       if (valIn + valOut == 0)
       {
          ledgerVal = valIn;
@@ -809,6 +809,9 @@ void BtcWallet::merge(void)
 
       //grab lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
+
+
+      /***TODO: make this play nice with the paging code***/
       
       //rescan last 100 blocks to account for new blocks and reorgs
       uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight() + 1;

@@ -493,9 +493,15 @@ void LMDB::enlargeMap()
 {
    mdb_filehandle_t fd;
    mdb_env_get_fd(env,&fd);
+#ifdef _MSC_VER
+   LARGE_INTEGER li;
+   GetFileSizeEx(fd, &li);
+   uint64_t v = (uint64_t)li.QuadPart;
+#else
    struct stat s;
    fstat(fd, &s);
    uint64_t v = s.st_size;
+#endif
    if (v < 1024*1024*512)
    {
       v = 1024*1024*512;

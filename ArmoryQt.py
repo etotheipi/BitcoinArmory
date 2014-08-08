@@ -2426,8 +2426,6 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       TheBDM.bdm.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
-      self.newZeroConfSinceLastUpdate.append(pytxObj)
-      LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
       # All extra tx functions take one arg:  the PyTx object of the new ZC tx
       for txFunc in self.extraNewTxFunctions:
@@ -6310,45 +6308,48 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    @TimeThisFunction
-   def checkNewZeroConf(self):
+   def checkNewZeroConf(self, ledgers):
       '''
       Function that looks at an incoming zero-confirmation transaction queue and
       determines if any incoming transactions were created by Armory. If so, the
       transaction will be passed along to a user notification queue.
       '''
 
-      while len(self.newZeroConfSinceLastUpdate)>0:
-         Tx = self.newZeroConfSinceLastUpdate.pop()
+ #     while len(self.newZeroConfSinceLastUpdate)>0:
+   #      Tx = self.newZeroConfSinceLastUpdate.pop()
+   #      thisHash = Tx.thisHash
 
          # Iterate through the Python wallets and create a ledger entry for the
          # transaction. If the transaction is for us, put it on the notification
          # queue, create the combined ledger, and reset the Qt table model.
-         for wltID in self.walletMap.keys():
-            wlt = self.walletMap[wltID]
-            le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
-            if not le.getTxHash() == '\x00' * 32:
-               LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
-                        % wltID)
-               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
+       #  for wltID in self.walletMap.keys():
+      for le in ledgers:
+            #wlt = self.walletMap[wltID]
+            #le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
+            #thatHash = le.getTxHash()
+            #if not le.getTxHash() == '\x00' * 32:
+         #LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
+                        #% wltID)
+         notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
                                                       not OS_MACOSX)
-               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
+         notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
                                                        not OS_MACOSX)
-               if (le.getValue() <= 0 and notifyOut) or \
+         if (le.getValue() <= 0 and notifyOut) or \
                   (le.getValue() > 0 and notifyIn):
                   # notifiedAlready = False, 
-                  self.notifyQueue.append([wltID, le, False])
+            self.notifyQueue.append(["000", le, False])
                
 
          # Iterate through the C++ lockbox wallets and create a ledger entry for
          # the transaction. If the transaction is for us, put it on the
          # notification queue, create the combined ledger, and reset the Qt
          # table models.
-         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-            le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
-            if len(le.getTxHash()) == 32:
-               LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
+         #for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+          #  le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
+           # if len(le.getTxHash()) == 32:
+            #   LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
                # notifiedAlready = False, 
-               self.notifyQueue.append([lbID, le, False])
+             #  self.notifyQueue.append([lbID, le, False])
       
       self.createCombinedLedger()
       self.walletModel.reset()
@@ -6386,7 +6387,7 @@ class ArmoryMainWindow(QMainWindow):
             
       elif action == 'newZC':
          # If we have new zero-conf transactions, scan them and update ledger
-         self.checkNewZeroConf()
+         self.checkNewZeroConf(args)
          self.setDashboardDetails()          
 
       elif action == 'newblock':

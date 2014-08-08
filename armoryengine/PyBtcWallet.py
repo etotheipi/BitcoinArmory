@@ -3064,6 +3064,9 @@ class PyBtcWallet(object):
          LOGWARN('   Wallet Version: %d' % jsonVer)
          LOGWARN('   Armory Version: %d' % UNSIGNED_TX_VERSION)
 
+   ###############################################################################
+   def getAddrTotalTxnCount(self, a160):
+      return self.cppWallet.getAddrTotalTxnCount(a160)
 
 
 ###############################################################################

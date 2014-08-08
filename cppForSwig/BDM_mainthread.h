@@ -2,6 +2,7 @@
 #define BDM_MAINTHREAD_H
 
 #include <string>
+#include <stdint.h>
 
 #ifdef _MSC_VER
    #ifndef _WIN32_
@@ -15,7 +16,7 @@ class BDM_CallBack
 {
 public:
    virtual ~BDM_CallBack();
-   virtual void run(int action, int arg, int block=0)=0;
+   virtual void run(int action, void* ptr, int block=0)=0;
    virtual void progress(
       const std::string &state,
       float progress, unsigned secondsRem

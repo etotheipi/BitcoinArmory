@@ -430,9 +430,6 @@ public:
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
-   /*vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey,
-                                         bool withMultisig = false) const;*/
-
    bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr=nullptr);
 
    map<BinaryData, map<BinaryData, TxIOPair> >
@@ -442,6 +439,11 @@ public:
    const map<BinaryData, map<BinaryData, TxIOPair> >&
       getFullZeroConfTxIOMap() const
    { return zeroConfCont_->getFullTxioMap(); }
+
+   set<BinaryData> getNewZCTxHash(void)
+   { return zeroConfCont_->getNewZCByHash(); }
+
+   LedgerEntry getTxLedgerByHash(const BinaryData& txHash) const;
 };
 
 

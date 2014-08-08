@@ -676,8 +676,8 @@ public:
                { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(LMDBBlockDatabase *db) const;
-   BinaryData    getTxHashOfOutput(LMDBBlockDatabase *db) const;
+   BinaryData    getTxHashOfInput(LMDBBlockDatabase *db=nullptr) const;
+   BinaryData    getTxHashOfOutput(LMDBBlockDatabase *db=nullptr) const;
 
    void setTxHashOfInput(const BinaryData& txHash)
    { txHashOfInput_ = txHash; }

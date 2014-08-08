@@ -190,10 +190,21 @@ void BlockDataManagerThread::run()
          bdm->rescanZC_ = false;
          if (bdm->parseNewZeroConfTx() == true)
          {
+            set<BinaryData> newZCTxHash = bdm->getNewZCTxHash();
             bdm->scanWallets(0, 0);
 
+            vector<LedgerEntry> newZCLedgers;// = new vector<LedgerEntry>;
+
+            for (const auto& txHash : newZCTxHash)
+            {
+               LedgerEntry le = bdm->getTxLedgerByHash(txHash);
+               if (le.getTxTime() != 0)
+                  newZCLedgers.push_back(le);
+            }
+
+            LOGINFO << newZCLedgers.size() << " new ZC Txn";
             //notify ZC
-            callback->run(3, 0);
+            callback->run(3, &newZCLedgers);
          }
       }
 
@@ -203,9 +214,10 @@ void BlockDataManagerThread::run()
          bdm->scanWallets(prevTopBlk);
 
          //notify Python that new blocks have been parsed
-         callback->run(4,
-            bdm->blockchain().top().getBlockHeight() +1
-               - prevTopBlk, bdm->getTopBlockHeight()
+         int nNewBlocks = bdm->blockchain().top().getBlockHeight() + 1
+            - prevTopBlk;
+         callback->run(4, &nNewBlocks,
+            bdm->getTopBlockHeight()
          );
       }
       

@@ -921,16 +921,12 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   try
-   {
-      LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
-      iface_->getTxRef(txHash);
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
+   TxRef txref = iface_->getTxRef(txHash);
+   if (txref.isInitialized())
       return true;
-   }
-   catch (...)
-   {
-      return false;
-   }
+
+   return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2760,14 +2756,6 @@ bool BlockDataManager_LevelDB::isTxFinal(const Tx & tx) const
       return (time(NULL)>tx.getLockTime()+86400);
 }
 
-
-
-
-
-
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
 void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
@@ -2843,21 +2831,27 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    iface_->putStoredHeader(sbh, true);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
                                            uint32_t endBlock, 
                                            bool forceScan)
 {
    LOGINFO << registeredWallets_.size() << " wallets loaded";
    uint32_t i = 0;
+   bool isZC = true;
+
    for (BtcWallet* walletPtr : registeredWallets_)
    {
       LOGINFO << "initializing wallet #" << i;
       i++;
 
-      walletPtr->scanWallet(startBlock, endBlock, forceScan);
+      isZC &= walletPtr->scanWallet(startBlock, endBlock, forceScan);
    }
+
+   if (!isZC) zeroConfCont_->resetNewZC();
 }
 
+////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::parseNewZeroConfTx()
 {
    return zeroConfCont_->parseNewZC();
@@ -2867,4 +2861,17 @@ bool BlockDataManager_LevelDB::registerScrAddr(const ScrAddrObj& sa, BtcWallet* 
    return scrAddrData_->registerScrAddr(sa, wltPtr);
 }
 
-// kate: indent-width 3; replace-tabs on;
+////////////////////////////////////////////////////////////////////////////////
+LedgerEntry BlockDataManager_LevelDB::getTxLedgerByHash(
+   const BinaryData& txHash) const
+{
+   LedgerEntry le;
+   for (const auto& wltPtr : registeredWallets_)
+   {
+      le = wltPtr->getLedgerEntryForTx(txHash);
+      if (le.getTxTime() != 0)
+         return le;
+   }
+
+   return le;
+}

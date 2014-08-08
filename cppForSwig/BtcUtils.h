@@ -29,6 +29,8 @@
 #include "UniversalTimer.h"
 #include "log.h"
 
+class LedgerEntry;
+
 #define HEADER_SIZE 80
 #define COIN 100000000ULL
 #define NBLOCKS_REGARDED_AS_RESCAN 144
@@ -1612,6 +1614,17 @@ public:
       return true;
    }
 
+   static int cast_to_int(void* in)
+   {
+      return *(reinterpret_cast<int*>(in));
+   }
+
+   static const vector<LedgerEntry>& cast_to_LedgerVector(void* in)
+   {
+      vector<LedgerEntry>* vle = (vector<LedgerEntry>*)in;
+      return *vle;
+      //return *(reinterpret_cast<const vector<LedgerEntry>*>(in));
+   }
 
    /*
    static bool verifyProofOfWork(BinaryDataRef bh80)

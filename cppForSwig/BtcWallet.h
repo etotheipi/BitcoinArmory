@@ -140,8 +140,9 @@ public:
 
    void reset(void);
 
-   //new all purpose wallet scanning call
-   void scanWallet(uint32_t startBlock=UINT32_MAX, 
+   //new all purpose wallet scanning call, returns true on bootstrap and new block,
+   //false on ZC
+   bool scanWallet(uint32_t startBlock=UINT32_MAX, 
                    uint32_t endBlock=UINT32_MAX,
                    bool forceRescan=false);
    

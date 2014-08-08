@@ -244,13 +244,16 @@ class ZeroConfContainer
    to unify TxIn parsing by DBkey.
 
    DBkeys are unique. They are preferable to outPoints because they're cheaper
-   (8 bytes vs 22), and do not incur extra processing to recover when a TxOut
-   script is pulled from the DB to recover its scrAddr. They also carry height,
+   (8 bytes vs 32), and do not incur extra processing to recover a TxOut
+   script DB (TxOuts are saved by DBkey, but OutPoints only store a TxHash, 
+   which has to be converted first to a DBkey). They also carry height,
    dupID and TxId natively.
 
-   The first 2 bytes of ZC DBkey will always be 0xFF. The
+   The first 2 bytes of ZC DBkey will always be 0xFFFF. The
    transaction index having to be unique, will be 4 bytes long instead, and
-   produced by atomically incrementing topId_.
+   produced by atomically incrementing topId_. In comparison, a TxOut DBkey
+   uses 4 Bytes for height and dupID, 2 bytes for the Tx index in the block it 
+   refers to by hgtX, and 2 more bytes for the TxOut id. 
 
    Indeed, at 7 tx/s, including limbo, it is possible a 2 bytes index will
    overflow on long run cycles.
@@ -279,9 +282,9 @@ private:
    //to parse it
    map<BinaryData, Tx> newZCMap_;
 
-   //newTxioMap_ is ephemeral too. It's contains ZC txios that have not been
-   //seen by the scrAddrObj. It's content is returned then wiped by each call
-   //to getNewTxioMap
+   //newTxioMap_ is ephemeral too. It's contains ZC txios that have yet to be
+   //processed by their relevant scrAddrObj. It's content is returned then wiped 
+   //by each call to getNewTxioMap
    map<HashString, map<BinaryData, TxIOPair> >  newTxioMap_;
 
 
@@ -300,16 +303,20 @@ public:
 
    map<BinaryData, vector<BinaryData> > purge();
 
-   map<HashString, map<BinaryData, TxIOPair> > getNewTxioMap(void);
+   const map<HashString, map<BinaryData, TxIOPair> >& 
+      getNewTxioMap(void);
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 
+   //returns a vector of ZC TxHash that belong to your tracked scrAddr. This is
+   //mostly a UI helper method
+   set<BinaryData> getNewZCByHash(void);
 
    bool parseNewZC();
-   //bool setNewZC(void);
-   //bool hasNewZC(void);
 
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const;
+
+   void resetNewZC() { newTxioMap_.clear(); }
 };
 
 #endif

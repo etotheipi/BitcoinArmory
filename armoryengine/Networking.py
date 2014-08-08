@@ -191,8 +191,7 @@ class ArmoryClient(Protocol):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:
-               if self.factory.bdm and (self.factory.bdm.getState()=='Scanning' or \
-                  self.factory.bdm.bdm.hasTxWithHash(inv[1])):
+               if not self.factory.bdm or self.factory.bdm.getState()!='BlockchainReady':
                   continue
                getdataMsg.payload.invList.append(inv)
 

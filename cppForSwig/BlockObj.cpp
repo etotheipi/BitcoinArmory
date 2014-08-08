@@ -864,7 +864,7 @@ HashString TxIOPair::getTxHashOfOutput(LMDBBlockDatabase *db) const
       return BtcUtils::EmptyHash();
    else if (txHashOfOutput_.getSize() == 32)
       return txHashOfOutput_;
-   else if (txRefOfOutput_.isInitialized())
+   else if (txRefOfOutput_.isInitialized() && db!=nullptr)
    {
       txHashOfOutput_ = txRefOfOutput_.attached(db).getThisHash();
       return txHashOfOutput_;
@@ -880,7 +880,7 @@ HashString TxIOPair::getTxHashOfInput(LMDBBlockDatabase *db) const
       return BtcUtils::EmptyHash();
    else if (txHashOfInput_.getSize() == 32)
       return txHashOfInput_;
-   else if (txRefOfInput_.isInitialized())
+   else if (txRefOfInput_.isInitialized() && db != nullptr)
    {
       txHashOfInput_ = txRefOfInput_.attached(db).getThisHash();
       return txHashOfInput_;
@@ -1050,12 +1050,14 @@ bool TxIOPair::isMineButUnconfirmed(
 
 bool TxIOPair::hasTxOutInMain(LMDBBlockDatabase *db) const
 {
-   return (hasTxOut() && txRefOfOutput_.attached(db).isMainBranch());
+   return (!hasTxOutZC() &&
+            hasTxOut() && txRefOfOutput_.attached(db).isMainBranch());
 }
 
 bool TxIOPair::hasTxInInMain(LMDBBlockDatabase *db) const
 {
-   return (hasTxIn() && txRefOfInput_.attached(db).isMainBranch());
+   return (!hasTxInZC() &&
+      hasTxIn() && txRefOfInput_.attached(db).isMainBranch());
 }
 
 bool TxIOPair::hasTxOutZC(void) const

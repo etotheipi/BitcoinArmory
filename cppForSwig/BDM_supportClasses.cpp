@@ -48,6 +48,16 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
 
    map<BinaryData, map<BinaryData, TxIOPair> > processedTxIO;
 
+   BinaryData txHash = tx.getThisHash();
+   TxRef txref = lmdb_->getTxRef(txHash);
+   
+   if (txref.isInitialized())
+   {
+      //Found this tx in the db. It is already part of a block thus 
+      //is invalid as a ZC
+      return processedTxIO;
+   }
+
    OutPoint op; // reused
    uint8_t const * txStartPtr = tx.getPtr();
    for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
@@ -72,7 +82,7 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
             const TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
 
             txio.setTxHashOfOutput(op.getTxHash());
-            txio.setTxHashOfInput(tx.getThisHash());
+            txio.setTxHashOfInput(txHash);
 
             txio.setValue(chainedTxOut.getValue());
             txio.setTxTime(txtime);
@@ -97,12 +107,6 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
             )
          )
          {
-            if (stxOut.isSpent() == true)
-            {
-               //spent TxOut, ZC is invalid
-               return map<BinaryData, map<BinaryData, TxIOPair> >();
-            }
-
             BinaryData sa = stxOut.getScrAddress();
             if (scrAddrMap_.find(sa) != scrAddrMap_.end())
             {
@@ -110,7 +114,7 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
                   TxRef(ZCkey), iin);
 
                txio.setTxHashOfOutput(op.getTxHash());
-               txio.setTxHashOfInput(tx.getThisHash());
+               txio.setTxHashOfInput(txHash);
                txio.setValue(stxOut.getValue());
                txio.setTxTime(txtime);
 
@@ -132,7 +136,7 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
          TxIOPair txio(TxRef(ZCkey), iout);
 
          txio.setValue(txout.getValue());
-         txio.setTxHashOfOutput(tx.getThisHash());
+         txio.setTxHashOfOutput(txHash);
          txio.setTxTime(txtime);
          txio.setUTXO(true);
 
@@ -156,7 +160,7 @@ ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
          {
             TxIOPair txio(TxRef(ZCkey), iout);
 
-            txio.setTxHashOfOutput(tx.getThisHash());
+            txio.setTxHashOfOutput(txHash);
             txio.setValue(txout.getValue());
             txio.setTxTime(txtime);
             txio.setUTXO(true);
@@ -477,7 +481,14 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge()
    {
       auto saTxioIter = txioMap.find(saMapPair.first);
       if (saTxioIter == txioMap.end())
+      {
+         auto& txioVec = invalidatedKeys[saMapPair.first];
+         
+         for (const auto & txioPair : saMapPair.second)
+            txioVec.push_back(txioPair.first);
+
          continue;
+      }
 
       for (const auto& txioPair : saMapPair.second)
       {
@@ -650,14 +661,31 @@ bool ZeroConfContainer::getKeyForTxHash(const BinaryData& txHash,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<HashString, map<BinaryData, TxIOPair> >
+const map<HashString, map<BinaryData, TxIOPair> >&
 ZeroConfContainer::getNewTxioMap()
 {
-   //Copy zcTxioMap_, clear it and return the copy
-   map<HashString, map<BinaryData, TxIOPair> > newZcTxioCopy = newTxioMap_;
-   newTxioMap_.clear();
+   return newTxioMap_;
+}
 
-   return newZcTxioCopy;
+///////////////////////////////////////////////////////////////////////////////
+set<BinaryData> ZeroConfContainer::getNewZCByHash(void)
+{
+   set<BinaryData> newZCTxHash;
+
+   for (const auto& saTxioPair : newTxioMap_)
+   {
+      for (const auto& txioPair : saTxioPair.second)
+      {
+         if (txioPair.second.hasTxOutZC())
+            newZCTxHash.insert(txioPair.second.getTxHashOfOutput());
+
+         if (txioPair.second.hasTxInZC())
+            newZCTxHash.insert(txioPair.second.getTxHashOfInput());
+      }
+   }
+
+
+   return newZCTxHash;
 }
 
 // kate: indent-width 3; replace-tabs on;

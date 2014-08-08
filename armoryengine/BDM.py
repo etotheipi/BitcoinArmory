@@ -37,9 +37,12 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          act = 'sweepAfterScanList'
       elif action == 3:
          act = 'newZC'
+         castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)
+         arglist = castArg
       elif action == 4:
          act = 'newblock'
-         arglist.append(arg)
+         castArg = Cpp.BtcUtils_cast_to_int(arg)
+         arglist.append(castArg)
          TheBDM.currentBlock = block
    
       cppPushTrigger[0](act, arglist)
@@ -331,8 +334,8 @@ class BlockDataManager(object):
             leveldbdir = self.ldbdir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
-      bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
-      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
+      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
+      bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.homeDirLocation = armory_homedir
       bdmConfig.blkFileLocation = blockdir

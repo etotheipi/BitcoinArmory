@@ -2374,11 +2374,8 @@ TxRef LMDBBlockDatabase::getTxRef( BinaryDataRef txHash )
       ldbIter.getKeyReader().advance(1);
       return TxRef(ldbIter.getKeyReader().get_BinaryDataRef(6));
    }
-   else
-   {
-      string e = "No txref with hash " + txHash.toHexStr();
-      throw runtime_error(e);
-   }
+
+   return TxRef();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
