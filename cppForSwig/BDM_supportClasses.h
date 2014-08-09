@@ -83,7 +83,6 @@ private:
    set<BinaryData>                UTxO_;
    mutable uint32_t               blockHeightCutOff_=0;
    LMDBBlockDatabase *const       lmdb_;
-   const ARMORY_DB_TYPE           armoryDbType_;
 
    //
    ScrAddrScanData*               parent_;
@@ -104,6 +103,9 @@ private:
    }
 
 public:
+   
+   const ARMORY_DB_TYPE           armoryDbType_;
+  
    ScrAddrScanData(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
       : lmdb_(lmdb), armoryDbType_(armoryDbType), mergeLock_(0)
    {}

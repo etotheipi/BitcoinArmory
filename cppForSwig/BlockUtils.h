@@ -316,8 +316,7 @@ public:
 private:
    void addRawBlockToDB(BinaryRefReader & brr);
 public:
-   void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX,
-      ScrAddrScanData* scrAddrData = nullptr);
+   void applyBlockRangeToDB(uint32_t blk0, uint32_t blk1, ScrAddrScanData* scrAddrData);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.

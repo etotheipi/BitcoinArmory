@@ -294,7 +294,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    
    mostRecentBlockApplied_ = sud.blockHeight_;
    uint32_t scannedFrom = 0;
-   if (scrAddrData != nullptr)
+   if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
       scannedFrom = scrAddrData->scanFrom();
 
    // In the future we will accommodate more user modes
@@ -310,7 +310,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    {
       StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
 
-      if (scrAddrData != nullptr)
+      if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
       {
          if (!scrAddrData->hasScrAddress(sudStxo.getScrAddress()))
             continue;
@@ -467,7 +467,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    
          // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
          BinaryData uniqKey = stxo.getScrAddress();
-         if (scrAddrData != nullptr)
+         if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
          {
             if (!scrAddrData->hasScrAddress(uniqKey))
                continue;
@@ -591,7 +591,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
       //For scanning a predefined set of addresses purpose, check if this txin 
       //consumes one of our utxo
-      if (scrAddrData != nullptr)
+      if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
       {
          //leveraging the stx map in RAM
          TIMER_START("leverageStxInRAM");
@@ -741,7 +741,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       BinaryData uniqKey = stxoToAdd.getScrAddress();
       BinaryData hgtX    = stxoToAdd.getHgtX();
       
-      if (scrAddrData != nullptr)
+      if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
       {
          if (!scrAddrData->hasScrAddress(uniqKey))
             continue;

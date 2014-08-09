@@ -1780,14 +1780,15 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // scan addresses from BDM
    if (config_.armoryDbType == ARMORY_DB_SUPER)
       applyBlockRangeToDB(startApplyHgt_,
-                          blockchain_.top().getBlockHeight() + 1);
+                          blockchain_.top().getBlockHeight() + 1, scrAddrData_.get());
    else
    {
       TIMER_START("applyBlockRangeToDB");
 
       if (scrAddrData_->numScrAddr() > 0)
          applyBlockRangeToDB(scrAddrData_->scanFrom(),
-                             blockchain_.top().getBlockHeight() + 1);
+                             blockchain_.top().getBlockHeight() + 1,
+                             scrAddrData_.get());
       scrAddrData_->setSSHLastScanned(blockchain_.top().getBlockHeight());
 
       TIMER_STOP("applyBlockRangeToDB");
