@@ -214,7 +214,8 @@ class ArmoryMainWindow(QMainWindow):
 
       # Setup system tray and register "bitcoin:" URLs with the OS
       self.setupSystemTray()
-      self.setupUriRegistration()
+      if self.getSettingOrSetDefault("DNAA_DefaultApp", False):
+         self.setupUriRegistration()
 
 
       self.extraHeartbeatSpecial  = []
