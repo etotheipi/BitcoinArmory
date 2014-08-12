@@ -118,7 +118,6 @@ class AnnounceDataFetcher(object):
    #############################################################################
    def setFullyDisabled(self, b=True):
       self.disabled = b
-      self.disableDecorate = b
 
    #############################################################################
    def setStatsDisable(self, b=True):
@@ -218,7 +217,7 @@ class AnnounceDataFetcher(object):
 
       # ACR UPDATE 08/2014: non-verbose now does no decorating at all.  It just
       #                     returns the same URL that was passed in.
-      if not verbose or self.disableDecorate:
+      if (not verbose) or self.disableDecorate:
          return url
       
       argsMap = {}

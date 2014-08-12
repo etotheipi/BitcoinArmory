@@ -1709,14 +1709,14 @@ class ArmoryMainWindow(QMainWindow):
    def setupAnnouncementFetcher(self):
       # Decide if disable OS/version reporting sent with announce fetches
       skipStats1 = self.getSettingOrSetDefault('SkipStatsReport', False)
-      skipStats2 = CLI_OPTIONS.SkipStatsReport
+      skipStats2 = CLI_OPTIONS.skipStatsReport
       self.skipStatsReport = skipStats1 or skipStats2
 
       # This determines if we should disable all of it
       skipChk1  = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       skipChk2  = CLI_OPTIONS.skipAnnounceCheck
       skipChk3  = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
-      skipChk4  = CLI_OPTIONS.tor 
+      skipChk4  = CLI_OPTIONS.useTorSettings 
       skipChk5  = self.getSettingOrSetDefault('UseTorSettings', False)
       self.skipAnnounceCheck = \
                   skipChk1 or skipChk2 or skipChk3 or skipChk4 or skipChk5
@@ -1733,10 +1733,10 @@ class ArmoryMainWindow(QMainWindow):
          # it every month for privacy reasons
          idData = self.getSettingOrSetDefault('MonthlyID', '0000_00000000')
          storedYM,currID = idData.split('_')
-         yearmonth = unixTimeToFormatStr(RightNow(), '%y%m')
-         if not currID == yearmonth:
+         monthyear = unixTimeToFormatStr(RightNow(), '%m%y')
+         if not storedYM == monthyear:
             currID = SecureBinaryData().GenerateRandom(4).toHexStr()
-            self.settings.set('MonthlyID', '%s_%s' % (yearmonth, currID))
+            self.settings.set('MonthlyID', '%s_%s' % (monthyear, currID))
             
          self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath, currID)
          self.announceFetcher.setStatsDisable(self.skipStatsReport)
@@ -2128,13 +2128,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
       settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
-      if self.forceOnline:
-         LOGINFO('Forced online mode: True')
+      useTor = self.getSettingOrSetDefault('UseTorSettings', False)
+      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck or useTor
 
       # Check general internet connection
       self.internetAvail = False
-      if not self.forceOnline:
+      if self.forceOnline:
+         LOGINFO('Skipping online check, forcing online mode')
+      else:
          try:
             import urllib2
             response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)

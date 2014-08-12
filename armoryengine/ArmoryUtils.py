@@ -962,12 +962,13 @@ if CLI_OPTIONS.testAnnounceCode:
 
 
 ####
-if CLI_OPTIONS.tor:
+if CLI_OPTIONS.useTorSettings:
    LOGWARN('Option --tor was supplied, forcing --skip-announce-check,')
-   LOGWARN('--skip-online-check and --skip-stats-report')
+   LOGWARN('--skip-online-check, --skip-stats-report and --disable-torrent')
    CLI_OPTIONS.skipAnnounceCheck = True
    CLI_OPTIONS.skipStatsReport = True
    CLI_OPTIONS.forceOnline = True
+   CLI_OPTIONS.disableTorrent = True
 
 
 
