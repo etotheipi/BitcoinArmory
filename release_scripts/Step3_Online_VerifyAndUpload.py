@@ -10,6 +10,8 @@ import os
 import time
 import shutil
 from release_utils import *
+import json
+from datetime import datetime
 
 #####
 from release_settings import getReleaseParams, getMasterPackageList
@@ -74,83 +76,6 @@ def getPkgFilename(pkgName, offline=False):
    return 'armory_%s%s_%s' % (topVerStr, topVerType, suffix)
 
 
-# Create [relpath, filename, isBundle, isHashes, [pentuple]] 
-"""
-uploads = []
-ascfile = ''
-for fn in os.listdir(unpackDir):
-   fullfn = os.path.join(unpackDir, fn)
-   fivevals = parseInstallerName(fullfn, ignoreExt=True)
-   if fivevals==None or os.path.isdir(fullfn):
-      continue
-
-   osName,verStr,verInt,verType,suffix = fivevals[:]
-   isBundle = suffix.lower().startswith('offline')
-   isHashes = ("sha256" in fn)
-   uploads.append( [fullfn, fn, isBundle, isHashes, fivevals] )
-
-   ascfile = ascfile if not isHashes else fullfn
-
-
-# Read hashes from signed hashes file and put into a map
-hashmap = {}
-with open(ascfile,'r') as asc:
-   allLines = [l.strip().split() for l in asc.readlines()]
-   for line in allLines:
-      if len(line)==2 and 'armory' in line[1].lower():
-         hashmap[line[1]] = line[0]
-
-
-#####
-logprint('*'*80)
-logprint('Checking signatures on debian packages:')
-out,err = execAndWait('dpkg-sig --verify %s/*.deb' % unpackDir)
-logprint(out)
-logprint(err)
-
-
-#####
-logprint('*'*80)
-logprint('Checking signed tag on repo:')
-os.chdir('%s/BitcoinArmory' % unpackDir)
-out,err = execAndWait('git tag -v v%s' % verFullStr)
-os.chdir(startDir)
-logprint(out)
-logprint(err)
-
-
-#####
-logprint('*'*80)
-logprint('Checking signature on hashes file:')
-out,err = execAndWait('gpg -v %s/*.asc' % unpackDir)
-logprint(out)
-logprint(err)
-
-
-#####
-logprint('*'*80)
-logprint('Checking individual file hashes')
-for fn,signedhash in hashmap.iteritems():
-   out,err = execAndWait('sha256sum %s/%s' % (unpackDir, fn))
-   computedhash = out.split()[0]
-   if computedhash==signedhash:
-      logprint('   [GOOD] ' + signedhash + ' ' + fn)
-   else:
-      logprint('   XXXXXX ' + signedhash + ' ' + fn)
-
-
-
-raw_input('\nConfirm all signature checks passed...[press enter when done]')
-
-
-pkgMap = {}
-pkgMap['osx'] = ['MacOSX', '(All)', '(64bit)']
-pkgMap['winAll'] = ['Windows', '(All)', '(32- and 64-bit)']
-pkgMap['raspbian'] = ['Raspberry Pi', '', '(armhf)' ]
-pkgMap['ubuntu32'] = ['Ubuntu', '12.04+', '(32bit)' ]
-pkgMap['ubuntu64'] = ['Ubuntu', '12.04+', '(64bit)' ]
-
-"""
 
 #uploads.sort(key=lambda x: x[1])
    
@@ -161,8 +86,20 @@ rawUrlList    = []
 s3cmdList     = []
 
 
-uploads = []
-for pkgName,pkgInfo in masterPkgList.iteritems():
+# Try to make things sorted properly
+osSort = ['Windows', 'MacOSX', 'Ubuntu', 'RaspberryPi'][::-1]
+
+pkgPairs = []
+while len(osSort)>0:
+   thisOS = osSort.pop()
+   for pkgName,pkgInfo in masterPkgList.iteritems():
+      if thisOS == pkgInfo['OSNameDisp']:
+         pkgPairs.append([pkgName,pkgInfo])
+      
+
+uploadsRegular = []
+uploadsOffline = []
+for pkgName,pkgInfo in pkgPairs:
    pkgDict = {}
    pkgDict['SrcFile']   = getPkgFilename(pkgName)
    pkgDict['SrcPath']   = os.path.join(inDir, 'installers', pkgDict['SrcFile'])
@@ -172,8 +109,8 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
    pkgDict['IsHash']    = False
    pkgDict['IsBundle']  = False
    pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
-   pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
-   uploads.append(pkgDict)
+   pkgDict['DownLink']  = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+   uploadsRegular.append(pkgDict)
 
    if pkgInfo['HasBundle']:
       pkgDict = {}
@@ -185,8 +122,10 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
       pkgDict['IsHash']    = False
       pkgDict['IsBundle']  = True
       pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
-      pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
-      uploads.append(pkgDict)
+      pkgDict['DownLink']  = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+      uploadsOffline.append(pkgDict)
+
+uploads = uploadsRegular + uploadsOffline
    
 
 ascDict = {}
@@ -195,9 +134,16 @@ ascDict['SrcPath']   = os.path.join(inDir, 'installers', ascDict['SrcFile'])
 ascDict['IsHash']    = True
 ascDict['IsBundle']  = False
 ascDict['DstUpload'] = '%s%s' % (s3Release,   ascDict['SrcFile'])
-ascDict['DstHtml']   = '%s%s' % (htmlRelease, ascDict['SrcFile'])
+ascDict['DownLink']   = '%s%s' % (htmlRelease, ascDict['SrcFile'])
 uploads.append(ascDict)
 
+
+jsonOut = {}
+jsonOut['VersionStr'] = topVerStr + topVerType
+jsonOut['ReleaseDate'] = datetime.fromtimestamp(time.time()).strftime("%B %d, %Y")
+jsonOut['Downloads'] = uploads
+
+print json.dumps(jsonOut, indent=4)
 
 for upl in uploads:
    print 'Going to upload:'
@@ -221,10 +167,10 @@ for pkgDict in uploads:
       humanText += ': Signed hashes of all installers '
    else:
       osParams = [pkgDict[a] for a in ['OSName', 'OSVar', 'OSArch']]
-      humanText += ' for %s %s %s' % tuple(osParams)
+      humanText += ' for %s %s (%s)' % tuple(osParams)
             
    uploadurl = pkgDict['DstUpload']
-   linkurl   = pkgDict['DstHtml']
+   linkurl   = pkgDict['DownLink']
 
    s3cmd = 's3cmd put --acl-public %s %s' % (pkgDict['SrcPath'], uploadurl)
    forumText = '[url=%s]%s[/url]' % (linkurl, humanText)

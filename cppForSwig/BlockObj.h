@@ -78,8 +78,14 @@ public:
    uint32_t       getNumTx(void) const         { return numTx_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t const * getPtr(void) const  { assert(isInitialized_); return dataCopy_.getPtr(); }
-   uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
+   uint8_t const * getPtr(void) const  {
+      assert(isInitialized_);
+      return dataCopy_.getPtr();
+   }
+   uint32_t        getSize(void) const {
+      assert(isInitialized_);
+      return dataCopy_.getSize();
+   }
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const { return numBlockBytes_; }
    void            setBlockSize(uint32_t sz) { numBlockBytes_ = sz; }
@@ -96,7 +102,6 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData    serialize(void)    { return dataCopy_; }
-
 
    /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...

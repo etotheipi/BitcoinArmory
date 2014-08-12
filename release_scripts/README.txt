@@ -11,8 +11,8 @@ The following is assumed to have been done already before starting this
 process:
 
    - Local & remote machines and VMs have compiled & bundled installers
-   - master_list.py file that returns nested dictionary of all release/installer
-      information (see example at end of this doc)
+   - release_settings.py file that returns nested dictionary of all 
+     release/installer information (see example at end of this doc)
    - Each remote system has our public key in its authorized_keys file
    - Offline computer has GPG key & Armory wallet spec'd at top of Step2 script
    - All announce files are updated (except for dllinks which will be updated
@@ -63,7 +63,7 @@ can be copied to a USB key to be taken to the offline computer.
       <outputDir>/unsignedannounce    (all unsigned announcement files)
       <outputDir>/SHA256SUMS.asc      (if present)
 
-Note the release_scripts dir is itself copied because it has master_list.py
+Note the release_scripts dir is itself copied because it has release_settings.py
 which is needed by all three steps.  Plus, we most likely made tweaks to 
 these Step* scripts to support the current release, and it wouldn't be in 
 the cloned repo yet.  After the release is successful, we commit the updated 
@@ -141,7 +141,7 @@ It will do the following:
 
 ################################################################################
 #                                                                              #
-# Example master_list.py file                                                  #
+# Example release_settings.py file                                             #
 #                                                                              #
 # Provides dictionaries "getReleaseParams" and "getMasterPackageList"          #
 #                                                                              #
@@ -194,7 +194,7 @@ def getMasterPackageList():
    
    pkg = 'MacOSX (All)'
    m[pkg] = {}
-   m[pkg]['FetchFrom']  = ['scp', 'joeschmode', '192.168.1.22', 22, '~/BitcoinArmory/osxbuild/armory_%s_osx.tar.gz']
+   m[pkg]['FetchFrom']  = ['scp', 'joeschmoe', '192.168.1.22', 22, '~/BitcoinArmory/osxbuild/armory_%s_osx.tar.gz']
    m[pkg]['FileSuffix'] = 'osx.tar.gz'
    m[pkg]['OSNameDisp'] = 'MacOSX'
    m[pkg]['OSVarDisp']  = '10.7+'
@@ -207,7 +207,7 @@ def getMasterPackageList():
    
    pkg = 'Ubuntu 12.04-32bit'
    m[pkg] = {}
-   m[pkg]['FetchFrom']    = ['scp', 'guest', '192.168.1.23', 5111, '~/buildenv/armory_%s-1_i386.deb']
+   m[pkg]['FetchFrom']    = ['scp', 'guest', 'buildmachine1', 3822, '~/buildenv/armory_%s-1_i386.deb']
    m[pkg]['FileSuffix']   = 'ubuntu-32bit.deb'
    m[pkg]['OSNameDisp']   = 'Ubuntu'
    m[pkg]['OSVarDisp']    = '12.04+'
@@ -223,7 +223,7 @@ def getMasterPackageList():
    
    pkg = 'Ubuntu 12.04-64bit'
    m[pkg] = {}
-   m[pkg]['FetchFrom']    = ['scp', 'joe', '192.168.1.80', 5111, '~/buildenv/armory_%s-1_amd64_osx.deb']
+   m[pkg]['FetchFrom']    = ['scp', 'guest', '192.168.0.83', 1899, '~/buildenv/armory_%s-1_amd64_osx.deb']
    m[pkg]['FileSuffix']   = 'ubuntu-64bit.deb'
    m[pkg]['OSNameDisp']   = 'Ubuntu'
    m[pkg]['OSVarDisp']    = '12.04+'

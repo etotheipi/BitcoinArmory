@@ -14,6 +14,79 @@ from qtdefines import * #@UnusedWildImport
 
 WALLET_DATA_ENTRY_FIELD_WIDTH = 60
 
+
+class LockboxSelectFrame(ArmoryFrame):
+   def __init__(self, parent, main, layoutDir=VERTICAL, spendFromLBID=None):
+      super(LockboxSelectFrame, self).__init__(parent, main)
+
+      self.lbox = self.main.getLockboxByID(spendFromLBID)
+      self.cppWlt = self.main.cppLockboxWltMap[spendFromLBID]
+
+      if not self.lbox:
+         QMessageBox.warning(self, tr("Invalid Lockbox"), tr(""" There was 
+         an error loading the specified lockbox (%s).""") % spendFromLBID, 
+         QMessageBox.Ok)
+         self.reject()
+         return
+
+      lblSpendFromLB = QRichLabel(tr(""" <font color="%s" size=4><b><u>Lockbox   
+         %s (%d-of-%d)</u></b></font>""") % (htmlColor('TextBlue'), \
+         self.lbox.uniqueIDB58, self.lbox.M, self.lbox.N))
+      lblSpendFromLB.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      lbls = []
+      lbls.append(QRichLabel("Lockbox ID:", doWrap=False))
+      lbls.append(QRichLabel("Name:", doWrap=False))
+      lbls.append(QRichLabel("Description:", doWrap=False))
+      lbls.append(QRichLabel("Spendable BTC:", doWrap=False))
+
+      layoutDetails = QGridLayout()
+      for i,lbl in enumerate(lbls):
+         lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+         lbl.setText('<b>' + str(lbls[i].text()) + '</b>')
+         layoutDetails.addWidget(lbl, i+1, 0)
+         
+      # LockboxID
+      self.dispID = QRichLabel(spendFromLBID)
+
+      # Lockbox Short Description/Name
+      self.dispName = QRichLabel(self.lbox.shortName)
+      self.dispName.setWordWrap(True)
+      self.dispName.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+      # Lockbox long descr
+      dispDescr = self.lbox.longDescr[:253]
+      if len(self.lbox.longDescr)>253:
+         dispDescr += '...'
+      self.dispDescr = QRichLabel(dispDescr)
+      self.dispDescr.setWordWrap(True)
+      self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+      bal = self.cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+      self.dispBal = QMoneyLabel(bal, wBold=True)
+      self.dispBal.setTextFormat(Qt.RichText)
+
+      layoutDetails.addWidget(self.dispID, 1, 1)
+      layoutDetails.addWidget(self.dispName, 2, 1)
+      layoutDetails.addWidget(self.dispDescr, 3, 1)
+      layoutDetails.addWidget(self.dispBal, 4, 1)
+      layoutDetails.setColumnStretch(0,0)
+      layoutDetails.setColumnStretch(1,1)
+      frmDetails = QFrame()
+      frmDetails.setLayout(layoutDetails)
+      frmDetails.setFrameStyle(STYLE_SUNKEN)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblSpendFromLB)
+      layout.addWidget(frmDetails)
+
+      self.setLayout(layout)
+
+      
+      
+
+
+
 # This class has all of the select wallet display and control functionality for
 # selecting a wallet, and doing coin control. It can be dropped into any dialog
 # and will interface with the dialog with select wlt and coin control callbacks.
@@ -100,7 +173,6 @@ class SelectWalletFrame(ArmoryFrame):
       # This line fixes squished text when word wrapping
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
       self.dispBal = QMoneyLabel(0)
-
       self.dispBal.setTextFormat(Qt.RichText)
       
       wltInfoFrame = QFrame()
@@ -138,8 +210,9 @@ class SelectWalletFrame(ArmoryFrame):
          layout.addWidget(makeLayoutFrame(HORIZONTAL, [self.walletListBox, wltInfoFrame]) )
 
       self.setLayout(layout)
+
       # Make sure this is called once so that the default selection is displayed
-      #self.updateOnWalletChange()
+      self.updateOnWalletChange()
 
    
    def getWalletIdList(self, onlyOfflineWallets):
@@ -207,8 +280,10 @@ class SelectWalletFrame(ArmoryFrame):
                self.dispBal.setText('<font color="red"><b>%s</b></font>' % balStr)
             else:
                self.dispBal.setText('<b>' + balStr + '</b>')     
+
          if self.selectWltCallback:
             self.selectWltCallback(wlt)
+
          self.repaint()
          # Reset the coin control variables after a new wallet is selected
          if self.coinControlCallback:
@@ -245,6 +320,10 @@ class SelectWalletFrame(ArmoryFrame):
       self.repaint()
       if self.coinControlCallback:
          self.coinControlCallback(self.sourceAddrList, self.altBalance)
+
+
+
+
 
 # Container for controls used in configuring a wallet to be added to any
 # dialog or wizard. Currently it is only used the create wallet wizard.
@@ -601,37 +680,35 @@ class WalletBackupFrame(ArmoryFrame):
          Every time you click "Receive Bitcoins," a new address is generated.
          All of these addresses are generated from a single seed value, which
          is included in all backups.   Therefore, all addresses that you have
-         generated so far <b>and</b> will ever generate with this wallet, are
-         protected by this backup! """))
-      if not self.hasImportedAddr:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+         generated so far <b>and</b> will ever be generated with this wallet, 
+         are protected by this backup! """))
+
+      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
+         <i>This wallet <u>does not</u> currently have any imported
+         addresses, so you can safely ignore this feature!</i>
+         When imported addresses are present, backups only protects those
+         imported before the backup was made.  You must replace that
+         backup if you import more addresses! """))
+
       self.featuresTips[F.LostPass] = self.main.createToolTipWidget(tr("""
          Lost/forgotten passphrases are, <b>by far</b>, the most common
          reason for users losing bitcoins.  It is critical you have
          at least one backup that works if you forget your wallet
          passphrase. """))
+
       self.featuresTips[F.Durable] = self.main.createToolTipWidget(tr("""
          USB drives and CD/DVD disks are not intended for long-term storage.
          They will <i>probably</i> last many years, but not guaranteed
          even for 3-5 years.   On the other hand, printed text on paper will
          last many decades, and useful even when thoroughly faded. """))
+
       self.featuresTips[F.Visual] = self.main.createToolTipWidget(tr("""
          The ability to look at a backup and determine if
          it is still usable.   If a digital backup is stored in a safe
          deposit box, you have no way to verify its integrity unless
          you take a secure computer/device with you.  A simple glance at
          a paper backup is enough to verify that it is still intact. """))
+
       self.featuresTips[F.Physical] = self.main.createToolTipWidget(tr("""
          If multiple pieces/fragments are required to restore this wallet.
          For instance, encrypted backups require the backup
@@ -706,19 +783,16 @@ class WalletBackupFrame(ArmoryFrame):
       pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
       self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
          'Protects Imported Addresses'), color=pcolor)
-      if not self.hasImportedAddr:
-         self.featuresTips[self.FEATURES.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[self.FEATURES.ProtImport] = self.main.createToolTipWidget(tr("""
+
+      if self.hasImportedAddr:
+         self.featuresTips[self.FEATURES.ProtImport].setText(tr("""
             When imported addresses are present, backups only protects those
             imported before the backup was made!  You must replace that
             backup if you import more addresses!
             <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+
+
+         
       self.lblTitle.setText(tr("""
          <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
 

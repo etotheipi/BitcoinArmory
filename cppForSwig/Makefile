@@ -83,12 +83,7 @@ clean:
 	touch CppBlockUtils.i
 	rm -f *.o *.out *.a
 	rm -f CppBlockUtils_wrap.cxx 
-	rm -f pypaths.txt
-
-hardclean:
-	touch CppBlockUtils.i
-	rm -f *.o *.out *.a
-	rm -f CppBlockUtils_wrap.cxx 
-	rm -f pypaths.txt
 	$(MAKE) -C cryptopp clean
 	$(MAKE) -C leveldb clean
+	$(MAKE) -C gtest clean
+

@@ -1,7 +1,7 @@
 from armoryengine.BinaryUnpacker import BinaryUnpacker
 from armoryengine.ArmoryUtils import UINT32_MAX, KeyDataError, \
                                      verifyChecksum, int_to_bitset, \
-                                     KILOBYTE, RightNowStr
+                                     KILOBYTE, RightNowStr, hex_to_binary
 from armoryengine.BinaryPacker import UINT16, UINT32, UINT64, INT64, \
                                       BINARY_CHUNK
 from armoryengine.PyBtcAddress import PyBtcAddress
@@ -459,6 +459,7 @@ class PyBtcWalletRecovery(object):
       #TODO: try to salvage broken header
       #      compare uniqueIDB58 with recovered wallet
       
+
       self.UIreport = '<b>Analyzing wallet:</b> %s<br>' % (toRecover.labelName \
                        if len(toRecover.labelName) != 0 \
                        else os.path.basename(WalletPath))
@@ -701,7 +702,7 @@ class PyBtcWalletRecovery(object):
             self.rawError.append('   chainIndex 0 was not derived from the \
                                   root address')
 
-         testroot.lock()
+         testroot.binPrivKey32_Plain.destroy()
 
       if rmode != RECOVERMODE.Meta:
          currSequence = addrDict[0][2]
@@ -865,7 +866,7 @@ class PyBtcWalletRecovery(object):
             if newAddr.chainIndex > 0 and keymismatch != 2:
                #if the wallet has the private key, derive it from the 
                #chainIndex and compare. If they mismatch, save the bad 
-               #private key as index -3 in the saved wallet. Additionally, 
+               #private key as -3 -chainIndex in the saved wallet. Additionally, 
                #derive the private key in case it is missing (keymismatch==4)
                
                gap = newAddr.chainIndex
@@ -923,7 +924,8 @@ class PyBtcWalletRecovery(object):
                      validAddr.keyChanged = True
                      
                      if validAddr.useEncryption:
-                        validAddr.lock()
+                        validAddr.keyChanged = True
+                        validAddr.lock(secureKdfOutput=toRecover.kdfKey)
                      
                      if isPubForked is not True:
                         self.forkedPublicKeyChain.append([newAddr.chainIndex, \
@@ -960,11 +962,11 @@ class PyBtcWalletRecovery(object):
                                  CryptoECDSA().ComputePublicKey( \
                                  validAddr.binPrivKey32_Plain)
                                  
-                        validAddr.chainCode = validChainAddr.chaincode.copy()
-                        validAddr.keyChanged = True
+                        validAddr.chainCode = validChainAddr.chaincode.copy()                        
                         
                         if validAddr.useEncryption:
-                           validAddr.lock()
+                           validAddr.keyChanged = True
+                           validAddr.lock(secureKdfOutput=toRecover.kdfKey)
                                                                                                  
                      validPrivKey.destroy()   
                                        
@@ -1039,23 +1041,21 @@ class PyBtcWalletRecovery(object):
             if prgAt:
                prgAt[0] = prgAt_in + (0.01 + 0.99*(newAddr.chainIndex +1) \
                                       /prgTotal)*prgAt[1]            
-      
-            if newAddr.chainIndex < -2:
-               self.negativeImports.append(newAddr.addrStr20)
-            elif newAddr.chainIndex == -2:   
-               # Fix byte errors in the address data
-               fixedAddrData = newAddr.serialize()
-               if not rawData==fixedAddrData:
-                  self.importedErr.append('found byte error in imported \
-                           address %d at file offset %d' % (i, entrylist[2]))
-                  newAddr = PyBtcAddress()
-                  newAddr.unserialize(fixedAddrData)
-                  entrylist[0] = newAddr
-                  importedDict[i] = entrylist
-                  
-               #marked forked imports
-
-      
+            
+            if newAddr.chainIndex <= -2:
+               if newAddr.chainIndex < -2:
+                  self.negativeImports.append(newAddr.addrStr20)
+               else:                                              
+                  # Fix byte errors in the address data
+                  fixedAddrData = newAddr.serialize()
+                  if not rawData==fixedAddrData:
+                     self.importedErr.append('found byte error in imported \
+                              address %d at file offset %d' % (i, entrylist[2]))
+                     newAddr = PyBtcAddress()
+                     newAddr.unserialize(fixedAddrData)
+                     entrylist[0] = newAddr
+                     importedDict[i] = entrylist
+                     
                #check public key is a valid EC point
                if newAddr.hasPubKey():
                   if not CryptoECDSA().VerifyPublicKeyValid( \
@@ -1108,7 +1108,7 @@ class PyBtcWalletRecovery(object):
                                                     newAddr.binPrivKey32_Plain)
       
                   #check hashVal
-                  if newAddr.addrStr20 != entrylist[1]:
+                  if newAddr.addrStr20 != entrylist[1] and newAddr.chainIndex == 2:
                      newAddr.addrStr20 = newAddr.binPublicKey65.getHash160()
                      self.importedErr.append('hashVal doesnt match addrStr20 \
                               for imported address %d at file offset %d\r\n' \
@@ -1199,7 +1199,7 @@ class PyBtcWalletRecovery(object):
                         # We know no ther way to handle it...
                         LOGERROR('Logging a multiplier that does not match!?')
                      
-                  if newAddr.isLocked:
+                  if newAddr.useEncryption:
                      newAddr.keyChanged = 1
                      newAddr.lock(RecoveredWallet.kdfKey)
                                           
@@ -1216,7 +1216,7 @@ class PyBtcWalletRecovery(object):
                   for i in range(0, self.ncomments):
                      UIupdate = '<b>- Saving comment entries:</b>   %d/%d<br>' \
                                  % (i+1, self.ncomments)
-                     if Progress.UpdateText(self.UIreport + UIupdate) == 0:
+                     if Progress(self.UIreport + UIupdate) == 0:
                         if SecurePassphrase: SecurePassphrase.destroy()
                         if toRecover.kdfKey: toRecover.kdfKey.destroy()
                         if RecoveredWallet.kdfKey: 
@@ -1289,7 +1289,7 @@ class PyBtcWalletRecovery(object):
          return self.BuildLogFile(-2, Progress, returnError) 
       
       return RecoveredWallet
-      
+   ############################################################################
    def LookForFurtherEntry(self, rawdata, loc):
       """
       Attempts to find valid data entries in wallet file by skipping known byte
@@ -1770,7 +1770,7 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
             errStr = '<br><b>An error occurred moving wallet files:</b> %s' % e
             Progress(fixer.UIreport + errStr)
             
-            return -1, fixer.UIreport + errSt, fixer
+            return -1, fixer.UIreport + errStr, fixer
    else:
       Progress(fixer.UIreport + fixer.EndLog)
       return -1, fixer.UIreport + fixer.EndLog, fixer
@@ -1833,10 +1833,11 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    fixedWlt = []
    wlterror = []
    goodWallets = []
+   inPassphrase = dlg.AskUnlock if dlg else None
    
    wltStatus, extraData, recovObj = FixWallet(wltPath, wlt, mode, True, 
-                                       Passphrase=dlg.AskUnlock, 
-                                       Progress=Progress)
+                                              Passphrase=inPassphrase, 
+                                              Progress=Progress)
    if wltStatus == 0:
       goodWallets.append(1)
       fixedWlt.append(1)
@@ -1868,16 +1869,4 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    else: 
       return wltStatus
 
-###############################################################################
 
-"""
-TODO: setup an array of tests:
-2) broken header
-3) oversized comment entries
-4) comments for non existant addr or txn entries
-
-possible wallet corruption vectors:
-1) PyBtcAddress.unlock verifies consistency between private and public key, \
-   unless SkipCheck is forced to false and private key is already computed. 
-   Look for this scenario
-"""

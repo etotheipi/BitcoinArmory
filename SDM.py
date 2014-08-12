@@ -11,7 +11,7 @@ import socket
 import stat
 import time
 from threading import Event
-from jsonrpc import ServiceProxy
+from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    ARMORY_INFO_SIGN_PUBLICKEY, LOGINFO, BTC_HOME_DIR, LOGDEBUG, OS_WINDOWS, \
@@ -19,27 +19,9 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    BITCOIN_RPC_PORT, binary_to_base58, isASCII, USE_TESTNET, GIGABYTE, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
-   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM
-from jsonrpc import authproxy
-
-
-#############################################################################
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
-
-   if not isinstance(port, (list,tuple)):
-      port = [port]
-
-   for p in port:
-      s = socket.socket()
-      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-      try:
-         s.connect((host, p))
-         s.close()
-         return p
-      except:
-         pass
-
-   return 0
+   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
+   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS
+from bitcoinrpc_jsonrpc import authproxy
 
 
 ################################################################################
@@ -172,6 +154,19 @@ class SatoshiDaemonManager(object):
          return False
 
       bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
+      bootfilePart = bootfile + '.partial'
+      bootfileOld  = bootfile + '.old'
+
+      # cleartorrent.flag means we should remove any pre-existing files
+      delTorrentFlag = os.path.join(ARMORY_HOME_DIR, 'cleartorrent.flag')
+      if os.path.exists(delTorrentFlag):
+         LOGWARN('Flag found to delete any pre-existing torrent files')
+         if os.path.exists(bootfile):       os.remove(bootfile)
+         if os.path.exists(bootfilePart):   os.remove(bootfilePart)
+         if os.path.exists(bootfileOld):    os.remove(bootfileOld)
+         if os.path.exists(delTorrentFlag): os.remove(delTorrentFlag)
+
+
       TheTDM.setupTorrent(torrentPath, bootfile)
       if not TheTDM.getTDMState()=='ReadyToStart':
          LOGERROR('Unknown error trying to start torrent manager')
@@ -214,14 +209,29 @@ class SatoshiDaemonManager(object):
          self.launchBitcoindAndGuardian()
 
       #####
-      def torrentFailed():
+      def warnUserHashFail():
+         from PyQt4.QtGui import QMessageBox
+         QMessageBox.warning(self, tr('Hash Failure'), tr("""The torrent download 
+            is currently encountering too many packet hash failures to allow it to 
+            progress properly. As a result, the torrent engine has been halted. You 
+            should report this incident to the Armory team and turn off this feature 
+            until further notice."""), QMessageBox.Ok)      
+      
+      #####
+      def torrentFailed(errMsg=''):
          # Not sure there's actually anything we need to do here...
+         if errMsg == 'hashFail':
+            warnUserHashFail()
+            
          bootsz = '<Unknown>'
          if os.path.exists(bootfile):
             bootsz = bytesToHumanSize(os.path.getsize(bootfile))
 
          LOGERROR('Torrent failed; size of %s is %s', torrentPath, bootsz)
          self.launchBitcoindAndGuardian()
+         
+
+ 
  
       TheTDM.setSecondsBetweenUpdates(90)
       TheTDM.setCallback('displayFunc',  torrentLogToFile)
@@ -497,12 +507,20 @@ class SatoshiDaemonManager(object):
             LOGERROR('    %s', bitconf)
          else:
             LOGINFO('Setting permissions on bitcoin.conf')
-            import win32api
-            username = win32api.GetUserName()
-            LOGINFO('Setting permissions on bitcoin.conf')
-            cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
-            icacls_out = subprocess_check_output(cmd_icacls, shell=True)
-            LOGINFO('icacls returned: %s', icacls_out)
+            import ctypes
+            username_u16 = ctypes.create_unicode_buffer(u'\0', 512)
+            str_length = ctypes.c_int(512)
+            ctypes.windll.Advapi32.GetUserNameW(ctypes.byref(username_u16), 
+                                                ctypes.byref(str_length))
+            
+            if not CLI_OPTIONS.disableConfPermis:
+               LOGINFO('Setting permissions on bitcoin.conf')
+               cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
+               icacls_out = subprocess_check_output(cmd_icacls, shell=True)
+               LOGINFO('icacls returned: %s', icacls_out)
+            else:
+               LOGWARN('Skipped setting permissions on bitcoin.conf file')
+            
       else:
          LOGINFO('Setting permissions on bitcoin.conf')
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
@@ -908,5 +926,7 @@ class SatoshiDaemonManager(object):
       print '\t', 'SDM State Str'.ljust(20), ':', self.getSDMState()
       for key,value in self.returnSDMInfo().iteritems():
          print '\t', str(key).ljust(20), ':', str(value)
+
+   
 
 

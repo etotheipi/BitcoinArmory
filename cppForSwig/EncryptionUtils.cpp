@@ -560,17 +560,28 @@ bool CryptoECDSA::CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
    return CheckPubPrivKeyMatch(privKey, pubKey);
 }
 
-bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
+bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey)
 {
    if(CRYPTO_DEBUG)
    {
-      cout << "BinPub: " << pubKey65.toHexStr() << endl;
+      cout << "BinPub: " << pubKey.toHexStr() << endl;
+   }
+
+   SecureBinaryData keyToCheck(65);
+
+   // To support compressed keys, we'll just check to see if a key is compressed
+   // and then decompress it.
+   if(pubKey.getSize() == 33) {
+      keyToCheck = UncompressPoint(pubKey);
+   }
+   else {
+      keyToCheck = pubKey;
    }
 
    // Basically just copying the ParsePublicKey method, but without
    // the assert that would throw an error from C++
-   SecureBinaryData pubXbin(pubKey65.getSliceRef( 1,32));
-   SecureBinaryData pubYbin(pubKey65.getSliceRef(33,32));
+   SecureBinaryData pubXbin(keyToCheck.getSliceRef( 1,32));
+   SecureBinaryData pubYbin(keyToCheck.getSliceRef(33,32));
    CryptoPP::Integer pubX;
    CryptoPP::Integer pubY;
    pubX.Decode(pubXbin.getPtr(), pubXbin.getSize(), UNSIGNED);
