@@ -318,11 +318,11 @@ class MultiSigLockbox(AsciiSerializable):
          boxComms[i] = toUnicode(bu.get(VAR_STR))
 
       # Check the magic bytes of the lockbox match
-      if not boxMagic == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not boxMagic == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
+         #LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
 
       
       # Lockbox ID is written in the first line, it should match the script
@@ -374,11 +374,11 @@ class MultiSigLockbox(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not lboxMagic == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    Lockbox Magic: ' + binary_to_hex(lboxMagic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not lboxMagic == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    Lockbox Magic: ' + binary_to_hex(lboxMagic))
+         #LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
 
       
       binPubKeys = [p.binPubKey for p in dPubKeys]
@@ -440,11 +440,11 @@ class MultiSigLockbox(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not magic == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         #LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
 
       name   = jsonMap['lboxname']
       descr  = jsonMap['lboxdescr']
@@ -682,11 +682,11 @@ class DecoratedPublicKey(AsciiSerializable):
       authData    = NullAuthData().unserialize(authDataStr)
 
       # Check the magic bytes of the lockbox match
-      if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    PubKey Magic: ' + binary_to_hex(magicBytes))
-         LOGERROR('    Armory Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    PubKey Magic: ' + binary_to_hex(magicBytes))
+         #LOGERROR('    Armory Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
       
       if not version==MULTISIG_VERSION:
          LOGWARN('Unserializing LB pubkey of different version')
@@ -732,11 +732,11 @@ class DecoratedPublicKey(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not magic == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         #LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
    
 
       pub  = hex_to_binary(jsonMap['pubkeyhex'])
@@ -932,11 +932,11 @@ class MultiSigPromissoryNote(AsciiSerializable):
       numUSTXI    = bu.get(VAR_INT)
 
       # Check the magic bytes of the lockbox match
-      if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    PromNote Magic: ' + binary_to_hex(magicBytes))
-         LOGERROR('    Armory   Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    PromNote Magic: ' + binary_to_hex(magicBytes))
+         #LOGERROR('    Armory   Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
       
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR), skipMagicCheck=skipMagicCheck) )
@@ -1022,11 +1022,11 @@ class MultiSigPromissoryNote(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES and not skipMagicCheck:
-         LOGERROR('Wrong network!')
-         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise NetworkIDError('Network magic bytes mismatch')
+      #if not magic == MAGIC_BYTES and not skipMagicCheck:
+         #LOGERROR('Wrong network!')
+         #LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         #LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         #raise NetworkIDError('Network magic bytes mismatch')
 
 
       targ = DecoratedTxOut().fromJSONMap(jsonMap['txouttarget'])
