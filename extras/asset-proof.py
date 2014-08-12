@@ -4,8 +4,8 @@
 # For more information, see https://github.com/olalonde/bitcoin-asset-proof 
 #
 # Usage:
-# asset-proof.py  armory_CACABEA_.wallet "EmptyGox Btc Assets" emptygox-btc-assets.json
-# more emptygox-btc-assets.json
+# asset-proof.py  armory_ABCDEF_.wallet "Airbex Btc Assets" airbex-btc-assets.json
+# more airbex-btc-assets.json
 #{
 #    "signatures": [
 #        {
@@ -17,15 +17,16 @@
 #            "address": "1PLvZNm1gZ7n32HHtgmVGgj8Zh5a3DxVbg"
 #        }
 #    ], 
-#    "type": "BTC", 
-#    "id": "EmptyGox Btc Assets"
+#    "blockhash": "00000000000000000a94cd53c34e2cdfd2b7eab95e7b2d948e5ad200d863bcd4"
+#    "currency": "BTC", 
+#    "message": "Airbex Btc Assets"
 #}
 
 import sys
 sys.path.append('..')
 sys.path.append('.')
 
-from armoryengine import *
+from armoryengine.ALL import *
 from jasvet import ASv0
 import getpass
 from sys import argv
@@ -36,15 +37,16 @@ import json
 print '\n'
 #raw_input('PLEASE CLOSE ARMORY BEFORE RUNNING THIS SCRIPT!  (press enter to continue)\n')
 
-if len(argv)<4:
-   print 'USAGE: %s <wallet file> <asset-name> <asset-file>' % argv[0]
-   print 'USAGE: %s armory_CACABEA_.wallet "EmptyGox Btc Asset" emptygox-btc-assets.json' % argv[0]
+if len(argv)<5:
+   print 'USAGE: %s <wallet file> <asset-name> <asset-file> <blockhash>' % argv[0]
+   print 'USAGE: %s armory_ABCDEF_.wallet "Airbex Btc Asset" airbex-btc-assets.json 00000000000000000a94cd53c34e2cdfd2b7eab95e7b2d948e5ad200d863bcd4' % argv[0]
    exit(0)
 
-wltfile  = argv[1]
-messageToSign = argv[2]
+wltfile = argv[1]
+message = argv[2]
 outfilename = argv[3]
-
+blockhash = argv[4]
+messageToSign = blockhash + '|' + message
 signatures = []
 
 if not os.path.exists(wltfile):
@@ -57,7 +59,6 @@ if wlt.useEncryption:
    print 'Please enter your passphrase to unlock your wallet: '
    for ntries in range(3):
       passwd = SecureBinaryData(getpass.getpass('Wallet Passphrase: '))
-      #passwd = SecureBinaryData("you pasphrase")
       if wlt.verifyPassphrase(passwd):
          break;
 
@@ -72,10 +73,10 @@ if wlt.useEncryption:
 
 
 try:
-   addrList = wlt.getAddrList()
+   addrList = wlt.getLinearAddrList()
    print 'Addresses in this wallet:%s' % len(addrList)
    
-   for addr in addrList:
+   for addr in addrList[0:100]:
       privateKey = addr.binPrivKey32_Plain.toBinStr()
       signature = ASv0(privateKey, messageToSign)
       signatureb64 = signature['b64-signature']
@@ -90,7 +91,7 @@ except:
    print 'Error signing transsaction.  Unknown reason.'
    raise
    
-out = {'id':messageToSign, 'signatures':signatures, 'type':'BTC'}
+out = {'blockhash': blockhash, 'message':message, 'currency':'BTC', 'signatures':signatures}
 
 outDump = json.dumps(out, sort_keys = False, indent = 4)
 
