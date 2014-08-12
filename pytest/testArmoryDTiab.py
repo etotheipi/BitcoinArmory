@@ -301,15 +301,15 @@ class ArmoryDTiabTest(TiabTest):
       clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), \
                                  TEST_MESSAGE)
       inMsg2 = '\"' + clearSignMessage2 + '\"'
-      result2 = self.jsonServer.jsonrpc_receivedfromsigner(inMsg2)
+      result2 = self.jsonServer.jsonrpc_getreceivedfromsigner(inMsg2)
       self.assertEqual(result2['message'], TEST_MESSAGE)
       self.assertEqual(result2['amount'], 0)
 
 
    def  testReceivedfromaddress(self):
-      result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
+      result = self.jsonServer.jsonrpc_getreceivedfromaddress(TIAB_WLT_3_ADDR_3)
       self.assertEqual(result, 0)
-      result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_2)
+      result = self.jsonServer.jsonrpc_getreceivedfromaddress(TIAB_WLT_1_ADDR_2)
       self.assertEqual(result, EXPECTED_RECEIVED_FROM_TIAB_WLT_1_ADDR_2)
 
    def testGettransaction(self):
