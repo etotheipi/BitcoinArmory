@@ -293,9 +293,9 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    }
    
    mostRecentBlockApplied_ = sud.blockHeight_;
-   uint32_t scannedFrom = 0;
-   if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
-      scannedFrom = scrAddrData->scanFrom();
+   //uint32_t scannedFrom = 0;
+   //if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+      //scannedFrom = scrAddrData->scanFrom();
 
    // In the future we will accommodate more user modes
    if(config_.armoryDbType != ARMORY_DB_SUPER)

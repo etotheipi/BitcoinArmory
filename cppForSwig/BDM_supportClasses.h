@@ -107,7 +107,7 @@ public:
    const ARMORY_DB_TYPE           armoryDbType_;
   
    ScrAddrScanData(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
-      : lmdb_(lmdb), armoryDbType_(armoryDbType), mergeLock_(0)
+      : lmdb_(lmdb), mergeLock_(0), armoryDbType_(armoryDbType)
    {}
    
    virtual ~ScrAddrScanData() { }
@@ -296,7 +296,7 @@ private:
 
 public:
    ZeroConfContainer(ScrAddrScanData* sadPtr) :
-      scrAddrDataPtr_(sadPtr), topId_(0), lock_(0) {}
+      topId_(0), scrAddrDataPtr_(sadPtr), lock_(0) {}
 
    void addRawTx(const BinaryData& rawTx, uint32_t txtime);
 

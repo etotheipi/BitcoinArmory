@@ -1661,8 +1661,10 @@ public:
 
 };
    
-   
-   
+static inline void suppressUnusedFunctionWarning()
+{
+   (void)&CryptoPP::StringNarrow;
+}
 
 
 #endif
