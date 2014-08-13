@@ -4,7 +4,11 @@ from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget,\
 from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
    makeVertFrame
 from armoryengine.ArmoryUtils import addrStr_to_hash160, LOGINFO,\
-   BadAddressError, binary_to_hex, coin2str
+   BadAddressError, binary_to_hex, coin2str, isLikelyDataType, DATATYPE,\
+   hex_to_binary, ph
+from armoryengine.BDM import TheBDM
+from armoryengine.Transaction import PyTx
+from qtdialogs import DlgAddressInfo, DlgDispTxInfo
 # Find the best implementation available on this platform
 try:
     from cStringIO import StringIO
@@ -21,48 +25,44 @@ class PluginObject(object):
 
       def searchItem():
          found = False
-         self.resultsDisplay.setText('')
          searchString = str(self.searchEntry.text())
          if len(searchString) > 0:
-            try:
-               searchHash = addrStr_to_hash160(searchString)[1]
-               for wltID, wlt in self.main.walletMap.iteritems():
-                  if searchHash in wlt.addrMap:
-                     self.resultsDisplay.setText(self.getDisplayString(wlt, wlt.addrMap[searchHash]))
-                     found = True
-                     break
-            except BadAddressError:
-               self.resultsDisplay.setText("Search string is not a valid address")
-               LOGINFO("Search String is not an addresss") 
+            likelyDataType = isLikelyDataType(searchString)    
+            for wltID, wlt in self.main.walletMap.iteritems():
+               if wlt.hasAddr(searchString):
+                  searchHash = searchString if likelyDataType == DATATYPE.Hex \
+                        else addrStr_to_hash160(searchString)[1]
+                  dialog = DlgAddressInfo(wlt, searchHash, main=self.main)
+                  dialog.exec_()
+                  found = True
+                  break
             if not found:
-               self.resultsDisplay.setText("Address not found")
-         else:
-            self.resultsDisplay.setText("No address entered")
+               cppTx = TheBDM.getTxByHash(searchString) \
+                  if likelyDataType == DATATYPE.Hex else None
+               if cppTx:
+                  wltLE = wlt.cppWallet.getTxLedgerForComments()
+                  for le in wltLE:
+                     txHash = le.getTxHash()
+                     if wlt.txAddrMap.has_key(txHash):
+                        serializedCppTx = cppTx.serialize()
+                        pytx = PyTx().unserialize(serializedCppTx)
+                        DlgDispTxInfo(pytx, wlt).exec_()
+                        found = True
+                        break
             
       self.main = main
-      lblHeader    = QRichLabel(tr("""<b>Search Armory: </b>"""), doWrap=False)
+      lblHeader = QRichLabel(tr("""<b>Search Armory: </b>"""), doWrap=False)
       self.searchButton = QPushButton("Search")
       self.searchEntry = QLineEdit()
       self.main.connect(self.searchButton, SIGNAL('clicked()'), searchItem)
       topRow =  makeHorizFrame([lblHeader, self.searchEntry, self.searchButton, 'stretch'])
-      
-      self.resultsDisplay = self.createSearchResultsDisplay()
-      
 
-      self.searchPanel = makeVertFrame([topRow, self.resultsDisplay ])
+
+      self.searchPanel = makeVertFrame([topRow, 'stretch' ])
       # Now set the scrollarea widget to the layout
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(self.searchPanel)
-
-   def createSearchResultsDisplay(self):
-      resultsDisplay = QTextEdit()
-      resultsDisplay.setFont(GETFONT('Fixed', 8))
-      w,h = relaxedSizeNChar(resultsDisplay, 68)[0], int(12 * 8.2)
-      resultsDisplay.setMinimumWidth(w)
-      resultsDisplay.setMinimumHeight(h)
-      resultsDisplay.setReadOnly(True)
-      return resultsDisplay
    
    def getDisplayString(self, wlt, pyAddr):
       result = StringIO()
