@@ -3743,14 +3743,14 @@ class DlgAddressInfo(ArmoryDialog):
       super(DlgAddressInfo, self).__init__(parent, main)
 
       self.wlt = wlt
+      self.cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(\
+                                       Hash160ToScrAddr(addr160))      
       self.addr = self.wlt.getAddrByHash160(addr160)
 
-
-      self.addrLedger = wlt.getAddrTxLedger(addr160)
+      self.addrLedger = self.cppAddr.getHistoryPageById(0)
       self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in self.addrLedger]
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
-      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
-
+      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
 
       self.mode = mode
       if mode == None:
@@ -3761,9 +3761,10 @@ class DlgAddressInfo(ArmoryDialog):
 
 
       dlgLayout = QGridLayout()
-      cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
       addrStr = self.addr.getAddrStr()
 
+      self.nPages = self.cppAddr.getPageCount()
+      self.currentPage = 0
 
       lblDescr = QLabel('Information for address:  ' + addrStr)
 
@@ -3819,7 +3820,7 @@ class DlgAddressInfo(ArmoryDialog):
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
-      balCoin = cppAddr.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
+      balCoin = self.cppAddr.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
       balStr = coin2str(balCoin, maxZeros=1)
       if balCoin > 0:
          goodColor = htmlColor('MoneyPos')
@@ -3948,7 +3949,14 @@ class DlgAddressInfo(ArmoryDialog):
 
       btnGoBack = QPushButton('<<< Go Back')
       self.connect(btnGoBack, SIGNAL(CLICKED), self.reject)
-      bottomStrip = makeLayoutFrame(HORIZONTAL, [btnGoBack, STRETCH])
+      
+      lblPageTitle = QLabel("Page: ")
+      self.edtPage = QLineEdit("0")
+      lblPageCount = QLabel(" out of %d" % self.nPages)
+      self.connect(self.edtPage, SIGNAL('editingFinished()'), self.changePageId)
+      
+      bottomStrip = makeLayoutFrame(HORIZONTAL, [btnGoBack, lblPageTitle, \
+                                    self.edtPage, lblPageCount, STRETCH])
       dlgLayout.addWidget(bottomStrip, 2, 0, 1, 2)
 
       self.setLayout(dlgLayout)
@@ -4037,6 +4045,28 @@ class DlgAddressInfo(ArmoryDialog):
    def deleteAddr(self):
       pass
 
+   def loadPage(self, pageId):
+      self.addrLedger = self.cppAddr.getHistoryPageById(pageId)
+      self.addrLedger2 = [[self.wlt.uniqueIDB58, le] for le in self.addrLedger]
+      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
+      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
+      
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
+      self.ledgerView.setModel(self.ledgerModel)
+      self.ledgerView.reset()
+      
+   def changePageId(self):
+      pageInt = int(self.edtPage.text())
+      
+      if pageInt == self.currentPage:
+         return      
+      
+      if pageInt < 0 or pageInt > self.nPages:
+         self.edtPage.setText(str(self.currentPage))
+         return
+      
+      self.currentPage = pageInt   
+      self.loadPage(pageInt)
 
 #############################################################################
 class DlgShowKeys(ArmoryDialog):

@@ -515,8 +515,6 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
 {
    merge();
 
-   LMDB::Transaction batch(&bdmPtr_->getIFace()->dbs_[BLKDATA]);
-
    if (startBlock == UINT32_MAX)
       startBlock = lastScanned_;
    if (endBlock == UINT32_MAX)
@@ -524,33 +522,17 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
 
    if (isInitialized_ == false)
    {
-      calculateTxioDensity();
-      int32_t step = uint32_t((float)txnPerPage_ / txioDensity_) + 1;
+      //first time scan wallet is called, bootstrap the history
+      LOGINFO << "mapping wallet's history";
+      mapPages();
 
-      int32_t top = bdmPtr_->getTopBlockHeight() + 1;
-      int32_t bottom = bdmPtr_->getTopBlockHeight() + 1;
-
-      LOGINFO << "fetching history. step: " << step << " txioDensity: " << txioDensity_;
-      do
-      {
-         bottom -= step;
-         if (bottom < 0)
-            bottom = 0;
-
-         fetchWalletHistoryRange(ledgerAllAddr_, bottom, top);
-         top -= step;
-
-         LOGINFO << "ledge size " << ledgerAllAddr_.size();
-      } while (ledgerAllAddr_.size() < txnPerPage_ && bottom > 0);
-
-      LOGINFO << "bottom: " << bottom;
-      histBottomHeight_ = bottom;
-
-      if (bottom != 0)
-         mapPages();
-
-      LOGINFO << "updating ZC";
+      //scan ZC
       scanWalletZeroConf();
+
+      //update wallet's ledger now that all scrAddrObj have at txnPerPage_ 
+      //worth of ledger history
+      updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMap_, 
+         histPages_.getPageBottom(0), endBlock, false);
 
       lastScanned_ = endBlock;
       isInitialized_ = true;
@@ -562,15 +544,22 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
 
       if (lastScanned_ > startBlock)
       {
-         //reorg
+         /***In normal operations, the lastScanned block will always be equal to
+         next startBlock scanWallet is called with. 
+         If however startBlock is lower than lastScanned, it means the last 
+         valid top height has changed, thus we have a reorg***/
          updateAfterReorg(startBlock);
+
+         //scanWalletZeroConf also needs to know if a reorg occured
          withReorg = true;
       }
          
-      fetchDBScrAddrData(startBlock, endBlock);
-      scanWalletZeroConf();
+      LMDB::Transaction batch(&bdmPtr_->getIFace()->dbs_[BLKDATA]);
 
-      updateWalletLedgers(ledgerAllAddr_, scrAddrMap_, 
+      fetchDBScrAddrData(startBlock, endBlock);
+      scanWalletZeroConf(withReorg);
+
+      updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMap_, 
                           startBlock, UINT32_MAX -1);
 
       lastScanned_ = endBlock;
@@ -581,9 +570,10 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       if (bdmPtr_->isZcEnabled())
       {
          scanWalletZeroConf();
-         updateWalletLedgers(ledgerAllAddr_, scrAddrMap_, 
+         updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMap_, 
                              startBlock, endBlock, false);
 
+         //return false because no new block was parsed
          return false;
       }
    }
@@ -598,7 +588,6 @@ void BtcWallet::reset()
 
    clearBlkData();
    isInitialized_ = false;
-   histBottomHeight_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -637,7 +626,7 @@ void BtcWallet::purgeLedgerFromHeight(uint32_t height)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::updateWalletLedgers(
+void BtcWallet::updateWalletLedgersFromScrAddr(
    vector<LedgerEntry>& walletLedgers,
    const map<BinaryData, ScrAddrObj>& scrAddrMap, 
    uint32_t startBlock, 
@@ -783,10 +772,9 @@ void BtcWallet::preloadScrAddr(const BinaryData& scrAddr)
    ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), 
                             &bdmPtr_->blockchain(), 
                             scrAddr);
-   //THIS NEEDS TO BUILD THE SCRADDR HIST PAGES.
-
-   //fetch scrAddrData
-   newScrAddrObj.fetchDBScrAddrData(0, bdmPtr_->getTopBlockHeight());
+   //build history
+   LMDB::Transaction batch(&bdmPtr_->getIFace()->dbs_[BLKDATA]);
+   newScrAddrObj.mapHistory();
 
    //grab merge lock
    while (mergeLock_.fetch_or(1, memory_order_acquire));
@@ -814,9 +802,12 @@ void BtcWallet::merge(void)
       /***TODO: make this play nice with the paging code***/
       
       //rescan last 100 blocks to account for new blocks and reorgs
-      uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight() + 1;
+      uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight() +1;
+      uint32_t bottomBlock = 0;
+      if (topBlock > 99)
+         bottomBlock = topBlock -100;
       for (auto& scrAddrPair : scrAddrMapToMerge_)
-         scrAddrPair.second.fetchDBScrAddrData(topBlock - 100, topBlock);
+         scrAddrPair.second.fetchDBScrAddrData(bottomBlock, topBlock);
       
 
       /***NOTE: should ledgers just be wiped and fully rebuilt? If the new 
@@ -824,12 +815,13 @@ void BtcWallet::merge(void)
       ***/
 
       //update wallet ledger, pass false to not reset the other ledger entries
-      updateWalletLedgers(ledgerAllAddr_, scrAddrMapToMerge_, 0, 
+      updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMapToMerge_, 0, 
                           bdmPtr_->blockchain().top().getBlockHeight() + 1,
                           false);
       
       //merge scrAddrMap
-      scrAddrMap_.insert(scrAddrMapToMerge_.begin(), scrAddrMapToMerge_.end());
+      for (auto& scrAddrPair : scrAddrMapToMerge_)
+         scrAddrMap_[scrAddrPair.first] = scrAddrPair.second;
 
       //clear merge map
       scrAddrMapToMerge_.clear();
@@ -844,72 +836,28 @@ void BtcWallet::merge(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::calculateTxioDensity()
-{
-   /***
-   Evaluates how many blocks of history are needed starting from endBlock to
-   display approximately histLength transactions
-   ***/
-
-   //we start from the assumption that there isn't enough history in this wallet
-   //to fulfill histLength of history, so we're starting at bottom = 0, to cover 
-   //the entire wallet history
-   uint64_t totalTxio = 0;
-
-   LMDBBlockDatabase* db = bdmPtr_->getIFace();
-   LMDB::Transaction batch(&db->dbs_[BLKDATA]);
-
-   //parse all SSH summaries
-   for (auto& scrAddrPair : scrAddrMap_)
-   {
-      StoredScriptHistory ssh;
-      db->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
-
-      scrAddrPair.second.setTxioCount(ssh.totalTxioCount_);
-
-      totalTxio += ssh.totalTxioCount_;
-   }
-
-   txioDensity_ = float(totalTxio * 2) / 
-                  float(bdmPtr_->blockchain().top().getBlockHeight());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::fetchWalletHistoryRange(vector<LedgerEntry>& le, 
-                                            uint32_t startBlock,
-                                            uint32_t endBlock)
-{
-   /***grab txios for all addresses from startBlock to endBlock, build the ledger
-   entries in le
-   ***/
-   
-   fetchDBScrAddrData(startBlock, endBlock);
-   updateWalletLedgers(le, scrAddrMap_, startBlock, endBlock, false);
-}
-
-////////////////////////////////////////////////////////////////////////////////
 void* mapPagesThread(void *in)
 {
+
+   TIMER_START("mapPages");
    BtcWallet *wlt = static_cast<BtcWallet*>(in);
 
-   uint32_t wltFirstHistoryBlock = wlt->getHistBottomHeight(); 
    uint32_t txnPerPage = wlt->getTxnPerPage();
    
    //grab merge lock, make a copy of the addrMap then release
    wlt->grabMergeLock();
-   map<BinaryData, ScrAddrObj> scrAddrMap = wlt->getScrAddrMap();
+   map<BinaryData, ScrAddrObj>& scrAddrMap = wlt->getScrAddrMap();
    map<BinaryData, ScrAddrObj*> addrMap;
-   for (auto& addrPair : scrAddrMap)
-      addrMap[addrPair.first] = &addrPair.second;
+   for (auto addrIter = scrAddrMap.begin(); addrIter != scrAddrMap.end(); addrIter++)
+      addrMap[addrIter->first] = &addrIter->second;
 
+   //grab history map for each address and merge them on the fly
    wlt->releaseMergeLock();
 
    LMDBBlockDatabase* db = wlt->getBdmPtr()->getIFace();
    map<uint32_t, uint32_t> histSummary;
 
    LMDB::Transaction *batch = new LMDB::Transaction(&db->dbs_[BLKDATA]);
-   LOGERR << "Starting mapPages read Tx";
-
    for (auto& scrAddrPair : addrMap)
    {
       scrAddrPair.second->mapHistory();
@@ -917,24 +865,19 @@ void* mapPagesThread(void *in)
          scrAddrPair.second->getHistSSHsummary();
 
       for (const auto& histPair : txioSum)
-      {
-         if (histPair.first >= wltFirstHistoryBlock)
-            break;
          histSummary[histPair.first] += histPair.second;
-      }
    }
 
-   LOGERR << "Deleting mapPages read Tx";
    delete batch;
 
    HistoryPages &pages = wlt->getHistoryPages();
    pages.reset();
 
-   auto histIter = histSummary.cbegin();
+   auto histIter = histSummary.crbegin();
    uint32_t threshold = 0;
    uint32_t top;
    
-   while (histIter != histSummary.cend())
+   while (histIter != histSummary.crend())
    {
       if (threshold == 0)
          top = histIter->first;
@@ -953,18 +896,42 @@ void* mapPagesThread(void *in)
    if (threshold != 0)
       pages.addPage(threshold, 0, top);
 
+   if (pages.getPageCount() == 0)
+      pages.addPage(0, 0, UINT32_MAX);
+
    pages.sortPages();
 
-   LOGINFO << "mapPages done";
+   TIMER_STOP("mapPages");
+   double mapPagesTimer = TIMER_READ_SEC("mapPages");
+   LOGINFO << "mapPages done in " << mapPagesTimer << " secs";
    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::mapPages()
 {
-   pthread_t tid;
-   pthread_create(&tid, nullptr, mapPagesThread, static_cast<void*>(this));
-   //pthread_join(tid, nullptr);
+    /***mapPages seems rather fast (0.6~0.3sec to map the history of wallet
+   with 1VayNert, 1Exodus and 100k empty addresses.
+
+   My original plan was to grab the first 100 txn of a wallet to have the first
+   page of its history ready for rendering, and parse its history in a side 
+   thread, as I was expecting that process to be long.
+
+   Since my original assumption understimated LMDB's speed, I can instead map 
+   the history first, then create the first page, as it results in a more 
+   consistent txn distribution per page.
+
+   Also taken in consideration is the code in updateLedgers. Ledgers are built
+   by ScrAddrObj. The particular call, updateLedgers, expects to receive parse
+   txioPairs in ascending order (lowest to highest height). 
+
+   By gradually parsing history from the top block downward, updateLedgers is
+   fed both ascending and descending sets of txioPairs, which would require
+   certain in depth amendments to its code to satisfy a behavior that takes 
+   place only once per wallet per load.
+   ***/
+
+   mapPagesThread(static_cast<void*>(this));
 }
 
 

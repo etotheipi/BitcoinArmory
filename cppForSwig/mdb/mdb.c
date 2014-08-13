@@ -3432,13 +3432,24 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
 #ifdef _WIN32
 	int rc;
 	HANDLE mh;
+   
+   LARGE_INTEGER li;
+   uint64_t fileSize;
+
 	unsigned sizelo, sizehi;
 	sizelo = env->me_mapsize & 0xffffffff;
 	sizehi = env->me_mapsize >> 16 >> 16; /* only needed on Win64 */
 
 	/* Windows won't create mappings for zero length files.
-	 * Just allocate the maxsize right now.
+	 * Have to allocate the maxsize as Windows needs the
+    * space to be preallocated.
 	 */
+
+   GetFileSizeEx(env->me_fd, &li);
+   fileSize = (uint64_t)li.QuadPart;
+   if (fileSize < env->me_mapsize)
+      newsize = 1;
+
 	if (newsize) {
 		if (SetFilePointer(env->me_fd, sizelo, &sizehi, 0) != (DWORD)sizelo
 			|| !SetEndOfFile(env->me_fd)

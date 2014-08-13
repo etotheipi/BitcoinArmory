@@ -66,3 +66,15 @@ void LedgerEntry::pprintOneLine(void) const
                            getValue()/1e8,
                            getBlockNum());
 }
+
+//////////////////////////////////////////////////////////////////////////////
+bool LedgerEntry::operator>(LedgerEntry const & le2) const
+{
+   if (blockNum_ != le2.blockNum_)
+      return blockNum_ > le2.blockNum_;
+   else if (index_ != le2.index_)
+      return index_ > le2.index_;
+   else
+      return false;
+
+}

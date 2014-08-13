@@ -94,10 +94,14 @@ public:
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
    bool operator<(LedgerEntry const & le2) const;
+   bool operator>(LedgerEntry const & le2) const;
    bool operator==(LedgerEntry const & le2) const;
 
    void pprint(void);
    void pprintOneLine(void) const;
+
+   static bool greaterThan(const LedgerEntry& lhs, const LedgerEntry& rhs)
+   { return lhs > rhs; }
 
 private:
    

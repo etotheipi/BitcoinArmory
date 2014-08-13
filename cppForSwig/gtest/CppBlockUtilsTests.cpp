@@ -6894,7 +6894,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
-   //TheBDM.scanBlockchainForTx(wlt);
 
    wlt.addScrAddress(scrAddrD_);
 

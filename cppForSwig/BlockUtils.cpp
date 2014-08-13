@@ -1109,7 +1109,9 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    do
    {
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(ldbIter, sbh);
+      if (!iface_->readStoredBlockAtIter(ldbIter, sbh))
+         continue;
+
       hgt = sbh.blockHeight_;
       const uint8_t dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)

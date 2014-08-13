@@ -49,7 +49,7 @@ private:
       uint32_t blockEnd_;
       uint32_t count_;
 
-      vector<LedgerEntry> pageLedgers_;
+      map<BinaryData, LedgerEntry> pageLedgers_;
 
       Page(void) : blockStart_(UINT32_MAX), blockEnd_(UINT32_MAX), count_(0)
       {}
@@ -60,7 +60,8 @@ private:
 
       bool operator< (const Page& rhs) const
       {
-         return this->blockStart_ < rhs.blockStart_;
+         //history pages are order backwards
+         return this->blockStart_ > rhs.blockStart_;
       }
    };
 
@@ -70,7 +71,12 @@ private:
 public:
    HistoryPages(void) {}
 
-   vector<LedgerEntry> getPage(const ScrAddrObj* sa, uint32_t pageId);
+   map<BinaryData, LedgerEntry>& getPageLedgerMap(
+      const ScrAddrObj* sa, 
+      uint32_t pageId,
+      map<BinaryData, TxIOPair>* txioMap=nullptr);
+   
+   uint32_t getPageBottom(uint32_t id) const;
    void reset(void) { pages_.clear();}
    void addPage(uint32_t count, uint32_t bottom, uint32_t top);
    void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
@@ -79,6 +85,7 @@ public:
                           uint32_t txnPerPage);
    const map<uint32_t, uint32_t>& getSSHsummary(void) const
    { return SSHsummary_; }
+   uint32_t getPageCount(void) const { return pages_.size(); }
 };
 
 class ScrAddrObj
@@ -136,19 +143,18 @@ public:
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
-   { return ledger_; }
+   { return *ledger_; }
+   
+   vector<LedgerEntry> getTxLedgerAsVector(
+      map<BinaryData, LedgerEntry>& leMap) const;
 
    uint32_t getTxLedgerSize(void) const
-   { return ledger_.size(); }
-
-   vector<LedgerEntry> getTxLedgerAsVector(void) const;
-
+   { return ledger_->size(); }
 
 
    map<BinaryData, TxIOPair> &   getTxIOMap(void) { return relevantTxIO_; }
    const map<BinaryData, TxIOPair> & getTxIOMap(void) const 
                            { return relevantTxIO_; }
-
 
    void addTxIO(TxIOPair & txio, bool isZeroConf=false);
 
@@ -165,20 +171,19 @@ public:
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 
-  /* BinaryData getLedgerKey(const BinaryData& DBkey, 
-                           bool isTxOut=true) const;*/
    void updateLedgers(map<BinaryData, LedgerEntry>& le,
-                      const map<BinaryData, TxIOPair>& newTxio) const;
+                      const map<BinaryData, TxIOPair>& newTxio,
+                      uint32_t startBlock=0) const;
 
-   void updateLedgers(const map<BinaryData, TxIOPair>& newTxio)
-   { updateLedgers(ledger_, newTxio); }
+   void updateLedgers(const map<BinaryData, TxIOPair>& newTxio,
+                      uint32_t startBlock=0)
+   { updateLedgers(*ledger_, newTxio); }
 
    void setTxioCount(uint64_t count) { totalTxioCount_ = count; }
    uint64_t getTxioCount(void) const { return totalTxioCount_; }
    uint64_t getTxioCountFromSSH(void) const;
 
-   void mapHistory()
-   { hist_.mapScrAddrHistory(db_, scrAddr_, txnPerPage_); }
+   void mapHistory(void);
 
    const map<uint32_t, uint32_t>& getHistSSHsummary(void) const
    { return hist_.getSSHsummary(); }
@@ -190,6 +195,12 @@ public:
       uint32_t startBlock, uint32_t endBlock,
       bool withMultisig = false) const;
 
+   uint32_t getPageCount(void) const { return hist_.getPageCount(); }
+   vector<LedgerEntry> getHistoryPageById(uint32_t id);
+   void updateLedgerPointer(void) 
+      { ledger_ = &hist_.getPageLedgerMap(this, 0); }
+
+   ScrAddrObj& operator= (const ScrAddrObj& rhs);
 
 private:
    LMDBBlockDatabase *db_;
@@ -202,13 +213,14 @@ private:
    uint32_t       lastTimestamp_;
 
    // If any multisig scripts that include this address, we'll track them
-   bool           hasMultisigEntries_;
+   bool           hasMultisigEntries_=false;
 
    // Each address will store a list of pointers to its transactions
    map<BinaryData, TxIOPair>     relevantTxIO_;
-   map<BinaryData, LedgerEntry>  ledger_;
+   map<BinaryData, LedgerEntry>*  ledger_=nullptr;
    
-   uint64_t totalTxioCount_;
+   mutable uint64_t totalTxioCount_=0;
+   mutable uint32_t lastSeenBlock_=0;
 
    //prebuild history indexes for quick fetch from SSH
    HistoryPages hist_;

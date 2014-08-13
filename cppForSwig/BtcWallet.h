@@ -150,10 +150,10 @@ public:
    void updateAfterReorg(uint32_t lastValidBlockHeight);   
    void scanWalletZeroConf(bool withReorg=false);
    
-   const map<BinaryData, ScrAddrObj> getScrAddrMap(void) const
+   const map<BinaryData, ScrAddrObj>& getScrAddrMap(void) const
    { return scrAddrMap_; }
 
-   map<BinaryData, ScrAddrObj> getScrAddrMap(void)
+   map<BinaryData, ScrAddrObj>& getScrAddrMap(void)
    { return scrAddrMap_; }
 
    uint32_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
@@ -172,10 +172,16 @@ public:
       return nullptr;
    }
 
-   void updateWalletLedgers(vector<LedgerEntry>& le,
+   void updateWalletLedgersFromScrAddr(vector<LedgerEntry>& le,
                             const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                             uint32_t startBlock, uint32_t endBlock, 
                             bool purge = true);
+
+   /*void updateWalletLedgersFromScrAddTxio(vector<LedgerEntry>& le,
+      const map<BinaryData, TxIOPair>& txioMap,
+      uint32_t startBlock, uint32_t endBlock,
+      bool purge = true);*/
+
    void purgeLedgerFromHeight(uint32_t height);
 
    LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;
@@ -183,13 +189,6 @@ public:
 
    void merge(void);
    bool getMergeFlag(void) { return mergeFlag_; }
-
-   void calculateTxioDensity();
-   void fetchWalletHistoryRange(vector<LedgerEntry>& le, 
-                                    uint32_t startBlock,
-                                    uint32_t endBlock);
-
-   uint32_t getHistBottomHeight(void) const { return histBottomHeight_; }
 
    BlockDataManager_LevelDB* getBdmPtr(void) const { return bdmPtr_; }
    void grabMergeLock(void) { while (mergeLock_.fetch_or(1, memory_order_acquire)); }
@@ -213,7 +212,7 @@ private:
    // just a null-reference object
    static vector<LedgerEntry>          EmptyLedger_; 
 
-   bool                                isInitialized_;
+   bool                                isInitialized_=false;
    bool                                isRegistered_=false;
 
    uint32_t                            lastScanned_=0;
@@ -224,14 +223,8 @@ private:
    map<BinaryData, ScrAddrObj>         scrAddrMapToMerge_;
    bool                                mergeFlag_=false;
    
-   //rough estimate of TxIOs per block
-   float                               txioDensity_=0.0;
-
    //target txn history per page
    uint32_t                            txnPerPage_=100;
-
-   //block height from which the history has been loaded
-   uint32_t                            histBottomHeight_=0;
 
    //manages history pages
    HistoryPages histPages_;

@@ -248,7 +248,6 @@ void* ScrAddrScanData::scanScrAddrThread(void *in)
 
    while (startBlock < endBlock)
    {
-      //ADD MECHANISM TO DETECT REORGS
       sasd->applyBlockRangeToDB(startBlock, endBlock);
 
       startBlock = endBlock;

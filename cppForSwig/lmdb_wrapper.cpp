@@ -1618,7 +1618,8 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & 
                                                  sbh.duplicateID_);
 
    if (bdtype == NOT_BLKDATA)
-      throw runtime_error("readStoredBlockAtIter: tried to readBlkDataKey, got NOT_BLKDATA");
+      return false;
+      //throw runtime_error("readStoredBlockAtIter: tried to readBlkDataKey, got NOT_BLKDATA");
    
    // Grab the header first, then iterate over 
    sbh.unserializeDBValue(BLKDATA, ldbIter.getValueRef(), false);
@@ -2669,10 +2670,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    ssh.unserializeDBValue(ldbIter.getValueReader(), this);
 
    if (ssh.totalTxioCount_ == 0)
-   {
-      //LOGWARN << "How did we end up with zero Txios in an SSH?";
       return SSHsummary;
-   }
 
    if (!ssh.useMultipleEntries_)
    {
@@ -2680,7 +2678,6 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
       SSHsummary[txioIter->second.height_] = 1;
       return SSHsummary;
    }
-
 
    uint32_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
