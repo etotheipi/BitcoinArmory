@@ -3795,6 +3795,11 @@ class DlgAddressInfo(ArmoryDialog):
 
       lbls.append([])
       lbls[-1].append(QLabel(''))
+      lbls[-1].append(QRichLabel('<b>Wallet:</b>'))
+      lbls[-1].append(QLabel(self.wlt.labelName))
+
+      lbls.append([])
+      lbls[-1].append(QLabel(''))
       lbls[-1].append(QRichLabel('<b>Address:</b>'))
       lbls[-1].append(QLabel(addrStr))
 
@@ -3815,6 +3820,14 @@ class DlgAddressInfo(ArmoryDialog):
       else:
          lbls[-1].append(QLabel('Permanent'))
 
+      # TODO: fix for BIP-32
+      lbls.append([])
+      lbls[-1].append(self.main.createToolTipWidget(
+            'The index of this address within the wallet.'))
+      lbls[-1].append(QRichLabel('<b>Index:</b>'))
+      if self.addr.chainIndex > -1:
+         lbls[-1].append(QLabel(str(self.addr.chainIndex+1)))
+
 
       # Current Balance of address
       lbls.append([])
@@ -3831,7 +3844,12 @@ class DlgAddressInfo(ArmoryDialog):
       else:
          lbls[-1].append(QRichLabel(balStr.strip() + ' BTC'))
 
-
+      lbls.append([])
+      lbls[-1].append(QLabel(''))
+      lbls[-1].append(QRichLabel('<b>Comment:</b>'))
+      if self.addr.chainIndex > -1:
+         lbls[-1].append(QLabel(str(wlt.commentsMap[addr160]) if addr160 in wlt.commentsMap else ''))
+         
       # Number of transactions
       txHashes = set()
       for le in self.addrLedger:
