@@ -1973,6 +1973,31 @@ def base58_to_binary(addr):
    return '\x00'*padding + binOut
 
 
+################################################################################
+def privKey_to_base58(binKey):
+   '''Convert a 32-byte private key to the Satoshi client Base58 format.'''
+
+   retBase58 = ''
+   # For now, we don't support compressed private keys. (When we do, add
+   # 0x01 after the private key when returning a private key.)
+   try:
+      compByte = ''
+      if 0:
+         compByte = '\x01'
+      privHashAddr = SecureBinaryData(PRIVKEYBYTE + binKey + compByte)
+      privHash256 = \
+                    SecureBinaryData(hash256(privHashAddr.toBinStr())[0:4])
+      privHashFinal = \
+              SecureBinaryData(binary_to_base58(privHashAddr.toBinStr() + \
+                                                privHash256.toBinStr()))
+      retBase58 = privHashFinal.toBinStr()
+   finally:
+      privHashAddr.destroy()
+      privHash256.destroy()
+      privHashFinal.destroy()
+
+   return retBase58
+
 
 ################################################################################
 def hash160_to_addrStr(binStr, netbyte=ADDRBYTE):

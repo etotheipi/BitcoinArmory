@@ -10,6 +10,8 @@ DIRNAME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ARMORYDIR="$DIRNAME/py/usr/lib/armory"
 LIBDIR="$DIRNAME/../Dependencies"
 FRDIR="$DIRNAME/../Frameworks"
+CLARGS=""
+ARMORYARGS=""
 
 export PYTHONPATH="$ARMORYDIR"
 export DYLD_LIBRARY_PATH="${LIBDIR}:${FRDIR}"
@@ -27,5 +29,20 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 # executed, and not just on the build machine.
 ln -sf "$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "$DIRNAME/Python"
 
+# Process command line arguments.
+while [ "$1" != "" ]; do
+key="$1"
+
+case $key in
+    -B|-d|-E|-h|-i|-O|-OO|-R|-s|-S|-t|-u|-v|-V|-x|-3)
+	CLARGS+=" $key"
+	;;
+	*)
+	ARMORYARGS+=" $key"
+	;;
+esac
+shift
+done
+
 # Call armoryd and get this party started!
-"$DIRNAME/Python" "$ARMORYDIR/armoryd.py" "$@"
+"${DIRNAME}/Python"${CLARGS} "${ARMORYDIR}/armoryd.py"${ARMORYARGS}

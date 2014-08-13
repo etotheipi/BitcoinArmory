@@ -257,7 +257,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_receivedfromsigner(self, *sigBlock):
+   def jsonrpc_getreceivedfromsigner(self, *sigBlock):
       """
       DESCRIPTION:
       Verify that a message (RFC 2440: clearsign or Base64) has been signed by
@@ -279,7 +279,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       verification = self.jsonrpc_verifysignature(signedMsg)
       retDict['message'] = verification['message']
-      retDict['amount'] = self.jsonrpc_receivedfromaddress(verification['address'])
+      retDict['amount'] = \
+                    self.jsonrpc_getreceivedfromaddress(verification['address'])
 
       return retDict
 
@@ -322,7 +323,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_receivedfromaddress(self, sender):
+   def jsonrpc_getreceivedfromaddress(self, sender):
       """
       DESCRIPTION:
       Return the number of coins received from a particular sender.
@@ -630,6 +631,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # NOTE: For now, the "includemempool" option isn't included. It seems to be a
+   # dead option on bitcoind. If this ever changes, it can be implemented.
    @catchErrsForJSON
    def jsonrpc_gettxout(self, txHash, n, binary=0):
       """
@@ -638,8 +641,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       PARAMETERS:
       txHash - A string representing the hex value of a transaction ID.
       n - The TxOut index to obtain.
-      binary - (Default=0) Indicates whether or not the resultant binary script
-               should be in binary form or converted to a hex string.
+      binary - (Default=0) Boolean value indicating whether or not the resultant binary
+               script should be in binary form or converted to a hex string.
       RETURN:
       A dictionary with the Bitcoin amount for the TxOut and the TxOut script in
       hex string form (default) or binary form.
@@ -654,9 +657,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if n < len(pyTx.outputs):
             # If the user doesn't want binary data, return a formatted string,
             # otherwise return a hex string with the raw TxOut data.
+            result = {}
             txOut = pyTx.outputs[n]
+
             result = {'value' : AmountToJSON(txOut.value),
-                      'script' : txOut.binScript if binary else binary_to_hex(txOut.binScript)}
+                      'script' : txOut.binScript if int(binary) else binary_to_hex(txOut.binScript)}
          else:
             LOGERROR('Tx output index is invalid: #%d' % n)
       else:
@@ -694,7 +699,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_unlockwallet(self, passphrase, timeout=10):
+   def jsonrpc_walletpassphrase(self, passphrase, timeout=10):
       """
       DESCRIPTION:
       Unlock a wallet with a given passphrase and unlock time length.
@@ -723,10 +728,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_relockwallet(self):
+   def jsonrpc_walletlock(self):
       """
       DESCRIPTION:
-      Re-lock a wallet.
+      Lock a wallet.
       PARAMETERS:
       None
       RETURN:
@@ -804,7 +809,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       for n,txout in enumerate(pyTx.outputs):
          voutList.append( { 'value' : AmountToJSON(txout.value),
                             'n' : n,
-                            'scriptAddrStrs' : self.getScriptAddrStrs(txout) } )
+                            'scriptPubKey' : self.getScriptAddrStrs(txout) } )
 
 
       #####
@@ -836,15 +841,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_dumpprivkey(self, addr58):
+   def jsonrpc_dumpprivkey(self, addr58, keyFormat='Base58'):
       """
       DESCRIPTION:
       Dump the private key for a given Base58 address associated with the
       currently loaded wallet.
       PARAMETERS:
       addr58 - A Base58 public address associated with the current wallet.
+      keyFormat - (Default=Base58) The desired format of the output. "Base58"
+                  and "Hex" are the available formats.
       RETURN:
-      The 32 byte binary private key.
+      The 32 byte private key, encoded as requested by the user.
       """
 
       # Cannot dump the private key for a locked wallet
@@ -856,13 +863,26 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not checkAddrStrValid(addr58):
          raise InvalidBitcoinAddress
 
+      retVal = ''
       addr160 = addrStr_to_hash160(addr58, False)[1]
 
       pyBtcAddress = self.curWlt.getAddrByHash160(addr160)
       if pyBtcAddress == None:
          raise PrivateKeyNotFound
 
-      return binary_to_hex(pyBtcAddress.serializePlainPrivateKey())
+      try:
+         self.privKey = SecureBinaryData(pyBtcAddress.serializePlainPrivateKey())
+         if keyFormat.lower() == 'base58':
+            retVal = privKey_to_base58(self.privKey.toBinStr())
+
+         elif keyFormat.lower() == 'hex':
+            retVal = binary_to_hex(self.privKey.toBinStr())
+         else:
+            retVal = 'ERROR: Requested format (%s) is invalid.' % keyFormat
+      finally:
+         self.privKey.destroy()
+
+      return retVal
 
 
    #############################################################################
@@ -975,13 +995,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_getreceivedbyaddress(self, address):
+   def jsonrpc_getreceivedbyaddress(self, address, minconf=0):
       """
       DESCRIPTION:
       Get the number of coins received by a Base58 address associated with
       the currently loaded wallet.
       PARAMETERS:
       address - The Base58 address associated with the current wallet.
+      minconf - (Default=0) The minimum number of confirmations required for a
+                TX to be included in the final balance.
       RETURN:
       The balance received from the incoming address (BTC).
       """
@@ -991,8 +1013,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Only gets correct amount for addresses in the wallet, otherwise 0
       addr160 = addrStr_to_hash160(address, False)[1]
 
+      # Iterate through the address in our wallet. Include coins only if values
+      # are positive and the number of confirmations is high enough.
       txs = self.curWlt.getAddrTxLedger(addr160)
-      balance = sum([x.getValue() for x in txs if x.getValue() > 0])
+      balance = 0
+      for curTX in txs:
+         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+                  curTX.getBlockNum()) + 1
+         if (nconf >= minconf) and (curTX.getValue() > 0):
+            balance += curTX.getValue()
+
       return AmountToJSON(balance)
 
 
@@ -1083,6 +1113,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
       DESCRIPTION:
       Get a wallet or lockbox ledger.
+      PARAMETERS:
       inB58ID - The Base58 ID of the wallet or lockbox from which to obtain the
                 ledger. The wallet or lockbox must already be loaded.
       tx_count - (Default=10) The number of entries to get.
@@ -1316,8 +1347,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          isToSelf   = le.isSentToSelf()
          feeCoin   = getFeeForTx(txHashBin)
          totalBalDiff = le.getValue()
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight()-le.getBlockNum()+1
-
+         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+                  le.getBlockNum()) + 1
 
          # We have potentially change outputs on any outgoing transactions.
          # If sent-to-self, assume 1 change address (max chain idx), all others
@@ -1491,7 +1522,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if verbose.lower() == 'true':
          out = {}
          out['hash'] = blkhash
-         out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+         out['confirmations'] = (TheBDM.getTopBlockHeight() - \
+                                 head.getBlockHeight()) + 1
          # TODO fix size. It returns max int, as does # Tx. They're never set.
          # out['size'] = head.getBlockSize()
          out['height'] = head.getBlockHeight()
@@ -1516,7 +1548,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # - Divide 2^256 by the integer.
          # - Add the result to the chainwork val of the previous block (or 0 if
          #   calculating the genesis block's chainwork).
-         # - Add 0xF000F001 to the final result.
          # - Output the result as a 32 byte, big endian integer string.
 
          out['previousblockhash'] = binary_to_hex(head.getPrevHash(), BIGENDIAN)
@@ -1547,7 +1578,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the transaction associated with a given transaction hash.
       PARAMETERS:
-      txHash - A hex string representing the block to obtain.
+      txHash - A hex string representing the transaction to obtain.
       RETURN:
       A dictionary listing information on the desired transaction, or empty if
       the transaction wasn't found.
@@ -1611,7 +1642,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return out
 
       # The tx is in a block, fill in the rest of the data
-      out['confirmations'] = TheBDM.getTopBlockHeight()-tx.getBlockHeight()+1
+      out['confirmations'] = (TheBDM.getTopBlockHeight() - \
+                              tx.getBlockHeight()) + 1
       out['time'] = tx.getBlockTimestamp()
       out['orderinblock'] = tx.getBlockTxIndex()
 
