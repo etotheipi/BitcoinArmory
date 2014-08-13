@@ -5836,7 +5836,7 @@ class ArmoryMainWindow(QMainWindow):
                else:
                   LOGINFO('Dashboard switched to auto-OfflineNoSatoshiNoInternet')
                   setBtnFrameVisible(True, \
-                     'In case you actually do have internet access, use can use '
+                     'In case you actually do have internet access, you can use '
                      'the following links to get Armory installed.  Or change '
                      'your settings.')
                   setBtnRowVisible(DASHBTNS.Browse, True)
