@@ -5,7 +5,7 @@ from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
    makeVertFrame
 from armoryengine.ArmoryUtils import addrStr_to_hash160, LOGINFO,\
    BadAddressError, binary_to_hex, coin2str, isLikelyDataType, DATATYPE,\
-   hex_to_binary, ph
+   hex_to_binary, ph, BIGENDIAN
 from armoryengine.BDM import TheBDM
 from armoryengine.Transaction import PyTx
 from qtdialogs import DlgAddressInfo, DlgDispTxInfo
@@ -24,7 +24,6 @@ class PluginObject(object):
    def __init__(self, main):
 
       def searchItem():
-         found = False
          searchString = str(self.searchEntry.text())
          if len(searchString) > 0:
             likelyDataType = isLikelyDataType(searchString)    
@@ -34,21 +33,21 @@ class PluginObject(object):
                         else addrStr_to_hash160(searchString)[1]
                   dialog = DlgAddressInfo(wlt, searchHash, main=self.main)
                   dialog.exec_()
-                  found = True
                   break
-            if not found:
-               cppTx = TheBDM.getTxByHash(searchString) \
-                  if likelyDataType == DATATYPE.Hex else None
-               if cppTx:
-                  wltLE = wlt.cppWallet.getTxLedgerForComments()
-                  for le in wltLE:
-                     txHash = le.getTxHash()
-                     if wlt.txAddrMap.has_key(txHash):
+               if likelyDataType == DATATYPE.Hex:
+                  walletLedger = wlt.cppWallet.getTxLedger()
+                  txHashToFind = hex_to_binary(searchString, endOut=BIGENDIAN)
+                  txFound = False
+                  for entry in walletLedger:
+                     if entry.getTxHash() ==  txHashToFind:
+                        cppTx = TheBDM.getTxByHash(txHashToFind)
                         serializedCppTx = cppTx.serialize()
                         pytx = PyTx().unserialize(serializedCppTx)
-                        DlgDispTxInfo(pytx, wlt).exec_()
-                        found = True
+                        DlgDispTxInfo(pytx, wlt, self.main, self.main).exec_()
+                        txFound = True
                         break
+                  if txFound:
+                     break
             
       self.main = main
       lblHeader = QRichLabel(tr("""<b>Search Armory: </b>"""), doWrap=False)
@@ -63,15 +62,6 @@ class PluginObject(object):
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(self.searchPanel)
-   
-   def getDisplayString(self, wlt, pyAddr):
-      result = StringIO()
-      print >>result, 'BTC Address :', pyAddr.getAddrStr()
-      print >>result, 'Hash160[BE] :', binary_to_hex(pyAddr.getAddr160())
-      print >>result, 'Ballance    :', coin2str(wlt.getAddrBalance(pyAddr.getAddr160()),rJust=False)
-      print >>result, 'Comment     :', wlt.getComment(pyAddr)
-      return result.getvalue()
-      
 
    #############################################################################
    def getTabToDisplay(self):

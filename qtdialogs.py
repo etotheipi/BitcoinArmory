@@ -5934,7 +5934,7 @@ def extractTxInfo(pytx, rcvTime=None):
 
 ################################################################################
 class DlgDispTxInfo(ArmoryDialog):
-   def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
+   def __init__(self, pytx, wlt, parent, main, mode=None, \
                              precomputeIdxGray=None, precomputeAmt=None, txtime=None):
       """
       This got freakin' complicated, because I'm trying to handle
