@@ -171,6 +171,7 @@
     <ClInclude Include="..\BDM_supportClasses.h" />
     <ClInclude Include="..\BinaryData.h" />
     <ClInclude Include="..\Blockchain.h" />
+    <ClInclude Include="..\BlockDataViewer.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BlockUtils.h" />
     <ClInclude Include="..\BtcUtils.h" />
@@ -189,6 +190,7 @@
     <ClCompile Include="..\BDM_supportClasses.cpp" />
     <ClCompile Include="..\BinaryData.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
+    <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
     <ClCompile Include="..\BlockUtils.cpp" />
     <ClCompile Include="..\BlockWriteBatcher.cpp" />

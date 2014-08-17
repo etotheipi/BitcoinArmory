@@ -6,14 +6,14 @@
 //ScrAddrScanData Methods
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrAddrScanData::getScrAddrCurrentSyncState()
+void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::getScrAddrCurrentSyncState(
+void ScrAddrFilter::getScrAddrCurrentSyncState(
    BinaryData const & scrAddr)
 {
    //grab SSH for scrAddr
@@ -33,151 +33,7 @@ void ScrAddrScanData::getScrAddrCurrentSyncState(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, map<BinaryData, TxIOPair> >
-ScrAddrScanData::ZCisMineBulkFilter(const Tx & tx,
-   const BinaryData & ZCkey,
-   uint32_t txtime,
-   const ZeroConfContainer *zcd,
-   bool withSecondOrderMultisig) const
-{
-   // Since 99.999%+ of all transactions are not ours, let's do the 
-   // fastest bulk filter possible, even though it will add 
-   // redundant computation to the tx that are ours.  In fact,
-   // we will skip the TxIn/TxOut convenience methods and follow the
-   // pointers directly to the data we want
-
-   map<BinaryData, map<BinaryData, TxIOPair> > processedTxIO;
-
-   BinaryData txHash = tx.getThisHash();
-   TxRef txref = lmdb_->getTxRef(txHash);
-   
-   if (txref.isInitialized())
-   {
-      //Found this tx in the db. It is already part of a block thus 
-      //is invalid as a ZC
-      return processedTxIO;
-   }
-
-   OutPoint op; // reused
-   uint8_t const * txStartPtr = tx.getPtr();
-   for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
-   {
-      // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 36);
-
-      //check ZC txhash first, always cheaper than grabing a stxo from DB,
-      //and will always be checked if the tx doesn't hit in DB outpoints.
-      if (zcd != nullptr)
-      {
-         BinaryData opZcKey;
-         if (zcd->getKeyForTxHash(op.getTxHash(), opZcKey))
-         {
-            TxRef outPointRef(opZcKey);
-            uint16_t outPointId = op.getTxOutIndex();
-            TxIOPair txio(outPointRef, outPointId,
-               TxRef(ZCkey), iin);
-
-            Tx chainedZC = zcd->getTxByHash(op.getTxHash());
-
-            const TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
-
-            txio.setTxHashOfOutput(op.getTxHash());
-            txio.setTxHashOfInput(txHash);
-
-            txio.setValue(chainedTxOut.getValue());
-            txio.setTxTime(txtime);
-
-            auto& key_txioPair = processedTxIO[chainedTxOut.getScrAddressStr()];
-
-            key_txioPair[txio.getDBKeyOfOutput()] = txio;
-            continue;
-         }
-      }
-
-
-      //fetch the TxOut from DB
-      BinaryData opKey = op.getDBkey(lmdb_);
-      if (opKey.getSize() == 8)
-      {
-         //found outPoint DBKey, grab the StoredTxOut
-         StoredTxOut stxOut;
-         if (lmdb_->getStoredTxOut(
-               stxOut,
-               WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA) + opKey
-            )
-         )
-         {
-            BinaryData sa = stxOut.getScrAddress();
-            if (scrAddrMap_.find(sa) != scrAddrMap_.end())
-            {
-               TxIOPair txio(TxRef(opKey.getSliceRef(0, 6)), op.getTxOutIndex(),
-                  TxRef(ZCkey), iin);
-
-               txio.setTxHashOfOutput(op.getTxHash());
-               txio.setTxHashOfInput(txHash);
-               txio.setValue(stxOut.getValue());
-               txio.setTxTime(txtime);
-
-               auto& key_txioPair = processedTxIO[sa];
-
-               key_txioPair[txio.getDBKeyOfOutput()] = txio;
-            }
-         }
-      }
-   }
-
-   // Simply convert the TxOut scripts to scrAddrs and check if registered
-   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
-   {
-      TxOut txout = tx.getTxOutCopy(iout);
-      BinaryData scrAddr = txout.getScrAddressStr();
-      if (hasScrAddress(scrAddr))
-      {
-         TxIOPair txio(TxRef(ZCkey), iout);
-
-         txio.setValue(txout.getValue());
-         txio.setTxHashOfOutput(txHash);
-         txio.setTxTime(txtime);
-         txio.setUTXO(true);
-
-         auto& key_txioPair = processedTxIO[scrAddr];
-
-         key_txioPair[txio.getDBKeyOfOutput()] = txio;
-         continue;
-      }
-
-      // It's still possible this is a multisig addr involving one of our 
-      // existing scrAddrs, even if we aren't explicitly looking for this multisig
-      if (withSecondOrderMultisig && txout.getScriptType() ==
-         TXOUT_SCRIPT_MULTISIG)
-      {
-         BinaryRefReader brrmsig(scrAddr);
-         uint8_t PREFIX = brrmsig.get_uint8_t();
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
-         for (uint8_t a = 0; a<N; a++)
-         if (hasScrAddress(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
-         {
-            TxIOPair txio(TxRef(ZCkey), iout);
-
-            txio.setTxHashOfOutput(txHash);
-            txio.setValue(txout.getValue());
-            txio.setTxTime(txtime);
-            txio.setUTXO(true);
-
-            auto& key_txioPair = processedTxIO[scrAddr];
-
-            key_txioPair[txio.getDBKeyOfOutput()] = txio;
-         }
-      }
-   }
-
-   // If we got here, it's either non std or not ours
-   return processedTxIO;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::setSSHLastScanned(uint32_t height)
+void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
@@ -196,7 +52,7 @@ void ScrAddrScanData::setSSHLastScanned(uint32_t height)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
+bool ScrAddrFilter::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 {
    /***
    Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
@@ -222,7 +78,7 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
       lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
 
       uint32_t startBlock = max(sa.getFirstBlockNum(), ssh.alreadyScannedUpToBlk_);
-      ScrAddrScanData* sca = copy();
+      ScrAddrFilter* sca = copy();
       sca->setParent(this);
       sca->regScrAddrForScan(scrAddr, startBlock, wltPtr);
       sca->scanScrAddrMapInNewThread();
@@ -239,9 +95,9 @@ bool ScrAddrScanData::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void* ScrAddrScanData::scanScrAddrThread(void *in)
+void* ScrAddrFilter::scanScrAddrThread(void *in)
 {
-   ScrAddrScanData* sasd = static_cast<ScrAddrScanData*>(in);
+   ScrAddrFilter* sasd = static_cast<ScrAddrFilter*>(in);
 
    uint32_t startBlock = sasd->scanFrom();
    uint32_t endBlock = sasd->currentTopBlockHeight()+1;
@@ -264,8 +120,8 @@ void* ScrAddrScanData::scanScrAddrThread(void *in)
    {
       BtcWallet* const wltPtr = scrAddrPair.second.wltPtr_;
 
-      //make sure the wallet is still loaded
-      sasd->preloadScrAddr(scrAddrPair.first, wltPtr);
+      //mark the address for merging
+      wltPtr->preloadScrAddr(scrAddrPair.first);
    }
 
    //clean up
@@ -275,7 +131,7 @@ void* ScrAddrScanData::scanScrAddrThread(void *in)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::scanScrAddrMapInNewThread()
+void ScrAddrFilter::scanScrAddrMapInNewThread()
 {
    pthread_t tid;
 
@@ -283,7 +139,7 @@ void ScrAddrScanData::scanScrAddrMapInNewThread()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::merge()
+void ScrAddrFilter::merge()
 {
    /***
    Merge in the scrAddrMap and UTxOs scanned in a side thread with the BDM's
@@ -324,12 +180,12 @@ void ScrAddrScanData::merge()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrScanData::checkForMerge()
+void ScrAddrFilter::checkForMerge()
 {
    if (mergeFlag_ == true)
    {
       //rescan last 100 blocks to account for new blocks and reorgs
-      std::shared_ptr<ScrAddrScanData> sca( copy() );
+      std::shared_ptr<ScrAddrFilter> sca( copy() );
       sca->scrAddrMap_ = scrAddrMapToMerge_;
       sca->UTxO_ = UTxOToMerge_;
 
@@ -410,11 +266,12 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge()
+map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
+   function<bool(const BinaryData&)> filter)
 {
    map<BinaryData, vector<BinaryData>> invalidatedKeys;
 
-   if (!scrAddrDataPtr_->lmdb())
+   if (!db_)
       return invalidatedKeys;
 
    /***
@@ -441,7 +298,6 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge()
    {
       const BinaryData& txHash = ZCPair.second.getThisHash();
 
-      if (scrAddrDataPtr_)
       {
          BinaryData ZCkey;
 
@@ -451,11 +307,11 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge()
          else ZCkey = getNewZCkey();
 
          map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
-            scrAddrDataPtr_->ZCisMineBulkFilter(
+            ZCisMineBulkFilter(
                ZCPair.second,
                ZCkey,
                ZCPair.second.getTxTime(),
-               this
+               filter
             );
 
          //if a relevant ZC was found, add it to our map
@@ -539,7 +395,7 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::parseNewZC()
+bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
 {
    /***
    ZC transcations are pushed to the BDM by another thread (usually the thread
@@ -568,7 +424,7 @@ bool ZeroConfContainer::parseNewZC()
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDB::Transaction batch(&scrAddrDataPtr_->lmdb()->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA]);
 
    while (1)
    {
@@ -582,13 +438,12 @@ bool ZeroConfContainer::parseNewZC()
 
          //LOGWARN << "new ZC transcation: " << txHash.toHexStr();
 
-         if (scrAddrDataPtr_)
          {
             map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
-               scrAddrDataPtr_->ZCisMineBulkFilter(newZCPair.second,
+               ZCisMineBulkFilter(newZCPair.second,
                   newZCPair.first,
                   newZCPair.second.getTxTime(),
-                  this
+                  filter
                );
             if (!newTxIO.empty())
             {
@@ -667,7 +522,7 @@ ZeroConfContainer::getNewTxioMap()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-set<BinaryData> ZeroConfContainer::getNewZCByHash(void)
+set<BinaryData> ZeroConfContainer::getNewZCByHash(void) const
 {
    set<BinaryData> newZCTxHash;
 
@@ -685,6 +540,164 @@ set<BinaryData> ZeroConfContainer::getNewZCByHash(void)
 
 
    return newZCTxHash;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+map<BinaryData, map<BinaryData, TxIOPair> >
+ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
+   const BinaryData & ZCkey, uint32_t txtime, 
+   function<bool(const BinaryData&)> filter, 
+   bool withSecondOrderMultisig) const
+{
+   // Since 99.999%+ of all transactions are not ours, let's do the 
+   // fastest bulk filter possible, even though it will add 
+   // redundant computation to the tx that are ours.  In fact,
+   // we will skip the TxIn/TxOut convenience methods and follow the
+   // pointers directly to the data we want
+
+   /***filter is a pointer to a function that takes in a scrAddr (21 bytes,
+   including the prefix) and returns a bool. For supernode, it should return
+   true all the time.
+   ***/
+
+   map<BinaryData, map<BinaryData, TxIOPair> > processedTxIO;
+
+   BinaryData txHash = tx.getThisHash();
+   TxRef txref = db_->getTxRef(txHash);
+
+   if (txref.isInitialized())
+   {
+      //Found this tx in the db. It is already part of a block thus 
+      //is invalid as a ZC
+      return processedTxIO;
+   }
+
+   OutPoint op; // reused
+   uint8_t const * txStartPtr = tx.getPtr();
+   for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
+   {
+      // We have the txin, now check if it contains one of our TxOuts
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 36);
+
+      //check ZC txhash first, always cheaper than grabing a stxo from DB,
+      //and will always be checked if the tx doesn't hit in DB outpoints.
+      {
+         BinaryData opZcKey;
+         if (getKeyForTxHash(op.getTxHash(), opZcKey))
+         {
+            TxRef outPointRef(opZcKey);
+            uint16_t outPointId = op.getTxOutIndex();
+            TxIOPair txio(outPointRef, outPointId,
+               TxRef(ZCkey), iin);
+
+            Tx chainedZC = getTxByHash(op.getTxHash());
+
+            const TxOut& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
+
+            txio.setTxHashOfOutput(op.getTxHash());
+            txio.setTxHashOfInput(txHash);
+
+            txio.setValue(chainedTxOut.getValue());
+            txio.setTxTime(txtime);
+
+            auto& key_txioPair = processedTxIO[chainedTxOut.getScrAddressStr()];
+
+            key_txioPair[txio.getDBKeyOfOutput()] = txio;
+            continue;
+         }
+      }
+
+
+      //fetch the TxOut from DB
+      BinaryData opKey = op.getDBkey(db_);
+      if (opKey.getSize() == 8)
+      {
+         //found outPoint DBKey, grab the StoredTxOut
+         StoredTxOut stxOut;
+         if (db_->getStoredTxOut(
+            stxOut,
+            WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA) + opKey)
+            )
+         {
+            BinaryData sa = stxOut.getScrAddress();
+            if (filter(sa))
+            {
+               TxIOPair txio(TxRef(opKey.getSliceRef(0, 6)), op.getTxOutIndex(),
+                  TxRef(ZCkey), iin);
+
+               txio.setTxHashOfOutput(op.getTxHash());
+               txio.setTxHashOfInput(txHash);
+               txio.setValue(stxOut.getValue());
+               txio.setTxTime(txtime);
+
+               auto& key_txioPair = processedTxIO[sa];
+
+               key_txioPair[txio.getDBKeyOfOutput()] = txio;
+            }
+         }
+      }
+   }
+
+   // Simply convert the TxOut scripts to scrAddrs and check if registered
+   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
+   {
+      TxOut txout = tx.getTxOutCopy(iout);
+      BinaryData scrAddr = txout.getScrAddressStr();
+      if (filter(scrAddr))
+      {
+         TxIOPair txio(TxRef(ZCkey), iout);
+
+         txio.setValue(txout.getValue());
+         txio.setTxHashOfOutput(txHash);
+         txio.setTxTime(txtime);
+         txio.setUTXO(true);
+
+         auto& key_txioPair = processedTxIO[scrAddr];
+
+         key_txioPair[txio.getDBKeyOfOutput()] = txio;
+         continue;
+      }
+
+      // It's still possible this is a multisig addr involving one of our 
+      // existing scrAddrs, even if we aren't explicitly looking for this multisig
+      if (withSecondOrderMultisig && txout.getScriptType() ==
+         TXOUT_SCRIPT_MULTISIG)
+      {
+         BinaryRefReader brrmsig(scrAddr);
+         uint8_t PREFIX = brrmsig.get_uint8_t();
+         uint8_t M = brrmsig.get_uint8_t();
+         uint8_t N = brrmsig.get_uint8_t();
+         for (uint8_t a = 0; a<N; a++)
+         if (filter(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
+         {
+            TxIOPair txio(TxRef(ZCkey), iout);
+
+            txio.setTxHashOfOutput(txHash);
+            txio.setValue(txout.getValue());
+            txio.setTxTime(txtime);
+            txio.setUTXO(true);
+
+            auto& key_txioPair = processedTxIO[scrAddr];
+
+            key_txioPair[txio.getDBKeyOfOutput()] = txio;
+         }
+      }
+   }
+
+   // If we got here, it's either non std or not ours
+   return processedTxIO;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::clear()
+{
+   txHashToDBKey_.clear();
+   txMap_.clear();
+   txioMap_.clear();
+   newZCMap_.clear();
+   newTxioMap_.clear();
+
+   lock_.store(0, memory_order_release);
 }
 
 // kate: indent-width 3; replace-tabs on;

@@ -3,10 +3,12 @@
 
 #include <vector>
 #include <atomic>
+#include <functional>
 
 #include "BinaryData.h"
 #include "ScrAddrObj.h"
 #include "BtcWallet.h"
+
 
 class ZeroConfContainer;
 
@@ -21,7 +23,7 @@ struct ZeroConfData
    }
 };
 
-class ScrAddrScanData
+class ScrAddrFilter
 {
    /***
    This class keeps track of all registered scrAddr to be scanned by the DB.
@@ -85,7 +87,7 @@ private:
    LMDBBlockDatabase *const       lmdb_;
 
    //
-   ScrAddrScanData*               parent_;
+   ScrAddrFilter*                 parent_;
    set<BinaryData>                UTxOToMerge_;
    map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
    atomic<int32_t>                mergeLock_;
@@ -106,11 +108,11 @@ public:
    
    const ARMORY_DB_TYPE           armoryDbType_;
   
-   ScrAddrScanData(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
+   ScrAddrFilter(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
       : lmdb_(lmdb), mergeLock_(0), armoryDbType_(armoryDbType)
    {}
    
-   virtual ~ScrAddrScanData() { }
+   virtual ~ScrAddrFilter() { }
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
@@ -154,10 +156,8 @@ public:
       blockHeightCutOff_ = 0;
    }
 
-   bool hasScrAddress(const BinaryData & sa) const
-   {
-      return (scrAddrMap_.find(sa) != scrAddrMap_.end());
-   }
+   bool hasScrAddress(const BinaryData & sa)
+   { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
 
    int8_t hasUTxO(const BinaryData& dbkey) const
    {
@@ -202,13 +202,6 @@ public:
    void getScrAddrCurrentSyncState();
    void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
 
-   map<BinaryData, map<BinaryData, TxIOPair> >
-      ZCisMineBulkFilter(const Tx & tx,
-      const BinaryData& ZCkey,
-      uint32_t txtime,
-      const ZeroConfContainer *zcd,
-      bool withSecondOrderMultisig = true) const;
-
    void setSSHLastScanned(uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom,
@@ -219,7 +212,7 @@ public:
 
    void scanScrAddrMapInNewThread(void);
 
-   void setParent(ScrAddrScanData* sca) { parent_ = sca; }
+   void setParent(ScrAddrFilter* sca) { parent_ = sca; }
    void merge(void);
    void checkForMerge(void);
 
@@ -227,8 +220,7 @@ protected:
    virtual bool bdmIsRunning() const=0;
    virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)=0;
    virtual uint32_t currentTopBlockHeight() const=0;
-   virtual void preloadScrAddr(const BinaryData &addr, BtcWallet *wallet)=0;
-   virtual ScrAddrScanData *copy()=0;
+   virtual ScrAddrFilter *copy()=0;
    
 private:
    static void* scanScrAddrThread(void *in);
@@ -237,9 +229,8 @@ private:
 class ZeroConfContainer
 {
    /***
-   This class does not support parsing ZC without a ScrAddrScanData object to
-   filter by scrAddr. This means no undiscriminated ZC tracking is available
-   for supernode. However turning the feature on is trivial at this point.
+   This class does parses ZC based on a filter function that takes a scrAddr
+   and return a bool. 
 
    This class stores and represents ZC transactions by DBkey. While the ZC txn
    do not hit the DB, they are assigned a 6 bytes key like mined transaction
@@ -274,10 +265,7 @@ private:
 
    std::atomic<uint32_t>       topId_;
 
-   ScrAddrScanData*            scrAddrDataPtr_;
-
    atomic<uint32_t>            lock_;
-   bool                        parsing_;
 
    //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
    //The code has a thread pushing new ZC, and set the BDM thread flag
@@ -288,22 +276,30 @@ private:
    //processed by their relevant scrAddrObj. It's content is returned then wiped 
    //by each call to getNewTxioMap
    map<HashString, map<BinaryData, TxIOPair> >  newTxioMap_;
+   LMDBBlockDatabase*                           db_;
 
 
    BinaryData getNewZCkey(void);
    bool RemoveTxByKey(const BinaryData key);
    bool RemoveTxByHash(const BinaryData txHash);
+   map<BinaryData, map<BinaryData, TxIOPair> >
+      ZCisMineBulkFilter(const Tx & tx,
+      const BinaryData& ZCkey,
+      uint32_t txtime,
+      function<bool(const BinaryData&)>,
+      bool withSecondOrderMultisig = true) const;
 
 public:
-   ZeroConfContainer(ScrAddrScanData* sadPtr) :
-      topId_(0), scrAddrDataPtr_(sadPtr), lock_(0) {}
+   ZeroConfContainer(LMDBBlockDatabase* db) :
+      topId_(0), lock_(0), db_(db) {}
 
    void addRawTx(const BinaryData& rawTx, uint32_t txtime);
 
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;
 
-   map<BinaryData, vector<BinaryData> > purge();
+   map<BinaryData, vector<BinaryData> > purge(
+      function<bool(const BinaryData&)>);
 
    const map<HashString, map<BinaryData, TxIOPair> >& 
       getNewTxioMap(void);
@@ -312,13 +308,15 @@ public:
 
    //returns a vector of ZC TxHash that belong to your tracked scrAddr. This is
    //mostly a UI helper method
-   set<BinaryData> getNewZCByHash(void);
+   set<BinaryData> getNewZCByHash(void) const;
 
-   bool parseNewZC();
+   bool parseNewZC(function<bool(const BinaryData&)>);
 
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const;
 
    void resetNewZC() { newTxioMap_.clear(); }
+
+   void clear(void);
 };
 
 #endif

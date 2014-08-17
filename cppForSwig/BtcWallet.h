@@ -5,12 +5,9 @@
 #include "BlockObj.h"
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
-#include "ThreadSafeContainer.h"
 
 class BlockDataManager_LevelDB;
-
-typedef map<BinaryData, ScrAddrObj> saMap;
-typedef ts_pair_container<saMap> ts_saMap;
+class BlockDataViewer;
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
@@ -53,8 +50,8 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(BlockDataManager_LevelDB* bdm)
-      : bdmPtr_(bdm),
+   BtcWallet(BlockDataViewer* bdv)
+      : bdvPtr_(bdv),
       mergeLock_(0)
    {}
    ~BtcWallet(void);
@@ -142,9 +139,9 @@ public:
 
    //new all purpose wallet scanning call, returns true on bootstrap and new block,
    //false on ZC
-   bool scanWallet(uint32_t startBlock=UINT32_MAX, 
-                   uint32_t endBlock=UINT32_MAX,
-                   bool forceRescan=false);
+   bool scanWallet(uint32_t startBlock, 
+                   uint32_t endBlock,
+                   bool reorg=false);
    
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);   
@@ -190,12 +187,14 @@ public:
    void merge(void);
    bool getMergeFlag(void) { return mergeFlag_; }
 
-   BlockDataManager_LevelDB* getBdmPtr(void) const { return bdmPtr_; }
    void grabMergeLock(void) { while (mergeLock_.fetch_or(1, memory_order_acquire)); }
    void releaseMergeLock(void) { mergeLock_.store(0, memory_order_release); }
    HistoryPages& getHistoryPages(void) { return histPages_; }
    uint32_t getTxnPerPage(void) { return txnPerPage_; }
    void mapPages(void);
+
+   BlockDataViewer* getBdvPtr(void) const
+   { return bdvPtr_; }
 
 private:
    const vector<LedgerEntry>& getEmptyLedger(void) 
@@ -203,7 +202,7 @@ private:
    void sortLedger();
 
 private:
-   BlockDataManager_LevelDB*const      bdmPtr_;
+   BlockDataViewer* const              bdvPtr_;
    map<BinaryData, ScrAddrObj>         scrAddrMap_;
    
    bool                                ignoreLastScanned_=true;
@@ -214,8 +213,6 @@ private:
 
    bool                                isInitialized_=false;
    bool                                isRegistered_=false;
-
-   uint32_t                            lastScanned_=0;
 
    BtcWallet(const BtcWallet&); // no copies
 

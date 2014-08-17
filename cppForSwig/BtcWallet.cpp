@@ -1,8 +1,6 @@
 #include "BtcWallet.h"
 #include "BlockUtils.h"
-
-vector<LedgerEntry> BtcWallet::EmptyLedger_;
-
+#include "BlockDataViewer.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -16,8 +14,8 @@ vector<LedgerEntry> BtcWallet::EmptyLedger_;
 BtcWallet::~BtcWallet(void)
 {
    //how am I gonna fit this in the threading model?
-   if(bdmPtr_)
-      bdmPtr_->unregisterWallet(this);
+   if(bdvPtr_)
+      bdvPtr_->unregisterWallet(this);
 }
 
 
@@ -40,15 +38,15 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
       return;
 
    ScrAddrObj addr(
-      bdmPtr_->getIFace(),
-      &bdmPtr_->blockchain(),
+      bdvPtr_->getDB(),
+      &bdvPtr_->blockchain(),
       scrAddr,
       firstTimestamp, firstBlockNum,
       lastTimestamp,  lastBlockNum
    );
    
-   if(bdmPtr_ != nullptr) 
-      if (!bdmPtr_->registerScrAddr(addr, this))
+   if(bdvPtr_ != nullptr) 
+      if (!bdvPtr_->registerScrAddr(addr, this))
          return;
    
    scrAddrMap_[scrAddr] = addr;
@@ -61,11 +59,11 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
    if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
 
-   ScrAddrObj addr = ScrAddrObj(bdmPtr_->getIFace(), &bdmPtr_->blockchain(),
+   ScrAddrObj addr = ScrAddrObj(bdvPtr_->getDB(), &bdvPtr_->blockchain(),
       scrAddr, 0, 0, 0, 0);
 
-   if(bdmPtr_ != nullptr)
-      if (!bdmPtr_->registerScrAddr(addr, this))
+   if(bdvPtr_ != nullptr)
+      if (!bdvPtr_->registerScrAddr(addr, this))
          return;
    
    scrAddrMap_[scrAddr] = addr;
@@ -80,8 +78,8 @@ void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
    if (newScrAddr.getScrAddr().getSize() == 0)
       return;
 
-   if (bdmPtr_ != nullptr)
-      if (!bdmPtr_->registerScrAddr(newScrAddr, this))
+   if (bdvPtr_ != nullptr)
+      if (!bdvPtr_->registerScrAddr(newScrAddr, this))
          return;
    
    scrAddrMap_[newScrAddr.getScrAddr()] = newScrAddr;
@@ -389,7 +387,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
          if (!txio.hasTxIn())
             continue;
 
-         Tx thisTx = txio.getTxRefOfInput().attached(bdmPtr_->getIFace()).getTxCopy();
+         Tx thisTx = txio.getTxRefOfInput().attached(bdvPtr_->getDB()).getTxCopy();
          HashString txHash = thisTx.getThisHash();
 
          if (allTxList.count(txHash) > 0)
@@ -460,8 +458,6 @@ void BtcWallet::fetchDBScrAddrData(uint32_t startBlock,
 {
    SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
 
-   const Blockchain* bc = &bdmPtr_->blockchain();
-
    for (auto saIter = scrAddrMap_.begin(); 
       saIter != scrAddrMap_.end(); 
       saIter++)
@@ -489,14 +485,14 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
    SCOPED_TIMER("rescanWalletZeroConf");
 
    map<BinaryData, map<BinaryData, TxIOPair> > ZCtxioMap = 
-      bdmPtr_->getNewZeroConfTxIOMap();
+      bdvPtr_->getNewZeroConfTxIOMap();
 
    if (withReorg==true)
    {
       //scanning ZC after a reorg, Everything beyond the last valid block has
       //been wiped out of RAM, thus grab the full ZC txio map. Still need a call
       //to getNewZeroConfTxIOMap to clear the new ZC map
-      ZCtxioMap = bdmPtr_->getFullZeroConfTxIOMap();
+      ZCtxioMap = bdvPtr_->getFullZeroConfTxIOMap();
    }
 
    for (auto& scrAddrTxio : ZCtxioMap)
@@ -511,14 +507,9 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, 
-                           bool forceScan)
+                           bool reorg)
 {
    merge();
-
-   if (startBlock == UINT32_MAX)
-      startBlock = lastScanned_;
-   if (endBlock == UINT32_MAX)
-      endBlock = bdmPtr_->getTopBlockHeight() + 1;
 
    if (isInitialized_ == false)
    {
@@ -534,40 +525,26 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMap_, 
          histPages_.getPageBottom(0), endBlock, false);
 
-      lastScanned_ = endBlock;
       isInitialized_ = true;
    }
    else if (startBlock < endBlock)
    {
       //new top block
-      bool withReorg = false;
-
-      if (lastScanned_ > startBlock)
-      {
-         /***In normal operations, the lastScanned block will always be equal to
-         next startBlock scanWallet is called with. 
-         If however startBlock is lower than lastScanned, it means the last 
-         valid top height has changed, thus we have a reorg***/
+      if (reorg)
          updateAfterReorg(startBlock);
-
-         //scanWalletZeroConf also needs to know if a reorg occured
-         withReorg = true;
-      }
          
-      LMDB::Transaction batch(&bdmPtr_->getIFace()->dbs_[BLKDATA]);
+      LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA]);
 
       fetchDBScrAddrData(startBlock, endBlock);
-      scanWalletZeroConf(withReorg);
+      scanWalletZeroConf(reorg);
 
       updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMap_, 
                           startBlock, UINT32_MAX -1);
-
-      lastScanned_ = endBlock;
    }
    else
    {
       //top block didnt change, only have to check for new ZC
-      if (bdmPtr_->isZcEnabled())
+      if (bdvPtr_->isZcEnabled())
       {
          scanWalletZeroConf();
          updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMap_, 
@@ -769,11 +746,11 @@ LedgerEntry BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) const
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::preloadScrAddr(const BinaryData& scrAddr)
 {
-   ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), 
-                            &bdmPtr_->blockchain(), 
+   ScrAddrObj newScrAddrObj(bdvPtr_->getDB(), 
+                            &bdvPtr_->blockchain(), 
                             scrAddr);
    //build history
-   LMDB::Transaction batch(&bdmPtr_->getIFace()->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA]);
    newScrAddrObj.mapHistory();
 
    //grab merge lock
@@ -802,7 +779,7 @@ void BtcWallet::merge(void)
       /***TODO: make this play nice with the paging code***/
       
       //rescan last 100 blocks to account for new blocks and reorgs
-      uint32_t topBlock = bdmPtr_->blockchain().top().getBlockHeight() +1;
+      uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight() +1;
       uint32_t bottomBlock = 0;
       if (topBlock > 99)
          bottomBlock = topBlock -100;
@@ -816,7 +793,7 @@ void BtcWallet::merge(void)
 
       //update wallet ledger, pass false to not reset the other ledger entries
       updateWalletLedgersFromScrAddr(ledgerAllAddr_, scrAddrMapToMerge_, 0, 
-                          bdmPtr_->blockchain().top().getBlockHeight() + 1,
+                          bdvPtr_->blockchain().top().getBlockHeight() + 1,
                           false);
       
       //merge scrAddrMap
@@ -854,7 +831,7 @@ void* mapPagesThread(void *in)
    //grab history map for each address and merge them on the fly
    wlt->releaseMergeLock();
 
-   LMDBBlockDatabase* db = wlt->getBdmPtr()->getIFace();
+   LMDBBlockDatabase* db = wlt->getBdvPtr()->getDB();
    map<uint32_t, uint32_t> histSummary;
 
    LMDB::Transaction *batch = new LMDB::Transaction(&db->dbs_[BLKDATA]);

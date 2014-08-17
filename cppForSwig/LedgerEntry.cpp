@@ -7,6 +7,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+LedgerEntry LedgerEntry::EmptyLedger_;
+map<BinaryData, LedgerEntry> LedgerEntry::EmptyLedgerMap_;
+
 bool LedgerEntry::operator<(LedgerEntry const & le2) const
 {
    // TODO: I wanted to update this with txTime_, but I didn't want to c

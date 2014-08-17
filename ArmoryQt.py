@@ -260,7 +260,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
-      self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      #self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
       self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
@@ -2648,7 +2648,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
          
-         TheBDM.bdm.registerWallet(wlt.cppWallet)
+         TheBDM.bdv.registerWallet(wlt.cppWallet)
 
 
       # Create one wallet per lockbox to make sure we can query individual
@@ -2998,7 +2998,7 @@ class ArmoryMainWindow(QMainWindow):
                os.remove(mempoolfile)
          #else:
            # self.checkMemoryPoolCorruption(mempoolfile)
-         TheBDM.bdm.enableZeroConf(mempoolfile.encode('utf-8'))
+         TheBDM.bdv.enableZeroConf(mempoolfile.encode('utf-8'))
          self.memPoolInit = True
 
       self.createCombinedLedger()

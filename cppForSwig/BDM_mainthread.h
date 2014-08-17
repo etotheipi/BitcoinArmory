@@ -49,6 +49,7 @@ public:
 };
 
 class BlockDataManager_LevelDB;
+class BlockDataViewer;
 
 class BlockDataManagerThread
 {
@@ -63,7 +64,8 @@ public:
    void start(int mode, BDM_CallBack *callback, BDM_Inject *inject);
    
    BlockDataManager_LevelDB *bdm();
-   
+   BlockDataViewer *bdv();
+
    // stop the BDM thread
    void shutdown();
 

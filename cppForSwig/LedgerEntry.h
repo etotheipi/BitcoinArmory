@@ -103,6 +103,9 @@ public:
    static bool greaterThan(const LedgerEntry& lhs, const LedgerEntry& rhs)
    { return lhs > rhs; }
 
+   static LedgerEntry EmptyLedger_;
+   static map<BinaryData, LedgerEntry> EmptyLedgerMap_;
+
 private:
    
 
@@ -116,9 +119,6 @@ private:
    bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;
-
-
-   
 }; 
 
 #endif

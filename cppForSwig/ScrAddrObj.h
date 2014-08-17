@@ -143,13 +143,19 @@ public:
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
-   { return *ledger_; }
+   {
+      if (ledger_ == nullptr)
+         return LedgerEntry::EmptyLedgerMap_;
+      return *ledger_; }
    
    vector<LedgerEntry> getTxLedgerAsVector(
       map<BinaryData, LedgerEntry>& leMap) const;
 
    uint32_t getTxLedgerSize(void) const
-   { return ledger_->size(); }
+   {
+      if (ledger_ == nullptr)
+         return 0;
+      return ledger_->size(); }
 
 
    map<BinaryData, TxIOPair> &   getTxIOMap(void) { return relevantTxIO_; }

@@ -24,13 +24,13 @@ public:
    ~BlockWriteBatcher();
    
    void applyBlockToDB(StoredHeader &sbh,
-      ScrAddrScanData* scrAddrData);
+      ScrAddrFilter* scrAddrData);
    void applyBlockToDB(uint32_t hgt, uint8_t dup,
-      ScrAddrScanData* scrAddrData);
+      ScrAddrFilter* scrAddrData);
    void undoBlockFromDB(StoredUndoData &sud, 
-                        ScrAddrScanData* scrAddrData);
+                        ScrAddrFilter* scrAddrData);
 
-   void preloadSSH(LMDBBlockDatabase *db, const ScrAddrScanData& sasd);
+   void preloadSSH(LMDBBlockDatabase *db, const ScrAddrFilter& sasd);
 
 private:
    // We have accumulated enough data, actually write it to the db
@@ -43,7 +43,7 @@ private:
    bool applyTxToBatchWriteData(
                            StoredTx &       thisSTX,
                            StoredUndoData * sud,
-                           ScrAddrScanData* scrAddrMap);
+                           ScrAddrFilter* scrAddrMap);
 private:
    const BlockDataManagerConfig &config_;
    LMDBBlockDatabase* const iface_;

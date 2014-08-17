@@ -1804,7 +1804,7 @@ class PyBtcWallet(object):
       # If we haven't extracted relevant addresses for this tx, yet -- do it
       if not self.txAddrMap.has_key(txHash):
          self.txAddrMap[txHash] = []
-         tx = TheBDM.bdm.getTxByHash(txHash)
+         tx = TheBDM.bdv.getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
                txout = tx.getTxOutCopy(i)
@@ -2072,7 +2072,7 @@ class PyBtcWallet(object):
       wltdata = BinaryUnpacker(wltfile.read())
       wltfile.close()
 
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdm)
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv)
       TheBDM.registerWallet( self.cppWallet )
       self.unpackHeader(wltdata)
 

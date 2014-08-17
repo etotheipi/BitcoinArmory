@@ -61,6 +61,9 @@
     <ClCompile Include="..\leveldb_windows_port\win32_posix\pthread_win32port.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\BlockDataViewer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\BinaryData.h">
@@ -103,6 +106,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\lmdb_wrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\BlockDataViewer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

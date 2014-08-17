@@ -1,5 +1,6 @@
 #include "BDM_mainthread.h"
 #include "BlockUtils.h"
+#include "BlockDataViewer.h"
 
 #include <unistd.h>
 #include "pthread.h"
@@ -98,6 +99,7 @@ void BDM_Inject::waitRun()
 struct BlockDataManagerThread::BlockDataManagerThreadImpl
 {
    BlockDataManager_LevelDB *bdm=nullptr;
+   BlockDataViewer *bdv = nullptr;
    BDM_CallBack *callback=nullptr;
    BDM_Inject *inject=nullptr;
    pthread_t tID=0;
@@ -109,6 +111,7 @@ BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &con
 {
    pimpl = new BlockDataManagerThreadImpl;
    pimpl->bdm = new BlockDataManager_LevelDB(config);
+   pimpl->bdv = new BlockDataViewer(pimpl->bdm);
 }
 
 BlockDataManagerThread::~BlockDataManagerThread()
@@ -141,6 +144,11 @@ BlockDataManager_LevelDB *BlockDataManagerThread::bdm()
    return pimpl->bdm;
 }
 
+BlockDataViewer* BlockDataManagerThread::bdv()
+{
+   return pimpl->bdv;
+}
+
 
 
 // stop the BDM thread
@@ -157,6 +165,7 @@ void BlockDataManagerThread::shutdown()
 void BlockDataManagerThread::run()
 {
    BlockDataManager_LevelDB *const bdm = this->bdm();
+   BlockDataViewer *const bdv = this->bdv();
    
    BDM_CallBack *const callback = pimpl->callback;
 
@@ -178,6 +187,8 @@ void BlockDataManagerThread::run()
       if(pimpl->mode==0) bdm->doInitialSyncOnLoad(progress);
       else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(progress);
       else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(progress);
+
+      bdv->scanWallets();
    }
    
    //push 'bdm is ready' to Python
@@ -185,19 +196,19 @@ void BlockDataManagerThread::run()
    
    while(pimpl->run)
    {
-      if(bdm->rescanZC_)
+      if(bdv->rescanZC_)
       {
-         bdm->rescanZC_ = false;
-         if (bdm->parseNewZeroConfTx() == true)
+         bdv->rescanZC_ = false;
+         if (bdv->parseNewZeroConfTx() == true)
          {
-            set<BinaryData> newZCTxHash = bdm->getNewZCTxHash();
-            bdm->scanWallets(0, 0);
+            set<BinaryData> newZCTxHash = bdv->getNewZCTxHash();
+            bdv->scanWallets(0, 0);
 
             vector<LedgerEntry> newZCLedgers;// = new vector<LedgerEntry>;
 
             for (const auto& txHash : newZCTxHash)
             {
-               LedgerEntry le = bdm->getTxLedgerByHash(txHash);
+               LedgerEntry le = bdv->getTxLedgerByHash(txHash);
                if (le.getTxTime() != 0)
                   newZCLedgers.push_back(le);
             }
@@ -211,7 +222,7 @@ void BlockDataManagerThread::run()
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
       if(prevTopBlk)
       {
-         bdm->scanWallets(prevTopBlk);
+         bdv->scanWallets(prevTopBlk);
 
          //notify Python that new blocks have been parsed
          int nNewBlocks = bdm->blockchain().top().getBlockHeight() + 1

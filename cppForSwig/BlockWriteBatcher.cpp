@@ -211,7 +211,7 @@ BlockWriteBatcher::~BlockWriteBatcher()
 }
 
 void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
-   ScrAddrScanData* scrAddrData)
+   ScrAddrFilter* scrAddrData)
 {
    TIMER_START("applyBlockToDBinternal");
    if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
@@ -270,7 +270,7 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
 }
 
 void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
-   ScrAddrScanData* scrAddrData)
+   ScrAddrFilter* scrAddrData)
 {
    StoredHeader sbh;
    iface_->getStoredHeader(sbh, hgt, dup);
@@ -280,7 +280,7 @@ void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup,
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud, 
-                                        ScrAddrScanData* scrAddrData)
+                                        ScrAddrFilter* scrAddrData)
 {
    SCOPED_TIMER("undoBlockFromDB");
 
@@ -529,7 +529,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 bool BlockWriteBatcher::applyTxToBatchWriteData(
                         StoredTx &       thisSTX,
                         StoredUndoData * sud,
-                        ScrAddrScanData* scrAddrData)
+                        ScrAddrFilter* scrAddrData)
 {
    SCOPED_TIMER("applyTxToBatchWriteData");
 

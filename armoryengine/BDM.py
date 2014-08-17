@@ -259,6 +259,7 @@ class BlockDataManager(object):
 
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig());
       self.bdm = self.bdmThread.bdm()
+      self.bdv = self.bdmThread.bdv()
       
    #############################################################################
    def goOnline(self, flag):
@@ -277,7 +278,7 @@ class BlockDataManager(object):
          LOGERROR('tried to register an invalid object as a wallet')
          return
       
-      self.bdm.registerWallet(toRegister, isNew)
+      self.bdv.registerWallet(toRegister, isNew)
 
    #############################################################################
    @ActLikeASingletonBDM

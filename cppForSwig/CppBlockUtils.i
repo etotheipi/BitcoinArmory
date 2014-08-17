@@ -25,6 +25,7 @@
 #include "Blockchain.h"
 #include "BDM_mainthread.h"
 #include "BlockDataManagerConfig.h"
+#include "BlockDataViewer.h"
 %}
 
 
@@ -123,6 +124,7 @@ namespace std
 %include "LedgerEntry.h"
 %include "ScrAddrObj.h"
 %include "Blockchain.h"
+%include "BlockDataViewer.h"
 %include "BlockDataManagerConfig.h"
 %include "BDM_mainthread.h"
 

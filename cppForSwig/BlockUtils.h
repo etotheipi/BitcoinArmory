@@ -66,17 +66,6 @@ typedef enum
   DB_BUILD_SCAN
 } DB_BUILD_PHASE;
 
-
-class BtcWallet;
-
-typedef set<BtcWallet*> set_BtcWallet;
-typedef ts_container<set_BtcWallet> ts_setBtcWallet;
-
-typedef set<BtcWallet*> set_BtcWallet;
-typedef ts_container<set_BtcWallet> ts_setBtcWallet;
-
-typedef map<HashString, BinaryData>   BinDataMap;
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -94,13 +83,6 @@ private:
    // This is our permanent link to the two databases used
    LMDBBlockDatabase* iface_;
    
-   // Need a separate memory pool just for zero-confirmation transactions
-   // We need the second map to make sure we can find the data to remove
-   // it, when necessary
-   bool                               zcEnabled_;
-   bool                               zcLiteMode_;
-   string                             zcFilename_;
-
    // This is for detecting external changes made to the blk0001.dat file
    vector<string>                     blkFileList_;
    vector<uint64_t>                   blkFileSizes_; // bytes before this blk
@@ -132,9 +114,8 @@ private:
    bool                               corruptHeadersDB_;
    int32_t                            lastScannedBlock_;
 
-   class BDM_ScrAddrScanData;
-   shared_ptr<BDM_ScrAddrScanData>    scrAddrData_;
-   shared_ptr<ZeroConfContainer>      zeroConfCont_;
+   class BDM_ScrAddrFilter;
+   shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
 
 private:
   
@@ -155,7 +136,6 @@ private:
    // comment being written), then we don't have anything to track -- the DB
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
-   set<BtcWallet*>                    registeredWallets_;
    uint32_t                           allScannedUpToBlk_; // one past top
 
    // list of block headers that appear to be missing 
@@ -177,32 +157,12 @@ public:
    BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
    ~BlockDataManager_LevelDB();
 
-   //for 1:1 wallets
-   bool rescanZC_;
-
 public:
 
    Blockchain& blockchain() { return blockchain_; }
    const Blockchain& blockchain() const { return blockchain_; }
    
    const BlockDataManagerConfig &config() const { return config_; }
-
-   /*
-   void SetDatabaseModes(ARMORY_DB_TYPE atype, DB_PRUNE_TYPE dtype)
-             { DBUtils::setArmoryDbType(atype); DBUtils::setDbPruneType(dtype);}
-   void SetDatabaseModes(int atype, int dtype)
-             { DBUtils::setArmoryDbType((ARMORY_DB_TYPE)atype); 
-               DBUtils::setDbPruneType((DB_PRUNE_TYPE)dtype);}
-   void SelectNetwork(string netName);
-   void SetHomeDirLocation(string homeDir);
-   bool SetBlkFileLocation(string blkdir);
-   void SetLevelDBLocation(string ldbdir);
-   void SetBtcNetworkParams( BinaryData const & GenHash,
-                             BinaryData const & GenTxHash,
-                             BinaryData const & MagicBytes);
-   void reset(void);
-   void DestroyInstance(void);
-   */
 
 private:
    //////////////////////////////////////////////////////////////////////////
@@ -257,28 +217,8 @@ public:
    int32_t          getNumConfirmations(BinaryData txHash);
 
    TxRef            getTxRefByHash(BinaryData const & txHash);
-   Tx               getTxByHash(BinaryData const & txHash);
 
    bool isDirty(uint32_t numBlockToBeConsideredDirty=NUM_BLKS_IS_DIRTY) const; 
-
-   //uint32_t getNumTx(void) { return txHintMap_.size(); }
-
-   /////////////////////////////////////////////////////////////////////////////
-   // If you register you wallet with the BDM, it will automatically maintain 
-   // tx lists relevant to that wallet.  You can get away without registering
-   // your wallet objects (using scanBlockchainForTx), but without the full 
-   // blockchain in RAM, each scan will take 30-120 seconds.  Registering makes 
-   // sure that the intial blockchain scan picks up wallet-relevant stuff as 
-   // it goes, and does a full [re-]scan of the blockchain only if necessary.
-   bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
-   void     unregisterWallet(BtcWallet* wltPtr);
-
-   bool     walletIsRegistered(BtcWallet & wlt) const;
-   bool     scrAddrIsRegistered(BinaryData scrAddr);
-
-public:
-   void     resetRegisteredWallets(void);
-   void     pprintRegisteredWallets(void);
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
@@ -316,7 +256,7 @@ public:
 private:
    void addRawBlockToDB(BinaryRefReader & brr);
 public:
-   void applyBlockRangeToDB(uint32_t blk0, uint32_t blk1, ScrAddrScanData* scrAddrData);
+   void applyBlockRangeToDB(uint32_t blk0, uint32_t blk1, ScrAddrFilter* scrAddrData);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -335,14 +275,9 @@ public:
    //for 1:1 wallets
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
-   bool isZcEnabled() {return zcEnabled_;}
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
    LMDBBlockDatabase *getIFace(void) {return iface_;}
-   
-   void scanWallets(uint32_t startBlock=UINT32_MAX, 
-                    uint32_t endBlock=UINT32_MAX, 
-                    bool forceScan=false);
-   
+      
    LDBIter getIterator(DB_SELECT db)
    {
       return iface_->getIterator(db);
@@ -355,13 +290,10 @@ public:
    { return iface_->getValidDupIDForHeight(blockHgt); }
 
    // Check for availability of data with a given hash
-   TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
    bool hasTxWithHash(BinaryData const & txhash);
    bool hasTxWithHashInDB(BinaryData const & txhash);
 
-   bool parseNewZeroConfTx(void);
-   bool hasWallet(BtcWallet* wltPtr) 
-      { return registeredWallets_.find(wltPtr) != registeredWallets_.end(); }
+   ScrAddrFilter* getScrAddrFilter(void) const;
 
 public:
 
@@ -379,28 +311,9 @@ private:
    vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
 public:
    // For zero-confirmation tx-handling
-   void enableZeroConf(string filename, bool zcLite=true);
-   void disableZeroConf(void);
-   void readZeroConfFile(string filename);
-   void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, 
-      bool writeToFile);
-   void purgeZeroConfPool(void);
-   void pprintZeroConfPool(void) const;
-   void rewriteZeroConfFile(void);
    bool isTxFinal(const Tx & tx) const;
 
 public:
-   // Use these two methods to get ALL information about your unused TxOuts
-   //vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=-1);
-   //vector<UnspentTxOut> getNonStdUnspentTxOutsForWallet(BtcWallet & wlt);
-
-   ////////////////////////////////////////////////////////////////////////////////
-   // We're going to need the BDM's help to get the sender for a TxIn since it
-   // sometimes requires going and finding the TxOut from the distant past
-   TxOut      getPrevTxOut(TxIn & txin);
-   Tx         getPrevTx(TxIn & txin);
-   BinaryData getSenderScrAddr(TxIn & txin);
-   int64_t    getSentValue(TxIn & txin);
 
 // These things should probably be private, but they also need to be test-able,
 // and googletest apparently cannot access private methods without polluting 
@@ -428,21 +341,6 @@ public:
    vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
-
-   bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr=nullptr);
-
-   map<BinaryData, map<BinaryData, TxIOPair> >
-      getNewZeroConfTxIOMap() const
-   { return zeroConfCont_->getNewTxioMap(); }
-
-   const map<BinaryData, map<BinaryData, TxIOPair> >&
-      getFullZeroConfTxIOMap() const
-   { return zeroConfCont_->getFullTxioMap(); }
-
-   set<BinaryData> getNewZCTxHash(void)
-   { return zeroConfCont_->getNewZCByHash(); }
-
-   LedgerEntry getTxLedgerByHash(const BinaryData& txHash) const;
 };
 
 
