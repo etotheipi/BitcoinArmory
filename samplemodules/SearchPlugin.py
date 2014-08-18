@@ -9,11 +9,6 @@ from armoryengine.ArmoryUtils import addrStr_to_hash160, LOGINFO,\
 from armoryengine.BDM import TheBDM
 from armoryengine.Transaction import PyTx
 from qtdialogs import DlgAddressInfo, DlgDispTxInfo
-# Find the best implementation available on this platform
-try:
-    from cStringIO import StringIO
-except:
-    from StringIO import StringIO
 
 class PluginObject(object):
 
