@@ -534,7 +534,11 @@ def compile_qt():
    #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
 
    # Put Qt patches here.
+   # Partial bug fixes for modal windows.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), \
+               cwd=qtBuildDir)
+   # Completed bug fixes for modal windows.
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
                cwd=qtBuildDir)
    # For now, Qt requires a patch to compile on 10.10, and may require a more
    # comprehensive patch later.
