@@ -82,3 +82,34 @@ bool LedgerEntry::operator>(LedgerEntry const & le2) const
       return false;
 
 }
+
+//////////////////////////////////////////////////////////////////////////////
+void LedgerEntry::addTxOut(uint16_t id, uint64_t val)
+{
+   auto inserted = txOuts.insert(make_pair(id, val));
+
+   if (inserted.second == true)
+      value_ += (int64_t)val;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+void LedgerEntry::addTxIn(uint16_t id, uint64_t val)
+{
+   auto inserted = txIns.insert(make_pair(id, val));
+
+   if (inserted.second == true)
+      value_ -= (int64_t)val;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+void LedgerEntry::removeTxIn(uint16_t id)
+{
+   const auto leIter = txIns.find(id);
+
+   if (leIter != txIns.end())
+   {
+      value_ += leIter->second;
+      txIns.erase(leIter);
+   }
+
+}

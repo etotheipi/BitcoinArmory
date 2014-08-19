@@ -9,13 +9,6 @@ using namespace std;
 #include "BlockUtils.h"
 #include "BDM_supportClasses.h"
 
-/*class BlockDataManager_LevelDB;
-class BinaryData;
-class BinaryDataRef;
-class BtcWallet;
-class TxIn;
-class TxOut;*/
-
 class BlockDataViewer
 {
    public:
@@ -78,8 +71,13 @@ class BlockDataViewer
 
       void reset();
 
+      void pageWalletsHistory();
+      map<uint32_t, uint32_t> computeWalletsSSHSummary();
+      const vector<LedgerEntry>& getHistoryPage(uint32_t);
+      uint32_t getPageCount(void) const { return hist_.getPageCount(); }
+
    public:
-      bool     rescanZC_;
+      bool            rescanZC_;
 
    private:
       LMDBBlockDatabase* db_;
@@ -93,7 +91,11 @@ class BlockDataViewer
       bool     zcLiteMode_;
       string   zcFilename_;
 
-      uint32_t lastScanned_;
+      uint32_t lastScanned_ = 0;
+      bool initialized_ = false;
+
+      vector<LedgerEntry> globalLedger_;
+      HistoryPager hist_;
 };
 
 #endif

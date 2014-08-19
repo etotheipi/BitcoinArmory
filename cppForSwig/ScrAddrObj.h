@@ -6,6 +6,7 @@
 #include "Blockchain.h"
 #include "BlockObj.h"
 #include "LedgerEntry.h"
+#include "HistoryPager.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -30,64 +31,6 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-
-class ScrAddrObj;
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// HistoryPages
-//
-////////////////////////////////////////////////////////////////////////////////
-
-class HistoryPages
-{
-private:
-
-   struct Page
-   {
-      uint32_t blockStart_;
-      uint32_t blockEnd_;
-      uint32_t count_;
-
-      map<BinaryData, LedgerEntry> pageLedgers_;
-
-      Page(void) : blockStart_(UINT32_MAX), blockEnd_(UINT32_MAX), count_(0)
-      {}
-
-      Page(uint32_t count, uint32_t bottom, uint32_t top) :
-         blockStart_(bottom), blockEnd_(top), count_(count)
-      {}
-
-      bool operator< (const Page& rhs) const
-      {
-         //history pages are order backwards
-         return this->blockStart_ > rhs.blockStart_;
-      }
-   };
-
-   vector<Page> pages_;
-   map<uint32_t, uint32_t> SSHsummary_;
-
-public:
-   HistoryPages(void) {}
-
-   map<BinaryData, LedgerEntry>& getPageLedgerMap(
-      const ScrAddrObj* sa, 
-      uint32_t pageId,
-      map<BinaryData, TxIOPair>* txioMap=nullptr);
-   
-   uint32_t getPageBottom(uint32_t id) const;
-   void reset(void) { pages_.clear();}
-   void addPage(uint32_t count, uint32_t bottom, uint32_t top);
-   void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
-   void mapScrAddrHistory(LMDBBlockDatabase* db,
-                          const BinaryData& scrAddr, 
-                          uint32_t txnPerPage);
-   const map<uint32_t, uint32_t>& getSSHsummary(void) const
-   { return SSHsummary_; }
-   uint32_t getPageCount(void) const { return pages_.size(); }
-};
-
 class ScrAddrObj
 {
    friend class BtcWallet;
@@ -98,7 +41,7 @@ public:
       bc_(nullptr),
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0),
       lastBlockNum_(0), lastTimestamp_(0), hasMultisigEntries_(false),
-      totalTxioCount_(0), txnPerPage_(100)
+      totalTxioCount_(0)
    {
       relevantTxIO_.clear();
    }
@@ -197,14 +140,15 @@ public:
    void fetchDBScrAddrData(uint32_t startBlock, 
                            uint32_t endBlock);
 
-   map<BinaryData, TxIOPair> getHistoryForScrAddr(
+   void getHistoryForScrAddr(
       uint32_t startBlock, uint32_t endBlock,
+      map<BinaryData, TxIOPair>& output,
       bool withMultisig = false) const;
 
    uint32_t getPageCount(void) const { return hist_.getPageCount(); }
    vector<LedgerEntry> getHistoryPageById(uint32_t id);
    void updateLedgerPointer(void) 
-      { ledger_ = &hist_.getPageLedgerMap(this, 0); }
+      { ledger_ = &hist_.getPageLedgerMap(0); }
 
    ScrAddrObj& operator= (const ScrAddrObj& rhs);
 
@@ -229,8 +173,7 @@ private:
    mutable uint32_t lastSeenBlock_=0;
 
    //prebuild history indexes for quick fetch from SSH
-   HistoryPages hist_;
-   uint32_t txnPerPage_;
+   HistoryPager hist_;
 };
 
 #endif

@@ -317,6 +317,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
       self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+      
 
       # Another table and model, for lockboxes
       self.lockboxLedgTable = []
@@ -421,7 +422,23 @@ class ArmoryMainWindow(QMainWindow):
 
       frmTotals.setLayout(frmTotalsLayout)
 
-
+      #page selection UI
+      self.mainLedgerCurrentPage = 1
+      self.lblPages     = QRichLabel('Page: ')
+      self.PageLineEdit = QLineEdit('1')
+      self.lblNPages    = QRichLabel(' out of 1') 
+      
+      self.connect(self.PageLineEdit, SIGNAL('editingFinished()'), \
+                   self.loadNewPage)
+            
+      frmPages = QFrame()
+      frmPages.setFrameStyle(STYLE_NONE)
+      frmPagesLayout = QGridLayout()
+      frmPagesLayout.addWidget(self.lblPages, 0, 0)
+      frmPagesLayout.addWidget(self.PageLineEdit, 0, 1)
+      frmPagesLayout.addWidget(self.lblNPages, 0, 2)
+      
+      frmPages.setLayout(frmPagesLayout)
 
       # Will fill this in when ledgers are created & combined
       self.lblLedgShowing = QRichLabel('Showing:', hAlign=Qt.AlignHCenter)
@@ -468,6 +485,8 @@ class ArmoryMainWindow(QMainWindow):
       frmLower = makeHorizFrame([ frmFilter, \
                                  'Stretch', \
                                  self.frmLedgUpDown, \
+                                 'Stretch', \
+                                 frmPages, \
                                  'Stretch', \
                                  frmTotals])
 
@@ -3135,6 +3154,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       self.combinedLedger = []
+      self.combinedLedger.extend(TheBDM.bdv.getHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
@@ -3142,25 +3162,25 @@ class ArmoryMainWindow(QMainWindow):
 
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
-         id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
-         self.combinedLedger.extend(id_le_pairs)
+         #id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
+         #self.combinedLedger.extend(id_le_pairs)
          totalFunds += wlt.getBalance('Total')
          spendFunds += wlt.getBalance('Spendable')
          unconfFunds += wlt.getBalance('Unconfirmed')
 
 
       def keyFuncNumConf(x):
-         numConf = x[1].getBlockNum() - currBlk  # returns neg for reverse sort
-         txTime  = x[1].getTxTime() 
-         txhash  = x[1].getTxHash()
-         value   = x[1].getValue()
+         numConf = x.getBlockNum() - currBlk  # returns neg for reverse sort
+         txTime  = x.getTxTime() 
+         txhash  = x.getTxHash()
+         value   = x.getValue()
          return (numConf, txTime, txhash, value)
 
       def keyFuncTxTime(x):
-         numConf = x[1].getBlockNum() - currBlk  # returns neg for reverse sort
-         txTime  = x[1].getTxTime() 
-         txhash  = x[1].getTxHash()
-         value   = x[1].getValue()
+         numConf = x.getBlockNum() - currBlk  # returns neg for reverse sort
+         txTime  = x.getTxTime() 
+         txhash  = x.getTxHash()
+         value   = x.getValue()
          return (txTime, numConf, txhash, value)
 
       # Apply table sorting -- this is very fast
@@ -3170,18 +3190,18 @@ class ArmoryMainWindow(QMainWindow):
       if self.sortLedgCol == LEDGERCOLS.DateStr:
          self.combinedLedger.sort(key=keyFuncTxTime, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.WltName:
-         self.combinedLedger.sort(key=lambda x: self.walletMap[x[0]].labelName, reverse=sortDir)
+         self.combinedLedger.sort(key=lambda x: self.walletMap[x.getWalletID()].labelName, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Comment:
-         self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x[0],x[1]), reverse=sortDir)
+         self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x), reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Amount:
-         self.combinedLedger.sort(key=lambda x: abs(x[1].getValue()), reverse=sortDir)
+         self.combinedLedger.sort(key=lambda x: abs(x.getValue()), reverse=sortDir)
 
       self.ledgerSize = len(self.combinedLedger)
 
       # Hide the ledger slicer if our data set is smaller than the slice width
-      self.frmLedgUpDown.setVisible(self.ledgerSize>self.currLedgWidth)
-      self.lblLedgRange.setText('%d to %d' % (self.currLedgMin, self.currLedgMax))
-      self.lblLedgTotal.setText('(of %d)' % self.ledgerSize)
+      self.frmLedgUpDown.setVisible(False)
+      #self.lblLedgRange.setText('%d to %d' % (self.currLedgMin, self.currLedgMax))
+      #self.lblLedgTotal.setText('(of %d)' % self.ledgerSize)
 
       # Many MainWindow objects haven't been created yet...
       # let's try to update them and fail silently if they don't exist
@@ -3203,9 +3223,10 @@ class ArmoryMainWindow(QMainWindow):
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
 
+         self.lblNPages.setText(' out of %d' % TheBDM.bdv.getPageCount())
+         
          # Finally, update the ledger table
-         rmin,rmax = self.currLedgMin-1, self.currLedgMax
-         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger[rmin:rmax])
+         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
          self.ledgerModel.ledger = self.ledgerTable
          self.ledgerModel.reset()
 
@@ -3247,10 +3268,13 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    @TimeThisFunction
-   def convertLedgerToTable(self, ledger, showSentToSelfAmt=True):
+   def convertLedgerToTable(self, ledger, showSentToSelfAmt=True, wltID=None):
       table2D = []
       datefmt = self.getPreferredDateFormat()
-      for wltID,le in ledger:
+      for le in ledger:
+         if wltID is None:
+            wltID = le.getWalletID()
+          
          row = []
 
          wlt = self.walletMap.get(wltID)
@@ -3258,7 +3282,7 @@ class ArmoryMainWindow(QMainWindow):
          if wlt:
             isWatch = (determineWalletType(wlt, self)[0] == WLTTYPES.WatchOnly)
             wltName = wlt.labelName 
-            dispComment = self.getCommentForLE(wltID, le)
+            dispComment = self.getCommentForLE(le, wltID)
          else:
             lboxId = wltID
             lbox = self.getLockboxByID(lboxId)
@@ -3448,10 +3472,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getCommentForLE(self, wltID, le):
+   def getCommentForLE(self, le, wltID=None):
       # Smart comments for LedgerEntry objects:  get any direct comments ...
       # if none, then grab the one for any associated addresses.
 
+      if wltID is None:
+         wltID = le.getWalletID()
       return self.walletMap[wltID].getCommentForLE(le)
       """
       txHash = le.getTxHash()
@@ -6337,7 +6363,7 @@ class ArmoryMainWindow(QMainWindow):
          if (le.getValue() <= 0 and notifyOut) or \
                   (le.getValue() > 0 and notifyIn):
                   # notifiedAlready = False, 
-            self.notifyQueue.append(["000", le, False])
+            self.notifyQueue.append([le.getWalletID(), le, False])
                
 
          # Iterate through the C++ lockbox wallets and create a ledger entry for
@@ -7086,11 +7112,25 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.dlgCptWlt.exec_()
       
-   #########################################
+   #############################################################################
    def cppNotifySignal(self, action, arg):
       self.emit(SIGNAL('cppNotify'), action, arg)
-         
-         
+      
+   #############################################################################
+   def loadNewPage(self):
+      pageInt = int(self.PageLineEdit.text())
+      
+      if pageInt == self.mainLedgerCurrentPage:
+         return
+      
+      if pageInt < 0 or pageInt > TheBDM.bdv.getPageCount():
+         self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
+         return
+      
+      self.mainLedgerCurrentPage = pageInt   
+      self.createCombinedLedger()
+
+
 ############################################
 class ArmoryInstanceListener(Protocol):
    def connectionMade(self):

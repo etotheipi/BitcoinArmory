@@ -1299,7 +1299,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDat
       // the totalUnspent_ and totalTxioCount_, since that data is already
       // correct.  
       insertTxio(db, txio, true, true); 
-   
    }
 }
 
@@ -1518,9 +1517,11 @@ TxIOPair& StoredScriptHistory::insertTxio(
    if(ITER_NOT_IN_MAP(iterSubHist, subHistMap_))
    {
       // Create a new sub-history add it to its map
-      subHistMap_[first4] = StoredSubHistory();
-      subHistMap_[first4].uniqueKey_ = uniqueKey_;
-      subHistMap_[first4].hgtX_ = first4;
+      StoredSubHistory& subHistEntry = subHistMap_[first4];
+      subHistEntry.uniqueKey_ = uniqueKey_;
+      subHistEntry.hgtX_ = first4;
+      subHistEntry.height_ = DBUtils::hgtxToHeight(first4);
+
       if(!skipTally)
       {
          totalTxioCount_ += 1;

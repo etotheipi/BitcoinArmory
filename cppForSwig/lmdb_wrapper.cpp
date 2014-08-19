@@ -820,6 +820,14 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
 
    if(!ssh.useMultipleEntries_)
    {
+      if (ssh.subHistMap_.size() > 0)
+      {
+         auto subHistIter = ssh.subHistMap_.begin();
+         if (subHistIter->second.height_ < startBlock ||
+            subHistIter->second.height_ > endBlock)
+            ssh.subHistMap_.clear();
+      }
+
       ldbIter.advanceAndRead();
       return true;
    }

@@ -178,6 +178,7 @@
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\gtest\gtest.h" />
+    <ClInclude Include="..\HistoryPager.h" />
     <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h" />
     <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
@@ -199,6 +200,7 @@
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
+    <ClCompile Include="..\HistoryPager.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\pthread_win32port.cpp" />

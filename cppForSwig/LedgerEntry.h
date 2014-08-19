@@ -56,6 +56,7 @@ public:
       isChangeBack_(false) {}
 
    LedgerEntry(BinaryData const & scraddr,
+               string const & wltId,
                int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
@@ -65,6 +66,7 @@ public:
                bool isToSelf=false,
                bool isChange=false) :
       scrAddr_(scraddr),
+      walletID_(wltId),
       value_(val),
       blockNum_(blkNum),
       txHash_(txhash),
@@ -76,6 +78,7 @@ public:
       isChangeBack_(isChange) {}
 
    BinaryData const &  getScrAddr(void) const   { return scrAddr_;       }
+   string const &      getWalletID(void) const  { return walletID_;      }
    int64_t             getValue(void) const     { return value_;         }
    uint32_t            getBlockNum(void) const  { return blockNum_;      }
    BinaryData const &  getTxHash(void) const    { return txHash_;        }
@@ -85,7 +88,6 @@ public:
    bool                isCoinbase(void) const   { return isCoinbase_;    }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
-   void                setValue(int64_t val)    { value_ = val; }
 
    SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
 
@@ -103,13 +105,18 @@ public:
    static bool greaterThan(const LedgerEntry& lhs, const LedgerEntry& rhs)
    { return lhs > rhs; }
 
+   void addTxOut(uint16_t id, uint64_t val);
+   void addTxIn(uint16_t id, uint64_t val);
+   void removeTxIn(uint16_t id);
+
    static LedgerEntry EmptyLedger_;
    static map<BinaryData, LedgerEntry> EmptyLedgerMap_;
 
 private:
    
-
    BinaryData       scrAddr_;
+   string           walletID_;
+
    int64_t          value_;
    uint32_t         blockNum_;
    BinaryData       txHash_;
@@ -119,6 +126,10 @@ private:
    bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;
+
+   //to keep track of which DBkey this ledger entry has seen
+   map<uint16_t, uint64_t> txIns;
+   map<uint16_t, uint64_t> txOuts;
 }; 
 
 #endif

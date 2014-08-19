@@ -3748,8 +3748,8 @@ class DlgAddressInfo(ArmoryDialog):
       self.addr = self.wlt.getAddrByHash160(addr160)
 
       self.addrLedger = self.cppAddr.getHistoryPageById(0)
-      self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in self.addrLedger]
-      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
+      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger, \
+                                                        wltID = self.wlt.uniqueIDB58)
       self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
 
       self.mode = mode
@@ -4047,8 +4047,8 @@ class DlgAddressInfo(ArmoryDialog):
 
    def loadPage(self, pageId):
       self.addrLedger = self.cppAddr.getHistoryPageById(pageId)
-      self.addrLedger2 = [[self.wlt.uniqueIDB58, le] for le in self.addrLedger]
-      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
+      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger, \
+                                                        wltID = self.wlt.uniqueIDB58)
       self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
       
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)

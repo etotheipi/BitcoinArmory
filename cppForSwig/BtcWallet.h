@@ -49,6 +49,8 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
+   friend class BlockDataViewer;
+
 public:
    BtcWallet(BlockDataViewer* bdv)
       : bdvPtr_(bdv),
@@ -136,16 +138,6 @@ public:
    vector<AddressBookEntry> createAddressBook(void) const;
 
    void reset(void);
-
-   //new all purpose wallet scanning call, returns true on bootstrap and new block,
-   //false on ZC
-   bool scanWallet(uint32_t startBlock, 
-                   uint32_t endBlock,
-                   bool reorg=false);
-   
-   //wallet side reorg processing
-   void updateAfterReorg(uint32_t lastValidBlockHeight);   
-   void scanWalletZeroConf(bool withReorg=false);
    
    const map<BinaryData, ScrAddrObj>& getScrAddrMap(void) const
    { return scrAddrMap_; }
@@ -154,51 +146,59 @@ public:
    { return scrAddrMap_; }
 
    uint32_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
+
+   const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const;
+
+   LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;
+   void preloadScrAddr(const BinaryData& scrAddr);
+
+   void setWalletID(string wltId) { walletID_ = wltId; }
+
+   bool getMergeFlag(void) { return mergeFlag_; }
+
+private:   
+   
+   //new all purpose wallet scanning call, returns true on bootstrap and new block,
+   //false on ZC
+   bool scanWallet(uint32_t startBlock,
+      uint32_t endBlock,
+      bool reorg = false);
+
+   //wallet side reorg processing
+   void updateAfterReorg(uint32_t lastValidBlockHeight);
+   void scanWalletZeroConf(bool withReorg = false);
+
    void fetchDBScrAddrData(uint32_t startBlock, uint32_t endBlock);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
    void purgeZeroConfTxIO(
       const map<BinaryData, vector<BinaryData> >& invalidatedTxIO);
 
-   const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const
-   {
-      auto saIter = scrAddrMap_.find(key);
-      if (saIter != scrAddrMap_.end())
-         return &saIter->second;
-
-      return nullptr;
-   }
-
    void updateWalletLedgersFromScrAddr(vector<LedgerEntry>& le,
                             const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                             uint32_t startBlock, uint32_t endBlock, 
                             bool purge = true);
 
-   /*void updateWalletLedgersFromScrAddTxio(vector<LedgerEntry>& le,
+   void updateWalletLedgersFromTxio(map<BinaryData, LedgerEntry>& le,
       const map<BinaryData, TxIOPair>& txioMap,
-      uint32_t startBlock, uint32_t endBlock,
-      bool purge = true);*/
+      uint32_t startBlock, uint32_t endBlock) const;
 
    void purgeLedgerFromHeight(uint32_t height);
 
-   LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;
-   void preloadScrAddr(const BinaryData& scrAddr);
-
    void merge(void);
-   bool getMergeFlag(void) { return mergeFlag_; }
 
-   void grabMergeLock(void) { while (mergeLock_.fetch_or(1, memory_order_acquire)); }
-   void releaseMergeLock(void) { mergeLock_.store(0, memory_order_release); }
-   HistoryPages& getHistoryPages(void) { return histPages_; }
-   uint32_t getTxnPerPage(void) { return txnPerPage_; }
    void mapPages(void);
 
    BlockDataViewer* getBdvPtr(void) const
    { return bdvPtr_; }
 
-private:
-   const vector<LedgerEntry>& getEmptyLedger(void) 
-   { EmptyLedger_.clear(); return EmptyLedger_; }
+   map<uint32_t, uint32_t> computeScrAddrMapHistSummary(void);
+   const map<uint32_t, uint32_t>& getSSHSummary(void) const
+   { return histPages_.getSSHsummary(); }
+
+   void getTxioForRange(uint32_t, uint32_t, 
+      map<BinaryData, TxIOPair>&) const;
+
    void sortLedger();
 
 private:
@@ -211,20 +211,20 @@ private:
    // just a null-reference object
    static vector<LedgerEntry>          EmptyLedger_; 
 
-   bool                                isInitialized_=false;
    bool                                isRegistered_=false;
 
    BtcWallet(const BtcWallet&); // no copies
 
+   //for post init importing of new addresses
    atomic<uint32_t>                    mergeLock_;
    map<BinaryData, ScrAddrObj>         scrAddrMapToMerge_;
    bool                                mergeFlag_=false;
    
-   //target txn history per page
-   uint32_t                            txnPerPage_=100;
-
    //manages history pages
-   HistoryPages histPages_;
+   HistoryPager                        histPages_;
+
+   //wallet id
+   string                              walletID_;
 };
 
 #endif

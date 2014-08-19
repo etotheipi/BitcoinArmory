@@ -1,5 +1,6 @@
 #include "BlockDataViewer.h"
 
+
 /////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
    rescanZC_(false), zeroConfCont_(bdm->getIFace())
@@ -11,8 +12,6 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
    zcEnabled_ = false;
    zcLiteMode_ = false;
    zcFilename_ = "";
-
-   lastScanned_ = 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -40,7 +39,6 @@ void BlockDataViewer::unregisterWallet(BtcWallet* wltPtr)
 void BlockDataViewer::scanWallets(uint32_t startBlock,
    uint32_t endBlock)
 {
-   LOGINFO << registeredWallets_.size() << " wallets loaded";
    uint32_t i = 0;
    bool reorg = false;
 
@@ -49,12 +47,25 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    if (endBlock == UINT32_MAX)
       endBlock = getTopBlockHeight() + 1;
 
+   if (initialized_ == false)
+   {
+      //first run, page all wallets' history
+      pageWalletsHistory();
+
+      //Now that the history is computed, we need to grab the starting block
+      //range for the first page (0), and have all wallets load their ledger
+      //from that height.
+      startBlock = hist_.getPageBottom(0);
+
+      initialized_ = true;
+   }
+
    if (lastScanned_ > startBlock)
       reorg = true;
 
    for (BtcWallet* walletPtr : registeredWallets_)
    {
-      LOGINFO << "initializing wallet #" << i;
+      LOGINFO << "Processing wallet #" << i;
       i++;
 
       walletPtr->scanWallet(startBlock, endBlock, reorg);
@@ -62,6 +73,26 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 
   zeroConfCont_.resetNewZC();
   lastScanned_ = endBlock;
+
+  if (hist_.getCurrentPage() == 0)
+  {
+     //There is a fundamental difference between the first history page and all
+     //the others: the first page maintains ZC, new blocks and can undergo,
+     //reorgs while every other history page is purely static. As such, it 
+     //simpler to  maintain all first pages on a wallet basis and just merge
+     //the ledgers together to yield the first Viewer page.
+
+     globalLedger_.clear();
+
+     for (auto wltPtr : registeredWallets_)
+     {
+        auto& wltLedger = wltPtr->getTxLedger();
+
+        globalLedger_.insert(globalLedger_.end(), wltLedger.begin(), wltLedger.end());
+     }
+
+     sort(globalLedger_.begin(), globalLedger_.end());
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -330,4 +361,80 @@ void BlockDataViewer::reset()
    zeroConfCont_.clear();
 
    lastScanned_ = 0;
+   initialized_ = false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary()
+{
+   map<uint32_t, uint32_t> fullSummary;
+
+   for (auto wltPtr : registeredWallets_)
+   {
+      wltPtr->mapPages();
+      auto& wltSummary = wltPtr->getSSHSummary();
+
+      for (auto summary : wltSummary)
+         fullSummary[summary.first] += summary.second;
+   }
+
+   return fullSummary;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::pageWalletsHistory()
+{
+   auto computeSummary = [this](void)->map<uint32_t, uint32_t>
+      { return this->computeWalletsSSHSummary(); };
+   
+   hist_.mapHistory(computeSummary);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
+{
+   if (pageId == hist_.getCurrentPage())
+      return globalLedger_;
+
+   hist_.setCurrentPage(pageId);
+
+   if (pageId == 0)
+   {
+      //this should be locked to a single thread
+      globalLedger_.clear();
+      for (auto wltPtr : registeredWallets_)
+      {
+         auto& wltLedgers = wltPtr->getTxLedger();
+         globalLedger_.insert(globalLedger_.end(), 
+                              wltLedgers.begin(), 
+                              wltLedgers.end());
+      }
+   }
+   else
+   {
+      globalLedger_.clear();
+      for (auto wltPtr : registeredWallets_)
+      {
+         map<BinaryData, LedgerEntry> leMap;
+
+         auto getTxio = [&](uint32_t start, uint32_t end,
+            map<BinaryData, TxIOPair>& outMap)->void
+         { return wltPtr->getTxioForRange(start, end, outMap); };
+
+         auto buildLedgers = [&](map<BinaryData, LedgerEntry>& le,
+            const map<BinaryData, TxIOPair>& txioMap,
+            uint32_t startBlock)->void
+         { wltPtr->updateWalletLedgersFromTxio(le, txioMap, startBlock, UINT32_MAX); };
+
+         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
+      
+         //this should be locked to a single thread
+         for (const auto& lePair : leMap)
+            globalLedger_.push_back(lePair.second);
+      }
+   }
+
+   sort(globalLedger_.begin(), globalLedger_.end());
+
+   return globalLedger_;
 }
