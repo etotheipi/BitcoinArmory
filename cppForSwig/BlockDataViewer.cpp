@@ -15,6 +15,13 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 }
 
 /////////////////////////////////////////////////////////////////////////////
+BlockDataViewer::~BlockDataViewer()
+{
+   for (auto wltPtr : registeredWallets_)
+      wltPtr->unregister();
+}
+
+/////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
    SCOPED_TIMER("registerWallet");

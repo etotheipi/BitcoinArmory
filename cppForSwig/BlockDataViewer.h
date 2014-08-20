@@ -13,6 +13,7 @@ class BlockDataViewer
 {
    public:
       BlockDataViewer(BlockDataManager_LevelDB* bdm);
+      ~BlockDataViewer(void);
    
       /////////////////////////////////////////////////////////////////////////////
       // If you register you wallet with the BDM, it will automatically maintain 

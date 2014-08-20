@@ -14,7 +14,7 @@
 BtcWallet::~BtcWallet(void)
 {
    //how am I gonna fit this in the threading model?
-   if(bdvPtr_)
+   if(bdvPtr_ && isRegistered_)
       bdvPtr_->unregisterWallet(this);
 }
 

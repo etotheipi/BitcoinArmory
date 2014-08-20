@@ -200,6 +200,7 @@ private:
       map<BinaryData, TxIOPair>&) const;
 
    void sortLedger();
+   void unregister(void) { isRegistered_ = false; }
 
 private:
    BlockDataViewer* const              bdvPtr_;
