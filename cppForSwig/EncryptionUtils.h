@@ -136,7 +136,7 @@ public:
    // We want regular BinaryData, but page-locked and secure destruction
    SecureBinaryData(void) : BinaryData() 
                    { lockData(); }
-   SecureBinaryData(uint32_t sz) : BinaryData(sz) 
+   SecureBinaryData(size_t sz) : BinaryData(sz) 
                    { lockData(); }
    SecureBinaryData(BinaryData const & data) : BinaryData(data) 
                    { lockData(); }

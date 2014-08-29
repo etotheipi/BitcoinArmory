@@ -47,7 +47,7 @@ BinaryData & BinaryData::append(BinaryDataRef const & bd2)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
+BinaryData & BinaryData::append(uint8_t const * str, size_t sz)
 {
    BinaryDataRef appStr(str, sz);
    return append(appStr);
@@ -134,7 +134,7 @@ bool BinaryData::startsWith(BinaryData const & matchStr) const
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 {
-   uint32_t sz = matchStr.getSize();
+   size_t sz = matchStr.getSize();
    if(sz > getSize())
       return false;
    
@@ -147,7 +147,7 @@ bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::endsWith(BinaryData const & matchStr) const
 {
-   uint32_t sz = matchStr.getSize();
+   size_t sz = matchStr.getSize();
    if(sz > getSize())
       return false;
    
@@ -159,12 +159,12 @@ bool BinaryData::endsWith(BinaryData const & matchStr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
+BinaryDataRef BinaryData::getSliceRef(ssize_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = getSize() + start_pos;
 
-   if(start_pos + nChar > getSize())
+   if((size_t)start_pos + nChar > getSize())
    {
       cerr << "getSliceRef: Invalid BinaryData access" << endl;
       return BinaryDataRef();
@@ -173,12 +173,12 @@ BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData BinaryData::getSliceCopy(int32_t start_pos, uint32_t nChar) const
+BinaryData BinaryData::getSliceCopy(ssize_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = getSize() + start_pos;
 
-   if(start_pos + nChar > getSize())
+   if((size_t)start_pos + nChar > getSize())
    {
       cerr << "getSliceCopy: Invalid BinaryData access" << endl;
       return BinaryData();

@@ -2822,7 +2822,7 @@ TEST_F(StoredBlockObjTest, GetDBKeys)
 TEST_F(StoredBlockObjTest, LengthUnfrag)
 {
    StoredTx tx;
-   vector<uint32_t> offin, offout;
+   vector<size_t> offin, offout;
 
    uint32_t lenUnfrag  = BtcUtils::StoredTxCalcLength( rawTxUnfrag_.getPtr(), 
                                                        false, 
@@ -2846,7 +2846,7 @@ TEST_F(StoredBlockObjTest, LengthUnfrag)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, LengthFragged)
 {
-   vector<uint32_t> offin, offout;
+   vector<size_t> offin, offout;
 
    uint32_t lenFragged = BtcUtils::StoredTxCalcLength( rawTxFragged_.getPtr(), 
                                                        true, 
@@ -6465,7 +6465,6 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
    fread(rawZC.getPtr(), 159, 1, ff);
    fclose(ff);
-   LMDBBlockDatabase::Batch batch(iface_, BLKDATA);
 
    theBDV->addNewZeroConfTx(rawZC, 0, false);
    theBDV->parseNewZeroConfTx();
@@ -8301,7 +8300,7 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 
    EXPECT_EQ(le.getTxTime(), 1300000000);
    EXPECT_EQ(le.isSentToSelf(), true);
-   EXPECT_EQ(le.getValue(), 10*COIN);
+   EXPECT_EQ(le.getValue(), 50*COIN);
 }
 
 // This was really just to time the logging to determine how much impact it 

@@ -55,7 +55,7 @@ public:
    void getPageLedgerMap(
       function< void(uint32_t, uint32_t, map<BinaryData, TxIOPair>&) > getTxio,
       function< void(map<BinaryData, LedgerEntry>&,
-      const map<BinaryData, TxIOPair>&, uint32_t) > buildLedgers,
+      const map<BinaryData, TxIOPair>&, uint32_t, uint32_t) > buildLedgers,
       uint32_t pageId,
       map<BinaryData, LedgerEntry>& leMap) const;
 
@@ -73,7 +73,7 @@ public:
    { return SSHsummary_; }
    
    uint32_t getPageBottom(uint32_t id) const;
-   uint32_t getPageCount(void) const { return pages_.size(); }
+   size_t   getPageCount(void) const { return pages_.size(); }
    uint32_t getCurrentPage(void) const { return currentPage_; }
    void setCurrentPage(uint32_t pageId) { currentPage_ = pageId; }
 };

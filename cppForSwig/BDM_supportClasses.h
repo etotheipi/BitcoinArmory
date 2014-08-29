@@ -62,6 +62,8 @@ class ScrAddrFilter
    up from there.
    ***/
 
+   friend class BlockDataViewer;
+
 public:
    struct ScrAddrMeta
    {
@@ -92,6 +94,7 @@ private:
    map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
    atomic<int32_t>                mergeLock_;
    bool                           mergeFlag_=false;
+   bool                           freshAddresses_=false;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
@@ -117,87 +120,30 @@ public:
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
    const map<BinaryData, ScrAddrMeta>& getScrAddrMap(void) const
-   {
-      return scrAddrMap_;
-   }
+   { return scrAddrMap_; }
 
-   uint32_t numScrAddr(void) const
-   {
-      return scrAddrMap_.size();
-   }
+   size_t numScrAddr(void) const
+   { return scrAddrMap_.size(); }
 
-   uint32_t scanFrom(void) const
-   {
-      uint32_t lowestBlock = UINT32_MAX;
-
-      for (auto scrAddr : scrAddrMap_)
-      {
-         lowestBlock = min(lowestBlock, scrAddr.second.lastScannedHeight_);
-      }
-
-      LOGERR << "blockHeightCutOff: " << blockHeightCutOff_;
-      LOGERR << "lowestBlock: " << lowestBlock;
-
-      return lowestBlock;
-   }
-
-   bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr);
+   uint32_t scanFrom(void) const;
+   bool registerAddresses(const vector<BinaryData>& saVec, 
+                          BtcWallet* wltPtr, bool isNew);
 
    void unregisterScrAddr(BinaryData& scrAddrIn)
-   {
-      //simplistic, same as above
-      scrAddrMap_.erase(scrAddrIn);
-   }
+   { scrAddrMap_.erase(scrAddrIn); }
 
-   void clear()
-   {
-      checkForMerge();
-      UTxO_.clear();
-      blockHeightCutOff_ = 0;
-   }
+   void clear(void);
 
    bool hasScrAddress(const BinaryData & sa)
    { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
 
-   int8_t hasUTxO(const BinaryData& dbkey) const
-   {
-      /*** return values:
-      -1: don't know
-      0: utxo is not for our addresses
-      1: our utxo
-      ***/
+   int8_t hasUTxO(const BinaryData& dbkey) const;
 
-      if (UTxO_.find(dbkey) == UTxO_.end())
-      {
-         uint32_t height = DBUtils::hgtxToHeight(dbkey.getSliceRef(0, 4));
-         if (height < blockHeightCutOff_)
-            return -1;
-
-         return 0;
-      }
-
-      return 1;
-   }
-
-   void addUTxO(pair<const BinaryData, TxIOPair>& txio)
-   {
-      if (txio.first.getSize() == 8)
-      {
-         if (txio.second.hasTxOut() && !txio.second.hasTxIn())
-            UTxO_.insert(txio.first);
-      }
-   }
-
-   void addUTxO(const BinaryData& dbkey)
-   {
-      if (dbkey.getSize() == 8)
-         UTxO_.insert(dbkey);
-   }
+   void addUTxO(pair<const BinaryData, TxIOPair>& txio);
+   void addUTxO(const BinaryData& dbkey);
 
    bool eraseUTxO(const BinaryData& dbkey)
-   {
-      return UTxO_.erase(dbkey) == 1;
-   }
+   { return UTxO_.erase(dbkey) == 1; }
 
    void getScrAddrCurrentSyncState();
    void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
@@ -206,9 +152,7 @@ public:
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom,
       BtcWallet* wltPtr)
-   {
-      scrAddrMap_[scrAddr] = ScrAddrMeta(scanFrom, wltPtr);
-   }
+   { scrAddrMap_[scrAddr] = ScrAddrMeta(scanFrom, wltPtr); }
 
    void scanScrAddrMapInNewThread(void);
 

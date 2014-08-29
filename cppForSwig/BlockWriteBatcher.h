@@ -20,7 +20,9 @@ class BlockWriteBatcher
 public:
    static const uint64_t UPDATE_BYTES_THRESH = 96*1024*1024;
 
-   BlockWriteBatcher(const BlockDataManagerConfig &config, LMDBBlockDatabase* iface);
+   BlockWriteBatcher(const BlockDataManagerConfig &config, 
+                     LMDBBlockDatabase* iface,
+                     bool forCommit = false);
    ~BlockWriteBatcher();
    
    void applyBlockToDB(StoredHeader &sbh,
@@ -30,11 +32,12 @@ public:
    void undoBlockFromDB(StoredUndoData &sud, 
                         ScrAddrFilter* scrAddrData);
 
-   void preloadSSH(LMDBBlockDatabase *db, const ScrAddrFilter& sasd);
+   void preloadSSH(const ScrAddrFilter& sasd);
 
 private:
    // We have accumulated enough data, actually write it to the db
-   void commit();
+   pthread_t commit(void);
+   static void* commitThread(void*);
    
    // search for entries in sshToModify_ that are empty and should
    // be deleted, removing those empty ones from sshToModify
@@ -58,6 +61,12 @@ private:
    // applyBlockToDB and decremented for each
    // undoBlockFromDB
    uint32_t mostRecentBlockApplied_;
+   
+   //for the commit thread
+   bool isForCommit_;
+
+   LMDB::Transaction* txnHeaders = nullptr;
+   LMDB::Transaction* txnBlkdata = nullptr;
 };
 
 

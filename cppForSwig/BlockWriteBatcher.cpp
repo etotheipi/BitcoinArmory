@@ -135,9 +135,9 @@ static StoredScriptHistory* makeSureSSHInMap(
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
    if (hgtX.getSize() == 4)
    {
-      uint32_t prevSize = sshptr->subHistMap_.size();
+      size_t prevSize = sshptr->subHistMap_.size();
       iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
-      uint32_t newSize = sshptr->subHistMap_.size();
+      size_t newSize = sshptr->subHistMap_.size();
 
       if (additionalSize)
          *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
@@ -199,15 +199,35 @@ static StoredScriptHistory* makeSureSSHInMap(
 ////////////////////////////////////////////////////////////////////////////////
 BlockWriteBatcher::BlockWriteBatcher(
    const BlockDataManagerConfig &config,
-   LMDBBlockDatabase* iface
+   LMDBBlockDatabase* iface,
+   bool forCommit
 )
    : config_(config), iface_(iface),
-   dbUpdateSize_(0), mostRecentBlockApplied_(0)
-{ }
+   dbUpdateSize_(0), mostRecentBlockApplied_(0), isForCommit_(forCommit)
+{
+   if (forCommit)
+      return;
+      
+   txnHeaders = new LMDB::Transaction(&iface_->dbs_[HEADERS], false);
+   txnBlkdata = new LMDB::Transaction(&iface_->dbs_[BLKDATA], false);
+}
 
 BlockWriteBatcher::~BlockWriteBatcher()
 {
-   commit();
+   //delete DB transactions
+   delete txnHeaders;
+   delete txnBlkdata;
+
+   //a BWB meant for commit doesn't need to run commit() on dtor
+   if (isForCommit_)
+      return;
+
+   //call final commit
+   pthread_t tID = commit();
+
+   //join on the thread, don't want the destuctor to return until the data has
+   //been commited
+   pthread_join(tID, nullptr);
 }
 
 void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
@@ -248,9 +268,7 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    sbhToUpdate_.push_back(sbh);
    dbUpdateSize_ += sbh.numBytes_;
 
-   { // we want to commit the undo data at the same time as actual changes
-      LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
-   
+   { // we want to commit the undo data at the same time as actual changes   
       // Now actually write all the changes to the DB all at once
       // if we've gotten to that threshold
       if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
@@ -306,7 +324,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    ///// Put the STXOs back into the DB which were removed by this block
    // Process the stxOutsRemovedByBlock_ in reverse order
    // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
-   for(int32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
+   for(int32_t i=(int32_t)sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
    {
       StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
 
@@ -459,7 +477,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
             stxToModify_,
             &dbUpdateSize_);
 
-      for(int16_t txoIdx = stxptr->stxoMap_.size()-1; txoIdx >= 0; txoIdx--)
+      for(int16_t txoIdx = (int16_t)stxptr->stxoMap_.size()-1; txoIdx >= 0; txoIdx--)
       {
 
          StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
@@ -513,7 +531,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 
    // Finally, mark this block as UNapplied.
    sbh.blockAppliedToDB_ = false;
-   updateBlkDataHeader(config_, iface_, sbh);
+   sbhToUpdate_.push_back(sbh);
    
    if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
       commit();
@@ -533,7 +551,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 {
    SCOPED_TIMER("applyTxToBatchWriteData");
 
-   vector<uint32_t> TxInIndexes;
+   vector<size_t> TxInIndexes;
    BtcUtils::TxInCalcLength(thisSTX.dataCopy_.getPtr(), thisSTX.dataCopy_.getSize(),
                           &TxInIndexes);
 
@@ -807,82 +825,35 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    return true;
 }
 
-
-
-void BlockWriteBatcher::commit()
+////////////////////////////////////////////////////////////////////////////////
+pthread_t BlockWriteBatcher::commit()
 {
-   // Check for any SSH objects that are now completely empty.  If they exist,
-   // they should be removed from the DB, instead of simply written as empty
-   // objects
-   const set<BinaryData> keysToDelete = searchForSSHKeysToDelete();
+   //create a BWB for commit (pass true to the constructor
+   BlockWriteBatcher *bwbSwapPtr = new BlockWriteBatcher(config_, iface_, true);
+
+   std::swap(bwbSwapPtr->sbhToUpdate_, sbhToUpdate_);
+   std::swap(bwbSwapPtr->stxToModify_, stxToModify_);
    
-   TIMER_START("commitToDB");
-
-   LOGWARN << "# stxToModify: " << stxToModify_.size();
-   LOGWARN << "# sshToModify: " << sshToModify_.size();
-   LOGWARN << "# keys to delete: " << keysToDelete.size();
-   LOGWARN << "# sbh to udapte: " << sbhToUpdate_.size();
-
-   {
-      for(map<BinaryData, StoredTx>::iterator iter_stx = stxToModify_.begin();
-         iter_stx != stxToModify_.end();
-         iter_stx++)
-      {
-         iface_->putStoredTx(iter_stx->second, true);
-      }
-         
-      for(map<BinaryData, StoredScriptHistory>::iterator iter_ssh = sshToModify_.begin();
-         iter_ssh != sshToModify_.end();
-         iter_ssh++)
-      {
-         iface_->putStoredScriptHistory(iter_ssh->second);
-      }
-
-      uint32_t sbhSize = 0;
-      for (auto& sbh : sbhToUpdate_)
-      {
-         updateBlkDataHeader(config_, iface_, sbh);
-         sbhSize += sbh.numBytes_;
-      }
-
-
-      for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();
-         iter_del != keysToDelete.end();
-         iter_del++)
-      {
-         iface_->deleteValue(BLKDATA, *iter_del);
-      }
-
-      LOGWARN << "# sbh byte size: " << sbhSize;
-
-      if(mostRecentBlockApplied_ != 0)
-      {
-         StoredDBInfo sdbi;
-         iface_->getStoredDBInfo(BLKDATA, sdbi);
-         if(!sdbi.isInitialized())
-            LOGERR << "How do we have invalid SDBI in applyMods?";
-         else
-         {
-            sdbi.appliedToHgt_  = mostRecentBlockApplied_;
-            iface_->putStoredDBInfo(BLKDATA, sdbi);
-         }
-      }
-   }
-
-   stxToModify_.clear();
-   sbhToUpdate_.clear();
-
+   //swap the ssh container in supernode, otherwise copy it
    if (config_.armoryDbType == ARMORY_DB_SUPER)
-      sshToModify_.clear();
+      std::swap(bwbSwapPtr->sshToModify_, sshToModify_);
+   else
+      bwbSwapPtr->sshToModify_ = sshToModify_;
+
+   bwbSwapPtr->dbUpdateSize_ = dbUpdateSize_;
+   bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_;
    dbUpdateSize_ = 0;
 
-   TIMER_STOP("commitToDB");
+   pthread_t tID;
+   pthread_create(&tID, nullptr, commitThread, bwbSwapPtr);
+
+   return tID;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
 {
    set<BinaryData> keysToDelete;
-   vector<BinaryData> fullSSHToDelete;
    
    for(map<BinaryData, StoredScriptHistory>::iterator iterSSH  = sshToModify_.begin();
        iterSSH != sshToModify_.end(); )
@@ -906,8 +877,13 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
       }
    
       // If the full SSH is empty (not just sub history), mark it to be removed
-      if(iterSSH->second.totalTxioCount_ == 0)
+      // *ONLY IN SUPERNODE* need it in full mode to update the ssh last seen 
+      // block
+
+      if (iterSSH->second.totalTxioCount_ == 0 && 
+          config_.armoryDbType == ARMORY_DB_SUPER)
       {
+         keysToDelete.insert(iterSSH->second.getDBKey(true));
          sshToModify_.erase(iterSSH);
       }
       
@@ -917,4 +893,78 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
    return keysToDelete;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
+{
+   //In full mode, the sshToModify_ container is not wiped after each commit.
+   //Instead, all SSH for tracked scrAddr, since we know they're the onyl one
+   //that will get any traffic, and in order to update all alreadyScannedUpToBlk_
+   //members each commit
+
+   BinaryData hgtX = DBUtils::heightAndDupToHgtx(0, 0);
+
+   if (config_.armoryDbType != ARMORY_DB_SUPER)
+   {
+      for (auto saPair : sasd.getScrAddrMap())
+         makeSureSSHInMap(iface_, saPair.first, hgtX, sshToModify_, nullptr);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void* BlockWriteBatcher::commitThread(void *argPtr)
+{
+   BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
+
+   // Check for any SSH objects that are now completely empty.  If they exist,
+   // they should be removed from the DB, instead of simply written as empty
+   // objects
+
+   //create readwrite transactions to apply data to DB
+   bwbPtr->txnHeaders = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], true);
+   bwbPtr->txnBlkdata = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], true);
+
+   const set<BinaryData> keysToDelete = bwbPtr->searchForSSHKeysToDelete();
+
+   //TIMER_START("commitToDB");
+
+   {
+      for (auto& stxPair : bwbPtr->stxToModify_)
+         bwbPtr->iface_->putStoredTx(stxPair.second, true);
+
+      for (auto& sshPair : bwbPtr->sshToModify_)
+      {
+         sshPair.second.alreadyScannedUpToBlk_ 
+            = bwbPtr->mostRecentBlockApplied_;
+         bwbPtr->iface_->putStoredScriptHistory(sshPair.second);
+      }
+
+      for (auto& sbh : bwbPtr->sbhToUpdate_)
+         updateBlkDataHeader(bwbPtr->config_, bwbPtr->iface_, sbh);
+
+
+      for (auto& delPair : keysToDelete)
+         bwbPtr->iface_->deleteValue(BLKDATA, delPair);
+
+
+      if (bwbPtr->mostRecentBlockApplied_ != 0)
+      {
+         StoredDBInfo sdbi;
+         bwbPtr->iface_->getStoredDBInfo(BLKDATA, sdbi);
+         if (!sdbi.isInitialized())
+            LOGERR << "How do we have invalid SDBI in applyMods?";
+         else
+         {
+            sdbi.appliedToHgt_ = bwbPtr->mostRecentBlockApplied_;
+            bwbPtr->iface_->putStoredDBInfo(BLKDATA, sdbi);
+         }
+      }
+   }
+
+   //clean up
+   delete bwbPtr;
+
+   //TIMER_STOP("commitToDB");
+
+   return nullptr;
+}
 // kate: indent-width 3; replace-tabs on;

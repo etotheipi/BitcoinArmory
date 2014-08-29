@@ -87,6 +87,14 @@ static void createUndoDataFromBlock(
 // do something when a reorg happens
 class ReorgUpdater
 {
+   struct reorgParams
+   {
+      BlockHeader* oldTopPtr_;
+      BlockHeader* newTopPtr_;
+      BlockHeader* branchPtr_;
+      ScrAddrFilter *scrAddrData_;
+   };
+
    Blockchain *const blockchain_;
    LMDBBlockDatabase* const iface_;
    
@@ -98,14 +106,15 @@ class ReorgUpdater
    
    const BlockDataManagerConfig &config_;
 
+   reorgParams reorgParams_;
+
 public:
    ReorgUpdater(
       const Blockchain::ReorganizationState& state,
       Blockchain *blockchain,
       LMDBBlockDatabase* iface,
       const BlockDataManagerConfig &config,
-      ScrAddrFilter *scrAddrData=NULL
-   )
+      ScrAddrFilter *scrAddrData=nullptr)
       : blockchain_(blockchain)
       , iface_(iface)
       , config_(config)
@@ -114,33 +123,50 @@ public:
          state.prevTopBlock,
          &blockchain_->top(),
          state.reorgBranchPoint,
-         scrAddrData
-      );
+         scrAddrData);
    }
    
    const list<StoredTx>& removedTxes() const { return removedTxes_; }
    const list<StoredTx>& addedTxes() const { return addedTxes_; }
       
 private:
-   void reassessAfterReorg(
-      BlockHeader* oldTopPtr,
+
+   void reassessAfterReorg(BlockHeader* oldTopPtr,
       BlockHeader* newTopPtr,
       BlockHeader* branchPtr,
-      ScrAddrFilter *scrAddrData=NULL
-   )
+      ScrAddrFilter *scrAddrData)
    {
-      SCOPED_TIMER("reassessAfterReorg");
-      LOGINFO << "Reassessing Tx validity after reorg";
+      /***
+      reassesAfterReorg needs a write access to the DB. Most transactions
+      created in the main thead are read only, and based on user request, a
+      real only transaction may be opened. Since LMDB doesn't support different
+      transaction types to be mixed within the same thread, this whole code
+      is ran in a new thread, while the calling thread joins on it, to guarantee
+      no DB transaction is running.
+      ***/
 
+      reorgParams_.oldTopPtr_    = oldTopPtr;
+      reorgParams_.newTopPtr_    = newTopPtr;
+      reorgParams_.branchPtr_    = branchPtr;
+      reorgParams_.scrAddrData_  = scrAddrData;
+
+      pthread_t tID;
+      pthread_create(&tID, nullptr, reassessAfterReorgThread, this);
+
+      pthread_join(tID, nullptr);
+   }
+
+   void undoBlocksFromDB(void)
+   {
       // Walk down invalidated chain first, until we get to the branch point
       // Mark transactions as invalid
-     
+
       BlockWriteBatcher blockWrites(config_, iface_);
-      
-      BlockHeader* thisHeaderPtr = oldTopPtr;
+
+      BlockHeader* thisHeaderPtr = reorgParams_.oldTopPtr_;
       LOGINFO << "Invalidating old-chain transactions...";
-      
-      while(thisHeaderPtr != branchPtr)
+
+      while (thisHeaderPtr != reorgParams_.branchPtr_)
       {
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
@@ -151,58 +177,73 @@ private:
             // we also need to undo the blocks in the DB
             StoredUndoData sud;
             createUndoDataFromBlock(iface_, hgt, dup, sud);
-            blockWrites.undoBlockFromDB(sud, scrAddrData);
+            blockWrites.undoBlockFromDB(sud, reorgParams_.scrAddrData_);
          }
-         
-         /*StoredHeader sbh;
-         iface_->getStoredHeader(sbh, hgt, dup, true);
 
-         // This is the original, tested, reorg code
-         previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
-         for(uint32_t i=0; i<sbh.numTx_; i++)
-         {
-            StoredTx & stx = sbh.stxMap_[i];
-            LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
-            txJustInvalidated_.insert(stx.thisHash_);
-            txJustAffected_.insert(stx.thisHash_);
-            
-            removedTxes_.push_back(stx);
-         }*/
          thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getPrevHash());
       }
+   }
 
+   void updateBlockDupIDs(void)
+   {
+      //create a readwrite tx to update the dupIDs
+      LMDB::Transaction batch(&iface_->dbs_[HEADERS], true);
+
+      BlockHeader* thisHeaderPtr = reorgParams_.branchPtr_;
+
+      while (thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash() &&
+         thisHeaderPtr->getNextHash().getSize() > 0)
+      {
+         thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getNextHash());
+         uint32_t hgt = thisHeaderPtr->getBlockHeight();
+         uint8_t  dup = thisHeaderPtr->getDuplicateID();
+         iface_->markBlockHeaderValid(hgt, dup);
+      }
+   }
+
+   void applyBlocksFromBranchPoint(void)
+   {
       // Walk down the newly-valid chain and mark transactions as valid.  If 
       // a tx is in both chains, it will still be valid after this process
       // UPDATE for LevelDB upgrade:
       //       This used to start from the new top block and walk down, but 
       //       I need to apply the blocks in order, so I switched it to start
       //       from the branch point and walk up
-      thisHeaderPtr = branchPtr; // note branch block was not undone, skip it
+      
+      BlockWriteBatcher blockWrites(config_, iface_);
+
+      BlockHeader* thisHeaderPtr = reorgParams_.branchPtr_;
+      
       LOGINFO << "Marking new-chain transactions valid...";
-      while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash() &&
-            thisHeaderPtr->getNextHash().getSize() > 0 ) 
+      while (thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash() &&
+         thisHeaderPtr->getNextHash().getSize() > 0)
       {
          thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getNextHash());
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
-         iface_->markBlockHeaderValid(hgt, dup);
          StoredHeader sbh;
          iface_->getStoredHeader(sbh, hgt, dup, true);
 
-         //if(config_.armoryDbType != ARMORY_DB_BARE)
-         blockWrites.applyBlockToDB(sbh, scrAddrData);
-
-         /*for(uint32_t i=0; i<sbh.numTx_; i++)
-         {
-            StoredTx & stx = sbh.stxMap_[i];
-            LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
-            txJustInvalidated_.erase(stx.thisHash_);
-            txJustAffected_.insert(stx.thisHash_);
-            addedTxes_.push_back(stx);
-         }*/
+         blockWrites.applyBlockToDB(sbh, reorgParams_.scrAddrData_);
       }
+   }
+
+   static void* reassessAfterReorgThread(void *in)
+   {
+      SCOPED_TIMER("reassessAfterReorg");
+      LOGINFO << "Reassessing Tx validity after reorg";
+
+      ReorgUpdater* reorgPtr = static_cast<ReorgUpdater*>(in);
+
+      reorgPtr->undoBlocksFromDB();
+      
+      reorgPtr->updateBlockDupIDs();
+
+      reorgPtr->applyBlocksFromBranchPoint();
 
       LOGWARN << "Done reassessing tx validity";
+
+      return nullptr;
    }
 };
 
@@ -874,7 +915,7 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], false);
    TxRef txref = iface_->getTxRef(txHash);
    if (txref.isInitialized())
       return true;
@@ -989,20 +1030,20 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    uint32_t blk1, ScrAddrFilter* scrAddrData)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
-   LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
-   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA]);
 
    blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
 
    BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils::getBlkDataKey(blk1, 0);
 
+   // Start scanning and timer
+   BlockWriteBatcher blockWrites(config_, iface_);
+   if (scrAddrData != nullptr)
+      blockWrites.preloadSSH(*scrAddrData);
+
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
    ldbIter.seekTo(startKey);
-
-   // Start scanning and timer
-   //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
-   BlockWriteBatcher blockWrites(config_, iface_);
+   
    uint32_t hgt;
 
    TIMER_START("applyBlockRangeToDBIter");
@@ -1221,12 +1262,12 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 }
 */
 
-static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
+static bool scanFor(std::istream &in, const uint8_t * bytes, const size_t len)
 {
    std::vector<uint8_t> ahead(len); // the bytes matched
    
    in.read((char*)&ahead.front(), len);
-   unsigned count = in.gcount();
+   size_t count = in.gcount();
    if (count < len) return false;
    
    unsigned offset=0; // the index mod len which we're in ahead
@@ -1442,7 +1483,7 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    }
 
    {
-      LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
+      LMDB::Transaction batch(&iface_->dbs_[HEADERS], true);
          
       for(unsigned i = 0; i <= blockchain_.top().getBlockHeight(); ++i)
       {
@@ -1596,7 +1637,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       scrAddrData_->clear();
    }
 
-   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan && !skipFetch)
+   if (config_.armoryDbType != ARMORY_DB_SUPER /*&& !forceRescan && !skipFetch*/)
    {
       LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_->numScrAddr() << " registered addresses";
       scrAddrData_->getScrAddrCurrentSyncState();
@@ -1681,7 +1722,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
          applyBlockRangeToDB(scrAddrData_->scanFrom(),
                              blockchain_.top().getBlockHeight() + 1,
                              scrAddrData_.get());
-      scrAddrData_->setSSHLastScanned(blockchain_.top().getBlockHeight());
 
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
@@ -1823,9 +1863,9 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
             {
                dbUpdateSize = 0;
                batchB.commit();
-               batchB.begin();
+               batchB.begin(true);
                batchH.commit();
-               batchH.begin();
+               batchH.begin(true);
             }
 
             blocksReadSoFar_++;
@@ -2042,8 +2082,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    // (which means we may be adding a couple blocks, the first of which
    // may appear valid but orphaned by later blocks -- that's okay as 
    // we'll just reverse it when we add the later block -- this is simpler)
-   LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
-   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA]);
 
    BinaryRefReader brr(newBlockDataRaw);
    BinaryData fourBytes(4);
@@ -2284,6 +2322,8 @@ Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
    }
 
    // Insert the block
+   LMDB::Transaction batch(&iface_->dbs_[HEADERS], true);
+   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA], true);
 
    BlockHeader bl;
    bl.unserialize(brrRawBlock);

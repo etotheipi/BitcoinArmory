@@ -55,6 +55,7 @@ namespace std
    %template(vector_float) std::vector<float>;
    %template(vector_BinaryData) std::vector<BinaryData>;
    %template(vector_LedgerEntry) std::vector<LedgerEntry>;
+   %template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
    %template(vector_TxRefPtr) std::vector<TxRef*>;
    %template(vector_Tx) std::vector<Tx>;
    %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
@@ -62,13 +63,7 @@ namespace std
    %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
-   %template(set_BtcWallet) std::set<BtcWallet*>;
-   %template(map_rsa) std::map<BinaryData, RegisteredScrAddr>;
 }
-
-/*%include "ThreadSafeContainer.h"*/
-
-/*%template(ts_setBtcWallet) ts_pair_container<rsaMap>;*/
 
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */

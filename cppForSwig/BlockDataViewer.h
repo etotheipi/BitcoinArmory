@@ -23,14 +23,17 @@ class BlockDataViewer
       // sure that the intial blockchain scan picks up wallet-relevant stuff as 
       // it goes, and does a full [re-]scan of the blockchain only if necessary.
       bool     registerWallet(BtcWallet* wallet, bool wltIsNew = false);
+      bool     registerLockbox(BtcWallet* wallet, bool wltIsNew = false);
       void     unregisterWallet(BtcWallet* wltPtr);
+      void     unregisterLockbox(BtcWallet* wltPtr);
 
       void scanWallets(uint32_t startBlock = UINT32_MAX,
          uint32_t endBlock = UINT32_MAX);
       
       bool hasWallet(BtcWallet* wltPtr);
 
-      bool registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr = nullptr);
+      bool registerAddresses(const vector<BinaryData>& saVec, 
+                             BtcWallet* wltPtr, bool isNew);
 
       map<BinaryData, map<BinaryData, TxIOPair> >
          getNewZeroConfTxIOMap()
@@ -43,7 +46,7 @@ class BlockDataViewer
       set<BinaryData> getNewZCTxHash(void) const
       { return zeroConfCont_.getNewZCByHash(); }
 
-      LedgerEntry getTxLedgerByHash(const BinaryData& txHash) const;
+      const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
       
       void pprintRegisteredWallets(void) const;
 
@@ -73,9 +76,14 @@ class BlockDataViewer
       void reset();
 
       void pageWalletsHistory();
+      void pageLockboxesHistory();
+
       map<uint32_t, uint32_t> computeWalletsSSHSummary();
       const vector<LedgerEntry>& getHistoryPage(uint32_t);
-      uint32_t getPageCount(void) const { return hist_.getPageCount(); }
+      size_t getPageCount(void) const { return hist_.getPageCount(); }
+
+      void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
+                             uint32_t startBlock, uint32_t endBlock) const;
 
    public:
       bool            rescanZC_;
@@ -86,6 +94,7 @@ class BlockDataViewer
       ScrAddrFilter*     saf_;
 
       set<BtcWallet*> registeredWallets_;
+      set<BtcWallet*> registeredLockboxes_;
       ZeroConfContainer zeroConfCont_;
       
       bool     zcEnabled_;
@@ -95,6 +104,12 @@ class BlockDataViewer
       uint32_t lastScanned_ = 0;
       bool initialized_ = false;
 
+      //The globalLedger (used to render the main transaction ledger) is
+      //different from wallet ledgers. While each wallet only has a single
+      //entry per transactions (wallets merge all of their scrAddr txn into
+      //a single one), the globalLedger does not merge wallet level txn. It
+      //can thus have several entries under the same transaction, and cannot
+      //be a map.
       vector<LedgerEntry> globalLedger_;
       HistoryPager hist_;
 };

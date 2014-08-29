@@ -56,6 +56,7 @@ public:
       : bdvPtr_(bdv),
       mergeLock_(0)
    {}
+   
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -124,10 +125,10 @@ public:
       bool ignoreAllZeroConf=false
    ) const;
 
-   vector<LedgerEntry>
+   vector<const LedgerEntry*>
       getTxLedger(BinaryData const &scrAddr) const;
-   const vector<LedgerEntry>&
-      getTxLedger() const; 
+   vector<const LedgerEntry*>
+      getTxLedger(void) const;
 
    void pprintLedger() const;
    void pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk=0, bool withAddr=false) const;
@@ -145,16 +146,18 @@ public:
    map<BinaryData, ScrAddrObj>& getScrAddrMap(void)
    { return scrAddrMap_; }
 
-   uint32_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
+   size_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
 
    const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const;
 
-   LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;
-   void preloadScrAddr(const BinaryData& scrAddr);
+   const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
+   void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, bool isNew);
 
-   void setWalletID(string wltId) { walletID_ = wltId; }
+   void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
 
-   bool getMergeFlag(void) { return mergeFlag_; }
+   uint8_t getMergeFlag(void) { return mergeFlag_; }
+
+   const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
 
 private:   
    
@@ -162,7 +165,8 @@ private:
    //false on ZC
    bool scanWallet(uint32_t startBlock,
       uint32_t endBlock,
-      bool reorg = false);
+      bool reorg,
+      const map<BinaryData, vector<BinaryData> >& invalidatedZCKeys);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
@@ -174,18 +178,12 @@ private:
    void purgeZeroConfTxIO(
       const map<BinaryData, vector<BinaryData> >& invalidatedTxIO);
 
-   void updateWalletLedgersFromScrAddr(vector<LedgerEntry>& le,
-                            const map<BinaryData, ScrAddrObj>& scrAddrMap, 
-                            uint32_t startBlock, uint32_t endBlock, 
-                            bool purge = true);
-
    void updateWalletLedgersFromTxio(map<BinaryData, LedgerEntry>& le,
       const map<BinaryData, TxIOPair>& txioMap,
-      uint32_t startBlock, uint32_t endBlock) const;
+      uint32_t startBlock, uint32_t endBlock,
+      bool purge = false) const;
 
-   void purgeLedgerFromHeight(uint32_t height);
-
-   void merge(void);
+   bool merge(void);
 
    void mapPages(void);
 
@@ -203,29 +201,27 @@ private:
    void unregister(void) { isRegistered_ = false; }
 
 private:
-   BlockDataViewer* const              bdvPtr_;
-   map<BinaryData, ScrAddrObj>         scrAddrMap_;
+   BlockDataViewer* const        bdvPtr_;
+   map<BinaryData, ScrAddrObj>   scrAddrMap_;
    
-   bool                                ignoreLastScanned_=true;
-   vector<LedgerEntry>                 ledgerAllAddr_;
+   bool                          ignoreLastScanned_=true;
+   map<BinaryData, LedgerEntry>* ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
+                                 
    
-   // just a null-reference object
-   static vector<LedgerEntry>          EmptyLedger_; 
-
-   bool                                isRegistered_=false;
+   bool                          isRegistered_=false;
 
    BtcWallet(const BtcWallet&); // no copies
 
    //for post init importing of new addresses
-   atomic<uint32_t>                    mergeLock_;
-   map<BinaryData, ScrAddrObj>         scrAddrMapToMerge_;
-   bool                                mergeFlag_=false;
+   atomic<uint32_t>              mergeLock_;
+   map<BinaryData, ScrAddrObj>   scrAddrMapToMerge_;
+   uint8_t                       mergeFlag_=0;
    
    //manages history pages
-   HistoryPager                        histPages_;
+   HistoryPager                  histPages_;
 
    //wallet id
-   string                              walletID_;
+   BinaryData                    walletID_;
 };
 
 #endif

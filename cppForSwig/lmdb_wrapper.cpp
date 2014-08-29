@@ -379,7 +379,7 @@ void LMDBBlockDatabase::openDatabases(
          
          dbs_[db].open(dbPaths_[db], dbmode);
          
-         LMDB::Transaction tx(&dbs_[db]);
+         LMDB::Transaction tx(&dbs_[db], true);
 
          StoredDBInfo sdbi;
          getStoredDBInfo(CURRDB, sdbi, false); 
@@ -438,7 +438,7 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
    SCOPED_TIMER("nukeHeadersDB");
    LOGINFO << "Destroying headers DB, to be rebuilt.";
    
-   LMDB::Transaction tx(&dbs_[HEADERS]);
+   LMDB::Transaction tx(&dbs_[HEADERS], true);
    
    LMDB::Iterator begin = dbs_[HEADERS].begin();
    LMDB::Iterator end = dbs_[HEADERS].end();
@@ -611,7 +611,7 @@ BinaryData LMDBBlockDatabase::getHashForDBKey(BinaryData dbkey)
    uint16_t txi; 
    uint16_t txo; 
 
-   uint32_t sz = dbkey.getSize();
+   size_t sz = dbkey.getSize();
    if(sz < 4 || sz > 9)
    {
       LOGERR << "Invalid DBKey size: " << sz << ", " << dbkey.toHexStr();
@@ -835,9 +835,9 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    if(ssh.totalTxioCount_ == 0)
       LOGWARN << "How did we end up with zero Txios in an SSH?";
       
-   uint32_t sz = sshKey.getSize();
+   size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
-   uint32_t scrAddrSize = scrAddr.getSize();
+   size_t scrAddrSize = scrAddr.getSize();
 
    if (startBlock != 0)
    {
@@ -859,10 +859,10 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
 
    // Now start iterating over the sub histories
    map<BinaryData, StoredSubHistory>::iterator iter;
-   uint32_t numTxioRead = 0;
+   size_t numTxioRead = 0;
    do
    {
-      uint32_t sz = ldbIter.getKeyRef().getSize();
+      size_t sz = ldbIter.getKeyRef().getSize();
       BinaryDataRef keyNoPrefix= ldbIter.getKeyRef().getSliceRef(1,sz-1);
       if(!keyNoPrefix.startsWith(ssh.uniqueKey_))
          break;
@@ -917,7 +917,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
 void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                                     BinaryDataRef scrAddrStr)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], false);
    LDBIter ldbIter = getIterator(BLKDATA);
    ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
 
@@ -937,7 +937,7 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
 											              uint32_t startBlock,
                                                uint32_t endBlock)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], false);
    SCOPED_TIMER("getStoredScriptHistory");
    LDBIter ldbIter = getIterator(BLKDATA);
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
@@ -1105,8 +1105,8 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 void LMDBBlockDatabase::readAllHeaders(map<HashString, BlockHeader> & headerMap,
                                        map<HashString, StoredHeader> & storedMap)
 {
-   LMDB::Transaction batch(&dbs_[HEADERS]);
-   LMDB::Transaction batch1(&dbs_[BLKDATA]);
+   LMDB::Transaction batch(&dbs_[HEADERS], false);
+   LMDB::Transaction batch1(&dbs_[BLKDATA], false);
    
    LDBIter ldbIter = getIterator(HEADERS);
    if(!ldbIter.seekToStartsWith(DB_PREFIX_HEADHASH))
@@ -1173,7 +1173,7 @@ uint8_t LMDBBlockDatabase::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
    }
 
    uint8_t lenEntry = 33;
-   uint8_t numDup = brrHgts.getSize() / lenEntry;
+   uint8_t numDup = (uint8_t)(brrHgts.getSize() / lenEntry);
    for(uint8_t i=0; i<numDup; i++)
    {
       uint8_t dup8 = brrHgts.get_uint8_t(); 
@@ -1237,7 +1237,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, bool withBlkData
    if(!withBlkData)
       return newDup;
 
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], true);
 
    BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryData bwBlkData = serializeDBValue(sbh, BLKDATA, armoryDbType_, dbPruneType_);
@@ -1296,7 +1296,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
    }
 
    // Batch the two operations to make sure they both hit the DB, or neither 
-   LMDB::Transaction tx(&dbs_[HEADERS]);
+   LMDB::Transaction tx(&dbs_[HEADERS], true);
 
    StoredDBInfo sdbiH;
    getStoredDBInfo(HEADERS, sdbiH);
@@ -1433,7 +1433,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 {
    SCOPED_TIMER("getStoredHeader");
 
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], false);
    if(!withTx)
    {
       //////
@@ -1547,7 +1547,7 @@ void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
    }
 
    // Batch update the DB
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], true);
 
    if(needToAddTxToHints || needToUpdateHints)
       putStoredTxHints(sths);
@@ -1711,7 +1711,7 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
    // Use a temp variable instead of stx.numBytes_ directly, because the 
    // stx.unserializeDBValue() call will reset numBytes to UINT32_MAX.
    // Assign it at the end, if we're confident we have the correct value.
-   uint32_t nbytes  = 0;
+   size_t nbytes  = 0;
 
    BinaryData txPrefix = DBUtils::getBlkDataKey(height, dupID, stx.txIndex_);
 
@@ -1814,8 +1814,8 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B )
       return Tx();
    }
     
-   LMDB::Transaction batch(&dbs_[HEADERS]);
-   LMDB::Transaction batch1(&dbs_[BLKDATA]);
+   LMDB::Transaction batch(&dbs_[HEADERS], false);
+   LMDB::Transaction batch1(&dbs_[BLKDATA], false);
    
    LDBIter ldbIter = getIterator(BLKDATA);
    if(!ldbIter.seekToStartsWith(DB_PREFIX_TXDATA, ldbKey6B))
@@ -1916,7 +1916,7 @@ TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
    else
    {
       bool isFragged = txSer==TX_SER_FRAGGED;
-      vector<uint32_t> offsetsIn;
+      vector<size_t> offsetsIn;
       BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
       if((uint32_t)(offsetsIn.size()-1) < (uint32_t)(txInIdx+1))
       {
@@ -1939,7 +1939,7 @@ TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 {
    SCOPED_TIMER("getTxHashForLdbKey");
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], false);
    BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(stxVal.getSize()==0)
    {
@@ -2048,7 +2048,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       return false;
 
    BinaryData hash4(txHash.getSliceRef(0,4));
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], false);
    BinaryData hintsDBVal = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
    uint32_t valSize = hintsDBVal.getSize();
 
@@ -2184,7 +2184,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
 bool LMDBBlockDatabase::getStoredTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA]);
+   LMDB::Transaction tx(&dbs_[BLKDATA], false);
    BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
    if (brr.getSize() == 0)
    {
@@ -2534,7 +2534,7 @@ KVLIST LMDBBlockDatabase::getAllDatabaseEntries(DB_SELECT db)
    if(!databasesAreOpen())
       return KVLIST();
 
-   LMDB::Transaction tx(&dbs_[db]);
+   LMDB::Transaction tx(&dbs_[db], false);
    KVLIST outList;
    outList.reserve(100);
 

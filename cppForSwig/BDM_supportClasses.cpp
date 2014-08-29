@@ -8,6 +8,8 @@
 
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
+   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], false);
+
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
 }
@@ -37,7 +39,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], true);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -52,13 +54,13 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ScrAddrFilter::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
+bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec, 
+   BtcWallet* wltPtr, bool isNew)
 {
    /***
    Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
    in which case wltPtr will be called back with the address once it is ready
    ***/
-   const BinaryData& scrAddr = sa.getScrAddr();
 
    //check if the BDM is initialized. There ought to be a better way than
    //checking the top block
@@ -68,28 +70,44 @@ bool ScrAddrFilter::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
       if (armoryDbType_ == ARMORY_DB_SUPER)
       {
          //supernode: nothing to do, signal the wallet that its scrAddr is ready
-         wltPtr->preloadScrAddr(scrAddr);
+         wltPtr->prepareScrAddrForMerge(saVec, isNew);
 
          return false;
       }
 
       //check DB for the scrAddr's SSH
-      StoredScriptHistory ssh;
-      lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
+         StoredScriptHistory ssh;
+         
+         ScrAddrFilter* sca = copy();
+         sca->setParent(this);
+        
+         if (!isNew)
+         {
+            for (const auto& scrAddr : saVec)
+            {
+               lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
+               sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_, wltPtr);
+            }
+         }
+         else
+         {
+            //mark as fresh to skip DB scan
+            sca->freshAddresses_ = true;
+            for (const auto& scrAddr : saVec)
+               sca->regScrAddrForScan(scrAddr, 0, wltPtr);
+         }
 
-      uint32_t startBlock = max(sa.getFirstBlockNum(), ssh.alreadyScannedUpToBlk_);
-      ScrAddrFilter* sca = copy();
-      sca->setParent(this);
-      sca->regScrAddrForScan(scrAddr, startBlock, wltPtr);
-      sca->scanScrAddrMapInNewThread();
+         sca->scanScrAddrMapInNewThread();
 
-      return false;
+         return false;
    }
    else
    {
-      //BDM isnt initialized yet, the maintenance isnt running, just register
-      //the scrAddr and return true.
-      scrAddrMap_.insert(make_pair(scrAddr, 0));
+      //BDM isnt initialized yet, the maintenance thread isnt running, 
+      //just register the scrAddr and return true.
+      for (const auto& scrAddr : saVec)
+         scrAddrMap_.insert(make_pair(scrAddr, 0));
+      
       return true;
    }
 }
@@ -101,13 +119,17 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
 
    uint32_t startBlock = sasd->scanFrom();
    uint32_t endBlock = sasd->currentTopBlockHeight()+1;
-
-   while (startBlock < endBlock)
+  
+   if (sasd->freshAddresses_ == false)
    {
-      sasd->applyBlockRangeToDB(startBlock, endBlock);
+      //if these aren't new addresses, scan them
+      while (startBlock < endBlock)
+      {
+         sasd->applyBlockRangeToDB(startBlock, endBlock);
 
-      startBlock = endBlock;
-      endBlock = sasd->currentTopBlockHeight()+1;
+         startBlock = endBlock;
+         endBlock = sasd->currentTopBlockHeight() + 1;
+      }
    }
 
    sasd->setSSHLastScanned(endBlock);
@@ -115,14 +137,20 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
    //merge with main ScrAddrScanData object
    sasd->merge();
 
+   map<BtcWallet*, vector<BinaryData> > addressPerWallet;
+
    //notify the wallets that the scrAddr are ready
    for (auto& scrAddrPair : sasd->getScrAddrMap())
    {
       BtcWallet* const wltPtr = scrAddrPair.second.wltPtr_;
 
-      //mark the address for merging
-      wltPtr->preloadScrAddr(scrAddrPair.first);
+      auto& addressVec = addressPerWallet[wltPtr];
+      addressVec.push_back(scrAddrPair.first);
    }
+   
+   for (auto& addressVec : addressPerWallet)
+      addressVec.first->prepareScrAddrForMerge(addressVec.second, 
+                                               sasd->freshAddresses_);
 
    //clean up
    delete sasd;
@@ -213,6 +241,68 @@ void ScrAddrFilter::checkForMerge()
    }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrFilter::scanFrom() const
+{
+   uint32_t lowestBlock = UINT32_MAX;
+   blockHeightCutOff_ = 0;
+
+   for (auto scrAddr : scrAddrMap_)
+   {
+      lowestBlock = min(lowestBlock, scrAddr.second.lastScannedHeight_);
+      blockHeightCutOff_ =
+         max(blockHeightCutOff_, scrAddr.second.lastScannedHeight_);
+   }
+
+   return lowestBlock;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+int8_t ScrAddrFilter::hasUTxO(const BinaryData& dbkey) const
+{
+   /*** return values:
+   -1: don't know
+   0: utxo is not for our addresses
+   1: our utxo
+   ***/
+
+   if (UTxO_.find(dbkey) == UTxO_.end())
+   {
+      uint32_t height = DBUtils::hgtxToHeight(dbkey.getSliceRef(0, 4));
+      if (height < blockHeightCutOff_)
+         return -1;
+
+      return 0;
+   }
+
+   return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::addUTxO(pair<const BinaryData, TxIOPair>& txio)
+{
+   if (txio.first.getSize() == 8)
+   {
+      if (txio.second.hasTxOut() && !txio.second.hasTxIn())
+         UTxO_.insert(txio.first);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::addUTxO(const BinaryData& dbkey)
+{
+   if (dbkey.getSize() == 8)
+      UTxO_.insert(dbkey);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::clear()
+{
+   checkForMerge();
+   UTxO_.clear();
+   blockHeightCutOff_ = 0;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //ZeroConfContainer Methods
@@ -292,6 +382,8 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    map<HashString, HashString> txHashToDBKey;
    map<BinaryData, Tx>           txMap;
    map<HashString, map<BinaryData, TxIOPair> >  txioMap;
+
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA], false);
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -424,7 +516,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA], false);
 
    while (1)
    {

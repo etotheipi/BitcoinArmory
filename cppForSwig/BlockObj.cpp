@@ -502,7 +502,7 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
 ////////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
-void Tx::unserialize(uint8_t const * ptr, uint32_t size)
+void Tx::unserialize(uint8_t const * ptr, size_t size)
 {
    uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_);
    
@@ -1084,8 +1084,16 @@ void TxIOPair::pprintOneLine(LMDBBlockDatabase *db) const
 
 }
 
+bool TxIOPair::operator>=(const BinaryData &dbKey) const
+{
+   if (txRefOfOutput_ >= dbKey)
+      return true;
 
+   if (txRefOfInput_ >= dbKey)
+      return true;
 
+   return false;
+}
 
 
 

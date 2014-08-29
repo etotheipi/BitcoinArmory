@@ -3,6 +3,9 @@
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
+#include "BlockObj.h"
+#include "Blockchain.h"
+#include "StoredBlockObj.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,22 +43,24 @@
 //    isChangeBack_ - if we supplied inputs and rx ANY outputs
 //
 ////////////////////////////////////////////////////////////////////////////////
+
+class LMDBBlockDatabase;
+
 class LedgerEntry
 {
 public:
    LedgerEntry(void) :
-      scrAddr_(0),
+      ID_(0),
       value_(0),
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
       txTime_(0),
-      isValid_(false),
       isCoinbase_(false),
       isSentToSelf_(false),
       isChangeBack_(false) {}
 
-   LedgerEntry(BinaryData const & scraddr,
+   LedgerEntry(BinaryData const & ID,
                string const & wltId,
                int64_t val, 
                uint32_t blkNum, 
@@ -65,34 +70,31 @@ public:
                bool isCoinbase=false,
                bool isToSelf=false,
                bool isChange=false) :
-      scrAddr_(scraddr),
-      walletID_(wltId),
+      ID_(ID),
       value_(val),
       blockNum_(blkNum),
       txHash_(txhash),
       index_(idx),
       txTime_(txtime),
-      isValid_(true),
       isCoinbase_(isCoinbase),
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange) {}
 
-   BinaryData const &  getScrAddr(void) const   { return scrAddr_;       }
-   string const &      getWalletID(void) const  { return walletID_;      }
+   BinaryData const &  getScrAddr(void) const;
+   string              getWalletID(void) const;
    int64_t             getValue(void) const     { return value_;         }
    uint32_t            getBlockNum(void) const  { return blockNum_;      }
    BinaryData const &  getTxHash(void) const    { return txHash_;        }
    uint32_t            getIndex(void) const     { return index_;         }
    uint32_t            getTxTime(void) const    { return txTime_;        }
-   bool                isValid(void) const      { return isValid_;       }
    bool                isCoinbase(void) const   { return isCoinbase_;    }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
 
-   SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
+   SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)ID_[0];}
 
-   void setScrAddr(BinaryData const & bd) { scrAddr_= bd; }
-   void setValid(bool b=true) { isValid_ = b; }
+   void setScrAddr(BinaryData const & bd);
+   void setWalletID(BinaryData const & bd);
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
    bool operator<(LedgerEntry const & le2) const;
@@ -102,34 +104,36 @@ public:
    void pprint(void);
    void pprintOneLine(void) const;
 
-   static bool greaterThan(const LedgerEntry& lhs, const LedgerEntry& rhs)
-   { return lhs > rhs; }
+   static void purgeLedgerMapFromHeight(map<BinaryData, LedgerEntry>& leMap,
+                                        uint32_t purgeFrom);
+   static void purgeLedgerVectorFromHeight(vector<LedgerEntry>& leMap,
+      uint32_t purgeFrom);
 
-   void addTxOut(uint16_t id, uint64_t val);
-   void addTxIn(uint16_t id, uint64_t val);
-   void removeTxIn(uint16_t id);
-
+   static void computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
+                                const map<BinaryData, TxIOPair>& txioMap,
+                                uint32_t startBlock, uint32_t endBlock,
+                                const BinaryData& ID,
+                                LMDBBlockDatabase* db,
+                                Blockchain* bc,
+                                bool purge);
+   
    static LedgerEntry EmptyLedger_;
    static map<BinaryData, LedgerEntry> EmptyLedgerMap_;
 
 private:
    
-   BinaryData       scrAddr_;
-   string           walletID_;
+   //holds either a scrAddr or a walletId
+   BinaryData       ID_;
+   static BinaryData EmptyID_;
 
    int64_t          value_;
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
    uint32_t         txTime_;
-   bool             isValid_;
    bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;
-
-   //to keep track of which DBkey this ledger entry has seen
-   map<uint16_t, uint64_t> txIns;
-   map<uint16_t, uint64_t> txOuts;
 }; 
 
 #endif

@@ -380,7 +380,7 @@ public:
    {
    public:
       Batch(LMDBBlockDatabase *db, DB_SELECT which)
-         : Transaction(&db->dbs_[which])
+         : Transaction(&db->dbs_[which], true)
       { }
    };
 

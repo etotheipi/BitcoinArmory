@@ -1,3 +1,6 @@
+#ifndef WIN32_POSIX_H
+#define WIN32_POSIX_H
+
 #include <fstream>
 #include <io.h>
 #include <mman.h>
@@ -22,8 +25,8 @@
 #endif
 
 #define F_OK 0
-typedef int __ssize_t;
-typedef __ssize_t ssize_t;
+//typedef int __ssize_t;
+//typedef __ssize_t ssize_t;
 
 #ifdef small
 	#undef small
@@ -137,3 +140,5 @@ consider redoing snprintf
 #define snprintf c99_snprintf //stick to this for now unless it fucks up horribly
 int c99_vsnprintf(char* str, size_t size, const char* format, va_list ap);
 int c99_snprintf(char* str, size_t size, const char* format, ...);
+
+#endif

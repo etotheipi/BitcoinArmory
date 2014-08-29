@@ -2444,7 +2444,7 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getState() in ('Offline','Uninitialized') or self.doShutdown:
          return
 
-      TheBDM.bdm.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
+      TheBDM.bdv.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
 
       # All extra tx functions take one arg:  the PyTx object of the new ZC tx
       for txFunc in self.extraNewTxFunctions:
@@ -2796,10 +2796,11 @@ class ArmoryMainWindow(QMainWindow):
             self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
    
             # Create new wallet to hold the lockbox, register it with BDM
-            self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdm)
+            self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdv)
+            self.cppLockboxWltMap[lbID].setWalletID(lbID)
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
-            TheBDM.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
+            TheBDM.bdv.registerLockbox(self.cppLockboxWltMap[lbID], isFresh)
             if not isFresh:
                self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
                self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
@@ -2807,9 +2808,6 @@ class ArmoryMainWindow(QMainWindow):
                self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrReg)
                self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrP2SH)
 
-            # Save the scrAddr histories again to make sure no rescan nexttime
-            if TheBDM.getState()=='BlockchainReady':
-               TheBDM.saveScrAddrHistories()
          else:
             # Replace the original
             self.allLockboxes[index] = lbObj
@@ -3006,6 +3004,10 @@ class ArmoryMainWindow(QMainWindow):
    # any critical functionality makes it into armoryd.
    def finishLoadBlockchainGUI(self):
       # Let's populate the wallet info after finishing loading the blockchain.
+      for wltStr in self.walletMap:
+         wlt = self.walletMap[wltStr]
+         wlt.syncWithBlockchainLite()
+         
       self.setDashboardDetails()
       if not self.memPoolInit:
          mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
@@ -3241,14 +3243,8 @@ class ArmoryMainWindow(QMainWindow):
       try:
          lockboxTable = []
          for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-
-            zcLedger = cppWlt.getZeroConfLedger()
-            for i in range(len(zcLedger)):
-               lockboxTable.append([lbID, zcLedger[i]])
-
             ledger = cppWlt.getTxLedger()
-            for i in range(len(ledger)):
-               lockboxTable.append([lbID, ledger[i]])
+            lockboxTable.extend(ledger)
 
          self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
          self.lockboxLedgModel.ledger = self.lockboxLedgTable
@@ -3268,12 +3264,14 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    @TimeThisFunction
-   def convertLedgerToTable(self, ledger, showSentToSelfAmt=True, wltID=None):
+   def convertLedgerToTable(self, ledger, showSentToSelfAmt=True, wltIDIn=None):
       table2D = []
       datefmt = self.getPreferredDateFormat()
       for le in ledger:
-         if wltID is None:
+         if wltIDIn is None:
             wltID = le.getWalletID()
+         else: 
+            wltID = wltIDIn
           
          row = []
 
@@ -3341,9 +3339,6 @@ class ArmoryMainWindow(QMainWindow):
 
          # Sent-to-self
          row.append( le.isSentToSelf() )
-
-         # Tx was invalidated!  (double=spend!)
-         row.append( not le.isValid())
 
          # Finally, attach the row to the table
          table2D.append(row)

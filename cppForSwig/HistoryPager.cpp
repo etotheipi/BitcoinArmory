@@ -48,7 +48,7 @@ map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(
 void HistoryPager::getPageLedgerMap(
    function< void(uint32_t, uint32_t, map<BinaryData, TxIOPair>&) > getTxio,
    function< void(map<BinaryData, LedgerEntry>&,
-   const map<BinaryData, TxIOPair>&, uint32_t) > buildLedgers,
+   const map<BinaryData, TxIOPair>&, uint32_t, uint32_t) > buildLedgers,
    uint32_t pageId,
    map<BinaryData, LedgerEntry>& leMap) const
 {
@@ -57,7 +57,7 @@ void HistoryPager::getPageLedgerMap(
    //load page's block range from SSH and build ledgers
    map<BinaryData, TxIOPair> txio;
    getTxio(page.blockStart_, page.blockEnd_, txio);
-   buildLedgers(leMap, txio, page.blockStart_);
+   buildLedgers(leMap, txio, page.blockStart_, page.blockEnd_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -81,25 +81,29 @@ void HistoryPager::mapHistory(
 {
    //grab the SSH summary for the pager. This is a map, referencing the amount
    //of txio per block for the given address.
-   SSHsummary_ = getSSHsummary();
-
+   
    reset();
+   SSHsummary_ = getSSHsummary();
+   
+   if (SSHsummary_.size() == 0)
+   {
+      addPage(0, 0, UINT32_MAX);
+      return;
+   }
 
    auto histIter = SSHsummary_.crbegin();
    uint32_t threshold = 0;
-   uint32_t top;
+   uint32_t top = UINT32_MAX;
 
    while (histIter != SSHsummary_.crend())
    {
-      if (threshold == 0)
-         top = histIter->first;
-
       threshold += histIter->second;
       if (threshold > txnPerPage_)
       {
          addPage(threshold, histIter->first, top);
 
          threshold = 0;
+         top = histIter->first - 1;
       }
 
       ++histIter;
@@ -107,9 +111,6 @@ void HistoryPager::mapHistory(
 
    if (threshold != 0)
       addPage(threshold, 0, top);
-
-   if (pages_.size() == 0)
-      addPage(0, 0, UINT32_MAX);
 
    sortPages();
 }

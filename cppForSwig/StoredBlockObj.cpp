@@ -645,7 +645,7 @@ void StoredTx::unserialize(BinaryDataRef data, bool fragged)
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 {
-   vector<uint32_t> offsetsIn, offsetsOut; 
+   vector<size_t> offsetsIn, offsetsOut; 
    uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
                                                   fragged,
                                                   &offsetsIn,
@@ -837,7 +837,7 @@ BinaryData StoredTx::getSerializedTxFragged(void) const
    }
 
    BinaryWriter bw;
-   vector<uint32_t> outOffsets;
+   vector<size_t> outOffsets;
    BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), false, NULL, &outOffsets);
    uint32_t firstOut  = outOffsets[0];
    uint32_t afterLast = outOffsets[outOffsets.size()-1];
@@ -1712,12 +1712,12 @@ uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData
    }
 
    StoredSubHistory & subssh = iter->second;
-   uint32_t prevSize = subssh.txioMap_.size();
+   size_t prevSize = subssh.txioMap_.size();
    uint64_t val = subssh.markTxOutUnspent(db, txOutKey8B, 
                                           dbType, pruneType, 
                                           value, isCoinbase, 
                                           isMultisig);
-   uint32_t newSize = subssh.txioMap_.size();
+   size_t newSize = subssh.txioMap_.size();
 
    // Value returned above is zero if it's multisig, so no need to check here
    // Also, markTxOutUnspent doesn't indicate whether a new entry was added,
@@ -1876,7 +1876,8 @@ bool StoredScriptHistory::eraseSpentTxio(const BinaryData& hgtX,
    StoredSubHistory & subssh = iterSubHist->second;
    if (subssh.eraseTxio(dbKey8B))
    {
-      totalTxioCount_ -= 1;
+      subssh.txioCount_--;
+      totalTxioCount_--;
       return true;
    }
 
@@ -2204,6 +2205,7 @@ uint64_t StoredSubHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & d
          valueRemoved = 0;
 
       txioMap_.erase(iter);
+      txioCount_--;
       return valueRemoved;
    }
 }

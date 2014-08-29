@@ -202,7 +202,7 @@ void BlockDataManagerThread::run()
          if (bdv->parseNewZeroConfTx() == true)
          {
             set<BinaryData> newZCTxHash = bdv->getNewZCTxHash();
-            bdv->scanWallets(0, 0);
+            bdv->scanWallets();
 
             vector<LedgerEntry> newZCLedgers;// = new vector<LedgerEntry>;
 

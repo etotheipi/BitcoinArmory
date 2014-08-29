@@ -82,7 +82,7 @@ LMDB::Iterator::Iterator(LMDB *db)
    txnPtr_->iterators_.push_front(this);
 }
 
-LMDB::Iterator::Iterator(const Iterator &copy)
+LMDB::Iterator::Iterator(const LMDB::Iterator &copy)
 : db_(copy.db_), csr_(nullptr), has_(copy.has_), txnPtr_(copy.txnPtr_)
 {
    if (copy.txnPtr_ == nullptr)
@@ -308,10 +308,10 @@ LMDB::Transaction::Transaction()
 : db(nullptr)
 {}
 
-LMDB::Transaction::Transaction(LMDB *db)
+LMDB::Transaction::Transaction(LMDB *db, bool readWrite)
 : db(db)
 {
-   begin();
+   begin(readWrite);
 }
 
 LMDB::Transaction::~Transaction()
@@ -319,7 +319,7 @@ LMDB::Transaction::~Transaction()
    commit();
 }
 
-void LMDB::Transaction::begin()
+void LMDB::Transaction::begin(bool readWrite)
 {
    if (began)
       return;
@@ -331,12 +331,26 @@ void LMDB::Transaction::begin()
    ThreadTxInfo& thTx = db->txForThreads_[tID];
    
    if (thTx.transactionLevel_++ != 0)
+   {
+      if (readWrite == true && thTx.mode_ == ReadOnly)
+         throw LMDBException("Cannot access ReadOnly Transaction in ReadWrite mode");
+
       return;
-   
-   int modef = 0;
-   if (db->mode == ReadOnly)
-      modef = MDB_RDONLY;
+   }
+
+   int modef = MDB_RDONLY;
+   thTx.mode_ = ReadOnly;
+
+   if (readWrite == true)
+   {
+      if (db->mode == ReadOnly)
+         throw LMDBException("Cannot open ReadWrite Transaction in ReadOnly env");
       
+      modef = 0;
+      thTx.mode_ = ReadWrite;
+   }
+
+
    int rc = mdb_txn_begin(db->env, nullptr, modef, &thTx.txn_);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to create transaction (" + errorString(rc) +")");
@@ -416,7 +430,9 @@ void LMDB::open(const char *filename, Mode mode)
    rc = mdb_env_create(&env);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
-   
+
+   mdb_env_set_mapsize(env, 3 * 1024 * 1024 * 1024LL);
+
    rc = mdb_env_open(env, filename, modef|MDB_NOSYNC|MDB_NOSUBDIR, 0600);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to open db " + std::string(filename) + " (" + errorString(rc) + ")");
@@ -491,6 +507,7 @@ std::string LMDB::value(const CharacterArrayRef& key) const
 
 void LMDB::enlargeMap()
 {
+   return;
    mdb_filehandle_t fd;
    mdb_env_get_fd(env,&fd);
 #ifdef _MSC_VER

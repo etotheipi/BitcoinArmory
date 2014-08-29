@@ -10,7 +10,37 @@
 
 LedgerEntry LedgerEntry::EmptyLedger_;
 map<BinaryData, LedgerEntry> LedgerEntry::EmptyLedgerMap_;
+BinaryData LedgerEntry::EmptyID_ = BinaryData(0);
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData const & LedgerEntry::getScrAddr(void) const
+{ 
+   if (ID_.getSize() == 21) return ID_;
+   return EmptyID_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string LedgerEntry::getWalletID(void) const
+{
+   if (ID_.getSize() != 21) return ID_.toBinStr();
+   return string();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LedgerEntry::setScrAddr(BinaryData const & bd)
+{ 
+   if(bd.getSize() == 21) 
+      ID_ = bd; 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LedgerEntry::setWalletID(BinaryData const & bd)
+{
+   if (bd.getSize() != 21)
+      ID_ = bd;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 bool LedgerEntry::operator<(LedgerEntry const & le2) const
 {
    // TODO: I wanted to update this with txTime_, but I didn't want to c
@@ -53,7 +83,6 @@ void LedgerEntry::pprint(void)
    cout << "   BlkNum  : " << getBlockNum() << endl;
    cout << "   TxHash  : " << getTxHash().toHexStr() << endl;
    cout << "   TxIndex : " << getIndex() << endl;
-   cout << "   isValid : " << (isValid() ? 1 : 0) << endl;
    cout << "   Coinbase: " << (isCoinbase() ? 1 : 0) << endl;
    cout << "   sentSelf: " << (isSentToSelf() ? 1 : 0) << endl;
    cout << "   isChange: " << (isChangeBack() ? 1 : 0) << endl;
@@ -84,32 +113,181 @@ bool LedgerEntry::operator>(LedgerEntry const & le2) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void LedgerEntry::addTxOut(uint16_t id, uint64_t val)
+void LedgerEntry::purgeLedgerMapFromHeight(
+   map<BinaryData, LedgerEntry>& leMap, 
+   uint32_t purgeFrom)
 {
-   auto inserted = txOuts.insert(make_pair(id, val));
+   //Remove all entries starting this height, included.
+   
 
-   if (inserted.second == true)
-      value_ += (int64_t)val;
+   BinaryData cutOffHeight(6);
+   auto heightPtr = cutOffHeight.getPtr();
+
+   uint8_t* purgeFromPtr = reinterpret_cast<uint8_t*>(&purgeFrom);
+   memset(heightPtr, 0, 6);
+   heightPtr[0] = purgeFromPtr[2];
+   heightPtr[1] = purgeFromPtr[1];
+   heightPtr[2] = purgeFromPtr[0];
+
+   auto cutOffIterPair = leMap.equal_range(cutOffHeight);
+   leMap.erase(cutOffIterPair.first, leMap.end());
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void LedgerEntry::addTxIn(uint16_t id, uint64_t val)
+void LedgerEntry::purgeLedgerVectorFromHeight(
+  vector<LedgerEntry>& leVec,
+  uint32_t purgeFrom)
 {
-   auto inserted = txIns.insert(make_pair(id, val));
+   //Remove all entries starting this height, included.
+   uint32_t i = 0;
 
-   if (inserted.second == true)
-      value_ -= (int64_t)val;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-void LedgerEntry::removeTxIn(uint16_t id)
-{
-   const auto leIter = txIns.find(id);
-
-   if (leIter != txIns.end())
+   for (const auto& le : leVec)
    {
-      value_ += leIter->second;
-      txIns.erase(leIter);
+      if (le.getBlockNum() >= purgeFrom)
+         break;
+
+      i++;
+   }
+   
+   leVec.erase(leVec.begin() +i, leVec.end());
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
+   const map<BinaryData, TxIOPair>& txioMap,
+   uint32_t startBlock, uint32_t endBlock,
+   const BinaryData& ID,
+   LMDBBlockDatabase* db,
+   Blockchain* bc,
+   bool purge)
+{
+   if (purge == true)
+      LedgerEntry::purgeLedgerMapFromHeight(leMap, startBlock);
+
+   //arrange txios by transaction
+   map<BinaryData, vector<TxIOPair> > TxnTxIOMap;
+
+   for (const auto& txio : txioMap)
+   {
+      auto txOutDBKey = txio.second.getDBKeyOfOutput().getSliceCopy(0, 6);
+
+      auto& txioVec = TxnTxIOMap[txOutDBKey];
+      txioVec.push_back(txio.second);
+
+      if (txio.second.hasTxIn())
+      {
+         auto txInDBKey = txio.second.getDBKeyOfInput().getSliceCopy(0, 6);
+
+         auto& txioVec = TxnTxIOMap[txInDBKey];
+         txioVec.push_back(txio.second);
+      }
    }
 
+   //convert TxIO to ledgers
+   int64_t value;
+   int64_t valIn, valOut;
+
+   uint32_t blockNum;
+   uint32_t txTime;
+   uint32_t nHits;
+   uint16_t txIndex;
+   BinaryData txHash;
+
+   bool isCoinbase;
+   bool isChangeBack;
+   bool isSendToSelf;
+
+   BinaryData dbKey;
+
+   for (const auto& txioVec : TxnTxIOMap)
+   {
+      //reset ledger variables
+      value = valIn = valOut = 0;
+      isCoinbase = isChangeBack = isSendToSelf = false;
+      nHits = 0;
+
+      //grab iterator
+      auto txioIter = txioVec.second.cbegin();
+
+      //get txhash, block, txIndex and txtime
+      if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+      {
+         txHash = txioIter->getTxHashOfOutput(db);
+
+         if (!txioIter->hasTxOutZC())
+         {
+            blockNum = DBUtils::hgtxToHeight(txioIter->getDBKeyOfOutput().getSliceRef(0, 4));
+            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfOutput().getSliceRef(4, 2));
+            txTime = bc->getHeaderByHeight(blockNum).getTimestamp();
+         }
+         else
+         {
+            blockNum = UINT32_MAX;
+            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfOutput().getSliceRef(6, 2));
+            txTime = txioIter->getTxTime();
+         }
+      }
+      else
+      {
+         txHash = txioIter->getTxHashOfInput(db);
+
+         if (!txioIter->hasTxInZC())
+         {
+            blockNum = DBUtils::hgtxToHeight(txioIter->getDBKeyOfInput().getSliceRef(0, 4));
+            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfInput().getSliceRef(4, 2));
+            txTime = bc->getHeaderByHeight(blockNum).getTimestamp();
+         }
+         else
+         {
+            blockNum = UINT32_MAX;
+            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfInput().getSliceRef(6, 2));
+            txTime = txioIter->getTxTime();
+         }
+      }
+
+      if (blockNum < startBlock || blockNum > endBlock)
+         continue;
+
+      while (txioIter != txioVec.second.cend())
+      {
+         if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+         {
+            isCoinbase |= txioIter->isFromCoinbase();
+            valIn += txioIter->getValue();
+            value += txioIter->getValue();
+         }
+
+         if (txioIter->getDBKeyOfInput().startsWith(txioVec.first))
+         {
+            valOut -= txioIter->getValue();
+            value -= txioIter->getValue();
+
+            nHits++;
+         }
+
+         ++txioIter;
+      }
+
+      if (valIn + valOut == 0)
+      {
+         value = valIn;
+         isSendToSelf = true;
+      }
+      else if (nHits != 0 && (valIn + valOut) < 0)
+         isChangeBack = true;
+
+      LedgerEntry le(ID, "",
+         value,
+         blockNum,
+         txHash,
+         txIndex,
+         txTime,
+         isCoinbase,
+         isSendToSelf,
+         isChangeBack);
+
+      leMap[txioVec.first] = le;
+   }
 }
+

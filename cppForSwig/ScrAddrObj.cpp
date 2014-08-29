@@ -36,8 +36,8 @@ uint64_t ScrAddrObj::getSpendableBalance(
 
    for (auto txio : relevantTxIO_)
    {
-      if (!txio.second.isSpendable(db_, currBlk, ignoreAllZC) && 
-          !txio.second.hasTxIn())
+      if (!txio.second.hasTxIn() &&
+          !txio.second.isSpendable(db_, currBlk, ignoreAllZC))
          balance -= txio.second.getValue();
    }
 
@@ -70,11 +70,12 @@ uint64_t ScrAddrObj::getFullBalance() const
 
    for (auto txio : relevantTxIO_)
    {
+      if (txio.second.hasTxOutZC())
+         balance += txio.second.getValue();
       if (txio.second.hasTxInZC())
          balance -= txio.second.getValue();
-      else if (txio.second.hasTxOutZC())
-         balance += txio.second.getValue();
    }
+
    return balance;
 }
 
@@ -147,7 +148,7 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap)
    for (auto txioPair : zcTxIOMap)
       relevantTxIO_[txioPair.first] = txioPair.second;
    
-   updateLedgers(*ledger_, zcTxIOMap);
+   updateLedgers(*ledger_, zcTxIOMap, 0, UINT32_MAX, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -163,10 +164,6 @@ void ScrAddrObj::purgeZC(const vector<BinaryData>& invalidatedTxOutKeys)
 
          if (txio.hasTxInZC())
          {
-            //ZC consumes UTxO, reset the TxIn to mark the TxOut as unspent
-            LedgerEntry &le = (*ledger_)[zc.getSliceRef(0, 6)];
-            le.removeTxIn(txio.getIndexOfInput());
-
             //since the txio has a ZC txin, there is a scrAddr ledger entry for that key
             ledger_->erase(txio.getTxRefOfInput().getDBKey());
             
@@ -235,127 +232,13 @@ void ScrAddrObj::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::updateLedgers(map<BinaryData, LedgerEntry>& myLedger,
-                               const map<BinaryData, TxIOPair>& newTxio,
-                               uint32_t startBlock) const
+void ScrAddrObj::updateLedgers(map<BinaryData, LedgerEntry>& leMap,
+                               const map<BinaryData, TxIOPair>& txioMap,
+                               uint32_t startBlock, uint32_t endBlock,
+                               bool purge) const
 {
-   /***
-   Nothing too complicated here. A map of new TxIOPair ordered by Tx DBkey
-   are parsed to create the respective scrAddr ledger entries. 
-   
-   A TxIn is a spend, thus the ledger entry value will be negative. 
-   A TxOut marks received funds, and will have a positive value. 
-
-   TxIOPairs carry the coinbase distiction at SSH level.
-   The concept of change does not apply at scrAddr level.
-
-   Height and index are derived from DBkeys.
-   
-   The TxHash is queried from the db since it isn't carried by the TxIOPair.
-   The timestamp is the block timestamp. Blockchain objects do not allow to
-   query blocks by height AND dup, and will only return block headers for the 
-   main chain at any given height, however that is irrelevant here, as only 
-   main branch transactions make it into SSH objects.
-   ***/
-
-   BinaryData opKey;
-   BinaryData inKey;
-   BinaryData txKey;
-   BlockHeader*  bhptr;
-   uint32_t txtime;
-
-   uint32_t opHeight;
-   uint32_t inHeight;
-   uint32_t opIdx;
-   uint32_t inIdx;
-
-   for (auto txioPair : newTxio)
-   {
-      const TxIOPair& txio = txioPair.second;
-      
-      opKey = txio.getDBKeyOfOutput();
-      txKey = txio.getDBKeyOfOutput().getSliceCopy(0, 6);
-      auto leIter = myLedger.find(txKey);
-
-      if (ITER_NOT_IN_MAP(leIter, myLedger))
-      {
-         if ((uint16_t)*opKey.getSliceRef(0, 2).getPtr() == 0xFF)
-         {
-            opHeight = UINT32_MAX;
-            opIdx = READ_UINT32_BE(opKey.getSliceRef(2, 4));
-         }
-         else
-         {
-            opHeight = DBUtils::hgtxToHeight(opKey.getSliceRef(0, 4));
-            opIdx = READ_UINT16_BE(opKey.getSliceRef(4, 2));
-         }
-
-         if (opHeight >= startBlock)
-         {
-            txtime = txio.getTxTime();
-            if (txtime == 0)
-            {
-               bhptr = &bc_->getHeaderByHeight(opHeight);
-               txtime = bhptr->getTimestamp();
-            }
-
-            LedgerEntry le(scrAddr_, "",
-               0,
-               opHeight,
-               txio.getTxHashOfOutput(db_),
-               opIdx,
-               txtime,
-               txio.isFromCoinbase());
-
-            le.addTxOut(txio.getIndexOfOutput(), txio.getValue());
-            myLedger[txKey] = le;
-         }
-      }
-      else leIter->second.addTxOut(txio.getIndexOfOutput(), txio.getValue());
-
-      if (txio.hasTxIn())
-      {
-         inKey = txio.getDBKeyOfInput().getSliceCopy(0, 8);
-         txKey = txio.getDBKeyOfInput().getSliceCopy(0, 6);
-         auto leIter = myLedger.find(txKey);
-
-         if (ITER_NOT_IN_MAP(leIter, myLedger))
-         {
-            if ((uint16_t)*inKey.getSliceRef(0, 2).getPtr() == 0xFF)
-            {
-               inHeight = UINT32_MAX;
-               inIdx = READ_UINT32_BE(inKey.getSliceRef(2, 4));
-            }
-            else
-            {
-               inHeight = DBUtils::hgtxToHeight(inKey.getSliceRef(0, 4));
-               inIdx = READ_UINT16_BE(inKey.getSliceRef(4, 2));
-            }
-
-            if (inHeight >= startBlock)
-            {
-               txtime = txio.getTxTime();
-               if (txtime == 0)
-               {
-                  bhptr = &bc_->getHeaderByHeight(inHeight);
-                  txtime = bhptr->getTimestamp();
-               }
-
-               LedgerEntry le(scrAddr_, "",
-                  0,
-                  inHeight,
-                  txio.getTxHashOfInput(db_),
-                  inIdx,
-                  txtime);
-
-               le.addTxIn(txio.getIndexOfInput(), txio.getValue());
-               myLedger[txKey] = le;
-            }
-         }
-         else 
-            leIter->second.addTxIn(txio.getIndexOfInput(), txio.getValue());
-      }
-   }
+   LedgerEntry::computeLedgerMap(leMap, txioMap, startBlock, endBlock,
+                                 scrAddr_, db_, bc_, purge);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -371,25 +254,54 @@ uint64_t ScrAddrObj::getTxioCountFromSSH(void) const
 void ScrAddrObj::fetchDBScrAddrData(uint32_t startBlock,
                                     uint32_t endBlock)
 {
-   if (endBlock < lastSeenBlock_ && totalTxioCount_ == 0)
-      return;
+   //maintains first page worth of TxIO in RAM. This call purges ZC, so you 
+   //should rescan ZC right after
 
    map<BinaryData, TxIOPair> hist;
-   getHistoryForScrAddr(startBlock, endBlock, hist);
+   getHistoryForScrAddr(startBlock, endBlock, hist, true);
    
    updateTxIOMap(hist);
-   updateLedgers(*ledger_, hist);
+   updateLedgers(*ledger_, hist, startBlock, endBlock, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::getHistoryForScrAddr(
    uint32_t startBlock, uint32_t endBlock,
    map<BinaryData, TxIOPair>& outMap,
+   bool update,
    bool withMultisig) const
 {
+   //check ScrAddrObj::relevantTxio_ first to see if it has some of the TxIOs
+   uint32_t localTxioBottom = hist_.getPageBottom(0);
+   if (update==false && endBlock > localTxioBottom)
+   {
+      if (startBlock <= localTxioBottom)
+      {
+         outMap.insert(relevantTxIO_.begin(), relevantTxIO_.end());
+      }
+      else
+      {
+         BinaryData startHeight = DBUtils::heightAndDupToHgtx(startBlock, 0);
+         startHeight.append(WRITE_UINT16_BE(0));
+
+         for (auto txioPair : relevantTxIO_)
+         {
+            if (txioPair.second >= startHeight)
+               outMap.insert(txioPair);
+         }
+      }
+         
+      if (startBlock >= localTxioBottom)
+         return;
+
+      endBlock = localTxioBottom -1;
+   }
+
+   //grab txio range from SSH
    StoredScriptHistory ssh;
    db_->getStoredScriptHistory(ssh, scrAddr_, startBlock, endBlock);
 
+   //update scrAddrObj containers
    totalTxioCount_ = ssh.totalTxioCount_;
    lastSeenBlock_ = endBlock;
 
@@ -399,6 +311,7 @@ void ScrAddrObj::getHistoryForScrAddr(
    if (!ssh.isInitialized())
       return;
 
+   //serve content as a map
    for (auto &subSSHEntry : ssh.subHistMap_)
    {
       StoredSubHistory & subssh = subSSHEntry.second;
@@ -423,12 +336,12 @@ vector<LedgerEntry> ScrAddrObj::getHistoryPageById(uint32_t id)
    auto getTxio = [this](uint32_t start, 
                          uint32_t end, 
                          map<BinaryData, TxIOPair>& outMap)->void
-      { this->getHistoryForScrAddr(start, end, outMap); };
+      { this->getHistoryForScrAddr(start, end, outMap, false); };
 
    auto buildLedgers = [this](map<BinaryData, LedgerEntry>& leMap,
                               const map<BinaryData, TxIOPair>& txioMap,
                               uint32_t cutoff)->void
-      { this->updateLedgers(leMap, txioMap, cutoff); };
+      { this->updateLedgers(leMap, txioMap, cutoff, UINT32_MAX, false); };
 
 
    return getTxLedgerAsVector(hist_.getPageLedgerMap(getTxio, buildLedgers, id));
@@ -447,12 +360,12 @@ void ScrAddrObj::mapHistory()
    auto getTxio = [this](uint32_t start, 
                          uint32_t end, 
                          map<BinaryData, TxIOPair>& outMap)->void
-      { this->getHistoryForScrAddr(start, end, outMap); };
+      { this->getHistoryForScrAddr(start, end, outMap, true); };
 
    auto buildLedgers = [this](map<BinaryData, LedgerEntry>& leMap,
                               const map<BinaryData, TxIOPair>& txioMap,
                               uint32_t cutoff)->void
-      { this->updateLedgers(leMap, txioMap, cutoff); };
+      { this->updateLedgers(leMap, txioMap, cutoff, UINT32_MAX, false); };
 
    ledger_ = &hist_.getPageLedgerMap(getTxio, buildLedgers, 0, &relevantTxIO_);
 }
@@ -482,7 +395,7 @@ ScrAddrObj& ScrAddrObj::operator= (const ScrAddrObj& rhs)
    //prebuild history indexes for quick fetch from SSH
    this->hist_ = rhs.hist_;
    
-   this->ledger_ = nullptr;
+   this->ledger_ = &LedgerEntry::EmptyLedgerMap_;
    if (this->hist_.getPageCount() != 0)
       this->ledger_ = &this->hist_.getPageLedgerMap(0);
 
@@ -498,7 +411,6 @@ vector<LedgerEntry> ScrAddrObj::getTxLedgerAsVector(
    for (auto& lePair : leMap)
       le.push_back(lePair.second);
 
-   //sort(le.begin(), le.end(), LedgerEntry::greaterThan);
    return le;
 }
 

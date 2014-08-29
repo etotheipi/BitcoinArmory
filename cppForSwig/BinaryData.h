@@ -10,9 +10,18 @@
 
 #include <stdio.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
-	#if _MSC_PLATFORM_TOOLSET!=110
+	#if _MSC_PLATFORM_TOOLSET < 110
 		#include <stdint.h>
    #endif
+
+   #ifndef ssize_t
+      #ifdef _WIN64
+         #define ssize_t LONGLONG
+      #else
+         #define ssize_t long
+      #endif
+   #endif
+
 #else
    #include <stdlib.h>
    #include <inttypes.h>   
@@ -45,8 +54,6 @@
 #define DEFAULT_BUFFER_SIZE 32*1048576
 
 #include "UniversalTimer.h"
-#include "AtomicInt32.h"
-
 
 #define READHEX        BinaryData::CreateFromHex
 
@@ -206,8 +213,8 @@ public:
 
    void fill(uint8_t ch) { if(getSize()>0) memset(getPtr(), ch, getSize()); }
                
-   uint8_t & operator[](int32_t i)       { return (i<0 ? data_[getSize()+i] : data_[i]); }
-   uint8_t   operator[](int32_t i) const { return (i<0 ? data_[getSize()+i] : data_[i]); } 
+   uint8_t & operator[](ssize_t i)       { return (i<0 ? data_[getSize()+i] : data_[i]); }
+   uint8_t   operator[](ssize_t i) const { return (i<0 ? data_[getSize()+i] : data_[i]); } 
 
    /////////////////////////////////////////////////////////////////////////////
    friend ostream& operator<<(ostream& os, BinaryData const & bd)
@@ -244,7 +251,7 @@ public:
    BinaryData & append(BinaryDataRef const & bd2);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData & append(uint8_t const * str, uint32_t sz);
+   BinaryData & append(uint8_t const * str, size_t sz);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData & append(uint8_t byte)
@@ -276,15 +283,15 @@ public:
    bool endsWith(BinaryData const & matchStr) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getSliceRef(int32_t start_pos, uint32_t nChar) const;
+   BinaryDataRef getSliceRef(ssize_t start_pos, uint32_t nChar) const;
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    getSliceCopy(int32_t start_pos, uint32_t nChar) const;
+   BinaryData    getSliceCopy(ssize_t start_pos, uint32_t nChar) const;
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
    {
-      int minLen = min(getSize(), bd2.getSize());
-      for(int i=0; i<minLen; i++)
+      size_t minLen = min(getSize(), bd2.getSize());
+      for(size_t i=0; i<minLen; i++)
       {
          if( data_[i] == bd2.data_[i] )
             continue;
@@ -331,8 +338,8 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryData const & bd2) const
    {
-      int minLen = min(getSize(), bd2.getSize());
-      for(int i=0; i<minLen; i++)
+      size_t minLen = min(getSize(), bd2.getSize());
+      for(size_t i=0; i<minLen; i++)
       {
          if( data_[i] == bd2.data_[i] )
             continue;
@@ -340,6 +347,13 @@ public:
       }
       return (getSize() > bd2.getSize());
    }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   bool operator>=(BinaryData const & bd2) const
+   {
+      return (*this > bd2 || *this == bd2);
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
@@ -537,7 +551,7 @@ public:
          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0             };
 
       assert(str.size()%2 == 0);
-      int newLen = str.size() / 2;
+      size_t newLen = str.size() / 2;
       alloc(newLen);
 
       for(int i=0; i<newLen; i++)
@@ -683,7 +697,7 @@ public:
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t const & operator[](int32_t i) const { return (i<0 ? ptr_[nBytes_+i] : ptr_[i]); }
+   uint8_t const & operator[](ssize_t i) const { return (i<0 ? ptr_[nBytes_+i] : ptr_[i]); }
    bool isValid(void) const { return ptr_ != NULL; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -765,11 +779,11 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool endsWith(BinaryDataRef const & matchStr) const
    {
-      uint32_t sz = matchStr.getSize();
+      size_t sz = matchStr.getSize();
       if(sz > nBytes_)
          return false;
    
-      for(uint32_t i=0; i<sz; i++)
+      for(size_t i=0; i<sz; i++)
          if(matchStr[sz-(i+1)] != (*this)[nBytes_-(i+1)])
             return false;
    
@@ -779,11 +793,11 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool endsWith(BinaryData const & matchStr) const
    {
-      uint32_t sz = matchStr.getSize();
+      size_t sz = matchStr.getSize();
       if(sz > nBytes_)
          return false;
    
-      for(uint32_t i=0; i<sz; i++)
+      for(size_t i=0; i<sz; i++)
          if(matchStr[sz-(i+1)] != (*this)[nBytes_-(i+1)])
             return false;
    
@@ -791,7 +805,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getSliceRef(int32_t start_pos, uint32_t nChar) const
+   BinaryDataRef getSliceRef(ssize_t start_pos, size_t nChar) const
    {
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
@@ -805,7 +819,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getSliceCopy(int32_t start_pos, uint32_t nChar) const
+   BinaryData getSliceCopy(ssize_t start_pos, size_t nChar) const
    {
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
@@ -827,8 +841,8 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryDataRef const & bd2) const
    {
-      int minLen = min(nBytes_, bd2.nBytes_);
-      for(int i=0; i<minLen; i++)
+      size_t minLen = min(nBytes_, bd2.nBytes_);
+      for(size_t i=0; i<minLen; i++)
       {
          if( ptr_[i] == bd2.ptr_[i] )
             continue;
@@ -877,8 +891,8 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryDataRef const & bd2) const
    {
-      int minLen = min(nBytes_, bd2.nBytes_);
-      for(int i=0; i<minLen; i++)
+      size_t minLen = min(nBytes_, bd2.nBytes_);
+      for(size_t i=0; i<minLen; i++)
       {
          if( ptr_[i] == bd2.ptr_[i] )
             continue;
@@ -965,7 +979,7 @@ public:
 
 private:
    uint8_t const * ptr_;
-   uint32_t nBytes_;
+   size_t  nBytes_;
 
 private:
 
@@ -1027,7 +1041,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void resize(uint32_t nBytes)
+   void resize(size_t nBytes)
    {
       bdStr_.resize(nBytes);
       pos_ = min(nBytes, pos_);
@@ -1103,9 +1117,9 @@ public:
    //             [ m n o p q r s t - - - - - - - - - - - -]
    //                                 
    //
-   pair<uint8_t*, int> rotateRemaining(void)
+   pair<uint8_t*, size_t> rotateRemaining(void)
    {
-      uint32_t nRemain = getSizeRemaining();
+      size_t nRemain = getSizeRemaining();
       //if(pos_ > nRemain+1)
          //memcpy(bdStr_.getPtr(), bdStr_.getPtr() + pos_, nRemain);
       //else
@@ -1118,16 +1132,16 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void     resetPosition(void)           { pos_ = 0; }
-   uint32_t getPosition(void) const       { return pos_; }
-   uint32_t getSize(void) const           { return bdStr_.getSize(); }
-   uint32_t getSizeRemaining(void) const  { return getSize() - pos_; }
+   size_t   getPosition(void) const       { return pos_; }
+   size_t   getSize(void) const           { return bdStr_.getSize(); }
+   size_t   getSizeRemaining(void) const  { return getSize() - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= getSize(); }
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
    uint8_t const * getCurrPtr(void)       { return bdStr_.getPtr() + pos_; }
 
 private:
    BinaryData bdStr_;
-   uint32_t pos_;
+   size_t     pos_;
 
 };
 
@@ -1136,7 +1150,7 @@ class BinaryRefReader
 {
 public:
    /////////////////////////////////////////////////////////////////////////////
-   BinaryRefReader(int sz=0) :
+   BinaryRefReader(size_t sz=0) :
       bdRef_(),
       totalSize_(sz),
       pos_(0)
@@ -1150,7 +1164,7 @@ public:
 
    // Default to INF size -- leave it to the user to guarantee that he's
    // not reading past the end of rawPtr
-   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX) 
+   BinaryRefReader(uint8_t const * rawPtr, size_t nBytes=UINT32_MAX) 
    {
       setNewData(rawPtr, nBytes);
    }
@@ -1166,7 +1180,7 @@ public:
       setNewData(toRead.getPtr(), toRead.getSize());
    }
 
-   void setNewData(uint8_t const * ptr, uint32_t nBytes=UINT32_MAX)
+   void setNewData(uint8_t const * ptr, size_t nBytes=UINT32_MAX)
    {
       bdRef_ = BinaryDataRef(ptr, nBytes);
       totalSize_ = nBytes;
@@ -1174,7 +1188,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void advance(uint32_t nBytes) 
+   void advance(size_t nBytes) 
    { 
       pos_ += nBytes;  
       pos_ = min(pos_, totalSize_);
@@ -1183,10 +1197,10 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void rewind(uint32_t nBytes) 
    { 
-      uint32_t start = pos_;
+      size_t start = pos_;
       pos_ -= nBytes;  
       if(pos_ > start)
-         pos_ = (uint32_t)0;
+         pos_ = (size_t)0;
    }
 
 
@@ -1262,9 +1276,9 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void     resetPosition(void)           { pos_ = 0; }
-   uint32_t getPosition(void) const       { return pos_; }
-   uint32_t getSize(void) const           { return totalSize_; }
-   uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
+   size_t   getPosition(void) const       { return pos_; }
+   size_t   getSize(void) const           { return totalSize_; }
+   size_t   getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
    uint8_t const * getCurrPtr(void)       { return bdRef_.getPtr() + pos_; }
@@ -1274,8 +1288,8 @@ public:
 
 private:
    BinaryDataRef bdRef_;
-   uint32_t totalSize_;
-   uint32_t pos_;
+   size_t totalSize_;
+   size_t pos_;
 
 };
 
@@ -1393,7 +1407,7 @@ public:
    // Using the argument to pre-allocate a certain amount of capacity.  Not 
    // required, but will improve performance if you can take a reasonable guess
    // about the final size of the output data
-   BinaryWriter(uint32_t reserveSize=0) :
+   BinaryWriter(size_t reserveSize=0) :
       theString_(0)
    {
       if(reserveSize != 0)
@@ -1461,7 +1475,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void put_BinaryData(BinaryData const & str, uint32_t offset=0, uint32_t sz=0)
+   void put_BinaryData(BinaryData const & str, size_t offset=0, uint32_t sz=0)
    {
       if(offset==0)
       {
@@ -1496,7 +1510,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t getSize(void)
+   size_t getSize(void)
    {
       return theString_.getSize();
    }
@@ -1596,7 +1610,7 @@ public:
    {
       SCOPED_TIMER("StreamPull");
 
-      uint32_t prevBufSizeRemain = binReader_.getSizeRemaining();
+      size_t prevBufSizeRemain = binReader_.getSizeRemaining();
       if(fileBytesRemaining_ == 0)
          return false;
 
@@ -1621,9 +1635,9 @@ public:
       else
       {
          // The buffer needs to be refilled but has leftover data at the end
-         pair<uint8_t*, int> leftover = binReader_.rotateRemaining();
+         pair<uint8_t*, size_t> leftover = binReader_.rotateRemaining();
          uint8_t* putNewDataPtr = leftover.first;
-         uint32_t numBytes      = leftover.second;
+         size_t numBytes        = leftover.second;
 
          if(fileBytesRemaining_ > numBytes)
          {
@@ -1650,24 +1664,24 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t getFileByteLocation(void)
+   size_t getFileByteLocation(void)
    {
       return totalStreamSize_ - (fileBytesRemaining_ + binReader_.getSizeRemaining());
    }
 
 
-   uint32_t getBufferSizeRemaining(void) { return binReader_.getSizeRemaining(); }
-   uint32_t getFileSizeRemaining(void)   { return fileBytesRemaining_; }
-   uint32_t getBufferSize(void)          { return binReader_.getSize(); }
+   size_t getBufferSizeRemaining(void) { return binReader_.getSizeRemaining(); }
+   size_t getFileSizeRemaining(void)   { return fileBytesRemaining_; }
+   size_t getBufferSize(void)          { return binReader_.getSize(); }
 
 private:
 
    BinaryReader binReader_;
    istream* streamPtr_;
    bool     weOwnTheStream_;
-   uint32_t bufferSize_;
-   uint32_t totalStreamSize_;
-   uint32_t fileBytesRemaining_;
+   size_t   bufferSize_;
+   size_t   totalStreamSize_;
+   size_t   fileBytesRemaining_;
 
 };
 

@@ -84,7 +84,7 @@ public:
       assert(isInitialized_);
       return dataCopy_.getPtr();
    }
-   uint32_t        getSize(void) const {
+   size_t        getSize(void) const {
       assert(isInitialized_);
       return dataCopy_.getSize();
    }
@@ -195,6 +195,7 @@ public:
    bool operator==(BinaryData const & dbkey) const { return dbKey6B_ == dbkey; }
    bool operator==(TxRef const & txr) const  { return dbKey6B_ == txr.dbKey6B_;}
 
+   bool operator>=(const BinaryData& dbkey) const { return dbKey6B_ >= dbkey; }
 protected:
    //FileDataPtr        blkFilePtr_;
    //BlockHeader*       headerPtr_;
@@ -312,7 +313,7 @@ public:
         uint32_t        idx=UINT32_MAX) { unserialize_checked(ptr, size, nBytes, parent, idx); } 
 */
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
-   uint32_t         getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
+   size_t           getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
    bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_NONSTANDARD; }
    bool             isCoinbase(void) const { return (scriptType_ == TXIN_SCRIPT_COINBASE); }
    bool             isInitialized(void) const {return dataCopy_.getSize() > 0; }
@@ -321,7 +322,7 @@ public:
    // Script ops
    BinaryData       getScript(void) const;
    BinaryDataRef    getScriptRef(void) const;
-   uint32_t         getScriptSize(void) { return getSize() - (scriptOffset_ + 4); }
+   size_t           getScriptSize(void) { return getSize() - (scriptOffset_ + 4); }
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
    uint32_t         getScriptOffset(void) const { return scriptOffset_; }
 
@@ -517,19 +518,19 @@ public:
    explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
      
    uint8_t const *    getPtr(void)  const { return dataCopy_.getPtr();  }
-   uint32_t           getSize(void) const { return dataCopy_.getSize(); }
+   size_t             getSize(void) const { return dataCopy_.getSize(); }
 
    /////////////////////////////////////////////////////////////////////////////
    uint32_t           getVersion(void)   const { return READ_UINT32_LE(dataCopy_.getPtr());}
-   uint32_t           getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
-   uint32_t           getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
+   size_t             getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
+   size_t             getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
    BinaryData         getThisHash(void)  const;
    //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
-   uint32_t           getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
+   size_t             getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
+   size_t             getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
 
    /////////////////////////////////////////////////////////////////////////////
    static Tx          createFromStr(BinaryData const & bd) {return Tx(bd);}
@@ -543,7 +544,7 @@ public:
    BinaryData         serialize(void) const    { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, uint32_t size);
+   void unserialize(uint8_t const * ptr, size_t size);
    void unserialize(BinaryData const & str) { unserialize(str.getPtr(), str.getSize()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr(), str.getSize()); }
    void unserialize(BinaryRefReader & brr);
@@ -600,8 +601,8 @@ private:
    BinaryData    thisHash_;
 
    // Will always create TxIns and TxOuts on-the-fly; only store the offsets
-   vector<uint32_t> offsetsTxIn_;
-   vector<uint32_t> offsetsTxOut_;
+   vector<size_t> offsetsTxIn_;
+   vector<size_t> offsetsTxOut_;
 
    // To be calculated later
    //BlockHeader*  headerPtr_;
@@ -711,6 +712,7 @@ public:
       { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
    bool operator==(TxIOPair const & t2)
       { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
+   bool operator>=(const BinaryData &) const;
 
    void setTxTime(uint32_t t) { txtime_ = t; }
    uint32_t getTxTime(void) const { return txtime_; }

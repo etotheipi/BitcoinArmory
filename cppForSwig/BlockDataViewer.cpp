@@ -19,18 +19,44 @@ BlockDataViewer::~BlockDataViewer()
 {
    for (auto wltPtr : registeredWallets_)
       wltPtr->unregister();
+
+   for (auto wltPtr : registeredLockboxes_)
+      wltPtr->unregister();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
-   SCOPED_TIMER("registerWallet");
    // Check if the wallet is already registered
    if (registeredWallets_.find(wltPtr) != registeredWallets_.end())
       return false;
 
    // Add it to the list of wallets to watch
    registeredWallets_.insert(wltPtr);
+
+   //register all scrAddr in the wallet with the BDM. It doesn't matter if
+   //the data is overwritten
+   vector<BinaryData> saVec;
+   for (const auto& scrAddrPair : wltPtr->getScrAddrMap())
+      saVec.push_back(scrAddrPair.first);
+
+   saf_->registerAddresses(saVec, wltPtr, wltIsNew);
+
+   //tell the wallet it is registered
+   wltPtr->setRegistered();
+
+   return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataViewer::registerLockbox(BtcWallet* wltPtr, bool wltIsNew)
+{
+   // Check if the lockbox is already registered
+   if (registeredLockboxes_.find(wltPtr) != registeredLockboxes_.end())
+      return false;
+
+   // Add it to the list of wallets to watch
+   registeredLockboxes_.insert(wltPtr);
    wltPtr->setRegistered();
 
    return true;
@@ -40,6 +66,12 @@ bool BlockDataViewer::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 void BlockDataViewer::unregisterWallet(BtcWallet* wltPtr)
 {
    registeredWallets_.erase(wltPtr);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::unregisterLockbox(BtcWallet* wltPtr)
+{
+   registeredLockboxes_.erase(wltPtr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,10 +86,20 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    if (endBlock == UINT32_MAX)
       endBlock = getTopBlockHeight() + 1;
 
-   if (initialized_ == false)
+   bool merge = false;
+
+   for (auto wltPtr : registeredWallets_)
+      merge |= wltPtr->merge();
+
+   for (auto wltPtr : registeredLockboxes_)
+      merge |= wltPtr->merge();
+
+
+   if (initialized_ == false || merge == true)
    {
       //first run, page all wallets' history
       pageWalletsHistory();
+      pageLockboxesHistory();
 
       //Now that the history is computed, we need to grab the starting block
       //range for the first page (0), and have all wallets load their ledger
@@ -65,6 +107,13 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       startBlock = hist_.getPageBottom(0);
 
       initialized_ = true;
+   }
+
+   map<BinaryData, vector<BinaryData> > invalidatedZCKeys;
+   if (startBlock != endBlock)
+   {
+      invalidatedZCKeys = zeroConfCont_.purge(
+         [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
    }
 
    if (lastScanned_ > startBlock)
@@ -75,30 +124,44 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       LOGINFO << "Processing wallet #" << i;
       i++;
 
-      walletPtr->scanWallet(startBlock, endBlock, reorg);
+      walletPtr->scanWallet(startBlock, endBlock, reorg,
+                            invalidatedZCKeys);
    }
 
-  zeroConfCont_.resetNewZC();
-  lastScanned_ = endBlock;
+   i = 0;
+   for (BtcWallet* walletPtr : registeredLockboxes_)
+   {
+      LOGINFO << "Processing Lockbox #" << i;
+      i++;
 
-  if (hist_.getCurrentPage() == 0)
-  {
-     //There is a fundamental difference between the first history page and all
-     //the others: the first page maintains ZC, new blocks and can undergo,
-     //reorgs while every other history page is purely static. As such, it 
-     //simpler to  maintain all first pages on a wallet basis and just merge
-     //the ledgers together to yield the first Viewer page.
+      walletPtr->scanWallet(startBlock, endBlock, reorg,
+                            invalidatedZCKeys);
+   }
 
-     globalLedger_.clear();
+   zeroConfCont_.resetNewZC();
+   lastScanned_ = endBlock;
 
-     for (auto wltPtr : registeredWallets_)
-     {
-        auto& wltLedger = wltPtr->getTxLedger();
+   if (hist_.getCurrentPage() == 0)
+   {
+      //There is a fundamental difference between the first history page and all
+      //the others: the first page maintains ZC, new blocks and can undergo,
+      //reorgs while every other history page is purely static.
 
-        globalLedger_.insert(globalLedger_.end(), wltLedger.begin(), wltLedger.end());
-     }
+      LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
 
-     sort(globalLedger_.begin(), globalLedger_.end());
+      for (auto wltPtr : registeredWallets_)
+      {
+         map<BinaryData, TxIOPair> txioMap;
+         wltPtr->getTxioForRange(startBlock, UINT32_MAX, txioMap);
+
+         map<BinaryData, LedgerEntry> leMap;
+         wltPtr->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
+
+         for (const auto& lePair : leMap)
+            globalLedger_.push_back(lePair.second);
+      }
+
+      sort(globalLedger_.begin(), globalLedger_.end());
    }
 }
 
@@ -162,7 +225,7 @@ void BlockDataViewer::readZeroConfFile(string zcFilename)
    while (brr.getSizeRemaining() > 8)
    {
       uint64_t txTime = brr.get_uint64_t();
-      uint32_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr(), brr.getSizeRemaining());
+      size_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr(), brr.getSizeRemaining());
       BinaryData rawtx(txSize);
       brr.get_BinaryData(rawtx.getPtr(), txSize);
       addNewZeroConfTx(rawtx, (uint32_t)txTime, false);
@@ -238,24 +301,25 @@ bool BlockDataViewer::parseNewZeroConfTx()
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
 }
 
-bool BlockDataViewer::registerScrAddr(const ScrAddrObj& sa, BtcWallet* wltPtr)
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
+   BtcWallet* wltPtr, bool isNew)
 {
-   return saf_->registerScrAddr(sa, wltPtr);
+   return saf_->registerAddresses(saVec, wltPtr, isNew);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-LedgerEntry BlockDataViewer::getTxLedgerByHash(
+const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
    const BinaryData& txHash) const
 {
-   LedgerEntry le;
    for (const auto& wltPtr : registeredWallets_)
    {
-      le = wltPtr->getLedgerEntryForTx(txHash);
+      const LedgerEntry& le = wltPtr->getLedgerEntryForTx(txHash);
       if (le.getTxTime() != 0)
          return le;
    }
 
-   return le;
+   return LedgerEntry::EmptyLedger_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -275,7 +339,7 @@ TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash)
 /////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(HashString const & txhash)
 {
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA]);
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA], false);
 
    TxRef txrefobj = db_->getTxRef(txhash);
 
@@ -398,6 +462,14 @@ void BlockDataViewer::pageWalletsHistory()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::pageLockboxesHistory()
+{
+   for (auto wltPtr : registeredLockboxes_)
+      wltPtr->mapPages();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
 {
    if (pageId == hist_.getCurrentPage())
@@ -405,19 +477,6 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
 
    hist_.setCurrentPage(pageId);
 
-   if (pageId == 0)
-   {
-      //this should be locked to a single thread
-      globalLedger_.clear();
-      for (auto wltPtr : registeredWallets_)
-      {
-         auto& wltLedgers = wltPtr->getTxLedger();
-         globalLedger_.insert(globalLedger_.end(), 
-                              wltLedgers.begin(), 
-                              wltLedgers.end());
-      }
-   }
-   else
    {
       globalLedger_.clear();
       for (auto wltPtr : registeredWallets_)
@@ -430,8 +489,8 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
 
          auto buildLedgers = [&](map<BinaryData, LedgerEntry>& le,
             const map<BinaryData, TxIOPair>& txioMap,
-            uint32_t startBlock)->void
-         { wltPtr->updateWalletLedgersFromTxio(le, txioMap, startBlock, UINT32_MAX); };
+            uint32_t startBlock, uint32_t endBlock)->void
+         { wltPtr->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
          hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
       
@@ -444,4 +503,26 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
    sort(globalLedger_.begin(), globalLedger_.end());
 
    return globalLedger_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::scanScrAddrVector(
+   const map<BinaryData, ScrAddrObj>& scrAddrMap,
+   uint32_t startBlock, uint32_t endBlock) const
+{
+   //create new ScrAddrFilter for the occasion
+   ScrAddrFilter *SAF = saf_->copy();
+
+   //register scrAddr with it
+   for (auto scrAddrPair : scrAddrMap)
+      SAF->regScrAddrForScan(scrAddrPair.first, startBlock, nullptr);
+
+   //compute blockHeightCutOff
+   SAF->scanFrom();
+
+   //scan addresses
+   SAF->applyBlockRangeToDB(startBlock, endBlock);
+
+   //cleanup
+   delete SAF;
 }

@@ -772,7 +772,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
 
 
-      self.tabbedDisplay.setTabEnabled(2, TheBDM.getBDMState()=='BlockchainReady')
+      self.tabbedDisplay.setTabEnabled(2, TheBDM.getState()=='BlockchainReady')
 
 
       splitter = QSplitter()

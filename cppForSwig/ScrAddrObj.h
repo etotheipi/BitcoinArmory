@@ -86,15 +86,12 @@ public:
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
-   {
-      if (ledger_ == nullptr)
-         return LedgerEntry::EmptyLedgerMap_;
-      return *ledger_; }
+   { return *ledger_; }
    
    vector<LedgerEntry> getTxLedgerAsVector(
       map<BinaryData, LedgerEntry>& leMap) const;
 
-   uint32_t getTxLedgerSize(void) const
+   size_t getTxLedgerSize(void) const
    {
       if (ledger_ == nullptr)
          return 0;
@@ -120,13 +117,15 @@ public:
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 
-   void updateLedgers(map<BinaryData, LedgerEntry>& le,
-                      const map<BinaryData, TxIOPair>& newTxio,
-                      uint32_t startBlock=0) const;
+   void updateLedgers(map<BinaryData, LedgerEntry>& leMap,
+                      const map<BinaryData, TxIOPair>& txioMap,
+                      uint32_t startBlock, uint32_t endBlock, 
+                      bool purge = false) const;
 
-   void updateLedgers(const map<BinaryData, TxIOPair>& newTxio,
-                      uint32_t startBlock=0)
-   { updateLedgers(*ledger_, newTxio); }
+   void updateLedgers(const map<BinaryData, TxIOPair>& txioMap,
+                      uint32_t startBlock, uint32_t endBlock,
+                      bool purge = false)
+   { updateLedgers(*ledger_, txioMap, startBlock, endBlock, purge); }
 
    void setTxioCount(uint64_t count) { totalTxioCount_ = count; }
    uint64_t getTxioCount(void) const { return totalTxioCount_; }
@@ -143,9 +142,10 @@ public:
    void getHistoryForScrAddr(
       uint32_t startBlock, uint32_t endBlock,
       map<BinaryData, TxIOPair>& output,
+      bool update,
       bool withMultisig = false) const;
 
-   uint32_t getPageCount(void) const { return hist_.getPageCount(); }
+   size_t getPageCount(void) const { return hist_.getPageCount(); }
    vector<LedgerEntry> getHistoryPageById(uint32_t id);
    void updateLedgerPointer(void) 
       { ledger_ = &hist_.getPageLedgerMap(0); }
@@ -154,7 +154,7 @@ public:
 
 private:
    LMDBBlockDatabase *db_;
-   Blockchain     *bc_;
+   Blockchain        *bc_;
    
    BinaryData     scrAddr_; // this includes the prefix byte!
    uint32_t       firstBlockNum_;
@@ -167,7 +167,7 @@ private:
 
    // Each address will store a list of pointers to its transactions
    map<BinaryData, TxIOPair>     relevantTxIO_;
-   map<BinaryData, LedgerEntry>*  ledger_=nullptr;
+   map<BinaryData, LedgerEntry>*  ledger_ = &LedgerEntry::EmptyLedgerMap_;
    
    mutable uint64_t totalTxioCount_=0;
    mutable uint32_t lastSeenBlock_=0;

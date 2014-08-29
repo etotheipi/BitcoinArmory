@@ -670,7 +670,7 @@ public:
    bool isInitialized(void) { return txHashPrefix_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
 
-   uint32_t      getNumHints(void) const   { return dbKeyList_.size();      }
+   size_t        getNumHints(void) const   { return dbKeyList_.size();      }
    BinaryDataRef getHint(uint32_t i) const { return dbKeyList_[i].getRef(); }
 
    void setPreferredTx(uint32_t height, uint8_t dupID, uint16_t txIndex) 

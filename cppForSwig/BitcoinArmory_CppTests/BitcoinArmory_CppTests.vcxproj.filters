@@ -69,6 +69,9 @@
     <ClInclude Include="..\HistoryPager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\LedgerEntry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">

@@ -60,6 +60,12 @@ public:
    class Iterator;
    class Transaction;
 
+   enum Mode
+   {
+      ReadOnly,
+      ReadWrite
+   };
+
 private:
    MDB_env *env;
    // exists only with a Tx
@@ -71,7 +77,8 @@ private:
       MDB_txn *txn_=nullptr;
 
       std::deque<Iterator*> iterators_;
-      unsigned transactionLevel_=0;
+      unsigned transactionLevel_ = 0;
+      Mode mode_ = ReadOnly;
    };
    
    std::unordered_map<pthread_t, ThreadTxInfo> txForThreads_;
@@ -172,11 +179,12 @@ public:
 
       LMDB *db;
       bool began=false;
+
    public:
       
       Transaction();
       // begin a transaction
-      Transaction(LMDB *db);
+      Transaction(LMDB *db, bool readWrite);
       // commit a transaction if it exists
       ~Transaction();
       
@@ -188,20 +196,14 @@ public:
       // After this function completes, no transaction exists
       void rollback();
       // start a new transaction. If one already exists, do nothing
-      void begin();
+      void begin(bool ReadWrite);
    private:
       Transaction(const Transaction&); // no copies
    };
 
    LMDB();
    ~LMDB();
-   
-   enum Mode
-   {
-      ReadOnly,
-      ReadWrite
-   };
-   
+      
    // open a database by filename
    void open(const char *filename, Mode mode=ReadWrite);
    void open(const std::string &filename, Mode mode=ReadWrite)
