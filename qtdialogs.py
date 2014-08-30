@@ -3749,7 +3749,7 @@ class DlgAddressInfo(ArmoryDialog):
 
       self.addrLedger = self.cppAddr.getHistoryPageById(0)
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger, \
-                                                        wltID = self.wlt.uniqueIDB58)
+                                                        wltIDIn = self.wlt.uniqueIDB58)
       self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
 
       self.mode = mode
@@ -5854,11 +5854,11 @@ def extractTxInfo(pytx, rcvTime=None):
 
    txcpp = Tx()
    if TheBDM.getState() == 'BlockchainReady':
-      txcpp = TheBDM.runBDM( lambda : TheBDM.bdm.getTxByHash(txHash) )
+      txcpp = TheBDM.runBDM( lambda : TheBDM.bdv.getTxByHash(txHash) )
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
-         if hgt < TheBDM.runBDM( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()):
-            headref = TheBDM.runBDM( lambda : TheBDM.bdm.blockchain().getHeaderByHeight(hgt))
+         if hgt < TheBDM.runBDM( lambda : TheBDM.bdv.blockchain().top().getBlockHeight()):
+            headref = TheBDM.runBDM( lambda : TheBDM.bdv.blockchain().getHeaderByHeight(hgt))
             txTime = unixTimeToFormatStr(TheBDM.runBDM( lambda : headref.getTimestamp() ))
             txBlk = headref.getBlockHeight()
             txIdx = txcpp.getBlockTxIndex()
@@ -5883,11 +5883,11 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.runBDM( lambda : TheBDM.bdm.getTxByHash(prevTxHash) ).isInitialized():
-            prevTx = TheBDM.runBDM( lambda : TheBDM.bdm.getPrevTx(cppTxin))
+         if TheBDM.runBDM( lambda : TheBDM.bdv.getTxByHash(prevTxHash) ).isInitialized():
+            prevTx = TheBDM.runBDM( lambda : TheBDM.bdv.getPrevTx(cppTxin))
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdm.getSenderScrAddr(cppTxin)))
-            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdm.getSentValue(cppTxin)))
+            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdv.getSenderScrAddr(cppTxin)))
+            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdv.getSentValue(cppTxin)))
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())

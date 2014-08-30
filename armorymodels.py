@@ -69,6 +69,7 @@ class AllWalletsDispModel(QAbstractTableModel):
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          elif col==COL.Bal: 
+            return QVariant('(...)')
             if not bdmState=='BlockchainReady':
                return QVariant('(...)')
             bal = wlt.getBalance('Total')
@@ -331,9 +332,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
          else:
             return QVariant( Colors.TblWltMine )
       elif role==Qt.ForegroundRole:
-         #if self.index(index.row(),COL.DoubleSpend).data().toBool():
-         if rowData[COL.DoubleSpend]:
-            return QVariant(Colors.TextRed)
          if nConf < 2:
             return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
