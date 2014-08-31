@@ -1637,7 +1637,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       scrAddrData_->clear();
    }
 
-   if (config_.armoryDbType != ARMORY_DB_SUPER /*&& !forceRescan && !skipFetch*/)
+   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan && !skipFetch)
    {
       LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_->numScrAddr() << " registered addresses";
       scrAddrData_->getScrAddrCurrentSyncState();
@@ -1944,15 +1944,20 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt)
 // Deletes all SSH entries in the database
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
-   SCOPED_TIMER("deleteHistories");
+   LOGINFO << "Clearing all SSH";
 
-   LMDBBlockDatabase::Batch batch(iface_, BLKDATA);
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], true);
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
    if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
+
+   //can't iterate and delete at the same time with LMDB
+   vector<BinaryData> keysToDelete;
+
+   uint32_t i=0;
 
    do 
    {
@@ -1964,9 +1969,15 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       if(key[0] != (uint8_t)DB_PREFIX_SCRIPT)
          break;
 
-      iface_->deleteValue(BLKDATA, key);
-      
+      keysToDelete.push_back(key);
+      i++;
+
    } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+
+   for (auto& key : keysToDelete)
+      iface_->deleteValue(BLKDATA, key);
+
+   LOGINFO << "Deleted " << i << " SSH and subSSH entries";
 }
 
 ////////////////////////////////////////////////////////////////////////////////

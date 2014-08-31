@@ -6190,7 +6190,7 @@ protected:
 
       theBDV = new BlockDataViewer(theBDM);
 
-      iface_->openDatabases(
+      /*iface_->openDatabases(
          LMDB::ReadWrite,
          config.levelDBLocation,
          config.genesisBlockHash,
@@ -6200,7 +6200,7 @@ protected:
          config.pruneType);
 
       if (!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";*/
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -6230,7 +6230,10 @@ protected:
    virtual void TearDown(void)
    {
       delete theBDM;
-      theBDM=nullptr;
+      delete theBDV;
+
+      theBDM = nullptr;
+      theBDV = nullptr;
       
       rmdir(blkdir_);
       rmdir(homedir_);
@@ -6354,6 +6357,8 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {}); 
+   theBDV->scanWallets();
+
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
@@ -7392,7 +7397,10 @@ protected:
    virtual void TearDown(void)
    {
       delete theBDM;
-      theBDM=nullptr;
+      delete theBDV;
+      
+      theBDM = nullptr;
+      theBDV = nullptr;
 
       rmdir(blkdir_);
       rmdir(homedir_);
@@ -7835,7 +7843,11 @@ protected:
    virtual void TearDown(void)
    {
       delete theBDM;
-      theBDM=nullptr;
+      delete theBDV;
+
+      theBDM = nullptr;
+      theBDV = nullptr;
+
       rmdir(blkdir_);
       rmdir(homedir_);
 

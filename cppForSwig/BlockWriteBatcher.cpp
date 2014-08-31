@@ -626,8 +626,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
                TIMER_STOP("leverageStxInRAM");
                continue;
             }
-            //if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
-               //continue;
 
             scrAddrData->eraseUTxO(stxo.getDBKey(false));
             TIMER_STOP("leverageStxInRAM");
@@ -800,6 +798,15 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          {
             // Get the existing SSH or make a new one
             BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+            
+            if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+            {
+               //do not maintain multisig activity on related scrAddr unless
+               //in supernode
+               if (scrAddrData->hasScrAddress(uniqKey))
+                  continue;
+            }
+
             StoredScriptHistory* sshms = makeSureSSHInMap(
                   iface_,
                   uniqKey,
@@ -838,7 +845,10 @@ pthread_t BlockWriteBatcher::commit()
    if (config_.armoryDbType == ARMORY_DB_SUPER)
       std::swap(bwbSwapPtr->sshToModify_, sshToModify_);
    else
+   {
       bwbSwapPtr->sshToModify_ = sshToModify_;
+      //searchForSSHKeysToDelete();
+   }
 
    bwbSwapPtr->dbUpdateSize_ = dbUpdateSize_;
    bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_;
@@ -901,7 +911,8 @@ void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
    //that will get any traffic, and in order to update all alreadyScannedUpToBlk_
    //members each commit
 
-   BinaryData hgtX = DBUtils::heightAndDupToHgtx(0, 0);
+   //pass a 0 size BinaryData to avoid loading any subSSH
+   BinaryData hgtX(0);
 
    if (config_.armoryDbType != ARMORY_DB_SUPER)
    {
@@ -925,6 +936,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 
    const set<BinaryData> keysToDelete = bwbPtr->searchForSSHKeysToDelete();
 
+   //UniversalTimer is NOT thread safe
    //TIMER_START("commitToDB");
 
    {
