@@ -702,12 +702,12 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // We're aliasing this because "iter->second" is not clear at all
       StoredTxOut & stxoSpend = iter->second;
    
-      if(stxoSpend.spentness_ == TXOUT_SPENT)
+      /*if(stxoSpend.spentness_ == TXOUT_SPENT)
       {
          LOGERR << "Trying to mark TxOut spent, but it's already marked";
          TIMER_STOP("CommitTxIn");
          continue;
-      }
+      }*/
 
       // Just about to {remove-if-pruning, mark-spent-if-not} STXO
       // Record it in the StoredUndoData object
