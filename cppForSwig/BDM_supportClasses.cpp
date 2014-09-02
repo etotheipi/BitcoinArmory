@@ -138,11 +138,12 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
    sasd->merge();
 
    map<BtcWallet*, vector<BinaryData> > addressPerWallet;
+   BtcWallet* wltPtr=nullptr;
 
    //notify the wallets that the scrAddr are ready
    for (auto& scrAddrPair : sasd->getScrAddrMap())
    {
-      BtcWallet* const wltPtr = scrAddrPair.second.wltPtr_;
+      BtcWallet* wltPtr = scrAddrPair.second.wltPtr_;
 
       auto& addressVec = addressPerWallet[wltPtr];
       addressVec.push_back(scrAddrPair.first);
@@ -151,6 +152,10 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
    for (auto& addressVec : addressPerWallet)
       addressVec.first->prepareScrAddrForMerge(addressVec.second, 
                                                sasd->freshAddresses_);
+
+   //notify the bdv that it needs to refresh
+   if (wltPtr != nullptr)
+      wltPtr->needsRefresh();
 
    //clean up
    delete sasd;

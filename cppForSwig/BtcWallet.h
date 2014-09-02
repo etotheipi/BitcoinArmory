@@ -68,6 +68,9 @@ public:
                    uint32_t      firstBlockNum  = 0,
                    uint32_t      lastTimestamp  = 0,
                    uint32_t      lastBlockNum   = 0);
+   void addAddressBulk(vector<BinaryData> const & scrAddrBulk,
+                       bool areNew);
+
 
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
@@ -158,6 +161,7 @@ public:
    uint8_t getMergeFlag(void) { return mergeFlag_; }
 
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
+   void needsRefresh(void);
 
 private:   
    
@@ -207,8 +211,7 @@ private:
    bool                          ignoreLastScanned_=true;
    map<BinaryData, LedgerEntry>* ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
                                  
-   
-   bool                          isRegistered_=false;
+      bool                          isRegistered_=false;
 
    BtcWallet(const BtcWallet&); // no copies
 

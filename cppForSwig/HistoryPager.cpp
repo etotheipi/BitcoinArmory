@@ -83,6 +83,8 @@ void HistoryPager::mapHistory(
    //of txio per block for the given address.
    
    reset();
+   SSHsummary_.clear();
+   
    SSHsummary_ = getSSHsummary();
    
    if (SSHsummary_.size() == 0)

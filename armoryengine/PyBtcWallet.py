@@ -1030,11 +1030,18 @@ class PyBtcWallet(object):
 
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
+      
+      newAddrList = []
+      
       for i in range(numToCreate):
          Progress(i+1, numToCreate)
-         self.computeNextAddress(isActuallyNew=isActuallyNew, 
-                                 doRegister=doRegister)            
-         #dlgPrg.UpdateHBar(i+1)
+         newAddrList.append(self.computeNextAddress(\
+                                 isActuallyNew=isActuallyNew, \
+                                 doRegister=False)) 
+         
+      #add addresses in bulk once they are all computed   
+      if doRegister:
+         self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
             
       return self.lastComputedChainIndex
 

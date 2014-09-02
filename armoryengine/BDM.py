@@ -44,8 +44,11 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          castArg = Cpp.BtcUtils_cast_to_int(arg)
          arglist.append(castArg)
          TheBDM.currentBlock = block
+      elif action == 5:
+         act = 'refresh'
    
       cppPushTrigger[0](act, arglist)
+      
    def progress(self, state, prog, seconds):
       return
       '''

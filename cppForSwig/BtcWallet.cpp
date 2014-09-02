@@ -110,6 +110,43 @@ void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
    scrAddrMap_[newScrAddr.getScrAddr()] = newScrAddr;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void BtcWallet::addAddressBulk(vector<BinaryData> const & scrAddrBulk,
+                               bool areNew)
+{
+   vector<BinaryData> addrToReg;
+
+   for (const auto& scrAddr : scrAddrBulk)
+   {
+      if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
+         continue;
+
+      if (scrAddr.getSize() == 0)
+         continue;
+
+      addrToReg.push_back(scrAddr);
+
+   }
+
+   if (isRegistered_)
+   {
+      if (bdvPtr_ != nullptr)
+      {
+         if (!bdvPtr_->registerAddresses(addrToReg, this, areNew))
+            return;
+      }
+   }
+
+   for (const auto& scrAddr : addrToReg)
+   {
+      ScrAddrObj sca(bdvPtr_->getDB(), &bdvPtr_->blockchain(), scrAddr);
+      scrAddrMap_.insert(make_pair(scrAddr, sca));
+   }
+
+   //should init new addresses
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 // SWIG has some serious problems with typemaps and variable arg lists
@@ -727,6 +764,7 @@ void BtcWallet::mapPages()
    place only once per wallet per load.
    ***/
    TIMER_START("mapPages");
+   ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
 
    auto computeSSHsummary = [this](void)->map<uint32_t, uint32_t>
       {return this->computeScrAddrMapHistSummary(); };
@@ -789,6 +827,12 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
    { this->updateWalletLedgersFromTxio(leMap, txioMap, start, UINT32_MAX, false); };
 
    return histPages_.getPageLedgerMap(getTxio, computeLedgers, pageId);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::needsRefresh(void)
+{ 
+   bdvPtr_->flagRefresh(); 
 }
 
 // kate: indent-width 3; replace-tabs on;

@@ -219,6 +219,13 @@ void BlockDataManagerThread::run()
          }
       }
 
+      if (bdv->refresh_)
+      {
+         bdv->refresh_ = false;
+         bdv->scanWallets();
+         callback->run(5, nullptr);
+      }
+
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
       if(prevTopBlk)
       {

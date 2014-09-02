@@ -6425,13 +6425,13 @@ class ArmoryMainWindow(QMainWindow):
             #didAffectUs = False
 
             # LITE sync means it won't rescan if addresses have been imported
-            didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
+            #didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
 
-            if didAffectUs:
-               LOGINFO('New Block contained a transaction relevant to us!')
-               self.walletListChanged()
-               self.notifyOnSurpriseTx(TheBDM.getCurrBlock()-newBlocks, \
-                                       TheBDM.getCurrBlock()+1)
+            #if didAffectUs:
+             #  LOGINFO('New Block contained a transaction relevant to us!')
+             #  self.walletListChanged()
+             #  self.notifyOnSurpriseTx(TheBDM.getCurrBlock()-newBlocks, \
+                                       #TheBDM.getCurrBlock()+1)
 
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
@@ -6447,6 +6447,10 @@ class ArmoryMainWindow(QMainWindow):
             # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()    
             self.setDashboardDetails()   
+      
+      elif action == 'refresh':
+         self.createCombinedLedger()
+         self.walletModel.reset()
          
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):

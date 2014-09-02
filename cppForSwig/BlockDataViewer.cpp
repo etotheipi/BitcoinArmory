@@ -97,7 +97,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 
    if (initialized_ == false || merge == true)
    {
-      //first run, page all wallets' history
+      //out of date history, page all wallets' history
       pageWalletsHistory();
       pageLockboxesHistory();
 

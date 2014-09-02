@@ -85,8 +85,11 @@ class BlockDataViewer
       void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                              uint32_t startBlock, uint32_t endBlock) const;
 
+      void flagRefresh(void){ refresh_ = true; }
+
    public:
-      bool            rescanZC_;
+      bool rescanZC_ = false;
+      bool refresh_  = false;
 
    private:
       LMDBBlockDatabase* db_;
