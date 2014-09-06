@@ -64,13 +64,7 @@ static void createUndoDataFromBlock(
          // Above we checked the block to be undone is full, but we
          // still need to make sure the prevTx we just fetched has our data.
          StoredTx prevStx;
-         if (!iface->getStoredTx(prevStx, prevHash));
-         {
-            LOGERR << "TxIn: " << iin << " in Block: " << hgt << " dupID: " << dup 
-                   << " references a non existant TxHash. How did this happen?";
-            continue;
-         }
-         //if(prevStx.stxoMap_.find(prevIndex) == prevStx.stxoMap_.end())
+         iface->getStoredTx(prevStx, prevHash);
          if(KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
          {
             throw runtime_error("Cannot get undo data for block because not full!");
@@ -1309,7 +1303,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       block.unserialize(brr);
       HashString blockhash = block.getThisHash();
       
-      const uint32_t nTx = brr.get_var_int();
+      const uint32_t nTx = (uint32_t)brr.get_var_int();
       BlockHeader& addedBlock = blockchain_.addBlock(blockhash, block);
 
       // is there any reason I can't just do this to "block"?
