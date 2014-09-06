@@ -262,7 +262,7 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
    int rc = mdb_cursor_get(csr_, &mkey, &mval, op);
    if (e == Seek_LE)
    {
-      if (rc == MDB_NOTFOUND && e != MDB_SET)
+      if (rc == MDB_NOTFOUND && op != MDB_SET)
          rc = mdb_cursor_get(csr_, &mkey, &mval, MDB_LAST);
       // now make sure mkey is less than key
       if (rc == MDB_NOTFOUND)
@@ -442,7 +442,7 @@ void LMDB::open(const char *filename, Mode mode)
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
 
-   mdb_env_set_mapsize(env, 3 * 1024 * 1024 * 1024LL);
+   mdb_env_set_mapsize(env, 5 * 1024 * 1024 * 1024LL);
 
    rc = mdb_env_open(env, filename, modef|MDB_NOSYNC|MDB_NOSUBDIR, 0600);
    if (rc != MDB_SUCCESS)

@@ -264,7 +264,7 @@ private:
 
    LMDB(const LMDB &nocopy);
    Mode mode;
-   mutable std::atomic_uint32_t txMapLock_;
+   mutable std::atomic<int32_t> txMapLock_;
 };
 
 #endif

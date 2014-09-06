@@ -45,13 +45,14 @@ private:
       uint32_t blockOffset_    = 0;
       
       bool fetching_        = false;
-      atomic_uint32_t lock_ = 0;
+      atomic<int32_t> lock_;
 
       ScrAddrFilter* scrAddrFilter_ = nullptr;
 
       LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter* scf) :
          startBlock_(start), endBlock_(end), scrAddrFilter_(scf)
       {
+	 lock_ = 0;
          topLoadedBlock_ = start;
          currentBlock_   = start;
          blockOffset_    = start;

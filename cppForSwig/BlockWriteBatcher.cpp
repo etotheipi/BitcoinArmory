@@ -1098,7 +1098,7 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
 
    StoredHeader* sbh;
    uint32_t vectorIndex;
-   pthread_t tID = nullptr;
+   pthread_t tID = 0;
 
    uint32_t i;
    for (i = bwbPtr->tempBlockData_->startBlock_;
