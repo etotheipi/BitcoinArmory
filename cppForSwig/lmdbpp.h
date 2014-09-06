@@ -7,7 +7,8 @@
 #include <vector>
 #include <atomic>
 #include <unordered_map>
-#include <pthread.h>
+#include "pthread.h"
+#include <atomic>
 
 
 struct MDB_env;
@@ -225,7 +226,10 @@ public:
 
    // read the value having the given key
    std::string value(const CharacterArrayRef& key) const;
-   
+ 
+   // get a value having the given key, don't use an iterator
+   std::string get(const CharacterArrayRef& key) const;
+
    // create a cursor for scanning the database that points to the first
    // item
    Iterator begin() const
@@ -260,6 +264,7 @@ private:
 
    LMDB(const LMDB &nocopy);
    Mode mode;
+   mutable std::atomic_uint32_t txMapLock_;
 };
 
 #endif

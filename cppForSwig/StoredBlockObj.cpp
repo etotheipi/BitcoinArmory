@@ -1273,6 +1273,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDat
       bool isCoinbase  = bitunpack.getBit();
       bool isSpent     = bitunpack.getBit();
       bool isMulti     = bitunpack.getBit();
+      bool isUTXO      = bitunpack.getBit();
 
       // We always include the 8-byte value
       uint64_t txoValue  = brr.get_uint64_t();
@@ -1283,17 +1284,14 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDat
       TxIOPair txio(fullTxOutKey, txoValue);
 
       totalUnspent_ = 0;
-      if(isSpent)
-         txio.setTxIn(brr.get_BinaryDataRef(8));
-      else
-      {
-         if(!isMulti) 
-            totalUnspent_ = txoValue;
-      }
+         
+      if(!isMulti) 
+         totalUnspent_ = txoValue;
 
       txio.setTxOutFromSelf(isFromSelf);
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMulti);
+      txio.setUTXO(isUTXO);
   
       // The second "true" is to tell the insert function to skip incrementing
       // the totalUnspent_ and totalTxioCount_, since that data is already
@@ -1352,6 +1350,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, LMDBBlockDatabase 
       bitpack.putBit(txio.isFromCoinbase());
       bitpack.putBit(txio.hasTxInInMain(db));
       bitpack.putBit(txio.isMultisig());
+      bitpack.putBit(txio.isUTXO());
       bw.put_BitPacker(bitpack);
 
       // Always write the value and last 4 bytes of dbkey (first 4 is in dbkey)
@@ -1656,13 +1655,9 @@ uint64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db,
       return UINT64_MAX;
    }
 
-   uint32_t subSSHTxioCount = iter->second.txioMap_.size();
    uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, dbType, pruneType);
    if (val != UINT64_MAX)
       totalUnspent_ -= val;
-
-   subSSHTxioCount -= iter->second.txioMap_.size();
-   totalTxioCount_ -= subSSHTxioCount;
 
    useMultipleEntries_ = (totalTxioCount_ > 1);
 
@@ -2176,6 +2171,9 @@ uint64_t StoredSubHistory::markTxOutSpent(
       return UINT64_MAX;
    }
 
+   if (!txioptr->isUTXO())
+      return 0;
+
    txioptr->setUTXO(false);
 
    // Return value spent only if not multisig
@@ -2206,6 +2204,7 @@ uint64_t StoredSubHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & d
 
       txioMap_.erase(iter);
       txioCount_--;
+
       return valueRemoved;
    }
 }

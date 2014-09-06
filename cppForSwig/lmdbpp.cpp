@@ -1,7 +1,7 @@
 #include "lmdbpp.h"    
 
-#include <lmdb.h>
-#include <unistd.h>
+#include "lmdb.h"
+//#include <unistd.h>
 
 #include <sstream>
 #include <cstring>
@@ -68,10 +68,14 @@ LMDB::Iterator::Iterator(LMDB *db)
 : db_(db), csr_(nullptr), has_(false)
 {
    const pthread_t tID = pthread_self();
+
+
+   while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
    auto txnIter = db->txForThreads_.find(tID);
 
    if (txnIter == db->txForThreads_.end())
       throw std::runtime_error("Iterator must be created within Transaction");
+   db->txMapLock_.store(0, std::memory_order_relaxed);
 
    if (txnIter->second.transactionLevel_ == 0)
       throw std::runtime_error("Iterator must be created within Transaction");
@@ -258,7 +262,7 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
    int rc = mdb_cursor_get(csr_, &mkey, &mval, op);
    if (e == Seek_LE)
    {
-      if (rc == MDB_NOTFOUND)
+      if (rc == MDB_NOTFOUND && e != MDB_SET)
          rc = mdb_cursor_get(csr_, &mkey, &mval, MDB_LAST);
       // now make sure mkey is less than key
       if (rc == MDB_NOTFOUND)
@@ -328,7 +332,9 @@ void LMDB::Transaction::begin(bool readWrite)
 
    const pthread_t tID = pthread_self();
    
+   while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
    ThreadTxInfo& thTx = db->txForThreads_[tID];
+   db->txMapLock_.store(0, std::memory_order_relaxed);
    
    if (thTx.transactionLevel_++ != 0)
    {
@@ -365,10 +371,12 @@ void LMDB::Transaction::commit()
 
    //look for an existing transaction in this thread
    pthread_t tID = pthread_self();
-   auto txnIter = db->txForThreads_.find(tID);
 
+   while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
+   auto txnIter = db->txForThreads_.find(tID);
    if (txnIter == db->txForThreads_.end())
       throw LMDBException("Transaction bound to unknown thread");
+   db->txMapLock_.store(0, std::memory_order_relaxed);
 
    ThreadTxInfo& thTx = txnIter->second;
 
@@ -387,11 +395,13 @@ void LMDB::Transaction::commit()
          throw LMDBException("Failed to close db tx (" + errorString(rc) +")");
       }
       
+      while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
       db->txForThreads_.erase(txnIter);
+      db->txMapLock_.store(0, std::memory_order_relaxed);
    }
    
-   if (db->txForThreads_.empty())
-      db->enlargeMap();
+   /*if (db->txForThreads_.empty())
+      db->enlargeMap();*/
 }
 
 void LMDB::Transaction::rollback()
@@ -404,6 +414,7 @@ LMDB::LMDB()
 {
    env = nullptr;
    dbi = 0;
+   txMapLock_ = 0;
 }
 
 LMDB::~LMDB()
@@ -472,10 +483,13 @@ void LMDB::insert(
    MDB_val mval = { value.len, const_cast<char*>(value.data) };
    
    pthread_t tID = pthread_self();
+   
+   while (txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
    auto txnIter = txForThreads_.find(tID);
 
    if (txnIter == txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
+   txMapLock_.store(0, std::memory_order_relaxed);
    
    int rc = mdb_put(txnIter->second.txn_, dbi, &mkey, &mval, 0);
    if (rc != MDB_SUCCESS)
@@ -485,10 +499,13 @@ void LMDB::insert(
 void LMDB::erase(const CharacterArrayRef& key)
 {
    pthread_t tID = pthread_self();
+
+   while (txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
    auto txnIter = txForThreads_.find(tID);
 
    if (txnIter == txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
+   txMapLock_.store(0, std::memory_order_relaxed);
 
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    int rc = mdb_del(txnIter->second.txn_, dbi, &mkey, 0);
@@ -503,6 +520,31 @@ std::string LMDB::value(const CharacterArrayRef& key) const
       throw NoValue("No such value with specified key");
    
    return c.value();
+}
+
+std::string LMDB::get(const CharacterArrayRef& key) const
+{
+   //simple get without the use of iterators
+
+   pthread_t tID = pthread_self();
+
+   while (txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
+   auto txnIter = txForThreads_.find(tID);
+   if (txnIter == txForThreads_.end())
+      throw std::runtime_error("Iterator must be created within Transaction");
+   txMapLock_.store(0, std::memory_order_relaxed);
+
+   if (txnIter->second.transactionLevel_ == 0)
+      throw std::runtime_error("Iterator must be created within Transaction");
+
+   MDB_val mkey = { key.len, const_cast<char*>(key.data) };
+   MDB_val mval = { 0, 0 };
+
+   int rc = mdb_get(txnIter->second.txn_, dbi, &mkey, &mval);
+   if (rc == MDB_NOTFOUND)
+      throw NoValue("Failed to seek (" + errorString(rc) + ")");
+      
+   return std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
 }
 
 void LMDB::enlargeMap()

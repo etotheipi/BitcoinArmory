@@ -499,7 +499,7 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
 {
-   LMDBBlockDatabase::Batch batch(this, db);
+   LMDB::Transaction batch(&dbs_[db], false);
    StoredDBInfo sdbi;
    getStoredDBInfo(db, sdbi);
    return sdbi.topBlkHash_;
@@ -524,11 +524,18 @@ BinaryData LMDBBlockDatabase::getValue(DB_SELECT db, BinaryDataRef key) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Get value without resorting to a DB iterator
+BinaryData LMDBBlockDatabase::getValueNoIter(DB_SELECT db, BinaryDataRef key) const
+{
+   return dbs_[db].get(CharacterArrayRef(key.getSize(), (char*)key.getPtr()));
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryData object.  If you have a string, you can use
 // BinaryData key(string(theStr));
 BinaryData LMDBBlockDatabase::getValue(DB_SELECT db, 
-                                               DB_PREFIX prefix,
-                                               BinaryDataRef key) const
+                                       DB_PREFIX prefix,
+                                       BinaryDataRef key) const
 {
    BinaryData keyFull(key.getSize()+1);
    keyFull[0] = (uint8_t)prefix;
@@ -543,6 +550,25 @@ BinaryData LMDBBlockDatabase::getValue(DB_SELECT db,
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Get value using BinaryData object.  If you have a string, you can use
+// BinaryData key(string(theStr));
+BinaryData LMDBBlockDatabase::getValueNoIter(DB_SELECT db,
+                                             DB_PREFIX prefix,
+                                             BinaryDataRef key) const
+{
+   BinaryData keyFull(key.getSize() + 1);
+   keyFull[0] = (uint8_t)prefix;
+   key.copyTo(keyFull.getPtr() + 1, key.getSize());
+   try
+   {
+      return getValueNoIter(db, keyFull.getRef());
+   }
+   catch (...)
+   {
+      return BinaryData(0);
+   }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryDataRef object.  The data from the get* call is 
@@ -1143,7 +1169,7 @@ void LMDBBlockDatabase::readAllHeaders(map<HashString, BlockHeader> & headerMap,
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t LMDBBlockDatabase::getValidDupIDForHeight(uint32_t blockHgt)
 {
-   if(validDupByHeight_.size() < blockHgt+1)
+   if(blockHgt != UINT32_MAX && validDupByHeight_.size() < blockHgt+1)
    {
       LOGERR << "Block height exceeds DupID lookup table";
       return UINT8_MAX;
@@ -1154,7 +1180,7 @@ uint8_t LMDBBlockDatabase::getValidDupIDForHeight(uint32_t blockHgt)
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup)
 {
-   while(validDupByHeight_.size() < blockHgt+1)
+   while (blockHgt != UINT32_MAX && validDupByHeight_.size() < blockHgt + 1)
       validDupByHeight_.push_back(UINT8_MAX);
    validDupByHeight_[blockHgt] = dup;
 }
@@ -1203,7 +1229,8 @@ void LMDBBlockDatabase::putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi)
 bool LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn)
 {
    SCOPED_TIMER("getStoredDBInfo");
-   Batch b(this, db);
+   LMDB::Transaction batch(&dbs_[db], false);
+
    BinaryRefReader brr = getValueRef(db, StoredDBInfo::getDBKey());
     
    if(brr.getSize() == 0 && warn) 
@@ -2049,7 +2076,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
 
    BinaryData hash4(txHash.getSliceRef(0,4));
    LMDB::Transaction tx(&dbs_[BLKDATA], false);
-   BinaryData hintsDBVal = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+   BinaryData hintsDBVal = getValueNoIter(BLKDATA, DB_PREFIX_TXHINTS, hash4);
    uint32_t valSize = hintsDBVal.getSize();
 
    if(valSize < 2)

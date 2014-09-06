@@ -64,7 +64,12 @@ static void createUndoDataFromBlock(
          // Above we checked the block to be undone is full, but we
          // still need to make sure the prevTx we just fetched has our data.
          StoredTx prevStx;
-         iface->getStoredTx(prevStx, prevHash);
+         if (!iface->getStoredTx(prevStx, prevHash));
+         {
+            LOGERR << "TxIn: " << iin << " in Block: " << hgt << " dupID: " << dup 
+                   << " references a non existant TxHash. How did this happen?";
+            continue;
+         }
          //if(prevStx.stxoMap_.find(prevIndex) == prevStx.stxoMap_.end())
          if(KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
          {
@@ -161,7 +166,9 @@ private:
       // Walk down invalidated chain first, until we get to the branch point
       // Mark transactions as invalid
 
+      
       BlockWriteBatcher blockWrites(config_, iface_);
+      LMDB::Transaction batch(&iface_->dbs_[BLKDATA], false);
 
       BlockHeader* thisHeaderPtr = reorgParams_.oldTopPtr_;
       LOGINFO << "Invalidating old-chain transactions...";
@@ -221,10 +228,8 @@ private:
          thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getNextHash());
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
-         StoredHeader sbh;
-         iface_->getStoredHeader(sbh, hgt, dup, true);
 
-         blockWrites.applyBlockToDB(sbh, reorgParams_.scrAddrData_);
+         blockWrites.applyBlockToDB(hgt, dup, reorgParams_.scrAddrData_);
       }
    }
 
@@ -1031,92 +1036,15 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
 {
    SCOPED_TIMER("applyBlockRangeToDB");
 
-   blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
+   blk1 = min(blk1, blockchain_.top().getBlockHeight() + 1);
 
    BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
-   BinaryData endKey   = DBUtils::getBlkDataKey(blk1, 0);
+   BinaryData endKey = DBUtils::getBlkDataKey(blk1, 0);
 
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_);
-   if (scrAddrData != nullptr)
-      blockWrites.preloadSSH(*scrAddrData);
 
-   LDBIter ldbIter = iface_->getIterator(BLKDATA);
-   ldbIter.seekTo(startKey);
-   
-   uint32_t hgt;
-
-   TIMER_START("applyBlockRangeToDBIter");
-   do
-   {
-      StoredHeader sbh;
-      if (!iface_->readStoredBlockAtIter(ldbIter, sbh))
-         continue;
-
-      hgt = sbh.blockHeight_;
-      const uint8_t dup = sbh.duplicateID_;
-      if(blk0 > hgt || hgt >= blk1)
-         break;
-
-      if(hgt%2500 == 2499)
-         LOGWARN << "Finished applying blocks up to " << (hgt+1);
-
-      if(dup != iface_->getValidDupIDForHeight(hgt))
-         continue;
-
-      // IS THIS COMMENT STILL RELEVANT? ~CS
-      // Ugh!  Design inefficiency: this loop and applyToBlockDB both use
-      // the same iterator, which means that applyBlockToDB will usually 
-      // leave us with the iterator in a different place than we started.
-      // I'm not clear how inefficient it is to keep re-seeking (given that
-      // there's a lot of caching going on under-the-hood).  It may be better
-      // to have each method create its own iterator... TODO:  profile/test
-      // this idea.  For now we will just save the current DB key, and 
-      // re-seek to it afterwards.
-
-      //hack to update SSH top block
-
-      TIMER_STOP("applyBlockRangeToDBIter");
-
-      blockWrites.applyBlockToDB(hgt, dup, scrAddrData); 
-
-      TIMER_START("applyBlockRangeToDBIter");
-      bytesReadSoFar_ += sbh.numBytes_;
-
-   } while(iface_->advanceToNextBlock(ldbIter, false));
-
-   double applyBlockRangeToDBIter = TIMER_READ_SEC("applyBlockRangeToDBIter");
-   LOGWARN << "applyBlockRangeToDBIter: " << applyBlockRangeToDBIter << " sec";
-
-   double applyBlockToDBinternal = TIMER_READ_SEC("applyBlockToDBinternal");
-   LOGWARN << "applyBlockToDBinternal: " << applyBlockToDBinternal << " sec";
-
-   double applyTxToBatchWriteData = TIMER_READ_SEC("applyTxToBatchWriteData");
-   LOGWARN << "applyTxToBatchWriteData: " << applyTxToBatchWriteData << " sec";
-
-   double TxInParsing = TIMER_READ_SEC("TxInParsing");
-   LOGWARN << "TxInParsing: " << TxInParsing << " sec";
-
-   double grabTxIn = TIMER_READ_SEC("grabTxIn");
-   LOGWARN << "grabTxIn: " << grabTxIn << " sec";
-
-   double leverageStxInRAM = TIMER_READ_SEC("leverageStxInRAM");
-   LOGWARN << "leverageStxInRAM: " << leverageStxInRAM << " sec";
-
-   double fecthOutPointFromDB = TIMER_READ_SEC("fecthOutPointFromDB");
-   LOGWARN << "fecthOutPointFromDB: " << fecthOutPointFromDB << " sec";
-
-   double fullFecthOutPointFromDB = TIMER_READ_SEC("fullFecthOutPointFromDB");
-   LOGWARN << "fullFecthOutPointFromDB: " << fullFecthOutPointFromDB << " sec";
-
-   double CommitTxIn = TIMER_READ_SEC("CommitTxIn");
-   LOGWARN << "CommitTxIn: " << CommitTxIn << " sec";
-   
-   double TxOutParsing = TIMER_READ_SEC("TxOutParsing");
-   LOGWARN << "TxOutParsing: " << TxOutParsing << " sec";
-
-   double commitToDB = TIMER_READ_SEC("commitToDB");
-   LOGWARN << "commitToDB: " << commitToDB << " sec";
+   blockWrites.scanBlocks(blk0, blk1, scrAddrData);
 }
 
 
@@ -1637,7 +1565,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       scrAddrData_->clear();
    }
 
-   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan && !skipFetch)
+   if (config_.armoryDbType != ARMORY_DB_SUPER && !forceRescan)
    {
       LOGWARN << "--- Fetching SSH summaries for " << scrAddrData_->numScrAddr() << " registered addresses";
       scrAddrData_->getScrAddrCurrentSyncState();

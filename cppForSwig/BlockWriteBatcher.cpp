@@ -4,10 +4,15 @@
 #include "BlockDataManagerConfig.h"
 #include "lmdb_wrapper.h"
 
+#ifdef _MSC_VER
+#include "win32_posix.h"
+#endif
+
 
 static const uint64_t UPDATE_BYTES_SSH = 25;
 static const uint64_t UPDATE_BYTES_SUBSSH = 75;
 
+////////////////////////////////////////////////////////////////////////////////
 static void updateBlkDataHeader(
       const BlockDataManagerConfig &config,
       LMDBBlockDatabase* iface,
@@ -135,12 +140,15 @@ static StoredScriptHistory* makeSureSSHInMap(
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
    if (hgtX.getSize() == 4)
    {
-      size_t prevSize = sshptr->subHistMap_.size();
-      iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
-      size_t newSize = sshptr->subHistMap_.size();
+      if (sshptr->subHistMap_.find(hgtX) == sshptr->subHistMap_.end())
+      {
+         size_t prevSize = sshptr->subHistMap_.size();
+         iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
+         size_t newSize = sshptr->subHistMap_.size();
 
-      if (additionalSize)
-         *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+         if (additionalSize)
+            *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+      }
    }
    return sshptr;
 }
@@ -204,23 +212,16 @@ BlockWriteBatcher::BlockWriteBatcher(
 )
    : config_(config), iface_(iface),
    dbUpdateSize_(0), mostRecentBlockApplied_(0), isForCommit_(forCommit)
-{
-   if (forCommit)
-      return;
-      
-   txnHeaders = new LMDB::Transaction(&iface_->dbs_[HEADERS], false);
-   txnBlkdata = new LMDB::Transaction(&iface_->dbs_[BLKDATA], false);
-}
+{}
 
 BlockWriteBatcher::~BlockWriteBatcher()
 {
-   //delete DB transactions
-   delete txnHeaders;
-   delete txnBlkdata;
-
    //a BWB meant for commit doesn't need to run commit() on dtor
    if (isForCommit_)
+   {
+      clearTransactions();
       return;
+   }
 
    //call final commit
    pthread_t tID = commit();
@@ -228,6 +229,7 @@ BlockWriteBatcher::~BlockWriteBatcher()
    //join on the thread, don't want the destuctor to return until the data has
    //been commited
    pthread_join(tID, nullptr);
+   clearTransactions();
 }
 
 void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
@@ -290,9 +292,16 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
 void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
    ScrAddrFilter* scrAddrData)
 {
+   resetTransactions();
+
+   if (scrAddrData != nullptr)
+      preloadSSH(*scrAddrData);
+
    StoredHeader sbh;
    iface_->getStoredHeader(sbh, hgt, dup);
    applyBlockToDB(sbh, scrAddrData);
+
+   clearTransactions();
 }
 
 
@@ -301,6 +310,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
                                         ScrAddrFilter* scrAddrData)
 {
    SCOPED_TIMER("undoBlockFromDB");
+   resetTransactions();
 
    StoredHeader sbh;
    iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_);
@@ -535,6 +545,8 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    
    if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
       commit();
+
+   clearTransactions();
 }
 
 
@@ -634,6 +646,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          {
             TIMER_STOP("leverageStxInRAM");
             TIMER_START("fecthOutPointFromDB");
+            
             //grab UTxO DBkey for comparison first
             iface_->getStoredTx_byHash(opTxHash, nullptr, &txOutDBkey);
             if (txOutDBkey.getSize() != 6)
@@ -722,6 +735,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // Same story as stxToModify above, except this will actually create a new
       // SSH if it doesn't exist in the map or the DB
       BinaryData hgtX = stxo.getHgtX();
+
       StoredScriptHistory* sshptr = makeSureSSHInMap(
             iface_,
             uniqKey,
@@ -835,7 +849,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 ////////////////////////////////////////////////////////////////////////////////
 pthread_t BlockWriteBatcher::commit()
 {
-   //create a BWB for commit (pass true to the constructor
+   //create a BWB for commit (pass true to the constructor)
    BlockWriteBatcher *bwbSwapPtr = new BlockWriteBatcher(config_, iface_, true);
 
    std::swap(bwbSwapPtr->sbhToUpdate_, sbhToUpdate_);
@@ -846,16 +860,27 @@ pthread_t BlockWriteBatcher::commit()
       std::swap(bwbSwapPtr->sshToModify_, sshToModify_);
    else
    {
-      bwbSwapPtr->sshToModify_ = sshToModify_;
+      bwbSwapPtr->sshToModify_.insert(sshToModify_.begin(), sshToModify_.end());
       //searchForSSHKeysToDelete();
    }
 
    bwbSwapPtr->dbUpdateSize_ = dbUpdateSize_;
-   bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_;
+   bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_ +1;
+   bwbSwapPtr->parent_ = this;
    dbUpdateSize_ = 0;
 
    pthread_t tID;
    pthread_create(&tID, nullptr, commitThread, bwbSwapPtr);
+
+   //in supernode the SSH arent maintained constantly in RAM. Since the write
+   //operation takes place in a side thread, and the data isnt visible to the 
+   //read only thread until the data is commited the and read only transaction 
+   //recycled, a different mechanic for cleaning up SSH needs to be put in 
+   //place. For now, just join on the commit thread.
+
+   /*LMDB snafu, can't read while writing, have to join till I fix this*/
+   //if (config_.armoryDbType == ARMORY_DB_SUPER)
+      pthread_join(tID, nullptr);
 
    return tID;
 }
@@ -926,14 +951,13 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 {
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
 
+   //create readwrite transactions to apply data to DB
+   bwbPtr->txnHeaders_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], true);
+   bwbPtr->txnBlkdata_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], true);
+
    // Check for any SSH objects that are now completely empty.  If they exist,
    // they should be removed from the DB, instead of simply written as empty
    // objects
-
-   //create readwrite transactions to apply data to DB
-   bwbPtr->txnHeaders = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], true);
-   bwbPtr->txnBlkdata = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], true);
-
    const set<BinaryData> keysToDelete = bwbPtr->searchForSSHKeysToDelete();
 
    //UniversalTimer is NOT thread safe
@@ -947,6 +971,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
       {
          sshPair.second.alreadyScannedUpToBlk_ 
             = bwbPtr->mostRecentBlockApplied_;
+         
          bwbPtr->iface_->putStoredScriptHistory(sshPair.second);
       }
 
@@ -971,6 +996,9 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
          }
       }
    }
+   
+   //signal the transaction reset
+   bwbPtr->parent_->resetTxn_ = true;
 
    //clean up
    delete bwbPtr;
@@ -979,4 +1007,218 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 
    return nullptr;
 }
-// kate: indent-width 3; replace-tabs on;
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::resetTransactions(void)
+{
+   resetTxn_ = false;
+   
+   delete txnHeaders_;
+   delete txnBlkdata_;
+
+   txnHeaders_ = new LMDB::Transaction(&iface_->dbs_[HEADERS], false);
+   txnBlkdata_ = new LMDB::Transaction(&iface_->dbs_[BLKDATA], false);  
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::clearTransactions(void)
+{
+   delete txnHeaders_;
+   delete txnBlkdata_;
+
+   txnHeaders_ = nullptr;
+   txnBlkdata_ = nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void* BlockWriteBatcher::grabBlocksFromDB(void *in)
+{
+   /***
+   Grab blocks from the DB, put them in the tempBlockVec
+   ***/
+
+   //mon
+   BlockWriteBatcher* dis = static_cast<BlockWriteBatcher*>(in);
+
+   //read only db txn
+   LMDB::Transaction batch(&dis->iface_->dbs_[BLKDATA], false);
+
+   vector<StoredHeader*> shVec;
+
+   uint32_t hgt = dis->tempBlockData_->topLoadedBlock_;
+   uint8_t dupID;
+
+   uint32_t memoryLoad = 0; 
+
+   while (memoryLoad + dis->tempBlockData_->bufferLoad_ 
+            < UPDATE_BYTES_THRESH)
+   {
+      if (hgt > dis->tempBlockData_->endBlock_)
+         break;
+
+      dupID = dis->iface_->getValidDupIDForHeight(hgt);
+      if (dupID == UINT8_MAX)
+      {
+         dis->tempBlockData_->endBlock_ = hgt - 1;
+         LOGERR << "No block in DB at height " << hgt;
+         break;
+      }
+      
+      StoredHeader* sbhPtr = new StoredHeader();
+      dis->iface_->getStoredHeader(*sbhPtr, hgt, dupID);
+
+      memoryLoad += sbhPtr->numBytes_;
+      shVec.push_back(sbhPtr);
+
+      ++hgt;
+   }
+
+   //lock tempBlockData_
+   while (dis->tempBlockData_->lock_.fetch_or(1, memory_order_acquire));
+
+   dis->tempBlockData_->sbhVec_.insert(dis->tempBlockData_->sbhVec_.end(),
+      shVec.begin(), shVec.end());
+
+   dis->tempBlockData_->bufferLoad_ += memoryLoad;
+   dis->tempBlockData_->fetching_ = false;
+   dis->tempBlockData_->topLoadedBlock_ = hgt;
+
+   //release lock
+   dis->tempBlockData_->lock_.store(0, memory_order_release);
+
+   return nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void* BlockWriteBatcher::applyBlockToDBThread(void *in)
+{
+   BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(in);
+
+   bwbPtr->resetTransactions();
+
+   StoredHeader* sbh;
+   uint32_t vectorIndex;
+   pthread_t tID = nullptr;
+
+   uint32_t i;
+   for (i = bwbPtr->tempBlockData_->startBlock_;
+        i <= bwbPtr->tempBlockData_->endBlock_;
+        i++)
+   {
+      if (bwbPtr->resetTxn_ == true)
+         bwbPtr->resetTransactions();
+
+      if (!bwbPtr->tempBlockData_->fetching_)
+      if (bwbPtr->tempBlockData_->topLoadedBlock_ <= 
+         bwbPtr->tempBlockData_->endBlock_ &&
+         bwbPtr->tempBlockData_->bufferLoad_ < UPDATE_BYTES_THRESH/2)
+      {
+         //block buffer is below half load, refill it in a side thread
+         bwbPtr->tempBlockData_->fetching_ = true;
+         pthread_create(&tID, nullptr, grabBlocksFromDB, bwbPtr);
+      }
+
+      //make sure there's enough data to grab from the block buffer
+      while (i >= bwbPtr->tempBlockData_->topLoadedBlock_)
+      {
+         usleep(10);
+         if (i > bwbPtr->tempBlockData_->endBlock_)
+            goto done;
+      }
+
+      //grab lock
+      while (bwbPtr->tempBlockData_->lock_.fetch_or(1, memory_order_relaxed));
+      vectorIndex = i - bwbPtr->tempBlockData_->blockOffset_;
+
+      StoredHeader** sbhEntry = &bwbPtr->tempBlockData_->sbhVec_[vectorIndex];
+      sbh = *sbhEntry;
+      *sbhEntry = nullptr;
+
+      //clean up used vector indexes
+      if (i == 1000)
+      {
+         bwbPtr->tempBlockData_->sbhVec_.erase(
+            bwbPtr->tempBlockData_->sbhVec_.begin(),
+            bwbPtr->tempBlockData_->sbhVec_.begin() + 1000);
+
+         bwbPtr->tempBlockData_->blockOffset_ += 1000;
+      }
+
+      //release lock
+      bwbPtr->tempBlockData_->lock_.store(0, memory_order_relaxed);
+
+      //scan block
+      bwbPtr->applyBlockToDB(*sbh, bwbPtr->tempBlockData_->scrAddrFilter_);
+
+      //decrement bufferload
+      bwbPtr->tempBlockData_->bufferLoad_ -= sbh->numBytes_;
+
+      //clean up sbh after use
+      delete sbh;
+
+      if (i % 2500 == 2499)
+         LOGWARN << "Finished applying blocks up to " << (i + 1);
+   }
+  
+done:
+   pthread_join(tID, nullptr);
+
+   delete bwbPtr->tempBlockData_;
+   bwbPtr->tempBlockData_ = nullptr;
+
+   bwbPtr->clearTransactions();
+
+   return nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock, 
+   ScrAddrFilter* scf)
+{
+   TIMER_START("applyBlockRangeToDBIter");
+   
+   if (scf != nullptr)
+      preloadSSH(*scf);
+
+   tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
+   grabBlocksFromDB(this);
+
+   pthread_t tID;
+   pthread_create(&tID, nullptr, applyBlockToDBThread, this);
+   pthread_join(tID, nullptr);
+
+   TIMER_STOP("applyBlockRangeToDBIter");
+
+   double applyBlockRangeToDBIter = TIMER_READ_SEC("applyBlockRangeToDBIter");
+   LOGWARN << "applyBlockRangeToDBIter: " << applyBlockRangeToDBIter << " sec";
+
+   double applyBlockToDBinternal = TIMER_READ_SEC("applyBlockToDBinternal");
+   LOGWARN << "applyBlockToDBinternal: " << applyBlockToDBinternal << " sec";
+
+   double applyTxToBatchWriteData = TIMER_READ_SEC("applyTxToBatchWriteData");
+   LOGWARN << "applyTxToBatchWriteData: " << applyTxToBatchWriteData << " sec";
+
+   double TxInParsing = TIMER_READ_SEC("TxInParsing");
+   LOGWARN << "TxInParsing: " << TxInParsing << " sec";
+
+   double grabTxIn = TIMER_READ_SEC("grabTxIn");
+   LOGWARN << "grabTxIn: " << grabTxIn << " sec";
+
+   double leverageStxInRAM = TIMER_READ_SEC("leverageStxInRAM");
+   LOGWARN << "leverageStxInRAM: " << leverageStxInRAM << " sec";
+
+   double fecthOutPointFromDB = TIMER_READ_SEC("fecthOutPointFromDB");
+   LOGWARN << "fecthOutPointFromDB: " << fecthOutPointFromDB << " sec";
+
+   double fullFecthOutPointFromDB = TIMER_READ_SEC("fullFecthOutPointFromDB");
+   LOGWARN << "fullFecthOutPointFromDB: " << fullFecthOutPointFromDB << " sec";
+
+   double CommitTxIn = TIMER_READ_SEC("CommitTxIn");
+   LOGWARN << "CommitTxIn: " << CommitTxIn << " sec";
+
+   double TxOutParsing = TIMER_READ_SEC("TxOutParsing");
+   LOGWARN << "TxOutParsing: " << TxOutParsing << " sec";
+
+   double commitToDB = TIMER_READ_SEC("commitToDB");
+   LOGWARN << "commitToDB: " << commitToDB << " sec";
+}

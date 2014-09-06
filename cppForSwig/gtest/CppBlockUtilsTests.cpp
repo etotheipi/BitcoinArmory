@@ -6322,6 +6322,7 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    //wlt.addScrAddress(scrAddrD_);
    
    TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
+   theBDV->scanWallets();
 
    const ScrAddrObj *scrobj;
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
@@ -6683,6 +6684,59 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
 
    EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_DoubleReorg)
+{
+   BtcWallet wlt(theBDV);
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   theBDV->registerWallet(&wlt);
+   //wlt.addScrAddress(scrAddrD_);
+
+   BtcWallet wlt2(theBDV);
+   wlt2.addScrAddress(scrAddrD_);
+   theBDV->registerWallet(&wlt2);
+
+   //read blocks 0 through 3A
+   BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_, 1596);
+   TheBDM.doInitialSyncOnLoad([](double, unsigned) {});
+   theBDV->scanWallets();
+
+   //first reorg: add blocks 3 and 4
+   BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_, 2645);
+   uint32_t prevBlock = TheBDM.readBlkFileUpdate();
+   theBDV->scanWallets(prevBlock);
+
+   const ScrAddrObj *scrobj;
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 100 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+
+   EXPECT_EQ(wlt.getFullBalance(), 150 * COIN);
+
+   //second reorg: add block 4A and 5A
+   BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_);
+   prevBlock = TheBDM.readBlkFileUpdate();
+
+   theBDV->scanWallets(prevBlock);
+
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 150 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 10 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0 * COIN);
+
+   scrobj = wlt2.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(), 140 * COIN);
+
+   EXPECT_EQ(wlt.getFullBalance(), 160 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
