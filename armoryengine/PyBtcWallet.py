@@ -1035,9 +1035,9 @@ class PyBtcWallet(object):
       
       for i in range(numToCreate):
          Progress(i+1, numToCreate)
-         newAddrList.append(self.computeNextAddress(\
+         newAddrList.append(Hash160ToScrAddr(self.computeNextAddress(\
                                  isActuallyNew=isActuallyNew, \
-                                 doRegister=False)) 
+                                 doRegister=False))) 
          
       #add addresses in bulk once they are all computed   
       if doRegister:

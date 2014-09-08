@@ -17,7 +17,7 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 // START TIMER
 
-atomic<int32_t> UniversalTimer::lock_ = 0;
+atomic<int32_t> UniversalTimer::lock_;
 
 void UniversalTimer::lock(void)
 {
@@ -93,8 +93,11 @@ UniversalTimer* UniversalTimer::theUT_ = NULL;
 // Get THE UniversalTimer —- only one ever exists
 UniversalTimer & UniversalTimer::instance(void)
 {
-   if(theUT_ == NULL)
+   if (theUT_ == NULL)
+   {
       theUT_ = new UniversalTimer;
+      lock_.store(0);
+   }
    return *theUT_;
 }
 

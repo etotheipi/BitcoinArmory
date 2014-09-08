@@ -132,8 +132,6 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
       }
    }
 
-   sasd->setSSHLastScanned(endBlock);
-
    //merge with main ScrAddrScanData object
    sasd->merge();
 
