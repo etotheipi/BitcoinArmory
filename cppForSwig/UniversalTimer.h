@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <string>
 #include "log.h"
+#include <atomic>
 
 // Use these #define's to wrap code blocks, not just a single function
 #define TIMER_START(NAME) UniversalTimer::instance().start(NAME)
@@ -97,6 +98,10 @@ public:
 protected:
    UniversalTimer(void) : most_recent_key_("") { }
 private:
+
+   static void lock(void);
+   static void unlock(void);
+
    class timer
    {
    public:
@@ -127,6 +132,8 @@ private:
    map<string, int > call_count_;
    map<string, string> call_group_;
    string most_recent_key_;
+
+   static atomic<int32_t> lock_;
 };
 
 

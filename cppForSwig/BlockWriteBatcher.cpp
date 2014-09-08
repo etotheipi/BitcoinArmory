@@ -960,8 +960,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    // objects
    const set<BinaryData> keysToDelete = bwbPtr->searchForSSHKeysToDelete();
 
-   //UniversalTimer is NOT thread safe
-   //TIMER_START("commitToDB");
+   TIMER_START("commitToDB");
 
    {
       for (auto& stxPair : bwbPtr->stxToModify_)
@@ -1003,7 +1002,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    //clean up
    delete bwbPtr;
 
-   //TIMER_STOP("commitToDB");
+   TIMER_STOP("commitToDB");
 
    return nullptr;
 }

@@ -143,7 +143,7 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
    //notify the wallets that the scrAddr are ready
    for (auto& scrAddrPair : sasd->getScrAddrMap())
    {
-      BtcWallet* wltPtr = scrAddrPair.second.wltPtr_;
+      wltPtr = scrAddrPair.second.wltPtr_;
 
       auto& addressVec = addressPerWallet[wltPtr];
       addressVec.push_back(scrAddrPair.first);
