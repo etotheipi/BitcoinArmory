@@ -140,15 +140,12 @@ static StoredScriptHistory* makeSureSSHInMap(
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
    if (hgtX.getSize() == 4)
    {
-      if (sshptr->subHistMap_.find(hgtX) == sshptr->subHistMap_.end())
-      {
-         size_t prevSize = sshptr->subHistMap_.size();
-         iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
-         size_t newSize = sshptr->subHistMap_.size();
+      size_t prevSize = sshptr->subHistMap_.size();
+      iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
+      size_t newSize = sshptr->subHistMap_.size();
 
-         if (additionalSize)
-            *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
-      }
+      if (additionalSize)
+         *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
    }
    return sshptr;
 }
@@ -321,15 +318,6 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    }
    
    mostRecentBlockApplied_ = sud.blockHeight_;
-   //uint32_t scannedFrom = 0;
-   //if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
-      //scannedFrom = scrAddrData->scanFrom();
-
-   // In the future we will accommodate more user modes
-   if(config_.armoryDbType != ARMORY_DB_SUPER)
-   {
-      LOGERR << "Don't know what to do this in non-supernode mode!";
-   }
 
    ///// Put the STXOs back into the DB which were removed by this block
    // Process the stxOutsRemovedByBlock_ in reverse order
@@ -543,10 +531,10 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    sbh.blockAppliedToDB_ = false;
    sbhToUpdate_.push_back(sbh);
    
+   clearTransactions();
+   
    if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
       commit();
-
-   clearTransactions();
 }
 
 

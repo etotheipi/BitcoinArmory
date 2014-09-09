@@ -33,6 +33,7 @@ static void createUndoDataFromBlock(
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
+   LMDB::Transaction tx(&iface->dbs_[BLKDATA], false);
    StoredHeader sbh;
 
    // Fetch the full, stored block
@@ -139,9 +140,9 @@ private:
       reassesAfterReorg needs a write access to the DB. Most transactions
       created in the main thead are read only, and based on user request, a
       real only transaction may be opened. Since LMDB doesn't support different
-      transaction types to be mixed within the same thread, this whole code
-      is ran in a new thread, while the calling thread joins on it, to guarantee
-      no DB transaction is running.
+      transaction types running concurently within the same thread, this whole 
+      code is ran in a new thread, while the calling thread joins on it, to 
+      guarantee control over the transactions in the running thread.
       ***/
 
       reorgParams_.oldTopPtr_    = oldTopPtr;
@@ -160,9 +161,7 @@ private:
       // Walk down invalidated chain first, until we get to the branch point
       // Mark transactions as invalid
 
-      
       BlockWriteBatcher blockWrites(config_, iface_);
-      LMDB::Transaction batch(&iface_->dbs_[BLKDATA], false);
 
       BlockHeader* thisHeaderPtr = reorgParams_.oldTopPtr_;
       LOGINFO << "Invalidating old-chain transactions...";
