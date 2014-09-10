@@ -117,7 +117,7 @@ parser.add_option("--coverage_include", dest="coverageInclude", default=None, ty
 
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
+BASE16CHARS  = '0123456789abcdefABCDEF'
 LITTLEENDIAN  = '<'
 BIGENDIAN     = '>'
 NETWORKENDIAN = '!'
