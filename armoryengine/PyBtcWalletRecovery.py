@@ -924,6 +924,7 @@ class PyBtcWalletRecovery(object):
                      validAddr.keyChanged = True
                      
                      if validAddr.useEncryption:
+                        validAddr.keyChanged = True
                         validAddr.lock(secureKdfOutput=toRecover.kdfKey)
                      
                      if isPubForked is not True:
@@ -961,10 +962,10 @@ class PyBtcWalletRecovery(object):
                                  CryptoECDSA().ComputePublicKey( \
                                  validAddr.binPrivKey32_Plain)
                                  
-                        validAddr.chainCode = validChainAddr.chaincode.copy()
-                        validAddr.keyChanged = True
+                        validAddr.chainCode = validChainAddr.chaincode.copy()                        
                         
                         if validAddr.useEncryption:
+                           validAddr.keyChanged = True
                            validAddr.lock(secureKdfOutput=toRecover.kdfKey)
                                                                                                  
                      validPrivKey.destroy()   
@@ -1040,23 +1041,21 @@ class PyBtcWalletRecovery(object):
             if prgAt:
                prgAt[0] = prgAt_in + (0.01 + 0.99*(newAddr.chainIndex +1) \
                                       /prgTotal)*prgAt[1]            
-      
-            if newAddr.chainIndex < -2:
-               self.negativeImports.append(newAddr.addrStr20)
-            elif newAddr.chainIndex == -2:   
-               # Fix byte errors in the address data
-               fixedAddrData = newAddr.serialize()
-               if not rawData==fixedAddrData:
-                  self.importedErr.append('found byte error in imported \
-                           address %d at file offset %d' % (i, entrylist[2]))
-                  newAddr = PyBtcAddress()
-                  newAddr.unserialize(fixedAddrData)
-                  entrylist[0] = newAddr
-                  importedDict[i] = entrylist
-                  
-               #marked forked imports
-
-      
+            
+            if newAddr.chainIndex <= -2:
+               if newAddr.chainIndex < -2:
+                  self.negativeImports.append(newAddr.addrStr20)
+               else:                                              
+                  # Fix byte errors in the address data
+                  fixedAddrData = newAddr.serialize()
+                  if not rawData==fixedAddrData:
+                     self.importedErr.append('found byte error in imported \
+                              address %d at file offset %d' % (i, entrylist[2]))
+                     newAddr = PyBtcAddress()
+                     newAddr.unserialize(fixedAddrData)
+                     entrylist[0] = newAddr
+                     importedDict[i] = entrylist
+                     
                #check public key is a valid EC point
                if newAddr.hasPubKey():
                   if not CryptoECDSA().VerifyPublicKeyValid( \
@@ -1109,7 +1108,7 @@ class PyBtcWalletRecovery(object):
                                                     newAddr.binPrivKey32_Plain)
       
                   #check hashVal
-                  if newAddr.addrStr20 != entrylist[1]:
+                  if newAddr.addrStr20 != entrylist[1] and newAddr.chainIndex == 2:
                      newAddr.addrStr20 = newAddr.binPublicKey65.getHash160()
                      self.importedErr.append('hashVal doesnt match addrStr20 \
                               for imported address %d at file offset %d\r\n' \
@@ -1200,7 +1199,7 @@ class PyBtcWalletRecovery(object):
                         # We know no ther way to handle it...
                         LOGERROR('Logging a multiplier that does not match!?')
                      
-                  if newAddr.isLocked:
+                  if newAddr.useEncryption:
                      newAddr.keyChanged = 1
                      newAddr.lock(RecoveredWallet.kdfKey)
                                           

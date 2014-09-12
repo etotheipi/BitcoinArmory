@@ -75,7 +75,7 @@ all : $(TESTS)
 
 clean :
 	rm -f $(TESTS) gtest.a gtest_main.a *.o *.gcda *.gcno
-
+	rm -f libcryptopp.a libleveldb.a
 # Builds gtest.a and gtest_main.a.
 
 # Usually you shouldn't tweak such internal variables, indicated by a
