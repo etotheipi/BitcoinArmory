@@ -8,7 +8,7 @@
 
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
-   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], TXN_READONLY);
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
@@ -39,7 +39,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], true);
+   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], TXN_READWRITE);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -322,10 +322,11 @@ BinaryData ZeroConfContainer::getNewZCkey()
 ///////////////////////////////////////////////////////////////////////////////
 Tx ZeroConfContainer::getTxByHash(const BinaryData& txHash) const
 {
+   Tx rt;
    const auto keyIter = txHashToDBKey_.find(txHash);
 
    if (keyIter == txHashToDBKey_.end())
-      throw runtime_error("Could not find ZC Tx by hash " + txHash.toHexStr());
+      return rt;
 
    return txMap_.find(keyIter->second)->second;
 }
@@ -386,7 +387,7 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    map<BinaryData, Tx>           txMap;
    map<HashString, map<BinaryData, TxIOPair> >  txioMap;
 
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA], TXN_READONLY);
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -519,7 +520,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA], TXN_READONLY);
 
    while (1)
    {

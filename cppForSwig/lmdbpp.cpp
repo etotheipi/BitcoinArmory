@@ -312,7 +312,7 @@ LMDB::Transaction::Transaction()
 : db(nullptr)
 {}
 
-LMDB::Transaction::Transaction(LMDB *db, bool readWrite)
+LMDB::Transaction::Transaction(LMDB *db, TXN_MODE readWrite)
 : db(db)
 {
    begin(readWrite);
@@ -323,7 +323,7 @@ LMDB::Transaction::~Transaction()
    commit();
 }
 
-void LMDB::Transaction::begin(bool readWrite)
+void LMDB::Transaction::begin(TXN_MODE readWrite)
 {
    if (began)
       return;
@@ -338,7 +338,7 @@ void LMDB::Transaction::begin(bool readWrite)
    
    if (thTx.transactionLevel_++ != 0)
    {
-      if (readWrite == true && thTx.mode_ == ReadOnly)
+      if (readWrite == TXN_READWRITE && thTx.mode_ == ReadOnly)
          throw LMDBException("Cannot access ReadOnly Transaction in ReadWrite mode");
 
       return;
@@ -347,7 +347,7 @@ void LMDB::Transaction::begin(bool readWrite)
    int modef = MDB_RDONLY;
    thTx.mode_ = ReadOnly;
 
-   if (readWrite == true)
+   if (readWrite == TXN_READWRITE)
    {
       if (db->mode == ReadOnly)
          throw LMDBException("Cannot open ReadWrite Transaction in ReadOnly env");

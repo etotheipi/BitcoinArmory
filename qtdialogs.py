@@ -5854,12 +5854,12 @@ def extractTxInfo(pytx, rcvTime=None):
 
    txcpp = Tx()
    if TheBDM.getState() == 'BlockchainReady':
-      txcpp = TheBDM.runBDM( lambda : TheBDM.bdv.getTxByHash(txHash) )
+      txcpp = TheBDM.bdv.getTxByHash(txHash)
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
-         if hgt < TheBDM.runBDM( lambda : TheBDM.bdv.blockchain().top().getBlockHeight()):
-            headref = TheBDM.runBDM( lambda : TheBDM.bdv.blockchain().getHeaderByHeight(hgt))
-            txTime = unixTimeToFormatStr(TheBDM.runBDM( lambda : headref.getTimestamp() ))
+         if hgt < TheBDM.getCurrBlock():
+            headref = TheBDM.bdv.blockchain().getHeaderByHeight(hgt)
+            txTime = unixTimeToFormatStr(headref.getTimestamp())
             txBlk = headref.getBlockHeight()
             txIdx = txcpp.getBlockTxIndex()
          else:
@@ -5883,11 +5883,11 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.runBDM( lambda : TheBDM.bdv.getTxByHash(prevTxHash) ).isInitialized():
-            prevTx = TheBDM.runBDM( lambda : TheBDM.bdv.getPrevTx(cppTxin))
+         if TheBDM.bdv.getTxByHash(prevTxHash).isInitialized():
+            prevTx = TheBDM.bdv.getPrevTx(cppTxin)
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdv.getSenderScrAddr(cppTxin)))
-            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdv.getSentValue(cppTxin)))
+            txinFromList[-1].append(TheBDM.bdv.getSenderScrAddr(cppTxin))
+            txinFromList[-1].append(TheBDM.bdv.getSentValue(cppTxin))
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())

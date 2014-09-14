@@ -34,6 +34,103 @@
 class ScrAddrObj
 {
    friend class BtcWallet;
+
+private:
+   struct pagedUTXOs
+   {
+      static const uint32_t UTXOperFetch = 100;
+
+      map<BinaryData, TxIOPair> utxoList_;
+      uint32_t topBlock_ = 0;
+      uint64_t value_ = 0;
+
+      /***We use a dedicate count here instead of map::size() so that a thread
+      can update the map while another reading the struct won't be aware of the
+      new entries until count_ is updated
+      ***/
+      uint32_t count_ = 0;
+      
+      ScrAddrObj *scrAddrObj_;
+
+      pagedUTXOs(ScrAddrObj* scrAddrObj) : 
+         scrAddrObj_(scrAddrObj)
+      {}
+
+      const map<BinaryData, TxIOPair>& getUTXOs(void) const
+      {
+         return utxoList_;
+      }
+
+      bool fetchMoreUTXO(void)
+      {
+         //return true if more UTXO were found, false otherwise
+         if (topBlock_ < scrAddrObj_->bc_->top().getBlockHeight())
+         {
+            uint32_t rangeTop;
+            uint32_t count = 0;
+            do
+            {
+               rangeTop = scrAddrObj_->hist_.getRangeForHeightAndCount(
+                                                topBlock_, UTXOperFetch);
+               count += fetchMoreUTXO(topBlock_, rangeTop);
+            } 
+            while (count < UTXOperFetch && rangeTop != UINT32_MAX);
+
+            if (count > 0)
+               return true;
+         }
+
+         return false;
+      }
+
+      uint32_t fetchMoreUTXO(uint32_t start, uint32_t end)
+      {
+         LMDB::Transaction batch(&scrAddrObj_->db_->dbs_[BLKDATA], TXN_READONLY);
+
+         uint32_t nutxo = 0;
+         uint64_t val = 0;
+
+         StoredScriptHistory ssh;
+         scrAddrObj_->db_->getStoredScriptHistory(ssh, 
+            scrAddrObj_->scrAddr_, start, end);
+
+         for (const auto& subsshPair : ssh.subHistMap_)
+         {
+            for (const auto& txioPair : subsshPair.second.txioMap_)
+            {
+               if (txioPair.second.isUTXO())
+               {
+                  auto txioAdded = utxoList_.insert(txioPair);
+
+                  if (txioAdded.second == true)
+                  {
+                     val += txioPair.second.getValue();
+                     nutxo++;
+                  }
+               }
+            }
+         }
+
+         topBlock_ = end;
+         value_ += val;
+         count_ += nutxo;
+
+         return nutxo;
+      }
+
+      uint64_t getValue(void) const { return value_; }
+      uint32_t getCount(void) const { return count_; }
+
+      void reset(void)
+      {
+         topBlock_ = 0;
+         value_ += 0;
+         count_ += 0;
+
+         utxoList_.clear();
+      }
+   };
+
 public:
 
    ScrAddrObj() :
@@ -41,7 +138,7 @@ public:
       bc_(nullptr),
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0),
       lastBlockNum_(0), lastTimestamp_(0), hasMultisigEntries_(false),
-      totalTxioCount_(0)
+      totalTxioCount_(0), utxos_(this)
    {
       relevantTxIO_.clear();
    }
@@ -79,10 +176,7 @@ public:
       uint32_t currBlk, 
       bool includeAllZeroConf=false
    ) const;
-   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0, 
-                                              bool ignoreAllZeroConf=false
-                                             ) const;
+   //vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
@@ -152,6 +246,17 @@ public:
 
    ScrAddrObj& operator= (const ScrAddrObj& rhs);
 
+   const map<BinaryData, TxIOPair>& getSpendableTxOutList(void) const
+   { return utxos_.getUTXOs(); }
+   
+   bool getMoreUTXOs(void)
+   { return utxos_.fetchMoreUTXO(); }
+
+   uint64_t getLoadedTxOutsValue(void) const { return utxos_.getValue(); }
+   uint32_t getLoadedTxOutsCount(void) const { return utxos_.getCount(); }
+
+   void resetTxOutHistory(void) { utxos_.reset(); }
+
 private:
    LMDBBlockDatabase *db_;
    Blockchain        *bc_;
@@ -174,6 +279,9 @@ private:
 
    //prebuild history indexes for quick fetch from SSH
    HistoryPager hist_;
+
+   //fetches and maintains utxos
+   pagedUTXOs   utxos_;
 };
 
 #endif

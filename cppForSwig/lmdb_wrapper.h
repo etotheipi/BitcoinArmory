@@ -382,7 +382,7 @@ public:
    {
    public:
       Batch(LMDBBlockDatabase *db, DB_SELECT which)
-         : Transaction(&db->dbs_[which], true)
+         : Transaction(&db->dbs_[which], TXN_READWRITE)
       { }
    };
 

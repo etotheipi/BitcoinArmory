@@ -76,6 +76,8 @@ public:
    size_t   getPageCount(void) const { return pages_.size(); }
    uint32_t getCurrentPage(void) const { return currentPage_; }
    void setCurrentPage(uint32_t pageId) { currentPage_ = pageId; }
+   
+   uint32_t getRangeForHeightAndCount(uint32_t height, uint32_t count) const;
 };
 
 #endif

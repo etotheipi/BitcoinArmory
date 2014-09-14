@@ -3787,7 +3787,7 @@ class ArmoryMainWindow(QMainWindow):
             # balance occur.  In some cases, that may be more satisfying than
             # just seeing the updated balance when they get back to the main
             # screen
-            if not TheBDM.bdm.getTxByHash(newTxHash).isInitialized():
+            if not TheBDM.bdv.getTxByHash(newTxHash).isInitialized():
                LOGERROR('Transaction was not accepted by the Satoshi client')
                LOGERROR('Raw transaction:')
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
@@ -6758,7 +6758,7 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append('Recipient:  %s' % wltName)
          elif le.getValue() < 0:
             # Also display the address of where they went
-            txref = TheBDM.bdm.getTxByHash(le.getTxHash())
+            txref = TheBDM.bdv.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
             recipStr = ''
             for i in range(nOut):

@@ -1833,10 +1833,10 @@ void StoredScriptHistory::insertSpentTxio(const BinaryData& txOutDbKey,
       subssh.hgtX_ = txInHgtX;
    }
 
-   uint32_t prevSize = subssh.txioMap_.size();
+   size_t prevSize = subssh.txioMap_.size();
    txio.setTxIn(txInDbKey);
    subssh.insertTxio(txio, true);
-   uint32_t newSize = subssh.txioMap_.size();
+   size_t newSize = subssh.txioMap_.size();
 
    totalTxioCount_ += (newSize - prevSize);
 

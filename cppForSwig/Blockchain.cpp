@@ -300,3 +300,27 @@ double Blockchain::traceChainDown(BlockHeader & bhpStart)
   
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void Blockchain::putBareHeaders(LMDBBlockDatabase *db)
+{
+   /***
+   Duplicated block heights (forks and orphans) have to saved to the headers
+   DB.
+
+   The current code detects the next unkown block by comparing the block
+   hashes in the last parsed block file to the list saved in the DB. If
+   the DB doesn't keep a record of duplicated or orphaned blocks, it will
+   consider the next dup to be the first unknown block in DB until a new
+   block file is created by Core.
+   ***/
+   LMDB::Transaction batch(&db->dbs_[HEADERS], TXN_READWRITE);
+
+   for (auto& block : headerMap_)
+   {
+      StoredHeader sbh;
+      sbh.createFromBlockHeader(block.second);
+      uint8_t dup = db->putBareHeader(sbh);
+      block.second.setDuplicateID(dup);  // make sure headerMap_ and DB agree
+   }
+}
+

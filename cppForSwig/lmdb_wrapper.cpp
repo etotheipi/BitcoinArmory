@@ -379,7 +379,7 @@ void LMDBBlockDatabase::openDatabases(
          
          dbs_[db].open(dbPaths_[db], dbmode);
          
-         LMDB::Transaction tx(&dbs_[db], true);
+         LMDB::Transaction tx(&dbs_[db], TXN_READWRITE);
 
          StoredDBInfo sdbi;
          getStoredDBInfo(CURRDB, sdbi, false); 
@@ -438,7 +438,7 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
    SCOPED_TIMER("nukeHeadersDB");
    LOGINFO << "Destroying headers DB, to be rebuilt.";
    
-   LMDB::Transaction tx(&dbs_[HEADERS], true);
+   LMDB::Transaction tx(&dbs_[HEADERS], TXN_READWRITE);
    
    LMDB::Iterator begin = dbs_[HEADERS].begin();
    LMDB::Iterator end = dbs_[HEADERS].end();
@@ -499,7 +499,7 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
 {
-   LMDB::Transaction batch(&dbs_[db], false);
+   LMDB::Transaction batch(&dbs_[db], TXN_READONLY);
    StoredDBInfo sdbi;
    getStoredDBInfo(db, sdbi);
    return sdbi.topBlkHash_;
@@ -943,7 +943,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
 void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                                     BinaryDataRef scrAddrStr)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
    LDBIter ldbIter = getIterator(BLKDATA);
    ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
 
@@ -963,7 +963,7 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
 											              uint32_t startBlock,
                                                uint32_t endBlock)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
    SCOPED_TIMER("getStoredScriptHistory");
    LDBIter ldbIter = getIterator(BLKDATA);
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
@@ -1131,8 +1131,8 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 void LMDBBlockDatabase::readAllHeaders(map<HashString, BlockHeader> & headerMap,
                                        map<HashString, StoredHeader> & storedMap)
 {
-   LMDB::Transaction batch(&dbs_[HEADERS], false);
-   LMDB::Transaction batch1(&dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&dbs_[HEADERS], TXN_READONLY);
+   LMDB::Transaction batch1(&dbs_[BLKDATA], TXN_READONLY);
    
    LDBIter ldbIter = getIterator(HEADERS);
    if(!ldbIter.seekToStartsWith(DB_PREFIX_HEADHASH))
@@ -1229,7 +1229,7 @@ void LMDBBlockDatabase::putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi)
 bool LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn)
 {
    SCOPED_TIMER("getStoredDBInfo");
-   LMDB::Transaction batch(&dbs_[db], false);
+   LMDB::Transaction batch(&dbs_[db], TXN_READONLY);
 
    BinaryRefReader brr = getValueRef(db, StoredDBInfo::getDBKey());
     
@@ -1264,7 +1264,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, bool withBlkData
    if(!withBlkData)
       return newDup;
 
-   LMDB::Transaction tx(&dbs_[BLKDATA], true);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READWRITE);
 
    BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryData bwBlkData = serializeDBValue(sbh, BLKDATA, armoryDbType_, dbPruneType_);
@@ -1323,7 +1323,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
    }
 
    // Batch the two operations to make sure they both hit the DB, or neither 
-   LMDB::Transaction tx(&dbs_[HEADERS], true);
+   LMDB::Transaction tx(&dbs_[HEADERS], TXN_READWRITE);
 
    StoredDBInfo sdbiH;
    getStoredDBInfo(HEADERS, sdbiH);
@@ -1460,7 +1460,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 {
    SCOPED_TIMER("getStoredHeader");
 
-   LMDB::Transaction tx(&dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
    if(!withTx)
    {
       //////
@@ -1574,7 +1574,7 @@ void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
    }
 
    // Batch update the DB
-   LMDB::Transaction tx(&dbs_[BLKDATA], true);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READWRITE);
 
    if(needToAddTxToHints || needToUpdateHints)
       putStoredTxHints(sths);
@@ -1841,8 +1841,8 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B )
       return Tx();
    }
     
-   LMDB::Transaction batch(&dbs_[HEADERS], false);
-   LMDB::Transaction batch1(&dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&dbs_[HEADERS], TXN_READONLY);
+   LMDB::Transaction batch1(&dbs_[BLKDATA], TXN_READONLY);
    
    LDBIter ldbIter = getIterator(BLKDATA);
    if(!ldbIter.seekToStartsWith(DB_PREFIX_TXDATA, ldbKey6B))
@@ -1966,7 +1966,7 @@ TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 {
    SCOPED_TIMER("getTxHashForLdbKey");
-   LMDB::Transaction tx(&dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
    BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(stxVal.getSize()==0)
    {
@@ -2075,7 +2075,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       return false;
 
    BinaryData hash4(txHash.getSliceRef(0,4));
-   LMDB::Transaction tx(&dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
    BinaryData hintsDBVal = getValueNoIter(BLKDATA, DB_PREFIX_TXHINTS, hash4);
    uint32_t valSize = hintsDBVal.getSize();
 
@@ -2211,7 +2211,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
 bool LMDBBlockDatabase::getStoredTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
    BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
    if (brr.getSize() == 0)
    {
@@ -2561,7 +2561,7 @@ KVLIST LMDBBlockDatabase::getAllDatabaseEntries(DB_SELECT db)
    if(!databasesAreOpen())
       return KVLIST();
 
-   LMDB::Transaction tx(&dbs_[db], false);
+   LMDB::Transaction tx(&dbs_[db], TXN_READONLY);
    KVLIST outList;
    outList.reserve(100);
 

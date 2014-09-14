@@ -125,3 +125,26 @@ uint32_t HistoryPager::getPageBottom(uint32_t id) const
 
    return 0;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t HistoryPager::getRangeForHeightAndCount(
+   uint32_t height, uint32_t count) const
+{
+   uint32_t total = 0;
+   uint32_t top = 0;
+
+   for (const auto& page : pages_)
+   {
+      if (page.blockEnd_ > height)
+      {
+         total += page.count_;
+         top = page.blockEnd_;
+
+         if (total > count)
+            break;
+      }
+   }
+
+   return top;
+}
+

@@ -594,7 +594,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       while minFee is None or (feeTry < minFee and totalSend + minFee <= bal):
          if minFee:
             feeTry = minFee
-         utxoList = self.getUsableTxOutList()
+         utxoList = self.getUsableTxOutList(totalSend)
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
       
          if self.lbox is None:
@@ -822,10 +822,10 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
    #############################################################################
-   def getUsableTxOutList(self):
+   def getUsableTxOutList(self, totalSend):
       if self.lbox is None:
          if self.altBalance is None:
-            return list(self.wlt.getTxOutList('Spendable'))
+            return list(self.wlt.getTxOutList(totalSend, 'Spendable'))
          else:
             utxoList = []
             for a160 in self.sourceAddrList:
@@ -840,7 +840,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         txoList = cppWlt.getSpendableTxOutList(TheBDM.getCurrBlock(), IGNOREZC)
+         txoList = cppWlt.getSpendableTxOutListForValue(totalSend)
          pyUtxoList = []
          for i in range(len(txoList)):
             pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i])

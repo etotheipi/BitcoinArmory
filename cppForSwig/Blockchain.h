@@ -2,6 +2,7 @@
 #define _BLOCKCHAIN_H
 
 #include "BlockObj.h"
+#include "lmdb_wrapper.h"
 
 #include <deque>
 #include <map>
@@ -70,6 +71,8 @@ public:
    {
       return headerMap_;
    }
+
+   void putBareHeaders(LMDBBlockDatabase *db);
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);

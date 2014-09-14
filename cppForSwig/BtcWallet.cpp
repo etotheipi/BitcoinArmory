@@ -398,19 +398,98 @@ uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& addr) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(
-   uint32_t blkNum, 
-   bool ignoreAllZC
-) const
+void BtcWallet::prepareTxOutHistory(uint64_t val)
 {
-   vector<UnspentTxOut> utxoList;
-   vector<UnspentTxOut> saUtxoList;
+   uint64_t value;
+   uint32_t count;
 
-   for (const auto scrAddr : scrAddrMap_)
+   while (1)
    {
-      saUtxoList = scrAddr.second.getSpendableTxOutList();
-      utxoList.insert(utxoList.end(), saUtxoList.begin(), saUtxoList.end());
+      value = 0;
+      count = 0;
+
+      for (const auto& scrAddr : scrAddrMap_)
+      {
+         value += scrAddr.second.getLoadedTxOutsValue();
+         count += scrAddr.second.getLoadedTxOutsCount();
+      }
+
+      //grab at least MIN_UTXO_PER_TXN to cover for twice the requested value
+      if (value * 2 < val || count < MIN_UTXO_PER_TXN)
+      {
+         /***getMoreUTXOs returns true if it found more. As long as one
+         ScrAddrObj, reassess the utxo state, otherwise get out of the loop
+         ***/
+
+         bool hasMore = false;
+         for (auto& scrAddr : scrAddrMap_)
+            hasMore |= scrAddr.second.getMoreUTXOs();
+
+         if (hasMore == false)
+            return;
+      }
+      else return;
+   } 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::prepareFullTxOutHistory()
+{
+   while (1)
+   {
+      bool hasMore = false;
+      for (auto& scrAddr : scrAddrMap_)
+         hasMore |= scrAddr.second.getMoreUTXOs();
+
+      if (hasMore == false)
+         return;
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::resetTxOutHistory()
+{
+   for (auto& scrAddr : scrAddrMap_)
+      scrAddr.second.resetTxOutHistory();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
+{
+   /***
+   Only works with DB so it naturally ignores ZC 
+   Use getSpendableTxOutListFromZC to spend from ZC
+
+   Only the TxIOPairs (DB keys) are saved in RAM. The full TxOuts are pulled only
+   on demand since there is a high probability that at least a few of them will 
+   be consumed.
+   ***/
+
+   prepareTxOutHistory(val);
+   LMDBBlockDatabase *db = bdvPtr_->getDB();
+
+   //start a RO txn to grab the txouts from DB
+   LMDB::Transaction batch(&db->dbs_[BLKDATA], TXN_READONLY);
+
+   vector<UnspentTxOut> utxoList;
+   uint32_t blk = bdvPtr_->getTopBlockHeight();
+
+   for (const auto& scrAddr : scrAddrMap_)
+   {
+      const auto& utxoMap = scrAddr.second.getSpendableTxOutList();
+
+      for (const auto& txioPair : utxoMap)
+      {
+         TxOut txout = txioPair.second.getTxOutCopy(db);
+         UnspentTxOut UTXO = UnspentTxOut(db, txout, blk);
+         utxoList.push_back(UTXO);
+      }
+   }
+
+   //Shipped a list of TxOuts, time to reset the entire TxOut history, since 
+   //dont know if any TxOut will be spent
+
+   resetTxOutHistory();
    return utxoList;
 }
 
@@ -584,7 +663,7 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       if (reorg)
          updateAfterReorg(startBlock);
          
-      LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], false);
+      LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], TXN_READONLY);
 
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf(reorg);
@@ -726,7 +805,7 @@ bool BtcWallet::merge()
 map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
 {
    map<uint32_t, uint32_t> histSummary;
-   LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], TXN_READONLY);
    for (auto& scrAddrPair : scrAddrMap_)
    {
       scrAddrPair.second.mapHistory();

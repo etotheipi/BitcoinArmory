@@ -15,6 +15,12 @@ struct MDB_env;
 struct MDB_txn;
 struct MDB_cursor;
 
+enum TXN_MODE
+{
+   TXN_READONLY,
+   TXN_READWRITE
+};
+
 // this exception is thrown for all errors from LMDB
 class LMDBException : public std::runtime_error
 {
@@ -185,7 +191,7 @@ public:
       
       Transaction();
       // begin a transaction
-      Transaction(LMDB *db, bool readWrite);
+      Transaction(LMDB *db, TXN_MODE readWrite);
       // commit a transaction if it exists
       ~Transaction();
       
@@ -197,7 +203,7 @@ public:
       // After this function completes, no transaction exists
       void rollback();
       // start a new transaction. If one already exists, do nothing
-      void begin(bool ReadWrite);
+      void begin(TXN_MODE ReadWrite);
    private:
       Transaction(const Transaction&); // no copies
    };

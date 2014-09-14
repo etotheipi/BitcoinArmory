@@ -51,6 +51,8 @@ class BtcWallet
 {
    friend class BlockDataViewer;
 
+   static const uint32_t MIN_UTXO_PER_TXN = 100;
+
 public:
    BtcWallet(BlockDataViewer* bdv)
       : bdvPtr_(bdv),
@@ -123,10 +125,9 @@ public:
 
    uint64_t getAddrTotalTxnCount(const BinaryData& addr) const;
 
-   vector<UnspentTxOut> getSpendableTxOutList(
-      uint32_t currBlk=0,
-      bool ignoreAllZeroConf=false
-   ) const;
+   void prepareTxOutHistory(uint64_t val);
+   void prepareFullTxOutHistory();
+   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val);
 
    vector<const LedgerEntry*>
       getTxLedger(BinaryData const &scrAddr) const;
@@ -203,6 +204,8 @@ private:
 
    void sortLedger();
    void unregister(void) { isRegistered_ = false; }
+
+   void resetTxOutHistory(void);
 
 private:
    BlockDataViewer* const        bdvPtr_;

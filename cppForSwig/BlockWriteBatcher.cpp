@@ -940,8 +940,8 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
 
    //create readwrite transactions to apply data to DB
-   bwbPtr->txnHeaders_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], true);
-   bwbPtr->txnBlkdata_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], true);
+   bwbPtr->txnHeaders_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], TXN_READWRITE);
+   bwbPtr->txnBlkdata_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], TXN_READWRITE);
 
    // Check for any SSH objects that are now completely empty.  If they exist,
    // they should be removed from the DB, instead of simply written as empty
@@ -1003,8 +1003,8 @@ void BlockWriteBatcher::resetTransactions(void)
    delete txnHeaders_;
    delete txnBlkdata_;
 
-   txnHeaders_ = new LMDB::Transaction(&iface_->dbs_[HEADERS], false);
-   txnBlkdata_ = new LMDB::Transaction(&iface_->dbs_[BLKDATA], false);  
+   txnHeaders_ = new LMDB::Transaction(&iface_->dbs_[HEADERS], TXN_READONLY);
+   txnBlkdata_ = new LMDB::Transaction(&iface_->dbs_[BLKDATA], TXN_READONLY);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1028,7 +1028,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    BlockWriteBatcher* dis = static_cast<BlockWriteBatcher*>(in);
 
    //read only db txn
-   LMDB::Transaction batch(&dis->iface_->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&dis->iface_->dbs_[BLKDATA], TXN_READONLY);
 
    vector<StoredHeader*> shVec;
 
@@ -1052,7 +1052,12 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
       }
       
       StoredHeader* sbhPtr = new StoredHeader();
-      dis->iface_->getStoredHeader(*sbhPtr, hgt, dupID);
+      if (!dis->iface_->getStoredHeader(*sbhPtr, hgt, dupID))
+      {
+         dis->tempBlockData_->endBlock_ = hgt - 1;
+         LOGERR << "No block in DB at height " << hgt;
+         break;
+      }
 
       memoryLoad += sbhPtr->numBytes_;
       shVec.push_back(sbhPtr);
@@ -1166,6 +1171,12 @@ void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock,
    
    if (scf != nullptr)
       preloadSSH(*scf);
+
+   /*rewind 500 blocks to account for reorgs*/
+   if (startBlock > 500)
+      startBlock -= 500;
+   else
+      startBlock = 0;
 
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);

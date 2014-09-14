@@ -2075,7 +2075,7 @@ class UnsignedTransaction(AsciiSerializable):
                                         'in supplied txMap')
             pyPrevTx = txMap[txhash].copy()
          elif TheBDM.getState()=='BlockchainReady':
-            cppPrevTx = TheBDM.bdm.getTxByHash(txhash)
+            cppPrevTx = TheBDM.bdv.getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())

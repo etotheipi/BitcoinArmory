@@ -33,7 +33,7 @@ static void createUndoDataFromBlock(
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
-   LMDB::Transaction tx(&iface->dbs_[BLKDATA], false);
+   LMDB::Transaction tx(&iface->dbs_[BLKDATA], TXN_READONLY);
    StoredHeader sbh;
 
    // Fetch the full, stored block
@@ -187,7 +187,7 @@ private:
    void updateBlockDupIDs(void)
    {
       //create a readwrite tx to update the dupIDs
-      LMDB::Transaction batch(&iface_->dbs_[HEADERS], true);
+      LMDB::Transaction batch(&iface_->dbs_[HEADERS], TXN_READWRITE);
 
       BlockHeader* thisHeaderPtr = reorgParams_.branchPtr_;
 
@@ -913,7 +913,7 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], TXN_READONLY);
    TxRef txref = iface_->getTxRef(txHash);
    if (txref.isInitialized())
       return true;
@@ -1403,22 +1403,10 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << e.what();
    }
 
-   {
-      LMDB::Transaction batch(&iface_->dbs_[HEADERS], true);
-         
-      for(unsigned i = 0; i <= blockchain_.top().getBlockHeight(); ++i)
-      {
-         BlockHeader &block = blockchain_.getHeaderByHeight(i);
-         StoredHeader sbh;
-         sbh.createFromBlockHeader(block);
-         uint8_t dup = iface_->putBareHeader(sbh);
-         block.setDuplicateID(dup);  // make sure headerMap_ and DB agree
-      }
-   }
+   //write headers to the DB, update dupIDs in RAM
+   blockchain_.putBareHeaders(iface_);
 
    return prevTopBlkStillValid;
-
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1784,9 +1772,9 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
             {
                dbUpdateSize = 0;
                batchB.commit();
-               batchB.begin(true);
+               batchB.begin(TXN_READWRITE);
                batchH.commit();
-               batchH.begin(true);
+               batchH.begin(TXN_READWRITE);
             }
 
             blocksReadSoFar_++;
@@ -1867,7 +1855,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    LOGINFO << "Clearing all SSH";
 
-   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], true);
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], TXN_READWRITE);
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
    if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
@@ -2254,8 +2242,8 @@ Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
    }
 
    // Insert the block
-   LMDB::Transaction batch(&iface_->dbs_[HEADERS], true);
-   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA], true);
+   LMDB::Transaction batch(&iface_->dbs_[HEADERS], TXN_READWRITE);
+   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA], TXN_READWRITE);
 
    BlockHeader bl;
    bl.unserialize(brrRawBlock);

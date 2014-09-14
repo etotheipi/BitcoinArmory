@@ -339,7 +339,7 @@ TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash)
 /////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(HashString const & txhash)
 {
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA], false);
+   LMDB::Transaction batch(&db_->dbs_[BLKDATA], TXN_READONLY);
 
    TxRef txrefobj = db_->getTxRef(txhash);
 

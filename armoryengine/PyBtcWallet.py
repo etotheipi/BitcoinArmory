@@ -421,13 +421,13 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def getTxOutList(self, txType='Spendable'):
+   def getTxOutList(self, totalSend, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
          currBlk = TheBDM.getCurrBlock()
          if txType.lower() in ('spend', 'spendable'):
-            return self.cppWallet.getSpendableTxOutList(currBlk, IGNOREZC);
+            return self.cppWallet.getSpendableTxOutListForValue(totalSend) #IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return self.cppWallet.getFullTxOutList(currBlk);
          else:

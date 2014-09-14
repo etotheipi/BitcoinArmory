@@ -19,7 +19,8 @@ ScrAddrObj::ScrAddrObj(LMDBBlockDatabase *db, Blockchain *bc,
       firstBlockNum_(firstBlockNum), 
       firstTimestamp_(firstTimestamp),
       lastBlockNum_(lastBlockNum), 
-      lastTimestamp_(lastTimestamp)
+      lastTimestamp_(lastTimestamp),
+      utxos_(this)
 { 
    relevantTxIO_.clear();
 } 
@@ -77,39 +78,6 @@ uint64_t ScrAddrObj::getFullBalance() const
    }
 
    return balance;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
-   uint32_t blkNum,
-   bool ignoreAllZC
-) const
-{
-   vector<UnspentTxOut> utxoList(0);
-   for (auto txio : relevantTxIO_)
-   {
-      if(txio.second.isSpendable(db_, blkNum, ignoreAllZC))
-      {
-         TxOut txout = txio.second.getTxOutCopy(db_);
-         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
-      }
-   }
-   return utxoList;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t blkNum) const
-{
-   vector<UnspentTxOut> utxoList(0);
-   for (auto txio : relevantTxIO_)
-   {
-      if(txio.second.isUnspent(db_))
-      {
-         TxOut txout = txio.second.getTxOutCopy(db_);
-         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
-      }
-   }
-   return utxoList;
 }
    
 ////////////////////////////////////////////////////////////////////////////////
