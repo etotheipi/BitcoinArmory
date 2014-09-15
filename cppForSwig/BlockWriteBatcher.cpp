@@ -230,7 +230,7 @@ BlockWriteBatcher::~BlockWriteBatcher()
 }
 
 void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
-   ScrAddrFilter* scrAddrData)
+   ScrAddrFilter& scrAddrData)
 {
    TIMER_START("applyBlockToDBinternal");
    if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
@@ -287,12 +287,11 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
 }
 
 void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
-   ScrAddrFilter* scrAddrData)
+   ScrAddrFilter& scrAddrData)
 {
    resetTransactions();
 
-   if (scrAddrData != nullptr)
-      preloadSSH(*scrAddrData);
+   preloadSSH(scrAddrData);
 
    StoredHeader sbh;
    iface_->getStoredHeader(sbh, hgt, dup);
@@ -304,7 +303,7 @@ void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup,
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud, 
-                                        ScrAddrFilter* scrAddrData)
+                                        ScrAddrFilter& scrAddrData)
 {
    SCOPED_TIMER("undoBlockFromDB");
    resetTransactions();
@@ -326,13 +325,13 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    {
       StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
 
-      if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+      if (scrAddrData.armoryDbType_ != ARMORY_DB_SUPER)
       {
-         if (!scrAddrData->hasScrAddress(sudStxo.getScrAddress()))
+         if (!scrAddrData.hasScrAddress(sudStxo.getScrAddress()))
             continue;
          
          //UTxO is for one of our scrAddr, add it
-         scrAddrData->addUTxO(sudStxo.getDBKey(false));
+         scrAddrData.addUTxO(sudStxo.getDBKey(false));
       }
 
       StoredTx * stxptr = makeSureSTXInMap( 
@@ -436,6 +435,11 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
             {
                // Get the existing SSH or make a new one
                BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+               
+               if (scrAddrData.armoryDbType_ != ARMORY_DB_SUPER && 
+                   scrAddrData.hasScrAddress(uniqKey) == false)
+                     continue;
+
                StoredScriptHistory* sshms = makeSureSSHInMap(iface_, uniqKey, 
                                                             stxoReAdd.getHgtX(),
                                                             sshToModify_, &dbUpdateSize_);
@@ -483,12 +487,12 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    
          // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
          BinaryData uniqKey = stxo.getScrAddress();
-         if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+         if (scrAddrData.armoryDbType_ != ARMORY_DB_SUPER)
          {
-            if (!scrAddrData->hasScrAddress(uniqKey))
+            if (!scrAddrData.hasScrAddress(uniqKey))
                continue;
 
-            scrAddrData->eraseUTxO(stxoKey);
+            scrAddrData.eraseUTxO(stxoKey);
          }
 
          BinaryData hgtX    = stxo.getHgtX();
@@ -547,7 +551,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 bool BlockWriteBatcher::applyTxToBatchWriteData(
                         StoredTx &       thisSTX,
                         StoredUndoData * sud,
-                        ScrAddrFilter* scrAddrData)
+                        ScrAddrFilter& scrAddrData)
 {
    SCOPED_TIMER("applyTxToBatchWriteData");
 
@@ -607,9 +611,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
       TIMER_STOP("grabTxIn");
 
-      //For scanning a predefined set of addresses purpose, check if this txin 
+      //For scanning a predefined set of addresses, check if this txin 
       //consumes one of our utxo
-      if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+      if (scrAddrData.armoryDbType_ != ARMORY_DB_SUPER)
       {
          //leveraging the stx map in RAM
          TIMER_START("leverageStxInRAM");
@@ -621,13 +625,13 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
             
             //Since this STX is already in map, we have processed it, thus
             //all the relevant outpoints of this STX are already in RAM
-            if (scrAddrData->hasUTxO(stxo.getDBKey(false)) < 1)
+            if (scrAddrData.hasUTxO(stxo.getDBKey(false)) < 1)
             {
                TIMER_STOP("leverageStxInRAM");
                continue;
             }
 
-            scrAddrData->eraseUTxO(stxo.getDBKey(false));
+            scrAddrData.eraseUTxO(stxo.getDBKey(false));
             TIMER_STOP("leverageStxInRAM");
          }
          else
@@ -641,7 +645,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
                continue;
             txOutDBkey.append(WRITE_UINT16_BE(opTxoIdx));
 
-            int8_t hasKey = scrAddrData->hasUTxO(txOutDBkey);
+            int8_t hasKey = scrAddrData.hasUTxO(txOutDBkey);
          
             TIMER_STOP("fecthOutPointFromDB");
 
@@ -656,7 +660,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
                const StoredTxOut& stxo = stxptr->stxoMap_[opTxoIdx];
 
-               if (!scrAddrData->hasScrAddress(stxo.getScrAddress()))
+               if (!scrAddrData.hasScrAddress(stxo.getScrAddress()))
                {
                   TIMER_STOP("fullFecthOutPointFromDB");
                   continue;
@@ -668,7 +672,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
             //if we got this far this txin spends one of our utxo, 
             //remove it from utxo set
-            scrAddrData->eraseUTxO(txOutDBkey);
+            scrAddrData.eraseUTxO(txOutDBkey);
          }
       }
 
@@ -759,14 +763,14 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       BinaryData uniqKey = stxoToAdd.getScrAddress();
       BinaryData hgtX    = stxoToAdd.getHgtX();
       
-      if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+      if (scrAddrData.armoryDbType_ != ARMORY_DB_SUPER)
       {
-         if (!scrAddrData->hasScrAddress(uniqKey))
+         if (!scrAddrData.hasScrAddress(uniqKey))
             continue;
 
          //if we got this far, this utxo points to one of the address in our 
          //list, add it to the utxo set
-         scrAddrData->addUTxO(stxoToAdd.getDBKey(false));
+         scrAddrData.addUTxO(stxoToAdd.getDBKey(false));
       }
       
       if (stxToModify_.insert(make_pair(thisSTX.thisHash_, thisSTX)).second == true)
@@ -801,11 +805,11 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
             // Get the existing SSH or make a new one
             BinaryData uniqKey = HASH160PREFIX + addr160List[a];
             
-            if (scrAddrData->armoryDbType_ != ARMORY_DB_SUPER)
+            if (scrAddrData.armoryDbType_ != ARMORY_DB_SUPER)
             {
                //do not maintain multisig activity on related scrAddr unless
                //in supernode
-               if (scrAddrData->hasScrAddress(uniqKey))
+               if (scrAddrData.hasScrAddress(uniqKey))
                   continue;
             }
 
@@ -925,10 +929,11 @@ void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
    //members each commit
 
    //pass a 0 size BinaryData to avoid loading any subSSH
-   BinaryData hgtX(0);
 
    if (config_.armoryDbType != ARMORY_DB_SUPER)
    {
+      BinaryData hgtX(0);
+
       for (auto saPair : sasd.getScrAddrMap())
          makeSureSSHInMap(iface_, saPair.first, hgtX, sshToModify_, nullptr);
    }
@@ -1165,12 +1170,11 @@ done:
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock, 
-   ScrAddrFilter* scf)
+   ScrAddrFilter& scf)
 {
    TIMER_START("applyBlockRangeToDBIter");
    
-   if (scf != nullptr)
-      preloadSSH(*scf);
+   preloadSSH(scf);
 
    /*rewind 500 blocks to account for reorgs*/
    if (startBlock > 500)

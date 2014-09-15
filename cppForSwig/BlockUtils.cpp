@@ -177,7 +177,7 @@ private:
             // we also need to undo the blocks in the DB
             StoredUndoData sud;
             createUndoDataFromBlock(iface_, hgt, dup, sud);
-            blockWrites.undoBlockFromDB(sud, reorgParams_.scrAddrData_);
+            blockWrites.undoBlockFromDB(sud, *reorgParams_.scrAddrData_);
          }
 
          thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getPrevHash());
@@ -222,7 +222,7 @@ private:
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
 
-         blockWrites.applyBlockToDB(hgt, dup, reorgParams_.scrAddrData_);
+         blockWrites.applyBlockToDB(hgt, dup, *reorgParams_.scrAddrData_);
       }
    }
 
@@ -387,7 +387,7 @@ protected:
    
    virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)
    {
-      bdm_->applyBlockRangeToDB(startBlock, endBlock, this);
+      bdm_->applyBlockRangeToDB(startBlock, endBlock, *this);
    }
    
    virtual uint32_t currentTopBlockHeight() const
@@ -1025,7 +1025,7 @@ bool BlockDataManager_LevelDB::isDirty(
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
 void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, 
-   uint32_t blk1, ScrAddrFilter* scrAddrData)
+   uint32_t blk1, ScrAddrFilter& scrAddrData)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
 
@@ -1622,7 +1622,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // scan addresses from BDM
    if (config_.armoryDbType == ARMORY_DB_SUPER)
       applyBlockRangeToDB(startApplyHgt_,
-                          blockchain_.top().getBlockHeight() + 1, scrAddrData_.get());
+                          blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
    else
    {
       TIMER_START("applyBlockRangeToDB");
@@ -1630,7 +1630,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       if (scrAddrData_->numScrAddr() > 0)
          applyBlockRangeToDB(scrAddrData_->scanFrom(),
                              blockchain_.top().getBlockHeight() + 1,
-                             scrAddrData_.get());
+                             *scrAddrData_.get());
 
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
@@ -2057,7 +2057,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             LOGINFO << "Applying block to DB!";
             BlockWriteBatcher batcher(config_, iface_);
             
-            batcher.applyBlockToDB(hgt, dup, scrAddrData_.get());
+            batcher.applyBlockToDB(hgt, dup, *scrAddrData_.get());
          }
          else
          {

@@ -26,9 +26,9 @@ public:
                      bool forCommit = false);
    ~BlockWriteBatcher();
    
-   void applyBlockToDB(uint32_t hgt, uint8_t dup, ScrAddrFilter* scrAddrData);
-   void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter* scrAddrData);
-   void scanBlocks(uint32_t startBlock, uint32_t endBlock, ScrAddrFilter* sca);
+   void applyBlockToDB(uint32_t hgt, uint8_t dup, ScrAddrFilter& scrAddrData);
+   void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter& scrAddrData);
+   void scanBlocks(uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
 
 private:
 
@@ -47,12 +47,12 @@ private:
       bool fetching_        = false;
       atomic<int32_t> lock_;
 
-      ScrAddrFilter* scrAddrFilter_ = nullptr;
+      ScrAddrFilter& scrAddrFilter_;
 
-      LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter* scf) :
+      LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf) :
          startBlock_(start), endBlock_(end), scrAddrFilter_(scf)
       {
-	 lock_ = 0;
+	      lock_ = 0;
          topLoadedBlock_ = start;
          currentBlock_   = start;
          blockOffset_    = start;
@@ -74,11 +74,11 @@ private:
    set<BinaryData> searchForSSHKeysToDelete();
 
    void preloadSSH(const ScrAddrFilter& sasd);
-   void applyBlockToDB(StoredHeader &sbh, ScrAddrFilter* scrAddrData);
+   void applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData);
    bool applyTxToBatchWriteData(
                            StoredTx &       thisSTX,
                            StoredUndoData * sud,
-                           ScrAddrFilter* scrAddrMap);
+                           ScrAddrFilter& scrAddrMap);
 
    void resetTransactions(void);
    void clearTransactions(void);
