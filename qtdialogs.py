@@ -3097,31 +3097,19 @@ class DlgImportAddress(ArmoryDialog):
 
    #############################################################################
    def okayClicked(self):
-      pwd = None
+      securePrintCode = None
       if self.chkUseSP.isChecked():
          SECPRINT = HardcodedKeyMaskParams()
-         pwd = str(self.edtSecurePrint.text()).strip()
+         securePrintCode = str(self.edtSecurePrint.text()).strip()
          self.edtSecurePrint.setText("")
          
-         if len(pwd) < 9:
-            QMessageBox.critical(self, 'Invalid Code', tr("""
-                  You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-                  code is needed to decrypt your backup.  If this backup is
-                  actually unencrypted and there is no code, then choose the
-                  appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+         if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
-            
-         if not SECPRINT['FUNC_CHKPWD'](pwd):
-            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
-                  The SecurePrint\xe2\x84\xa2 code you entered has an error
-                  in it.  Note that the code is case-sensitive.  Please verify
-                  you entered it correctly and try again."""), QMessageBox.Ok)
-            return      
          
       if self.radioImportOne.isChecked():
-         self.processUserString(pwd)
+         self.processUserString(securePrintCode)
       else:
-         self.processMultiSig(pwd)
+         self.processMultiSig(securePrintCode)
 
 
    #############################################################################
@@ -12376,6 +12364,27 @@ class MaskedInputLineEdit(QLineEdit):
          self.setCursorPosition(0)
 
 
+def checkSecurePrintCode(context, SECPRINT, securePrintCode):
+   result = True
+   try:
+      if len(securePrintCode) < 9:
+         QMessageBox.critical(context, tr('Invalid Code'), tr("""
+            You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+            code is needed to decrypt your backup file."""), QMessageBox.Ok)
+         result = False
+      elif not SECPRINT['FUNC_CHKPWD'](securePrintCode):
+         QMessageBox.critical(context, tr('Bad SecurePrint\xe2\x84\xa2 Code'), tr("""
+            The SecurePrint\xe2\x84\xa2 code you entered has an error
+            in it.  Note that the code is case-sensitive.  Please verify
+            you entered it correctly and try again."""), QMessageBox.Ok)
+         result = False
+   except NonBase58CharacterError as e:
+      QMessageBox.critical(context, tr('Bad SecurePrint\xe2\x84\xa2 Code'), tr("""
+         The SecurePrint\xe2\x84\xa2 code you entered has unrecognized characters
+         in it.  %s\n Only the following characters are allowed: %s""" % (e.message, BASE58CHARS) ), QMessageBox.Ok)
+      result = False
+   return result
+
 ################################################################################
 class DlgRestoreSingle(ArmoryDialog):
    #############################################################################
@@ -12579,22 +12588,12 @@ class DlgRestoreSingle(ArmoryDialog):
       if self.doMask:
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
-         pwd = str(self.editSecurePrint.text()).strip()
-         if len(pwd) < 9:
-            QMessageBox.critical(self, 'Invalid Code', tr("""
-               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-               code is needed to decrypt your backup.  If this backup is
-               actually unencrypted and there is no code, then choose the
-               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
-            return
-         if not SECPRINT['FUNC_CHKPWD'](pwd):
-            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
-               The SecurePrint\xe2\x84\xa2 code you entered has an error
-               in it.  Note that the code is case-sensitive.  Please verify
-               you entered it correctly and try again."""), QMessageBox.Ok)
+         securePrintCode = str(self.editSecurePrint.text()).strip()
+         if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
 
-         maskKey = SECPRINT['FUNC_KDF'](pwd)
+
+         maskKey = SECPRINT['FUNC_KDF'](securePrintCode)
          privKey = SECPRINT['FUNC_UNMASK'](privKey, ekey=maskKey)
          if self.isLongForm:
             chain = SECPRINT['FUNC_UNMASK'](chain, ekey=maskKey)
@@ -13637,17 +13636,8 @@ class DlgEnterSecurePrintCode(ArmoryDialog):
       # Prepare the key mask parameters
       SECPRINT = HardcodedKeyMaskParams()
       securePrintCode = str(self.editSecurePrint.text()).strip()
-      if len(securePrintCode) < 9 or \
-         sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
-         QMessageBox.critical(self, tr('Invalid Code'), tr("""
-            You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-            code is needed to decrypt your backup file."""), QMessageBox.Ok)
-         return
-      if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
-         QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
-            The SecurePrint\xe2\x84\xa2 code you entered has an error
-            in it.  Note that the code is case-sensitive.  Please verify
-            you entered it correctly and try again."""), QMessageBox.Ok)
+
+      if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
          return
 
       self.accept()
@@ -13842,19 +13832,7 @@ class DlgEnterOneFrag(ArmoryDialog):
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
          securePrintCode = str(self.editSecurePrint.text()).strip()
-         if len(securePrintCode) < 9  or \
-            sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
-            QMessageBox.critical(self, 'Invalid Code', tr("""
-               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-               code is needed to decrypt your backup.  If this backup is
-               actually unencrypted and there is no code, then choose the
-               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
-            return
-         if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
-            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
-               The SecurePrint\xe2\x84\xa2 code you entered has an error
-               in it.  Note that the code is case-sensitive.  Please verify
-               you entered it correctly and try again."""), QMessageBox.Ok)
+         if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
       elif self.isSecurePrintID():
             QMessageBox.critical(self, 'Bad Encryption Code', tr("""
