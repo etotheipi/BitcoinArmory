@@ -12381,7 +12381,7 @@ def checkSecurePrintCode(context, SECPRINT, securePrintCode):
    except NonBase58CharacterError as e:
       QMessageBox.critical(context, tr('Bad SecurePrint\xe2\x84\xa2 Code'), tr("""
          The SecurePrint\xe2\x84\xa2 code you entered has unrecognized characters
-         in it.  %s\n Only the following characters are allowed: %s""" % (e.message, BASE58CHARS) ), QMessageBox.Ok)
+         in it.  %s. Only the following characters are allowed: %s""" % (e.message, BASE58CHARS) ), QMessageBox.Ok)
       result = False
    return result
 
