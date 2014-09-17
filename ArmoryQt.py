@@ -4917,7 +4917,7 @@ class ArmoryMainWindow(QMainWindow):
       # A few states don't care which mgmtMode you are in...
       if state == 'NewUserInfo':
          return tr("""
-         For more information about Armory, and even Bitcoin itself, you should
+         For more information about Armory or Bitcoin in general, 
          visit the <a href="https://bitcoinarmory.com/faqs/">frequently
          asked questions page</a>.  If
          you are experiencing problems using this software, please visit the
@@ -4926,15 +4926,15 @@ class ArmoryMainWindow(QMainWindow):
          solutions to common problems.
          <br><br>
          <b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper
-         backups protect you <i>forever</i> against forgotten passwords,
-         hard-drive failure, and make it easy for your family to recover
+         backups protect you <i>forever</i> against forgotten passwords and
+         hard-drive failure, as well as make it easy for your family to recover
          your funds if something terrible happens to you.  <i>Each wallet
-         only needs to be backed up once, ever!</i>  Without it, you are at
+         only needs to be backed up once, ever!</i>  Without a backup, you are at
          risk of losing all of your Bitcoins!  For more information,
          visit the <a href="https://bitcoinarmory.com/armory-backups-are-forever/">Armory
          Backups page</a>.
          <br><br>
-         To learn about improving your security through the use of offline
+         To learn about improving your security by using offline
          wallets, visit the
          <a href="https://bitcoinarmory.com/using-our-wallet">Armory
          Quick Start Guide</a>, and the
