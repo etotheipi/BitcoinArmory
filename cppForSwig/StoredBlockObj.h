@@ -555,6 +555,9 @@ public:
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
 
+   //for SSH writing purpose, not saved in DB
+   uint32_t commitId_ = UINT32_MAX;
+
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.
    // We always stored them in RAM using the StoredSubHistory 

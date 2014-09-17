@@ -10,6 +10,13 @@
 #include "pthread.h"
 #include <atomic>
 
+struct ValuePtr
+{
+   uint8_t* data_;
+   size_t   size_;
+
+   ValuePtr(void) : size_(0) {}
+};
 
 struct MDB_env;
 struct MDB_txn;
@@ -234,7 +241,7 @@ public:
    std::string value(const CharacterArrayRef& key) const;
  
    // get a value having the given key, don't use an iterator
-   std::string get(const CharacterArrayRef& key) const;
+   bool get_NoCopy(const CharacterArrayRef& key, ValuePtr& data) const;
 
    // create a cursor for scanning the database that points to the first
    // item

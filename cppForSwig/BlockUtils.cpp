@@ -1621,8 +1621,11 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    // scan addresses from BDM
    if (config_.armoryDbType == ARMORY_DB_SUPER)
-      applyBlockRangeToDB(startApplyHgt_,
-                          blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+   {
+      uint32_t topScannedBlock = getTopScannedBlock();
+      applyBlockRangeToDB(topScannedBlock,
+         blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+   }
    else
    {
       TIMER_START("applyBlockRangeToDB");
@@ -1855,7 +1858,14 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    LOGINFO << "Clearing all SSH";
 
-   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], TXN_READWRITE);
+   LMDB::Transaction batchBlkData(&iface_->dbs_[BLKDATA], TXN_READWRITE);
+
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi);
+
+   sdbi.appliedToHgt_ = 0;
+   iface_->putStoredDBInfo(BLKDATA, sdbi);
+
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
    if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
@@ -2452,5 +2462,16 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 {
    return dynamic_cast<ScrAddrFilter*>(scrAddrData_.get());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
+{
+   LMDB::Transaction batchBlkData(&iface_->dbs_[BLKDATA], TXN_READONLY);
+
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi);
+
+   return sdbi.appliedToHgt_;
 }
 

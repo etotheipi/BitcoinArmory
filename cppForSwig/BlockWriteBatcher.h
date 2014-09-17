@@ -114,6 +114,10 @@ private:
 
    LMDB::Transaction* txnHeaders_ = nullptr;
    LMDB::Transaction* txnBlkdata_ = nullptr;
+
+   //for managing SSH in supernode
+   uint32_t commitId_ = 0;
+   uint32_t deleteId_ = 0;
 };
 
 

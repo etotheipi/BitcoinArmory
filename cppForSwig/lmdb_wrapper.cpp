@@ -18,6 +18,8 @@
 #include "StoredBlockObj.h"
 #include "lmdb_wrapper.h"
 
+struct MDB_val;
+
 ////////////////////////////////////////////////////////////////////////////////
 LDBIter::LDBIter(LMDB::Iterator&& mv)
    : iter_(std::move(mv))
@@ -525,9 +527,13 @@ BinaryData LMDBBlockDatabase::getValue(DB_SELECT db, BinaryDataRef key) const
 
 /////////////////////////////////////////////////////////////////////////////
 // Get value without resorting to a DB iterator
-BinaryData LMDBBlockDatabase::getValueNoIter(DB_SELECT db, BinaryDataRef key) const
+BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db, BinaryDataRef key) const
 {
-   return dbs_[db].get(CharacterArrayRef(key.getSize(), (char*)key.getPtr()));
+   ValuePtr data;
+   if (!dbs_[db].get_NoCopy(CharacterArrayRef(key.getSize(), (char*)key.getPtr()), data))
+      return BinaryDataRef();
+
+   return BinaryDataRef((uint8_t*)data.data_, data.size_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -551,40 +557,12 @@ BinaryData LMDBBlockDatabase::getValue(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Get value using BinaryData object.  If you have a string, you can use
-// BinaryData key(string(theStr));
-BinaryData LMDBBlockDatabase::getValueNoIter(DB_SELECT db,
-                                             DB_PREFIX prefix,
-                                             BinaryDataRef key) const
-{
-   BinaryData keyFull(key.getSize() + 1);
-   keyFull[0] = (uint8_t)prefix;
-   key.copyTo(keyFull.getPtr() + 1, key.getSize());
-   try
-   {
-      return getValueNoIter(db, keyFull.getRef());
-   }
-   catch (...)
-   {
-      return BinaryData(0);
-   }
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryDataRef object.  The data from the get* call is 
 // actually copied to a member variable, and thus the refs are valid only 
 // until the next get* call.
 BinaryDataRef LMDBBlockDatabase::getValueRef(DB_SELECT db, BinaryDataRef key) const
 {
-   try
-   {
-      lastGetValue_ = getValue(db, key);
-   }
-   catch (NoValue &)
-   {
-      lastGetValue_ = BinaryData();
-   }
-   return lastGetValue_.getRef();
+   return getValueNoCopy(db, key);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2076,8 +2054,8 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
 
    BinaryData hash4(txHash.getSliceRef(0,4));
    LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
-   BinaryData hintsDBVal = getValueNoIter(BLKDATA, DB_PREFIX_TXHINTS, hash4);
-   uint32_t valSize = hintsDBVal.getSize();
+   BinaryRefReader brrHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+   uint32_t valSize = brrHints.getSize();
 
    if(valSize < 2)
    {
@@ -2086,7 +2064,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
    }
 
    LDBIter ldbIter = getIterator(BLKDATA);
-   BinaryRefReader brrHints(hintsDBVal);
+   
    uint32_t numHints = (uint32_t)brrHints.get_var_int();
    uint32_t height;
    uint8_t  dup;

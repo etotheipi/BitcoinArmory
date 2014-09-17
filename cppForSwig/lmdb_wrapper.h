@@ -266,13 +266,12 @@ public:
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
    BinaryData getValue(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
-   BinaryData getValueNoIter(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
+   BinaryDataRef getValueNoCopy(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
    BinaryData getValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key) const;
-   BinaryData getValueNoIter(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryDataRef object.  The data from the get* call is 
@@ -622,7 +621,7 @@ private:
 
    //BinaryRefReader      currReadKey_;
    //BinaryRefReader      currReadValue_;;
-   mutable BinaryData           lastGetValue_;
+   //mutable BinaryData           lastGetValue_;
    
    bool                 dbIsOpen_;
    uint32_t             ldbBlockSize_;

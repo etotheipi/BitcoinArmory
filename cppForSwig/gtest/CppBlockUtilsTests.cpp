@@ -7662,7 +7662,6 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
    BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
 
-   //iface_->pprintBlkDataDB(BLKDATA);
    StoredScriptHistory ssh;
 
    iface_->getStoredScriptHistory(ssh, scrAddrA_);

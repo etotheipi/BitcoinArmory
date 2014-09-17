@@ -1,7 +1,6 @@
 #include "lmdbpp.h"    
 
 #include "lmdb.h"
-//#include <unistd.h>
 
 #include <sstream>
 #include <cstring>
@@ -442,7 +441,7 @@ void LMDB::open(const char *filename, Mode mode)
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
 
-   mdb_env_set_mapsize(env, 5 * 1024 * 1024 * 1024LL);
+   mdb_env_set_mapsize(env, 15 * 1024 * 1024 * 1024LL);
 
    rc = mdb_env_open(env, filename, modef|MDB_NOSYNC|MDB_NOSUBDIR, 0600);
    if (rc != MDB_SUCCESS)
@@ -522,7 +521,7 @@ std::string LMDB::value(const CharacterArrayRef& key) const
    return c.value();
 }
 
-std::string LMDB::get(const CharacterArrayRef& key) const
+bool LMDB::get_NoCopy(const CharacterArrayRef& key, ValuePtr& data) const
 {
    //simple get without the use of iterators
 
@@ -538,13 +537,15 @@ std::string LMDB::get(const CharacterArrayRef& key) const
       throw std::runtime_error("Iterator must be created within Transaction");
 
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
-   MDB_val mval = { 0, 0 };
+   MDB_val mdata = { 0, 0 };
 
-   int rc = mdb_get(txnIter->second.txn_, dbi, &mkey, &mval);
+   int rc = mdb_get(txnIter->second.txn_, dbi, &mkey, &mdata);
    if (rc == MDB_NOTFOUND)
-      throw NoValue("Failed to seek (" + errorString(rc) + ")");
-      
-   return std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+      return false;
+   
+   data.data_ = (uint8_t*)mdata.mv_data;
+   data.size_ = mdata.mv_size;
+   return true;
 }
 
 void LMDB::enlargeMap()

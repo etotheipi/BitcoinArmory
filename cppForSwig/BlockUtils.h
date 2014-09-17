@@ -255,6 +255,8 @@ public:
 
 private:
    void addRawBlockToDB(BinaryRefReader & brr);
+   uint32_t getTopScannedBlock(void) const;
+
 public:
    void applyBlockRangeToDB(uint32_t blk0, uint32_t blk1, ScrAddrFilter& scrAddrData);
 
