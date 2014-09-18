@@ -257,6 +257,8 @@ public:
 
    void resetTxOutHistory(void) { utxos_.reset(); }
 
+   LedgerEntry getFirstLedger(void) const;
+
 private:
    LMDBBlockDatabase *db_;
    Blockchain        *bc_;

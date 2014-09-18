@@ -3077,7 +3077,40 @@ class PyBtcWallet(object):
    ###############################################################################
    def getAddrTotalTxnCount(self, a160):
       return self.cppWallet.getAddrTotalTxnCount(a160)
+   
+   ###############################################################################
+   def getHistoryAsCSV(self, currentTop):
+      file = open('%s.csv' % self.walletPath, 'wb')
+      
+      sortedAddrList = self.getAddrListSortedByChainIndex()    
+      chainCode = sortedAddrList[0][2].chaincode.toHexStr()  
+      
+      bal = self.getBalance('full')
+      bal = bal  / float(100000000)
+      file.write("%s,%f,%s,#%d\n" % (self.uniqueIDB58, bal, chainCode, currentTop))
+      
 
+      for i,addr160,addrObj in sortedAddrList:
+         cppAddr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+         bal = cppAddr.getFullBalance() / float(100000000)
+         
+         le = cppAddr.getFirstLedger() 
+         unixtime = le.getTxTime()
+         block = le.getBlockNum()
+         
+         if unixtime == 0:
+            block = 0
+         
+         realtime = datetime.fromtimestamp(unixtime).strftime('%Y-%m-%d %H:%M:%S')
+         timeAndBlock = ",#%d,%s,%d" % (block, realtime, unixtime)
+         
+         putStr = '%d,%s,%s,%f%s\n' \
+                  % (i, addrObj.getAddrStr(), addrObj.binPublicKey65.toHexStr(), bal, \
+                     (timeAndBlock if unixtime != 0 else ""))
+                  
+         file.write(putStr)
+         
+      file.close()
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

@@ -384,3 +384,27 @@ vector<LedgerEntry> ScrAddrObj::getTxLedgerAsVector(
    return le;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+LedgerEntry ScrAddrObj::getFirstLedger() const
+{
+   auto getTxio = [this](uint32_t start,
+      uint32_t end,
+      map<BinaryData, TxIOPair>& outMap)->void
+   { this->getHistoryForScrAddr(start, end, outMap, true); };
+
+   auto buildLedgers = [this](map<BinaryData, LedgerEntry>& leMap,
+      const map<BinaryData, TxIOPair>& txioMap,
+      uint32_t bottom, uint32_t top)->void
+   { this->updateLedgers(leMap, txioMap, bottom, top, false); };
+
+   map<BinaryData, LedgerEntry> leMap;
+   size_t lastPage = hist_.getPageCount();
+   hist_.getPageLedgerMap(getTxio, buildLedgers, lastPage-1, leMap);
+
+   LedgerEntry le;
+   if (leMap.size())
+      le = leMap.begin()->second;
+
+   return le;
+}
+

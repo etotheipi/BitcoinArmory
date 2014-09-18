@@ -137,7 +137,7 @@ public:
    void pprintLedger() const;
    void pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk=0, bool withAddr=false) const;
    void pprintAlittle(std::ostream &os) const;
-
+   
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void) const;

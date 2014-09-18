@@ -1064,6 +1064,8 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
       }
    }
    
+   bwbPtr->resetTransactions();
+
    //signal the transaction reset
    bwbPtr->parent_->resetTxn_ = true;
 
@@ -1071,6 +1073,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    delete bwbPtr;
 
    TIMER_STOP("commitToDB");
+   LOGWARN << "Commited";
 
    return nullptr;
 }
@@ -1196,6 +1199,7 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
             }
 
             ++bwbPtr->deleteId_;
+            LOGWARN << "Cleaned sshToModify_";
          }
       }
 
