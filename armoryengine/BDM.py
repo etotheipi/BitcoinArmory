@@ -338,8 +338,8 @@ class BlockDataManager(object):
             leveldbdir = self.ldbdir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
-      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
-      bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
+      bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
+      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.homeDirLocation = armory_homedir
       bdmConfig.blkFileLocation = blockdir

@@ -951,6 +951,9 @@ struct MDB_txn {
 	 *	dirty_list into mt_parent after freeing hidden mt_parent pages.
 	 */
 	unsigned int	mt_dirty_room;
+
+   /*which map index this txn is using*/
+   unsigned int   mt_mapindex;
 };
 
 /** Enough space for 2^32 nodes with minimum of 2 keys per node. I.e., plenty.
@@ -1027,6 +1030,12 @@ typedef struct MDB_pgstate {
 	txnid_t		mf_pglast;	/**< ID of last used record, or 0 if !mf_pghead */
 } MDB_pgstate;
 
+typedef struct MDB_mapinfo{
+   char*    me_map; /**< a memory map of the data file*/
+   size_t   me_mapsize;		/**< size of the data memory map */
+   int      sema;     /**< count of how many transactions are using this*/
+} MDB_mapinfo;
+
 	/** The database environment. */
 struct MDB_env {
 	HANDLE		me_fd;		/**< The main data file */
@@ -1047,12 +1056,13 @@ struct MDB_env {
 	MDB_dbi		me_maxdbs;		/**< size of the DB table */
 	MDB_PID_T	me_pid;		/**< process ID of this env */
 	char		*me_path;		/**< path to the DB files */
-	char		*me_map;		/**< the memory map of the data file */
+	MDB_mapinfo *me_maps;		/**< array of data file memory maps */
+   unsigned int me_currentmap; /**< index of the current main map */
 	MDB_txninfo	*me_txns;		/**< the memory map of the lock file or NULL */
 	MDB_meta	*me_metas[2];	/**< pointers to the two meta pages */
 	void		*me_pbuf;		/**< scratch area for DUPSORT put() */
 	MDB_txn		*me_txn;		/**< current write transaction */
-	size_t		me_mapsize;		/**< size of the data memory map */
+//	size_t		me_mapsize;		/**< size of the data memory map */
 	off_t		me_size;		/**< current file size */
 	pgno_t		me_maxpg;		/**< me_mapsize / me_psize */
 	MDB_dbx		*me_dbxs;		/**< array of static DB info */
@@ -1159,7 +1169,7 @@ static int	mdb_cursor_set(MDB_cursor *mc, MDB_val *key, MDB_val *data, MDB_curso
 static int	mdb_cursor_first(MDB_cursor *mc, MDB_val *key, MDB_val *data);
 static int	mdb_cursor_last(MDB_cursor *mc, MDB_val *key, MDB_val *data);
 
-static void	mdb_cursor_init(MDB_cursor *mc, MDB_txn *txn, MDB_dbi dbi, MDB_xcursor *mx);
+static int	mdb_cursor_init(MDB_cursor *mc, MDB_txn *txn, MDB_dbi dbi, MDB_xcursor *mx);
 static void	mdb_xcursor_init0(MDB_cursor *mc);
 static void	mdb_xcursor_init1(MDB_cursor *mc, MDB_node *node);
 
@@ -1909,7 +1919,7 @@ mdb_page_alloc(MDB_cursor *mc, int num, MDB_page **mp)
 
 search_done:
 	if (env->me_flags & MDB_WRITEMAP) {
-		np = (MDB_page *)(env->me_map + env->me_psize * pgno);
+		np = (MDB_page *)(env->me_maps[txn->mt_mapindex].me_map + env->me_psize * pgno);
 	} else {
 		if (!(np = mdb_page_malloc(txn, num))) {
 			rc = ENOMEM;
@@ -2135,7 +2145,7 @@ mdb_env_sync(MDB_env *env, int force)
 		if (env->me_flags & MDB_WRITEMAP) {
 			int flags = ((env->me_flags & MDB_MAPASYNC) && !force)
 				? MS_ASYNC : MS_SYNC;
-			if (MDB_MSYNC(env->me_map, env->me_mapsize, flags))
+         if (MDB_MSYNC(env->me_maps[env->me_currentmap].me_map, env->me_maps[env->me_currentmap].me_mapsize, flags))
 				rc = ErrCode();
 #ifdef _WIN32
 			else if (flags == MS_SYNC && MDB_FDATASYNC(env->me_fd))
@@ -2354,10 +2364,16 @@ mdb_txn_renew0(MDB_txn *txn)
 			txn->mt_txnid = r->mr_txnid = ti->mti_txnid;
 			txn->mt_u.reader = r;
 			meta = env->me_metas[txn->mt_txnid & 1];
+         
+         txn->mt_mapindex = env->me_currentmap;
+         env->me_maps[txn->mt_mapindex].sema++;
 		}
 	} else {
 		if (ti) {
 			LOCK_MUTEX_W(env);
+
+         txn->mt_mapindex = env->me_currentmap;
+         env->me_maps[txn->mt_mapindex].sema++;
 
 			txn->mt_txnid = ti->mti_txnid;
 			meta = env->me_metas[txn->mt_txnid & 1];
@@ -2466,6 +2482,7 @@ mdb_txn_begin(MDB_env *env, MDB_txn *parent, unsigned int flags, MDB_txn **ret)
 		txn->mt_cursors = (MDB_cursor **)(txn->mt_dbs + env->me_maxdbs);
 		txn->mt_dbflags = (unsigned char *)(txn->mt_cursors + env->me_maxdbs);
 	}
+   
 	txn->mt_env = env;
 
 	if (parent) {
@@ -2940,8 +2957,9 @@ int
 mdb_txn_commit(MDB_txn *txn)
 {
 	int		rc;
-	unsigned int i;
+	unsigned int i, map_index;
 	MDB_env	*env;
+   MDB_mapinfo* map;
 
 	if (txn == NULL || txn->mt_env == NULL)
 		return EINVAL;
@@ -2956,9 +2974,19 @@ mdb_txn_commit(MDB_txn *txn)
 	env = txn->mt_env;
 
 	if (F_ISSET(txn->mt_flags, MDB_TXN_RDONLY)) {
+      map_index = txn->mt_mapindex;
 		mdb_dbis_update(txn, 1);
 		txn->mt_numdbs = 2; /* so txn_abort() doesn't close any new handles */
 		mdb_txn_abort(txn);
+
+      map = &env->me_maps[map_index];
+      map->sema--;
+      if (map->sema == 0 && map_index != env->me_currentmap)
+      {
+         munmap(map->me_map, map->me_mapsize);
+         map->me_map = 0;
+      }
+
 		return MDB_SUCCESS;
 	}
 
@@ -3131,6 +3159,7 @@ done:
 	env->me_txn = NULL;
 	mdb_dbis_update(txn, 1);
 
+   env->me_maps[txn->mt_mapindex].sema--;
 	if (env->me_txns)
 		UNLOCK_MUTEX_W(env);
 	free(txn);
@@ -3237,7 +3266,7 @@ mdb_env_init_meta(MDB_env *env, MDB_meta *meta)
 
 	meta->mm_magic = MDB_MAGIC;
 	meta->mm_version = MDB_DATA_VERSION;
-	meta->mm_mapsize = env->me_mapsize;
+	meta->mm_mapsize = env->me_maps[env->me_currentmap].me_mapsize;
 	meta->mm_psize = psize;
 	meta->mm_last_pg = 1;
 	meta->mm_flags = env->me_flags & 0xffff;
@@ -3294,8 +3323,8 @@ mdb_env_write_meta(MDB_txn *txn)
 
 	if (env->me_flags & MDB_WRITEMAP) {
 		/* Persist any increases of mapsize config */
-		if (env->me_mapsize > mp->mm_mapsize)
-			mp->mm_mapsize = env->me_mapsize;
+		if (env->me_maps[txn->mt_mapindex].me_mapsize > mp->mm_mapsize)
+         mp->mm_mapsize = env->me_maps[txn->mt_mapindex].me_mapsize;
 		mp->mm_dbs[0] = txn->mt_dbs[0];
 		mp->mm_dbs[1] = txn->mt_dbs[1];
 		mp->mm_last_pg = txn->mt_next_pgno - 1;
@@ -3303,7 +3332,7 @@ mdb_env_write_meta(MDB_txn *txn)
 		if (!(env->me_flags & (MDB_NOMETASYNC|MDB_NOSYNC))) {
 			unsigned meta_size = env->me_psize;
 			rc = (env->me_flags & MDB_MAPASYNC) ? MS_ASYNC : MS_SYNC;
-			ptr = env->me_map;
+         ptr = env->me_maps[txn->mt_mapindex].me_map;
 			if (toggle) {
 #ifndef _WIN32	/* POSIX msync() requires ptr = start of OS page */
 				if (meta_size < env->me_os_psize)
@@ -3323,9 +3352,9 @@ mdb_env_write_meta(MDB_txn *txn)
 	metab.mm_last_pg = env->me_metas[toggle]->mm_last_pg;
 
 	ptr = (char *)&meta;
-	if (env->me_mapsize > mp->mm_mapsize) {
+	if (env->me_maps[txn->mt_mapindex].me_mapsize > mp->mm_mapsize) {
 		/* Persist any increases of mapsize config */
-		meta.mm_mapsize = env->me_mapsize;
+      meta.mm_mapsize = env->me_maps[txn->mt_mapindex].me_mapsize;
 		off = offsetof(MDB_meta, mm_mapsize);
 	} else {
 		off = offsetof(MDB_meta, mm_dbs[0].md_depth);
@@ -3413,6 +3442,7 @@ mdb_env_create(MDB_env **env)
 	e->me_fd = INVALID_HANDLE_VALUE;
 	e->me_lfd = INVALID_HANDLE_VALUE;
 	e->me_mfd = INVALID_HANDLE_VALUE;
+   e->me_maps = (MDB_mapinfo*)calloc(DEFAULT_READERS, sizeof(MDB_mapinfo));
 #ifdef MDB_USE_POSIX_SEM
 	e->me_rmutex = SEM_FAILED;
 	e->me_wmutex = SEM_FAILED;
@@ -3425,7 +3455,7 @@ mdb_env_create(MDB_env **env)
 }
 
 static int
-mdb_env_map(MDB_env *env, void *addr, int newsize)
+mdb_env_map(MDB_env *env, void *addr, int newsize, int index)
 {
 	MDB_page *p;
 	unsigned int flags = env->me_flags;
@@ -3437,8 +3467,8 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
    uint64_t fileSize;
 
 	unsigned sizelo, sizehi;
-	sizelo = env->me_mapsize & 0xffffffff;
-	sizehi = env->me_mapsize >> 16 >> 16; /* only needed on Win64 */
+	sizelo = env->me_maps[index].me_mapsize & 0xffffffff;
+   sizehi = env->me_maps[index].me_mapsize >> 16 >> 16; /* only needed on Win64 */
 
 	/* Windows won't create mappings for zero length files.
 	 * Have to allocate the maxsize as Windows needs the
@@ -3447,7 +3477,7 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
 
    GetFileSizeEx(env->me_fd, &li);
    fileSize = (uint64_t)li.QuadPart;
-   if (fileSize < env->me_mapsize)
+   if (fileSize < env->me_maps[index].me_mapsize)
       newsize = 1;
 
 	if (newsize) {
@@ -3461,10 +3491,11 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
 		sizehi, sizelo, NULL);
 	if (!mh)
 		return ErrCode();
-	env->me_map = MapViewOfFileEx(mh, flags & MDB_WRITEMAP ?
+
+   env->me_maps[index].me_map = MapViewOfFileEx(mh, flags & MDB_WRITEMAP ?
 		FILE_MAP_WRITE : FILE_MAP_READ,
-		0, 0, env->me_mapsize, addr);
-	rc = env->me_map ? 0 : ErrCode();
+      0, 0, env->me_maps[index].me_mapsize, addr);
+   rc = env->me_maps[index].me_map ? 0 : ErrCode();
 	CloseHandle(mh);
 	if (rc)
 		return rc;
@@ -3472,23 +3503,23 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
 	int prot = PROT_READ;
 	if (flags & MDB_WRITEMAP) {
 		prot |= PROT_WRITE;
-		if (ftruncate(env->me_fd, env->me_mapsize) < 0)
+      if (ftruncate(env->me_fd, env->me_maps[index].me_mapsize) < 0)
 			return ErrCode();
 	}
-	env->me_map = mmap(addr, env->me_mapsize, prot, MAP_SHARED,
+   env->me_maps[index].me_map = mmap(addr, env->me_maps[index].me_mapsize, prot, MAP_SHARED,
 		env->me_fd, 0);
-	if (env->me_map == MAP_FAILED) {
-		env->me_map = NULL;
+   if (env->me_maps[index].me_map == MAP_FAILED) {
+      env->me_maps[index].me_map = NULL;
 		return ErrCode();
 	}
 
 	if (flags & MDB_NORDAHEAD) {
 		/* Turn off readahead. It's harmful when the DB is larger than RAM. */
 #ifdef MADV_RANDOM
-		madvise(env->me_map, env->me_mapsize, MADV_RANDOM);
+      madvise(env->me_maps[index].me_map, env->me_maps[index].me_mapsize, MADV_RANDOM);
 #else
 #ifdef POSIX_MADV_RANDOM
-		posix_madvise(env->me_map, env->me_mapsize, POSIX_MADV_RANDOM);
+      posix_madvise(env->me_maps[index].me_map, env->me_maps[index].me_mapsize, POSIX_MADV_RANDOM);
 #endif /* POSIX_MADV_RANDOM */
 #endif /* MADV_RANDOM */
 	}
@@ -3499,10 +3530,10 @@ mdb_env_map(MDB_env *env, void *addr, int newsize)
 	 * The MAP_FIXED flag would prevent that, but then mmap could
 	 * instead unmap existing pages to make room for the new map.
 	 */
-	if (addr && env->me_map != addr)
-		return EBUSY;	/* TODO: Make a new MDB_* error code? */
+   //if (addr && env->me_maps[env->me_currentmap].me_mapsize != addr)
+		//return EBUSY;	/* TODO: Make a new MDB_* error code? */
 
-	p = (MDB_page *)env->me_map;
+   p = (MDB_page *)env->me_maps[index].me_map;
 	env->me_metas[0] = METADATA(p);
 	env->me_metas[1] = (MDB_meta *)((char *)env->me_metas[0] + env->me_psize);
 
@@ -3515,14 +3546,15 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
 	/* If env is already open, caller is responsible for making
 	 * sure there are no active txns.
 	 */
-	if (env->me_map) {
+   if (env->me_maps[env->me_currentmap].me_map) {
 		int rc;
 		void *old;
-		if (env->me_txn)
-			return EINVAL;
+      int i, y;
+		/*if (env->me_txn)
+			return EINVAL;*/
 		if (!size)
 			size = env->me_metas[mdb_env_pick_meta(env)]->mm_mapsize;
-		else if (size < env->me_mapsize) {
+      else if (size < env->me_maps[env->me_currentmap].me_mapsize) {
 			/* If the configured size is smaller, make sure it's
 			 * still big enough. Silently round up to minimum if not.
 			 */
@@ -3530,23 +3562,45 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
 			if (size < minsize)
 				size = minsize;
 		}
-		munmap(env->me_map, env->me_mapsize);
-		env->me_mapsize = size;
-		old = (env->me_flags & MDB_FIXEDMAP) ? env->me_map : NULL;
-		rc = mdb_env_map(env, old, 1);
+      
+      //grab a map index
+      for (i = 0; i < DEFAULT_READERS; i++)
+      {
+         if (env->me_maps[i].me_map == 0)
+            break;
+      }
+
+      if (i == DEFAULT_READERS)
+         return MDB_READERS_FULL;
+
+      //create new file map in the selected index
+      env->me_maps[i].me_mapsize = size;
+      old = (env->me_flags & MDB_FIXEDMAP) ? env->me_maps[env->me_currentmap].me_map : NULL;
+		rc = mdb_env_map(env, old, 1, i);
 		if (rc)
 			return rc;
+      
+      //mark new index as current
+      y = env->me_currentmap;
+      env->me_currentmap = i;
+      
+      //clean up old page if necessary
+      if (env->me_maps[y].sema == 0)
+      {
+         munmap(env->me_maps[y].me_map, env->me_maps[y].me_mapsize);
+         env->me_maps[y].me_map = 0;
+      }
 	}
-	env->me_mapsize = size;
+   env->me_maps[env->me_currentmap].me_mapsize = size;
 	if (env->me_psize)
-		env->me_maxpg = env->me_mapsize / env->me_psize;
+      env->me_maxpg = env->me_maps[env->me_currentmap].me_mapsize / env->me_psize;
 	return MDB_SUCCESS;
 }
 
 int
 mdb_env_set_maxdbs(MDB_env *env, MDB_dbi dbs)
 {
-	if (env->me_map)
+   if (env->me_maps[env->me_currentmap].me_map)
 		return EINVAL;
 	env->me_maxdbs = dbs + 2; /* Named databases + main and free DB */
 	return MDB_SUCCESS;
@@ -3555,7 +3609,7 @@ mdb_env_set_maxdbs(MDB_env *env, MDB_dbi dbs)
 int
 mdb_env_set_maxreaders(MDB_env *env, unsigned int readers)
 {
-	if (env->me_map || readers < 1)
+   if (env->me_maps[env->me_currentmap].me_map || readers < 1)
 		return EINVAL;
 	env->me_maxreaders = readers;
 	return MDB_SUCCESS;
@@ -3602,27 +3656,28 @@ mdb_env_open2(MDB_env *env)
 	}
 
 	/* Was a mapsize configured? */
-	if (!env->me_mapsize) {
+   if (!env->me_maps[env->me_currentmap].me_mapsize) {
 		/* If this is a new environment, take the default,
 		 * else use the size recorded in the existing env.
 		 */
-		env->me_mapsize = newenv ? DEFAULT_MAPSIZE : meta.mm_mapsize;
-	} else if (env->me_mapsize < meta.mm_mapsize) {
+      env->me_maps[env->me_currentmap].me_mapsize = newenv ? DEFAULT_MAPSIZE : meta.mm_mapsize;
+   }
+   else if (env->me_maps[env->me_currentmap].me_mapsize < meta.mm_mapsize) {
 		/* If the configured size is smaller, make sure it's
 		 * still big enough. Silently round up to minimum if not.
 		 */
 		size_t minsize = (meta.mm_last_pg + 1) * meta.mm_psize;
-		if (env->me_mapsize < minsize)
-			env->me_mapsize = minsize;
+      if (env->me_maps[env->me_currentmap].me_mapsize < minsize)
+         env->me_maps[env->me_currentmap].me_mapsize = minsize;
 	}
 
-	rc = mdb_env_map(env, meta.mm_address, newenv || env->me_mapsize != meta.mm_mapsize);
+   rc = mdb_env_map(env, meta.mm_address, newenv || env->me_maps[env->me_currentmap].me_mapsize != meta.mm_mapsize, env->me_currentmap);
 	if (rc)
 		return rc;
 
 	if (newenv) {
 		if (flags & MDB_FIXEDMAP)
-			meta.mm_address = env->me_map;
+         meta.mm_address = env->me_maps[env->me_currentmap].me_map;
 		i = mdb_env_init_meta(env, &meta);
 		if (i != MDB_SUCCESS) {
 			return i;
@@ -3635,7 +3690,7 @@ mdb_env_open2(MDB_env *env)
 #if !(MDB_MAXKEYSIZE)
 	env->me_maxkey = env->me_nodemax - (NODESIZE + sizeof(MDB_db));
 #endif
-	env->me_maxpg = env->me_mapsize / env->me_psize;
+   env->me_maxpg = env->me_maps[env->me_currentmap].me_mapsize / env->me_psize;
 
 #if MDB_DEBUG
 	{
@@ -4304,8 +4359,8 @@ mdb_env_close0(MDB_env *env, int excl)
 #endif
 	}
 
-	if (env->me_map) {
-		munmap(env->me_map, env->me_mapsize);
+   if (env->me_maps[env->me_currentmap].me_map) {
+      munmap(env->me_maps[env->me_currentmap].me_map, env->me_maps[env->me_currentmap].me_mapsize);
 	}
 	if (env->me_mfd != env->me_fd && env->me_mfd != INVALID_HANDLE_VALUE)
 		(void) close(env->me_mfd);
@@ -4398,7 +4453,7 @@ mdb_env_copyfd(MDB_env *env, HANDLE fd)
 	}
 
 	wsize = env->me_psize * 2;
-	ptr = env->me_map;
+   ptr = env->me_maps[env->me_currentmap].me_map;
 	w2 = wsize;
 	while (w2 > 0) {
 		DO_WRITE(rc, fd, ptr, w2, len);
@@ -4784,7 +4839,7 @@ mdb_page_get(MDB_txn *txn, pgno_t pgno, MDB_page **ret, int *lvl)
 				MDB_ID pn = pgno << 1;
 				x = mdb_midl_search(tx2->mt_spill_pgs, pn);
 				if (x <= tx2->mt_spill_pgs[0] && tx2->mt_spill_pgs[x] == pn) {
-					p = (MDB_page *)(env->me_map + env->me_psize * pgno);
+               p = (MDB_page *)(env->me_maps[txn->mt_mapindex].me_map + env->me_psize * pgno);
 					goto done;
 				}
 			}
@@ -4801,7 +4856,7 @@ mdb_page_get(MDB_txn *txn, pgno_t pgno, MDB_page **ret, int *lvl)
 
 	if (pgno < txn->mt_next_pgno) {
 		level = 0;
-		p = (MDB_page *)(env->me_map + env->me_psize * pgno);
+		p = (MDB_page *)(env->me_maps[txn->mt_mapindex].me_map + env->me_psize * pgno);
 	} else {
 		DPRINTF(("page %"Z"u not found", pgno));
 		txn->mt_flags |= MDB_TXN_ERROR;
@@ -6797,7 +6852,7 @@ mdb_xcursor_init1(MDB_cursor *mc, MDB_node *node)
 }
 
 /** Initialize a cursor for a given transaction and database. */
-static void
+static int
 mdb_cursor_init(MDB_cursor *mc, MDB_txn *txn, MDB_dbi dbi, MDB_xcursor *mx)
 {
 	mc->mc_next = NULL;
@@ -6819,8 +6874,10 @@ mdb_cursor_init(MDB_cursor *mc, MDB_txn *txn, MDB_dbi dbi, MDB_xcursor *mx)
 		mc->mc_xcursor = NULL;
 	}
 	if (*mc->mc_dbflag & DB_STALE) {
-		mdb_page_search(mc, NULL, MDB_PS_ROOTONLY);
+		return mdb_page_search(mc, NULL, MDB_PS_ROOTONLY);
 	}
+
+   return MDB_SUCCESS;
 }
 
 int
@@ -8022,12 +8079,37 @@ done:
 	return rc;
 }
 
+void mdb_enlarge_map(MDB_env *env)
+{
+   MDB_envinfo info;
+   mdb_env_info(env, &info);
+   size_t v = info.me_mapsize;
+
+   if (v < 1024 * 1024 * 10)
+   {
+      v = 1024 * 1024 * 10;
+   }
+   else
+   {
+      v--;
+      v = (v >> 1) | v;
+      v = (v >> 2) | v;
+      v = (v >> 4) | v;
+      v = (v >> 8) | v;
+      v = (v >> 16) | v;
+      v = (v >> 32) | v;
+   }
+   v *= 2;
+   mdb_env_set_mapsize(env, v);
+}
+
 int
 mdb_put(MDB_txn *txn, MDB_dbi dbi,
     MDB_val *key, MDB_val *data, unsigned int flags)
 {
-	MDB_cursor mc;
+	MDB_cursor mc, mc1;
 	MDB_xcursor mx;
+   int rt;
 
 	if (!key || !data || dbi == FREE_DBI || !TXN_DBI_EXIST(txn, dbi))
 		return EINVAL;
@@ -8036,7 +8118,33 @@ mdb_put(MDB_txn *txn, MDB_dbi dbi,
 		return EINVAL;
 
 	mdb_cursor_init(&mc, txn, dbi, &mx);
-	return mdb_cursor_put(&mc, key, data, flags);
+	rt = mdb_cursor_put(&mc, key, data, flags);
+
+   if (rt == MDB_MAP_FULL)
+   {
+      //map is full, time to enlarge it
+
+      //decrement current map semaphore
+      txn->mt_env->me_maps[txn->mt_mapindex].sema--;
+
+      //enlarge the map
+      mdb_enlarge_map(txn->mt_env);
+
+      //assign current txn to current map
+      txn->mt_mapindex = txn->mt_env->me_currentmap;
+
+      //increment current map semaphore
+      txn->mt_env->me_maps[txn->mt_mapindex].sema++;
+
+      //reset txn error flag set by the previous put failure
+      txn->mt_flags = 0;
+
+      //try to put again, from the top
+      rt = mdb_cursor_init(&mc1, txn, dbi, &mx);
+      rt = mdb_cursor_put(&mc1, key, data, flags);
+   }
+
+   return rt;
 }
 
 int
@@ -8147,8 +8255,8 @@ mdb_env_info(MDB_env *env, MDB_envinfo *arg)
 		return EINVAL;
 
 	toggle = mdb_env_pick_meta(env);
-	arg->me_mapaddr = (env->me_flags & MDB_FIXEDMAP) ? env->me_map : 0;
-	arg->me_mapsize = env->me_mapsize;
+   arg->me_mapaddr = (env->me_flags & MDB_FIXEDMAP) ? env->me_maps[env->me_currentmap].me_map : 0;
+	arg->me_mapsize = env->me_maps[env->me_currentmap].me_mapsize;
 	arg->me_maxreaders = env->me_maxreaders;
 
 	/* me_numreaders may be zero if this process never used any readers. Use
@@ -8493,11 +8601,6 @@ int mdb_set_relctx(MDB_txn *txn, MDB_dbi dbi, void *ctx)
 
 	txn->mt_dbxs[dbi].md_relctx = ctx;
 	return MDB_SUCCESS;
-}
-
-int mdb_env_get_maxkeysize(MDB_env *env)
-{
-	return ENV_MAXKEY(env);
 }
 
 int mdb_reader_list(MDB_env *env, MDB_msg_func *func, void *ctx)

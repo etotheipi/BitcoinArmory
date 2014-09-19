@@ -272,8 +272,6 @@ public:
    Iterator cursor() const { 
       return end(); }
 private:
-   // grow the size of the map on-demand
-   void enlargeMap();
 
    LMDB(const LMDB &nocopy);
    Mode mode;

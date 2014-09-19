@@ -35,7 +35,6 @@
 #include "UniversalTimer.h"
 
 #include "pthread.h"
-#include "ThreadSafeContainer.h"
 #include <functional>
 #include "BDM_supportClasses.h"
 

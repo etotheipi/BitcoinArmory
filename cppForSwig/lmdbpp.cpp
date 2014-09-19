@@ -441,13 +441,11 @@ void LMDB::open(const char *filename, Mode mode)
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
 
-   mdb_env_set_mapsize(env, 15 * 1024 * 1024 * 1024LL);
+   //mdb_env_set_mapsize(env, 50 * 1024 * 1024 * 1024LL);
 
    rc = mdb_env_open(env, filename, modef|MDB_NOSYNC|MDB_NOSUBDIR, 0600);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to open db " + std::string(filename) + " (" + errorString(rc) + ")");
-
-   enlargeMap();
    
    MDB_txn *txn;
    rc = mdb_txn_begin(env, nullptr, modef, &txn);
@@ -546,38 +544,6 @@ bool LMDB::get_NoCopy(const CharacterArrayRef& key, ValuePtr& data) const
    data.data_ = (uint8_t*)mdata.mv_data;
    data.size_ = mdata.mv_size;
    return true;
-}
-
-void LMDB::enlargeMap()
-{
-   return;
-   mdb_filehandle_t fd;
-   mdb_env_get_fd(env,&fd);
-#ifdef _MSC_VER
-   LARGE_INTEGER li;
-   GetFileSizeEx(fd, &li);
-   uint64_t v = (uint64_t)li.QuadPart;
-#else
-   struct stat s;
-   fstat(fd, &s);
-   uint64_t v = s.st_size;
-#endif
-   if (v < 1024*1024*512)
-   {
-      v = 1024*1024*512;
-   }
-   else
-   {
-      v--;
-      v = (v >> 1) | v;
-      v = (v >> 2) | v;
-      v = (v >> 4) | v;
-      v = (v >> 8) | v;
-      v = (v >> 16) | v;
-      v = (v >> 32) | v;
-   }
-   v *= 2;
-   mdb_env_set_mapsize(env, v);
 }
 
 // kate: indent-width 3; replace-tabs on;

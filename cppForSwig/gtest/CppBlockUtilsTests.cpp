@@ -5921,7 +5921,7 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
    
 }
 
-class ThreadSafeSTLTest : public ::testing::Test
+/*class ThreadSafeSTLTest : public ::testing::Test
 {
    protected:
       static ts_container<vector<int>> testTSS;
@@ -6140,7 +6140,7 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
 
    free(tssThreads);
    free(threadParam);
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
