@@ -9011,7 +9011,7 @@ class DlgSettings(ArmoryDialog):
 
 
       lblDefaultUriTitle = QRichLabel(tr("""
-         <b>Set Armory as default URL handler</b>"""))
+         <b>Set Armory as default Bitcoin URL handler</b>"""))
       lblDefaultURI = QRichLabel(tr("""
          Set Armory to be the default when you click on "bitcoin:"
          links in your browser or in emails.
