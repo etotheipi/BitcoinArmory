@@ -1394,7 +1394,7 @@ class ArmoryMainWindow(QMainWindow):
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
-               reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+               reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default Bitcoin URL Handler', \
                   'Armory is not set as your default application for handling '
                   '"bitcoin:" links.  Would you like to use Armory as the '
                   'default?', 'Do not ask this question again')
@@ -1465,7 +1465,7 @@ class ArmoryMainWindow(QMainWindow):
             # If another application has it, ask for permission to change it
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
-            reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+            reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default Bitcoin URL Handler', \
                'Armory is not set as your default application for handling '
                '"bitcoin:" links.  Would you like to use Armory as the '
                'default?', 'Do not ask this question again')
