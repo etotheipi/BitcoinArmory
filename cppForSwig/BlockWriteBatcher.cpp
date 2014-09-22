@@ -670,8 +670,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          continue;
       }
       
-      const uint32_t opTxoIdx = static_cast<uint32_t>
-         (*(thisSTX.dataCopy_.getPtr() + TxInIndexes[iin] + 32));
+      const uint32_t opTxoIdx = 
+         READ_UINT32_LE(thisSTX.dataCopy_.getPtr() + TxInIndexes[iin] + 32);
 
       BinaryData          txOutDBkey;
       BinaryDataRef       fetchBy = opTxHash;
@@ -778,12 +778,12 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // We're aliasing this because "iter->second" is not clear at all
       StoredTxOut & stxoSpend = iter->second;
    
-      /*if(stxoSpend.spentness_ == TXOUT_SPENT)
+      if(stxoSpend.spentness_ == TXOUT_SPENT)
       {
          LOGERR << "Trying to mark TxOut spent, but it's already marked";
          TIMER_STOP("CommitTxIn");
          continue;
-      }*/
+      }
 
       // Just about to {remove-if-pruning, mark-spent-if-not} STXO
       // Record it in the StoredUndoData object
