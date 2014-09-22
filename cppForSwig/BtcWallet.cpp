@@ -729,6 +729,8 @@ const LedgerEntry& BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) cons
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::prepareScrAddrForMerge(const vector<BinaryData>& scrAddrVec, bool isNew)
 {
+   //pass isNew = true for supernode too, since that's the same behavior
+
    map<BinaryData, ScrAddrObj> newScrAddrMap;
 
    for (const auto& scrAddr : scrAddrVec)
@@ -746,7 +748,7 @@ void BtcWallet::prepareScrAddrForMerge(const vector<BinaryData>& scrAddrVec, boo
    scrAddrMapToMerge_.insert(newScrAddrMap.begin(), newScrAddrMap.end());
 
    //mark merge flag, 2 for fresh scrAddr
-   mergeFlag_ = (isNew == true ? 2 : 1);
+   mergeFlag_ = (isNew ? 2 : 1);
 
    //release lock
    mergeLock_.store(0, memory_order_release);
@@ -777,6 +779,8 @@ bool BtcWallet::merge()
       }
       else if (mergeFlag_ == 2)
       {
+         LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], TXN_READONLY);
+         
          //fresh addresses, just have to run mapHistory to initialize the ScrAddrObj
          for (auto& scrAddrPair : scrAddrMapToMerge_)
             scrAddrPair.second.mapHistory();

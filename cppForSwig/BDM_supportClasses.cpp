@@ -69,8 +69,9 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       //BDM is initialized and maintenance thread is running, check mode
       if (armoryDbType_ == ARMORY_DB_SUPER)
       {
-         //supernode: nothing to do, signal the wallet that its scrAddr is ready
-         wltPtr->prepareScrAddrForMerge(saVec, isNew);
+         //supernode: nothing to do, signal the wallet that its scrAddr bulk 
+         //is ready by passing isNew as true.
+         wltPtr->prepareScrAddrForMerge(saVec, true);
 
          return false;
       }
