@@ -554,7 +554,7 @@ public:
       size_t newLen = str.size() / 2;
       alloc(newLen);
 
-      for(int i=0; i<newLen; i++)
+      for(size_t i=0; i<newLen; i++)
       {
          uint8_t char1 = binLookupTable[ (uint8_t)str[2*i  ] ];
          uint8_t char2 = binLookupTable[ (uint8_t)str[2*i+1] ];
