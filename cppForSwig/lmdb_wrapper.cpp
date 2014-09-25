@@ -339,8 +339,7 @@ LMDBBlockDatabase::~LMDBBlockDatabase(void)
 // manually specify them, if you want to throw an error if it's not what you 
 // were expecting
 void LMDBBlockDatabase::openDatabases(
-   LMDB::Mode dbmode,
-   string basedir,
+   const string& basedir,
    BinaryData const & genesisBlkHash,
    BinaryData const & genesisTxHash,
    BinaryData const & magic,
@@ -353,9 +352,6 @@ void LMDBBlockDatabase::openDatabases(
 
    baseDir_ = basedir;
 
-   dbPaths_[0] = baseDir_ + "/" + "lmdb_headers";
-   dbPaths_[1] = baseDir_ + "/" + "lmdb_blkdata";
-   
    magicBytes_ = magic;
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
@@ -372,6 +368,11 @@ void LMDBBlockDatabase::openDatabases(
 
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
+   
+   dbEnv_.open(dbFilename());
+   
+   static const char *const DB_NAMES[DB_COUNT] = { "headers", "blkdata" };
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
 
    try
    {
@@ -379,9 +380,7 @@ void LMDBBlockDatabase::openDatabases(
       {
          DB_SELECT CURRDB = (DB_SELECT)db;
          
-         dbs_[db].open(dbPaths_[db], dbmode);
-         
-         LMDB::Transaction tx(&dbs_[db], TXN_READWRITE);
+         dbs_[db].open(&dbEnv_, DB_NAMES[db]);
 
          StoredDBInfo sdbi;
          getStoredDBInfo(CURRDB, sdbi, false); 
@@ -400,9 +399,6 @@ void LMDBBlockDatabase::openDatabases(
          }
          else
          {
-            if (dbmode == LMDB::ReadOnly)
-               throw runtime_error("Can't open non-existent database as readonly");
-         
             // Check that the magic bytes are correct
             if(magicBytes_ != sdbi.magic_)
             {
@@ -440,7 +436,7 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
    SCOPED_TIMER("nukeHeadersDB");
    LOGINFO << "Destroying headers DB, to be rebuilt.";
    
-   LMDB::Transaction tx(&dbs_[HEADERS], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
    
    LMDB::Iterator begin = dbs_[HEADERS].begin();
    LMDB::Iterator end = dbs_[HEADERS].end();
@@ -475,6 +471,7 @@ void LMDBBlockDatabase::closeDatabases(void)
    {
       dbs_[db].close();
    }
+   dbEnv_.close();
    dbIsOpen_ = false;
 
 }
@@ -488,12 +485,11 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    // it was called with originally
 
    closeDatabases();
-   remove(dbPaths_[HEADERS].c_str());
-   remove(dbPaths_[BLKDATA].c_str());
+   remove(dbFilename().c_str());
    
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
-   openDatabases(LMDB::ReadWrite, baseDir_, genesisBlkHash_, genesisTxHash_, 
+   openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, 
       magicBytes_, armoryDbType_, dbPruneType_);
 }
 
@@ -501,7 +497,7 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
 {
-   LMDB::Transaction batch(&dbs_[db], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    StoredDBInfo sdbi;
    getStoredDBInfo(db, sdbi);
    return sdbi.topBlkHash_;
@@ -529,11 +525,11 @@ BinaryData LMDBBlockDatabase::getValue(DB_SELECT db, BinaryDataRef key) const
 // Get value without resorting to a DB iterator
 BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db, BinaryDataRef key) const
 {
-   ValuePtr data;
-   if (!dbs_[db].get_NoCopy(CharacterArrayRef(key.getSize(), (char*)key.getPtr()), data))
+   CharacterArrayRef data = dbs_[db].get_NoCopy(CharacterArrayRef(key.getSize(), (char*)key.getPtr()));
+   if (data.data)
+      return BinaryDataRef((uint8_t*)data.data, data.len);
+   else
       return BinaryDataRef();
-
-   return BinaryDataRef((uint8_t*)data.data_, data.size_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -921,7 +917,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
 void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                                     BinaryDataRef scrAddrStr)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    LDBIter ldbIter = getIterator(BLKDATA);
    ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
 
@@ -938,10 +934,10 @@ void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
                                                BinaryDataRef scrAddrStr,
-											              uint32_t startBlock,
+                                               uint32_t startBlock,
                                                uint32_t endBlock)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    SCOPED_TIMER("getStoredScriptHistory");
    LDBIter ldbIter = getIterator(BLKDATA);
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
@@ -1109,8 +1105,7 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 void LMDBBlockDatabase::readAllHeaders(map<HashString, BlockHeader> & headerMap,
                                        map<HashString, StoredHeader> & storedMap)
 {
-   LMDB::Transaction batch(&dbs_[HEADERS], TXN_READONLY);
-   LMDB::Transaction batch1(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    
    LDBIter ldbIter = getIterator(HEADERS);
    if(!ldbIter.seekToStartsWith(DB_PREFIX_HEADHASH))
@@ -1207,7 +1202,7 @@ void LMDBBlockDatabase::putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi)
 bool LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn)
 {
    SCOPED_TIMER("getStoredDBInfo");
-   LMDB::Transaction batch(&dbs_[db], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
 
    BinaryRefReader brr = getValueRef(db, StoredDBInfo::getDBKey());
     
@@ -1242,7 +1237,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, bool withBlkData
    if(!withBlkData)
       return newDup;
 
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
 
    BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryData bwBlkData = serializeDBValue(sbh, BLKDATA, armoryDbType_, dbPruneType_);
@@ -1301,7 +1296,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
    }
 
    // Batch the two operations to make sure they both hit the DB, or neither 
-   LMDB::Transaction tx(&dbs_[HEADERS], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
 
    StoredDBInfo sdbiH;
    getStoredDBInfo(HEADERS, sdbiH);
@@ -1438,7 +1433,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 {
    SCOPED_TIMER("getStoredHeader");
 
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    if(!withTx)
    {
       //////
@@ -1519,7 +1514,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 // This assumes that this new tx is "preferred" and will update the list as such
 void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
 {
-   Batch b(this, BLKDATA);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
    SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = DBUtils::getBlkDataKeyNoPrefix(stx.blockHeight_, 
                                                       stx.duplicateID_, 
@@ -1550,9 +1545,6 @@ void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
       sths.dbKeyList_.push_back(ldbKey);
       sths.preferredDBKey_ = ldbKey;
    }
-
-   // Batch update the DB
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READWRITE);
 
    if(needToAddTxToHints || needToUpdateHints)
       putStoredTxHints(sths);
@@ -1819,8 +1811,7 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B )
       return Tx();
    }
     
-   LMDB::Transaction batch(&dbs_[HEADERS], TXN_READONLY);
-   LMDB::Transaction batch1(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    
    LDBIter ldbIter = getIterator(BLKDATA);
    if(!ldbIter.seekToStartsWith(DB_PREFIX_TXDATA, ldbKey6B))
@@ -1944,7 +1935,7 @@ TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 {
    SCOPED_TIMER("getTxHashForLdbKey");
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(stxVal.getSize()==0)
    {
@@ -2053,7 +2044,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       return false;
 
    BinaryData hash4(txHash.getSliceRef(0,4));
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    BinaryRefReader brrHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, hash4);
    uint32_t valSize = brrHints.getSize();
 
@@ -2189,7 +2180,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
 bool LMDBBlockDatabase::getStoredTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey)
 {
-   LMDB::Transaction tx(&dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
    if (brr.getSize() == 0)
    {
@@ -2539,7 +2530,7 @@ KVLIST LMDBBlockDatabase::getAllDatabaseEntries(DB_SELECT db)
    if(!databasesAreOpen())
       return KVLIST();
 
-   LMDB::Transaction tx(&dbs_[db], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    KVLIST outList;
    outList.reserve(100);
 

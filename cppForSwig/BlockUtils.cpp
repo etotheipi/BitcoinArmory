@@ -33,7 +33,7 @@ static void createUndoDataFromBlock(
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
-   LMDB::Transaction tx(&iface->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&iface->dbEnv_, LMDB::ReadOnly);
    StoredHeader sbh;
 
    // Fetch the full, stored block
@@ -187,7 +187,7 @@ private:
    void updateBlockDupIDs(void)
    {
       //create a readwrite tx to update the dupIDs
-      LMDB::Transaction batch(&iface_->dbs_[HEADERS], TXN_READWRITE);
+      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
       BlockHeader* thisHeaderPtr = reorgParams_.branchPtr_;
 
@@ -357,7 +357,7 @@ public:
    
    time_t remainingSeconds() const
    {
-      return total_/unitsPerSecond();
+      return (total_-lastSample_)/unitsPerSecond();
    }
 };
 
@@ -456,7 +456,6 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    }
    
    iface_->openDatabases(
-      LMDB::ReadWrite,
       config_.levelDBLocation, 
       config_.genesisBlockHash, 
       config_.genesisTxHash, 
@@ -913,7 +912,7 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
    TxRef txref = iface_->getTxRef(txHash);
    if (txref.isInitialized())
       return true;
@@ -1696,8 +1695,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    bool breakbreak = false;
    uint32_t locInBlkFile = foffset;
 
-   LMDBBlockDatabase::Batch batchB(iface_, BLKDATA);
-   LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    unsigned failedAttempts=0;
    try
@@ -1774,10 +1772,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
             if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
             {
                dbUpdateSize = 0;
-               batchB.commit();
-               batchB.begin(TXN_READWRITE);
-               batchH.commit();
-               batchH.begin(TXN_READWRITE);
+               tx.commit();
+               tx.begin();
             }
 
             blocksReadSoFar_++;
@@ -1858,7 +1854,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    LOGINFO << "Clearing all SSH";
 
-   LMDB::Transaction batchBlkData(&iface_->dbs_[BLKDATA], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);
@@ -2252,8 +2248,7 @@ Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
    }
 
    // Insert the block
-   LMDB::Transaction batch(&iface_->dbs_[HEADERS], TXN_READWRITE);
-   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    BlockHeader bl;
    bl.unserialize(brrRawBlock);
@@ -2461,13 +2456,13 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 ////////////////////////////////////////////////////////////////////////////////
 ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 {
-   return dynamic_cast<ScrAddrFilter*>(scrAddrData_.get());
+   return scrAddrData_.get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
 {
-   LMDB::Transaction batchBlkData(&iface_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
 
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);

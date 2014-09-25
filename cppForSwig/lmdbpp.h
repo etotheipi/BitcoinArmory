@@ -5,28 +5,13 @@
 #include <stdexcept>
 #include <deque>
 #include <vector>
-#include <atomic>
 #include <unordered_map>
-#include "pthread.h"
-#include <atomic>
-
-struct ValuePtr
-{
-   uint8_t* data_;
-   size_t   size_;
-
-   ValuePtr(void) : size_(0) {}
-};
+#include <pthread.h>
+#include <mutex>
 
 struct MDB_env;
 struct MDB_txn;
 struct MDB_cursor;
-
-enum TXN_MODE
-{
-   TXN_READONLY,
-   TXN_READWRITE
-};
 
 // this exception is thrown for all errors from LMDB
 class LMDBException : public std::runtime_error
@@ -67,35 +52,26 @@ public:
    { }
 };
 
+class LMDBEnv;
+
+//one mother-txn per thread
+struct LMDBThreadTxInfo;
+
 
 class LMDB
 {
 public:
    class Iterator;
-   class Transaction;
 
    enum Mode
    {
-      ReadOnly,
-      ReadWrite
-   };
-
-private:
-   MDB_env *env;
-   // exists only with a Tx
-   unsigned int dbi;
-
-   //one mother-txn per thread
-   struct ThreadTxInfo
-   {
-      MDB_txn *txn_=nullptr;
-
-      std::deque<Iterator*> iterators_;
-      unsigned transactionLevel_ = 0;
-      Mode mode_ = ReadOnly;
+      ReadWrite,
+      ReadOnly
    };
    
-   std::unordered_map<pthread_t, ThreadTxInfo> txForThreads_;
+private:
+   LMDBEnv *env=nullptr;
+   unsigned int dbi=0;
       
    friend class Iterator;   
 
@@ -105,6 +81,7 @@ public:
 
    class Iterator
    {
+      friend class LMDBEnv;
       friend class LMDB;
       
       LMDB *db_=nullptr;
@@ -112,7 +89,7 @@ public:
       
       mutable bool hasTx=true;
       bool has_=false;
-      ThreadTxInfo* txnPtr_=nullptr;
+      LMDBThreadTxInfo* txnPtr_=nullptr;
       std::string key_, val_;
          
       void reset();
@@ -125,7 +102,7 @@ public:
 
       
    public:
-      Iterator() : txnPtr_(nullptr) { }
+      Iterator() { }
       ~Iterator();
       
       // copying permitted (encouraged!)
@@ -187,45 +164,18 @@ public:
       const std::string& value() const { return val_; }
    };
    
-   class Transaction
+   LMDB() { }
+   LMDB(LMDBEnv *env, const std::string &name=std::string())
    {
-      friend class LMDB;
-
-      LMDB *db;
-      bool began=false;
-
-   public:
-      
-      Transaction();
-      // begin a transaction
-      Transaction(LMDB *db, TXN_MODE readWrite);
-      // commit a transaction if it exists
-      ~Transaction();
-      
-      // commit a transaction, if it exists, doing nothing otherwise.
-      // after this function completes, no transaction exists
-      void commit();
-      // rollback the transaction, if it exists, doing nothing otherwise.
-      // All modifications made since this transaction began are removed.
-      // After this function completes, no transaction exists
-      void rollback();
-      // start a new transaction. If one already exists, do nothing
-      void begin(TXN_MODE ReadWrite);
-   private:
-      Transaction(const Transaction&); // no copies
-   };
-
-   LMDB();
-   ~LMDB();
-      
-   // open a database by filename
-   void open(const char *filename, Mode mode=ReadWrite);
-   void open(const std::string &filename, Mode mode=ReadWrite)
-      { open(filename.c_str(), mode); }
-
-   // close a database, doing nothing if one is presently not open
-   void close();
+      open(env, name);
+   }
    
+   ~LMDB();
+   
+   void open(LMDBEnv *env, const std::string &name=std::string());
+   
+   void close();
+      
    // insert a value into the database, replacing
    // the one with a matching key if it is already there
    void insert(
@@ -239,10 +189,12 @@ public:
 
    // read the value having the given key
    std::string value(const CharacterArrayRef& key) const;
- 
-   // get a value having the given key, don't use an iterator
-   bool get_NoCopy(const CharacterArrayRef& key, ValuePtr& data) const;
-
+   
+   // read the value having the given key, without copying its
+   // data even once. The return object has a pointer to the
+   // location in memory
+   CharacterArrayRef get_NoCopy(const CharacterArrayRef& key) const;
+   
    // create a cursor for scanning the database that points to the first
    // item
    Iterator begin() const
@@ -269,14 +221,84 @@ public:
    // Create an iterator that points to an invalid item.
    // like end(), the iterator can be repositioned to
    // become a valid entry
-   Iterator cursor() const { 
-      return end(); }
+   Iterator cursor() const
+      { return end(); }
 private:
 
    LMDB(const LMDB &nocopy);
-   Mode mode;
-   mutable std::atomic<int32_t> txMapLock_;
 };
+
+struct LMDBThreadTxInfo
+{
+   MDB_txn *txn_=nullptr;
+
+   std::deque<LMDB::Iterator*> iterators_;
+   unsigned transactionLevel_=0;
+   LMDB::Mode mode_;
+};
+
+
+class LMDBEnv
+{
+public:
+   class Transaction;
+
+private:
+   MDB_env *dbenv=nullptr;
+
+   std::mutex threadTxMutex_;
+   std::unordered_map<pthread_t, LMDBThreadTxInfo> txForThreads_;
+   
+   friend class LMDB;
+
+public:
+   class Transaction
+   {
+      friend class LMDB;
+
+      LMDBEnv *env=nullptr;
+      bool began=false;
+      LMDB::Mode mode_;
+      
+   public:
+      
+      Transaction() { }
+      // begin a transaction
+      Transaction(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
+      // commit a transaction if it exists
+      ~Transaction();
+      
+      // commit the current transaction, create a new one, and begin it
+      void open(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
+      
+      // commit a transaction, if it exists, doing nothing otherwise.
+      // after this function completes, no transaction exists
+      void commit();
+      // rollback the transaction, if it exists, doing nothing otherwise.
+      // All modifications made since this transaction began are removed.
+      // After this function completes, no transaction exists
+      void rollback();
+      // start a new transaction. If one already exists, do nothing
+      void begin();
+   private:
+      Transaction(const Transaction&); // no copies
+   };
+
+   LMDBEnv() { }
+   ~LMDBEnv();
+   
+   // open a database by filename
+   void open(const char *filename);
+   void open(const std::string &filename)
+      { open(filename.c_str()); }
+
+   // close a database, doing nothing if one is presently not open
+   void close();
+   
+private:
+   LMDBEnv(const LMDBEnv&); // disallow copy
+};
+
 
 #endif
 // kate: indent-width 3; replace-tabs on;

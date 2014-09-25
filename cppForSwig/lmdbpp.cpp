@@ -1,10 +1,12 @@
 #include "lmdbpp.h"    
 
-#include "lmdb.h"
+#include <lmdb.h>
+#include <unistd.h>
 
 #include <sstream>
 #include <cstring>
 #include <algorithm>
+#include <iostream>
 
 #ifndef _WIN32_
 #include <sys/types.h>
@@ -52,41 +54,39 @@ inline void LMDB::Iterator::checkOk() const
 
 void LMDB::Iterator::openCursor()
 {
-   int rc;
+   const pthread_t tID = pthread_self();
+   LMDBEnv *const env = db_->env;
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   
+   auto txnIter = env->txForThreads_.find(tID);
+   if (txnIter == env->txForThreads_.end())
+      throw std::runtime_error("Iterator must be created within Transaction");
+   
+   lock.unlock();
+   
+   if (txnIter->second.transactionLevel_ == 0)
+      throw std::runtime_error("Iterator must be created within Transaction");
+   
+   txnPtr_ = &txnIter->second;
   
-   rc = mdb_cursor_open(txnPtr_->txn_, db_->dbi, &csr_);
+   int rc = mdb_cursor_open(txnPtr_->txn_, db_->dbi, &csr_);
    if (rc != MDB_SUCCESS)
    {
       csr_=nullptr;
       LMDBException e("Failed to open cursor (" + errorString(rc) + ")");
       throw e;
    }
-}
-
-LMDB::Iterator::Iterator(LMDB *db)
-: db_(db), csr_(nullptr), has_(false)
-{
-   const pthread_t tID = pthread_self();
-
-
-   while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-   auto txnIter = db->txForThreads_.find(tID);
-
-   if (txnIter == db->txForThreads_.end())
-      throw std::runtime_error("Iterator must be created within Transaction");
-   db->txMapLock_.store(0, std::memory_order_relaxed);
-
-   if (txnIter->second.transactionLevel_ == 0)
-      throw std::runtime_error("Iterator must be created within Transaction");
-   
-   txnPtr_ = &txnIter->second;
-   openCursor();
-
    txnPtr_->iterators_.push_front(this);
 }
 
-LMDB::Iterator::Iterator(const LMDB::Iterator &copy)
-: db_(copy.db_), csr_(nullptr), has_(copy.has_), txnPtr_(copy.txnPtr_)
+LMDB::Iterator::Iterator(LMDB *db)
+   : db_(db), csr_(nullptr), has_(false)
+{
+   openCursor();
+}
+
+LMDB::Iterator::Iterator(const Iterator &copy)
+   : db_(copy.db_), csr_(nullptr), has_(copy.has_), txnPtr_(copy.txnPtr_)
 {
    if (copy.txnPtr_ == nullptr)
       throw std::runtime_error("Iterator must be created within Transaction");
@@ -261,7 +261,7 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
    int rc = mdb_cursor_get(csr_, &mkey, &mval, op);
    if (e == Seek_LE)
    {
-      if (rc == MDB_NOTFOUND && op != MDB_SET)
+      if (rc == MDB_NOTFOUND)
          rc = mdb_cursor_get(csr_, &mkey, &mval, MDB_LAST);
       // now make sure mkey is less than key
       if (rc == MDB_NOTFOUND)
@@ -307,22 +307,54 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
    }
 }
 
-LMDB::Transaction::Transaction()
-: db(nullptr)
-{}
-
-LMDB::Transaction::Transaction(LMDB *db, TXN_MODE readWrite)
-: db(db)
+LMDBEnv::~LMDBEnv()
 {
-   begin(readWrite);
+   close();
 }
 
-LMDB::Transaction::~Transaction()
+void LMDBEnv::open(const char *filename)
+{
+   if (dbenv)
+      throw std::logic_error("Database environment already open (close it first)");
+
+   txForThreads_.clear();
+   
+   int rc;
+
+   rc = mdb_env_create(&dbenv);
+   if (rc != MDB_SUCCESS)
+      throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
+   
+   rc = mdb_env_set_maxdbs(dbenv, 3);
+   if (rc != MDB_SUCCESS)
+      throw LMDBException("Failed to set max dbs (" + errorString(rc) + ")");
+   
+   rc = mdb_env_open(dbenv, filename, MDB_NOSYNC|MDB_NOSUBDIR, 0600);
+   if (rc != MDB_SUCCESS)
+      throw LMDBException("Failed to open db " + std::string(filename) + " (" + errorString(rc) + ")");
+}
+
+void LMDBEnv::close()
+{
+   if (dbenv)
+   {
+      mdb_env_close(dbenv);
+      dbenv = nullptr;
+   }
+}
+
+LMDBEnv::Transaction::Transaction(LMDBEnv *env, LMDB::Mode mode)
+   : env(env), mode_(mode)
+{
+   begin();
+}
+
+LMDBEnv::Transaction::~Transaction()
 {
    commit();
 }
 
-void LMDB::Transaction::begin(TXN_MODE readWrite)
+void LMDBEnv::Transaction::begin()
 {
    if (began)
       return;
@@ -331,37 +363,49 @@ void LMDB::Transaction::begin(TXN_MODE readWrite)
 
    const pthread_t tID = pthread_self();
    
-   while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-   ThreadTxInfo& thTx = db->txForThreads_[tID];
-   db->txMapLock_.store(0, std::memory_order_relaxed);
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   LMDBThreadTxInfo& thTx = env->txForThreads_[tID];
+   lock.unlock();
+   
+   if (mode_ == LMDB::ReadWrite && thTx.mode_ == LMDB::ReadOnly)
+      throw LMDBException("Cannot access ReadOnly Transaction in ReadWrite mode");
    
    if (thTx.transactionLevel_++ != 0)
-   {
-      if (readWrite == TXN_READWRITE && thTx.mode_ == ReadOnly)
-         throw LMDBException("Cannot access ReadOnly Transaction in ReadWrite mode");
-
       return;
-   }
-
-   int modef = MDB_RDONLY;
-   thTx.mode_ = ReadOnly;
-
-   if (readWrite == TXN_READWRITE)
-   {
-      if (db->mode == ReadOnly)
-         throw LMDBException("Cannot open ReadWrite Transaction in ReadOnly env");
       
+   int modef = MDB_RDONLY;
+   thTx.mode_ = LMDB::ReadOnly;
+   
+   if (mode_ == LMDB::ReadWrite)
+   {
       modef = 0;
-      thTx.mode_ = ReadWrite;
+      thTx.mode_ = LMDB::ReadWrite;
    }
 
-
-   int rc = mdb_txn_begin(db->env, nullptr, modef, &thTx.txn_);
+   int rc = mdb_txn_begin(env->dbenv, nullptr, modef, &thTx.txn_);
    if (rc != MDB_SUCCESS)
+   {
+      lock.lock();
+      env->txForThreads_.erase(tID);
+      lock.unlock();
+      
+      began = false;
       throw LMDBException("Failed to create transaction (" + errorString(rc) +")");
+   }
 }
 
-void LMDB::Transaction::commit()
+void LMDBEnv::Transaction::open(LMDBEnv *env, LMDB::Mode mode)
+{
+   if (env)
+      commit();
+   
+   this->env = env;
+   this->mode_ = mode;
+   
+   begin();
+}
+
+void LMDBEnv::Transaction::commit()
 {
    if (!began)
       return;
@@ -369,21 +413,21 @@ void LMDB::Transaction::commit()
    began=false;
 
    //look for an existing transaction in this thread
-   pthread_t tID = pthread_self();
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   auto txnIter = env->txForThreads_.find(tID);
 
-   while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-   auto txnIter = db->txForThreads_.find(tID);
-   if (txnIter == db->txForThreads_.end())
+   if (txnIter == env->txForThreads_.end())
       throw LMDBException("Transaction bound to unknown thread");
-   db->txMapLock_.store(0, std::memory_order_relaxed);
+   lock.unlock();
 
-   ThreadTxInfo& thTx = txnIter->second;
+   LMDBThreadTxInfo& thTx = txnIter->second;
 
    if (thTx.transactionLevel_-- == 1)
    {
       int rc = mdb_txn_commit(thTx.txn_);
       
-      for (Iterator *i : thTx.iterators_)
+      for (LMDB::Iterator *i : thTx.iterators_)
       {
          i->hasTx=false;
          i->csr_=nullptr;
@@ -391,83 +435,77 @@ void LMDB::Transaction::commit()
       
       if (rc != MDB_SUCCESS)
       {
-         throw LMDBException("Failed to close db tx (" + errorString(rc) +")");
+         throw LMDBException("Failed to close env tx (" + errorString(rc) +")");
       }
       
-      while (db->txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-      db->txForThreads_.erase(txnIter);
-      db->txMapLock_.store(0, std::memory_order_relaxed);
+      lock.lock();
+      env->txForThreads_.erase(txnIter);
    }
-   
-   /*if (db->txForThreads_.empty())
-      db->enlargeMap();*/
+   else
+   {
+      lock.lock();
+   }
 }
 
-void LMDB::Transaction::rollback()
+void LMDBEnv::Transaction::rollback()
 {
    throw std::runtime_error("unimplemented");
 }
 
 
-LMDB::LMDB()
-{
-   env = nullptr;
-   dbi = 0;
-   txMapLock_ = 0;
-}
+
 
 LMDB::~LMDB()
 {
-   close();
-}
-
-void LMDB::open(const char *filename, Mode mode)
-{
-   if (env)
-      throw std::logic_error("Database object already open (close it first)");
-
-   dbi = 0;
-   txForThreads_.clear();
-   
-   int rc;
-
-   this->mode = mode;
-   
-   int modef = 0;
-   if (mode == ReadOnly)
-      modef = MDB_RDONLY;
-
-   rc = mdb_env_create(&env);
-   if (rc != MDB_SUCCESS)
-      throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
-
-   //mdb_env_set_mapsize(env, 50 * 1024 * 1024 * 1024LL);
-
-   rc = mdb_env_open(env, filename, modef|MDB_NOSYNC|MDB_NOSUBDIR, 0600);
-   if (rc != MDB_SUCCESS)
-      throw LMDBException("Failed to open db " + std::string(filename) + " (" + errorString(rc) + ")");
-   
-   MDB_txn *txn;
-   rc = mdb_txn_begin(env, nullptr, modef, &txn);
-   if (rc != MDB_SUCCESS)
-      throw LMDBException("Failed to create transaction (" + errorString(rc) +")");
-
-   rc = mdb_dbi_open(txn, 0, 0, &dbi);
-   rc = mdb_txn_commit(txn);
-   if (rc != MDB_SUCCESS)
+   try
    {
-      // cleanup here
-      throw LMDBException("Failed to close db tx (" + errorString(rc) +")");
+      close();
+   }
+   catch(std::exception &e)
+   {
+      std::cerr << "Error: " << e.what() << std::endl;
    }
 }
 
+
 void LMDB::close()
 {
-   if (env)
+   if (dbi != 0)
    {
-      mdb_close(env, dbi);
-      mdb_env_close(env);
-      env = nullptr;
+      {
+         std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+         if (!env->txForThreads_.empty())
+            throw std::runtime_error("Tried to close database with open txes");
+      }
+      mdb_dbi_close(env->dbenv, dbi);
+      dbi=0;
+      
+      env=nullptr;
+   }
+}
+
+void LMDB::open(LMDBEnv *env, const std::string &name)
+{
+   if (this->env)
+   {
+      throw std::runtime_error("LMDB already open");
+   }
+   this->env = env;
+   
+   LMDBEnv::Transaction tx(env);
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   auto txnIter = env->txForThreads_.find(tID);
+
+   if (txnIter == env->txForThreads_.end())
+      throw LMDBException("Failed to insert: need transaction");
+   lock.unlock();
+      
+   int rc = mdb_dbi_open(txnIter->second.txn_, name.c_str(), MDB_CREATE, &dbi);
+   if (rc != MDB_SUCCESS)
+   {
+      // cleanup here
+      throw LMDBException("Failed to open dbi (" + errorString(rc) +")");
    }
 }
 
@@ -479,14 +517,15 @@ void LMDB::insert(
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    MDB_val mval = { value.len, const_cast<char*>(value.data) };
    
-   pthread_t tID = pthread_self();
+   const pthread_t tID = pthread_self();
    
-   while (txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-   auto txnIter = txForThreads_.find(tID);
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   
+   auto txnIter = env->txForThreads_.find(tID);
 
-   if (txnIter == txForThreads_.end())
+   if (txnIter == env->txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
-   txMapLock_.store(0, std::memory_order_relaxed);
+   lock.unlock();
    
    int rc = mdb_put(txnIter->second.txn_, dbi, &mkey, &mval, 0);
    if (rc != MDB_SUCCESS)
@@ -495,15 +534,14 @@ void LMDB::insert(
 
 void LMDB::erase(const CharacterArrayRef& key)
 {
-   pthread_t tID = pthread_self();
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   auto txnIter = env->txForThreads_.find(tID);
 
-   while (txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-   auto txnIter = txForThreads_.find(tID);
-
-   if (txnIter == txForThreads_.end())
+   if (txnIter == env->txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
-   txMapLock_.store(0, std::memory_order_relaxed);
-
+   lock.unlock();
+      
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    int rc = mdb_del(txnIter->second.txn_, dbi, &mkey, 0);
    if (rc != MDB_SUCCESS && rc != MDB_NOTFOUND)
@@ -519,31 +557,31 @@ std::string LMDB::value(const CharacterArrayRef& key) const
    return c.value();
 }
 
-bool LMDB::get_NoCopy(const CharacterArrayRef& key, ValuePtr& data) const
+CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
 {
    //simple get without the use of iterators
 
-   pthread_t tID = pthread_self();
-
-   while (txMapLock_.fetch_or(1, std::memory_order_relaxed) != 0);
-   auto txnIter = txForThreads_.find(tID);
-   if (txnIter == txForThreads_.end())
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   
+   auto txnIter = env->txForThreads_.find(tID);
+   if (txnIter == env->txForThreads_.end())
       throw std::runtime_error("Iterator must be created within Transaction");
-   txMapLock_.store(0, std::memory_order_relaxed);
-
-   if (txnIter->second.transactionLevel_ == 0)
-      throw std::runtime_error("Iterator must be created within Transaction");
+   
+   lock.unlock();
 
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    MDB_val mdata = { 0, 0 };
 
    int rc = mdb_get(txnIter->second.txn_, dbi, &mkey, &mdata);
    if (rc == MDB_NOTFOUND)
-      return false;
+      return CharacterArrayRef(0, (char*)nullptr);
    
-   data.data_ = (uint8_t*)mdata.mv_data;
-   data.size_ = mdata.mv_size;
-   return true;
+   CharacterArrayRef ref(
+      mdata.mv_size,
+      static_cast<uint8_t*>(mdata.mv_data)
+   );
+   return ref;
 }
 
 // kate: indent-width 3; replace-tabs on;

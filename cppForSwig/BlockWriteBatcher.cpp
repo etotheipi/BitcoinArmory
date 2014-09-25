@@ -1018,8 +1018,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
 
    //create readwrite transactions to apply data to DB
-   bwbPtr->txnHeaders_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], TXN_READWRITE);
-   bwbPtr->txnBlkdata_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], TXN_READWRITE);
+   bwbPtr->txn_.open(&bwbPtr->iface_->dbEnv_, LMDB::ReadWrite);
 
    // Check for any SSH objects that are now completely empty.  If they exist,
    // they should be removed from the DB, instead of simply written as empty
@@ -1083,21 +1082,14 @@ void BlockWriteBatcher::resetTransactions(void)
 {
    resetTxn_ = false;
    
-   delete txnHeaders_;
-   delete txnBlkdata_;
-
-   txnHeaders_ = new LMDB::Transaction(&iface_->dbs_[HEADERS], TXN_READONLY);
-   txnBlkdata_ = new LMDB::Transaction(&iface_->dbs_[BLKDATA], TXN_READONLY);
+   txn_.commit();
+   txn_.open(&iface_->dbEnv_, LMDB::ReadOnly);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::clearTransactions(void)
 {
-   delete txnHeaders_;
-   delete txnBlkdata_;
-
-   txnHeaders_ = nullptr;
-   txnBlkdata_ = nullptr;
+   txn_.commit();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1111,7 +1103,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    BlockWriteBatcher* dis = static_cast<BlockWriteBatcher*>(in);
 
    //read only db txn
-   LMDB::Transaction batch(&dis->iface_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
 
    vector<StoredHeader*> shVec;
 
