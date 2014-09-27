@@ -763,7 +763,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       BinaryData    uniqKey   = stxo.getScrAddress();
 
       // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
-      map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
+      const map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
       
       // Some sanity checks
       if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
@@ -776,12 +776,14 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // We're aliasing this because "iter->second" is not clear at all
       StoredTxOut & stxoSpend = iter->second;
    
+      /* This would be useful if we didn't sometimes apply a block twice
       if(stxoSpend.spentness_ == TXOUT_SPENT)
       {
          LOGERR << "Trying to mark TxOut spent, but it's already marked";
          TIMER_STOP("CommitTxIn");
          continue;
       }
+      */
 
       // Just about to {remove-if-pruning, mark-spent-if-not} STXO
       // Record it in the StoredUndoData object
