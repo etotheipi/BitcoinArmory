@@ -652,8 +652,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    }
    
    // Go through and find all the previous TxOuts that are affected by this tx
-   BinaryData txInScrAddr;
-   BinaryData txOutHashnId;
 
    TIMER_START("TxInParsing");
 
