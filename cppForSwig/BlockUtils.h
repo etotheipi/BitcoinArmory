@@ -237,7 +237,7 @@ public:
    //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
    void     buildAndScanDatabases(
-      function<void(double,unsigned)> fn,
+      const function<void(unsigned, double,unsigned)>& progress,
       bool forceRescan=false, 
       bool forceRebuild=false, 
       bool skipFetch=false,
@@ -245,12 +245,12 @@ public:
    );
    void readRawBlocksInFile(function<void(uint64_t)> fn, uint32_t blkFileNum, uint32_t offset);
    // These are wrappers around "buildAndScanDatabases"
-   void doRebuildDatabases(function<void(double,unsigned)> fn);
-   void doFullRescanRegardlessOfSync(function<void(double,unsigned)> fn);
-   void doSyncIfNeeded(function<void(double,unsigned)> fn);
-   void doInitialSyncOnLoad(function<void(double,unsigned)> fn);
-   void doInitialSyncOnLoad_Rescan(function<void(double,unsigned)> fn);
-   void doInitialSyncOnLoad_Rebuild(function<void(double,unsigned)> fn);
+   void doRebuildDatabases(const function<void(unsigned, double,unsigned)> &progress);
+   void doFullRescanRegardlessOfSync(const function<void(unsigned, double,unsigned)> &progress);
+   void doSyncIfNeeded(const function<void(unsigned, double,unsigned)> &progress);
+   void doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress);
+   void doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress);
+   void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
 
 private:
    void addRawBlockToDB(BinaryRefReader & brr);

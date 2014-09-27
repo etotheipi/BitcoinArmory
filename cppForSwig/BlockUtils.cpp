@@ -1441,50 +1441,50 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doRebuildDatabases(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doRebuildDatabases(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doRebuildDatabases";
-   buildAndScanDatabases(fn, true,   true,   true,   false);
+   buildAndScanDatabases(progress, true,   true,   true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doFullRescanRegardlessOfSync";
-   buildAndScanDatabases(fn, true,   false,  true,   false);
+   buildAndScanDatabases(progress, true,   false,  true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doSyncIfNeeded(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doSyncIfNeeded(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doSyncIfNeeded";
-   buildAndScanDatabases(fn, false,  false,  true,   false);
+   buildAndScanDatabases(progress, false,  false,  true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad";
-   buildAndScanDatabases(fn, false,  false,  false,  true);
+   buildAndScanDatabases(progress, false,  false,  false,  true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
-   buildAndScanDatabases(fn, true,   false,  false,  true);
+   buildAndScanDatabases(progress, true,   false,  false,  true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
-   buildAndScanDatabases(fn, false,  true,   true,   true);
+   buildAndScanDatabases(progress, false,  true,   true,   true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
@@ -1500,7 +1500,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(function<void(double,
 // any data out of the database when this is called, but if all our 
 // wallets are already synchronized, we won't bother rescanning
 void BlockDataManager_LevelDB::buildAndScanDatabases(
-   function<void(double,unsigned)> progress,
+   const function<void(unsigned, double,unsigned)>& progress,
    bool forceRescan, 
    bool forceRebuild,
    bool skipFetch,
@@ -1583,33 +1583,34 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       uint64_t totalBytesDoneSoFar=0;
       ProgressMeasurer progressMeasurer(totalBlockchainBytes_);
       
-         for (uint32_t fnum = startRawBlkFile_; fnum < numBlkFiles_; fnum++)
+      for (uint32_t fnum = startRawBlkFile_; fnum < numBlkFiles_; fnum++)
+      {
+         string blkfile = blkFileList_[fnum];
+         LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
+
+         const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+
+         const auto singleFileProgress =
+            [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
          {
-            string blkfile = blkFileList_[fnum];
-            LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
+            progressMeasurer.advance(totalBytesDoneSoFar + bytes);
+            progress(
+               1,
+               progressMeasurer.fractionCompleted(),
+               progressMeasurer.remainingSeconds()
+            );
+         };
 
-            const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+         // The supplied offset only applies to the first blockfile we're reading.
+         // After that, the offset is always zero
+         uint32_t startOffset = 0;
+         if (fnum == startRawBlkFile_)
+            startOffset = (uint32_t)startRawOffset_;
 
-            auto singleFileProgress =
-               [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
-            {
-               progressMeasurer.advance(totalBytesDoneSoFar + bytes);
-               progress(
-                  progressMeasurer.fractionCompleted(),
-                  progressMeasurer.remainingSeconds()
-                  );
-            };
+         readRawBlocksInFile(singleFileProgress, fnum, startOffset);
 
-            // The supplied offset only applies to the first blockfile we're reading.
-            // After that, the offset is always zero
-            uint32_t startOffset = 0;
-            if (fnum == startRawBlkFile_)
-               startOffset = (uint32_t)startRawOffset_;
-
-            readRawBlocksInFile(singleFileProgress, fnum, startOffset);
-
-            totalBytesDoneSoFar += thisfileSize;
-         }
+         totalBytesDoneSoFar += thisfileSize;
+      }
 
       TIMER_STOP("dumpRawBlocksToDB");
    }
@@ -1618,28 +1619,46 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    LOGINFO << "Processed " << blocksReadSoFar_ << " raw blocks DB (" 
            <<  (int)timeElapsed << " seconds)";
 
-   // scan addresses from BDM
-   if (config_.armoryDbType == ARMORY_DB_SUPER)
    {
-      uint32_t topScannedBlock = getTopScannedBlock();
-      applyBlockRangeToDB(topScannedBlock,
-         blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+      ProgressMeasurer progressMeasurer(blockchain_.top().getBlockHeight());
+      const auto applyBlocksProgress =
+         [&progressMeasurer, &progress](uint64_t hgt)
+      {
+         progressMeasurer.advance(hgt);
+         progress(
+            3,
+            progressMeasurer.fractionCompleted(),
+            progressMeasurer.remainingSeconds()
+         );
+      };
+      
+      applyBlocksProgress(0);
+      
+      // TODO: use applyBlocksProgress in applyBlockRangeToDB
+      
+      // scan addresses from BDM
+      if (config_.armoryDbType == ARMORY_DB_SUPER)
+      {
+         uint32_t topScannedBlock = getTopScannedBlock();
+         applyBlockRangeToDB(topScannedBlock,
+            blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+      }
+      else
+      {
+         TIMER_START("applyBlockRangeToDB");
+
+         if (scrAddrData_->numScrAddr() > 0)
+            applyBlockRangeToDB(scrAddrData_->scanFrom(),
+                              blockchain_.top().getBlockHeight() + 1,
+                              *scrAddrData_.get());
+
+         TIMER_STOP("applyBlockRangeToDB");
+         double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
+
+         LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
+      }
    }
-   else
-   {
-      TIMER_START("applyBlockRangeToDB");
-
-      if (scrAddrData_->numScrAddr() > 0)
-         applyBlockRangeToDB(scrAddrData_->scanFrom(),
-                             blockchain_.top().getBlockHeight() + 1,
-                             *scrAddrData_.get());
-
-      TIMER_STOP("applyBlockRangeToDB");
-      double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
-
-      LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
-   }
-
+   
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = bytesReadSoFar_;
 
@@ -2470,3 +2489,4 @@ uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
    return sdbi.appliedToHgt_;
 }
 
+// kate: indent-width 3; replace-tabs on;

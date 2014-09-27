@@ -18,7 +18,7 @@ public:
    virtual ~BDM_CallBack();
    virtual void run(int action, void* ptr, int block=0)=0;
    virtual void progress(
-      const std::string &state,
+      unsigned phase,
       float progress, unsigned secondsRem
    )=0;
 };
