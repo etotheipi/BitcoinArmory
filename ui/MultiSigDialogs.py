@@ -567,17 +567,13 @@ class DlgLockboxEditor(ArmoryDialog):
       
       if not USE_TESTNET and isMofNNonStandardToSpend(currM, currN):
          reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
-            Due to limits imposed by Bitcoin Core nodes running versions 
-            earlier than 0.10, all spending transactions from this lockbox
-            will be rejected by default on the main Bitcoin network 
-            (non-standard).  There will be no problem sending coins  
+            If you are running any Bitcoin Core version earlier than 0.9.3
+            all spending transactions from this lockbox
+            will be rejected as non-standard.  There will be no problem sending coins  
             <u>to</u> the lockbox, but subsequent spends <u>from</u> the 
-            lockbox will require an explicit agreement with a mining pool.  
+            lockbox will require you to upgrade Bitcoin Core to at least 0.9.3 or later.  
             <br><br>
-            Do you wish to continue creating the lockbox, anyway?  Any coins
-            sent to will be difficult to spend until Bitcoin Core 0.10
-            has been released and used by a significant portion of the 
-            Bitcoin network."""), QMessageBox.Yes | QMessageBox.No)
+            Do you wish to continue creating the lockbox, anyway?"""), QMessageBox.Yes | QMessageBox.No)
 
          if not reply==QMessageBox.Yes:
             return
