@@ -1,4 +1,4 @@
-#include <limits.h>
+minclude <limits.h>
 #include <iostream>
 #include <stdlib.h>
 #include "gtest.h"
@@ -4410,7 +4410,7 @@ protected:
          rmdir("./ldbtestdir");
          mkdir("./ldbtestdir");
       #else
-         system("rm -rf ./ldbtestdir/lmdb_*");
+         system("rm -rf ./ldbtestdir/*");
       #endif
 
 
@@ -6229,7 +6229,7 @@ protected:
          rmdir("./ldbtestdir");
          mkdir("./ldbtestdir");
       #else
-         string delstr = ldbdir_ + "/lmdb_*";
+         string delstr = ldbdir_ + "/*";
          rmdir(delstr);
       #endif
       LOGENABLESTDOUT();
