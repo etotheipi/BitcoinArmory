@@ -5244,7 +5244,7 @@ class ArmoryMainWindow(QMainWindow):
          # Scan time is super-simple to predict: it's pretty much linear
          # with the number of bytes remaining.
 
-         phase,pct,rate,tleft = TheBDM.predictLoadTime()
+         phase,pct,tleft = TheBDM.predictLoadTime()
          if phase==1:
             self.lblDashModeBuild.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')

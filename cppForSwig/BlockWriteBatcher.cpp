@@ -652,8 +652,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    }
    
    // Go through and find all the previous TxOuts that are affected by this tx
-   BinaryData txInScrAddr;
-   BinaryData txOutHashnId;
 
    TIMER_START("TxInParsing");
 
@@ -670,8 +668,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          continue;
       }
       
-      const uint32_t opTxoIdx = static_cast<uint32_t>
-         (*(thisSTX.dataCopy_.getPtr() + TxInIndexes[iin] + 32));
+      const uint32_t opTxoIdx = 
+         READ_UINT32_LE(thisSTX.dataCopy_.getPtr() + TxInIndexes[iin] + 32);
 
       BinaryData          txOutDBkey;
       BinaryDataRef       fetchBy = opTxHash;
@@ -765,7 +763,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       BinaryData    uniqKey   = stxo.getScrAddress();
 
       // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
-      map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
+      const map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
       
       // Some sanity checks
       if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
@@ -778,12 +776,14 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // We're aliasing this because "iter->second" is not clear at all
       StoredTxOut & stxoSpend = iter->second;
    
-      /*if(stxoSpend.spentness_ == TXOUT_SPENT)
+      /* This would be useful if we didn't sometimes apply a block twice
+      if(stxoSpend.spentness_ == TXOUT_SPENT)
       {
          LOGERR << "Trying to mark TxOut spent, but it's already marked";
          TIMER_STOP("CommitTxIn");
          continue;
-      }*/
+      }
+      */
 
       // Just about to {remove-if-pruning, mark-spent-if-not} STXO
       // Record it in the StoredUndoData object
@@ -1018,8 +1018,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
 
    //create readwrite transactions to apply data to DB
-   bwbPtr->txnHeaders_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[HEADERS], TXN_READWRITE);
-   bwbPtr->txnBlkdata_ = new LMDB::Transaction(&bwbPtr->iface_->dbs_[BLKDATA], TXN_READWRITE);
+   bwbPtr->txn_.open(&bwbPtr->iface_->dbEnv_, LMDB::ReadWrite);
 
    // Check for any SSH objects that are now completely empty.  If they exist,
    // they should be removed from the DB, instead of simply written as empty
@@ -1083,21 +1082,14 @@ void BlockWriteBatcher::resetTransactions(void)
 {
    resetTxn_ = false;
    
-   delete txnHeaders_;
-   delete txnBlkdata_;
-
-   txnHeaders_ = new LMDB::Transaction(&iface_->dbs_[HEADERS], TXN_READONLY);
-   txnBlkdata_ = new LMDB::Transaction(&iface_->dbs_[BLKDATA], TXN_READONLY);
+   txn_.commit();
+   txn_.open(&iface_->dbEnv_, LMDB::ReadOnly);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::clearTransactions(void)
 {
-   delete txnHeaders_;
-   delete txnBlkdata_;
-
-   txnHeaders_ = nullptr;
-   txnBlkdata_ = nullptr;
+   txn_.commit();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1111,7 +1103,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    BlockWriteBatcher* dis = static_cast<BlockWriteBatcher*>(in);
 
    //read only db txn
-   LMDB::Transaction batch(&dis->iface_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
 
    vector<StoredHeader*> shVec;
 

@@ -313,7 +313,7 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db)
    consider the next dup to be the first unknown block in DB until a new
    block file is created by Core.
    ***/
-   LMDB::Transaction batch(&db->dbs_[HEADERS], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadWrite);
 
    for (auto& block : headerMap_)
    {

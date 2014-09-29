@@ -112,8 +112,7 @@ private:
 
    LoadedBlockData*   tempBlockData_ = nullptr;
 
-   LMDB::Transaction* txnHeaders_ = nullptr;
-   LMDB::Transaction* txnBlkdata_ = nullptr;
+   LMDBEnv::Transaction txn_;
 
    //for managing SSH in supernode
    uint32_t commitId_ = 0;

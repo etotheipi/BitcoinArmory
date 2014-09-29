@@ -33,7 +33,7 @@ static void createUndoDataFromBlock(
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
-   LMDB::Transaction tx(&iface->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&iface->dbEnv_, LMDB::ReadOnly);
    StoredHeader sbh;
 
    // Fetch the full, stored block
@@ -187,7 +187,7 @@ private:
    void updateBlockDupIDs(void)
    {
       //create a readwrite tx to update the dupIDs
-      LMDB::Transaction batch(&iface_->dbs_[HEADERS], TXN_READWRITE);
+      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
       BlockHeader* thisHeaderPtr = reorgParams_.branchPtr_;
 
@@ -357,7 +357,7 @@ public:
    
    time_t remainingSeconds() const
    {
-      return total_/unitsPerSecond();
+      return (total_-lastSample_)/unitsPerSecond();
    }
 };
 
@@ -456,7 +456,6 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    }
    
    iface_->openDatabases(
-      LMDB::ReadWrite,
       config_.levelDBLocation, 
       config_.genesisBlockHash, 
       config_.genesisTxHash, 
@@ -931,7 +930,7 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   LMDB::Transaction batch(&iface_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
    TxRef txref = iface_->getTxRef(txHash);
    if (txref.isInitialized())
       return true;
@@ -1463,50 +1462,50 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doRebuildDatabases(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doRebuildDatabases(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doRebuildDatabases";
-   buildAndScanDatabases(fn, true,   true,   true,   false);
+   buildAndScanDatabases(progress, true,   true,   true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doFullRescanRegardlessOfSync";
-   buildAndScanDatabases(fn, true,   false,  true,   false);
+   buildAndScanDatabases(progress, true,   false,  true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doSyncIfNeeded(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doSyncIfNeeded(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doSyncIfNeeded";
-   buildAndScanDatabases(fn, false,  false,  true,   false);
+   buildAndScanDatabases(progress, false,  false,  true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad";
-   buildAndScanDatabases(fn, false,  false,  false,  true);
+   buildAndScanDatabases(progress, false,  false,  false,  true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
-   buildAndScanDatabases(fn, true,   false,  false,  true);
+   buildAndScanDatabases(progress, true,   false,  false,  true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(function<void(double,unsigned)> fn)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
-   buildAndScanDatabases(fn, false,  true,   true,   true);
+   buildAndScanDatabases(progress, false,  true,   true,   true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
@@ -1522,7 +1521,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(function<void(double,
 // any data out of the database when this is called, but if all our 
 // wallets are already synchronized, we won't bother rescanning
 void BlockDataManager_LevelDB::buildAndScanDatabases(
-   function<void(double,unsigned)> progress,
+   const function<void(unsigned, double,unsigned)>& progress,
    bool forceRescan, 
    bool forceRebuild,
    bool skipFetch,
@@ -1610,25 +1609,26 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
             string blkfile = blkFileList_[fnum];
             LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
 
-            const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+         const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
 
-            auto singleFileProgress =
-               [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
-            {
-               progressMeasurer.advance(totalBytesDoneSoFar + bytes);
-               progress(
-                  progressMeasurer.fractionCompleted(),
-                  progressMeasurer.remainingSeconds()
-                  );
-            };
+         const auto singleFileProgress =
+            [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
+         {
+            progressMeasurer.advance(totalBytesDoneSoFar + bytes);
+            progress(
+               1,
+               progressMeasurer.fractionCompleted(),
+               progressMeasurer.remainingSeconds()
+            );
+         };
 
-            // The supplied offset only applies to the first blockfile we're reading.
-            // After that, the offset is always zero
-            uint32_t startOffset = 0;
-            if (fnum == startRawBlkFile_)
-               startOffset = (uint32_t)startRawOffset_;
+         // The supplied offset only applies to the first blockfile we're reading.
+         // After that, the offset is always zero
+         uint32_t startOffset = 0;
+         if (fnum == startRawBlkFile_)
+            startOffset = (uint32_t)startRawOffset_;
 
-            readRawBlocksInFile(singleFileProgress, fnum, startOffset);
+         readRawBlocksInFile(singleFileProgress, fnum, startOffset);
 
             totalBytesDoneSoFar += thisfileSize;
          }*/
@@ -1637,7 +1637,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
          [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
       {
          progressMeasurer.advance(totalBytesDoneSoFar + bytes);
-         progress(
+         progress(1,
             progressMeasurer.fractionCompleted(),
             progressMeasurer.remainingSeconds()
             );
@@ -1652,28 +1652,46 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    LOGINFO << "Processed " << blocksReadSoFar_ << " raw blocks DB (" 
            <<  (int)timeElapsed << " seconds)";
 
-   // scan addresses from BDM
-   if (config_.armoryDbType == ARMORY_DB_SUPER)
    {
-      uint32_t topScannedBlock = getTopScannedBlock();
-      applyBlockRangeToDB(topScannedBlock,
-         blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+      ProgressMeasurer progressMeasurer(blockchain_.top().getBlockHeight());
+      const auto applyBlocksProgress =
+         [&progressMeasurer, &progress](uint64_t hgt)
+      {
+         progressMeasurer.advance(hgt);
+         progress(
+            3,
+            progressMeasurer.fractionCompleted(),
+            progressMeasurer.remainingSeconds()
+         );
+      };
+      
+      applyBlocksProgress(0);
+      
+      // TODO: use applyBlocksProgress in applyBlockRangeToDB
+      
+      // scan addresses from BDM
+      if (config_.armoryDbType == ARMORY_DB_SUPER)
+      {
+         uint32_t topScannedBlock = getTopScannedBlock();
+         applyBlockRangeToDB(topScannedBlock,
+            blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+      }
+      else
+      {
+         TIMER_START("applyBlockRangeToDB");
+
+         if (scrAddrData_->numScrAddr() > 0)
+            applyBlockRangeToDB(scrAddrData_->scanFrom(),
+                              blockchain_.top().getBlockHeight() + 1,
+                              *scrAddrData_.get());
+
+         TIMER_STOP("applyBlockRangeToDB");
+         double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
+
+         LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
+      }
    }
-   else
-   {
-      TIMER_START("applyBlockRangeToDB");
-
-      if (scrAddrData_->numScrAddr() > 0)
-         applyBlockRangeToDB(scrAddrData_->scanFrom(),
-                             blockchain_.top().getBlockHeight() + 1,
-                             *scrAddrData_.get());
-
-      TIMER_STOP("applyBlockRangeToDB");
-      double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
-
-      LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
-   }
-
+   
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = bytesReadSoFar_;
 
@@ -1728,8 +1746,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    bool breakbreak = false;
    uint32_t locInBlkFile = foffset;
 
-   LMDBBlockDatabase::Batch batchB(iface_, BLKDATA);
-   LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    unsigned failedAttempts=0;
    try
@@ -1774,7 +1791,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
                   << locInBlkFile << " file "
                   << blkfile << ", blocksize " << nextBlkSize
                   << ", top=" << blockchain_.top().getBlockHeight() << ")";
-               /*failedAttempts++;
+               failedAttempts++;
                
                if (failedAttempts >= 4)
                {
@@ -1797,7 +1814,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
                {
                   locInBlkFile += bytesSkipped;
                   LOGERR << "Found another block header at " << locInBlkFile;
-               }*/
+               }
 
                continue;
             }
@@ -1806,10 +1823,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
             if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
             {
                dbUpdateSize = 0;
-               batchB.commit();
-               batchB.begin(TXN_READWRITE);
-               batchH.commit();
-               batchH.begin(TXN_READWRITE);
+               tx.commit();
+               tx.begin();
             }
 
             blocksReadSoFar_++;
@@ -1853,8 +1868,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    function<void(uint64_t)> progress,
    uint32_t blockHeight)
 {
-   LMDBBlockDatabase::Batch batchB(iface_, BLKDATA);
-   LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    string blkfile = "";
    ifstream is;
@@ -1924,10 +1938,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
       if (dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
       {
         dbUpdateSize = 0;
-        batchB.commit();
-        batchB.begin(TXN_READWRITE);
-        batchH.commit();
-        batchH.begin(TXN_READWRITE);
+        tx.commit();
+        tx.begin();
       }
 
       blocksReadSoFar_++;
@@ -1985,7 +1997,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    LOGINFO << "Clearing all SSH";
 
-   LMDB::Transaction batchBlkData(&iface_->dbs_[BLKDATA], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);
@@ -2379,8 +2391,7 @@ Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
    }
 
    // Insert the block
-   LMDB::Transaction batch(&iface_->dbs_[HEADERS], TXN_READWRITE);
-   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
    BlockHeader bl;
    bl.unserialize(brrRawBlock);
@@ -2588,13 +2599,13 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 ////////////////////////////////////////////////////////////////////////////////
 ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 {
-   return dynamic_cast<ScrAddrFilter*>(scrAddrData_.get());
+   return scrAddrData_.get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
 {
-   LMDB::Transaction batchBlkData(&iface_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
 
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);
@@ -2602,3 +2613,4 @@ uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
    return sdbi.appliedToHgt_;
 }
 
+// kate: indent-width 3; replace-tabs on;

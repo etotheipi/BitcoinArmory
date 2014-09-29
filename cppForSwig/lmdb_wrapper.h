@@ -232,7 +232,7 @@ public:
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void openDatabases(LMDB::Mode dbmode, string basedir, 
+   void openDatabases(const string &basedir, 
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
                       BinaryData const & magic,
@@ -365,25 +365,7 @@ public:
                                          uint32_t endBlock);
 
 
-private:
-   /////////////////////////////////////////////////////////////////////////////
-   // All put/del ops will be batched/queued, and only executed when called
-   // commitBatch().  We track the number calls to startBatch and commitBatch
-   // and only write if we've called commit as many times as we called start.
-   // In this way, we can have multiple levels starting and ending batches 
-   // without caring whether a batched operation is already in process or if 
-   // it's the first
-   void startBatch(DB_SELECT db);
-   void commitBatch(DB_SELECT db);
 public:
-
-   class Batch : public LMDB::Transaction
-   {
-   public:
-      Batch(LMDBBlockDatabase *db, DB_SELECT which)
-         : Transaction(&db->dbs_[which], TXN_READWRITE)
-      { }
-   };
 
    uint8_t getValidDupIDForHeight(uint32_t blockHgt);
    void setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup);
@@ -605,6 +587,7 @@ public:
 
 private:
    string               baseDir_;
+   string dbFilename() const { return baseDir_ + "/blocks"; }
 
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;
@@ -614,9 +597,9 @@ private:
    DB_PRUNE_TYPE dbPruneType_;
 
 public:
+   LMDBEnv             dbEnv_;
    LMDB                dbs_[2];  
 private:
-   string               dbPaths_[2];
    //leveldb::FilterPolicy* dbFilterPolicy_[2];
 
    //BinaryRefReader      currReadKey_;

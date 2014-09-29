@@ -85,7 +85,7 @@ private:
 
       uint32_t fetchMoreUTXO(uint32_t start, uint32_t end)
       {
-         LMDB::Transaction batch(&scrAddrObj_->db_->dbs_[BLKDATA], TXN_READONLY);
+         LMDBEnv::Transaction tx(&scrAddrObj_->db_->dbEnv_, LMDB::ReadOnly);
 
          uint32_t nutxo = 0;
          uint64_t val = 0;

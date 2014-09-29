@@ -8,7 +8,7 @@
 
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
-   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadOnly);
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
@@ -39,7 +39,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDB::Transaction batch(&lmdb_->dbs_[BLKDATA], TXN_READWRITE);
+   LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadWrite);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -388,7 +388,7 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    map<BinaryData, Tx>           txMap;
    map<HashString, map<BinaryData, TxIOPair> >  txioMap;
 
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -521,7 +521,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDB::Transaction batch(&db_->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
 
    while (1)
    {

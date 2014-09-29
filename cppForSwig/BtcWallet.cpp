@@ -469,7 +469,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
    LMDBBlockDatabase *db = bdvPtr_->getDB();
 
    //start a RO txn to grab the txouts from DB
-   LMDB::Transaction batch(&db->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadOnly);
 
    vector<UnspentTxOut> utxoList;
    uint32_t blk = bdvPtr_->getTopBlockHeight();
@@ -663,7 +663,7 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       if (reorg)
          updateAfterReorg(startBlock);
          
-      LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], TXN_READONLY);
+      LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
 
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf(reorg);
@@ -779,7 +779,7 @@ bool BtcWallet::merge()
       }
       else if (mergeFlag_ == 2)
       {
-         LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], TXN_READONLY);
+         LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
          
          //fresh addresses, just have to run mapHistory to initialize the ScrAddrObj
          for (auto& scrAddrPair : scrAddrMapToMerge_)
@@ -809,7 +809,7 @@ bool BtcWallet::merge()
 map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
 {
    map<uint32_t, uint32_t> histSummary;
-   LMDB::Transaction batch(&bdvPtr_->getDB()->dbs_[BLKDATA], TXN_READONLY);
+   LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
    for (auto& scrAddrPair : scrAddrMap_)
    {
       scrAddrPair.second.mapHistory();

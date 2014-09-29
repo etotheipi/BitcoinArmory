@@ -46,7 +46,6 @@
 #define fflush_unlocked _fflush_nolock
 #define fsync fsync_win32
 #define fdatasync fsync_win32
-#define open open_win32
 #define access access_win32
 #define unlink unlink_win32
 #define rmdir rmdir_win32

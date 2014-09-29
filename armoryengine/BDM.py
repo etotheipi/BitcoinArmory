@@ -24,6 +24,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       self.bdm = bdm
       self.bdm.progressComplete=0
       self.bdm.secondsRemaining=0
+      self.bdm.progressPhase=0
       
    def run(self, action, arg, block):
       act = ''
@@ -49,16 +50,15 @@ class PySide_CallBack(Cpp.BDM_CallBack):
    
       cppPushTrigger[0](act, arglist)
       
-   def progress(self, state, prog, seconds):
-      return
-      '''
+   def progress(self, phase, prog, seconds):
       try:
+         self.bdm.progressPhase = phase
          self.bdm.progressComplete = prog
          self.bdm.secondsRemaining = seconds
       except:
          LOGEXCEPT('Error in running progress callback')
          print sys.exc_info()
-      '''
+
 class BDM_Inject(Cpp.BDM_Inject):
    def __init__(self):
       Cpp.BDM_Inject.__init__(self)
@@ -363,7 +363,7 @@ class BlockDataManager(object):
 
    #############################################################################
    def predictLoadTime(self):
-      return (1, self.progressComplete, 42, self.secondsRemaining)
+      return (self.progressPhase, self.progressComplete, self.secondsRemaining)
             
    #############################################################
    def isDirty(self):
