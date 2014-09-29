@@ -37,9 +37,13 @@
 #include "pthread.h"
 #include <functional>
 #include "BDM_supportClasses.h"
-#include "mman.h"
+
 #ifdef _MSC_VER
+   #include "mman.h"
    #include "leveldb_windows_port\win32_posix\win32_posix.h"
+#else
+   #include <fcntl.h>
+   #include <sys/mman.h>
 #endif
 
 

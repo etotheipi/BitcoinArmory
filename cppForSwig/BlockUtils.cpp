@@ -1899,7 +1899,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          LOGINFO << blkfile.c_str() << " is " << fsizestr.c_str() << " bytes";
 
          // Open the file, and check the magic bytes on the first block
-         filedes = open(blkfile.c_str(), _O_RDONLY, 0);
+         filedes = open(blkfile.c_str(), O_RDONLY, 0);
          filemap = (uint8_t*)mmap(nullptr, filesize, PROT_READ, MAP_SHARED, filedes, 0);
 
          BinaryData fileMagic(filemap, 4);
