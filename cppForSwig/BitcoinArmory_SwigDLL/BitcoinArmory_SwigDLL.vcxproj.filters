@@ -67,6 +67,7 @@
     <ClCompile Include="..\HistoryPager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\BinaryData.h">
