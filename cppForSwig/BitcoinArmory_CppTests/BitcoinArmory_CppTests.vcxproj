@@ -180,6 +180,7 @@
     <ClInclude Include="..\gtest\gtest.h" />
     <ClInclude Include="..\HistoryPager.h" />
     <ClInclude Include="..\LedgerEntry.h" />
+    <ClInclude Include="..\leveldb_windows_port\win32_posix\mman.h" />
     <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h" />
     <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
@@ -204,6 +205,7 @@
     <ClCompile Include="..\HistoryPager.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\pthread_win32port.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />

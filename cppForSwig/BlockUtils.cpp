@@ -473,7 +473,7 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::detectCurrentSyncState(
+uint32_t BlockDataManager_LevelDB::detectCurrentSyncState(
                                           bool forceRebuild,
                                           bool initialLoad)
 {
@@ -512,7 +512,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
       startApplyOffset_   = 0;
       lastTopBlock_ = UINT32_MAX;
       blockchain_.clear();
-      return true;
+      return 0;
    }
 
    // This fetches the header data from the DB
@@ -527,7 +527,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
       startApplyHgt_     = startHeaderHgt_;
       startApplyBlkFile_ = numBlkFiles_ - 1;
       startApplyOffset_  = endOfLastBlockByte_;
-      return true;
+      return startHeaderHgt_;
    }
 
    map<HashString, StoredHeader> sbhMap;
@@ -566,6 +566,8 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
       blockchain_.clear();
       return true;
    }
+
+   uint32_t returnTop;
    
    {
       // Now go through the linear list of main-chain headers, mark valid
@@ -576,6 +578,8 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
          sbh.isMainBranch_ = true;
          iface_->setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
       }
+
+      returnTop = blockchain_.top().getBlockHeight();
 
       // startHeaderBlkFile_/Offset_ is where we were before the last shutdown
       for(startHeaderBlkFile_ = 0; 
@@ -620,7 +624,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
 
 
    // If we're content here, just return
-   return true;
+   return returnTop;
 }
 
 
@@ -661,21 +665,25 @@ vector<BinaryData> BlockDataManager_LevelDB::getFirstHashOfEachBlkFile(void) con
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum) 
+uint64_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum) 
 {
-   uint32_t loc = 0;
+   uint64_t loc = 0;
    BinaryData magic(4), szstr(4), rawHead(80), hashResult(32);
 
    ifstream is(blkFileList_[fnum].c_str(), ios::in|ios::binary);
    while(!is.eof())
    {
-      is.read((char*)magic.getPtr(), 4);
-      if(is.eof()) break;
+      while (1)
+      {
+         is.read((char*)magic.getPtr(), 4);
+         if (is.eof()) 
+            return loc;
 
-   
-      // This is not an error, it just simply hit the padding
-      if(magic != config_.magicBytes)  
-         break;
+
+         // This is not an error, it just simply hit the padding
+         if (magic == config_.magicBytes)
+            break;
+      }
 
       is.read((char*)szstr.getPtr(), 4);
       uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
@@ -684,8 +692,18 @@ uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum)
       is.read((char*)rawHead.getPtr(), HEADER_SIZE); 
 
       BtcUtils::getHash256_NoSafetyCheck(rawHead.getPtr(), HEADER_SIZE, hashResult);
-      if(!blockchain_.hasHeaderWithHash(hashResult))
-         break; // first hash in the file that isn't in our header map
+      try
+      {
+         BlockHeader& bh = blockchain_.getHeaderByHash(hashResult);
+         bh.setBlockFileOffset(loc);
+         bh.setBlockFile(blkFileList_[fnum].c_str());
+         bh.setBlockSize(blksize);
+      }
+      catch (std::range_error & e)
+      {
+         // first hash in the file that isn't in our header map
+         break;
+      }
 
       loc += blksize + 8;
       is.seekg(blksize - HEADER_SIZE, ios::cur);
@@ -1256,9 +1274,9 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       return false;
    }
 
-
    endOfLastBlockByte_ = startOffset;
 
+   uint32_t nextBlkSize = 0;
    uint32_t const HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
    BinaryData magic(4), szstr(4), rawHead(HEAD_AND_NTX_SZ);
    while(!is.eof())
@@ -1271,10 +1289,10 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       {
          // I have to start scanning for MagicBytes
          
-         BinaryData nulls( (const uint8_t*)"\0\0\0\0", 4);
+         /*BinaryData nulls( (const uint8_t*)"\0\0\0\0", 4);
          
          if (magic == nulls)
-            break;
+            break;*/
          
          LOGERR << "Did not find block header in expected location, "
             "possible corrupt data, searching for next block header.";
@@ -1289,9 +1307,10 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       }
       
       is.read(reinterpret_cast<char*>(szstr.getPtr()), 4);
-      uint32_t nextBlkSize = READ_UINT32_LE(szstr.getPtr());
+      nextBlkSize = READ_UINT32_LE(szstr.getPtr());
       if(is.eof()) break;
 
+      endOfLastBlockByte_ = (uint32_t)is.tellg() -8;
       is.read(reinterpret_cast<char*>(rawHead.getPtr()), HEAD_AND_NTX_SZ); // plus #tx var_int
       if(is.eof()) break;
 
@@ -1312,7 +1331,6 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       addedBlock.setNumTx(nTx);
       addedBlock.setBlockSize(nextBlkSize);
       
-      endOfLastBlockByte_ += nextBlkSize+8;
       is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
       
       // now check if the previous hash is in there
@@ -1330,6 +1348,9 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       }
       
    }
+
+   if (nextBlkSize != 0)
+      endOfLastBlockByte_ += nextBlkSize +8;
 
    return true;
 }
@@ -1524,7 +1545,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    // This will figure out where we should start reading headers, blocks,
    // and where we should start applying or scanning
-   detectCurrentSyncState(forceRebuild, initialLoad);
+   uint32_t firstUnappliedHeight = detectCurrentSyncState(forceRebuild, initialLoad);
 
    // If we're going to rebuild, might as well destroy the DB for good measure
    if(forceRebuild || (startHeaderHgt_==0 && startRawBlkHgt_==0))
@@ -1584,7 +1605,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       uint64_t totalBytesDoneSoFar=0;
       ProgressMeasurer progressMeasurer(totalBlockchainBytes_);
       
-         for (uint32_t fnum = startRawBlkFile_; fnum < numBlkFiles_; fnum++)
+         /*for (uint32_t fnum = startRawBlkFile_; fnum < numBlkFiles_; fnum++)
          {
             string blkfile = blkFileList_[fnum];
             LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
@@ -1610,7 +1631,19 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
             readRawBlocksInFile(singleFileProgress, fnum, startOffset);
 
             totalBytesDoneSoFar += thisfileSize;
-         }
+         }*/
+
+      auto singleFileProgress =
+         [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
+      {
+         progressMeasurer.advance(totalBytesDoneSoFar + bytes);
+         progress(
+            progressMeasurer.fractionCompleted(),
+            progressMeasurer.remainingSeconds()
+            );
+      };
+
+      readRawBlocksInFile(singleFileProgress, firstUnappliedHeight);
 
       TIMER_STOP("dumpRawBlocksToDB");
    }
@@ -1660,8 +1693,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readRawBlocksInFile(
    function<void(uint64_t)> progress,
-   uint32_t fnum, uint32_t foffset
-)
+   uint32_t fnum, uint32_t foffset)
 {
    string blkfile = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(blkfile);
@@ -1742,7 +1774,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
                   << locInBlkFile << " file "
                   << blkfile << ", blocksize " << nextBlkSize
                   << ", top=" << blockchain_.top().getBlockHeight() << ")";
-               failedAttempts++;
+               /*failedAttempts++;
                
                if (failedAttempts >= 4)
                {
@@ -1765,7 +1797,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
                {
                   locInBlkFile += bytesSkipped;
                   LOGERR << "Found another block header at " << locInBlkFile;
-               }
+               }*/
 
                continue;
             }
@@ -1814,6 +1846,101 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
       LOGERR << "Unknown exception";
    }
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::readRawBlocksInFile(
+   function<void(uint64_t)> progress,
+   uint32_t blockHeight)
+{
+   LMDBBlockDatabase::Batch batchB(iface_, BLKDATA);
+   LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
+
+   string blkfile = "";
+   ifstream is;
+   uint64_t foffset;
+   uint64_t filesize;
+   uint32_t nextBlkSize;
+
+   uint64_t dbUpdateSize = 0;
+   uint8_t* filemap = nullptr;
+   int filedes;
+   
+   for (uint32_t i = blockHeight; i < blockchain_.top().getBlockHeight() + 1; i++)
+   {
+      BlockHeader& bh = blockchain_.getHeaderByHeight(i);
+
+      if (blkfile != bh.getFileName())
+      {      
+         if (filemap != nullptr)
+         {
+            munmap(filemap, filesize);
+            close(filedes);
+         }
+
+         blkfile = bh.getFileName();
+         filesize = BtcUtils::GetFileSize(blkfile);
+         string fsizestr = BtcUtils::numToStrWCommas(filesize);
+         LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
+         LOGINFO << blkfile.c_str() << " is " << fsizestr.c_str() << " bytes";
+
+         // Open the file, and check the magic bytes on the first block
+         filedes = open(blkfile.c_str(), _O_RDONLY, 0);
+         filemap = (uint8_t*)mmap(nullptr, filesize, PROT_READ, MAP_SHARED, filedes, 0);
+
+         BinaryData fileMagic(filemap, 4);
+         if (fileMagic != config_.magicBytes)
+         {
+            LOGERR << "Block file is the wrong network!  MagicBytes: "
+               << fileMagic.toHexStr().c_str();
+            return;
+         }
+      }
+
+      // Seek to the supplied offset
+      foffset = bh.getOffset();
+      is.seekg(foffset, ios::beg);
+
+      nextBlkSize = bh.getBlockSize() + 80;
+
+      BinaryRefReader brr(filemap + foffset, nextBlkSize);
+
+      try
+      {
+         addRawBlockToDB(brr);
+      }
+      catch (BlockDeserializingException &e)
+      {
+         LOGERR << e.what() << " (error encountered processing block at byte "
+                  << foffset << " file "
+                  << blkfile << ", blocksize " << nextBlkSize
+                  << ", top=" << blockchain_.top().getBlockHeight() << ")";
+
+         continue;
+      }
+      
+      dbUpdateSize += nextBlkSize;
+
+      if (dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
+      {
+        dbUpdateSize = 0;
+        batchB.commit();
+        batchB.begin(TXN_READWRITE);
+        batchH.commit();
+        batchH.begin(TXN_READWRITE);
+      }
+
+      blocksReadSoFar_++;
+      bytesReadSoFar_ += nextBlkSize;
+
+      //progress(is.tellg());
+   }   
+
+   if (filemap != nullptr)
+   {
+      munmap(filemap, filesize);
+      close(filedes);
+   }
 }
 
 

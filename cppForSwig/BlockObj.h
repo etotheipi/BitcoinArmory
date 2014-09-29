@@ -79,6 +79,8 @@ public:
    BinaryDataRef  getDiffBitsRef(void) const   { return BinaryDataRef(getPtr()+72,4 ); }
    uint32_t       getNumTx(void) const         { return numTx_; }
 
+   const string&  getFileName(void) const { return blkFile_; }
+   uint64_t       getOffset(void) const { return blkFileOffset_; }
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const  {
       assert(isInitialized_);

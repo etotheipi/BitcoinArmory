@@ -527,6 +527,9 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
 /////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getThisHash(void) const
 {
+   if (thisHash_.getSize() == 32)
+      return thisHash_;
+
    return BtcUtils::getHash256(dataCopy_.getPtr(), dataCopy_.getSize());
 }
 

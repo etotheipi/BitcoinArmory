@@ -37,7 +37,10 @@
 #include "pthread.h"
 #include <functional>
 #include "BDM_supportClasses.h"
-
+#include "mman.h"
+#ifdef _MSC_VER
+   #include "leveldb_windows_port\win32_posix\win32_posix.h"
+#endif
 
 
 #define NUM_BLKS_BATCH_THRESH 30
@@ -180,7 +183,7 @@ private:
    // This figures out where we should start loading headers/rawblocks/scanning
    // The replay argument has been temporarily disable since it's not currently
    // being used, and was causing problems instead.
-   bool detectCurrentSyncState(bool rebuild, bool initialLoad);
+   uint32_t detectCurrentSyncState(bool rebuild, bool initialLoad);
 
 public:
    /////////////////////////////////////////////////////////////////////////////
@@ -204,7 +207,7 @@ public:
 
 private:
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
-   uint32_t findOffsetFirstUnrecognized(uint32_t fnum);
+   uint64_t findOffsetFirstUnrecognized(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
    uint32_t findFirstUnappliedBlock(void);
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
@@ -244,6 +247,7 @@ public:
       bool initialLoad=false
    );
    void readRawBlocksInFile(function<void(uint64_t)> fn, uint32_t blkFileNum, uint32_t offset);
+   void readRawBlocksInFile(function<void(uint64_t)> fn, uint32_t blockHeight);
    // These are wrappers around "buildAndScanDatabases"
    void doRebuildDatabases(function<void(double,unsigned)> fn);
    void doFullRescanRegardlessOfSync(function<void(double,unsigned)> fn);

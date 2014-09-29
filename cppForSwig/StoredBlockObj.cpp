@@ -248,6 +248,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       }
    }
 
+   vector<BinaryData> allTxHashes;
    BlockHeader bh(brr); 
    uint32_t nTx = (uint32_t)brr.get_var_int();
 
@@ -271,6 +272,9 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       // Read a regular tx and then convert it
       Tx thisTx(brr);
       numBytes_ += thisTx.getSize();
+
+      //save the hash for merkle computation
+      allTxHashes.push_back(thisTx.getThisHash());
 
       // Now add it to the map
       stxMap_[tx] = StoredTx();
@@ -306,6 +310,15 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
 
       // Finally, add the 
       stxMap_[tx] = stx;
+   }
+
+   //compute the merkle root and compare to the header's
+   BinaryData computedMerkleRoot = BtcUtils::calculateMerkleRoot(allTxHashes);
+
+   if (computedMerkleRoot != bh.getMerkleRoot())
+   {
+      LOGERR << "Merkle root mismatch! Raw block data is corrupt!";
+      throw BlockDeserializingException();
    }
 }
 

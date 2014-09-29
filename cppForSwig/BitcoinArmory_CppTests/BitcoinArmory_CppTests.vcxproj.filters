@@ -72,6 +72,9 @@
     <ClInclude Include="..\LedgerEntry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\leveldb_windows_port\win32_posix\mman.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -138,6 +141,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\HistoryPager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

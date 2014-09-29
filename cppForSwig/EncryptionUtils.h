@@ -78,8 +78,9 @@
    // but, in practice, memory that has been VirtualLock'd almost never gets written to
    // the pagefile except in rare circumstances where memory is extremely low.
    #include <windows.h>
-   #define mlock(p, n) VirtualLock((p), (n));
-   #define munlock(p, n) VirtualUnlock((p), (n));
+   #include "leveldb_windows_port\win32_posix\mman.h"
+   //#define mlock(p, n) VirtualLock((p), (n));
+   //#define munlock(p, n) VirtualUnlock((p), (n));
 #else
    #include <sys/mman.h>
    #include <limits.h>

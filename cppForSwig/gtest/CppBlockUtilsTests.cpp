@@ -6345,6 +6345,40 @@ TEST_F(BlockUtilsBare, Load5Blocks)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_DamagedBlkFile)
+{
+   BtcWallet wlt(theBDV);
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   theBDV->registerWallet(&wlt);
+   //wlt.addScrAddress(scrAddrD_);
+
+   BtcUtils::copyFile("../reorgTest/botched_block.dat", blk0dat_);
+   TheBDM.doInitialSyncOnLoad([](double, unsigned) {});
+   theBDV->scanWallets();
+
+   const ScrAddrObj *scrobj;
+   scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 100 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   /*try
+   {
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_TRUE(false);  //unreachable
+   }
+   catch (...)
+   {
+   // hasn't been scanned yet
+   }*/
+
+   EXPECT_EQ(wlt.getFullBalance(), 150 * COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
 {
    BtcWallet wlt(theBDV);
