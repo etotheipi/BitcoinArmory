@@ -31,7 +31,7 @@ public:
    
    void applyBlockToDB(uint32_t hgt, uint8_t dup, ScrAddrFilter& scrAddrData);
    void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter& scrAddrData);
-   void scanBlocks(uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
+   void scanBlocks(ProgressReporter &prog, uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
 
 private:
 
@@ -87,7 +87,9 @@ private:
    void clearTransactions(void);
    
    static void* grabBlocksFromDB(void *in);
-   static void* applyBlockToDBThread(void *in);
+   
+   static void* applyBlocksToDBThread(void *in);
+   void applyBlocksToDB(ProgressReporter &prog);
 
 private:
    const BlockDataManagerConfig &config_;

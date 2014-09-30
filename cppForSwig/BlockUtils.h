@@ -72,6 +72,8 @@ typedef enum
   DB_BUILD_SCAN
 } DB_BUILD_PHASE;
 
+class ProgressReporter;
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -250,8 +252,8 @@ public:
       bool skipFetch=false,
       bool initialLoad=false
    );
-   void readRawBlocksInFile(function<void(uint64_t)> fn, uint32_t blkFileNum, uint32_t offset);
-   void readRawBlocksInFile(function<void(uint64_t)> fn, uint32_t blockHeight);
+   void readRawBlocksInFile(ProgressReporter &prog, uint32_t blkFileNum, uint32_t offset);
+   void readRawBlocksInFile(ProgressReporter &prog, uint32_t blockHeight);
    // These are wrappers around "buildAndScanDatabases"
    void doRebuildDatabases(const function<void(unsigned, double,unsigned)> &progress);
    void doFullRescanRegardlessOfSync(const function<void(unsigned, double,unsigned)> &progress);
@@ -265,7 +267,7 @@ private:
    uint32_t getTopScannedBlock(void) const;
 
 public:
-   void applyBlockRangeToDB(uint32_t blk0, uint32_t blk1, ScrAddrFilter& scrAddrData);
+   void applyBlockRangeToDB(ProgressReporter &prog, uint32_t blk0, uint32_t blk1, ScrAddrFilter& scrAddrData);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.

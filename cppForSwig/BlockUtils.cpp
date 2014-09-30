@@ -12,6 +12,7 @@
 #include "BlockUtils.h"
 #include "BlockWriteBatcher.h"
 #include "lmdbpp.h"
+#include "Progress.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -387,7 +388,8 @@ protected:
    
    virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)
    {
-      bdm_->applyBlockRangeToDB(startBlock, endBlock, *this);
+      NullProgressReporter np;
+      bdm_->applyBlockRangeToDB(np, startBlock, endBlock, *this);
    }
    
    virtual uint32_t currentTopBlockHeight() const
@@ -1042,7 +1044,7 @@ bool BlockDataManager_LevelDB::isDirty(
 // raw blockdata is stored in the DB with no SSH objects.  This goes through
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
-void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, 
+void BlockDataManager_LevelDB::applyBlockRangeToDB(ProgressReporter &prog, uint32_t blk0, 
    uint32_t blk1, ScrAddrFilter& scrAddrData)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
@@ -1055,7 +1057,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0,
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_);
 
-   blockWrites.scanBlocks(blk0, blk1, scrAddrData);
+   blockWrites.scanBlocks(prog, blk0, blk1, scrAddrData);
 }
 
 
@@ -1594,7 +1596,28 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    blocksReadSoFar_ = 0;
    bytesReadSoFar_ = 0;
    
-
+   class ProgressWithPhase : public ProgressReporter
+   {
+      const unsigned phase_;
+      const function<void(unsigned, double,unsigned)> progress_;
+   public:
+      ProgressWithPhase(
+         unsigned phase,
+         const function<void(unsigned, double,unsigned)>& progress
+      ) : phase_(phase), progress_(progress)
+      {
+         this->progress(0.0, 0);
+      }
+      
+      virtual void progress(
+         double progress, unsigned secondsRemaining
+      )
+      {
+         progress_(phase_, progress, secondsRemaining);
+      }
+   };
+   
+   
    if(initialLoad || forceRebuild)
    {
       LOGINFO << "Getting latest blocks from blk*.dat files";
@@ -1602,49 +1625,9 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
               << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
       TIMER_START("dumpRawBlocksToDB");
       
-      uint64_t totalBytesDoneSoFar=0;
-      ProgressMeasurer progressMeasurer(totalBlockchainBytes_);
-      
-         /*for (uint32_t fnum = startRawBlkFile_; fnum < numBlkFiles_; fnum++)
-         {
-            string blkfile = blkFileList_[fnum];
-            LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
+      ProgressWithPhase progPhase(1, progress);
 
-         const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
-
-         const auto singleFileProgress =
-            [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
-         {
-            progressMeasurer.advance(totalBytesDoneSoFar + bytes);
-            progress(
-               1,
-               progressMeasurer.fractionCompleted(),
-               progressMeasurer.remainingSeconds()
-            );
-         };
-
-         // The supplied offset only applies to the first blockfile we're reading.
-         // After that, the offset is always zero
-         uint32_t startOffset = 0;
-         if (fnum == startRawBlkFile_)
-            startOffset = (uint32_t)startRawOffset_;
-
-         readRawBlocksInFile(singleFileProgress, fnum, startOffset);
-
-            totalBytesDoneSoFar += thisfileSize;
-         }*/
-
-      auto singleFileProgress =
-         [&progressMeasurer, totalBytesDoneSoFar, &progress](uint64_t bytes)
-      {
-         progressMeasurer.advance(totalBytesDoneSoFar + bytes);
-         progress(1,
-            progressMeasurer.fractionCompleted(),
-            progressMeasurer.remainingSeconds()
-            );
-      };
-
-      readRawBlocksInFile(singleFileProgress, firstUnappliedHeight);
+      readRawBlocksInFile(progPhase, firstUnappliedHeight);
 
       TIMER_STOP("dumpRawBlocksToDB");
    }
@@ -1654,19 +1637,9 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    {
-      ProgressMeasurer progressMeasurer(blockchain_.top().getBlockHeight());
-      const auto applyBlocksProgress =
-         [&progressMeasurer, &progress](uint64_t hgt)
-      {
-         progressMeasurer.advance(hgt);
-         progress(
-            3,
-            progressMeasurer.fractionCompleted(),
-            progressMeasurer.remainingSeconds()
-         );
-      };
+      ProgressWithPhase progPhase(3, progress);
       
-      applyBlocksProgress(0);
+      progPhase.progress(0.0, 0);
       
       // TODO: use applyBlocksProgress in applyBlockRangeToDB
       
@@ -1674,7 +1647,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       if (config_.armoryDbType == ARMORY_DB_SUPER)
       {
          uint32_t topScannedBlock = getTopScannedBlock();
-         applyBlockRangeToDB(topScannedBlock,
+         applyBlockRangeToDB(progPhase, topScannedBlock,
             blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
       }
       else
@@ -1682,7 +1655,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
          TIMER_START("applyBlockRangeToDB");
 
          if (scrAddrData_->numScrAddr() > 0)
-            applyBlockRangeToDB(scrAddrData_->scanFrom(),
+            applyBlockRangeToDB(progPhase, scrAddrData_->scanFrom(),
                               blockchain_.top().getBlockHeight() + 1,
                               *scrAddrData_.get());
 
@@ -1711,7 +1684,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readRawBlocksInFile(
-   function<void(uint64_t)> progress,
+   ProgressReporter &prog,
    uint32_t fnum, uint32_t foffset)
 {
    string blkfile = blkFileList_[fnum];
@@ -1749,6 +1722,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
 
    LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
+   ProgressFilter progress(&prog, filesize);
+   
    unsigned failedAttempts=0;
    try
    {
@@ -1833,7 +1808,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
             locInBlkFile += nextBlkSize;
             bsb.reader().advance(nextBlkSize);
 
-            progress(is.tellg());
+            progress.advance(is.tellg());
 
             // Don't read past the last header we processed (in case new 
             // blocks were added since we processed the headers
@@ -1866,14 +1841,15 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readRawBlocksInFile(
-   function<void(uint64_t)> progress,
+   ProgressReporter &prog,
    uint32_t blockHeight)
 {
    LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
+   ProgressFilter progress(&prog, blockchain_.top().getBlockHeight()-blockHeight);
+   
    string blkfile = "";
    ifstream is;
-   uint64_t foffset;
    uint64_t filesize;
    uint32_t nextBlkSize;
 
@@ -1887,7 +1863,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
 
       if (blkfile != bh.getFileName())
       {      
-         if (filemap != nullptr)
+         if (filemap)
          {
             munmap(filemap, filesize);
             close(filedes);
@@ -1913,7 +1889,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
       }
 
       // Seek to the supplied offset
-      foffset = bh.getOffset();
+      const uint64_t foffset = bh.getOffset();
       is.seekg(foffset, ios::beg);
 
       nextBlkSize = bh.getBlockSize() + 80;
@@ -1946,10 +1922,10 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
       blocksReadSoFar_++;
       bytesReadSoFar_ += nextBlkSize;
 
-      //progress(is.tellg());
+      progress.advance(i-blockHeight);
    }   
 
-   if (filemap != nullptr)
+   if (filemap)
    {
       munmap(filemap, filesize);
       close(filedes);

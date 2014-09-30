@@ -3,6 +3,7 @@
 #include "StoredBlockObj.h"
 #include "BlockDataManagerConfig.h"
 #include "lmdb_wrapper.h"
+#include "Progress.h"
 
 #ifdef _MSC_VER
 #include "win32_posix.h"
@@ -1108,15 +1109,15 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    ***/
 
    //mon
-   BlockWriteBatcher* dis = static_cast<BlockWriteBatcher*>(in);
+   BlockWriteBatcher* const dis = static_cast<BlockWriteBatcher*>(in);
 
    //read only db txn
    LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
 
+   
    vector<StoredHeader*> shVec;
 
    uint32_t hgt = dis->tempBlockData_->topLoadedBlock_;
-   uint8_t dupID;
 
    uint32_t memoryLoad = 0; 
 
@@ -1126,7 +1127,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
       if (hgt > dis->tempBlockData_->endBlock_)
          break;
 
-      dupID = dis->iface_->getValidDupIDForHeight(hgt);
+      uint8_t dupID = dis->iface_->getValidDupIDForHeight(hgt);
       if (dupID == UINT8_MAX)
       {
          dis->tempBlockData_->endBlock_ = hgt - 1;
@@ -1160,20 +1161,34 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
 
    //release lock
    dis->tempBlockData_->lock_.store(0, memory_order_release);
-
+   
    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void* BlockWriteBatcher::applyBlockToDBThread(void *in)
+void* BlockWriteBatcher::applyBlocksToDBThread(void *in)
 {
-   BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(in);
+   BlockWriteBatcher* const bwbPtr = static_cast<BlockWriteBatcher*>(in);
+   
+   NullProgressReporter np;
+   bwbPtr->applyBlocksToDB(np);
+   
+   return nullptr;
+}
 
+void BlockWriteBatcher::applyBlocksToDB(ProgressReporter &prog)
+{
+   BlockWriteBatcher* const bwbPtr = this;
    bwbPtr->resetTransactions();
 
+   ProgressFilter progress(
+      &prog,
+      bwbPtr->tempBlockData_->endBlock_-bwbPtr->tempBlockData_->startBlock_
+   );
+   
    pthread_t tID = 0;
 
-    for (uint32_t i = bwbPtr->tempBlockData_->startBlock_;
+   for (uint32_t i = bwbPtr->tempBlockData_->startBlock_;
         i <= bwbPtr->tempBlockData_->endBlock_;
         i++)
    {
@@ -1255,6 +1270,8 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
 
       if (i % 2500 == 2499)
          LOGWARN << "Finished applying blocks up to " << (i + 1);
+         
+      progress.advance(i - bwbPtr->tempBlockData_->startBlock_);
    }
   
    pthread_join(tID, nullptr);
@@ -1263,13 +1280,14 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
    bwbPtr->tempBlockData_ = nullptr;
 
    bwbPtr->clearTransactions();
-
-   return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock, 
-   ScrAddrFilter& scf)
+void BlockWriteBatcher::scanBlocks(
+   ProgressReporter &prog,
+   uint32_t startBlock, uint32_t endBlock, 
+   ScrAddrFilter& scf
+)
 {
    TIMER_START("applyBlockRangeToDBIter");
    
@@ -1284,7 +1302,7 @@ void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock,
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);
 
-   applyBlockToDBThread(this);
+   applyBlocksToDB(prog);
 
    TIMER_STOP("applyBlockRangeToDBIter");
 
@@ -1327,3 +1345,5 @@ void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock,
    double commitToDB = TIMER_READ_SEC("commitToDB");
    LOGWARN << "commitToDB: " << commitToDB << " sec";
 }
+
+// kate: indent-width 3; replace-tabs on;
