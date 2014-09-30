@@ -98,14 +98,14 @@ static StoredScriptHistory* makeSureSSHInMap(
             uint32_t commitId,
             bool createIfDNE)
 {
-   SCOPED_TIMER("makeSureSSHInMap");
+   //SCOPED_TIMER("makeSureSSHInMap");
    StoredScriptHistory * sshptr;
 
    // If already in Map
    map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
    if(ITER_IN_MAP(iter, sshMap))
    {
-      SCOPED_TIMER("___SSH_AlreadyInMap");
+      //SCOPED_TIMER("___SSH_AlreadyInMap");
       sshptr = &(iter->second);
    }
    else
@@ -118,14 +118,14 @@ static StoredScriptHistory* makeSureSSHInMap(
          *additionalSize += UPDATE_BYTES_SSH;
       if(sshTemp.isInitialized())
       {
-         SCOPED_TIMER("___SSH_AlreadyInDB");
+         //SCOPED_TIMER("___SSH_AlreadyInDB");
          // We already have an SSH in DB -- pull it into the map
          sshMap[uniqKey] = sshTemp; 
          sshptr = &sshMap[uniqKey];
       }
       else
       {
-         SCOPED_TIMER("___SSH_NeedCreate");
+         //SCOPED_TIMER("___SSH_NeedCreate");
          if(!createIfDNE)
             return NULL;
 
@@ -161,14 +161,14 @@ static StoredScriptHistory* makeSureSSHInMap_DontFetchSub(
    uint32_t commitId, 
    bool createIfDNE = true)
 {
-   SCOPED_TIMER("makeSureSSHInMap");
+   //SCOPED_TIMER("makeSureSSHInMap");
    StoredScriptHistory * sshptr;
 
    // If already in Map
    map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
    if (ITER_IN_MAP(iter, sshMap))
    {
-      SCOPED_TIMER("___SSH_AlreadyInMap");
+      //SCOPED_TIMER("___SSH_AlreadyInMap");
       sshptr = &(iter->second);
    }
    else
@@ -181,14 +181,14 @@ static StoredScriptHistory* makeSureSSHInMap_DontFetchSub(
          *additionalSize += UPDATE_BYTES_SSH;
       if (sshTemp.isInitialized())
       {
-         SCOPED_TIMER("___SSH_AlreadyInDB");
+         //SCOPED_TIMER("___SSH_AlreadyInDB");
          // We already have an SSH in DB -- pull it into the map
          sshMap[uniqKey] = sshTemp;
          sshptr = &sshMap[uniqKey];
       }
       else
       {
-         SCOPED_TIMER("___SSH_NeedCreate");
+         //SCOPED_TIMER("___SSH_NeedCreate");
          if (!createIfDNE)
             return NULL;
 
@@ -327,7 +327,7 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
    sbh.blockAppliedToDB_ = true;
-   sbhToUpdate_.push_back(sbh);
+   sbhToUpdate_.push_back(&sbh);
    dbUpdateSize_ += sbh.numBytes_;
 
    { // we want to commit the undo data at the same time as actual changes   
@@ -356,9 +356,9 @@ void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup,
 
    preloadSSH(scrAddrData);
 
-   StoredHeader sbh;
-   iface_->getStoredHeader(sbh, hgt, dup);
-   applyBlockToDB(sbh, scrAddrData);
+   StoredHeader* sbhPtr = new StoredHeader();
+   iface_->getStoredHeader(*sbhPtr, hgt, dup);
+   applyBlockToDB(*sbhPtr, scrAddrData);
 
    clearTransactions();
 }
@@ -371,8 +371,10 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    SCOPED_TIMER("undoBlockFromDB");
    resetTransactions();
 
-   StoredHeader sbh;
-   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_);
+   StoredHeader* sbhPtr = new StoredHeader();
+   iface_->getStoredHeader(*sbhPtr, sud.blockHeight_, sud.duplicateID_);
+
+   StoredHeader& sbh = *sbhPtr;
    if(!sbh.blockAppliedToDB_)
    {
       LOGERR << "This block was never applied to the DB...can't undo!";
@@ -601,7 +603,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 
    // Finally, mark this block as UNapplied.
    sbh.blockAppliedToDB_ = false;
-   sbhToUpdate_.push_back(sbh);
+   sbhToUpdate_.push_back(sbhPtr);
    
    clearTransactions();
    
@@ -925,8 +927,8 @@ pthread_t BlockWriteBatcher::commit()
    //create a BWB for commit (pass true to the constructor)
    BlockWriteBatcher *bwbSwapPtr = new BlockWriteBatcher(config_, iface_, true);
 
-   std::swap(bwbSwapPtr->sbhToUpdate_, sbhToUpdate_);
-   std::swap(bwbSwapPtr->stxToModify_, stxToModify_);
+   bwbSwapPtr->sbhToUpdate_ = std::move(sbhToUpdate_);
+   bwbSwapPtr->stxToModify_ = std::move(stxToModify_);
    
    bwbSwapPtr->sshToModify_.insert(sshToModify_.begin(), sshToModify_.end());
 
@@ -944,9 +946,6 @@ pthread_t BlockWriteBatcher::commit()
    pthread_t tID;
    pthread_create(&tID, nullptr, commitThread, bwbSwapPtr);
 
-   /*if (config_.armoryDbType == ARMORY_DB_SUPER)
-      pthread_join(tID, nullptr);*/
-
    return tID;
 }
 
@@ -961,7 +960,13 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
       // get our next one in case we delete the current
       map<BinaryData, StoredScriptHistory>::iterator nextSSHi = iterSSH;
       ++nextSSHi;
-      
+
+      if (iterSSH->second.commitId_ != commitId_)
+      {
+         iterSSH = nextSSHi;
+         continue;
+      }
+
       StoredScriptHistory & ssh = iterSSH->second;
       
       map<BinaryData, StoredSubHistory>::iterator iterSub = ssh.subHistMap_.begin(); 
@@ -1044,7 +1049,10 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
       }
 
       for (auto& sbh : bwbPtr->sbhToUpdate_)
-         updateBlkDataHeader(bwbPtr->config_, bwbPtr->iface_, sbh);
+      {
+         updateBlkDataHeader(bwbPtr->config_, bwbPtr->iface_, *sbh);
+         delete sbh;
+      }
 
       for (auto& delPair : keysToDelete)
          bwbPtr->iface_->deleteValue(BLKDATA, delPair);
@@ -1063,7 +1071,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
       }
    }
    
-   bwbPtr->resetTransactions();
+   bwbPtr->clearTransactions();
 
    //signal the transaction reset
    bwbPtr->parent_->resetTxn_ = true;
@@ -1163,15 +1171,15 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
 
    bwbPtr->resetTransactions();
 
-   StoredHeader* sbh;
-   uint32_t vectorIndex;
    pthread_t tID = 0;
 
-   uint32_t i;
-   for (i = bwbPtr->tempBlockData_->startBlock_;
+    for (uint32_t i = bwbPtr->tempBlockData_->startBlock_;
         i <= bwbPtr->tempBlockData_->endBlock_;
         i++)
    {
+      StoredHeader* sbh;
+      uint32_t vectorIndex;
+      
       if (bwbPtr->resetTxn_ == true)
       {
          bwbPtr->resetTransactions();
@@ -1210,8 +1218,11 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
       {
          usleep(10);
          if (i > bwbPtr->tempBlockData_->endBlock_)
-            goto done;
+            break;
       }
+
+      if (i > bwbPtr->tempBlockData_->endBlock_)
+         break;
 
       //grab lock
       while (bwbPtr->tempBlockData_->lock_.fetch_or(1, memory_order_relaxed));
@@ -1234,20 +1245,18 @@ void* BlockWriteBatcher::applyBlockToDBThread(void *in)
       //release lock
       bwbPtr->tempBlockData_->lock_.store(0, memory_order_relaxed);
 
+      uint32_t blockSize = sbh->numBytes_;
+
       //scan block
       bwbPtr->applyBlockToDB(*sbh, bwbPtr->tempBlockData_->scrAddrFilter_);
 
       //decrement bufferload
-      bwbPtr->tempBlockData_->bufferLoad_ -= sbh->numBytes_;
-
-      //clean up sbh after use
-      delete sbh;
+      bwbPtr->tempBlockData_->bufferLoad_ -= blockSize;
 
       if (i % 2500 == 2499)
          LOGWARN << "Finished applying blocks up to " << (i + 1);
    }
   
-done:
    pthread_join(tID, nullptr);
 
    delete bwbPtr->tempBlockData_;
@@ -1267,17 +1276,13 @@ void BlockWriteBatcher::scanBlocks(uint32_t startBlock, uint32_t endBlock,
    preloadSSH(scf);
 
    /*rewind 500 blocks to account for reorgs*/
-   if (startBlock > 500)
+   /*if (startBlock > 500)
       startBlock -= 500;
    else
-      startBlock = 0;
+      startBlock = 0;*/
 
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);
-
-   /*pthread_t tID;
-   pthread_create(&tID, nullptr, applyBlockToDBThread, this);
-   pthread_join(tID, nullptr);*/
 
    applyBlockToDBThread(this);
 

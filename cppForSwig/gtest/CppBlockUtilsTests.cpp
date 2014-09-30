@@ -26,8 +26,8 @@
    #include "win32_posix.h"
 	#undef close
 
-   /*#ifdef _DEBUG
-      #define _CRTDBG_MAP_ALLOC
+   #ifdef _DEBUG
+      //#define _CRTDBG_MAP_ALLOC
       #include <stdlib.h>
       #include <crtdbg.h>
       
@@ -35,7 +35,7 @@
          #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
          #define new DBG_NEW
       #endif
-   #endif*/
+   #endif
 #endif
 
 #define READHEX BinaryData::CreateFromHex
@@ -4639,6 +4639,8 @@ protected:
       #else
          system("rm -rf ./ldbtestdir/*");
       #endif
+
+      CLEANUP_ALL_TIMERS();
    }
 
    /////
@@ -6233,6 +6235,7 @@ protected:
          rmdir(delstr);
       #endif
       LOGENABLESTDOUT();
+      CLEANUP_ALL_TIMERS();
    }
 
 
@@ -6665,6 +6668,8 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(le.getTxTime(), 1231008907);
    EXPECT_EQ(le.getValue(), -5000000000);
    EXPECT_EQ(le.getBlockNum(), 4);
+
+   delete wlt;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -7350,6 +7355,7 @@ protected:
       
       theBDM = new BlockDataManager_LevelDB(config);
       theBDV = new BlockDataViewer(theBDM);
+      CLEANUP_ALL_TIMERS();
    }
 
    void mkdir(string newdir)
@@ -7488,6 +7494,7 @@ protected:
          rmdir(d);
       #endif
       LOGENABLESTDOUT();
+      CLEANUP_ALL_TIMERS();
    }
 
 
@@ -7937,6 +7944,7 @@ protected:
       #endif
 
       LOGENABLESTDOUT();
+      CLEANUP_ALL_TIMERS();
    }
 
 
@@ -8135,6 +8143,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      CLEANUP_ALL_TIMERS();
    }
 
 
@@ -8418,9 +8427,9 @@ TEST(TimeDebugging, WriteNull)
 ////////////////////////////////////////////////////////////////////////////////
 GTEST_API_ int main(int argc, char **argv) 
 {
-   /*#ifdef _MSC_VER
+   #ifdef _MSC_VER
       _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-   #endif*/
+   #endif
 
    std::cout << "Running main() from gtest_main.cc\n";
 
@@ -8432,6 +8441,7 @@ GTEST_API_ int main(int argc, char **argv)
    int exitCode = RUN_ALL_TESTS();
    
    FLUSHLOG();
+   CLEANUPLOG();
 
    return exitCode;
 }

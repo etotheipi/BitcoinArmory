@@ -2960,6 +2960,7 @@ mdb_txn_commit(MDB_txn *txn)
 	unsigned int i, map_index;
 	MDB_env	*env;
    MDB_mapinfo* map;
+   MDB_page* dp;
 
 	if (txn == NULL || txn->mt_env == NULL)
 		return EINVAL;
@@ -3158,6 +3159,12 @@ done:
 	env->me_pglast = 0;
 	env->me_txn = NULL;
 	mdb_dbis_update(txn, 1);
+
+   while ((dp = env->me_dpages) != NULL) {
+      VGMEMP_DEFINED(&dp->mp_next, sizeof(dp->mp_next));
+      env->me_dpages = dp->mp_next;
+      free(dp);
+   }
 
    env->me_maps[txn->mt_mapindex].sema--;
 	if (env->me_txns)
@@ -4413,6 +4420,7 @@ mdb_env_close0(MDB_env *env, int excl)
 	}
 
 	env->me_flags &= ~(MDB_ENV_ACTIVE|MDB_ENV_TXKEY);
+   free(env->me_maps);
 }
 
 int

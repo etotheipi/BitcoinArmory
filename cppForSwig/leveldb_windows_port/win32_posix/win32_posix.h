@@ -131,11 +131,11 @@ struct flock
 #define fcntl fcntl_win32
 int fcntl_win32(int fd, unsigned _int32 command, flock *f);
 
-#define strdup _strdup
+//#define strdup _strdup
 /***
 consider redoing snprintf
 ***/
-#define snprintf c99_snprintf //stick to this for now unless it fucks up horribly
+//#define snprintf c99_snprintf //stick to this for now unless it fucks up horribly
 int c99_vsnprintf(char* str, size_t size, const char* format, va_list ap);
 int c99_snprintf(char* str, size_t size, const char* format, ...);
 

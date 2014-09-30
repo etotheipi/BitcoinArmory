@@ -77,12 +77,15 @@
    #define SCOPED_TIMER(NAME) 
 //#endif
 
+#define CLEANUP_ALL_TIMERS() UniversalTimer::cleanup()
+
 using namespace std;
 
 class UniversalTimer
 {
 public:
    static UniversalTimer & instance(void);
+   static void cleanup(void);
    void init (string key, string grpstr="");
    void start (string key, string grpstr="");
    void restart (string key, string grpstr="");

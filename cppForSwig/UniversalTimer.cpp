@@ -101,6 +101,14 @@ UniversalTimer & UniversalTimer::instance(void)
    return *theUT_;
 }
 
+//Cleanup the singleton
+void UniversalTimer::cleanup(void)
+{
+   if (theUT_ != nullptr)
+      delete theUT_;
+   theUT_ = nullptr;
+}
+
 // Initialize a timer for the given string
 void UniversalTimer::init(string key, string grpstr)
 {

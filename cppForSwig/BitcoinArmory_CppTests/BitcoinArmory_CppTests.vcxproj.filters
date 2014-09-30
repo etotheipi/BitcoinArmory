@@ -98,9 +98,6 @@
     <ClCompile Include="..\UniversalTimer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\gtest\gtest-all.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -144,6 +141,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

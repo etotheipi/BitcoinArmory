@@ -689,7 +689,7 @@ void LMDBBlockDatabase::putValue(DB_SELECT db,
 {
    BinaryWriter bw;
    bw.put_uint8_t((uint8_t)prefix);
-   bw.put_BinaryData(key);
+   bw.put_BinaryData(key.getPtr(), key.getSize());
    putValue(db, bw.getDataRef(), value);
 }
 
@@ -1514,7 +1514,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 // This assumes that this new tx is "preferred" and will update the list as such
 void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
 {
-   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
+   //LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
    SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = DBUtils::getBlkDataKeyNoPrefix(stx.blockHeight_, 
                                                       stx.duplicateID_, 

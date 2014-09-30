@@ -79,6 +79,7 @@
 #define LOGENABLESTDOUT()   Log::SuppressStdout(false)
 #define SETLOGLEVEL(LOGLVL) Log::SetLogLevel(LOGLVL)
 #define FLUSHLOG()          Log::FlushStreams()
+#define CLEANUPLOG()        Log::CleanUp()
 
 
 #define MAX_LOG_FILE_SIZE (500*1024)
@@ -290,6 +291,8 @@ public:
     static bool isOpen(void) {return GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
     static void FlushStreams(void) {GetInstance().ds_.FlushStreams();}
+
+    static void CleanUp(void) { delete &GetInstance(); }
 
 protected:
     DualStream ds_;

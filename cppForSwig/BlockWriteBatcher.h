@@ -19,8 +19,11 @@ struct BlockDataManagerConfig;
 class BlockWriteBatcher
 {
 public:
+#ifdef _DEBUG
+   static const uint64_t UPDATE_BYTES_THRESH = 300;
+#else
    static const uint64_t UPDATE_BYTES_THRESH = 96 * 1024 * 1024;
-
+#endif
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
                      LMDBBlockDatabase* iface,
                      bool forCommit = false);
@@ -94,7 +97,7 @@ private:
    uint64_t dbUpdateSize_;
    map<BinaryData, StoredTx>              stxToModify_;
    map<BinaryData, StoredScriptHistory>   sshToModify_;
-   vector<StoredHeader>                   sbhToUpdate_;
+   vector<StoredHeader*>                  sbhToUpdate_;
    
    // (theoretically) incremented for each
    // applyBlockToDB and decremented for each

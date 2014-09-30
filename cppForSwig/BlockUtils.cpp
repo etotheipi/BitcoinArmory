@@ -468,6 +468,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
 BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 {
    iface_->closeDatabases();
+   scrAddrData_.reset();
    delete iface_;
 }
 
@@ -1700,12 +1701,12 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    allScannedUpToBlk_ = lastTopBlock_;
 
-   #ifdef _DEBUG
+  /* #ifdef _DEBUG
       UniversalTimer::instance().printCSV(string("timings.csv"));
       #ifdef _DEBUG_FULL_VERBOSE
          UniversalTimer::instance().printCSV(cout,true);
       #endif
-   #endif
+   #endif*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2237,12 +2238,12 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       blkFileList_.push_back(nextFilename);
    }
 
-   #ifdef _DEBUG
+   /*#ifdef _DEBUG
 	   UniversalTimer::instance().printCSV(string("timings.csv"));
 	   #ifdef _DEBUG_FULL_VERBOSE 
          UniversalTimer::instance().printCSV(cout,true);
 	   #endif
-   #endif
+   #endif*/
 
    return prevTopBlk;
 }
