@@ -117,7 +117,7 @@ parser.add_option("--coverage_include", dest="coverageInclude", default=None, ty
 
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
+BASE16CHARS  = '0123456789abcdefABCDEF'
 LITTLEENDIAN  = '<'
 BIGENDIAN     = '>'
 NETWORKENDIAN = '!'
@@ -204,6 +204,7 @@ class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
 class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
+class NonBase58CharacterError(Exception): pass
 
 # Get the host operating system
 opsys = platform.system()
@@ -1963,7 +1964,10 @@ def base58_to_binary(addr):
    n = 0
    for ch in addr:
       n *= 58
-      n += BASE58CHARS.index(ch)
+      if ch in BASE58CHARS:
+         n += BASE58CHARS.index(ch)
+      else:
+         raise NonBase58CharacterError("Unrecognized Base 58 Character: %s" % ch)
 
    binOut = ''
    while n>0:
@@ -3393,11 +3397,11 @@ def HardcodedKeyMaskParams():
       out,bin7 = SecureBinaryData(binary_to_base58(bin7 + hash256(bin7)[0])), None
       return out
 
-   def hardcodeCheckPassphrase(passphrase):
-      if isinstance(passphrase, basestring):
-         pwd = base58_to_binary(passphrase)
+   def hardcodeCheckSecurePrintCode(securePrintCode):
+      if isinstance(securePrintCode, basestring):
+         pwd = base58_to_binary(securePrintCode)
       else:
-         pwd = base58_to_binary(passphrase.toBinStr())
+         pwd = base58_to_binary(securePrintCode.toBinStr())
 
       isgood,pwd = (hash256(pwd[:7])[0] == pwd[-1]), None
       return isgood
@@ -3423,7 +3427,7 @@ def HardcodedKeyMaskParams():
    paramMap['FUNC_KDF']    = hardcodeApplyKdf
    paramMap['FUNC_MASK']   = hardcodeMask
    paramMap['FUNC_UNMASK'] = hardcodeUnmask
-   paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
+   paramMap['FUNC_CHKPWD'] = hardcodeCheckSecurePrintCode
    return paramMap
 
 ################################################################################

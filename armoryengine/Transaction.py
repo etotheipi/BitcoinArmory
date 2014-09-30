@@ -2866,7 +2866,9 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
          if isinstance(addr, PyBtcAddress):
             cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr.getAddr160()))
          else:
-            cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr))
+            # Have to Skip ROOT
+            if addr!='ROOT':
+               cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr))
 
       TheBDM.registerWallet(cppWlt)
       currBlk = TheBDM.getTopBlockHeight()
