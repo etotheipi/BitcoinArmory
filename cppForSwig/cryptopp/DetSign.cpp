@@ -13,8 +13,6 @@
 
 #ifndef CRYPTOPP_IMPORTS
 
-#include <iostream>
-#include <cstdio>
 #include "DetSign.h"
 #include "integer.h"
 #include "hmac.h"
@@ -33,13 +31,13 @@ NAMESPACE_BEGIN(CryptoPP)
 Integer bits2int(const SecByteBlock& inData, const unsigned int& numOrderBits)
 {
     Integer newInt(inData, inData.size());
+
     // If the Integer's larger than the curve order, we must right shift the Int
-    // by enough bits to make it the same size as the curve order.
-    if(newInt.BitCount() > numOrderBits)
+    // by enough bits to make it the same size as the curve order. Count all
+    // input bits, as we can't tell the input's boundaries beforehand.
+    if((newInt.ByteCount() * 8) > numOrderBits)
     {
-        // TO DO: Think about corner cases where Crypto++ BitCount() could return, say,
-        // 255, and possibly mess with the algorithm.
-        newInt >>= (newInt.BitCount() - numOrderBits);
+        newInt >>= ((newInt.ByteCount() * 8) - numOrderBits);
     }
 
     return newInt;
@@ -47,7 +45,7 @@ Integer bits2int(const SecByteBlock& inData, const unsigned int& numOrderBits)
 
 
 // Function that takes a Crypto++ Integer and creates a big-endian data block
-// with the same number of bytes as the ECDSA curve's order. (See Sect. 2.3.4 of
+// with the same number of bytes as the ECDSA curve's order. (See Sect. 2.3.3 of
 // RFC 6979.) Note that the code doesn't care if the input data has a larger
 // value than the order. If such a state is important, the input must be
 // checked/fixed before calling this function.
@@ -69,7 +67,7 @@ SecByteBlock int2octets(const Integer& inInt, const unsigned int& numOrderBytes)
         // MSB form and then save the encoded data.
         SecByteBlock tmpData1(numOrderBytes);
         memset(tmpData1, 0, numOrderBytes); // Make sure there are no stray bits
-        unsigned int offset = numOrderBytes - tmpData1.size();
+        unsigned int offset = numOrderBytes - inIntData.size();
         memcpy(tmpData1 + offset, inIntData, numOrderBytes - offset);
         retBlock = tmpData1;
     }
@@ -91,18 +89,19 @@ SecByteBlock int2octets(const Integer& inInt, const unsigned int& numOrderBytes)
     return retBlock;
 }
 
-// Function that takes a big-endian block of data and creates a Crypto++ Integer
-// from the data. The Integer will be no larger in size than the ECDSA curve's
-// order. (See Sect. 2.3.2 of RFC 6979.)
+// Function that takes a big-endian block of data and creates another big-endian
+// block of data, set to the same bit length as the ECDSA curve's order. (See
+// Sect. 2.3.4 of RFC 6979.)
 // INPUT:  Input data (const SecByteBlock&)
 //         Number of bits in the ECDSA curve's order (const unsigned int&)
 // OUTPUT: N/A
 // RETURN: An Integer from the input data modulo the curve order (Integer)
-SecByteBlock bits2octets(const SecByteBlock& inData, const Integer& curveOrder)
+SecByteBlock bits2octets(const SecByteBlock& inData, const Integer& curveOrder,
+                         const size_t& curveOrderNumBits)
 {
     // Reduce the input to the length of the ECDSA curve's order. Return it or,
     // if larger than the order, the modulo value.
-    Integer newInt1 = bits2int(inData, curveOrder.BitCount());
+    Integer newInt1 = bits2int(inData, curveOrderNumBits);
     Integer newInt2 = newInt1 - curveOrder;
     return int2octets(newInt2.IsNegative() ? newInt1 : newInt2,
                       curveOrder.ByteCount());
@@ -115,15 +114,16 @@ SecByteBlock bits2octets(const SecByteBlock& inData, const Integer& curveOrder)
 //         The message to hash (const byte*)
 //         The size of the message to hash (const size_t&)
 //         The ECDSA curve order (const Integer&)
+//         The number of bits in the ECDSA curve order (const size_t&)
 // OUTPUT: N/A
 // RETURN: The final k-value (Integer)
 Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
-                   const size_t& msgToHashSize, const Integer& curveOrder)
+                   const size_t& msgToHashSize, const Integer& curveOrder,
+                   const size_t& curveOrderNumBits)
 {
     // Initial setup.
     // NB: SHA256 is hard-coded. This ought to be changed if at all possible.
-    unsigned int numOrderBits = curveOrder.BitCount(); // 256 for secp256k1
-    unsigned int numOrderBytes = curveOrder.ByteCount(); // 32 for secp256k1
+    unsigned int numOrderBytes = (curveOrderNumBits + 7) / 8; // 32 for secp256k1
     SecByteBlock hmacKey(32); // SHA-256
     memset(hmacKey, 0, 32); // This is the initial key.
     HMAC<SHA256> dummyHMAC(hmacKey, hmacKey.size());
@@ -138,7 +138,8 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
     // Hash the input.
     SHA256 hashFunct;
     hashFunct.CalculateDigest(inputHash, msgToHash, msgToHashSize);
-    SecByteBlock choppedHash = bits2octets(inputHash, curveOrder);
+    SecByteBlock choppedHash = bits2octets(inputHash, curveOrder,
+                                           curveOrderNumBits);
 
     // Create the second key. (The first key was already created w/ memset(0).)
     HMAC<SHA256> detSignMAC1(hmacKey, hmacKey.size());
@@ -152,7 +153,7 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
     // Create the third (and probably final) key.
     memset(singleByte, '\x01', 1);
     HMAC<SHA256> detSignMAC3(hmacKey, hmacKey.size());
-    SecByteBlock hmacInput2 = V + singleByte + prvKeyBlock + inputHash;
+    SecByteBlock hmacInput2 = V + singleByte + prvKeyBlock + choppedHash;
     detSignMAC3.CalculateDigest(hmacKey, hmacInput2, hmacInput2.size());
 
     // Hash the V value.
@@ -175,7 +176,7 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
 
         // Check to see if the final value is valid. If not, we must compute a
         // new k-value. (Failure is highly improbable.)
-        Integer tmpLoopVar = bits2int(loopVarData, numOrderBits);
+        Integer tmpLoopVar = bits2int(loopVarData, curveOrderNumBits);
         if(tmpLoopVar >= Integer::One() && tmpLoopVar < curveOrder)
         {
             finalLoopVar = tmpLoopVar;
@@ -183,8 +184,7 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
         }
         else
         {
-            // Create a new V value by hashing it twice, the first time w/ 0x00
-            // appended.
+            // Create a new key and V-value.
             memset(singleByte, 0, 1);
             SecByteBlock newHMACInput = V + singleByte;
             HMAC<SHA256> detSignMAC6(hmacKey, hmacKey.size());

@@ -6,6 +6,9 @@
 // #                                                                           #
 // #############################################################################
 
+// Implementation of RFC 6979 for Crypto++. ECDSA_DetSign<ECP, SHA256>::Signer
+// is an example of a signer that uses RFC 6979 to determine the k-value.
+
 #ifndef CRYPTOPP_DETSIGNRNG_H
 #define CRYPTOPP_DETSIGNRNG_H
 
@@ -15,7 +18,8 @@
 NAMESPACE_BEGIN(CryptoPP)
 
 Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
-                   const size_t& msgToHashSize, const Integer& curveOrder);
+                   const size_t& msgToHashSize, const Integer& curveOrder,
+                   const size_t& curveOrderNumBits);
 
 template <class SCHEME_OPTIONS>
 class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
