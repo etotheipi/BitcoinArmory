@@ -1047,8 +1047,6 @@ bool BlockDataManager_LevelDB::isDirty(
 void BlockDataManager_LevelDB::applyBlockRangeToDB(ProgressReporter &prog, uint32_t blk0, 
    uint32_t blk1, ScrAddrFilter& scrAddrData)
 {
-   SCOPED_TIMER("applyBlockRangeToDB");
-
    blk1 = min(blk1, blockchain_.top().getBlockHeight() + 1);
 
    BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
@@ -1646,6 +1644,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       // TODO: use applyBlocksProgress in applyBlockRangeToDB
       
       // scan addresses from BDM
+      TIMER_START("applyBlockRangeToDB");
       if (config_.armoryDbType == ARMORY_DB_SUPER)
       {
          uint32_t topScannedBlock = getTopScannedBlock();
@@ -1654,18 +1653,18 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       }
       else
       {
-         TIMER_START("applyBlockRangeToDB");
-
          if (scrAddrData_->numScrAddr() > 0)
             applyBlockRangeToDB(progPhase, scrAddrData_->scanFrom(),
                               blockchain_.top().getBlockHeight() + 1,
                               *scrAddrData_.get());
 
-         TIMER_STOP("applyBlockRangeToDB");
-         double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
-
-         LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
       }
+         
+      TIMER_STOP("applyBlockRangeToDB");
+      double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
+
+      CLEANUP_ALL_TIMERS();
+      LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
    }
    
    // We need to maintain the physical size of all blkXXXX.dat files together

@@ -818,20 +818,6 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    ssh.unserializeDBKey(sshKey, true);
    ssh.unserializeDBValue(ldbIter.getValueReader(), this);
 
-   if(!ssh.useMultipleEntries_)
-   {
-      if (ssh.subHistMap_.size() > 0)
-      {
-         auto subHistIter = ssh.subHistMap_.begin();
-         if (subHistIter->second.height_ < startBlock ||
-            subHistIter->second.height_ > endBlock)
-            ssh.subHistMap_.clear();
-      }
-
-      ldbIter.advanceAndRead();
-      return true;
-   }
-
    if(ssh.totalTxioCount_ == 0)
       LOGWARN << "How did we end up with zero Txios in an SSH?";
       
@@ -896,9 +882,6 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
    }
 
    putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, this, armoryDbType_, dbPruneType_));
-
-   if(!ssh.useMultipleEntries_)
-      return;
 
    map<BinaryData, StoredSubHistory>::iterator iter;
    for(iter  = ssh.subHistMap_.begin(); 
@@ -966,12 +949,18 @@ void LMDBBlockDatabase::getStoredScriptHistoryByRawScript(
 // simply filling in data that the SSH may be expected to have.  
 bool LMDBBlockDatabase::fetchStoredSubHistory( StoredScriptHistory & ssh,
                                             BinaryData hgtX,
+                                            uint64_t& additionalSize,
+                                            uint32_t commitId,
                                             bool createIfDNE,
                                             bool forceReadDB)
 {
-   if(!forceReadDB && KEY_IN_MAP(hgtX, ssh.subHistMap_))
+   auto subIter = ssh.subHistMap_.find(hgtX);
+   if (!forceReadDB && ITER_IN_MAP(subIter, ssh.subHistMap_))
+   {
+      subIter->second.commitId_ = commitId;
       return true;
-      
+   }
+
    BinaryData key = ssh.uniqueKey_ + hgtX; 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
 
@@ -984,7 +973,7 @@ bool LMDBBlockDatabase::fetchStoredSubHistory( StoredScriptHistory & ssh,
    else if(!createIfDNE)
       return false;
 
-   return ssh.mergeSubHistory(subssh);
+   return ssh.mergeSubHistory(subssh, additionalSize, commitId);
 }
 
 
@@ -2675,13 +2664,6 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
 
    if (ssh.totalTxioCount_ == 0)
       return SSHsummary;
-
-   if (!ssh.useMultipleEntries_)
-   {
-      auto txioIter = ssh.subHistMap_.begin();
-      SSHsummary[txioIter->second.height_] = 1;
-      return SSHsummary;
-   }
 
    uint32_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));

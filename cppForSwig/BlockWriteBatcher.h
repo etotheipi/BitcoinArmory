@@ -70,12 +70,12 @@ private:
    };
 
    // We have accumulated enough data, actually write it to the db
-   pthread_t commit(void);
+   pthread_t commit(bool force = false);
    static void* commitThread(void*);
    
    // search for entries in sshToModify_ that are empty and should
    // be deleted, removing those empty ones from sshToModify
-   set<BinaryData> searchForSSHKeysToDelete();
+   void searchForSSHKeysToDelete();
 
    void preloadSSH(const ScrAddrFilter& sasd);
    void applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData);
@@ -98,9 +98,11 @@ private:
 
    // turn off batches by setting this to 0
    uint64_t dbUpdateSize_;
-   map<BinaryData, StoredTx>              stxToModify_;
+   map<BinaryData, StoredTx*>             stxToModify_;
+   vector<StoredTx*>                      stxPulledFromDB_;
    map<BinaryData, StoredScriptHistory>   sshToModify_;
    vector<StoredHeader*>                  sbhToUpdate_;
+   set<BinaryData>                        keysToDelete_;
    
    // (theoretically) incremented for each
    // applyBlockToDB and decremented for each
@@ -123,6 +125,9 @@ private:
    //for managing SSH in supernode
    uint32_t commitId_ = 0;
    uint32_t deleteId_ = 0;
+
+   //to detect running commit 
+   bool commiting_ = false;
 };
 
 

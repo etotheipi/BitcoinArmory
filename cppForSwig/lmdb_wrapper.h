@@ -479,6 +479,8 @@ public:
    // sub-SSH from DB and adds it to the supplied regular-SSH.
    bool fetchStoredSubHistory( StoredScriptHistory & ssh, 
                                BinaryData hgtX,
+                               uint64_t& additionalSize,
+                               uint32_t commitId, 
                                bool createIfDNE=false,
                                bool forceReadAndMerge=false);
 

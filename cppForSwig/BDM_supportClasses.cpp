@@ -24,14 +24,6 @@ void ScrAddrFilter::getScrAddrCurrentSyncState(
 
    //update scrAddrData lowest scanned block
    setScrAddrLastScanned(scrAddr, ssh.alreadyScannedUpToBlk_);
-
-   if (ssh.totalTxioCount_ == 1)
-   {
-      //scrAddr only has one UTxO, coming along the SSH summary, let's save it
-      auto subsshIter = ssh.subHistMap_.begin();
-      auto txioIter = subsshIter->second.txioMap_.begin();
-      addUTxO(*txioIter);
-   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

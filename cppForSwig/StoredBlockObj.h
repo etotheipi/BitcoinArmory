@@ -20,6 +20,10 @@
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
 #define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
 
+static const uint64_t UPDATE_BYTES_SSH    = 25;
+static const uint64_t UPDATE_BYTES_SUBSSH = 75;
+static const uint64_t UPDATE_BYTES_KEY    = 8;
+
 enum BLKDATA_TYPE
 {
   NOT_BLKDATA,
@@ -495,7 +499,6 @@ public:
    StoredScriptHistory(void) : uniqueKey_(0), 
                                version_(UINT32_MAX),
                                alreadyScannedUpToBlk_(0),
-                               useMultipleEntries_(false),
                                totalTxioCount_(0),
                                totalUnspent_(0) {}
                                
@@ -524,7 +527,10 @@ public:
    bool       eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio);
    bool       eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B);
 
-   bool       mergeSubHistory(StoredSubHistory & subssh);
+   bool       mergeSubHistory(StoredSubHistory & subssh, 
+                              uint64_t& additionalSize,
+                              uint32_t commitId);
+
    TxIOPair& insertTxio(LMDBBlockDatabase *db, TxIOPair const & txio, 
                         bool withOverwrite=true,
                         bool skipTally=false);
@@ -535,6 +541,8 @@ public:
    // This adds the TxOut if it doesn't exist yet
    uint64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+                               uint64_t&  additionalSize,
+                               uint32_t& commitId, 
                                uint64_t   value=UINT64_MAX,
                                bool       isCoinbase= false,
                                bool       isMultisigRef=false);
@@ -544,19 +552,18 @@ public:
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
    void insertSpentTxio(const BinaryData& txOutDbKey,
-                         const BinaryData& txInDbKey);
+                         const BinaryData& txInDbKey,
+                         uint64_t& additionalSize,
+                         uint32_t commitId);
+
    bool eraseSpentTxio(const BinaryData& hgtX,
                         const BinaryData& dbKey8B);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
-   bool           useMultipleEntries_;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
-
-   //for SSH writing purpose, not saved in DB
-   uint32_t commitId_ = UINT32_MAX;
 
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.
@@ -602,7 +609,8 @@ public:
    //void pprintFullSSH(uint32_t indent=3);
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
-   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
+   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true, 
+                        uint64_t* additionalSize = nullptr);
    uint64_t   eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio);
    uint64_t   eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B);
    bool       eraseTxio(BinaryData const & dbKey8B) 
@@ -615,6 +623,7 @@ public:
 
    uint64_t markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+                             uint64_t&  additionalSize,
                              uint64_t   value,
                              bool       isCoinbase,
                              bool       isMultisigRef);
@@ -633,6 +642,9 @@ public:
    uint32_t height_;
    uint8_t  dupID_;
    uint32_t txioCount_;
+
+   //for SSH writing purpose, not saved in DB
+   uint32_t commitId_ = UINT32_MAX;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
