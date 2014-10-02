@@ -2776,41 +2776,43 @@ def encodePrivKeyBase58(privKeyBin):
 URI_VERSION_STR = '1.0'
 
 ################################################################################
-def parseBitcoinURI(theStr):
-   """ Takes a URI string, returns the pieces of it, in a dictionary """
+def parseBitcoinURI(uriStr):
+   """ Takes a URI string, returns normalized dicitonary with pieces """
 
-   # Start by splitting it into pieces on any separator
-   seplist = ':;?&'
-   for c in seplist:
-      theStr = theStr.replace(c,' ')
-   parts = theStr.split()
+   # Split URI into parts
+   from urlparse import urlparse, parse_qs
+
+   uri = urlparse(uriStr)
+   query = parse_qs(uri.query)
+
+   # Flatten query
+   for k in query:
+      v = query[k]
+      if len(v) == 1:
+         query[k] = v[0]
 
    # Now start walking through the parts and get the info out of it
-   if not parts[0] == 'bitcoin':
+   if uri.scheme != 'bitcoin':
       return {}
 
-   uriData = {}
+   data = {}
 
    try:
-      uriData['address'] = parts[1]
-      for p in parts[2:]:
-         if not '=' in p:
-            raise BadURIError('Unrecognized URI field: "%s"'%p)
-
-         # All fields must be "key=value" making it pretty easy to parse
-         key, value = p.split('=')
-
-         # A few
-         if key.lower()=='amount':
-            uriData['amount'] = str2coin(value)
-         elif key.lower() in ('label','message'):
-            uriData[key] = uriPercentToReserved(value)
+      data['address'] = uri.path
+      for k in query:
+         v = query[k]
+         # Apply filters to known keys
+         kl = k.lower()
+         if kl == 'amount':
+            data['amount'] = str2coin(v)
+         elif kl in ('label','message'):
+            data[k] = uriPercentToReserved(v)
          else:
-            uriData[key] = value
+            data[k] = v
    except:
-      return {}
+      data = {}
 
-   return uriData
+   return data
 
 
 ################################################################################
