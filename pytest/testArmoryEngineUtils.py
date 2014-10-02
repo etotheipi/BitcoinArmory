@@ -251,7 +251,15 @@ class ArmoryEngineTest(unittest.TestCase):
 
       replOut = formatWithPlurals(strIn, 2, [2,1])
       self.assertEqual(replOut, strOut[4])
-   
+
+
+   #############################################################################
+   def testBitcoinUriParser(self):
+      ##### Test BIP 0021 Parser functions
+      uri = "bitcoin:1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW?amount=0.1&r=https://example.com/foo/bar/"
+      parseOut = parseBitcoinURI(uri)
+      expectedOut = {"address": "1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW", "amount": 10000000, "r": "https://example.com/foo/bar/"}
+      self.assertEqual(parseOut, expectedOut)   
 
 
 
