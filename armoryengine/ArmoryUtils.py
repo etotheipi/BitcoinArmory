@@ -3190,6 +3190,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          271827 12968787968
          286296 15619588096
          290715 16626221056
+         323285 24216006308
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]

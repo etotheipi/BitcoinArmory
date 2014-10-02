@@ -42,15 +42,12 @@ BITCOIN_ARMORY_COMMENT = 'Comment: Signed by Bitcoin Armory v' +\
    getVersionString(BTCARMORY_VERSION, 3)
 class UnknownSigBlockType(Exception): pass
    
-def randomk():  #better make it stronger
-   # return CppBlockUtils.SecureBinaryData.GenerateRandom(32)
-   rk=0
-   for i in range(8):
-      rk = rk | long(random.random()*0xffffffff)<<(32*i)
-   return rk
+def randomk():  
+   # Using Crypto++ CSPRNG instead of python's
+   return CppBlockUtils.SecureBinaryData().GenerateRandom(32).toBinStr()
+
 
 # Common constants/functions for Bitcoin
-
 def hash_160_to_bc_address(h160, addrtype=0):
    vh160 = chr(addrtype) + h160
    h = Hash(vh160)
