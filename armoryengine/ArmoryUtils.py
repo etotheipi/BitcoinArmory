@@ -2797,19 +2797,19 @@ def parseBitcoinURI(theStr):
    """ Takes a URI string, returns the pieces of it, in a dictionary """
 
    # Start by splitting it into pieces on any separator
-   seplist = ':;?&'
+   seplist = ';?&'
    for c in seplist:
       theStr = theStr.replace(c,' ')
    parts = theStr.split()
 
    # Now start walking through the parts and get the info out of it
-   if not parts[0] == 'bitcoin':
+   if not parts[0].startswith('bitcoin:'):
       return {}
-
+   
    uriData = {}
 
    try:
-      uriData['address'] = parts[1]
+      uriData['address'] = parts[0][parts[0].index(':')+1:]
       for p in parts[2:]:
          if not '=' in p:
             raise BadURIError('Unrecognized URI field: "%s"'%p)
