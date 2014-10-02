@@ -890,7 +890,7 @@ pthread_t BlockWriteBatcher::commit(bool force)
    if (commiting_ == true)
    {
       if (!force && dbUpdateSize_ < UPDATE_BYTES_THRESH * 2)
-         return nullptr;
+         return 0;
    }
    
    //create a BWB for commit (pass true to the constructor)
