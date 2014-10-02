@@ -8,7 +8,7 @@ ProgressCalculator::ProgressCalculator(uint64_t total)
 
 void ProgressCalculator::advance(uint64_t to)
 {
-   static const double smoothingFactor=.55;
+   static const double smoothingFactor=.10;
    
    if (to == lastSample_) return;
    const time_t now = time(0);

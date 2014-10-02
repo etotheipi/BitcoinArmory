@@ -1171,22 +1171,21 @@ void* BlockWriteBatcher::applyBlocksToDBThread(void *in)
    BlockWriteBatcher* const bwbPtr = static_cast<BlockWriteBatcher*>(in);
    
    NullProgressReporter np;
-   bwbPtr->applyBlocksToDB(np);
+   ProgressFilter f(&np, 1);
+   
+   bwbPtr->applyBlocksToDB(f);
    
    return nullptr;
 }
 
-void BlockWriteBatcher::applyBlocksToDB(ProgressReporter &prog)
+void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 {
    BlockWriteBatcher* const bwbPtr = this;
    bwbPtr->resetTransactions();
 
-   ProgressFilter progress(
-      &prog,
-      bwbPtr->tempBlockData_->endBlock_-bwbPtr->tempBlockData_->startBlock_
-   );
-   
    pthread_t tID = 0;
+   
+   uint64_t totalBlockDataProcessed=0;
 
    for (uint32_t i = bwbPtr->tempBlockData_->startBlock_;
         i <= bwbPtr->tempBlockData_->endBlock_;
@@ -1270,8 +1269,9 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressReporter &prog)
 
       if (i % 2500 == 2499)
          LOGWARN << "Finished applying blocks up to " << (i + 1);
-         
-      progress.advance(i - bwbPtr->tempBlockData_->startBlock_);
+      
+      totalBlockDataProcessed += blockSize;
+      progress.advance(totalBlockDataProcessed);
    }
   
    pthread_join(tID, nullptr);
@@ -1284,7 +1284,7 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressReporter &prog)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::scanBlocks(
-   ProgressReporter &prog,
+   ProgressFilter &prog,
    uint32_t startBlock, uint32_t endBlock, 
    ScrAddrFilter& scf
 )

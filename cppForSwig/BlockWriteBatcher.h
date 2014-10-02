@@ -11,6 +11,7 @@ class StoredUndoData;
 class StoredTx;
 class StoredScriptHistory;
 struct BlockDataManagerConfig;
+class ProgressFilter;
 
 /*
  This class accumulates changes to write to the database,
@@ -31,7 +32,7 @@ public:
    
    void applyBlockToDB(uint32_t hgt, uint8_t dup, ScrAddrFilter& scrAddrData);
    void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter& scrAddrData);
-   void scanBlocks(ProgressReporter &prog, uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
+   void scanBlocks(ProgressFilter &prog, uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
 
 private:
 
@@ -89,7 +90,7 @@ private:
    static void* grabBlocksFromDB(void *in);
    
    static void* applyBlocksToDBThread(void *in);
-   void applyBlocksToDB(ProgressReporter &prog);
+   void applyBlocksToDB(ProgressFilter &prog);
 
 private:
    const BlockDataManagerConfig &config_;

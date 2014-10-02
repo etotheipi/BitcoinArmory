@@ -1054,10 +1054,12 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(ProgressReporter &prog, uint3
    BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
    BinaryData endKey = DBUtils::getBlkDataKey(blk1, 0);
 
+   ProgressFilter progress(&prog, blkFileCumul_.back());
+   
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_);
 
-   blockWrites.scanBlocks(prog, blk0, blk1, scrAddrData);
+   blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
 }
 
 
@@ -1846,10 +1848,11 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
 {
    LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
-   ProgressFilter progress(&prog, blockchain_.top().getBlockHeight()-blockHeight);
+   ProgressFilter progress(&prog, blkFileCumul_.back());
    
    string blkfile = "";
    ifstream is;
+   uint64_t positionInFiles=0;
    uint64_t filesize;
    uint32_t nextBlkSize;
 
@@ -1886,6 +1889,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
                << fileMagic.toHexStr().c_str();
             return;
          }
+         
+         positionInFiles += filesize;
       }
 
       // Seek to the supplied offset
@@ -1922,7 +1927,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
       blocksReadSoFar_++;
       bytesReadSoFar_ += nextBlkSize;
 
-      progress.advance(i-blockHeight);
+      progress.advance(positionInFiles+foffset);
    }   
 
    if (filemap)
