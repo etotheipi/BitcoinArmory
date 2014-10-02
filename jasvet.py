@@ -46,7 +46,6 @@ def randomk():
    # Using Crypto++ CSPRNG instead of python's
    sbdRandK = CppBlockUtils.SecureBinaryData().GenerateRandom(32)
    hexRandK = sbdRandK.toBinStr().encode('hex_codec')
-   print hexRandK
    return int(hexRandK, 16)
 
 
