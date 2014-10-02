@@ -44,7 +44,10 @@ class UnknownSigBlockType(Exception): pass
    
 def randomk():  
    # Using Crypto++ CSPRNG instead of python's
-   return CppBlockUtils.SecureBinaryData().GenerateRandom(32).toBinStr()
+   sbdRandK = CppBlockUtils.SecureBinaryData().GenerateRandom(32)
+   hexRandK = sbdRandK.toBinStr().encode('hex_codec')
+   print hexRandK
+   return int(hexRandK, 16)
 
 
 # Common constants/functions for Bitcoin
