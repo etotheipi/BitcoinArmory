@@ -32,8 +32,18 @@ CPPFLAGS += -I$(GTEST_DIR) \
 				-g \
 				-fprofile-arcs \
 				-ftest-coverage \
-				--coverage 
+				--coverage
 				#-O2 \
+
+# OS X requires a workaround.
+ifneq ($(OS),Windows_NT)
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        CPPFLAGS += -DGTEST_USE_OWN_TR1_TUPLE=1
+        # Do these work???
+#        CXXFLAGS += -Wall -Wextra -stdlib=libc++ -std=c++11
+    endif
+endif
 
 HEADERS += 	$(USER_DIR)/BinaryData.h \
 		 		$(USER_DIR)/BtcUtils.h \
@@ -141,7 +151,6 @@ BlockUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BlockUtils.h $(USER_DIR)/BinaryData.
 EncryptionUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BinaryData.h $(USER_DIR)/EncryptionUtils.h $(USER_DIR)/EncryptionUtils.cpp
 	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/EncryptionUtils.cpp
 
-
 ####
 
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
@@ -155,5 +164,3 @@ CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
 
 getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
-
-

@@ -315,8 +315,9 @@ protected:
         hex2bin(prvKeyStr1T.c_str(), difPrvKey1T);
         prvKey1T.Decode(reinterpret_cast<const unsigned char*>(difPrvKey1T), 32);
 
-        // Unofficial secp256k1 test vector from Trezor source code (Github)
-        // that isn't duplicated by the Python ECDSA test vector.
+        // Unofficial secp256k1 test vector derived from Python ECDSA source.
+        // Designed to test the case where the k-value is too large and must be
+        // recalculated.
         string prvKeyStr1F = "009A4D6792295A7F730FC3F2B49CBC0F62E862272F";
         unsigned char difPrvKey1F[21];
         hex2bin(prvKeyStr1F.c_str(), difPrvKey1F);
@@ -482,6 +483,38 @@ TEST_F(CryptoPPTest, DetSigning)
     EXPECT_EQ(secp256k1ExpRes5U, secp256k1Res5U);
     EXPECT_EQ(secp256k1ExpRes6U, secp256k1Res6U);
 
+//////
+    // Repeat a Python ECDSA test vector using Armory's signing/verification
+    // methodology (via Crypto++).
+    // NB: Once RFC 6979 is properly integrated into Armory, this code ought to
+    // use the actual signing & verification calls.
+    SecureBinaryData prvKeyX(32);
+    prvKey5U.Encode(prvKeyX.getPtr(), prvKeyX.getSize());
+    BTC_PRIVKEY prvKeyY = CryptoECDSA().ParsePrivateKey(prvKeyX);
+
+    // Signing materials
+    BTC_DETSIGNER signer(prvKeyY);
+    string outputSig;
+
+    // PRNG
+    BTC_PRNG dummyPRNG;
+
+    // Data
+    SecureBinaryData dataToSign(data5U.c_str());
+    CryptoPP::StringSource(dataToSign.toBinStr(), true,
+                           new CryptoPP::SignerFilter(dummyPRNG, signer,
+                                                      new CryptoPP::StringSink(outputSig)));
+
+    // Verify the sig.
+    BTC_PUBKEY pubKeyY = CryptoECDSA().ComputePublicKey(prvKeyY);
+    BTC_VERIFIER verifier(pubKeyY);
+    SecureBinaryData finalSig(outputSig);
+    EXPECT_TRUE(verifier.VerifyMessage((const byte*)dataToSign.getPtr(), 
+                                                    dataToSign.getSize(),
+                                       (const byte*)finalSig.getPtr(), 
+                                                    finalSig.getSize()));
+//////
+
     // Unofficial secp256k1 test vector derived from Python ECDSA source.
     // Designed to test the case where the k-value is too large and must be
     // recalculated.
@@ -495,8 +528,8 @@ TEST_F(CryptoPPTest, DetSigning)
                                              168); // Force code to use all bits 
     EXPECT_EQ(failExpRes1F, failRes1F);
 
-    // Unofficial secp256k1 test vector derived from Python ECDSA test vectors.
-    // The vector is used to confirm that bad k-values are re-computed.
+    // Unofficial secp256k1 test vector from Trezor source code (Github) that
+    // isn't duplicated by the Python ECDSA test vector.
     string data1T = "There is a computer disease that anybody who works with computers knows about. It's a very serious disease and it interferes completely with the work. The trouble with computers is that you 'play' with them!";
     CryptoPP::Integer secp256k1ExpRes1T("1f4b84c23a86a221d233f2521be018d9318639d5b8bbd6374a8a59232d16ad3dh");
     CryptoPP::Integer secp256k1Res1T = getDetKVal(prvKey1T,

@@ -35,22 +35,23 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
                           bool restart) const;
 };
 
+// Forward declaration used by the actual class declaration.
 template <class KEYS, class SA, class MEM, class H, class ALG_INFO>
 class DL_SSDetSign;
 
 //! Discrete Log Based Signature Scheme
-template <class KEYS, class SA, class MEM, class H, class ALG_INFO = DL_SS<KEYS, SA, MEM, H, int> >
+template <class KEYS, class SA, class MEM, class H, class ALG_INFO = DL_SSDetSign<KEYS, SA, MEM, H, int> >
 class DL_SSDetSign : public KEYS
 {
-	typedef DL_SignatureSchemeOptions<ALG_INFO, KEYS, SA, MEM, H> SchemeOptions;
+	typedef DL_SignatureSchemeOptions<ALG_INFO, KEYS, SA, MEM, H> DetSchemeOptions;
 
 public:
 	static std::string StaticAlgorithmName() {return SA::StaticAlgorithmName() + std::string("/EMSAD(") + H::StaticAlgorithmName() + ")";}
 
 	//! implements PK_Signer interface
-	typedef PK_FinalTemplate<DL_SignerImplDetSign<SchemeOptions> > Signer;
+	typedef PK_FinalTemplate<DL_SignerImplDetSign<DetSchemeOptions> > DetSigner;
 	//! implements PK_Verifier interface
-	typedef PK_FinalTemplate<DL_VerifierImpl<SchemeOptions> > Verifier;
+	typedef PK_FinalTemplate<DL_VerifierImpl<DetSchemeOptions> > DetVerifier;
 };
 
 template <class EC, class H>
