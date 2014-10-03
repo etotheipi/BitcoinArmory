@@ -231,10 +231,11 @@ size_t DL_SignerImplDetSign<T>::SignAndRestart(RandomNumberGenerator &rng,
 	ma.m_empty = true;
 	Integer e(representative, representative.size());
 
-	Integer k = GetVal(key.GetPrivateExponent(),
-                       representative,
-                       representative.size(),
-                       params.GetSubgroupOrder());
+	Integer k = getDetKVal(key.GetPrivateExponent(),
+                           representative,
+                           representative.size(),
+                           params.GetSubgroupOrder(),
+                           params.GetSubgroupOrder().BitCount());
 
 	Integer r, s;
 	r = params.ConvertElementToInteger(params.ExponentiateBase(k)); // Set r pre-mod

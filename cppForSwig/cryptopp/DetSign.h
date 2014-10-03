@@ -27,8 +27,7 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
     // This is actually taken from DL_SignerBase (pubkey.h) with one
     // modification: The RNG is completely ignored. Instead, we'll determine the
     // k-value using RNG 6979, which requires only the private key (m_key, from
-    // DL_ObjectImplBase - pubkey.h) and the data to be signed
-    // (messageAccumulator).
+    // DL_ObjectImplBase - pubkey.h) and the data to sign (messageAccumulator).
     size_t SignAndRestart(RandomNumberGenerator &rng,
                           PK_MessageAccumulator &messageAccumulator,
                           byte *signature,
