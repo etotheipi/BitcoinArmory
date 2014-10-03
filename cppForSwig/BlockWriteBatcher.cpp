@@ -281,7 +281,8 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
       // if we've gotten to that threshold
       if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
       {
-         commit();
+         pthread_t tID = commit();
+         pthread_detach(tID);
       }
 
       // Only if pruning, we need to store 
@@ -1244,6 +1245,7 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          //block buffer is below half load, refill it in a side thread
          bwbPtr->tempBlockData_->fetching_ = true;
          pthread_create(&tID, nullptr, grabBlocksFromDB, bwbPtr);
+         pthread_detach(tID);
       }
 
       //make sure there's enough data to grab from the block buffer
@@ -1298,8 +1300,6 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
       progress.advance(totalBlockDataProcessed);
    }
   
-   pthread_join(tID, nullptr);
-
    delete bwbPtr->tempBlockData_;
    bwbPtr->tempBlockData_ = nullptr;
 
