@@ -28,10 +28,50 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
     // modification: The RNG is completely ignored. Instead, we'll determine the
     // k-value using RNG 6979, which requires only the private key (m_key, from
     // DL_ObjectImplBase - pubkey.h) and the data to sign (messageAccumulator).
+    // INPUT:  An RNG that can be ignored (RandomNumberGenerator&)
+    //         The message to sign (PK_MessageAccumulator&)
+    //         The ECDSA curve order (const Integer&)
+    // OUTPUT: The signature (byte*)
+    // RETURN: The size of the signature in bytes (size_t)
     size_t SignAndRestart(RandomNumberGenerator &rng,
                           PK_MessageAccumulator &messageAccumulator,
                           byte *signature,
-                          bool restart) const;
+                          bool restart) const
+    {
+        this->GetMaterial().DoQuickSanityCheck();
+
+    	PK_MessageAccumulatorBase &ma = static_cast<PK_MessageAccumulatorBase &>(messageAccumulator);
+	    const DL_ElgamalLikeSignatureAlgorithm<typename SCHEME_OPTIONS::Element> &alg = this->GetSignatureAlgorithm();
+    	const DL_GroupParameters<typename SCHEME_OPTIONS::Element> &params = this->GetAbstractGroupParameters();
+	    const DL_PrivateKey<typename SCHEME_OPTIONS::Element> &key = this->GetKeyInterface();
+
+    	// Get the message representative (usually just a hash of the message
+	    // rep data).
+    	SecByteBlock representative(this->MessageRepresentativeLength());
+	    this->GetMessageEncodingInterface().ComputeMessageRepresentative(
+    	    rng,
+        	ma.m_recoverableMessage, ma.m_recoverableMessage.size(), 
+	    	ma.AccessHash(), this->GetHashIdentifier(), ma.m_empty, 
+		    representative, this->MessageRepresentativeBitLength());
+    	ma.m_empty = true;
+	    Integer e(representative, representative.size());
+
+    	Integer k = getDetKVal(key.GetPrivateExponent(),
+                               representative,
+                               representative.size(),
+                               params.GetSubgroupOrder(),
+                               params.GetSubgroupOrder().BitCount());
+
+    	Integer r, s;
+	    r = params.ConvertElementToInteger(params.ExponentiateBase(k)); // Set r pre-mod
+    	alg.Sign(params, key.GetPrivateExponent(), k, e, r, s); // Set s
+
+	    size_t rLen = alg.RLen(params);
+    	r.Encode(signature, rLen);
+	    s.Encode(signature+rLen, alg.SLen(params));
+
+    	return this->SignatureLength();
+    }
 };
 
 // Forward declaration used by the actual class declaration.
@@ -60,8 +100,8 @@ struct ECDSA_DetSign : public DL_SSDetSign<DL_Keys_ECDSA<EC>, DL_Algorithm_ECDSA
 
 NAMESPACE_END
 
-#ifdef CRYPTOPP_MANUALLY_INSTANTIATE_TEMPLATES
+/*#ifdef CRYPTOPP_MANUALLY_INSTANTIATE_TEMPLATES
 #include "DetSign.cpp"
-#endif
+#endif*/
 
 #endif

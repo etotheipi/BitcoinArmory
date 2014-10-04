@@ -197,57 +197,6 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
     return finalLoopVar;
 }
 
-
-// This is actually taken from DL_SignerBase (pubkey.h) with one modification:
-// The RNG is completely ignored. Instead, we'll determine the k-value using RNG
-// 6979, which requires only the private key (m_key, from DL_ObjectImplBase -
-// pubkey.h) and the data to be signed (messageAccumulator).
-// INPUT:  An RNG that can be ignored (RandomNumberGenerator&)
-//         The message to sign (PK_MessageAccumulator&)
-//         The ECDSA curve order (const Integer&)
-// OUTPUT: The signature (byte*)
-// RETURN: The size of the signature in bytes (size_t)
-template <class T>
-size_t DL_SignerImplDetSign<T>::SignAndRestart(RandomNumberGenerator &rng,
-                                               PK_MessageAccumulator &messageAccumulator,
-                                               byte *signature,
-                                               bool restart) const
-{
-	this->GetMaterial().DoQuickSanityCheck();
-
-	PK_MessageAccumulatorBase &ma = static_cast<PK_MessageAccumulatorBase &>(messageAccumulator);
-	const DL_ElgamalLikeSignatureAlgorithm<typename T::Element> &alg = this->GetSignatureAlgorithm();
-	const DL_GroupParameters<typename T::Element> &params = this->GetAbstractGroupParameters();
-	const DL_PrivateKey<typename T::Element> &key = this->GetKeyInterface();
-
-	// Get the message representative (usually just a hash of the message
-	// rep data).
-	SecByteBlock representative(this->MessageRepresentativeLength());
-	this->GetMessageEncodingInterface().ComputeMessageRepresentative(
-    	rng,
-    	ma.m_recoverableMessage, ma.m_recoverableMessage.size(), 
-		ma.AccessHash(), this->GetHashIdentifier(), ma.m_empty, 
-		representative, this->MessageRepresentativeBitLength());
-	ma.m_empty = true;
-	Integer e(representative, representative.size());
-
-	Integer k = getDetKVal(key.GetPrivateExponent(),
-                           representative,
-                           representative.size(),
-                           params.GetSubgroupOrder(),
-                           params.GetSubgroupOrder().BitCount());
-
-	Integer r, s;
-	r = params.ConvertElementToInteger(params.ExponentiateBase(k)); // Set r pre-mod
-	alg.Sign(params, key.GetPrivateExponent(), k, e, r, s); // Set s
-
-	size_t rLen = alg.RLen(params);
-	r.Encode(signature, rLen);
-	s.Encode(signature+rLen, alg.SLen(params));
-
-	return this->SignatureLength();
-}
-
 NAMESPACE_END
 
 #endif
