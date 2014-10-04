@@ -40,37 +40,41 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
     {
         this->GetMaterial().DoQuickSanityCheck();
 
-    	PK_MessageAccumulatorBase &ma = static_cast<PK_MessageAccumulatorBase &>(messageAccumulator);
-	    const DL_ElgamalLikeSignatureAlgorithm<typename SCHEME_OPTIONS::Element> &alg = this->GetSignatureAlgorithm();
-    	const DL_GroupParameters<typename SCHEME_OPTIONS::Element> &params = this->GetAbstractGroupParameters();
-	    const DL_PrivateKey<typename SCHEME_OPTIONS::Element> &key = this->GetKeyInterface();
+        PK_MessageAccumulatorBase &ma = static_cast<PK_MessageAccumulatorBase &>(messageAccumulator);
+        const DL_ElgamalLikeSignatureAlgorithm<typename SCHEME_OPTIONS::Element> &alg = this->GetSignatureAlgorithm();
+        const DL_GroupParameters<typename SCHEME_OPTIONS::Element> &params = this->GetAbstractGroupParameters();
+        const DL_PrivateKey<typename SCHEME_OPTIONS::Element> &key = this->GetKeyInterface();
 
-    	// Get the message representative (usually just a hash of the message
-	    // rep data).
-    	SecByteBlock representative(this->MessageRepresentativeLength());
-	    this->GetMessageEncodingInterface().ComputeMessageRepresentative(
-    	    rng,
-        	ma.m_recoverableMessage, ma.m_recoverableMessage.size(), 
-	    	ma.AccessHash(), this->GetHashIdentifier(), ma.m_empty, 
-		    representative, this->MessageRepresentativeBitLength());
-    	ma.m_empty = true;
-	    Integer e(representative, representative.size());
+        // Get the message representative (usually just a hash of the message
+        // rep data).
+        SecByteBlock representative(this->MessageRepresentativeLength());
+        this->GetMessageEncodingInterface().ComputeMessageRepresentative(
+                                        rng,
+                                        ma.m_recoverableMessage,
+                                        ma.m_recoverableMessage.size(),
+                                        ma.AccessHash(),
+                                        this->GetHashIdentifier(),
+                                        ma.m_empty,
+                                        representative,
+                                        this->MessageRepresentativeBitLength());
+        ma.m_empty = true;
+        Integer e(representative, representative.size());
 
-    	Integer k = getDetKVal(key.GetPrivateExponent(),
+        Integer k = getDetKVal(key.GetPrivateExponent(),
                                representative,
                                representative.size(),
                                params.GetSubgroupOrder(),
                                params.GetSubgroupOrder().BitCount());
 
-    	Integer r, s;
-	    r = params.ConvertElementToInteger(params.ExponentiateBase(k)); // Set r pre-mod
-    	alg.Sign(params, key.GetPrivateExponent(), k, e, r, s); // Set s
+        Integer r, s;
+        r = params.ConvertElementToInteger(params.ExponentiateBase(k)); // Set r pre-mod
+        alg.Sign(params, key.GetPrivateExponent(), k, e, r, s); // Set s
 
-	    size_t rLen = alg.RLen(params);
-    	r.Encode(signature, rLen);
-	    s.Encode(signature+rLen, alg.SLen(params));
+        size_t rLen = alg.RLen(params);
+        r.Encode(signature, rLen);
+        s.Encode(signature+rLen, alg.SLen(params));
 
-    	return this->SignatureLength();
+        return this->SignatureLength();
     }
 };
 
@@ -82,15 +86,16 @@ class DL_SSDetSign;
 template <class KEYS, class SA, class MEM, class H, class ALG_INFO = DL_SSDetSign<KEYS, SA, MEM, H, int> >
 class DL_SSDetSign : public KEYS
 {
-	typedef DL_SignatureSchemeOptions<ALG_INFO, KEYS, SA, MEM, H> DetSchemeOptions;
+    typedef DL_SignatureSchemeOptions<ALG_INFO, KEYS, SA, MEM, H> DetSchemeOptions;
 
 public:
-	static std::string StaticAlgorithmName() {return SA::StaticAlgorithmName() + std::string("/EMSAD(") + H::StaticAlgorithmName() + ")";}
+    // FYI: "EMSAD" chosen at random.
+    static std::string StaticAlgorithmName() {return SA::StaticAlgorithmName() + std::string("/EMSAD(") + H::StaticAlgorithmName() + ")";}
 
-	//! implements PK_Signer interface
-	typedef PK_FinalTemplate<DL_SignerImplDetSign<DetSchemeOptions> > DetSigner;
-	//! implements PK_Verifier interface
-	typedef PK_FinalTemplate<DL_VerifierImpl<DetSchemeOptions> > DetVerifier;
+    //! implements PK_Signer interface
+    typedef PK_FinalTemplate<DL_SignerImplDetSign<DetSchemeOptions> > DetSigner;
+    //! implements PK_Verifier interface
+    typedef PK_FinalTemplate<DL_VerifierImpl<DetSchemeOptions> > DetVerifier;
 };
 
 template <class EC, class H>
@@ -99,9 +104,5 @@ struct ECDSA_DetSign : public DL_SSDetSign<DL_Keys_ECDSA<EC>, DL_Algorithm_ECDSA
 };
 
 NAMESPACE_END
-
-/*#ifdef CRYPTOPP_MANUALLY_INSTANTIATE_TEMPLATES
-#include "DetSign.cpp"
-#endif*/
 
 #endif
