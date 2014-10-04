@@ -2523,7 +2523,8 @@ TEST_F(BlockObjTest, HeaderNoInit)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockObjTest, HeaderUnserialize)
 {
-   EXPECT_TRUE(bh_.isInitialized());
+   uint32_t boolFalse = (uint32_t)false;
+   EXPECT_GT(bh_.isInitialized(), boolFalse);
    EXPECT_EQ(bh_.getNumTx(), UINT32_MAX);
    EXPECT_EQ(bh_.getBlockSize(), UINT32_MAX);
    EXPECT_EQ(bh_.getVersion(), 1);
@@ -7621,9 +7622,6 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanBlockchainForTx(wlt);
 
-   uint64_t balanceWlt;
-   uint64_t balanceDB;
-   
    balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
    EXPECT_EQ(balanceWlt,  100*COIN);
@@ -7953,9 +7951,6 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanRegisteredTxForWallet(wlt);
 
-   uint64_t balanceWlt;
-   uint64_t balanceDB;
-   
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  50*COIN);
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),   0*COIN);

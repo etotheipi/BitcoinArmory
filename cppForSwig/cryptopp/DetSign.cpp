@@ -67,7 +67,7 @@ SecByteBlock int2octets(const Integer& inInt, const unsigned int& numOrderBytes)
         // MSB form and then save the encoded data.
         SecByteBlock tmpData1(numOrderBytes);
         memset(tmpData1, 0, numOrderBytes); // Make sure there are no stray bits
-        unsigned int offset = numOrderBytes - inIntData.size();
+        size_t offset = numOrderBytes - inIntData.size();
         memcpy(tmpData1 + offset, inIntData, numOrderBytes - offset);
         retBlock = tmpData1;
     }
@@ -76,7 +76,7 @@ SecByteBlock int2octets(const Integer& inInt, const unsigned int& numOrderBytes)
         // If incoming Integer is larger than the curve, encode and save the
         // LSBs of the input.
         SecByteBlock tmpData2(numOrderBytes);
-        unsigned int offset = inIntData.size() - numOrderBytes;
+        size_t offset = inIntData.size() - numOrderBytes;
         memcpy(tmpData2, inIntData + offset, numOrderBytes);
         retBlock = tmpData2;
     }
@@ -101,7 +101,7 @@ SecByteBlock bits2octets(const SecByteBlock& inData, const Integer& curveOrder,
 {
     // Reduce the input to the length of the ECDSA curve's order. Return it or,
     // if larger than the order, the modulo value.
-    Integer newInt1 = bits2int(inData, curveOrderNumBits);
+    Integer newInt1 = bits2int(inData, (const unsigned int)curveOrderNumBits);
     Integer newInt2 = newInt1 - curveOrder;
     return int2octets(newInt2.IsNegative() ? newInt1 : newInt2,
                       curveOrder.ByteCount());
@@ -123,14 +123,14 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
 {
     // Initial setup.
     // NB: SHA256 is hard-coded. This ought to be changed if at all possible.
-    unsigned int numOrderBytes = (curveOrderNumBits + 7) / 8; // 32 for secp256k1
+    size_t numOrderBytes = (curveOrderNumBits + 7) / 8; // 32 for secp256k1
     SecByteBlock hmacKey(32); // SHA-256
     memset(hmacKey, 0, 32); // This is the initial key.
     HMAC<SHA256> dummyHMAC(hmacKey, hmacKey.size());
     const unsigned int hmacBits = dummyHMAC.DigestSize() * 8; // 256 for HMAC-SHA256
     SecByteBlock inputHash(dummyHMAC.DigestSize());
     SecByteBlock V(dummyHMAC.DigestSize());
-    SecByteBlock prvKeyBlock = int2octets(prvKey, numOrderBytes);
+    SecByteBlock prvKeyBlock = int2octets(prvKey, (const unsigned int)numOrderBytes);
     SecByteBlock singleByte(1);
     memset(V, '\x01', dummyHMAC.DigestSize());
     memset(singleByte, 0, 1);
@@ -166,7 +166,7 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
     while(!finalKValFound)
     {
         SecByteBlock loopVarData;
-        unsigned int loopVarBytes = 0;
+        size_t loopVarBytes = 0;
         while(loopVarBytes < numOrderBytes) {
             HMAC<SHA256> detSignMAC5(hmacKey, hmacKey.size());
             detSignMAC5.CalculateDigest(V, V, V.size());
@@ -176,7 +176,7 @@ Integer getDetKVal(const Integer& prvKey, const byte* msgToHash,
 
         // Check to see if the final value is valid. If not, we must compute a
         // new k-value. (Failure is highly improbable.)
-        Integer tmpLoopVar = bits2int(loopVarData, curveOrderNumBits);
+        Integer tmpLoopVar = bits2int(loopVarData, (const unsigned int)curveOrderNumBits);
         if(tmpLoopVar >= Integer::One() && tmpLoopVar < curveOrder)
         {
             finalLoopVar = tmpLoopVar;
