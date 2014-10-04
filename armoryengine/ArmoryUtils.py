@@ -51,7 +51,7 @@ from twisted.internet.protocol import Protocol, ClientFactory
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 92,  2, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 92,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -3220,6 +3220,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          271827 12968787968
          286296 15619588096
          290715 16626221056
+         323285 24216006308
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
