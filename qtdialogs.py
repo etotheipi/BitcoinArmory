@@ -9016,6 +9016,38 @@ class DlgSettings(ArmoryDialog):
       self.chkDisableTorrent.setChecked(disableTorrent)
 
 
+      ##########################################################################
+      #  Privacy Settings
+      privacyStats = self.main.getSettingOrSetDefault('SkipStatsReport', False)
+      privacyTor   = self.main.getSettingOrSetDefault('UseTorSettings', False)
+
+      lblPrivacyTitle = QRichLabel("<b>Privacy Settings</b>")
+      lblPrivStatsDescr = QRichLabel("""
+         When this software checks for updates and security alerts, it sends
+         your operating system and Armory version to ATI server for statistical
+         purposes.  No attempt is made to identify you.  No IP addresses are 
+         logged by ATI servers.  You can continue to receive notifications 
+         but not send any statistical information.""")
+      lblPrivTorDescr = QRichLabel("""
+         If you are going to use Armory and Bitcoin Core with a proxy (such
+         as Tor), you should disable all Armory communications that might operate 
+         outside the proxy.""")
+
+      self.chkPrivacyStats = QCheckBox(tr("""
+         Disable OS and version reporting"""))
+
+      self.chkPrivacyTor = QCheckBox(tr("""
+         Enable settings for proxies/Tor"""))
+
+      self.connect(self.chkPrivacyTor, SIGNAL('toggled(bool)'), 
+                   self.chkPrivacyStats.setDisabled)
+
+      self.chkPrivacyStats.setChecked(privacyStats)
+      self.chkPrivacyTor.setChecked(privacyTor)
+      #  Privacy Settings
+      ##########################################################################
+
+   
       lblDefaultUriTitle = QRichLabel(tr("""
          <b>Set Armory as default URL handler</b>"""))
       lblDefaultURI = QRichLabel(tr("""
@@ -9298,28 +9330,34 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(frmMgmt, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(self.chkSkipOnlineCheck, i, 0, 1, 3)
-
-      #i += 1
-      #frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(self.chkDisableTorrent, i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
+      
+      i += 1
+      frmLayout.addWidget(lblPrivacyTitle, i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(lblPrivStatsDescr , i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(self.chkPrivacyStats , i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(lblPrivTorDescr, i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(self.chkPrivacyTor, i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(lblDefaultUriTitle, i, 0)
-
       i += 1
       frmLayout.addWidget(lblDefaultURI, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(frmBtnDefaultURI, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(self.chkAskURIAtStartup, i, 0, 1, 3)
 
@@ -9538,6 +9576,25 @@ class DlgSettings(ArmoryDialog):
       self.main.writeSetting('NotifyDiscon', self.chkDiscon.isChecked())
       self.main.writeSetting('NotifyReconn', self.chkReconn.isChecked())
 
+   
+      oldTorSetting = self.main.getSettingOrSetDefault('UseTorSettings', False)
+      self.main.writeSetting('SkipStatsReport',self.chkPrivacyStats.isChecked())
+      self.main.writeSetting('UseTorSettings', self.chkPrivacyTor.isChecked())
+
+      if self.chkPrivacyTor.isChecked() and not oldTorSetting:
+         annURL = 'https://bitcoinarmory.com/announcements/'
+         QMessageBox.warning(self, 'Disable Security Alerts?', tr("""
+            You have chosen to disable all Armory communications that are
+            incompatible with proxies/Tor.  This includes 
+            checking for security alerts.  If you leave this option
+            checked, it is highly recommended that you manually check
+            for updates in the "<i>Announcements</i>" tab on the main 
+            window from another online Armory installation and/or
+            bookmark our announcements page: 
+            <br><br>
+            <a href="%s">%s</a>""") % (annURL,annURL), QMessageBox.Ok) 
+
+      
 
 
       if self.radioAnnounce1024.isChecked():

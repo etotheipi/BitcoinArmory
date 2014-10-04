@@ -218,7 +218,8 @@ def getMasterPackageList():
    m[pkg]['HasBundle']    = True
    m[pkg]['BundleDeps']   = 'offline_deps_ubuntu32'
    m[pkg]['BundleSuffix'] = 'offline_ubuntu_12.04-32.tar.gz'
-   m[pkg]['BundleOSVar']  = '12.04'
+   m[pkg]['BundleOSVar']  = '12.04 exact'
+   m[pkg]['BundleDLLVar'] = '12.04'
    
    
    pkg = 'Ubuntu 12.04-64bit'
@@ -234,7 +235,8 @@ def getMasterPackageList():
    m[pkg]['HasBundle']    = True
    m[pkg]['BundleDeps']   = 'offline_deps_ubuntu64'
    m[pkg]['BundleSuffix'] = 'offline_ubuntu_12.04-64.tar.gz'
-   m[pkg]['BundleOSVar']  = '12.04'
+   m[pkg]['BundleOSVar']  = '12.04 exact'
+   m[pkg]['BundleDLLVar'] = '12.04'
    
    pkg = 'RaspberryPi'
    m[pkg] = {}
@@ -250,6 +252,7 @@ def getMasterPackageList():
    m[pkg]['BundleDeps']   = 'offline_deps_raspbian'
    m[pkg]['BundleSuffix'] = 'rpi_bundle.tar.gz'
    m[pkg]['BundleOSVar']  = None
+   m[pkg]['BundleDLLVar'] = 'Raspbian'
 
 
    return masterPkgList

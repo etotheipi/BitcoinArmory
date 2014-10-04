@@ -1733,17 +1733,40 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setupAnnouncementFetcher(self):
+      # Decide if disable OS/version reporting sent with announce fetches
+      skipStats1 = self.getSettingOrSetDefault('SkipStatsReport', False)
+      skipStats2 = CLI_OPTIONS.skipStatsReport
+      self.skipStatsReport = skipStats1 or skipStats2
+
+      # This determines if we should disable all of it
       skipChk1 = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       skipChk2 = CLI_OPTIONS.skipAnnounceCheck
       skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
-      self.skipAnnounceCheck = skipChk1 or skipChk2 or skipChk3
+      skipChk4  = CLI_OPTIONS.useTorSettings 
+      skipChk5  = self.getSettingOrSetDefault('UseTorSettings', False)
+      self.skipAnnounceCheck = \
+                  skipChk1 or skipChk2 or skipChk3 or skipChk4 or skipChk5
+
 
       url1 = ANNOUNCE_URL
       url2 = ANNOUNCE_URL_BACKUP
       fetchPath = os.path.join(ARMORY_HOME_DIR, 'atisignedannounce')
       if self.announceFetcher is None:
-         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath)
-         self.announceFetcher.setDisabled(self.skipAnnounceCheck)
+
+         # We keep an ID in the settings file that can be used by ATI's
+         # statistics aggregator to remove duplicate reports.  We store
+         # the month&year that the ID was generated, so that we can change
+         # it every month for privacy reasons
+         idData = self.getSettingOrSetDefault('MonthlyID', '0000_00000000')
+         storedYM,currID = idData.split('_')
+         monthyear = unixTimeToFormatStr(RightNow(), '%m%y')
+         if not storedYM == monthyear:
+            currID = SecureBinaryData().GenerateRandom(4).toHexStr()
+            self.settings.set('MonthlyID', '%s_%s' % (monthyear, currID))
+            
+         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath, currID)
+         self.announceFetcher.setStatsDisable(self.skipStatsReport)
+         self.announceFetcher.setFullyDisabled(self.skipAnnounceCheck)
          self.announceFetcher.start()
 
          # Set last-updated vals to zero to force processing at startup
@@ -1752,11 +1775,11 @@ class ArmoryMainWindow(QMainWindow):
 
       # If we recently updated the settings to enable or disable checking...
       if not self.announceFetcher.isRunning() and not self.skipAnnounceCheck:
-         self.announceFetcher.setDisabled(False)
+         self.announceFetcher.setFullyDisabled(False)
          self.announceFetcher.setFetchInterval(DEFAULT_FETCH_INTERVAL)
          self.announceFetcher.start()
       elif self.announceFetcher.isRunning() and self.skipAnnounceCheck:
-         self.announceFetcher.setDisabled(True)
+         self.announceFetcher.setFullyDisabled(True)
          self.announceFetcher.shutdown()
 
 
@@ -2131,13 +2154,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
       settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
-      if self.forceOnline:
-         LOGINFO('Forced online mode: True')
+      useTor = self.getSettingOrSetDefault('UseTorSettings', False)
+      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck or useTor
 
       # Check general internet connection
       self.internetAvail = False
-      if not self.forceOnline:
+      if self.forceOnline:
+         LOGINFO('Skipping online check, forcing online mode')
+      else:
          self.internetAvail = isInternetAvailable()
 
 

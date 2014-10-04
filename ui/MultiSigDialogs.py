@@ -575,6 +575,7 @@ class DlgLockboxEditor(ArmoryDialog):
             <br><br>
             Do you wish to continue creating the lockbox, anyway?"""), QMessageBox.Yes | QMessageBox.No)
 
+
          if not reply==QMessageBox.Yes:
             return
 
