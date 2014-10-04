@@ -1,4 +1,4 @@
-CXX = g++
+CXX ?= g++
 
 ifdef DEBUG
 CFLAGS=-g3 -Wall -pipe -fPIC

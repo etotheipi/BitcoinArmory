@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 
 # Take a directory full of things to be signed, and do the right thing.
 # Make sure you cert-sign the windows installers, first
