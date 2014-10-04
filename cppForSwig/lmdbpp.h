@@ -3,7 +3,6 @@
 
 #include <string>
 #include <stdexcept>
-#include <deque>
 #include <vector>
 #include <unordered_map>
 #include <pthread.h>
@@ -232,7 +231,7 @@ struct LMDBThreadTxInfo
 {
    MDB_txn *txn_=nullptr;
 
-   std::deque<LMDB::Iterator*> iterators_;
+   std::vector<LMDB::Iterator*> iterators_;
    unsigned transactionLevel_=0;
    LMDB::Mode mode_;
 };

@@ -76,7 +76,7 @@ void LMDB::Iterator::openCursor()
       LMDBException e("Failed to open cursor (" + errorString(rc) + ")");
       throw e;
    }
-   txnPtr_->iterators_.push_front(this);
+   txnPtr_->iterators_.push_back(this);
 }
 
 LMDB::Iterator::Iterator(LMDB *db)
@@ -105,10 +105,11 @@ inline void LMDB::Iterator::reset()
 
    if (txnPtr_)
    {
-      std::deque<Iterator*>::iterator i =
-         std::find(txnPtr_->iterators_.begin(), txnPtr_->iterators_.end(), this);
-      if (i != txnPtr_->iterators_.end())
-         txnPtr_->iterators_.erase(i);
+      std::vector<Iterator*>::reverse_iterator i =
+         std::find(txnPtr_->iterators_.rbegin(), txnPtr_->iterators_.rend(), this);
+      // below has a silly workaround to delete reverse_iterators
+      if (i != txnPtr_->iterators_.rend())
+         txnPtr_->iterators_.erase(std::next(i).base());
 
       txnPtr_ = nullptr;
    }
@@ -138,7 +139,7 @@ LMDB::Iterator& LMDB::Iterator::operator=(Iterator &&move)
    
    move.reset();
    
-   txnPtr_->iterators_.push_front(this);
+   txnPtr_->iterators_.push_back(this);
 
    return *this;
 }
@@ -153,7 +154,7 @@ LMDB::Iterator& LMDB::Iterator::operator=(const Iterator &copy)
    has_ = copy.has_;
    txnPtr_ = copy.txnPtr_;
 
-   txnPtr_->iterators_.push_front(this);
+   txnPtr_->iterators_.push_back(this);
    
    openCursor();
    
