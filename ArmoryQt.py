@@ -1089,6 +1089,9 @@ class ArmoryMainWindow(QMainWindow):
          elif OS_LINUX:
             tempDir = '/var/log'
             extraFiles = ['/var/log/Xorg.0.log']
+         elif OS_FREEBSD:
+            tempDir = '/var/log'
+            extraFiles = ['/var/log/Xorg.0.log']
          elif OS_MACOSX:
             tempDir = '/var/log'
             extraFiles = ['/var/log/system.log']
@@ -1369,7 +1372,7 @@ class ArmoryMainWindow(QMainWindow):
       if USE_TESTNET:
          return
 
-      if OS_LINUX:
+      if OS_LINUX or OS_FREEBSD:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
          out2,err = execAndWait('xdg-mime query default x-scheme-handler/bitcoin')
 
@@ -1913,6 +1916,8 @@ class ArmoryMainWindow(QMainWindow):
          shortOS = 'windows'
       elif OS_LINUX:
          shortOS = 'ubuntu'
+      elif OS_FREEBSD:
+         shortOS = 'freebsd'
       elif OS_MACOSX:
          shortOS = 'mac'
 
@@ -4732,6 +4737,8 @@ class ArmoryMainWindow(QMainWindow):
                'Will download and Bitcoin software and cryptographically verify it"""))
       elif OS_MACOSX:
          pass
+      elif OS_FREEBSD:
+         pass
       else:
          LOGERROR('Unrecognized OS!')
 
@@ -5125,8 +5132,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def closeExistingBitcoin(self):
       for proc in psutil.process_iter():
-         if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe',\
-                                     'bitcoind','bitcoin-qt']:
+         if (not OS_WINDOWS and proc.name() in ['bitcoind','bitcoin-qt']) \
+            or \
+            (OS_WINDOWS and proc.name.lower() in ['bitcoind.exe', \
+                                                  'bitcoin-qt.exe']):
             killProcess(proc.pid)
             time.sleep(2)
             return
