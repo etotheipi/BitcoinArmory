@@ -818,8 +818,8 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    ssh.unserializeDBKey(sshKey, true);
    ssh.unserializeDBValue(ldbIter.getValueReader(), this);
 
-   if(ssh.totalTxioCount_ == 0)
-      LOGWARN << "How did we end up with zero Txios in an SSH?";
+   /*if(ssh.totalTxioCount_ == 0)
+      LOGWARN << "How did we end up with zero Txios in an SSH?";*/
       
    size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
@@ -894,6 +894,28 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
             serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
          );
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::putStoredScriptHistorySummary(StoredScriptHistory & ssh)
+{
+   SCOPED_TIMER("putStoredScriptHistory");
+   if (!ssh.isInitialized())
+   {
+      LOGERR << "Trying to put uninitialized SSH into DB";
+      return;
+   }
+
+   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, this, armoryDbType_, dbPruneType_));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::putStoredSubHistory(StoredSubHistory & subssh)
+
+{
+   if (subssh.txioMap_.size() > 0)
+   putValue(BLKDATA, subssh.getDBKey(),
+            serializeDBValue(subssh, this, armoryDbType_, dbPruneType_));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1497,6 +1519,23 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 }
 */
 
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::updateStoredTx(StoredTx & stx)
+{
+   // Add the individual TxOut entries if requested
+
+   uint32_t version = READ_UINT32_LE(stx.dataCopy_.getPtr());
+
+   for (auto& stxo : stx.stxoMap_)
+   {      // Make sure all the parameters of the TxOut are set right 
+      stxo.second.txVersion_ = version;
+      stxo.second.blockHeight_ = stx.blockHeight_;
+      stxo.second.duplicateID_ = stx.duplicateID_;
+      stxo.second.txIndex_ = stx.txIndex_;
+      stxo.second.txOutIndex_ = stxo.first;
+      putStoredTxOut(stxo.second);
+   }
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

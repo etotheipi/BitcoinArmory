@@ -2726,7 +2726,7 @@ protected:
    BinaryData rawTxOut0_;
    BinaryData rawTxOut1_;
 
-
+   uint32_t commitId_ = 0;
 
    StoredHeader sbh_;
 };
@@ -4100,7 +4100,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Now we explicitly delete a TxIO (with pruning, this should be basically
    // equivalent to marking it spent, but we are DB-mode-agnostic here, testing
    // just the base insert/erase operations)
-   ssh.eraseTxio(nullptr, txio1);
+   ssh.eraseTxio(txio1, commitId_);
    expect  = READHEX("0400""ffff0000""02""0100030000000000");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
@@ -4128,7 +4128,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    
    /////////////////////////////////////////////////////////////////////////////
    // Remove the multisig
-   ssh.eraseTxio(nullptr, txio3);
+   ssh.eraseTxio(txio3, commitId_);
    expect  = READHEX("0400""ffff0000""02""0100030000000000");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
@@ -4141,7 +4141,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    /////////////////////////////////////////////////////////////////////////////
    // Remove a full subSSH (it shouldn't be deleted, though, that will be done
    // by BlockUtils in a post-processing step
-   ssh.eraseTxio(nullptr, txio0);
+   ssh.eraseTxio(txio0, commitId_);
    expect  = READHEX("0400""ffff0000""01""0000030000000000");
    expSub1 = READHEX("00");
    expSub2 = READHEX("01"

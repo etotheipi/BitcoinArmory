@@ -46,6 +46,7 @@ int pthread_mutex_destroy(pthread_mutex_t *mu);
 int pthread_create(pthread_t *tid, pthread_attr_t *attr, void*(*start)(void*), void *arg);
 int pthread_cancel(pthread_t tid);
 int pthread_join(pthread_t tid, void **value_ptr);
+int pthread_detach(pthread_t tid);
 
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);
 int pthread_cond_signal(pthread_cond_t *cond);

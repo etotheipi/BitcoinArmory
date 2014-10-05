@@ -48,7 +48,13 @@ int pthread_cancel(pthread_t tid)
 int pthread_join(pthread_t tid, void **value_ptr)
 {
    WaitForSingleObject(tid, INFINITE);
+   CloseHandle(tid);
    return 0;
+}
+
+int pthread_detach(pthread_t tid)
+{
+   return !CloseHandle(tid);
 }
 
 

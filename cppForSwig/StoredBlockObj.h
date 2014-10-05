@@ -15,6 +15,7 @@
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "BlockDataManagerConfig.h"
+#include <atomic>
 
 #define ARMORY_DB_VERSION   0x00
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
@@ -524,8 +525,8 @@ public:
    bool     haveFullHistoryLoaded(void) const;
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
-   bool       eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio);
-   bool       eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B);
+   bool       eraseTxio(TxIOPair const & txio, uint32_t& commitId);
+   bool       eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId);
 
    bool       mergeSubHistory(StoredSubHistory & subssh, 
                               uint64_t& additionalSize,
@@ -549,6 +550,7 @@ public:
 
    uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
+                             uint32_t& commitId,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
    void insertSpentTxio(const BinaryData& txOutDbKey,
@@ -557,7 +559,8 @@ public:
                          uint32_t commitId);
 
    bool eraseSpentTxio(const BinaryData& hgtX,
-                        const BinaryData& dbKey8B);
+                       const BinaryData& dbKey8B,
+                       uint32_t& commitId);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
@@ -572,6 +575,9 @@ public:
    // it gets serialized to disk, we will store single-Txio SSHs in
    // the base entry and forego extra DB entries.
    map<BinaryData, StoredSubHistory> subHistMap_;
+
+   //to sync the DB scan read and write threads
+   uint32_t commitId_ = UINT32_MAX;
 };
 
 
@@ -588,7 +594,10 @@ class StoredSubHistory
 public:
 
    StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
-                            txioCount_(0) {}
+                            txioCount_(0) 
+   {
+      accessing_.clear();
+   }
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -609,31 +618,56 @@ public:
    //void pprintFullSSH(uint32_t indent=3);
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
-   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true, 
+   TxIOPair& insertTxio(TxIOPair const & txio, 
+                        uint32_t commitId = 0,
+                        bool withOverwrite=true, 
                         uint64_t* additionalSize = nullptr);
-   uint64_t   eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio);
-   uint64_t   eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B);
-   bool       eraseTxio(BinaryData const & dbKey8B) 
-   { return txioMap_.erase(dbKey8B) == 1; };
+   uint64_t   eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId);
 
    
    // This adds the TxOut if it doesn't exist yet
    uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+                             uint32_t& commitId,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
    uint64_t markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                              uint64_t&  additionalSize,
                              uint64_t   value,
+                             uint32_t&  commitId,
                              bool       isCoinbase,
                              bool       isMultisigRef);
 
-
    uint64_t getSubHistoryBalance(bool withMultisig=false);
    uint64_t getSubHistoryReceived(bool withMultisig=false);
-   //vector<uint64_t> getSubHistoryValues(void);
 
    void pprintFullSubSSH(uint32_t indent=3);
+   
+   StoredSubHistory(const StoredSubHistory& copy)
+   {
+      *this = copy;
+   }
+
+   StoredSubHistory& operator=(const StoredSubHistory& copy)
+   {
+      if (&copy == this)
+         return *this;
+
+      uniqueKey_ = copy.uniqueKey_;
+      hgtX_ = copy.hgtX_;
+      txioMap_ = copy.txioMap_;
+      height_ = copy.height_;
+      dupID_ = copy.dupID_;
+      txioCount_ = copy.txioCount_;
+      commitId_ = copy.commitId_;
+
+      //std::atomic types are copyable, and we do not copy
+      //accessing_, as this flag is meant to signify 
+      //access to the particular object, not that data per say
+      this->accessing_.clear();
+
+      return *this;
+   }
 
    // Store all TxIOs for this ScrAddr and block
    BinaryData     uniqueKey_;  // includes the prefix byte!
@@ -643,8 +677,9 @@ public:
    uint8_t  dupID_;
    uint32_t txioCount_;
 
-   //for SSH writing purpose, not saved in DB
+   //used to sync subssh dumping in DB, not saved
    uint32_t commitId_ = UINT32_MAX;
+   atomic_flag accessing_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

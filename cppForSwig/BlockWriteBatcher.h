@@ -20,7 +20,9 @@ class ProgressFilter;
 class BlockWriteBatcher
 {
 public:
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(DEBUG )
+   //use a tiny update threshold to trigger multiple commit threads for 
+   //unit tests in debug builds
    static const uint64_t UPDATE_BYTES_THRESH = 300;
 #else
    static const uint64_t UPDATE_BYTES_THRESH = 96 * 1024 * 1024;
@@ -75,7 +77,7 @@ private:
    
    // search for entries in sshToModify_ that are empty and should
    // be deleted, removing those empty ones from sshToModify
-   void searchForSSHKeysToDelete();
+   void searchForSSHKeysToDelete(map<BinaryData, StoredScriptHistory>& sshToModify);
 
    void preloadSSH(const ScrAddrFilter& sasd);
    void applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData);
@@ -92,6 +94,8 @@ private:
    static void* applyBlocksToDBThread(void *in);
    void applyBlocksToDB(ProgressFilter &prog);
 
+   void cleanUpSshToModify(void);
+
 private:
    const BlockDataManagerConfig &config_;
    LMDBBlockDatabase* const iface_;
@@ -103,6 +107,7 @@ private:
    map<BinaryData, StoredScriptHistory>   sshToModify_;
    vector<StoredHeader*>                  sbhToUpdate_;
    set<BinaryData>                        keysToDelete_;
+   vector<StoredSubHistory*>              subSshToApply_;
    
    // (theoretically) incremented for each
    // applyBlockToDB and decremented for each
@@ -126,8 +131,8 @@ private:
    uint32_t commitId_ = 0;
    uint32_t deleteId_ = 0;
 
-   //to detect running commit 
-   bool commiting_ = false;
+   //to sync commits 
+   mutex lock_;
 };
 
 

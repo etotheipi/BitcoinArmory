@@ -413,8 +413,9 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredTx Accessors
-   void putStoredTx(         StoredTx & st,
-                             bool withTxOut=true);
+   void updateStoredTx(StoredTx & st);
+
+   void putStoredTx(StoredTx & st, bool withTxOut=true);
 
    bool getStoredTx(         StoredTx & stx,
                              BinaryDataRef txHashOrDBKey);
@@ -459,6 +460,8 @@ public:
 
 
    void putStoredScriptHistory( StoredScriptHistory & ssh);
+   void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
+   void putStoredSubHistory(StoredSubHistory & subssh);
 
    bool getStoredScriptHistory( StoredScriptHistory & ssh,
                                 BinaryDataRef scrAddrStr,

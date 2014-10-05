@@ -496,7 +496,6 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
          }
       }
    }
-
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1274,7 +1273,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDat
    
    subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1488,13 +1486,14 @@ TxIOPair& StoredScriptHistory::insertTxio(
 // For subtle bugginess reasons, even if we are pruning and reduce the total
 // TxIO count to one, we will keep "useMultipleEntries_=true".  Once true, always
 // true, regardless of how many TxIO we have.  
-bool StoredScriptHistory::eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio)
+bool StoredScriptHistory::eraseTxio(TxIOPair const & txio, uint32_t& commitId)
 {
-   return eraseTxio(db, txio.getDBKeyOfOutput());
+   return eraseTxio(txio.getDBKeyOfOutput(), commitId);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool StoredScriptHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B)
+bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B, 
+                                    uint32_t& commitId)
 {
    if(!isInitialized())
       return false;
@@ -1512,7 +1511,7 @@ bool StoredScriptHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & db
       return false;
 
    StoredSubHistory & subssh = iterSubHist->second;
-   uint64_t valueRemoved = subssh.eraseTxio(db, dbKey8B);
+   uint64_t valueRemoved = subssh.eraseTxio(dbKey8B, commitId);
 
    bool wasRemoved = (valueRemoved!=UINT64_MAX);
    if(wasRemoved)
@@ -1558,6 +1557,11 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh,
       StoredSubHistory & subsshTriedToAdd   = subssh;
       LOGINFO << "SubSSH already in SSH...should this happen?";
       map<BinaryData, TxIOPair>::iterator iter;
+
+      //make sure the commit thread isnt reading this before updating it
+      while(subsshAlreadyInRAM.accessing_.test_and_set(memory_order_relaxed));
+      subsshAlreadyInRAM.commitId_ = commitId;
+
       for(iter  = subsshTriedToAdd.txioMap_.begin();
           iter != subsshTriedToAdd.txioMap_.end();
           iter++)
@@ -1569,7 +1573,7 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh,
             additionalSize += UPDATE_BYTES_KEY;
       }
 
-      subsshAlreadyInRAM.commitId_ = commitId;
+      subsshAlreadyInRAM.accessing_.clear(memory_order_relaxed);
    }
    else
    {
@@ -1583,6 +1587,7 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh,
 uint64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
    BinaryData txOutKey8B,
    BinaryData txInKey8B,
+   uint32_t& commitId,
    ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    if (!isInitialized())
@@ -1606,11 +1611,10 @@ uint64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db,
       return UINT64_MAX;
    }
 
-   uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, dbType, pruneType);
+   uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, commitId, 
+                                              dbType, pruneType);
    if (val != UINT64_MAX)
       totalUnspent_ -= val;
-
-
 
    return val;
 }
@@ -1667,7 +1671,8 @@ uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData
    uint64_t val = subssh.markTxOutUnspent(db, txOutKey8B, 
                                           dbType, pruneType, 
                                           additionalSize,
-                                          value, isCoinbase, 
+                                          value, commitId,
+                                          isCoinbase, 
                                           isMultisig);
    size_t newSize = subssh.txioMap_.size();
 
@@ -1676,7 +1681,6 @@ uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData
    // so we use txioSet_.size() to update appropriately.
    totalUnspent_   += val;
    totalTxioCount_ += (newSize - prevSize); // should only ever be +=0 or +=1
-
 
    return val;
 }
@@ -1796,17 +1800,16 @@ void StoredScriptHistory::insertSpentTxio(const BinaryData& txOutDbKey,
 
    size_t prevSize = subssh.txioMap_.size();
    txio.setTxIn(txInDbKey);
-   subssh.insertTxio(txio, true, &additionalSize);
+   subssh.insertTxio(txio, commitId, true, &additionalSize);
    size_t newSize = subssh.txioMap_.size();
 
    totalTxioCount_ += (newSize - prevSize);
-
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptHistory::eraseSpentTxio(const BinaryData& hgtX, 
-                                         const BinaryData& dbKey8B)
+                                         const BinaryData& dbKey8B,
+                                         uint32_t& commitId)
 {
    /***
    Deletes spent txio added through insertSpentTxio.
@@ -1829,7 +1832,7 @@ bool StoredScriptHistory::eraseSpentTxio(const BinaryData& hgtX,
       return false;
 
    StoredSubHistory & subssh = iterSubHist->second;
-   if (subssh.eraseTxio(dbKey8B))
+   if (subssh.eraseTxio(dbKey8B, commitId))
    {
       subssh.txioCount_--;
       totalTxioCount_--;
@@ -2114,7 +2117,7 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredSubHistory::markTxOutSpent(
    LMDBBlockDatabase *db,
-   BinaryData txOutKey8B, 
+   BinaryData txOutKey8B, uint32_t& commitId,
    ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    // We found the TxIO we care about 
@@ -2134,7 +2137,13 @@ uint64_t StoredSubHistory::markTxOutSpent(
    if (!txioptr->isUTXO())
       return 0;
 
+   //make sure this object isn't being read by the commit thread
+   while (accessing_.test_and_set(memory_order_relaxed));
+   commitId_ = commitId;
    txioptr->setUTXO(false);
+
+   //clear access flag
+   accessing_.clear(memory_order_relaxed);
 
    // Return value spent only if not multisig
    return (txioptr->isMultisig() ? 0 : txioptr->getValue());
@@ -2144,33 +2153,29 @@ uint64_t StoredSubHistory::markTxOutSpent(
 // Since the outer-SSH object tracks total unspent balances, we need to pass 
 // out the total amount that was deleted from the sub-history, and of course
 // return zero if nothing was removed.
-uint64_t StoredSubHistory::eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio)
+uint64_t StoredSubHistory::eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId)
 {
-   return eraseTxio(db, txio.getDBKeyOfOutput());
-}
+   auto txioIter = txioMap_.find(dbKey8B);
 
-////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredSubHistory::eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B)
-{
-   map<BinaryData, TxIOPair>::iterator iter = txioMap_.find(dbKey8B);
-   if (ITER_NOT_IN_MAP(iter, txioMap_))
+   if (ITER_NOT_IN_MAP(txioIter, txioMap_))
       return UINT64_MAX;
-   else
-   {
-      TxIOPair & txio = iter->second;
-      uint64_t valueRemoved = txio.getValue();
-      if (txio.hasTxInInMain(db) || txio.isMultisig())
-         valueRemoved = 0;
 
-      txioMap_.erase(iter);
-      txioCount_--;
+   TxIOPair& txio = txioIter->second;
 
-      return valueRemoved;
-   }
+   while (accessing_.test_and_set(memory_order_relaxed));
+
+   commitId_ = commitId;
+   uint64_t val = txio.isMultisig() ? 0 : txio.getValue();
+   txioMap_.erase(txioIter);
+
+   accessing_.clear(memory_order_relaxed);
+
+   return val;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, 
+                                       uint32_t commitId,
                                        bool withOverwrite,
                                        uint64_t* additionalSize)
 {
@@ -2179,20 +2184,31 @@ TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio,
    pair<BinaryData, TxIOPair> txioInsertPair(key8B, txio);
    pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
 
+   while (accessing_.test_and_set(memory_order_relaxed));
+
    // This returns pair<ExistingOrInsertedIter, wasInserted>
    txioInsertResult = txioMap_.insert(txioInsertPair);
 
    // If not inserted, then it was already there.  Overwrite if requested
-   if (!txioInsertResult.second && withOverwrite)
+   if (txioInsertResult.second == true)
    {
+      commitId_ = commitId;
+
+      if (additionalSize != nullptr)
+      {
+         additionalSize += UPDATE_BYTES_KEY;
+         if (txio.hasTxIn())
+            additionalSize += UPDATE_BYTES_KEY;
+      }
+   }
+   else if (withOverwrite)
+   {
+      commitId_ = commitId;
       txioInsertResult.first->second = txio;
    }
-   else if (additionalSize != nullptr)
-   {
-      additionalSize += UPDATE_BYTES_KEY;
-      if (txio.hasTxIn())
-         additionalSize += UPDATE_BYTES_KEY;
-   }
+
+
+   accessing_.clear(memory_order_relaxed);
 
    return txioInsertResult.first->second;
 
@@ -2249,6 +2265,7 @@ uint64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData tx
                                                   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                   uint64_t&  additionalSize,
                                                   uint64_t   value,
+                                                  uint32_t&  commitId,
                                                   bool       isCoinbase,
                                                   bool       isMultisigRef)
 {
@@ -2267,8 +2284,14 @@ uint64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData tx
          return 0;
       }
 
+      while(accessing_.test_and_set(memory_order_relaxed));
+
+      commitId_ = commitId;
       txioptr->setTxIn(TxRef(), UINT32_MAX);
       txioptr->setUTXO(true);
+
+      accessing_.clear(memory_order_relaxed);
+
       return (txioptr->isMultisig() ? 0 : txioptr->getValue());
    }
    else
@@ -2285,7 +2308,7 @@ uint64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData tx
       txio.setMultisig(isMultisigRef);
       txio.setTxOutFromSelf(false); // in super-node mode, we don't use this
       txio.setUTXO(true);
-      insertTxio(txio, &additionalSize);
+      insertTxio(txio, commitId, &additionalSize);
       return (isMultisigRef ? 0 : value);
    }
 }
