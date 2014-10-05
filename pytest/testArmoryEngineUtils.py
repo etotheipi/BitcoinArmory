@@ -256,10 +256,15 @@ class ArmoryEngineTest(unittest.TestCase):
    #############################################################################
    def testBitcoinUriParser(self):
       ##### Test BIP 0021 Parser functions
-      uri = "bitcoin:1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW?amount=0.1&r=https://example.com/foo/bar/"
+      uri = "bitcoin:1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW?amount=0.1&label=Foo%20bar&r=https://example.com/foo/bar/"
       parseOut = parseBitcoinURI(uri)
-      expectedOut = {"address": "1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW", "amount": 10000000, "r": "https://example.com/foo/bar/"}
-      self.assertEqual(parseOut, expectedOut)   
+      expectedOut = {
+         "address": "1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW",
+         "amount": 10000000,
+         "label": "Foo bar",
+         "r": "https://example.com/foo/bar/"
+      }
+      self.assertEqual(parseOut, expectedOut)
 
 
 

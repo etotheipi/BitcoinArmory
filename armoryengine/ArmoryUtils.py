@@ -2805,8 +2805,6 @@ def parseBitcoinURI(uriStr):
          kl = k.lower()
          if kl == 'amount':
             data['amount'] = str2coin(v)
-         elif kl in ('label','message'):
-            data[k] = uriPercentToReserved(v)
          else:
             data[k] = v
    except:
