@@ -916,7 +916,8 @@ pthread_t BlockWriteBatcher::commit(bool force)
    
    for (const auto& ssh : sshToModify_)
    {
-      if (ssh.second.commitId_ == bwbSwapPtr->commitId_)
+      if (ssh.second.commitId_ == bwbSwapPtr->commitId_ || 
+          config_.armoryDbType != ARMORY_DB_SUPER)
       {
          //SSH records are accessed very often and are light so they are copied
          //(without the subSSH entries) rather than referenced
