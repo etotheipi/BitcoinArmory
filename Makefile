@@ -3,6 +3,7 @@
 
 PREFIX=/usr
 DESTDIR=
+UNAME_S := $(shell uname -s)
 
 all :
 	$(MAKE) -C cppForSwig
@@ -10,11 +11,18 @@ all :
 clean :
 	$(MAKE) -C cppForSwig clean
 	rm -f osxbuild/build-app.log.txt
+	rm -f osxbuild/armory_*.tar.gz
+ifeq ($(UNAME_S),Darwin)
+		$(MAKE) -C osxbuild/objc_armory distclean
+endif
 	rm -rf osxbuild/workspace/
 	rm -f CppBlockUtils.py
 	rm -f qrc_img_resources.py
 	rm -f _CppBlockUtils.so
 	rm -f cppForSwig/cryptopp/a.out
+	rm -f *.pyc BitTornado/*.pyc bitcoinrpc_jsonrpc/*.pyc ui/*.pyc
+	rm -f armoryengine/*.pyc dialogs/*.pyc BitTornado/BT1/*.pyc
+	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
 
 install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
@@ -52,7 +60,7 @@ all-test-tools: all
 
 test: all-test-tools
 	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
-	(cd pytest && python RunPyTest.py)
+	python -m unittest discover
 
 osx :
 	chmod +x osxbuild/deploy.sh

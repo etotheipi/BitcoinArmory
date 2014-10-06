@@ -103,12 +103,10 @@ from txjsonrpc.web import jsonrpc
 
 from armoryengine.ALL import *
 from collections import defaultdict
-from itertools import islice
 from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.PyBtcWalletRecovery import *
 from inspect import *
 from jasvet import readSigBlock, verifySignature
-from CppBlockUtils import BtcWallet
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -138,123 +136,6 @@ class AddressNotInWallet(Exception): pass
 jsonFunctDict = {}
 
 NOT_IMPLEMENTED = '--Not Implemented--'
-
-################################################################################
-# armoryd is still somewhat immature. We'll print a warning to let people know
-# that armoryd is still beta software and that the API may change.
-print '************************************************************************'
-print '* Please note that armoryd v%s is beta software and is still in ' % \
-      getVersionString(BTCARMORY_VERSION)
-print '* development. Whenever applicable, the interface is designed to match '
-print '* that of bitcoind, with function parameters and return values closely '
-print '* matching those of bitcoind. Despite this, the function parameters and '
-print '* return values may change, both for ported bitcoind function and '
-print '* Armory-specific functions.'
-print '************************************************************************'
-
-
-############################################
-# Copied from ArmoryQt. Remove in 0.93.
-class armorydInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another armoryd instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate armoryd instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-
-
-############################################
-# Copied from ArmoryQt. Remove in 0.93.
-class armorydListenerFactory(ClientFactory):
-   protocol = armorydInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-
-
-#############################################################################
-# Helper function from ArmoryQt. Check to see if we can go online.
-# (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
-def onlineModeIsPossible(internetAvail, forceOnline):
-   return ((internetAvail or forceOnline) and \
-            satoshiIsAvailable() and \
-            checkHaveBlockfiles())
-
-
-#############################################################################
-# Helper function from ArmoryQt. Check to see if we have the blk*.dat files.
-# (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
-def checkHaveBlockfiles():
-   return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
-
-
-#############################################################################
-# Check to see if an Internet connection is available. Code lifted from
-# ArmoryQt. (NB: Should be removed in 0.93 and combined w/ ArmoryQt code.)
-def setupNetworking():
-   LOGINFO('Setting up networking...')
-   internetAvail = False
-
-   # Prevent Armory from being opened twice
-   from twisted.internet import reactor
-   import twisted
-   def uriClick_partial(a):
-      self.uriLinkClicked(a)
-
-   if CLI_OPTIONS.interport > 1:
-      try:
-         InstanceListener = armorydListenerFactory(False, \
-                                                        uriClick_partial )
-         reactor.listenTCP(CLI_OPTIONS.interport, InstanceListener)
-      except twisted.internet.error.CannotListenError:
-         LOGWARN('Socket already occupied!  This must be a duplicate armoryd')
-         os._exit(0)
-   else:
-      LOGWARN('*** Listening port is disabled.  URI-handling will not work')
-
-#  Partially GUI-only
-#   settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-#   forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
-   forceOnline = CLI_OPTIONS.forceOnline
-   if forceOnline:
-      LOGINFO('Forced online mode: True')
-
-   # Check general internet connection
-   internetAvail = False
-   if not forceOnline:
-      try:
-         import urllib2
-         response=urllib2.urlopen('http://google.com', \
-                                  timeout=CLI_OPTIONS.nettimeout)
-         internetAvail = True
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot determine if internet is ' \
-                  'available')
-      except urllib2.URLError:
-         # In the extremely rare case that google might be down (or just to try
-         # again...)
-         try:
-            response=urllib2.urlopen('http://microsoft.com', \
-                                     timeout=CLI_OPTIONS.nettimeout)
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-            internetAvail = False
-      except:
-         LOGEXCEPT('Error checking for internet connection')
-         LOGERROR('Run --skip-online-check if you think this is an error')
-         internetAvail = False
-
-   canGoOnline = onlineModeIsPossible(internetAvail, forceOnline)
-   LOGINFO('Internet connection is Available: %s', str(internetAvail))
-   LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailable())
-   LOGINFO('The first blk*.dat was Available: %s', str(checkHaveBlockfiles()))
-   LOGINFO('Online mode currently possible:   %s', canGoOnline)
-   return canGoOnline
-
 
 ################################################################################
 # Utility function that takes a list of wallet paths, gets the paths and adds
@@ -376,7 +257,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_receivedfromsigner(self, *sigBlock):
+   def jsonrpc_getreceivedfromsigner(self, *sigBlock):
       """
       DESCRIPTION:
       Verify that a message (RFC 2440: clearsign or Base64) has been signed by
@@ -398,7 +279,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       verification = self.jsonrpc_verifysignature(signedMsg)
       retDict['message'] = verification['message']
-      retDict['amount'] = self.jsonrpc_receivedfromaddress(verification['address'])
+      retDict['amount'] = \
+                    self.jsonrpc_getreceivedfromaddress(verification['address'])
 
       return retDict
 
@@ -441,7 +323,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_receivedfromaddress(self, sender):
+   def jsonrpc_getreceivedfromaddress(self, sender):
       """
       DESCRIPTION:
       Return the number of coins received from a particular sender.
@@ -749,6 +631,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # NOTE: For now, the "includemempool" option isn't included. It seems to be a
+   # dead option on bitcoind. If this ever changes, it can be implemented.
    @catchErrsForJSON
    def jsonrpc_gettxout(self, txHash, n, binary=0):
       """
@@ -757,8 +641,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       PARAMETERS:
       txHash - A string representing the hex value of a transaction ID.
       n - The TxOut index to obtain.
-      binary - (Default=0) Indicates whether or not the resultant binary script
-               should be in binary form or converted to a hex string.
+      binary - (Default=0) Boolean value indicating whether or not the resultant binary
+               script should be in binary form or converted to a hex string.
       RETURN:
       A dictionary with the Bitcoin amount for the TxOut and the TxOut script in
       hex string form (default) or binary form.
@@ -773,9 +657,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if n < len(pyTx.outputs):
             # If the user doesn't want binary data, return a formatted string,
             # otherwise return a hex string with the raw TxOut data.
+            result = {}
             txOut = pyTx.outputs[n]
+
             result = {'value' : AmountToJSON(txOut.value),
-                      'script' : txOut.binScript if binary else binary_to_hex(txOut.binScript)}
+                      'script' : txOut.binScript if int(binary) else binary_to_hex(txOut.binScript)}
          else:
             LOGERROR('Tx output index is invalid: #%d' % n)
       else:
@@ -813,7 +699,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_unlockwallet(self, passphrase, timeout=10):
+   def jsonrpc_walletpassphrase(self, passphrase, timeout=10):
       """
       DESCRIPTION:
       Unlock a wallet with a given passphrase and unlock time length.
@@ -842,10 +728,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_relockwallet(self):
+   def jsonrpc_walletlock(self):
       """
       DESCRIPTION:
-      Re-lock a wallet.
+      Lock a wallet.
       PARAMETERS:
       None
       RETURN:
@@ -923,7 +809,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       for n,txout in enumerate(pyTx.outputs):
          voutList.append( { 'value' : AmountToJSON(txout.value),
                             'n' : n,
-                            'scriptAddrStrs' : self.getScriptAddrStrs(txout) } )
+                            'scriptPubKey' : self.getScriptAddrStrs(txout) } )
 
 
       #####
@@ -955,15 +841,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_dumpprivkey(self, addr58):
+   def jsonrpc_dumpprivkey(self, addr58, keyFormat='Base58'):
       """
       DESCRIPTION:
       Dump the private key for a given Base58 address associated with the
       currently loaded wallet.
       PARAMETERS:
       addr58 - A Base58 public address associated with the current wallet.
+      keyFormat - (Default=Base58) The desired format of the output. "Base58"
+                  and "Hex" are the available formats.
       RETURN:
-      The 32 byte binary private key.
+      The 32 byte private key, encoded as requested by the user.
       """
 
       # Cannot dump the private key for a locked wallet
@@ -975,13 +863,26 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not checkAddrStrValid(addr58):
          raise InvalidBitcoinAddress
 
+      retVal = ''
       addr160 = addrStr_to_hash160(addr58, False)[1]
 
       pyBtcAddress = self.curWlt.getAddrByHash160(addr160)
       if pyBtcAddress == None:
          raise PrivateKeyNotFound
 
-      return binary_to_hex(pyBtcAddress.serializePlainPrivateKey())
+      try:
+         self.privKey = SecureBinaryData(pyBtcAddress.serializePlainPrivateKey())
+         if keyFormat.lower() == 'base58':
+            retVal = privKey_to_base58(self.privKey.toBinStr())
+
+         elif keyFormat.lower() == 'hex':
+            retVal = binary_to_hex(self.privKey.toBinStr())
+         else:
+            retVal = 'ERROR: Requested format (%s) is invalid.' % keyFormat
+      finally:
+         self.privKey.destroy()
+
+      return retVal
 
 
    #############################################################################
@@ -1094,13 +995,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_getreceivedbyaddress(self, address):
+   def jsonrpc_getreceivedbyaddress(self, address, minconf=0):
       """
       DESCRIPTION:
       Get the number of coins received by a Base58 address associated with
       the currently loaded wallet.
       PARAMETERS:
       address - The Base58 address associated with the current wallet.
+      minconf - (Default=0) The minimum number of confirmations required for a
+                TX to be included in the final balance.
       RETURN:
       The balance received from the incoming address (BTC).
       """
@@ -1110,8 +1013,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Only gets correct amount for addresses in the wallet, otherwise 0
       addr160 = addrStr_to_hash160(address, False)[1]
 
+      # Iterate through the address in our wallet. Include coins only if values
+      # are positive and the number of confirmations is high enough.
       txs = self.curWlt.getAddrTxLedger(addr160)
-      balance = sum([x.getValue() for x in txs if x.getValue() > 0])
+      balance = 0
+      for curTX in txs:
+         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+                  curTX.getBlockNum()) + 1
+         if (nconf >= minconf) and (curTX.getValue() > 0):
+            balance += curTX.getValue()
+
       return AmountToJSON(balance)
 
 
@@ -1202,6 +1113,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
       DESCRIPTION:
       Get a wallet or lockbox ledger.
+      PARAMETERS:
       inB58ID - The Base58 ID of the wallet or lockbox from which to obtain the
                 ledger. The wallet or lockbox must already be loaded.
       tx_count - (Default=10) The number of entries to get.
@@ -1435,8 +1347,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          isToSelf   = le.isSentToSelf()
          feeCoin   = getFeeForTx(txHashBin)
          totalBalDiff = le.getValue()
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight()-le.getBlockNum()+1
-
+         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+                  le.getBlockNum()) + 1
 
          # We have potentially change outputs on any outgoing transactions.
          # If sent-to-self, assume 1 change address (max chain idx), all others
@@ -1586,12 +1498,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_getblock(self, blkhash):
+   def jsonrpc_getblock(self, blkhash, verbose='True'):
       """
       DESCRIPTION:
       Get the block associated with a given block hash.
       PARAMETERS:
       blkhash - A hex string representing the block to obtain.
+      verbose - (Default=True) If true, data regarding individual pieces of the
+                block is returned. If false, the raw block data is returned.
       RETURN:
       A dictionary listing information on the desired block, or empty if the
       block wasn't found.
@@ -1605,28 +1519,54 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not head:
          return {'error': 'header not found'}
       
-      out = {}
-      out['hash'] = blkhash
-      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
-      # TODO fix size. It returns max int, as does # Tx. They're never set.
-      # out['size'] = head.getBlockSize()
-      out['height'] = head.getBlockHeight()
-      out['time'] = head.getTimestamp()
-      out['nonce'] = head.getNonce()
-      out['difficulty'] = head.getDifficulty()
-      out['difficultysum'] = head.getDifficultySum()
-      out['mainbranch'] = head.isMainBranch()
-      out['bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
-      out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
-      out['version'] = head.getVersion()
-      out['rawheader'] = binary_to_hex(head.serialize())
+      if verbose.lower() == 'true':
+         out = {}
+         out['hash'] = blkhash
+         out['confirmations'] = (TheBDM.getTopBlockHeight() - \
+                                 head.getBlockHeight()) + 1
+         # TODO fix size. It returns max int, as does # Tx. They're never set.
+         # out['size'] = head.getBlockSize()
+         out['height'] = head.getBlockHeight()
+         out['version'] = head.getVersion()
+         out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
 
-      # TODO: Fix this part. getTxRefPtrList was never defined.
-      # txlist = head.getTxRefPtrList() 
-      # ntx = len(txlist)
-      # out['tx'] = ['']*ntx
-      # for i in range(ntx):
-      #    out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
+         # TODO: Fix this part. TxRef::getTxRefPtrList() was never defined.
+         #txlist = head.getTxRefPtrList() 
+         #ntx = len(txlist)
+         #out['tx'] = ['']*ntx
+         #for i in range(ntx):
+         #   out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
+
+         out['time'] = head.getTimestamp()
+         out['nonce'] = head.getNonce()
+         out['bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
+         out['difficulty'] = head.getDifficulty()
+
+         # Skip chainwork 'til chainwork data is put in the block header struct.
+         # The basic formula is as follows, as reverse engineered from BC Core.
+         # - For each block, convert the difficulty into an integer.
+         # - Divide 2^256 by the integer.
+         # - Add the result to the chainwork val of the previous block (or 0 if
+         #   calculating the genesis block's chainwork).
+         # - Output the result as a 32 byte, big endian integer string.
+
+         out['previousblockhash'] = binary_to_hex(head.getPrevHash(), BIGENDIAN)
+         out['nextblockhash'] = binary_to_hex(head.getNextHash(), BIGENDIAN)
+         out['difficultysum'] = head.getDifficultySum()
+         out['mainbranch'] = head.isMainBranch()
+         out['rawheader'] = binary_to_hex(head.serialize())
+
+      # bitcoind sends a raw block when not verbose. The C++ BlockHeader class
+      # still needs to implement TxRef::getTxRefPtrList(). Until then, we can't
+      # return a raw block.
+      elif verbose.lower() == 'false':
+         out = {}
+         out['Error'] = 'Raw Tx data is not available yet.'
+         #out = TheBDM.getBlockByHash(hex_to_binary(hex_switchEndian(blkhash)))
+      else:
+         out = {}
+         out['Error'] = '\"Verbose\" variable (%s) must be \"True\" or ' \
+                        '\"False\"' % verbose
 
       return out
 
@@ -1638,7 +1578,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the transaction associated with a given transaction hash.
       PARAMETERS:
-      txHash - A hex string representing the block to obtain.
+      txHash - A hex string representing the transaction to obtain.
       RETURN:
       A dictionary listing information on the desired transaction, or empty if
       the transaction wasn't found.
@@ -1702,7 +1642,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return out
 
       # The tx is in a block, fill in the rest of the data
-      out['confirmations'] = TheBDM.getTopBlockHeight()-tx.getBlockHeight()+1
+      out['confirmations'] = (TheBDM.getTopBlockHeight() - \
+                              tx.getBlockHeight()) + 1
       out['time'] = tx.getBlockTimestamp()
       out['orderinblock'] = tx.getBlockTxIndex()
 
@@ -2674,6 +2615,7 @@ for curJFunct in jFuncts:
 ################################################################################
 class Armory_Daemon(object):
    def __init__(self, wlt=None, lb=None):
+
       # NB: These objects contain ONLY wallet/lockbox data loaded at startup.
       # Armory_Json_Rpc_Server will contain the active wallet/LB lists.
 
@@ -2701,31 +2643,43 @@ class Armory_Daemon(object):
          os._exit(0)
       else:
          # Make sure we're actually able to do something before proceeding.
-         if setupNetworking():
+         if onlineModeIsPossible(TheBDM.btcdir):
             self.lock = threading.Lock()
             self.lastChecked = None
 
             #check wallet consistency every hour
             self.checkStep = 3600
+                        
+            ################################################################################
+            # armoryd is still somewhat immature. We'll print a warning to let people know
+            # that armoryd is still beta software and that the API may change.
+            LOGWARN('************************************************************************')
+            LOGWARN('* Please note that armoryd v%s is beta software and is still in ' % \
+                  getVersionString(BTCARMORY_VERSION))
+            LOGWARN('* development. Whenever applicable, the interface is designed to match ')
+            LOGWARN('* that of bitcoind, with function parameters and return values closely ')
+            LOGWARN('* matching those of bitcoind. Despite this, the function parameters and ')
+            LOGWARN('* return values may change, both for ported bitcoind function and ')
+            LOGWARN('* Armory-specific functions.')
+            LOGWARN('************************************************************************')
+            LOGWARN('')
+            LOGWARN('*'*80)
 
-            print ''
-            print '*'*80
-            print '* '
-            print '* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!'
-            print '*           DO NOT run armoryd at the same time as ArmoryQt if '
-            print '*           they are managing the same wallet file.  If you want '
-            print '*           to manage the same wallet with both applications '
-            print '*           you must make a digital copy/backup of the wallet file '
-            print '*           into another directory and point armoryd at that one.  '
-            print '*           '
-            print '*           As long as the two processes do not share the same '
-            print '*           actual file, there is no risk of wallet corruption. '
-            print '*           Just be aware that addresses may end up being reused '
-            print '*           if you execute transactions at approximately the same '
-            print '*           time with both apps. '
-            print '* '
-            print '*'*80
-            print ''
+            LOGWARN('* WARNING!  WALLET FILE ACCESS IS NOT INTERPROCESS-SAFE!')
+            LOGWARN('*           DO NOT run armoryd at the same time as ArmoryQt if ')
+            LOGWARN('*           they are managing the same wallet file.  If you want ')
+            LOGWARN('*           to manage the same wallet with both applications ')
+            LOGWARN('*           you must make a digital copy/backup of the wallet file ')
+            LOGWARN('*           into another directory and point armoryd at that one.  ')
+            LOGWARN('*           ')
+            LOGWARN('*           As long as the two processes do not share the same ')
+            LOGWARN('*           actual file, there is no risk of wallet corruption. ')
+            LOGWARN('*           Just be aware that addresses may end up being reused ')
+            LOGWARN('*           if you execute transactions at approximately the same ')
+            LOGWARN('*           time with both apps. ')
+            LOGWARN('*')
+            LOGWARN('*'*80)
+            LOGWARN('')
 
             # Otherwise, set up the server. This includes a defaultdict with a
             # list of functs to execute. This is done so that multiple functs
@@ -2926,7 +2880,7 @@ class Armory_Daemon(object):
          # For now, all we want to do is see if the server exists.
          sock = socket.create_connection(('127.0.0.1',ARMORY_RPC_PORT), 0.1);
       except socket.error:
-         LOGINFO('No other armoryd.py instance is running.  We\'re the first.')
+         LOGINFO('No other armoryd.py instance is running.  We\'re the first. %d' % ARMORY_RPC_PORT)
          retVal = False
 
       # Clean up the socket and return the result.
@@ -2971,16 +2925,6 @@ class Armory_Daemon(object):
                   extraArgs.append(json.loads(arg))
                else:
                   extraArgs.append(arg)
-
-            # Just in case we wish to give the user any info/warnings before the
-            # command is executed, do it here.
-            emailWarning = 'WARNING: For now, the password for your e-mail ' \
-                           'account will sit in memory and in your shell ' \
-                           'history. We highly recommend that you use a ' \
-                           'disposable account which may be compromised ' \
-                           'without exposing sensitive information.'
-            if CLI_ARGS[0] == 'watchwallet' or CLI_ARGS[0] == 'sendlockbox':
-               print emailWarning
 
             # Call the user's command (e.g., "getbalance full" ->
             # jsonrpc_getbalance(full)) and print results.

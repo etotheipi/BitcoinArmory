@@ -15,8 +15,8 @@
 #include "../ScrAddrObj.h"
 #include "../BtcWallet.h"
 #include "../BlockDataViewer.h"
-
-
+#include "../cryptopp/DetSign.h"
+#include "../cryptopp/integer.h"
 
 #ifdef _MSC_VER
    #ifdef mlock
@@ -240,7 +240,320 @@ public:
                ::testing::AddGlobalTestEnvironment(new BitcoinEnvironment);
 */
 
+// Utility function - Clean up comments later
+int char2int(char input)
+{
+  if(input >= '0' && input <= '9')
+    return input - '0';
+  if(input >= 'A' && input <= 'F')
+    return input - 'A' + 10;
+  if(input >= 'a' && input <= 'f')
+    return input - 'a' + 10;
+  return 0;
+}
 
+// This function assumes src to be a zero terminated sanitized string with
+// an even number of [0-9a-f] characters, and target to be sufficiently large
+void hex2bin(const char* src, unsigned char* target)
+{
+  while(*src && src[1])
+  {
+    *(target++) = char2int(*src)*16 + char2int(src[1]);
+    src += 2;
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Test any custom Crypto++ code we've written.
+// Deterministic signing vectors taken from RFC6979. (NOT TRUE JUST YET!)
+class CryptoPPTest : public ::testing::Test
+{
+protected:
+    virtual void SetUp(void)
+    {
+        // Private keys for test vectors. (See RFC 6979, Sect. A.2.3-7.)
+        // NB 1: Entry data must consist contain full bytes. Nibbles will cause
+        // data shifts and unpredictable results.
+        // NB 2: No test vectors for secp256k1 were included in RFC 6979.
+        string prvKeyStr1 = "6FAB034934E4C0FC9AE67F5B5659A9D7D1FEFD187EE09FD4"; // secp192r1
+        string prvKeyStr2 = "F220266E1105BFE3083E03EC7A3A654651F45E37167E88600BF257C1"; // secp224r1
+        string prvKeyStr3 = "C9AFA9D845BA75166B5C215767B1D6934E50C3DB36E89B127B8A622B120F6721"; // secp256r1
+        string prvKeyStr4 = "6B9D3DAD2E1B8C1C05B19875B6659F4DE23C3B667BF297BA9AA47740787137D896D5724E4C70A825F872C9EA60D2EDF5"; // secp384r1
+        string prvKeyStr5 = "00FAD06DAA62BA3B25D2FB40133DA757205DE67F5BB0018FEE8C86E1B68C7E75CAA896EB32F1F47C70855836A6D16FCC1466F6D8FBEC67DB89EC0C08B0E996B83538"; // secp521r1
+        unsigned char difPrvKey1[24];
+        unsigned char difPrvKey2[28];
+        unsigned char difPrvKey3[32];
+        unsigned char difPrvKey4[48];
+        unsigned char difPrvKey5[66];
+        hex2bin(prvKeyStr1.c_str(), difPrvKey1);
+        hex2bin(prvKeyStr2.c_str(), difPrvKey2);
+        hex2bin(prvKeyStr3.c_str(), difPrvKey3);
+        hex2bin(prvKeyStr4.c_str(), difPrvKey4);
+        hex2bin(prvKeyStr5.c_str(), difPrvKey5);
+        prvKey1.Decode(reinterpret_cast<const unsigned char*>(difPrvKey1), 24);
+        prvKey2.Decode(reinterpret_cast<const unsigned char*>(difPrvKey2), 28);
+        prvKey3.Decode(reinterpret_cast<const unsigned char*>(difPrvKey3), 32);
+        prvKey4.Decode(reinterpret_cast<const unsigned char*>(difPrvKey4), 48);
+        prvKey5.Decode(reinterpret_cast<const unsigned char*>(difPrvKey5), 66);
+
+        // Unofficial secp256k1 test vectors from Python ECDSA code.
+        string prvKeyStr1U = "9d0219792467d7d37b4d43298a7d0c05";
+        string prvKeyStr2U = "cca9fbcc1b41e5a95d369eaa6ddcff73b61a4efaa279cfc6567e8daa39cbaf50";
+        string prvKeyStr3U = "01";
+        string prvKeyStr4U = "01";
+        string prvKeyStr5U = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140";
+        string prvKeyStr6U = "f8b8af8ce3c7cca5e300d33939540c10d45ce001b8f252bfbc57ba0342904181";
+        unsigned char difPrvKey1U[16];
+        unsigned char difPrvKey2U[32];
+        unsigned char difPrvKey3U[1];
+        unsigned char difPrvKey4U[1];
+        unsigned char difPrvKey5U[32];
+        unsigned char difPrvKey6U[32];
+        hex2bin(prvKeyStr1U.c_str(), difPrvKey1U);
+        hex2bin(prvKeyStr2U.c_str(), difPrvKey2U);
+        hex2bin(prvKeyStr3U.c_str(), difPrvKey3U);
+        hex2bin(prvKeyStr4U.c_str(), difPrvKey4U);
+        hex2bin(prvKeyStr5U.c_str(), difPrvKey5U);
+        hex2bin(prvKeyStr6U.c_str(), difPrvKey6U);
+        prvKey1U.Decode(reinterpret_cast<const unsigned char*>(difPrvKey1U), 16);
+        prvKey2U.Decode(reinterpret_cast<const unsigned char*>(difPrvKey2U), 32);
+        prvKey3U.Decode(reinterpret_cast<const unsigned char*>(difPrvKey3U), 1);
+        prvKey4U.Decode(reinterpret_cast<const unsigned char*>(difPrvKey4U), 1);
+        prvKey5U.Decode(reinterpret_cast<const unsigned char*>(difPrvKey5U), 32);
+        prvKey6U.Decode(reinterpret_cast<const unsigned char*>(difPrvKey6U), 32);
+
+        // Unofficial secp256k1 test vector from Trezor source code (Github)
+        // that isn't duplicated by the Python ECDSA test vector.
+        string prvKeyStr1T = "e91671c46231f833a6406ccbea0e3e392c76c167bac1cb013f6f1013980455c2";
+        unsigned char difPrvKey1T[32];
+        hex2bin(prvKeyStr1T.c_str(), difPrvKey1T);
+        prvKey1T.Decode(reinterpret_cast<const unsigned char*>(difPrvKey1T), 32);
+
+        // Unofficial secp256k1 test vector derived from Python ECDSA source.
+        // Designed to test the case where the k-value is too large and must be
+        // recalculated.
+        string prvKeyStr1F = "009A4D6792295A7F730FC3F2B49CBC0F62E862272F";
+        unsigned char difPrvKey1F[21];
+        hex2bin(prvKeyStr1F.c_str(), difPrvKey1F);
+        prvKey1F.Decode(reinterpret_cast<const unsigned char*>(difPrvKey1F), 21);
+    }
+
+    CryptoPP::Integer prvKey1;
+    CryptoPP::Integer prvKey2;
+    CryptoPP::Integer prvKey3;
+    CryptoPP::Integer prvKey4;
+    CryptoPP::Integer prvKey5;
+    CryptoPP::Integer prvKey1U;
+    CryptoPP::Integer prvKey2U;
+    CryptoPP::Integer prvKey3U;
+    CryptoPP::Integer prvKey4U;
+    CryptoPP::Integer prvKey5U;
+    CryptoPP::Integer prvKey6U;
+    CryptoPP::Integer prvKey1T;
+    CryptoPP::Integer prvKey1F;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(CryptoPPTest, DetSigning)
+{
+    string data1 = "sample";
+    string data2 = "test";
+
+    // secp192r1
+    // Curve orders & results from RFC 6979, Sect. A.2.3-7. (Orders also from
+    // SEC 2 document, Sects. 2.5-2.9.)
+    CryptoPP::Integer secp192r1Order("FFFFFFFFFFFFFFFFFFFFFFFF99DEF836146BC9B1B4D22831h");
+    CryptoPP::Integer secp192r1ExpRes1("32B1B6D7D42A05CB449065727A84804FB1A3E34D8F261496h");
+    CryptoPP::Integer secp192r1ExpRes2("5C4CE89CF56D9E7C77C8585339B006B97B5F0680B4306C6Ch");
+    CryptoPP::Integer secp192r1Res1 = getDetKVal(prvKey1,
+                                                 reinterpret_cast<const unsigned char*>(data1.c_str()),
+                                                 strlen(data1.c_str()),
+                                                 secp192r1Order,
+                                                 secp192r1Order.BitCount());
+    CryptoPP::Integer secp192r1Res2 = getDetKVal(prvKey1,
+                                                 reinterpret_cast<const unsigned char*>(data2.c_str()),
+                                                 strlen(data2.c_str()),
+                                                 secp192r1Order,
+                                                 secp192r1Order.BitCount());
+    EXPECT_EQ(secp192r1ExpRes1, secp192r1Res1);
+    EXPECT_EQ(secp192r1ExpRes2, secp192r1Res2);
+
+    // secp224r1
+    CryptoPP::Integer secp224r1Order("FFFFFFFFFFFFFFFFFFFFFFFFFFFF16A2E0B8F03E13DD29455C5C2A3Dh");
+    CryptoPP::Integer secp224r1ExpRes1("AD3029E0278F80643DE33917CE6908C70A8FF50A411F06E41DEDFCDCh");
+    CryptoPP::Integer secp224r1ExpRes2("FF86F57924DA248D6E44E8154EB69F0AE2AEBAEE9931D0B5A969F904h");
+    CryptoPP::Integer secp224r1Res1 = getDetKVal(prvKey2,
+                                                 reinterpret_cast<const unsigned char*>(data1.c_str()),
+                                                 strlen(data1.c_str()),
+                                                 secp224r1Order,
+                                                 secp224r1Order.BitCount());
+    CryptoPP::Integer secp224r1Res2 = getDetKVal(prvKey2,
+                                                 reinterpret_cast<const unsigned char*>(data2.c_str()),
+                                                 strlen(data2.c_str()),
+                                                 secp224r1Order,
+                                                 secp224r1Order.BitCount());
+    EXPECT_EQ(secp224r1ExpRes1, secp224r1Res1);
+    EXPECT_EQ(secp224r1ExpRes2, secp224r1Res2);
+
+    // secp256r1
+    CryptoPP::Integer secp256r1Order("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551h");
+    CryptoPP::Integer secp256r1ExpRes1("A6E3C57DD01ABE90086538398355DD4C3B17AA873382B0F24D6129493D8AAD60h");
+    CryptoPP::Integer secp256r1ExpRes2("D16B6AE827F17175E040871A1C7EC3500192C4C92677336EC2537ACAEE0008E0h");
+    CryptoPP::Integer secp256r1Res1 = getDetKVal(prvKey3,
+                                                 reinterpret_cast<const unsigned char*>(data1.c_str()),
+                                                 strlen(data1.c_str()),
+                                                 secp256r1Order,
+                                                 secp256r1Order.BitCount());
+    CryptoPP::Integer secp256r1Res2 = getDetKVal(prvKey3,
+                                                 reinterpret_cast<const unsigned char*>(data2.c_str()),
+                                                 strlen(data2.c_str()),
+                                                 secp256r1Order,
+                                                 secp256r1Order.BitCount());
+    EXPECT_EQ(secp256r1ExpRes1, secp256r1Res1);
+    EXPECT_EQ(secp256r1ExpRes2, secp256r1Res2);
+
+    // secp384r1
+    CryptoPP::Integer secp384r1Order("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973h");
+    CryptoPP::Integer secp384r1ExpRes1("180AE9F9AEC5438A44BC159A1FCB277C7BE54FA20E7CF404B490650A8ACC414E375572342863C899F9F2EDF9747A9B60h");
+    CryptoPP::Integer secp384r1ExpRes2("0CFAC37587532347DC3389FDC98286BBA8C73807285B184C83E62E26C401C0FAA48DD070BA79921A3457ABFF2D630AD7h");
+    CryptoPP::Integer secp384r1Res1 = getDetKVal(prvKey4,
+                                                 reinterpret_cast<const unsigned char*>(data1.c_str()),
+                                                 strlen(data1.c_str()),
+                                                 secp384r1Order,
+                                                 secp384r1Order.BitCount());
+    CryptoPP::Integer secp384r1Res2 = getDetKVal(prvKey4,
+                                                 reinterpret_cast<const unsigned char*>(data2.c_str()),
+                                                 strlen(data2.c_str()),
+                                                 secp384r1Order,
+                                                 secp384r1Order.BitCount());
+    EXPECT_EQ(secp384r1ExpRes1, secp384r1Res1);
+    EXPECT_EQ(secp384r1ExpRes2, secp384r1Res2);
+
+    // secp521r1
+    CryptoPP::Integer secp521r1Order("01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA51868783BF2F966B7FCC0148F709A5D03BB5C9B8899C47AEBB6FB71E91386409h");
+    CryptoPP::Integer secp521r1ExpRes1("0EDF38AFCAAECAB4383358B34D67C9F2216C8382AAEA44A3DAD5FDC9C32575761793FEF24EB0FC276DFC4F6E3EC476752F043CF01415387470BCBD8678ED2C7E1A0h");
+    CryptoPP::Integer secp521r1ExpRes2("01DE74955EFAABC4C4F17F8E84D881D1310B5392D7700275F82F145C61E843841AF09035BF7A6210F5A431A6A9E81C9323354A9E69135D44EBD2FCAA7731B909258h");
+    CryptoPP::Integer secp521r1Res1 = getDetKVal(prvKey5,
+                                                 reinterpret_cast<const unsigned char*>(data1.c_str()),
+                                                 strlen(data1.c_str()),
+                                                 secp521r1Order,
+                                                 secp521r1Order.BitCount());
+    CryptoPP::Integer secp521r1Res2 = getDetKVal(prvKey5,
+                                                 reinterpret_cast<const unsigned char*>(data2.c_str()),
+                                                 strlen(data2.c_str()),
+                                                 secp521r1Order,
+                                                 secp521r1Order.BitCount());
+    EXPECT_EQ(secp521r1ExpRes1, secp521r1Res1);
+    EXPECT_EQ(secp521r1ExpRes2, secp521r1Res2);
+
+    // Unofficial secp256k1 test vectors from Python ECDSA code.
+    string data1U = "sample";
+    string data2U = "sample";
+    string data3U = "Satoshi Nakamoto";
+    string data4U = "All those moments will be lost in time, like tears in rain. Time to die...";
+    string data5U = "Satoshi Nakamoto";
+    string data6U = "Alan Turing";
+    CryptoPP::Integer secp256k1ExpRes1U("8fa1f95d514760e498f28957b824ee6ec39ed64826ff4fecc2b5739ec45b91cdh");
+    CryptoPP::Integer secp256k1ExpRes2U("2df40ca70e639d89528a6b670d9d48d9165fdc0febc0974056bdce192b8e16a3h");
+    CryptoPP::Integer secp256k1ExpRes3U("8F8A276C19F4149656B280621E358CCE24F5F52542772691EE69063B74F15D15h");
+    CryptoPP::Integer secp256k1ExpRes4U("38AA22D72376B4DBC472E06C3BA403EE0A394DA63FC58D88686C611ABA98D6B3h");
+    CryptoPP::Integer secp256k1ExpRes5U("33A19B60E25FB6F4435AF53A3D42D493644827367E6453928554F43E49AA6F90h");
+    CryptoPP::Integer secp256k1ExpRes6U("525A82B70E67874398067543FD84C83D30C175FDC45FDEEE082FE13B1D7CFDF1h");
+    CryptoPP::Integer secp256k1Order("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141h");
+    CryptoPP::Integer secp256k1Res1U = getDetKVal(prvKey1U,
+                                                  reinterpret_cast<const unsigned char*>(data1U.c_str()),
+                                                  strlen(data1U.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    CryptoPP::Integer secp256k1Res2U = getDetKVal(prvKey2U,
+                                                  reinterpret_cast<const unsigned char*>(data2U.c_str()),
+                                                  strlen(data2U.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    CryptoPP::Integer secp256k1Res3U = getDetKVal(prvKey3U,
+                                                  reinterpret_cast<const unsigned char*>(data3U.c_str()),
+                                                  strlen(data3U.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    CryptoPP::Integer secp256k1Res4U = getDetKVal(prvKey4U,
+                                                  reinterpret_cast<const unsigned char*>(data4U.c_str()),
+                                                  strlen(data4U.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    CryptoPP::Integer secp256k1Res5U = getDetKVal(prvKey5U,
+                                                  reinterpret_cast<const unsigned char*>(data5U.c_str()),
+                                                  strlen(data5U.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    CryptoPP::Integer secp256k1Res6U = getDetKVal(prvKey6U,
+                                                  reinterpret_cast<const unsigned char*>(data6U.c_str()),
+                                                  strlen(data6U.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    EXPECT_EQ(secp256k1ExpRes1U, secp256k1Res1U);
+    EXPECT_EQ(secp256k1ExpRes2U, secp256k1Res2U);
+    EXPECT_EQ(secp256k1ExpRes3U, secp256k1Res3U);
+    EXPECT_EQ(secp256k1ExpRes4U, secp256k1Res4U);
+    EXPECT_EQ(secp256k1ExpRes5U, secp256k1Res5U);
+    EXPECT_EQ(secp256k1ExpRes6U, secp256k1Res6U);
+
+//////
+    // Repeat a Python ECDSA test vector using Armory's signing/verification
+    // methodology (via Crypto++).
+    // NB: Once RFC 6979 is properly integrated into Armory, this code ought to
+    // use the actual signing & verification calls.
+    SecureBinaryData prvKeyX(32);
+    prvKey5U.Encode(prvKeyX.getPtr(), prvKeyX.getSize());
+    BTC_PRIVKEY prvKeyY = CryptoECDSA().ParsePrivateKey(prvKeyX);
+
+    // Signing materials
+    BTC_DETSIGNER signer(prvKeyY);
+    string outputSig;
+
+    // PRNG
+    BTC_PRNG dummyPRNG;
+
+    // Data
+    SecureBinaryData dataToSign(data5U.c_str());
+    CryptoPP::StringSource(dataToSign.toBinStr(), true,
+                           new CryptoPP::SignerFilter(dummyPRNG, signer,
+                                                      new CryptoPP::StringSink(outputSig)));
+
+    // Verify the sig.
+    BTC_PUBKEY pubKeyY = CryptoECDSA().ComputePublicKey(prvKeyY);
+    BTC_VERIFIER verifier(pubKeyY);
+    SecureBinaryData finalSig(outputSig);
+    EXPECT_TRUE(verifier.VerifyMessage((const byte*)dataToSign.getPtr(), 
+                                                    dataToSign.getSize(),
+                                       (const byte*)finalSig.getPtr(), 
+                                                    finalSig.getSize()));
+//////
+
+    // Unofficial secp256k1 test vector derived from Python ECDSA source.
+    // Designed to test the case where the k-value is too large and must be
+    // recalculated.
+    string data1F = "I want to be larger than the curve's order!!!1!";
+    CryptoPP::Integer failExpRes1F("011e31b61d6822c294268786a22abb2de5f415d94fh");
+    CryptoPP::Integer failOrder("04000000000000000000020108A2E0CC0D99F8A5EFh");
+    CryptoPP::Integer failRes1F = getDetKVal(prvKey1F,
+                                             reinterpret_cast<const unsigned char*>(data1F.c_str()),
+                                             strlen(data1F.c_str()),
+                                             failOrder,
+                                             168); // Force code to use all bits 
+    EXPECT_EQ(failExpRes1F, failRes1F);
+
+    // Unofficial secp256k1 test vector from Trezor source code (Github) that
+    // isn't duplicated by the Python ECDSA test vector.
+    string data1T = "There is a computer disease that anybody who works with computers knows about. It's a very serious disease and it interferes completely with the work. The trouble with computers is that you 'play' with them!";
+    CryptoPP::Integer secp256k1ExpRes1T("1f4b84c23a86a221d233f2521be018d9318639d5b8bbd6374a8a59232d16ad3dh");
+    CryptoPP::Integer secp256k1Res1T = getDetKVal(prvKey1T,
+                                                  reinterpret_cast<const unsigned char*>(data1T.c_str()),
+                                                  strlen(data1T.c_str()),
+                                                  secp256k1Order,
+                                                  secp256k1Order.BitCount());
+    EXPECT_EQ(secp256k1ExpRes1T, secp256k1Res1T);
+
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2228,7 +2541,8 @@ TEST_F(BlockObjTest, HeaderNoInit)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockObjTest, HeaderUnserialize)
 {
-   EXPECT_TRUE(bh_.isInitialized());
+   bool boolFalse = false;
+   EXPECT_NE(bh_.isInitialized(), boolFalse);
    EXPECT_EQ(bh_.getNumTx(), UINT32_MAX);
    EXPECT_EQ(bh_.getBlockSize(), UINT32_MAX);
    EXPECT_EQ(bh_.getVersion(), 1);
@@ -8005,7 +8319,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 
    uint64_t balanceWlt;
    uint64_t balanceDB;
-   
+
    balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
    EXPECT_EQ(balanceWlt,  100*COIN);
@@ -8351,11 +8665,6 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->scanWallets();
 
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance(),  50*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance(),  50*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance(),   0*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_)->getFullBalance(),   0*COIN);
-   
    BinaryData txWithChangeHash = READHEX(
       "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
    BinaryData txWithChange = READHEX(

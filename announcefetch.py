@@ -42,7 +42,8 @@ class AnnounceDataFetcher(object):
    #############################################################################
    def __init__(self, announceURL=ANNOUNCE_URL, \
                       backupURL=ANNOUNCE_URL_BACKUP, \
-                      fetchDir=None):
+                      fetchDir=None,
+                      uniqueID='00000000'):
 
       self.loopIsIdle = Event()
       self.forceCheckFlag = Event()
@@ -60,6 +61,10 @@ class AnnounceDataFetcher(object):
       # Where to fetch the data from
       self.announceURL = announceURL
       self.announceURL_backup = backupURL
+
+      # For OS/version statistics, we use the ID is used to remove duplicates
+      self.uniqueID = uniqueID
+      self.disableDecorate = False
 
       # Just disable ourselves if we have continuous exceptions
       self.numConsecutiveExceptions = 0
@@ -111,8 +116,12 @@ class AnnounceDataFetcher(object):
       self.fetchInterval = max(newInterval,10)
 
    #############################################################################
-   def setDisabled(self, b=True):
+   def setFullyDisabled(self, b=True):
       self.disabled = b
+
+   #############################################################################
+   def setStatsDisable(self, b=True):
+      self.disableDecorate = b
 
    #############################################################################
    def isRunning(self):
@@ -205,6 +214,12 @@ class AnnounceDataFetcher(object):
       verbose=True option to add OS, subOS, and a few "random" bytes that help
       reject duplicate queries.
       """
+
+      # ACR UPDATE 08/2014: non-verbose now does no decorating at all.  It just
+      #                     returns the same URL that was passed in.
+      if (not verbose) or self.disableDecorate:
+         return url
+      
       argsMap = {}
       argsMap['ver'] = getVersionString(BTCARMORY_VERSION)
    
@@ -227,10 +242,7 @@ class AnnounceDataFetcher(object):
             LOGERR('Unrecognized OS while constructing version URL')
             argsMap['osvar'] = 'unk'
    
-         if OS_WINDOWS:
-            argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR.encode('utf8'))[:4])
-         else:
-            argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])
+         argsMap['id'] = self.uniqueID
 
       return url + '?' + urllib.urlencode(argsMap)
 

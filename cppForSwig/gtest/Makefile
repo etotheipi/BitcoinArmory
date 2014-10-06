@@ -29,9 +29,25 @@ CPPFLAGS += -I$(GTEST_DIR) \
 				-g \
 				-fprofile-arcs \
 				-ftest-coverage \
-				--coverage 
+				--coverage
 
-HEADERS += 	$(wildcard $(USER_DIR)/*.h)
+# OS X requires a workaround.
+ifneq ($(OS),Windows_NT)
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        CPPFLAGS += -DGTEST_USE_OWN_TR1_TUPLE=1
+        # Do these work???
+#        CXXFLAGS += -Wall -Wextra -stdlib=libc++ -std=c++11
+    endif
+endif
+
+HEADERS += 	$(USER_DIR)/BinaryData.h \
+		 		$(USER_DIR)/BtcUtils.h \
+		 		$(USER_DIR)/BlockObj.h \
+		 		$(USER_DIR)/StoredBlockObj.h \
+		 		$(USER_DIR)/leveldb_wrapper.h \
+		 		$(USER_DIR)/EncryptionUtils.h \
+		 		$(USER_DIR)/PartialMerkle.h
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g -std=c++11
@@ -53,6 +69,8 @@ all : $(TESTS)
 
 clean :
 	rm -f $(TESTS) gtest.a gtest_main.a *.o *.gcda *.gcno
+	rm -f libcryptopp.a libleveldb.a
+	rm -f timings.csv cppTestsLog.txt
 
 # Builds gtest.a and gtest_main.a.
 
@@ -108,5 +126,3 @@ CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
 
 getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
-
-

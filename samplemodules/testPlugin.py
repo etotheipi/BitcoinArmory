@@ -29,7 +29,7 @@ from qtdefines import makeHorizFrame, makeVertFrame, STYLE_PLAIN, QRichLabel, \
 class PluginObject(object):
 
    tabName = 'Exchange Rates'
-   maxVersion = '0.92'
+   maxVersion = '0.93'
    
    #############################################################################
    def __init__(self, main):

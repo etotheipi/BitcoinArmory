@@ -10,5 +10,6 @@
   <key>CFBundleName</key> <string>Armory Bitcoin Client</string>
   <key>NSPrincipalClass</key> <string>NSApplication</string>
   <key>LSMinimumSystemVersion</key> <string>10.6.0</string>
+  <key>LSAppNapIsDisabled</key> <true/>
 </dict>
 </plist>

@@ -520,7 +520,6 @@ BTC_PUBKEY CryptoECDSA::ComputePublicKey(BTC_PRIVKEY const & cppPrivKey)
    // Validate the public key -- not sure why this needs a prng...
    BTC_PRNG prng;
    assert(cppPubKey.Validate(prng, 3));
-   assert(cppPubKey.Validate(prng, 3));
 
    return cppPubKey;
 }

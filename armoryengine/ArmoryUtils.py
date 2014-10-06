@@ -47,13 +47,14 @@ import psutil
 
 from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
+from twisted.internet.protocol import Protocol, ClientFactory
 
 
 cppPushTrigger = []
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 92, 00, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 92, 99, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -90,9 +91,10 @@ parser.add_option("--nologging",       dest="logDisable",  default=False,     ac
 parser.add_option("--netlog",          dest="netlog",      default=False,     action="store_true", help="Log networking messages sent and received by Armory")
 parser.add_option("--logfile",         dest="logFile",     default='DEFAULT', type='str',          help="Specify a non-default location to send logging information")
 parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
-parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
-parser.add_option("--skip-announce-check", dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
+parser.add_option("--skip-online-check",dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
+parser.add_option("--skip-stats-report", dest="skipStatsReport", default=False, action="store_true", help="Does announcement checking without any OS/version reporting (for ATI statistics)")
+parser.add_option("--skip-announce-check",dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
+parser.add_option("--tor",             dest="useTorSettings", default=False, action="store_true", help="Enable common settings for when Armory connects through Tor")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
@@ -100,7 +102,6 @@ parser.add_option("--rescan",          dest="rescan",      default=False,     ac
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
 parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
-#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', type='str',          help="File to store information about multi-signature transactions")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
@@ -119,7 +120,7 @@ parser.add_option("--coverage_include", dest="coverageInclude", default=None, ty
 
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
+BASE16CHARS  = '0123456789abcdefABCDEF'
 LITTLEENDIAN  = '<'
 BIGENDIAN     = '>'
 NETWORKENDIAN = '!'
@@ -206,6 +207,7 @@ class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
 class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
+class NonBase58CharacterError(Exception): pass
 
 # Get the host operating system
 opsys = platform.system()
@@ -428,6 +430,9 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 if not os.path.exists(LEVELDB_DIR):
    os.makedirs(LEVELDB_DIR)
 
+
+
+
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
    # TODO:  The testnet genesis tx hash can't be the same...?
@@ -527,12 +532,14 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    except:
       raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
+################################################################################
 if not CLI_OPTIONS.satoshiRpcport == 'DEFAULT':
    try:
       BITCOIN_RPC_PORT = int(CLI_OPTIONS.satoshiRpcport)
    except:
       raise TypeError('Invalid rpc port for Bitcoin-Qt, using ' + str(BITCOIN_RPC_PORT))
 
+################################################################################
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
@@ -956,6 +963,18 @@ if CLI_OPTIONS.testAnnounceCode:
    ARMORY_INFO_SIGN_PUBLICKEY = ('04'
       '601c891a2cbc14a7b2bb1ecc9b6e42e166639ea4c2790703f8e2ed126fce432c'
       '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
+
+
+
+####
+if CLI_OPTIONS.useTorSettings:
+   LOGWARN('Option --tor was supplied, forcing --skip-announce-check,')
+   LOGWARN('--skip-online-check, --skip-stats-report and --disable-torrent')
+   CLI_OPTIONS.skipAnnounceCheck = True
+   CLI_OPTIONS.skipStatsReport = True
+   CLI_OPTIONS.forceOnline = True
+   CLI_OPTIONS.disableTorrent = True
+
 
 
 ################################################################################
@@ -1965,7 +1984,10 @@ def base58_to_binary(addr):
    n = 0
    for ch in addr:
       n *= 58
-      n += BASE58CHARS.index(ch)
+      if ch in BASE58CHARS:
+         n += BASE58CHARS.index(ch)
+      else:
+         raise NonBase58CharacterError("Unrecognized Base 58 Character: %s" % ch)
 
    binOut = ''
    while n>0:
@@ -1974,6 +1996,31 @@ def base58_to_binary(addr):
       n = d
    return '\x00'*padding + binOut
 
+
+################################################################################
+def privKey_to_base58(binKey):
+   '''Convert a 32-byte private key to the Satoshi client Base58 format.'''
+
+   retBase58 = ''
+   # For now, we don't support compressed private keys. (When we do, add
+   # 0x01 after the private key when returning a private key.)
+   try:
+      compByte = ''
+      if 0:
+         compByte = '\x01'
+      privHashAddr = SecureBinaryData(PRIVKEYBYTE + binKey + compByte)
+      privHash256 = \
+                    SecureBinaryData(hash256(privHashAddr.toBinStr())[0:4])
+      privHashFinal = \
+              SecureBinaryData(binary_to_base58(privHashAddr.toBinStr() + \
+                                                privHash256.toBinStr()))
+      retBase58 = privHashFinal.toBinStr()
+   finally:
+      privHashAddr.destroy()
+      privHash256.destroy()
+      privHashFinal.destroy()
+
+   return retBase58
 
 
 ################################################################################
@@ -2783,19 +2830,19 @@ def parseBitcoinURI(theStr):
    """ Takes a URI string, returns the pieces of it, in a dictionary """
 
    # Start by splitting it into pieces on any separator
-   seplist = ':;?&'
+   seplist = ';?&'
    for c in seplist:
       theStr = theStr.replace(c,' ')
    parts = theStr.split()
 
    # Now start walking through the parts and get the info out of it
-   if not parts[0] == 'bitcoin':
+   if not parts[0].startswith('bitcoin:'):
       return {}
-
+   
    uriData = {}
 
    try:
-      uriData['address'] = parts[1]
+      uriData['address'] = parts[0][parts[0].index(':')+1:]
       for p in parts[2:]:
          if not '=' in p:
             raise BadURIError('Unrecognized URI field: "%s"'%p)
@@ -2928,8 +2975,8 @@ def notifyOnSurpriseTx(blk0, blk1, wltMap, lboxWltMap, isGui, bdm, notifyQueue, 
    # a block. It is a "surprise" when the first time we see it is in a block
    if isGui:
       notifiedAlready = set([ n[1].getTxHash() for n in notifyQueue ])
-      notifyIn  = settings.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
-      notifyOut = settings.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+      notifyIn  = settings.getSettingOrSetDefault('NotifyBtcIn', True)
+      notifyOut = settings.getSettingOrSetDefault('NotifyBtcOut', True)
 
    for blk in range(blk0, blk1):
       sbh = bdm.getMainBlockFromDB(blk)
@@ -3176,6 +3223,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          271827 12968787968
          286296 15619588096
          290715 16626221056
+         323285 24216006308
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
@@ -3370,11 +3418,11 @@ def HardcodedKeyMaskParams():
       out,bin7 = SecureBinaryData(binary_to_base58(bin7 + hash256(bin7)[0])), None
       return out
 
-   def hardcodeCheckPassphrase(passphrase):
-      if isinstance(passphrase, basestring):
-         pwd = base58_to_binary(passphrase)
+   def hardcodeCheckSecurePrintCode(securePrintCode):
+      if isinstance(securePrintCode, basestring):
+         pwd = base58_to_binary(securePrintCode)
       else:
-         pwd = base58_to_binary(passphrase.toBinStr())
+         pwd = base58_to_binary(securePrintCode.toBinStr())
 
       isgood,pwd = (hash256(pwd[:7])[0] == pwd[-1]), None
       return isgood
@@ -3400,7 +3448,7 @@ def HardcodedKeyMaskParams():
    paramMap['FUNC_KDF']    = hardcodeApplyKdf
    paramMap['FUNC_MASK']   = hardcodeMask
    paramMap['FUNC_UNMASK'] = hardcodeUnmask
-   paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
+   paramMap['FUNC_CHKPWD'] = hardcodeCheckSecurePrintCode
    return paramMap
 
 ################################################################################
@@ -3619,3 +3667,54 @@ except:
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
 
+
+
+############################################
+class ArmoryInstanceListener(Protocol):
+   def connectionMade(self):
+      LOGINFO('Another Armory instance just tried to open.')
+      self.factory.func_conn_made()
+
+   def dataReceived(self, data):
+      LOGINFO('Received data from alternate Armory instance')
+      self.factory.func_recv_data(data)
+      self.transport.loseConnection()
+      
+############################################
+class ArmoryListenerFactory(ClientFactory):
+   protocol = ArmoryInstanceListener
+   def __init__(self, fn_conn_made, fn_recv_data):
+      self.func_conn_made = fn_conn_made
+      self.func_recv_data = fn_recv_data
+      
+# Check general internet connection
+def isInternetAvailable():
+   try:
+      import urllib2
+      urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
+      internetAvail = True
+   except ImportError:
+      LOGERROR('No module urllib2 -- cannot determine if internet is '
+         'available')
+   except urllib2.URLError:
+      # In the extremely rare case that google might be down (or just to try
+      # again...)
+      try:
+         response = urllib2.urlopen('http://microsoft.com', 
+            timeout=CLI_OPTIONS.nettimeout)
+      except:
+         LOGEXCEPT('Error checking for internet connection')
+         LOGERROR('Run --skip-online-check if you think this is an error')
+         internetAvail = False
+   except:
+      LOGEXCEPT('Error checking for internet connection')
+      LOGERROR('Run --skip-online-check if you think this is an error')
+      internetAvail = False
+   return internetAvail
+
+
+# Returns true if Online Mode is possible
+def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
+   return (CLI_OPTIONS.forceOnline or isInternetAvailable()) and \
+      satoshiIsAvailable() and \
+      os.path.exists(os.path.join(btcdir, 'blocks'))

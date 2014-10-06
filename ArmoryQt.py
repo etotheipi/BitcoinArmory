@@ -41,19 +41,21 @@ from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
-from ui.UpgradeDownloader import UpgradeDownloaderDialog
 
-from jasvet import verifySignature, readSigBlock
+from jasvet import verifySignature
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP,\
    DEFAULT_FETCH_INTERVAL
 from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
-from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                     DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.Block import PyBlock
+
+# Load our framework with OS X-specific code.
+if OS_MACOSX:
+   import ArmoryMac
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -99,7 +101,18 @@ class ArmoryMainWindow(QMainWindow):
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h44.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
-      self.setWindowIcon(QIcon(self.iconfile))
+
+      # OS X requires some Objective-C code if we're switching to the testnet
+      # (green) icon. We should also use a larger icon. Otherwise, Info.plist
+      # takes care of everything.
+      if not OS_MACOSX:
+         self.setWindowIcon(QIcon(self.iconfile))
+      else:
+         self.notifCtr = ArmoryMac.MacNotificationHandler.None
+         if USE_TESTNET:
+            self.iconfile = ':/armory_icon_green_fullres.png'
+            ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
+            ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.netMode     = NETWORKMODE.Offline
@@ -533,7 +546,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
       self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
-      verStr = 'v%s-multisig / %s' % (getVersionString(BTCARMORY_VERSION),
+      verStr = 'Armory %s / %s User' % (getVersionString(BTCARMORY_VERSION),
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -812,9 +825,22 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('MinimizeOnOpen is True')
          reactor.callLater(0, self.minimizeArmory)
 
-
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+
+      if OS_MACOSX:
+         self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
+         if self.macNotifHdlr.hasUserNotificationCenterSupport():
+            self.notifCtr = ArmoryMac.MacNotificationHandler.BuiltIn
+         else:
+            # In theory, Qt can support notifications via Growl on pre-10.8
+            # machines. It's shaky as hell, though, so we'll rely on alternate
+            # code for now. In the future, according to
+            # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
+            # be accurate, as the official documentation is contradictory),
+            # showMessage() may have direct support for the OS X notification
+            # center in Qt5.1. Something to experiment with later....
+            self.notifCtr = self.macNotifHdlr.hasGrowl()
 
 
    ####################################################
@@ -1557,7 +1583,6 @@ class ArmoryMainWindow(QMainWindow):
    def execOfflineTx(self):
       self.warnNewUSTXFormat()
 
-
       dlgSelect = DlgOfflineSelect(self, self)
       if dlgSelect.exec_():
 
@@ -1730,17 +1755,40 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setupAnnouncementFetcher(self):
+      # Decide if disable OS/version reporting sent with announce fetches
+      skipStats1 = self.getSettingOrSetDefault('SkipStatsReport', False)
+      skipStats2 = CLI_OPTIONS.skipStatsReport
+      self.skipStatsReport = skipStats1 or skipStats2
+
+      # This determines if we should disable all of it
       skipChk1 = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       skipChk2 = CLI_OPTIONS.skipAnnounceCheck
       skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
-      self.skipAnnounceCheck = skipChk1 or skipChk2 or skipChk3
+      skipChk4  = CLI_OPTIONS.useTorSettings 
+      skipChk5  = self.getSettingOrSetDefault('UseTorSettings', False)
+      self.skipAnnounceCheck = \
+                  skipChk1 or skipChk2 or skipChk3 or skipChk4 or skipChk5
+
 
       url1 = ANNOUNCE_URL
       url2 = ANNOUNCE_URL_BACKUP
       fetchPath = os.path.join(ARMORY_HOME_DIR, 'atisignedannounce')
       if self.announceFetcher is None:
-         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath)
-         self.announceFetcher.setDisabled(self.skipAnnounceCheck)
+
+         # We keep an ID in the settings file that can be used by ATI's
+         # statistics aggregator to remove duplicate reports.  We store
+         # the month&year that the ID was generated, so that we can change
+         # it every month for privacy reasons
+         idData = self.getSettingOrSetDefault('MonthlyID', '0000_00000000')
+         storedYM,currID = idData.split('_')
+         monthyear = unixTimeToFormatStr(RightNow(), '%m%y')
+         if not storedYM == monthyear:
+            currID = SecureBinaryData().GenerateRandom(4).toHexStr()
+            self.settings.set('MonthlyID', '%s_%s' % (monthyear, currID))
+            
+         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath, currID)
+         self.announceFetcher.setStatsDisable(self.skipStatsReport)
+         self.announceFetcher.setFullyDisabled(self.skipAnnounceCheck)
          self.announceFetcher.start()
 
          # Set last-updated vals to zero to force processing at startup
@@ -1749,11 +1797,11 @@ class ArmoryMainWindow(QMainWindow):
 
       # If we recently updated the settings to enable or disable checking...
       if not self.announceFetcher.isRunning() and not self.skipAnnounceCheck:
-         self.announceFetcher.setDisabled(False)
+         self.announceFetcher.setFullyDisabled(False)
          self.announceFetcher.setFetchInterval(DEFAULT_FETCH_INTERVAL)
          self.announceFetcher.start()
       elif self.announceFetcher.isRunning() and self.skipAnnounceCheck:
-         self.announceFetcher.setDisabled(True)
+         self.announceFetcher.setFullyDisabled(True)
          self.announceFetcher.shutdown()
 
 
@@ -2128,37 +2176,18 @@ class ArmoryMainWindow(QMainWindow):
 
 
       settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
-      if self.forceOnline:
-         LOGINFO('Forced online mode: True')
+      useTor = self.getSettingOrSetDefault('UseTorSettings', False)
+      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck or useTor
 
       # Check general internet connection
       self.internetAvail = False
-      if not self.forceOnline:
-         try:
-            import urllib2
-            response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-            self.internetAvail = True
-         except ImportError:
-            LOGERROR('No module urllib2 -- cannot determine if internet is available')
-         except urllib2.URLError:
-            # In the extremely rare case that google might be down (or just to try again...)
-            try:
-               response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-            except:
-               LOGEXCEPT('Error checking for internet connection')
-               LOGERROR('Run --skip-online-check if you think this is an error')
-               self.internetAvail = False
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-            self.internetAvail = False
+      if self.forceOnline:
+         LOGINFO('Skipping online check, forcing online mode')
+      else:
+         self.internetAvail = isInternetAvailable()
 
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailable())
-      LOGINFO('The first blk*.dat was Available: %s', str(self.checkHaveBlockfiles()))
-      LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
 
 
 
@@ -2350,7 +2379,7 @@ class ArmoryMainWindow(QMainWindow):
          if self.forceOnline:
             LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
          self.switchNetworkMode(NETWORKMODE.Offline)
-      elif self.onlineModeIsPossible():
+      elif onlineModeIsPossible():
          # Track number of times we start loading the blockchain.
          # We will decrement the number when loading finishes
          # We can use this to detect problems with mempool or blkxxxx.dat
@@ -2365,18 +2394,6 @@ class ArmoryMainWindow(QMainWindow):
 
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)
-
-
-   #############################################################################
-   def checkHaveBlockfiles(self):
-      return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
-
-   #############################################################################
-   def onlineModeIsPossible(self):
-      return ((self.internetAvail or self.forceOnline) and \
-               satoshiIsAvailable() and \
-               self.checkHaveBlockfiles())
-
 
    #############################################################################
    def switchNetworkMode(self, newMode):
@@ -2395,14 +2412,15 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText( \
                '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
-            if not self.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX):
+            if not self.getSettingOrSetDefault('NotifyDiscon', True):
                return
 
             try:
-               self.sysTray.showMessage('Disconnected', \
-                     'Connection to Bitcoin-Qt client lost!  Armory cannot send \n'
-                     'or receive bitcoins until connection is re-established.', \
-                     QSystemTrayIcon.Critical, 10000)
+               self.showTrayMsg('Disconnected', 'Connection to Bitcoin-Qt ' \
+			                    'client lost!  Armory cannot send nor ' \
+								'receive bitcoins until connection is ' \
+								're-established.', QSystemTrayIcon.Critical, \
+								10000)
             except:
                LOGEXCEPT('Failed to show disconnect notification')
 
@@ -2414,14 +2432,14 @@ class ArmoryMainWindow(QMainWindow):
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' %
                      (htmlColor('TextGreen'), TheBDM.getCurrBlock()))
-            if not self.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX):
+            if not self.getSettingOrSetDefault('NotifyReconn', True):
                return
 
             try:
                if self.connectCount>0:
-                  self.sysTray.showMessage('Connected', \
-                     'Connection to Bitcoin-Qt re-established', \
-                     QSystemTrayIcon.Information, 10000)
+                  self.showTrayMsg('Connected', 'Connection to Bitcoin-Qt ' \
+                                   're-established', \
+								   QSystemTrayIcon.Information, 10000)
                self.connectCount += 1
             except:
                LOGEXCEPT('Failed to show reconnect notification')
@@ -2577,9 +2595,6 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('AdvFeature_UseCt', 0)
       else:
          self.writeSetting('Load_Count', (self.settings.get('Load_Count')+1) % 100)
-         firstDate = self.getSettingOrSetDefault('First_Load_Date', RightNow())
-         daysSinceFirst = (RightNow() - firstDate) / (60*60*24)
-
 
       # Set the usermode, default to standard
       self.usermode = USERMODE.Standard
@@ -2617,7 +2632,6 @@ class ArmoryMainWindow(QMainWindow):
       wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
-      wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
       for fpath in wltPaths:
          try:
             wltLoad = PyBtcWallet().readWalletFile(fpath)
@@ -2877,9 +2891,7 @@ class ArmoryMainWindow(QMainWindow):
          return displayInfo['String'], ('LB:%s' % displayInfo['LboxID'])
 
       scriptType = getTxOutScriptType(binScript) 
-      scrAddr = script_to_scrAddr(binScript)
-
-   
+      
       # At this point, we can use the contrib ID (and know we can't sign it)
       if contribID or contribLabel:
          if contribID:
@@ -3577,7 +3589,7 @@ class ArmoryMainWindow(QMainWindow):
                inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
                break
 
-      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)[1]
 
       if minFee > 0:
          LOGDEBUG( 'Subtracting fee from Sweep-output')
@@ -3736,7 +3748,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Finally, if we got here, we're ready to broadcast!
       if gt1:
-         dispIn  = '<Multiple Addresses>'
+         dispIn  = 'multiple addresses'
       else:
          dispIn  = 'address <b>%s</b>' % sweepList[0].getAddrStr()
 
@@ -5782,7 +5794,7 @@ class ArmoryMainWindow(QMainWindow):
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
       """
-      onlineAvail = self.onlineModeIsPossible()
+      onlineAvail = onlineModeIsPossible()
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getState()
@@ -5887,7 +5899,7 @@ class ArmoryMainWindow(QMainWindow):
                else:
                   LOGINFO('Dashboard switched to auto-OfflineNoSatoshiNoInternet')
                   setBtnFrameVisible(True, \
-                     'In case you actually do have internet access, use can use '
+                     'In case you actually do have internet access, you can use '
                      'the following links to get Armory installed.  Or change '
                      'your settings.')
                   setBtnRowVisible(DASHBTNS.Browse, True)
@@ -6575,7 +6587,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
          if self.netMode==NETWORKMODE.Disconnected:
-            if self.onlineModeIsPossible():
+            if onlineModeIsPossible():
                self.switchNetworkMode(NETWORKMODE.Full)
 
          if not TheBDM.isDirty() == self.dirtyLastTime:
@@ -6671,10 +6683,8 @@ class ArmoryMainWindow(QMainWindow):
          dispLines.append('Amount:  %s BTC' % totalStr)
          dispLines.append('Sender:  %s' % dispName)
 
-      self.sysTray.showMessage(title, \
-                               '\n'.join(dispLines),  \
-                               QSystemTrayIcon.Information, \
-                               10000)
+      self.showTrayMsg(title, '\n'.join(dispLines), \
+                       QSystemTrayIcon.Information, 10000)
       LOGINFO(title)
 
 
@@ -6733,21 +6743,19 @@ class ArmoryMainWindow(QMainWindow):
                lname = lname[:17] + '...'
             wltName = 'Lockbox %d-of-%d "%s" (%s)' % (M, N, lname, moneyID)
 
-
          if le.isSentToSelf():
             # Used to display the sent-to-self amount, but if this is a lockbox
             # we only have a cppWallet, and the determineSentToSelfAmt() func
             # only operates on python wallets.  Oh well, the user can double-
             # click on the tx in their ledger if they want to see what's in it.
             # amt = determineSentToSelfAmt(le, cppWlt)[0]
-            # self.sysTray.showMessage('Your bitcoins just did a lap!', \
-            #                  'Wallet "%s" (%s) just sent %s BTC to itself!' % \
+            # self.showTrayMsg('Your bitcoins just did a lap!', \
+            #             'Wallet "%s" (%s) just sent %s BTC to itself!' % \
             #         (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
-            self.sysTray.showMessage('Your bitcoins just did a lap!', \
-                              '%s just sent some BTC to itself!' % wltName, 
-                              QSystemTrayIcon.Information, 10000)
+            self.showTrayMsg('Your bitcoins just did a lap!', \
+                             '%s just sent some BTC to itself!' % wltName, \
+                             QSystemTrayIcon.Information, 10000)
             return
-
 
          # If coins were either received or sent from the loaded wlt/lbox         
          dispLines = []
@@ -6775,8 +6783,8 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append('From:    %s' % wltName)
             dispLines.append('To:      %s' % recipStr)
    
-         self.sysTray.showMessage(title, '\n'.join(dispLines), 
-                                 QSystemTrayIcon.Information, 10000)
+         self.showTrayMsg(title, '\n'.join(dispLines), \
+                          QSystemTrayIcon.Information, 10000)
          LOGINFO(title + '\n' + '\n'.join(dispLines))
 
          # Wait for 5 seconds before processing the next queue object.
@@ -7130,26 +7138,18 @@ class ArmoryMainWindow(QMainWindow):
       self.createCombinedLedger()
 
 
-############################################
-class ArmoryInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another Armory instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate Armory instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-
-############################################
-class ArmoryListenerFactory(ClientFactory):
-   protocol = ArmoryInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-
-
-
+   # System tray notifications require specific code for OS X. We'll handle
+   # messages here to hide the ugliness.
+   def showTrayMsg(self, dispTitle, dispText, dispIconType, dispTime):
+      if not OS_MACOSX:
+         self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
+      else:
+         if self.notifCtr == ArmoryMac.MacNotificationHandler.BuiltIn:
+            self.macNotifHdlr.showNotification(dispTitle, dispText)
+         elif (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl12) or \
+              (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl13):
+            self.macNotifHdlr.notifyGrowl(dispTitle, dispText, QIcon(self.iconfile))
+            
 ############################################
 def checkForAlreadyOpen():
    import socket

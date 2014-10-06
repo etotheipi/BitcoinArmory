@@ -13,7 +13,7 @@ from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon, AmountToJSON
 from armoryengine.ArmoryUtils import hex_to_binary, \
    binary_to_base58, binary_to_hex, convertKeyDataToAddress, hash160_to_addrStr,\
-   hex_switchEndian, hash160, BIGENDIAN
+   hex_switchEndian, hash160, BIGENDIAN, privKey_to_base58
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import PyTx
@@ -77,11 +77,9 @@ class ArmoryDTest(TiabTest):
    #    actualResult = self.jsonServer.jsonrpc_listunspent()
    #    self.assertEqual(actualResult, [])
 
-   # The password is apparently incorrect, so this fails due to a bad unlock.
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)
-      self.jsonServer.jsonrpc_unlockwallet(PASSPHRASE1, UNLOCK_TIMEOUT)
-      self.jsonServer.jsonrpc_importprivkey(self.privKey2)
+      self.jsonServer.jsonrpc_importprivkey(binary_to_hex(self.privKey2.toBinStr()))
       self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
 
    def testGettxout(self):
@@ -128,41 +126,45 @@ class ArmoryDTest(TiabTest):
       self.assertEqual(len(actualDD['vout']), 2)
       self.assertEqual(actualDD['vout'][0]['value'], 20.0)
       self.assertEqual(actualDD['vout'][0]['n'], 0)
-      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['reqSigs'], 1)
-      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['hex'], '76a91462d978319c7d7ac6cceed722c3d08aa81b37101288ac')
-      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['addresses'], ['mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'])
-      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['asm'], expectScriptStr)
-      self.assertEqual(actualDD['vout'][0]['scriptAddrStrs']['type'], 'Standard (PKH)')
-      self.assertEqual(actualDD['vout'][1]['scriptAddrStrs']['type'], 'Standard (PKH)')
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['reqSigs'], 1)
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['hex'], '76a91462d978319c7d7ac6cceed722c3d08aa81b37101288ac')
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['addresses'], ['mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'])
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], expectScriptStr)
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'], 'Standard (PKH)')
+      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'Standard (PKH)')
 
 
    def testDumpprivkey(self):
-
       testPrivKey = self.privKey.toBinStr()
       hash160 = convertKeyDataToAddress(testPrivKey)
       addr58 = hash160_to_addrStr(hash160)
       
       # Verify that a bogus addrss Raises InvalidBitcoinAddress Exception
-      result =  self.jsonServer.jsonrpc_dumpprivkey('bogus')
+      result =  self.jsonServer.jsonrpc_dumpprivkey('bogus', 'hex')
       self.assertEqual(result['Error Type'],'InvalidBitcoinAddress')
-      
-      result =  self.jsonServer.jsonrpc_dumpprivkey(addr58)
+
+      result =  self.jsonServer.jsonrpc_dumpprivkey(addr58, 'hex')
       self.assertEqual(result['Error Type'],'PrivateKeyNotFound')
-      
+
       # verify that the first private key can be found
       firstHash160 = self.wallet.getNextUnusedAddress().getAddr160()
       firstAddr58 = hash160_to_addrStr(firstHash160)
-      actualPrivateKey = self.jsonServer.jsonrpc_dumpprivkey(firstAddr58)
-      expectedPrivateKey = binary_to_hex(self.wallet.getAddrByHash160(firstHash160).serializePlainPrivateKey())
-      
-      self.assertEqual(actualPrivateKey, expectedPrivateKey)
-      
+      actualPrivateKeyHex = self.jsonServer.jsonrpc_dumpprivkey(firstAddr58, \
+                                                                'hex')
+      actualPrivateKeyB58 = self.jsonServer.jsonrpc_dumpprivkey(firstAddr58, \
+                                                                'base58')
+      self.privKey = self.wallet.getAddrByHash160(firstHash160).serializePlainPrivateKey()
+      expectedPrivateKeyHex = binary_to_hex(self.privKey)
+      expectedPrivateKeyB58 = privKey_to_base58(self.privKey)
+      self.assertEqual(actualPrivateKeyHex, expectedPrivateKeyHex)
+      self.assertEqual(actualPrivateKeyB58, expectedPrivateKeyB58)
+
       # Verify that a locked wallet Raises WalletUnlockNeeded Exception
       kdfParams = self.wallet.computeSystemSpecificKdfParams(0.1)
       self.wallet.changeKdfParams(*kdfParams)
       self.wallet.changeWalletEncryption( securePassphrase=self.passphrase )
       self.wallet.lock()
-      result = self.jsonServer.jsonrpc_dumpprivkey(addr58)
+      result = self.jsonServer.jsonrpc_dumpprivkey(addr58, 'hex')
       self.assertEqual(result['Error Type'],'WalletUnlockNeeded')
       
    def testEncryptwallet(self):
@@ -181,7 +183,7 @@ class ArmoryDTest(TiabTest):
       self.wallet.changeKdfParams(*kdfParams)
       self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
       self.assertTrue(self.wallet.isLocked)
-      self.jsonServer.jsonrpc_unlockwallet(PASSPHRASE1, UNLOCK_TIMEOUT)
+      self.jsonServer.jsonrpc_walletpassphrase(PASSPHRASE1, UNLOCK_TIMEOUT)
       self.assertFalse(self.wallet.isLocked)
       time.sleep(UNLOCK_TIMEOUT+1)
       self.wallet.checkWalletLockTimeout()

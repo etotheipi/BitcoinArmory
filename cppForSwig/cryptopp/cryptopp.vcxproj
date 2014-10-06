@@ -221,6 +221,7 @@
     <ClCompile Include="default.cpp" />
     <ClCompile Include="des.cpp" />
     <ClCompile Include="dessp.cpp" />
+    <ClCompile Include="DetSign.cpp" />
     <ClCompile Include="dh.cpp" />
     <ClCompile Include="dh2.cpp" />
     <ClCompile Include="dll.cpp" />
@@ -345,6 +346,7 @@
     <ClInclude Include="cryptlib.h" />
     <ClInclude Include="default.h" />
     <ClInclude Include="des.h" />
+    <ClInclude Include="DetSign.h" />
     <ClInclude Include="dh.h" />
     <ClInclude Include="dh2.h" />
     <ClInclude Include="dll.h" />

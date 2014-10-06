@@ -576,7 +576,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
             You just tried to send more Bitcoins than you have available. You only 
             have %s BTC with this coin control selection!""") % \
-            (valTry, valMax), QMessageBox.Ok)
+            valMax, QMessageBox.Ok)
          return False
 
       # Iteratively calculate the minimum fee by first trying the user selected

@@ -3094,31 +3094,19 @@ class DlgImportAddress(ArmoryDialog):
 
    #############################################################################
    def okayClicked(self):
-      pwd = None
+      securePrintCode = None
       if self.chkUseSP.isChecked():
          SECPRINT = HardcodedKeyMaskParams()
-         pwd = str(self.edtSecurePrint.text()).strip()
+         securePrintCode = str(self.edtSecurePrint.text()).strip()
          self.edtSecurePrint.setText("")
          
-         if len(pwd) < 9:
-            QMessageBox.critical(self, 'Invalid Code', tr("""
-                  You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-                  code is needed to decrypt your backup.  If this backup is
-                  actually unencrypted and there is no code, then choose the
-                  appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+         if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
-            
-         if not SECPRINT['FUNC_CHKPWD'](pwd):
-            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
-                  The SecurePrint\xe2\x84\xa2 code you entered has an error
-                  in it.  Note that the code is case-sensitive.  Please verify
-                  you entered it correctly and try again."""), QMessageBox.Ok)
-            return      
          
       if self.radioImportOne.isChecked():
-         self.processUserString(pwd)
+         self.processUserString(securePrintCode)
       else:
-         self.processMultiSig(pwd)
+         self.processMultiSig(securePrintCode)
 
 
    #############################################################################
@@ -3793,6 +3781,11 @@ class DlgAddressInfo(ArmoryDialog):
 
       lbls.append([])
       lbls[-1].append(QLabel(''))
+      lbls[-1].append(QRichLabel('<b>Wallet:</b>'))
+      lbls[-1].append(QLabel(self.wlt.labelName))
+
+      lbls.append([])
+      lbls[-1].append(QLabel(''))
       lbls[-1].append(QRichLabel('<b>Address:</b>'))
       lbls[-1].append(QLabel(addrStr))
 
@@ -3813,6 +3806,14 @@ class DlgAddressInfo(ArmoryDialog):
       else:
          lbls[-1].append(QLabel('Permanent'))
 
+      # TODO: fix for BIP-32
+      lbls.append([])
+      lbls[-1].append(self.main.createToolTipWidget(
+            'The index of this address within the wallet.'))
+      lbls[-1].append(QRichLabel('<b>Index:</b>'))
+      if self.addr.chainIndex > -1:
+         lbls[-1].append(QLabel(str(self.addr.chainIndex+1)))
+
 
       # Current Balance of address
       lbls.append([])
@@ -3829,7 +3830,12 @@ class DlgAddressInfo(ArmoryDialog):
       else:
          lbls[-1].append(QRichLabel(balStr.strip() + ' BTC'))
 
-
+      lbls.append([])
+      lbls[-1].append(QLabel(''))
+      lbls[-1].append(QRichLabel('<b>Comment:</b>'))
+      if self.addr.chainIndex > -1:
+         lbls[-1].append(QLabel(str(wlt.commentsMap[addr160]) if addr160 in wlt.commentsMap else ''))
+         
       # Number of transactions
       txHashes = set()
       for le in self.addrLedger:
@@ -5942,7 +5948,7 @@ def extractTxInfo(pytx, rcvTime=None):
 
 ################################################################################
 class DlgDispTxInfo(ArmoryDialog):
-   def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
+   def __init__(self, pytx, wlt, parent, main, mode=None, \
                              precomputeIdxGray=None, precomputeAmt=None, txtime=None):
       """
       This got freakin' complicated, because I'm trying to handle
@@ -9036,6 +9042,38 @@ class DlgSettings(ArmoryDialog):
       self.chkDisableTorrent.setChecked(disableTorrent)
 
 
+      ##########################################################################
+      #  Privacy Settings
+      privacyStats = self.main.getSettingOrSetDefault('SkipStatsReport', False)
+      privacyTor   = self.main.getSettingOrSetDefault('UseTorSettings', False)
+
+      lblPrivacyTitle = QRichLabel("<b>Privacy Settings</b>")
+      lblPrivStatsDescr = QRichLabel("""
+         When this software checks for updates and security alerts, it sends
+         your operating system and Armory version to ATI server for statistical
+         purposes.  No attempt is made to identify you.  No IP addresses are 
+         logged by ATI servers.  You can continue to receive notifications 
+         but not send any statistical information.""")
+      lblPrivTorDescr = QRichLabel("""
+         If you are going to use Armory and Bitcoin Core with a proxy (such
+         as Tor), you should disable all Armory communications that might operate 
+         outside the proxy.""")
+
+      self.chkPrivacyStats = QCheckBox(tr("""
+         Disable OS and version reporting"""))
+
+      self.chkPrivacyTor = QCheckBox(tr("""
+         Enable settings for proxies/Tor"""))
+
+      self.connect(self.chkPrivacyTor, SIGNAL('toggled(bool)'), 
+                   self.chkPrivacyStats.setDisabled)
+
+      self.chkPrivacyStats.setChecked(privacyStats)
+      self.chkPrivacyTor.setChecked(privacyTor)
+      #  Privacy Settings
+      ##########################################################################
+
+   
       lblDefaultUriTitle = QRichLabel(tr("""
          <b>Set Armory as default URL handler</b>"""))
       lblDefaultURI = QRichLabel(tr("""
@@ -9172,24 +9210,22 @@ class DlgSettings(ArmoryDialog):
 
 
       ###############################################################
-      # System Tray Notifications -- Don't work right on OSX
-      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn = self.main.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
-      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX)
-      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX)
+      # System tray notifications. On OS X, notifications won't work on 10.7.
+      # OS X's built-in notification system was implemented starting in 10.8.
+      osxMinorVer = '0'
+      if OS_MACOSX:
+         osxMinorVer = OS_VARIANT[0].split(".")[1]
 
+      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
       self.chkBtcIn = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
       self.chkDiscon = QCheckBox('Bitcoin-Qt/bitcoind disconnected')
       self.chkReconn = QCheckBox('Bitcoin-Qt/bitcoind reconnected')
-      self.chkBtcIn.setChecked(notifyBtcIn)
-      self.chkBtcOut.setChecked(notifyBtcOut)
-      self.chkDiscon.setChecked(notifyDiscon)
-      self.chkReconn.setChecked(notifyReconn)
 
-      if OS_MACOSX:
-         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available on Mac/OSX</b>')
+      # FYI:If we're not on OS X, the if condition will never be hit.
+      if (OS_MACOSX) and (int(osxMinorVer) < 7):
+         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available ' \
+                                'on your version of OS X.</b>')
          self.chkBtcIn.setChecked(False)
          self.chkBtcOut.setChecked(False)
          self.chkDiscon.setChecked(False)
@@ -9198,7 +9234,15 @@ class DlgSettings(ArmoryDialog):
          self.chkBtcOut.setEnabled(False)
          self.chkDiscon.setEnabled(False)
          self.chkReconn.setEnabled(False)
-
+      else:
+         notifyBtcIn = self.main.getSettingOrSetDefault('NotifyBtcIn', True)
+         notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', True)
+         notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', True)
+         notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', True)
+         self.chkBtcIn.setChecked(notifyBtcIn)
+         self.chkBtcOut.setChecked(notifyBtcOut)
+         self.chkDiscon.setChecked(notifyDiscon)
+         self.chkReconn.setChecked(notifyReconn)
 
       ###############################################################
       # Date format preferences
@@ -9312,28 +9356,34 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(frmMgmt, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(self.chkSkipOnlineCheck, i, 0, 1, 3)
-
-      #i += 1
-      #frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(self.chkDisableTorrent, i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
+      
+      i += 1
+      frmLayout.addWidget(lblPrivacyTitle, i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(lblPrivStatsDescr , i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(self.chkPrivacyStats , i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(lblPrivTorDescr, i, 0, 1, 3)
+      i += 1
+      frmLayout.addWidget(self.chkPrivacyTor, i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(lblDefaultUriTitle, i, 0)
-
       i += 1
       frmLayout.addWidget(lblDefaultURI, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(frmBtnDefaultURI, i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(self.chkAskURIAtStartup, i, 0, 1, 3)
 
@@ -9552,6 +9602,25 @@ class DlgSettings(ArmoryDialog):
       self.main.writeSetting('NotifyDiscon', self.chkDiscon.isChecked())
       self.main.writeSetting('NotifyReconn', self.chkReconn.isChecked())
 
+   
+      oldTorSetting = self.main.getSettingOrSetDefault('UseTorSettings', False)
+      self.main.writeSetting('SkipStatsReport',self.chkPrivacyStats.isChecked())
+      self.main.writeSetting('UseTorSettings', self.chkPrivacyTor.isChecked())
+
+      if self.chkPrivacyTor.isChecked() and not oldTorSetting:
+         annURL = 'https://bitcoinarmory.com/announcements/'
+         QMessageBox.warning(self, 'Disable Security Alerts?', tr("""
+            You have chosen to disable all Armory communications that are
+            incompatible with proxies/Tor.  This includes 
+            checking for security alerts.  If you leave this option
+            checked, it is highly recommended that you manually check
+            for updates in the "<i>Announcements</i>" tab on the main 
+            window from another online Armory installation and/or
+            bookmark our announcements page: 
+            <br><br>
+            <a href="%s">%s</a>""") % (annURL,annURL), QMessageBox.Ok) 
+
+      
 
 
       if self.radioAnnounce1024.isChecked():
@@ -12378,6 +12447,27 @@ class MaskedInputLineEdit(QLineEdit):
          self.setCursorPosition(0)
 
 
+def checkSecurePrintCode(context, SECPRINT, securePrintCode):
+   result = True
+   try:
+      if len(securePrintCode) < 9:
+         QMessageBox.critical(context, tr('Invalid Code'), tr("""
+            You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+            code is needed to decrypt your backup file."""), QMessageBox.Ok)
+         result = False
+      elif not SECPRINT['FUNC_CHKPWD'](securePrintCode):
+         QMessageBox.critical(context, tr('Bad SecurePrint\xe2\x84\xa2 Code'), tr("""
+            The SecurePrint\xe2\x84\xa2 code you entered has an error
+            in it.  Note that the code is case-sensitive.  Please verify
+            you entered it correctly and try again."""), QMessageBox.Ok)
+         result = False
+   except NonBase58CharacterError as e:
+      QMessageBox.critical(context, tr('Bad SecurePrint\xe2\x84\xa2 Code'), tr("""
+         The SecurePrint\xe2\x84\xa2 code you entered has unrecognized characters
+         in it.  %s. Only the following characters are allowed: %s""" % (e.message, BASE58CHARS) ), QMessageBox.Ok)
+      result = False
+   return result
+
 ################################################################################
 class DlgRestoreSingle(ArmoryDialog):
    #############################################################################
@@ -12581,22 +12671,12 @@ class DlgRestoreSingle(ArmoryDialog):
       if self.doMask:
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
-         pwd = str(self.editSecurePrint.text()).strip()
-         if len(pwd) < 9:
-            QMessageBox.critical(self, 'Invalid Code', tr("""
-               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-               code is needed to decrypt your backup.  If this backup is
-               actually unencrypted and there is no code, then choose the
-               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
-            return
-         if not SECPRINT['FUNC_CHKPWD'](pwd):
-            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
-               The SecurePrint\xe2\x84\xa2 code you entered has an error
-               in it.  Note that the code is case-sensitive.  Please verify
-               you entered it correctly and try again."""), QMessageBox.Ok)
+         securePrintCode = str(self.editSecurePrint.text()).strip()
+         if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
 
-         maskKey = SECPRINT['FUNC_KDF'](pwd)
+
+         maskKey = SECPRINT['FUNC_KDF'](securePrintCode)
          privKey = SECPRINT['FUNC_UNMASK'](privKey, ekey=maskKey)
          if self.isLongForm:
             chain = SECPRINT['FUNC_UNMASK'](chain, ekey=maskKey)
@@ -13639,17 +13719,8 @@ class DlgEnterSecurePrintCode(ArmoryDialog):
       # Prepare the key mask parameters
       SECPRINT = HardcodedKeyMaskParams()
       securePrintCode = str(self.editSecurePrint.text()).strip()
-      if len(securePrintCode) < 9 or \
-         sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
-         QMessageBox.critical(self, tr('Invalid Code'), tr("""
-            You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-            code is needed to decrypt your backup file."""), QMessageBox.Ok)
-         return
-      if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
-         QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
-            The SecurePrint\xe2\x84\xa2 code you entered has an error
-            in it.  Note that the code is case-sensitive.  Please verify
-            you entered it correctly and try again."""), QMessageBox.Ok)
+
+      if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
          return
 
       self.accept()
@@ -13844,19 +13915,7 @@ class DlgEnterOneFrag(ArmoryDialog):
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
          securePrintCode = str(self.editSecurePrint.text()).strip()
-         if len(securePrintCode) < 9  or \
-            sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
-            QMessageBox.critical(self, 'Invalid Code', tr("""
-               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-               code is needed to decrypt your backup.  If this backup is
-               actually unencrypted and there is no code, then choose the
-               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
-            return
-         if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
-            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
-               The SecurePrint\xe2\x84\xa2 code you entered has an error
-               in it.  Note that the code is case-sensitive.  Please verify
-               you entered it correctly and try again."""), QMessageBox.Ok)
+         if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
       elif self.isSecurePrintID():
             QMessageBox.critical(self, 'Bad Encryption Code', tr("""

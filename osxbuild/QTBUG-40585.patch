@@ -1,0 +1,163 @@
+--- src/gui/kernel/qeventdispatcher_mac.mm	2014-08-02 14:07:52.000000000 -0400
++++ src/gui/kernel/qeventdispatcher_mac.mm	2014-08-05 16:35:27.000000000 -0400
+@@ -558,7 +558,6 @@
+ 
+     // In case we end up recursing while we now process events, make sure
+     // that we send remaining posted Qt events before this call returns:
+-    wakeUp();
+     emit awake();
+ 
+     bool excludeUserEvents = flags & QEventLoop::ExcludeUserInputEvents;
+@@ -600,8 +599,35 @@
+             // [NSApp run], which is the normal code path for cocoa applications.
+             if (NSModalSession session = d->currentModalSession()) {
+                 QBoolBlocker execGuard(d->currentExecIsNSAppRun, false);
+-                while ([NSApp runModalSession:session] == NSRunContinuesResponse && !d->interrupt)
+-                    qt_mac_waitForMoreModalSessionEvents();
++
++                // OSX 10.9 appears to tighten up its internal code such that
++                // sessions shouldn't be used once they've been freed, which
++                // could happen in the else condition of the if(canExec)
++                // statement. Add extra logic to make sure we don't use the
++                // session once the current modal session is freed. We stop if
++                // the session is no longer current or if runModalSession()
++                // indicates the modal session is no longer continuing.
++                bool stayInLoop = true;
++                while (!d->interrupt && stayInLoop) {
++                    // Mavericks deprecated the status we wish to check.
++                    NSInteger checkStatus = 0;
++                    if(QSysInfo::MacintoshVersion < QSysInfo::MV_10_9) {
++                        checkStatus = NSRunContinuesResponse;
++                    }
++                    else {
++                        checkStatus = NSModalResponseContinue;
++                    }
++                    if([NSApp runModalSession:session] == checkStatus) {
++                        qt_mac_waitForMoreModalSessionEvents();
++                    }
++                    else {
++                        stayInLoop = false;
++                    }
++
++                    if(session != d->currentModalSession()) {
++                        stayInLoop = false;
++                    }
++                }
+ 
+                 if (!d->interrupt && session == d->currentModalSessionCached) {
+                     // Someone called [NSApp stopModal:] from outside the event
+@@ -610,8 +636,7 @@
+                     d->temporarilyStopAllModalSessions();
+                 }
+ 
+-                // Clean up the modal session list, call endModalSession.
+-                    if (d->cleanupModalSessionsNeeded) {
++                if (d->cleanupModalSessionsNeeded) {
+                     d->cleanupModalSessions();
+                 }
+ 
+@@ -632,15 +657,23 @@
+                     // to use cocoa's native way of running modal sessions:
+                     if (flags & QEventLoop::WaitForMoreEvents)
+                         qt_mac_waitForMoreModalSessionEvents();
++
++                    // Mavericks deprecated the status we wish to check.
++                    NSInteger checkStatus = 0;
++                    if(QSysInfo::MacintoshVersion < QSysInfo::MV_10_9) {
++                        checkStatus = NSRunContinuesResponse;
++                    }
++                    else {
++                        checkStatus = NSModalResponseContinue;
++                    }
+                     NSInteger status = [NSApp runModalSession:session];
+-                    if (status != NSRunContinuesResponse && session == d->currentModalSessionCached) {
++                    if (status != checkStatus && session == d->currentModalSessionCached) {
+                         // INVARIANT: Someone called [NSApp stopModal:] from outside the event
+                         // dispatcher (e.g to stop a native dialog). But that call wrongly stopped
+                         // 'session' as well. As a result, we need to restart all internal sessions:
+                         d->temporarilyStopAllModalSessions();
+                     }
+ 
+-                    // Clean up the modal session list, call endModalSession.
+                     if (d->cleanupModalSessionsNeeded) {
+                         d->cleanupModalSessions();
+                     }
+@@ -835,6 +868,7 @@
+         if (info.session) {
+             [NSApp endModalSession:info.session];
+             info.session = 0;
++            [(NSWindow*) info.nswindow release];
+         }
+     }
+     currentModalSessionCached = 0;
+@@ -935,12 +969,15 @@
+             currentModalSessionCached = info.session;
+             break;
+         }
+-        cocoaModalSessionStack.remove(i);
+         currentModalSessionCached = 0;
+         if (info.session) {
++            Q_ASSERT(info.nswindow != 0);
+             [NSApp endModalSession:info.session];
+             [(NSWindow *)info.nswindow release];
+         }
++
++        // remove the info now that we are finished with it
++        cocoaModalSessionStack.remove(i);
+     }
+ 
+     updateChildrenWorksWhenModal();
+@@ -949,6 +986,8 @@
+ 
+ void QEventDispatcherMacPrivate::beginModalSession(QWidget *widget)
+ {
++    QEventDispatcherMac::instance()->interrupt();
++
+     // Add a new, empty (null), NSModalSession to the stack.
+     // It will become active the next time QEventDispatcher::processEvents is called.
+     // A QCocoaModalSessionInfo is considered pending to become active if the widget pointer 
+@@ -970,16 +1009,20 @@
+     // when we stop the _current_ modal session (which is the session on top of
+     // the stack, and might not belong to 'widget'). 
+     int stackSize = cocoaModalSessionStack.size();
++    int endedSessions = 0;
+     for (int i=stackSize-1; i>=0; --i) {
+         QCocoaModalSessionInfo &info = cocoaModalSessionStack[i];
++        if (!info.widget) {
++            endedSessions++;
++        }
+         if (info.widget == widget) {
+             info.widget = 0;
+-            if (i == stackSize-1) {
++            if (i + endedSessions == stackSize-1) {
+                 // The top sessions ended. Interrupt the event dispatcher
+                 // to start spinning the correct session immidiatly: 
++                QEventDispatcherMac::instance()->interrupt();
+                 currentModalSessionCached = 0;
+                 cleanupModalSessionsNeeded = true;
+-                QEventDispatcherMac::instance()->interrupt();
+             }
+         }
+     }
+@@ -1056,8 +1099,9 @@
+     }
+ 
+ #ifdef QT_MAC_USE_COCOA
+-    if (d->cleanupModalSessionsNeeded && d->currentExecIsNSAppRun)
++    if (d->cleanupModalSessionsNeeded && d->currentExecIsNSAppRun) {
+         d->cleanupModalSessions();
++    }
+ #endif
+ 
+     if (d->interrupt) {
+@@ -1067,8 +1111,9 @@
+             // [NSApplication run] is running the event loop, we
+             // delayed stopping it until now (to let cocoa process 
+             // pending cocoa events first).
+-            if (d->currentModalSessionCached)
++            if (d->currentModalSessionCached) {
+                 d->temporarilyStopAllModalSessions();
++            }
+             [NSApp stop:NSApp];
+             d->cancelWaitForMoreEvents();
+         }
