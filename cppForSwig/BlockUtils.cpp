@@ -1869,7 +1869,11 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          if (filemap)
          {
             munmap(filemap, filesize);
+#ifdef _WIN32_
+            _close(filedes);
+#else
             close(filedes);
+#endif
          }
 
          blkfile = bh.getFileName();
