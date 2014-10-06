@@ -488,99 +488,6 @@ public:
 };
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-// TODO:  I just realized that this should probably hold a "first-born-block"
-//        field for each address in the summary entry.  Though, maybe it's 
-//        sufficient to just look at the first subSSH entry to get that info...
-class StoredScriptHistory
-{
-public:
-
-   StoredScriptHistory(void) : uniqueKey_(0), 
-                               version_(UINT32_MAX),
-                               alreadyScannedUpToBlk_(0),
-                               totalTxioCount_(0),
-                               totalUnspent_(0) {}
-                               
-
-   bool isInitialized(void) const { return uniqueKey_.getSize() > 0; }
-   bool isNull(void) { return !isInitialized(); }
-
-   void       unserializeDBValue(BinaryRefReader & brr, LMDBBlockDatabase *db);
-   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
-   void       unserializeDBValue(BinaryData const & bd, LMDBBlockDatabase *db);
-   void       unserializeDBValue(BinaryDataRef      bd, LMDBBlockDatabase *db);
-   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
-
-   BinaryData    getDBKey(bool withPrefix=true) const;
-   SCRIPT_PREFIX getScriptType(void) const;
-
-   void pprintOneLine(uint32_t indent=3);
-   void pprintFullSSH(uint32_t indent=3);
-
-   uint64_t getScriptReceived(bool withMultisig=false);
-   uint64_t getScriptBalance(bool withMultisig=false);
-
-   bool     haveFullHistoryLoaded(void) const;
-
-   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
-   bool       eraseTxio(TxIOPair const & txio, uint32_t& commitId);
-   bool       eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId);
-
-   bool       mergeSubHistory(StoredSubHistory & subssh, 
-                              uint64_t& additionalSize,
-                              uint32_t commitId);
-
-   TxIOPair& insertTxio(LMDBBlockDatabase *db, TxIOPair const & txio, 
-                        bool withOverwrite=true,
-                        bool skipTally=false);
-
-   bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
-                       bool withMultisig=false);
-
-   // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-                               ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-                               uint64_t&  additionalSize,
-                               uint32_t& commitId, 
-                               uint64_t   value=UINT64_MAX,
-                               bool       isCoinbase= false,
-                               bool       isMultisigRef=false);
-
-   uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-                             BinaryData  txInKey8B,
-                             uint32_t& commitId,
-                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
-
-   void insertSpentTxio(const BinaryData& txOutDbKey,
-                         const BinaryData& txInDbKey,
-                         uint64_t& additionalSize,
-                         uint32_t commitId);
-
-   bool eraseSpentTxio(const BinaryData& hgtX,
-                       const BinaryData& dbKey8B,
-                       uint32_t& commitId);
-
-   BinaryData     uniqueKey_;  // includes the prefix byte!
-   uint32_t       version_;
-   uint32_t       alreadyScannedUpToBlk_;
-   uint64_t       totalTxioCount_;
-   uint64_t       totalUnspent_;
-
-   // If this SSH has only one TxIO (most of them), then we don't bother
-   // with supplemental entries just to hold that one TxIO in the DB.
-   // We always stored them in RAM using the StoredSubHistory 
-   // objects which will have the per-block lists of TxIOs.  But when 
-   // it gets serialized to disk, we will store single-Txio SSHs in
-   // the base entry and forego extra DB entries.
-   map<BinaryData, StoredSubHistory> subHistMap_;
-
-   //to sync the DB scan read and write threads
-   uint32_t commitId_ = UINT32_MAX;
-};
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // We must break out script histories into isolated sub-histories, to
 // accommodate thoroughly re-used addresses like 1VayNert* and 1dice*.  If 
@@ -681,6 +588,99 @@ public:
    uint32_t commitId_ = UINT32_MAX;
    atomic_flag accessing_;
 };
+
+
+////////////////////////////////////////////////////////////////////////////////
+// TODO:  I just realized that this should probably hold a "first-born-block"
+//        field for each address in the summary entry.  Though, maybe it's 
+//        sufficient to just look at the first subSSH entry to get that info...
+class StoredScriptHistory
+{
+public:
+
+   StoredScriptHistory(void) : uniqueKey_(0), 
+                               version_(UINT32_MAX),
+                               alreadyScannedUpToBlk_(0),
+                               totalTxioCount_(0),
+                               totalUnspent_(0) {}
+                               
+
+   bool isInitialized(void) const { return uniqueKey_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
+
+   void       unserializeDBValue(BinaryRefReader & brr, LMDBBlockDatabase *db);
+   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void       unserializeDBValue(BinaryData const & bd, LMDBBlockDatabase *db);
+   void       unserializeDBValue(BinaryDataRef      bd, LMDBBlockDatabase *db);
+   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
+
+   BinaryData    getDBKey(bool withPrefix=true) const;
+   SCRIPT_PREFIX getScriptType(void) const;
+
+   void pprintOneLine(uint32_t indent=3);
+   void pprintFullSSH(uint32_t indent=3);
+
+   uint64_t getScriptReceived(bool withMultisig=false);
+   uint64_t getScriptBalance(bool withMultisig=false);
+
+   bool     haveFullHistoryLoaded(void) const;
+
+   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
+   bool       eraseTxio(TxIOPair const & txio, uint32_t& commitId);
+   bool       eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId);
+
+   bool       mergeSubHistory(StoredSubHistory & subssh, 
+                              uint64_t& additionalSize,
+                              uint32_t commitId);
+
+   TxIOPair& insertTxio(LMDBBlockDatabase *db, TxIOPair const & txio, 
+                        bool withOverwrite=true,
+                        bool skipTally=false);
+
+   bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
+                       bool withMultisig=false);
+
+   // This adds the TxOut if it doesn't exist yet
+   uint64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+                               ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+                               uint64_t&  additionalSize,
+                               uint32_t& commitId, 
+                               uint64_t   value=UINT64_MAX,
+                               bool       isCoinbase= false,
+                               bool       isMultisigRef=false);
+
+   uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+                             BinaryData  txInKey8B,
+                             uint32_t& commitId,
+                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+
+   void insertSpentTxio(const BinaryData& txOutDbKey,
+                         const BinaryData& txInDbKey,
+                         uint64_t& additionalSize,
+                         uint32_t commitId);
+
+   bool eraseSpentTxio(const BinaryData& hgtX,
+                       const BinaryData& dbKey8B,
+                       uint32_t& commitId);
+
+   BinaryData     uniqueKey_;  // includes the prefix byte!
+   uint32_t       version_;
+   uint32_t       alreadyScannedUpToBlk_;
+   uint64_t       totalTxioCount_;
+   uint64_t       totalUnspent_;
+
+   // If this SSH has only one TxIO (most of them), then we don't bother
+   // with supplemental entries just to hold that one TxIO in the DB.
+   // We always stored them in RAM using the StoredSubHistory 
+   // objects which will have the per-block lists of TxIOs.  But when 
+   // it gets serialized to disk, we will store single-Txio SSHs in
+   // the base entry and forego extra DB entries.
+   map<BinaryData, StoredSubHistory> subHistMap_;
+
+   //to sync the DB scan read and write threads
+   uint32_t commitId_ = UINT32_MAX;
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // TODO:  it turns out that outPointsAddedByBlock_ is not "right."  If a Tx has
