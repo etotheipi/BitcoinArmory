@@ -41,13 +41,7 @@ ifneq ($(OS),Windows_NT)
     endif
 endif
 
-HEADERS += 	$(USER_DIR)/BinaryData.h \
-		 		$(USER_DIR)/BtcUtils.h \
-		 		$(USER_DIR)/BlockObj.h \
-		 		$(USER_DIR)/StoredBlockObj.h \
-		 		$(USER_DIR)/leveldb_wrapper.h \
-		 		$(USER_DIR)/EncryptionUtils.h \
-		 		$(USER_DIR)/PartialMerkle.h
+HEADERS += $(wildcard $(USER_DIR)/*.h)
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g -std=c++11
@@ -116,13 +110,18 @@ PYTHON_LDFLAGS=$(shell $(PYVER)-config --ldflags )
 endif
 
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS) ../../_CppBlockUtils.so
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp
 
 getScrAddrData.o : getScrAddrData.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c getScrAddrData.cpp 
 
-CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
+DetSign.o : ../cryptopp/DetSign.cpp $(HEADERS) $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c ../cryptopp/DetSign.cpp
+
+CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a DetSign.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(PYTHON_LDFLAGS) ../../_CppBlockUtils.so -Wl,-rpath,$(PWD)/../..  $^ -lpthread -o $@
 
 getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
+
+
