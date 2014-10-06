@@ -121,7 +121,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 
    for (BtcWallet* walletPtr : registeredWallets_)
    {
-      LOGINFO << "Processing wallet #" << i;
+      //LOGINFO << "Processing wallet #" << i;
       i++;
 
       walletPtr->scanWallet(startBlock, endBlock, reorg,
@@ -131,7 +131,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    i = 0;
    for (BtcWallet* walletPtr : registeredLockboxes_)
    {
-      LOGINFO << "Processing Lockbox #" << i;
+      //LOGINFO << "Processing Lockbox #" << i;
       i++;
 
       walletPtr->scanWallet(startBlock, endBlock, reorg,

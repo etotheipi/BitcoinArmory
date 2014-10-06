@@ -263,7 +263,7 @@ public:
    void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
 
 private:
-   void addRawBlockToDB(BinaryRefReader & brr);
+   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
    uint32_t getTopScannedBlock(void) const;
 
 public:

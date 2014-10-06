@@ -1162,11 +1162,17 @@ uint8_t LMDBBlockDatabase::getValidDupIDForHeight(uint32_t blockHgt)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void LMDBBlockDatabase::setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup)
+void LMDBBlockDatabase::setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup,
+                                               bool overwrite)
 {
    while (blockHgt != UINT32_MAX && validDupByHeight_.size() < blockHgt + 1)
       validDupByHeight_.push_back(UINT8_MAX);
-   validDupByHeight_[blockHgt] = dup;
+   
+   uint8_t& dupid = validDupByHeight_[blockHgt];
+   if (!overwrite && dupid != UINT8_MAX)
+      return;
+
+   dupid = dup;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1235,13 +1241,14 @@ bool LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool 
 //
 // NOTE:  If you want this header to be marked valid/invalid, make sure the 
 //        isMainBranch_ property of the SBH is set appropriate before calling.
-uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, bool withBlkData)
+uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, 
+   bool withBlkData, bool updateDupID)
 {
    SCOPED_TIMER("putStoredHeader");
 
    //Batch b(this, BLKDATA);
    // Put header into HEADERS DB
-   uint8_t newDup = putBareHeader(sbh);
+   uint8_t newDup = putBareHeader(sbh, updateDupID);
 
    ///////
    // If we only wanted to update the headers DB, we're done.
@@ -1296,7 +1303,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, bool withBlkData
 // (which actually calls this method as the first step)
 //
 // Returns the duplicateID of the header just inserted
-uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
+uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID)
 {
    SCOPED_TIMER("putBareHeader");
 
@@ -1340,7 +1347,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
          {
             alreadyInHgtDB = true;
             sbhDupID = dup;
-            if(hhl.preferredDup_ != dup && sbh.isMainBranch_)
+            if(hhl.preferredDup_ != dup && sbh.isMainBranch_ && updateDupID)
             {
                // The header was in the head-hgt list, but not preferred
                hhl.preferredDup_ = dup;
@@ -1355,7 +1362,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
          needToWriteHHL = true;
          sbhDupID = maxDup+1;
          hhl.addDupAndHash(sbhDupID, sbh.thisHash_);
-         if(sbh.isMainBranch_)
+         if(sbh.isMainBranch_ && updateDupID)
             hhl.preferredDup_ = sbhDupID;
       }
    }
@@ -1374,7 +1381,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh)
    // If this block is valid, update quick lookup table, and store it in DBInfo
    if(sbh.isMainBranch_)
    {
-      setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+      setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_, updateDupID);
       if(sbh.blockHeight_ >= sdbiH.topBlkHgt_)
       {
          sdbiH.topBlkHgt_  = sbh.blockHeight_;
@@ -2103,6 +2110,9 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
                                                    height, dup, txIdx);
       (void)bdtype;
       
+      if (dup != getValidDupIDForHeight(height))
+         continue;
+
       // We don't actually know for sure whether the seekTo() found 
       BinaryData key6 = DBUtils::getBlkDataKeyNoPrefix(height, dup, txIdx);
       if(key6 != hint)

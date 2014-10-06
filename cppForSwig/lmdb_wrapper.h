@@ -368,7 +368,8 @@ public:
 public:
 
    uint8_t getValidDupIDForHeight(uint32_t blockHgt);
-   void setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup);
+   void setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup, 
+                               bool overwrite = true);
    
    /////////////////////////////////////////////////////////////////////////////
    uint8_t getValidDupIDForHeight_fromDB(uint32_t blockHgt);
@@ -386,7 +387,7 @@ public:
    
    /////////////////////////////////////////////////////////////////////////////
    // BareHeaders are those int the HEADERS DB with no blockdta associated
-   uint8_t putBareHeader(StoredHeader & sbh); 
+   uint8_t putBareHeader(StoredHeader & sbh, bool updateDupID = true); 
    bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup); 
    bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt); 
    bool    getBareHeader(StoredHeader & sbh, BinaryDataRef headHash);
@@ -394,7 +395,8 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // StoredHeader accessors
    uint8_t putStoredHeader(StoredHeader & sbh,
-                        bool withBlkData=true);
+                        bool withBlkData=true,
+                        bool updateDupID=true);
 
    bool getStoredHeader(StoredHeader & sbh,
                         uint32_t blockHgt,

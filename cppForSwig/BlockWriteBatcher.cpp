@@ -449,7 +449,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
          {
             vector<BinaryData> addr160List;
             BtcUtils::getMultisigAddrList(stxoReAdd.getScriptRef(), addr160List);
-            for(uint32_t a=0; a<addr160List.size(); i++)
+            for(uint32_t a=0; a<addr160List.size(); a++)
             {
                // Get the existing SSH or make a new one
                BinaryData uniqKey = HASH160PREFIX + addr160List[a];
@@ -904,7 +904,7 @@ pthread_t BlockWriteBatcher::commit(bool force)
    //create a BWB for commit (pass true to the constructor)
    BlockWriteBatcher *bwbSwapPtr = new BlockWriteBatcher(config_, iface_, true);
 
-   LOGWARN << "dumping " << dbUpdateSize_ << " bytes in the DB";
+   //LOGWARN << "dumping " << dbUpdateSize_ << " bytes in the DB";
    
    bwbSwapPtr->commitId_ = commitId_++;
 
@@ -1334,11 +1334,12 @@ void BlockWriteBatcher::scanBlocks(
    preloadSSH(scf);
 
    //rewind 500 blocks to account for reorgs
-   if (startBlock > 500)
+   /*if (startBlock > 500)
       startBlock -= 500;
    else
-      startBlock = 0;
+      startBlock = 0;*/
 
+   LOGWARN << "Scanning from " << startBlock << " to " << endBlock;
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);
 

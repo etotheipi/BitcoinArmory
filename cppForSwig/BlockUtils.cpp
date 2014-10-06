@@ -199,7 +199,7 @@ private:
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
          iface_->markBlockHeaderValid(hgt, dup);
-      }
+      }  
    }
 
    void applyBlocksFromBranchPoint(void)
@@ -1034,6 +1034,9 @@ bool BlockDataManager_LevelDB::isDirty(
    uint32_t numBlocksToBeConsideredDirty
 ) const
 {
+   if (config_.armoryDbType == ARMORY_DB_SUPER)
+      return false;
+
    uint32_t numBlocksBehind = lastTopBlock_-allScannedUpToBlk_;
    return (numBlocksBehind > numBlocksToBeConsideredDirty);
 }
@@ -1244,7 +1247,7 @@ static bool scanFor(std::istream &in, const uint8_t * bytes, const size_t len)
 // them all in one shot.  But RAM-limited devices (say, if this was going 
 // to be ported to Android), may not be able to do even that, and may have
 // to read and process the headers in batches.  
-bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum, 
+bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
                                                        uint64_t startOffset)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
@@ -1348,7 +1351,6 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
             
          missingBlockHeaderHashes_.push_back(addedBlock.getPrevHash());
       }
-      
    }
 
    if (nextBlkSize != 0)
@@ -1401,7 +1403,6 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    SCOPED_TIMER("processNewHeadersInBlkFiles");
 
    detectAllBlkFiles();
-   
    // In first file, start at supplied offset;  start at beginning for others
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
    {
@@ -2176,6 +2177,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             ReorgUpdater reorg(state, &blockchain_, iface_, config_, 
                scrAddrData_.get());
             
+            LOGINFO << prevTopBlk - state.reorgBranchPoint->getBlockHeight() << " blocks long reorg!";
             prevTopBlk = state.reorgBranchPoint->getBlockHeight();
          }
          else if(state.hasNewTop)
@@ -2184,7 +2186,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             uint32_t hgt = bh.getBlockHeight();
             uint8_t  dup = bh.getDuplicateID();
       
-            LOGINFO << "Applying block to DB!";
+            //LOGINFO << "Applying block to DB!";
             BlockWriteBatcher batcher(config_, iface_);
             
             batcher.applyBlockToDB(hgt, dup, *scrAddrData_.get());
@@ -2381,16 +2383,21 @@ Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
    BlockHeader &addedBlock = blockchain_.addBlock(hash, bl);
    const Blockchain::ReorganizationState state = blockchain_.organize();
    
+   bool updateDupID = true;
+   if (!state.prevTopBlockStillValid)
+      updateDupID = false;
+
    // Then put the bare header into the DB and get its duplicate ID.
    StoredHeader sbh;
    sbh.createFromBlockHeader(addedBlock);
-   uint8_t dup = iface_->putBareHeader(sbh);
+
+   uint8_t dup = iface_->putBareHeader(sbh, updateDupID);
    addedBlock.setDuplicateID(dup);
 
    // Regardless of whether this was a reorg, we have to add the raw block
    // to the DB, but we don't apply it yet.
    brrRawBlock.rewind(HEADER_SIZE);
-   addRawBlockToDB(brrRawBlock);
+   addRawBlockToDB(brrRawBlock, updateDupID);
 
    // Note where we will start looking for the next block, later
    endOfLastBlockByte_ = thisHeaderOffset + blockSize;
@@ -2504,7 +2511,8 @@ bool BlockDataManager_LevelDB::isTxFinal(const Tx & tx) const
 
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
-void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
+void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr, 
+                                               bool updateDupID)
 {
    SCOPED_TIMER("addRawBlockToDB");
    
@@ -2574,7 +2582,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
          + bh.getThisHash().toHexStr() + ")"
       );
    }
-   iface_->putStoredHeader(sbh, true);
+   iface_->putStoredHeader(sbh, true, updateDupID);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
