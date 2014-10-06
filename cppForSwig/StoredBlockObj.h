@@ -334,6 +334,83 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
+class StoredTxOut
+{
+public:
+   StoredTxOut(void)
+      : txVersion_(UINT32_MAX), 
+      dataCopy_(0), 
+      blockHeight_(UINT32_MAX), 
+      duplicateID_(UINT8_MAX), 
+      txIndex_(UINT16_MAX), 
+      txOutIndex_(UINT16_MAX), 
+      parentHash_(0),
+      spentness_(TXOUT_SPENTUNK), 
+      isCoinbase_(false), 
+      spentByTxInKey_(0) 
+   {}
+
+   bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
+   bool isNull(void) { return !isInitialized(); }
+   void unserialize(BinaryData const & data);
+   void unserialize(BinaryDataRef data);
+   void unserialize(BinaryRefReader & brr);
+
+   void       unserializeDBValue(BinaryRefReader &  brr);
+   void         serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+      bool forceSaveSpent=false) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   void       unserializeDBKey(BinaryDataRef key);
+
+   BinaryData getDBKey(bool withPrefix=true) const;
+   BinaryData getDBKeyOfParentTx(bool withPrefix=true) const;
+   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
+
+   StoredTxOut & createFromTxOut(TxOut & txout); 
+   BinaryData    getSerializedTxOut(void) const;
+   TxOut         getTxOutCopy(void) const;
+
+   BinaryData    getScrAddress(void) const;
+   BinaryDataRef getScriptRef(void) const;
+   uint64_t      getValue(void) const;
+
+   bool matchesDBKey(BinaryDataRef dbkey) const;
+
+   uint64_t getValue(void) 
+   { 
+      if(dataCopy_.getSize()>=8)
+         return READ_UINT64_LE(dataCopy_.getPtr());
+      else
+         return UINT64_MAX;
+   }
+         
+
+   bool isSpent(void) { return spentness_==TXOUT_SPENT; }
+   
+
+   void pprintOneLine(uint32_t indent=3);
+
+   uint32_t          txVersion_;
+   BinaryData        dataCopy_;
+   uint32_t          blockHeight_;
+   uint8_t           duplicateID_;
+   uint16_t          txIndex_;
+   uint16_t          txOutIndex_;
+   BinaryData        parentHash_;
+   TXOUT_SPENTNESS   spentness_;
+   bool              isCoinbase_;
+   BinaryData        spentByTxInKey_;
+
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   uint32_t          unserArmVer_;
+   uint32_t          unserDbType_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
 class StoredTx
 {
 public:
@@ -408,83 +485,6 @@ public:
    uint32_t          unserArmVer_;
    uint32_t          unserTxVer_; 
    TX_SERIALIZE_TYPE unserTxType_;
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-class StoredTxOut
-{
-public:
-   StoredTxOut(void)
-      : txVersion_(UINT32_MAX), 
-      dataCopy_(0), 
-      blockHeight_(UINT32_MAX), 
-      duplicateID_(UINT8_MAX), 
-      txIndex_(UINT16_MAX), 
-      txOutIndex_(UINT16_MAX), 
-      parentHash_(0),
-      spentness_(TXOUT_SPENTUNK), 
-      isCoinbase_(false), 
-      spentByTxInKey_(0) 
-   {}
-
-   bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
-   bool isNull(void) { return !isInitialized(); }
-   void unserialize(BinaryData const & data);
-   void unserialize(BinaryDataRef data);
-   void unserialize(BinaryRefReader & brr);
-
-   void       unserializeDBValue(BinaryRefReader &  brr);
-   void         serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-      bool forceSaveSpent=false) const;
-   void       unserializeDBValue(BinaryData const & bd);
-   void       unserializeDBValue(BinaryDataRef      bd);
-   void       unserializeDBKey(BinaryDataRef key);
-
-   BinaryData getDBKey(bool withPrefix=true) const;
-   BinaryData getDBKeyOfParentTx(bool withPrefix=true) const;
-   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
-
-   StoredTxOut & createFromTxOut(TxOut & txout); 
-   BinaryData    getSerializedTxOut(void) const;
-   TxOut         getTxOutCopy(void) const;
-
-   BinaryData    getScrAddress(void) const;
-   BinaryDataRef getScriptRef(void) const;
-   uint64_t      getValue(void) const;
-
-   bool matchesDBKey(BinaryDataRef dbkey) const;
-
-   uint64_t getValue(void) 
-   { 
-      if(dataCopy_.getSize()>=8)
-         return READ_UINT64_LE(dataCopy_.getPtr());
-      else
-         return UINT64_MAX;
-   }
-         
-
-   bool isSpent(void) { return spentness_==TXOUT_SPENT; }
-   
-
-   void pprintOneLine(uint32_t indent=3);
-
-   uint32_t          txVersion_;
-   BinaryData        dataCopy_;
-   uint32_t          blockHeight_;
-   uint8_t           duplicateID_;
-   uint16_t          txIndex_;
-   uint16_t          txOutIndex_;
-   BinaryData        parentHash_;
-   TXOUT_SPENTNESS   spentness_;
-   bool              isCoinbase_;
-   BinaryData        spentByTxInKey_;
-
-   // We don't actually enforce these members.  They're solely for recording
-   // the values that were unserialized with everything else, so that we can
-   // leter check that it
-   uint32_t          unserArmVer_;
-   uint32_t          unserDbType_;
 };
 
 
