@@ -44,9 +44,12 @@ SWIG_INC     +=
 CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
 # OS X requires a little extra elbow grease to support C++11.
-ifeq ($(UNAME),Darwin)
-CXXCPP += -stdlib=libc++
-LDLIBS += -lc++
+ifneq ($(OS),Windows_NT)
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        CXXCPP += -stdlib=libc++
+        LDLIBS += -lc++
+    endif
 endif
 
 # each .o file depends on all .h files
