@@ -17,17 +17,18 @@ from tempfile import mkstemp
 
 # Set some constants up front
 #swigBinVer = '2.0.12'
+osxName      = 'Yosemite'
 pythonVer    = '2.7.8'
-setToolVer   = '5.4.1'
+setToolVer   = '6.0.2'
 pipVer       = '1.5.6'
-psutilVer    = '2.1.1'
+psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
-twistedVer   = '14.0.0'
+twistedVer   = '14.0.2'
 libpngVer    = '1.6.12'
 qtVer        = '4.8.6'
-sipVer       = '4.16.2' # NB: I'm occasionally forced to upgrade alongside PyQt.
-pyQtVer      = '4.11.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev    = '170685'
+sipVer       = '4.16.3' # NB: I'm occasionally forced to upgrade alongside PyQt.
+pyQtVer      = '4.11.2' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev    = '174196'
 LOGFILE      = 'build-app.log.txt'
 LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR    = '..'
@@ -334,7 +335,7 @@ distfiles.append( [ 'Python', \
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
                     "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "113e5688a7fab03004f7b793aa2f718f949515d0" ] )
+                    "a29a81b7913151697cb15b069844af75d441408f" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
@@ -344,12 +345,12 @@ distfiles.append( [ 'Pip', \
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
                     "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
-                    "0c20a20ed316e69f2b0881530439213988229916" ] )
+                    "aae4725eb33cf56d4480bc60f50c147870d607ba" ] )
 
 distfiles.append( [ 'Twisted', \
                     "Twisted-%s.tar.bz2" % twistedVer, \
                     "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
-                    "a90fae98072f8e28b9459875ce9b77f5524bbc48" ] )
+                    "b908dc0d117a782d2becc83fbb906ba4311f3351" ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
@@ -382,14 +383,14 @@ distfiles.append( [ "Qt", \
                     "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
-                    "libWebKitSystemInterfaceMavericks.a", \
-                    "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a" % webkitRev, \
-                    "fb544ee9346765843ddb9c0d97df99b31a3307e4" ] )
+                    "libWebKitSystemInterface%s.a" % osxName, \
+                    "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
+                    "0bb3ebd4003da7111bcc5c24b963eab9ca2295a3" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    '4d3ebce6ec7c31d8a862a6ee307a5f6c3e67349b' ] )
+                    '7c4079d164ccbfe4a5274eaeebe8e3cc86e3a75a' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
@@ -405,7 +406,7 @@ distfiles.append( [ "zope", \
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    '9d7478758957c60ac5007144a0dc7f157f4a5836' ] )
+                    'c8534aa008b311ec370fc87a0748b510d6436e60' ] )
 
 # May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
 #distfiles.append( [ 'swig', \

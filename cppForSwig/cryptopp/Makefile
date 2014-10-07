@@ -99,6 +99,12 @@ LDFLAGS += -flat_namespace -undefined suppress -m
 endif
 endif
 
+# ARMORY - C++11 support is necessary in order to build the code.
+ifeq ($(UNAME),Darwin)
+CXXFLAGS += -std=c++11 -stdlib=libc++
+LDFLAGS += -lc++
+endif
+
 ifeq ($(UNAME),SunOS)
 LDLIBS += -lnsl -lsocket
 M32OR64 = -m$(shell isainfo -b)
