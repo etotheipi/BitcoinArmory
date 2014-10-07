@@ -6,6 +6,8 @@
 #include "BlockUtils.h"
 #include "log.h"
 
+#include <thread>
+
 class StoredHeader;
 class StoredUndoData;
 class StoredTx;
@@ -72,7 +74,7 @@ private:
    };
 
    // We have accumulated enough data, actually write it to the db
-   pthread_t commit(bool force = false);
+   thread commit(bool force = false);
    static void* commitThread(void*);
    
    // search for entries in sshToModify_ that are empty and should
@@ -91,7 +93,6 @@ private:
    
    static void* grabBlocksFromDB(void *in);
    
-   static void* applyBlocksToDBThread(void *in);
    void applyBlocksToDB(ProgressFilter &prog);
 
    void cleanUpSshToModify(void);

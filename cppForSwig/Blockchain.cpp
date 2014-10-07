@@ -123,8 +123,8 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
 
    // Why did this line not through an error?  I left here to remind 
    // myself to go figure it out.
-   LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
-   //LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
+   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
 
    
    // If rebuild, we zero out any original organization data and do a 

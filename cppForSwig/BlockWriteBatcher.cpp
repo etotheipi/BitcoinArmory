@@ -231,11 +231,11 @@ BlockWriteBatcher::~BlockWriteBatcher()
    }
 
    //call final commit, force it
-   pthread_t tID = commit(true);
+   thread committhread = commit(true);
 
    //join on the thread, don't want the destuctor to return until the data has
    //been commited
-   pthread_join(tID, nullptr);
+   committhread.join();
    clearTransactions();
 }
 
@@ -282,8 +282,9 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
       // if we've gotten to that threshold
       if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
       {
-         pthread_t tID = commit();
-         pthread_detach(tID);
+         thread committhread = commit();
+         if (committhread.joinable())
+            committhread.detach();
       }
 
       // Only if pruning, we need to store 
@@ -570,7 +571,11 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    clearTransactions();
    
    if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
-      commit();
+   {
+      thread committhread = commit();
+      if (committhread.joinable())
+         committhread.detach();
+   }
 }
 
 
@@ -891,12 +896,12 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-pthread_t BlockWriteBatcher::commit(bool force)
+thread BlockWriteBatcher::commit(bool force)
 {
    if (lock_.try_lock() == false)
    {
       if (!force && dbUpdateSize_ < UPDATE_BYTES_THRESH * 2)
-         return 0;
+         return thread();
    }
    else
       lock_.unlock();
@@ -947,12 +952,11 @@ pthread_t BlockWriteBatcher::commit(bool force)
 
    lock_.lock();
 
-   pthread_t tID;
-   pthread_create(&tID, nullptr, commitThread, bwbSwapPtr);
+   thread committhread(commitThread, bwbSwapPtr);
 
    lock_.unlock();
 
-   return tID;
+   return committhread;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1185,23 +1189,11 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void* BlockWriteBatcher::applyBlocksToDBThread(void *in)
-{
-   BlockWriteBatcher* const bwbPtr = static_cast<BlockWriteBatcher*>(in);
-   
-   NullProgressReporter np;
-   ProgressFilter f(&np, 1);
-   
-   bwbPtr->applyBlocksToDB(f);
-   
-   return nullptr;
-}
-
 void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 {
    resetTransactions();
 
-   pthread_t tID = 0;
+   thread grabThread;
    
    uint64_t totalBlockDataProcessed=0;
 
@@ -1228,10 +1220,10 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 
          //this is a single entrant block, so there's only ever one 
          //grabBlocksFromDB thread running. Preemptively detach tID, so that
-         //it is joinable (so that the caller doesn't clean up the shared
-         //resource)
-         pthread_detach(tID);
-         pthread_create(&tID, nullptr, grabBlocksFromDB, this);
+         //the current grabThread is joinable (for the clean up process)
+         if(grabThread.joinable())
+            grabThread.detach();
+         grabThread = thread(grabBlocksFromDB, this);
       }
 
       //make sure there's enough data to grab from the block buffer
@@ -1285,8 +1277,9 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
       totalBlockDataProcessed += blockSize;
       progress.advance(totalBlockDataProcessed);
    }
-  
-   pthread_join(tID, nullptr);
+   
+   if (grabThread.joinable())
+      grabThread.join();
 
    delete tempBlockData_;
    tempBlockData_ = nullptr;

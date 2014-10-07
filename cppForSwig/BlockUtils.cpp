@@ -151,10 +151,8 @@ private:
       reorgParams_.branchPtr_    = branchPtr;
       reorgParams_.scrAddrData_  = scrAddrData;
 
-      pthread_t tID;
-      pthread_create(&tID, nullptr, reassessAfterReorgThread, this);
-
-      pthread_join(tID, nullptr);
+      thread reorgthread(reassessAfterReorgThread, this);
+      reorgthread.join();
    }
 
    void undoBlocksFromDB(void)
@@ -1991,35 +1989,102 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    sdbi.appliedToHgt_ = 0;
    iface_->putStoredDBInfo(BLKDATA, sdbi);
 
-   LDBIter ldbIter = iface_->getIterator(BLKDATA);
-
-   if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
-      return;
+   LDBIter *ldbIter = nullptr;
 
    //////////
 
+   bool done = false;
+   uint32_t i=0;
    //can't iterate and delete at the same time with LMDB
    vector<BinaryData> keysToDelete;
 
-   uint32_t i=0;
-
-   do 
+   while (!done)
    {
-      BinaryData key = ldbIter.getKey();
+      try
+      {
+         delete ldbIter;
+         ldbIter = new LDBIter(iface_->getIterator(BLKDATA));
 
-      if(key.getSize() == 0)
+         if (!ldbIter->seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
+         {
+            delete ldbIter;
+            ldbIter = nullptr;
+            done = true;
+            break;
+         }
+      }
+      catch (runtime_error &e)
+      {
+         LOGERR << "iter recycling snafu";
+         LOGERR << e.what();
+         delete ldbIter;
+         ldbIter = nullptr;
+         done = true;
          break;
-
-      if(key[0] != (uint8_t)DB_PREFIX_SCRIPT)
+      }
+      catch (LMDBException &e)
+      {
+         LOGERR << "iter recycling snafu";
+         LOGERR << e.what();
+         delete ldbIter;
+         ldbIter = nullptr;
+         done = true;
          break;
+      }
+      catch (...)
+      {
+         LOGERR << "iter recycling snafu";
+         LOGERR << "unknown exception";
+         delete ldbIter;
+         ldbIter = nullptr;
+         done = true;
+         break;
+      }
 
-      keysToDelete.push_back(key);
-      i++;
+      bool recycle = false;
+      do
+      {
+         if ((++i % 10000) == 0)
+         {
+            recycle = true;
+            break;
+         }
 
-   } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+         BinaryData key = ldbIter->getKey();
 
-   for (auto& key : keysToDelete)
-      iface_->deleteValue(BLKDATA, key);
+         if (key.getSize() == 0)
+         {
+            done = true;
+            break;
+         }
+         
+         if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
+         {
+            done = true;
+            break;
+         }
+
+         keysToDelete.push_back(key);
+      } 
+      while (ldbIter->advanceAndRead(DB_PREFIX_SCRIPT));
+
+      for (auto& keytodel : keysToDelete)
+         iface_->deleteValue(BLKDATA, keytodel);
+
+      keysToDelete.clear();
+
+      if (!recycle)
+      {
+         delete ldbIter;
+         break;
+      }
+
+      tx.commit();
+      tx.begin();
+   }
+
+   for (auto& keytodel : keysToDelete)
+      iface_->deleteValue(BLKDATA, keytodel);
 
    LOGINFO << "Deleted " << i << " SSH and subSSH entries";
 }
@@ -2603,7 +2668,10 @@ uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);
 
-   return sdbi.appliedToHgt_;
+   if (sdbi.appliedToHgt_ > 0)
+      return sdbi.appliedToHgt_ -1;
+
+   return 0;
 }
 
 // kate: indent-width 3; replace-tabs on;

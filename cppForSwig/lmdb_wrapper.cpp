@@ -420,8 +420,21 @@ void LMDBBlockDatabase::openDatabases(
          }
       }
    }
+   catch (LMDBException &e)
+   {
+      LOGERR << "Exception thrown while opening database";
+      LOGERR << e.what();
+      throw e;
+   }
+   catch (runtime_error &e)
+   {
+      LOGERR << "Exception thrown while opening database";
+      LOGERR << e.what();
+      throw e;
+   }
    catch(...)
    {
+      LOGERR << "Exception thrown while opening database";
       closeDatabases();
       throw;
    }
