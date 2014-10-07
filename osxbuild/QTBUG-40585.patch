@@ -1,5 +1,5 @@
---- src/gui/kernel/qeventdispatcher_mac.mm	2014-08-02 14:07:52.000000000 -0400
-+++ src/gui/kernel/qeventdispatcher_mac.mm	2014-08-05 16:35:27.000000000 -0400
+--- src/gui/kernel/qeventdispatcher_mac.mm	2014-10-07 12:49:37.000000000 -0400
++++ src/gui/kernel-alt/qeventdispatcher_mac.mm	2014-10-07 12:58:12.000000000 -0400
 @@ -558,7 +558,6 @@
  
      // In case we end up recursing while we now process events, make sure
@@ -8,7 +8,7 @@
      emit awake();
  
      bool excludeUserEvents = flags & QEventLoop::ExcludeUserInputEvents;
-@@ -600,8 +599,35 @@
+@@ -600,8 +599,34 @@
              // [NSApp run], which is the normal code path for cocoa applications.
              if (NSModalSession session = d->currentModalSession()) {
                  QBoolBlocker execGuard(d->currentExecIsNSAppRun, false);
@@ -26,12 +26,11 @@
 +                while (!d->interrupt && stayInLoop) {
 +                    // Mavericks deprecated the status we wish to check.
 +                    NSInteger checkStatus = 0;
-+                    if(QSysInfo::MacintoshVersion < QSysInfo::MV_10_9) {
-+                        checkStatus = NSRunContinuesResponse;
-+                    }
-+                    else {
-+                        checkStatus = NSModalResponseContinue;
-+                    }
++#if defined(QT_MAC_USE_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_8
++                    checkStatus = NSRunContinuesResponse;
++#else
++                    checkStatus = NSModalResponseContinue;
++#endif
 +                    if([NSApp runModalSession:session] == checkStatus) {
 +                        qt_mac_waitForMoreModalSessionEvents();
 +                    }
@@ -46,7 +45,7 @@
  
                  if (!d->interrupt && session == d->currentModalSessionCached) {
                      // Someone called [NSApp stopModal:] from outside the event
-@@ -610,8 +636,7 @@
+@@ -610,8 +635,7 @@
                      d->temporarilyStopAllModalSessions();
                  }
  
@@ -56,19 +55,18 @@
                      d->cleanupModalSessions();
                  }
  
-@@ -632,15 +657,23 @@
+@@ -632,15 +656,22 @@
                      // to use cocoa's native way of running modal sessions:
                      if (flags & QEventLoop::WaitForMoreEvents)
                          qt_mac_waitForMoreModalSessionEvents();
 +
 +                    // Mavericks deprecated the status we wish to check.
 +                    NSInteger checkStatus = 0;
-+                    if(QSysInfo::MacintoshVersion < QSysInfo::MV_10_9) {
-+                        checkStatus = NSRunContinuesResponse;
-+                    }
-+                    else {
-+                        checkStatus = NSModalResponseContinue;
-+                    }
++#if defined(QT_MAC_USE_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_8
++                    checkStatus = NSRunContinuesResponse;
++#else
++                    checkStatus = NSModalResponseContinue;
++#endif
                      NSInteger status = [NSApp runModalSession:session];
 -                    if (status != NSRunContinuesResponse && session == d->currentModalSessionCached) {
 +                    if (status != checkStatus && session == d->currentModalSessionCached) {
@@ -82,7 +80,7 @@
                      if (d->cleanupModalSessionsNeeded) {
                          d->cleanupModalSessions();
                      }
-@@ -835,6 +868,7 @@
+@@ -835,6 +866,7 @@
          if (info.session) {
              [NSApp endModalSession:info.session];
              info.session = 0;
@@ -90,7 +88,7 @@
          }
      }
      currentModalSessionCached = 0;
-@@ -935,12 +969,15 @@
+@@ -935,12 +967,15 @@
              currentModalSessionCached = info.session;
              break;
          }
@@ -107,7 +105,7 @@
      }
  
      updateChildrenWorksWhenModal();
-@@ -949,6 +986,8 @@
+@@ -949,6 +984,8 @@
  
  void QEventDispatcherMacPrivate::beginModalSession(QWidget *widget)
  {
@@ -116,7 +114,7 @@
      // Add a new, empty (null), NSModalSession to the stack.
      // It will become active the next time QEventDispatcher::processEvents is called.
      // A QCocoaModalSessionInfo is considered pending to become active if the widget pointer 
-@@ -970,16 +1009,20 @@
+@@ -970,16 +1007,20 @@
      // when we stop the _current_ modal session (which is the session on top of
      // the stack, and might not belong to 'widget'). 
      int stackSize = cocoaModalSessionStack.size();
@@ -139,7 +137,7 @@
              }
          }
      }
-@@ -1056,8 +1099,9 @@
+@@ -1056,8 +1097,9 @@
      }
  
  #ifdef QT_MAC_USE_COCOA
@@ -150,7 +148,7 @@
  #endif
  
      if (d->interrupt) {
-@@ -1067,8 +1111,9 @@
+@@ -1067,8 +1109,9 @@
              // [NSApplication run] is running the event loop, we
              // delayed stopping it until now (to let cocoa process 
              // pending cocoa events first).
