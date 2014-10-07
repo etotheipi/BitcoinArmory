@@ -14,8 +14,9 @@
 # After a long back-and-forth, it was decided to basically copy what PyQt does
 # whenever it uses qmake to build and install shared libraries. Some of this may
 # not be strictly required, but hey, if it ain't broke....
+# NB: The "version" values must be updated alongside build-app.py!!!
 QTVER = 4.8.6
-SIPVER = 4.16.2
+SIPVER = 4.16.3
 PYVER = 2.7.8
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}
@@ -30,9 +31,10 @@ INSTALLS += target
 sip.path = .
 sip.files = ./ArmoryMac.sip
 INSTALLS += sip
-QMAKE_CXXFLAGS += -fno-exceptions
+QMAKE_CXXFLAGS += -fno-exceptions -std=c++11
 DEFINES += SIP_PROTECTED_IS_PUBLIC protected=public
 INCLUDEPATH = $$QT_UNPACK_BASE/mkspecs/unsupported/macx-clang . $$QT_UNPACK_BASE/include/QtCore $$QT_UNPACK_BASE/include $$QT_UNPACK_BASE/include/QtGui .rcc/release-shared .moc $$SIP_UNPACK_BASE/siplib $$PYTHON_UNPACK_BASE/Include $$PYTHON_UNPACK_BASE/Mac/Include $$PYTHON_UNPACK_BASE
+QMAKE_LFLAGS += -lc++
 QMAKE_LFLAGS += "-undefined dynamic_lookup"
 
 # Handle the Objective-C++ files. This will include executing moc on the

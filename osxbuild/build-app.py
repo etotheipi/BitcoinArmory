@@ -18,15 +18,16 @@ from tempfile import mkstemp
 # Set some constants up front
 #swigBinVer = '2.0.12'
 osxName      = 'Yosemite'
-pythonVer    = '2.7.8'
+pythonVer    = '2.7.8'  # NB: ArmoryMac.pro must also be kept up to date!!!
 setToolVer   = '6.0.2'
 pipVer       = '1.5.6'
 psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
 libpngVer    = '1.6.12'
-qtVer        = '4.8.6'
-sipVer       = '4.16.3' # NB: I'm occasionally forced to upgrade alongside PyQt.
+qtVer        = '4.8.6'  # NB: ArmoryMac.pro must also be kept up to date!!!
+                        # Possibly "sipFlags" below too.
+sipVer       = '4.16.3' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer      = '4.11.2' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 webkitRev    = '174196'
 LOGFILE      = 'build-app.log.txt'
@@ -44,9 +45,6 @@ PYSITEPKGS   = path.join(PYPREFIX, 'lib/python2.7/site-packages')
 MAKEFLAGS    = '-j4'
 
 QTBUILTFLAG = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
-
-XCODECONF_FILE = path.join(os.getcwd(), \
-                           'objc_armory/ArmoryFramework/ArmoryFramework.xcconfig')
 
 #pypath_txt_template=""" PYTHON_INCLUDE=%s/include/python2.7/ PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a PYVER=python2.7 """
 pypathData  =   'PYTHON_INCLUDE=%s/include/python2.7/' % PYPREFIX
@@ -718,9 +716,9 @@ def compile_objc_library():
    # Makefile, and make the shared library. Be sure to keep the SIP flags in
    # sync with generate_sip_module_code() from PyQt's configure-ng.py.
    sipFlags = '-w -x VendorID -t WS_MACX -t Qt_4_8_6 -x Py_v3 -B Qt_5_0_0 -o ' \
-              '-P -g -c . -I ../workspace/unpackandbuild/PyQt-mac-gpl-4.11.1/sip'
-   execAndWait('../workspace/unpackandbuild/sip-4.16.2/sipgen/sip %s ./ArmoryMac.sip' % sipFlags, cwd=OBJCDIR)
-   execAndWait('../workspace/unpackandbuild/qt-everywhere-opensource-src-4.8.6/bin/qmake ArmoryMac.pro', cwd=OBJCDIR)
+              '-P -g -c . -I ../workspace/unpackandbuild/PyQt-mac-gpl-%s/sip' % pyQtVer
+   execAndWait('../workspace/unpackandbuild/sip-%s/sipgen/sip %s ./ArmoryMac.sip' % (sipVer, sipFlags), cwd=OBJCDIR)
+   execAndWait('../workspace/unpackandbuild/qt-everywhere-opensource-src-%s/bin/qmake ArmoryMac.pro' % qtVer, cwd=OBJCDIR)
    execAndWait('make', cwd=OBJCDIR)
 
 
