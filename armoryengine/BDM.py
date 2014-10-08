@@ -224,7 +224,6 @@ class BlockDataManager(object):
       self.bdm = None
 
       # Flags
-      self.doShutdown    = False
       self.aboutToRescan = False
       self.errorOut      = 0
 
@@ -245,7 +244,7 @@ class BlockDataManager(object):
    #############################################################################
    def createBDM(self):
       if self.bdm:
-         self.bdmThread.shutdown()
+         self.bdmThread.shutdownAndWait()
          self.bdmThread = None
          self.bdm = None
 
@@ -374,7 +373,7 @@ class BlockDataManager(object):
    #############################################################################
    def execCleanShutdown(self):
       self.bdv.reset()
-      self.bdmThread.shutdown()
+      self.bdmThread.shutdownAndWait()
    
    def runBDM(self, fn):
       return self.inject.runCommand(fn)
