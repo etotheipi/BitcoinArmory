@@ -67,7 +67,8 @@ public:
    BlockDataViewer *bdv();
 
    // stop the BDM thread
-   void shutdown();
+   void shutdownAndWait();
+   void requestShutdown();
 
 private:
    static void* thrun(void *);

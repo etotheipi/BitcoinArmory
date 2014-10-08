@@ -152,15 +152,26 @@ BlockDataViewer* BlockDataManagerThread::bdv()
 
 
 // stop the BDM thread
-void BlockDataManagerThread::shutdown()
+void BlockDataManagerThread::shutdownAndWait()
+{
+   requestShutdown();
+   
+   if (pimpl->tID)
+   {
+      pthread_join(pimpl->tID, nullptr);
+      pimpl->tID=0;
+   }
+}
+
+void BlockDataManagerThread::requestShutdown()
 {
    if (pimpl->run)
    {
       pimpl->run = false;
       pimpl->inject->notify();
-      pthread_join(pimpl->tID, nullptr);
    }
 }
+
 
 void BlockDataManagerThread::run()
 {
@@ -173,6 +184,12 @@ void BlockDataManagerThread::run()
       double lastprog=0;
       unsigned lasttime=0;
       
+      class BDMStopped
+      {
+      public:
+         virtual ~BDMStopped() { }
+      };
+      
       const auto progress
          = [&] (unsigned phase, double prog,unsigned time)
       {
@@ -183,13 +200,28 @@ void BlockDataManagerThread::run()
          lasttime = time;
          
          callback->progress(phase, lastprog, lasttime);
+         
+         if (!pimpl->run)
+         {
+            throw BDMStopped();
+         }
+         
       };
-      //don't call this unless you're trying to get online
-      if(pimpl->mode==0) bdm->doInitialSyncOnLoad(progress);
-      else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(progress);
-      else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(progress);
+      
+      try
+      {
+         //don't call this unless you're trying to get online
+         if(pimpl->mode==0) bdm->doInitialSyncOnLoad(progress);
+         else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(progress);
+         else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(progress);
 
-      bdv->scanWallets();
+         bdv->scanWallets();
+      }
+      catch (BDMStopped&)
+      {
+         LOGINFO << "UI asked build/scan thread to finish";
+         return;
+      }
    }
    
    //push 'bdm is ready' to Python
