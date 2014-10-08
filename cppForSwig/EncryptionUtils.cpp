@@ -596,9 +596,17 @@ bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey)
    return cppPubKey.Validate(prng, 3);
 }
 
+
 /////////////////////////////////////////////////////////////////////////////
+// Use the secp256k1 curve to sign data of an arbitrary length.
+// Input:  Data to sign  (const SecureBinaryData&)
+//         The private key used to sign the data  (const SecureBinaryData&)
+//         A flag indicating if deterministic signing is used  (const bool&)
+// Output: None
+// Return: The signature of the data  (SecureBinaryData)
 SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
-                                       SecureBinaryData const & binPrivKey)
+                                       SecureBinaryData const & binPrivKey,
+                                       const bool& detSign)
 {
    if(CRYPTO_DEBUG)
    {
@@ -607,12 +615,20 @@ SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign,
       cout << "   BinPrv: " << binPrivKey.getSize() << " " << binPrivKey.toHexStr() << endl;
    }
    BTC_PRIVKEY cppPrivKey = ParsePrivateKey(binPrivKey);
-   return SignData(binToSign, cppPrivKey);
+   return SignData(binToSign, cppPrivKey, detSign);
 }
 
+
 /////////////////////////////////////////////////////////////////////////////
+// Use the secp256k1 curve to sign data of an arbitrary length.
+// Input:  Data to sign  (const SecureBinaryData&)
+//         The private key used to sign the data  (const BTC_PRIVKEY&)
+//         A flag indicating if deterministic signing is used  (const bool&)
+// Output: None
+// Return: The signature of the data  (SecureBinaryData)
 SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
-                                       BTC_PRIVKEY const & cppPrivKey)
+                                       BTC_PRIVKEY const & cppPrivKey,
+                                       const bool& detSign)
 {
 
    // We trick the Crypto++ ECDSA module by passing it a single-hashed
@@ -627,12 +643,23 @@ SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign,
                           binToSign.getPtr(), 
                           binToSign.getSize());
 
+   // Do we want to use a PRNG or use deterministic signing (RFC 6979)?
    string signature;
-   BTC_SIGNER signer(cppPrivKey);
-   CryptoPP::StringSource(
-               hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
-               prng, signer, new CryptoPP::StringSink(signature))); 
-  
+   if(detSign)
+   {
+      BTC_DETSIGNER signer(cppPrivKey);
+      CryptoPP::StringSource(
+         hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
+         prng, signer, new CryptoPP::StringSink(signature)));
+   }
+   else
+   {
+      BTC_SIGNER signer(cppPrivKey);
+      CryptoPP::StringSource(
+         hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
+         prng, signer, new CryptoPP::StringSink(signature)));
+   }
+
    return SecureBinaryData(signature);
 }
 

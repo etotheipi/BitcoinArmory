@@ -346,12 +346,12 @@ public:
                                     BTC_PUBKEY  const & cppPubKey);
    
    /////////////////////////////////////////////////////////////////////////////
-   // For signing and verification, pass in original, UN-HASHED binary string
+   // For signing and verification, pass in original, UN-HASHED binary string.
+   // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    static SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                                    BTC_PRIVKEY const & cppPrivKey);
-   
-   
-   
+                                    BTC_PRIVKEY const & cppPrivKey,
+                                    const bool& detSign = false);
+
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    static bool VerifyData(SecureBinaryData const & binMessage, 
@@ -383,10 +383,12 @@ public:
                              SecureBinaryData const & pubKey65);
 
    /////////////////////////////////////////////////////////////////////////////
-   // For signing and verification, pass in original, UN-HASHED binary string
+   // For signing and verification, pass in original, UN-HASHED binary string.
+   // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                             SecureBinaryData const & binPrivKey);
-   
+                             SecureBinaryData const & binPrivKey,
+                             const bool& detSign = false);
+
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    bool VerifyData(SecureBinaryData const & binMessage, 
