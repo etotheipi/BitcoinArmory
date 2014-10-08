@@ -251,8 +251,8 @@ def setupTheBDM():
       TheBDM.setOnlineMode(True)
       # Only executed on the first call if blockchain not loaded yet.
       LOGINFO('Blockchain loading')
-      while not TheBDM.getBDMState()=='BlockchainReady':
-         LOGINFO('Blockchain Not Ready Yet %s' % TheBDM.getBDMState())
+      while not TheBDM.getState()=='BlockchainReady':
+         LOGINFO('Blockchain Not Ready Yet %s' % TheBDM.getState())
          time.sleep(2)
 # Sweep all of the funds from the imported addrs back to a
 # new addrin the master wallet

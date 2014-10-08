@@ -3200,8 +3200,6 @@ class DlgImportAddress(ArmoryDialog):
                   binKeyData = ''
                   return
 
-
-
       # Finally, let's add the address to the wallet, or sweep the funds
       if self.radioSweep.isChecked():
          if self.wlt.hasAddr(addr160):
@@ -3236,14 +3234,6 @@ class DlgImportAddress(ArmoryDialog):
                if not result == QMessageBox.Ok:
                   return
 
-
-         # if not TheBDM.getState()=='BlockchainReady':
-            # reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
-            # 'You need access to the Bitcoin network and the blockchain in order '
-            # 'to find the balance of this address and sweep its funds. ', \
-            # QMessageBox.Ok)
-            # return
-
          # Create the address object for the addr to be swept
          sweepAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
@@ -3252,7 +3242,6 @@ class DlgImportAddress(ArmoryDialog):
 
          # Regardless of the user confirmation, we're done here
          self.accept()
-
 
       elif self.radioImport.isChecked():
          if self.wlt.hasAddr(addr160):
@@ -3313,21 +3302,6 @@ class DlgImportAddress(ArmoryDialog):
                   QMessageBox.Ok)
 
             else:
-               doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-                  'The address was imported successfully, but your wallet balance '
-                  'will be incorrect until the global transaction history is '
-                  'searched for previous transactions.  Armory must go into offline '
-                  'mode for a several minutes while this scan is performed.'
-                  '<br><br>'
-                  'Would you like to do the scan now?   Pressing "No" will allow '
-                  'you to stay in online mode, but your balances may be incorrect '
-                  'until you press the rescan button on the dashboard, or restart '
-                  'Armory.', QMessageBox.Yes | QMessageBox.No)
-               if doRescanNow == QMessageBox.Yes:
-                  LOGINFO('User requested rescan immediately after import')
-                  self.main.startRescanBlockchain()
-               else:
-                  LOGINFO('User requested no rescan after import.  Should be dirty.')
                self.main.setDashboardDetails()
 
          #######################################################################
@@ -3340,7 +3314,6 @@ class DlgImportAddress(ArmoryDialog):
                'soon as this one is complete.  Wallet and address balances will '
                'not be available until these operations are completed.', \
                QMessageBox.Ok)
-            self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
 
 
@@ -3536,21 +3509,6 @@ class DlgImportAddress(ArmoryDialog):
                   QMessageBox.Ok)
 
             else:
-               doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-                  'The addresses were imported successfully, but your wallet balance '
-                  'will be incorrect until the global transaction history is '
-                  'searched for previous transactions.  Armory must go into offline '
-                  'mode for a several minutes while this scan is performed.'
-                  '<br><br>'
-                  'Would you like to do the scan now?   Pressing "No" will allow '
-                  'you to stay in online mode, but your balances may be incorrect '
-                  'until you press the rescan button on the dashboard, or restart '
-                  'Armory', QMessageBox.Yes | QMessageBox.No)
-               if doRescanNow == QMessageBox.Yes:
-                  LOGINFO('User requested rescan immediately after import')
-                  self.main.startRescanBlockchain()
-               else:
-                  LOGINFO('User requested no rescan after import.  Should be dirty.')
                self.main.setDashboardDetails()
 
          #######################################################################
@@ -3563,7 +3521,6 @@ class DlgImportAddress(ArmoryDialog):
                'soon as this one is complete.  Wallet and address balances will '
                'not be available until these operations are completed.', \
                QMessageBox.Ok)
-            self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
 
 
@@ -12403,18 +12360,15 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          self.accept()
          dlg = DlgRestoreSingle(self.parent, self.main, doTest)
          if dlg.exec_():
-            self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
+            self.main.addWalletToApplication(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            # self.main.startRescanBlockchain()
-            # TheBDM.rescanBlockchain('AsNeeded', wait=False)
 
       elif self.rdoFragged.isChecked():
          self.accept()
          dlg = DlgRestoreFragged(self.parent, self.main, doTest)
          if dlg.exec_():
-            self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
+            self.main.addWalletToApplication(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            # TheBDM.main.startRescanBlockchain()
       elif self.rdoDigital.isChecked():
          self.main.execGetImportWltName()
          self.accept()
@@ -12426,7 +12380,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             LOGINFO('Watching-Only Wallet Restore Complete! Will ask for a' \
                     'rescan.')
-            self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
+            self.main.addWalletToApplication(dlg.newWallet)
 
 
 ################################################################################

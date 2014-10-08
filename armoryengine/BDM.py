@@ -30,6 +30,8 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       act = ''
       arglist = []
       
+      # AOTODO replace with constants
+      
       if action == 1:
          act = 'finishLoadBlockchain'
          TheBDM.currentBlock = block
@@ -171,7 +173,7 @@ class BlockDataManager(object):
    Use setBlocking(False) along with wait=False for the appropriate calls
    to queue up your request and continue the main thread immediately.  You
    can finish up something else, and then come back and check whether the
-   job is finished (usually using TheBDM.getBDMState()=='BlockchainReady')
+   job is finished (usually using TheBDM.getState()=='BlockchainReady')
 
    Any methods not defined explicitly in this class will "passthrough" the
    __getattr__() method, which will then call that exact method name on 
@@ -202,19 +204,6 @@ class BlockDataManager(object):
       in one wallet (the master), can be applied immediately to other/new 
       wallets that have the same addresses.  
 
-      If you say isFresh=False, then the BDM will set isDirty=True.  This means
-      that a full rescan will have to be performed, and wallet information may
-      not be accurate until it is performed.  isFresh=True should be used for
-      addresses/wallets you just created, and thus there's no reason to rescan,
-      because there's no chance they could have any history in the blockchain.
-
-      Tying this all together:  if you add an address to a PYTHON wallet, you
-      just add it through an existing call.  If you add it with a C++ wallet,
-      you need to explicitly register it with TheBDM, too.  Then you need to 
-      tell the BDM to do a rescan (if isDirty==True), and then call the method 
-      updateWalletsAfterScan(
-      are ready, you can chec
-      
    """
    #############################################################################
    def __init__(self, isOffline=False):
@@ -364,10 +353,6 @@ class BlockDataManager(object):
    #############################################################################
    def predictLoadTime(self):
       return (self.progressPhase, self.progressComplete, self.secondsRemaining)
-            
-   #############################################################
-   def isDirty(self):
-      return self.bdm.isDirty()
 
    #############################################################################
    @TimeThisFunction
@@ -416,7 +401,7 @@ else:
    #        doesn't recognize to the C++ object.
    LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
    LOGINFO('Blockchain operations will happen in the background.  ')
-   LOGINFO('Devs: check TheBDM.getBDMState() before asking for data.')
+   LOGINFO('Devs: check TheBDM.getState() before asking for data.')
    LOGINFO('Registering addresses during rescans will queue them for ')
    LOGINFO('inclusion after the current scan is completed.')
    TheBDM = BlockDataManager(isOffline=False)

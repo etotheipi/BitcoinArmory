@@ -2817,8 +2817,7 @@ def determineSentToSelfAmt(le, wlt):
 
 ################################################################################
 #def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
-def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
-                                 abortIfBDMBusy=False):
+def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    """
 
    You have a list of addresses (or just one) and you want to get all the
@@ -2835,29 +2834,8 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
    middle of a scan.  You can use waitAsLongAsNecessary=True if you
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
-
-   Multi-threading update:
-
-      This one-stop-shop method has to be blocking.  Instead, you might want
-      to register the address and rescan asynchronously, skipping this method
-      entirely:
-
-         cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.rescanBlockchain(wait=False)
-
-         <... do some other stuff ...>
-
-         if TheBDM.getState()=='BlockchainReady':
-            TheBDM.updateWalletsAfterScan(wait=True) # fast after a rescan
-            bal      = cppWlt.getBalance('Spendable')
-            utxoList = cppWlt.getUnspentTxOutList()
-         else:
-            <...come back later...>
    """
-   if TheBDM.getState()=='BlockchainReady' or \
-         (TheBDM.isScanning() and not abortIfBDMBusy):
+   if TheBDM.getState()=='BlockchainReady':
       if not isinstance(addr160List, (list,tuple)):
          addr160List = [addr160List]
 
@@ -2872,8 +2850,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
 
       TheBDM.registerWallet(cppWlt)
       currBlk = TheBDM.getTopBlockHeight()
-      TheBDM.scanBlockchainForTx(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
-      #TheBDM.scanRegisteredTxForWallet(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
+      # TheBDM.scanBlockchainForTx(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)

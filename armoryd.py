@@ -414,7 +414,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       totBal = 0
       utxoOutList = []
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          for u in utxoList:
             curUTXODict = {}
             curTxOut += 1
@@ -899,7 +899,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       wltInfo = {}
-      self.isReady = TheBDM.getBDMState() == 'BlockchainReady'
+      self.isReady = TheBDM.getState() == 'BlockchainReady'
       self.wltToUse = self.curWlt
 
       # If we're not getting info on the currently loaded wallet, check to make
@@ -930,7 +930,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Proceed only if the blockchain's good. Wallet value could be unreliable
       # otherwise.
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          if not baltype in ['spendable', 'spend', 'unconf', 'unconfirmed', \
                             'total', 'ultimate', 'unspent', 'full']:
             LOGERROR('Unrecognized getbalance string: "%s"', baltype)
@@ -1473,7 +1473,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       A dictionary listing version of armoryd running on the server.
       """
 
-      isReady = TheBDM.getBDMState() == 'BlockchainReady'
+      isReady = TheBDM.getState() == 'BlockchainReady'
 
       info = { \
                'versionstr':        getVersionString(BTCARMORY_VERSION),
@@ -1481,7 +1481,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                #'protocolversion':   0,
                'walletversionstr':  getVersionString(PYBTCWALLET_VERSION),
                'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
-               'bdmstate':          TheBDM.getBDMState(),
+               'bdmstate':          TheBDM.getState(),
                'balance':           AmountToJSON(self.curWlt.getBalance()) \
                                     if isReady else -1,
                'blocks':            TheBDM.getTopBlockHeight(),
@@ -1511,7 +1511,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       block wasn't found.
       """
 
-      if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
+      if TheBDM.getState() in ['Uninitialized', 'Offline']:
          return {'error': 'armoryd is offline'}
 
       head = TheBDM.getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
@@ -1584,7 +1584,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       the transaction wasn't found.
       """
 
-      if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
+      if TheBDM.getState() in ['Uninitialized', 'Offline']:
          return {'Error': 'armoryd is offline'}
 
       binhash = hex_to_binary(txHash, BIGENDIAN)
@@ -2802,12 +2802,6 @@ class Armory_Daemon(object):
       wrapper = wrapResource(resource, [checker], realmName=realmName)
       return wrapper
 
-
-   #############################################################################
-   # NB: ArmoryQt has a similar function (finishLoadBlockchainGUI) that shares
-   # common functionality via the BDM (finishLoadBlockchainCommon). If you mod
-   # this function, please be mindful of what goes where, and make sure any
-   # critical functionality makes it into ArmoryQt.
    def start(self):
       #run a wallet consistency check before starting the BDM
       self.checkWallet()
@@ -2821,7 +2815,7 @@ class Armory_Daemon(object):
       # its own thread.
       TheBDM.setBlocking(True)
       LOGWARN('Server started...')
-      if(not TheBDM.getBDMState()=='Offline'):
+      if(not TheBDM.getState()=='Offline'):
          # Put the BDM in online mode only after registering all Python wallets.
          for wltID, wlt in self.WltMap.iteritems():
             LOGWARN('Registering wallet: %s' % wltID)
@@ -3025,7 +3019,7 @@ class Armory_Daemon(object):
             wlt.checkWalletLockTimeout()
 
          # Check for new blocks in the latest blk0XXXX.dat file.
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()=='BlockchainReady':
             #check wallet every checkStep seconds
             nextCheck = self.lastChecked + self.checkStep
             if RightNow() >= nextCheck:

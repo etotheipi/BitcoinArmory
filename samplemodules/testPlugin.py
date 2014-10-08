@@ -242,7 +242,7 @@ class PluginObject(object):
       for wltID,wltObj in self.main.walletMap.iteritems():
          wltValueBTC = '(...)'
          wltValueUSD = '(...)'
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()=='BlockchainReady':
             convertVal = float(self.lastSellStr.replace(',',''))
             wltBal = wltObj.getBalance('Total')
             wltValueBTC = coin2str(wltBal, maxZeros=2)

@@ -981,54 +981,6 @@ class PyBtcAddress(object):
       return binOut.getBinaryString()
 
    #############################################################################
-   def scanBlockchainForAddress(self, abortIfBDMBusy=False):
-      """
-      This method will return null output if the BDM is currently in the
-      middle of a scan.  You can use waitAsLongAsNecessary=True if you
-      want to wait for the previous scan AND the next scan.  Otherwise,
-      you can check for bal==-1 and then try again later...
-
-      This is particularly relevant if you know that an address has already
-      been scanned, and you expect this method to return immediately.  Thus,
-      you don't want to wait for any scan at all...
-
-      This one-stop-shop method has to be blocking.  You might want to
-      register the address and rescan asynchronously, skipping this method
-      entirely:
-
-         cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.rescanBlockchain(wait=False)
-
-         <... do some other stuff ...>
-
-         if TheBDM.getState()=='BlockchainReady':
-            TheBDM.updateWalletsAfterScan(wait=True) # fast after a rescan
-            bal      = cppWlt.getBalance('Spendable')
-            utxoList = cppWlt.getUnspentTxOutList()
-         else:
-            <...come back later...>
-
-      """
-      if TheBDM.getState()=='BlockchainReady' or \
-                            (TheBDM.isScanning() and not abortIfBDMBusy):
-         LOGDEBUG('Scanning blockchain for address')
-
-         # We are expecting this method to return balance
-         # and UTXO data, so we must make sure we're blocking.
-         cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.registerWallet(cppWlt, wait=True)
-         TheBDM.scanBlockchainForTx(cppWlt, wait=True)
-
-         utxoList = cppWlt.getSpendableTxOutList()
-         bal = cppWlt.getSpendableBalance(0, IGNOREZC)
-         return (bal, utxoList)
-      else:
-         return (-1, [])
-
-   #############################################################################
    def unserialize(self, toUnpack):
       """
       We reconstruct the address from a serialized version of it.  See the help

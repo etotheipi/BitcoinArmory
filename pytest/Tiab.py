@@ -134,7 +134,7 @@ class TiabTest(unittest.TestCase):
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(wait=True)
       i = 0
-      while not TheBDM.getBDMState()=='BlockchainReady' and i < 10:
+      while not TheBDM.getState()=='BlockchainReady' and i < 10:
          time.sleep(2)
          i += 1
       if i >= 10:

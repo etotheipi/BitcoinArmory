@@ -150,12 +150,12 @@ class LockboxDisplayProxy(QSortFilterProxyModel):
          tRight = getDouble(idxRight, COL.UnixTime)
          return (tLeft<tRight)
       elif thisCol==COL.NumTx:
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()=='BlockchainReady':
             ntxLeft  = getInt(idxLeft,  COL.NumTx)
             ntxRight = getInt(idxRight, COL.NumTx)
             return (ntxLeft < ntxRight)
       elif thisCol==COL.Balance:
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()=='BlockchainReady':
             btcLeft  = getDouble(idxLeft,  COL.Balance)
             btcRight = getDouble(idxRight, COL.Balance)
             return (abs(btcLeft) < abs(btcRight))

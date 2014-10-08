@@ -46,7 +46,7 @@ if run_LoadBlockchain_Async:
    to check back later to see when it's done.  However, even when blocking is
    false, any functions that return data must block so the data can be 
    returned.  If you are in asynchronous mode, and don't want to ever wait 
-   for anything, always check TheBDM.getBDMState()=='BlockchainReady' before
+   for anything, always check TheBDM.getState()=='BlockchainReady' before
    requesting data that will force blocking.
    """
    start = RightNow()
@@ -54,7 +54,7 @@ if run_LoadBlockchain_Async:
    TheBDM.setOnlineMode(True)
    sleep(2)
    print 'Waiting for blockchain loading to finish',
-   while not TheBDM.getBDMState()=='BlockchainReady':
+   while not TheBDM.getState()=='BlockchainReady':
       print '.',
       sys.stdout.flush()
       sleep(2)

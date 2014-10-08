@@ -1991,7 +1991,7 @@ class DlgSimulfundSelect(ArmoryDialog):
       btnReview  = QPushButton(tr('Sign Simulfunding Transaction'))
       btnCancel  = QPushButton(tr("Cancel"))
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          lblCreate = QRichLabel(tr("""
             Create a commitment to a simulfunding transaction"""))
       else:
@@ -3272,7 +3272,7 @@ class DlgCreatePromNote(ArmoryDialog):
    def doContinue(self):
 
 
-      if not TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.getState()=='BlockchainReady':
          LOGERROR('Blockchain not avail for creating prom note')
          QMessageBox.critical(self, tr('Blockchain Not Available'), tr("""
             The blockchain has become unavailable since you opened this
@@ -3626,7 +3626,7 @@ class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
    def createPromAdd(self):
-      if not TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.getState()=='BlockchainReady':
          QMessageBox.warning(self, tr("Not Online"), tr("""
             Armory is currently in offline mode and cannot create any 
             transactions or promissory notes.  You can only merge 
