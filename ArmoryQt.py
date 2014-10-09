@@ -2394,8 +2394,7 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('FailedLoadCount', self.numTriesOpen+1)
 
          self.switchNetworkMode(NETWORKMODE.Full)
-         #self.resetBdmBeforeScan()
-         TheBDM.goOnline(True)
+         TheBDM.goOnline()
 
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)

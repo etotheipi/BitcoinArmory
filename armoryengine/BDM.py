@@ -18,6 +18,12 @@ import CppBlockUtils as Cpp
 from armoryengine.BinaryPacker import UINT64
 
 
+def newTheBDM(isOffline=False):
+   global TheBDM
+   if TheBDM and TheBDM.getState() != 'Uninitialized':
+      TheBDM.execCleanShutdown()
+   TheBDM = BlockDataManager(isOffline=isOffline)
+
 class PySide_CallBack(Cpp.BDM_CallBack):
    def __init__(self, bdm):
       Cpp.BDM_CallBack.__init__(self)
@@ -93,20 +99,6 @@ class BDM_Inject(Cpp.BDM_Inject):
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    return (time0, TheBDM.getCurrBlock())
-   
-
-BLOCKCHAINMODE  = enum('Offline', \
-                       'Uninitialized', \
-                       'Full', \
-                       'Rescanning', \
-                       'LiteScanning', \
-                       'FullPrune', \
-                       'Lite')
-
-#def newTheBDM(isOffline=False, blocking=False):
- #  global TheBDM
-  # TheBDM = BlockDataManagerThread(isOffline=isOffline, blocking=blocking)
-   
 
 # Make TheBDM act like it's a singleton. Always use the global singleton TheBDM
 # instance that exists in this module regardless of the instance that passed as self
@@ -203,25 +195,19 @@ class BlockDataManager(object):
       its own wallet.  Luckily, I designed the BDM so that data for addresses
       in one wallet (the master), can be applied immediately to other/new 
       wallets that have the same addresses.  
+      
+      NOTE: Do not call any methods on from init. The are all wrapped by ActLikeASingleton
+      and will operate on the current entity stored in the global TheBDM variable, and not
+      on the new instance. This is necesary for TI
 
    """
    #############################################################################
    def __init__(self, isOffline=False):
       super(BlockDataManager, self).__init__()
 
-      if isOffline:
-         self.blkMode  = BLOCKCHAINMODE.Offline
-         self.prefMode = BLOCKCHAINMODE.Offline
-      else:
-         self.blkMode  = BLOCKCHAINMODE.Uninitialized
-         self.prefMode = BLOCKCHAINMODE.Full
-
       #register callbacks
       self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
-
-      self.bdmThread = None
-      self.bdm = None
 
       # Flags
       self.aboutToRescan = False
@@ -239,12 +225,14 @@ class BlockDataManager(object):
       
       self.currentBlock = 0
       
-      self.createBDM()
+      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig());
+      self.bdm = self.bdmThread.bdm()
+      self.bdv = self.bdmThread.bdv()
    
    #############################################################################
+   @ActLikeASingletonBDM
    def createBDM(self):
       if self.bdm:
-         self.bdmThread.shutdownAndWait()
          self.bdmThread = None
          self.bdm = None
 
@@ -253,12 +241,13 @@ class BlockDataManager(object):
       self.bdv = self.bdmThread.bdv()
       
    #############################################################################
-   def goOnline(self, flag):
-      if flag == True:
-         self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
-         self.bdmState = 'Scanning'
+   @ActLikeASingletonBDM
+   def goOnline(self):
+      self.bdmState = 'Scanning'
+      self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
 
    #############################################################################
+   @ActLikeASingletonBDM
    def registerWallet(self, wlt, isNew=False):
       toRegister = None
       if isinstance(wlt, PyBtcWallet):
@@ -288,6 +277,7 @@ class BlockDataManager(object):
 
       self.ldbdir = ldbdir
    
+   @ActLikeASingletonBDM
    def bdmMode(self):
       if CLI_OPTIONS.rebuild:
          mode = 2
@@ -298,6 +288,7 @@ class BlockDataManager(object):
       return mode
       
    #############################################################################
+   @ActLikeASingletonBDM
    def bdmConfig(self):
       # Check for the existence of the Bitcoin-Qt directory
       if not os.path.exists(self.btcdir):
@@ -309,7 +300,6 @@ class BlockDataManager(object):
       # ... and its blk000X.dat files
       if not os.path.exists(blk1st):
          LOGERROR('Blockchain data not available: %s', blk1st)
-         self.prefMode = BLOCKCHAINMODE.Offline
          raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
  
@@ -350,31 +340,38 @@ class BlockDataManager(object):
       return bdmConfig
 
    #############################################################################
+   @ActLikeASingletonBDM
    def predictLoadTime(self):
       return (self.progressPhase, self.progressComplete, self.secondsRemaining)
 
    #############################################################################
    @TimeThisFunction
+   @ActLikeASingletonBDM
    def createAddressBook(self, cppWlt):
       return cppWlt.createAddressBook()
 
    #############################################################################
+   @ActLikeASingletonBDM
    def getCurrBlock(self):
       return self.currentBlock
    
    #############################################################################
+   @ActLikeASingletonBDM
    def setState(self, state):
       self.bdmState = state
       
    #############################################################################
+   @ActLikeASingletonBDM
    def getState(self):
       return self.bdmState
 
    #############################################################################
+   @ActLikeASingletonBDM
    def execCleanShutdown(self):
       self.bdv.reset()
       self.bdmThread.shutdownAndWait()
    
+   @ActLikeASingletonBDM
    def runBDM(self, fn):
       return self.inject.runCommand(fn)
    

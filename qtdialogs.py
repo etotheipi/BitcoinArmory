@@ -1843,7 +1843,6 @@ class DlgWalletDetails(ArmoryDialog):
       self.lblSpd.setText('<b>Spendable Funds:</b>')
       self.lblUnc.setText('<b>Unconfirmed:</b>')
 
-      # if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
       if TheBDM.getState() in ('Uninitialized', 'Offline', 'Scanning'):
          totStr = '-' * 12
          spdStr = '-' * 12
@@ -2031,7 +2030,6 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execSendBtc(self):
-      # if self.main.blkMode == BLOCKCHAINMODE.Offline:
       if TheBDM.getState() in ('Offline', 'Uninitialized'):
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '

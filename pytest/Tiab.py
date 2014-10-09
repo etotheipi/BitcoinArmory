@@ -9,14 +9,13 @@ sys.argv.append('--nologging')
 
 import os
 import time
-import CppBlockUtils
 import tempfile
 import shutil
 import subprocess
 import copy
 import unittest
 from zipfile import ZipFile
-from armoryengine.BDM import TheBDM, BlockDataManagerThread, newTheBDM
+from armoryengine.BDM import TheBDM, BlockDataManager, newTheBDM
 
 TOP_TIAB_BLOCK = 247
 
@@ -123,16 +122,12 @@ class TiabTest(unittest.TestCase):
       else:
          self.fail(NEED_TIAB_MSG)
       self.tiab = TiabSession(tiabZipPath=tiabZipPath)
-      # Need to destroy whatever BDM may have been created automatically 
-      CppBlockUtils.BlockDataManager().DestroyBDM()
+      
       newTheBDM()
-      TheBDM.setDaemon(True)
-      TheBDM.start()
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
       self.armoryHomeDir = os.path.join(self.tiab.tiabDirectory,'tiab','armory')
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
-      TheBDM.setBlocking(True)
-      TheBDM.setOnlineMode(wait=True)
+      TheBDM.goOnline()
       i = 0
       while not TheBDM.getState()=='BlockchainReady' and i < 10:
          time.sleep(2)
@@ -143,7 +138,7 @@ class TiabTest(unittest.TestCase):
 
    @classmethod
    def tearDownClass(self):
-      CppBlockUtils.BlockDataManager().DestroyBDM()
+      TheBDM.execCleanShutdown()
       self.tiab.clean()
 
    def verifyBlockHeight(self):
