@@ -5036,6 +5036,13 @@ class ArmoryMainWindow(QMainWindow):
 
          phase,pct,tleft = TheBDM.predictLoadTime()
          if phase==1:
+            self.lblDashModeBuild.setText( 'Reading Block Headers', \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('%p%')
+            self.barProgressScan.setFormat('')
+         elif phase==2:
             self.lblDashModeBuild.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
@@ -5064,7 +5071,7 @@ class ArmoryMainWindow(QMainWindow):
             tstring = secondsToHumanTime(tleft15)
             pvalue = pct*100
 
-         if phase==1:
+         if phase==1 or phase==2:
             self.lblTimeLeftBuild.setText(tstring)
             self.barProgressBuild.setValue(pvalue)
          elif phase==3:

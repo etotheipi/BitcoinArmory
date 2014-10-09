@@ -1245,8 +1245,10 @@ static bool scanFor(std::istream &in, const uint8_t * bytes, const size_t len)
 // them all in one shot.  But RAM-limited devices (say, if this was going 
 // to be ported to Android), may not be able to do even that, and may have
 // to read and process the headers in batches.  
-bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
-                                                       uint64_t startOffset)
+bool BlockDataManager_LevelDB::extractHeadersInBlkFile(
+   uint32_t fnum,
+   uint64_t startOffset
+)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
    
@@ -1260,6 +1262,8 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       return false;
    }
 
+   uint64_t cumulativeBlockFile=blkFileSizes_[fnum];
+   
    // This will trigger if this is the last blk file and no new blocks
    if(filesize < startOffset)
       return true;
@@ -1395,16 +1399,22 @@ uint32_t BlockDataManager_LevelDB::detectAllBlkFiles()
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
-                                                           uint64_t startOffset)
+bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(
+   ProgressReporter &prog,
+   uint32_t fnumStart,
+   uint64_t startOffset
+)
 {
    SCOPED_TIMER("processNewHeadersInBlkFiles");
 
+   ProgressFilter progress(&prog, blkFileCumul_.back());
+   
    detectAllBlkFiles();
    // In first file, start at supplied offset;  start at beginning for others
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
    {
       uint64_t useOffset = (fnum==fnumStart ? startOffset : 0);
+      progress.advance(blkFileSizes_[fnum]+useOffset);
       extractHeadersInBlkFile(fnum, useOffset);
    }
 
@@ -1530,6 +1540,27 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    bool initialLoad
 )
 {
+   class ProgressWithPhase : public ProgressReporter
+   {
+      const unsigned phase_;
+      const function<void(unsigned, double,unsigned)> progress_;
+   public:
+      ProgressWithPhase(
+         unsigned phase,
+         const function<void(unsigned, double,unsigned)>& progress
+      ) : phase_(phase), progress_(progress)
+      {
+         this->progress(0.0, 0);
+      }
+      
+      virtual void progress(
+         double progress, unsigned secondsRemaining
+      )
+      {
+         progress_(phase_, progress, secondsRemaining);
+      }
+   };
+   
    missingBlockHashes_.clear();
 
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
@@ -1581,7 +1612,9 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    if(initialLoad || forceRebuild)
    {
       LOGINFO << "Reading all headers and building chain...";
-      processNewHeadersInBlkFiles(startHeaderBlkFile_, startHeaderOffset_);
+      
+      ProgressWithPhase progPhase(1, progress);
+      processNewHeadersInBlkFiles(progPhase, startHeaderBlkFile_, startHeaderOffset_);
    }
 
    LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
@@ -1595,26 +1628,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    blocksReadSoFar_ = 0;
    bytesReadSoFar_ = 0;
    
-   class ProgressWithPhase : public ProgressReporter
-   {
-      const unsigned phase_;
-      const function<void(unsigned, double,unsigned)> progress_;
-   public:
-      ProgressWithPhase(
-         unsigned phase,
-         const function<void(unsigned, double,unsigned)>& progress
-      ) : phase_(phase), progress_(progress)
-      {
-         this->progress(0.0, 0);
-      }
-      
-      virtual void progress(
-         double progress, unsigned secondsRemaining
-      )
-      {
-         progress_(phase_, progress, secondsRemaining);
-      }
-   };
    
    
    if(initialLoad || forceRebuild)
@@ -1624,7 +1637,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
               << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
       TIMER_START("dumpRawBlocksToDB");
       
-      ProgressWithPhase progPhase(1, progress);
+      ProgressWithPhase progPhase(2, progress);
 
       readRawBlocksInFile(progPhase, firstUnappliedHeight);
 
