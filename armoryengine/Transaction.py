@@ -1127,7 +1127,6 @@ class UnsignedTxInput(AsciiSerializable):
 
    #############################################################################
    def setSignature(self, msIndex, sigStr):
-      LOGDEBUG('Setting signature in key index: %d' % msIndex)
       self.signatures[msIndex] = sigStr
 
 

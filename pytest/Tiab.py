@@ -4,8 +4,8 @@ import sys
 # TODO: Fix the code base so that nothing is started during imports.
 sys.argv.append('--testnet')
 # Uncomment when debugging
-# sys.argv.append('--debug')
-sys.argv.append('--nologging')
+sys.argv.append('--debug')
+# sys.argv.append('--nologging')
 
 import os
 import time
@@ -125,9 +125,8 @@ class TiabTest(unittest.TestCase):
       
       newTheBDM()
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
-      self.armoryHomeDir = os.path.join(self.tiab.tiabDirectory,'tiab','armory')
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
-      TheBDM.goOnline()
+      TheBDM.goOnline(levelDBDir=os.path.join(self.tiab.tiabDirectory,'tiab','armory'))
       i = 0
       while not TheBDM.getState()=='BlockchainReady' and i < 10:
          time.sleep(2)

@@ -209,6 +209,9 @@ class BlockDataManager(object):
       self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
 
+      self.bdmThread = None
+      self.bdm = None
+
       # Flags
       self.aboutToRescan = False
       self.errorOut      = 0
@@ -225,24 +228,22 @@ class BlockDataManager(object):
       
       self.currentBlock = 0
       
-      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig());
-      self.bdm = self.bdmThread.bdm()
-      self.bdv = self.bdmThread.bdv()
-   
    #############################################################################
    @ActLikeASingletonBDM
-   def createBDM(self):
+   def goOnline(self, satoshiDir=None, levelDBDir=None, armoryHomeDir=None):
+      if satoshiDir:
+         self.setSatoshiDir(satoshiDir)
+      if levelDBDir:
+         self.setLevelDBDir(levelDBDir)
       if self.bdm:
          self.bdmThread = None
          self.bdm = None
 
-      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig());
+      self.bdmThread = Cpp.BlockDataManagerThread(
+            self.bdmConfig(armoryHomeDir=armoryHomeDir));
       self.bdm = self.bdmThread.bdm()
       self.bdv = self.bdmThread.bdv()
       
-   #############################################################################
-   @ActLikeASingletonBDM
-   def goOnline(self):
       self.bdmState = 'Scanning'
       self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
 
@@ -289,7 +290,7 @@ class BlockDataManager(object):
       
    #############################################################################
    @ActLikeASingletonBDM
-   def bdmConfig(self):
+   def bdmConfig(self, armoryHomeDir=None):
       # Check for the existence of the Bitcoin-Qt directory
       if not os.path.exists(self.btcdir):
          raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
@@ -302,14 +303,14 @@ class BlockDataManager(object):
          LOGERROR('Blockchain data not available: %s', blk1st)
          raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
- 
-      armory_homedir = ARMORY_HOME_DIR
+      if armoryHomeDir == None:
+         armoryHomeDir = ARMORY_HOME_DIR
       blockdir = blkdir
       leveldbdir = self.ldbdir
       
       if OS_WINDOWS:
          if isinstance(ARMORY_HOME_DIR, unicode):
-            armory_homedir = ARMORY_HOME_DIR.encode('utf8')
+            armoryHomeDir = ARMORY_HOME_DIR.encode('utf8')
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
          if isinstance(self.ldbdir, unicode):
@@ -319,7 +320,7 @@ class BlockDataManager(object):
       bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
       #bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
-      bdmConfig.homeDirLocation = armory_homedir
+      bdmConfig.homeDirLocation = armoryHomeDir
       bdmConfig.blkFileLocation = blockdir
       bdmConfig.levelDBLocation = leveldbdir
       bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
