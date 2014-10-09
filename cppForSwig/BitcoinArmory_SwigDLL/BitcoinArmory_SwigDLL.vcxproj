@@ -421,6 +421,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\BlockDataViewer.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BlockUtils.h" />
+    <ClInclude Include="..\BlockWriteBatcher.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\EncryptionUtils.h" />

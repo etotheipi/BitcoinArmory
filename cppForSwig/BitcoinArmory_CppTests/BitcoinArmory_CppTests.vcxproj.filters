@@ -152,5 +152,8 @@
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\BDM_mainthread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

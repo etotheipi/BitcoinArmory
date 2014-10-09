@@ -28,7 +28,7 @@ class BlockDataViewer
       void     unregisterLockbox(BtcWallet* wltPtr);
 
       void scanWallets(uint32_t startBlock = UINT32_MAX,
-         uint32_t endBlock = UINT32_MAX);
+         uint32_t endBlock = UINT32_MAX, uint32_t forceRefresh = 0);
       
       bool hasWallet(BtcWallet* wltPtr);
 
@@ -75,26 +75,31 @@ class BlockDataViewer
 
       void reset();
 
-      void pageWalletsHistory();
+      void pageWalletsHistory(bool forcePaging = true);
       void pageLockboxesHistory();
 
-      map<uint32_t, uint32_t> computeWalletsSSHSummary();
-      const vector<LedgerEntry>& getHistoryPage(uint32_t);
+      map<uint32_t, uint32_t> computeWalletsSSHSummary(bool forcePaging = true);
+      const vector<LedgerEntry>& getHistoryPage(uint32_t, 
+                                                bool rebuildLedger = false, 
+                                                bool remapWallets = false);
       size_t getPageCount(void) const { return hist_.getPageCount(); }
 
       void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                              uint32_t startBlock, uint32_t endBlock) const;
 
-      void flagRefresh(void){ refresh_ = true; }
+      void flagRefresh(bool withRemap);
+
+      void updateWalletFilters(vector<string> walletsVec);
 
    public:
-      bool rescanZC_ = false;
-      bool refresh_  = false;
+      bool rescanZC_    = false;
+      uint32_t refresh_ = 0;
 
    private:
-      LMDBBlockDatabase* db_;
-      Blockchain*        bc_;
-      ScrAddrFilter*     saf_;
+      BlockDataManager_LevelDB* bdmPtr_;
+      LMDBBlockDatabase*        db_;
+      Blockchain*               bc_;
+      ScrAddrFilter*            saf_;
 
       set<BtcWallet*> registeredWallets_;
       set<BtcWallet*> registeredLockboxes_;
@@ -115,6 +120,9 @@ class BlockDataViewer
       //be a map.
       vector<LedgerEntry> globalLedger_;
       HistoryPager hist_;
+
+      //UI wallet filter
+      map<BinaryData, bool> walletFilters_;
 };
 
 #endif

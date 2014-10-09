@@ -69,7 +69,6 @@ class AllWalletsDispModel(QAbstractTableModel):
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          elif col==COL.Bal: 
-            return QVariant('(...)')
             if not bdmState=='BlockchainReady':
                return QVariant('(...)')
             bal = wlt.getBalance('Total')

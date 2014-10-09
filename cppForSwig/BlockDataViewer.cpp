@@ -9,6 +9,8 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
    bc_ = &bdm->blockchain();
    saf_ = bdm->getScrAddrFilter();
 
+   bdmPtr_ = bdm;
+
    zcEnabled_ = false;
    zcLiteMode_ = false;
    zcFilename_ = "";
@@ -45,6 +47,9 @@ bool BlockDataViewer::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    //tell the wallet it is registered
    wltPtr->setRegistered();
 
+   if (wltPtr->walletID_.getSize() > 0)
+      walletFilters_[wltPtr->walletID_] = true;
+
    return true;
 }
 
@@ -76,7 +81,7 @@ void BlockDataViewer::unregisterLockbox(BtcWallet* wltPtr)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::scanWallets(uint32_t startBlock,
-   uint32_t endBlock)
+   uint32_t endBlock, uint32_t forceRefresh)
 {
    uint32_t i = 0;
    bool reorg = false;
@@ -141,10 +146,14 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    zeroConfCont_.resetNewZC();
    lastScanned_ = endBlock;
 
-   if (hist_.getCurrentPage() == 0)
+   if (forceRefresh == 1)
+      getHistoryPage(0, true, false);
+   else if(forceRefresh == 2)
+      getHistoryPage(0, true, true);
+   else if (hist_.getCurrentPage() == 0)
    {
       //There is a fundamental difference between the first history page and all
-      //the others: the first page maintains ZC, new blocks and can undergo,
+      //the others: the first page maintains ZC, new blocks and can undergo
       //reorgs while every other history page is purely static.
 
       LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
@@ -158,7 +167,16 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
          wltPtr->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
 
          for (const auto& lePair : leMap)
-            globalLedger_.push_back(lePair.second);
+         {
+            //make sure wallet is in filters
+            auto haveWltInFilter = walletFilters_.find(wltPtr->walletID_);
+            
+            if (ITER_IN_MAP(haveWltInFilter, walletFilters_))
+            {
+               if (haveWltInFilter->second == true)
+                  globalLedger_.push_back(lePair.second);
+            }
+         }
       }
 
       sort(globalLedger_.begin(), globalLedger_.end());
@@ -436,14 +454,25 @@ void BlockDataViewer::reset()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary()
+map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary(
+   bool forcePaging)
 {
    map<uint32_t, uint32_t> fullSummary;
 
    for (auto wltPtr : registeredWallets_)
    {
-      wltPtr->mapPages();
-      auto& wltSummary = wltPtr->getSSHSummary();
+      auto wltfilter = walletFilters_.find(wltPtr->walletID_);
+      
+      if (forcePaging)
+         wltPtr->mapPages();
+      
+      if (ITER_NOT_IN_MAP(wltfilter, walletFilters_))
+         continue;
+      
+      if (wltfilter->second == false)
+         continue;
+      
+      auto wltSummary = wltPtr->getSSHSummary();
 
       for (auto summary : wltSummary)
          fullSummary[summary.first] += summary.second;
@@ -453,12 +482,12 @@ map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::pageWalletsHistory()
+void BlockDataViewer::pageWalletsHistory(bool forcePaging)
 {
-   auto computeSummary = [this](void)->map<uint32_t, uint32_t>
-      { return this->computeWalletsSSHSummary(); };
+   auto computeSummary = [this](bool force)->map<uint32_t, uint32_t>
+      { return this->computeWalletsSSHSummary(force); };
    
-   hist_.mapHistory(computeSummary);
+   hist_.mapHistory(computeSummary, forcePaging);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -470,10 +499,14 @@ void BlockDataViewer::pageLockboxesHistory()
 
 
 ////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
+const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId, 
+   bool rebuildLedger, bool remapWallets)
 {
-   if (pageId == hist_.getCurrentPage())
+   if (pageId == hist_.getCurrentPage() && !rebuildLedger && !remapWallets)
       return globalLedger_;
+
+   if (rebuildLedger || remapWallets)
+      pageWalletsHistory(remapWallets);
 
    hist_.setCurrentPage(pageId);
 
@@ -496,7 +529,16 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId)
       
          //this should be locked to a single thread
          for (const auto& lePair : leMap)
-            globalLedger_.push_back(lePair.second);
+         {
+            //make sure wallet is in filters
+            auto haveWltInFilter = walletFilters_.find(wltPtr->walletID_);
+
+            if (ITER_IN_MAP(haveWltInFilter, walletFilters_))
+            {
+               if (haveWltInFilter->second == true)
+                  globalLedger_.push_back(lePair.second);
+            }
+         }
       }
    }
 
@@ -525,4 +567,26 @@ void BlockDataViewer::scanScrAddrVector(
 
    //cleanup
    delete SAF;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::updateWalletFilters(vector<string> walletsList)
+{
+   walletFilters_.clear();
+   
+   for (auto walletID : walletsList)
+      walletFilters_[BinaryData(walletID)] = true;
+
+   flagRefresh(false);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::flagRefresh(bool withRemap) 
+{ 
+   if (withRemap == true)
+      refresh_ = 2;
+   else
+      refresh_ = 1;
+
+   bdmPtr_->notifyMainThread();
 }

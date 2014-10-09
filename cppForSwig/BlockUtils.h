@@ -37,6 +37,7 @@
 #include "pthread.h"
 #include <functional>
 #include "BDM_supportClasses.h"
+#include "BDM_mainthread.h"
 
 #ifdef _MSC_VER
    #include "mman.h"
@@ -55,6 +56,7 @@ using namespace std;
 
 class BlockDataManager_LevelDB;
 class LSM;
+//class BDM_Inject;
 
 typedef enum
 {
@@ -124,6 +126,8 @@ private:
 
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
+
+   BDM_Inject*                      bdmInjectPtr_ = nullptr;
 
 private:
   
@@ -261,6 +265,9 @@ public:
    void doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
+   
+   void setNotifyPtr(BDM_Inject* injectPtr) { bdmInjectPtr_ = injectPtr; }
+   void notifyMainThread(void) { if (bdmInjectPtr_) bdmInjectPtr_->notify(); }
 
 private:
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);

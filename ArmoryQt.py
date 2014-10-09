@@ -386,6 +386,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.connect(self.comboWltSelect, SIGNAL('activated(int)'), 
                    self.changeWltFilter)
+      
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False);
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False);
@@ -443,6 +444,8 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.PageLineEdit, SIGNAL('editingFinished()'), \
                    self.loadNewPage)
             
+      self.changeWltFilter()      
+      
       frmPages = QFrame()
       frmPages.setFrameStyle(STYLE_NONE)
       frmPagesLayout = QGridLayout()
@@ -894,11 +897,21 @@ class ArmoryMainWindow(QMainWindow):
                # All Wallets
                self.walletVisibleList[i] = True
                self.setWltSetting(wid, 'LedgerShow', True)
+      
+      self.mainLedgerCurrentPage = 1
+      self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
+      
+      wltIDList = []
+      for i,vis in enumerate(self.walletVisibleList):
+         if vis:
+            wltIDList.append(self.walletIDList[i])
 
-      self.walletsView.reset()
-      self.createCombinedLedger()
-      if self.frmLedgUpDown.isVisible():
-         self.changeNumShow()
+      TheBDM.bdv.updateWalletFilters(wltIDList)      
+
+      #self.walletsView.reset()
+      #self.createCombinedLedger()
+      #if self.frmLedgUpDown.isVisible():
+       #  self.changeNumShow()
 
 
    ############################################################################

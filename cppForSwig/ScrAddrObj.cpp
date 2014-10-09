@@ -99,7 +99,7 @@ void ScrAddrObj::clearBlkData(void)
 {
    relevantTxIO_.clear();
    hist_.reset();
-   ledger_ = nullptr;
+   ledger_ = &LedgerEntry::EmptyLedgerMap_;
    totalTxioCount_ = 0;
 }
 
@@ -321,7 +321,7 @@ void ScrAddrObj::mapHistory()
    ledger_ = &LedgerEntry::EmptyLedgerMap_;
 
    //create history map
-   auto getSummary = [this](void)->map<uint32_t, uint32_t>
+   auto getSummary = [this](bool)->map<uint32_t, uint32_t>
       { return db_->getSSHSummary(this->getScrAddr(), UINT32_MAX); };
 
    hist_.mapHistory(getSummary); 

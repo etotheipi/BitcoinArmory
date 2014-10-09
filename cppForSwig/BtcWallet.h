@@ -118,7 +118,8 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void) const;
-   uint64_t getSpendableBalance(uint32_t currBlk=0, 
+   uint64_t getFullBalanceFromDB(void) const;
+   uint64_t getSpendableBalance(uint32_t currBlk = 0,
                                 bool ignoreAllZeroConf=false) const;
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
                                   bool includeAllZeroConf=false) const;
@@ -228,6 +229,8 @@ private:
 
    //wallet id
    BinaryData                    walletID_;
+
+   uint64_t                      balance_ = 0;
 };
 
 #endif

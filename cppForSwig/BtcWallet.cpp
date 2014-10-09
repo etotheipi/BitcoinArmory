@@ -379,14 +379,19 @@ uint64_t BtcWallet::getUnconfirmedBalance(
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t BtcWallet::getFullBalance() const
 {
-   uint64_t balance = 0;
-
-   for(const auto scrAddr : scrAddrMap_)
-      balance += scrAddr.second.getFullBalance();
-   
-   return balance;
+   return balance_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getFullBalanceFromDB() const
+{
+   uint64_t balance = 0;
+
+   for (const auto scrAddr : scrAddrMap_)
+      balance += scrAddr.second.getFullBalance();
+
+   return balance;
+}
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& addr) const
 {
@@ -672,6 +677,8 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       getTxioForRange(startBlock, UINT32_MAX, txioMap);
       updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
                           startBlock, UINT32_MAX, true);
+   
+      balance_ = getFullBalanceFromDB();
    }
    else
    {
@@ -683,6 +690,8 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
          getTxioForRange(endBlock +1, UINT32_MAX, txioMap);
          updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
                              endBlock +1, UINT32_MAX);
+
+         balance_ = getFullBalanceFromDB();
 
          //return false because no new block was parsed
          return false;
@@ -849,7 +858,7 @@ void BtcWallet::mapPages()
    TIMER_START("mapPages");
    ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
 
-   auto computeSSHsummary = [this](void)->map<uint32_t, uint32_t>
+   auto computeSSHsummary = [this](bool)->map<uint32_t, uint32_t>
       {return this->computeScrAddrMapHistSummary(); };
 
    histPages_.mapHistory(computeSSHsummary);
@@ -915,7 +924,7 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
-   bdvPtr_->flagRefresh(); 
+   bdvPtr_->flagRefresh(true); 
 }
 
 // kate: indent-width 3; replace-tabs on;

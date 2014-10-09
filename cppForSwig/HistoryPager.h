@@ -67,7 +67,8 @@ public:
    void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
    
    void mapHistory(
-      function< map<uint32_t, uint32_t>(void) > getSSHsummary);
+      function< map<uint32_t, uint32_t>(bool) > getSSHsummary,
+      bool forcePaging = true);
    
    const map<uint32_t, uint32_t>& getSSHsummary(void) const
    { return SSHsummary_; }

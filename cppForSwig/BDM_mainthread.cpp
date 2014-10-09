@@ -111,6 +111,7 @@ BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &con
 {
    pimpl = new BlockDataManagerThreadImpl;
    pimpl->bdm = new BlockDataManager_LevelDB(config);
+   pimpl->bdm->setNotifyPtr(pimpl->inject);
    pimpl->bdv = new BlockDataViewer(pimpl->bdm);
 }
 
@@ -252,10 +253,12 @@ void BlockDataManagerThread::run()
          }
       }
 
-      if (bdv->refresh_)
+      if (bdv->refresh_ > 0)
       {
-         bdv->refresh_ = false;
-         bdv->scanWallets();
+         uint32_t refresh = bdv->refresh_;
+         bdv->refresh_ = 0;
+
+         bdv->scanWallets(UINT32_MAX, UINT32_MAX, refresh);
          callback->run(5, nullptr);
       }
 
