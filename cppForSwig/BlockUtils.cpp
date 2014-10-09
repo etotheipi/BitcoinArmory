@@ -1989,7 +1989,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    sdbi.appliedToHgt_ = 0;
    iface_->putStoredDBInfo(BLKDATA, sdbi);
 
-   LDBIter *ldbIter = nullptr;
+   std::shared_ptr<LDBIter> ldbIter;
 
    //////////
 
@@ -2002,13 +2002,10 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    {
       try
       {
-         delete ldbIter;
-         ldbIter = new LDBIter(iface_->getIterator(BLKDATA));
+         ldbIter = make_shared<LDBIter>(iface_->getIterator(BLKDATA));
 
          if (!ldbIter->seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
          {
-            delete ldbIter;
-            ldbIter = nullptr;
             done = true;
             break;
          }
@@ -2017,17 +2014,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       {
          LOGERR << "iter recycling snafu";
          LOGERR << e.what();
-         delete ldbIter;
-         ldbIter = nullptr;
-         done = true;
-         break;
-      }
-      catch (LMDBException &e)
-      {
-         LOGERR << "iter recycling snafu";
-         LOGERR << e.what();
-         delete ldbIter;
-         ldbIter = nullptr;
          done = true;
          break;
       }
@@ -2035,8 +2021,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       {
          LOGERR << "iter recycling snafu";
          LOGERR << "unknown exception";
-         delete ldbIter;
-         ldbIter = nullptr;
          done = true;
          break;
       }
@@ -2065,8 +2049,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
          }
 
          keysToDelete.push_back(key);
-      } 
-      while (ldbIter->advanceAndRead(DB_PREFIX_SCRIPT));
+      } while (ldbIter->advanceAndRead(DB_PREFIX_SCRIPT));
 
       for (auto& keytodel : keysToDelete)
          iface_->deleteValue(BLKDATA, keytodel);
@@ -2075,7 +2058,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
       if (!recycle)
       {
-         delete ldbIter;
          break;
       }
 
