@@ -116,7 +116,7 @@ getScrAddrData.o : getScrAddrData.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c getScrAddrData.cpp 
 
 CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(PYTHON_LDFLAGS) ../../_CppBlockUtils.so -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a ../../_CppBlockUtils.so $^ -lpthread -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ ../../_CppBlockUtils.so -lpthread $(PYTHON_LDFLAGS) ../../_CppBlockUtils.so -o $@
 
 getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
