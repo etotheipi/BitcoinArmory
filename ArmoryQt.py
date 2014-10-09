@@ -6166,20 +6166,25 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    # AOTODO handleCppNotification
-   # FARHODTODO Add comments to this method.
    def cppNotify(self, action, args):
 
-      # Blockchain just finished loading.  Do lots of stuff...
       if action == 'finishLoadBlockchain':
+         #Blockchain just finished loading, finish initializing UI and render the
+         #ledgers
+         
          self.blkReceived = RightNow()
          if self.needUpdateAfterScan:
             LOGDEBUG('Running finishLoadBlockchain')
             self.finishLoadBlockchainGUI()
             self.needUpdateAfterScan = False
             self.setDashboardDetails()
-            
-      # AOTODO - Comment on connection to sweep after scan list
+
       elif action == 'sweepAfterScanList':
+         #A set of private keys have been loaded in a wallet for sweeping their
+         #balance. This flag singnifies that these private keys, save in
+         #self.sweepAfterScanList, have been scanned and are ready for being 
+         #swept (spent to address belonging the wallet's chain)          
+         
          if len(self.sweepAfterScanList)>0:
             LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
             self.finishSweepScan()
@@ -6188,14 +6193,17 @@ class ArmoryMainWindow(QMainWindow):
             self.sweepAfterScanList = []
             self.setDashboardDetails()     
       
-      # New zero confirmation transaction to and from registered addresses
       elif action == 'newZC':
-         # If we have new zero-conf transactions, scan them and update ledger
+         #A zero conf Tx conerns one of the address Armory is tracking, pull the 
+         #updated ledgers from the BDM and create the related notifications.         
+
          self.checkNewZeroConf(args)
          self.setDashboardDetails()          
 
-      # A new block has appeared.
       elif action == 'newblock':
+         #A new block has appeared, pull updated ledgers from the BDM, display
+         #the new block height in the status bar and note the block received time         
+
          newBlocks = args[0]
          if newBlocks>0:       
             prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
@@ -6206,16 +6214,6 @@ class ArmoryMainWindow(QMainWindow):
             self.ledgerModel.reset()
 
             LOGINFO('New Block! : %d', TheBDM.getCurrBlock())
-            #didAffectUs = False
-
-            # LITE sync means it won't rescan if addresses have been imported
-            #didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
-
-            #if didAffectUs:
-             #  LOGINFO('New Block contained a transaction relevant to us!')
-             #  self.walletListChanged()
-             #  self.notifyOnSurpriseTx(TheBDM.getCurrBlock()-newBlocks, \
-                                       #TheBDM.getCurrBlock()+1)
 
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
@@ -6232,8 +6230,11 @@ class ArmoryMainWindow(QMainWindow):
             self.walletModel.reset()    
             self.setDashboardDetails()   
       
-      # refresh the UI because of new information about registered wallets
       elif action == 'refresh':
+         #The wallet ledgers have been updated from an event outside of new ZC
+         #or new blocks (usually a wallet or address was imported, or the 
+         #wallet filter was modified
+         
          self.createCombinedLedger()
          self.walletModel.reset()
          
