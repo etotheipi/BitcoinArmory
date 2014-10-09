@@ -4310,7 +4310,7 @@ class ArmoryMainWindow(QMainWindow):
             self.startBitcoindIfNecessary()
       elif TheBDM.getState() in ('Offline','Uninitialized'):
          #self.resetBdmBeforeScan()
-         TheBDM.setOnlineMode(True)
+         TheBDM.goOnline()
          self.switchNetworkMode(NETWORKMODE.Full)
       else:
          LOGERROR('ModeSwitch button pressed when it should be disabled')
