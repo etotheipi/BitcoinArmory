@@ -738,10 +738,6 @@ class PyBtcWallet(object):
       self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
                                                       time0,blk0,time0,blk0)
 
-      # We'll probably want to register the new wallet for the necessary rescan.
-      if doRegisterWithBDM:
-         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew)
-
       # Write the actual wallet file and close it. Create a backup if necessary.
       newfile.write(fileData.getBinaryString())
       newfile.close()
@@ -908,11 +904,6 @@ class PyBtcWallet(object):
                                                       time0,blk0,time0,blk0)
       self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
                                                       time0,blk0,time0,blk0)
-
-      # We might be holding the wallet temporarily and not ready to register it
-      if doRegisterWithBDM:
-         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew)
-
 
       newfile.write(fileData.getBinaryString())
       newfile.close()
@@ -2083,7 +2074,6 @@ class PyBtcWallet(object):
       self.unpackHeader(wltdata)      
       self.cppWallet = Cpp.BtcWallet(TheBDM.bdv)
       self.cppWallet.setWalletID(self.uniqueIDB58)
-      TheBDM.registerWallet( self.cppWallet )
 
 
       self.lastComputedChainIndex = -UINT32_MAX
@@ -2131,15 +2121,6 @@ class PyBtcWallet(object):
             raise NotImplementedError('OP_EVAL not support in wallet yet')
          if dtype==WLT_DATATYPE_DELETED:
             pass
-
-
-      if (not doScanNow or \
-          not TheBDM.getState()=='BlockchainReady' or \
-          self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
-         pass
-      else:
-         self.syncWithBlockchainLite()
-
 
       ### Update the wallet version if necessary ###
       if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):

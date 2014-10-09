@@ -3469,7 +3469,6 @@ class ArmoryMainWindow(QMainWindow):
       self.walletVisibleList.append(showByDefault)
       self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
 
-      ledger = []
       self.walletListChanged()
       self.mainWnd = self
 

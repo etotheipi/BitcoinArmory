@@ -65,6 +65,8 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
          //is ready by passing isNew as true.
          wltPtr->prepareScrAddrForMerge(saVec, true);
 
+         wltPtr->needsRefresh();
+
          return false;
       }
 
