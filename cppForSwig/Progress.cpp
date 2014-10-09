@@ -45,7 +45,9 @@ void ProgressReporterFilter::progress(
 
 ProgressFilter::ProgressFilter(ProgressReporter *to, uint64_t total, double scale)
    : ProgressReporterFilter(to, scale), calc_(total)
-{ }
+{
+   advance(0);
+}
 ProgressFilter::~ProgressFilter()
 {
    advance(calc_.total());
