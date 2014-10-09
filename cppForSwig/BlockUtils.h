@@ -244,9 +244,14 @@ public:
 
    // These are the high-level methods for reading block files, and indexing
    // the blockfile data.
-   bool     extractHeadersInBlkFile(uint32_t fnum, uint64_t offset=0);
+   bool     extractHeadersInBlkFile(
+      uint32_t fnum, uint64_t offset=0
+   );
    uint32_t detectAllBlkFiles(void);
-   bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint64_t offset=0);
+   bool     processNewHeadersInBlkFiles(
+      ProgressReporter &prog,
+      uint32_t fnumStart=0, uint64_t offset=0
+   );
    //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
    void     buildAndScanDatabases(
