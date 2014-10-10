@@ -1661,13 +1661,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       {
          uint32_t topScannedBlock = getTopScannedBlock();
          applyBlockRangeToDB(progPhase, topScannedBlock,
-            blockchain_.top().getBlockHeight() + 1, *scrAddrData_.get());
+            blockchain_.top().getBlockHeight(), *scrAddrData_.get());
       }
       else
       {
          if (scrAddrData_->numScrAddr() > 0)
             applyBlockRangeToDB(progPhase, scrAddrData_->scanFrom(),
-                              blockchain_.top().getBlockHeight() + 1,
+                              blockchain_.top().getBlockHeight(),
                               *scrAddrData_.get());
 
       }
