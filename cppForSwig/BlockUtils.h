@@ -355,11 +355,6 @@ public:
    //void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
    // Simple wrapper around the logger so that they are easy to access from SWIG
-   static void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
-   static void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
-   static void DisableCppLogging() { SETLOGLEVEL(LogLvlDisabled); }
-   static void EnableCppLogStdOut() { LOGENABLESTDOUT(); }
-   static void DisableCppLogStdOut() { LOGDISABLESTDOUT(); }
 
    ////////////////////////////////////////////////////////////////////////////////
    void debugPrintDatabases(void) { iface_->pprintBlkDataDB(BLKDATA); }

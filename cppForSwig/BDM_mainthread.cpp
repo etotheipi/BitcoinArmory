@@ -13,7 +13,7 @@ struct BDM_Inject::BDM_Inject_Impl
 {
    pthread_mutex_t notifierLock;
    pthread_cond_t notifier;
-   bool wantsToRun;
+   bool wantsToRun=false, failure=false;
 };
 
 BDM_Inject::BDM_Inject()
@@ -21,7 +21,6 @@ BDM_Inject::BDM_Inject()
    pimpl = new BDM_Inject_Impl;
    pthread_mutex_init(&pimpl->notifierLock, 0);
    pthread_cond_init(&pimpl->notifier, 0);
-   pimpl->wantsToRun = false;
 }
 
 BDM_Inject::~BDM_Inject()
@@ -86,14 +85,23 @@ void BDM_Inject::wait(unsigned ms)
 
 }
 
-void BDM_Inject::waitRun()
+void BDM_Inject::waitRun() throw (BDMFailure)
 {
    pthread_mutex_lock(&pimpl->notifierLock);
    while (pimpl->wantsToRun)
    {
       pthread_cond_wait(&pimpl->notifier, &pimpl->notifierLock); 
    }
+   const bool f = pimpl->failure;
    pthread_mutex_unlock(&pimpl->notifierLock);
+   
+   if (f)
+      throw BDMFailure();
+}
+
+void BDM_Inject::setFailureFlag()
+{
+   pimpl->failure = true;
 }
 
 struct BlockDataManagerThread::BlockDataManagerThreadImpl
@@ -105,6 +113,7 @@ struct BlockDataManagerThread::BlockDataManagerThreadImpl
    pthread_t tID=0;
    int mode=0;
    volatile bool run=false;
+   bool failure=false;
 };
 
 BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &config)
@@ -150,6 +159,10 @@ BlockDataViewer* BlockDataManagerThread::bdv()
    return pimpl->bdv;
 }
 
+void BlockDataManagerThread::setConfig(const BlockDataManagerConfig &config)
+{
+   pimpl->bdm->setConfig(config);
+}
 
 
 // stop the BDM thread
@@ -175,6 +188,7 @@ void BlockDataManagerThread::requestShutdown()
 
 
 void BlockDataManagerThread::run()
+try
 {
    BlockDataManager_LevelDB *const bdm = this->bdm();
    BlockDataViewer *const bdv = this->bdv();
@@ -299,6 +313,18 @@ void BlockDataManagerThread::run()
       
       pimpl->inject->wait(1000);
    }
+}
+catch (std::exception &e)
+{
+   LOGERR << "BDM thread failed: " << e.what();
+   pimpl->inject->setFailureFlag();
+   pimpl->inject->notify();
+}
+catch (...)
+{
+   LOGERR << "BDM thread failed: (unknown exception)";
+   pimpl->inject->setFailureFlag();
+   pimpl->inject->notify();
 }
 
 void* BlockDataManagerThread::thrun(void *_self)

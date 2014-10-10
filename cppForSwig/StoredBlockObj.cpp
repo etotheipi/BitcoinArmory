@@ -261,6 +261,12 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       LOGERR << "Unserializing header did not produce 80-byte object!";
       return;
    }
+   
+   if (numBytes_ > brr.getSize())
+   {
+      LOGERR << "Anticipated size of block header is more than what we have";
+      throw BlockDeserializingException();
+   }
 
    BtcUtils::getHash256(dataCopy_, thisHash_);
 

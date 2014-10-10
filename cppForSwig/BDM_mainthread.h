@@ -10,6 +10,9 @@
    #endif
 #endif
 
+#include "UniversalTimer.h"
+
+
 struct BlockDataManagerConfig;
 
 class BinaryData;
@@ -27,6 +30,12 @@ public:
 };
 
 // let an outsider call functions from the BDM thread
+
+class BDMFailure : public std::exception
+{
+public:
+   BDMFailure() { }
+};
 
 class BDM_Inject
 {
@@ -48,7 +57,10 @@ public:
    
    // once notify() is called, only returns on your
    // thread after run() is called
-   void waitRun();
+   void waitRun() throw (BDMFailure);
+   
+   // the BDM thread will call this if it fails
+   void setFailureFlag();
 };
 
 class BlockDataManager_LevelDB;
@@ -68,6 +80,8 @@ public:
    
    BlockDataManager_LevelDB *bdm();
    BlockDataViewer *bdv();
+   
+   void setConfig(const BlockDataManagerConfig &config);
 
    // stop the BDM thread
    void shutdownAndWait();
@@ -80,6 +94,14 @@ private:
 private:
    BlockDataManagerThread(const BlockDataManagerThread&);
 };
+
+inline void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
+inline void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
+inline void DisableCppLogging() { SETLOGLEVEL(LogLvlDisabled); }
+inline void EnableCppLogStdOut() { LOGENABLESTDOUT(); }
+inline void DisableCppLogStdOut() { LOGDISABLESTDOUT(); }
+
+
 
 // kate: indent-width 3; replace-tabs on;
 

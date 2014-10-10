@@ -213,7 +213,6 @@ class BlockDataManager(object):
       self.ldbdir = ""
 
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
-      self.bdm = self.bdmThread.bdm()
       self.bdv = self.bdmThread.bdv()
 
       # Flags
@@ -236,7 +235,7 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def goOnline(self, satoshiDir=None, levelDBDir=None, armoryHomeDir=None):
 
-      self.bdm.setConfig(self.bdmConfig())
+      self.bdmThread.setConfig(self.bdmConfig())
       
       self.bdmState = 'Scanning'
       self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
@@ -406,8 +405,8 @@ else:
    cpplf = cppLogFile
    if OS_WINDOWS and isinstance(cppLogFile, unicode):
       cpplf = cppLogFile.encode('utf8')
-   Cpp.BlockDataManager_LevelDB_StartCppLogging(cpplf, 4)
-   Cpp.BlockDataManager_LevelDB_EnableCppLogStdOut()    
+   Cpp.StartCppLogging(cpplf, 4)
+   Cpp.EnableCppLogStdOut()    
 
    #LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
 
