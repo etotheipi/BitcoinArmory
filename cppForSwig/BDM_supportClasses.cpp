@@ -166,6 +166,7 @@ void ScrAddrFilter::scanScrAddrMapInNewThread()
    pthread_t tid;
 
    pthread_create(&tid, 0, scanScrAddrThread, this);
+   pthread_detach(tid);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
