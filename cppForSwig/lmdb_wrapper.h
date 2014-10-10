@@ -112,7 +112,9 @@ public:
    LDBIter(void) { isDirty_=true;}
    LDBIter(LMDB::Iterator&& move);
    LDBIter(LDBIter&& move);
+   LDBIter(const LDBIter& cp);
    LDBIter& operator=(LMDB::Iterator&& move);
+   LDBIter& operator=(LDBIter&& move);
 
    bool isNull(void) { return !iter_.isValid(); }
    bool isValid(void) { return iter_.isValid(); }

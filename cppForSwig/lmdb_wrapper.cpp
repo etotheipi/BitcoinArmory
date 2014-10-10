@@ -34,6 +34,12 @@ LDBIter::LDBIter(LDBIter&& mv)
    isDirty_ = true;
 }
 
+LDBIter::LDBIter(const LDBIter& cp)
+: iter_(cp.iter_)
+{
+   isDirty_ = true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 LDBIter& LDBIter::operator=(LMDB::Iterator&& mv)
 { 
@@ -41,6 +47,12 @@ LDBIter& LDBIter::operator=(LMDB::Iterator&& mv)
    return *this;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+LDBIter& LDBIter::operator=(LDBIter&& mv)
+{ 
+   iter_ = std::move(mv.iter_);
+   return *this;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LDBIter::isValid(DB_PREFIX dbpref)
