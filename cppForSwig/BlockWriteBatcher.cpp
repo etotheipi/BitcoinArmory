@@ -1141,7 +1141,6 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    //read only db txn
    LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
 
-   
    vector<StoredHeader*> shVec;
 
    uint32_t hgt = dis->tempBlockData_->topLoadedBlock_;
@@ -1283,6 +1282,10 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          progress.advance(totalBlockDataProcessed);
       }
       
+      if (grabThread.joinable())
+         grabThread.join();
+
+      //join on grabThread before deleting the container shared with the thread
       delete tempBlockData_;
       tempBlockData_ = nullptr;
 
@@ -1290,13 +1293,15 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
    }
    catch (...)
    {
-      delete tempBlockData_;
-      tempBlockData_ = nullptr;
-
       clearTransactions();
       
       if (grabThread.joinable())
          grabThread.join();
+      
+      //join on grabThread before deleting the container shared with the thread
+      delete tempBlockData_;
+      tempBlockData_ = nullptr;
+      
       throw;
    }
    

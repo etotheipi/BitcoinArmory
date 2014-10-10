@@ -208,10 +208,12 @@ class BlockDataManager(object):
       #register callbacks
       self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
+      
+      self.ldbdir = ""
 
-      self.bdmThread = None
-      self.bdm = None
-      self.bdv = None
+      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
+      self.bdm = self.bdmThread.bdm()
+      self.bdv = self.bdmThread.bdv()
 
       # Flags
       self.aboutToRescan = False
@@ -232,19 +234,8 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def goOnline(self, satoshiDir=None, levelDBDir=None, armoryHomeDir=None):
-      if satoshiDir:
-         self.setSatoshiDir(satoshiDir)
-      if levelDBDir:
-         self.setLevelDBDir(levelDBDir)
-      if self.bdm:
-         self.bdmThread = None
-         self.bdm = None
-         self.bdv = None
 
-      self.bdmThread = Cpp.BlockDataManagerThread(
-            self.bdmConfig(armoryHomeDir=armoryHomeDir));
-      self.bdm = self.bdmThread.bdm()
-      self.bdv = self.bdmThread.bdv()
+      self.bdm.setConfig(self.bdmConfig())
       
       self.bdmState = 'Scanning'
       self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
@@ -292,18 +283,23 @@ class BlockDataManager(object):
       
    #############################################################################
    @ActLikeASingletonBDM
-   def bdmConfig(self, armoryHomeDir=None):
-      # Check for the existence of the Bitcoin-Qt directory
-      if not os.path.exists(self.btcdir):
-         raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
+   def bdmConfig(self, armoryHomeDir=None, forInit=False):
 
-      blkdir = os.path.join(self.btcdir, 'blocks')
-      blk1st = os.path.join(blkdir, 'blk00000.dat')
-
-      # ... and its blk000X.dat files
-      if not os.path.exists(blk1st):
-         LOGERROR('Blockchain data not available: %s', blk1st)
-         raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
+      
+      blkdir = ""
+      
+      if forInit == False:
+      # Check for the existence of the Bitcoin-Qt directory         
+         if not os.path.exists(self.btcdir):
+            raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
+   
+         blkdir = os.path.join(self.btcdir, 'blocks')
+         blk1st = os.path.join(blkdir, 'blk00000.dat')
+   
+         # ... and its blk000X.dat files
+         if not os.path.exists(blk1st):
+            LOGERROR('Blockchain data not available: %s', blk1st)
+            raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
       if armoryHomeDir == None:
          armoryHomeDir = ARMORY_HOME_DIR

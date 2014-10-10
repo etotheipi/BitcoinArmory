@@ -213,6 +213,8 @@ void BlockDataManagerThread::run()
       try
       {
          //don't call this unless you're trying to get online
+         bdm->openDatabase();
+
          if(pimpl->mode==0) bdm->doInitialSyncOnLoad(progress);
          else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(progress);
          else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(progress);

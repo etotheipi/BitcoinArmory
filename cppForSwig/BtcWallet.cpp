@@ -29,11 +29,6 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
                               uint32_t      lastTimestamp,
                               uint32_t      lastBlockNum)
 {
-   if (scrAddr.getSize() != 21)
-   {
-      LOGERR << "scrAddr is " << scrAddr.getSize() << " bytes long!";
-      return;
-   }
    if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
 

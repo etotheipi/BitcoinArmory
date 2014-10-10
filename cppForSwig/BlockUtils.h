@@ -175,6 +175,8 @@ public:
    const Blockchain& blockchain() const { return blockchain_; }
    
    const BlockDataManagerConfig &config() const { return config_; }
+   void setConfig(const BlockDataManagerConfig &bdmConfig);
+   void openDatabase(void);
 
 private:
    //////////////////////////////////////////////////////////////////////////

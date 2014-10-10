@@ -6479,21 +6479,10 @@ protected:
       config.magicBytes = magic_;
 
       theBDM = new BlockDataManager_LevelDB(config);
+      theBDM->openDatabase();
       iface_ = theBDM->getIFace();
 
       theBDV = new BlockDataViewer(theBDM);
-
-      /*iface_->openDatabases(
-         LMDB::ReadWrite,
-         config.levelDBLocation,
-         config.genesisBlockHash,
-         config.genesisTxHash,
-         config.magicBytes,
-         config.armoryDbType,
-         config.pruneType);
-
-      if (!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";*/
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -6767,6 +6756,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    delete theBDV;
 
    theBDM = new BlockDataManager_LevelDB(config);
+   theBDM->openDatabase();
    theBDV = new BlockDataViewer(theBDM);
    iface_ = theBDM->getIFace();
 
@@ -7753,6 +7743,7 @@ protected:
       config.magicBytes = magic_;
       
       theBDM = new BlockDataManager_LevelDB(config);
+      theBDM->openDatabase();
       theBDV = new BlockDataViewer(theBDM);
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
@@ -7852,6 +7843,8 @@ protected:
    BinaryData scrAddrB_;
    BinaryData scrAddrC_;
    BinaryData scrAddrD_;
+
+   NullProgressReporter nullProg_;
 };
 
 
@@ -8197,6 +8190,7 @@ protected:
       config.magicBytes = magic_;
       
       theBDM = new BlockDataManager_LevelDB(config);
+      theBDM->openDatabase();
       theBDV = new BlockDataViewer(theBDM);
       iface_ = theBDM->getIFace();
      

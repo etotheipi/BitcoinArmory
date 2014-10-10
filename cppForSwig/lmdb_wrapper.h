@@ -111,6 +111,7 @@ public:
    // fill_cache argument should be false for large bulk scans
    LDBIter(void) { isDirty_=true;}
    LDBIter(LMDB::Iterator&& move);
+   LDBIter(LDBIter&& move);
    LDBIter& operator=(LMDB::Iterator&& move);
 
    bool isNull(void) { return !iter_.isValid(); }

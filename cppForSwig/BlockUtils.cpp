@@ -416,14 +416,6 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
 {
    scrAddrData_.reset( new BDM_ScrAddrFilter(this) );
 
-   LOGINFO << "Set home directory: " << config_.homeDirLocation;
-   LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
-   LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
-   if(config_.genesisBlockHash.getSize() == 0)
-   {
-      throw runtime_error("ERROR: Genesis Block Hash not set!");
-   }
-
    numBlkFiles_ = UINT32_MAX;
 
    endOfLastBlockByte_ = 0;
@@ -447,20 +439,39 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    corruptHeadersDB_ = false;
 
    allScannedUpToBlk_ = 0;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::setConfig(
+   const BlockDataManagerConfig &bdmConfig)
+{
+   config_ = bdmConfig;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::openDatabase()
+{
+   LOGINFO << "Set home directory: " << config_.homeDirLocation;
+   LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
+   LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
+   if (config_.genesisBlockHash.getSize() == 0)
+   {
+      throw runtime_error("ERROR: Genesis Block Hash not set!");
+   }
 
    detectAllBlkFiles();
-   
-   if(numBlkFiles_==0)
+
+   if (numBlkFiles_ == 0)
    {
       throw runtime_error("No blockfiles could be found!");
    }
-   
+
    iface_->openDatabases(
-      config_.levelDBLocation, 
-      config_.genesisBlockHash, 
-      config_.genesisTxHash, 
+      config_.levelDBLocation,
+      config_.genesisBlockHash,
+      config_.genesisTxHash,
       config_.magicBytes,
-      config_.armoryDbType, 
+      config_.armoryDbType,
       config_.pruneType);
 }
 
@@ -1593,7 +1604,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // If we're going to be rescanning, reset the wallets
    if(forceRescan)
    {
-      LOGINFO << "Resetting wallets for rescan";
       skipFetch = true;
       deleteHistories();
       scrAddrData_->clear();
@@ -2001,9 +2011,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    sdbi.appliedToHgt_ = 0;
    iface_->putStoredDBInfo(BLKDATA, sdbi);
-
-   std::shared_ptr<LDBIter> ldbIter;
-
    //////////
 
    bool done = false;
@@ -2013,6 +2020,8 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    while (!done)
    {
+      std::shared_ptr<LDBIter> ldbIter; 
+
       try
       {
          ldbIter = make_shared<LDBIter>(iface_->getIterator(BLKDATA));
