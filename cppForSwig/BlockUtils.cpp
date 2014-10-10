@@ -384,10 +384,34 @@ protected:
       return isRunning_;
    }
    
-   virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)
+   virtual void applyBlockRangeToDB(
+      uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
+   )
    {
-      NullProgressReporter np;
-      bdm_->applyBlockRangeToDB(np, startBlock, endBlock, *this);
+      class WalletIdProgressReporter : public ProgressReporter
+      {
+         BtcWallet *const wltPtr;
+         const function<void(const BinaryData&, double prog,unsigned time)> &cb;
+      public:
+         WalletIdProgressReporter(
+            BtcWallet *wltPtr,
+            const function<void(const BinaryData&, double prog,unsigned time)> &cb
+         )
+            : wltPtr(wltPtr), cb(cb) {}
+         
+         virtual void progress(
+            double progress, unsigned secondsRemaining
+         )
+         {
+            const BinaryData empty;
+            const BinaryData &wltId = wltPtr ? wltPtr->walletID() : empty;
+            cb(wltId, progress, secondsRemaining);
+         }
+      };
+   
+      WalletIdProgressReporter progress(wltPtr, bdm_->rescanThreadProgressCallback_);
+      
+      bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this);
    }
    
    virtual uint32_t currentTopBlockHeight() const
@@ -439,6 +463,9 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    corruptHeadersDB_ = false;
 
    allScannedUpToBlk_ = 0;
+   
+   rescanThreadProgressCallback_ =
+      [] (const BinaryData&, double,unsigned) {};
 }
 
 /////////////////////////////////////////////////////////////////////////////

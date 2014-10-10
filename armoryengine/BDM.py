@@ -58,9 +58,10 @@ class PySide_CallBack(Cpp.BDM_CallBack):
    
       cppPushTrigger[0](act, arglist)
       
-   def progress(self, phase, prog, seconds):
+   def progress(self, phase, walletId, prog, seconds):
       try:
          self.bdm.progressPhase = phase
+         self.bdm.walletId = walletId
          self.bdm.progressComplete = prog
          self.bdm.secondsRemaining = seconds
       except:

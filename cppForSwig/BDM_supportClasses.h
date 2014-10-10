@@ -162,7 +162,9 @@ public:
 
 protected:
    virtual bool bdmIsRunning() const=0;
-   virtual void applyBlockRangeToDB(uint32_t startBlock, uint32_t endBlock)=0;
+   virtual void applyBlockRangeToDB(
+      uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
+   )=0;
    virtual uint32_t currentTopBlockHeight() const=0;
    virtual ScrAddrFilter *copy()=0;
    

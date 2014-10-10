@@ -159,6 +159,7 @@ public:
    void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, bool isNew);
 
    void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
+   const BinaryData& walletID() const { return walletID_; }
 
    uint8_t getMergeFlag(void) { return mergeFlag_; }
 

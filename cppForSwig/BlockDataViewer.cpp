@@ -553,20 +553,17 @@ void BlockDataViewer::scanScrAddrVector(
    uint32_t startBlock, uint32_t endBlock) const
 {
    //create new ScrAddrFilter for the occasion
-   ScrAddrFilter *SAF = saf_->copy();
+   shared_ptr<ScrAddrFilter> saf( saf_->copy() );
 
    //register scrAddr with it
    for (auto scrAddrPair : scrAddrMap)
-      SAF->regScrAddrForScan(scrAddrPair.first, startBlock, nullptr);
+      saf->regScrAddrForScan(scrAddrPair.first, startBlock, nullptr);
 
    //compute blockHeightCutOff
-   SAF->scanFrom();
+   saf->scanFrom();
 
    //scan addresses
-   SAF->applyBlockRangeToDB(startBlock, endBlock);
-
-   //cleanup
-   delete SAF;
+   saf->applyBlockRangeToDB(startBlock, endBlock, nullptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

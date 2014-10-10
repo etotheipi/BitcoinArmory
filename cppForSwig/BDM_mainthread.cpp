@@ -181,17 +181,18 @@ void BlockDataManagerThread::run()
    
    BDM_CallBack *const callback = pimpl->callback;
 
+   
    {
       double lastprog=0;
       unsigned lasttime=0;
       
-      class BDMStopped
+      class BDMStopRequest
       {
       public:
-         virtual ~BDMStopped() { }
+         virtual ~BDMStopRequest() { }
       };
-      
-      const auto progress
+     
+      const auto loadProgress
          = [&] (unsigned phase, double prog,unsigned time)
       {
          if (prog == lastprog && time==lasttime)
@@ -200,12 +201,12 @@ void BlockDataManagerThread::run()
          lastprog = prog;
          lasttime = time;
          
-         callback->progress(phase, lastprog, lasttime);
+         callback->progress(phase, BinaryData(), lastprog, lasttime);
          
          if (!pimpl->run)
          {
             LOGINFO << "Stop requested detected";
-            throw BDMStopped();
+            throw BDMStopRequest();
          }
          
       };
@@ -215,18 +216,36 @@ void BlockDataManagerThread::run()
          //don't call this unless you're trying to get online
          bdm->openDatabase();
 
-         if(pimpl->mode==0) bdm->doInitialSyncOnLoad(progress);
-         else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(progress);
-         else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(progress);
+         if(pimpl->mode==0) bdm->doInitialSyncOnLoad(loadProgress);
+         else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
+         else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
 
          bdv->scanWallets();
       }
-      catch (BDMStopped&)
+      catch (BDMStopRequest&)
       {
          LOGINFO << "UI asked build/scan thread to finish";
          return;
       }
    }
+   
+   double lastprog=0;
+   unsigned lasttime=0;
+   
+   const auto rescanProgress
+      = [&] (const BinaryData &wltId, double prog,unsigned time)
+   {
+      if (prog == lastprog && time==lasttime)
+         return; // don't go to python if nothing's changed
+      //callback->progress("blk", prog, time);
+      lastprog = prog;
+      lasttime = time;
+      
+      callback->progress(5, wltId, lastprog, lasttime);
+   };
+   
+   bdm->setRescanThreadProgressCallback(rescanProgress);
+   
    
    //push 'bdm is ready' to Python
    callback->run(1, 0, bdm->getTopBlockHeight());

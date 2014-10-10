@@ -129,7 +129,7 @@ private:
 
    BDM_Inject*                      bdmInjectPtr_ = nullptr;
 
-private:
+   function<void(const BinaryData&, double prog,unsigned time)> rescanThreadProgressCallback_;
   
    // Variables that will be updated as the blockchain loads:
    // can be used to report load progress
@@ -177,6 +177,13 @@ public:
    const BlockDataManagerConfig &config() const { return config_; }
    void setConfig(const BlockDataManagerConfig &bdmConfig);
    void openDatabase(void);
+   
+   void setRescanThreadProgressCallback(
+      const function<void(const BinaryData&, double prog,unsigned time)> &cb
+   )
+   {
+      rescanThreadProgressCallback_ = cb;
+   }
 
 private:
    //////////////////////////////////////////////////////////////////////////

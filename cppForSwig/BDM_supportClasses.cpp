@@ -112,6 +112,11 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
 {
    ScrAddrFilter* sasd = static_cast<ScrAddrFilter*>(in);
 
+   const auto& scraddrs = sasd->getScrAddrMap();
+   
+   BtcWallet *const wltPtr
+      = scraddrs.empty() ? nullptr : scraddrs.begin()->second.wltPtr_;
+         
    uint32_t startBlock = sasd->scanFrom();
    uint32_t endBlock = sasd->currentTopBlockHeight()+1;
   
@@ -120,7 +125,7 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
       //if these aren't new addresses, scan them
       while (startBlock < endBlock)
       {
-         sasd->applyBlockRangeToDB(startBlock, endBlock);
+         sasd->applyBlockRangeToDB(startBlock, endBlock, wltPtr);
 
          startBlock = endBlock;
          endBlock = sasd->currentTopBlockHeight() + 1;
@@ -130,26 +135,25 @@ void* ScrAddrFilter::scanScrAddrThread(void *in)
    //merge with main ScrAddrScanData object
    sasd->merge();
 
-   map<BtcWallet*, vector<BinaryData> > addressPerWallet;
-   BtcWallet* wltPtr=nullptr;
-
+   
+   vector<BinaryData> addressVec;
+   addressVec.reserve(scraddrs.size());
+   
    //notify the wallets that the scrAddr are ready
-   for (auto& scrAddrPair : sasd->getScrAddrMap())
+   for (auto& scrAddrPair : scraddrs)
    {
-      wltPtr = scrAddrPair.second.wltPtr_;
-
-      auto& addressVec = addressPerWallet[wltPtr];
       addressVec.push_back(scrAddrPair.first);
    }
    
-   for (auto& addressVec : addressPerWallet)
-      addressVec.first->prepareScrAddrForMerge(addressVec.second, 
-                                               sasd->freshAddresses_);
+   if (!scraddrs.empty())
+   {
+      
+      wltPtr->prepareScrAddrForMerge(addressVec, sasd->freshAddresses_);
 
-   //notify the bdv that it needs to refresh
-   if (wltPtr != nullptr)
+      //notify the bdv that it needs to refresh
       wltPtr->needsRefresh();
-
+   }
+   
    //clean up
    delete sasd;
 
@@ -220,7 +224,7 @@ void ScrAddrFilter::checkForMerge()
       uint32_t startBlock = topBlock - 100;
       if (topBlock < 100)
          startBlock = 0;
-      applyBlockRangeToDB(startBlock, topBlock + 1);
+      applyBlockRangeToDB(startBlock, topBlock + 1, nullptr);
 
       //grab merge lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
