@@ -1029,19 +1029,6 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 //   TIMER_START("commitToDB");
 
    {
-      for (auto& stxPair : bwbPtr->stxToModify_)
-         bwbPtr->iface_->updateStoredTx(*stxPair.second);
-      
-      bwbPtr->txn_.commit();
-      bwbPtr->txn_.begin();
-
-      for (auto& sbh : bwbPtr->sbhToUpdate_)
-         updateBlkDataHeader(bwbPtr->config_, bwbPtr->iface_, *sbh);
-
-      bwbPtr->txn_.commit();
-      bwbPtr->txn_.begin();
-
-
       for (auto& sshPair : bwbPtr->sshToModify_)
       {
          sshPair.second.alreadyScannedUpToBlk_ 
@@ -1061,6 +1048,23 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
             subSshPtr->accessing_.clear(memory_order_relaxed);
          }
       }
+      
+      bwbPtr->txn_.commit();
+      bwbPtr->txn_.begin();
+      
+      for (auto& stxPair : bwbPtr->stxToModify_)
+         bwbPtr->iface_->updateStoredTx(*stxPair.second);
+      
+      bwbPtr->txn_.commit();
+      bwbPtr->txn_.begin();
+
+      for (auto& sbh : bwbPtr->sbhToUpdate_)
+         updateBlkDataHeader(bwbPtr->config_, bwbPtr->iface_, *sbh);
+
+      bwbPtr->txn_.commit();
+      bwbPtr->txn_.begin();
+
+
 
       for (auto& toDel : bwbPtr->keysToDelete_)
          bwbPtr->iface_->deleteValue(BLKDATA, toDel);
