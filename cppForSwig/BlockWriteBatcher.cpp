@@ -1198,97 +1198,111 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
    resetTransactions();
 
    thread grabThread;
-   
-   uint64_t totalBlockDataProcessed=0;
-
-   for (uint32_t i = tempBlockData_->startBlock_;
-        i <= tempBlockData_->endBlock_;
-        i++)
+   try
    {
-      StoredHeader* sbh;
-      uint32_t vectorIndex;
-      
-      if (resetTxn_ == true)
-      {
-         resetTransactions();
-         cleanUpSshToModify();
-      }
+      uint64_t totalBlockDataProcessed=0;
 
-      if (!tempBlockData_->fetching_)
-      if (tempBlockData_->topLoadedBlock_ <=
-         tempBlockData_->endBlock_ &&
-         tempBlockData_->bufferLoad_ < UPDATE_BYTES_THRESH / 6)
+      for (uint32_t i = tempBlockData_->startBlock_;
+         i <= tempBlockData_->endBlock_;
+         i++)
       {
-         //block buffer is below half load, refill it in a side thread
-         tempBlockData_->fetching_ = true;
+         StoredHeader* sbh;
+         uint32_t vectorIndex;
+         
+         if (resetTxn_ == true)
+         {
+            resetTransactions();
+            cleanUpSshToModify();
+         }
 
-         //this is a single entrant block, so there's only ever one 
-         //grabBlocksFromDB thread running. Preemptively detach tID, so that
-         //the current grabThread is joinable (for the clean up process)
-         if(grabThread.joinable())
-            grabThread.detach();
-         grabThread = thread(grabBlocksFromDB, this);
-      }
+         if (!tempBlockData_->fetching_)
+         if (tempBlockData_->topLoadedBlock_ <=
+            tempBlockData_->endBlock_ &&
+            tempBlockData_->bufferLoad_ < UPDATE_BYTES_THRESH / 6)
+         {
+            //block buffer is below half load, refill it in a side thread
+            tempBlockData_->fetching_ = true;
 
-      //make sure there's enough data to grab from the block buffer
-      while (i >= tempBlockData_->topLoadedBlock_)
-      {
-         usleep(10);
+            //this is a single entrant block, so there's only ever one 
+            //grabBlocksFromDB thread running. Preemptively detach tID, so that
+            //the current grabThread is joinable (for the clean up process)
+            if(grabThread.joinable())
+               grabThread.detach();
+            grabThread = thread(grabBlocksFromDB, this);
+         }
+
+         //make sure there's enough data to grab from the block buffer
+         while (i >= tempBlockData_->topLoadedBlock_)
+         {
+            usleep(10);
+            if (i > tempBlockData_->endBlock_)
+               break;
+         }
+
          if (i > tempBlockData_->endBlock_)
             break;
+
+         //grab lock
+         while (tempBlockData_->lock_.fetch_or(1, memory_order_relaxed));
+         vectorIndex = i - tempBlockData_->blockOffset_;
+
+         StoredHeader** sbhEntry = &tempBlockData_->sbhVec_[vectorIndex];
+         sbh = *sbhEntry;
+         *sbhEntry = nullptr;
+
+         //clean up used vector indexes
+         if (i>0 && (i%10000) == 0)
+         {
+            tempBlockData_->sbhVec_.erase(
+               tempBlockData_->sbhVec_.begin(),
+               tempBlockData_->sbhVec_.begin() + 10000);
+
+            tempBlockData_->blockOffset_ += 10000;
+         }
+
+         //release lock
+         tempBlockData_->lock_.store(0, memory_order_relaxed);
+
+         uint32_t blockSize = sbh->numBytes_;
+
+         //scan block
+         applyBlockToDB(*sbh, tempBlockData_->scrAddrFilter_);
+
+         //decrement bufferload
+         if (tempBlockData_->bufferLoad_ < blockSize)
+         {
+            LOGWARN << "bufferlLoad_ < blockSize!";
+            throw;
+         }
+         tempBlockData_->bufferLoad_ -= blockSize;
+
+         if (i % 2500 == 2499)
+            LOGWARN << "Finished applying blocks up to " << (i + 1);
+         
+         totalBlockDataProcessed += blockSize;
+         progress.advance(totalBlockDataProcessed);
       }
-
-      if (i > tempBlockData_->endBlock_)
-         break;
-
-      //grab lock
-      while (tempBlockData_->lock_.fetch_or(1, memory_order_relaxed));
-      vectorIndex = i - tempBlockData_->blockOffset_;
-
-      StoredHeader** sbhEntry = &tempBlockData_->sbhVec_[vectorIndex];
-      sbh = *sbhEntry;
-      *sbhEntry = nullptr;
-
-      //clean up used vector indexes
-      if (i>0 && (i%10000) == 0)
-      {
-         tempBlockData_->sbhVec_.erase(
-            tempBlockData_->sbhVec_.begin(),
-            tempBlockData_->sbhVec_.begin() + 10000);
-
-         tempBlockData_->blockOffset_ += 10000;
-      }
-
-      //release lock
-      tempBlockData_->lock_.store(0, memory_order_relaxed);
-
-      uint32_t blockSize = sbh->numBytes_;
-
-      //scan block
-      applyBlockToDB(*sbh, tempBlockData_->scrAddrFilter_);
-
-      //decrement bufferload
-      if (tempBlockData_->bufferLoad_ < blockSize)
-      {
-         LOGWARN << "bufferlLoad_ < blockSize!";
-         throw;
-      }
-      tempBlockData_->bufferLoad_ -= blockSize;
-
-      if (i % 2500 == 2499)
-         LOGWARN << "Finished applying blocks up to " << (i + 1);
       
-      totalBlockDataProcessed += blockSize;
-      progress.advance(totalBlockDataProcessed);
+      delete tempBlockData_;
+      tempBlockData_ = nullptr;
+
+      clearTransactions();
+   }
+   catch (...)
+   {
+      delete tempBlockData_;
+      tempBlockData_ = nullptr;
+
+      clearTransactions();
+      
+      if (grabThread.joinable())
+         grabThread.join();
+      throw;
    }
    
    if (grabThread.joinable())
       grabThread.join();
 
-   delete tempBlockData_;
-   tempBlockData_ = nullptr;
-
-   clearTransactions();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

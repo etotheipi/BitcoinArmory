@@ -55,7 +55,7 @@ class ProgressReporterFilter : public ProgressReporter
    const double scale_;
    double progress_=0.0;
    unsigned secondsRemaining_=0;
-   
+
 public:
    ProgressReporterFilter(ProgressReporter *to, double scale=1.0);
    

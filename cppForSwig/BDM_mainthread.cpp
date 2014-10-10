@@ -204,6 +204,7 @@ void BlockDataManagerThread::run()
          
          if (!pimpl->run)
          {
+            LOGINFO << "Stop requested detected";
             throw BDMStopped();
          }
          
