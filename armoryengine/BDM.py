@@ -211,6 +211,7 @@ class BlockDataManager(object):
 
       self.bdmThread = None
       self.bdm = None
+      self.bdv = None
 
       # Flags
       self.aboutToRescan = False
@@ -238,6 +239,7 @@ class BlockDataManager(object):
       if self.bdm:
          self.bdmThread = None
          self.bdm = None
+         self.bdv = None
 
       self.bdmThread = Cpp.BlockDataManagerThread(
             self.bdmConfig(armoryHomeDir=armoryHomeDir));
