@@ -1243,7 +1243,8 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          *sbhEntry = nullptr;
 
          //clean up used vector indexes
-         if (i>0 && (i%10000) == 0 && tempBlockData_->sbhVec_.size() > 10000)
+         uint32_t nParsedBlocks = i - tempBlockData_->startBlock_;
+         if (nParsedBlocks > 0 && (nParsedBlocks % 10000) == 0)
          {
             tempBlockData_->sbhVec_.erase(
                tempBlockData_->sbhVec_.begin(),
