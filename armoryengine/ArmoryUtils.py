@@ -50,9 +50,6 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 from twisted.internet.protocol import Protocol, ClientFactory
 
 
-cppPushTrigger = []
-
-
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 92, 99, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)

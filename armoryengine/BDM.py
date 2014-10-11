@@ -56,7 +56,8 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       elif action == 5:
          act = 'refresh'
    
-      cppPushTrigger[0](act, arglist)
+      for cppNotificationListener in self.bdm.cppNotificationListenerList:
+         cppNotificationListener(act, arglist)
       
    def progress(self, phase, walletId, prog, seconds):
       try:
@@ -213,6 +214,7 @@ class BlockDataManager(object):
       self.ldbdir = ""
 
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
+      self.bdm = self.bdmThread.bdm()
       self.bdv = self.bdmThread.bdv()
 
       # Flags
@@ -230,7 +232,19 @@ class BlockDataManager(object):
       self.lastPctLoad = 0
       
       self.currentBlock = 0
-      
+      self.cppNotificationListenerList = []
+   
+   #############################################################################
+   @ActLikeASingletonBDM
+   def registerCppNotification(self, cppNotificationListener):
+      self.cppNotificationListenerList.append(cppNotificationListener)
+    
+   #############################################################################
+   @ActLikeASingletonBDM
+   def unregisterCppNotification(self, cppNotificationListener):
+      if cppNotificationListener in self.cppNotificationListenerList:
+         self.cppNotificationListenerList.remove(cppNotificationListener)
+   
    #############################################################################
    @ActLikeASingletonBDM
    def goOnline(self, satoshiDir=None, levelDBDir=None, armoryHomeDir=None):

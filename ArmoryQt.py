@@ -179,8 +179,8 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
       
       #push model BDM notify signal
-      self.connect(self, SIGNAL('cppNotify'), self.cppNotify)
-      cppPushTrigger.append(self.cppNotifySignal)
+      self.connect(self, SIGNAL('cppNotify'), self.handleCppNotification)
+      TheBDM.registerCppNotification(self.cppNotifySignal)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -6170,8 +6170,7 @@ class ArmoryMainWindow(QMainWindow):
          didAffectUs = prevLedgSize[wltID] != newLedgerSize
 
    #############################################################################
-   # AOTODO handleCppNotification
-   def cppNotify(self, action, args):
+   def handleCppNotification(self, action, args):
 
       if action == 'finishLoadBlockchain':
          #Blockchain just finished loading, finish initializing UI and render the
