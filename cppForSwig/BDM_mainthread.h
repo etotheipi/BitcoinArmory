@@ -57,7 +57,7 @@ public:
    
    // once notify() is called, only returns on your
    // thread after run() is called
-   void waitRun() throw (BDMFailure);
+   void waitRun();
    
    // the BDM thread will call this if it fails
    void setFailureFlag();

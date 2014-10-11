@@ -85,7 +85,7 @@ void BDM_Inject::wait(unsigned ms)
 
 }
 
-void BDM_Inject::waitRun() throw (BDMFailure)
+void BDM_Inject::waitRun()
 {
    pthread_mutex_lock(&pimpl->notifierLock);
    while (pimpl->wantsToRun)

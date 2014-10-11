@@ -150,6 +150,18 @@ namespace std
 	$result = thisList;
 }
 
+%except(python)
+{
+	try
+	{
+		$function
+	}
+	catch (BDMFailure&)
+	{
+		SWIG_exception(SWIG_RuntimeError,"Unknown exception");
+	}
+}
+
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
 %include "BlockUtils.h"
