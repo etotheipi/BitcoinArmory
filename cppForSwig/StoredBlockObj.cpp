@@ -1590,7 +1590,7 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh,
 
 ////////////////////////////////////////////////////////////////////////////////
 // This adds the TxOut if it doesn't exist yet
-uint64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
+int64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
    BinaryData txOutKey8B,
    BinaryData txInKey8B,
    uint32_t& commitId,
@@ -1617,16 +1617,19 @@ uint64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db,
       return UINT64_MAX;
    }
 
-   uint64_t val = iter->second.markTxOutSpent(db, txOutKey8B, commitId, 
+   int64_t val = iter->second.markTxOutSpent(db, txOutKey8B, commitId, 
                                               dbType, pruneType);
-   if (val != UINT64_MAX)
+   if (val > 0)
       totalUnspent_ -= val;
+   else if (alreadyScannedUpToBlk_ < 
+            DBUtils::hgtxToHeight(txInKey8B.getSliceCopy(0, 4)))
+      totalUnspent_ += val;
 
    return val;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+int64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                uint64_t&  additionalSize,
                                                uint32_t& commitId,
@@ -1674,7 +1677,7 @@ uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData
 
    StoredSubHistory & subssh = iter->second;
    size_t prevSize = subssh.txioMap_.size();
-   uint64_t val = subssh.markTxOutUnspent(db, txOutKey8B, 
+   int64_t val = subssh.markTxOutUnspent(db, txOutKey8B, 
                                           dbType, pruneType, 
                                           additionalSize,
                                           value, commitId,
@@ -1685,7 +1688,11 @@ uint64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData
    // Value returned above is zero if it's multisig, so no need to check here
    // Also, markTxOutUnspent doesn't indicate whether a new entry was added,
    // so we use txioSet_.size() to update appropriately.
-   totalUnspent_   += val;
+   if (val > 0)
+      totalUnspent_ += val;
+   else if (alreadyScannedUpToBlk_ < DBUtils::hgtxToHeight(first4))
+      totalUnspent_ -= val;
+
    totalTxioCount_ += (newSize - prevSize); // should only ever be +=0 or +=1
 
    return val;
@@ -2121,7 +2128,7 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredSubHistory::markTxOutSpent(
+int64_t StoredSubHistory::markTxOutSpent(
    LMDBBlockDatabase *db,
    BinaryData txOutKey8B, uint32_t& commitId,
    ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
@@ -2136,12 +2143,12 @@ uint64_t StoredSubHistory::markTxOutSpent(
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
    {
-      LOGERR << "We should've found an STXO in the SSH but didn't";
+      //LOGERR << "We should've found an STXO in the SSH but didn't";
       return UINT64_MAX;
    }
 
    if (!txioptr->isUTXO())
-      return 0;
+      return (txioptr->isMultisig() ? 0 : (int64_t)txioptr->getValue() * -1);
 
    //make sure this object isn't being read by the commit thread
    while (accessing_.test_and_set(memory_order_relaxed));
@@ -2267,7 +2274,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 //   
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
-uint64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+int64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                                   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                   uint64_t&  additionalSize,
                                                   uint64_t   value,
@@ -2286,8 +2293,8 @@ uint64_t StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData tx
 
       if(txioptr->isUTXO() == true)
       {
-         LOGWARN << "STXO already marked unspent in SSH";
-         return 0;
+         //LOGWARN << "STXO already marked unspent in SSH";
+         return (txioptr->isMultisig() ? 0 : (int64_t)txioptr->getValue() * -1);
       }
 
       while(accessing_.test_and_set(memory_order_relaxed));

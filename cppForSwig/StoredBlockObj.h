@@ -533,11 +533,11 @@ public:
 
    
    // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+   int64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                              uint32_t& commitId,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
-   uint64_t markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
+   int64_t markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                              uint64_t&  additionalSize,
                              uint64_t   value,
@@ -641,7 +641,7 @@ public:
                        bool withMultisig=false);
 
    // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+   int64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                uint64_t&  additionalSize,
                                uint32_t& commitId, 
@@ -649,7 +649,7 @@ public:
                                bool       isCoinbase= false,
                                bool       isMultisigRef=false);
 
-   uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+   int64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
                              uint32_t& commitId,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);

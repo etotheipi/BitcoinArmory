@@ -332,7 +332,6 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
       return /*false*/;
    }
 
-   
    mostRecentBlockApplied_ = sud.blockHeight_;
 
    ///// Put the STXOs back into the DB which were removed by this block
@@ -896,11 +895,11 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-thread BlockWriteBatcher::commit(bool force)
+thread BlockWriteBatcher::commit(bool finalCommit)
 {
    if (lock_.try_lock() == false)
    {
-      if (!force && dbUpdateSize_ < UPDATE_BYTES_THRESH * 2)
+      if (!finalCommit && dbUpdateSize_ < UPDATE_BYTES_THRESH * 2)
          return thread();
    }
    else
@@ -931,6 +930,7 @@ thread BlockWriteBatcher::commit(bool force)
          sshToCopy.totalUnspent_ = ssh.second.totalUnspent_;
          sshToCopy.uniqueKey_ = ssh.second.uniqueKey_;
          sshToCopy.version_ = ssh.second.version_;
+         sshToCopy.alreadyScannedUpToBlk_ = mostRecentBlockApplied_;
 
          bwbSwapPtr->sshToModify_[ssh.first] = sshToCopy;
       }
@@ -945,7 +945,9 @@ thread BlockWriteBatcher::commit(bool force)
    }
 
    bwbSwapPtr->dbUpdateSize_ = dbUpdateSize_;
+
    bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_ +1;
+
    bwbSwapPtr->parent_ = this;
       
    dbUpdateSize_ = 0;
@@ -1030,23 +1032,16 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 
    {
       for (auto& sshPair : bwbPtr->sshToModify_)
-      {
-         sshPair.second.alreadyScannedUpToBlk_ 
-            = bwbPtr->mostRecentBlockApplied_;
-         
          bwbPtr->iface_->putStoredScriptHistorySummary(sshPair.second);
-      }
       
       for (auto subSshPtr : bwbPtr->subSshToApply_)
       {
          //only apply if subssh wasnt modified
-         if (subSshPtr->accessing_.test_and_set(memory_order_relaxed) == false)
-         {
-            if (subSshPtr->commitId_ == bwbPtr->commitId_)
-               bwbPtr->iface_->putStoredSubHistory(*subSshPtr);
+         while (subSshPtr->accessing_.test_and_set(memory_order_relaxed) == true);
+            //if (subSshPtr->commitId_ == bwbPtr->commitId_)
+         bwbPtr->iface_->putStoredSubHistory(*subSshPtr);
          
-            subSshPtr->accessing_.clear(memory_order_relaxed);
-         }
+         subSshPtr->accessing_.clear(memory_order_relaxed);
       }
       
       bwbPtr->txn_.commit();
@@ -1063,8 +1058,6 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 
       bwbPtr->txn_.commit();
       bwbPtr->txn_.begin();
-
-
 
       for (auto& toDel : bwbPtr->keysToDelete_)
          bwbPtr->iface_->deleteValue(BLKDATA, toDel);
@@ -1250,7 +1243,7 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          *sbhEntry = nullptr;
 
          //clean up used vector indexes
-         if (i>0 && (i%10000) == 0)
+         if (i>0 && (i%10000) == 0 && tempBlockData_->sbhVec_.size() > 10000)
          {
             tempBlockData_->sbhVec_.erase(
                tempBlockData_->sbhVec_.begin(),
