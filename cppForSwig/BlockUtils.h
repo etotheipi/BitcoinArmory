@@ -128,8 +128,6 @@ private:
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
 
    BDM_Inject*                      bdmInjectPtr_ = nullptr;
-
-   function<void(const BinaryData&, double prog,unsigned time)> rescanThreadProgressCallback_;
   
    // Variables that will be updated as the blockchain loads:
    // can be used to report load progress
@@ -164,6 +162,9 @@ private:
    //map<OutPoint,   TxIOPair>          txioMap_;
 
    Blockchain blockchain_;
+
+public:
+   bool                               sideScanFlag_ = false;
    
 public:
    BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
@@ -178,13 +179,6 @@ public:
    void setConfig(const BlockDataManagerConfig &bdmConfig);
    void openDatabase(void);
    
-   void setRescanThreadProgressCallback(
-      const function<void(const BinaryData&, double prog,unsigned time)> &cb
-   )
-   {
-      rescanThreadProgressCallback_ = cb;
-   }
-
 private:
    //////////////////////////////////////////////////////////////////////////
    // This method opens the databases, and figures out up to what block each
@@ -368,6 +362,9 @@ public:
    vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
+
+   void startSideScan(
+      function<void(const BinaryData&, double prog, unsigned time)> progress);
 };
 
 

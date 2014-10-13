@@ -2630,6 +2630,7 @@ class ArmoryMainWindow(QMainWindow):
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
+      self.walletSideScanProgress = {}
 
 
       LOGINFO('Loading wallets...')
@@ -3451,6 +3452,8 @@ class ArmoryMainWindow(QMainWindow):
    def addWalletToApplication(self, newWallet, walletIsNew=True):
       LOGINFO('addWalletToApplication')
       
+      newWallet.isEnabled = False
+      
       TheBDM.registerWallet(newWallet.cppWallet)
 
       # Update the maps/dictionaries
@@ -3469,6 +3472,8 @@ class ArmoryMainWindow(QMainWindow):
       self.walletVisibleList.append(showByDefault)
       self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
 
+      self.walletSideScanProgress[newWltID] = 0
+      
       self.walletListChanged()
       self.mainWnd = self
 
@@ -6238,8 +6243,19 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
-         
+         wltID = args[0]
+         if len(wltID) > 0:
+            self.walletMap[wltID].isEnabled = True
+            del self.walletSideScanProgress[wltID]
+            
          self.createCombinedLedger()
+         self.walletModel.reset()
+         
+      elif action == 'progress':
+         #Received progress data for a wallet side scan
+         wltID = args[0]
+         prog = args[1]
+         self.walletSideScanProgress[wltID] = prog*100
          self.walletModel.reset()
          
    #############################################################################

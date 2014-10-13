@@ -1,5 +1,6 @@
 #include "BDM_supportClasses.h"
 #include "BlockUtils.h"
+#include <thread>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,8 +74,14 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       //check DB for the scrAddr's SSH
          StoredScriptHistory ssh;
          
-         ScrAddrFilter* sca = copy();
-         sca->setParent(this);
+         ScrAddrFilter* topChild = this;
+         while (topChild->child_.get() != nullptr)
+            topChild = topChild->child_.get();
+
+         topChild->child_ = shared_ptr<ScrAddrFilter>(copy());
+         ScrAddrFilter* sca = topChild->child_.get();
+
+         sca->setRoot(this);
         
          if (!isNew)
          {
@@ -92,7 +99,7 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
                sca->regScrAddrForScan(scrAddr, 0, wltPtr);
          }
 
-         sca->scanScrAddrMapInNewThread();
+         flagForScanThread();
 
          return false;
    }
@@ -108,65 +115,69 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void* ScrAddrFilter::scanScrAddrThread(void *in)
+void ScrAddrFilter::scanScrAddrThread()
 {
-   ScrAddrFilter* sasd = static_cast<ScrAddrFilter*>(in);
-
-   const auto& scraddrs = sasd->getScrAddrMap();
+   //Only one wallet at a time
    
    BtcWallet *const wltPtr
-      = scraddrs.empty() ? nullptr : scraddrs.begin()->second.wltPtr_;
+      = scrAddrMap_.empty() ? nullptr : scrAddrMap_.begin()->second.wltPtr_;
          
-   uint32_t startBlock = sasd->scanFrom();
-   uint32_t endBlock = sasd->currentTopBlockHeight()+1;
+   uint32_t startBlock = scanFrom();
+   uint32_t endBlock = currentTopBlockHeight()+1;
   
-   if (sasd->freshAddresses_ == false)
+   if (freshAddresses_ == false)
    {
       //if these aren't new addresses, scan them
       while (startBlock < endBlock)
       {
-         sasd->applyBlockRangeToDB(startBlock, endBlock, wltPtr);
+         applyBlockRangeToDB(startBlock, endBlock, wltPtr);
 
          startBlock = endBlock;
-         endBlock = sasd->currentTopBlockHeight() + 1;
+         endBlock = currentTopBlockHeight() + 1;
       }
    }
 
    //merge with main ScrAddrScanData object
-   sasd->merge();
+   merge();
 
-   
    vector<BinaryData> addressVec;
-   addressVec.reserve(scraddrs.size());
+   addressVec.reserve(scrAddrMap_.size());
    
    //notify the wallets that the scrAddr are ready
-   for (auto& scrAddrPair : scraddrs)
+   for (auto& scrAddrPair : scrAddrMap_)
    {
       addressVec.push_back(scrAddrPair.first);
    }
    
-   if (!scraddrs.empty())
+   if (!scrAddrMap_.empty())
    {
-      
-      wltPtr->prepareScrAddrForMerge(addressVec, sasd->freshAddresses_);
+      wltPtr->prepareScrAddrForMerge(addressVec, freshAddresses_);
 
-      //notify the bdv that it needs to refresh
+      //notify the bdv that it needs to refresh through the wallet
       wltPtr->needsRefresh();
    }
    
    //clean up
-   delete sasd;
 
-   return nullptr;
+   if (root_ != nullptr)
+   {
+      ScrAddrFilter* root = root_;
+      shared_ptr<ScrAddrFilter> newChild = child_;
+      root->child_ = newChild;
+
+      root->isScanning_ = false;
+      root->flagForScanThread();
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::scanScrAddrMapInNewThread()
 {
-   pthread_t tid;
+   auto scanMethod = [&](void)->void
+   { this->scanScrAddrThread(); };
 
-   pthread_create(&tid, 0, scanScrAddrThread, this);
-   pthread_detach(tid);
+   thread scanThread(scanMethod);
+   scanThread.detach();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -177,18 +188,18 @@ void ScrAddrFilter::merge()
    main ScrAddrScanData
    ***/
 
-   if (parent_)
+   if (root_)
    {
       //grab merge lock
-      while (parent_->mergeLock_.fetch_or(1, memory_order_acquire));
+      while (root_->mergeLock_.fetch_or(1, memory_order_acquire));
 
       //merge scrAddrMap_
-      parent_->scrAddrMapToMerge_.insert(
+      root_->scrAddrMapToMerge_.insert(
          scrAddrMap_.begin(), scrAddrMap_.end());
 
       //copy only the UTxOs past the height cutoff
       BinaryData cutoffHeight =
-         DBUtils::heightAndDupToHgtx(parent_->blockHeightCutOff_, 0);
+         DBUtils::heightAndDupToHgtx(root_->blockHeightCutOff_, 0);
       cutoffHeight.append(WRITE_UINT32_LE(0));
 
       auto iter = UTxO_.begin();
@@ -200,13 +211,13 @@ void ScrAddrFilter::merge()
          ++iter;
       }
 
-      parent_->UTxOToMerge_.insert(iter, UTxO_.end());
+      root_->UTxOToMerge_.insert(iter, UTxO_.end());
 
       //set mergeFlag
-      parent_->mergeFlag_ = true;
+      root_->mergeFlag_ = true;
 
       //release merge lock
-      parent_->mergeLock_.store(0, memory_order_release);
+      root_->mergeLock_.store(0, memory_order_release);
    }
 }
 
@@ -216,7 +227,7 @@ void ScrAddrFilter::checkForMerge()
    if (mergeFlag_ == true)
    {
       //rescan last 100 blocks to account for new blocks and reorgs
-      std::shared_ptr<ScrAddrFilter> sca( copy() );
+      std::shared_ptr<ScrAddrFilter> sca(copy());
       sca->scrAddrMap_ = scrAddrMapToMerge_;
       sca->UTxO_ = UTxOToMerge_;
 
@@ -304,6 +315,20 @@ void ScrAddrFilter::clear()
    checkForMerge();
    UTxO_.clear();
    blockHeightCutOff_ = 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::startSideScan(
+   function<void(const BinaryData&, double prog, unsigned time)> progress)
+{
+   ScrAddrFilter* sca = child_.get();
+
+   if (sca != nullptr && !isScanning_)
+   {
+      isScanning_ = true;
+      sca->scanThreadProgressCallback_ = progress;
+      sca->scanScrAddrMapInNewThread();
+   }
 }
 
 

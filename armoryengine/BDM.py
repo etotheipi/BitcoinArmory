@@ -55,16 +55,25 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          TheBDM.currentBlock = block
       elif action == 5:
          act = 'refresh'
+         argstr = Cpp.BtcUtils_cast_to_string(arg)
+         arglist.append(argstr)
+         
    
       for cppNotificationListener in self.bdm.cppNotificationListenerList:
          cppNotificationListener(act, arglist)
       
    def progress(self, phase, walletId, prog, seconds):
       try:
-         self.bdm.progressPhase = phase
-         self.bdm.walletId = walletId
-         self.bdm.progressComplete = prog
-         self.bdm.secondsRemaining = seconds
+         walletIdString = str(walletId)
+         if len(walletIdString) == 0:
+            self.bdm.progressPhase = phase
+            self.bdm.progressComplete = prog
+            self.bdm.secondsRemaining = seconds
+         else:
+            progInfo = [walletIdString, prog]
+            for cppNotificationListener in self.bdm.cppNotificationListenerList:
+               cppNotificationListener('progress', progInfo)
+               
       except:
          LOGEXCEPT('Error in running progress callback')
          print sys.exc_info()
@@ -329,8 +338,8 @@ class BlockDataManager(object):
             leveldbdir = self.ldbdir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
-      bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
-      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
+      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
+      bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.homeDirLocation = armoryHomeDir
       bdmConfig.blkFileLocation = blockdir

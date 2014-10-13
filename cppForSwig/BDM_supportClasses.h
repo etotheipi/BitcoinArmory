@@ -89,12 +89,14 @@ private:
    LMDBBlockDatabase *const       lmdb_;
 
    //
-   ScrAddrFilter*                 parent_;
+   shared_ptr<ScrAddrFilter>      child_;
+   ScrAddrFilter*                 root_;
    set<BinaryData>                UTxOToMerge_;
    map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
    atomic<int32_t>                mergeLock_;
    bool                           mergeFlag_=false;
    bool                           freshAddresses_=false;
+   bool                           isScanning_ = false;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
@@ -107,12 +109,21 @@ private:
       }
    }
 
+protected:
+   function<void(const BinaryData&, double prog, unsigned time)> 
+      scanThreadProgressCallback_ = 
+      [](const BinaryData&, double, unsigned) {};
+
 public:
    
    const ARMORY_DB_TYPE           armoryDbType_;
   
    ScrAddrFilter(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
       : lmdb_(lmdb), mergeLock_(0), armoryDbType_(armoryDbType)
+   {}
+
+   ScrAddrFilter(const ScrAddrFilter& sca) //copy constructor
+      : lmdb_(sca.lmdb_), mergeLock_(0), armoryDbType_(sca.armoryDbType_)
    {}
    
    virtual ~ScrAddrFilter() { }
@@ -156,20 +167,33 @@ public:
 
    void scanScrAddrMapInNewThread(void);
 
-   void setParent(ScrAddrFilter* sca) { parent_ = sca; }
+   //pointer to the SCA object held by the bdm
+   void setRoot(ScrAddrFilter* sca) { root_ = sca; }
+
+   //shared_ptr to the next object in line waiting to get scanned. Only one
+   //scan takes place at a time, so if several wallets are imported before
+   //the first one is done scanning, a SCA will be built and referenced to as
+   //the child to previous side thread scan SCA, which will initiate the next 
+   //scan before it cleans itself up
+   void setChild (shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
+
    void merge(void);
    void checkForMerge(void);
 
+   void startSideScan(
+      function<void(const BinaryData&, double prog, unsigned time)> progress);
+
 protected:
-   virtual bool bdmIsRunning() const=0;
+   virtual int32_t bdmIsRunning() const=0;
    virtual void applyBlockRangeToDB(
       uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
    )=0;
    virtual uint32_t currentTopBlockHeight() const=0;
-   virtual ScrAddrFilter *copy()=0;
+   virtual ScrAddrFilter* copy()=0;
+   virtual void flagForScanThread(void) = 0;
    
 private:
-   static void* scanScrAddrThread(void *in);
+   void scanScrAddrThread(void);
 };
 
 class ZeroConfContainer

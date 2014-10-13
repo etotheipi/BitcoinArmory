@@ -363,7 +363,8 @@ public:
 class BlockDataManager_LevelDB::BDM_ScrAddrFilter : public ScrAddrFilter
 {
    BlockDataManager_LevelDB *const bdm_;
-   bool isRunning_=false;
+   //0: didn't start, 1: is initializing, 2: done initializing
+   int32_t isRunning_=0;
    
 public:
    BDM_ScrAddrFilter(BlockDataManager_LevelDB *bdm)
@@ -373,13 +374,13 @@ public:
    
    }
    
-   void setRunning(bool running)
+   void setRunning(int32_t running)
    {
       isRunning_ = running;
    }
    
 protected:
-   virtual bool bdmIsRunning() const
+   virtual int32_t bdmIsRunning() const
    {
       return isRunning_;
    }
@@ -409,7 +410,7 @@ protected:
          }
       };
    
-      WalletIdProgressReporter progress(wltPtr, bdm_->rescanThreadProgressCallback_);
+      WalletIdProgressReporter progress(wltPtr, scanThreadProgressCallback_);
       
       bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this);
    }
@@ -419,9 +420,14 @@ protected:
       return bdm_->blockchain().top().getBlockHeight();
    }
    
-   virtual BDM_ScrAddrFilter *copy()
+   virtual BDM_ScrAddrFilter* copy()
    {
       return new BDM_ScrAddrFilter(bdm_);
+   }
+
+   virtual void flagForScanThread(void)
+   {
+      bdm_->sideScanFlag_ = true;
    }
 };
 
@@ -463,9 +469,6 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    corruptHeadersDB_ = false;
 
    allScannedUpToBlk_ = 0;
-   
-   rescanThreadProgressCallback_ =
-      [] (const BinaryData&, double,unsigned) {};
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1602,7 +1605,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    missingBlockHashes_.clear();
 
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
-   scrAddrData_->setRunning(true);
+   scrAddrData_->setRunning(1);
 
    SCOPED_TIMER("buildAndScanDatabases");
 
@@ -1723,6 +1726,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    lastTopBlock_ = blockchain_.top().getBlockHeight() + 1;
 
    allScannedUpToBlk_ = lastTopBlock_;
+
+   scrAddrData_->setRunning(2);
 
   /* #ifdef _DEBUG
       UniversalTimer::instance().printCSV(string("timings.csv"));
@@ -2703,6 +2708,13 @@ uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
       return sdbi.appliedToHgt_ -1;
 
    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::startSideScan(
+   function<void(const BinaryData&, double prog, unsigned time)> progress)
+{
+   scrAddrData_->startSideScan(progress);
 }
 
 // kate: indent-width 3; replace-tabs on;

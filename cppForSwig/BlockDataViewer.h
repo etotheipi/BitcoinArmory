@@ -87,13 +87,16 @@ class BlockDataViewer
       void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                              uint32_t startBlock, uint32_t endBlock) const;
 
-      void flagRefresh(bool withRemap);
+      void flagRefresh(bool withRemap, BinaryData refreshId);
 
       void updateWalletFilters(vector<string> walletsVec);
 
    public:
       bool rescanZC_    = false;
       uint32_t refresh_ = 0;
+
+      //extra arg for refresh notifications
+      BinaryData            refreshID_;
 
    private:
       BlockDataManager_LevelDB* bdmPtr_;

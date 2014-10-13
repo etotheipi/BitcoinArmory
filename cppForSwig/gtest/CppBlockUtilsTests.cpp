@@ -7227,6 +7227,11 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    //post initial load address registration
    wlt.addScrAddress(scrAddrD_);
 
+   EXPECT_EQ(TheBDM.sideScanFlag_, true);
+
+   //fire side scan manually since there is no maintenance thread with unit tests
+   theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
+
    //wait on the address scan
    while (wlt.getMergeFlag() == false)
       usleep(100);
@@ -7286,6 +7291,11 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
    wlt.addScrAddress(scrAddrD_);
+
+   EXPECT_EQ(TheBDM.sideScanFlag_, true);
+
+   //fire side scan manually since there is no maintenance thread with unit tests
+   theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
 
    //wait on the address scan
    while (wlt.getMergeFlag() == false)

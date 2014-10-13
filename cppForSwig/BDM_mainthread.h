@@ -24,7 +24,7 @@ public:
    virtual void run(int action, void* ptr, int block=0)=0;
    virtual void progress(
       unsigned phase,
-      const BinaryData &walletId,
+      const string &walletId,
       float progress, unsigned secondsRem
    )=0;
 };

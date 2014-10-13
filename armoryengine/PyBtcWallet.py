@@ -239,6 +239,9 @@ class PyBtcWallet(object):
       #flags the wallet if it has off chain imports (from a consistency repair)
       self.hasNegativeImports = False
       
+      #To enable/disable wallet row in wallet table model
+      self.isEnabled = True
+      
    #############################################################################
    def isWltSigningAnyLockbox(self, lockboxList):
       for lockbox in lockboxList:

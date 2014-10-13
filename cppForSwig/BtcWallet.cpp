@@ -919,7 +919,7 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
-   bdvPtr_->flagRefresh(true); 
+   bdvPtr_->flagRefresh(true, walletID_); 
 }
 
 // kate: indent-width 3; replace-tabs on;

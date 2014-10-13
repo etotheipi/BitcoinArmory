@@ -215,7 +215,8 @@ try
          lastprog = prog;
          lasttime = time;
          
-         callback->progress(phase, BinaryData(), lastprog, lasttime);
+         //pass empty walletID for main build&scan calls
+         callback->progress(phase, string(), lastprog, lasttime);
          
          if (!pimpl->run)
          {
@@ -255,17 +256,21 @@ try
       lastprog = prog;
       lasttime = time;
       
-      callback->progress(5, wltId, lastprog, lasttime);
-   };
-   
-   bdm->setRescanThreadProgressCallback(rescanProgress);
-   
+      callback->progress(5, string(wltId.getCharPtr(), wltId.getSize()), lastprog, lasttime);
+   };   
    
    //push 'bdm is ready' to Python
    callback->run(1, 0, bdm->getTopBlockHeight());
    
    while(pimpl->run)
    {
+      if (bdm->sideScanFlag_ == true)
+      {
+         bdm->sideScanFlag_ = false;
+
+         bdm->startSideScan(rescanProgress);
+      }
+
       if(bdv->rescanZC_)
       {
          bdv->rescanZC_ = false;
@@ -295,7 +300,13 @@ try
          bdv->refresh_ = 0;
 
          bdv->scanWallets(UINT32_MAX, UINT32_MAX, refresh);
-         callback->run(5, nullptr);
+         
+         string refreshID;
+         if (bdv->refreshID_.getPtr() != nullptr)
+            refreshID = string(bdv->refreshID_.getCharPtr(), bdv->refreshID_.getSize());
+         
+         bdv->refreshID_ = BinaryData();
+         callback->run(5, &refreshID);
       }
 
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();

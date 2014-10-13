@@ -553,7 +553,7 @@ void BlockDataViewer::scanScrAddrVector(
    uint32_t startBlock, uint32_t endBlock) const
 {
    //create new ScrAddrFilter for the occasion
-   shared_ptr<ScrAddrFilter> saf( saf_->copy() );
+   shared_ptr<ScrAddrFilter> saf(saf_->copy());
 
    //register scrAddr with it
    for (auto scrAddrPair : scrAddrMap)
@@ -574,16 +574,21 @@ void BlockDataViewer::updateWalletFilters(vector<string> walletsList)
    for (auto walletID : walletsList)
       walletFilters_[BinaryData(walletID)] = true;
 
-   flagRefresh(false);
+   flagRefresh(false, BinaryData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::flagRefresh(bool withRemap) 
+void BlockDataViewer::flagRefresh(bool withRemap, BinaryData refreshID) 
 { 
+   if (saf_->bdmIsRunning() < 2)
+      return;
+
    if (withRemap == true)
       refresh_ = 2;
    else
       refresh_ = 1;
+
+   refreshID_ = refreshID;
 
    bdmPtr_->notifyMainThread();
 }

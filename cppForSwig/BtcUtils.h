@@ -1623,7 +1623,12 @@ public:
    {
       vector<LedgerEntry>* vle = (vector<LedgerEntry>*)in;
       return *vle;
-      //return *(reinterpret_cast<const vector<LedgerEntry>*>(in));
+   }
+
+   static const string& cast_to_string(void* in)
+   {
+      string *str = (string*)in;
+      return *str;
    }
 
    /*

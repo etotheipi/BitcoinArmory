@@ -68,15 +68,20 @@ class AllWalletsDispModel(QAbstractTableModel):
          elif col==COL.Secure: 
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
-         elif col==COL.Bal: 
+         elif col==COL.Bal:
             if not bdmState=='BlockchainReady':
                return QVariant('(...)')
-            bal = wlt.getBalance('Total')
-            if bal==-1:
-               return QVariant('(...)') 
+            if wlt.isEnabled == True:
+               bal = wlt.getBalance('Total')
+               if bal==-1:
+                  return QVariant('(...)') 
+               else:
+                  dispStr = coin2str(bal, maxZeros=2)
+                  return QVariant(dispStr)
             else:
-               dispStr = coin2str(bal, maxZeros=2)
+               dispStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[wltID])
                return QVariant(dispStr)
+            
       elif role==Qt.TextAlignmentRole:
          if col in (COL.ID, COL.Name):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -110,7 +115,17 @@ class AllWalletsDispModel(QAbstractTableModel):
             return QVariant( colLabels[section])
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-
+      
+   def flags(self, index, role=Qt.DisplayRole):
+      if role == Qt.DisplayRole:
+         wlt = self.main.walletMap[self.main.walletIDList[index.row()]]
+         
+         rowFlag = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+         
+         if wlt.isEnabled is False:      
+            return Qt.ItemFlags()      
+            
+         return rowFlag
 
 
    # This might work for checkbox-in-tableview
