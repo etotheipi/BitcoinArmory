@@ -186,6 +186,23 @@ void BlockDataManagerThread::requestShutdown()
    }
 }
 
+namespace
+{
+class OnFinish
+{
+   const function<void()> fn;
+public:
+   OnFinish(const function<void()> &fn)
+      : fn(fn) { }
+   ~OnFinish()
+   {
+      fn();
+   }
+};
+
+
+}
+
 
 void BlockDataManagerThread::run()
 try
@@ -195,6 +212,7 @@ try
    
    BDM_CallBack *const callback = pimpl->callback;
 
+   OnFinish onFinish( [callback] () { callback->run(6, nullptr); } );
    
    {
       double lastprog=0;

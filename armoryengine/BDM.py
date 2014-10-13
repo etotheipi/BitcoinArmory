@@ -33,35 +33,41 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       self.bdm.progressPhase=0
       
    def run(self, action, arg, block):
-      act = ''
-      arglist = []
-      
-      # AOTODO replace with constants
-      
-      if action == 1:
-         act = 'finishLoadBlockchain'
-         TheBDM.currentBlock = block
-         TheBDM.setState('BlockchainReady')
-      elif action == 2:
-         act = 'sweepAfterScanList'
-      elif action == 3:
-         act = 'newZC'
-         castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)
-         arglist = castArg
-      elif action == 4:
-         act = 'newblock'
-         castArg = Cpp.BtcUtils_cast_to_int(arg)
-         arglist.append(castArg)
-         TheBDM.currentBlock = block
-      elif action == 5:
-         act = 'refresh'
-         argstr = Cpp.BtcUtils_cast_to_string(arg)
-         arglist.append(argstr)
+      try:
+         act = ''
+         arglist = []
          
-   
-      for cppNotificationListener in self.bdm.cppNotificationListenerList:
-         cppNotificationListener(act, arglist)
-      
+         # AOTODO replace with constants
+         
+         if action == 1:
+            act = 'finishLoadBlockchain'
+            TheBDM.currentBlock = block
+            TheBDM.setState('BlockchainReady')
+         elif action == 2:
+            act = 'sweepAfterScanList'
+         elif action == 3:
+            act = 'newZC'
+            castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)
+            arglist = castArg
+         elif action == 4:
+            act = 'newblock'
+            castArg = Cpp.BtcUtils_cast_to_int(arg)
+            arglist.append(castArg)
+            TheBDM.currentBlock = block
+         elif action == 5:
+            act = 'refresh'
+            argstr = Cpp.BtcUtils_cast_to_string(arg)
+            arglist.append(argstr)
+         elif action == 6:
+            act = 'stopped'
+
+         for cppNotificationListener in self.bdm.cppNotificationListenerList:
+            cppNotificationListener(act, arglist)
+      except:
+         LOGEXCEPT('Error in running callback')
+         print sys.exc_info()
+         raise
+
    def progress(self, phase, walletId, prog, seconds):
       try:
          walletIdString = str(walletId)
@@ -387,6 +393,11 @@ class BlockDataManager(object):
    def getState(self):
       return self.bdmState
 
+   #############################################################################
+   @ActLikeASingletonBDM
+   def beginCleanShutdown(self):
+      self.bdv.reset()
+      self.bdmThread.requestShutdown()
    #############################################################################
    @ActLikeASingletonBDM
    def execCleanShutdown(self):

@@ -6609,7 +6609,8 @@ class ArmoryMainWindow(QMainWindow):
       elif doClose or moc=='Close':
          self.doShutdown = True
          self.sysTray.hide()
-         self.closeForReal(event)
+         self.closeForReal()
+         event.ignore()
       else:
          return  # how would we get here?
 
@@ -6659,11 +6660,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def closeForReal(self, event=None):
+   def closeForReal(self):
       '''
       Unlike File->Quit or clicking the X on the window, which may actually
       minimize Armory, this method is for *really* closing Armory
       '''
+      
+      self.setCursor(Qt.WaitCursor)
+      
       try:
          # Save the main window geometry in the settings file
          self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
@@ -6672,18 +6676,23 @@ class ArmoryMainWindow(QMainWindow):
 
          if TheBDM.getState()=='Scanning':
             LOGINFO('BDM state is scanning -- force shutdown BDM')
-            TheBDM.execCleanShutdown()
          else:
             LOGINFO('BDM is safe for clean shutdown')
-            TheBDM.execCleanShutdown()
 
-         # This will do nothing if bitcoind isn't running.
-         TheSDM.stopBitcoind()
+         TheBDM.registerCppNotification(self.actuallyDoExitNow)
+         TheBDM.beginCleanShutdown()
+
+         
       except:
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
 
 
+
+   def actuallyDoExitNow(self, action, l):
+      # this is a BDM callback
+      if action != 'stopped':
+         return
       # Any extra shutdown activities, perhaps added by modules
       for fn in self.extraShutdownFunctions:
          try:
@@ -6691,14 +6700,14 @@ class ArmoryMainWindow(QMainWindow):
          except:
             LOGEXCEPT('Shutdown function failed.  Skipping.')
 
+      # This will do nothing if bitcoind isn't running.
+      TheSDM.stopBitcoind()
+         
 
       from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
       reactor.stop()
-      if event:
-         event.accept()
-
-
+    
 
    #############################################################################
    def execTrigger(self, toSpawn):
@@ -7038,3 +7047,5 @@ if 1:
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    os._exit(QAPP.exec_())
+
+# kate: indent-width 3; replace-tabs on;
