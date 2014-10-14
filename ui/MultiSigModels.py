@@ -76,7 +76,13 @@ class LockboxDisplayModel(QAbstractTableModel):
          elif col==LOCKBOXCOLS.Balance: 
             if not TheBDM.getState()=='BlockchainReady':
                return QVariant('(...)') 
-            return QVariant(coin2str(bal, maxZeros=2))
+            
+            if lbox.isEnabled == True:
+               return QVariant(coin2str(bal, maxZeros=2))
+            
+            scanStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[lbID])
+            return QVariant(scanStr)
+            
          elif col==LOCKBOXCOLS.UnixTime: 
             return QVariant(str(lbox.createDate))
 

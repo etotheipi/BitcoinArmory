@@ -243,6 +243,9 @@ class MultiSigLockbox(AsciiSerializable):
       self.magicBytes  = MAGIC_BYTES
       self.uniqueIDB58 = None
       self.asciiID     = None
+      
+      #UI member for rescans
+      self.isEnabled   = True
 
       if (M is not None) and (N is not None) and (dPubKeys is not None):
          self.setParams(name, descr, M, N, dPubKeys, createDate, version)

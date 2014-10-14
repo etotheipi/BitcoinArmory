@@ -114,6 +114,12 @@ struct BlockDataManagerThread::BlockDataManagerThreadImpl
    int mode=0;
    volatile bool run=false;
    bool failure=false;
+
+   ~BlockDataManagerThreadImpl()
+   {
+      delete bdm;
+      delete bdv;
+   }
 };
 
 BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &config)

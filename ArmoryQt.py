@@ -2810,6 +2810,10 @@ class ArmoryMainWindow(QMainWindow):
          lbID = lbObj.uniqueIDB58
          index = self.lockboxIDMap.get(lbID)
          if index is None:
+            
+            if TheBDM.getState() != 'Offline' and TheBDM.getState() != 'Uninitialized':
+               self.setWalletIsScanning(lbObj)
+            
             # Add new lockbox to list
             self.allLockboxes.append(lbObj)
             self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
@@ -2817,15 +2821,12 @@ class ArmoryMainWindow(QMainWindow):
             # Create new wallet to hold the lockbox, register it with BDM
             self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdv)
             self.cppLockboxWltMap[lbID].setWalletID(lbID)
+            
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
+            self.cppLockboxWltMap[lbID].addScrAddress_5_(scraddrReg, 0, 0, 0, 0)
+            self.cppLockboxWltMap[lbID].addScrAddress_5_(scraddrP2SH, 0, 0, 0, 0)
             TheBDM.bdv.registerLockbox(self.cppLockboxWltMap[lbID], isFresh)
-            if not isFresh:
-               self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
-               self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
-            else:
-               self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrReg)
-               self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrP2SH)
 
          else:
             # Replace the original
@@ -6249,7 +6250,12 @@ class ArmoryMainWindow(QMainWindow):
          #wallet filter was modified
          wltID = args[0]
          if len(wltID) > 0:
-            self.walletMap[wltID].isEnabled = True
+            if wltID in self.walletMap:
+               self.walletMap[wltID].isEnabled = True
+            else:
+               lbID = self.lockboxIDMap[wltID]                
+               self.allLockboxes[lbID].isEnabled = True
+              
             del self.walletSideScanProgress[wltID]
             
          self.createCombinedLedger()
@@ -6260,7 +6266,11 @@ class ArmoryMainWindow(QMainWindow):
          wltID = args[0]
          prog = args[1]
          self.walletSideScanProgress[wltID] = prog*100
-         self.walletModel.reset()
+         
+         if wltID in self.walletMap:
+            self.walletModel.reset()
+         else:
+            self.lockboxLedgModel.reset()
          
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):

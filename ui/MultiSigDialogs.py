@@ -1633,8 +1633,8 @@ class DlgLockboxManager(ArmoryDialog):
                   If the lockbox is not new and has been used before,
                   Armory will not know about its history until you rescan
                   the databases.  You can manually initiate a rescan by
-                  going to "<i>Help</i>"\xe2\x86\x92"<i>Rescan Databases</i>"
-                  from the main window."""), tr("Do not show this message again"))
+                  selecting the lockbox and clicking rescan"""), \
+                  tr("Do not show this message again"))
 
                if reply[1]:
                   self.main.writeSetting('DNAA_LockboxImport', True)

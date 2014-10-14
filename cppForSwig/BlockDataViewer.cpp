@@ -62,6 +62,15 @@ bool BlockDataViewer::registerLockbox(BtcWallet* wltPtr, bool wltIsNew)
 
    // Add it to the list of wallets to watch
    registeredLockboxes_.insert(wltPtr);
+
+   //register all scrAddr in the wallet with the BDM. It doesn't matter if
+   //the data is overwritten
+   vector<BinaryData> saVec;
+   for (const auto& scrAddrPair : wltPtr->getScrAddrMap())
+      saVec.push_back(scrAddrPair.first);
+
+   saf_->registerAddresses(saVec, wltPtr, wltIsNew);
+
    wltPtr->setRegistered();
 
    return true;

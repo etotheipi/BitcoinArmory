@@ -228,6 +228,10 @@ class BlockDataManager(object):
       
       self.ldbdir = ""
 
+      #dbType
+      self.dbType = Cpp.ARMORY_DB_BARE
+      #self.dbType = Cpp.ARMORY_DB_SUPER      
+      
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
       self.bdm = self.bdmThread.bdm()
       self.bdv = self.bdmThread.bdv()
@@ -235,7 +239,7 @@ class BlockDataManager(object):
       # Flags
       self.aboutToRescan = False
       self.errorOut      = 0
-
+      
       self.currentActivity = 'None'
       self.walletsToRegister = []
       
@@ -344,8 +348,7 @@ class BlockDataManager(object):
             leveldbdir = self.ldbdir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
-      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
-      bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
+      bdmConfig.armoryDbType = self.dbType
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.homeDirLocation = armoryHomeDir
       bdmConfig.blkFileLocation = blockdir
