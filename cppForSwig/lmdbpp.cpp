@@ -374,6 +374,9 @@ void LMDBEnv::Transaction::begin()
    if (thTx.transactionLevel_++ != 0)
       return;
       
+   if (!env->dbenv)
+      throw LMDBException("Cannot start transaction without db env");
+      
    int modef = MDB_RDONLY;
    thTx.mode_ = LMDB::ReadOnly;
    
