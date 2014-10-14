@@ -434,12 +434,6 @@ LMDBBlockDatabase* BlockDataViewer::getDB(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Blockchain& BlockDataViewer::blockchain(void) const
-{
-   return *bc_;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataViewer::getTopBlockHeight(void) const
 {
    return bc_->top().getBlockHeight();

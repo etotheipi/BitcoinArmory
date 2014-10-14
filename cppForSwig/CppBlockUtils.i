@@ -48,6 +48,7 @@
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
 
 %ignore readVarInt(BinaryRefReader & brr);
+%ignore BlockDataViewer::blockchain() const;
 
 namespace std
 {
