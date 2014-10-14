@@ -433,7 +433,8 @@ class SatoshiDaemonManager(object):
          else:
             searchPaths.extend([os.path.join(p, 'bin/32') for p in extraSearchPaths])
 
-         searchPaths.extend(['/usr/bin/', '/usr/lib/bitcoin/'])
+         searchPaths.extend(['/usr/lib/bitcoin/'])
+         searchPaths.extend(os.getenv("PATH").split(':'))
 
          for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind')
