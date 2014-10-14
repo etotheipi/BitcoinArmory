@@ -361,7 +361,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def setWallet(self, wlt, isDoubleClick=False):
       self.wlt = wlt
       self.wltID = wlt.uniqueIDB58 if wlt else None
-      if not TheBDM.getState() == 'BlockchainReady':
+      if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
          self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       if self.main.usermode == USERMODE.Expert:
          # Pre-set values based on settings

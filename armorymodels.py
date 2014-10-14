@@ -69,7 +69,7 @@ class AllWalletsDispModel(QAbstractTableModel):
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          elif col==COL.Bal:
-            if not bdmState=='BlockchainReady':
+            if not bdmState==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
             if wlt.isEnabled == True:
                bal = wlt.getBalance('Total')
@@ -88,7 +88,7 @@ class AllWalletsDispModel(QAbstractTableModel):
          elif col in (COL.Secure,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Bal,):
-            if not bdmState=='BlockchainReady':
+            if not bdmState==BDM_BLOCKCHAIN_READY:
                return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
             else:
                return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -573,7 +573,7 @@ class WalletAddrDispModel(QAbstractTableModel):
    def filterAddrList(self):
       addrList = self.wlt.getLinearAddrList()
 
-      if self.notEmpty and TheBDM.getState()=='BlockchainReady':
+      if self.notEmpty and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          hasBalance = lambda a: (self.wlt.getAddrBalance(a.getAddr160(), 'Full')>0)
          addrList = filter(hasBalance, addrList)
 
@@ -581,7 +581,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          notChange = lambda a: (self.wlt.getCommentForAddress(a.getAddr160()) != CHANGE_ADDR_DESCR_STRING)
          addrList = filter(notChange, addrList)
 
-      if self.usedOnly and TheBDM.getState()=='BlockchainReady':
+      if self.usedOnly and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(a.getAddr160()))
          addrList = filter(isUsed, addrList)
          
@@ -627,7 +627,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant(chainIdx)
          if col==COL.Balance: 
-            if not TheBDM.getState()=='BlockchainReady':
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
@@ -637,13 +637,13 @@ class WalletAddrDispModel(QAbstractTableModel):
          elif col in (COL.NumTx,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Balance,):
-            if not TheBDM.getState()=='BlockchainReady':
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
             else:
                return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
-            if not TheBDM.getState()=='BlockchainReady':
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(Colors.Foreground)
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             val = cppAddr.getFullBalance()
@@ -679,7 +679,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                             'receive change-back-to-self from an oversized '
                             'transaction.')
       elif role==Qt.BackgroundColorRole:
-         if not TheBDM.getState()=='BlockchainReady':
+         if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
 
          cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))

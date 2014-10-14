@@ -9,7 +9,7 @@
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
 
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import * #@UnusedWildImport
 
 WALLET_DATA_ENTRY_FIELD_WIDTH = 60
@@ -270,7 +270,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispDescr.setText(wlt.labelDescr)
          self.selectedID = wltID
          
-         if not TheBDM.getState() == 'BlockchainReady':
+         if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
             self.dispBal.setText('-' * 12)
          else:
             bal = wlt.getBalance('Spendable')
@@ -314,7 +314,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
                                     (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
-      if not TheBDM.getState() == 'BlockchainReady':
+      if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
          self.dispBal.setText('(available when online)', color='DisableFG')
       self.repaint()
       if self.coinControlCallback:

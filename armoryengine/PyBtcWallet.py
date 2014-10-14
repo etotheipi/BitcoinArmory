@@ -2680,7 +2680,7 @@ class PyBtcWallet(object):
          LOGERROR('Called checkIfRescanRequired() from BDM method!')
          LOGERROR('Don\'t do this!')
 
-      if TheBDM.getState()=='BlockchainReady':
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
       else:
          return False
@@ -3110,7 +3110,7 @@ def getSuffixedPath(walletPath, nameSuffix):
 
 
 # Putting this at the end because of the circular dependency
-from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
+from armoryengine.BDM import TheBDM, getCurrTimeAndBlock, BDM_BLOCKCHAIN_READY
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Transaction import *
 from armoryengine.Script import scriptPushData

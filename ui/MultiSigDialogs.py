@@ -768,7 +768,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
 
 
-      self.tabbedDisplay.setTabEnabled(2, TheBDM.getState()=='BlockchainReady')
+      self.tabbedDisplay.setTabEnabled(2, TheBDM.getState()==BDM_BLOCKCHAIN_READY)
 
 
       splitter = QSplitter()
@@ -1498,7 +1498,7 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def updateButtonDisable(self):
       noSelection = (self.getSelectedLBID() is None)
-      isOffline = (not TheBDM.getState()=='BlockchainReady')
+      isOffline = (not TheBDM.getState()==BDM_BLOCKCHAIN_READY)
 
       """
       # Removed all these when we added the dashboard tab
@@ -1896,7 +1896,7 @@ class DlgSpendFromLockbox(ArmoryDialog):
       btnReview = QPushButton(tr("Review and Sign"))
       btnCancel = QPushButton(tr("Cancel"))
 
-      if TheBDM.getState()=='BlockchainReady':
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          lblCreate = QRichLabel(tr("""
             I am creating a new proposed spending transaction and will pass
             it to each party or device that needs to sign it"""))
@@ -1991,7 +1991,7 @@ class DlgSimulfundSelect(ArmoryDialog):
       btnReview  = QPushButton(tr('Sign Simulfunding Transaction'))
       btnCancel  = QPushButton(tr("Cancel"))
 
-      if TheBDM.getState()=='BlockchainReady':
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          lblCreate = QRichLabel(tr("""
             Create a commitment to a simulfunding transaction"""))
       else:
@@ -2960,14 +2960,14 @@ class DlgMultiSpendReview(ArmoryDialog):
                   chkLbl.setPixmap(QPixmap())
                   signBtn.setVisible(False)
                   signBtn.setEnabled(False)
-                  signBtn.setText('Offline')
+                  signBtn.setText(BDM_OFFLINE)
                   keyImg.setPixmap(self.pixWhite())
                elif wltType==WLTTYPES.Offline:
                   chkLbl.setVisible(False)
                   chkLbl.setPixmap(QPixmap())
                   signBtn.setVisible(True)
                   signBtn.setEnabled(False)
-                  signBtn.setText('Offline')
+                  signBtn.setText(BDM_OFFLINE)
                   keyImg.setPixmap(self.pixWhite())
             else:
                chkLbl.setPixmap(QPixmap())
@@ -3272,7 +3272,7 @@ class DlgCreatePromNote(ArmoryDialog):
    def doContinue(self):
 
 
-      if not TheBDM.getState()=='BlockchainReady':
+      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          LOGERROR('Blockchain not avail for creating prom note')
          QMessageBox.critical(self, tr('Blockchain Not Available'), tr("""
             The blockchain has become unavailable since you opened this
@@ -3626,7 +3626,7 @@ class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
    def createPromAdd(self):
-      if not TheBDM.getState()=='BlockchainReady':
+      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          QMessageBox.warning(self, tr("Not Online"), tr("""
             Armory is currently in offline mode and cannot create any 
             transactions or promissory notes.  You can only merge 

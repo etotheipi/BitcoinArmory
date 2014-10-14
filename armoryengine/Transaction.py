@@ -2056,7 +2056,7 @@ class UnsignedTransaction(AsciiSerializable):
       p2shMap = {} if not p2shMap   else p2shMap
 
 
-      if len(txMap)==0 and not TheBDM.getState()=='BlockchainReady':
+      if len(txMap)==0 and not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          # TxDP includes the transactions that supply the inputs to this
          # transaction, so the BDM needs to be available to fetch those.
          raise BlockchainUnavailableError, ('Must input supporting transactions '
@@ -2083,7 +2083,7 @@ class UnsignedTransaction(AsciiSerializable):
                raise InvalidHashError, ('Could not find the referenced tx '
                                         'in supplied txMap')
             pyPrevTx = txMap[txhash].copy()
-         elif TheBDM.getState()=='BlockchainReady':
+         elif TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             cppPrevTx = TheBDM.bdv.getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
@@ -2768,7 +2768,7 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 
 #############################################################################
 def getFeeForTx(txHash):
-   if TheBDM.getState()=='BlockchainReady':
+   if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       if not TheBDM.hasTxWithHash(txHash):
          LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
                                              binary_to_hex(txHash,BIGENDIAN))
@@ -2834,7 +2834,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
    """
-   if TheBDM.getState()=='BlockchainReady':
+   if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       if not isinstance(addr160List, (list,tuple)):
          addr160List = [addr160List]
 

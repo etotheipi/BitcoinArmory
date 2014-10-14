@@ -30,7 +30,8 @@ from armoryengine.ArmoryUtils import LOGINFO, RightNow, getVersionString, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
    MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
    bitset_to_int, unixTimeToFormatStr
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_OFFLINE, BDM_SCANNING,\
+   BDM_BLOCKCHAIN_READY
 from armoryengine.BinaryPacker import BinaryPacker, BINARY_CHUNK, UINT32, UINT64, \
    UINT16, VAR_INT, INT32, INT64, VAR_STR, INT8
 from armoryengine.BinaryUnpacker import BinaryUnpacker, UnpackerError
@@ -186,17 +187,17 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
-               if self.factory.bdm and (self.factory.bdm.getState()=='Scanning' or \
+               if self.factory.bdm and (self.factory.bdm.getState()==BDM_SCANNING or \
                   self.factory.bdm.bdm.blockchain().hasHeaderWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:
-               if not self.factory.bdm or self.factory.bdm.getState()!='BlockchainReady':
+               if not self.factory.bdm or self.factory.bdm.getState()!=BDM_BLOCKCHAIN_READY:
                   continue
                getdataMsg.payload.invList.append(inv)
 
          # Now send the full request
-         if self.factory.bdm and not self.factory.bdm.getState()=='Scanning':
+         if self.factory.bdm and not self.factory.bdm.getState()==BDM_SCANNING:
             self.sendMessage(getdataMsg)
 
       if msg.cmd=='tx':
@@ -337,7 +338,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      if self.bdm and not self.bdm.getState()=='Offline':
+      if self.bdm and not self.bdm.getState()==BDM_OFFLINE:
          self.bdm.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
       
 

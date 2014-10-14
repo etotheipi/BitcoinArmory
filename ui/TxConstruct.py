@@ -37,7 +37,7 @@ class DlgConstructTx(ArmoryDialog):
          prefill = UnsignedTransaction()
 
 
-      if not TheBDM.getState()=='BlockchainReady':
+      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          LOGERROR('Cannot use tx ctor until Armory is in full online mode')
          self.reject()
 

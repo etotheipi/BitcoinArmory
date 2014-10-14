@@ -15,7 +15,8 @@ import subprocess
 import copy
 import unittest
 from zipfile import ZipFile
-from armoryengine.BDM import TheBDM, BlockDataManager, newTheBDM
+from armoryengine.BDM import TheBDM, BlockDataManager, newTheBDM,\
+   BDM_BLOCKCHAIN_READY
 
 TOP_TIAB_BLOCK = 247
 
@@ -128,7 +129,7 @@ class TiabTest(unittest.TestCase):
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.goOnline(levelDBDir=os.path.join(self.tiab.tiabDirectory,'tiab','armory'))
       i = 0
-      while not TheBDM.getState()=='BlockchainReady' and i < 10:
+      while not TheBDM.getState()==BDM_BLOCKCHAIN_READY and i < 10:
          time.sleep(2)
          i += 1
       if i >= 10:

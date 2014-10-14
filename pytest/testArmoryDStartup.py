@@ -1,5 +1,6 @@
 import sys
 from twisted.trial._synctest import SkipTest
+from armoryengine.BDM import BDM_BLOCKCHAIN_READY
 sys.path.append('..')
 from pytest.Tiab import *
 import json
@@ -101,7 +102,7 @@ class ArmoryDStartupTest(TiabTest):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'])
       self.assertEqual(actualResult['balance'], FIRST_WLT_BALANCE)
-      self.assertEqual(actualResult['bdmstate'], 'BlockchainReady')
+      self.assertEqual(actualResult['bdmstate'], BDM_BLOCKCHAIN_READY)
       self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)
       self.assertEqual(actualResult['difficulty'], 1.0)
       self.assertEqual(actualResult['testnet'], True)

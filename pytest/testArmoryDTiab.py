@@ -9,7 +9,7 @@ from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
    FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import UnsignedTransaction, PyTx
 import unittest
@@ -334,7 +334,7 @@ class ArmoryDTiabTest(TiabTest):
    def testGetinfo(self):
       info = self.jsonServer.jsonrpc_getarmorydinfo()
       self.assertEqual(info['blocks'], TOP_TIAB_BLOCK)
-      self.assertEqual(info['bdmstate'], 'BlockchainReady')
+      self.assertEqual(info['bdmstate'], BDM_BLOCKCHAIN_READY)
       self.assertEqual(info['walletversionstr'], '1.35')
       self.assertEqual(info['difficulty'], 1.0)
       self.assertEqual(info['balance'], FIRST_WLT_BALANCE)

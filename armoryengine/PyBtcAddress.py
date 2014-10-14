@@ -189,7 +189,7 @@ class PyBtcAddress(object):
          self.timeRange[0]=2**32-1
 
       if blkNum==None:
-         if TheBDM.getState()=='BlockchainReady':
+         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             topBlk = TheBDM.getCurrBlock()
             self.blkRange[0] = long(min(self.blkRange[0], topBlk))
             self.blkRange[1] = long(max(self.blkRange[1], topBlk))
@@ -197,7 +197,7 @@ class PyBtcAddress(object):
          self.blkRange[0]  = long(min(self.blkRange[0], blkNum))
          self.blkRange[1]  = long(max(self.blkRange[1], blkNum))
 
-         if unixTime==None and TheBDM.getState()=='BlockchainReady':
+         if unixTime==None and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             unixTime = TheBDM.bdm.blockchain().getHeaderByHeight(blkNum).getTimestamp()
 
       if unixTime==None:

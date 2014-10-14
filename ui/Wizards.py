@@ -16,7 +16,7 @@ from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
 from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_OFFLINE, BDM_UNINITIALIZED
 from qtdialogs import DlgProgress
 
 # This class is intended to be an abstract Wizard class that
@@ -177,7 +177,7 @@ class WalletWizard(ArmoryWizard):
       wltpath = self.newWallet.walletPath
       walletFromDisk = PyBtcWallet().readWalletFile(wltpath)
       self.main.addWalletToApplication(walletFromDisk, walletIsNew=True)
-      if TheBDM.getState() in ('Uninitialized', 'Offline'):
+      if TheBDM.getState() in (BDM_UNINITIALIZED, BDM_OFFLINE):
          TheBDM.registerWallet(walletFromDisk, isFresh=True, wait=False)
       else:
          self.main.newWalletList.append([walletFromDisk, True])

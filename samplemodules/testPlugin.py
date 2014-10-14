@@ -12,7 +12,7 @@ from PyQt4.Qt import QPushButton, SIGNAL, Qt, QLineEdit, QTableWidget, \
 
 from armorycolors import htmlColor
 from armoryengine.ArmoryUtils import RightNow, secondsToHumanTime, coin2str
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import makeHorizFrame, makeVertFrame, STYLE_PLAIN, QRichLabel, \
    GETFONT
 
@@ -242,7 +242,7 @@ class PluginObject(object):
       for wltID,wltObj in self.main.walletMap.iteritems():
          wltValueBTC = '(...)'
          wltValueUSD = '(...)'
-         if TheBDM.getState()=='BlockchainReady':
+         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             convertVal = float(self.lastSellStr.replace(',',''))
             wltBal = wltObj.getBalance('Total')
             wltValueBTC = coin2str(wltBal, maxZeros=2)

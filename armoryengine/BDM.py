@@ -18,9 +18,14 @@ import CppBlockUtils as Cpp
 from armoryengine.BinaryPacker import UINT64
 
 
+BDM_OFFLINE = 'Offline'
+BDM_UNINITIALIZED = 'Uninitialized'
+BDM_BLOCKCHAIN_READY = 'BlockChainReady'
+BDM_SCANNING = 'Scanning'
+      
 def newTheBDM(isOffline=False):
    global TheBDM
-   if TheBDM and TheBDM.getState() != 'Uninitialized':
+   if TheBDM and TheBDM.getState() != BDM_UNINITIALIZED:
       TheBDM.execCleanShutdown()
    TheBDM = BlockDataManager(isOffline=isOffline)
 
@@ -42,7 +47,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          if action == 1:
             act = 'finishLoadBlockchain'
             TheBDM.currentBlock = block
-            TheBDM.setState('BlockchainReady')
+            TheBDM.setState(BDM_BLOCKCHAIN_READY)
          elif action == 2:
             act = 'sweepAfterScanList'
          elif action == 3:
@@ -182,7 +187,7 @@ class BlockDataManager(object):
    Use setBlocking(False) along with wait=False for the appropriate calls
    to queue up your request and continue the main thread immediately.  You
    can finish up something else, and then come back and check whether the
-   job is finished (usually using TheBDM.getState()=='BlockchainReady')
+   job is finished (usually using TheBDM.getState()==BDM_BLOCKCHAIN_READY)
 
    Any methods not defined explicitly in this class will "passthrough" the
    __getattr__() method, which will then call that exact method name on 
@@ -243,8 +248,8 @@ class BlockDataManager(object):
       self.currentActivity = 'None'
       self.walletsToRegister = []
       
-      if isOffline == True: self.bdmState = 'Offline'
-      else: self.bdmState = 'Uninitialized'
+      if isOffline == True: self.bdmState = BDM_OFFLINE
+      else: self.bdmState = BDM_UNINITIALIZED
 
       self.btcdir = BTC_HOME_DIR
       self.ldbdir = LEVELDB_DIR
@@ -270,7 +275,7 @@ class BlockDataManager(object):
 
       self.bdmThread.setConfig(self.bdmConfig())
       
-      self.bdmState = 'Scanning'
+      self.bdmState = BDM_SCANNING
       self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
 
    #############################################################################
@@ -404,8 +409,10 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def execCleanShutdown(self):
+      self.bdmState = BDM_UNINITIALIZED
       self.bdv.reset()
       self.bdmThread.shutdownAndWait()
+      del self.bdmThread
    
    @ActLikeASingletonBDM
    def runBDM(self, fn):

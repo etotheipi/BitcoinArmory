@@ -414,7 +414,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       totBal = 0
       utxoOutList = []
 
-      if TheBDM.getState()=='BlockchainReady':
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          for u in utxoList:
             curUTXODict = {}
             curTxOut += 1
@@ -899,7 +899,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       wltInfo = {}
-      self.isReady = TheBDM.getState() == 'BlockchainReady'
+      self.isReady = TheBDM.getState() == BDM_BLOCKCHAIN_READY
       self.wltToUse = self.curWlt
 
       # If we're not getting info on the currently loaded wallet, check to make
@@ -930,7 +930,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Proceed only if the blockchain's good. Wallet value could be unreliable
       # otherwise.
-      if TheBDM.getState()=='BlockchainReady':
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          if not baltype in ['spendable', 'spend', 'unconf', 'unconfirmed', \
                             'total', 'ultimate', 'unspent', 'full']:
             LOGERROR('Unrecognized getbalance string: "%s"', baltype)
@@ -1473,7 +1473,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       A dictionary listing version of armoryd running on the server.
       """
 
-      isReady = TheBDM.getState() == 'BlockchainReady'
+      isReady = TheBDM.getState() == BDM_BLOCKCHAIN_READY
 
       info = { \
                'versionstr':        getVersionString(BTCARMORY_VERSION),
@@ -1511,7 +1511,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       block wasn't found.
       """
 
-      if TheBDM.getState() in ['Uninitialized', 'Offline']:
+      if TheBDM.getState() in [BDM_UNINITIALIZED, BDM_OFFLINE]:
          return {'error': 'armoryd is offline'}
 
       head = TheBDM.getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
@@ -1584,7 +1584,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       the transaction wasn't found.
       """
 
-      if TheBDM.getState() in ['Uninitialized', 'Offline']:
+      if TheBDM.getState() in [BDM_UNINITIALIZED, BDM_OFFLINE]:
          return {'Error': 'armoryd is offline'}
 
       binhash = hex_to_binary(txHash, BIGENDIAN)
@@ -2815,7 +2815,7 @@ class Armory_Daemon(object):
       # its own thread.
       TheBDM.setBlocking(True)
       LOGWARN('Server started...')
-      if(not TheBDM.getState()=='Offline'):
+      if(not TheBDM.getState()==BDM_OFFLINE):
          # Put the BDM in online mode only after registering all Python wallets.
          for wltID, wlt in self.WltMap.iteritems():
             LOGWARN('Registering wallet: %s' % wltID)
@@ -3019,7 +3019,7 @@ class Armory_Daemon(object):
             wlt.checkWalletLockTimeout()
 
          # Check for new blocks in the latest blk0XXXX.dat file.
-         if TheBDM.getState()=='BlockchainReady':
+         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             #check wallet every checkStep seconds
             nextCheck = self.lastChecked + self.checkStep
             if RightNow() >= nextCheck:

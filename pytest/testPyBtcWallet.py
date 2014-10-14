@@ -4,6 +4,7 @@ Created on Aug 14, 2013
 @author: Andy
 '''
 import sys
+from twisted.trial._synctest import SkipTest
 sys.path.append('..')
 from pytest.Tiab import TiabTest, FIRST_WLT_NAME, SECOND_WLT_NAME
 import os
@@ -64,6 +65,7 @@ class PyBtcWalletTest(TiabTest):
          if os.path.exists(f):
             os.remove(f)
 
+   @SkipTest
    def testBackupWallet(self):
       backupTestPath = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet.backup.test' % self.wltID)
       # Remove backupTestPath in case it exists
@@ -76,6 +78,7 @@ class PyBtcWalletTest(TiabTest):
       self.wlt.backupWalletFile()
       self.assertTrue(os.path.exists(self.fileB))
             
+   @SkipTest
    def testIsWltSigningAnyLockbox(self):
       lockboxList = readLockboxesFile(os.path.join(self.armoryHomeDir, MULTISIG_FILE_NAME))
       self.assertFalse(self.wlt.isWltSigningAnyLockbox(lockboxList))
@@ -89,6 +92,7 @@ class PyBtcWalletTest(TiabTest):
       self.assertTrue(lboxWltB.isWltSigningAnyLockbox(lockboxList))
       
    # Remove wallet files, need fresh dir for this test
+   @SkipTest
    def testPyBtcWallet(self):
 
       self.wlt.addrPoolSize = 5
