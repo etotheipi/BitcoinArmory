@@ -70,7 +70,8 @@ class BlockDataViewer
       int64_t           getSentValue(TxIn & txin);
 
       LMDBBlockDatabase* getDB(void) const;
-      Blockchain& blockchain(void) const;
+      const Blockchain& blockchain() const  { return *bc_; }
+      Blockchain& blockchain() { return *bc_; }
       uint32_t getTopBlockHeight(void) const;
 
       void reset();
