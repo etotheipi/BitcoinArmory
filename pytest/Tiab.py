@@ -125,9 +125,10 @@ class TiabTest(unittest.TestCase):
       self.tiab = TiabSession(tiabZipPath=tiabZipPath)
       
       newTheBDM()
+      self.armoryHomeDir = os.path.join(self.tiab.tiabDirectory,'tiab','armory')
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
-      TheBDM.goOnline(levelDBDir=os.path.join(self.tiab.tiabDirectory,'tiab','armory'))
+      TheBDM.goOnline(levelDBDir=self.armoryHomeDir)
       i = 0
       while not TheBDM.getState()==BDM_BLOCKCHAIN_READY and i < 10:
          time.sleep(2)

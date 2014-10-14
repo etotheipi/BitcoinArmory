@@ -257,6 +257,11 @@ class BlockDataManager(object):
       
       self.currentBlock = 0
       self.cppNotificationListenerList = []
+      
+   #############################################################################
+   @ActLikeASingletonBDM
+   def getTopBlockHeight(self):
+      return self.bdv.blockchain().top().getBlockHeight()
    
    #############################################################################
    @ActLikeASingletonBDM
