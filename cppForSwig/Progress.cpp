@@ -35,8 +35,9 @@ void ProgressReporterFilter::progress(
    double progress, unsigned secondsRemaining
 )
 {
-   if (secondsRemaining == secondsRemaining_ && progress_ == progress)
+   if (!never_ && secondsRemaining == secondsRemaining_ && progress_ == progress)
       return;
+   never_ = true;
    secondsRemaining_ = secondsRemaining;
    progress_ = progress;
    to_->progress(progress*scale_, secondsRemaining/scale_);
