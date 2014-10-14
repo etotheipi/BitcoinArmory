@@ -2731,9 +2731,13 @@ class DlgKeypoolSettings(ArmoryDialog):
          self.main.forceNeedRescan = False
 
       # We use callLater so that we can let the screen redraw with "Calculating..."
-      from twisted.internet import reactor
-      reactor.callLater(0.1, doit)
-
+      #from twisted.internet import reactor
+      #reactor.callLater(0.1, doit)
+      doit()
+      self.main.setWalletIsScanning(self.wlt)
+      self.main.walletModel.reset()
+      self.reject()
+      self.parent.reject()
 
 ################################################################################
 class DlgNewAddressDisp(ArmoryDialog):

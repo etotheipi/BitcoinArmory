@@ -3447,12 +3447,18 @@ class ArmoryMainWindow(QMainWindow):
 
       return comment
       """
-
+   #############################################################################      
+   def setWalletIsScanning(self, newWallet):
+      
+      newWltID = newWallet.uniqueIDB58
+      newWallet.isEnabled = False
+      self.walletSideScanProgress[newWltID] = 0
+            
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):
       LOGINFO('addWalletToApplication')
       
-      newWallet.isEnabled = False
+      self.setWalletIsScanning(newWallet)
       
       TheBDM.registerWallet(newWallet.cppWallet)
 
@@ -3471,8 +3477,6 @@ class ArmoryMainWindow(QMainWindow):
       showByDefault = (determineWalletType(newWallet, self)[0] != WLTTYPES.WatchOnly)
       self.walletVisibleList.append(showByDefault)
       self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
-
-      self.walletSideScanProgress[newWltID] = 0
       
       self.walletListChanged()
       self.mainWnd = self

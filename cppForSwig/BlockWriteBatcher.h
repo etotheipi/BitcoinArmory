@@ -25,7 +25,7 @@ public:
 #if defined(_DEBUG) || defined(DEBUG )
    //use a tiny update threshold to trigger multiple commit threads for 
    //unit tests in debug builds
-   static const uint64_t UPDATE_BYTES_THRESH = 96 * 1024 * 1204;// 300;
+   static const uint64_t UPDATE_BYTES_THRESH = 300;
 #else
    static const uint64_t UPDATE_BYTES_THRESH = 96 * 1024 * 1024;
 #endif

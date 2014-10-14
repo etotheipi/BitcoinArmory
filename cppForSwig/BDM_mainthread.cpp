@@ -297,7 +297,7 @@ try
             set<BinaryData> newZCTxHash = bdv->getNewZCTxHash();
             bdv->scanWallets();
 
-            vector<LedgerEntry> newZCLedgers;// = new vector<LedgerEntry>;
+            vector<LedgerEntry> newZCLedgers;
 
             for (const auto& txHash : newZCTxHash)
             {
