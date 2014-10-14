@@ -3124,13 +3124,14 @@ class ArmoryMainWindow(QMainWindow):
       unconfFunds = 0
       currBlk = TheBDM.getCurrBlock()
 
-      for wltID in wltIDList:
-         wlt = self.walletMap[wltID]
-         #id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
-         #self.combinedLedger.extend(id_le_pairs)
-         totalFunds += wlt.getBalance('Total')
-         spendFunds += wlt.getBalance('Spendable')
-         unconfFunds += wlt.getBalance('Unconfirmed')
+      if bdmState in ('Offline', 'Scanning'):
+         for wltID in wltIDList:
+            wlt = self.walletMap[wltID]
+            #id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
+            #self.combinedLedger.extend(id_le_pairs)
+            totalFunds += wlt.getBalance('Total')
+            spendFunds += wlt.getBalance('Spendable')
+            unconfFunds += wlt.getBalance('Unconfirmed')
 
 
       def keyFuncNumConf(x):
