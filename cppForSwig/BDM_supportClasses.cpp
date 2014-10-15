@@ -786,7 +786,9 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
       {
          BinaryRefReader brrmsig(scrAddr);
          uint8_t PREFIX = brrmsig.get_uint8_t();
+         (void)PREFIX;
          uint8_t M = brrmsig.get_uint8_t();
+         (void)M;
          uint8_t N = brrmsig.get_uint8_t();
          for (uint8_t a = 0; a<N; a++)
          if (filter(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))

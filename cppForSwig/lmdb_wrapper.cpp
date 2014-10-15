@@ -856,6 +856,7 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
    size_t scrAddrSize = scrAddr.getSize();
+   (void)scrAddrSize;
 
    if (startBlock != 0)
    {
@@ -2749,6 +2750,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    uint32_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
    uint32_t scrAddrSize = scrAddr.getSize();
+   (void)scrAddrSize;
 
    if (!ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
    {
@@ -2757,8 +2759,6 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    }
 
    // Now start iterating over the sub histories
-   map<BinaryData, StoredSubHistory>::iterator iter;
-   uint32_t numTxioRead = 0;
    do
    {
       uint32_t sz = ldbIter.getKeyRef().getSize();

@@ -55,7 +55,7 @@ struct CompileAssert
 #if defined(CRYPTOPP_EXPORTS) || defined(CRYPTOPP_IMPORTS)
 #define CRYPTOPP_COMPILE_ASSERT_INSTANCE(assertion, instance)
 #else
-#define CRYPTOPP_COMPILE_ASSERT_INSTANCE(assertion, instance) static CompileAssert<(assertion)> CRYPTOPP_ASSERT_JOIN(cryptopp_assert_, instance)
+#define CRYPTOPP_COMPILE_ASSERT_INSTANCE(assertion, instance) typedef CompileAssert<(assertion)> CRYPTOPP_ASSERT_JOIN(cryptopp_assert_, instance)
 #endif
 #define CRYPTOPP_ASSERT_JOIN(X, Y) CRYPTOPP_DO_ASSERT_JOIN(X, Y)
 #define CRYPTOPP_DO_ASSERT_JOIN(X, Y) X##Y

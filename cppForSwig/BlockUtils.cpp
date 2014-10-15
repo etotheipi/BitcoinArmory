@@ -1303,8 +1303,6 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(
       return false;
    }
 
-   uint64_t cumulativeBlockFile=blkFileSizes_[fnum];
-   
    // This will trigger if this is the last blk file and no new blocks
    if(filesize < startOffset)
       return true;

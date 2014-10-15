@@ -368,6 +368,8 @@ void TxIn::pprint(ostream & os, int nIndent, bool pBigendian) const
       case TXIN_SCRIPT_SPENDPUBKEY: os << "SpendPubKey" << endl; break;
       case TXIN_SCRIPT_SPENDP2SH:   os << "SpendP2sh" << endl; break;
       case TXIN_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
+      case TXIN_SCRIPT_SPENDMULTI:  os << "Multi" << endl; break;
+         
    }
    os << indent << "   Bytes:   " << getSize() << endl;
    os << indent << "   Sender:  " << getSenderScrAddrIfAvail().toHexStr() << endl;
@@ -484,6 +486,7 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
    case TXOUT_SCRIPT_STDPUBKEY65: os << "StdPubKey65" << endl; break;
    case TXOUT_SCRIPT_STDPUBKEY33: os << "StdPubKey65" << endl; break;
    case TXOUT_SCRIPT_P2SH:        os << "Pay2ScrHash" << endl; break;
+   case TXOUT_SCRIPT_MULTISIG:    os << "Multi" << endl; break;
    case TXOUT_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Recip:  " 

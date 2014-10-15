@@ -235,8 +235,6 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr) const
 {
-   size_t numLedg = ledgerAllAddr_->size();
-
    cout << "Wallet PPRINT:" << endl;
    cout << "Tot: " << getFullBalance() << endl;
    cout << "Spd: " << getSpendableBalance(topBlk) << endl;
