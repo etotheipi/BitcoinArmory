@@ -790,7 +790,7 @@ bool BtcWallet::merge()
       
       //merge scrAddrMap
       for (auto& scrAddrPair : scrAddrMapToMerge_)
-         scrAddrMap_[scrAddrPair.first] = scrAddrPair.second;
+         scrAddrMap_.insert(scrAddrPair); //no need to override existing ScrAddrObj
 
       //clear merge map
       scrAddrMapToMerge_.clear();
@@ -920,4 +920,15 @@ void BtcWallet::needsRefresh(void)
    bdvPtr_->flagRefresh(true, walletID_); 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::forceScan(void)
+{
+   //force scan all the addresses registered in this wallet in a side thread
+   vector<BinaryData> saVec;
+
+   for (const auto& sa : scrAddrMap_)
+      saVec.push_back(sa.first);
+
+   bdvPtr_->registerAddresses(saVec, this, -1);
+}
 // kate: indent-width 3; replace-tabs on;

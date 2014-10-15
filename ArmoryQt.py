@@ -334,7 +334,8 @@ class ArmoryMainWindow(QMainWindow):
       # Another table and model, for lockboxes
       self.lockboxLedgTable = []
       self.lockboxLedgModel = LedgerDispModelSimple(self.lockboxLedgTable, 
-                                                                   self, self, isLboxModel=True)
+                                                    self, self, isLboxModel=True)
+      self.lbDialogModel = None
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
@@ -2810,9 +2811,6 @@ class ArmoryMainWindow(QMainWindow):
          lbID = lbObj.uniqueIDB58
          index = self.lockboxIDMap.get(lbID)
          if index is None:
-            
-            if TheBDM.getState() != BDM_OFFLINE and TheBDM.getState() != BDM_UNINITIALIZED:
-               self.setWalletIsScanning(lbObj)
             
             # Add new lockbox to list
             self.allLockboxes.append(lbObj)
@@ -6256,7 +6254,9 @@ class ArmoryMainWindow(QMainWindow):
             else:
                lbID = self.lockboxIDMap[wltID]                
                self.allLockboxes[lbID].isEnabled = True
-              
+               if self.lbDialogModel != None:
+                  self.lbDialogModel.reset()
+                  
             del self.walletSideScanProgress[wltID]
             
          self.createCombinedLedger()
@@ -6272,6 +6272,8 @@ class ArmoryMainWindow(QMainWindow):
             self.walletModel.reset()
          else:
             self.lockboxLedgModel.reset()
+            if self.lbDialogModel != None:
+               self.lbDialogModel.reset()
          
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):

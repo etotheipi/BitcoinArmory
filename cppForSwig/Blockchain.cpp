@@ -74,6 +74,14 @@ BlockHeader& Blockchain::getHeaderByHeight(unsigned index) const
    return *headersByHeight_[index];
 }
 
+bool Blockchain::hasHeaderByHeight(unsigned height) const
+{
+   if (height >= headersByHeight_.size())
+      return false;
+
+   return true;
+}
+
 const BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash) const
 {
    map<HashString, BlockHeader>::const_iterator it = headerMap_.find(blkHash);

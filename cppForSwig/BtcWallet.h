@@ -166,6 +166,8 @@ public:
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
    void needsRefresh(void);
 
+   void forceScan(void);
+
 private:   
    
    //new all purpose wallet scanning call, returns true on bootstrap and new block,

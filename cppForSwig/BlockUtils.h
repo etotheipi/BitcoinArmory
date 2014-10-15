@@ -365,6 +365,8 @@ public:
 
    void startSideScan(
       function<void(const BinaryData&, double prog, unsigned time)> progress);
+
+   void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 };
 
 

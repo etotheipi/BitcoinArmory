@@ -120,6 +120,16 @@ class LockboxDisplayModel(QAbstractTableModel):
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
 
+   def flags(self, index, role=Qt.DisplayRole):
+      if role == Qt.DisplayRole:
+         lbox = self.boxList[index.row()]
+         
+         rowFlag = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+         
+         if lbox.isEnabled is False:      
+            return Qt.ItemFlags()      
+            
+         return rowFlag      
 
 
 class LockboxDisplayProxy(QSortFilterProxyModel):

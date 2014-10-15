@@ -429,6 +429,11 @@ protected:
    {
       bdm_->sideScanFlag_ = true;
    }
+
+   virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec)
+   {
+      bdm_->wipeScrAddrsSSH(saVec);
+   }
 };
 
 
@@ -2715,4 +2720,38 @@ void BlockDataManager_LevelDB::startSideScan(
    scrAddrData_->startSideScan(progress);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
+{
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
+
+   vector<BinaryData> keysToDelete;
+
+   for (const auto& scrAddr : saVec)
+   {
+      LDBIter ldbIter = iface_->getIterator(BLKDATA);
+
+      if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, scrAddr))
+         continue;
+
+      do
+      {
+         BinaryData key = ldbIter.getKey();
+
+         if (key.getSliceRef(1, 21) != scrAddr)
+            break;
+
+         if (key.getSize() == 0)
+            break;
+
+         if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
+            break;
+
+         keysToDelete.push_back(key);
+      } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+
+      for (const auto& keyToDel : keysToDelete)
+         iface_->deleteValue(BLKDATA, keyToDel);
+   }
+}
 // kate: indent-width 3; replace-tabs on;

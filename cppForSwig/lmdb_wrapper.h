@@ -593,8 +593,6 @@ public:
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
-
-
 private:
    string               baseDir_;
    string dbFilename() const { return baseDir_ + "/blocks"; }

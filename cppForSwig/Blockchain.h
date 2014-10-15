@@ -49,6 +49,7 @@ public:
    BlockHeader& top() const;
    BlockHeader& getGenesisBlock() const;
    BlockHeader& getHeaderByHeight(unsigned height) const;
+   bool hasHeaderByHeight(unsigned height) const;
    
    const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
    BlockHeader& getHeaderByHash(HashString const & blkHash);

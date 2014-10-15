@@ -48,11 +48,16 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 
 ///////////////////////////////////////////////////////////////////////////////
 bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec, 
-   BtcWallet* wltPtr, bool isNew)
+   BtcWallet* wltPtr, int32_t doScan)
 {
    /***
    Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
    in which case wltPtr will be called back with the address once it is ready
+
+   doScan: 
+      1: don't scan, new addresses
+      0: scan while taking count of the existing history
+     -1: wipe existing history then scan
    ***/
 
    //check if the BDM is initialized. There ought to be a better way than
@@ -72,36 +77,47 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       }
 
       //check DB for the scrAddr's SSH
-         StoredScriptHistory ssh;
+      StoredScriptHistory ssh;
          
-         ScrAddrFilter* topChild = this;
-         while (topChild->child_.get() != nullptr)
-            topChild = topChild->child_.get();
+      ScrAddrFilter* topChild = this;
+      while (topChild->child_.get() != nullptr)
+         topChild = topChild->child_.get();
 
-         topChild->child_ = shared_ptr<ScrAddrFilter>(copy());
-         ScrAddrFilter* sca = topChild->child_.get();
+      topChild->child_ = shared_ptr<ScrAddrFilter>(copy());
+      ScrAddrFilter* sca = topChild->child_.get();
 
-         sca->setRoot(this);
+      sca->setRoot(this);
         
-         if (!isNew)
+      if (doScan == 0)
+      {
+         //scan on top of existing history
+         for (const auto& scrAddr : saVec)
          {
-            for (const auto& scrAddr : saVec)
-            {
-               lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
-               sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_, wltPtr);
-            }
+            //TODO: determine how much of the SSH should be cleared if
+            //it has some existing history
+            lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
+            sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_, wltPtr);
          }
-         else
-         {
-            //mark as fresh to skip DB scan
-            sca->freshAddresses_ = true;
-            for (const auto& scrAddr : saVec)
-               sca->regScrAddrForScan(scrAddr, 0, wltPtr);
-         }
+      }
+      else if (doScan == -1)
+      {
+         //mark existing history for wipe and rescan from block 0
+         sca->doScan_ = -1;
 
-         flagForScanThread();
+         for (const auto& scrAddr : saVec)
+            sca->regScrAddrForScan(scrAddr, 0, wltPtr);
+      }
+      else
+      {
+         //mark addresses as fresh to skip DB scan
+         sca->doScan_ = 0;
+         for (const auto& scrAddr : saVec)
+            sca->regScrAddrForScan(scrAddr, 0, wltPtr);
+      }
 
-         return false;
+      flagForScanThread();
+
+      return false;
    }
    else
    {
@@ -125,9 +141,12 @@ void ScrAddrFilter::scanScrAddrThread()
    uint32_t startBlock = scanFrom();
    uint32_t endBlock = currentTopBlockHeight()+1;
   
-   if (freshAddresses_ == false)
+   if (doScan_ == 1)
    {
-      //if these aren't new addresses, scan them
+      //TODO: keep scanning if the top changed, just handle that in the last
+      //during main thread BtcWallet::merge()
+
+      //scan on top of existing history
       while (startBlock < endBlock)
       {
          applyBlockRangeToDB(startBlock, endBlock, wltPtr);
@@ -135,6 +154,30 @@ void ScrAddrFilter::scanScrAddrThread()
          startBlock = endBlock;
          endBlock = currentTopBlockHeight() + 1;
       }
+   }
+   else if (doScan_ == 0)
+   {
+      //new addresses, set their last seen block in the SSH entries
+      setSSHLastScanned(currentTopBlockHeight() + 1);
+   }
+   else
+   {
+      //wipe SSH
+      vector<BinaryData> saVec;
+      for (const auto& scrAddrPair : scrAddrMap_)
+         saVec.push_back(scrAddrPair.first);
+      wipeScrAddrsSSH(saVec);
+      saVec.clear();
+
+      //scan from 0
+      while (startBlock < endBlock)
+      {
+         applyBlockRangeToDB(startBlock, endBlock, wltPtr);
+
+         startBlock = endBlock;
+         endBlock = currentTopBlockHeight() + 1;
+      }
+
    }
 
    //merge with main ScrAddrScanData object
@@ -151,7 +194,7 @@ void ScrAddrFilter::scanScrAddrThread()
    
    if (!scrAddrMap_.empty())
    {
-      wltPtr->prepareScrAddrForMerge(addressVec, freshAddresses_);
+      wltPtr->prepareScrAddrForMerge(addressVec, !((bool)doScan_));
 
       //notify the bdv that it needs to refresh through the wallet
       wltPtr->needsRefresh();
@@ -173,7 +216,7 @@ void ScrAddrFilter::scanScrAddrThread()
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::scanScrAddrMapInNewThread()
 {
-   auto scanMethod = [&](void)->void
+   auto scanMethod = [this](void)->void
    { this->scanScrAddrThread(); };
 
    thread scanThread(scanMethod);
@@ -330,7 +373,6 @@ void ScrAddrFilter::startSideScan(
       sca->scanScrAddrMapInNewThread();
    }
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //ZeroConfContainer Methods

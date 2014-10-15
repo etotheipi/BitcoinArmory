@@ -655,6 +655,9 @@ class DlgLockboxManager(ArmoryDialog):
       self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
                                     self.main.getPreferredDateFormat())
+      
+      self.main.lbDialogModel = self.lboxModel
+      
       self.lboxProxy = LockboxDisplayProxy(self)
       self.lboxProxy.setSourceModel(self.lboxModel)
       self.lboxProxy.sort(LOCKBOXCOLS.CreateDate, Qt.DescendingOrder)
@@ -1403,6 +1406,7 @@ class DlgLockboxManager(ArmoryDialog):
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
       if True:  actionRemoveLB    = menu.addAction("Delete Lockbox")
+      if True:  actionRescanLB    = menu.addAction("Rescan Lockbox")
 
       selectedIndexes = self.lboxView.selectedIndexes()
 
@@ -1488,6 +1492,26 @@ class DlgLockboxManager(ArmoryDialog):
                self.singleClickLockbox()
 
             return
+         
+         elif action == actionRescanLB:
+            dispInfo = self.main.getDisplayStringForScript(lbox.binScript)            
+            reply = QMessageBox.warning(self, tr('Confirm Rescan'), tr("""
+               Rescaning a Lockbox will make it unavailable for the duration
+               of the process
+               <br><br>
+               You are about to rescan the following lockbox:
+               <br><br>
+               <font color="%s">%s</font> """) % (htmlColor('TextBlue'), 
+               dispInfo['String']), QMessageBox.Yes | QMessageBox.No) 
+
+            if reply==QMessageBox.Yes:
+               self.main.setWalletIsScanning(lbox)            
+               lwlt = self.main.cppLockboxWltMap[lbox.uniqueIDB58]  
+               lwlt.forceScan()          
+               self.lboxModel.reset()
+               
+            return
+         
          else:
             return
    
@@ -1570,6 +1594,7 @@ class DlgLockboxManager(ArmoryDialog):
       lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
       lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
       lines.append(tr('<b>Stored Key Details</b>'))
+
       for i in range(len(lb.dPubKeys)):
          comm = lb.dPubKeys[i].keyComment
          addr = hash160_to_addrStr(lb.a160List[i])
@@ -1807,11 +1832,13 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def accept(self, *args):
       self.saveGeometrySettings()
+      self.main.lbDialogModel = None
       super(DlgLockboxManager, self).accept(*args)
 
    #############################################################################
    def reject(self, *args):
       self.saveGeometrySettings()
+      self.main.lbDialogModel = None      
       super(DlgLockboxManager, self).reject(*args)
       
 

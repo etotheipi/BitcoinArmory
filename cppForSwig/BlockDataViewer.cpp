@@ -109,7 +109,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       merge |= wltPtr->merge();
 
 
-   if (initialized_ == false || merge == true)
+   if (initialized_ == false /*|| merge == true*/)
    {
       //out of date history, page all wallets' history
       pageWalletsHistory();
@@ -330,9 +330,9 @@ bool BlockDataViewer::parseNewZeroConfTx()
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
-   BtcWallet* wltPtr, bool isNew)
+   BtcWallet* wltPtr, int32_t doScan)
 {
-   return saf_->registerAddresses(saVec, wltPtr, isNew);
+   return saf_->registerAddresses(saVec, wltPtr, doScan);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

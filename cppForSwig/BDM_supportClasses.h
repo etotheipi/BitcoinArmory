@@ -95,7 +95,12 @@ private:
    map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
    atomic<int32_t>                mergeLock_;
    bool                           mergeFlag_=false;
-   bool                           freshAddresses_=false;
+   
+   //0: dont scan
+   //1: scan from existing SSH lastScannedHeight
+   //-1: wipe existing SSH first then scan
+   int32_t                        doScan_ = 1; 
+   
    bool                           isScanning_ = false;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
@@ -138,7 +143,7 @@ public:
 
    uint32_t scanFrom(void) const;
    bool registerAddresses(const vector<BinaryData>& saVec, 
-                          BtcWallet* wltPtr, bool isNew);
+                          BtcWallet* wltPtr, int32_t doScan);
 
    void unregisterScrAddr(BinaryData& scrAddrIn)
    { scrAddrMap_.erase(scrAddrIn); }
@@ -191,7 +196,8 @@ protected:
    virtual uint32_t currentTopBlockHeight() const=0;
    virtual ScrAddrFilter* copy()=0;
    virtual void flagForScanThread(void) = 0;
-   
+   virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec) = 0;
+
 private:
    void scanScrAddrThread(void);
 };
