@@ -40,7 +40,7 @@ FAKE_KDF_OUTPUT2 = SecureBinaryData( hex_to_binary('22'*32) )
 
 class PyBtcAddressTest(TiabTest):
    # TODO: This test needs more verification of the results.
-   @SkipTest
+   
    def testEncryptedAddress(self):
 
 
@@ -326,7 +326,7 @@ class PyBtcAddressTest(TiabTest):
       self.assertEqual(priv2, priv2b)
    
    # TODO: Add coverage for condition where TheBDM is in BlockchainReady state.
-   @SkipTest
+   
    def testTouch(self):
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
       theIV = SecureBinaryData(hex_to_binary(INIT_VECTOR))
@@ -349,7 +349,7 @@ class PyBtcAddressTest(TiabTest):
       self.assertEqual(testAddr.blkRange[0], TEST_BLOCK_NUM)
       self.assertEqual(testAddr.blkRange[1], TOP_TIAB_BLOCK)
       
-   @SkipTest
+   
    def testCopy(self):
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
       testCopy = testAddr.copy()
@@ -365,7 +365,7 @@ class PyBtcAddressTest(TiabTest):
       self.assertEqual(testAddr.chaincode, testCopy.chaincode)
       self.assertEqual(testAddr.chainIndex, testCopy.chainIndex)
    
-   @SkipTest
+   
    def testVerifyEncryptionKey(self):
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
       theIV = SecureBinaryData(hex_to_binary(INIT_VECTOR))
@@ -375,7 +375,7 @@ class PyBtcAddressTest(TiabTest):
       self.assertTrue(testAddr.verifyEncryptionKey(FAKE_KDF_OUTPUT1))
       self.assertFalse(testAddr.verifyEncryptionKey(FAKE_KDF_OUTPUT2))
       
-   @SkipTest
+   
    def testSimpleAddress(self):
       # Execute the tests with Satoshi's public key from the Bitcoin specification page
       satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
