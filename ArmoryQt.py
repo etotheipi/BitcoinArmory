@@ -689,7 +689,7 @@ class ArmoryMainWindow(QMainWindow):
 
       def mkprom():
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-            QMessageBox.warning(self, tr(BDM_OFFLINE), tr("""
+            QMessageBox.warning(self, tr('Offline'), tr("""
                Armory is currently offline, and cannot determine what funds are
                available for simulfunding.  Please try again when Armory is in
                online mode."""), QMessageBox.Ok)
@@ -2554,7 +2554,7 @@ class ArmoryMainWindow(QMainWindow):
    def uriLinkClicked(self, uriStr):
       LOGINFO('uriLinkClicked')
       if TheBDM.getState()==BDM_OFFLINE:
-         QMessageBox.warning(self, BDM_OFFLINE, \
+         QMessageBox.warning(self, 'Offline', \
             'You just clicked on a "bitcoin:" link, but Armory is offline '
             'and cannot send transactions.  Please click the link '
             'again when Armory is online.', \
@@ -3804,7 +3804,7 @@ class ArmoryMainWindow(QMainWindow):
                  'BitcoindSynchronizing', \
                  'TorrentSynchronizing'] or \
          bdm in [BDM_SCANNING]:
-         QMessageBox.warning(self, tr(BDM_SCANNING), tr("""
+         QMessageBox.warning(self, tr('Scanning'), tr("""
             Armory is currently in the middle of scanning the blockchain for
             your existing wallets.  New wallets cannot be imported until this
             operation is finished."""), QMessageBox.Ok)
@@ -5681,13 +5681,13 @@ class ArmoryMainWindow(QMainWindow):
                      # Forced offline but bitcoind is running
                      LOGINFO('Dashboard switched to auto-OfflineForcedButSatoshiAvail')
                      descr1 += self.GetDashStateText('Auto', 'OfflineForcedButSatoshiAvail')
-                     descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                     descr2 += self.GetDashFunctionalityText('Offline')
                      self.lblDashDescr1.setText(descr1)
                      self.lblDashDescr2.setText(descr2)
                   else:
                      LOGINFO('Dashboard switched to auto-OfflineSatoshiAvail')
                      descr1 += self.GetDashStateText('Auto', 'OfflineSatoshiAvail')
-                     descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                     descr2 += self.GetDashFunctionalityText('Offline')
                      self.lblDashDescr1.setText(descr1)
                      self.lblDashDescr2.setText(descr2)
                else:
@@ -5701,7 +5701,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
             elif not TheSDM.isRunningBitcoind() and not TheTDM.isRunning():
@@ -5722,7 +5722,7 @@ class ArmoryMainWindow(QMainWindow):
                   #setBtnRowVisible(DASHBTNS.Close, True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBitcoindRunning')
                   descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
                   #self.psutil_detect_bitcoin_exe_path()
@@ -5744,7 +5744,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnFrameVisible(True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineNeedBitcoinInst')
                   descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
                elif sdmState in ['BitcoindDatabaseEnvError']:
@@ -5756,7 +5756,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBadDBEnv')
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
                   setBtnFrameVisible(True, '')
@@ -5775,7 +5775,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBtcdCrashed')
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
                   self.lblDashDescr1.setTextInteractionFlags( \
@@ -5788,13 +5788,13 @@ class ArmoryMainWindow(QMainWindow):
                      #LOGERROR('Auto-mode-switch')
                      #self.executeModeSwitch()
                   descr1 += ''
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
                else:
                   setBtnFrameVisible(False)
                   descr1 += ''
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
             else:  # online detected/forced, and TheSDM has already been started
@@ -5819,7 +5819,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBadConnection')
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(extraTxt + descr1)
                   self.lblDashDescr2.setText(descr2)
                elif sdmState in ['BitcoindInitializing', \
@@ -5876,7 +5876,7 @@ class ArmoryMainWindow(QMainWindow):
                      'background.  You can switch back to '
                      'the old way in the Settings dialog. ')
 
-                  descr2 += self.GetDashFunctionalityText(BDM_OFFLINE)
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
       else:
@@ -5893,7 +5893,7 @@ class ArmoryMainWindow(QMainWindow):
                self.btnModeSwitch.setText('Go Online!')
                self.lblDashModeSync.setText('Armory is <u>offline</u>', size=4, bold=True)
                descr  = self.GetDashStateText('User', 'OfflineButOnlinePossible')
-               descr += self.GetDashFunctionalityText(BDM_OFFLINE)
+               descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
             elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
@@ -5920,7 +5920,7 @@ class ArmoryMainWindow(QMainWindow):
                   descr = self.GetDashStateText('User', 'OfflineNoBlkFiles')
 
                descr += '<br><br>'
-               descr += self.GetDashFunctionalityText(BDM_OFFLINE)
+               descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
 
          elif bdmState == BDM_BLOCKCHAIN_READY:
@@ -5931,7 +5931,7 @@ class ArmoryMainWindow(QMainWindow):
                self.btnModeSwitch.setVisible(False)
                self.lblDashModeSync.setText( 'Armory is disconnected', size=4, color='TextWarn', bold=True)
                descr  = self.GetDashStateText('User','Disconnected')
-               descr += self.GetDashFunctionalityText(BDM_OFFLINE)
+               descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
             else:
                # Fully online mode
@@ -5981,7 +5981,7 @@ class ArmoryMainWindow(QMainWindow):
                descr = self.GetDashStateText('User','ScanWithWallets')
 
             descr += self.GetDashStateText('Auto', 'NewUserInfo')
-            descr += self.GetDashFunctionalityText(BDM_SCANNING) + '<br>'
+            descr += self.GetDashFunctionalityText('Scanning') + '<br>'
             self.lblDashDescr1.setText(descr)
             self.lblDashDescr2.setText('')
             self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)

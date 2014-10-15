@@ -2960,14 +2960,14 @@ class DlgMultiSpendReview(ArmoryDialog):
                   chkLbl.setPixmap(QPixmap())
                   signBtn.setVisible(False)
                   signBtn.setEnabled(False)
-                  signBtn.setText(BDM_OFFLINE)
+                  signBtn.setText('Offline')
                   keyImg.setPixmap(self.pixWhite())
                elif wltType==WLTTYPES.Offline:
                   chkLbl.setVisible(False)
                   chkLbl.setPixmap(QPixmap())
                   signBtn.setVisible(True)
                   signBtn.setEnabled(False)
-                  signBtn.setText(BDM_OFFLINE)
+                  signBtn.setText('Offline')
                   keyImg.setPixmap(self.pixWhite())
             else:
                chkLbl.setPixmap(QPixmap())

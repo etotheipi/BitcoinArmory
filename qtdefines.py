@@ -21,8 +21,8 @@ from armoryengine.MultiSigUtils import *
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
 SATOSHIMODE     = enum('Auto', 'User')
-NETWORKMODE     = enum(BDM_OFFLINE, 'Full', 'Disconnected')
-WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', BDM_OFFLINE)
+NETWORKMODE     = enum('Offline', 'Full', 'Disconnected')
+WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                        'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
@@ -241,7 +241,7 @@ def relaxedSizeNChar(obj, nChar):
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
       if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
-         return [WLTTYPES.Offline, BDM_OFFLINE]
+         return [WLTTYPES.Offline, 'Offline']
       else:
          return [WLTTYPES.WatchOnly, 'Watching-Only']
    elif wlt.useEncryption:
