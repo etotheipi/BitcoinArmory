@@ -43,10 +43,12 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader(void) : 
       isInitialized_(false), 
+      isMainBranch_(false), 
+      isOrphan_(false),
       isFinishedCalc_(false),
+      duplicateID_(UINT8_MAX),
       numTx_(UINT32_MAX), 
-      numBlockBytes_(UINT32_MAX),
-      duplicateID_(UINT8_MAX)
+      numBlockBytes_(UINT32_MAX)
    { }
 
    explicit BlockHeader(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size); }
@@ -126,28 +128,29 @@ public:
 
 private:
    BinaryData     dataCopy_;
-   bool           isInitialized_;
-
+   bool           isInitialized_:1;
+   bool           isMainBranch_:1;
+   bool           isOrphan_:1;
+   bool           isFinishedCalc_:1;
+   // Specific to the DB storage
+   uint8_t        duplicateID_; // ID of this blk rel to others at same height
+   uint32_t       blockHeight_;
+   
+   uint32_t       numTx_;
+   uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
+   
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
    double         difficultyDbl_;
 
    // Need to compute these later
    BinaryData     nextHash_;
-   uint32_t       blockHeight_;
    double         difficultySum_;
-   bool           isMainBranch_;
-   bool           isOrphan_;
-   bool           isFinishedCalc_;
-   uint32_t       numTx_;
-   uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
 
    string         blkFile_;
    uint32_t       blkFileNum_;
    uint64_t       blkFileOffset_;
 
-   // Specific to the DB storage
-   uint8_t        duplicateID_; // ID of this blk rel to others at same height
 
 };
 
