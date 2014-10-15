@@ -907,7 +907,7 @@ class ArmoryMainWindow(QMainWindow):
          if vis:
             wltIDList.append(self.walletIDList[i])
 
-      TheBDM.bdv.updateWalletFilters(wltIDList)      
+      TheBDM.bdv().updateWalletFilters(wltIDList)      
 
       #self.walletsView.reset()
       #self.createCombinedLedger()
@@ -2436,7 +2436,7 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' %
-                     (htmlColor('TextGreen'), TheBDM.getCurrBlock()))
+                     (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
             if not self.getSettingOrSetDefault('NotifyReconn', True):
                return
 
@@ -2467,7 +2467,7 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED) or self.doShutdown:
          return
 
-      TheBDM.bdv.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
+      TheBDM.bdv().addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
 
       # All extra tx functions take one arg:  the PyTx object of the new ZC tx
       for txFunc in self.extraNewTxFunctions:
@@ -2687,7 +2687,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
          
-         TheBDM.bdv.registerWallet(wlt.cppWallet)
+         TheBDM.bdv().registerWallet(wlt.cppWallet)
 
 
       # Create one wallet per lockbox to make sure we can query individual
@@ -2817,14 +2817,14 @@ class ArmoryMainWindow(QMainWindow):
             self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
    
             # Create new wallet to hold the lockbox, register it with BDM
-            self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdv)
+            self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdv())
             self.cppLockboxWltMap[lbID].setWalletID(lbID)
             
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
             self.cppLockboxWltMap[lbID].addScrAddress_5_(scraddrReg, 0, 0, 0, 0)
             self.cppLockboxWltMap[lbID].addScrAddress_5_(scraddrP2SH, 0, 0, 0, 0)
-            TheBDM.bdv.registerLockbox(self.cppLockboxWltMap[lbID], isFresh)
+            TheBDM.bdv().registerLockbox(self.cppLockboxWltMap[lbID], isFresh)
 
          else:
             # Replace the original
@@ -2979,68 +2979,32 @@ class ArmoryMainWindow(QMainWindow):
                os.remove(mempoolfile)
          #else:
            # self.checkMemoryPoolCorruption(mempoolfile)
-         TheBDM.bdv.enableZeroConf(mempoolfile.encode('utf-8'))
+         TheBDM.bdv().enableZeroConf(mempoolfile.encode('utf-8'))
          self.memPoolInit = True
 
       self.createCombinedLedger()
       self.ledgerSize = len(self.combinedLedger)
       self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
       if self.netMode==NETWORKMODE.Full:
-         LOGINFO('Current block number: %d', TheBDM.getCurrBlock())
+         LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
          self.lblArmoryStatus.setText(\
             '<font color=%s>Connected (%s blocks)</font> ' %
-            (htmlColor('TextGreen'), TheBDM.getCurrBlock()))
+            (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
          # We still need to put together various bits of info.
 
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
          if self.netMode==NETWORKMODE.Full:
-            LOGINFO('Current block number: %d', TheBDM.getCurrBlock())
+            LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
             self.lblArmoryStatus.setText(\
                '<font color=%s>Connected (%s blocks)</font> ' %
-               (htmlColor('TextGreen'), TheBDM.getCurrBlock()))
+               (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
       currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
       self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
 
-      vectMissingBlks = TheBDM.bdm.missingBlockHashes()
-      LOGINFO('Blockfile corruption check: Missing blocks: %d', len(vectMissingBlks))
-      if len(vectMissingBlks) > 0:
-         LOGINFO('Missing blocks: %d', len(vectMissingBlks))
-         QMessageBox.critical(self, tr('Blockdata Error'), tr("""
-            Armory has detected an error in the blockchain database
-            maintained by the third-party Bitcoin software (Bitcoin-Qt
-            or bitcoind).  This error is not fatal, but may lead to
-            incorrect balances, inability to send coins, or application
-            instability.
-            <br><br>
-            It is unlikely that the error affects your wallets,
-            but it <i>is</i> possible.  If you experience crashing,
-            or see incorrect balances on any wallets, it is strongly
-            recommended you re-download the blockchain using:
-            "<b>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
-            QMessageBox.Ok)
-
-         vectMissingBlks = TheBDM.missingBlockHashes()
-         LOGINFO('Blockfile corruption check: Missing blocks: %d', \
-                 len(vectMissingBlks))
-         if len(vectMissingBlks) > 0:
-            LOGINFO('Missing blocks: %d', len(vectMissingBlks))
-            QMessageBox.critical(self, tr('Blockdata Error'), tr("""
-               Armory has detected an error in the blockchain database
-               maintained by the third-party Bitcoin software (Bitcoin-Qt
-               or bitcoind).  This error is not fatal, but may lead to
-               incorrect balances, inability to send coins, or application
-               instability.
-               <br><br>
-               It is unlikely that the error affects your wallets,
-               but it <i>is</i> possible.  If you experience crashing,
-               or see incorrect balances on any wallets, it is strongly
-               recommended you re-download the blockchain using:
-               "<i>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
-                QMessageBox.Ok)
 
       if self.getSettingOrSetDefault('NotifyBlkFinish',True):
          reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
@@ -3058,7 +3022,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.netMode = NETWORKMODE.Full
       self.settings.set('FailedLoadCount', 0)
-
 
       # This will force the table to refresh with new data
       self.setDashboardDetails()
@@ -3116,11 +3079,11 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       self.combinedLedger = []
-      self.combinedLedger.extend(TheBDM.bdv.getHistoryPage(self.mainLedgerCurrentPage -1))
+      self.combinedLedger.extend(TheBDM.bdv().getHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
-      currBlk = TheBDM.getCurrBlock()
+      topBlockHeight = TheBDM.getTopBlockHeight()
 
       if bdmState in ('Offline', 'Scanning'):
          for wltID in wltIDList:
@@ -3133,14 +3096,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
       def keyFuncNumConf(x):
-         numConf = x.getBlockNum() - currBlk  # returns neg for reverse sort
+         numConf = x.getBlockNum() - topBlockHeight  # returns neg for reverse sort
          txTime  = x.getTxTime() 
          txhash  = x.getTxHash()
          value   = x.getValue()
          return (numConf, txTime, txhash, value)
 
       def keyFuncTxTime(x):
-         numConf = x.getBlockNum() - currBlk  # returns neg for reverse sort
+         numConf = x.getBlockNum() - topBlockHeight  # returns neg for reverse sort
          txTime  = x.getTxTime() 
          txhash  = x.getTxHash()
          value   = x.getValue()
@@ -3186,7 +3149,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
 
-         self.lblNPages.setText(' out of %d' % TheBDM.bdv.getPageCount())
+         self.lblNPages.setText(' out of %d' % TheBDM.bdv().getPageCount())
          
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
@@ -3251,7 +3214,7 @@ class ArmoryMainWindow(QMainWindow):
             wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, lboxId)
             dispComment = self.getCommentForLockboxTx(lboxId, le)
 
-         nConf = TheBDM.getCurrBlock() - le.getBlockNum()+1
+         nConf = TheBDM.getTopBlockHeight() - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
             nConf=0
 
@@ -3731,7 +3694,7 @@ class ArmoryMainWindow(QMainWindow):
             # balance occur.  In some cases, that may be more satisfying than
             # just seeing the updated balance when they get back to the main
             # screen
-            if not TheBDM.bdv.getTxByHash(newTxHash).isInitialized():
+            if not TheBDM.bdv().getTxByHash(newTxHash).isInitialized():
                LOGERROR('Transaction was not accepted by the Satoshi client')
                LOGERROR('Raw transaction:')
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
@@ -3911,7 +3874,7 @@ class ArmoryMainWindow(QMainWindow):
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
-      cppTx = TheBDM.runBDM( lambda : TheBDM.bdv.getTxByHash(txHashBin) )
+      cppTx = TheBDM.runBDM( lambda : TheBDM.bdv().getTxByHash(txHashBin) )
       if cppTx.isInitialized():
          pytx = PyTx().unserialize(cppTx.serialize())
 
@@ -6222,22 +6185,22 @@ class ArmoryMainWindow(QMainWindow):
             prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                 for wltID in self.walletMap.keys()])
 
-            print 'New Block: ', TheBDM.getCurrBlock()
+            print 'New Block: ', TheBDM.getTopBlockHeight()
 
             self.ledgerModel.reset()
 
-            LOGINFO('New Block! : %d', TheBDM.getCurrBlock())
+            LOGINFO('New Block! : %d', TheBDM.getTopBlockHeight())
 
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
             self.writeSetting('LastBlkRecvTime', self.blkReceived)
-            self.writeSetting('LastBlkRecv',     TheBDM.getCurrBlock())
+            self.writeSetting('LastBlkRecv',     TheBDM.getTopBlockHeight())
 
             if self.netMode==NETWORKMODE.Full:
-               LOGINFO('Current block number: %d', TheBDM.getCurrBlock())
+               LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % \
-                  (htmlColor('TextGreen'), TheBDM.getCurrBlock()))
+                  (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
             # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()    
@@ -6575,7 +6538,7 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append('Recipient:  %s' % wltName)
          elif le.getValue() < 0:
             # Also display the address of where they went
-            txref = TheBDM.bdv.getTxByHash(le.getTxHash())
+            txref = TheBDM.bdv().getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
             recipStr = ''
             for i in range(nOut):
@@ -6948,7 +6911,7 @@ class ArmoryMainWindow(QMainWindow):
       if pageInt == self.mainLedgerCurrentPage:
          return
       
-      if pageInt < 0 or pageInt > TheBDM.bdv.getPageCount():
+      if pageInt < 0 or pageInt > TheBDM.bdv().getPageCount():
          self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
          return
       

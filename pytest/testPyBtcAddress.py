@@ -328,6 +328,7 @@ class PyBtcAddressTest(TiabTest):
    # TODO: Add coverage for condition where TheBDM is in BlockchainReady state.
    
    def testTouch(self):
+      self.verifyBlockHeight()
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
       theIV = SecureBinaryData(hex_to_binary(INIT_VECTOR))
       testAddr.enableKeyEncryption(theIV)

@@ -2084,7 +2084,7 @@ class UnsignedTransaction(AsciiSerializable):
                                         'in supplied txMap')
             pyPrevTx = txMap[txhash].copy()
          elif TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-            cppPrevTx = TheBDM.bdv.getTxByHash(txhash)
+            cppPrevTx = TheBDM.bdv().getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
@@ -2792,7 +2792,7 @@ def determineSentToSelfAmt(le, wlt):
    """
    amt = 0
    if le.isSentToSelf():
-      txref = TheBDM.bdm.getTxByHash(le.getTxHash())
+      txref = TheBDM.bdv().getTxByHash(le.getTxHash())
       if not txref.isInitialized():
          return (0, 0)
       if txref.getNumTxOut()==1:
@@ -2848,13 +2848,12 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
                cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr))
 
       TheBDM.registerWallet(cppWlt)
-      currBlk = TheBDM.getTopBlockHeight()
-      # TheBDM.scanBlockchainForTx(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
+      topBlockHeight = TheBDM.getTopBlockHeight()
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
-         return cppWlt.getFullTxOutList(currBlk)
+         return cppWlt.getFullTxOutList(topBlockHeight)
       elif utxoType.lower() in ('spend','spendable','confirmed'):
-         return cppWlt.getSpendableTxOutList(currBlk, IGNOREZC)
+         return cppWlt.getSpendableTxOutList(topBlockHeight, IGNOREZC)
       else:
          raise TypeError, 'Unknown utxoType!'
    else:

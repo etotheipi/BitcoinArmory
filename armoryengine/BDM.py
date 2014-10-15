@@ -46,7 +46,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          
          if action == 1:
             act = 'finishLoadBlockchain'
-            TheBDM.currentBlock = block
+            TheBDM.topBlockHeight = block
             TheBDM.setState(BDM_BLOCKCHAIN_READY)
          elif action == 2:
             act = 'sweepAfterScanList'
@@ -58,7 +58,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             act = 'newblock'
             castArg = Cpp.BtcUtils_cast_to_int(arg)
             arglist.append(castArg)
-            TheBDM.currentBlock = block
+            TheBDM.topBlockHeight = block
          elif action == 5:
             act = 'refresh'
             argstr = Cpp.BtcUtils_cast_to_string(arg)
@@ -120,7 +120,7 @@ class BDM_Inject(Cpp.BDM_Inject):
       
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
-   return (time0, TheBDM.getCurrBlock())
+   return (time0, TheBDM.getTopBlockHeight())
 
 # Make TheBDM act like it's a singleton. Always use the global singleton TheBDM
 # instance that exists in this module regardless of the instance that passed as self
@@ -135,94 +135,7 @@ def ActLikeASingletonBDM(func):
 
 ################################################################################
 class BlockDataManager(object):
-   """ 
-   A note about this class: 
 
-      It was mainly created to allow for asynchronous blockchain scanning,
-      but the act of splitting the BDM into it's own thread meant that ALL
-      communication with the BDM requires thread-safe access.  So basically,
-      I had to wrap EVERYTHING.  And then make it flexible. 
-
-      For this reason, any calls not explicitly related to rescanning will
-      block by default, which could be a long time if the BDM is in the 
-      middle of rescanning.  For this reason, you are expected to either 
-      pass wait=False if you just want to queue the function call and move
-      on in the main thread, or check the BDM state first, to make sure 
-      it's not currently scanning and can expect immediate response.
-
-      This makes using the BDM much more complicated.  But comes with the 
-      benefit of all rescanning being able to happen in the background.  
-      If you want to run it like single-threaded, you can use 
-      TheBDM.setBlocking(True) and all calls will block.  Always (unless
-      you pass wait=False explicitly to one of those calls).
-
-      Any calls that retrieve data from the BDM should block, even if you
-      technically can specify wait=False.  This is because the class was 
-      not designed to maintain organization of output data asynchronously.  
-      So a call like TheBDM.getTopBlockHeader() will always block, and you
-      should check the BDM state if you want to make sure it returns 
-      immediately.  Since there is only one main thread, There is really no
-      way for a rescan to be started between the time you check the state
-      and the time you call the method (so if you want to access the BDM 
-      from multiple threads, this class will need some redesign).
-       
-
-   This serves as a layer between the GUI and the Blockchain utilities.
-   If a request is made to mess with the BDM while it is in the 
-   middle of scanning, it will queue it for when it's done
-
-   All private methods (those starting with two underscores, like __method),
-   are executed only by the BDM thread.  These should never be called
-   externally, and are only safe to run when the BDM is ready to execute 
-   them.  
-
-   You can use any non-private methods at any time, and if you set wait=True,
-   the main thread will block until that operation is complete.  If the BDM
-   is in the middle of a scan, the main thread could block for minutes until
-   the scanning is complete and then it processes your request.
-
-   Therefore, use setBlocking(True) to make sure you always wait/block after
-   every call, if you are interested in simplicity and don't mind waiting.
-
-   Use setBlocking(False) along with wait=False for the appropriate calls
-   to queue up your request and continue the main thread immediately.  You
-   can finish up something else, and then come back and check whether the
-   job is finished (usually using TheBDM.getState()==BDM_BLOCKCHAIN_READY)
-
-   Any methods not defined explicitly in this class will "passthrough" the
-   __getattr__() method, which will then call that exact method name on 
-   the BDM.  All calls block by default.  All such calls can also include
-   wait=False if you want to queue it and then continue asynchronously.
-
-
-   Implementation notes:
-      
-      Before the multi-threaded BDM, there was wallets, and there was the BDM.
-      We always gave the wallets to the BDM and said "please search the block-
-      chain for relevant transactions".  Now that this is asynchronous, the 
-      calling thread is going to queue the blockchain scan, and then run off 
-      and do other things: which may include address/wallet operations that 
-      would collide with the BDM updating it.
-
-      THEREFORE, the BDM now has a single, master wallet.  Any address you add
-      to any of your wallets, should be added to the master wallet, too.  The 
-      PyBtcWallet class does this for you, but if you are using raw BtcWallets
-      (the C++ equivalent), you need to do:
-   
-            cppWallet.addScrAddress_1_(Hash160ToScrAddr(newAddr))
-            TheBDM.registerScrAddr(newAddr, isFresh=?) 
-
-      This will add the address to the TheBDM.masterCppWallet.  Then when you 
-      queue up the TheBDM to do a rescan (if necessary), it will update only 
-      its own wallet.  Luckily, I designed the BDM so that data for addresses
-      in one wallet (the master), can be applied immediately to other/new 
-      wallets that have the same addresses.  
-      
-      NOTE: Do not call any methods on from init. The are all wrapped by ActLikeASingleton
-      and will operate on the current entity stored in the global TheBDM variable, and not
-      on the new instance. This is necesary for TI
-
-   """
    #############################################################################
    def __init__(self, isOffline=False):
       super(BlockDataManager, self).__init__()
@@ -238,8 +151,6 @@ class BlockDataManager(object):
       #self.dbType = Cpp.ARMORY_DB_SUPER      
       
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
-      self.bdm = self.bdmThread.bdm()
-      self.bdv = self.bdmThread.bdv()
 
       # Flags
       self.aboutToRescan = False
@@ -255,13 +166,18 @@ class BlockDataManager(object):
       self.ldbdir = LEVELDB_DIR
       self.lastPctLoad = 0
       
-      self.currentBlock = 0
+      self.topBlockHeight = 0
       self.cppNotificationListenerList = []
-      
+
+   #############################################################################
+   @ActLikeASingletonBDM
+   def bdv(self):
+      return self.bdmThread.bdv()
+
    #############################################################################
    @ActLikeASingletonBDM
    def getTopBlockHeight(self):
-      return self.bdv.blockchain().top().getBlockHeight()
+      return self.topBlockHeight
    
    #############################################################################
    @ActLikeASingletonBDM
@@ -295,7 +211,7 @@ class BlockDataManager(object):
          LOGERROR('tried to register an invalid object as a wallet')
          return
       
-      self.bdv.registerWallet(toRegister, isNew)
+      self.bdv().registerWallet(toRegister, isNew)
 
    #############################################################################
    @ActLikeASingletonBDM
@@ -390,11 +306,6 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def createAddressBook(self, cppWlt):
       return cppWlt.createAddressBook()
-
-   #############################################################################
-   @ActLikeASingletonBDM
-   def getCurrBlock(self):
-      return self.currentBlock
    
    #############################################################################
    @ActLikeASingletonBDM
@@ -409,13 +320,13 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def beginCleanShutdown(self):
-      self.bdv.reset()
+      self.bdv().reset()
       self.bdmThread.requestShutdown()
    #############################################################################
    @ActLikeASingletonBDM
    def execCleanShutdown(self):
       self.bdmState = BDM_UNINITIALIZED
-      self.bdv.reset()
+      self.bdv().reset()
       self.bdmThread.shutdownAndWait()
       del self.bdmThread
    

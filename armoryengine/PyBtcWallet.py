@@ -282,7 +282,7 @@ class PyBtcWallet(object):
       non-lite version to allow a full scan.
       """
 
-      self.lastSyncBlockNum = TheBDM.getCurrBlock()
+      self.lastSyncBlockNum = TheBDM.getTopBlockHeight()
             
       wltLE = self.cppWallet.getTxLedger()
       for le in wltLE:
@@ -354,11 +354,11 @@ class PyBtcWallet(object):
    # change was always deprioritized, but using --nospendzeroconfchange makes
    # it totally unspendable
    def getBalance(self, balType="Spendable"):
-      currBlk = TheBDM.getCurrBlock()
+      topBlockHeight = TheBDM.getTopBlockHeight()
       if balType.lower() in ('spendable','spend'):
-         return self.cppWallet.getSpendableBalance(currBlk, IGNOREZC)
+         return self.cppWallet.getSpendableBalance(topBlockHeight, IGNOREZC)
       elif balType.lower() in ('unconfirmed','unconf'):
-         return self.cppWallet.getUnconfirmedBalance(currBlk, IGNOREZC)
+         return self.cppWallet.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
       elif balType.lower() in ('total','ultimate','unspent','full'):
          return self.cppWallet.getFullBalance()
       else:
@@ -366,15 +366,15 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def getAddrBalance(self, addr160, balType="Spendable", currBlk=UINT32_MAX):
+   def getAddrBalance(self, addr160, balType="Spendable", topBlockHeight=UINT32_MAX):
       if not self.hasAddr(addr160):
          return -1
       else:
          addr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
          if balType.lower() in ('spendable','spend'):
-            return addr.getSpendableBalance(currBlk, IGNOREZC)
+            return addr.getSpendableBalance(topBlockHeight, IGNOREZC)
          elif balType.lower() in ('unconfirmed','unconf'):
-            return addr.getUnconfirmedBalance(currBlk, IGNOREZC)
+            return addr.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
          elif balType.lower() in ('ultimate','unspent','full'):
             return addr.getFullBalance()
          else:
@@ -428,11 +428,11 @@ class PyBtcWallet(object):
       """ Returns UnspentTxOut/C++ objects """
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getCurrBlock()
+         topBlockHeight = TheBDM.getTopBlockHeight()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutListForValue(totalSend) #IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
-            return self.cppWallet.getFullTxOutList(currBlk);
+            return self.cppWallet.getFullTxOutList(topBlockHeight);
          else:
             raise TypeError('Unknown TxOut type! ' + txType)
       else:
@@ -444,15 +444,15 @@ class PyBtcWallet(object):
       """ Returns UnspentTxOut/C++ objects """
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getCurrBlock()
+         topBlockHeight = TheBDM.getTopBlockHeight()
     
          self.syncWithBlockchainLite()
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
-            return cppAddr.getSpendableTxOutList(currBlk, IGNOREZC);
+            return cppAddr.getSpendableTxOutList(topBlockHeight, IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
-            return cppAddr.getFullTxOutList(currBlk);
+            return cppAddr.getFullTxOutList(topBlockHeight);
          else:
             raise TypeError('Unknown TxOutList type! ' + txType)
       else:
@@ -633,7 +633,7 @@ class PyBtcWallet(object):
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
       # Don't forget to sync the C++ wallet object
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv)
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv())
       self.cppWallet.setWalletID(self.uniqueIDB58)
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
       self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
@@ -902,7 +902,7 @@ class PyBtcWallet(object):
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
       # Don't forget to sync the C++ wallet object
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv)
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv())
       self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(rootAddr.getAddr160()), \
                                                       time0,blk0,time0,blk0)
       self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
@@ -1806,7 +1806,7 @@ class PyBtcWallet(object):
       # If we haven't extracted relevant addresses for this tx, yet -- do it
       if not self.txAddrMap.has_key(txHash):
          self.txAddrMap[txHash] = []
-         tx = TheBDM.bdv.getTxByHash(txHash)
+         tx = TheBDM.bdv().getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
                txout = tx.getTxOutCopy(i)
@@ -2075,7 +2075,7 @@ class PyBtcWallet(object):
       wltfile.close()
 
       self.unpackHeader(wltdata)      
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv)
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv())
       self.cppWallet.setWalletID(self.uniqueIDB58)
 
 

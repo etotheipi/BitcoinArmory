@@ -2832,21 +2832,6 @@ class Armory_Daemon(object):
          LOGINFO('Current block number: %d', self.latestBlockNum)
          LOGINFO('Current block received at: %d', self.timeReceived)
 
-         vectMissingBlks = TheBDM.missingBlockHashes()
-         LOGINFO('Blockfile corruption check: Missing blocks: %d', \
-                 len(vectMissingBlks))
-         if len(vectMissingBlks) > 0:
-            LOGERROR('Armory has detected an error in the blockchain ' \
-                     'database maintained by the third-party Bitcoin ' \
-                     'software (Bitcoin-Qt or bitcoind). This error is not ' \
-                     'fatal, but may lead to incorrect balances, inability ' \
-                     'to send coins, or application instability. It is ' \
-                     'unlikely that the error affects your wallets, but it ' \
-                     'is possible.  If you experience crashing, or see ' \
-                     'incorrect balances on any wallets, it is strongly ' \
-                     'recommended you re-download the blockchain via the ' \
-                     '"Factory Reset" option in ArmoryQt.')
-
          LOGINFO('Wallet balance: %s' % \
                  coin2str(self.curWlt.getBalance('Spendable')))
 

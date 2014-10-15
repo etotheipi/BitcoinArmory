@@ -3777,7 +3777,7 @@ class DlgAddressInfo(ArmoryDialog):
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
-      balCoin = self.cppAddr.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
+      balCoin = self.cppAddr.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
       balStr = coin2str(balCoin, maxZeros=1)
       if balCoin > 0:
          goodColor = htmlColor('MoneyPos')
@@ -5816,11 +5816,11 @@ def extractTxInfo(pytx, rcvTime=None):
 
    txcpp = Tx()
    if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-      txcpp = TheBDM.bdv.getTxByHash(txHash)
+      txcpp = TheBDM.bdv().getTxByHash(txHash)
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
-         if hgt < TheBDM.getCurrBlock():
-            headref = TheBDM.bdv.blockchain().getHeaderByHeight(hgt)
+         if hgt < TheBDM.getTopBlockHeight():
+            headref = TheBDM.bdv().blockchain().getHeaderByHeight(hgt)
             txTime = unixTimeToFormatStr(headref.getTimestamp())
             txBlk = headref.getBlockHeight()
             txIdx = txcpp.getBlockTxIndex()
@@ -5845,11 +5845,11 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.bdv.getTxByHash(prevTxHash).isInitialized():
-            prevTx = TheBDM.bdv.getPrevTx(cppTxin)
+         if TheBDM.bdv().getTxByHash(prevTxHash).isInitialized():
+            prevTx = TheBDM.bdv().getPrevTx(cppTxin)
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(TheBDM.bdv.getSenderScrAddr(cppTxin))
-            txinFromList[-1].append(TheBDM.bdv.getSentValue(cppTxin))
+            txinFromList[-1].append(TheBDM.bdv().getSenderScrAddr(cppTxin))
+            txinFromList[-1].append(TheBDM.bdv().getSentValue(cppTxin))
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())
@@ -6127,7 +6127,7 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel(str(self.data[FIELDS.Blk]) + idxStr))
             if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-               nConf = TheBDM.getCurrBlock() - self.data[FIELDS.Blk] + 1
+               nConf = TheBDM.getTopBlockHeight() - self.data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '
