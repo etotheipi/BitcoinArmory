@@ -152,10 +152,9 @@ class TiabTest(unittest.TestCase):
       while not self.doneShuttingDownBDM:
          time.sleep(0.5)
          i += 1
-         if i >= 40:
-            raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
-      
-      while self.doneShuttingDownBDM == False
+      if i >= 40:
+         raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
+
 
    def verifyBlockHeight(self):
       blockHeight = TheBDM.getTopBlockHeight()
