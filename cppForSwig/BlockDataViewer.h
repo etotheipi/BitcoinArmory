@@ -110,9 +110,10 @@ class BlockDataViewer
       //Wanna keep the BtcWallet non copyable so the only existing object for
       //a given wallet is in the registered* map. Don't want to save pointers
       //to avoid cleanup snafus. Time for smart pointers
+	
+      map<BinaryData, shared_ptr<BtcWallet> >    registeredWallets_;
+      map<BinaryData, shared_ptr<BtcWallet> >    registeredLockboxes_;
 
-      map<BinaryData, shared_ptr<BtcWallet>>    registeredWallets_;
-      map<BinaryData, shared_ptr<BtcWallet>>    registeredLockboxes_;
       ZeroConfContainer             zeroConfCont_;
       
       bool     zcEnabled_;

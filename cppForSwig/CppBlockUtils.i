@@ -33,6 +33,7 @@
 %include "std_vector.i"
 %include "std_set.i"
 %include "std_map.i"
+%include "std_shared_ptr.i"
 
 %typedef std::string string;
 %typedef unsigned char      uint8_t;
@@ -65,6 +66,7 @@ namespace std
    %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
+   %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
 }
 
 /******************************************************************************/
