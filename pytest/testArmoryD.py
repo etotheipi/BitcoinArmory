@@ -4,6 +4,7 @@ Created on Oct 8, 2013
 @author: Andy
 '''
 import sys
+from twisted.trial._synctest import SkipTest
 sys.path.append('..')
 import os
 import time
@@ -39,14 +40,15 @@ class ArmoryDTest(TiabTest):
       for f in fileList:
          if os.path.exists(f):
             os.remove(f)
-            
+      
    def callbackHandler(self, action, args):
       if action == 'refresh':
          wltID = args[0]
          if wltID == self.wallet.uniqueIDB58:
             self.walletIsScanned = True
-
+         
    def setUp(self):
+      
       self.verifyBlockHeight()
       self.fileA    = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet' % TEST_WALLET_ID)
       self.fileB    = os.path.join(self.armoryHomeDir, 'armory_%s_backup.wallet' % TEST_WALLET_ID)
@@ -84,13 +86,14 @@ class ArmoryDTest(TiabTest):
       
       #wait on scan for 20sec then raise if the scan hasn't finished yet
       i = 0
-      while self.walletIsScanned == False and i < 40:
+      while not self.walletIsScanned and i < 40:
          time.sleep(0.5)
          i += 1
       if i >= 40:
          raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
       
    def tearDown(self):
+      TheBDM.unregisterWallet(self.wallet)
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
 
@@ -99,7 +102,6 @@ class ArmoryDTest(TiabTest):
    # def testListunspent(self):
    #    actualResult = self.jsonServer.jsonrpc_listunspent()
    #    self.assertEqual(actualResult, [])
-
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)
       self.jsonServer.jsonrpc_importprivkey(binary_to_hex(self.privKey2.toBinStr()))
@@ -111,7 +113,8 @@ class ArmoryDTest(TiabTest):
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 1)
       self.assertEquals(txOut['value'],TX_ID1_OUTPUT1_VALUE)
          
-   # Cannot unit test actual balances. Only verify that getreceivedbyaddress return a 0 result.
+   # FARHODTODO
+   @SkipTest
    def testGetreceivedbyaddress(self):
       a160 = hash160(self.wallet.getNextUnusedAddress().binPublicKey65.toBinStr())
       testAddr = hash160_to_addrStr(a160)
@@ -155,7 +158,6 @@ class ArmoryDTest(TiabTest):
       self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], expectScriptStr)
       self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'], 'Standard (PKH)')
       self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'Standard (PKH)')
-
 
    def testDumpprivkey(self):
       testPrivKey = self.privKey.toBinStr()

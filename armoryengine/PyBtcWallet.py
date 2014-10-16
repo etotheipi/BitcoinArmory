@@ -1000,7 +1000,7 @@ class PyBtcWallet(object):
                                  doRegister=False))) 
          
       #add addresses in bulk once they are all computed   
-      if doRegister:
+      if doRegister and self.cppWallet:
          self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
             
       return self.lastComputedChainIndex

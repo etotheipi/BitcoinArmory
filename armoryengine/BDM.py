@@ -226,6 +226,11 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
+   def unregisterWallet(self, wlt):
+      wlt.cppWallet = self.bdv().unregisterWallet( wlt.uniqueIDB58)
+
+   #############################################################################
+   @ActLikeASingletonBDM
    def registerLockbox(self, lbox, addressList, isNew=False):
       if not isinstance(lbox, MultiSigLockbox):
          LOGERROR('tried to register an invalid object as a wallet')
