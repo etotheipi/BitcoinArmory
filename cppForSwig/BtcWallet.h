@@ -55,7 +55,7 @@ class BtcWallet
 
 public:
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
-      : bdvPtr_(bdv), walletID_(ID), mergeLock_(0)
+      : bdvPtr_(bdv), mergeLock_(0), walletID_(ID)
    {}
    
    ~BtcWallet(void);
