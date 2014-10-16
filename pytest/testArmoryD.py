@@ -93,6 +93,7 @@ class ArmoryDTest(TiabTest):
             raise RuntimeError("Timeout waiting for TheBDM to register the wallet.")
       
    def tearDown(self):
+      TheBDM.unregisterCppNotification(self.callbackHandler)
       TheBDM.unregisterWallet(self.wallet)
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    

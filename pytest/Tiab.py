@@ -146,7 +146,6 @@ class TiabTest(unittest.TestCase):
       self.doneShuttingDownBDM = False
       TheBDM.registerCppNotification(self.callbackHandler)
       TheBDM.execCleanShutdown()
-      self.tiab.clean()
       
       i = 0
       while not self.doneShuttingDownBDM:
@@ -154,6 +153,8 @@ class TiabTest(unittest.TestCase):
          i += 1
       if i >= 40:
          raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
+      
+      self.tiab.clean()
 
 
    def verifyBlockHeight(self):
