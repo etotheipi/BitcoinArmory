@@ -176,6 +176,11 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
+   def getTxByHash(self, txHash):
+      return self.bdv().getTxByHash(txHash)
+   
+   #############################################################################
+   @ActLikeASingletonBDM
    def getTopBlockHeight(self):
       return self.topBlockHeight
    

@@ -65,7 +65,7 @@ class ArmoryDTest(TiabTest):
                                           longLabel=TEST_WALLET_DESCRIPTION,
                                           armoryHomeDir = self.armoryHomeDir)
       self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
-      TheBDM.registerWallet(self.wallet)
+      # TheBDM.registerWallet(self.wallet)
       
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
