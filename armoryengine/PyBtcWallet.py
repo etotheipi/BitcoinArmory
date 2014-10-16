@@ -386,20 +386,9 @@ class PyBtcWallet(object):
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
       ledgBlkChain = self.cppWallet.getTxLedger()
-      #ledgZeroConf = self.cppWallet.getZeroConfLedger()
-      #if ledgType.lower() in ('full','all','ultimate'):
       ledg = []
       ledg.extend(ledgBlkChain)
-         #ledg.extend(ledgZeroConf)
       return ledg
-      #elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
-         #return ledgBlkChain
-      #elif ledgType.lower() in ('zeroconf', 'zero'):
-         #return ledgZeroConf
-      #else:
-         #raise TypeError('Unknown ledger type! "' + ledgType + '"')
-
-
 
 
    ############################################################################
@@ -633,15 +622,6 @@ class PyBtcWallet(object):
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
       # Don't forget to sync the C++ wallet object
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv())
-      self.cppWallet.setWalletID(self.uniqueIDB58)
-      self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
-      self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
-
-      # We might be holding the wallet temporarily and not ready to register it
-      if doRegisterWithBDM:
-         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew)
-
       newfile.write(fileData.getBinaryString())
       newfile.flush()
       os.fsync(newfile.fileno())
@@ -653,7 +633,7 @@ class PyBtcWallet(object):
 
       # Let's fill the address pool while we are unlocked
       # It will get a lot more expensive if we do it on the next unlock
-      if doRegisterWithBDM:
+      if doRegisterWithBDM and self.cppWallet != None:
          self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
 
       return self
@@ -733,13 +713,6 @@ class PyBtcWallet(object):
       # accurate if available, but time may not be exactly right. Whenever 
       # basing anything on time, please assume that it is up to one day off!
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-
-      # Don't forget to sync the C++ wallet object.
-      self.cppWallet = Cpp.BtcWallet()
-      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(rootAddr.getAddr160()), \
-                                                      time0,blk0,time0,blk0)
-      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
-                                                      time0,blk0,time0,blk0)
 
       # Write the actual wallet file and close it. Create a backup if necessary.
       newfile.write(fileData.getBinaryString())
@@ -900,13 +873,6 @@ class PyBtcWallet(object):
       # accurate if available, but time may not be exactly right.  Whenever 
       # basing anything on time, please assume that it is up to one day off!
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-
-      # Don't forget to sync the C++ wallet object
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv())
-      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(rootAddr.getAddr160()), \
-                                                      time0,blk0,time0,blk0)
-      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
-                                                      time0,blk0,time0,blk0)
 
       newfile.write(fileData.getBinaryString())
       newfile.close()
@@ -2075,9 +2041,6 @@ class PyBtcWallet(object):
       wltfile.close()
 
       self.unpackHeader(wltdata)      
-      self.cppWallet = Cpp.BtcWallet(TheBDM.bdv())
-      self.cppWallet.setWalletID(self.uniqueIDB58)
-
 
       self.lastComputedChainIndex = -UINT32_MAX
       self.lastComputedChainAddr160  = None
@@ -2113,9 +2076,6 @@ class PyBtcWallet(object):
             # Update the parallel C++ object that scans the blockchain for us
             timeRng = newAddr.getTimeRange()
             blkRng  = newAddr.getBlockRange()
-            self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(hashVal), \
-                                                   timeRng[0], blkRng[0], \
-                                                   timeRng[1], blkRng[1])
                
          if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here

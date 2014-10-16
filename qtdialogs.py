@@ -14787,11 +14787,6 @@ class DlgCorruptWallet(DlgProgress):
       for wlt in wallets:
          newWallet = PyBtcWallet().readWalletFile(wlt)
          self.main.addWalletToApplication(newWallet, walletIsNew=True)
-
-         if TheBDM.getState() in (BDM_UNINITIALIZED, BDM_OFFLINE):
-            TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
-         else:
-            self.main.newWalletList.append([newWallet, True])
             
       self.main.emit(SIGNAL('checkForkedImport'))
 

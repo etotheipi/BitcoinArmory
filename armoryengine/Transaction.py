@@ -2834,18 +2834,22 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
    """
+   
+   """
    if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       if not isinstance(addr160List, (list,tuple)):
          addr160List = [addr160List]
 
-      cppWlt = Cpp.BtcWallet()
+      scrAddrList = []
+      tempWallet = PyBtcWallet()
+
       for addr in addr160List:
          if isinstance(addr, PyBtcAddress):
-            cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr.getAddr160()))
+            scrAddrList.append(Hash160ToScrAddr(addr.getAddr160()))
          else:
             # Have to Skip ROOT
             if addr!='ROOT':
-               cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr))
+               scrAddrList.append(Hash160ToScrAddr(addr))
 
       TheBDM.registerWallet(cppWlt)
       topBlockHeight = TheBDM.getTopBlockHeight()
@@ -2858,6 +2862,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
          raise TypeError, 'Unknown utxoType!'
    else:
       return []
+   """
 
 def pprintLedgerEntry(le, indent=''):
    if len(le.getScrAddr())==21:

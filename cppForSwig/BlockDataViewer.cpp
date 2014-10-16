@@ -19,73 +19,87 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 /////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::~BlockDataViewer()
 {
-   for (auto wltPtr : registeredWallets_)
-      wltPtr->unregister();
+   for (auto wlt : registeredWallets_)
+      wlt.second->unregister();
 
-   for (auto wltPtr : registeredLockboxes_)
-      wltPtr->unregister();
+   for (auto wlt : registeredLockboxes_)
+      wlt.second->unregister();
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
+BtcWallet* BlockDataViewer::registerWallet(
+   vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
    // Check if the wallet is already registered
-   if (registeredWallets_.find(wltPtr) != registeredWallets_.end())
-      return false;
+   BinaryData id(IDstr);
+
+   if (registeredWallets_.find(id) != registeredWallets_.end())
+      return nullptr;
 
    // Add it to the list of wallets to watch
-   registeredWallets_.insert(wltPtr);
+   // Instantiate the object through insert. Could also create the shared_ptr
+   // then add it to the map, but let's have some fun =P
+   auto insertResult = registeredWallets_.insert(make_pair(
+      id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
+      ));
+   BtcWallet& newWallet = *insertResult.first->second.get();
+
+   newWallet.addAddressBulk(scrAddrVec, wltIsNew);
 
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
    vector<BinaryData> saVec;
-   for (const auto& scrAddrPair : wltPtr->getScrAddrMap())
+   for (const auto& scrAddrPair : newWallet.getScrAddrMap())
       saVec.push_back(scrAddrPair.first);
 
-   saf_->registerAddresses(saVec, wltPtr, wltIsNew);
+   saf_->registerAddresses(saVec, &newWallet, wltIsNew);
 
    //tell the wallet it is registered
-   wltPtr->setRegistered();
+   newWallet.setRegistered();
 
-   if (wltPtr->walletID_.getSize() > 0)
-      walletFilters_[wltPtr->walletID_] = true;
-
-   return true;
+   return &newWallet;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::registerLockbox(BtcWallet* wltPtr, bool wltIsNew)
+BtcWallet* BlockDataViewer::registerLockbox(
+   vector<BinaryData> const & scrAddrVec, string IDstr, bool wltIsNew)
 {
    // Check if the lockbox is already registered
-   if (registeredLockboxes_.find(wltPtr) != registeredLockboxes_.end())
-      return false;
+   BinaryData id(IDstr);
 
-   // Add it to the list of wallets to watch
-   registeredLockboxes_.insert(wltPtr);
+   if (registeredLockboxes_.find(id) != registeredLockboxes_.end())
+      return nullptr;
+
+   auto insertResult = registeredLockboxes_.insert(make_pair(
+      id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
+      ));
+   BtcWallet& newLockbox = *insertResult.first->second.get();
+
+   newLockbox.addAddressBulk(scrAddrVec, wltIsNew);
 
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
    vector<BinaryData> saVec;
-   for (const auto& scrAddrPair : wltPtr->getScrAddrMap())
+   for (const auto& scrAddrPair : newLockbox.getScrAddrMap())
       saVec.push_back(scrAddrPair.first);
 
-   saf_->registerAddresses(saVec, wltPtr, wltIsNew);
+   saf_->registerAddresses(saVec, &newLockbox, wltIsNew);
 
-   wltPtr->setRegistered();
+   newLockbox.setRegistered();
 
-   return true;
+   return &newLockbox;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::unregisterWallet(BtcWallet* wltPtr)
+void BlockDataViewer::unregisterWallet(BinaryData ID)
 {
-   registeredWallets_.erase(wltPtr);
+   registeredWallets_.erase(ID);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::unregisterLockbox(BtcWallet* wltPtr)
+void BlockDataViewer::unregisterLockbox(BinaryData ID)
 {
-   registeredLockboxes_.erase(wltPtr);
+   registeredLockboxes_.erase(ID);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,16 +114,15 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    if (endBlock == UINT32_MAX)
       endBlock = getTopBlockHeight() + 1;
 
-   bool merge = false;
 
-   for (auto wltPtr : registeredWallets_)
-      merge |= wltPtr->merge();
+   for (auto& wltPair : registeredWallets_)
+      wltPair.second->merge();
 
-   for (auto wltPtr : registeredLockboxes_)
-      merge |= wltPtr->merge();
+   for (auto& lbPair : registeredLockboxes_)
+      lbPair.second->merge();
 
 
-   if (initialized_ == false /*|| merge == true*/)
+   if (initialized_ == false)
    {
       //out of date history, page all wallets' history
       pageWalletsHistory();
@@ -133,22 +146,22 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    if (lastScanned_ > startBlock)
       reorg = true;
 
-   for (BtcWallet* walletPtr : registeredWallets_)
+   for (auto& wltPair : registeredWallets_)
    {
       //LOGINFO << "Processing wallet #" << i;
       i++;
 
-      walletPtr->scanWallet(startBlock, endBlock, reorg,
+      wltPair.second->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
 
    i = 0;
-   for (BtcWallet* walletPtr : registeredLockboxes_)
+   for (auto& lbPair : registeredLockboxes_)
    {
       //LOGINFO << "Processing Lockbox #" << i;
       i++;
 
-      walletPtr->scanWallet(startBlock, endBlock, reorg,
+      lbPair.second->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
 
@@ -167,25 +180,19 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 
       LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
 
-      for (auto wltPtr : registeredWallets_)
+      for (auto& wltPair : registeredWallets_)
       {
          map<BinaryData, TxIOPair> txioMap;
-         wltPtr->getTxioForRange(startBlock, UINT32_MAX, txioMap);
+         wltPair.second->getTxioForRange(startBlock, UINT32_MAX, txioMap);
 
          map<BinaryData, LedgerEntry> leMap;
-         wltPtr->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
+         wltPair.second->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
+
+         if (wltPair.second->uiFilter_ == false)
+            continue;
 
          for (const auto& lePair : leMap)
-         {
-            //make sure wallet is in filters
-            auto haveWltInFilter = walletFilters_.find(wltPtr->walletID_);
-            
-            if (ITER_IN_MAP(haveWltInFilter, walletFilters_))
-            {
-               if (haveWltInFilter->second == true)
-                  globalLedger_.push_back(lePair.second);
-            }
-         }
+            globalLedger_.push_back(lePair.second);
       }
 
       sort(globalLedger_.begin(), globalLedger_.end());
@@ -193,18 +200,18 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::hasWallet(BtcWallet* wltPtr)
+bool BlockDataViewer::hasWallet(BinaryData ID)
 {
-   return registeredWallets_.find(wltPtr) != registeredWallets_.end();
+   return registeredWallets_.find(ID) != registeredWallets_.end();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::pprintRegisteredWallets(void) const
 {
-   for (const BtcWallet *wlt : registeredWallets_)
+   for (const auto& wltPair : registeredWallets_)
    {
       cout << "Wallet:";
-      wlt->pprintAlittle(cout);
+      wltPair.second->pprintAlittle(cout);
    }
 }
 
@@ -274,9 +281,9 @@ void BlockDataViewer::purgeZeroConfPool()
       = zeroConfCont_.purge(
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
 
-   for (auto& wltPtr : registeredWallets_)
+   for (auto& wltPair : registeredWallets_)
    {
-      wltPtr->purgeZeroConfTxIO(invalidatedTxIOKeys);
+      wltPair.second->purgeZeroConfTxIO(invalidatedTxIOKeys);
    }
 }
 
@@ -339,9 +346,9 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
 const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
    const BinaryData& txHash) const
 {
-   for (const auto& wltPtr : registeredWallets_)
+   for (const auto& wltPair : registeredWallets_)
    {
-      const LedgerEntry& le = wltPtr->getLedgerEntryForTx(txHash);
+      const LedgerEntry& le = wltPair.second->getLedgerEntryForTx(txHash);
       if (le.getTxTime() != 0)
          return le;
    }
@@ -442,8 +449,11 @@ uint32_t BlockDataViewer::getTopBlockHeight(void) const
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::reset()
 {
-   for (auto wltPtr : registeredWallets_)
-      wltPtr->reset();
+   for (auto& wltPair : registeredWallets_)
+      wltPair.second->reset();
+
+   for (auto& lbPair : registeredLockboxes_)
+      lbPair.second->reset();
 
    rescanZC_   = false;
    zcEnabled_  = false;
@@ -462,20 +472,15 @@ map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary(
 {
    map<uint32_t, uint32_t> fullSummary;
 
-   for (auto wltPtr : registeredWallets_)
-   {
-      auto wltfilter = walletFilters_.find(wltPtr->walletID_);
-      
+   for (auto& wltPair : registeredWallets_)
+   {      
       if (forcePaging)
-         wltPtr->mapPages();
+         wltPair.second->mapPages();
       
-      if (ITER_NOT_IN_MAP(wltfilter, walletFilters_))
+      if(wltPair.second->uiFilter_ == false)
          continue;
-      
-      if (wltfilter->second == false)
-         continue;
-      
-      auto wltSummary = wltPtr->getSSHSummary();
+            
+      const auto& wltSummary = wltPair.second->getSSHSummary();
 
       for (auto summary : wltSummary)
          fullSummary[summary.first] += summary.second;
@@ -496,8 +501,8 @@ void BlockDataViewer::pageWalletsHistory(bool forcePaging)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::pageLockboxesHistory()
 {
-   for (auto wltPtr : registeredLockboxes_)
-      wltPtr->mapPages();
+   for (auto& lbPair : registeredLockboxes_)
+      lbPair.second->mapPages();
 }
 
 
@@ -515,33 +520,28 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId,
 
    {
       globalLedger_.clear();
-      for (auto wltPtr : registeredWallets_)
+      for (auto& wltPair : registeredWallets_)
       {
          map<BinaryData, LedgerEntry> leMap;
 
          auto getTxio = [&](uint32_t start, uint32_t end,
             map<BinaryData, TxIOPair>& outMap)->void
-         { return wltPtr->getTxioForRange(start, end, outMap); };
+         { return wltPair.second->getTxioForRange(start, end, outMap); };
 
          auto buildLedgers = [&](map<BinaryData, LedgerEntry>& le,
             const map<BinaryData, TxIOPair>& txioMap,
             uint32_t startBlock, uint32_t endBlock)->void
-         { wltPtr->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
+         { wltPair.second->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
          hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
       
          //this should be locked to a single thread
-         for (const auto& lePair : leMap)
-         {
-            //make sure wallet is in filters
-            auto haveWltInFilter = walletFilters_.find(wltPtr->walletID_);
 
-            if (ITER_IN_MAP(haveWltInFilter, walletFilters_))
-            {
-               if (haveWltInFilter->second == true)
-                  globalLedger_.push_back(lePair.second);
-            }
-         }
+         if (wltPair.second->uiFilter_ == false)
+            continue;
+
+         for (const auto& lePair : leMap)
+            globalLedger_.push_back(lePair.second);
       }
    }
 
@@ -570,12 +570,13 @@ void BlockDataViewer::scanScrAddrVector(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::updateWalletFilters(vector<string> walletsList)
+void BlockDataViewer::updateWalletFilters(const vector<BinaryData>& walletsList)
 {
-   walletFilters_.clear();
-   
+   for (auto& wltPair : registeredWallets_)
+      wltPair.second->uiFilter_ = false;
+
    for (auto walletID : walletsList)
-      walletFilters_[BinaryData(walletID)] = true;
+      registeredWallets_[walletID]->uiFilter_ = true;
 
    flagRefresh(false, BinaryData());
 }

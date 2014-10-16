@@ -114,7 +114,7 @@ namespace std
 
 /******************************************************************************/
 // Convert Python(list[string]) to C++(vector<BinaryData>) 
-%typemap(in) vector<BinaryData> const & (vector<BinaryData> bdObjVec)
+%typemap(in) const std::vector<BinaryData> & (std::vector<BinaryData> bdObjVec)
 {
 	for(int i=0; i<PyList_Size($input); i++)
 	{

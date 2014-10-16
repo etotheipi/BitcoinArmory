@@ -177,10 +177,6 @@ class WalletWizard(ArmoryWizard):
       wltpath = self.newWallet.walletPath
       walletFromDisk = PyBtcWallet().readWalletFile(wltpath)
       self.main.addWalletToApplication(walletFromDisk, walletIsNew=True)
-      if TheBDM.getState() in (BDM_UNINITIALIZED, BDM_OFFLINE):
-         TheBDM.registerWallet(walletFromDisk, isFresh=True, wait=False)
-      else:
-         self.main.newWalletList.append([walletFromDisk, True])
    
    def cleanupPage(self, *args, **kwargs):
       if self.hasCWOWPage and self.currentPage() == self.createWOWPage:

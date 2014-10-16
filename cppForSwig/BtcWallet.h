@@ -54,9 +54,8 @@ class BtcWallet
    static const uint32_t MIN_UTXO_PER_TXN = 100;
 
 public:
-   BtcWallet(BlockDataViewer* bdv)
-      : bdvPtr_(bdv),
-      mergeLock_(0)
+   BtcWallet(BlockDataViewer* bdv, BinaryData ID)
+      : bdvPtr_(bdv), walletID_(ID), mergeLock_(0)
    {}
    
    ~BtcWallet(void);
@@ -218,7 +217,7 @@ private:
    bool                          ignoreLastScanned_=true;
    map<BinaryData, LedgerEntry>* ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
                                  
-      bool                          isRegistered_=false;
+   bool                          isRegistered_=false;
 
    BtcWallet(const BtcWallet&); // no copies
 
@@ -234,6 +233,9 @@ private:
    BinaryData                    walletID_;
 
    uint64_t                      balance_ = 0;
+
+   //set to true to add wallet paged history to global ledgers 
+   bool                          uiFilter_ = true;
 };
 
 #endif

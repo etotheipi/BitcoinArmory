@@ -1631,7 +1631,6 @@ class PyBtcWalletRecovery(object):
       newWO.lastComputedChainAddr160 = firstAddr.getAddr160()
       newWO.lastComputedChainIndex  = firstAddr.chainIndex
       newWO.highestUsedChainIndex   = toRecover.highestUsedChainIndex
-      newWO.cppWallet = BtcWallet()
       
       newWO.writeFreshWalletFile(newPath)
       

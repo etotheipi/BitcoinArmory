@@ -22,15 +22,17 @@ class BlockDataViewer
       // blockchain in RAM, each scan will take 30-120 seconds.  Registering makes 
       // sure that the intial blockchain scan picks up wallet-relevant stuff as 
       // it goes, and does a full [re-]scan of the blockchain only if necessary.
-      bool     registerWallet(BtcWallet* wallet, bool wltIsNew = false);
-      bool     registerLockbox(BtcWallet* wallet, bool wltIsNew = false);
-      void     unregisterWallet(BtcWallet* wltPtr);
-      void     unregisterLockbox(BtcWallet* wltPtr);
+      BtcWallet* registerWallet(vector<BinaryData> const& scrAddrVec,
+                                string ID, bool wltIsNew);
+      BtcWallet* registerLockbox(vector<BinaryData> const& scrAddrVec, 
+                                 string ID, bool wltIsNew);
+      void       unregisterWallet(BinaryData ID);
+      void       unregisterLockbox(BinaryData ID);
 
       void scanWallets(uint32_t startBlock = UINT32_MAX,
          uint32_t endBlock = UINT32_MAX, uint32_t forceRefresh = 0);
       
-      bool hasWallet(BtcWallet* wltPtr);
+      bool hasWallet(BinaryData ID);
 
       bool registerAddresses(const vector<BinaryData>& saVec, 
                              BtcWallet* wltPtr, int32_t doScan);
@@ -90,7 +92,7 @@ class BlockDataViewer
 
       void flagRefresh(bool withRemap, BinaryData refreshId);
 
-      void updateWalletFilters(vector<string> walletsVec);
+      void updateWalletFilters(const vector<BinaryData>& walletsVec);
 
    public:
       bool rescanZC_    = false;
@@ -105,9 +107,13 @@ class BlockDataViewer
       Blockchain*               bc_;
       ScrAddrFilter*            saf_;
 
-      set<BtcWallet*> registeredWallets_;
-      set<BtcWallet*> registeredLockboxes_;
-      ZeroConfContainer zeroConfCont_;
+      //Wanna keep the BtcWallet non copyable so the only existing object for
+      //a given wallet is in the registered* map. Don't want to save pointers
+      //to avoid cleanup snafus. Time for smart pointers
+
+      map<BinaryData, shared_ptr<BtcWallet>>    registeredWallets_;
+      map<BinaryData, shared_ptr<BtcWallet>>    registeredLockboxes_;
+      ZeroConfContainer             zeroConfCont_;
       
       bool     zcEnabled_;
       bool     zcLiteMode_;
@@ -124,9 +130,6 @@ class BlockDataViewer
       //be a map.
       vector<LedgerEntry> globalLedger_;
       HistoryPager hist_;
-
-      //UI wallet filter
-      map<BinaryData, bool> walletFilters_;
 };
 
 #endif

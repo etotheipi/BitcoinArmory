@@ -2687,7 +2687,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
          
-         TheBDM.bdv().registerWallet(wlt.cppWallet)
+         TheBDM.registerWallet(wlt)
 
 
       # Create one wallet per lockbox to make sure we can query individual
@@ -2815,16 +2815,13 @@ class ArmoryMainWindow(QMainWindow):
             # Add new lockbox to list
             self.allLockboxes.append(lbObj)
             self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
-   
-            # Create new wallet to hold the lockbox, register it with BDM
-            self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdv())
-            self.cppLockboxWltMap[lbID].setWalletID(lbID)
-            
+              
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
-            self.cppLockboxWltMap[lbID].addScrAddress_5_(scraddrReg, 0, 0, 0, 0)
-            self.cppLockboxWltMap[lbID].addScrAddress_5_(scraddrP2SH, 0, 0, 0, 0)
-            TheBDM.bdv().registerLockbox(self.cppLockboxWltMap[lbID], isFresh)
+            scrAddrList = []
+            scrAddrList.append(scraddrReg)
+            scrAddrList.append(scraddrP2SH)
+            self.cppLockboxWltMap[lbID] = TheBDM.registerLockbox(lbObj, scrAddrList, isFresh)
 
          else:
             # Replace the original
@@ -3003,8 +3000,6 @@ class ArmoryMainWindow(QMainWindow):
 
       currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
       self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
-
-
 
       if self.getSettingOrSetDefault('NotifyBlkFinish',True):
          reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
@@ -3423,7 +3418,7 @@ class ArmoryMainWindow(QMainWindow):
       
       self.setWalletIsScanning(newWallet)
       
-      TheBDM.registerWallet(newWallet.cppWallet)
+      TheBDM.registerWallet(newWallet)
 
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
@@ -4288,21 +4283,6 @@ class ArmoryMainWindow(QMainWindow):
          LOGERROR('ModeSwitch button pressed when it should be disabled')
       time.sleep(0.3)
       self.setDashboardDetails()
-
-
-
-
-   #############################################################################
-   @TimeThisFunction
-   def resetBdmBeforeScan(self):
-      if TheBDM.getState()==BDM_SCANNING:
-         LOGINFO('Aborting load')
-         touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
-
-      TheBDM.Reset(wait=False)
-      for wid,wlt in self.walletMap.iteritems():
-         TheBDM.registerWallet(wlt.cppWallet)
-
 
 
    #############################################################################
@@ -6091,22 +6071,7 @@ class ArmoryMainWindow(QMainWindow):
       determines if any incoming transactions were created by Armory. If so, the
       transaction will be passed along to a user notification queue.
       '''
-
- #     while len(self.newZeroConfSinceLastUpdate)>0:
-   #      Tx = self.newZeroConfSinceLastUpdate.pop()
-   #      thisHash = Tx.thisHash
-
-         # Iterate through the Python wallets and create a ledger entry for the
-         # transaction. If the transaction is for us, put it on the notification
-         # queue, create the combined ledger, and reset the Qt table model.
-       #  for wltID in self.walletMap.keys():
       for le in ledgers:
-            #wlt = self.walletMap[wltID]
-            #le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
-            #thatHash = le.getTxHash()
-            #if not le.getTxHash() == '\x00' * 32:
-         #LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
-                        #% wltID)
          notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
                                                       not OS_MACOSX)
          notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
@@ -6116,18 +6081,6 @@ class ArmoryMainWindow(QMainWindow):
                   # notifiedAlready = False, 
             self.notifyQueue.append([le.getWalletID(), le, False])
                
-
-         # Iterate through the C++ lockbox wallets and create a ledger entry for
-         # the transaction. If the transaction is for us, put it on the
-         # notification queue, create the combined ledger, and reset the Qt
-         # table models.
-         #for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-          #  le = wlt.cppWallet.getLedgerEntryForTx(Tx.thisHash)
-           # if len(le.getTxHash()) == 32:
-            #   LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
-               # notifiedAlready = False, 
-             #  self.notifyQueue.append([lbID, le, False])
-      
       self.createCombinedLedger()
       self.walletModel.reset()
       self.lockboxLedgModel.reset()
@@ -6237,7 +6190,15 @@ class ArmoryMainWindow(QMainWindow):
             self.lockboxLedgModel.reset()
             if self.lbDialogModel != None:
                self.lbDialogModel.reset()
+               
+      elif action == 'warning':
+         #something went wrong on the C++ side, create a message box to report
+         #it to the user
+         QMessageBox.critical(self, tr('BlockDataManager Warning'), \
+                              tr(args[0]), \
+                              QMessageBox.Ok) 
          
+                 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
       """
@@ -6368,19 +6329,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
          if bdmState==BDM_BLOCKCHAIN_READY:
-            #####
-            # If we had initiated any wallet restoration scans, we need to add
-            # Those wallets to the display
-            if len(self.newWalletList)>0:
-               LOGDEBUG('Wallet restore completed.  Add to application.')
-               while len(self.newWalletList)>0:
-                  wlt,isFresh = self.newWalletList.pop()
-                  LOGDEBUG('Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED'))
-                  TheBDM.registerWallet(wlt.cppWallet, isFresh)
-                  self.addWalletToApplication(wlt, walletIsNew=isFresh)
-               self.setDashboardDetails()
-
-   
             # Trigger any notifications, if we have them...
             self.doTheSystemTrayThing()
 

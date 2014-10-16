@@ -259,6 +259,22 @@ try
          else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
          else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
 
+         if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
+         {
+            string errorMsg("\
+               Armory has detected an error in the blockchain database\
+               maintained by the third - party Bitcoin software(Bitcoin - Qt\
+               or bitcoind).This error is not fatal, but may lead to\
+               incorrect balances, inability to send coins, or application\
+               instability.\
+               <br><br>\
+               It is unlikely that the error affects your wallets,\
+               but it <i>is< / i> possible.If you experience crashing,\
+               or see incorrect balances on any wallets, it is strongly\
+               recommended you re - download the blockchain using:\
+            \"<b>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
+            callback->run(7, &errorMsg, bdm->missingBlockHashes().size());
+         }
          bdv->scanWallets();
       }
       catch (BDMStopRequest&)

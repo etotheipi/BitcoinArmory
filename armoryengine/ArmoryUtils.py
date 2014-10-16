@@ -2952,21 +2952,6 @@ def getRSFromDERSig(derSig):
 
 
 #############################################################################
-def newBlockSyncRescanZC(bdm, wltMap, prevLedgSize):
-   newLedgSize = {}
-   for wltID,wlt in wltMap.iteritems():
-      wlt.syncWithBlockchainLite()
-      bdm.rescanWalletZeroConf(wlt.cppWallet)
-      newLedgSize[wltID] = len(wlt.getTxLedger())
-
-   for wltID,wlt in wltMap.iteritems():
-      if prevLedgSize[wltID] != newLedgSize[wltID]:
-         return True
-
-   return False
-
-
-#############################################################################
 def notifyOnSurpriseTx(blk0, blk1, wltMap, lboxWltMap, isGui, bdm, notifyQueue, settings ):
    # We usually see transactions as zero-conf first, then they show up in
    # a block. It is a "surprise" when the first time we see it is in a block

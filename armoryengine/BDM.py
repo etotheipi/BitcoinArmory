@@ -65,7 +65,11 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             arglist.append(argstr)
          elif action == 6:
             act = 'stopped'
-
+         elif action == 7:
+            act = 'warning'
+            argstr = Cpp.BtcUtils_cast_to_string(arg)
+            arglist.append(argstr)
+            
          for cppNotificationListener in self.bdm.cppNotificationListenerList:
             cppNotificationListener(act, arglist)
       except:
@@ -207,16 +211,30 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def registerWallet(self, wlt, isNew=False):
-      toRegister = None
-      if isinstance(wlt, PyBtcWallet):
-         toRegister = wlt.cppWallet
-      elif isinstance(wlt, Cpp.BtcWallet):
-         toRegister = wlt
-      else:
+      if not isinstance(wlt, PyBtcWallet):
          LOGERROR('tried to register an invalid object as a wallet')
          return
       
-      self.bdv().registerWallet(toRegister, isNew)
+      prefixedKeys = []
+      for key in wlt.linearAddr160List:
+         prefixedKeys.append(Hash160ToScrAddr(key))
+      
+      #this returns a pointer to the BtcWallet C++ object. This object is
+      #instantiated at registration and is unique for the BDV object, so we
+      #should only ever set the cppWallet member here 
+      wlt.cppWallet = self.bdv().registerWallet(prefixedKeys, wlt.uniqueIDB58, isNew)
+
+   #############################################################################
+   @ActLikeASingletonBDM
+   def registerLockbox(self, lbox, addressList, isNew=False):
+      if not isinstance(lbox, MultiSigLockbox):
+         LOGERROR('tried to register an invalid object as a wallet')
+         return
+      
+      #this returns a pointer to the BtcWallet C++ object. This object is
+      #instantiated at registration and is unique for the BDV object, so we
+      #should only ever set the cppWallet member here 
+      return self.bdv().registerLockbox(addressList, lbox.uniqueIDB58, isNew)
 
    #############################################################################
    @ActLikeASingletonBDM
@@ -381,6 +399,7 @@ else:
 
 # Put the import at the end to avoid circular reference problem
 from armoryengine.PyBtcWallet import PyBtcWallet
+from armoryengine.MultiSigUtils import MultiSigLockbox
 from armoryengine.Transaction import PyTx
 
 # kate: indent-width 3; replace-tabs on;
