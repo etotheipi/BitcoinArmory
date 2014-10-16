@@ -911,6 +911,19 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
+{
+   auto& ledgerMap = getHistoryPage(pageId);
+
+   vector<LedgerEntry> ledgerVec;
+
+   for (const auto& ledgerPair : ledgerMap)
+      ledgerVec.push_back(ledgerPair.second);
+
+   return ledgerVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
    bdvPtr_->flagRefresh(true, walletID_); 
@@ -926,5 +939,16 @@ void BtcWallet::forceScan(void)
       saVec.push_back(sa.first);
 
    bdvPtr_->registerAddresses(saVec, this, -1);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getWltTotalTxnCount(void) const
+{
+   uint64_t ntxn = 0;
+
+   for (const auto& scrAddrPair : scrAddrMap_)
+      ntxn += getAddrTotalTxnCount(scrAddrPair.first);
+
+   return ntxn;
 }
 // kate: indent-width 3; replace-tabs on;

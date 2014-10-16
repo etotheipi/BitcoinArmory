@@ -3080,11 +3080,9 @@ class ArmoryMainWindow(QMainWindow):
       unconfFunds = 0
       topBlockHeight = TheBDM.getTopBlockHeight()
 
-      if bdmState in ('Offline', 'Scanning'):
+      if bdmState == BDM_BLOCKCHAIN_READY:
          for wltID in wltIDList:
             wlt = self.walletMap[wltID]
-            #id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
-            #self.combinedLedger.extend(id_le_pairs)
             totalFunds += wlt.getBalance('Total')
             spendFunds += wlt.getBalance('Spendable')
             unconfFunds += wlt.getBalance('Unconfirmed')
@@ -3162,7 +3160,7 @@ class ArmoryMainWindow(QMainWindow):
       try:
          lockboxTable = []
          for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-            ledger = cppWlt.getTxLedger()
+            ledger = cppWlt.getHistoryPageAsVector(0)
             lockboxTable.extend(ledger)
 
          self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
@@ -6086,15 +6084,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lockboxLedgModel.reset()
 
    #############################################################################
-   @TimeThisFunction
-   def newBlockSyncRescanZC(self, prevLedgSize):
-      didAffectUs = False
-      for wltID in self.walletMap.keys():
-         self.walletMap[wltID].syncWithBlockchainLite()
-         newLedgerSize = len(self.walletMap[wltID].getTxLedger())
-         didAffectUs = prevLedgSize[wltID] != newLedgerSize
-
-   #############################################################################
    def handleCppNotification(self, action, args):
 
       if action == 'finishLoadBlockchain':
@@ -6135,9 +6124,6 @@ class ArmoryMainWindow(QMainWindow):
 
          newBlocks = args[0]
          if newBlocks>0:       
-            prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-                                                for wltID in self.walletMap.keys()])
-
             print 'New Block: ', TheBDM.getTopBlockHeight()
 
             self.ledgerModel.reset()

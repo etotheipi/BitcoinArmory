@@ -3009,13 +3009,7 @@ class Armory_Daemon(object):
             nextCheck = self.lastChecked + self.checkStep
             if RightNow() >= nextCheck:
                self.checkWallet()
-   
-            # If there's a new block, use this to determine it affected our wallets.
-            # NB: We may wish to alter this to reflect only the active wallet.
-            #prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-            #                                    for wltID in WltMap.keys()])
-   
-   
+     
             # Check for new blocks in the blk000X.dat file
             prevTopBlock = TheBDM.getTopBlockHeight()
             newBlks = TheBDM.readBlkFileUpdate(wait=True)

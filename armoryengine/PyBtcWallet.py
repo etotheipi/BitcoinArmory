@@ -284,7 +284,7 @@ class PyBtcWallet(object):
 
       self.lastSyncBlockNum = TheBDM.getTopBlockHeight()
             
-      wltLE = self.cppWallet.getTxLedger()
+      wltLE = self.cppWallet.getHistoryPageAsVector(0)
       for le in wltLE:
          txHash = le.getTxHash()
          if not self.txAddrMap.has_key(txHash):
@@ -385,7 +385,7 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      ledgBlkChain = self.cppWallet.getTxLedger()
+      ledgBlkChain = self.cppWallet.getHistoryPageAsVector(0)
       ledg = []
       ledg.extend(ledgBlkChain)
       return ledg
@@ -401,7 +401,7 @@ class PyBtcWallet(object):
       else:
          scrAddr = Hash160ToScrAddr(addr160)
          ledgBlkChain = self.cppWallet.getScrAddrObjByKey(scrAddr).\
-                        getTxLedgerAsVector()
+                        getHistoryPageById(0)
          if ledgType.lower() in ('full','all','ultimate'):
             ledg = []
             ledg.extend(ledgBlkChain)

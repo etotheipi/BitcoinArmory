@@ -704,15 +704,6 @@ class DlgLockboxManager(ArmoryDialog):
          self.lboxView.hideColumn(i)
       self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
 
-      # Main Tab displays lockbox details
-      #self.lockboxTable = []
-      #for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
-         #ledger = cppWlt.getTxLedger()
-         #for i in range(len(ledger)):
-            #self.lockboxTable.append([lbID, ledger[i]])
-         
-      #self.lockboxLedg = self.main.convertLedgerToTable(self.lockboxTable)
-
       self.ledgerProxy = LedgerDispSortProxy(self)
       self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
 

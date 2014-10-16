@@ -124,6 +124,7 @@ public:
                                   bool includeAllZeroConf=false) const;
 
    uint64_t getAddrTotalTxnCount(const BinaryData& addr) const;
+   uint64_t getWltTotalTxnCount(void) const;
 
    void prepareTxOutHistory(uint64_t val);
    void prepareFullTxOutHistory();
@@ -163,6 +164,8 @@ public:
    uint8_t getMergeFlag(void) { return mergeFlag_; }
 
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
+   vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
+
    void needsRefresh(void);
 
    void forceScan(void);

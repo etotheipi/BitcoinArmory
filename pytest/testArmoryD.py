@@ -86,11 +86,11 @@ class ArmoryDTest(TiabTest):
       
       #wait on scan for 20sec then raise if the scan hasn't finished yet
       i = 0
-      while not self.walletIsScanned and i < 40:
+      while not self.walletIsScanned:
          time.sleep(0.5)
          i += 1
-      if i >= 40:
-         raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
+         if i >= 40:
+            raise RuntimeError("Timeout waiting for TheBDM to register the wallet.")
       
    def tearDown(self):
       TheBDM.unregisterWallet(self.wallet)

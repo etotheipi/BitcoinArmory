@@ -129,18 +129,33 @@ class TiabTest(unittest.TestCase):
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.goOnline(levelDBDir=self.armoryHomeDir)
+      
       i = 0
-      while not TheBDM.getState()==BDM_BLOCKCHAIN_READY and i < 10:
+      while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          time.sleep(2)
          i += 1
-      if i >= 10:
-         raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
+         if i >= 10:
+            raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
 
-
+   def callbackHandler(self, action, arg):
+      if action == 'stopped':
+         self.doneShuttingDownBDM = True
+         
    @classmethod
    def tearDownClass(self):
+      self.doneShuttingDownBDM = False
+      TheBDM.registerCppNotification(self.callbackHandler)
       TheBDM.execCleanShutdown()
       self.tiab.clean()
+      
+      i = 0
+      while not self.doneShuttingDownBDM:
+         time.sleep(0.5)
+         i += 1
+         if i >= 40:
+            raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
+      
+      while self.doneShuttingDownBDM == False
 
    def verifyBlockHeight(self):
       blockHeight = TheBDM.getTopBlockHeight()
