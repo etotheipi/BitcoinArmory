@@ -6607,6 +6607,11 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGINFO('BDM is safe for clean shutdown')
 
+         #no callback notify in offline mode, just exit
+         if TheBDM.getState() != BDM_BLOCKCHAIN_READY:
+            self.actuallyDoExitNow('stopped', 1)
+            return
+         
          TheBDM.registerCppNotification(self.actuallyDoExitNow)
          TheBDM.beginCleanShutdown()
 

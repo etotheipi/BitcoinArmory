@@ -39,6 +39,12 @@ class ArmoryDTest(TiabTest):
       for f in fileList:
          if os.path.exists(f):
             os.remove(f)
+            
+   def callbackHandler(self, action, args):
+      if action == 'refresh':
+         wltID = args[0]
+         if wltID == self.wallet.uniqueIDB58:
+            self.walletIsScanned = True
 
    def setUp(self):
       self.verifyBlockHeight()
@@ -56,7 +62,14 @@ class ArmoryDTest(TiabTest):
       theIV     = SecureBinaryData(hex_to_binary('77'*16))
       self.passphrase  = SecureBinaryData('A self.passphrase')
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
+      
+      #register a callback
+      TheBDM.registerCppNotification(self.callbackHandler)
 
+      #flag to check on wallet scan status
+      self.walletIsScanned = False
+      
+      #create the wallet
       self.wallet = PyBtcWallet().createNewWallet(withEncrypt=False, \
                                           plainRootKey=self.privKey, \
                                           chaincode=self.chainstr,   \
@@ -65,7 +78,17 @@ class ArmoryDTest(TiabTest):
                                           longLabel=TEST_WALLET_DESCRIPTION,
                                           armoryHomeDir = self.armoryHomeDir)
       self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
-      # TheBDM.registerWallet(self.wallet)
+      
+      #register it
+      TheBDM.registerWallet(self.wallet)
+      
+      #wait on scan for 20sec then raise if the scan hasn't finished yet
+      i = 0
+      while self.walletIsScanned == False and i < 40:
+         time.sleep(0.5)
+         i += 1
+      if i >= 40:
+         raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
       
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
