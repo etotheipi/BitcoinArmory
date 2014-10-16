@@ -310,17 +310,6 @@ class BlockDataManager(object):
       bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
       bdmConfig.setGenesisTxHash(GENESIS_TX_HASH)
       bdmConfig.setMagicBytes(MAGIC_BYTES)
-         
-      # 32-bit linux has an issue with max open files.  Rather than modifying
-      # the system, we can tell LevelDB to take it easy with max files to open
-      if OS_LINUX and not SystemSpecs.IsX64:
-         LOGINFO('Lowering max-open-files parameter in LevelDB for 32-bit linux')
-         bdmConfig.levelDBMaxOpenFiles = 75
-
-      # Override the above if they explicitly specify it as CLI arg
-      if CLI_OPTIONS.maxOpenFiles > 0:
-         LOGINFO('Overriding max files via command-line arg')
-         bdmConfig.levelDBMaxOpenFiles = CLI_OPTIONS.maxOpenFiles
 
       return bdmConfig
 

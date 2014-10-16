@@ -47,9 +47,6 @@ struct BlockDataManagerConfig
       magicBytes = h;
    }
    
-   size_t levelDBBlockSize;
-   unsigned levelDBMaxOpenFiles;
-   
    BlockDataManagerConfig();
    void selectNetwork(const string &netname);
 };

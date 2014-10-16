@@ -290,9 +290,6 @@ BlockDataManagerConfig::BlockDataManagerConfig()
 {
    armoryDbType = ARMORY_DB_BARE;
    pruneType = DB_PRUNE_NONE;
-   
-   levelDBBlockSize = 0;
-   levelDBMaxOpenFiles = 0;
 }
 
 void BlockDataManagerConfig::selectNetwork(const string &netname)
