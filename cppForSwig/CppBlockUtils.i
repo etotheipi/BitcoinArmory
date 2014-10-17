@@ -34,6 +34,7 @@
 %include "std_set.i"
 %include "std_map.i"
 %include "std_shared_ptr.i"
+%include "exception.i"
 
 %typedef std::string string;
 %typedef unsigned char      uint8_t;
@@ -68,6 +69,19 @@ namespace std
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
    %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
 }
+
+%except(python)
+{
+	try
+	{
+		$function
+	}
+	catch (std::exception& e)
+	{
+		SWIG_exception(SWIG_RuntimeError, e.what());
+	}
+}
+
 
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */
@@ -153,17 +167,6 @@ namespace std
 	$result = thisList;
 }
 
-%except(python)
-{
-	try
-	{
-		$function
-	}
-	catch (BDMFailure&)
-	{
-		SWIG_exception(SWIG_RuntimeError,"Unknown exception");
-	}
-}
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
