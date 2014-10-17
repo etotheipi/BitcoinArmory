@@ -242,7 +242,7 @@ public:
 */
 
 // Utility function - Clean up comments later
-int char2int(char input)
+static int char2int(char input)
 {
   if(input >= '0' && input <= '9')
     return input - '0';
@@ -255,7 +255,7 @@ int char2int(char input)
 
 // This function assumes src to be a zero terminated sanitized string with
 // an even number of [0-9a-f] characters, and target to be sufficiently large
-void hex2bin(const char* src, unsigned char* target)
+static void hex2bin(const char* src, unsigned char* target)
 {
   while(*src && src[1])
   {
@@ -263,6 +263,27 @@ void hex2bin(const char* src, unsigned char* target)
     src += 2;
   }
 }
+
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
+/////////////////////////////////////////////////////////////////////////////
+static void rmdir(string src)
+{
+   char* syscmd = new char[4096];
+   sprintf(syscmd, "rm -rf %s", src.c_str());
+   system(syscmd);
+   delete[] syscmd;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+static void mkdir(string newdir)
+{
+   char* syscmd = new char[4096];
+   sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+   system(syscmd);
+   delete[] syscmd;
+}
+#endif
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Test any custom Crypto++ code we've written.
@@ -6533,26 +6554,6 @@ protected:
 
 
 
-#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
-
-   /////////////////////////////////////////////////////////////////////////////
-   void rmdir(string src)
-   {
-      char* syscmd = new char[4096];
-      sprintf(syscmd, "rm -rf %s", src.c_str());
-      system(syscmd);
-      delete[] syscmd;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void mkdir(string newdir)
-   {
-      char* syscmd = new char[4096];
-      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
-      system(syscmd);
-      delete[] syscmd;
-   }
-#endif
    BlockDataManagerConfig config;
 
    LMDBBlockDatabase* iface_;
@@ -6593,6 +6594,108 @@ TEST_F(BlockUtilsBare, BuildNoRegisterWlt)
 {
    TheBDM.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
 }
+
+
+class BlockDir : public ::testing::Test
+{
+protected:
+   const string blkdir_  = "./blkfiletest";
+   const string homedir_ = "./fakehomedir";
+   const string ldbdir_  = "./ldbtestdir";
+   
+   string blk0dat_;
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp()
+   {
+      LOGDISABLESTDOUT();
+      
+      mkdir(blkdir_);
+      mkdir(homedir_);
+      
+      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
+   }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(blkdir_);
+      rmdir(homedir_);
+
+      #ifdef _MSC_VER
+         rmdir("./ldbtestdir");
+         mkdir("./ldbtestdir");
+      #else
+         string delstr = ldbdir_ + "/*";
+         rmdir(delstr);
+      #endif
+      LOGENABLESTDOUT();
+      CLEANUP_ALL_TIMERS();
+   }
+
+};
+
+
+static void concatFile(const string &from, const string &to)
+{
+   std::ifstream i(from);
+   std::ofstream o(to, ios::app);
+
+   o << i.rdbuf();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockDir, HeadersFirst)
+{
+   BlockDataManagerConfig config;
+   config.armoryDbType = ARMORY_DB_BARE;
+   config.pruneType = DB_PRUNE_NONE;
+   config.homeDirLocation = homedir_;
+   config.blkFileLocation = blkdir_;
+   config.levelDBLocation = ldbdir_;
+   
+   config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
+   config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+   config.magicBytes = READHEX(MAINNET_MAGIC_BYTES);
+      
+   // Put the first 5 blocks out of order
+   concatFile("../testblocks/blk_0.dat", blk0dat_);
+   concatFile("../testblocks/blk_1.dat", blk0dat_);
+   concatFile("../testblocks/blk_2.dat", blk0dat_);
+   concatFile("../testblocks/blk_4.dat", blk0dat_);
+   concatFile("../testblocks/blk_3.dat", blk0dat_);
+   
+   BlockDataManager_LevelDB bdm(config);
+   bdm.openDatabase();
+   
+
+   const std::vector<BinaryData> scraddrs
+   {
+      HASH160PREFIX + READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"),
+      HASH160PREFIX + READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980"),
+      HASH160PREFIX + READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"),
+      HASH160PREFIX + READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232"),
+      HASH160PREFIX + READHEX("0000664fb0e55cdc5c0cea73b4aad97ec8343232")
+   };
+
+   BlockDataViewer bdv(&bdm);
+   BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
+   
+   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   
+   bdv.scanWallets();
+   
+   // we should get the same balance as we do for test 'Load5Blocks'
+   const ScrAddrObj *scrobj;
+   
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[0]);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[1]);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[2]);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks)
