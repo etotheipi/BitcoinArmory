@@ -31,7 +31,6 @@ def newTheBDM(isOffline=False):
 
 class PySide_CallBack(Cpp.BDM_CallBack):
    def __init__(self, bdm):
-      print "-----init PySide_Callback ", TheBDM, " self = ", self
       Cpp.BDM_CallBack.__init__(self)
       self.bdm = bdm
       self.bdm.progressComplete=0
@@ -39,7 +38,6 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       self.bdm.progressPhase=0
       
    def run(self, action, arg, block):
-      print "-----run PySide_Callback ", TheBDM, " self = ", self
       try:
          act = ''
          arglist = []
@@ -73,7 +71,6 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             arglist.append(argstr)
             
          listenerList = TheBDM.getListenerList()
-         print "---------- Len Listener List = ", len(listenerList)
          for cppNotificationListener in listenerList:
             cppNotificationListener(act, arglist)
       except:

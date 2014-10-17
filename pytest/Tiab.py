@@ -21,6 +21,8 @@ from armoryengine.BDM import TheBDM, BlockDataManager, newTheBDM,\
 TOP_TIAB_BLOCK = 247
 
 
+doneShuttingDownBDM = False
+      
 FIRST_WLT_FILE_NAME = "armory_GDHFnMQ2_.wallet"
 FIRST_WLT_NAME = "GDHFnMQ2"
 
@@ -115,6 +117,9 @@ NEED_TIAB_MSG = "This Test must be run with <TBD>. Copy to the test directory. A
 class TiabTest(unittest.TestCase):      
    @classmethod
    def setUpClass(self):
+      global doneShuttingDownBDM
+      doneShuttingDownBDM = False
+      
       # Handle both calling the this test from the context of the test directory
       # and calling this test from the context of the main directory. 
       # The latter happens if you run all of the tests in the directory
@@ -141,8 +146,8 @@ class TiabTest(unittest.TestCase):
 
    @classmethod
    def tearDownClass(self):
-      doneShuttingDownBDM = False
       def tiabBDMShutdownCallback(action, arg):
+         global doneShuttingDownBDM
          if action == 'stopped':
             doneShuttingDownBDM = True
       
@@ -157,7 +162,6 @@ class TiabTest(unittest.TestCase):
             raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
       
       self.tiab.clean()
-
 
    def verifyBlockHeight(self):
       blockHeight = TheBDM.getTopBlockHeight()
