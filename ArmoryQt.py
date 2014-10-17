@@ -82,7 +82,8 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
-
+      self.isShuttingDown = False
+      
       # Load the settings file
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.settings = SettingsFile(self.settingsPath)
@@ -4373,7 +4374,7 @@ class ArmoryMainWindow(QMainWindow):
                                          self.frmDashModeSub, \
                                          'Stretch'])
 
-
+      
       self.lblDashDescr1 = QRichLabel('')
       self.lblDashDescr2 = QRichLabel('')
       for lbl in [self.lblDashDescr1, self.lblDashDescr2]:
@@ -4396,6 +4397,22 @@ class ArmoryMainWindow(QMainWindow):
       self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
 
+      # The "Now shutting down" frame
+      self.lblShuttingDown    = QRichLabel('', doWrap=False)
+      self.lblShuttingDown.setText(tr('Preparing to shut down..'), \
+                                    size=4, bold=True, color='Foreground')
+      self.lblShuttingDown.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+
+      layoutDashExit = QGridLayout()
+      layoutDashExit.addWidget(self.lblShuttingDown,  0,0, 0, 1)
+      
+      self.frmDashSubExit = QFrame()
+      self.frmDashSubExit.setFrameStyle(STYLE_SUNKEN)
+      self.frmDashSubExit.setLayout(layoutDashExit)
+      self.frmDashSubExit = makeHorizFrame(['Stretch', \
+                                         self.frmDashSubExit, \
+                                         'Stretch'])
+      
 
       #####
       def openBitcoinOrg():
@@ -4457,7 +4474,6 @@ class ArmoryMainWindow(QMainWindow):
           'This option is not yet available yet!', color='DisableFG')
       self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
 
-      #if OS_LINUX:
       if OS_WINDOWS:
          self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
          self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
@@ -4506,9 +4522,11 @@ class ArmoryMainWindow(QMainWindow):
                                               'Stretch'])
 
       dashLayout = QVBoxLayout()
+      dashLayout.addWidget(self.frmDashSubExit)
       dashLayout.addWidget(self.frmDashMode)
       dashLayout.addWidget(self.lblDashDescr1)
       dashLayout.addWidget(self.frmDashMidButtons )
+      dashLayout.addWidget(self.lblDashDescr2)
       dashLayout.addWidget(self.lblDashDescr2)
       frmInner = QFrame()
       frmInner.setLayout(dashLayout)
@@ -4519,6 +4537,7 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout = QVBoxLayout()
       scrollLayout.addWidget(self.dashScrollArea)
       self.tabDashboard.setLayout(scrollLayout)
+      self.frmDashSubExit.setVisible(False)
 
 
 
@@ -4896,8 +4915,22 @@ class ArmoryMainWindow(QMainWindow):
       return float(curr)/float(maxb)
 
    #############################################################################
+   def showShuttingDownMessage(self):
+      self.isShuttingDown = True
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
+      self.frmDashSubExit.setVisible(True)
+      self.frmDashMode.setVisible(False)
+      self.lblDashDescr1.setVisible(False)
+      self.frmDashMidButtons.setVisible(False)
+      self.lblDashDescr2.setVisible(False)
+      self.lblDashDescr2.setVisible(False)
+   
+   #############################################################################
    def updateSyncProgress(self):
-
+      
+      if self.isShuttingDown:
+         return
+   
       if TheTDM.getTDMState()=='Downloading':
 
          dlSpeed  = TheTDM.getLastStats('downRate')
@@ -5528,6 +5561,9 @@ class ArmoryMainWindow(QMainWindow):
       to declutter this method.
       """
       onlineAvail = onlineModeIsPossible()
+      
+      if self.isShuttingDown:
+         return
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getState()
@@ -6581,6 +6617,7 @@ class ArmoryMainWindow(QMainWindow):
       '''
       
       self.setCursor(Qt.WaitCursor)
+      self.showShuttingDownMessage()
       
       try:
          # Save the main window geometry in the settings file
@@ -6594,7 +6631,7 @@ class ArmoryMainWindow(QMainWindow):
             LOGINFO('BDM is safe for clean shutdown')
 
          #no callback notify in offline mode, just exit
-         if TheBDM.getState() != BDM_BLOCKCHAIN_READY:
+         if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED):
             self.actuallyDoExitNow('stopped', 1)
             return
          
@@ -6619,9 +6656,11 @@ class ArmoryMainWindow(QMainWindow):
          except:
             LOGEXCEPT('Shutdown function failed.  Skipping.')
 
+      TheBDM.execCleanShutdown()
+      
       # This will do nothing if bitcoind isn't running.
       TheSDM.stopBitcoind()
-         
+      
 
       from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
@@ -6954,14 +6993,10 @@ if 1:
 
    from twisted.internet import reactor
    def endProgram():
-      LOGINFO('Resetting BlockDataMgr, freeing memory')
-      TheBDM.execCleanShutdown()
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       QAPP.quit()
-      os._exit(0)
 
-   QAPP.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
