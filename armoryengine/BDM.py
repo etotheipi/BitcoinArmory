@@ -175,6 +175,12 @@ class BlockDataManager(object):
       self.topBlockHeight = 0
       self.cppNotificationListenerList = []
 
+   #############################################################################
+   def BDMshutdownCallback(self, action, args):
+      if action == 'stopped':
+         del self.bdmThread
+         self.cppNotificationListenerList = []
+         
          
    #############################################################################
    @ActLikeASingletonBDM
@@ -343,24 +349,14 @@ class BlockDataManager(object):
       self.bdv().reset()
       self.bdmThread.requestShutdown()
       
-   # what's this function for??
-   #############################################################################
-   def BDMshutdownCallback(self, action, args):
-      if action == 'stopped':
-         del self.bdmThread
-         self.cppNotificationListenerList = []
-         
    #############################################################################
    @ActLikeASingletonBDM
    def execCleanShutdown(self):
       self.bdmState = BDM_UNINITIALIZED
       self.bdv().reset()
+      self.bdmThread.shutdownAndWait()
+      self.registerCppNotification(self.BDMshutdownCallback)
       
-      if hasattr(self, "bdmThread"):
-         self.bdmThread.shutdownAndWait()
-         self.bdv().reset()
-         del self.bdmThread
-      #self.registerCppNotification(self.BDMshutdownCallback)
    
    @ActLikeASingletonBDM
    def runBDM(self, fn):
