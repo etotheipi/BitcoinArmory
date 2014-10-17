@@ -145,7 +145,7 @@ class TiabTest(unittest.TestCase):
    def tearDownClass(self):
       self.doneShuttingDownBDM = False
       TheBDM.registerCppNotification(self.callbackHandler)
-      TheBDM.execCleanShutdown()
+      TheBDM.beginCleanShutdown()
       
       i = 0
       while not self.doneShuttingDownBDM:

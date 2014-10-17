@@ -180,16 +180,21 @@ void BlockDataManagerThread::shutdownAndWait()
    {
       pthread_join(pimpl->tID, nullptr);
       pimpl->tID=0;
+
    }
 }
 
-void BlockDataManagerThread::requestShutdown()
+bool BlockDataManagerThread::requestShutdown()
 {
    if (pimpl->run)
    {
       pimpl->run = false;
       pimpl->inject->notify();
+
+      return true;
    }
+
+   return false;
 }
 
 namespace

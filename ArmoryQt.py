@@ -6644,7 +6644,6 @@ class ArmoryMainWindow(QMainWindow):
          LOGEXCEPT('Strange error during shutdown')
 
 
-
    def actuallyDoExitNow(self, action, l):
       # this is a BDM callback
       if action != 'stopped':
@@ -6656,7 +6655,7 @@ class ArmoryMainWindow(QMainWindow):
          except:
             LOGEXCEPT('Shutdown function failed.  Skipping.')
 
-      TheBDM.execCleanShutdown()
+      #TheBDM.execCleanShutdown()
       
       # This will do nothing if bitcoind isn't running.
       TheSDM.stopBitcoind()

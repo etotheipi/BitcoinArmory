@@ -83,9 +83,11 @@ public:
    
    void setConfig(const BlockDataManagerConfig &config);
 
-   // stop the BDM thread
+   // stop the BDM thread 
    void shutdownAndWait();
-   void requestShutdown();
+   
+   // return true if the caller is should wait on callback notification
+   bool requestShutdown();
 
 private:
    static void* thrun(void *);
