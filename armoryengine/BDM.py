@@ -186,7 +186,7 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def cleanUpBDMThread(self):
-      del self.bdmThread
+      self.bdmThread = None
          
    #############################################################################
    @ActLikeASingletonBDM
