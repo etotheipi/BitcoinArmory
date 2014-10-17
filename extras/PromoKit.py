@@ -241,7 +241,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
       print ustx.serializeAscii()
    finally:
-      TheBDM.execCleanShutdown()
+      TheBDM.beginCleanShutdown()
    return pytx
 
 def setupTheBDM():

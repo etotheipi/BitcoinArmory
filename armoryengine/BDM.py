@@ -25,12 +25,13 @@ BDM_SCANNING = 'Scanning'
       
 def newTheBDM(isOffline=False):
    global TheBDM
-   if TheBDM and TheBDM.getState() != BDM_UNINITIALIZED:
-      TheBDM.execCleanShutdown()
+   if TheBDM:
+      TheBDM.beginCleanShutdown()
    TheBDM = BlockDataManager(isOffline=isOffline)
 
 class PySide_CallBack(Cpp.BDM_CallBack):
    def __init__(self, bdm):
+      print "-----init PySide_Callback ", TheBDM, " self = ", self
       Cpp.BDM_CallBack.__init__(self)
       self.bdm = bdm
       self.bdm.progressComplete=0
@@ -38,6 +39,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       self.bdm.progressPhase=0
       
    def run(self, action, arg, block):
+      print "-----run PySide_Callback ", TheBDM, " self = ", self
       try:
          act = ''
          arglist = []
@@ -70,7 +72,9 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             argstr = Cpp.BtcUtils_cast_to_string(arg)
             arglist.append(argstr)
             
-         for cppNotificationListener in self.bdm.cppNotificationListenerList:
+         listenerList = TheBDM.getListenerList()
+         print "---------- Len Listener List = ", len(listenerList)
+         for cppNotificationListener in listenerList:
             cppNotificationListener(act, arglist)
       except:
          LOGEXCEPT('Error in running callback')
@@ -86,7 +90,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             self.bdm.secondsRemaining = seconds
          else:
             progInfo = [walletIdString, prog]
-            for cppNotificationListener in self.bdm.cppNotificationListenerList:
+            for cppNotificationListener in TheBDM.getListenerList():
                cppNotificationListener('progress', progInfo)
                
       except:
@@ -174,17 +178,25 @@ class BlockDataManager(object):
       
       self.topBlockHeight = 0
       self.cppNotificationListenerList = []
-      
+   
+   
    #############################################################################
-   def cleanUpBDM(self):
-      self.cppNotificationListenerList = []
-      self.bdmState = BDM_UNINITIALIZED
+   @ActLikeASingletonBDM
+   def getListenerList(self):
+      return self.cppNotificationListenerList
+         
+   
+   #############################################################################
+   @ActLikeASingletonBDM
+   def cleanUpBDMThread(self):
       del self.bdmThread
          
    #############################################################################
+   @ActLikeASingletonBDM
    def BDMshutdownCallback(self, action, args):
       if action == 'stopped':
-         self.cleanUpBDM()
+         self.cppNotificationListenerList.remove(self.BDMshutdownCallback)
+         self.cleanUpBDMThread()
 
    #############################################################################
    @ActLikeASingletonBDM
@@ -350,17 +362,14 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def beginCleanShutdown(self):
-      self.registerCppNotification(self.BDMshutdownCallback)      
-      self.bdv().reset()
-      if self.bdmThread.requestShutdown() == False:
-         self.cleanUpBDM()
-      
-   #############################################################################
-   @ActLikeASingletonBDM
-   def execCleanShutdown(self):   
-      self.bdmState = BDM_UNINITIALIZED
-      self.bdv().reset()
+      if self.bdmThread: 
+         self.bdmState = BDM_UNINITIALIZED
+         self.registerCppNotification(self.BDMshutdownCallback)      
+         self.bdv().reset()
+         if self.bdmThread.requestShutdown() == False:
+            self.cleanUpBDMThread()
 
+   #############################################################################
    @ActLikeASingletonBDM
    def runBDM(self, fn):
       return self.inject.runCommand(fn)

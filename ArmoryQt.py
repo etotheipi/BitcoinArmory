@@ -6655,7 +6655,6 @@ class ArmoryMainWindow(QMainWindow):
          except:
             LOGEXCEPT('Shutdown function failed.  Skipping.')
 
-      #TheBDM.execCleanShutdown()
       
       # This will do nothing if bitcoind isn't running.
       TheSDM.stopBitcoind()

@@ -41,11 +41,9 @@ class ArmoryDTest(TiabTest):
          if os.path.exists(f):
             os.remove(f)
       
-   def callbackHandler(self, action, args):
+   def armoryDTestCallback(self, action, args):
       if action == 'refresh':
-         wltID = args[0]
-         if wltID == self.wallet.uniqueIDB58:
-            self.walletIsScanned = True
+         self.walletIsScanned = True
          
    def setUp(self):
       
@@ -66,7 +64,7 @@ class ArmoryDTest(TiabTest):
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
       
       #register a callback
-      TheBDM.registerCppNotification(self.callbackHandler)
+      TheBDM.registerCppNotification(self.armoryDTestCallback)
 
       #flag to check on wallet scan status
       self.walletIsScanned = False
@@ -93,7 +91,7 @@ class ArmoryDTest(TiabTest):
             raise RuntimeError("Timeout waiting for TheBDM to register the wallet.")
       
    def tearDown(self):
-      TheBDM.unregisterCppNotification(self.callbackHandler)
+      TheBDM.unregisterCppNotification(self.armoryDTestCallback)
       TheBDM.unregisterWallet(self.wallet)
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    

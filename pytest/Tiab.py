@@ -110,6 +110,8 @@ class TiabSession:
 TIAB_ZIPFILE_NAME = 'tiab.zip'
 NEED_TIAB_MSG = "This Test must be run with <TBD>. Copy to the test directory. Actual Block Height is "
 
+
+
 class TiabTest(unittest.TestCase):      
    @classmethod
    def setUpClass(self):
@@ -137,22 +139,22 @@ class TiabTest(unittest.TestCase):
          if i >= 10:
             raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
 
-   def callbackHandler(self, action, arg):
-      if action == 'stopped':
-         self.doneShuttingDownBDM = True
-         
    @classmethod
    def tearDownClass(self):
-      self.doneShuttingDownBDM = False
-      TheBDM.registerCppNotification(self.callbackHandler)
+      doneShuttingDownBDM = False
+      def tiabBDMShutdownCallback(action, arg):
+         if action == 'stopped':
+            doneShuttingDownBDM = True
+      
+      TheBDM.registerCppNotification(tiabBDMShutdownCallback)
       TheBDM.beginCleanShutdown()
       
       i = 0
-      while not self.doneShuttingDownBDM:
+      while not doneShuttingDownBDM:
          time.sleep(0.5)
          i += 1
-      if i >= 40:
-         raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
+         if i >= 40:
+            raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
       
       self.tiab.clean()
 
