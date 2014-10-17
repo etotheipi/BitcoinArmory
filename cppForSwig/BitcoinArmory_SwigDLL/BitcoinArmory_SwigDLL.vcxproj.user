@@ -9,6 +9,7 @@
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin" --testnet</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerCommand>C:\Python27\python.exe</LocalDebuggerCommand>
@@ -19,5 +20,6 @@
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin" --testnet</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
 </Project>

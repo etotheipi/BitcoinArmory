@@ -409,7 +409,8 @@ protected:
    
       WalletIdProgressReporter progress(wltPtr, scanThreadProgressCallback_);
       
-      bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this);
+      //pass to false to skip SDBI top block updates
+      bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this, false);
    }
    
    virtual uint32_t currentTopBlockHeight() const
@@ -1088,18 +1089,16 @@ bool BlockDataManager_LevelDB::isDirty(
 // raw blockdata is stored in the DB with no SSH objects.  This goes through
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
-void BlockDataManager_LevelDB::applyBlockRangeToDB(ProgressReporter &prog, uint32_t blk0, 
-   uint32_t blk1, ScrAddrFilter& scrAddrData)
+void BlockDataManager_LevelDB::applyBlockRangeToDB(ProgressReporter &prog, 
+   uint32_t blk0, uint32_t blk1, 
+   ScrAddrFilter& scrAddrData,
+   bool updateSDBI)
 {
-   blk1 = min(blk1, blockchain_.top().getBlockHeight() + 1);
-
-   BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
-   BinaryData endKey = DBUtils::getBlkDataKey(blk1, 0);
-
    ProgressFilter progress(&prog, blkFileCumul_.back());
    
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_);
+   blockWrites.setUpdateSDBI(updateSDBI);
 
    blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
 }

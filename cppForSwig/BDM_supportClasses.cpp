@@ -147,13 +147,7 @@ void ScrAddrFilter::scanScrAddrThread()
       //during main thread BtcWallet::merge()
 
       //scan on top of existing history
-      while (startBlock < endBlock)
-      {
-         applyBlockRangeToDB(startBlock, endBlock, wltPtr);
-
-         startBlock = endBlock;
-         endBlock = currentTopBlockHeight() + 1;
-      }
+      applyBlockRangeToDB(startBlock, endBlock, wltPtr);
    }
    else if (doScan_ == 0)
    {
@@ -170,14 +164,7 @@ void ScrAddrFilter::scanScrAddrThread()
       saVec.clear();
 
       //scan from 0
-      while (startBlock < endBlock)
-      {
-         applyBlockRangeToDB(startBlock, endBlock, wltPtr);
-
-         startBlock = endBlock;
-         endBlock = currentTopBlockHeight() + 1;
-      }
-
+      applyBlockRangeToDB(startBlock, endBlock, wltPtr);
    }
 
    //merge with main ScrAddrScanData object

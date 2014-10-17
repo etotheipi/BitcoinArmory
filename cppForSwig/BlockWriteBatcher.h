@@ -30,13 +30,14 @@ public:
    static const uint64_t UPDATE_BYTES_THRESH = 96 * 1024 * 1024;
 #endif
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
-                     LMDBBlockDatabase* iface,
+                     LMDBBlockDatabase* iface, 
                      bool forCommit = false);
    ~BlockWriteBatcher();
    
    void applyBlockToDB(uint32_t hgt, uint8_t dup, ScrAddrFilter& scrAddrData);
    void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter& scrAddrData);
    void scanBlocks(ProgressFilter &prog, uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
+   void setUpdateSDBI(bool set) { updateSDBI_ = set; }
 
 private:
 
@@ -92,9 +93,7 @@ private:
    void clearTransactions(void);
    
    static void* grabBlocksFromDB(void *in);
-   
    void applyBlocksToDB(ProgressFilter &prog);
-
    void cleanUpSshToModify(void);
 
 private:
@@ -134,6 +133,7 @@ private:
 
    //to sync commits 
    mutex lock_;
+   bool updateSDBI_ = true;
 };
 
 

@@ -762,14 +762,31 @@ bool BtcWallet::merge()
       //grab lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
 
-      if (mergeFlag_ == 1) //addresses with history
+      if (mergeFlag_ == 1 && scrAddrMapToMerge_.size() > 0) //addresses with history
       {
          //rescan last 100 blocks to account for new blocks and reorgs
          uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight() + 1;
-         uint32_t bottomBlock = 0;
-         if (topBlock > 99)
-            bottomBlock = topBlock - 100;
+         
+         //get the top scanned block for the addresses to merge
+         StoredScriptHistory ssh;
+         bdvPtr_->getDB()->getStoredScriptHistorySummary(ssh, 
+            scrAddrMapToMerge_.begin()->second.getScrAddr());
 
+         uint32_t bottomBlock = ssh.alreadyScannedUpToBlk_;
+
+         //figure out how many blocks should be rescanned
+         if (bottomBlock > 100)
+         {
+            int32_t blockDiff = topBlock - bottomBlock;
+            if (blockDiff < 100)
+               blockDiff = 100;
+            else
+               blockDiff *= 2;
+
+            bottomBlock = topBlock - blockDiff;
+         }
+         else
+            bottomBlock = 0;
          bdvPtr_->scanScrAddrVector(scrAddrMapToMerge_, bottomBlock, topBlock);
          
          //make sure this returns true so that the upper BDV object re-inits the wallet

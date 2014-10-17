@@ -945,8 +945,8 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    }
 
    bwbSwapPtr->dbUpdateSize_ = dbUpdateSize_;
-
    bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_ +1;
+   bwbSwapPtr->updateSDBI_ = updateSDBI_;
 
    bwbSwapPtr->parent_ = this;
       
@@ -1066,7 +1066,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
       bwbPtr->txn_.begin();
 
 
-      if (bwbPtr->mostRecentBlockApplied_ != 0)
+      if (bwbPtr->mostRecentBlockApplied_ != 0 && bwbPtr->updateSDBI_ == true)
       {
          StoredDBInfo sdbi;
          bwbPtr->iface_->getStoredDBInfo(BLKDATA, sdbi);

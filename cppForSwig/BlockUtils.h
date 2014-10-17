@@ -282,7 +282,10 @@ private:
    uint32_t getTopScannedBlock(void) const;
 
 public:
-   void applyBlockRangeToDB(ProgressReporter &prog, uint32_t blk0, uint32_t blk1, ScrAddrFilter& scrAddrData);
+   void applyBlockRangeToDB(ProgressReporter &prog, 
+                            uint32_t blk0, uint32_t blk1,
+                            ScrAddrFilter& scrAddrData,
+                            bool updateSDBI = true);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
