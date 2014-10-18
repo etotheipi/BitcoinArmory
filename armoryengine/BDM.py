@@ -233,16 +233,8 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def registerWallet(self, wlt, isNew=False):
-<<<<<<< HEAD
-      if not isinstance(wlt, PyBtcWallet):
-         raise('tried to register an invalid object as a wallet')
-         return
-      
       if len(wlt.uniqueIDB58) == 0:
          raise('cannot register a wallet with an empty uniqueIDB58')
-      
-=======
->>>>>>> 527a406... Refactoring PyBtcWallet
       prefixedKeys = []
       for key in wlt.linearAddr160List:
          prefixedKeys.append(Hash160ToScrAddr(key))

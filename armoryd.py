@@ -2245,7 +2245,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       try:
          newWlt = self.serverWltMap[newIDB58]
          self.curWlt = newWlt  # Separate in case ID's wrong & error's thrown.
-         LOGINFO('Syncing wallet: %s' % newIDB58).
+         LOGINFO('Syncing wallet: %s' % newIDB58)
          retStr = 'Wallet %s is now active.' % newIDB58
       except:
          LOGERROR('setactivewallet - Wallet %s does not exist.' % newIDB58)
