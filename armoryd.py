@@ -2871,14 +2871,14 @@ class Armory_Daemon(object):
          #wallet filter was modified
          wltID = args[0]
          if len(wltID) > 0:
-            if wltID in self.walletMap:
-               self.walletMap[wltID].isEnabled = True
-            else:
-               lbID = self.lockboxIDMap[wltID]                
-               self.allLockboxes[lbID].isEnabled = True
-                  
-            del self.walletSideScanProgress[wltID]
-         
+            if wltID in self.serverWltMap:
+               self.serverWltMap[wltID].isEnabled = True
+            else:                
+               self.serverLBMap[wltID].isEnabled = True
+             
+            #no progress repoting in armoryd yet     
+            #del self.walletSideScanProgress[wltID]
+            
       elif action == 'progress':
          #Received progress data for a wallet side scan
          wltID = args[0]
