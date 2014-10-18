@@ -234,8 +234,11 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def registerWallet(self, wlt, isNew=False):
       if not isinstance(wlt, PyBtcWallet):
-         LOGERROR('tried to register an invalid object as a wallet')
+         raise('tried to register an invalid object as a wallet')
          return
+      
+      if len(wlt.uniqueIDB58) == 0:
+         raise('cannot register a wallet with an empty uniqueIDB58')
       
       prefixedKeys = []
       for key in wlt.linearAddr160List:
@@ -244,12 +247,14 @@ class BlockDataManager(object):
       #this returns a pointer to the BtcWallet C++ object. This object is
       #instantiated at registration and is unique for the BDV object, so we
       #should only ever set the cppWallet member here 
-      wlt.cppWallet = self.bdv().registerWallet(prefixedKeys, wlt.uniqueIDB58, isNew)
+      wlt.cppWallet = self.bdv().registerWallet(prefixedKeys, \
+                                                wlt.uniqueIDB58, isNew)
 
    #############################################################################
    @ActLikeASingletonBDM
    def unregisterWallet(self, wlt):
-      wlt.cppWallet = self.bdv().unregisterWallet( wlt.uniqueIDB58)
+      self.bdv().unregisterWallet(wlt.uniqueIDB58)
+      wlt.cppWallet = None
 
    #############################################################################
    @ActLikeASingletonBDM

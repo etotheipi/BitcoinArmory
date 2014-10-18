@@ -30,11 +30,15 @@ BlockDataViewer::~BlockDataViewer()
 BtcWallet* BlockDataViewer::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
+   if (IDstr.size() == 0)
+      return nullptr;
+
    // Check if the wallet is already registered
    BinaryData id(IDstr);
 
-   if (registeredWallets_.find(id) != registeredWallets_.end())
-      return nullptr;
+   const auto& regWlt = registeredWallets_.find(id);
+   if (regWlt != registeredWallets_.end())
+      return regWlt->second.get();
 
    // Add it to the list of wallets to watch
    // Instantiate the object through insert. Could also create the shared_ptr
