@@ -300,10 +300,7 @@ private:
 
    void deleteHistories(void);
 public:
-   
-   //for 1:1 wallets
-   const BlockHeader* getHeaderPtrForTx(Tx& theTx)
-                     {return &blockchain_.getHeaderPtrForTx(theTx);}
+
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
    LMDBBlockDatabase *getIFace(void) {return iface_;}
       

@@ -151,6 +151,7 @@ def addMultWallets(inWltPaths, inWltMap, inWltIDSet):
       try:
          wltLoad = PyBtcWallet().readWalletFile(aWlt)
          wltID = wltLoad.uniqueIDB58
+         wltLoad.fillAddressPool()
 
          # For now, no wallets are excluded. If this changes....
          #if aWlt in wltExclude or wltID in wltExclude:
@@ -336,7 +337,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       ledgerEntries = self.curWlt.getTxLedger('blk')
 
       for entry in ledgerEntries:
-         cppTx = TheBDM.getTxByHash(entry.getTxHash())
+         cppTx = TheBDM.bdv().getTxByHash(entry.getTxHash())
          if cppTx.isInitialized():
             # Only consider the first for determining received from address
             # This function should assume it is online, and actually request the previous
@@ -345,7 +346,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # and it will grab the TxOut being spent by that TxIn and return the
             # scraddr of it.  This will succeed 100% of the time.
             cppTxin = cppTx.getTxInCopy(0)
-            txInAddr = scrAddr_to_addrStr(TheBDM.getSenderScrAddr(cppTxin))
+            txInAddr = scrAddr_to_addrStr(TheBDM.bdv().getSenderScrAddr(cppTxin))
             fromSender =  sender == txInAddr
 
             if fromSender:
@@ -491,7 +492,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # For now, prevent the caller from accidentally inducing a 20 min rescan
          # If they want the unspent list for a non-registered addr, they can
          # explicitly register it and rescan before calling this method.
-         if not TheBDM.scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
+         if not TheBDM.bdv().scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
             raise BitcoindError('Address is not registered, requires rescan')
 
          atype,a160 = addrStr_to_hash160(addrStr)
@@ -587,6 +588,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          privKeyValid = False
 
       if privKeyValid:
+         self.curWlt.isEnabled = False
          self.thePubKey = self.curWlt.importExternalAddressData(self.binPrivKey)
          if self.thePubKey != None:
             retDict['PubKey'] = binary_to_hex(self.thePubKey)
@@ -613,7 +615,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
 
       rawTx = None
-      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, endianness))
+      cppTx = TheBDM.bdv().getTxByHash(hex_to_binary(txHash, endianness))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)
@@ -650,7 +652,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       n = int(n)
       txOut = None
-      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, BIGENDIAN))
+      cppTx = TheBDM.bdv().getTxByHash(hex_to_binary(txHash, BIGENDIAN))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)
@@ -969,7 +971,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       retBalance = 0
       for addrStr in addrList:
       
-         if not TheBDM.scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
+         if not TheBDM.bdv().scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
             raise BitcoindError('Address is not registered, requires rescan')
 
          atype,a160 = addrStr_to_hash160(addrStr)
@@ -1165,11 +1167,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
 
             # If the BDM doesn't have the C++ Tx & header, log errors.
-            cppTx = TheBDM.getTxByHash(txHashBin)
+            cppTx = TheBDM.bdv().getTxByHash(txHashBin)
             if not cppTx.isInitialized():
                LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
-            cppHead = TheBDM.getHeaderPtrForTx(cppTx)
+            cppHead = TheBDM.bdv().getHeaderPtrForTx(cppTx)
             if not cppHead.isInitialized():
                LOGERROR('Header pointer is not available!')
                headHashBin = ''
@@ -1243,8 +1245,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # Get the address & amount from each TxIn.
             myinputs, otherinputs = [], []
             for iin in range(cppTx.getNumTxIn()):
-               sender = TheBDM.getSenderScrAddr(cppTx.getTxInCopy(iin))
-               val    = TheBDM.getSentValue(cppTx.getTxInCopy(iin))
+               sender = TheBDM.bdv().getSenderScrAddr(cppTx.getTxInCopy(iin))
+               val    = TheBDM.bdv().getSentValue(cppTx.getTxInCopy(iin))
                addTo  = (myinputs if ledgerWlt.hasScrAddress(sender) else \
                          otherinputs)
                addTo.append( {'address': scrAddr_to_displayStr(sender, \
@@ -1296,17 +1298,32 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       return final_le_list
 
-
    #############################################################################
    # NB: For now, this is incompatible with lockboxes.
    @catchErrsForJSON
-   def jsonrpc_listtransactions(self, tx_count=10, from_tx=0):
+   def jsonrpc_gethistorypagecount(self):
+      """
+      DESCRIPTION:
+      Returns the number of history pages associated with the currently loaded 
+      wallet.
+      A history page is a slice of wallet transaction history
+      PARAMETERS: 
+      None
+      RETURN:
+      The number of history pages.
+      """
+      
+      return self.curWlt.cppWallet.getHistoryPageCount()
+   
+   #############################################################################
+   # NB: For now, this is incompatible with lockboxes.
+   @catchErrsForJSON
+   def jsonrpc_listtransactions(self, from_page=0):
       """
       DESCRIPTION:
       List the transactions associated with the currently loaded wallet.
-      PARAMETERS:
-      tx_count - (Default=10) The number of entries to get. 
-      from_tx - (Default=0) The first entry to get.
+      PARAMETERS: 
+      from_page - (Default=0) The history page to get the transactions from.
       RETURN:
       A dictionary with information on the retrieved transactions.
       """
@@ -1314,15 +1331,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # This does not use 'account's like in the Satoshi client
 
       final_tx_list = []
-      ledgerEntries = self.curWlt.getTxLedger('blk')
+      ledgerEntries = self.curWlt.cppWallet.getPageHistoryAsVector(from_page)
 
       sz = len(ledgerEntries)
-      lower = min(sz, from_tx)
-      upper = min(sz, from_tx+tx_count)
-
       txSet = set([])
 
-      for i in range(lower,upper):
+      for i in range(sz):
 
          le = ledgerEntries[i]
          txHashBin = le.getTxHash()
@@ -1332,12 +1346,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          txSet.add(txHashBin)
          txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
 
-         cppTx = TheBDM.getTxByHash(txHashBin)
+         cppTx = TheBDM.bdv().getTxByHash(txHashBin)
          if not cppTx.isInitialized():
             LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
          #cppHead = cppTx.getHeaderPtr()
-         cppHead = TheBDM.getHeaderPtrForTx(cppTx)
+         cppHead = TheBDM.bdv().getHeaderPtrForTx(cppTx)
          if not cppHead.isInitialized:
             LOGERROR('Header pointer is not available!')
 
@@ -1347,7 +1361,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          isToSelf   = le.isSentToSelf()
          feeCoin   = getFeeForTx(txHashBin)
          totalBalDiff = le.getValue()
-         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+         nconf = (TheBDM.getTopBlockHeight() - \
                   le.getBlockNum()) + 1
 
          # We have potentially change outputs on any outgoing transactions.
@@ -1487,7 +1501,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'blocks':            TheBDM.getTopBlockHeight(),
                #'connections':       (0 if isReady else 1),
                #'proxy':             '',
-               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() \
+               'difficulty':        TheBDM.bdv().getTopBlockHeader().getDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
                'keypoolsize':       self.curWlt.addrPoolSize
@@ -1514,7 +1528,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if TheBDM.getState() in [BDM_UNINITIALIZED, BDM_OFFLINE]:
          return {'error': 'armoryd is offline'}
 
-      head = TheBDM.getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
+      head = TheBDM.bdv().getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
 
       if not head:
          return {'error': 'header not found'}
@@ -1588,7 +1602,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return {'Error': 'armoryd is offline'}
 
       binhash = hex_to_binary(txHash, BIGENDIAN)
-      tx = TheBDM.getTxByHash(binhash)
+      tx = TheBDM.bdv().getTxByHash(binhash)
       if not tx.isInitialized():
          return {'Error': 'transaction not found'}
 
@@ -1604,7 +1618,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       outputvalues = []
       for i in range(tx.getNumTxIn()): 
          op = tx.getTxInCopy(i).getOutPoint()
-         prevtx = TheBDM.getTxByHash(op.getTxHash())
+         prevtx = TheBDM.bdv().getTxByHash(op.getTxHash())
          if not prevtx.isInitialized():
             haveAllInputs = False
             txindata.append( { 'address': '00'*32, 
@@ -1647,7 +1661,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       out['time'] = tx.getBlockTimestamp()
       out['orderinblock'] = tx.getBlockTxIndex()
 
-      le = self.curWlt.cppWallet.calcLedgerEntryForTx(tx)
+      le = self.curWlt.cppWallet.calcLedgerEntryForTx(tx) #have to backport this
       amt = le.getValue()
       out['netdiff']     = AmountToJSON(amt)
       out['totalinputs'] = AmountToJSON(sum(inputvalues))
@@ -2231,8 +2245,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       try:
          newWlt = self.serverWltMap[newIDB58]
          self.curWlt = newWlt  # Separate in case ID's wrong & error's thrown.
-         LOGINFO('Syncing wallet: %s' % newIDB58)
-         self.curWlt.syncWithBlockchain() # Call after each BDM operation.
+         LOGINFO('Syncing wallet: %s' % newIDB58).
          retStr = 'Wallet %s is now active.' % newIDB58
       except:
          LOGERROR('setactivewallet - Wallet %s does not exist.' % newIDB58)
@@ -2632,8 +2645,6 @@ class Armory_Daemon(object):
       self.curWlt = None
       self.curLB = None
 
-      self.newZeroConfSinceLastUpdate = []
-
       # Check if armoryd is already running. If so, just execute the command,
       # otherwise prepare to act as the server.
       armorydIsRunning = self.checkForAlreadyRunning()
@@ -2707,10 +2718,11 @@ class Armory_Daemon(object):
                      self.lboxCppWalletMap[lbID] = BtcWallet()
                      scraddrReg = script_to_scrAddr(lbox.binScript)
                      scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
-                     self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrReg)
-                     self.lboxCppWalletMap[lbID].addScrAddress_1_(scraddrP2SH)
+                     lockboxScrAddr = [scraddrReg, scraddrP2SH]
+                     
                      LOGWARN('Registering lockbox: %s' % lbID)
-                     TheBDM.registerWallet(self.lboxCppWalletMap[lbID])
+                     self.lboxCppWalletMap[lbID] = \
+                      TheBDM.registerLockbox(self.lbox, lockboxScrAddr)
 
                else:
                   LOGWARN('No lockboxes were loaded.')
@@ -2780,8 +2792,115 @@ class Armory_Daemon(object):
                      '(blk*.dat) are available.'
             LOGERROR(errStr)
             os._exit(0)
+   
+   #############################################################################
+   def handleCppNotification(self, action, args):
 
+      if action == 'finishLoadBlockchain':
+         #Blockchain just finished loading, finish initializing UI and render the
+         #ledgers
 
+         #no mempool file code yet
+         TheBDM.bdv().enableZeroConf("") #mempoolfile.encode('utf-8'))        
+         
+         self.timeReceived = TheBDM.bdv().blockchain().top().getTimestamp()
+         LOGINFO('Blockchain loaded. Wallets synced!')
+         LOGINFO('Current block number: %d', self.latestBlockNum)
+         LOGINFO('Current block received at: %d', self.timeReceived)
+
+         LOGINFO('Wallet balance: %s' % \
+                 coin2str(self.curWlt.getBalance('Spendable')))
+
+         # This is CONNECT call for armoryd to talk to bitcoind
+         LOGINFO('Set up connection to bitcoind')
+         self.NetworkingFactory = ArmoryClientFactory( \
+                        TheBDM,
+                        func_loseConnect = self.showOfflineMsg, \
+                        func_madeConnect = self.showOnlineMsg, \
+                        func_newTx       = self.execOnNewTx, \
+                        func_newBlock    = self.execOnNewBlock)
+         reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+         reactor.run()
+   
+      elif action == 'newZC':
+         #A zero conf Tx conerns one of the address Armory is tracking, pull the 
+         #updated ledgers from the BDM and create the related notifications.         
+
+         self.checkNewZeroConf(args)        
+
+      elif action == 'newblock':
+         #A new block has appeared, pull updated ledgers from the BDM, display
+         #the new block height in the status bar and note the block received time         
+
+         newBlocks = args[0]
+         if newBlocks>0:       
+            print 'New Block: ', TheBDM.getTopBlockHeight()
+
+            self.ledgerModel.reset()
+
+            LOGINFO('New Block! : %d', TheBDM.getTopBlockHeight())
+
+            self.blkReceived  = RightNow()
+            self.writeSetting('LastBlkRecvTime', self.blkReceived)
+            self.writeSetting('LastBlkRecv',     TheBDM.getTopBlockHeight())
+            
+            # If there are no new block functions to run, just skip all this.
+            if len(self.newBlockFunctions) > 0:
+               # Here's where we actually execute the new-block calls, because
+               # this code is guaranteed to execute AFTER the TheBDM has processed
+               # the new block data.
+               # We walk through headers by block height in case the new block 
+               # didn't extend the main chain (this won't run), or there was a 
+               # reorg with multiple blocks and we only want to process the new
+               # blocks on the main chain, not the invalid ones
+               prevTopBlock = TheBDM.getTopBlockHeight() - newBlocks
+               for blknum in range(newBlocks):
+                  cppHeader = TheBDM.bdv().getHeaderByHeight(prevTopBlock + blknum)
+                  pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
+                     
+                  cppBlock = TheBDM.bdv().getMainBlockFromDB(blknum)
+                  pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
+                                 i in range(cppBlock.getNumTx())]
+                  for funcKey in self.newBlockFunctions:
+                     for blockFunc in self.newBlockFunctions[funcKey]:
+                        blockFunc(pyHeader, pyTxList)            
+      
+      elif action == 'refresh':
+         #The wallet ledgers have been updated from an event outside of new ZC
+         #or new blocks (usually a wallet or address was imported, or the 
+         #wallet filter was modified
+         wltID = args[0]
+         if len(wltID) > 0:
+            if wltID in self.walletMap:
+               self.walletMap[wltID].isEnabled = True
+            else:
+               lbID = self.lockboxIDMap[wltID]                
+               self.allLockboxes[lbID].isEnabled = True
+                  
+            del self.walletSideScanProgress[wltID]
+         
+      elif action == 'progress':
+         #Received progress data for a wallet side scan
+         wltID = args[0]
+         prog = args[1]
+         '''
+         self.walletSideScanProgress[wltID] = prog*100
+         
+         if wltID in self.walletMap:
+            self.walletModel.reset()
+         else:
+            self.lockboxLedgModel.reset()
+            if self.lbDialogModel != None:
+               self.lbDialogModel.reset()
+         '''
+         
+      elif action == 'warning':
+         #something went wrong on the C++ side, create a message box to report
+         #it to the user
+         LOGWARN("BockDataManager Warning: ")
+         LOGWARN(args[0])
+         
+         
    #############################################################################
    def set_auth(self, resource):
       passwordfile = ARMORYD_CONF_FILE
@@ -2809,43 +2928,20 @@ class Armory_Daemon(object):
       #try to grab checkWallet lock to block start() until the check is over
       self.lock.acquire()
       self.lock.release()
+      
+      #register callback
+      TheBDM.registerCppNotification(self.handleCppNotification)
 
       # This is not a UI so no need to worry about the main thread being
       # blocked. Any UI that uses this Daemon can put the call to the Daemon on
       # its own thread.
-      TheBDM.setBlocking(True)
       LOGWARN('Server started...')
-      if(not TheBDM.getState()==BDM_OFFLINE):
-         # Put the BDM in online mode only after registering all Python wallets.
-         for wltID, wlt in self.WltMap.iteritems():
-            LOGWARN('Registering wallet: %s' % wltID)
-            TheBDM.registerWallet(wlt)
-         TheBDM.setOnlineMode(True)
 
-         # Initialize the mem pool and sync the wallets.
-         self.latestBlockNum = TheBDM.finishLoadBlockchainCommon(self.WltMap, \
-                                                          self.lboxCppWalletMap, \
-                                                          False)[0]
-
-         self.timeReceived = TheBDM.getTopBlockHeader().getTimestamp()
-         LOGINFO('Blockchain loaded. Wallets synced!')
-         LOGINFO('Current block number: %d', self.latestBlockNum)
-         LOGINFO('Current block received at: %d', self.timeReceived)
-
-         LOGINFO('Wallet balance: %s' % \
-                 coin2str(self.curWlt.getBalance('Spendable')))
-
-         # This is CONNECT call for armoryd to talk to bitcoind
-         LOGINFO('Set up connection to bitcoind')
-         self.NetworkingFactory = ArmoryClientFactory( \
-                        TheBDM,
-                        func_loseConnect = self.showOfflineMsg, \
-                        func_madeConnect = self.showOnlineMsg, \
-                        func_newTx       = self.execOnNewTx, \
-                        func_newBlock    = self.execOnNewBlock)
-         reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
-      reactor.run()
-
+      # Put the BDM in online mode only after registering all Python wallets.
+      for wltID, wlt in self.WltMap.iteritems():
+         LOGWARN('Registering wallet: %s' % wltID)
+         TheBDM.registerWallet(wlt)
+      TheBDM.setOnlineMode(True)
 
    #############################################################################
    @classmethod
@@ -2933,9 +3029,7 @@ class Armory_Daemon(object):
    #############################################################################
    def execOnNewTx(self, pytxObj):
       # Execute on every new Tx.
-      TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
-      self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
-      #TheBDM.rescanWalletZeroConf(self.curWlt.cppWallet)
+      TheBDM.bdv().addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
 
       # Add anything else you'd like to do on a new transaction.
       for txFunc in self.newTxFunctions:
@@ -3010,81 +3104,6 @@ class Armory_Daemon(object):
             if RightNow() >= nextCheck:
                self.checkWallet()
      
-            # Check for new blocks in the blk000X.dat file
-            prevTopBlock = TheBDM.getTopBlockHeight()
-            newBlks = TheBDM.readBlkFileUpdate(wait=True)
-   
-            # If we have new zero-conf transactions, scan them and update ledger
-            if len(self.newZeroConfSinceLastUpdate)>0:
-               self.newZeroConfSinceLastUpdate.reverse()
-               for wltID in self.WltMap.keys():
-                  wlt = self.WltMap[wltID]
-                  TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
-   
-               for lbID,cppWlt in self.lboxCppWalletMap.iteritems():
-                  TheBDM.rescanWalletZeroConf(cppWlt, wait=True)
-                     
-            # We had a notification thing going in ArmoryQt using checkNewZeroConf()
-            # but we didn't need it here (yet), so I simply remove it and clear the
-            # ZC list as if we called it
-            #self.checkNewZeroConf()
-            #del self.newZeroConfSinceLastUpdate[:]
-            self.newZeroConfSinceLastUpdate = []
-   
-            if newBlks>0:
-               self.latestBlockNum = TheBDM.getTopBlockHeight()
-               self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
-   
-         
-               # This tracks every wallet and lockbox registered, runs standard
-               # update functions after new blocks come in.  "After scan" also
-               # means after we've updated the blockchain with a new block.
-               TheBDM.updateWalletsAfterScan(wait=True)
-   
-               # On very rare occasions, we could come across a new Tx in a block
-               # instead of seeing it on the network first. Let's check for this
-               # case and, if desired, execute NewTx user functs.
-               # NB: As written, this code is probably wrong! We only care about
-               # the active wallet, but we're passing in the entire wallet set.
-               # We probably ought to add awareness of the current wallet in the
-               # daemon. Be sure to get the initial wallet and do post-processing
-               # when a user wants to change the active wallet. (For that matter,
-               # we should probably add post-processing when adding wallets so
-               # that we can track what we have.)
-               #surpriseTx = newBlockSyncRescanZC(TheBDM, WltMap, prevLedgSize)
-               #if surpriseTx:
-                  #LOGINFO('New Block contained a transaction relevant to us!')
-                  # THIS NEEDS TO BE CHECKED! IT STILL USES ARMORYQT VALUES!!!
-                  # WltMap SHOULD ALSO PROBABLY BE CHANGED TO THE CURRENT WALLET!
-                  #notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-                  #                   self.currBlockNum+1, WltMap, False, TheBDM)
-   
-                  # If there's user-executed code on a new Tx, execute here before
-                  # dealing with any new blocks.
-                  # NB: THIS IS PLACEHOLDER CODE THAT MAY BE WRONG!!!
-                  #for txFunc in self.newTxFunctions:
-                     #txFunc(pytxObj)
-   
-               # If there are no new block functions to run, just skip all this.
-               if len(self.newBlockFunctions) > 0:
-                  # Here's where we actually execute the new-block calls, because
-                  # this code is guaranteed to execute AFTER the TheBDM has processed
-                  # the new block data.
-                  # We walk through headers by block height in case the new block 
-                  # didn't extend the main chain (this won't run), or there was a 
-                  # reorg with multiple blocks and we only want to process the new
-                  # blocks on the main chain, not the invalid ones
-                  for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
-                     cppHeader = TheBDM.getHeaderByHeight(blknum)
-                     pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
-                     
-                     cppBlock = TheBDM.getMainBlockFromDB(blknum)
-                     pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
-                                    i in range(cppBlock.getNumTx())]
-                     for funcKey in self.newBlockFunctions:
-                        for blockFunc in self.newBlockFunctions[funcKey]:
-                           blockFunc(pyHeader, pyTxList)
-
       except:
          # When getting the error info, don't collect the traceback in order to
          # avoid circular references. https://docs.python.org/2/library/sys.html

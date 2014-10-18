@@ -75,6 +75,9 @@ class BlockDataViewer
       const Blockchain& blockchain() const  { return *bc_; }
       Blockchain& blockchain() { return *bc_; }
       uint32_t getTopBlockHeight(void) const;
+      const BlockHeader& getTopBlockHeader(void) const
+      { return bc_->top(); }
+      BlockHeader getHeaderByHash(const BinaryData& blockHash) const;
 
       void reset();
 
@@ -91,8 +94,14 @@ class BlockDataViewer
                              uint32_t startBlock, uint32_t endBlock) const;
 
       void flagRefresh(bool withRemap, BinaryData refreshId);
-
       void updateWalletFilters(const vector<BinaryData>& walletsVec);
+
+      StoredHeader getMainBlockFromDB(uint32_t height) const;
+      StoredHeader getBlockFromDB(uint32_t height, uint8_t dupID) const;
+      bool scrAddressIsRegistered(const BinaryData& scrAddr) const;
+      
+      const BlockHeader* getHeaderPtrForTx(Tx& theTx)
+         { return &bc_->getHeaderPtrForTx(theTx); }
 
    public:
       bool rescanZC_    = false;

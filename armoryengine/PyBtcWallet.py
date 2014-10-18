@@ -415,8 +415,10 @@ class PyBtcWallet(object):
    #############################################################################
    def getTxOutList(self, totalSend, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
+      #these call currently always ignores ZC as the underlying C++ methods 
+      #only grab UTXOs from the DB
+      
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-
          topBlockHeight = TheBDM.getTopBlockHeight()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutListForValue(totalSend) #IGNOREZC);
@@ -1001,6 +1003,9 @@ class PyBtcWallet(object):
          
       #add addresses in bulk once they are all computed   
       if doRegister and self.cppWallet:
+         #isEnabled will be flagged back to True by the callback once it notifies
+         #that the wallet has properly loaded the new scrAddr and scanned it
+         self.cppWallet.isEnabled = False 
          self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
             
       return self.lastComputedChainIndex

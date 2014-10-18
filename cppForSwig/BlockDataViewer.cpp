@@ -36,7 +36,7 @@ BtcWallet* BlockDataViewer::registerWallet(
    // Check if the wallet is already registered
    BinaryData id(IDstr);
 
-   const auto& regWlt = registeredWallets_.find(id);
+   auto regWlt = registeredWallets_.find(id);
    if (regWlt != registeredWallets_.end())
       return regWlt->second.get();
 
@@ -68,11 +68,15 @@ BtcWallet* BlockDataViewer::registerWallet(
 BtcWallet* BlockDataViewer::registerLockbox(
    vector<BinaryData> const & scrAddrVec, string IDstr, bool wltIsNew)
 {
+   if (IDstr.size() == 0)
+      return nullptr;
+
    // Check if the lockbox is already registered
    BinaryData id(IDstr);
-
-   if (registeredLockboxes_.find(id) != registeredLockboxes_.end())
-      return nullptr;
+   
+   auto regLB = registeredLockboxes_.find(id);
+   if (regLB!= registeredLockboxes_.end())
+      return regLB->second.get();
 
    auto insertResult = registeredLockboxes_.insert(make_pair(
       id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
@@ -599,4 +603,36 @@ void BlockDataViewer::flagRefresh(bool withRemap, BinaryData refreshID)
    refreshID_ = refreshID;
 
    bdmPtr_->notifyMainThread();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataViewer::getMainBlockFromDB(uint32_t height) const
+{
+   uint8_t dupID = db_->getValidDupIDForHeight(height);
+   
+   return getBlockFromDB(height, dupID);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataViewer::getBlockFromDB(uint32_t height, uint8_t dupID) const
+{
+   StoredHeader sbh;
+   db_->getStoredHeader(sbh, height, dupID, true);
+
+   return sbh;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataViewer::scrAddressIsRegistered(const BinaryData& scrAddr) const
+{
+   return saf_->hasScrAddress(scrAddr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
+{
+   if (bc_->hasHeaderWithHash(blockHash))
+      return bc_->getHeaderByHash(blockHash);
+
+   return BlockHeader();
 }
