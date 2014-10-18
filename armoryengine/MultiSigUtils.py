@@ -57,6 +57,17 @@ PROMIDSIZE = 4
 LBPREFIX, LBSUFFIX = 'Lockbox[Bare:', ']'
 LBP2SHPREFIX = 'Lockbox['
 
+#############################################################################
+def getRecipStr(decoratedTxOut):
+   if decoratedTxOut.scriptType in CPP_TXOUT_HAS_ADDRSTR:
+      return script_to_addrStr(decoratedTxOut.binScript)
+   elif decoratedTxOut.scriptType == CPP_TXOUT_MULTISIG:
+      lbID = calcLockboxID(decoratedTxOut.binScript)
+      return 'Multisig %d-of-%d (%s)' % \
+         (decoratedTxOut.multiInfo['M'], decoratedTxOut.multiInfo['N'], lbID)
+   else:
+      return ''
+   
 ################################################################################
 def calcLockboxID(script=None, scraddr=None):
    # ScrAddr is "Script/Address" and for multisig it is 0xfe followed by

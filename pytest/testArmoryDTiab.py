@@ -114,7 +114,11 @@ TEST_MESSAGE = "All your base are belong to us."
 
 # These tests need to be run in the TiaB
 class ArmoryDTiabTest(TiabTest):
-   
+         
+   def armoryDTiabTestCallback(self, action, args):
+      if action == 'refresh':
+         self.numberOfWalletsScanned += 1
+         
    def setUp(self):
       self.verifyBlockHeight()
       # Load the primary file from the test net in a box
@@ -132,9 +136,29 @@ class ArmoryDTiabTest(TiabTest):
                                               THIRD_WLT_NAME : self.wltC}, \
                        armoryHomeDir=os.path.join(self.tiab.tiabDirectory, \
                                                   'tiab','armory'))
+      #register a callback
+      TheBDM.registerCppNotification(self.armoryDTiabTestCallback)
+
+      #flag to check on wallet scan status
+      self.numberOfWalletsScanned = 0
+      
       TheBDM.registerWallet(self.wltA)
-
-
+      TheBDM.registerWallet(self.wltB)
+      TheBDM.registerWallet(self.wltC)
+      #wait on scan for 20sec then raise if the scan hasn't finished yet
+      i = 0
+      while self.numberOfWalletsScanned < 3:
+         time.sleep(0.5)
+         i += 1
+         if i >= 40:
+            raise RuntimeError("Timeout waiting for TheBDM to register the wallet.")
+      
+   def tearDown(self):
+      TheBDM.unregisterCppNotification(self.armoryDTiabTestCallback)
+      TheBDM.unregisterWallet(self.wltA)
+      TheBDM.unregisterWallet(self.wltB)
+      TheBDM.unregisterWallet(self.wltC)
+      
    def testActiveWallet(self):
       self.jsonServer.jsonrpc_setactivewallet(FIRST_WLT_NAME)
       result = self.jsonServer.jsonrpc_getactivewallet()

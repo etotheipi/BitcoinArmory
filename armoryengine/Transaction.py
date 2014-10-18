@@ -15,6 +15,7 @@ from armoryengine.BinaryUnpacker import *
 
 from armoryengine.AsciiSerialize import AsciiSerializable
 
+
 UNSIGNED_TX_VERSION = 1
 
 SIGHASH_ALL = 1
@@ -1709,17 +1710,6 @@ class DecoratedTxOut(AsciiSerializable):
       self.wltLocator = wltLocStr
 
    #############################################################################
-   def getRecipStr(self):
-      if self.scriptType in CPP_TXOUT_HAS_ADDRSTR:
-         return script_to_addrStr(self.binScript)
-      elif self.scriptType == CPP_TXOUT_MULTISIG:
-         lbID = calcLockboxID(self.binScript)
-         return 'Multisig %d-of-%d (%s)' % \
-            (self.multiInfo['M'], self.multiInfo['N'], lbID)
-      else:
-         return ''
-
-   #############################################################################
    def toJSONMap(self):
       """
       No lite version needed, since these are usually very small.
@@ -2834,35 +2824,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
    """
-   
-   """
-   if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-      if not isinstance(addr160List, (list,tuple)):
-         addr160List = [addr160List]
 
-      scrAddrList = []
-      tempWallet = PyBtcWallet()
-
-      for addr in addr160List:
-         if isinstance(addr, PyBtcAddress):
-            scrAddrList.append(Hash160ToScrAddr(addr.getAddr160()))
-         else:
-            # Have to Skip ROOT
-            if addr!='ROOT':
-               scrAddrList.append(Hash160ToScrAddr(addr))
-
-      TheBDM.registerWallet(cppWlt)
-      topBlockHeight = TheBDM.getTopBlockHeight()
-
-      if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
-         return cppWlt.getFullTxOutList(topBlockHeight)
-      elif utxoType.lower() in ('spend','spendable','confirmed'):
-         return cppWlt.getSpendableTxOutList(topBlockHeight, IGNOREZC)
-      else:
-         raise TypeError, 'Unknown utxoType!'
-   else:
-      return []
-   """
 
 def pprintLedgerEntry(le, indent=''):
    if len(le.getScrAddr())==21:
@@ -2887,4 +2849,3 @@ from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
 from armoryengine.Script import *
-from armoryengine.MultiSigUtils import calcLockboxID

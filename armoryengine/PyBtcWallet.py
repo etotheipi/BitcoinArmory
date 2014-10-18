@@ -39,6 +39,21 @@ PYROOTPKCCVER = 1 # Current version of root pub key/chain code backup format
 PYROOTPKCCVERMASK = 0x7F
 PYROOTPKCCSIGNMASK = 0x80
 
+# Only works on PyBtcWallet
+# If first arg is not PyBtcWallet call the function as if it was
+# not decorated, it should throw whatever error or do whatever it would
+# do withouth this decorator. This decorator does nothing if applied to 
+# the methods of any other class
+def CheckWalletRegistration(func):
+   def inner(*args, **kwargs):
+      if len(args)>0 and isinstance(args[0],PyBtcWallet):
+         if args[0].isRegistered():
+            return func(*args, **kwargs)
+         else:
+            raise WalletUnregisteredError
+      else:
+         return func(*args, **kwargs)
+   return inner
 
 def buildWltFileName(uniqueIDB58):
    return 'armory_%s_.wallet' % uniqueIDB58
@@ -274,6 +289,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    @TimeThisFunction
+   @CheckWalletRegistration
    def syncWithBlockchainLite(self, startBlk=None):
       """
       This is just like a regular sync, but it won't rescan the whole blockchain
@@ -330,6 +346,7 @@ class PyBtcWallet(object):
       return ''
 
    #############################################################################
+   @CheckWalletRegistration
    def printAddressBook(self):
       addrbook = self.cppWallet.createAddressBook()
       for abe in addrbook:
@@ -345,7 +362,9 @@ class PyBtcWallet(object):
          if addr.chainIndex == -2:
             return True
       return False
-
+   
+   def isRegistered(self):
+      return not self.cppWallet == None 
 
    #############################################################################
    # The IGNOREZC args on the get*Balance calls determine whether unconfirmed
@@ -353,6 +372,7 @@ class PyBtcWallet(object):
    # was added after the malleability issues cropped up in Feb 2014.  Zero-conf
    # change was always deprioritized, but using --nospendzeroconfchange makes
    # it totally unspendable
+   @CheckWalletRegistration
    def getBalance(self, balType="Spendable"):
       topBlockHeight = TheBDM.getTopBlockHeight()
       if balType.lower() in ('spendable','spend'):
@@ -366,6 +386,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @CheckWalletRegistration
    def getAddrBalance(self, addr160, balType="Spendable", topBlockHeight=UINT32_MAX):
       if not self.hasAddr(addr160):
          return -1
@@ -381,6 +402,7 @@ class PyBtcWallet(object):
             raise TypeError('Unknown balance type!')
 
    #############################################################################
+   @CheckWalletRegistration
    def getTxLedger(self, ledgType='Full'):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
@@ -392,6 +414,7 @@ class PyBtcWallet(object):
 
 
    ############################################################################
+   @CheckWalletRegistration
    def getAddrTxLedger(self, addr160, ledgType='Full'):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
@@ -413,6 +436,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @CheckWalletRegistration
    def getTxOutList(self, totalSend, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
       #these call currently always ignores ZC as the underlying C++ methods 
@@ -431,6 +455,7 @@ class PyBtcWallet(object):
          return []
 
    #############################################################################
+   @CheckWalletRegistration
    def getAddrTxOutList(self, addr160, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
@@ -501,6 +526,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @CheckWalletRegistration
    def lockTxOutsOnNewTx(self, pytxObj):
       for txin in pytxObj.inputs:
          self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, \
@@ -938,6 +964,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @CheckWalletRegistration
    def computeNextAddress(self, addr160=None, isActuallyNew=True, doRegister=True):
       """
       Use this to extend the chain beyond the last-computed address.
@@ -2387,6 +2414,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @CheckWalletRegistration
    def importExternalAddressData(self, privKey=None, privChk=None, \
                                        pubKey=None,  pubChk=None, \
                                        addr20=None,  addrChk=None, \
@@ -2633,6 +2661,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @CheckWalletRegistration
    def checkIfRescanRequired(self):
       """ 
       Returns true is we have to go back to disk/mmap and rescan more than two
@@ -3024,10 +3053,12 @@ class PyBtcWallet(object):
          LOGWARN('   Armory Version: %d' % UNSIGNED_TX_VERSION)
 
    ###############################################################################
+   @CheckWalletRegistration
    def getAddrTotalTxnCount(self, a160):
       return self.cppWallet.getAddrTotalTxnCount(a160)
    
    ###############################################################################
+   @CheckWalletRegistration
    def getHistoryAsCSV(self, currentTop):
       file = open('%s.csv' % self.walletPath, 'wb')
       

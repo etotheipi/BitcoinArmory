@@ -189,6 +189,7 @@ class EncryptionError(Exception): pass
 class InterruptTestError(Exception): pass
 class NetworkIDError(Exception): pass
 class WalletExistsError(Exception): pass
+class WalletUnregisteredError(Exception): pass
 class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass

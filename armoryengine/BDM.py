@@ -233,6 +233,7 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def registerWallet(self, wlt, isNew=False):
+<<<<<<< HEAD
       if not isinstance(wlt, PyBtcWallet):
          raise('tried to register an invalid object as a wallet')
          return
@@ -240,6 +241,8 @@ class BlockDataManager(object):
       if len(wlt.uniqueIDB58) == 0:
          raise('cannot register a wallet with an empty uniqueIDB58')
       
+=======
+>>>>>>> 527a406... Refactoring PyBtcWallet
       prefixedKeys = []
       for key in wlt.linearAddr160List:
          prefixedKeys.append(Hash160ToScrAddr(key))
@@ -417,7 +420,6 @@ else:
 
 
 # Put the import at the end to avoid circular reference problem
-from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.MultiSigUtils import MultiSigLockbox
 from armoryengine.Transaction import PyTx
 
