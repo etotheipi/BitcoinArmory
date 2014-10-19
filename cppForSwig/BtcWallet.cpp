@@ -765,7 +765,7 @@ bool BtcWallet::merge()
       if (mergeFlag_ == 1 && scrAddrMapToMerge_.size() > 0) //addresses with history
       {
          //rescan last 100 blocks to account for new blocks and reorgs
-         uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight() + 1;
+         uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight();
          
          //get the top scanned block for the addresses to merge
          StoredScriptHistory ssh;
@@ -881,7 +881,7 @@ void BtcWallet::mapPages()
 
    TIMER_STOP("mapPages");
    double mapPagesTimer = TIMER_READ_SEC("mapPages");
-   LOGINFO << "mapPages done in " << mapPagesTimer << " secs";
+   //LOGINFO << "mapPages done in " << mapPagesTimer << " secs";
 }
 
 ////////////////////////////////////////////////////////////////////////////////

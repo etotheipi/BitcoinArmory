@@ -6829,7 +6829,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    EXPECT_EQ(unconfirmedBalance, 150*COIN);
 
    //restart bdm
-   theBDV->unregisterWallet(BinaryData("wallet1"));
+   theBDV->unregisterWallet("wallet1");
    delete theBDM;
    delete theBDV;
 

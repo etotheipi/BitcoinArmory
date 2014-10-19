@@ -33,35 +33,65 @@ BtcWallet* BlockDataViewer::registerWallet(
    if (IDstr.size() == 0)
       return nullptr;
 
+   LOGINFO << "Registering Wallet " << IDstr;
+
    // Check if the wallet is already registered
    BinaryData id(IDstr);
 
    auto regWlt = registeredWallets_.find(id);
    if (regWlt != registeredWallets_.end())
       return regWlt->second.get();
+   
+   BtcWallet* newWallet = nullptr;
 
-   // Add it to the list of wallets to watch
-   // Instantiate the object through insert. Could also create the shared_ptr
-   // then add it to the map, but let's have some fun =P
-   auto insertResult = registeredWallets_.insert(make_pair(
-      id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
-      ));
-   BtcWallet& newWallet = *insertResult.first->second.get();
+   if (bdmPtr_->hasInjectPtr())
+   {
+      //Main thread is running, save the wallet in queue.
+      //No need to notify the main thread, the address registration
+      //will trigger it
+      
+      walletInfo wltInfo;
 
-   newWallet.addAddressBulk(scrAddrVec, wltIsNew);
+      wltInfo.register_ = true;
+      wltInfo.ID_ = id;
+      wltInfo.type_ = 0;
+
+      wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
+      newWallet = wltInfo.wallet_.get();
+      
+      //grab mutex
+      walletRegistrationMutex_.lock();      
+
+      walletRegistrationQueue_.push_back(wltInfo);
+      
+      //release mutex
+      walletRegistrationMutex_.unlock();
+   }
+   else
+   {
+      // Main thread isnt ruuning, just register the wallet
+      // Add it to the list of wallets to watch
+      // Instantiate the object through insert.
+      auto insertResult = registeredWallets_.insert(make_pair(
+         id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
+         ));
+      newWallet = insertResult.first->second.get();
+   }
+
+   newWallet->addAddressBulk(scrAddrVec, wltIsNew);
 
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
    vector<BinaryData> saVec;
-   for (const auto& scrAddrPair : newWallet.getScrAddrMap())
+   for (const auto& scrAddrPair : newWallet->getScrAddrMap())
       saVec.push_back(scrAddrPair.first);
 
-   saf_->registerAddresses(saVec, &newWallet, wltIsNew);
+   saf_->registerAddresses(saVec, newWallet, wltIsNew);
 
    //tell the wallet it is registered
-   newWallet.setRegistered();
+   newWallet->setRegistered();
 
-   return &newWallet;
+   return newWallet;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -71,6 +101,8 @@ BtcWallet* BlockDataViewer::registerLockbox(
    if (IDstr.size() == 0)
       return nullptr;
 
+   LOGINFO << "Registering Lockbox " << IDstr;
+
    // Check if the lockbox is already registered
    BinaryData id(IDstr);
    
@@ -78,36 +110,113 @@ BtcWallet* BlockDataViewer::registerLockbox(
    if (regLB!= registeredLockboxes_.end())
       return regLB->second.get();
 
-   auto insertResult = registeredLockboxes_.insert(make_pair(
-      id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
-      ));
-   BtcWallet& newLockbox = *insertResult.first->second.get();
+   BtcWallet* newLockbox = nullptr;
 
-   newLockbox.addAddressBulk(scrAddrVec, wltIsNew);
+   if (bdmPtr_->hasInjectPtr())
+   {
+      //Main thread is running, save the wallet in queue.
+      //No need to notify the main thread, the address registration
+      //will trigger it
+
+      walletInfo wltInfo;
+
+      wltInfo.register_ = true;
+      wltInfo.ID_ = id;
+      wltInfo.type_ = 1;
+
+      wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
+      newLockbox = wltInfo.wallet_.get();
+
+      //grab mutex
+      walletRegistrationMutex_.lock();
+
+      walletRegistrationQueue_.push_back(wltInfo);
+
+      //release mutex
+      walletRegistrationMutex_.unlock();
+   }
+   else
+   {
+      // Main thread isnt ruuning, just register the wallet
+      // Add it to the list of wallets to watch
+      // Instantiate the object through insert.
+      auto insertResult = registeredLockboxes_.insert(make_pair(
+         id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
+         ));
+      newLockbox = insertResult.first->second.get();
+   }
+
+   newLockbox->addAddressBulk(scrAddrVec, wltIsNew);
 
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
    vector<BinaryData> saVec;
-   for (const auto& scrAddrPair : newLockbox.getScrAddrMap())
+   for (const auto& scrAddrPair : newLockbox->getScrAddrMap())
       saVec.push_back(scrAddrPair.first);
 
-   saf_->registerAddresses(saVec, &newLockbox, wltIsNew);
+   saf_->registerAddresses(saVec, newLockbox, wltIsNew);
 
-   newLockbox.setRegistered();
+   newLockbox->setRegistered();
 
-   return &newLockbox;
+   return newLockbox;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::unregisterWallet(BinaryData ID)
+void BlockDataViewer::unregisterWallet(string IDstr)
 {
-   registeredWallets_.erase(ID);
+   LOGINFO << "Unregistering Wallet " << IDstr;
+
+   BinaryData id(IDstr);
+
+   auto wltIter = registeredWallets_.find(id);
+
+   if (bdmPtr_->hasInjectPtr())
+   {
+      //main thread is running, save wallet unreg in queue and notify.
+      walletInfo wltInfo;
+
+      wltInfo.register_ = false;
+      wltInfo.ID_ = BinaryData(id);
+      wltInfo.type_ = 0;
+      wltInfo.wallet_ = wltIter->second;
+
+      walletRegistrationMutex_.lock();
+      walletRegistrationQueue_.push_back(wltInfo);
+      walletRegistrationMutex_.unlock();
+
+      bdmPtr_->notifyMainThread();
+   }
+   else
+      registeredWallets_.erase(wltIter);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::unregisterLockbox(BinaryData ID)
+void BlockDataViewer::unregisterLockbox(string IDstr)
 {
-   registeredLockboxes_.erase(ID);
+   LOGINFO << "Unregistering Lockbox " << IDstr;
+
+   BinaryData id(IDstr);
+
+   auto wltIter = registeredWallets_.find(id);
+
+   if (bdmPtr_->hasInjectPtr())
+   {
+      //main thread is running, save wallet unreg in queue and notify.
+      walletInfo wltInfo;
+
+      wltInfo.register_ = false;
+      wltInfo.ID_ = BinaryData(id);
+      wltInfo.type_ = 1;
+      wltInfo.wallet_ = wltIter->second;
+
+      walletRegistrationMutex_.lock();
+      walletRegistrationQueue_.push_back(wltInfo);
+      walletRegistrationMutex_.unlock();
+
+      bdmPtr_->notifyMainThread();
+   }
+   else
+      registeredLockboxes_.erase(id);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -635,4 +744,54 @@ BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
       return bc_->getHeaderByHash(blockHash);
 
    return BlockHeader();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataViewer::hasItemInWalletQueue(void) const
+{ 
+   return walletRegistrationQueue_.size() != 0; 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::processWalletRegistrationQueue(void)
+{
+   //grab mutex
+   walletRegistrationMutex_.lock();
+
+   for (const auto& wltInfo : walletRegistrationQueue_)
+   {
+      if (wltInfo.type_ == 0)
+      {
+         //wallet
+         if (wltInfo.register_)
+         {  //register
+            registeredWallets_[wltInfo.ID_] = wltInfo.wallet_;
+         }
+         else
+         {
+            //unregister
+            registeredWallets_.erase(wltInfo.ID_);
+            int abc = 0;
+         }
+      }
+      else if (wltInfo.type_ == 1)
+      {
+         //lockbox
+         if (wltInfo.register_)
+         {
+            //register
+            registeredLockboxes_[wltInfo.ID_] = wltInfo.wallet_;
+         }
+         else
+         {
+            //unregister
+            registeredLockboxes_.erase(wltInfo.ID_);
+         }
+      }
+   }
+
+   walletRegistrationQueue_.clear();
+
+   //release mutex
+   walletRegistrationMutex_.unlock();
 }

@@ -871,7 +871,7 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       // If for some reason we hit the end of the DB without any tx, bail
       if( !ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
       {
-         LOGERR << "No sub-SSH entries after the SSH";
+         //LOGERR << "No sub-SSH entries after the SSH";
          return false;
       }
    }

@@ -26,8 +26,8 @@ class BlockDataViewer
                                 string ID, bool wltIsNew);
       BtcWallet* registerLockbox(vector<BinaryData> const& scrAddrVec, 
                                  string ID, bool wltIsNew);
-      void       unregisterWallet(BinaryData ID);
-      void       unregisterLockbox(BinaryData ID);
+      void       unregisterWallet(string ID);
+      void       unregisterLockbox(string ID);
 
       void scanWallets(uint32_t startBlock = UINT32_MAX,
          uint32_t endBlock = UINT32_MAX, uint32_t forceRefresh = 0);
@@ -103,6 +103,9 @@ class BlockDataViewer
       const BlockHeader* getHeaderPtrForTx(Tx& theTx)
          { return &bc_->getHeaderPtrForTx(theTx); }
 
+      bool hasItemInWalletQueue(void) const;
+      void processWalletRegistrationQueue(void);
+
    public:
       bool rescanZC_    = false;
       uint32_t refresh_ = 0;
@@ -111,6 +114,19 @@ class BlockDataViewer
       BinaryData            refreshID_;
 
    private:
+
+      struct walletInfo
+      {
+         BinaryData            ID_;
+         shared_ptr<BtcWallet> wallet_;
+         
+         //0: wallet, 1: lockbxox
+         int                   type_; 
+         
+         //true: register, false: unregister
+         bool                  register_; 
+      };
+
       BlockDataManager_LevelDB* bdmPtr_;
       LMDBBlockDatabase*        db_;
       Blockchain*               bc_;
@@ -140,6 +156,11 @@ class BlockDataViewer
       //be a map.
       vector<LedgerEntry> globalLedger_;
       HistoryPager hist_;
+
+      //saves commands related to wallet infos to be performed in the 
+      //main thread
+      vector<walletInfo> walletRegistrationQueue_;
+      mutable mutex walletRegistrationMutex_;
 };
 
 #endif

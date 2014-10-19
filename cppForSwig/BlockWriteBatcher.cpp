@@ -1343,13 +1343,6 @@ void BlockWriteBatcher::scanBlocks(
    
    preloadSSH(scf);
 
-   //rewind 500 blocks to account for reorgs
-   /*if (startBlock > 500)
-      startBlock -= 500;
-   else
-      startBlock = 0;*/
-
-   LOGWARN << "Scanning from " << startBlock << " to " << endBlock;
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);
 

@@ -139,7 +139,7 @@ void ScrAddrFilter::scanScrAddrThread()
       = scrAddrMap_.empty() ? nullptr : scrAddrMap_.begin()->second.wltPtr_;
          
    uint32_t startBlock = scanFrom();
-   uint32_t endBlock = currentTopBlockHeight()+1;
+   uint32_t endBlock = currentTopBlockHeight();
   
    if (doScan_ == 1)
    {

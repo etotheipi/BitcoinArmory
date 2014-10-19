@@ -1100,6 +1100,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(ProgressReporter &prog,
    BlockWriteBatcher blockWrites(config_, iface_);
    blockWrites.setUpdateSDBI(updateSDBI);
 
+   LOGWARN << "Scanning from " << blk0 << " to " << blk1;
    blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
 }
 

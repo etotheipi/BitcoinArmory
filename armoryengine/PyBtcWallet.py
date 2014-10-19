@@ -273,7 +273,7 @@ class PyBtcWallet(object):
    #############################################################################
    def unregisterWallet(self):
       TheBDM.unregisterWallet(self.uniqueIDB58)
-      self.cppWalletl = None
+      self.cppWallet = None
       
    #############################################################################
    def isWltSigningAnyLockbox(self, lockboxList):

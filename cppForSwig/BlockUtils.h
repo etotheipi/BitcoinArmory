@@ -275,7 +275,12 @@ public:
    void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
    
    void setNotifyPtr(BDM_Inject* injectPtr) { bdmInjectPtr_ = injectPtr; }
-   void notifyMainThread(void) { if (bdmInjectPtr_) bdmInjectPtr_->notify(); }
+   void notifyMainThread(void) 
+   { 
+      if (bdmInjectPtr_) 
+         bdmInjectPtr_->notify(); 
+   }
+   bool hasInjectPtr(void) const { return bdmInjectPtr_ != nullptr; }
 
 private:
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);

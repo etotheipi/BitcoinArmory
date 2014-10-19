@@ -126,7 +126,6 @@ BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &con
 {
    pimpl = new BlockDataManagerThreadImpl;
    pimpl->bdm = new BlockDataManager_LevelDB(config);
-   pimpl->bdm->setNotifyPtr(pimpl->inject);
    pimpl->bdv = new BlockDataViewer(pimpl->bdm);
 }
 
@@ -258,6 +257,8 @@ try
       try
       {
          //don't call this unless you're trying to get online
+         pimpl->bdm->setNotifyPtr(pimpl->inject);
+
          bdm->openDatabase();
 
          if(pimpl->mode==0) bdm->doInitialSyncOnLoad(loadProgress);
@@ -309,6 +310,12 @@ try
    
    while(pimpl->run)
    {
+      if (bdv->hasItemInWalletQueue())
+      {
+         //this needs to run before side scans
+         bdv->processWalletRegistrationQueue();
+      }
+
       if (bdm->sideScanFlag_ == true)
       {
          bdm->sideScanFlag_ = false;
