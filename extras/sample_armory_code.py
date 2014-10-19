@@ -37,7 +37,7 @@ if run_WalletCreate:
       print '\t', hash160_to_addrStr(cppWallet.getAddrByIndex(i).getAddrStr20())
 
    print '\n\nRegistering the wallet with the BlockDataManager & loading...'
-   TheBDM.registerWallet(cppWallet)
+   cppWallet.registerWallet()
 
 
 ################################################################################

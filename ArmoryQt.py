@@ -2688,7 +2688,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
          
-         TheBDM.registerWallet(wlt)
+         wlt.registerWallet()
 
 
       # Create one wallet per lockbox to make sure we can query individual
@@ -2822,7 +2822,7 @@ class ArmoryMainWindow(QMainWindow):
             scrAddrList = []
             scrAddrList.append(scraddrReg)
             scrAddrList.append(scraddrP2SH)
-            self.cppLockboxWltMap[lbID] = TheBDM.registerLockbox(lbObj, scrAddrList, isFresh)
+            self.cppLockboxWltMap[lbID] = lbObj.registerLockbox(scrAddrList, isFresh)
 
          else:
             # Replace the original
@@ -3417,7 +3417,7 @@ class ArmoryMainWindow(QMainWindow):
       
       self.setWalletIsScanning(newWallet)
       
-      TheBDM.registerWallet(newWallet)
+      newWallet.registerWallet()
 
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58

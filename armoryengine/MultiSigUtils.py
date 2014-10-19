@@ -262,6 +262,11 @@ class MultiSigLockbox(AsciiSerializable):
          self.setParams(name, descr, M, N, dPubKeys, createDate, version)
 
    #############################################################################
+   def registerLockbox(self, addressList, isNew=False):
+      return TheBDM.registerLockbox(self.uniqueIDB58, addressList, isNew)
+      
+      
+   #############################################################################
    def setParams(self, name, descr, M, N, dPubKeys, createDate=None, 
                                                    version=MULTISIG_VERSION):
       

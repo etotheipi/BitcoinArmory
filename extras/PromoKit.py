@@ -247,7 +247,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
 def setupTheBDM():
    TheBDM.setBlocking(True)
    if not TheBDM.isInitialized():
-      TheBDM.registerWallet(masterWallet)
+      masterWallet.registerWallet()
       TheBDM.setOnlineMode(True)
       # Only executed on the first call if blockchain not loaded yet.
       LOGINFO('Blockchain loading')

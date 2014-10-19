@@ -80,7 +80,7 @@ class ArmoryDTest(TiabTest):
       self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
       
       #register it
-      TheBDM.registerWallet(self.wallet)
+      self.wallet.registerWallet()
       
       #wait on scan for 20sec then raise if the scan hasn't finished yet
       i = 0
@@ -92,7 +92,7 @@ class ArmoryDTest(TiabTest):
       
    def tearDown(self):
       TheBDM.unregisterCppNotification(self.armoryDTestCallback)
-      TheBDM.unregisterWallet(self.wallet)
+      self.wallet.unregisterWallet()
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
 

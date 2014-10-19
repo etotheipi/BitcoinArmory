@@ -232,36 +232,24 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
-   def registerWallet(self, wlt, isNew=False):
-      if len(wlt.uniqueIDB58) == 0:
-         raise('cannot register a wallet with an empty uniqueIDB58')
-      prefixedKeys = []
-      for key in wlt.linearAddr160List:
-         prefixedKeys.append(Hash160ToScrAddr(key))
-      
+   def registerWallet(self, prefixedKeys, uniqueIDB58, isNew=False):
       #this returns a pointer to the BtcWallet C++ object. This object is
       #instantiated at registration and is unique for the BDV object, so we
       #should only ever set the cppWallet member here 
-      wlt.cppWallet = self.bdv().registerWallet(prefixedKeys, \
-                                                wlt.uniqueIDB58, isNew)
+      return self.bdv().registerWallet(prefixedKeys, uniqueIDB58, isNew)
 
    #############################################################################
    @ActLikeASingletonBDM
-   def unregisterWallet(self, wlt):
-      self.bdv().unregisterWallet(wlt.uniqueIDB58)
-      wlt.cppWallet = None
+   def unregisterWallet(self, uniqueIDB58):
+      self.bdv().unregisterWallet(uniqueIDB58)
 
    #############################################################################
    @ActLikeASingletonBDM
-   def registerLockbox(self, lbox, addressList, isNew=False):
-      if not isinstance(lbox, MultiSigLockbox):
-         LOGERROR('tried to register an invalid object as a wallet')
-         return
-      
+   def registerLockbox(self, uniqueIDB58, addressList, isNew=False):
       #this returns a pointer to the BtcWallet C++ object. This object is
       #instantiated at registration and is unique for the BDV object, so we
       #should only ever set the cppWallet member here 
-      return self.bdv().registerLockbox(addressList, lbox.uniqueIDB58, isNew)
+      return self.bdv().registerLockbox(addressList, uniqueIDB58, isNew)
 
    #############################################################################
    @ActLikeASingletonBDM

@@ -2722,7 +2722,7 @@ class Armory_Daemon(object):
                      
                      LOGWARN('Registering lockbox: %s' % lbID)
                      self.lboxCppWalletMap[lbID] = \
-                      TheBDM.registerLockbox(self.lbox, lockboxScrAddr)
+                      self.lbox.registerLockbox(lockboxScrAddr)
 
                else:
                   LOGWARN('No lockboxes were loaded.')
@@ -2940,7 +2940,7 @@ class Armory_Daemon(object):
       # Put the BDM in online mode only after registering all Python wallets.
       for wltID, wlt in self.WltMap.iteritems():
          LOGWARN('Registering wallet: %s' % wltID)
-         TheBDM.registerWallet(wlt)
+         wlt.registerWallet()
       TheBDM.setOnlineMode(True)
 
    #############################################################################

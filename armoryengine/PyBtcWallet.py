@@ -258,6 +258,24 @@ class PyBtcWallet(object):
       self.isEnabled = True
       
    #############################################################################
+   def registerWallet(self, isNew=False):
+      if len(self.uniqueIDB58) == 0:
+         raise('cannot register a wallet with an empty uniqueIDB58')
+      prefixedKeys = []
+      for key in self.linearAddr160List:
+         prefixedKeys.append(Hash160ToScrAddr(key))
+      
+      #this returns a pointer to the BtcWallet C++ object. This object is
+      #instantiated at registration and is unique for the BDV object, so we
+      #should only ever set the cppWallet member here 
+      self.cppWallet = TheBDM.registerWallet(prefixedKeys, self.uniqueIDB58, isNew)
+      
+   #############################################################################
+   def unregisterWallet(self):
+      TheBDM.unregisterWallet(self.uniqueIDB58)
+      self.cppWalletl = None
+      
+   #############################################################################
    def isWltSigningAnyLockbox(self, lockboxList):
       for lockbox in lockboxList:
          for addr160 in lockbox.a160List:
