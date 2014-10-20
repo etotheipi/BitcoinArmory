@@ -14,6 +14,7 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.Timer import *
+from armoryengine.Decorators import singleEntrantMethod
 # This import is causing a circular import problem when used by findpass and promokit
 # it is imported at the end of the file. Do not add it back at the begining
 # from armoryengine.Transaction import *
@@ -256,6 +257,8 @@ class PyBtcWallet(object):
       
       #To enable/disable wallet row in wallet table model
       self.isEnabled = True
+      
+      self.lock = threading.Lock()
       
    #############################################################################
    def registerWallet(self, isNew=False):
@@ -2145,6 +2148,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @singleEntrantMethod
    def walletFileSafeUpdate(self, updateList):
             
       """

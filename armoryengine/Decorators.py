@@ -16,6 +16,7 @@
 from armoryengine.ArmoryUtils import send_email, LOGERROR
 import functools
 import sys
+from threading import Lock
 
 # Following this pattern to allow arguments to be passed to this decorator:
 # http://stackoverflow.com/questions/10176226/how-to-pass-extra-arguments-to-python-decorator
@@ -118,4 +119,15 @@ def catchErrsForJSON(func):
             del errTB 
             del errFrame  # Not totally sure this is necessary. Just in case....
          return rv
+   return inner
+
+#Makes sure only a single thread is running the method at a given time,
+#using threading.Lock() 
+def singleEntrantMethod(func):
+   @functools.wraps(func)  # Pull in certain "helper" data from dec'd func
+   def inner(self, *args, **kwargs):
+      self.lock.acquire()
+      rt = func(self, *args, **kwargs)
+      self.lock.release()
+      return rt
    return inner
