@@ -6638,8 +6638,8 @@ protected:
 
 static void concatFile(const string &from, const string &to)
 {
-   std::ifstream i(from);
-   std::ofstream o(to, ios::app);
+   std::ifstream i(from, ios::binary);
+   std::ofstream o(to, ios::app | ios::binary);
 
    o << i.rdbuf();
 }
@@ -7121,6 +7121,62 @@ TEST_F(BlockUtilsBare, Load5Blocks_DoubleReorg)
    EXPECT_EQ(scrobj->getFullBalance(), 140 * COIN);
 
    EXPECT_EQ(wlt.getFullBalance(), 160 * COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
+{
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(scrAddrA_);
+   scrAddrVec.push_back(scrAddrB_);
+   scrAddrVec.push_back(scrAddrC_);
+
+   BtcWallet* wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+
+   scrAddrVec.clear();
+   scrAddrVec.push_back(scrAddrD_);
+   BtcWallet* wlt2 = theBDV->registerWallet(scrAddrVec, "wallet2", false);
+
+   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   
+   //reload BDM
+   delete theBDV;
+   delete theBDM;
+   
+   //add the reorg blocks
+   BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+
+   theBDM = new BlockDataManager_LevelDB(config);
+   theBDM->openDatabase();
+   iface_ = theBDM->getIFace();
+   theBDV = new BlockDataViewer(theBDM);
+   
+   scrAddrVec.clear();
+   scrAddrVec.push_back(scrAddrA_);
+   scrAddrVec.push_back(scrAddrB_);
+   scrAddrVec.push_back(scrAddrC_);
+
+   wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+
+   scrAddrVec.clear();
+   scrAddrVec.push_back(scrAddrD_);
+   wlt2 = theBDV->registerWallet(scrAddrVec, "wallet2", false);
+
+   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   theBDV->scanWallets();
+
+   const ScrAddrObj * scrobj;
+   scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 150 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 10 * COIN);
+   scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0 * COIN);
+
+   scrobj = wlt2->getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(), 140 * COIN);
+
+   EXPECT_EQ(wlt->getFullBalance(), 160 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -8399,15 +8455,6 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
-   /*try
-   {
-      balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-      EXPECT_TRUE(false);  //unreachable
-   }
-   catch (...)
-   {
-       // D is not part of the wallet
-   }*/
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceDB,   100*COIN);
 }
@@ -8446,16 +8493,6 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
-
-   /*try
-   {
-      balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-      EXPECT_TRUE(false);  //unreachable
-   }
-   catch (...)
-   {
-      // D is not part of the wallet
-   }*/
    
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceDB,   100*COIN);

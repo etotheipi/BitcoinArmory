@@ -2143,7 +2143,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
                                                    height, dup, txIdx);
       (void)bdtype;
       
-      if (dup != getValidDupIDForHeight(height))
+      if (dup != getValidDupIDForHeight(height) && numHints > 1)
          continue;
 
       // We don't actually know for sure whether the seekTo() found 

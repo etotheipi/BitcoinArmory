@@ -56,6 +56,32 @@ Blockchain::ReorganizationState Blockchain::forceOrganize()
    return st;
 }
 
+Blockchain::ReorganizationState 
+Blockchain::findReorgPointFromBlock(const BinaryData& blkHash)
+{
+   BlockHeader *bh = &getHeaderByHash(blkHash);
+   
+   ReorganizationState st;
+   st.prevTopBlock = bh;
+   st.prevTopBlockStillValid = true;
+   st.hasNewTop = false;
+   st.reorgBranchPoint = nullptr;
+
+   while (!bh->isMainBranch())
+   {
+      BinaryData& prevHash = bh->getPrevHash();
+      bh = &getHeaderByHash(prevHash);
+   }
+
+   if (bh != st.prevTopBlock)
+   {
+      st.reorgBranchPoint = bh;
+      st.prevTopBlockStillValid = false;
+   }
+
+   return st;
+}
+
 BlockHeader& Blockchain::top() const
 {
    return *topBlockPtr_;

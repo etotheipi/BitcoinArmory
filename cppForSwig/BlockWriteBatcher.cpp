@@ -1074,7 +1074,15 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
             LOGERR << "How do we have invalid SDBI in applyMods?";
          else
          {
+            //save top block height
             sdbi.appliedToHgt_ = bwbPtr->mostRecentBlockApplied_;
+
+            //save top block hash
+            if (bwbPtr->sbhToUpdate_.size() > 1)
+            {
+               auto topBlockHeader = bwbPtr->sbhToUpdate_.rbegin();
+               sdbi.topBlkHash_ = (*topBlockHeader)->getBlockHeaderCopy().getThisHash();
+            }
             bwbPtr->iface_->putStoredDBInfo(BLKDATA, sdbi);
          }
       }

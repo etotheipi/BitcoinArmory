@@ -45,7 +45,8 @@ public:
    
    ReorganizationState organize();
    ReorganizationState forceOrganize();
-   
+   ReorganizationState findReorgPointFromBlock(const BinaryData& blkHash);
+
    BlockHeader& top() const;
    BlockHeader& getGenesisBlock() const;
    BlockHeader& getHeaderByHeight(unsigned height) const;

@@ -115,7 +115,8 @@ public:
       Blockchain *blockchain,
       LMDBBlockDatabase* iface,
       const BlockDataManagerConfig &config,
-      ScrAddrFilter *scrAddrData=nullptr)
+      ScrAddrFilter *scrAddrData=nullptr,
+      bool onlyUndo = false)
       : blockchain_(blockchain)
       , iface_(iface)
       , config_(config)
@@ -124,7 +125,8 @@ public:
          state.prevTopBlock,
          &blockchain_->top(),
          state.reorgBranchPoint,
-         scrAddrData);
+         scrAddrData,
+         onlyUndo);
    }
    
    const list<StoredTx>& removedTxes() const { return removedTxes_; }
@@ -135,7 +137,8 @@ private:
    void reassessAfterReorg(BlockHeader* oldTopPtr,
       BlockHeader* newTopPtr,
       BlockHeader* branchPtr,
-      ScrAddrFilter *scrAddrData)
+      ScrAddrFilter *scrAddrData,
+      bool onlyUndo)
    {
       /***
       reassesAfterReorg needs a write access to the DB. Most transactions
@@ -151,7 +154,9 @@ private:
       reorgParams_.branchPtr_    = branchPtr;
       reorgParams_.scrAddrData_  = scrAddrData;
 
-      thread reorgthread(reassessAfterReorgThread, this);
+      auto reassessThread = [this](bool onlyUndo)->void
+         { this->reassessAfterReorgThread(onlyUndo); };
+      thread reorgthread(reassessThread, onlyUndo);
       reorgthread.join();
    }
 
@@ -225,22 +230,21 @@ private:
       }
    }
 
-   static void* reassessAfterReorgThread(void *in)
+   void reassessAfterReorgThread(bool onlyUndo)
    {
       SCOPED_TIMER("reassessAfterReorg");
       LOGINFO << "Reassessing Tx validity after reorg";
 
-      ReorgUpdater* reorgPtr = static_cast<ReorgUpdater*>(in);
+      undoBlocksFromDB();
 
-      reorgPtr->undoBlocksFromDB();
+      if (onlyUndo == true)
+         return;
       
-      reorgPtr->updateBlockDupIDs();
+      updateBlockDupIDs();
 
-      reorgPtr->applyBlocksFromBranchPoint();
+      applyBlocksFromBranchPoint();
 
       LOGWARN << "Done reassessing tx validity";
-
-      return nullptr;
    }
 };
 
@@ -608,7 +612,7 @@ uint32_t BlockDataManager_LevelDB::detectCurrentSyncState(
       startApplyOffset_   = 0;
       lastTopBlock_       = UINT32_MAX;
       blockchain_.clear();
-      return true;
+      return 0;
    }
 
    uint32_t returnTop;
@@ -1335,15 +1339,8 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(
          
       if(magic!=config_.magicBytes)
       {
-         // I have to start scanning for MagicBytes
-         
-         /*BinaryData nulls( (const uint8_t*)"\0\0\0\0", 4);
-         
-         if (magic == nulls)
-            break;*/
-         
-         LOGERR << "Did not find block header in expected location, "
-            "possible corrupt data, searching for next block header.";
+         /*LOGERR << "Did not find block header in expected location, "
+            "possible corrupt data, searching for next block header.";*/
          
          if (!scanFor(is, config_.magicBytes.getPtr(), config_.magicBytes.getSize()))
          {
@@ -1455,8 +1452,8 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
    {
       uint64_t useOffset = (fnum==fnumStart ? startOffset : 0);
-      progress.advance(blkFileSizes_[fnum]+useOffset);
       extractHeadersInBlkFile(fnum, useOffset);
+      progress.advance(blkFileSizes_[fnum]+useOffset);
    }
 
    bool prevTopBlkStillValid=false;
@@ -1660,6 +1657,47 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
    LOGINFO << "Total number of blocks found:   " << blockchain_.top().getBlockHeight() + 1;
 
+
+   //pull last scanned blockhash from sdbi
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi);
+   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+
+   //Set scanFrom to 0, then check if blockchain_ has our last known header.
+   //If it can't find it, scanFrom will remain at 0 and we'll perform a full
+   //scan
+   uint32_t scanFrom = 0;
+   if (blockchain_.hasHeaderWithHash(lastTopBlockHash))
+   {
+      BlockHeader& lastTopBlockHeader =
+         blockchain_.getHeaderByHash(lastTopBlockHash);
+
+      if (lastTopBlockHeader.isMainBranch())
+      {
+         //if the last known top block is on the main branch, nothing to do,
+         //set scanFrom to height +1
+         if (lastTopBlockHeader.getBlockHeight() > 0)
+            scanFrom = lastTopBlockHeader.getBlockHeight() + 1;
+      }
+      else
+      {
+         //last known top block is not on the main branch anymore, undo SSH
+         //entries up to the branch point, then scan from there
+
+         const Blockchain::ReorganizationState state =
+            blockchain_.findReorgPointFromBlock(lastTopBlockHash);
+
+         //undo blocks up to the branch point, we'll apply the main chain
+         //through the regular scan
+         ReorgUpdater reorgOnlyUndo(state,
+            &blockchain_, iface_, config_, scrAddrData_.get(), true);
+
+         scanFrom = state.reorgBranchPoint->getBlockHeight() + 1;
+      }
+   }
+         
+   firstUnappliedHeight = min(scanFrom, firstUnappliedHeight);
+
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
 
@@ -1667,8 +1705,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Add the raw blocks from the blk*.dat files into the DB
    blocksReadSoFar_ = 0;
    bytesReadSoFar_ = 0;
-   
-   
    
    if(initialLoad || forceRebuild)
    {
@@ -1699,17 +1735,18 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       TIMER_START("applyBlockRangeToDB");
       if (config_.armoryDbType == ARMORY_DB_SUPER)
       {
-         uint32_t topScannedBlock = getTopScannedBlock();
-         applyBlockRangeToDB(progPhase, topScannedBlock,
+         applyBlockRangeToDB(progPhase, scanFrom,
             blockchain_.top().getBlockHeight(), *scrAddrData_.get());
       }
       else
       {
          if (scrAddrData_->numScrAddr() > 0)
-            applyBlockRangeToDB(progPhase, scrAddrData_->scanFrom(),
-                              blockchain_.top().getBlockHeight(),
-                              *scrAddrData_.get());
-
+         {
+            uint32_t scanfrom = min(scrAddrData_->scanFrom(), scanFrom);
+            applyBlockRangeToDB(progPhase, scanfrom,
+               blockchain_.top().getBlockHeight(),
+               *scrAddrData_.get());
+         }
       }
          
       TIMER_STOP("applyBlockRangeToDB");
@@ -1722,19 +1759,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = bytesReadSoFar_;
 
-   // Update registered address list so we know what's already been scanned
    lastTopBlock_ = blockchain_.top().getBlockHeight() + 1;
-
    allScannedUpToBlk_ = lastTopBlock_;
 
    scrAddrData_->setRunning(2);
-
-  /* #ifdef _DEBUG
-      UniversalTimer::instance().printCSV(string("timings.csv"));
-      #ifdef _DEBUG_FULL_VERBOSE
-         UniversalTimer::instance().printCSV(cout,true);
-      #endif
-   #endif*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2042,6 +2070,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    iface_->getStoredDBInfo(BLKDATA, sdbi);
 
    sdbi.appliedToHgt_ = 0;
+   sdbi.topBlkHash_ = config_.genesisBlockHash;
    iface_->putStoredDBInfo(BLKDATA, sdbi);
    //////////
 

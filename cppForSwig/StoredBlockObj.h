@@ -295,7 +295,7 @@ public:
 
    void unserializeDBValue(DB_SELECT db, BinaryData const & bd, bool ignMrkl=false);
    void unserializeDBValue(DB_SELECT db, BinaryDataRef bdr,     bool ignMrkl=false);
-   void       unserializeDBKey(DB_SELECT db, BinaryDataRef key);
+   void unserializeDBKey  (DB_SELECT db, BinaryDataRef key);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
