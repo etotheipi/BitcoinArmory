@@ -48,7 +48,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 
 ///////////////////////////////////////////////////////////////////////////////
 bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec, 
-   BtcWallet* wltPtr, int32_t doScan)
+   shared_ptr<BtcWallet> wltPtr, int32_t doScan)
 {
    /***
    Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
@@ -96,7 +96,7 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
             //TODO: determine how much of the SSH should be cleared if
             //it has some existing history
             lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
-            sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_, wltPtr);
+            sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_);
          }
       }
       else if (doScan == -1)
@@ -105,16 +105,17 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
          sca->doScan_ = -1;
 
          for (const auto& scrAddr : saVec)
-            sca->regScrAddrForScan(scrAddr, 0, wltPtr);
+            sca->regScrAddrForScan(scrAddr, 0);
       }
       else
       {
          //mark addresses as fresh to skip DB scan
          sca->doScan_ = 0;
          for (const auto& scrAddr : saVec)
-            sca->regScrAddrForScan(scrAddr, 0, wltPtr);
+            sca->regScrAddrForScan(scrAddr, 0);
       }
 
+      sca->buildSideScanData(wltPtr);
       flagForScanThread();
 
       return false;
@@ -134,9 +135,8 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
 void ScrAddrFilter::scanScrAddrThread()
 {
    //Only one wallet at a time
-   
-   BtcWallet *const wltPtr
-      = scrAddrMap_.empty() ? nullptr : scrAddrMap_.begin()->second.wltPtr_;
+
+   shared_ptr<BtcWallet> wltPtr = scrAddrDataForSideScan_.wltPtr_;
          
    uint32_t startBlock = scanFrom();
    uint32_t endBlock = currentTopBlockHeight();
@@ -147,7 +147,7 @@ void ScrAddrFilter::scanScrAddrThread()
       //during main thread BtcWallet::merge()
 
       //scan on top of existing history
-      applyBlockRangeToDB(startBlock, endBlock, wltPtr);
+      applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
    }
    else if (doScan_ == 0)
    {
@@ -164,31 +164,33 @@ void ScrAddrFilter::scanScrAddrThread()
       saVec.clear();
 
       //scan from 0
-      applyBlockRangeToDB(startBlock, endBlock, wltPtr);
+      applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
    }
 
-   //merge with main ScrAddrScanData object
-   merge();
-
-   vector<BinaryData> addressVec;
-   addressVec.reserve(scrAddrMap_.size());
-   
-   //notify the wallets that the scrAddr are ready
-   for (auto& scrAddrPair : scrAddrMap_)
+   if (wltPtr->hasBdvPtr())
    {
-      addressVec.push_back(scrAddrPair.first);
-   }
-   
-   if (!scrAddrMap_.empty())
-   {
-      wltPtr->prepareScrAddrForMerge(addressVec, !((bool)doScan_));
+      //merge with main ScrAddrScanData object
+      merge();
 
-      //notify the bdv that it needs to refresh through the wallet
-      wltPtr->needsRefresh();
+      vector<BinaryData> addressVec;
+      addressVec.reserve(scrAddrMap_.size());
+
+      //notify the wallets that the scrAddr are ready
+      for (auto& scrAddrPair : scrAddrMap_)
+      {
+         addressVec.push_back(scrAddrPair.first);
+      }
+
+      if (!scrAddrMap_.empty())
+      {
+         wltPtr->prepareScrAddrForMerge(addressVec, !((bool)doScan_));
+
+         //notify the bdv that it needs to refresh through the wallet
+         wltPtr->needsRefresh();
+      }
    }
-   
+
    //clean up
-
    if (root_ != nullptr)
    {
       ScrAddrFilter* root = root_;
@@ -224,7 +226,7 @@ void ScrAddrFilter::merge()
       while (root_->mergeLock_.fetch_or(1, memory_order_acquire));
 
       //merge scrAddrMap_
-      root_->scrAddrMapToMerge_.insert(
+      root_->scrAddrDataForSideScan_.scrAddrsToMerge_.insert(
          scrAddrMap_.begin(), scrAddrMap_.end());
 
       //copy only the UTxOs past the height cutoff
@@ -241,7 +243,7 @@ void ScrAddrFilter::merge()
          ++iter;
       }
 
-      root_->UTxOToMerge_.insert(iter, UTxO_.end());
+      root_->scrAddrDataForSideScan_.UTxOToMerge_.insert(iter, UTxO_.end());
 
       //set mergeFlag
       root_->mergeFlag_ = true;
@@ -258,8 +260,8 @@ void ScrAddrFilter::checkForMerge()
    {
       //rescan last 100 blocks to account for new blocks and reorgs
       std::shared_ptr<ScrAddrFilter> sca(copy());
-      sca->scrAddrMap_ = scrAddrMapToMerge_;
-      sca->UTxO_ = UTxOToMerge_;
+      sca->scrAddrMap_ = scrAddrDataForSideScan_.scrAddrsToMerge_;
+      sca->UTxO_ = scrAddrDataForSideScan_.UTxOToMerge_;
 
       sca->blockHeightCutOff_ = blockHeightCutOff_;
       uint32_t topBlock = currentTopBlockHeight();
@@ -271,12 +273,12 @@ void ScrAddrFilter::checkForMerge()
       //grab merge lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
 
-      scrAddrMap_.insert(scrAddrMapToMerge_.begin(), scrAddrMapToMerge_.end());
+      scrAddrMap_.insert(sca->scrAddrMap_.begin(), sca->scrAddrMap_.end());
 
-      UTxO_.insert(UTxOToMerge_.begin(), UTxOToMerge_.end());
+      UTxO_.insert(sca->UTxO_.begin(), sca->UTxO_.end());
 
-      scrAddrMapToMerge_.clear();
-      UTxOToMerge_.clear();
+      scrAddrDataForSideScan_.scrAddrsToMerge_.clear();
+      scrAddrDataForSideScan_.UTxOToMerge_.clear();
 
       mergeFlag_ = false;
 
@@ -293,9 +295,9 @@ uint32_t ScrAddrFilter::scanFrom() const
 
    for (auto scrAddr : scrAddrMap_)
    {
-      lowestBlock = min(lowestBlock, scrAddr.second.lastScannedHeight_);
+      lowestBlock = min(lowestBlock, scrAddr.second);
       blockHeightCutOff_ =
-         max(blockHeightCutOff_, scrAddr.second.lastScannedHeight_);
+         max(blockHeightCutOff_, scrAddr.second);
    }
 
    return lowestBlock;
@@ -359,6 +361,17 @@ void ScrAddrFilter::startSideScan(
       sca->scanThreadProgressCallback_ = progress;
       sca->scanScrAddrMapInNewThread();
    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::buildSideScanData(shared_ptr<BtcWallet> wltPtr)
+{
+   scrAddrDataForSideScan_.startScanFrom_ = UINT32_MAX;
+   for (const auto& scrAddrPair : scrAddrMap_)
+      scrAddrDataForSideScan_.startScanFrom_ = 
+      min(scrAddrDataForSideScan_.startScanFrom_, scrAddrPair.second);
+
+   scrAddrDataForSideScan_.wltPtr_ = wltPtr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

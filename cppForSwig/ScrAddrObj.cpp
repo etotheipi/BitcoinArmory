@@ -364,6 +364,8 @@ ScrAddrObj& ScrAddrObj::operator= (const ScrAddrObj& rhs)
 
    //prebuild history indexes for quick fetch from SSH
    this->hist_ = rhs.hist_;
+   this->utxos_.reset();
+   this->utxos_.scrAddrObj_ = this;
    
    this->ledger_ = &LedgerEntry::EmptyLedgerMap_;
    if (this->hist_.getPageCount() != 0)

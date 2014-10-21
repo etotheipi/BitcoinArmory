@@ -65,36 +65,39 @@ class ScrAddrFilter
    friend class BlockDataViewer;
 
 public:
-   struct ScrAddrMeta
+   struct ScrAddrSideScanData
    {
       /***
       scrAddrMap_ is a map so it can only have meta per scrAddr. This means
       only 1 wallet can be registered per post BDM init address scan.
       ***/
-      uint32_t lastScannedHeight_=0;
-      BtcWallet* wltPtr_=nullptr;
+      uint32_t startScanFrom_=0;
+      shared_ptr<BtcWallet> wltPtr_;
 
-      ScrAddrMeta(uint32_t height=0, BtcWallet* wltPtr = nullptr) :
-         lastScannedHeight_(height),
+      map<BinaryData, uint32_t> scrAddrsToMerge_;
+      set<BinaryData>           UTxOToMerge_;
+
+      ScrAddrSideScanData(void) {}
+      ScrAddrSideScanData(uint32_t height, shared_ptr<BtcWallet> wltPtr) :
+         startScanFrom_(height),
          wltPtr_(wltPtr) {}
    };
 
 private:
    //map of scrAddr and their respective last scanned block
    //this is used only for the inital load currently
-   map<BinaryData, ScrAddrMeta>   scrAddrMap_;
+   map<BinaryData, uint32_t>   scrAddrMap_;
 
    set<BinaryData>                UTxO_;
    mutable uint32_t               blockHeightCutOff_=0;
    LMDBBlockDatabase *const       lmdb_;
 
    //
-   shared_ptr<ScrAddrFilter>      child_;
-   ScrAddrFilter*                 root_;
-   set<BinaryData>                UTxOToMerge_;
-   map<BinaryData, ScrAddrMeta>   scrAddrMapToMerge_;
-   atomic<int32_t>                mergeLock_;
-   bool                           mergeFlag_=false;
+   shared_ptr<ScrAddrFilter>            child_;
+   ScrAddrFilter*                       root_;
+   ScrAddrSideScanData                  scrAddrDataForSideScan_;
+   atomic<int32_t>                      mergeLock_;
+   bool                                 mergeFlag_=false;
    
    //0: dont scan
    //1: scan from existing SSH lastScannedHeight
@@ -105,13 +108,9 @@ private:
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
-      map<BinaryData, ScrAddrMeta>::iterator scrAddrIter =
-         scrAddrMap_.find(scrAddr);
+      auto scrAddrIter = scrAddrMap_.find(scrAddr);
       if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
-      {
-         scrAddrIter->second.lastScannedHeight_ = blkHgt;
          blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
-      }
    }
 
 protected:
@@ -135,7 +134,7 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const map<BinaryData, ScrAddrMeta>& getScrAddrMap(void) const
+   const map<BinaryData, uint32_t>& getScrAddrMap(void) const
    { return scrAddrMap_; }
 
    size_t numScrAddr(void) const
@@ -143,7 +142,7 @@ public:
 
    uint32_t scanFrom(void) const;
    bool registerAddresses(const vector<BinaryData>& saVec, 
-                          BtcWallet* wltPtr, int32_t doScan);
+                          shared_ptr<BtcWallet> wltPtr, int32_t doScan);
 
    void unregisterScrAddr(BinaryData& scrAddrIn)
    { scrAddrMap_.erase(scrAddrIn); }
@@ -166,9 +165,10 @@ public:
 
    void setSSHLastScanned(uint32_t height);
 
-   void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom,
-      BtcWallet* wltPtr)
-   { scrAddrMap_[scrAddr] = ScrAddrMeta(scanFrom, wltPtr); }
+   void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
+   {
+      scrAddrMap_[scrAddr] = scanFrom; 
+   }
 
    void scanScrAddrMapInNewThread(void);
 
@@ -200,6 +200,7 @@ protected:
 
 private:
    void scanScrAddrThread(void);
+   void buildSideScanData(shared_ptr<BtcWallet> wltPtr);
 };
 
 class ZeroConfContainer

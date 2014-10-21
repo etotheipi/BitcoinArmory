@@ -488,13 +488,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addrBalanceMap = {}
       utxoEntries = []
       for addrStr in addrList:
-
-         # For now, prevent the caller from accidentally inducing a 20 min rescan
-         # If they want the unspent list for a non-registered addr, they can
-         # explicitly register it and rescan before calling this method.
-         if not TheBDM.bdv().scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
-            raise BitcoindError('Address is not registered, requires rescan')
-
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
             # Already checked it's registered, regardless if in a loaded wallet
@@ -970,9 +963,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addrList = [a.strip() for a in inB58.split(",")] 
       retBalance = 0
       for addrStr in addrList:
-      
-         if not TheBDM.bdv().scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
-            raise BitcoindError('Address is not registered, requires rescan')
 
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
@@ -1020,7 +1010,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       txs = self.curWlt.getAddrTxLedger(addr160)
       balance = 0
       for curTX in txs:
-         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+         nconf = (TheBDM.getTopBlockHeight() - \
                   curTX.getBlockNum()) + 1
          if (nconf >= minconf) and (curTX.getValue() > 0):
             balance += curTX.getValue()
@@ -1187,7 +1177,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             #           outputs minus change?)
             # netCoins: net effect on wallet (positive or negative)
             # feeCoins: how much fee was paid for this tx 
-            nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+            nconf = (TheBDM.getTopBlockHeight() - \
                      le.getBlockNum()) + 1
             isToSelf = le.isSentToSelf()
             amtCoins = 0.0
@@ -1501,7 +1491,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'blocks':            TheBDM.getTopBlockHeight(),
                #'connections':       (0 if isReady else 1),
                #'proxy':             '',
-               'difficulty':        TheBDM.bdv().getTopBlockHeader().getDifficulty() \
+               'difficulty':        TheBDM.getTopBlockDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
                'keypoolsize':       self.curWlt.addrPoolSize
@@ -1608,9 +1598,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       out = {}
       out['txid'] = txHash
-      out['mainbranch'] = tx.isMainBranch()
-      out['numtxin'] = tx.getNumTxIn()
-      out['numtxout'] = tx.getNumTxOut()
+      isMainBranch = TheBDM.bdv().isTxMainBranch(tx)
+      out['mainbranch'] = isMainBranch
+      out['numtxin'] = int(tx.getNumTxIn())
+      out['numtxout'] = int( tx.getNumTxOut())
 
       haveAllInputs = True
       txindata = []
@@ -1652,32 +1643,29 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       out['inputs'] = txindata
       out['outputs'] = txoutdata
 
-      if not tx.isMainBranch():
-         return out
-
-      # The tx is in a block, fill in the rest of the data
-      out['confirmations'] = (TheBDM.getTopBlockHeight() - \
-                              tx.getBlockHeight()) + 1
-      out['time'] = tx.getBlockTimestamp()
-      out['orderinblock'] = tx.getBlockTxIndex()
-
-      le = self.curWlt.cppWallet.calcLedgerEntryForTx(tx) #have to backport this
-      amt = le.getValue()
-      out['netdiff']     = AmountToJSON(amt)
-      out['totalinputs'] = AmountToJSON(sum(inputvalues))
-
-      if le.getTxHash()=='\x00'*32:
-         out['category']  = 'unrelated'
-         out['direction'] = 'unrelated'
-      elif le.isSentToSelf():
-         out['category']  = 'toself'
-         out['direction'] = 'toself'
-      elif amt<-fee:
-         out['category']  = 'send'
-         out['direction'] = 'send'
-      else:
-         out['category']  = 'receive'
-         out['direction'] = 'receive'
+      if isMainBranch:
+         # The tx is in a block, fill in the rest of the data
+         out['confirmations'] = (TheBDM.getTopBlockHeight() - \
+                                 tx.getBlockHeight()) + 1
+         out['orderinblock'] = int(tx.getBlockTxIndex())
+   
+         le = self.curWlt.cppWallet.getLedgerEntryForTx(binhash)
+         amt = le.getValue()
+         out['netdiff']     = AmountToJSON(amt)
+         out['totalinputs'] = AmountToJSON(sum(inputvalues))
+   
+         if le.getTxHash()=='\x00'*32:
+            out['category']  = 'unrelated'
+            out['direction'] = 'unrelated'
+         elif le.isSentToSelf():
+            out['category']  = 'toself'
+            out['direction'] = 'toself'
+         elif amt<fee:
+            out['category']  = 'send'
+            out['direction'] = 'send'
+         else:
+            out['category']  = 'receive'
+            out['direction'] = 'receive'
 
       return out
 

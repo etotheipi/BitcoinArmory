@@ -30,7 +30,7 @@ from armoryengine.ArmoryUtils import LOGINFO, RightNow, getVersionString, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
    MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
    bitset_to_int, unixTimeToFormatStr
-from armoryengine.BDM import TheBDM, BDM_OFFLINE, BDM_SCANNING,\
+from armoryengine.BDM import  BDM_OFFLINE, BDM_SCANNING,\
    BDM_BLOCKCHAIN_READY
 from armoryengine.BinaryPacker import BinaryPacker, BINARY_CHUNK, UINT32, UINT64, \
    UINT16, VAR_INT, INT32, INT64, VAR_STR, INT8
@@ -188,7 +188,7 @@ class ArmoryClient(Protocol):
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
                if self.factory.bdm and (self.factory.bdm.getState()==BDM_SCANNING or \
-                  self.factory.bdm.bdm.blockchain().hasHeaderWithHash(inv[1])):
+                     self.factory.bdm.bdv().blockchain().hasHeaderWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:

@@ -42,7 +42,7 @@ BtcWallet* BlockDataViewer::registerWallet(
    if (regWlt != registeredWallets_.end())
       return regWlt->second.get();
    
-   BtcWallet* newWallet = nullptr;
+   shared_ptr<BtcWallet> newWallet;
 
    if (bdmPtr_->hasInjectPtr())
    {
@@ -57,7 +57,7 @@ BtcWallet* BlockDataViewer::registerWallet(
       wltInfo.type_ = 0;
 
       wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
-      newWallet = wltInfo.wallet_.get();
+      newWallet = wltInfo.wallet_;
       
       //grab mutex
       walletRegistrationMutex_.lock();      
@@ -75,7 +75,7 @@ BtcWallet* BlockDataViewer::registerWallet(
       auto insertResult = registeredWallets_.insert(make_pair(
          id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
          ));
-      newWallet = insertResult.first->second.get();
+      newWallet = insertResult.first->second;
    }
 
    newWallet->addAddressBulk(scrAddrVec, wltIsNew);
@@ -91,7 +91,7 @@ BtcWallet* BlockDataViewer::registerWallet(
    //tell the wallet it is registered
    newWallet->setRegistered();
 
-   return newWallet;
+   return newWallet.get();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -110,7 +110,7 @@ BtcWallet* BlockDataViewer::registerLockbox(
    if (regLB!= registeredLockboxes_.end())
       return regLB->second.get();
 
-   BtcWallet* newLockbox = nullptr;
+   shared_ptr<BtcWallet> newLockbox;
 
    if (bdmPtr_->hasInjectPtr())
    {
@@ -125,7 +125,7 @@ BtcWallet* BlockDataViewer::registerLockbox(
       wltInfo.type_ = 1;
 
       wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
-      newLockbox = wltInfo.wallet_.get();
+      newLockbox = wltInfo.wallet_;
 
       //grab mutex
       walletRegistrationMutex_.lock();
@@ -143,7 +143,7 @@ BtcWallet* BlockDataViewer::registerLockbox(
       auto insertResult = registeredLockboxes_.insert(make_pair(
          id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
          ));
-      newLockbox = insertResult.first->second.get();
+      newLockbox = insertResult.first->second;
    }
 
    newLockbox->addAddressBulk(scrAddrVec, wltIsNew);
@@ -158,7 +158,7 @@ BtcWallet* BlockDataViewer::registerLockbox(
 
    newLockbox->setRegistered();
 
-   return newLockbox;
+   return newLockbox.get();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -454,9 +454,20 @@ bool BlockDataViewer::parseNewZeroConfTx()
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
-   BtcWallet* wltPtr, int32_t doScan)
+   BinaryData walletID, int32_t doScan)
 {
-   return saf_->registerAddresses(saVec, wltPtr, doScan);
+   if (saVec.size() == 0)
+      return false;
+   
+   auto wltIter = registeredWallets_.find(walletID);
+   if (wltIter == registeredWallets_.end())
+   {
+      wltIter = registeredLockboxes_.find(walletID);
+      if (wltIter == registeredWallets_.end())
+         return false;
+   }
+
+   return saf_->registerAddresses(saVec, wltIter->second, doScan);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -684,7 +695,7 @@ void BlockDataViewer::scanScrAddrVector(
 
    //register scrAddr with it
    for (auto scrAddrPair : scrAddrMap)
-      saf->regScrAddrForScan(scrAddrPair.first, startBlock, nullptr);
+      saf->regScrAddrForScan(scrAddrPair.first, startBlock);
 
    //compute blockHeightCutOff
    saf->scanFrom();

@@ -115,6 +115,12 @@ NEED_TIAB_MSG = "This Test must be run with <TBD>. Copy to the test directory. A
 
 
 class TiabTest(unittest.TestCase):      
+   
+   def __init__(self, methodName='runTest'):
+      unittest.TestCase.__init__(self, methodName)
+      self.maxDiff = None
+      
+   
    @classmethod
    def setUpClass(self):
       global doneShuttingDownBDM

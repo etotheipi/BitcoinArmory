@@ -2759,14 +2759,14 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 #############################################################################
 def getFeeForTx(txHash):
    if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-      if not TheBDM.hasTxWithHash(txHash):
+      txref = TheBDM.getTxByHash(txHash)
+      if not txref.isInitialized():
          LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
                                              binary_to_hex(txHash,BIGENDIAN))
          return 0
-      txref = TheBDM.getTxByHash(txHash)
       valIn, valOut = 0,0
       for i in range(txref.getNumTxIn()):
-         valIn += TheBDM.getSentValue(txref.getTxInCopy(i))
+         valIn += TheBDM.bdv().getSentValue(txref.getTxInCopy(i))
       for i in range(txref.getNumTxOut()):
          valOut += txref.getTxOutCopy(i).getValue()
       return valIn - valOut
@@ -2807,6 +2807,7 @@ def determineSentToSelfAmt(le, wlt):
 ################################################################################
 #def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
 def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
+   return []
    """
 
    You have a list of addresses (or just one) and you want to get all the
@@ -2823,8 +2824,33 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    middle of a scan.  You can use waitAsLongAsNecessary=True if you
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
-   """
 
+   if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if not isinstance(addr160List, (list,tuple)):
+         addr160List = [addr160List]
+
+      scrAddrList = []
+
+      for addr in addr160List:
+         if isinstance(addr, PyBtcAddress):
+            scrAddrList.append(Hash160ToScrAddr(addr.getAddr160()))
+         else:
+            # Have to Skip ROOT
+            if addr!='ROOT':
+               scrAddrList.append(Hash160ToScrAddr(addr))
+
+      TheBDM.registerWallet(cppWlt)
+      topBlockHeight = TheBDM.getTopBlockHeight()
+
+      if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
+         return cppWlt.getFullTxOutList(topBlockHeight)
+      elif utxoType.lower() in ('spend','spendable','confirmed'):
+         return cppWlt.getSpendableTxOutList(topBlockHeight, IGNOREZC)
+      else:
+         raise TypeError, 'Unknown utxoType!'
+   else:
+      return []
+   """
 
 def pprintLedgerEntry(le, indent=''):
    if len(le.getScrAddr())==21:
@@ -2845,7 +2871,7 @@ def pprintLedgerEntry(le, indent=''):
             (addrStr.ljust(15), leVal, txType.ljust(8), blkStr.ljust(8))
 
 # Putting this at the end because of the circular dependency
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
 from armoryengine.Script import *
