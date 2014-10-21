@@ -1608,9 +1608,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       out = {}
       out['txid'] = txHash
-      out['mainbranch'] = tx.isMainBranch()
-      out['numtxin'] = tx.getNumTxIn()
-      out['numtxout'] = tx.getNumTxOut()
+      isMainBranch = TheBDM.bdv().isTxMainBranch(tx)
+      out['mainbranch'] = isMainBranch
+      out['numtxin'] = int(tx.getNumTxIn())
+      out['numtxout'] = int( tx.getNumTxOut())
 
       haveAllInputs = True
       txindata = []
@@ -1652,32 +1653,29 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       out['inputs'] = txindata
       out['outputs'] = txoutdata
 
-      if not tx.isMainBranch():
-         return out
-
-      # The tx is in a block, fill in the rest of the data
-      out['confirmations'] = (TheBDM.getTopBlockHeight() - \
-                              tx.getBlockHeight()) + 1
-      out['time'] = tx.getTxTime()
-      out['orderinblock'] = tx.getBlockTxIndex()
-
-      le = self.curWlt.cppWallet.getLedgerEntryForTx(binhash)
-      amt = le.getValue()
-      out['netdiff']     = AmountToJSON(amt)
-      out['totalinputs'] = AmountToJSON(sum(inputvalues))
-
-      if le.getTxHash()=='\x00'*32:
-         out['category']  = 'unrelated'
-         out['direction'] = 'unrelated'
-      elif le.isSentToSelf():
-         out['category']  = 'toself'
-         out['direction'] = 'toself'
-      elif amt<fee:
-         out['category']  = 'send'
-         out['direction'] = 'send'
-      else:
-         out['category']  = 'receive'
-         out['direction'] = 'receive'
+      if isMainBranch:
+         # The tx is in a block, fill in the rest of the data
+         out['confirmations'] = (TheBDM.getTopBlockHeight() - \
+                                 tx.getBlockHeight()) + 1
+         out['orderinblock'] = int(tx.getBlockTxIndex())
+   
+         le = self.curWlt.cppWallet.getLedgerEntryForTx(binhash)
+         amt = le.getValue()
+         out['netdiff']     = AmountToJSON(amt)
+         out['totalinputs'] = AmountToJSON(sum(inputvalues))
+   
+         if le.getTxHash()=='\x00'*32:
+            out['category']  = 'unrelated'
+            out['direction'] = 'unrelated'
+         elif le.isSentToSelf():
+            out['category']  = 'toself'
+            out['direction'] = 'toself'
+         elif amt<fee:
+            out['category']  = 'send'
+            out['direction'] = 'send'
+         else:
+            out['category']  = 'receive'
+            out['direction'] = 'receive'
 
       return out
 
