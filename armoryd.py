@@ -2871,17 +2871,7 @@ class Armory_Daemon(object):
          #Received progress data for a wallet side scan
          wltID = args[0]
          prog = args[1]
-         '''
-         self.walletSideScanProgress[wltID] = prog*100
-         
-         if wltID in self.walletMap:
-            self.walletModel.reset()
-         else:
-            self.lockboxLedgModel.reset()
-            if self.lbDialogModel != None:
-               self.lbDialogModel.reset()
-         '''
-         
+
       elif action == 'warning':
          #something went wrong on the C++ side, create a message box to report
          #it to the user

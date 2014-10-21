@@ -3869,7 +3869,6 @@ class DlgAddressInfo(ArmoryDialog):
 
       self.connect(lbtnCopyAddr, SIGNAL(CLICKED), self.copyAddr)
       self.connect(lbtnViewKeys, SIGNAL(CLICKED), self.viewKeys)
-      # self.connect(lbtnSweepA,   SIGNAL(CLICKED), self.sweepAddr)
       self.connect(lbtnDelete, SIGNAL(CLICKED), self.deleteAddr)
 
       optFrame = QFrame()
@@ -3894,9 +3893,6 @@ class DlgAddressInfo(ArmoryDialog):
       optLayout = QVBoxLayout()
       if True:           optLayout.addWidget(lbtnCopyAddr)
       if adv:            optLayout.addWidget(lbtnViewKeys)
-
-      # if not watch:      optLayout.addWidget(lbtnSweepA)
-      # if adv:            optLayout.addWidget(lbtnDelete)
 
       if True:           optLayout.addStretch()
       if True:           optLayout.addWidget(self.lblCopied)
@@ -3946,63 +3942,6 @@ class DlgAddressInfo(ArmoryDialog):
       addr = self.addr.copy()
       dlg = DlgShowKeys(addr, self, self.main)
       dlg.exec_()
-
-
-   def sweepAddr(self):
-      # This is broken, and I don't feel like fixing it because it's not very
-      # useful.  Maybe some time in the future it will be resolved.
-      return
-      """
-      if self.wlt.useEncryption and self.wlt.isLocked:
-         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
-         if not unlockdlg.exec_():
-            QMessageBox.critical(self, 'Wallet is Locked', \
-               'Cannot sweep an address while its keys are locked.', \
-               QMessageBox.Ok)
-            return
-
-      addrToSweep = self.addr.copy()
-      targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
-
-      #######################################################################
-      #  This is the part that may take a while.  Verify user will wait!
-      #  The sync/confirm call guarantees that the next sync call will
-      #  return instantaneously with the correct answer.  This only stops
-      #  being true when more addresses or wallets are imported.
-      if not self.main.BDM_SyncAddressList_Confirm(addrToSweep):
-         return
-      #######################################################################
-      finishedTx, outVal, fee = self.main.createSweepAddrTx(addrToSweep, targAddr160)
-
-      if outVal<=fee:
-         QMessageBox.critical(self, 'Cannot sweep',\
-         'You cannot sweep the funds from this address, because the '
-         'transaction fee would be equal to or greater than the amount '
-         'swept.', QMessageBox.Ok)
-         return
-
-      if outVal==0:
-         #print 'NO FUNDS'
-         QMessageBox.critical(self, 'Nothing to do', \
-            'This address does not contain any funds.  There is nothing to sweep.', \
-            QMessageBox.Ok)
-         return
-
-      QMessageBox.information(self, 'Sweep Address Funds', \
-         '<i>Sweeping</i> an address will transfer all funds from the selected '
-         'address to another address in your wallet.  This action is not normally '
-         'necessary because it is rare for one address in a wallet to be compromised '
-         'but not the others.  \n\n'
-         'If you believe that your entire wallet has been compromised, '
-         'you should instead send all the funds from this wallet to another address '
-         'or wallet.', QMessageBox.Ok)
-
-      # Finally, if we got here, we're ready to broadcast!
-      dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()
-      dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
-      if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-         self.main.broadcastTransaction(finishedTx, dryRun=False)
-      """
 
    def deleteAddr(self):
       pass
