@@ -67,6 +67,8 @@ class BlockDataViewer
       Tx                getTxByHash(BinaryData const & txHash);
       TxOut             getPrevTxOut(TxIn & txin);
       Tx                getPrevTx(TxIn & txin);
+      
+      bool isTxMainBranch(const Tx &tx) const;
 
       BinaryData        getSenderScrAddr(TxIn & txin);
       int64_t           getSentValue(TxIn & txin);

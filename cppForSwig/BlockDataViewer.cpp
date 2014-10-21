@@ -503,6 +503,13 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash)
    }
 }
 
+bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
+{
+   if (!tx.hasTxRef())
+      return false;
+   return tx.getTxRef().attached(db_).isMainBranch();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // We're going to need the BDM's help to get the sender for a TxIn since it
 // sometimes requires going and finding the TxOut from the distant past
@@ -795,3 +802,6 @@ void BlockDataViewer::processWalletRegistrationQueue(void)
    //release mutex
    walletRegistrationMutex_.unlock();
 }
+
+
+// kate: indent-width 3; replace-tabs on;
