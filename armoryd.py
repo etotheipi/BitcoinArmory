@@ -1020,7 +1020,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       txs = self.curWlt.getAddrTxLedger(addr160)
       balance = 0
       for curTX in txs:
-         nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+         nconf = (TheBDM.getTopBlockHeight() - \
                   curTX.getBlockNum()) + 1
          if (nconf >= minconf) and (curTX.getValue() > 0):
             balance += curTX.getValue()
@@ -1187,7 +1187,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             #           outputs minus change?)
             # netCoins: net effect on wallet (positive or negative)
             # feeCoins: how much fee was paid for this tx 
-            nconf = (TheBDM.getTopBlockHeader().getBlockHeight() - \
+            nconf = (TheBDM.getTopBlockHeight() - \
                      le.getBlockNum()) + 1
             isToSelf = le.isSentToSelf()
             amtCoins = 0.0
@@ -1501,7 +1501,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'blocks':            TheBDM.getTopBlockHeight(),
                #'connections':       (0 if isReady else 1),
                #'proxy':             '',
-               'difficulty':        TheBDM.bdv().getTopBlockHeader().getDifficulty() \
+               'difficulty':        TheBDM.getTopBlockDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
                'keypoolsize':       self.curWlt.addrPoolSize
@@ -1658,10 +1658,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # The tx is in a block, fill in the rest of the data
       out['confirmations'] = (TheBDM.getTopBlockHeight() - \
                               tx.getBlockHeight()) + 1
-      out['time'] = tx.getBlockTimestamp()
+      out['time'] = tx.getTxTime()
       out['orderinblock'] = tx.getBlockTxIndex()
 
-      le = self.curWlt.cppWallet.calcLedgerEntryForTx(tx) #have to backport this
+      le = self.curWlt.cppWallet.getLedgerEntryForTx(binhash)
       amt = le.getValue()
       out['netdiff']     = AmountToJSON(amt)
       out['totalinputs'] = AmountToJSON(sum(inputvalues))
@@ -1672,7 +1672,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       elif le.isSentToSelf():
          out['category']  = 'toself'
          out['direction'] = 'toself'
-      elif amt<-fee:
+      elif amt<fee:
          out['category']  = 'send'
          out['direction'] = 'send'
       else:

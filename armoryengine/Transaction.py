@@ -2759,14 +2759,14 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 #############################################################################
 def getFeeForTx(txHash):
    if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-      if not TheBDM.hasTxWithHash(txHash):
+      txref = TheBDM.getTxByHash(txHash)
+      if not txref.isInitialized():
          LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
                                              binary_to_hex(txHash,BIGENDIAN))
          return 0
-      txref = TheBDM.getTxByHash(txHash)
       valIn, valOut = 0,0
       for i in range(txref.getNumTxIn()):
-         valIn += TheBDM.getSentValue(txref.getTxInCopy(i))
+         valIn += TheBDM.bdv().getSentValue(txref.getTxInCopy(i))
       for i in range(txref.getNumTxOut()):
          valOut += txref.getTxOutCopy(i).getValue()
       return valIn - valOut
@@ -2845,7 +2845,7 @@ def pprintLedgerEntry(le, indent=''):
             (addrStr.ljust(15), leVal, txType.ljust(8), blkStr.ljust(8))
 
 # Putting this at the end because of the circular dependency
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
 from armoryengine.Script import *

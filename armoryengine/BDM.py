@@ -207,8 +207,18 @@ class BlockDataManager(object):
    
    #############################################################################
    @ActLikeASingletonBDM
+   def getSentValue(self, txIn):
+      return self.bdv().getSentValue(txIn)
+
+   #############################################################################
+   @ActLikeASingletonBDM
    def getTopBlockHeight(self):
       return self.topBlockHeight
+   
+   #############################################################################
+   @ActLikeASingletonBDM
+   def getTopBlockDifficulty(self):
+      return self.bdv().getTopBlockHeader().getDifficulty()
    
    #############################################################################
    @ActLikeASingletonBDM
