@@ -126,8 +126,14 @@ def catchErrsForJSON(func):
 def singleEntrantMethod(func):
    @functools.wraps(func)  # Pull in certain "helper" data from dec'd func
    def inner(self, *args, **kwargs):
-      self.lock.acquire()
+      #if self doesn't have attribute mutex, give it one
+      try:
+         self.mutex.acquire()
+      except AttributeError:
+         self.mutex = Lock()
+         self.mutex.acquire()
+         
       rt = func(self, *args, **kwargs)
-      self.lock.release()
+      self.mutex.release()
       return rt
    return inner

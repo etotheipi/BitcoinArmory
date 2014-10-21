@@ -149,6 +149,12 @@ public:
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
               uint32_t      lastTimestamp  = 0);
+
+   ScrAddrObj(const ScrAddrObj& rhs) : 
+      utxos_(nullptr)
+   {
+      *this = rhs;
+   }
    
    BinaryData const &  getScrAddr(void) const    {return scrAddr_;       }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_; }

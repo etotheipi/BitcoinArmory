@@ -119,6 +119,9 @@ void BtcWallet::addAddressBulk(vector<BinaryData> const & scrAddrBulk,
 
    }
 
+   if (addrToReg.size() == 0)
+      return;
+
    if (isRegistered_)
    {
       if (bdvPtr_ != nullptr)
@@ -131,9 +134,8 @@ void BtcWallet::addAddressBulk(vector<BinaryData> const & scrAddrBulk,
    for (const auto& scrAddr : addrToReg)
    {
       ScrAddrObj sca(bdvPtr_->getDB(), &bdvPtr_->blockchain(), scrAddr);
-      scrAddrMap_.insert(make_pair(scrAddr, sca));
+      scrAddrMap_[scrAddr] = ScrAddrObj(bdvPtr_->getDB(), &bdvPtr_->blockchain(), scrAddr);
    }
-
    //should init new addresses
 }
 

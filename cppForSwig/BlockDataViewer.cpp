@@ -456,6 +456,8 @@ bool BlockDataViewer::parseNewZeroConfTx()
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    BtcWallet* wltPtr, int32_t doScan)
 {
+   if (saVec.size() == 0)
+      return false;
    return saf_->registerAddresses(saVec, wltPtr, doScan);
 }
 

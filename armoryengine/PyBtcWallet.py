@@ -258,7 +258,7 @@ class PyBtcWallet(object):
       #To enable/disable wallet row in wallet table model
       self.isEnabled = True
       
-      self.lock = threading.Lock()
+      self.mutex = threading.Lock()
       
    #############################################################################
    def registerWallet(self, isNew=False):
