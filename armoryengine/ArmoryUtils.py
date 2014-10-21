@@ -2822,42 +2822,40 @@ def encodePrivKeyBase58(privKeyBin):
 
 URI_VERSION_STR = '1.0'
 
+
 ################################################################################
-def parseBitcoinURI(theStr):
-   """ Takes a URI string, returns the pieces of it, in a dictionary """
+# Take in a "bitcoin:" URI string and parse the data out into a dictionary. If
+# the URI isn't a Bitcoin URI, return an empty dictionary.
+def parseBitcoinURI(uriStr):
+   """ Takes a URI string, returns normalized dicitonary with pieces """
+   data = {}
 
-   # Start by splitting it into pieces on any separator
-   seplist = ';?&'
-   for c in seplist:
-      theStr = theStr.replace(c,' ')
-   parts = theStr.split()
+   # Split URI into parts. Let Python do the heavy lifting.
+   from urlparse import urlparse, parse_qs
+   uri = urlparse(uriStr)
+   query = parse_qs(uri.query)
 
-   # Now start walking through the parts and get the info out of it
-   if not parts[0].startswith('bitcoin:'):
-      return {}
-   
-   uriData = {}
+   # If query entry has only 1 entry, flatten and remove entry from array.
+   for k in query:
+      v = query[k]
+      if len(v) == 1:
+         query[k] = v[0]
 
-   try:
-      uriData['address'] = parts[0][parts[0].index(':')+1:]
-      for p in parts[2:]:
-         if not '=' in p:
-            raise BadURIError('Unrecognized URI field: "%s"'%p)
+   # Now start walking through the parts and get the info out of it.
+   if uri.scheme == 'bitcoin':
+      data['address'] = uri.path
 
-         # All fields must be "key=value" making it pretty easy to parse
-         key, value = p.split('=')
-
-         # A few
-         if key.lower()=='amount':
-            uriData['amount'] = str2coin(value)
-         elif key.lower() in ('label','message'):
-            uriData[key] = uriPercentToReserved(value)
+      # Apply filters to known keys. Do NOT filter based on the "req-"
+      # prefix from BIP21. Leave that to code using the dict.
+      for k in query:
+         v = query[k]
+         kl = k.lower()
+         if kl == 'amount':
+            data['amount'] = str2coin(v) # Convert to Satoshis
          else:
-            uriData[key] = value
-   except:
-      return {}
+            data[k] = v
 
-   return uriData
+   return data
 
 
 ################################################################################

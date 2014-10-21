@@ -251,8 +251,76 @@ class ArmoryEngineTest(unittest.TestCase):
 
       replOut = formatWithPlurals(strIn, 2, [2,1])
       self.assertEqual(replOut, strOut[4])
-   
 
+
+   #############################################################################
+   def testBitcoinUriParser(self):
+      ##### Test BIP 0021 parser functions.
+      uri1 = "bitcoin:1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW?amount=0.1&label=Foo%20bar&r=https://example.com/foo/bar/"
+      uri2 = "bitcoin:mq7se9wy2egettFxPbmn99cK8v5AFq55Lx?amount=0.11&r=https://merchant.com/pay.php?h%3D2a8628fc2fbe"
+      uri3 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W"
+      uri4 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr"
+      uri5 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr"
+      uri6 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz"
+      uri7 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999"
+      uri8 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?somethingyoudontunderstand=50&somethingelseyoudontget=999"
+
+      expectedOut1 = {
+         "address": "1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW",
+         "amount": 10000000,
+         "label": "Foo bar",
+         "r": "https://example.com/foo/bar/"
+      }
+      expectedOut2 = {
+         "address": "mq7se9wy2egettFxPbmn99cK8v5AFq55Lx",
+         "amount": 11000000,
+         "r": "https://merchant.com/pay.php?h=2a8628fc2fbe"
+      }
+      expectedOut3 = {
+         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W"
+      }
+      expectedOut4 = {
+         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "label": "Luke-Jr"
+      }
+      expectedOut5 = {
+         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "amount": 2030000000,
+         "label": "Luke-Jr"
+      }
+      expectedOut6 = {
+         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "amount": 5000000000,
+         "label": "Luke-Jr",
+         "message": "Donation for project xyz"
+      }
+      expectedOut7 = {
+         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "req-somethingyoudontunderstand": "50",
+         "req-somethingelseyoudontget": "999"
+      }
+      expectedOut8 = {
+         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "somethingyoudontunderstand": "50",
+         "somethingelseyoudontget": "999"
+      }
+
+      parseOut1 = parseBitcoinURI(uri1)
+      parseOut2 = parseBitcoinURI(uri2)
+      parseOut3 = parseBitcoinURI(uri3)
+      parseOut4 = parseBitcoinURI(uri4)
+      parseOut5 = parseBitcoinURI(uri5)
+      parseOut6 = parseBitcoinURI(uri6)
+      parseOut7 = parseBitcoinURI(uri7)
+      parseOut8 = parseBitcoinURI(uri8)
+      self.assertEqual(parseOut1, expectedOut1)
+      self.assertEqual(parseOut2, expectedOut2)
+      self.assertEqual(parseOut3, expectedOut3)
+      self.assertEqual(parseOut4, expectedOut4)
+      self.assertEqual(parseOut5, expectedOut5)
+      self.assertEqual(parseOut6, expectedOut6)
+      self.assertEqual(parseOut7, expectedOut7)
+      self.assertEqual(parseOut8, expectedOut8)
 
 
    #############################################################################
