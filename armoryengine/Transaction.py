@@ -2807,6 +2807,7 @@ def determineSentToSelfAmt(le, wlt):
 ################################################################################
 #def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
 def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
+   return []
    """
 
    You have a list of addresses (or just one) and you want to get all the
@@ -2823,8 +2824,33 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    middle of a scan.  You can use waitAsLongAsNecessary=True if you
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
-   """
 
+   if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if not isinstance(addr160List, (list,tuple)):
+         addr160List = [addr160List]
+
+      scrAddrList = []
+
+      for addr in addr160List:
+         if isinstance(addr, PyBtcAddress):
+            scrAddrList.append(Hash160ToScrAddr(addr.getAddr160()))
+         else:
+            # Have to Skip ROOT
+            if addr!='ROOT':
+               scrAddrList.append(Hash160ToScrAddr(addr))
+
+      TheBDM.registerWallet(cppWlt)
+      topBlockHeight = TheBDM.getTopBlockHeight()
+
+      if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
+         return cppWlt.getFullTxOutList(topBlockHeight)
+      elif utxoType.lower() in ('spend','spendable','confirmed'):
+         return cppWlt.getSpendableTxOutList(topBlockHeight, IGNOREZC)
+      else:
+         raise TypeError, 'Unknown utxoType!'
+   else:
+      return []
+   """
 
 def pprintLedgerEntry(le, indent=''):
    if len(le.getScrAddr())==21:

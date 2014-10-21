@@ -488,13 +488,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addrBalanceMap = {}
       utxoEntries = []
       for addrStr in addrList:
-
-         # For now, prevent the caller from accidentally inducing a 20 min rescan
-         # If they want the unspent list for a non-registered addr, they can
-         # explicitly register it and rescan before calling this method.
-         if not TheBDM.bdv().scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
-            raise BitcoindError('Address is not registered, requires rescan')
-
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
             # Already checked it's registered, regardless if in a loaded wallet
@@ -970,9 +963,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addrList = [a.strip() for a in inB58.split(",")] 
       retBalance = 0
       for addrStr in addrList:
-      
-         if not TheBDM.bdv().scrAddrIsRegistered(addrStr_to_scrAddr(addrStr)):
-            raise BitcoindError('Address is not registered, requires rescan')
 
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
