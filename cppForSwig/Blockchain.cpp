@@ -69,7 +69,7 @@ Blockchain::findReorgPointFromBlock(const BinaryData& blkHash)
 
    while (!bh->isMainBranch())
    {
-      BinaryData& prevHash = bh->getPrevHash();
+      BinaryData prevHash = bh->getPrevHash();
       bh = &getHeaderByHash(prevHash);
    }
 
