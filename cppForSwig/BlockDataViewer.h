@@ -35,7 +35,7 @@ class BlockDataViewer
       bool hasWallet(BinaryData ID);
 
       bool registerAddresses(const vector<BinaryData>& saVec, 
-                             BtcWallet* wltPtr, int32_t doScan);
+                             BinaryData walletID, int32_t doScan);
 
       map<BinaryData, map<BinaryData, TxIOPair> >
          getNewZeroConfTxIOMap()

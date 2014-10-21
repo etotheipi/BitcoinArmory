@@ -45,7 +45,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
          vector<BinaryData> saVec;
          saVec.push_back(scrAddr);
 
-         if (!bdvPtr_->registerAddresses(saVec, this, false))
+         if (!bdvPtr_->registerAddresses(saVec, walletID_, false))
             return;
       }
    }
@@ -69,7 +69,7 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
          vector<BinaryData> saVec;
          saVec.push_back(scrAddr);
 
-         if (!bdvPtr_->registerAddresses(saVec, this, true))
+         if (!bdvPtr_->registerAddresses(saVec, walletID_, true))
             return;
       }
    }
@@ -93,7 +93,7 @@ void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
          vector<BinaryData> saVec;
          saVec.push_back(newScrAddr.getScrAddr());
 
-         if (!bdvPtr_->registerAddresses(saVec, this, false))
+         if (!bdvPtr_->registerAddresses(saVec, walletID_, false))
             return;
       }
    }
@@ -126,7 +126,7 @@ void BtcWallet::addAddressBulk(vector<BinaryData> const & scrAddrBulk,
    {
       if (bdvPtr_ != nullptr)
       {
-         if (!bdvPtr_->registerAddresses(addrToReg, this, areNew))
+         if (!bdvPtr_->registerAddresses(addrToReg, walletID_, areNew))
             return;
       }
    }
@@ -957,7 +957,7 @@ void BtcWallet::forceScan(void)
    for (const auto& sa : scrAddrMap_)
       saVec.push_back(sa.first);
 
-   bdvPtr_->registerAddresses(saVec, this, -1);
+   bdvPtr_->registerAddresses(saVec, walletID_, -1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

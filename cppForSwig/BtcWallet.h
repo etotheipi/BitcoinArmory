@@ -168,8 +168,8 @@ public:
    uint32_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
    void needsRefresh(void);
-
    void forceScan(void);
+   bool hasBdvPtr(void) const { return bdvPtr_ != nullptr; }
 
 private:   
    
