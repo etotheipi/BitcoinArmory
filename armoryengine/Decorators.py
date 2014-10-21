@@ -13,7 +13,7 @@
 #
 ################################################################################
 
-from armoryengine.ArmoryUtils import send_email, LOGERROR
+from armoryengine.ArmoryUtils import send_email, LOGERROR, LOGRAWDATA
 import functools
 import sys
 from threading import Lock

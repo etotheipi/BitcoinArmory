@@ -6194,8 +6194,8 @@ class ArmoryMainWindow(QMainWindow):
                self.allLockboxes[lbID].isEnabled = True
                if self.lbDialogModel != None:
                   self.lbDialogModel.reset()
-                  
-            del self.walletSideScanProgress[wltID]
+            if self.walletSideScanProgress.has_key(wltID):
+               del self.walletSideScanProgress[wltID]
             
          self.createCombinedLedger()
          self.walletModel.reset()
