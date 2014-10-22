@@ -2806,10 +2806,8 @@ def determineSentToSelfAmt(le, wlt):
 
 ################################################################################
 #def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
-def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
-   return []
-   """
-
+def getUnspentTxOutsForAddr160List(addr160List):
+   '''
    You have a list of addresses (or just one) and you want to get all the
    unspent TxOuts for it.  This can either be for computing its balance, or
    for sweeping the address(es).
@@ -2824,7 +2822,16 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
    middle of a scan.  You can use waitAsLongAsNecessary=True if you
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
-
+   
+   //note for the new backend:
+      This call has no scalability whatsoever. Unless you want UTXOs for a small
+      list of arbitrary addresses with limited history, do not resort to this call!
+      
+      Instead, register a wallet and pull the UTXOs from there.
+      
+      Also, no ZC
+   '''
+   
    if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       if not isinstance(addr160List, (list,tuple)):
          addr160List = [addr160List]
@@ -2838,19 +2845,24 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1):
             # Have to Skip ROOT
             if addr!='ROOT':
                scrAddrList.append(Hash160ToScrAddr(addr))
-
-      TheBDM.registerWallet(cppWlt)
-      topBlockHeight = TheBDM.getTopBlockHeight()
-
-      if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
-         return cppWlt.getFullTxOutList(topBlockHeight)
-      elif utxoType.lower() in ('spend','spendable','confirmed'):
-         return cppWlt.getSpendableTxOutList(topBlockHeight, IGNOREZC)
-      else:
-         raise TypeError, 'Unknown utxoType!'
+      try:
+         utxoList = TheBDM.bdv().getUnpsentTxoutsForAddr160List(scrAddrList)
+      except:
+         raise "Some of these addresses are not unknown to the DB." \
+               " Are you using Full mode?"
+               
+      returnPairs = []
+      for utxo in utxoList:
+         a160 = utxo.getRecipientScrAddr();
+         if a160 not in returnPairs:
+            returnPairs[a160] = []
+         returnPairs.a160.append(utxo)
+      
+      return returnPairs
+   
    else:
       return []
-   """
+
 
 def pprintLedgerEntry(le, indent=''):
    if len(le.getScrAddr())==21:

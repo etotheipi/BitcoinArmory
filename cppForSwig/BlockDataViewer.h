@@ -107,6 +107,8 @@ class BlockDataViewer
 
       bool hasItemInWalletQueue(void) const;
       void processWalletRegistrationQueue(void);
+      vector<UnspentTxOut> 
+         getUnpsentTxoutsForAddr160List(const vector<BinaryData>&) const;
 
    public:
       bool rescanZC_    = false;

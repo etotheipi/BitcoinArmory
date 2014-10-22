@@ -814,5 +814,36 @@ void BlockDataViewer::processWalletRegistrationQueue(void)
    walletRegistrationMutex_.unlock();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BlockDataViewer::getUnpsentTxoutsForAddr160List(
+   const vector<BinaryData>& scrAddrVec) const
+{
+   ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter();
+
+   if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
+   {
+      for (const auto& scrAddr : scrAddrVec)
+      {
+         if (!saf->hasScrAddress(scrAddr))
+            throw std::range_error("Don't have this scrAddr tracked");
+      }
+   }
+
+   vector<UnspentTxOut> UTXOs;
+
+   for (const auto& scrAddr : scrAddrVec)
+   {
+      StoredScriptHistory ssh;
+      db_->getStoredScriptHistory(ssh, scrAddr);
+
+      map<BinaryData, UnspentTxOut> scrAddrUtxoMap;
+      db_->getFullUTXOMapForSSH(ssh, scrAddrUtxoMap);
+
+      for (const auto& utxoPair : scrAddrUtxoMap)
+         UTXOs.push_back(utxoPair.second);
+   }
+
+   return UTXOs;
+}
 
 // kate: indent-width 3; replace-tabs on;
