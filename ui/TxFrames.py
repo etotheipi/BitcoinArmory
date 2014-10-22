@@ -825,7 +825,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def getUsableTxOutList(self, totalSend):
       if self.lbox is None:
          if self.altBalance is None:
-            return list(self.wlt.getTxOutList(totalSend, 'Spendable'))
+            return list(self.wlt.getUTXOListForSpendVal(totalSend))
          else:
             utxoList = []
             for a160 in self.sourceAddrList:

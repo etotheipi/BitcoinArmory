@@ -188,7 +188,7 @@ class DustDisplayModel(QAbstractTableModel):
    def updateDustList(self, wlt, dustLimit):
       self.dustTxOutlist = []
       self.wlt = wlt
-      txOutList = wlt.getTxOutList()
+      txOutList = wlt.getFullUTXOList()
       for txout in txOutList:
          if txout.getValue() < dustLimit:
             self.dustTxOutlist.append(txout)

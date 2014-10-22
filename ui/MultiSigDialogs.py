@@ -3383,7 +3383,7 @@ class DlgCreatePromNote(ArmoryDialog):
             coin2strNZS(availBal)), QMessageBox.Ok)
          return False
 
-      utxoList = wlt.getTxOutList('Spendable')
+      utxoList = wlt.getUTXOListForSpendVal(totalAmt)
       utxoSelect = PySelectCoins(utxoList, valueAmt, feeAmt)
 
       if len(utxoSelect) == 0:

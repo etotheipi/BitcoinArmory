@@ -409,7 +409,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
-      utxoList = self.curWlt.getTxOutList('unspent')
+      utxoList = self.curWlt.getFullUTXOList()
       utxoOutList = {}
       curTxOut = 0
       totBal = 0
@@ -1686,7 +1686,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       lbox = None
       if spendFromLboxID is None:
          spendBal = self.curWlt.getBalance('Spendable')
-         utxoList = self.curWlt.getTxOutList('Spendable')
+         utxoList = self.curWlt.getUTXOListForSpendVal(totalSend)
       else:
          lbox = self.serverLBMap[spendFromLboxID]
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
