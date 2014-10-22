@@ -14,7 +14,6 @@
 #include "lmdbpp.h"
 #include "Progress.h"
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // For now, we will call createUndoDataFromBlock(), and then pass that data to 
 // undoBlockFromDB(), even though it will result in accessing the DB data 
@@ -713,52 +712,10 @@ vector<BinaryData> BlockDataManager_LevelDB::getFirstHashOfEachBlkFile(void) con
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum) 
+size_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum) 
 {
-   uint64_t loc = 0;
-   BinaryData magic(4), szstr(4), rawHead(80), hashResult(32);
-
-   ifstream is(blkFileList_[fnum].c_str(), ios::in|ios::binary);
-   while(!is.eof())
-   {
-      while (1)
-      {
-         is.read((char*)magic.getPtr(), 4);
-         if (is.eof()) 
-            return loc;
-
-
-         // This is not an error, it just simply hit the padding
-         if (magic == config_.magicBytes)
-            break;
-      }
-
-      is.read((char*)szstr.getPtr(), 4);
-      uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
-      if(is.eof()) break;
-
-      is.read((char*)rawHead.getPtr(), HEADER_SIZE); 
-
-      BtcUtils::getHash256_NoSafetyCheck(rawHead.getPtr(), HEADER_SIZE, hashResult);
-      try
-      {
-         BlockHeader& bh = blockchain_.getHeaderByHash(hashResult);
-         bh.setBlockFileOffset(loc);
-         bh.setBlockFile(blkFileList_[fnum].c_str());
-         bh.setBlockSize(blksize);
-      }
-      catch (std::range_error & e)
-      {
-         // first hash in the file that isn't in our header map
-         break;
-      }
-
-      loc += blksize + 8;
-      is.seekg(blksize - HEADER_SIZE, ios::cur);
-
-   }
-   
-   return loc;
+   //pass true to halt at first unknown block
+   return getAllHeadersInFile(fnum, 0, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1281,124 +1238,31 @@ static bool scanFor(std::istream &in, const uint8_t * bytes, const size_t len)
    return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// With the LevelDB database integration, we now index all blockchain data
-// by block height and index (tx index in block, txout index in tx).  The
-// only way to actually do that is to process the headers first, so that 
-// when we do read the block data the first time, we know how to put it
-// into the DB.  
-//
-// For now, we have no problem holding all the headers in RAM and organizing
-// them all in one shot.  But RAM-limited devices (say, if this was going 
-// to be ported to Android), may not be able to do even that, and may have
-// to read and process the headers in batches.  
-bool BlockDataManager_LevelDB::extractHeadersInBlkFile(
-   uint32_t fnum,
-   uint64_t startOffset
-)
+static size_t scanFor(const uint8_t *in, const size_t inLen, 
+                      const uint8_t * bytes, const size_t len)
 {
-   SCOPED_TIMER("extractHeadersInBlkFile");
-   
-   missingBlockHeaderHashes_.clear();
-   
-   string filename = blkFileList_[fnum];
-   uint64_t filesize = BtcUtils::GetFileSize(filename);
-   if(filesize == FILE_DOES_NOT_EXIST)
+   unsigned offset = 0; // the index mod len which we're in ahead
+
+   do
    {
-      LOGERR << "File does not exist: " << filename.c_str();
-      return false;
-   }
-
-   // This will trigger if this is the last blk file and no new blocks
-   if(filesize < startOffset)
-      return true;
-   
-
-   ifstream is(filename.c_str(), ios::in | ios::binary);
-   BinaryData fileMagic(4);
-   is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
-   is.seekg(startOffset, ios::beg);
-
-   if( fileMagic != config_.magicBytes )
-   {
-      LOGERR << "Block file is the wrong network!  MagicBytes: "
-             << fileMagic.toHexStr().c_str();
-      return false;
-   }
-
-   endOfLastBlockByte_ = startOffset;
-
-   uint32_t nextBlkSize = 0;
-   uint32_t const HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
-   BinaryData magic(4), szstr(4), rawHead(HEAD_AND_NTX_SZ);
-   while(!is.eof())
-   {
-      is.read((char*)magic.getPtr(), 4);
-      if (is.eof())
-         break;
-         
-      if(magic!=config_.magicBytes)
+      bool found = true;
+      for (unsigned i = 0; i < len; i++)
       {
-         /*LOGERR << "Did not find block header in expected location, "
-            "possible corrupt data, searching for next block header.";*/
-         
-         if (!scanFor(is, config_.magicBytes.getPtr(), config_.magicBytes.getSize()))
+         if (in[i] != bytes[i])
          {
-            LOGERR << "No more blocks found in file " << filename;
+            found = false;
             break;
          }
-         
-         LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
       }
-      
-      is.read(reinterpret_cast<char*>(szstr.getPtr()), 4);
-      nextBlkSize = READ_UINT32_LE(szstr.getPtr());
-      if(is.eof()) break;
+      if (found)
+         return offset;
 
-      endOfLastBlockByte_ = (uint32_t)is.tellg() -8;
-      is.read(reinterpret_cast<char*>(rawHead.getPtr()), HEAD_AND_NTX_SZ); // plus #tx var_int
-      if(is.eof()) break;
+      in++;
+      offset++;
 
-      // Create a reader for the entire block, grab header, skip rest
-      pair<HashString, BlockHeader>                      bhInputPair;
-      BlockHeader block;
-      BinaryRefReader brr(rawHead);
-      block.unserialize(brr);
-      HashString blockhash = block.getThisHash();
-      
-      const uint32_t nTx = (uint32_t)brr.get_var_int();
-      BlockHeader& addedBlock = blockchain_.addBlock(blockhash, block);
-
-      // is there any reason I can't just do this to "block"?
-      addedBlock.setBlockFile(filename);
-      addedBlock.setBlockFileNum(fnum);
-      addedBlock.setBlockFileOffset(endOfLastBlockByte_);
-      addedBlock.setNumTx(nTx);
-      addedBlock.setBlockSize(nextBlkSize);
-      
-      is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
-      
-      // now check if the previous hash is in there
-      // (unless the previous hash is 0)
-      // most should be there, so search the map before checking for 0
-      if (!blockchain_.hasHeaderWithHash(addedBlock.getPrevHash())
-         && BtcUtils::EmptyHash() != addedBlock.getPrevHash()
-         )
-      {
-         LOGWARN << "Block header " << addedBlock.getThisHash().toHexStr()
-            << " refers to missing previous hash "
-            << addedBlock.getPrevHash().toHexStr();
-            
-         missingBlockHeaderHashes_.push_back(addedBlock.getPrevHash());
-      }
-   }
-
-   if (nextBlkSize != 0)
-      endOfLastBlockByte_ += nextBlkSize +8;
-
-   return true;
+   } while (offset + len< inLen);
+   return MAXSIZE_T;
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_LevelDB::detectAllBlkFiles()
@@ -1452,7 +1316,7 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
    {
       uint64_t useOffset = (fnum==fnumStart ? startOffset : 0);
-      extractHeadersInBlkFile(fnum, useOffset);
+      endOfLastBlockByte_ = getAllHeadersInFile(fnum, useOffset);
       progress.advance(blkFileSizes_[fnum]+useOffset);
    }
 
@@ -1606,7 +1470,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    SCOPED_TIMER("buildAndScanDatabases");
 
-   
    LOGDEBUG << "Called build&scan with ("
             << (forceRescan ? 1 : 0) << ","
             << (forceRebuild ? 1 : 0) << ","
@@ -1615,6 +1478,12 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    // This will figure out where we should start reading headers, blocks,
    // and where we should start applying or scanning
+
+   //pull last scanned blockhash from sdbi
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi);
+   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+
    uint32_t firstUnappliedHeight = detectCurrentSyncState(forceRebuild, initialLoad);
 
    // If we're going to rebuild, might as well destroy the DB for good measure
@@ -1656,12 +1525,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
    LOGINFO << "Total number of blocks found:   " << blockchain_.top().getBlockHeight() + 1;
-
-
-   //pull last scanned blockhash from sdbi
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(BLKDATA, sdbi);
-   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
 
    //Set scanFrom to 0, then check if blockchain_ has our last known header.
    //If it can't find it, scanFrom will remain at 0 and we'll perform a full
@@ -1723,11 +1586,18 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    double timeElapsed = TIMER_READ_SEC("dumpRawBlocksToDB");
    LOGINFO << "Processed " << blocksReadSoFar_ << " raw blocks DB (" 
            <<  (int)timeElapsed << " seconds)";
-
    {
       ProgressWithPhase progPhase(3, progress);
       
       progPhase.progress(0.0, 0);
+
+      if (!blockchain_.hasHeaderWithHash(sdbi.topScannedBlkHash_))
+         scanFrom = 0;
+      else
+      {
+         BlockHeader& bh = blockchain_.getHeaderByHash(sdbi.topScannedBlkHash_);
+         scanFrom = min(scanFrom, bh.getBlockHeight());
+      }
       
       // TODO: use applyBlocksProgress in applyBlockRangeToDB
       
@@ -1947,15 +1817,15 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
 
       if (blkfile != bh.getFileName())
       {      
-         if (filemap)
+         if (bh.getFileName().size() == 0)
          {
-            munmap(filemap, filesize);
-#ifdef _WIN32_
-            _close(filedes);
-#else
-            close(filedes);
-#endif
+            //we have a header without filename/offset, let's just reparse 
+            //every blocks headers.
+            getAllHeaders();
          }
+         
+         if (filemap)
+            munmap(filemap, filesize);
 
          blkfile = bh.getFileName();
          filesize = BtcUtils::GetFileSize(blkfile);
@@ -1966,6 +1836,9 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          // Open the file, and check the magic bytes on the first block
          filedes = open(blkfile.c_str(), O_RDONLY, 0);
          filemap = (uint8_t*)mmap(nullptr, filesize, PROT_READ, MAP_SHARED, filedes, 0);
+         
+         //no need to keep the filedes opened after mapping it
+         close(filedes);
 
          BinaryData fileMagic(filemap, 4);
          if (fileMagic != config_.magicBytes)
@@ -2016,10 +1889,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    }   
 
    if (filemap)
-   {
       munmap(filemap, filesize);
-      close(filedes);
-   }
 }
 
 
@@ -2071,6 +1941,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    sdbi.appliedToHgt_ = 0;
    sdbi.topBlkHash_ = config_.genesisBlockHash;
+   sdbi.topScannedBlkHash_ = BinaryData(0);
    iface_->putStoredDBInfo(BLKDATA, sdbi);
    //////////
 
@@ -2779,5 +2650,124 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
       for (const auto& keyToDel : keysToDelete)
          iface_->deleteValue(BLKDATA, keyToDel);
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+size_t BlockDataManager_LevelDB::getAllHeadersInFile(uint32_t fnum, 
+   size_t offset,
+   bool haltAtFirstUnknownBlock)
+{
+   const string& filename = blkFileList_[fnum];
+   uint64_t filesize = BtcUtils::GetFileSize(filename);
+   int filedes = open(filename.c_str(), O_RDONLY, 0);
+   uint8_t* filemap = (uint8_t*)mmap(
+      nullptr, filesize, PROT_READ, MAP_SHARED, filedes, 0);
+   close(filedes);
+
+   BinaryData fileMagic(filemap, 4);
+   if (fileMagic != config_.magicBytes)
+   {
+      LOGERR << "Block file is the wrong network!  MagicBytes: "
+         << fileMagic.toHexStr().c_str();
+      munmap(filemap, filesize);
+      return false;
+   }
+
+   size_t loc = offset;
+
+   BinaryData magic, szstr, rawHead(HEADER_SIZE), hashResult(32);
+
+   while (loc < filesize)
+   {
+      while (1)
+      {
+         size_t nextMagicWordOffset = scanFor(filemap + loc, filesize - loc,
+            config_.magicBytes.getPtr(), config_.magicBytes.getSize());
+         
+         if (nextMagicWordOffset == MAXSIZE_T)
+         {
+            munmap(filemap, filesize);
+            return filesize;
+         }
+
+         loc += nextMagicWordOffset;
+         magic = BinaryData(filemap + loc, config_.magicBytes.getSize());
+         loc += 4;
+
+         if (loc >= filesize)
+         {
+            munmap(filemap, filesize);
+            return loc;
+         }
+
+         // This is not an error, it just simply hit the padding
+         if (magic == config_.magicBytes)
+            break;
+      }
+
+      szstr = BinaryData(filemap + loc, 4);
+      loc += 4;
+      uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
+
+      if (loc >= filesize)
+         break;
+
+      rawHead = BinaryData(filemap + loc, HEADER_SIZE);
+
+      BtcUtils::getHash256_NoSafetyCheck(rawHead.getPtr(), HEADER_SIZE, hashResult);
+
+      if (hashResult != config_.genesisBlockHash)
+      {
+         try
+         {
+            BlockHeader& bh = blockchain_.getHeaderByHash(hashResult);
+            bh.setBlockFileOffset(loc - 8);
+            bh.setBlockFile(filename);
+            bh.setBlockSize(blksize);
+            bh.setBlockFileNum(fnum);
+
+            loc += blksize;
+            continue;
+         }
+         catch (std::range_error & e)
+         {
+            if (haltAtFirstUnknownBlock)
+            {
+               munmap(filemap, filesize);
+               return loc - 8;
+            }
+         }
+      }
+
+      BlockHeader block;
+      BinaryRefReader brr(rawHead);
+      block.unserialize(brr);
+
+      const uint64_t nTx = BtcUtils::readVarInt(filemap + loc + HEADER_SIZE, 9);
+      BlockHeader& addedBlock = blockchain_.addBlock(hashResult, block);
+
+      // is there any reason I can't just do this to "block"?
+      addedBlock.setBlockFile(filename);
+      addedBlock.setBlockFileNum(fnum);
+      addedBlock.setBlockFileOffset(loc - 8);
+      addedBlock.setNumTx(nTx);
+      addedBlock.setBlockSize(blksize);
+
+      loc += blksize;
+   }
+
+   munmap(filemap, filesize);
+   return loc;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::getAllHeaders()
+{
+   for (uint32_t fnum = 0; fnum < numBlkFiles_; fnum++)
+   {
+      getAllHeadersInFile(fnum, 0);
+   }
+
+   blockchain_.forceOrganize();
 }
 // kate: indent-width 3; replace-tabs on;

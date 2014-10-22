@@ -218,7 +218,8 @@ public:
       appliedToHgt_(0),
       armoryVer_(ARMORY_DB_VERSION),
       armoryType_(ARMORY_DB_WHATEVER),
-      pruneType_(DB_PRUNE_WHATEVER)
+      pruneType_(DB_PRUNE_WHATEVER),
+      topScannedBlkHash_(0)
    {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
@@ -236,7 +237,8 @@ public:
 
    BinaryData      magic_;
    uint32_t        topBlkHgt_;
-   BinaryData      topBlkHash_;
+   BinaryData      topBlkHash_; //commmited in DB
+   BinaryData      topScannedBlkHash_; //commited to SSH
    uint32_t        appliedToHgt_; // only used in BLKDATA DB
    uint32_t        armoryVer_;
    ARMORY_DB_TYPE  armoryType_;

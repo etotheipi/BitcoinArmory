@@ -110,7 +110,10 @@ private:
    {
       auto scrAddrIter = scrAddrMap_.find(scrAddr);
       if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
+      {
+         scrAddrIter->second = blkHgt;
          blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
+      }
    }
 
 protected:

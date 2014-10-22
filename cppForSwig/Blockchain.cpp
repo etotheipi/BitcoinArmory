@@ -18,9 +18,8 @@ void Blockchain::clear()
 {
    headerMap_.clear();
    headersByHeight_.resize(0);
-   topBlockPtr_ = genesisBlockBlockPtr_ = &headerMap_[
-         genesisHash_
-      ];
+   topBlockPtr_ = genesisBlockBlockPtr_ =
+      &headerMap_[genesisHash_];
 }
 
 BlockHeader& Blockchain::addBlock(

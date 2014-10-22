@@ -1078,10 +1078,10 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
             sdbi.appliedToHgt_ = bwbPtr->mostRecentBlockApplied_;
 
             //save top block hash
-            if (bwbPtr->sbhToUpdate_.size() > 1)
+            if (bwbPtr->sbhToUpdate_.size() > 0)
             {
                auto topBlockHeader = bwbPtr->sbhToUpdate_.rbegin();
-               sdbi.topBlkHash_ = (*topBlockHeader)->getBlockHeaderCopy().getThisHash();
+               sdbi.topScannedBlkHash_ = (*topBlockHeader)->getBlockHeaderCopy().getThisHash();
             }
             bwbPtr->iface_->putStoredDBInfo(BLKDATA, sdbi);
          }

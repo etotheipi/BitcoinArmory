@@ -44,6 +44,9 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
    armoryVer_  =                 bitunpack.getBits(4);
    armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
    pruneType_  = (DB_PRUNE_TYPE) bitunpack.getBits(4);
+
+   if (brr.getSizeRemaining() == 32)
+      brr.get_BinaryData(topScannedBlkHash_, 32);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -59,6 +62,9 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    bw.put_uint32_t(topBlkHgt_); // top blk height
    bw.put_uint32_t(appliedToHgt_); // top blk height
    bw.put_BinaryData(topBlkHash_);
+
+   if (topScannedBlkHash_.getSize())
+      bw.put_BinaryData(topScannedBlkHash_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -36,7 +36,6 @@ class TxOut;
 class BlockHeader
 {
    friend class Blockchain;
-   friend class LsmBlockDatabase;
 
 public:
 
@@ -304,7 +303,6 @@ private:
 class TxIn
 {
    friend class BlockDataManager_LevelDB;
-   friend class LsmBlockDatabase;
 
 public:
    TxIn(void) : dataCopy_(0), parentHash_(0), parentHeight_(UINT32_MAX),
@@ -411,7 +409,6 @@ private:
 class TxOut
 {
    friend class BlockDataManager_LevelDB;
-   friend class LsmBlockDatabase;
 
 public:
 
@@ -513,7 +510,6 @@ class Tx
 {
    friend class BtcWallet;
    friend class BlockDataManager_LevelDB;
-   friend class LsmBlockDatabase;
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}

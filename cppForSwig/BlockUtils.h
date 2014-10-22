@@ -197,6 +197,10 @@ private:
    // The replay argument has been temporarily disable since it's not currently
    // being used, and was causing problems instead.
    uint32_t detectCurrentSyncState(bool rebuild, bool initialLoad);
+   void getAllHeaders(void);
+   size_t getAllHeadersInFile(uint32_t fnum, size_t offset, 
+      bool haltAtFirstUnknownBlock = false);
+
 
 public:
    /////////////////////////////////////////////////////////////////////////////
@@ -220,7 +224,7 @@ public:
 
 private:
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
-   uint64_t findOffsetFirstUnrecognized(uint32_t fnum);
+   size_t findOffsetFirstUnrecognized(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
    uint32_t findFirstUnappliedBlock(void);
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
@@ -246,10 +250,6 @@ public:
    //
 
    // These are the high-level methods for reading block files, and indexing
-   // the blockfile data.
-   bool     extractHeadersInBlkFile(
-      uint32_t fnum, uint64_t offset=0
-   );
    uint32_t detectAllBlkFiles(void);
    bool     processNewHeadersInBlkFiles(
       ProgressReporter &prog,
