@@ -50,6 +50,8 @@ def CheckWalletRegistration(func):
       if len(args)>0 and isinstance(args[0],PyBtcWallet):
          if args[0].isRegistered():
             return func(*args, **kwargs)
+         elif 'doRegister' in kwargs and kwargs['doRegister'] == False:
+            return func(*args, **kwargs)
          else:
             raise WalletUnregisteredError
       else:
@@ -393,18 +395,19 @@ class PyBtcWallet(object):
    # was added after the malleability issues cropped up in Feb 2014.  Zero-conf
    # change was always deprioritized, but using --nospendzeroconfchange makes
    # it totally unspendable
-   @CheckWalletRegistration
    def getBalance(self, balType="Spendable"):
-      topBlockHeight = TheBDM.getTopBlockHeight()
-      if balType.lower() in ('spendable','spend'):
-         return self.cppWallet.getSpendableBalance(topBlockHeight, IGNOREZC)
-      elif balType.lower() in ('unconfirmed','unconf'):
-         return self.cppWallet.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
-      elif balType.lower() in ('total','ultimate','unspent','full'):
-         return self.cppWallet.getFullBalance()
+      if self.cppWallet != None and TheBDM.getState() is BDM_BLOCKCHAIN_READY:
+         topBlockHeight = TheBDM.getTopBlockHeight()
+         if balType.lower() in ('spendable','spend'):
+            return self.cppWallet.getSpendableBalance(topBlockHeight, IGNOREZC)
+         elif balType.lower() in ('unconfirmed','unconf'):
+            return self.cppWallet.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
+         elif balType.lower() in ('total','ultimate','unspent','full'):
+            return self.cppWallet.getFullBalance()
+         else:
+            raise TypeError('Unknown balance type! "' + balType + '"')
       else:
-         raise TypeError('Unknown balance type! "' + balType + '"')
-
+         return 0
 
    #############################################################################
    @CheckWalletRegistration

@@ -926,7 +926,10 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
 const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId) 
    throw(std::range_error)
 {
-   if (pageId > getHistoryPageCount())
+   if (!bdvPtr_->isBDMRunning())
+      return LedgerEntry::EmptyLedgerMap_;
+
+   if (pageId >= getHistoryPageCount())
       throw std::range_error("pageID is out of range");
 
    auto getTxio = [this](uint32_t start, uint32_t end, map<BinaryData, TxIOPair>& txioMap)->void

@@ -364,7 +364,6 @@ class BlockDataManager_LevelDB::BDM_ScrAddrFilter : public ScrAddrFilter
 {
    BlockDataManager_LevelDB *const bdm_;
    //0: didn't start, 1: is initializing, 2: done initializing
-   int32_t isRunning_=0;
    
 public:
    BDM_ScrAddrFilter(BlockDataManager_LevelDB *bdm)
@@ -373,16 +372,11 @@ public:
    {
    
    }
-   
-   void setRunning(int32_t running)
-   {
-      isRunning_ = running;
-   }
-   
+      
 protected:
    virtual int32_t bdmIsRunning() const
    {
-      return isRunning_;
+      return bdm_->isRunning_;
    }
    
    virtual void applyBlockRangeToDB(
@@ -1466,7 +1460,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    missingBlockHashes_.clear();
 
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
-   scrAddrData_->setRunning(1);
+   isRunning_ = 1;
 
    SCOPED_TIMER("buildAndScanDatabases");
 
@@ -1632,7 +1626,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    lastTopBlock_ = blockchain_.top().getBlockHeight() + 1;
    allScannedUpToBlk_ = lastTopBlock_;
 
-   scrAddrData_->setRunning(2);
+   isRunning_ = 2;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

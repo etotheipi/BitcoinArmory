@@ -3406,10 +3406,10 @@ class ArmoryMainWindow(QMainWindow):
       """
    #############################################################################      
    def setWalletIsScanning(self, newWallet):
-      
-      newWltID = newWallet.uniqueIDB58
-      newWallet.isEnabled = False
-      self.walletSideScanProgress[newWltID] = 0
+      if TheBDM.getState() in (BDM_BLOCKCHAIN_READY, BDM_SCANNING):
+         newWltID = newWallet.uniqueIDB58
+         newWallet.isEnabled = False
+         self.walletSideScanProgress[newWltID] = 0
             
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):

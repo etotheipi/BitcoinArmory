@@ -172,6 +172,8 @@ private:
 
    Blockchain blockchain_;
 
+   uint32_t isRunning_ = 0;
+
 public:
    bool                               sideScanFlag_ = false;
    
@@ -381,6 +383,8 @@ public:
       function<void(const BinaryData&, double prog, unsigned time)> progress);
 
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
+
+   bool isRunning(void) const { return isRunning_ > 0; }
 };
 
 

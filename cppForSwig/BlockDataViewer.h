@@ -111,6 +111,13 @@ class BlockDataViewer
          getUnpsentTxoutsForAddr160List(
          const vector<BinaryData>&) const throw(std::range_error);
 
+      bool isBDMRunning(void) const 
+      { 
+         if (bdmPtr_ == nullptr)
+            return false;
+         return bdmPtr_->isRunning(); 
+      }
+
    public:
       bool rescanZC_    = false;
       uint32_t refresh_ = 0;

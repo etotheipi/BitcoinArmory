@@ -619,6 +619,8 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant('')
          if col==COL.NumTx: 
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+               return QVariant('n/a')
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             return QVariant( cppAddr.getTxioCountFromSSH())
          if col==COL.ChainIdx:

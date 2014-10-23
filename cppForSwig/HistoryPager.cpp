@@ -17,6 +17,9 @@ map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(
    uint32_t pageId,
    map<BinaryData, TxIOPair>* txioMap)
 {
+   if (pageId >= pages_.size())
+      return LedgerEntry::EmptyLedgerMap_;
+
    currentPage_ = pageId;
    Page& page = pages_[pageId];
 
