@@ -2845,11 +2845,13 @@ def getUnspentTxOutsForAddr160List(addr160List):
             # Have to Skip ROOT
             if addr!='ROOT':
                scrAddrList.append(Hash160ToScrAddr(addr))
-      try:
+      hasUnregisteredScrAddr = False
+      for scrAddr in scrAddrList:
+         hasUnregisteredScrAddr = hasUnregisteredScrAddr or not TheBDM.bdv().scrAddressIsRegistered(scrAddr)
+      if not hasUnregisteredScrAddr:
          utxoList = TheBDM.bdv().getUnpsentTxoutsForAddr160List(scrAddrList)
-      except:
-         raise "Some of these addresses are not unknown to the DB." \
-               " Are you using Full mode?"
+      else:
+         raise AddressUnregisteredError
                
       returnPairs = []
       for utxo in utxoList:

@@ -3482,7 +3482,7 @@ class ArmoryMainWindow(QMainWindow):
 
       
       addr160List = [a.getAddr160() for a in sweepFromAddrObjList]
-      utxoList = getUnspentTxOutsForAddr160List(addr160List, 'Sweep', 0)
+      utxoList = getUnspentTxOutsForAddr160List(addr160List)
       if len(utxoList)==0:
          return [None, 0, 0]
 

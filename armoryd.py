@@ -491,7 +491,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
             # Already checked it's registered, regardless if in a loaded wallet
-            utxoList = getUnspentTxOutsForAddr160List([a160], 'spendable', 0)
+            utxoList = getUnspentTxOutsForAddr160List([a160])
          elif atype==P2SHBYTE:
             # For P2SH, we'll require we have a loaded lockbox
             lbox = self.getLockboxByP2SHAddrStr(addrStr)
@@ -967,7 +967,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          atype,a160 = addrStr_to_hash160(addrStr)
          if atype==ADDRBYTE:
             # Already checked it's registered, regardless if in a loaded wallet
-            utxoList = getUnspentTxOutsForAddr160List([a160], baltype, 0)
+            utxoList = getUnspentTxOutsForAddr160List([a160])
          elif atype==P2SHBYTE:
             # For P2SH, we'll require we have a loaded lockbox
             lbox = self.getLockboxByP2SHAddrStr(addrStr)
