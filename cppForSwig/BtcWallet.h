@@ -128,7 +128,7 @@ public:
 
    void prepareTxOutHistory(uint64_t val);
    void prepareFullTxOutHistory();
-   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val);
+   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX);
 
    vector<const LedgerEntry*>
       getTxLedger(BinaryData const &scrAddr) const;
@@ -163,8 +163,8 @@ public:
 
    uint8_t getMergeFlag(void) { return mergeFlag_; }
 
-   const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
-   vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
+   const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t) throw(std::range_error);
+   vector<LedgerEntry> getHistoryPageAsVector(uint32_t) throw(std::range_error);
    uint32_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
    void needsRefresh(void);

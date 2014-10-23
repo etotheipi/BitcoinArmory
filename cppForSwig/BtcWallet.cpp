@@ -414,7 +414,8 @@ void BtcWallet::prepareTxOutHistory(uint64_t val)
       if (value * 2 < val || count < MIN_UTXO_PER_TXN)
       {
          /***getMoreUTXOs returns true if it found more. As long as one
-         ScrAddrObj, reassess the utxo state, otherwise get out of the loop
+         ScrAddrObj has more, reassess the utxo state, otherwise get out of 
+         the loop
          ***/
 
          bool hasMore = false;
@@ -459,6 +460,12 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
    Only the TxIOPairs (DB keys) are saved in RAM. The full TxOuts are pulled only
    on demand since there is a high probability that at least a few of them will 
    be consumed.
+
+   Grabs at least 100 UTXOs with enough spendable balance to cover 2x val (if 
+   available of course), otherwise returns the full UTXO list for the wallet.
+
+   val defaults to UINT64_MAX, so passing not passing val will result in 
+   grabbing all UTXOs in the wallet
    ***/
 
    prepareTxOutHistory(val);
@@ -916,8 +923,12 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
+const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId) 
+   throw(std::range_error)
 {
+   if (pageId > getHistoryPageCount())
+      throw std::range_error("pageID is out of range");
+
    auto getTxio = [this](uint32_t start, uint32_t end, map<BinaryData, TxIOPair>& txioMap)->void
    { this->getTxioForRange(start, end, txioMap); };
 
@@ -931,15 +942,23 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
+   throw(std::range_error)
 {
-   auto& ledgerMap = getHistoryPage(pageId);
+   try
+   {
+      auto& ledgerMap = getHistoryPage(pageId);
+      
+      vector<LedgerEntry> ledgerVec;
 
-   vector<LedgerEntry> ledgerVec;
+      for (const auto& ledgerPair : ledgerMap)
+         ledgerVec.push_back(ledgerPair.second);
 
-   for (const auto& ledgerPair : ledgerMap)
-      ledgerVec.push_back(ledgerPair.second);
-
-   return ledgerVec;
+      return ledgerVec;
+   }
+   catch (std::range_error &e)
+   {
+      throw e;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

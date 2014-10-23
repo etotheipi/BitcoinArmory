@@ -1067,6 +1067,8 @@ bool LMDBBlockDatabase::getFullUTXOMapForSSH(
    if(!ssh.haveFullHistoryLoaded())
       return false;
 
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
+
    map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
    map<BinaryData, TxIOPair>::iterator iterTxio;
    for(iterSubSSH  = ssh.subHistMap_.begin(); 

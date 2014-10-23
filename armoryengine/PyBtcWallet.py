@@ -321,7 +321,7 @@ class PyBtcWallet(object):
 
       self.lastSyncBlockNum = TheBDM.getTopBlockHeight()
             
-      wltLE = self.cppWallet.getHistoryPageAsVector(0)
+      wltLE = self.getHistoryPage(0)
       for le in wltLE:
          txHash = le.getTxHash()
          if not self.txAddrMap.has_key(txHash):
@@ -428,7 +428,7 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      ledgBlkChain = self.cppWallet.getHistoryPageAsVector(0)
+      ledgBlkChain = self.getHistoryPage(0)
       ledg = []
       ledg.extend(ledgBlkChain)
       return ledg
@@ -489,8 +489,8 @@ class PyBtcWallet(object):
       
       #return full set of unspent TxOuts
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         topBlockHeight = TheBDM.getTopBlockHeight()
-         return self.cppWallet.getFullTxOutList(topBlockHeight);
+         #calling this with no value argument will return the full UTXO list
+         return self.cppWallet.getSpendableTxOutListForValue();
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -3144,6 +3144,14 @@ class PyBtcWallet(object):
          file.write(putStr)
          
       file.close()
+      
+   ###############################################################################
+   @CheckWalletRegistration
+   def getHistoryPage(self, pageID):
+      try:
+         return self.cppWallet.getHistoryPageAsVector(pageID)
+      except:
+         raise 'pageID is out of range'  
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

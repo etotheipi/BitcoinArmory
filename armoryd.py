@@ -500,7 +500,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             # We simply grab the UTXO list for the lbox, both p2sh and multisig
             cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
-            utxoList = cppWallet.getSpendableTxOutList(topBlk, IGNOREZC)
+            utxoList = cppWallet.getSpendableTxOutListForValue()
          else:
             raise NetworkIDError('Addr for the wrong network!')
 
@@ -1321,7 +1321,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # This does not use 'account's like in the Satoshi client
 
       final_tx_list = []
-      ledgerEntries = self.curWlt.cppWallet.getPageHistoryAsVector(from_page)
+      #this should be in a try/catch block, since it will throw if from_page is
+      #out of range
+      ledgerEntries = self.curWlt.getHistoryPage(from_page)
 
       sz = len(ledgerEntries)
       txSet = set([])

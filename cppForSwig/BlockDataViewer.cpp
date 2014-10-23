@@ -816,7 +816,7 @@ void BlockDataViewer::processWalletRegistrationQueue(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> BlockDataViewer::getUnpsentTxoutsForAddr160List(
-   const vector<BinaryData>& scrAddrVec) const
+   const vector<BinaryData>& scrAddrVec) const throw(std::range_error)
 {
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter();
 

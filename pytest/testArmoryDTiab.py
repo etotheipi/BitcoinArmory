@@ -377,7 +377,8 @@ class ArmoryDTiabTest(TiabTest):
 
 
    def testListtransactions(self):
-      txList = self.jsonServer.jsonrpc_listtransactions(100)
+      #takes a history page count now, not an amount of transactions to return
+      txList = self.jsonServer.jsonrpc_listtransactions(0) 
       self.assertTrue(len(txList)>10)
       self.assertEqual(txList[0], {'blockhash': '0000000064a1ad1f15981a713a6ef08fd98f69854c781dc7b8789cc5f678e01f',
                   'blockindex': 1, 'confirmations': 31, 'address': 'mtZ2d1jFZ9YNp3Ku5Fb2u8Tfu3RgimBHAD',

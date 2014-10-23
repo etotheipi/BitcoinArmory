@@ -310,6 +310,8 @@ try
    
    while(pimpl->run)
    {
+      bdm->getScrAddrFilter()->checkForMerge();
+
       if (bdv->hasItemInWalletQueue())
       {
          //this needs to run before side scans

@@ -2845,20 +2845,16 @@ def getUnspentTxOutsForAddr160List(addr160List):
             # Have to Skip ROOT
             if addr!='ROOT':
                scrAddrList.append(Hash160ToScrAddr(addr))
-      hasUnregisteredScrAddr = False
-      for scrAddr in scrAddrList:
-         hasUnregisteredScrAddr = hasUnregisteredScrAddr or not TheBDM.bdv().scrAddressIsRegistered(scrAddr)
-      if not hasUnregisteredScrAddr:
+      
+      try:
          utxoList = TheBDM.bdv().getUnpsentTxoutsForAddr160List(scrAddrList)
-      else:
+      except:
          raise AddressUnregisteredError
                
       returnPairs = []
       for utxo in utxoList:
          a160 = utxo.getRecipientScrAddr();
-         if a160 not in returnPairs:
-            returnPairs[a160] = []
-         returnPairs.a160.append(utxo)
+         returnPairs.append([a160, utxo])
       
       return returnPairs
    

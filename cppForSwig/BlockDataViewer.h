@@ -108,7 +108,8 @@ class BlockDataViewer
       bool hasItemInWalletQueue(void) const;
       void processWalletRegistrationQueue(void);
       vector<UnspentTxOut> 
-         getUnpsentTxoutsForAddr160List(const vector<BinaryData>&) const;
+         getUnpsentTxoutsForAddr160List(
+         const vector<BinaryData>&) const throw(std::range_error);
 
    public:
       bool rescanZC_    = false;
