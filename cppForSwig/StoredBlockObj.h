@@ -211,15 +211,7 @@ public:
 class StoredDBInfo
 {
 public:
-   StoredDBInfo(void) : 
-      magic_(0),
-      topBlkHgt_(0),
-      topBlkHash_(0),
-      appliedToHgt_(0),
-      armoryVer_(ARMORY_DB_VERSION),
-      armoryType_(ARMORY_DB_WHATEVER),
-      pruneType_(DB_PRUNE_WHATEVER),
-      topScannedBlkHash_(0)
+   StoredDBInfo(void)
    {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
@@ -236,13 +228,13 @@ public:
    void pprintOneLine(uint32_t indent=3);
 
    BinaryData      magic_;
-   uint32_t        topBlkHgt_;
+   uint32_t        topBlkHgt_=0;
    BinaryData      topBlkHash_; //commmited in DB
    BinaryData      topScannedBlkHash_; //commited to SSH
-   uint32_t        appliedToHgt_; // only used in BLKDATA DB
-   uint32_t        armoryVer_;
-   ARMORY_DB_TYPE  armoryType_;
-   DB_PRUNE_TYPE   pruneType_;
+   uint32_t        appliedToHgt_=0; // only used in BLKDATA DB
+   uint32_t        armoryVer_=ARMORY_DB_VERSION;
+   ARMORY_DB_TYPE  armoryType_=ARMORY_DB_WHATEVER;
+   DB_PRUNE_TYPE   pruneType_=DB_PRUNE_WHATEVER;
 };
 
 
