@@ -20,6 +20,8 @@ _CppBlockUtils.*
 *.DS_Store
 osxbuild/Armory.app
 osxbuild/env
+osxbuild/workspace
+osxbuild/build-app.log.txt
 
 /ArmoryStandalone/*
 /cppForSwig/libs/*
