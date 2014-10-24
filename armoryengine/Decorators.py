@@ -120,8 +120,11 @@ def singleEntrantMethod(func):
       except AttributeError:
          self.mutex = Lock()
          self.mutex.acquire()
-         
-      rt = func(self, *args, **kwargs)
-      self.mutex.release()
+      try:
+         rt = func(self, *args, **kwargs)
+      except:
+         raise
+      finally:
+         self.mutex.release()
       return rt
    return inner

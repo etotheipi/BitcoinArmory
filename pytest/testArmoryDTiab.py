@@ -26,10 +26,8 @@ TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
 
 # Values related primarily to createlockbox().
-TWO_OF_THREE_LB_NAME = '3U1JQKkD'
-TWO_OF_TWO_LB_NAME = 'p4iZSRhP'
-TWO_OF_TWO_LB_NAME_COMP_1 ='5gpFk6Yp'
-TWO_OF_TWO_LB_NAME_COMP_2 ='zENzyu84'
+TWO_OF_THREE_LB_NAME = 'VoKwnY2t'
+TWO_OF_TWO_LB_NAME = '8Rw6Eg9e'
 GOOD_PK_UNCOMP_1 = '04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0'
 GOOD_PK_COMP_1 = '02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29'
 GOOD_PK_UNCOMP_2 = '0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281'
@@ -159,6 +157,7 @@ class ArmoryDTiabTest(TiabTest):
       self.wltA.unregisterWallet()
       self.wltB.unregisterWallet()
       self.wltC.unregisterWallet()
+      self.resetWalletFiles()
       
 
    def testActiveWallet(self):
@@ -211,12 +210,9 @@ class ArmoryDTiabTest(TiabTest):
 
    def testLockboxMethods(self):
       self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), None)
-      addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wltA, \
-                                                self.wltA.getHighestUsedIndex())
-      addrFromSecondWlt = self.jsonServer.getPKFromWallet(self.wltB, \
-                                                self.wltB.getHighestUsedIndex())
-      addrFromThirdWlt = self.jsonServer.getPKFromWallet(self.wltC, \
-                                                self.wltC.getHighestUsedIndex())
+      addrFromFirstWlt = self.wltA.peekNextUnusedAddr().getPubKey().toHexStr()
+      addrFromSecondWlt = self.wltB.peekNextUnusedAddr().getPubKey().toHexStr()
+      addrFromThirdWlt = self.wltC.peekNextUnusedAddr().getPubKey().toHexStr()
 
       # This test should succeed.
       actualResult1 = self.jsonServer.jsonrpc_createlockbox(2, 3, \
@@ -489,28 +485,33 @@ class ArmoryDTiabTest(TiabTest):
    def testListUnspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
 
-      self.assertEqual(actualResult[0]['amount'], \
-                       EXPECTED_UNSPENT_TX1_BAL)
-      self.assertEqual(actualResult[0]['confirmations'], \
-                       EXPECTED_UNSPENT_TX1_CONF)
-      self.assertEqual(actualResult[0]['txid'], \
-                       EXPECTED_UNSPENT_TX1_HEX)
-      self.assertEqual(actualResult[0]['priority'], \
-                       EXPECTED_UNSPENT_TX1_PRI)
-      self.assertEqual(actualResult[4]['amount'], \
-                       EXPECTED_UNSPENT_TX5_BAL)
-      self.assertEqual(actualResult[4]['confirmations'], \
-                       EXPECTED_UNSPENT_TX5_CONF)
-      self.assertEqual(actualResult[4]['txid'], \
-                       EXPECTED_UNSPENT_TX5_HEX)
-      self.assertEqual(actualResult[4]['priority'], \
-                       EXPECTED_UNSPENT_TX5_PRI)
+      tx1Found = False
+      tx5Found = False
+      for i in range(len(actualResult)):
+         if actualResult[i]['txid'] == EXPECTED_UNSPENT_TX1_HEX:
+            self.assertEqual(actualResult[i]['amount'], \
+                             EXPECTED_UNSPENT_TX1_BAL)
+            self.assertEqual(actualResult[i]['confirmations'], \
+                             EXPECTED_UNSPENT_TX1_CONF)
+            self.assertEqual(actualResult[i]['priority'], \
+                             EXPECTED_UNSPENT_TX1_PRI)
+            tx1Found = True
+         elif actualResult[i]['txid'] == EXPECTED_UNSPENT_TX5_HEX:
+            self.assertEqual(actualResult[i]['amount'], \
+                             EXPECTED_UNSPENT_TX5_BAL)
+            self.assertEqual(actualResult[i]['confirmations'], \
+                             EXPECTED_UNSPENT_TX5_CONF)
+            self.assertEqual(actualResult[i]['priority'], \
+                             EXPECTED_UNSPENT_TX5_PRI)
+            tx5Found = True
+      self.assertTrue(tx1Found)
+      self.assertTrue(tx5Found)
+      
 
 
 
    def testListAddrUnspent(self):
       totStr = '%s,%s' % (TIAB_WLT_1_ADDR_3, TIAB_WLT_1_ADDR_8)
-      totBal = TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8
       actualResult = self.jsonServer.jsonrpc_listaddrunspent(totStr)
 
       self.assertEqual(actualResult['addrbalance'][TIAB_WLT_1_ADDR_3], \
@@ -523,7 +524,6 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(actualResult['numutxo'], 2)
 
 
-   @SkipTest
    def testGetNewAddress(self):
       actualResult = self.jsonServer.jsonrpc_getnewaddress()
       self.assertEqual(actualResult, EXPECTED_TIAB_NEXT_ADDR)

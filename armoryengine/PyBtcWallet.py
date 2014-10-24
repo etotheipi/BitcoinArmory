@@ -716,8 +716,7 @@ class PyBtcWallet(object):
 
       # Let's fill the address pool while we are unlocked
       # It will get a lot more expensive if we do it on the next unlock
-      if doRegisterWithBDM and self.cppWallet != None:
-         self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
+      self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew, doRegister=doRegisterWithBDM)
 
       return self
 
@@ -807,8 +806,7 @@ class PyBtcWallet(object):
 
       # Let's fill the address pool while we are unlocked. It will get a lot
       # more expensive if we do it on the next unlock.
-      if doRegisterWithBDM:
-         self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
+      self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew, doRegister=doRegisterWithBDM)
 
       return self
 
@@ -970,9 +968,8 @@ class PyBtcWallet(object):
 
       # Let's fill the address pool while we are unlocked
       # It will get a lot more expensive if we do it on the next unlock
-      if doRegisterWithBDM:
-         self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew,
-                              Progress=Progress)
+      self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew,
+                              Progress=Progress, doRegister=doRegisterWithBDM)
 
       if self.useEncryption:
          self.lock()
@@ -997,12 +994,12 @@ class PyBtcWallet(object):
 
    #############################################################################
    def peekNextUnusedAddr160(self):
-      try:
-         return self.getAddress160ByChainIndex(self.highestUsedChainIndex+1)
-      except:
-         # Not sure why we'd fail, maybe addrPoolSize==0?
-         return ''
-
+      return self.getAddress160ByChainIndex(self.highestUsedChainIndex+1)
+   
+   #############################################################################
+   def peekNextUnusedAddr(self):
+      return self.addrMap[self.getAddress160ByChainIndex(self.highestUsedChainIndex+1)]
+   
    #############################################################################
    def getNextUnusedAddress(self):
       if self.lastComputedChainIndex - self.highestUsedChainIndex < \
@@ -1019,7 +1016,6 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   @CheckWalletRegistration
    def computeNextAddress(self, addr160=None, isActuallyNew=True, doRegister=True):
       """
       Use this to extend the chain beyond the last-computed address.
@@ -1048,8 +1044,8 @@ class PyBtcWallet(object):
 
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-      if doRegister:
-         self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(new160), \
+      if doRegister and self.isRegistered():
+            self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(new160), \
                                    time0,blk0,time0,blk0)
 
       # For recovery rescans, this method will be called directly by
@@ -1084,12 +1080,13 @@ class PyBtcWallet(object):
                                  doRegister=False))) 
          
       #add addresses in bulk once they are all computed   
-      if doRegister and self.cppWallet:
+      if doRegister and self.isRegistered():
          #isEnabled will be flagged back to True by the callback once it notifies
          #that the wallet has properly loaded the new scrAddr and scanned it
          self.cppWallet.isEnabled = False 
          self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
-            
+
+         
       return self.lastComputedChainIndex
 
    #############################################################################
@@ -2470,7 +2467,6 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   @CheckWalletRegistration
    def importExternalAddressData(self, privKey=None, privChk=None, \
                                        pubKey=None,  pubChk=None, \
                                        addr20=None,  addrChk=None, \
@@ -2543,11 +2539,6 @@ class PyBtcWallet(object):
          LOGWARN('The private key address is already in your wallet!')
          return None
 
-      #if pubKey and not computedPubkey==pubKey:
-         #raise ECDSA_Error('Private and public keys to be imported do not match!')
-      #if addr20 and not computedAddr20==addr20:
-         #raise ECDSA_Error('Supplied address hash does not match key data!')
-
       addr20 = computedAddr20
 
       if self.addrMap.has_key(addr20):
@@ -2593,7 +2584,8 @@ class PyBtcWallet(object):
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
 
-      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(newAddr160), \
+      if self.isRegistered():
+         self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(newAddr160), \
                                    firstTime, firstBlk, lastTime, lastBlk)
 
       # The following line MAY deadlock if this method is called from the BDM

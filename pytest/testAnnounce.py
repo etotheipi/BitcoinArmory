@@ -1,4 +1,5 @@
 import sys
+from twisted.trial._synctest import SkipTest
 sys.path.append('..')
 from pytest.Tiab import TiabTest
 from armoryengine.ALL import *
@@ -24,6 +25,7 @@ class AnnouncementTester(TiabTest):
       self.assertFalse(adf.isDisabled())
       self.assertFalse(adf.atLeastOneSuccess())
 
+   @SkipTest
    def testStart(self):
       adf = AnnounceDataFetcher(forceTestURL, fetchDir=fetchDump)
       adf.setFetchInterval(20)

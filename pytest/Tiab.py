@@ -1,4 +1,5 @@
 import sys
+from twisted.python import filepath
 # This Code chunk has to appear before ArmoryUtils is imported
 # If not, it will run the tests in Mainnet.
 # TODO: Fix the code base so that nothing is started during imports.
@@ -108,6 +109,12 @@ class TiabSession:
          self.clean()
          raise
       self.running = True
+      
+   # Use this to get reset the wallet files
+   # previously run tests don't affect the state of the wallet file.
+   def resetWalletFiles(self):
+      with ZipFile(self.tiabZipPath, "r") as z:
+         z.extractall(self.tiabDirectory,  [fileName for fileName in z.namelist() if fileName.endswith('.wallet')])
 
 TIAB_ZIPFILE_NAME = 'tiab.zip'
 NEED_TIAB_MSG = "This Test must be run with <TBD>. Copy to the test directory. Actual Block Height is "
@@ -168,6 +175,11 @@ class TiabTest(unittest.TestCase):
             raise RuntimeError("Timeout waiting for TheBDM to shutdown.")
       
       self.tiab.clean()
+
+   # Use this to get reset the wallet files
+   # previously run tests don't affect the state of the wallet file.
+   def resetWalletFiles(self):
+      self.tiab.resetWalletFiles()
 
    def verifyBlockHeight(self):
       blockHeight = TheBDM.getTopBlockHeight()

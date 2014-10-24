@@ -1753,21 +1753,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                                             pubKeyMap)
       return usTx.serializeAscii()
 
-
-   #############################################################################
-   # Helper function that gets an uncompressed public key from a wallet, based
-   # on an index value.
-   def getPKFromWallet(self, inWlt, inIdx):
-      retStr = ''
-      try:
-         addr160 = inWlt.getAddress160ByChainIndex(inIdx)
-         retStr = inWlt.addrMap[addr160].getPubKey().toHexStr()
-      except:
-         LOGEXCEPT('Error fetching public key in wlt %s for chain index: %d' % \
-                                             (inWlt.uniqueIDB58, inIdx))
-      return retStr
-
-
    #############################################################################
    # Create a multisig lockbox. The user must specify the number of keys needed
    # to unlock a lockbox, the number of keys in a lockbox, and the exact keys or
@@ -1849,10 +1834,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                # If search item's a pub key, it'll cause a KeyError to be
                # thrown. That's fine. We can catch it and keep on truckin'.
                lbWlt = self.serverWltMap[lockboxItem]
-               lbWltHighestIdx = lbWlt.getHighestUsedIndex()
-               lbWltPK = self.getPKFromWallet(lbWlt, lbWltHighestIdx)
-               addrList.append(lbWltPK)
-               addrName = 'Public key %d from wallet %s' % (lbWltHighestIdx, \
+               addrList.append(lbWlt.getNextUnusedAddress().getPubKey().toHexStr())
+               addrName = 'Public key %d from wallet %s' % (lbWlt.getHighestUsedIndex(), \
                                                             lockboxItem)
                addrNameList.append(addrName)
 

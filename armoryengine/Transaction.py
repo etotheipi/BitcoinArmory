@@ -2812,13 +2812,13 @@ def getUnspentTxOutsForAddr160List(addr160List):
    unspent TxOuts for it.  This can either be for computing its balance, or
    for sweeping the address(es).
 
-   This will return a list of pairs of [addr160, utxoObj]
+   This will return a list of pairs of UTXOs
    This isn't the most efficient method for producing the pairs
 
    NOTE:  At the moment, this only gets STANDARD TxOuts... non-std uses
           a different BDM call
 
-   This method will return null output if the BDM is currently in the
+   This method will return empty list if the BDM is currently in the
    middle of a scan.  You can use waitAsLongAsNecessary=True if you
    want to wait for the previous scan AND the next scan.  Otherwise,
    you can check for bal==-1 and then try again later...
@@ -2850,13 +2850,8 @@ def getUnspentTxOutsForAddr160List(addr160List):
          utxoList = TheBDM.bdv().getUnpsentTxoutsForAddr160List(scrAddrList)
       except:
          raise AddressUnregisteredError
-               
-      returnPairs = []
-      for utxo in utxoList:
-         a160 = utxo.getRecipientScrAddr();
-         returnPairs.append([a160, utxo])
       
-      return returnPairs
+      return utxoList
    
    else:
       return []
