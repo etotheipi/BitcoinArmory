@@ -82,6 +82,11 @@
             Linux:   Install package 'python-twisted'
             Windows: "http://twistedmatrix.com/trac/wiki/Downloads"
 
+   - Python psutil -- process information utility
+            Linux:   Install package 'python2-psutil' or 'python-psutil',
+                     whichever one supports Python 2.6/2.7 on your distro.
+            Windows: https://code.google.com/p/psutil/
+
    - PyQt 4 (for Python 2.X)
             Linux:   Install  "libqtcore4", "libqt4-dev" and "python-qt4"
             Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
