@@ -328,8 +328,9 @@ public:
    bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix=DB_PREFIX_COUNT);
 
    /////////////////////////////////////////////////////////////////////////////
-   void readAllHeaders(map<HashString, BlockHeader>  & headerMap,
-                       map<HashString, StoredHeader> & storedMap);
+   void readAllHeaders(
+      unordered_map<HashString, BlockHeader, BinaryDataHash> & headerMap
+   );
 
    /////////////////////////////////////////////////////////////////////////////
    // When we're not in supernode mode, we're going to need to track only 

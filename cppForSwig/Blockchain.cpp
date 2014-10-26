@@ -334,7 +334,7 @@ double Blockchain::traceChainDown(BlockHeader & bhpStart)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void Blockchain::putBareHeaders(LMDBBlockDatabase *db)
+void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
 {
    /***
    Duplicated block heights (forks and orphans) have to saved to the headers
@@ -352,7 +352,7 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db)
    {
       StoredHeader sbh;
       sbh.createFromBlockHeader(block.second);
-      uint8_t dup = db->putBareHeader(sbh);
+      uint8_t dup = db->putBareHeader(sbh, updateDupID);
       block.second.setDuplicateID(dup);  // make sure headerMap_ and DB agree
    }
 }

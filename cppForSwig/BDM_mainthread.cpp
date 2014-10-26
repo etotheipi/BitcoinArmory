@@ -364,7 +364,7 @@ try
       }
 
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
-      if(prevTopBlk)
+      if(prevTopBlk > 0)
       {
          bdv->scanWallets(prevTopBlk);
 

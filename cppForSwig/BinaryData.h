@@ -1685,5 +1685,16 @@ private:
 
 };
 
+struct BinaryDataHash
+{
+   size_t operator()(const BinaryData &x) const
+   {
+      // use the first size_t bytes of HashString in our hashtable
+      // hash256 should have good even distribution
+      const char *y = x.toCharPtr();
+      return *reinterpret_cast<const size_t*>(y);
+   }
+};
+
 
 #endif

@@ -51,6 +51,8 @@
 
 %ignore readVarInt(BinaryRefReader & brr);
 %ignore BlockDataViewer::blockchain() const;
+%ignore BlockDataManager_LevelDB::readBlockUpdate(const pair<size_t, uint64_t>& headerOffset);
+%ignore BlockDataManager_LevelDB::loadDiskState(const function<void(unsigned, double,unsigned)> &progress);
 
 namespace std
 {

@@ -32,10 +32,10 @@ public:
    
    struct ReorganizationState
    {
-      bool prevTopBlockStillValid;
-      bool hasNewTop;
-      BlockHeader *prevTopBlock;
-      BlockHeader *reorgBranchPoint;
+      bool prevTopBlockStillValid=false;
+      bool hasNewTop=false;
+      BlockHeader *prevTopBlock=nullptr;
+      BlockHeader *reorgBranchPoint=nullptr;
    };
    
    /**
@@ -74,7 +74,7 @@ public:
       return headerMap_;
    }
 
-   void putBareHeaders(LMDBBlockDatabase *db);
+   void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);

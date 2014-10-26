@@ -306,6 +306,12 @@ void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup,
 
    StoredHeader* sbhPtr = new StoredHeader();
    iface_->getStoredHeader(*sbhPtr, hgt, dup);
+   if (sbhPtr->blockHeight_ == UINT32_MAX)
+   {
+      LOGERR << "Failed to load block " << hgt << "," << dup;
+      delete sbhPtr;
+      return;
+   }
    applyBlockToDB(*sbhPtr, scrAddrData);
 
    clearTransactions();

@@ -1148,8 +1148,9 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 //       sorting that is saved in the DB.  But right now, I'm not sure what
 //       that would get us since we are reading all the headers and doing
 //       a fresh organize/sort anyway.
-void LMDBBlockDatabase::readAllHeaders(map<HashString, BlockHeader> & headerMap,
-                                       map<HashString, StoredHeader> & storedMap)
+void LMDBBlockDatabase::readAllHeaders(
+   unordered_map<HashString, BlockHeader, BinaryDataHash> & headerMap
+)
 {
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    
@@ -1180,7 +1181,6 @@ void LMDBBlockDatabase::readAllHeaders(map<HashString, BlockHeader> & headerMap,
       regHead.unserialize(sbh.dataCopy_);
 
       headerMap[sbh.thisHash_] = regHead;
-      storedMap[sbh.thisHash_] = sbh;
 
    } while(ldbIter.advanceAndRead(DB_PREFIX_HEADHASH));
 }

@@ -7052,6 +7052,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    TheBDM.readBlkFileUpdate();
 
    BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   
    uint32_t prevBlock = TheBDM.readBlkFileUpdate();
 
    theBDV->scanWallets(prevBlock);
@@ -7253,7 +7254,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
    // Rebuild on-the-fly
-   TheBDM.doFullRescanRegardlessOfSync([](unsigned, double, unsigned) {});
+   // used to be doFullRescanRegardlessOfSync, but this is a synonym
+   TheBDM.doInitialSyncOnLoad_Rebuild([](unsigned, double, unsigned) {});
 
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -7263,7 +7265,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    
 
-   TheBDM.doSyncIfNeeded([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
    scrobj = wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -7357,7 +7359,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doFullRescanRegardlessOfSync([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad_Rescan([](unsigned, double, unsigned) {});
    theBDV->scanWallets();
    ///////////////////////////////////////////
    
@@ -7423,7 +7425,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doSyncIfNeeded([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
@@ -7439,7 +7441,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doSyncIfNeeded([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
@@ -7974,8 +7976,7 @@ protected:
 TEST_F(BlockUtilsSuper, HeadersOnly)
 {
    EXPECT_EQ(&TheBDM.blockchain().top(), &TheBDM.blockchain().getGenesisBlock());
-   NullProgressReporter np;
-   TheBDM.processNewHeadersInBlkFiles(np, 0);
+   TheBDM.readBlkFileUpdate();
    
    EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 5);
    EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
@@ -7989,8 +7990,7 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 {
    SETLOGLEVEL(LogLvlError);
    EXPECT_EQ(&TheBDM.blockchain().top(), &TheBDM.blockchain().getGenesisBlock());
-   NullProgressReporter np;
-   TheBDM.processNewHeadersInBlkFiles(np, 0);
+   TheBDM.readBlkFileUpdate();
    
    EXPECT_EQ(TheBDM.blockchain().allHeaders().size(), 5);
    EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
@@ -7999,14 +7999,14 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
-   TheBDM.processNewHeadersInBlkFiles(np, 1);
+   TheBDM.readBlkFileUpdate();
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash3A).isMainBranch());
    EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash3 ).isMainBranch());
 
    BtcUtils::copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
-   TheBDM.processNewHeadersInBlkFiles(np, 2);
+   TheBDM.readBlkFileUpdate();
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash3A).isMainBranch());
@@ -8015,7 +8015,7 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
    EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash4 ).isMainBranch());
 
    BtcUtils::copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
-   TheBDM.processNewHeadersInBlkFiles(np, 3);
+   TheBDM.readBlkFileUpdate();
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash5A);

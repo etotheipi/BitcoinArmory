@@ -99,53 +99,21 @@ class BlockDataManager_LevelDB
 private:
    BlockDataManagerConfig config_;
    
+   class BitcoinQtBlockFiles;
+   shared_ptr<BitcoinQtBlockFiles> readBlockHeaders_;
+   
    // This is our permanent link to the two databases used
    LMDBBlockDatabase* iface_;
    
-   // This is for detecting external changes made to the blk0001.dat file
-   vector<string>                     blkFileList_;
-   vector<uint64_t>                   blkFileSizes_; // bytes before this blk
-   vector<uint64_t>                   blkFileCumul_;
-   uint32_t                           numBlkFiles_;
-   uint64_t                           endOfLastBlockByte_;
-
-   // On DB initialization, we start processing here
-   uint32_t                           startHeaderHgt_;
-   uint32_t                           startRawBlkHgt_;
-   uint32_t                           startScanHgt_;
-   uint32_t                           startApplyHgt_;
-
-   // The following blkfile and offsets correspond to the above heights
-   uint32_t                           startHeaderBlkFile_;
-   uint64_t                           startHeaderOffset_;
-   uint32_t                           startRawBlkFile_;
-   uint64_t                           startRawOffset_;
-   uint32_t                           startScanBlkFile_;
-   uint64_t                           startScanOffset_;
-   uint32_t                           startApplyBlkFile_;
-   uint64_t                           startApplyOffset_;
+   pair<size_t, uint64_t> currentHeaderPosition_ = {};
    
-   // set after the blockchain is organized
-   uint32_t                           lastTopBlock_;
-
    // Reorganization details
-
-   bool                               corruptHeadersDB_;
-   int32_t                            lastScannedBlock_;
 
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
 
    BDM_Inject*                      bdmInjectPtr_ = nullptr;
   
-   // Variables that will be updated as the blockchain loads:
-   // can be used to report load progress
-   uint64_t totalBlockchainBytes_;
-   uint64_t bytesReadSoFar_;
-   uint32_t blocksReadSoFar_;
-   uint16_t filesReadSoFar_;
-
-
    // If the BDM is not in super-node mode, then it will be specifically tracking
    // a set of addresses & wallets.  We register those addresses and wallets so
    // that we know what TxOuts to track as we process blockchain data.  And when
@@ -155,7 +123,6 @@ private:
    // comment being written), then we don't have anything to track -- the DB
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
-   uint32_t                           allScannedUpToBlk_; // one past top
 
    // list of block headers that appear to be missing 
    // when scanned by buildAndScanDatabases
@@ -173,6 +140,7 @@ private:
    Blockchain blockchain_;
 
    uint32_t isRunning_ = 0;
+   std::pair<size_t, uint64_t> blkDataPosition_;
 
 public:
    bool                               sideScanFlag_ = false;
@@ -204,15 +172,6 @@ private:
    bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
                               DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER);
 
-   // This figures out where we should start loading headers/rawblocks/scanning
-   // The replay argument has been temporarily disable since it's not currently
-   // being used, and was causing problems instead.
-   uint32_t detectCurrentSyncState(bool rebuild, bool initialLoad);
-   void getAllHeaders(void);
-   size_t getAllHeadersInFile(uint32_t fnum, size_t offset, 
-      bool haltAtFirstUnknownBlock = false);
-
-
 public:
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
@@ -223,24 +182,11 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // These don't actually work while scanning in another thread!? 
    // The getLoadProgress* methods don't seem to update until after scan done
-   uint64_t getTotalBlockchainBytes(void) const {return totalBlockchainBytes_;}
-   uint32_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
-   uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
-   uint32_t getLoadProgressBlocks(void)   const {return blocksReadSoFar_;}
-   uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
-
+   uint64_t getTotalBlockchainBytes() const;
+   uint32_t getTotalBlkFiles()        const;
    
    uint32_t getTopBlockHeightInDB(DB_SELECT db); // testing
    uint32_t getAppliedToHeightInDB(void);
-
-private:
-   vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
-   size_t findOffsetFirstUnrecognized(uint32_t fnum);
-   uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
-   uint32_t findFirstUnappliedBlock(void);
-   pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
-               uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
-
 
    /////////////////////////////////////////////////////////////////////////////
 public:
@@ -256,34 +202,29 @@ public:
                           //uint32_t fileIndex,
                           //uint32_t thisHeaderOffset,
                           //uint32_t blockSize);
-                     
 
-   //
-
-   // These are the high-level methods for reading block files, and indexing
-   uint32_t detectAllBlkFiles(void);
-   bool     processNewHeadersInBlkFiles(
-      ProgressReporter &prog,
-      uint32_t fnumStart=0, uint64_t offset=0
-   );
-   //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
-   void     buildAndScanDatabases(
-      const function<void(unsigned, double,unsigned)>& progress,
-      bool forceRescan=false, 
-      bool forceRebuild=false, 
-      bool skipFetch=false,
-      bool initialLoad=false
-   );
-   void readRawBlocksInFile(ProgressReporter &prog, uint32_t blkFileNum, uint32_t offset);
-   void readRawBlocksInFile(ProgressReporter &prog, uint32_t blockHeight);
-   // These are wrappers around "buildAndScanDatabases"
+   
    void doRebuildDatabases(const function<void(unsigned, double,unsigned)> &progress);
-   void doFullRescanRegardlessOfSync(const function<void(unsigned, double,unsigned)> &progress);
-   void doSyncIfNeeded(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
+   uint32_t readBlkFileUpdate();
+   
+private:
+   void loadDiskState(
+      const function<void(unsigned, double,unsigned)> &progress,
+      bool doRescan=false
+   );
+   void loadBlockData(ProgressReporter &prog, bool updateDupID);
+   void loadBlockHeadersFromDB();
+   pair<pair<size_t, uint64_t>, vector<BlockHeader*> >
+      loadBlockHeadersStartingAt(
+         ProgressReporter &prog,
+         const pair<size_t, uint64_t> &fileAndOffset
+      );
+
+public:
    
    void setNotifyPtr(BDM_Inject* injectPtr) { bdmInjectPtr_ = injectPtr; }
    void notifyMainThread(void) 
@@ -302,11 +243,6 @@ public:
                             uint32_t blk0, uint32_t blk1,
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);
-
-   // When we add new block data, we will need to store/copy it to its
-   // permanent memory location before parsing it.
-   // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
-   uint32_t       readBlkFileUpdate(void);
 private:
    Blockchain::ReorganizationState addNewBlockData(BinaryRefReader & brrRawBlock, 
                                 uint32_t fileIndex0Idx,
