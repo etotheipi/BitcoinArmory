@@ -739,6 +739,12 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
       unserialize(brr, unserTxType_==TX_SER_FRAGGED);
    else
       numTxOut_ = (uint32_t)brr.get_var_int();
+
+   if (brr.getSizeRemaining() == 4)
+   {
+      //this is for ZC tx, as regular Tx don't have custom time stamps
+      unixTime_ = brr.get_uint32_t();
+   }
 }
 
 
@@ -1154,6 +1160,9 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.isCoinbase_     = tx.getTxInCopy(0).isCoinbase();
       }
    }
+
+   //only significant for ZC
+   unixTime_ = tx.getTxTime();
 
    return *this;
 }

@@ -578,7 +578,8 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
+bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
+   bool updateDb)
 {
    /***
    ZC transcations are pushed to the BDM by another thread (usually the thread
@@ -653,12 +654,15 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
          }
       }
 
-      //write ZC in the new thread to guaranty we can get a RW tx
-      auto writeNewZC = [&, this](void)->void
-      { this->updateZCinDB(keysToWrite, keysToDelete); };
+      if (updateDb)
+      {
+         //write ZC in the new thread to guaranty we can get a RW tx
+         auto writeNewZC = [&, this](void)->void
+         { this->updateZCinDB(keysToWrite, keysToDelete); };
 
-      thread writeNewZCthread(writeNewZC);
-      writeNewZCthread.join();
+         thread writeNewZCthread(writeNewZC);
+         writeNewZCthread.join();
+      }
 
       //grab ZC container lock
       while (lock_.fetch_or(1, memory_order_acquire));
@@ -984,5 +988,71 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
          db_->deleteValue(BLKDATA, Key);
    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::loadZeroConfMempool(
+   function<bool(const BinaryData&)> filter)
+{
+   //run this in its own scope so the iter and tx are closed in order to open
+   //RW tx afterwards
+   { 
+      LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+      LDBIter dbIter(db_->getIterator(BLKDATA));
+
+      if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))
+         return;
+
+      do
+      {
+         BinaryDataRef zcKey = dbIter.getKeyRef();
+
+         if (zcKey.getSize() == 7)
+         {
+            //Tx, grab it from DB
+            StoredTx zcStx;
+            db_->getStoredZcTx(zcStx, zcKey);
+
+            //add to newZCMap_
+            Tx& zcTx = newZCMap_[zcKey.getSliceCopy(1, 6)];
+            zcTx = Tx(zcStx.getSerializedTx());
+            zcTx.setTxTime(zcStx.unixTime_);
+         }
+         else if (zcKey.getSize() == 9)
+         {
+            //TxOut, ignore it
+            continue;
+         }
+         else
+         {
+            //shouldn't hit this
+            LOGERR << "Unknown key found in ZC mempool";
+            break;
+         }
+      } while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
+   }
+
+   if (newZCMap_.size())
+   {   
+      //copy newZCmap_ to keep the pre parse ZC map
+      auto oldZCMap = newZCMap_;
+
+      //now parse the new ZC
+      parseNewZC(filter);
+
+      //intersect oldZCMap and txMap_ to figure out the invalidated ZCs
+      vector<BinaryData> keysToWrite, keysToDelete;
+
+      for (const auto& zcTx : oldZCMap)
+      {
+         if (txMap_.find(zcTx.first) == txMap_.end())
+            keysToDelete.push_back(zcTx.first);
+      }
+
+      //no need to run this in a side thread, this code only runs when we have 
+      //full control over the main thread
+      updateZCinDB(keysToWrite, keysToDelete);
+   }
+}
+
 
 // kate: indent-width 3; replace-tabs on;

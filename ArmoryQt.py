@@ -2967,18 +2967,7 @@ class ArmoryMainWindow(QMainWindow):
          wlt.syncWithBlockchainLite()
          
       self.setDashboardDetails()
-      if not self.memPoolInit:
-         mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-         clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.flag')
-         if os.path.exists(clearpoolfile):
-            LOGINFO('clearmempool.flag found.  Clearing memory pool')
-            os.remove(clearpoolfile)
-            if os.path.exists(mempoolfile):
-               os.remove(mempoolfile)
-         #else:
-           # self.checkMemoryPoolCorruption(mempoolfile)
-         TheBDM.bdv().enableZeroConf(mempoolfile.encode('utf-8'))
-         self.memPoolInit = True
+      self.memPoolInit = True
 
       self.createCombinedLedger()
       self.ledgerSize = len(self.combinedLedger)
@@ -2990,9 +2979,6 @@ class ArmoryMainWindow(QMainWindow):
             (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
          # We still need to put together various bits of info.
-
-         self.createCombinedLedger()
-         self.ledgerSize = len(self.combinedLedger)
          if self.netMode==NETWORKMODE.Full:
             LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
             self.lblArmoryStatus.setText(\
@@ -3020,7 +3006,6 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.set('FailedLoadCount', 0)
 
       # This will force the table to refresh with new data
-      self.setDashboardDetails()
       self.updateAnnounceTab()  # make sure satoshi version info is up to date
       self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()

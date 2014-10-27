@@ -1650,6 +1650,7 @@ void LMDBBlockDatabase::putStoredZC(StoredTx & stx, const BinaryData& zcKey)
    // Now add the base Tx entry in the BLKDATA DB.
    BinaryWriter bw;
    stx.serializeDBValue(bw, armoryDbType_, dbPruneType_);
+   bw.put_uint32_t(stx.unixTime_);
    putValue(BLKDATA, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
 
 

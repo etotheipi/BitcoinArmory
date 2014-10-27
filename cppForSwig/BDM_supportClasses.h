@@ -296,7 +296,7 @@ public:
    //mostly a UI helper method
    set<BinaryData> getNewZCByHash(void) const;
 
-   bool parseNewZC(function<bool(const BinaryData&)>);
+   bool parseNewZC(function<bool(const BinaryData&)>, bool updateDb = true);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const;
 
@@ -308,6 +308,8 @@ public:
 
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
+
+   void loadZeroConfMempool(function<bool(const BinaryData&)>);
 };
 
 #endif

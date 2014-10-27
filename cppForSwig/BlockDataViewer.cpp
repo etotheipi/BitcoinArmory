@@ -13,7 +13,6 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 
    zcEnabled_ = false;
    zcLiteMode_ = false;
-   zcFilename_ = "";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -347,41 +346,17 @@ void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::enableZeroConf(string zcFilename, bool zcLite)
+void BlockDataViewer::enableZeroConf()
 {
    SCOPED_TIMER("enableZeroConf");
-   LOGINFO << "Enabling zero-conf tracking " << (zcLite ? "(lite)" : "");
-   zcFilename_ = zcFilename;
+   LOGINFO << "Enabling zero-conf tracking ";
    zcEnabled_ = true;
-   zcLiteMode_ = zcLite;
+   //zcLiteMode_ = zcLite;
 
-   readZeroConfFile(zcFilename_); // does nothing if DNE
-}
+   auto zcFilter = [this](const BinaryData& scrAddr)->bool
+   { return this->bdmPtr_->getScrAddrFilter()->hasScrAddress(scrAddr); };
 
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::readZeroConfFile(string zcFilename)
-{
-   SCOPED_TIMER("readZeroConfFile");
-   uint64_t filesize = BtcUtils::GetFileSize(zcFilename);
-   if (filesize<8 || filesize == FILE_DOES_NOT_EXIST)
-      return;
-
-   ifstream zcFile(zcFilename_.c_str(), ios::in | ios::binary);
-   BinaryData zcData((size_t)filesize);
-   zcFile.read((char*)zcData.getPtr(), filesize);
-   zcFile.close();
-
-   // We succeeded opening the file...
-   BinaryRefReader brr(zcData);
-   while (brr.getSizeRemaining() > 8)
-   {
-      uint64_t txTime = brr.get_uint64_t();
-      size_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr(), brr.getSizeRemaining());
-      BinaryData rawtx(txSize);
-      brr.get_BinaryData(rawtx.getPtr(), txSize);
-      addNewZeroConfTx(rawtx, (uint32_t)txTime, false);
-   }
-   purgeZeroConfPool();
+   zeroConfCont_.loadZeroConfMempool(zcFilter);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -593,7 +568,6 @@ void BlockDataViewer::reset()
    rescanZC_   = false;
    zcEnabled_  = false;
    zcLiteMode_ = false;
-   zcFilename_.clear();
    
    zeroConfCont_.clear();
 

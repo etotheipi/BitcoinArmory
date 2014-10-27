@@ -417,7 +417,8 @@ public:
                     txIndex_(UINT16_MAX),
                     numTxOut_(UINT16_MAX),
                     numBytes_(UINT32_MAX),
-                    fragBytes_(UINT32_MAX) {}
+                    fragBytes_(UINT32_MAX),
+                    unixTime_(0) {}
    
    bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool       isNull(void) { return !isInitialized(); }
@@ -463,6 +464,7 @@ public:
 
    BinaryData           thisHash_;
    uint32_t             lockTime_;
+   uint32_t             unixTime_;
 
    BinaryData           dataCopy_;
    bool                 isFragged_;

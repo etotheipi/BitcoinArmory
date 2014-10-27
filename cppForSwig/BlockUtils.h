@@ -221,7 +221,8 @@ private:
    pair<pair<size_t, uint64_t>, vector<BlockHeader*> >
       loadBlockHeadersStartingAt(
          ProgressReporter &prog,
-         const pair<size_t, uint64_t> &fileAndOffset
+         const pair<size_t, uint64_t> &fileAndOffset,
+         bool noVerbose = true
       );
    void deleteHistories(void);
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);

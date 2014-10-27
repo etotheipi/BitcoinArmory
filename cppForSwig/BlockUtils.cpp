@@ -340,7 +340,7 @@ public:
    {
    }
    
-   void detectAllBlkFiles()
+   void detectAllBlkFiles(bool noVerbose = true)
    {
       unsigned numBlkFiles=0;
       if (blkFiles_.size() > 0)
@@ -373,7 +373,8 @@ public:
       {
          throw runtime_error("Error finding blockchain files (blkXXXX.dat)");
       }
-      LOGINFO << "Total number of blk*.dat files: " << numBlkFiles;
+      if (!noVerbose)
+         LOGINFO << "Total number of blk*.dat files: " << numBlkFiles;
    }
       
    
@@ -459,7 +460,8 @@ public:
          size_t fnum,
          uint64_t offset,
          uint32_t blksize
-      )> &blockDataCallback
+      )> &blockDataCallback,
+      bool noVerbose = true
    ) const
    {
       if (startBlkFile == blkFiles_.size())
@@ -472,13 +474,16 @@ public:
       while (startBlkFile < blkFiles_.size())
       {
          const BlkFile &f = blkFiles_[startBlkFile];
-         finishLocation = readHeadersFromFile(f, startBlockFileOffset, blockDataCallback);
+         finishLocation = readHeadersFromFile(f, 
+            startBlockFileOffset, blockDataCallback, noVerbose);
          startBlockFileOffset = 0;
          startBlkFile++;
       }
-      
-      LOGINFO << "Total blockchain bytes: " 
-         << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
+   
+      if (!noVerbose)
+         LOGINFO << "Total blockchain bytes: " 
+            << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
+
       return { startBlkFile-1, finishLocation };
    }
    
@@ -593,7 +598,8 @@ private:
          size_t fnum,
          uint64_t offset,
          uint32_t blksize
-      )> &blockDataCallback
+      )> &blockDataCallback,
+      bool noVerbose = true
    ) const
    {
       ifstream is(f.path, ios::binary);
@@ -626,7 +632,8 @@ private:
                // I have to start scanning for MagicBytes
                if (!scanFor(is, magicBytes_.getPtr(), magicBytes_.getSize()))
                {
-                  LOGERR << "No more blocks found in file " << f.path;
+                  if(!noVerbose)
+                     LOGERR << "No more blocks found in file " << f.path;
                   break;
                }
                
@@ -894,10 +901,11 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
    BlockDataManager_LevelDB::loadBlockHeadersStartingAt(
       ProgressReporter &prog,
-      const pair<size_t, uint64_t> &fileAndOffset
+      const pair<size_t, uint64_t> &fileAndOffset,
+      bool noVerbose
    )
 {
-   readBlockHeaders_->detectAllBlkFiles();
+   readBlockHeaders_->detectAllBlkFiles(noVerbose);
    
    vector<BlockHeader*> blockHeadersAdded;
    
@@ -933,18 +941,20 @@ pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
          progfilter.advance(totalOffset);
       };
    
-   LOGINFO << "Reading headers and building chain...";
-   LOGINFO << "Starting at block file " << fileAndOffset.first
-      << " offset " << fileAndOffset.second;
-   LOGINFO << "Block height "
-      << blockchain().top().getBlockHeight();
-      
+   if (!noVerbose)
+   {
+      LOGINFO << "Reading headers and building chain...";
+      LOGINFO << "Starting at block file " << fileAndOffset.first
+         << " offset " << fileAndOffset.second;
+      LOGINFO << "Block height "
+         << blockchain().top().getBlockHeight();
+   }
    const pair<size_t, uint64_t> position = readBlockHeaders_->readHeaders(
       fileAndOffset.first, fileAndOffset.second,
-      blockHeaderCallback
+      blockHeaderCallback, noVerbose
    );
    
-   if (totalOffset >0)
+   if (totalOffset > 0 && !noVerbose)
    {
       LOGINFO << "Read " << totalOffset << " bytes";
    }
@@ -1499,7 +1509,9 @@ void BlockDataManager_LevelDB::loadDiskState(
          );
       
       ProgressWithPhase prog(1, progress);
-      loadBlockHeadersStartingAt(prog, headerOffset);
+
+      //pass false to not suppress verbose on initial load
+      loadBlockHeadersStartingAt(prog, headerOffset, false); 
    }
    
    try
@@ -1655,7 +1667,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
    const pair<size_t, uint64_t> &position = loadResult.first;
    if (loadedBlockHeaders.empty())
       return 0;
-   
    
    try
    {

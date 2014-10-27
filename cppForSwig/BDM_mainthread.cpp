@@ -281,6 +281,9 @@ try
             \"<b>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
             callback->run(7, &errorMsg, bdm->missingBlockHashes().size());
          }
+
+         bdv->enableZeroConf();
+
          bdv->scanWallets();
       }
       catch (BDMStopRequest&)

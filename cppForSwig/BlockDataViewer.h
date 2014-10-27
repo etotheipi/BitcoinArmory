@@ -52,9 +52,8 @@ class BlockDataViewer
       
       void pprintRegisteredWallets(void) const;
 
-      void enableZeroConf(string filename, bool zcLite = true);
+      void enableZeroConf();
       void disableZeroConf(void);
-      void readZeroConfFile(string filename);
       void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime,
          bool writeToFile);
       void purgeZeroConfPool(void);
@@ -164,7 +163,6 @@ class BlockDataViewer
       
       bool     zcEnabled_;
       bool     zcLiteMode_;
-      string   zcFilename_;
 
       uint32_t lastScanned_ = 0;
       bool initialized_ = false;
