@@ -1,5 +1,6 @@
 from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import *
+from armoryengine.Script import *
 
 MULTISIG_VERSION = 1
 
