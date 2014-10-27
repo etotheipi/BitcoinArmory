@@ -445,10 +445,6 @@ void LMDBEnv::Transaction::commit()
       lock.lock();
       env->txForThreads_.erase(txnIter);
    }
-   else
-   {
-      lock.lock();
-   }
 }
 
 void LMDBEnv::Transaction::rollback()
