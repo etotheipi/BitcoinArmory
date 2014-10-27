@@ -223,6 +223,8 @@ private:
          ProgressReporter &prog,
          const pair<size_t, uint64_t> &fileAndOffset
       );
+   void deleteHistories(void);
+   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
 
 public:
    
@@ -234,24 +236,10 @@ public:
    }
    bool hasInjectPtr(void) const { return bdmInjectPtr_ != nullptr; }
 
-private:
-   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
-   uint32_t getTopScannedBlock(void) const;
-
-public:
    void applyBlockRangeToDB(ProgressReporter &prog, 
                             uint32_t blk0, uint32_t blk1,
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);
-private:
-   Blockchain::ReorganizationState addNewBlockData(BinaryRefReader & brrRawBlock, 
-                                uint32_t fileIndex0Idx,
-                                uint32_t thisHeaderOffset,
-                                uint32_t blockSize);
-
-
-   void deleteHistories(void);
-public:
 
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
    LMDBBlockDatabase *getIFace(void) {return iface_;}
@@ -273,13 +261,11 @@ public:
 
    ScrAddrFilter* getScrAddrFilter(void) const;
 
-public:
 
    StoredHeader getMainBlockFromDB(uint32_t hgt);
    uint8_t      getMainDupFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
 
-public:
    /////////////////////////////////////////////////////////////////////////////
    // With the blockchain in supernode mode, we can just query address balances
    // and UTXO sets directly.  These will fail if not supernode mode

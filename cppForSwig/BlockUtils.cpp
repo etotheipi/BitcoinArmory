@@ -1978,100 +1978,6 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 */
    
 
-
-////////////////////////////////////////////////////////////////////////////////
-// This method returns the result of our inserting the block
-Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
-                                                BinaryRefReader & brrRawBlock,
-                                                uint32_t fileIndex0Idx,
-                                                uint32_t thisHeaderOffset,
-                                                uint32_t blockSize)
-{
-   SCOPED_TIMER("addNewBlockData");
-   uint8_t const * startPtr = brrRawBlock.getCurrPtr();
-   HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // This used to be in parseNewBlock(...) but relocated here because it's
-   // not duplicated anywhere, and during the upgrade to LevelDB I needed
-   // the code flow to be more linear in order to figure out how to put 
-   // all the pieces together properly.  I may refactor this code out into
-   // its own method again, later
-   if(brrRawBlock.getSizeRemaining() < blockSize || brrRawBlock.isEndOfStream())
-   {
-      throw std::runtime_error("addNewBlockData: Failed to read block data");
-   }
-
-   // Insert the block
-   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
-
-   BlockHeader bl;
-   bl.unserialize(brrRawBlock);
-   HashString hash = bl.getThisHash();
-   
-   BlockHeader &addedBlock = blockchain_.addBlock(hash, bl);
-   const Blockchain::ReorganizationState state = blockchain_.organize();
-   
-   bool updateDupID = true;
-   if (!state.prevTopBlockStillValid)
-      updateDupID = false;
-
-   // Then put the bare header into the DB and get its duplicate ID.
-   StoredHeader sbh;
-   sbh.createFromBlockHeader(addedBlock);
-
-   uint8_t dup = iface_->putBareHeader(sbh, updateDupID);
-   addedBlock.setDuplicateID(dup);
-
-   // Regardless of whether this was a reorg, we have to add the raw block
-   // to the DB, but we don't apply it yet.
-   brrRawBlock.rewind(HEADER_SIZE);
-   addRawBlockToDB(brrRawBlock, updateDupID);
-
-   /* From parseNewBlock but not needed here in the new code
-   // Read the #tx and fill in some header properties
-   uint8_t viSize;
-   uint32_t nTx = (uint32_t)brrRawBlock.get_var_int(&viSize);
-
-   // The file offset of the first tx in this block is after the var_int
-   uint32_t txOffset = thisHeaderOffset + HEADER_SIZE + viSize; 
-
-   // Read each of the Tx
-   //bhptr->txPtrList_.resize(nTx);
-   uint32_t txSize;
-   static vector<uint32_t> offsetsIn;
-   static vector<uint32_t> offsetsOut;
-   static BinaryData hashResult(32);
-
-   for(uint32_t i=0; i<nTx; i++)
-   {
-      // We get a little funky here because I need to avoid ALL unnecessary
-      // copying -- therefore everything is pointers...and confusing...
-      uint8_t const * ptrToRawTx = brrRawBlock.getCurrPtr();
-      
-      txSize = BtcUtils::TxCalcLength(ptrToRawTx, &offsetsIn, &offsetsOut);
-      BtcUtils::getHash256_NoSafetyCheck(ptrToRawTx, txSize, hashResult);
-
-      // Figure out, as quickly as possible, whether this tx has any relevance
-      registeredScrAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
-
-      // Prepare for the next tx.  Manually advance brr since used ptr directly
-      txOffset += txSize;
-      brrRawBlock.advance(txSize);
-   }
-   return true;
-   */
-
-
-   // We actually accessed the pointer directly in this method, without 
-   // advancing the BRR position.  But the outer function expects to see
-   // the new location we would've been at if the BRR was used directly.
-   brrRawBlock.advance(blockSize);
-   return state;
-}
-
-
-
 // This piece may be useful for adding new data, but I don't want to enforce it,
 // yet
 /*
@@ -2215,20 +2121,6 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
 ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 {
    return scrAddrData_.get();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::getTopScannedBlock(void) const
-{
-   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
-
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(BLKDATA, sdbi);
-
-   if (sdbi.appliedToHgt_ > 0)
-      return sdbi.appliedToHgt_ -1;
-
-   return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

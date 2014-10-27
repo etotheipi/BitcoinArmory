@@ -7181,7 +7181,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, CorruptedBlock)
+TEST_F(BlockUtilsBare, DISABLED_CorruptedBlock)
 {
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(scrAddrA_);
@@ -7200,12 +7200,10 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
       BinaryData temp((size_t)srcsz);
       ifstream is(src.c_str(), ios::in  | ios::binary);
       is.read((char*)temp.getPtr(), srcsz);
-      is.close();
       
       ofstream os(dst.c_str(), ios::out | ios::binary);
       os.write((char*)temp.getPtr(), 100);
       os.write((char*)temp.getPtr()+120, srcsz-100-20); // erase 20 bytes
-      os.close();
    }
 
    TheBDM.readBlkFileUpdate();
