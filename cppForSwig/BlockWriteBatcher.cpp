@@ -906,6 +906,11 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    unique_lock<mutex> l(lock_, try_to_lock);
    if (!l.owns_lock())
    {
+      // lock_ is held if commit() is running, but if we have
+      // accumulated too much data we can't return from this function
+      // to accumulate some more, so do a commit() anyway at the end
+      // of this function. lock_ is used as a flag to indicate 
+      // commitThread is running.
       if (!finalCommit && dbUpdateSize_ < UPDATE_BYTES_THRESH * 2)
          return thread();
    }
