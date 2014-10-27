@@ -58,13 +58,10 @@ BtcWallet* BlockDataViewer::registerWallet(
       wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
       newWallet = wltInfo.wallet_;
       
-      //grab mutex
-      walletRegistrationMutex_.lock();      
-
-      walletRegistrationQueue_.push_back(wltInfo);
-      
-      //release mutex
-      walletRegistrationMutex_.unlock();
+      {
+         unique_lock<mutex> l(walletRegistrationMutex_);
+         walletRegistrationQueue_.push_back(wltInfo);
+      }
    }
    else
    {
@@ -126,13 +123,10 @@ BtcWallet* BlockDataViewer::registerLockbox(
       wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
       newLockbox = wltInfo.wallet_;
 
-      //grab mutex
-      walletRegistrationMutex_.lock();
-
-      walletRegistrationQueue_.push_back(wltInfo);
-
-      //release mutex
-      walletRegistrationMutex_.unlock();
+      {
+         unique_lock<mutex> l(walletRegistrationMutex_);
+         walletRegistrationQueue_.push_back(wltInfo);
+      }
    }
    else
    {
@@ -179,10 +173,11 @@ void BlockDataViewer::unregisterWallet(string IDstr)
       wltInfo.type_ = 0;
       wltInfo.wallet_ = wltIter->second;
 
-      walletRegistrationMutex_.lock();
-      walletRegistrationQueue_.push_back(wltInfo);
-      walletRegistrationMutex_.unlock();
-
+      {
+         unique_lock<mutex> l(walletRegistrationMutex_);
+         walletRegistrationQueue_.push_back(wltInfo);
+      }
+      
       bdmPtr_->notifyMainThread();
    }
    else
@@ -208,9 +203,10 @@ void BlockDataViewer::unregisterLockbox(string IDstr)
       wltInfo.type_ = 1;
       wltInfo.wallet_ = wltIter->second;
 
-      walletRegistrationMutex_.lock();
-      walletRegistrationQueue_.push_back(wltInfo);
-      walletRegistrationMutex_.unlock();
+      {
+         unique_lock<mutex> l(walletRegistrationMutex_);
+         walletRegistrationQueue_.push_back(wltInfo);
+      }
 
       bdmPtr_->notifyMainThread();
    }
@@ -748,7 +744,7 @@ bool BlockDataViewer::hasItemInWalletQueue(void) const
 void BlockDataViewer::processWalletRegistrationQueue(void)
 {
    //grab mutex
-   walletRegistrationMutex_.lock();
+   unique_lock<mutex> l(walletRegistrationMutex_);
 
    for (const auto& wltInfo : walletRegistrationQueue_)
    {
@@ -783,9 +779,6 @@ void BlockDataViewer::processWalletRegistrationQueue(void)
    }
 
    walletRegistrationQueue_.clear();
-
-   //release mutex
-   walletRegistrationMutex_.unlock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

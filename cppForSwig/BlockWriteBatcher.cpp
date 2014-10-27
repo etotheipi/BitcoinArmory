@@ -903,13 +903,14 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 ////////////////////////////////////////////////////////////////////////////////
 thread BlockWriteBatcher::commit(bool finalCommit)
 {
-   if (lock_.try_lock() == false)
+   unique_lock<mutex> l(lock_, try_to_lock);
+   if (!l.owns_lock())
    {
       if (!finalCommit && dbUpdateSize_ < UPDATE_BYTES_THRESH * 2)
          return thread();
    }
    else
-      lock_.unlock();
+      l.unlock();
 
    //create a BWB for commit (pass true to the constructor)
    BlockWriteBatcher *bwbSwapPtr = new BlockWriteBatcher(config_, iface_, true);
@@ -958,11 +959,8 @@ thread BlockWriteBatcher::commit(bool finalCommit)
       
    dbUpdateSize_ = 0;
 
-   lock_.lock();
-
+   l.lock();
    thread committhread(commitThread, bwbSwapPtr);
-
-   lock_.unlock();
 
    return committhread;
 }
@@ -1026,7 +1024,7 @@ void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
 void* BlockWriteBatcher::commitThread(void *argPtr)
 {
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
-   bwbPtr->parent_->lock_.lock();
+   unique_lock<mutex> lock(bwbPtr->parent_->lock_);
 
    //create readwrite transactions to apply data to DB
    bwbPtr->txn_.open(&bwbPtr->iface_->dbEnv_, LMDB::ReadWrite);
@@ -1103,7 +1101,7 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    bwbParent->resetTxn_ = true;
    
    //signal DB is ready for new commit
-   bwbParent->lock_.unlock();
+   lock.unlock();
    
    //clean up
    for (auto storedTxPtr : bwbPtr->stxPulledFromDB_)
