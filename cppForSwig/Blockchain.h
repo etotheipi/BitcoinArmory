@@ -73,6 +73,10 @@ public:
    {
       return headerMap_;
    }
+   const map<HashString, BlockHeader>& allHeaders() const
+   {
+      return headerMap_;
+   }
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
 

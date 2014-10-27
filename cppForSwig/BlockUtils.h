@@ -105,7 +105,7 @@ private:
    // This is our permanent link to the two databases used
    LMDBBlockDatabase* iface_;
    
-   pair<size_t, uint64_t> currentHeaderPosition_ = {0, 0};
+   pair<size_t, uint64_t> blkDataPosition_ = {0, 0};
    
    // Reorganization details
 
@@ -140,7 +140,6 @@ private:
    Blockchain blockchain_;
 
    uint32_t isRunning_ = 0;
-   std::pair<size_t, uint64_t> blkDataPosition_;
 
 public:
    bool                               sideScanFlag_ = false;
@@ -221,8 +220,7 @@ private:
    pair<pair<size_t, uint64_t>, vector<BlockHeader*> >
       loadBlockHeadersStartingAt(
          ProgressReporter &prog,
-         const pair<size_t, uint64_t> &fileAndOffset,
-         bool noVerbose = true
+         const pair<size_t, uint64_t> &fileAndOffset
       );
    void deleteHistories(void);
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);

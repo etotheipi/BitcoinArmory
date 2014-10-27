@@ -340,7 +340,7 @@ public:
    {
    }
    
-   void detectAllBlkFiles(bool noVerbose = true)
+   void detectAllBlkFiles()
    {
       unsigned numBlkFiles=0;
       if (blkFiles_.size() > 0)
@@ -373,10 +373,7 @@ public:
       {
          throw runtime_error("Error finding blockchain files (blkXXXX.dat)");
       }
-      if (!noVerbose)
-         LOGINFO << "Total number of blk*.dat files: " << numBlkFiles;
    }
-      
    
    uint64_t totalBlockchainBytes() const { return totalBlockchainBytes_; }
    unsigned numBlockFiles() const { return blkFiles_.size(); }
@@ -388,71 +385,84 @@ public:
          throw std::range_error("block file out of range");
       return blkFiles_[fnum].filesizeCumul;
    }
-
-   pair<size_t, uint64_t> findFileAndOffsetForBlockHgt(
-      const Blockchain &bc, uint32_t hgt
+   
+   // find the location of the first block that is not in @p bc
+   pair<size_t, uint64_t> findFirstUnrecognizedBlockHeader(
+      const Blockchain &bc
    ) const
    {
-      size_t blkfile=0;
+      const map<HashString, BlockHeader> &allHeaders = bc.allHeaders();
       
-      // find the first blockfile that we don't have its first header
-      for(; blkfile < blkFiles_.size(); blkfile++)
-      {
-         try
-         {
-            const BlockHeader &bh = bc.getHeaderByHash(
-               getFirstHash(blkFiles_[blkfile])
-            );
-
-            if(bh.getBlockHeight() >= hgt)
-               break;
-         }
-         catch (...)
-         {
-            break;
-         }
-      }
-
-      if (blkfile > 0) blkfile--;
+      size_t index=0;
       
-      // now find the first first header in this file that we don't have
-      BinaryData magic(4), szstr(4), rawHead(HEADER_SIZE), hashResult(32);
-      ifstream is(blkFiles_[blkfile].path, ios::binary);
-      uint64_t loc = 0;
-      while(!is.eof())
+      for (; index < blkFiles_.size(); index++)
       {
-         is.read(magic.getCharPtr(), 4);
-         if(is.eof()) break;
-         if(magic!= magicBytes_)
-            break;
+         const BinaryData hash = getFirstHash(blkFiles_[index]);
 
-         is.read(szstr.getCharPtr(), 4);
-         uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
-         if(is.eof()) break;
-
-         is.read(rawHead.getCharPtr(), HEADER_SIZE); 
-         BtcUtils::getHash256_NoSafetyCheck(rawHead.getPtr(), 
-                                          HEADER_SIZE, 
-                                          hashResult);
-
-         try
-         {
-            const BlockHeader &bh = bc.getHeaderByHash(hashResult);
+         if (allHeaders.find(hash) == allHeaders.end())
+         { // not found in this file
+            if (index == 0)
+               return { 0, 0 };
             
-            if(bh.getBlockHeight() >= hgt)
-               break;
+            index--;
          }
-         catch (...)
-         {
-            break;
-         }
-         loc += blksize + 8;
-         is.seekg(blksize - HEADER_SIZE, ios::cur);
+      }
+      
+      if (index == 0)
+         return { 0, 0 };
+      index--;
+      
+      // ok, now "index" is for the last blkfile that we found a header in
+      // now lets linearly search this file until we find an unrecognized blk
+      
+      pair<size_t, uint64_t> foundAtPosition{ 0, 0 };
+      
+      class StopReading : public std::exception
+      {
+      };
+      
+      const auto stopIfBlkHeaderRecognized =
+      [&allHeaders, &foundAtPosition] (
+         const BinaryData &blockheader,
+         size_t fnum,
+         uint64_t offset,
+         uint32_t blksize
+      )
+      {
+         // always set our position so that eventually it's at the end
+         foundAtPosition = { fnum, offset };
+         
+         BlockHeader block;
+         BinaryRefReader brr(blockheader);
+         block.unserialize(brr);
+         
+         const HashString blockhash = block.getThisHash();
+         if (allHeaders.find(blockhash) == allHeaders.end())
+            throw StopReading();
+      };
+      
+      try
+      {
+         readHeadersFromFile(
+            blkFiles_[index],
+            0,
+            stopIfBlkHeaderRecognized
+         );
+         
+      }
+      catch (StopReading&)
+      {
+         // we're fine
       }
 
-      return { blkfile, loc };
+      // but we never find the genesis block, because
+      // it always appears in Blockchain even if unloaded, and
+      // we need to load it
+      if (foundAtPosition.first == 0 && foundAtPosition.second==293)
+         return { 0, 0 };
+      return foundAtPosition;
    }
-   
+
    std::pair<size_t, uint64_t> readHeaders(
       size_t startBlkFile, uint64_t startBlockFileOffset,
       const function<void(
@@ -460,8 +470,7 @@ public:
          size_t fnum,
          uint64_t offset,
          uint32_t blksize
-      )> &blockDataCallback,
-      bool noVerbose = true
+      )> &blockDataCallback
    ) const
    {
       if (startBlkFile == blkFiles_.size())
@@ -475,15 +484,10 @@ public:
       {
          const BlkFile &f = blkFiles_[startBlkFile];
          finishLocation = readHeadersFromFile(f, 
-            startBlockFileOffset, blockDataCallback, noVerbose);
+            startBlockFileOffset, blockDataCallback);
          startBlockFileOffset = 0;
          startBlkFile++;
       }
-   
-      if (!noVerbose)
-         LOGINFO << "Total blockchain bytes: " 
-            << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
-
       return { startBlkFile-1, finishLocation };
    }
    
@@ -598,8 +602,7 @@ private:
          size_t fnum,
          uint64_t offset,
          uint32_t blksize
-      )> &blockDataCallback,
-      bool noVerbose = true
+      )> &blockDataCallback
    ) const
    {
       ifstream is(f.path, ios::binary);
@@ -632,8 +635,6 @@ private:
                // I have to start scanning for MagicBytes
                if (!scanFor(is, magicBytes_.getPtr(), magicBytes_.getSize()))
                {
-                  if(!noVerbose)
-                     LOGERR << "No more blocks found in file " << f.path;
                   break;
                }
                
@@ -898,14 +899,14 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
    delete iface_;
 }
 
+// returns where we left off and the blockheaders
 pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
    BlockDataManager_LevelDB::loadBlockHeadersStartingAt(
       ProgressReporter &prog,
-      const pair<size_t, uint64_t> &fileAndOffset,
-      bool noVerbose
+      const pair<size_t, uint64_t> &fileAndOffset
    )
 {
-   readBlockHeaders_->detectAllBlkFiles(noVerbose);
+   readBlockHeaders_->detectAllBlkFiles();
    
    vector<BlockHeader*> blockHeadersAdded;
    
@@ -941,23 +942,10 @@ pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
          progfilter.advance(totalOffset);
       };
    
-   if (!noVerbose)
-   {
-      LOGINFO << "Reading headers and building chain...";
-      LOGINFO << "Starting at block file " << fileAndOffset.first
-         << " offset " << fileAndOffset.second;
-      LOGINFO << "Block height "
-         << blockchain().top().getBlockHeight();
-   }
    const pair<size_t, uint64_t> position = readBlockHeaders_->readHeaders(
       fileAndOffset.first, fileAndOffset.second,
-      blockHeaderCallback, noVerbose
+      blockHeaderCallback
    );
-   
-   if (totalOffset > 0 && !noVerbose)
-   {
-      LOGINFO << "Read " << totalOffset << " bytes";
-   }
    
    return { position, blockHeadersAdded };
 }
@@ -1442,6 +1430,9 @@ void BlockDataManager_LevelDB::loadDiskState(
    {
       throw runtime_error("No blockfiles could be found!");
    }
+   LOGINFO << "Total number of blk*.dat files: " << readBlockHeaders_->numBlockFiles();
+   LOGINFO << "Total blockchain bytes: " 
+      << BtcUtils::numToStrWCommas(readBlockHeaders_->totalBlockchainBytes());
    
    //pull last scanned blockhash from sdbi
    StoredDBInfo sdbi;
@@ -1488,30 +1479,26 @@ void BlockDataManager_LevelDB::loadDiskState(
    }
    
    // find where we left off
-   {
-      StoredDBInfo sdbiB;
-      iface_->getStoredDBInfo(BLKDATA, sdbiB);
-      uint32_t hgt = sdbiB.topBlkHgt_ == 0 ? 0 : (sdbiB.topBlkHgt_+1);
-      
-      blkDataPosition_
-         = readBlockHeaders_->findFileAndOffsetForBlockHgt(
-            blockchain(), hgt
-         );
-      
-   }
-
+   // here in loadDiskState, this value is used to read the headers 
+   // and then again in loadBlockData.
+   // loadBlockData then updates blkDataPosition_ again
+   blkDataPosition_
+      = readBlockHeaders_->findFirstUnrecognizedBlockHeader(
+         blockchain()
+      );
+   LOGINFO << "Left off at file " << blkDataPosition_.first
+      << ", offset " << blkDataPosition_.second;
    
+   LOGINFO << "Reading headers and building chain...";
+   LOGINFO << "Starting at block file " << blkDataPosition_.first
+      << " offset " << blkDataPosition_.second;
+   LOGINFO << "Block height "
+      << blockchain().top().getBlockHeight();
+      
    // now load the new headers found in the blkfiles
    {
-      const pair<size_t, uint64_t> headerOffset
-         = readBlockHeaders_->findFileAndOffsetForBlockHgt(
-            blockchain(), blockchain().top().getBlockHeight()
-         );
-      
       ProgressWithPhase prog(1, progress);
-
-      //pass false to not suppress verbose on initial load
-      loadBlockHeadersStartingAt(prog, headerOffset, false); 
+      loadBlockHeadersStartingAt(prog, blkDataPosition_);
    }
    
    try
@@ -1605,11 +1592,10 @@ void BlockDataManager_LevelDB::loadDiskState(
       CLEANUP_ALL_TIMERS();
       LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
    }   
-   currentHeaderPosition_ = readBlockHeaders_->findFileAndOffsetForBlockHgt(
-         blockchain(),
-         blockchain().top().getBlockHeight()
-      );
    
+   LOGINFO << "Finished loading at file " << blkDataPosition_.first
+      << ", offset " << blkDataPosition_.second;
+      
    isRunning_ = 2;
 }
 
@@ -1657,7 +1643,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
    uint32_t prevTopBlk = blockchain_.top().getBlockHeight()+1;
    
    const pair<size_t, uint64_t> headerOffset
-      = currentHeaderPosition_;
+      = blkDataPosition_;
    NullProgressReporter prog;
    
    const pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
@@ -1723,7 +1709,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
       LOGERR << "Error adding block data: " << e.what();
    }
    
-   currentHeaderPosition_ = position;
+   blkDataPosition_ = position;
    return prevTopBlk;
 }
 
