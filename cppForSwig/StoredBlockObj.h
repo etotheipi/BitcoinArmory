@@ -43,7 +43,8 @@ enum DB_PREFIX
   DB_PREFIX_SCRIPT,
   DB_PREFIX_UNDODATA,
   DB_PREFIX_TRIENODES,
-  DB_PREFIX_COUNT
+  DB_PREFIX_COUNT,
+  DB_PREFIX_ZCDATA
 };
 
 // In ARMORY_DB_PARTIAL and LITE, we may not store full tx, but we will know 
@@ -351,8 +352,9 @@ public:
    void unserialize(BinaryRefReader & brr);
 
    void       unserializeDBValue(BinaryRefReader &  brr);
-   void         serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-      bool forceSaveSpent=false) const;
+   void       serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, 
+                               DB_PRUNE_TYPE pruneType,
+                               bool forceSaveSpent=false) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key);

@@ -394,10 +394,13 @@ uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& addr) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::prepareTxOutHistory(uint64_t val)
+void BtcWallet::prepareTxOutHistory(uint64_t val, bool ignoreZC)
 {
    uint64_t value;
    uint32_t count;
+
+   auto spentByZC = [this](const BinaryData& dbkey)->bool
+   { return this->bdvPtr_->isTxOutSpentByZC(dbkey); };
 
    while (1)
    {
@@ -410,7 +413,7 @@ void BtcWallet::prepareTxOutHistory(uint64_t val)
          count += scrAddr.second.getLoadedTxOutsCount();
       }
 
-      //grab at least MIN_UTXO_PER_TXN to cover for twice the requested value
+      //grab at least MIN_UTXO_PER_TXN and cover for twice the requested value
       if (value * 2 < val || count < MIN_UTXO_PER_TXN)
       {
          /***getMoreUTXOs returns true if it found more. As long as one
@@ -420,23 +423,50 @@ void BtcWallet::prepareTxOutHistory(uint64_t val)
 
          bool hasMore = false;
          for (auto& scrAddr : scrAddrMap_)
-            hasMore |= scrAddr.second.getMoreUTXOs();
+            hasMore |= scrAddr.second.getMoreUTXOs(spentByZC);
 
-         if (hasMore == false)
-            return;
+         if (!hasMore)
+            break;
       }
-      else return;
    } 
+
+   if (value * 2 < val || count < MIN_UTXO_PER_TXN)
+   {
+      if (ignoreZC)
+         return;
+
+      auto isZcFromWallet = [this](const BinaryData& zcKey)->bool
+      {
+         const auto& spentSAforZCKey = bdvPtr_->getSpentSAforZCKey(zcKey);
+
+         for (const auto& spentSA : spentSAforZCKey)
+         {
+            if (this->hasScrAddress(spentSA))
+               return true;
+         }
+
+         return false;
+      };
+
+      for (auto& scrAddr : scrAddrMap_)
+      {
+         scrAddr.second.addZcUTXOs(bdvPtr_->getZCutxoForScrAddr(
+            scrAddr.second.getScrAddr()), isZcFromWallet);
+      }
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::prepareFullTxOutHistory()
+void BtcWallet::prepareFullTxOutHistory(bool ignoreZC)
 {
+   auto spentByZC = [this](BinaryData dbkey)->bool
+   { return this->bdvPtr_->isTxOutSpentByZC(dbkey); };
+
    while (1)
    {
       bool hasMore = false;
       for (auto& scrAddr : scrAddrMap_)
-         hasMore |= scrAddr.second.getMoreUTXOs();
+         hasMore |= scrAddr.second.getMoreUTXOs(spentByZC);
 
       if (hasMore == false)
          return;
@@ -451,7 +481,8 @@ void BtcWallet::resetTxOutHistory()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
+   bool ignoreZC)
 {
    /***
    Only works with DB so it naturally ignores ZC 
@@ -468,7 +499,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
    grabbing all UTXOs in the wallet
    ***/
 
-   prepareTxOutHistory(val);
+   prepareTxOutHistory(val, ignoreZC);
    LMDBBlockDatabase *db = bdvPtr_->getDB();
 
    //start a RO txn to grab the txouts from DB
@@ -490,7 +521,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
    }
 
    //Shipped a list of TxOuts, time to reset the entire TxOut history, since 
-   //dont know if any TxOut will be spent
+   //we dont know if any TxOut will be spent
 
    resetTxOutHistory();
    return utxoList;
@@ -528,7 +559,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
          const TxIOPair & txio = tio.second;
 
          // It's only outgoing if it has a TxIn
-         if (!txio.hasTxIn())
+         if (!txio.hasTxIn() || txio.hasTxInZC())
             continue;
 
          Tx thisTx = txio.getTxRefOfInput().attached(bdvPtr_->getDB()).getTxCopy();
@@ -644,13 +675,26 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
       ZCtxioMap = bdvPtr_->getFullZeroConfTxIOMap();
    }
 
+   auto isZcFromWallet = [this](const BinaryData& zcKey)->bool
+   {
+      const auto& spentSAforZCKey = bdvPtr_->getSpentSAforZCKey(zcKey);
+
+      for (const auto& spentSA : spentSAforZCKey)
+      {
+         if (this->hasScrAddress(spentSA))
+            return true;
+      }
+
+      return false;
+   };
+
    for (auto& scrAddrTxio : ZCtxioMap)
    {
       map<BinaryData, ScrAddrObj>::iterator scrAddr = 
 	      scrAddrMap_.find(scrAddrTxio.first);
 
       if (scrAddr != scrAddrMap_.end())
-         scrAddr->second.scanZC(scrAddrTxio.second);
+         scrAddr->second.scanZC(scrAddrTxio.second, isZcFromWallet);
    }
 }
 

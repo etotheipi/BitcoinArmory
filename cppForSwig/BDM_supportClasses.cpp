@@ -377,6 +377,8 @@ void ScrAddrFilter::buildSideScanData(shared_ptr<BtcWallet> wltPtr)
 ///////////////////////////////////////////////////////////////////////////////
 //ZeroConfContainer Methods
 ///////////////////////////////////////////////////////////////////////////////
+map<BinaryData, TxIOPair> ZeroConfContainer::emptyTxioMap_;
+
 BinaryData ZeroConfContainer::getNewZCkey()
 {
    uint32_t newId = topId_.fetch_add(1, memory_order_relaxed);
@@ -453,6 +455,8 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    map<HashString, HashString> txHashToDBKey;
    map<BinaryData, Tx>           txMap;
    map<HashString, map<BinaryData, TxIOPair> >  txioMap;
+   keyToSpentScrAddr_.clear();
+   txOutsSpentByZC_.clear();
 
    LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
 
@@ -493,6 +497,22 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
          }
       }
    }
+
+   //build the set of invalidated zc dbKeys and delete them from db
+   vector<BinaryData> keysToWrite, keysToDelete;
+
+   for (auto& tx : txMap_)
+   {
+      if (txMap.find(tx.first) == txMap.end())
+         keysToDelete.push_back(tx.first);
+   }
+
+   auto delFromDB = [&, this](void)->void
+   { this->updateZCinDB(keysToWrite, keysToDelete); };
+
+   //run in dedicated thread to make sure we can get a RW tx
+   thread delFromDBthread(delFromDB);
+   delFromDBthread.join();
 
    //intersect with current container map
    for (const auto& saMapPair : txioMap_)
@@ -591,6 +611,8 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
 
    while (1)
    {
+      vector<BinaryData> keysToWrite, keysToDelete;
+
       for (const auto& newZCPair : zcMap)
       {
          nProcessed++;
@@ -612,6 +634,8 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
             {
                txHashToDBKey_[txHash] = newZCPair.first;
                txMap_[newZCPair.first] = newZCPair.second;
+               
+               keysToWrite.push_back(newZCPair.first);
 
                for (const auto& saTxio : newTxIO)
                {
@@ -628,6 +652,13 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter)
             }
          }
       }
+
+      //write ZC in the new thread to guaranty we can get a RW tx
+      auto writeNewZC = [&, this](void)->void
+      { this->updateZCinDB(keysToWrite, keysToDelete); };
+
+      thread writeNewZCthread(writeNewZC);
+      writeNewZCthread.join();
 
       //grab ZC container lock
       while (lock_.fetch_or(1, memory_order_acquire));
@@ -710,7 +741,7 @@ map<BinaryData, map<BinaryData, TxIOPair> >
 ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
    const BinaryData & ZCkey, uint32_t txtime, 
    function<bool(const BinaryData&)> filter, 
-   bool withSecondOrderMultisig) const
+   bool withSecondOrderMultisig)
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -748,6 +779,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          BinaryData opZcKey;
          if (getKeyForTxHash(op.getTxHash(), opZcKey))
          {
+
             TxRef outPointRef(opZcKey);
             uint16_t outPointId = op.getTxOutIndex();
             TxIOPair txio(outPointRef, outPointId,
@@ -763,9 +795,14 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
             txio.setValue(chainedTxOut.getValue());
             txio.setTxTime(txtime);
 
-            auto& key_txioPair = processedTxIO[chainedTxOut.getScrAddressStr()];
-
+            BinaryData spentSA = chainedTxOut.getScrAddressStr();
+            auto& key_txioPair = processedTxIO[spentSA];
             key_txioPair[txio.getDBKeyOfOutput()] = txio;
+            
+            auto& wltIdVec = keyToSpentScrAddr_[ZCkey];
+            wltIdVec.push_back(spentSA);
+            
+            txOutsSpentByZC_.insert(txio.getDBKeyOfOutput());
             continue;
          }
       }
@@ -794,8 +831,12 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
                txio.setTxTime(txtime);
 
                auto& key_txioPair = processedTxIO[sa];
+               key_txioPair[opKey] = txio;
 
-               key_txioPair[txio.getDBKeyOfOutput()] = txio;
+               auto& wltIdVec = keyToSpentScrAddr_[ZCkey];
+               wltIdVec.push_back(sa);
+
+               txOutsSpentByZC_.insert(opKey);
             }
          }
       }
@@ -863,6 +904,85 @@ void ZeroConfContainer::clear()
    newTxioMap_.clear();
 
    lock_.store(0, memory_order_release);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ZeroConfContainer::isTxOutSpentByZC(const BinaryData& dbkey) 
+   const
+{
+   if (txOutsSpentByZC_.find(dbkey) != txOutsSpentByZC_.end())
+      return true;
+
+   return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+const map<BinaryData, TxIOPair>& ZeroConfContainer::getZCforScrAddr(
+   BinaryData scrAddr) const
+{
+   auto saIter = txioMap_.find(scrAddr);
+
+   if (ITER_IN_MAP(saIter, txioMap_))
+      return saIter->second;
+
+   return emptyTxioMap_;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+const vector<BinaryData>& ZeroConfContainer::getSpentSAforZCKey(
+   const BinaryData& zcKey) const
+{
+   auto iter = keyToSpentScrAddr_.find(zcKey);
+   return iter->second;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite, 
+   const vector<BinaryData>& keysToDelete)
+{
+   //should run in its own thread to make sure we can get a write tx
+   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadWrite);
+
+   for (auto& key : keysToWrite)
+   {
+      StoredTx zcTx;
+      zcTx.createFromTx(txMap_[key], true, true);
+      db_->putStoredZC(zcTx, key);
+   }
+
+   for (auto& key : keysToDelete)
+   {
+      BinaryData keyWithPrefix;
+      if (key.getSize() == 6)
+      {
+         keyWithPrefix.resize(7);
+         uint8_t* keyptr = keyWithPrefix.getPtr();
+         keyptr[0] = DB_PREFIX_ZCDATA;
+         memcpy(keyptr + 1, key.getPtr(), 6);
+      }
+      else
+         keyWithPrefix = key;
+
+      LDBIter dbIter(db_->getIterator(BLKDATA));
+
+      if (!dbIter.seekTo(keyWithPrefix))
+         continue;
+
+      vector<BinaryData> ktd;
+
+      do
+      {
+         BinaryDataRef thisKey = dbIter.getKeyRef();
+         if (!thisKey.startsWith(keyWithPrefix))
+            break;
+
+         ktd.push_back(thisKey);
+      } 
+      while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
+
+      for (auto Key : ktd)
+         db_->deleteValue(BLKDATA, Key);
+   }
 }
 
 // kate: indent-width 3; replace-tabs on;

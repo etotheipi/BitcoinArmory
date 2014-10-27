@@ -462,13 +462,12 @@ class PyBtcWallet(object):
    #############################################################################
    @CheckWalletRegistration
    def getUTXOListForSpendVal(self, valToSpend):
-      """ Returns UnspentTxOut/C++ objects """
-      #these call currently always ignores ZC as the underlying C++ methods 
-      #only grab UTXOs from the DB
+      """ Returns UnspentTxOut/C++ objects 
+      returns a set of unspent TxOuts to cover for the value to spend 
+      """
       
-      #return a set of unspent TxOuts to cover for the value to spend 
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         return self.cppWallet.getSpendableTxOutListForValue(valToSpend) #IGNOREZC);
+         return self.cppWallet.getSpendableTxOutListForValue(valToSpend, IGNOREZC);
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -476,13 +475,10 @@ class PyBtcWallet(object):
    #############################################################################
    @CheckWalletRegistration
    def getFullUTXOList(self):
-      """ Returns UnspentTxOut/C++ objects """
-      #these call currently always ignores ZC as the underlying C++ methods 
-      #only grab UTXOs from the DB
+      """ Returns UnspentTxOut/C++ objects
       
-      """
       DO NOT USE THIS CALL UNLESS NECESSARY.
-      This call returns *ALL* of the wallet's UTXO. If your intent is to get
+      This call returns *ALL* of the wallet's UTXOs. If your intent is to get
       UTXOs to spend coins, use getUTXOListForSpendVal and pass the amount you 
       want to spend as the argument.
       
@@ -493,7 +489,7 @@ class PyBtcWallet(object):
       #return full set of unspent TxOuts
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          #calling this with no value argument will return the full UTXO list
-         return self.cppWallet.getSpendableTxOutListForValue();
+         return self.cppWallet.getSpendableTxOutListForValue(IGNOREZC);
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -502,11 +498,10 @@ class PyBtcWallet(object):
    #############################################################################
    @CheckWalletRegistration
    def getUTXOListForBlockRange(self, startBlock, endBlock):
-      """ Returns UnspentTxOut/C++ objects """
-      #these call currently always ignores ZC as the underlying C++ methods 
-      #only grab UTXOs from the DB
+      """ Returns UnspentTxOut/C++ objects 
       
-      #return all unspent TxOuts in the block range
+      returns all unspent TxOuts in the block range
+      """
       raise NotImplemented
 
    #############################################################################

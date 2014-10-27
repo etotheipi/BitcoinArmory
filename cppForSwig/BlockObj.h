@@ -513,7 +513,7 @@ class Tx
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}
-   explicit Tx(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size);       }
+   explicit Tx(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size); }
    explicit Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    explicit Tx(BinaryData const & str)    { unserialize(str);       }
    explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
@@ -687,7 +687,7 @@ public:
    { txHashOfOutput_ = txHash; }
 
    TxOut getTxOutCopy(LMDBBlockDatabase *db) const;
-   TxIn getTxInCopy(LMDBBlockDatabase *db) const;
+   TxIn  getTxInCopy (LMDBBlockDatabase *db) const;
 
    bool setTxIn   (TxRef  txref, uint32_t index);
    bool setTxIn   (BinaryData dbKey8B);
@@ -803,7 +803,8 @@ class UnspentTxOut
 {
 public:
    UnspentTxOut(void);
-   UnspentTxOut(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum) { init(db, txout, blknum);}
+   UnspentTxOut(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum) 
+      { init(db, txout, blknum);}
 
 
    UnspentTxOut(BinaryData const & hash, uint32_t outIndex, uint32_t height, 

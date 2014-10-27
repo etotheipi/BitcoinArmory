@@ -57,11 +57,9 @@ private:
       {}
 
       const map<BinaryData, TxIOPair>& getUTXOs(void) const
-      {
-         return utxoList_;
-      }
+      { return utxoList_; }
 
-      bool fetchMoreUTXO(void)
+      bool fetchMoreUTXO(function<bool(const BinaryData&)> spentByZC)
       {
          //return true if more UTXO were found, false otherwise
          if (topBlock_ < scrAddrObj_->bc_->top().getBlockHeight())
@@ -72,7 +70,7 @@ private:
             {
                rangeTop = scrAddrObj_->hist_.getRangeForHeightAndCount(
                                                 topBlock_, UTXOperFetch);
-               count += fetchMoreUTXO(topBlock_, rangeTop);
+               count += fetchMoreUTXO(topBlock_, rangeTop, spentByZC);
             } 
             while (count < UTXOperFetch && rangeTop != UINT32_MAX);
 
@@ -83,7 +81,8 @@ private:
          return false;
       }
 
-      uint32_t fetchMoreUTXO(uint32_t start, uint32_t end)
+      uint32_t fetchMoreUTXO(uint32_t start, uint32_t end,
+         function<bool(const BinaryData&)> spentByZC)
       {
          LMDBEnv::Transaction tx(&scrAddrObj_->db_->dbEnv_, LMDB::ReadOnly);
 
@@ -100,6 +99,9 @@ private:
             {
                if (txioPair.second.isUTXO())
                {
+                  if (spentByZC(txioPair.second.getDBKeyOfOutput()) == true)
+                     continue;
+
                   auto txioAdded = utxoList_.insert(txioPair);
 
                   if (txioAdded.second == true)
@@ -124,10 +126,30 @@ private:
       void reset(void)
       {
          topBlock_ = 0;
-         value_ += 0;
-         count_ += 0;
+         value_ = 0;
+         count_ = 0;
 
          utxoList_.clear();
+      }
+
+      void addZcUTXOs(const map<BinaryData, TxIOPair>& txioMap,
+         function<bool(const BinaryData&)> isFromWallet)
+      {
+         BinaryData ZCheader(WRITE_UINT16_LE(0xFFFF));
+
+         for (const auto& txio : txioMap)
+         {
+            if (!txio.first.startsWith(ZCheader))
+               continue;
+
+            if (txio.second.hasTxIn())
+               continue;
+
+            if (!isFromWallet(txio.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
+               continue;
+
+            utxoList_.insert(txio);
+         }
       }
    };
 
@@ -212,7 +234,8 @@ public:
 
    void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
 
-   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap);
+   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
+      function<bool(const BinaryData&)>);
    void purgeZC(const vector<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
@@ -255,8 +278,7 @@ public:
    const map<BinaryData, TxIOPair>& getSpendableTxOutList(void) const
    { return utxos_.getUTXOs(); }
    
-   bool getMoreUTXOs(void)
-   { return utxos_.fetchMoreUTXO(); }
+   bool getMoreUTXOs(function<bool(BinaryData)> hasTxOutInZC);
 
    uint64_t getLoadedTxOutsValue(void) const { return utxos_.getValue(); }
    uint32_t getLoadedTxOutsCount(void) const { return utxos_.getCount(); }
@@ -264,6 +286,10 @@ public:
    void resetTxOutHistory(void) { utxos_.reset(); }
 
    LedgerEntry getFirstLedger(void) const;
+
+   void addZcUTXOs(const map<BinaryData, TxIOPair>& txioMap,
+      function<bool(const BinaryData&)> isFromWallet)
+   { utxos_.addZcUTXOs(txioMap, isFromWallet); }
 
 private:
    LMDBBlockDatabase *db_;

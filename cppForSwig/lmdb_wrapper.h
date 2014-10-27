@@ -235,16 +235,16 @@ public:
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void openDatabases(const string &basedir, 
-                      BinaryData const & genesisBlkHash,
-                      BinaryData const & genesisTxHash,
-                      BinaryData const & magic,
-                      ARMORY_DB_TYPE     dbtype,
-                      DB_PRUNE_TYPE      pruneType);
+   void openDatabases(const string &basedir,
+      BinaryData const & genesisBlkHash,
+      BinaryData const & genesisTxHash,
+      BinaryData const & magic,
+      ARMORY_DB_TYPE     dbtype,
+      DB_PRUNE_TYPE      pruneType);
 
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);
-   
+
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);
 
@@ -259,11 +259,13 @@ public:
    // Get latest block info
    BinaryData getTopBlockHash(DB_SELECT db);
    uint32_t   getTopBlockHeight(DB_SELECT db);
-   
+
    /////////////////////////////////////////////////////////////////////////////
    LDBIter getIterator(DB_SELECT db) const
-      { return dbs_[db].begin(); }
-   
+   {
+      return dbs_[db].begin();
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
@@ -292,9 +294,9 @@ public:
 
    BinaryData getHashForDBKey(BinaryData dbkey);
    BinaryData getHashForDBKey(uint32_t hgt,
-                              uint8_t  dup,
-                              uint16_t txi=UINT16_MAX,
-                              uint16_t txo=UINT16_MAX);
+      uint8_t  dup,
+      uint16_t txi = UINT16_MAX,
+      uint16_t txo = UINT16_MAX);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
@@ -307,11 +309,11 @@ public:
    void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
 
    // Move the iterator in DB to the lowest entry with key >= inputKey
-   bool seekTo(DB_SELECT db, 
-               BinaryDataRef key);
-   bool seekTo(DB_SELECT db, 
-               DB_PREFIX pref, 
-               BinaryDataRef key);
+   bool seekTo(DB_SELECT db,
+      BinaryDataRef key);
+   bool seekTo(DB_SELECT db,
+      DB_PREFIX pref,
+      BinaryDataRef key);
 
    // Move the iterator to the first entry >= txHash
    bool seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash) const;
@@ -322,10 +324,10 @@ public:
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
    // because we checked it and decide we don't care, so we want to skip it.
-   bool advanceToNextBlock(LDBIter & iter, bool skip=false) const;
+   bool advanceToNextBlock(LDBIter & iter, bool skip = false) const;
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
-   bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix=DB_PREFIX_COUNT);
+   bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix = DB_PREFIX_COUNT);
 
    /////////////////////////////////////////////////////////////////////////////
    void readAllHeaders(
@@ -340,9 +342,9 @@ public:
    // was created, use 0.  Or if you know something, you can supply it.  Though
    // in many cases, we will just do a full rescan if it's not totally new.
    void addRegisteredScript(BinaryDataRef rawScript,
-                            uint32_t      scannedUpToBlk=UINT32_MAX);
-   
-   
+      uint32_t      scannedUpToBlk = UINT32_MAX);
+
+
 
    /////////////////////////////////////////////////////////////////////////////
    bool startBlkDataIteration(LDBIter & iter, DB_PREFIX prefix);
@@ -352,29 +354,29 @@ public:
    void getNextBlock(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void getBlock(BlockHeader & bh, 
-                 vector<Tx> & txList, 
-                 LMDB::Iterator* iter=NULL,
-                 bool ignoreMerkle = true);
+   void getBlock(BlockHeader & bh,
+      vector<Tx> & txList,
+      LMDB::Iterator* iter = NULL,
+      bool ignoreMerkle = true);
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void loadAllStoredHistory(void); 
+   void loadAllStoredHistory(void);
 
    map<HashString, BlockHeader> getHeaderMap(void);
    BinaryData getRawHeader(BinaryData const & headerHash);
    //bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
    map<uint32_t, uint32_t> getSSHSummary(BinaryDataRef scrAddrStr,
-                                         uint32_t endBlock);
+      uint32_t endBlock);
 
 
 public:
 
    uint8_t getValidDupIDForHeight(uint32_t blockHgt);
-   void setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup, 
-                               bool overwrite = true);
-   
+   void setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup,
+      bool overwrite = true);
+
    /////////////////////////////////////////////////////////////////////////////
    uint8_t getValidDupIDForHeight_fromDB(uint32_t blockHgt);
 
@@ -387,119 +389,124 @@ public:
    // Interface to translate Stored* objects to/from persistent DB storage
    /////////////////////////////////////////////////////////////////////////////
    void putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi);
-   bool getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn=true);
-   
+   bool getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn = true);
+
    /////////////////////////////////////////////////////////////////////////////
    // BareHeaders are those int the HEADERS DB with no blockdta associated
-   uint8_t putBareHeader(StoredHeader & sbh, bool updateDupID = true); 
-   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup); 
-   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt); 
+   uint8_t putBareHeader(StoredHeader & sbh, bool updateDupID = true);
+   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup);
+   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt);
    bool    getBareHeader(StoredHeader & sbh, BinaryDataRef headHash);
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredHeader accessors
    uint8_t putStoredHeader(StoredHeader & sbh,
-                        bool withBlkData=true,
-                        bool updateDupID=true);
+      bool withBlkData = true,
+      bool updateDupID = true);
 
    bool getStoredHeader(StoredHeader & sbh,
-                        uint32_t blockHgt,
-                        uint8_t blockDup=UINT8_MAX,
-                        bool withTx=true);
+      uint32_t blockHgt,
+      uint8_t blockDup = UINT8_MAX,
+      bool withTx = true);
 
    bool getStoredHeader(StoredHeader & sbh,
-                        BinaryDataRef headHash, 
-                        bool withTx=true);
+      BinaryDataRef headHash,
+      bool withTx = true);
 
    // This seemed unnecessary and was also causing conflicts with optional args
    //bool getStoredHeader(StoredHeader & sbh,
-                        //uint32_t blockHgt,
-                        //bool withTx=true);
+   //uint32_t blockHgt,
+   //bool withTx=true);
 
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredTx Accessors
    void updateStoredTx(StoredTx & st);
 
-   void putStoredTx(StoredTx & st, bool withTxOut=true);
+   void putStoredTx(StoredTx & st, bool withTxOut = true);
+   void putStoredZC(StoredTx & stx, const BinaryData& zcKey);
 
-   bool getStoredTx(         StoredTx & stx,
-                             BinaryDataRef txHashOrDBKey);
+   bool getStoredZcTx(StoredTx & stx,
+      BinaryDataRef dbKey);
 
-   bool getStoredTx_byDBKey( StoredTx & stx,
-                             BinaryDataRef dbKey);
+   bool getStoredTx(StoredTx & stx,
+      BinaryDataRef txHashOrDBKey);
 
-   bool getStoredTx_byHash(  BinaryDataRef txHash,
-                             StoredTx* stx=nullptr,
-                             BinaryData* DBkey=nullptr);
+   bool getStoredTx_byDBKey(StoredTx & stx,
+      BinaryDataRef dbKey);
 
-   bool getStoredTx(         StoredTx & st,
-                             uint32_t blkHgt,
-                             uint16_t txIndex,
-                             bool withTxOut=true);
+   bool getStoredTx_byHash(BinaryDataRef txHash,
+      StoredTx* stx = nullptr,
+      BinaryData* DBkey = nullptr);
 
-   bool getStoredTx(         StoredTx & st,
-                             uint32_t blkHgt,
-                             uint8_t  dupID,
-                             uint16_t txIndex,
-                             bool withTxOut=true);
+   bool getStoredTx(StoredTx & st,
+      uint32_t blkHgt,
+      uint16_t txIndex,
+      bool withTxOut = true);
+
+   bool getStoredTx(StoredTx & st,
+      uint32_t blkHgt,
+      uint8_t  dupID,
+      uint16_t txIndex,
+      bool withTxOut = true);
 
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredTxOut Accessors
-   void putStoredTxOut(      StoredTxOut const & sto);
+   void putStoredTxOut(StoredTxOut const & sto);
+   void putStoredZcTxOut(StoredTxOut const & stxo, const BinaryData& zcKey);
 
-   bool getStoredTxOut(      StoredTxOut & stxo,
-                             uint32_t blockHeight,
-                             uint8_t  dupID,
-                             uint16_t txIndex,
-                             uint16_t txOutIndex);
+   bool getStoredTxOut(StoredTxOut & stxo,
+      uint32_t blockHeight,
+      uint8_t  dupID,
+      uint16_t txIndex,
+      uint16_t txOutIndex);
 
-   bool getStoredTxOut(      StoredTxOut & stxo,
-                             uint32_t blockHeight,
-                             uint16_t txIndex,
-                             uint16_t txOutIndex);
+   bool getStoredTxOut(StoredTxOut & stxo,
+      uint32_t blockHeight,
+      uint16_t txIndex,
+      uint16_t txOutIndex);
 
-   bool getStoredTxOut(      StoredTxOut & stxo,
-                             const BinaryData& DBkey);
+   bool getStoredTxOut(StoredTxOut & stxo,
+      const BinaryData& DBkey);
 
 
 
-   void putStoredScriptHistory( StoredScriptHistory & ssh);
+   void putStoredScriptHistory(StoredScriptHistory & ssh);
    void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
    void putStoredSubHistory(StoredSubHistory & subssh);
 
-   bool getStoredScriptHistory( StoredScriptHistory & ssh,
-                                BinaryDataRef scrAddrStr,
-                                uint32_t startBlock=0,
-                                uint32_t endBlock=UINT32_MAX);
+   bool getStoredScriptHistory(StoredScriptHistory & ssh,
+      BinaryDataRef scrAddrStr,
+      uint32_t startBlock = 0,
+      uint32_t endBlock = UINT32_MAX);
 
-   void getStoredScriptHistorySummary( StoredScriptHistory & ssh,
-                                       BinaryDataRef scrAddrStr);
+   void getStoredScriptHistorySummary(StoredScriptHistory & ssh,
+      BinaryDataRef scrAddrStr);
 
    void getStoredScriptHistoryByRawScript(
-                                StoredScriptHistory & ssh,
-                                BinaryDataRef rawScript);
+      StoredScriptHistory & ssh,
+      BinaryDataRef rawScript);
 
    // This method breaks from the convention I've used for getting/putting 
    // stored objects, because we never really handle Sub-SSH objects directly,
    // but we do need to harness them.  This method could be renamed to
    // "getPartialScriptHistory()" ... it reads the main 
    // sub-SSH from DB and adds it to the supplied regular-SSH.
-   bool fetchStoredSubHistory( StoredScriptHistory & ssh, 
-                               BinaryData hgtX,
-                               uint64_t& additionalSize,
-                               uint32_t commitId, 
-                               bool createIfDNE=false,
-                               bool forceReadAndMerge=false);
+   bool fetchStoredSubHistory(StoredScriptHistory & ssh,
+      BinaryData hgtX,
+      uint64_t& additionalSize,
+      uint32_t commitId,
+      bool createIfDNE = false,
+      bool forceReadAndMerge = false);
 
    // This could go in StoredBlockObj if it didn't need to lookup DB data
    bool     getFullUTXOMapForSSH(StoredScriptHistory & ssh,
-                                 map<BinaryData, UnspentTxOut> & mapToFill,
-                                 bool withMultisig=false);
+      map<BinaryData, UnspentTxOut> & mapToFill,
+      bool withMultisig = false);
 
-   uint64_t getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMulti=false);
-   
+   uint64_t getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMulti = false);
+
    // TODO: We should probably implement some kind of method for accessing or 
    //       running calculations on an SSH without ever loading the entire
    //       thing into RAM.  
@@ -523,49 +530,49 @@ public:
    // Some methods to grab data at the current iterator location.  Return
    // false if reading fails (maybe because we were expecting to find the
    // specified DB entry type, but the prefix byte indicated something else
-   bool readStoredBlockAtIter(LDBIter & iter, 
-                              StoredHeader & sbh);
+   bool readStoredBlockAtIter(LDBIter & iter,
+      StoredHeader & sbh);
 
-   bool readStoredTxAtIter(LDBIter & iter, 
-                           uint32_t height, 
-                           uint8_t dupID, 
-                           StoredTx & stx);
+   bool readStoredTxAtIter(LDBIter & iter,
+      uint32_t height,
+      uint8_t dupID,
+      StoredTx & stx);
 
-   bool readStoredTxOutAtIter(LDBIter & iter, 
-                              uint32_t height, 
-                              uint8_t  dupID, 
-                              uint16_t txIndex,
-                              StoredTxOut & stxo);
+   bool readStoredTxOutAtIter(LDBIter & iter,
+      uint32_t height,
+      uint8_t  dupID,
+      uint16_t txIndex,
+      StoredTxOut & stxo);
 
-   bool readStoredScriptHistoryAtIter(LDBIter & iter, 
-                                      StoredScriptHistory & ssh,
-                                      uint32_t startBlock,
-                                      uint32_t endBlock);
+   bool readStoredScriptHistoryAtIter(LDBIter & iter,
+      StoredScriptHistory & ssh,
+      uint32_t startBlock,
+      uint32_t endBlock);
 
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct
-   TxRef getTxRef( BinaryDataRef txHash);
-   TxRef getTxRef( BinaryData hgtx, uint16_t txIndex);
-   TxRef getTxRef( uint32_t hgt, uint8_t dup, uint16_t txIndex);
+   TxRef getTxRef(BinaryDataRef txHash);
+   TxRef getTxRef(BinaryData hgtx, uint16_t txIndex);
+   TxRef getTxRef(uint32_t hgt, uint8_t dup, uint16_t txIndex);
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash
-   Tx    getFullTxCopy( BinaryData ldbKey6B );
-   Tx    getFullTxCopy( uint32_t hgt, uint16_t txIndex);
-   Tx    getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex);
-   TxOut getTxOutCopy(  BinaryData ldbKey6B, uint16_t txOutIdx);
-   TxIn  getTxInCopy(   BinaryData ldbKey6B, uint16_t txInIdx );
+   Tx    getFullTxCopy(BinaryData ldbKey6B);
+   Tx    getFullTxCopy(uint32_t hgt, uint16_t txIndex);
+   Tx    getFullTxCopy(uint32_t hgt, uint8_t dup, uint16_t txIndex);
+   TxOut getTxOutCopy(BinaryData ldbKey6B, uint16_t txOutIdx);
+   TxIn  getTxInCopy(BinaryData ldbKey6B, uint16_t txInIdx);
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash
-   BinaryData getTxHashForLdbKey( BinaryDataRef ldbKey6B );
+   BinaryData getTxHashForLdbKey(BinaryDataRef ldbKey6B);
 
-   BinaryData getTxHashForHeightAndIndex( uint32_t height, 
-                                          uint16_t txIndex);
+   BinaryData getTxHashForHeightAndIndex(uint32_t height,
+      uint16_t txIndex);
 
-   BinaryData getTxHashForHeightAndIndex( uint32_t height, 
-                                          uint8_t  dup, 
-                                          uint16_t txIndex);
+   BinaryData getTxHashForHeightAndIndex(uint32_t height,
+      uint8_t  dup,
+      uint16_t txIndex);
 
    StoredTxHints getHintsForTxHash(BinaryDataRef txHash) const;
 
@@ -577,18 +584,18 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void computeUndoDataFromRawBlock(StoredHeader const & sbh, 
-                                    StoredUndoData & sud);
+   void computeUndoDataFromRawBlock(StoredHeader const & sbh,
+      StoredUndoData & sud);
    void computeUndoDataFromRawBlock(BinaryDataRef    rawBlock,
-                                    StoredUndoData & sud);
-   bool computeUndoDataForBlock(uint32_t height, 
-                                uint8_t dupID,
-                                StoredUndoData & sud);
+      StoredUndoData & sud);
+   bool computeUndoDataForBlock(uint32_t height,
+      uint8_t dupID,
+      StoredUndoData & sud);
 
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
    void   printAllDatabaseEntries(DB_SELECT db);
-   void   pprintBlkDataDB(uint32_t indent=3);
+   void   pprintBlkDataDB(uint32_t indent = 3);
 
    BinaryData getGenesisBlockHash(void) { return genesisBlkHash_; }
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
@@ -601,31 +608,33 @@ private:
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;
    BinaryData           magicBytes_;
-   
+
    ARMORY_DB_TYPE armoryDbType_;
    DB_PRUNE_TYPE dbPruneType_;
 
 public:
    LMDBEnv             dbEnv_;
-   LMDB                dbs_[2];  
+   LMDB                dbs_[2];
 private:
    //leveldb::FilterPolicy* dbFilterPolicy_[2];
 
    //BinaryRefReader      currReadKey_;
    //BinaryRefReader      currReadValue_;;
    //mutable BinaryData           lastGetValue_;
-   
+
    bool                 dbIsOpen_;
    uint32_t             ldbBlockSize_;
 
    uint32_t             lowestScannedUpTo_;
-   
+
    vector<uint8_t>      validDupByHeight_;
 
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
    // of addresses including pubkey-only, P2SH, 
    map<BinaryData, StoredScriptHistory>   registeredSSHs_;
+
+   const BinaryData ZCprefix_ = WRITE_UINT16_LE(0xFFFF);
 };
 
 #endif

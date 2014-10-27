@@ -15,6 +15,12 @@
 #include "Progress.h"
 #include "util.h"
 
+#ifdef _MSC_VER
+#define NOEXCEPT _NOEXCEPT
+#else
+#define NOEXCEPT noexcept
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // For now, we will call createUndoDataFromBlock(), and then pass that data to 
 // undoBlockFromDB(), even though it will result in accessing the DB data 
@@ -114,7 +120,7 @@ public:
       MissingBlockToApply(uint32_t height, uint8_t dup)
          : height_(height), dup_(dup) { }
          
-      virtual const char* what() const noexcept
+      virtual const char* what() const NOEXCEPT //getting noexcept to compile for MSVS
          { return "A block could not be applied because it's missing"; }
       
       uint32_t height() const
@@ -2164,6 +2170,5 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
          iface_->deleteValue(BLKDATA, keyToDel);
    }
 }
-
 
 // kate: indent-width 3; replace-tabs on;

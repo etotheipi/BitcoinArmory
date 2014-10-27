@@ -119,16 +119,17 @@ public:
    uint64_t getFullBalance(void) const;
    uint64_t getFullBalanceFromDB(void) const;
    uint64_t getSpendableBalance(uint32_t currBlk = 0,
-                                bool ignoreAllZeroConf=false) const;
+                                bool ignoreAllZeroConf=true) const;
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
-                                  bool includeAllZeroConf=false) const;
+                                  bool includeAllZeroConf=true) const;
 
    uint64_t getAddrTotalTxnCount(const BinaryData& addr) const;
    uint64_t getWltTotalTxnCount(void) const;
 
-   void prepareTxOutHistory(uint64_t val);
-   void prepareFullTxOutHistory();
-   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX);
+   void prepareTxOutHistory(uint64_t val, bool ignoreZC);
+   void prepareFullTxOutHistory(bool ignoreZC);
+   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX,
+      bool ignoreZC = true);
 
    vector<const LedgerEntry*>
       getTxLedger(BinaryData const &scrAddr) const;

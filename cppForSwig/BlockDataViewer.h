@@ -118,6 +118,15 @@ class BlockDataViewer
          return bdmPtr_->isRunning(); 
       }
 
+      bool isTxOutSpentByZC(BinaryData dbKey) const
+      { return zeroConfCont_.isTxOutSpentByZC(dbKey); }
+
+      const map<BinaryData, TxIOPair>& getZCutxoForScrAddr(BinaryData scrAddr) const
+      { return zeroConfCont_.getZCforScrAddr(scrAddr); }
+
+      const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const
+      { return zeroConfCont_.getSpentSAforZCKey(zcKey); }
+
    public:
       bool rescanZC_    = false;
       uint32_t refresh_ = 0;

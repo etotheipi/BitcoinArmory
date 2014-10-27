@@ -1020,7 +1020,6 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_
          LOGERR << "Need to write out spentByTxIn but no spentness data";
       bw.put_BinaryData(spentByTxInKey_);
    }
-
 }
 
 /////////////////////////////////////////////////////////////////////////////

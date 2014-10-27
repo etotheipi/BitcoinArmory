@@ -239,9 +239,12 @@ class ZeroConfContainer
    ***/
 
 private:
-   map<HashString, HashString>                  txHashToDBKey_;
-   map<HashString, Tx>                          txMap_;
-   map<HashString, map<BinaryData, TxIOPair> >  txioMap_;
+   map<HashString, HashString>                  txHashToDBKey_; //<txHash, dbKey>
+   map<HashString, Tx>                          txMap_; //<zcKey, zcTx>
+   map<HashString, map<BinaryData, TxIOPair> >  txioMap_; //<scrAddr,  <dbKeyOfOutput, TxIOPair>>
+   map<HashString, vector<HashString> >         keyToSpentScrAddr_; //<zcKey, vector<ScrAddr>>
+   set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
+
 
    std::atomic<uint32_t>       topId_;
 
@@ -250,7 +253,7 @@ private:
    //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
    //The code has a thread pushing new ZC, and set the BDM thread flag
    //to parse it
-   map<BinaryData, Tx> newZCMap_;
+   map<BinaryData, Tx> newZCMap_; //<zcKey, zcTx>
 
    //newTxioMap_ is ephemeral too. It's contains ZC txios that have yet to be
    //processed by their relevant scrAddrObj. It's content is returned then wiped 
@@ -258,16 +261,19 @@ private:
    map<HashString, map<BinaryData, TxIOPair> >  newTxioMap_;
    LMDBBlockDatabase*                           db_;
 
+   static map<BinaryData, TxIOPair> emptyTxioMap_;
 
+private:
    BinaryData getNewZCkey(void);
    bool RemoveTxByKey(const BinaryData key);
    bool RemoveTxByHash(const BinaryData txHash);
+   
    map<BinaryData, map<BinaryData, TxIOPair> >
       ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey,
       uint32_t txtime,
       function<bool(const BinaryData&)>,
-      bool withSecondOrderMultisig = true) const;
+      bool withSecondOrderMultisig = true);
 
 public:
    ZeroConfContainer(LMDBBlockDatabase* db) :
@@ -291,12 +297,17 @@ public:
    set<BinaryData> getNewZCByHash(void) const;
 
    bool parseNewZC(function<bool(const BinaryData&)>);
-
+   bool isTxOutSpentByZC(const BinaryData& dbKey) const;
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const;
 
    void resetNewZC() { newTxioMap_.clear(); }
-
    void clear(void);
+
+   const map<BinaryData, TxIOPair>& getZCforScrAddr(BinaryData scrAddr) const;
+   const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
+
+   void updateZCinDB(
+      const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 };
 
 #endif

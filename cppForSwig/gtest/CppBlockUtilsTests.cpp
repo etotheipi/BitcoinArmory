@@ -6968,10 +6968,27 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(spendableBalance, 50 * COIN);
    EXPECT_EQ(unconfirmedBalance, 100 * COIN);
 
+   //check ledger for ZC
    LedgerEntry le = wlt.getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
    EXPECT_EQ(le.getValue(), -5000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   //pull ZC from DB, verify it's carrying the proper data
+   LMDBEnv::Transaction *dbtx = 
+      new LMDBEnv::Transaction(&iface_->dbEnv_, LMDB::ReadWrite);
+   StoredTx zcStx;
+   BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
+   zcKey.append(WRITE_UINT32_LE(0));
+
+   EXPECT_EQ(iface_->getStoredZcTx(zcStx, zcKey), true);
+   EXPECT_EQ(zcStx.thisHash_, ZChash);
+   EXPECT_EQ(zcStx.numBytes_ , 159);
+   EXPECT_EQ(zcStx.fragBytes_, 125);
+   EXPECT_EQ(zcStx.numTxOut_, 1);
+   EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 50 * COIN);
+
+   delete dbtx;
 
    //add 4th block
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
@@ -7001,6 +7018,19 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(le.getValue(), -5000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
 
+   //ZC is still live, pull from DB and verify
+   dbtx = new LMDBEnv::Transaction(&iface_->dbEnv_, LMDB::ReadWrite);
+   StoredTx zcStx2;
+
+   EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
+   EXPECT_EQ(zcStx2.thisHash_, ZChash);
+   EXPECT_EQ(zcStx2.numBytes_, 159);
+   EXPECT_EQ(zcStx2.fragBytes_, 125);
+   EXPECT_EQ(zcStx2.numTxOut_, 1);
+   EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 50 * COIN);
+
+   delete dbtx;
+
    //add 5th block
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
@@ -7028,6 +7058,14 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(le.getTxTime(), 1231008907);
    EXPECT_EQ(le.getValue(), -5000000000);
    EXPECT_EQ(le.getBlockNum(), 4);
+
+   //Tx is now in a block, ZC should be gone from DB
+   dbtx = new LMDBEnv::Transaction(&iface_->dbEnv_, LMDB::ReadWrite);
+   StoredTx zcStx3;
+
+   EXPECT_EQ(iface_->getStoredZcTx(zcStx3, zcKey), false);
+
+   delete dbtx;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

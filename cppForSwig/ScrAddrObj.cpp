@@ -111,10 +111,17 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap)
+void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
+   function<bool(const BinaryData&)> isZcFromWallet)
 {
    for (auto txioPair : zcTxIOMap)
+   {
+      if (txioPair.second.hasTxOutZC() &&
+         isZcFromWallet(txioPair.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
+         txioPair.second.setTxOutFromSelf(true);
+
       relevantTxIO_[txioPair.first] = txioPair.second;
+   }
    
    updateLedgers(*ledger_, zcTxIOMap, 0, UINT32_MAX, false);
 }
@@ -408,5 +415,11 @@ LedgerEntry ScrAddrObj::getFirstLedger() const
       le = leMap.begin()->second;
 
    return le;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool ScrAddrObj::getMoreUTXOs(function<bool(BinaryData)> spentByZC)
+{
+   return utxos_.fetchMoreUTXO(spentByZC);
 }
 

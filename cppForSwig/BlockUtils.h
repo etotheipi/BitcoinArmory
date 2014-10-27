@@ -105,7 +105,7 @@ private:
    // This is our permanent link to the two databases used
    LMDBBlockDatabase* iface_;
    
-   pair<size_t, uint64_t> currentHeaderPosition_ = {};
+   pair<size_t, uint64_t> currentHeaderPosition_ = {0, 0};
    
    // Reorganization details
 

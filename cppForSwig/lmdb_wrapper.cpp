@@ -1584,7 +1584,6 @@ void LMDBBlockDatabase::updateStoredTx(StoredTx & stx)
 // This assumes that this new tx is "preferred" and will update the list as such
 void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
 {
-   //LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);
    SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = DBUtils::getBlkDataKeyNoPrefix(stx.blockHeight_, 
                                                       stx.duplicateID_, 
@@ -1640,6 +1639,36 @@ void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
          iter->second.txIndex_     = stx.txIndex_;
          iter->second.txOutIndex_  = iter->first;
          putStoredTxOut(iter->second);
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::putStoredZC(StoredTx & stx, const BinaryData& zcKey)
+{
+   SCOPED_TIMER("putStoredTx");
+   // Now add the base Tx entry in the BLKDATA DB.
+   BinaryWriter bw;
+   stx.serializeDBValue(bw, armoryDbType_, dbPruneType_);
+   putValue(BLKDATA, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
+
+
+   // Add the individual TxOut entries
+   {
+      map<uint16_t, StoredTxOut>::iterator iter;
+      for (iter = stx.stxoMap_.begin();
+         iter != stx.stxoMap_.end();
+         iter++)
+      {
+         // Make sure all the parameters of the TxOut are set right 
+         iter->second.txVersion_ = READ_UINT32_LE(stx.dataCopy_.getPtr());
+         //iter->second.blockHeight_ = stx.blockHeight_;
+         //iter->second.duplicateID_ = stx.duplicateID_;
+         iter->second.txIndex_ = stx.txIndex_;
+         iter->second.txOutIndex_ = iter->first;
+         BinaryData zcStxoKey(zcKey);
+         zcStxoKey.append(WRITE_UINT16_BE(iter->second.txOutIndex_));
+         putStoredZcTxOut(iter->second, zcStxoKey);
       }
    }
 }
@@ -1937,7 +1966,13 @@ TxOut LMDBBlockDatabase::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
    BinaryDataRef ldbKey8 = bw.getDataRef();
 
    TxOut txoOut;
-   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
+
+   BinaryRefReader brr;
+   if (!ldbKey6B.startsWith(ZCprefix_))
+      brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
+   else
+      brr = getValueReader(BLKDATA, DB_PREFIX_ZCDATA, ldbKey8);
+
    if(brr.getSize()==0) 
    {
       LOGERR << "TxOut key does not exist in BLKDATA DB";
@@ -2100,6 +2135,77 @@ bool LMDBBlockDatabase::getStoredTx_byDBKey( StoredTx & stx,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
+   BinaryDataRef zcKey)
+{
+   //only by zcKey
+   uint16_t txi;
+
+   BinaryData zcDbKey;
+
+   if (zcKey.getSize() == 6)
+   {
+      zcDbKey = BinaryData(7);
+      uint8_t* ptr = zcDbKey.getPtr();
+      ptr[0] = DB_PREFIX_ZCDATA;
+      memcpy(ptr + 1, zcKey.getPtr(), 6);
+   }
+   else
+      zcDbKey = zcKey;
+
+   LDBIter ldbIter = getIterator(BLKDATA);
+   if (!ldbIter.seekToExact(zcDbKey))
+   {
+      LOGERR << "BLKDATA DB does not have the requested ZC tx";
+      LOGERR << "(" << zcKey.toHexStr() << ")";
+      return false;
+   }
+
+   size_t nbytes = 0;
+   do
+   {
+      // Stop if key doesn't start with [PREFIX | ZCkey | TXIDX]
+      if(!ldbIter.checkKeyStartsWith(zcDbKey))
+         break;
+
+
+      // Read the prefix, height and dup 
+      uint16_t txOutIdx;
+      BinaryRefReader txKey = ldbIter.getKeyReader();
+
+      // Now actually process the iter value
+      if(txKey.getSize()==7)
+      {
+         // Get everything else from the iter value
+         stx.unserializeDBValue(ldbIter.getValueRef());
+         nbytes += stx.dataCopy_.getSize();
+      }
+      else if(txKey.getSize() == 9)
+      {
+         txOutIdx = READ_UINT16_BE(ldbIter.getKeyRef().getSliceRef(7, 2));
+         stx.stxoMap_[txOutIdx] = StoredTxOut();
+         StoredTxOut & stxo = stx.stxoMap_[txOutIdx];
+         stxo.unserializeDBValue(ldbIter.getValueRef());
+         stxo.parentHash_ = stx.thisHash_;
+         stxo.txVersion_  = stx.version_;
+         stxo.txOutIndex_ = txOutIdx;
+         nbytes += stxo.dataCopy_.getSize();
+      }
+      else
+      {
+         LOGERR << "Unexpected BLKDATA entry while iterating";
+         return false;
+      }
+
+   } while(ldbIter.advanceAndRead(DB_PREFIX_ZCDATA));
+
+
+   stx.numBytes_ = stx.haveAllTxOut() ? nbytes : UINT32_MAX;
+
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // We assume that the first TxHint that matches is correct.  This means that 
 // when we mark a transaction/block valid, we need to make sure all the hints
 // lists have the correct one in front.  Luckily, the TXHINTS entries are tiny 
@@ -2248,6 +2354,17 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
    putValue(BLKDATA, DB_PREFIX_TXDATA, ldbKey, bw);
 }
+
+void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo, 
+   const BinaryData& zcKey)
+{
+
+   SCOPED_TIMER("putStoredTx");
+
+   BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
+   putValue(BLKDATA, DB_PREFIX_ZCDATA, zcKey, bw);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTxOut(

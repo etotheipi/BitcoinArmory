@@ -902,11 +902,9 @@ TxOut TxIOPair::getTxOutCopy(LMDBBlockDatabase *db) const
    // first in the calling code (hasTxOut/hasTxOutZC)
    if(hasTxOut())
       return txRefOfOutput_.attached(db).getTxOutCopy(indexOfOutput_);
-   /*else
-      return getTxOutZC();*/
+
    throw runtime_error("Has not TxOutCopy");
 }
-
 
 //////////////////////////////////////////////////////////////////////////////
 TxIn TxIOPair::getTxInCopy(LMDBBlockDatabase *db) const
