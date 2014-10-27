@@ -410,16 +410,6 @@ public:
 class StoredTx
 {
 public:
-   StoredTx(void) : thisHash_(0), 
-                    dataCopy_(0), 
-                    blockHeight_(UINT32_MAX),
-                    duplicateID_(UINT8_MAX),
-                    txIndex_(UINT16_MAX),
-                    numTxOut_(UINT16_MAX),
-                    numBytes_(UINT32_MAX),
-                    fragBytes_(UINT32_MAX),
-                    unixTime_(0) {}
-   
    bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool       isNull(void) { return !isInitialized(); }
    bool       haveAllTxOut(void) const;
@@ -463,18 +453,18 @@ public:
 
 
    BinaryData           thisHash_;
-   uint32_t             lockTime_;
-   uint32_t             unixTime_;
+   uint32_t             lockTime_=0;
+   uint32_t             unixTime_=0;
 
    BinaryData           dataCopy_;
-   bool                 isFragged_;
-   uint32_t             version_;
-   uint32_t             blockHeight_;
-   uint8_t              duplicateID_;
-   uint16_t             txIndex_;
-   uint16_t             numTxOut_;
-   uint32_t             numBytes_;
-   uint32_t             fragBytes_;
+   bool                 isFragged_=false;
+   uint32_t             version_=0;
+   uint32_t             blockHeight_ = UINT32_MAX;
+   uint8_t              duplicateID_ = UINT8_MAX;
+   uint16_t             txIndex_=UINT16_MAX;
+   uint16_t             numTxOut_=UINT16_MAX;
+   uint32_t             numBytes_=UINT32_MAX;
+   uint32_t             fragBytes_=UINT32_MAX;
    map<uint16_t, StoredTxOut> stxoMap_;
 
    // We don't actually enforce these members.  They're solely for recording
