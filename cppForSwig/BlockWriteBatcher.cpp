@@ -903,7 +903,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 ////////////////////////////////////////////////////////////////////////////////
 thread BlockWriteBatcher::commit(bool finalCommit)
 {
-   unique_lock<mutex> l(lock_, try_to_lock);
+   unique_lock<mutex> l(writeLock_, try_to_lock);
    if (!l.owns_lock())
    {
       // lock_ is held if commit() is running, but if we have
@@ -1029,7 +1029,7 @@ void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
 void* BlockWriteBatcher::commitThread(void *argPtr)
 {
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
-   unique_lock<mutex> lock(bwbPtr->parent_->lock_);
+   unique_lock<mutex> lock(bwbPtr->parent_->writeLock_);
 
    //create readwrite transactions to apply data to DB
    bwbPtr->txn_.open(&bwbPtr->iface_->dbEnv_, LMDB::ReadWrite);
@@ -1152,10 +1152,10 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
 
    vector<StoredHeader*> shVec;
-
    uint32_t hgt = dis->tempBlockData_->topLoadedBlock_;
-
    uint32_t memoryLoad = 0; 
+
+   unique_lock<mutex> uniqLock(dis->grabThreadLock_, defer_lock);
 
    while (memoryLoad + dis->tempBlockData_->bufferLoad_
       < UPDATE_BYTES_THRESH / 2)
@@ -1198,17 +1198,27 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    //release lock
    dis->tempBlockData_->lock_.store(0, memory_order_release);
    
+   dis->grabThreadCondVar_.notify_all();
+
    return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 {
+   if (tempBlockData_->endBlock_ == 0)
+   {
+      LOGERR << "Top block is 0, nothing to scan";
+      throw std::range_error("Top block is 0, nothing to scan");
+   }
+
    resetTransactions();
 
    thread grabThread;
    try
    {
+      unique_lock<mutex> uniqLock(grabThreadLock_);
+
       uint64_t totalBlockDataProcessed=0;
 
       for (uint32_t i = tempBlockData_->startBlock_;
@@ -1241,12 +1251,8 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          }
 
          //make sure there's enough data to grab from the block buffer
-         while (i >= tempBlockData_->topLoadedBlock_)
-         {
-            usleep(10);
-            if (i > tempBlockData_->endBlock_)
-               break;
-         }
+         if (i >= tempBlockData_->topLoadedBlock_)
+            grabThreadCondVar_.wait(uniqLock);
 
          if (i > tempBlockData_->endBlock_)
             break;

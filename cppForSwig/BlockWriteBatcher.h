@@ -7,6 +7,7 @@
 #include "log.h"
 
 #include <thread>
+#include <condition_variable>
 
 class StoredHeader;
 class StoredUndoData;
@@ -132,8 +133,12 @@ private:
    uint32_t deleteId_ = 0;
 
    //to sync commits 
-   mutex lock_;
+   mutex writeLock_;
    bool updateSDBI_ = true;
+
+   //to sync the block reading thread with the scanning thread
+   mutex              grabThreadLock_;
+   condition_variable grabThreadCondVar_; 
 };
 
 
