@@ -5174,7 +5174,6 @@ class ArmoryMainWindow(QMainWindow):
       Outsourcing all the verbose dashboard text to here, to de-clutter the
       logic paths in the setDashboardDetails function
       """
-      LOGINFO('Switching Armory functional mode to "%s"', func)
       if func.lower() == 'scanning':
          return ( \
          'The following functionality is available while scanning in offline mode:'
@@ -5232,8 +5231,7 @@ class ArmoryMainWindow(QMainWindow):
       Outsourcing all the verbose dashboard text to here, to de-clutter the
       logic paths in the setDashboardDetails function
       """
-      LOGINFO('Switching Armory state text to Mgmt:%s, State:%s', mgmtMode, state)
-
+      
       # A few states don't care which mgmtMode you are in...
       if state == 'NewUserInfo':
          return tr("""
@@ -5910,7 +5908,6 @@ class ArmoryMainWindow(QMainWindow):
                self.lblDashDescr1.setText(descr)
             else:
                # Fully online mode
-               LOGINFO('Dashboard switched to fully-online mode')
                self.btnModeSwitch.setVisible(False)
                self.lblDashModeSync.setText( 'Armory is online!', color='TextGreen', size=4, bold=True)
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
