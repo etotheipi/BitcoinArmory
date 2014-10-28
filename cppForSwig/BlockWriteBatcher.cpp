@@ -1251,8 +1251,9 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          }
 
          //make sure there's enough data to grab from the block buffer
-         while (i >= tempBlockData_->topLoadedBlock_)
-            grabThreadCondVar_.wait(uniqLock);
+         grabThreadCondVar_.wait(uniqLock, 
+            [&, this]{return (i < this->tempBlockData_->topLoadedBlock_ ||
+                              i > this->tempBlockData_->endBlock_); });
 
          if (i > tempBlockData_->endBlock_)
             break;
