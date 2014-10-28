@@ -218,9 +218,6 @@ void BlockDataViewer::unregisterLockbox(string IDstr)
 void BlockDataViewer::scanWallets(uint32_t startBlock,
    uint32_t endBlock, uint32_t forceRefresh)
 {
-   uint32_t i = 0;
-   bool reorg = false;
-
    if (startBlock == UINT32_MAX)
       startBlock = lastScanned_;
    if (endBlock == UINT32_MAX)
@@ -234,7 +231,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       lbPair.second->merge();
 
 
-   if (initialized_ == false)
+   if (!initialized_)
    {
       //out of date history, page all wallets' history
       pageWalletsHistory();
@@ -255,23 +252,23 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
          [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
    }
 
-   if (lastScanned_ > startBlock)
-      reorg = true;
+   const bool reorg = (lastScanned_ > startBlock);
 
+   //uint32_t i = 0;
    for (auto& wltPair : registeredWallets_)
    {
       //LOGINFO << "Processing wallet #" << i;
-      i++;
+      //i++;
 
       wltPair.second->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
 
-   i = 0;
+   // i = 0;
    for (auto& lbPair : registeredLockboxes_)
    {
       //LOGINFO << "Processing Lockbox #" << i;
-      i++;
+      //i++;
 
       lbPair.second->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
