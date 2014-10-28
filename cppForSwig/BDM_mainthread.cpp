@@ -315,12 +315,6 @@ try
    {
       bdm->getScrAddrFilter()->checkForMerge();
 
-      if (bdv->hasItemInWalletQueue())
-      {
-         //this needs to run before side scans
-         bdv->processWalletRegistrationQueue();
-      }
-
       if (bdm->sideScanFlag_ == true)
       {
          bdm->sideScanFlag_ = false;
@@ -363,6 +357,7 @@ try
             refreshID = string(bdv->refreshID_.getCharPtr(), bdv->refreshID_.getSize());
          
          bdv->refreshID_ = BinaryData();
+
          callback->run(5, &refreshID);
       }
 

@@ -82,12 +82,12 @@ class ArmoryDTest(TiabTest):
       #register it
       self.wallet.registerWallet()
       
-      #wait on scan for 20sec then raise if the scan hasn't finished yet
+      #wait on scan for 2 min then raise if the scan hasn't finished yet
       i = 0
       while not self.walletIsScanned:
          time.sleep(0.5)
          i += 1
-         if i >= 40:
+         if i >= 60*4:
             raise RuntimeError("Timeout waiting for TheBDM to register the wallet.")
       
    def tearDown(self):

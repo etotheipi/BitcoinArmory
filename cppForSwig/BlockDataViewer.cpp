@@ -18,6 +18,7 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 /////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::~BlockDataViewer()
 {
+   ReadWriteLock::WriteLock wl(registeredWalletsLock_);
    for (auto wlt : registeredWallets_)
       wlt.second->unregister();
 
@@ -29,7 +30,7 @@ BlockDataViewer::~BlockDataViewer()
 BtcWallet* BlockDataViewer::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
-   if (IDstr.size() == 0)
+   if (IDstr.empty())
       return nullptr;
 
    LOGINFO << "Registering Wallet " << IDstr;
@@ -37,34 +38,18 @@ BtcWallet* BlockDataViewer::registerWallet(
    // Check if the wallet is already registered
    BinaryData id(IDstr);
 
-   auto regWlt = registeredWallets_.find(id);
-   if (regWlt != registeredWallets_.end())
-      return regWlt->second.get();
+   {
+      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+      
+      auto regWlt = registeredWallets_.find(id);
+      if (regWlt != registeredWallets_.end())
+         return regWlt->second.get();
+   }
    
    shared_ptr<BtcWallet> newWallet;
 
-   if (bdmPtr_->hasInjectPtr())
    {
-      //Main thread is running, save the wallet in queue.
-      //No need to notify the main thread, the address registration
-      //will trigger it
-      
-      walletInfo wltInfo;
-
-      wltInfo.register_ = true;
-      wltInfo.ID_ = id;
-      wltInfo.type_ = 0;
-
-      wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
-      newWallet = wltInfo.wallet_;
-      
-      {
-         unique_lock<mutex> l(walletRegistrationMutex_);
-         walletRegistrationQueue_.push_back(wltInfo);
-      }
-   }
-   else
-   {
+      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
       // Main thread isnt ruuning, just register the wallet
       // Add it to the list of wallets to watch
       // Instantiate the object through insert.
@@ -79,6 +64,7 @@ BtcWallet* BlockDataViewer::registerWallet(
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
    vector<BinaryData> saVec;
+   saVec.reserve(newWallet->getScrAddrMap().size());
    for (const auto& scrAddrPair : newWallet->getScrAddrMap())
       saVec.push_back(scrAddrPair.first);
 
@@ -87,6 +73,7 @@ BtcWallet* BlockDataViewer::registerWallet(
    //tell the wallet it is registered
    newWallet->setRegistered();
 
+   bdmPtr_->notifyMainThread();
    return newWallet.get();
 }
 
@@ -94,7 +81,7 @@ BtcWallet* BlockDataViewer::registerWallet(
 BtcWallet* BlockDataViewer::registerLockbox(
    vector<BinaryData> const & scrAddrVec, string IDstr, bool wltIsNew)
 {
-   if (IDstr.size() == 0)
+   if (IDstr.empty())
       return nullptr;
 
    LOGINFO << "Registering Lockbox " << IDstr;
@@ -102,40 +89,24 @@ BtcWallet* BlockDataViewer::registerLockbox(
    // Check if the lockbox is already registered
    BinaryData id(IDstr);
    
-   auto regLB = registeredLockboxes_.find(id);
-   if (regLB!= registeredLockboxes_.end())
-      return regLB->second.get();
-
+   {
+      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+      
+      auto regLB = registeredLockboxes_.find(id);
+      if (regLB!= registeredLockboxes_.end())
+         return regLB->second.get();
+   }
+   
    shared_ptr<BtcWallet> newLockbox;
 
-   if (bdmPtr_->hasInjectPtr())
    {
-      //Main thread is running, save the wallet in queue.
-      //No need to notify the main thread, the address registration
-      //will trigger it
-
-      walletInfo wltInfo;
-
-      wltInfo.register_ = true;
-      wltInfo.ID_ = id;
-      wltInfo.type_ = 1;
-
-      wltInfo.wallet_ = shared_ptr<BtcWallet>(new BtcWallet(this, id));
-      newLockbox = wltInfo.wallet_;
-
-      {
-         unique_lock<mutex> l(walletRegistrationMutex_);
-         walletRegistrationQueue_.push_back(wltInfo);
-      }
-   }
-   else
-   {
+      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
       // Main thread isnt ruuning, just register the wallet
       // Add it to the list of wallets to watch
       // Instantiate the object through insert.
       auto insertResult = registeredLockboxes_.insert(make_pair(
-         id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
-         ));
+         id, make_shared<BtcWallet>(this, id)
+      ));
       newLockbox = insertResult.first->second;
    }
 
@@ -150,6 +121,8 @@ BtcWallet* BlockDataViewer::registerLockbox(
    saf_->registerAddresses(saVec, newLockbox, wltIsNew);
 
    newLockbox->setRegistered();
+   
+   bdmPtr_->notifyMainThread();
 
    return newLockbox.get();
 }
@@ -161,27 +134,19 @@ void BlockDataViewer::unregisterWallet(string IDstr)
 
    BinaryData id(IDstr);
 
-   auto wltIter = registeredWallets_.find(id);
-
-   if (bdmPtr_->hasInjectPtr())
    {
-      //main thread is running, save wallet unreg in queue and notify.
-      walletInfo wltInfo;
-
-      wltInfo.register_ = false;
-      wltInfo.ID_ = BinaryData(id);
-      wltInfo.type_ = 0;
-      wltInfo.wallet_ = wltIter->second;
-
-      {
-         unique_lock<mutex> l(walletRegistrationMutex_);
-         walletRegistrationQueue_.push_back(wltInfo);
-      }
-      
-      bdmPtr_->notifyMainThread();
+      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+      auto wltIter = registeredWallets_.find(id);
+      if (wltIter == registeredWallets_.end())
+         return;
    }
-   else
-      registeredWallets_.erase(wltIter);
+   
+   {
+      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
+      registeredWallets_.erase(id);
+   }
+   
+   bdmPtr_->notifyMainThread();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -191,27 +156,18 @@ void BlockDataViewer::unregisterLockbox(string IDstr)
 
    BinaryData id(IDstr);
 
-   auto wltIter = registeredLockboxes_.find(id);
-
-   if (bdmPtr_->hasInjectPtr())
    {
-      //main thread is running, save wallet unreg in queue and notify.
-      walletInfo wltInfo;
-
-      wltInfo.register_ = false;
-      wltInfo.ID_ = BinaryData(id);
-      wltInfo.type_ = 1;
-      wltInfo.wallet_ = wltIter->second;
-
-      {
-         unique_lock<mutex> l(walletRegistrationMutex_);
-         walletRegistrationQueue_.push_back(wltInfo);
-      }
-
-      bdmPtr_->notifyMainThread();
+      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+      auto wltIter = registeredLockboxes_.find(id);
+      if (wltIter == registeredWallets_.end())
+         return;
    }
-   else
+
+   {
+      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
       registeredLockboxes_.erase(id);
+   }
+   bdmPtr_->notifyMainThread();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -224,10 +180,17 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       endBlock = getTopBlockHeight() + 1;
 
 
-   for (auto& wltPair : registeredWallets_)
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+   const map<BinaryData, shared_ptr<BtcWallet>> registeredWallets
+      = registeredWallets_;
+   const map<BinaryData, shared_ptr<BtcWallet>> registeredLockboxes
+      = registeredLockboxes_;
+   rl.unlock();
+   
+   for (auto& wltPair : registeredWallets)
       wltPair.second->merge();
 
-   for (auto& lbPair : registeredLockboxes_)
+   for (auto& lbPair : registeredLockboxes)
       lbPair.second->merge();
 
 
@@ -255,7 +218,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    const bool reorg = (lastScanned_ > startBlock);
 
    //uint32_t i = 0;
-   for (auto& wltPair : registeredWallets_)
+   for (auto& wltPair : registeredWallets)
    {
       //LOGINFO << "Processing wallet #" << i;
       //i++;
@@ -265,7 +228,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    }
 
    // i = 0;
-   for (auto& lbPair : registeredLockboxes_)
+   for (auto& lbPair : registeredLockboxes)
    {
       //LOGINFO << "Processing Lockbox #" << i;
       //i++;
@@ -311,12 +274,14 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::hasWallet(BinaryData ID)
 {
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    return registeredWallets_.find(ID) != registeredWallets_.end();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::pprintRegisteredWallets(void) const
 {
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    for (const auto& wltPair : registeredWallets_)
    {
       cout << "Wallet:";
@@ -366,6 +331,7 @@ void BlockDataViewer::purgeZeroConfPool()
       = zeroConfCont_.purge(
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
 
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    for (auto& wltPair : registeredWallets_)
    {
       wltPair.second->purgeZeroConfTxIO(invalidatedTxIOKeys);
@@ -424,8 +390,10 @@ bool BlockDataViewer::parseNewZeroConfTx()
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    BinaryData walletID, int32_t doScan)
 {
-   if (saVec.size() == 0)
+   if (saVec.empty())
       return false;
+   
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    
    auto wltIter = registeredWallets_.find(walletID);
    if (wltIter == registeredWallets_.end())
@@ -442,6 +410,8 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
 const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
    const BinaryData& txHash) const
 {
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+   
    for (const auto& wltPair : registeredWallets_)
    {
       const LedgerEntry& le = wltPair.second->getLedgerEntryForTx(txHash);
@@ -552,6 +522,7 @@ uint32_t BlockDataViewer::getTopBlockHeight(void) const
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::reset()
 {
+   ReadWriteLock::WriteLock wl(registeredWalletsLock_);
    for (auto& wltPair : registeredWallets_)
       wltPair.second->reset();
 
@@ -574,6 +545,8 @@ map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary(
 {
    map<uint32_t, uint32_t> fullSummary;
 
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+   
    for (auto& wltPair : registeredWallets_)
    {      
       if (forcePaging)
@@ -622,6 +595,7 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId,
 
    {
       globalLedger_.clear();
+      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
       for (auto& wltPair : registeredWallets_)
       {
          map<BinaryData, LedgerEntry> leMap;
@@ -674,6 +648,7 @@ void BlockDataViewer::scanScrAddrVector(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::updateWalletFilters(const vector<BinaryData>& walletsList)
 {
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    for (auto& wltPair : registeredWallets_)
       wltPair.second->uiFilter_ = false;
 
@@ -729,53 +704,6 @@ BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
       return bc_->getHeaderByHash(blockHash);
 
    return BlockHeader();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::hasItemInWalletQueue(void) const
-{ 
-   return walletRegistrationQueue_.size() != 0; 
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::processWalletRegistrationQueue(void)
-{
-   //grab mutex
-   unique_lock<mutex> l(walletRegistrationMutex_);
-
-   for (const auto& wltInfo : walletRegistrationQueue_)
-   {
-      if (wltInfo.type_ == 0)
-      {
-         //wallet
-         if (wltInfo.register_)
-         {  //register
-            registeredWallets_[wltInfo.ID_] = wltInfo.wallet_;
-         }
-         else
-         {
-            //unregister
-            registeredWallets_.erase(wltInfo.ID_);
-            int abc = 0;
-         }
-      }
-      else if (wltInfo.type_ == 1)
-      {
-         //lockbox
-         if (wltInfo.register_)
-         {
-            //register
-            registeredLockboxes_[wltInfo.ID_] = wltInfo.wallet_;
-         }
-         else
-         {
-            //unregister
-            registeredLockboxes_.erase(wltInfo.ID_);
-         }
-      }
-   }
-
-   walletRegistrationQueue_.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
