@@ -619,7 +619,11 @@ def subprocess_check_output(*popenargs, **kwargs):
    Backported from Python 2.7, because it's stupid useful, short, and
    won't exist on systems using Python 2.6 or earlier
    """
-   from subprocess import CalledProcessError
+   if not OS_WINDOWS:
+      from subprocess import CalledProcessError
+   else:
+      from subprocess_win import CalledProcessError
+      
    process = launchProcess(*popenargs, **kwargs)
    output, unused_err = process.communicate()
    retcode = process.poll()
@@ -638,7 +642,11 @@ def killProcessTree(pid):
    # In this case, Windows is easier because we know it has the get_children
    # call, because have bundled a recent version of psutil.  Linux, however,
    # does not have that function call in earlier versions.
-   from subprocess import Popen, PIPE
+   if not OS_WINDOWS:
+      from subprocess import Popen, PIPE
+   else:
+      from subprocess_win import Popen, PIPE
+      
    if not OS_LINUX:
       for child in psutil.Process(pid).get_children():
          killProcess(child.pid)
