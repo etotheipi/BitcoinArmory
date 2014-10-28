@@ -58,9 +58,14 @@ install : all
 all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
 
-test: all-test-tools
+gtest: all-test-tools
 	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
 	python -m unittest discover
+
+pytest: all-test-tools
+	python -m unittest discover
+
+test: gtest pytest
 
 osx :
 	chmod +x osxbuild/deploy.sh
