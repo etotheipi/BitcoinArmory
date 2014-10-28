@@ -154,7 +154,7 @@ class TiabTest(unittest.TestCase):
       while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          time.sleep(2)
          i += 1
-         if i >= 10:
+         if i >= 60:
             raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
 
    @classmethod
