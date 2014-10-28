@@ -86,6 +86,9 @@ template<class Container>
 inline IterateSecond<Container> values(Container &c)
    { return IterateSecond<Container>(c); }
 
+template<class Container>
+inline const IterateSecond<const Container> values(const Container &c)
+   { return IterateSecond<const Container>(c); }
 
 class ReadWriteLock
 {
