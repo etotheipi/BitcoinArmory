@@ -9,7 +9,7 @@ class IterateSecond
 {
    Container &c;
 public:
-   typedef decltype(c.begin()->second) value_type;
+   typedef typename Container::value_type::second_type value_type;
 
    IterateSecond(Container &c) : c(c) { }
 
