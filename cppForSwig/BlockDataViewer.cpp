@@ -187,11 +187,11 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       = registeredLockboxes_;
    rl.unlock();
    
-   for (auto& wltPair : registeredWallets)
-      wltPair.second->merge();
+   for (auto& wlt : values(registeredWallets))
+      wlt->merge();
 
-   for (auto& lbPair : registeredLockboxes)
-      lbPair.second->merge();
+   for (auto& wlt : values(registeredLockboxes))
+      wlt->merge();
 
 
    if (!initialized_)
@@ -218,22 +218,22 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    const bool reorg = (lastScanned_ > startBlock);
 
    //uint32_t i = 0;
-   for (auto& wltPair : registeredWallets)
+   for (auto& wlt : values(registeredWallets))
    {
       //LOGINFO << "Processing wallet #" << i;
       //i++;
 
-      wltPair.second->scanWallet(startBlock, endBlock, reorg,
+      wlt->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
 
    // i = 0;
-   for (auto& lbPair : registeredLockboxes)
+   for (auto& wlt : values(registeredLockboxes))
    {
       //LOGINFO << "Processing Lockbox #" << i;
       //i++;
 
-      lbPair.second->scanWallet(startBlock, endBlock, reorg,
+      wlt->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
 
@@ -252,15 +252,15 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 
       LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
 
-      for (auto& wltPair : registeredWallets_)
+      for (auto& wlt : values(registeredWallets_))
       {
          map<BinaryData, TxIOPair> txioMap;
-         wltPair.second->getTxioForRange(startBlock, UINT32_MAX, txioMap);
+         wlt->getTxioForRange(startBlock, UINT32_MAX, txioMap);
 
          map<BinaryData, LedgerEntry> leMap;
-         wltPair.second->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
+         wlt->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
 
-         if (wltPair.second->uiFilter_ == false)
+         if (!wlt->uiFilter_)
             continue;
 
          for (const auto& lePair : leMap)
@@ -282,10 +282,10 @@ bool BlockDataViewer::hasWallet(BinaryData ID)
 void BlockDataViewer::pprintRegisteredWallets(void) const
 {
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   for (const auto& wltPair : registeredWallets_)
+   for (const auto& wlt : values(registeredWallets_))
    {
       cout << "Wallet:";
-      wltPair.second->pprintAlittle(cout);
+      wlt->pprintAlittle(cout);
    }
 }
 
@@ -332,9 +332,9 @@ void BlockDataViewer::purgeZeroConfPool()
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
 
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   for (auto& wltPair : registeredWallets_)
+   for (auto& wlt : values(registeredWallets_))
    {
-      wltPair.second->purgeZeroConfTxIO(invalidatedTxIOKeys);
+      wlt->purgeZeroConfTxIO(invalidatedTxIOKeys);
    }
 }
 
@@ -412,9 +412,9 @@ const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
 {
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    
-   for (const auto& wltPair : registeredWallets_)
+   for (const auto& wlt : values(registeredWallets_))
    {
-      const LedgerEntry& le = wltPair.second->getLedgerEntryForTx(txHash);
+      const LedgerEntry& le = wlt->getLedgerEntryForTx(txHash);
       if (le.getTxTime() != 0)
          return le;
    }
@@ -523,11 +523,11 @@ uint32_t BlockDataViewer::getTopBlockHeight(void) const
 void BlockDataViewer::reset()
 {
    ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-   for (auto& wltPair : registeredWallets_)
-      wltPair.second->reset();
+   for (auto& wlt : values(registeredWallets_))
+      wlt->reset();
 
-   for (auto& lbPair : registeredLockboxes_)
-      lbPair.second->reset();
+   for (auto& wlt : values(registeredLockboxes_))
+      wlt->reset();
 
    rescanZC_   = false;
    zcEnabled_  = false;
@@ -547,15 +547,15 @@ map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary(
 
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    
-   for (auto& wltPair : registeredWallets_)
+   for (auto& wlt : values(registeredWallets_))
    {      
       if (forcePaging)
-         wltPair.second->mapPages();
+         wlt->mapPages();
       
-      if(wltPair.second->uiFilter_ == false)
+      if(wlt->uiFilter_ == false)
          continue;
             
-      const auto& wltSummary = wltPair.second->getSSHSummary();
+      const auto& wltSummary = wlt->getSSHSummary();
 
       for (auto summary : wltSummary)
          fullSummary[summary.first] += summary.second;
@@ -576,8 +576,8 @@ void BlockDataViewer::pageWalletsHistory(bool forcePaging)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::pageLockboxesHistory()
 {
-   for (auto& lbPair : registeredLockboxes_)
-      lbPair.second->mapPages();
+   for (auto& wlt : values(registeredLockboxes_))
+      wlt->mapPages();
 }
 
 
@@ -596,28 +596,27 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId,
    {
       globalLedger_.clear();
       ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-      for (auto& wltPair : registeredWallets_)
+      for (auto& wlt : values(registeredWallets_))
       {
-         map<BinaryData, LedgerEntry> leMap;
-
-         auto getTxio = [&](uint32_t start, uint32_t end,
+         auto getTxio = [&wlt](uint32_t start, uint32_t end,
             map<BinaryData, TxIOPair>& outMap)->void
-         { return wltPair.second->getTxioForRange(start, end, outMap); };
+         { return wlt->getTxioForRange(start, end, outMap); };
 
-         auto buildLedgers = [&](map<BinaryData, LedgerEntry>& le,
+         auto buildLedgers = [&wlt](map<BinaryData, LedgerEntry>& le,
             const map<BinaryData, TxIOPair>& txioMap,
             uint32_t startBlock, uint32_t endBlock)->void
-         { wltPair.second->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
+         { wlt->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
+         map<BinaryData, LedgerEntry> leMap;
          hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
       
          //this should be locked to a single thread
 
-         if (wltPair.second->uiFilter_ == false)
+         if (!wlt->uiFilter_)
             continue;
 
-         for (const auto& lePair : leMap)
-            globalLedger_.push_back(lePair.second);
+         for (const LedgerEntry& le : values(leMap))
+            globalLedger_.push_back(le);
       }
    }
 
@@ -635,7 +634,7 @@ void BlockDataViewer::scanScrAddrVector(
    shared_ptr<ScrAddrFilter> saf(saf_->copy());
 
    //register scrAddr with it
-   for (auto scrAddrPair : scrAddrMap)
+   for (auto& scrAddrPair : scrAddrMap)
       saf->regScrAddrForScan(scrAddrPair.first, startBlock);
 
    //compute blockHeightCutOff
@@ -649,8 +648,8 @@ void BlockDataViewer::scanScrAddrVector(
 void BlockDataViewer::updateWalletFilters(const vector<BinaryData>& walletsList)
 {
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   for (auto& wltPair : registeredWallets_)
-      wltPair.second->uiFilter_ = false;
+   for (auto& wlt : values(registeredWallets_))
+      wlt->uiFilter_ = false;
 
    for (auto walletID : walletsList)
       registeredWallets_[walletID]->uiFilter_ = true;
