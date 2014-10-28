@@ -191,7 +191,7 @@ void BlockDataViewer::unregisterLockbox(string IDstr)
 
    BinaryData id(IDstr);
 
-   auto wltIter = registeredWallets_.find(id);
+   auto wltIter = registeredLockboxes_.find(id);
 
    if (bdmPtr_->hasInjectPtr())
    {

@@ -536,7 +536,7 @@ private:
       is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
       if( fileMagic != magicBytes_ )
       {
-         LOGERR << "Block file is the wrong network! File: "
+         LOGERR << "Block file '" << f.path << "' is the wrong network! File: "
             << fileMagic.toHexStr()
             << ", expecting " << magicBytes_.toHexStr();
       }
@@ -613,7 +613,7 @@ private:
          if( fileMagic != magicBytes_)
          {
             std::ostringstream ss;
-            ss << "Block file is the wrong network! File: "
+            ss << "Block file '" << f.path << "' is the wrong network! File: "
                << fileMagic.toHexStr()
                << ", expecting " << magicBytes_.toHexStr();
             throw runtime_error(ss.str());
