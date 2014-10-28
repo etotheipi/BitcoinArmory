@@ -84,10 +84,6 @@ namespace std
 	{
 		SWIG_exception(SWIG_RuntimeError, e.what());
 	}
-	catch (std::range_error& e)
-	{
-		SWIG_exception(SWIG_AttributeError, e.what());
-	}
 }
 
 
