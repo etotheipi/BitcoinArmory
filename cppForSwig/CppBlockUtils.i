@@ -54,6 +54,8 @@
 %ignore BlockDataManager_LevelDB::readBlockUpdate(const pair<size_t, uint64_t>& headerOffset);
 %ignore BlockDataManager_LevelDB::loadDiskState(const function<void(unsigned, double,unsigned)> &progress);
 
+%allowexception;
+
 namespace std
 {
    %template(vector_int) std::vector<int>;
@@ -72,7 +74,7 @@ namespace std
    %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
 }
 
-%except(python)
+%exception
 {
 	try
 	{
