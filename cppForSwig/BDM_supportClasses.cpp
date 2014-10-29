@@ -1,5 +1,6 @@
 #include "BDM_supportClasses.h"
 #include "BlockUtils.h"
+#include "ReorgUpdater.h"
 #include <thread>
 
 
@@ -181,7 +182,7 @@ void ScrAddrFilter::scanScrAddrThread()
    if (wltPtr->hasBdvPtr())
    {
       //merge with main ScrAddrScanData object
-      merge();
+      merge(topScannedBlockHash);
 
       vector<BinaryData> addressVec;
       addressVec.reserve(scrAddrMap_.size());
@@ -225,7 +226,7 @@ void ScrAddrFilter::scanScrAddrMapInNewThread()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::merge()
+void ScrAddrFilter::merge(BinaryData lastScannedBlkHash)
 {
    /***
    Merge in the scrAddrMap and UTxOs scanned in a side thread with the BDM's
@@ -238,6 +239,7 @@ void ScrAddrFilter::merge()
       while (root_->mergeLock_.fetch_or(1, memory_order_acquire));
 
       //merge scrAddrMap_
+      root_->scrAddrDataForSideScan_.lastScannedBlkHash_ = lastScannedBlkHash;
       root_->scrAddrDataForSideScan_.scrAddrsToMerge_.insert(
          scrAddrMap_.begin(), scrAddrMap_.end());
 
@@ -270,17 +272,44 @@ void ScrAddrFilter::checkForMerge()
 {
    if (mergeFlag_ == true)
    {
-      //rescan last 100 blocks to account for new blocks and reorgs
+      /***
+      We're about to add a set of newly registered scrAddrs to the BDM's
+      ScrAddrFilter map. Make sure they are scanned up to the last known
+      top block first, then merge it in.
+      ***/
+
+      //create SAF to scan the addresses to merge
       std::shared_ptr<ScrAddrFilter> sca(copy());
       sca->scrAddrMap_ = scrAddrDataForSideScan_.scrAddrsToMerge_;
       sca->UTxO_ = scrAddrDataForSideScan_.UTxOToMerge_;
-
       sca->blockHeightCutOff_ = blockHeightCutOff_;
+
+      BinaryData lastScannedBlockHash = scrAddrDataForSideScan_.lastScannedBlkHash_;
+
       uint32_t topBlock = currentTopBlockHeight();
-      uint32_t startBlock = topBlock - 100;
-      if (topBlock < 100)
-         startBlock = 0;
-      applyBlockRangeToDB(startBlock, topBlock + 1, nullptr);
+      uint32_t startBlock;
+      
+      //check last scanned blk hash against the blockchain      
+      Blockchain& bc = blockchain();
+      const BlockHeader& bh = bc.getHeaderByHash(lastScannedBlockHash);
+
+      if (bh.isMainBranch())
+      {
+         //last scanned block is still on main branch
+         startBlock = bh.getBlockHeight() + 1;
+      }
+      else
+      {
+         //last scanned block is off the main branch, undo till branch point
+         const Blockchain::ReorganizationState state =
+            bc.findReorgPointFromBlock(lastScannedBlockHash);
+         ReorgUpdater reorg(state, &bc, lmdb_, config(), sca.get(), true);
+
+         startBlock = state.reorgBranchPoint->getBlockHeight() + 1;
+      }
+
+      if (startBlock < topBlock)
+         sca->applyBlockRangeToDB(startBlock, topBlock + 1, nullptr);
 
       //grab merge lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));

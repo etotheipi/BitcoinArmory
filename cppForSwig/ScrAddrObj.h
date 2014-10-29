@@ -251,7 +251,7 @@ public:
    { updateLedgers(*ledger_, txioMap, startBlock, endBlock, purge); }
 
    void setTxioCount(uint64_t count) { totalTxioCount_ = count; }
-   uint64_t getTxioCount(void) const { return totalTxioCount_; }
+   uint64_t getTxioCount(void) const { return getTxioCountFromSSH(); }
    uint64_t getTxioCountFromSSH(void) const;
 
    void mapHistory(void);

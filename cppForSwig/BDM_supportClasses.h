@@ -74,6 +74,8 @@ public:
       uint32_t startScanFrom_=0;
       shared_ptr<BtcWallet> wltPtr_;
 
+      BinaryData lastScannedBlkHash_;
+
       map<BinaryData, uint32_t> scrAddrsToMerge_;
       set<BinaryData>           UTxOToMerge_;
 
@@ -185,7 +187,7 @@ public:
    //scan before it cleans itself up
    void setChild (shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
 
-   void merge(void);
+   void merge(BinaryData lastScannedBlkHash);
    void checkForMerge(void);
 
    void startSideScan(
@@ -202,6 +204,8 @@ protected:
    virtual uint32_t currentTopBlockHeight() const=0;
    virtual void flagForScanThread(void) = 0;
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec) = 0;
+   virtual Blockchain& blockchain(void) = 0;
+   virtual BlockDataManagerConfig config(void) = 0;
 
 private:
    void scanScrAddrThread(void);

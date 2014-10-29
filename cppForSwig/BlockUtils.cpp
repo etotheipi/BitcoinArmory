@@ -571,6 +571,16 @@ protected:
    {
       bdm_->wipeScrAddrsSSH(saVec);
    }
+
+   virtual Blockchain& blockchain(void)
+   {
+      return bdm_->blockchain();
+   }
+
+   virtual BlockDataManagerConfig config(void)
+   {
+      return bdm_->config();
+   }
 };
 
 
