@@ -112,8 +112,6 @@ class ArmoryDTest(TiabTest):
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 1)
       self.assertEquals(txOut['value'],TX_ID1_OUTPUT1_VALUE)
          
-   # FARHODTODO
-   @SkipTest
    def testGetreceivedbyaddress(self):
       a160 = hash160(self.wallet.getNextUnusedAddress().binPublicKey65.toBinStr())
       testAddr = hash160_to_addrStr(a160)
