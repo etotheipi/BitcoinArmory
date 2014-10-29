@@ -968,7 +968,6 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
 
 ////////////////////////////////////////////////////////////////////////////////
 const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId) 
-   throw(std::range_error)
 {
    if (!bdvPtr_->isBDMRunning())
       return LedgerEntry::EmptyLedgerMap_;
@@ -989,7 +988,6 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
-   throw(std::range_error)
 {
    try
    {

@@ -1006,7 +1006,7 @@ bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreA
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
-   if ( hasTxInZC() ||hasTxInInMain(db))
+   if ( hasTxInZC() || hasTxInInMain(db))
       return false;
    
    if( hasTxOutInMain(db) )

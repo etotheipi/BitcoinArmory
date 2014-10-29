@@ -7,9 +7,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin" --testnet</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ArmoryQt.py --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin" --testnet</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>../../</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerCommand>C:\Python27\python.exe</LocalDebuggerCommand>

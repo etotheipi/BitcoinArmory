@@ -217,22 +217,14 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 
    const bool reorg = (lastScanned_ > startBlock);
 
-   //uint32_t i = 0;
    for (auto& wlt : values(registeredWallets))
    {
-      //LOGINFO << "Processing wallet #" << i;
-      //i++;
-
       wlt->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
 
-   // i = 0;
    for (auto& wlt : values(registeredLockboxes))
    {
-      //LOGINFO << "Processing Lockbox #" << i;
-      //i++;
-
       wlt->scanWallet(startBlock, endBlock, reorg,
                             invalidatedZCKeys);
    }
@@ -707,7 +699,7 @@ BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> BlockDataViewer::getUnpsentTxoutsForAddr160List(
-   const vector<BinaryData>& scrAddrVec) const throw(std::range_error)
+   const vector<BinaryData>& scrAddrVec) const
 {
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter();
 

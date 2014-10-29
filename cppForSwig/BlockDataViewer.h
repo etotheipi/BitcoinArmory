@@ -107,7 +107,7 @@ public:
 
    vector<UnspentTxOut> 
       getUnpsentTxoutsForAddr160List(
-      const vector<BinaryData>&) const throw(std::range_error);
+      const vector<BinaryData>&) const;
 
    bool isBDMRunning(void) const 
    { 

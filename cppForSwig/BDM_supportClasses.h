@@ -262,6 +262,7 @@ private:
    LMDBBlockDatabase*                           db_;
 
    static map<BinaryData, TxIOPair> emptyTxioMap_;
+   bool enabled_ = false;
 
 private:
    BinaryData getNewZCkey(void);

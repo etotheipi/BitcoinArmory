@@ -7074,6 +7074,7 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
    EXPECT_EQ(scrobj->getFullBalance(), 40 * COIN);
+   EXPECT_EQ(scrobj->getSpendableBalance(), 40 * COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 10 * COIN);
 

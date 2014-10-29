@@ -414,6 +414,9 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
    sufficient time granularity.
    ***/
 
+   if (enabled_ == false)
+      return;
+
    //convert raw ZC to a Tx object
    BinaryData ZCkey = getNewZCkey();
    Tx zcTx(rawTx);
@@ -1000,7 +1003,10 @@ void ZeroConfContainer::loadZeroConfMempool(
       LDBIter dbIter(db_->getIterator(BLKDATA));
 
       if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))
+      {
+         enabled_ = true;
          return;
+      }
 
       do
       {
@@ -1033,11 +1039,19 @@ void ZeroConfContainer::loadZeroConfMempool(
 
    if (newZCMap_.size())
    {   
+
       //copy newZCmap_ to keep the pre parse ZC map
       auto oldZCMap = newZCMap_;
 
       //now parse the new ZC
       parseNewZC(filter);
+      
+      //set the zckey to the highest used index
+      if (txMap_.size() > 0)
+      {
+         BinaryData topZcKey = txMap_.rbegin()->first;
+         topId_.store(READ_UINT32_BE(topZcKey.getSliceCopy(2, 4)) +1);
+      }
 
       //intersect oldZCMap and txMap_ to figure out the invalidated ZCs
       vector<BinaryData> keysToWrite, keysToDelete;
@@ -1052,6 +1066,8 @@ void ZeroConfContainer::loadZeroConfMempool(
       //full control over the main thread
       updateZCinDB(keysToWrite, keysToDelete);
    }
+
+   enabled_ = true;
 }
 
 

@@ -1988,7 +1988,8 @@ TxOut LMDBBlockDatabase::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
    TxRef parent(ldbKey6B);
 
    brr.advance(2);
-   txoOut.unserialize_checked(brr.getCurrPtr(), brr.getSizeRemaining(), 0, parent, (uint32_t)txOutIdx);
+   txoOut.unserialize_checked(
+      brr.getCurrPtr(), brr.getSizeRemaining(), 0, parent, (uint32_t)txOutIdx);
    return txoOut;
 }
 
@@ -2047,7 +2048,13 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 {
    SCOPED_TIMER("getTxHashForLdbKey");
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
-   BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+   BinaryRefReader stxVal;
+
+   if (!ldbKey6B.startsWith(ZCprefix_))
+      stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+   else
+      stxVal = getValueReader(BLKDATA, DB_PREFIX_ZCDATA, ldbKey6B);
+
    if(stxVal.getSize()==0)
    {
       LOGERR << "TxRef key does not exist in BLKDATA DB";

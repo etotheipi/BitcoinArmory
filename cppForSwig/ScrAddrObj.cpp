@@ -286,17 +286,22 @@ void ScrAddrObj::getHistoryForScrAddr(
    if (!ssh.isInitialized())
       return;
 
-   //serve content as a map
-   for (auto &subSSHEntry : ssh.subHistMap_)
+   //Serve content as a map. Do not overwrite existing TxIOs to avoid wiping ZC
+   //data, Since the data isn't overwritten, iterate the map from its end to make
+   //sure newer txio aren't ignored due to older ones being inserted first.
+   auto subSSHiter = ssh.subHistMap_.rbegin();
+   while (subSSHiter != ssh.subHistMap_.rend())
    {
-      StoredSubHistory & subssh = subSSHEntry.second;
+      StoredSubHistory & subssh = subSSHiter->second;
 
       for (auto &txiop : subssh.txioMap_)
       {
          const TxIOPair & txio = txiop.second;
          if (withMultisig || !txio.isMultisig())
-            outMap[txiop.first] = txio;
+            outMap.insert(txiop); 
       }
+
+      ++subSSHiter;
    }
 }
 
