@@ -1,5 +1,7 @@
 #include "Blockchain.h"
 
+#include "util.h"
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -199,23 +201,26 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
    const BlockHeader& prevTopBlock = top();
    
    // Iterate over all blocks, track the maximum difficulty-sum block
-   map<HashString, BlockHeader>::iterator iter;
    double   maxDiffSum     = prevTopBlock.getDifficultySum();
-   for( iter = headerMap_.begin(); iter != headerMap_.end(); iter ++)
+   for( BlockHeader &header : values(headerMap_))
    {
       // *** Walk down the chain following prevHash fields, until
       //     you find a "solved" block.  Then walk back up and 
       //     fill in the difficulty-sum values (do not set next-
       //     hash ptrs, as we don't know if this is the main branch)
       //     Method returns instantly if block is already "solved"
-      double thisDiffSum = traceChainDown(iter->second);
+      double thisDiffSum = traceChainDown(header);
 
+      if (header.isOrphan_)
+      {
+         // disregard this block
+      }
       // Determine if this is the top block.  If it's the same diffsum
       // as the prev top block, don't do anything
-      if(thisDiffSum > maxDiffSum)
+      else if(thisDiffSum > maxDiffSum)
       {
          maxDiffSum     = thisDiffSum;
-         topBlockPtr_   = &(iter->second);
+         topBlockPtr_   = &header;
       }
    }
 
@@ -299,17 +304,15 @@ double Blockchain::traceChainDown(BlockHeader & bhpStart)
 
       map<HashString, BlockHeader>::iterator iter = headerMap_.find(thisPtr->getPrevHash());
       if(ITER_IN_MAP(iter, headerMap_))
+      {
          thisPtr = &(iter->second);
+      }
       else
       {
-         // Under some circumstances, the headers DB is not getting written
-         // properly and triggering this code due to missing headers.  For 
-         // now, we simply avoid this condition by flagging the headers DB
-         // to be rebuilt.  The bug probably has to do with batching of
-         // header data.
-         throw BlockCorruptionError();
-         
-         // previously here: markOrphanBlock
+         thisPtr->isOrphan_ = true;
+         // this block is an orphan, possibly caused by a HeadersFirst
+         // blockchain. Nothing to do about that
+         return numeric_limits<double>::max();
       }
    }
 
@@ -326,6 +329,7 @@ double Blockchain::traceChainDown(BlockHeader & bhpStart)
       thisPtr->difficultyDbl_ = difficultyStack[i];
       thisPtr->difficultySum_ = seedDiffSum;
       thisPtr->blockHeight_   = blkHeight;
+      thisPtr->isOrphan_ = false;
    }
    
    // Finally, we have all the difficulty sums calculated, return this one

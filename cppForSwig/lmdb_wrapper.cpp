@@ -1347,6 +1347,11 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID)
       LOGERR << "Attempting to put uninitialized bare header into DB";
       return UINT8_MAX;
    }
+   
+   if (sbh.blockHeight_ == UINT32_MAX)
+   {
+      throw runtime_error("Attempted to put a header with no height");
+   }
 
    // Batch the two operations to make sure they both hit the DB, or neither 
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadWrite);

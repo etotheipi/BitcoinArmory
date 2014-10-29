@@ -1666,6 +1666,17 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
       
          for (BlockHeader *bh : loadedBlockHeaders)
          {
+            if (bh->getBlockHeight() == UINT32_MAX)
+            {
+               // this header has no height, therefor it's an orphan
+               // this might be the result of HeadersFirst, therefor
+               // we should just exit and hope it gets put on the 
+               // chain later on
+               LOGWARN << "Found an orphan block in the blockchain."
+                  " If this message persists, please report it.";
+               return 0;
+            }
+            
             StoredHeader sbh;
             sbh.createFromBlockHeader(*bh);
             uint8_t dup = iface_->putBareHeader(sbh, updateDupID);
