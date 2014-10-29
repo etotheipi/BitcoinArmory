@@ -68,8 +68,9 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       if (armoryDbType_ == ARMORY_DB_SUPER)
       {
          //supernode: nothing to do, signal the wallet that its scrAddr bulk 
-         //is ready by passing isNew as true.
-         wltPtr->prepareScrAddrForMerge(saVec, true);
+         //is ready by passing isNew as true. Pass a blank BinaryData for the 
+         //top scanned block hash in this case, it will be ignored anyways
+         wltPtr->prepareScrAddrForMerge(saVec, true, BinaryData());
 
          wltPtr->needsRefresh();
 
@@ -140,14 +141,23 @@ void ScrAddrFilter::scanScrAddrThread()
          
    uint32_t startBlock = scanFrom();
    uint32_t endBlock = currentTopBlockHeight();
-  
+
+   BinaryData topScannedBlockHash;
+   {
+      LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadOnly);
+      StoredHeader sbh;
+      lmdb_->getBareHeader(sbh, endBlock);
+      topScannedBlockHash = sbh.thisHash_;
+   }
+
    if (doScan_ == 1)
    {
       //TODO: keep scanning if the top changed, just handle that in the last
       //during main thread BtcWallet::merge()
 
       //scan on top of existing history
-      applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
+      topScannedBlockHash = 
+         applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
    }
    else if (doScan_ == 0)
    {
@@ -164,7 +174,8 @@ void ScrAddrFilter::scanScrAddrThread()
       saVec.clear();
 
       //scan from 0
-      applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
+      topScannedBlockHash =
+         applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
    }
 
    if (wltPtr->hasBdvPtr())
@@ -183,7 +194,8 @@ void ScrAddrFilter::scanScrAddrThread()
 
       if (!scrAddrMap_.empty())
       {
-         wltPtr->prepareScrAddrForMerge(addressVec, !((bool)doScan_));
+         wltPtr->prepareScrAddrForMerge(addressVec, !((bool)doScan_),
+            topScannedBlockHash);
 
          //notify the bdv that it needs to refresh through the wallet
          wltPtr->needsRefresh();

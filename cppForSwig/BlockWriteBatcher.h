@@ -37,7 +37,8 @@ public:
    
    void applyBlockToDB(uint32_t hgt, uint8_t dup, ScrAddrFilter& scrAddrData);
    void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter& scrAddrData);
-   void scanBlocks(ProgressFilter &prog, uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
+   BinaryData scanBlocks(ProgressFilter &prog, 
+      uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
    void setUpdateSDBI(bool set) { updateSDBI_ = set; }
 
 private:
@@ -84,7 +85,7 @@ private:
    void searchForSSHKeysToDelete(map<BinaryData, StoredScriptHistory>& sshToModify);
 
    void preloadSSH(const ScrAddrFilter& sasd);
-   void applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData);
+   BinaryData applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData);
    bool applyTxToBatchWriteData(
                            StoredTx &       thisSTX,
                            StoredUndoData * sud,
@@ -94,7 +95,7 @@ private:
    void clearTransactions(void);
    
    static void* grabBlocksFromDB(void *in);
-   void applyBlocksToDB(ProgressFilter &prog);
+   BinaryData applyBlocksToDB(ProgressFilter &prog);
    void cleanUpSshToModify(void);
 
 private:

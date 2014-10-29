@@ -239,14 +239,14 @@ BlockWriteBatcher::~BlockWriteBatcher()
    clearTransactions();
 }
 
-void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
+BinaryData BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    ScrAddrFilter& scrAddrData)
 {
    //TIMER_START("applyBlockToDBinternal");
    if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
    {
       LOGERR << "Dup requested is not the main branch for the given height!";
-      return;
+      return BinaryData();
    }
    else
       sbh.isMainBranch_ = true;
@@ -277,6 +277,8 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    sbhToUpdate_.push_back(&sbh);
    dbUpdateSize_ += sbh.numBytes_;
 
+   BinaryData scannedBlockHash = sbh.thisHash_;
+
    { // we want to commit the undo data at the same time as actual changes   
       // Now actually write all the changes to the DB all at once
       // if we've gotten to that threshold
@@ -295,6 +297,7 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    }
 
    //TIMER_STOP("applyBlockToDBinternal");
+   return scannedBlockHash;
 }
 
 void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
@@ -1204,7 +1207,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
+BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 {
    if (tempBlockData_->endBlock_ == 0)
    {
@@ -1212,6 +1215,7 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
       throw std::range_error("Top block is 0, nothing to scan");
    }
 
+   BinaryData lastScannedBlockHash;
    resetTransactions();
 
    thread grabThread;
@@ -1283,8 +1287,10 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          uint32_t blockSize = sbh->numBytes_;
 
          //scan block
-         applyBlockToDB(*sbh, tempBlockData_->scrAddrFilter_);
-
+;
+         lastScannedBlockHash = 
+            applyBlockToDB(*sbh, tempBlockData_->scrAddrFilter_);
+ 
          //decrement bufferload
          if (tempBlockData_->bufferLoad_ < blockSize)
          {
@@ -1326,6 +1332,7 @@ void BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
    if (grabThread.joinable())
       grabThread.join();
 
+   return lastScannedBlockHash;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1357,7 +1364,7 @@ void BlockWriteBatcher::cleanUpSshToModify(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::scanBlocks(
+BinaryData BlockWriteBatcher::scanBlocks(
    ProgressFilter &prog,
    uint32_t startBlock, uint32_t endBlock, 
    ScrAddrFilter& scf
@@ -1370,7 +1377,7 @@ void BlockWriteBatcher::scanBlocks(
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);
 
-   applyBlocksToDB(prog);
+   return applyBlocksToDB(prog);
 
    /*TIMER_STOP("applyBlockRangeToDBIter");
 

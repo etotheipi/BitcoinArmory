@@ -1,6 +1,7 @@
 #include "BtcWallet.h"
 #include "BlockUtils.h"
 #include "BlockDataViewer.h"
+#include "ReorgUpdater.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -778,7 +779,8 @@ const LedgerEntry& BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) cons
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::prepareScrAddrForMerge(const vector<BinaryData>& scrAddrVec, bool isNew)
+void BtcWallet::prepareScrAddrForMerge(const vector<BinaryData>& scrAddrVec, 
+   bool isNew, BinaryData topScannedBlockHash)
 {
    //pass isNew = true for supernode too, since that's the same behavior
 
@@ -797,55 +799,63 @@ void BtcWallet::prepareScrAddrForMerge(const vector<BinaryData>& scrAddrVec, boo
 
    //add scrAddr to merge map
    scrAddrMapToMerge_.insert(newScrAddrMap.begin(), newScrAddrMap.end());
+   mergeTopScannedBlkHash_ = topScannedBlockHash;
 
    //mark merge flag, 2 for fresh scrAddr
-   mergeFlag_ = (isNew ? 2 : 1);
+   mergeFlag_ = (isNew ? MergeMode::NoRescan : MergeMode::Rescan);
 
    //release lock
    mergeLock_.store(0, memory_order_release);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::merge()
+void BtcWallet::merge()
 {
-   if (mergeFlag_ > 0)
+   if (mergeFlag_ != MergeMode::NoMerge)
    {
-      bool rt = false;
-
       //grab lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));
 
-      if (mergeFlag_ == 1 && scrAddrMapToMerge_.size() > 0) //addresses with history
+      //addresses with history
+      if (mergeFlag_ == MergeMode::Rescan && scrAddrMapToMerge_.size() > 0) 
       {
-         //rescan last 100 blocks to account for new blocks and reorgs
-         uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight();
-         
-         //get the top scanned block for the addresses to merge
-         StoredScriptHistory ssh;
-         bdvPtr_->getDB()->getStoredScriptHistorySummary(ssh, 
-            scrAddrMapToMerge_.begin()->second.getScrAddr());
+         //compare last scanned blk hash to current main chain
+         Blockchain& bc = bdvPtr_->blockchain();
+         BlockHeader& bh = bc.getHeaderByHash(mergeTopScannedBlkHash_);
+           
+         uint32_t bottomBlock;
 
-         uint32_t bottomBlock = ssh.alreadyScannedUpToBlk_;
-
-         //figure out how many blocks should be rescanned
-         if (bottomBlock > 100)
+         if (bh.isMainBranch())
          {
-            int32_t blockDiff = topBlock - bottomBlock;
-            if (blockDiff < 100)
-               blockDiff = 100;
-            else
-               blockDiff *= 2;
+            //top scanned block is on main branch, make sure the scrAddrs are 
+            //scanned to the current top
 
-            bottomBlock = topBlock - blockDiff;
+            bottomBlock = bh.getBlockHeight() +1;
          }
          else
-            bottomBlock = 0;
-         bdvPtr_->scanScrAddrVector(scrAddrMapToMerge_, bottomBlock, topBlock);
-         
-         //make sure this returns true so that the upper BDV object re-inits the wallet
-         rt = true;
+         {
+            //top scanned block is not on the main branch, undo till branch point
+            const Blockchain::ReorganizationState state =
+               bc.findReorgPointFromBlock(mergeTopScannedBlkHash_);
+
+            //undo blocks up to the branch point, we'll apply the main chain
+            //through the regular scan
+            shared_ptr<ScrAddrFilter> saf(bdvPtr_->getSAF()->copy());
+            
+            for (const auto& scrAddr : scrAddrMapToMerge_)
+               saf->regScrAddrForScan(scrAddr.first, 0);
+
+            ReorgUpdater reorgOnlyUndo(state,
+               &bc, bdvPtr_->getDB(), bdvPtr_->config(), saf.get(), true);
+
+            bottomBlock = state.reorgBranchPoint->getBlockHeight() + 1;
+         }
+
+         uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight();
+         if (bottomBlock < topBlock)
+            bdvPtr_->scanScrAddrVector(scrAddrMapToMerge_, bottomBlock, topBlock);
       }
-      else if (mergeFlag_ == 2)
+      else if (mergeFlag_ == MergeMode::NoRescan)
       {
          LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
          
@@ -862,15 +872,11 @@ bool BtcWallet::merge()
       scrAddrMapToMerge_.clear();
 
       //clear flag
-      mergeFlag_ = 0;
+      mergeFlag_ = MergeMode::NoMerge;
 
       //release lock
       mergeLock_.store(0, memory_order_release);
-
-      return rt;
    }
-
-   return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
    db_ = bdm->getIFace();
    bc_ = &bdm->blockchain();
    saf_ = bdm->getScrAddrFilter();
+   config_ = bdm->config();
 
    bdmPtr_ = bdm;
 

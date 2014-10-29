@@ -235,7 +235,7 @@ public:
    }
    bool hasInjectPtr(void) const { return bdmInjectPtr_ != nullptr; }
 
-   void applyBlockRangeToDB(ProgressReporter &prog, 
+   BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
                             uint32_t blk0, uint32_t blk1,
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);

@@ -431,6 +431,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\Progress.h" />
+    <ClInclude Include="..\ReorgUpdater.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeContainer.h" />

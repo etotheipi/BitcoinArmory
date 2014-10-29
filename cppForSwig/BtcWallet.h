@@ -54,6 +54,14 @@ class BtcWallet
    static const uint32_t MIN_UTXO_PER_TXN = 100;
 
 public:
+
+   enum MergeMode
+   {
+      NoMerge,
+      Rescan,
+      NoRescan
+   };
+
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
       : bdvPtr_(bdv), mergeLock_(0), walletID_(ID)
    {}
@@ -157,7 +165,9 @@ public:
    const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const;
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
-   void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, bool isNew);
+   void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 
+                               bool isNew,
+                               BinaryData topScannedBlockHash);
 
    void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
    const BinaryData& walletID() const { return walletID_; }
@@ -196,7 +206,7 @@ private:
       uint32_t startBlock, uint32_t endBlock,
       bool purge = false) const;
 
-   bool merge(void);
+   void merge(void);
 
    void mapPages(void);
 
@@ -229,7 +239,8 @@ private:
    //for post init importing of new addresses
    atomic<uint32_t>              mergeLock_;
    map<BinaryData, ScrAddrObj>   scrAddrMapToMerge_;
-   uint8_t                       mergeFlag_=0;
+   BinaryData                    mergeTopScannedBlkHash_;
+   MergeMode                     mergeFlag_ = MergeMode::NoMerge;
    
    //manages history pages
    HistoryPager                  histPages_;

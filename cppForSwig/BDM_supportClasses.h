@@ -190,14 +190,16 @@ public:
 
    void startSideScan(
       function<void(const BinaryData&, double prog, unsigned time)> progress);
+ 
+public:
+   virtual ScrAddrFilter* copy()=0;
 
 protected:
    virtual int32_t bdmIsRunning() const=0;
-   virtual void applyBlockRangeToDB(
+   virtual BinaryData applyBlockRangeToDB(
       uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
    )=0;
    virtual uint32_t currentTopBlockHeight() const=0;
-   virtual ScrAddrFilter* copy()=0;
    virtual void flagForScanThread(void) = 0;
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec) = 0;
 
