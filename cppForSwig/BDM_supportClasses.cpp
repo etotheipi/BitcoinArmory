@@ -704,7 +704,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
 
 ///////////////////////////////////////////////////////////////////////////////
 bool ZeroConfContainer::getKeyForTxHash(const BinaryData& txHash,
-   BinaryData zcKey) const
+   BinaryData& zcKey) const
 {
    const auto& hashPair = txHashToDBKey_.find(txHash);
    if (hashPair != txHashToDBKey_.end())
@@ -786,7 +786,6 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          BinaryData opZcKey;
          if (getKeyForTxHash(op.getTxHash(), opZcKey))
          {
-
             TxRef outPointRef(opZcKey);
             uint16_t outPointId = op.getTxOutIndex();
             TxIOPair txio(outPointRef, outPointId,

@@ -299,7 +299,7 @@ public:
 
    bool parseNewZC(function<bool(const BinaryData&)>, bool updateDb = true);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
-   bool getKeyForTxHash(const BinaryData& txHash, BinaryData zcKey) const;
+   bool getKeyForTxHash(const BinaryData& txHash, BinaryData& zcKey) const;
 
    void resetNewZC() { newTxioMap_.clear(); }
    void clear(void);
