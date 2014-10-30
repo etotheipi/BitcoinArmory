@@ -1186,7 +1186,6 @@ void BlockDataManager_LevelDB::loadDiskState(
    
    uint32_t firstUnappliedHeight=0;
    
-   try
    {
       // organize the blockchain we have so far
       const Blockchain::ReorganizationState state
@@ -1197,13 +1196,6 @@ void BlockDataManager_LevelDB::loadDiskState(
          LOGERR << "Did we shut down last time on an orphan block?";
       }
       firstUnappliedHeight = blockchain_.top().getBlockHeight();
-   }
-   catch (Blockchain::BlockCorruptionError &)
-   {
-      // If the headers DB ended up corrupted (triggered by forceOrganize),
-      // then nuke and rebuild the headers
-      LOGERR << "Corrupted headers DB. Need to reload blocks";
-      blockchain_.clear();
    }
    
    

@@ -22,14 +22,6 @@ public:
 
    void clear();
    
-   class BlockCorruptionError : public std::runtime_error
-   {
-   public:
-      BlockCorruptionError()
-         : std::runtime_error("Failed to organize blockchain (corruption)")
-      { }
-   };
-   
    struct ReorganizationState
    {
       bool prevTopBlockStillValid=false;
