@@ -750,11 +750,11 @@ public:
          {
             if(dupAndHashList_[i].second != hash)
                LOGERR << "Pushing different hash into existing HHL dupID"; 
-            dupAndHashList_[i] = pair<uint8_t, BinaryData>(dup,hash);
+            dupAndHashList_[i] = make_pair(dup,hash);
             return;
          }
       }
-      dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup,hash));
+      dupAndHashList_.push_back(make_pair(dup,hash));
    }
 
    BinaryData getDBKey(bool withPrefix=true) const;

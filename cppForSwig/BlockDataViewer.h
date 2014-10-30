@@ -27,13 +27,13 @@ public:
                               string ID, bool wltIsNew);
    BtcWallet* registerLockbox(vector<BinaryData> const& scrAddrVec, 
                               string ID, bool wltIsNew);
-   void       unregisterWallet(string ID);
-   void       unregisterLockbox(string ID);
+   void       unregisterWallet(const string& ID);
+   void       unregisterLockbox(const string& ID);
 
    void scanWallets(uint32_t startBlock = UINT32_MAX,
       uint32_t endBlock = UINT32_MAX, uint32_t forceRefresh = 0);
    
-   bool hasWallet(BinaryData ID);
+   bool hasWallet(const BinaryData& ID);
 
    bool registerAddresses(const vector<BinaryData>& saVec, 
                            BinaryData walletID, int32_t doScan);
@@ -95,7 +95,7 @@ public:
    void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                            uint32_t startBlock, uint32_t endBlock) const;
 
-   void flagRefresh(bool withRemap, BinaryData refreshId);
+   void flagRefresh(bool withRemap, const BinaryData& refreshId);
    void updateWalletFilters(const vector<BinaryData>& walletsVec);
 
    StoredHeader getMainBlockFromDB(uint32_t height) const;
@@ -116,10 +116,10 @@ public:
       return bdmPtr_->isRunning(); 
    }
 
-   bool isTxOutSpentByZC(BinaryData dbKey) const
+   bool isTxOutSpentByZC(const BinaryData& dbKey) const
    { return zeroConfCont_.isTxOutSpentByZC(dbKey); }
 
-   const map<BinaryData, TxIOPair>& getZCutxoForScrAddr(BinaryData scrAddr) const
+   const map<BinaryData, TxIOPair>& getZCutxoForScrAddr(const BinaryData& scrAddr) const
    { return zeroConfCont_.getZCforScrAddr(scrAddr); }
 
    const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const

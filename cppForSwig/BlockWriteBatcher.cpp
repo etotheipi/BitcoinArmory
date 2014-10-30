@@ -4,6 +4,7 @@
 #include "BlockDataManagerConfig.h"
 #include "lmdb_wrapper.h"
 #include "Progress.h"
+#include "util.h"
 
 #ifdef _MSC_VER
 #include "win32_posix.h"
@@ -613,10 +614,8 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    // it here -- by definition if we just added this Tx to the DB, it couldn't
    // have been spent yet.
    
-   for(map<uint16_t, StoredTxOut>::iterator iter = thisSTX.stxoMap_.begin(); 
-       iter != thisSTX.stxoMap_.end();
-       iter++)
-      iter->second.spentness_ = TXOUT_UNSPENT;
+   for(StoredTxOut &stx : values(thisSTX.stxoMap_))
+      stx.spentness_ = TXOUT_UNSPENT;
 
    // This tx itself needs to be added to the map, which makes it accessible 
    // to future tx in the same block which spend outputs from this tx, without
@@ -648,7 +647,6 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       const uint32_t opTxoIdx = 
          READ_UINT32_LE(thisSTX.dataCopy_.getPtr() + TxInIndexes[iin] + 32);
 
-      BinaryData          txOutDBkey;
       BinaryDataRef       fetchBy = opTxHash;
       StoredTx*           stxptr = nullptr;
 
@@ -686,6 +684,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
             //TIMER_START("fecthOutPointFromDB");
             
             //grab UTxO DBkey for comparison first
+            BinaryData          txOutDBkey;
             iface_->getStoredTx_byHash(opTxHash, nullptr, &txOutDBkey);
             if (txOutDBkey.getSize() != 6)
                continue;
@@ -810,10 +809,9 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
    // We don't need to update any TXDATA, since it is part of writing thisSTX
    // to the DB ... but we do need to update the StoredScriptHistory objects
    // with references to the new [unspent] TxOuts
-   for(auto& stxoToAddPair : thisSTX.stxoMap_)
+   for(StoredTxOut& stxoToAdd : values(thisSTX.stxoMap_))
    {
       //TIMER_START("getTxOutScrAddrAndHgtx");
-      StoredTxOut & stxoToAdd = stxoToAddPair.second;
       BinaryData uniqKey = stxoToAdd.getScrAddress();
       BinaryData hgtX    = stxoToAdd.getHgtX();
       //TIMER_STOP("getTxOutScrAddrAndHgtx");

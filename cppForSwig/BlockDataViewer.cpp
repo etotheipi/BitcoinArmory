@@ -129,7 +129,7 @@ BtcWallet* BlockDataViewer::registerLockbox(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::unregisterWallet(string IDstr)
+void BlockDataViewer::unregisterWallet(const string& IDstr)
 {
    LOGINFO << "Unregistering Wallet " << IDstr;
 
@@ -151,7 +151,7 @@ void BlockDataViewer::unregisterWallet(string IDstr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::unregisterLockbox(string IDstr)
+void BlockDataViewer::unregisterLockbox(const string& IDstr)
 {
    LOGINFO << "Unregistering Lockbox " << IDstr;
 
@@ -265,7 +265,7 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::hasWallet(BinaryData ID)
+bool BlockDataViewer::hasWallet(const BinaryData& ID)
 {
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    return registeredWallets_.find(ID) != registeredWallets_.end();
@@ -651,7 +651,7 @@ void BlockDataViewer::updateWalletFilters(const vector<BinaryData>& walletsList)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::flagRefresh(bool withRemap, BinaryData refreshID) 
+void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID) 
 { 
    if (saf_->bdmIsRunning() < 2)
       return;
