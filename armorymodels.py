@@ -582,7 +582,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          addrList = filter(notChange, addrList)
 
       if self.usedOnly and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(a.getAddr160()))
+         isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(Hash160ToScrAddr(a.getAddr160())))
          addrList = filter(isUsed, addrList)
          
       self.addr160List = [a.getAddr160() for a in addrList]
