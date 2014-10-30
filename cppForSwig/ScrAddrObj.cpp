@@ -428,3 +428,45 @@ bool ScrAddrObj::getMoreUTXOs(function<bool(BinaryData)> spentByZC)
    return utxos_.fetchMoreUTXO(spentByZC);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t currBlk) const
+{
+   if (currBlk = 0)
+      currBlk = UINT32_MAX;
+
+   auto utxoVec = getSpendableTxOutList();
+
+   auto utxoIter = utxoVec.rbegin();
+   uint32_t cutOff = UINT32_MAX;
+
+   while (utxoIter != utxoVec.rend())
+   {
+      if (utxoIter->getTxHeight() <= currBlk)
+      {
+         cutOff = utxoVec.size() - (utxoIter - utxoVec.rbegin());
+         break;
+      }
+   }
+
+   utxoVec.erase(utxoVec.begin() + cutOff, utxoVec.end());
+
+   return utxoVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(void) const
+{
+   //deliberately slow, only trying to support the old bdm behavior until the
+   //Python side has been reworked to ask for paged UTXO history
+   StoredScriptHistory ssh;
+   map<BinaryData, UnspentTxOut> utxoMap;
+   db_->getStoredScriptHistory(ssh, scrAddr_);
+   db_->getFullUTXOMapForSSH(ssh, utxoMap);
+
+   vector<UnspentTxOut> utxoVec;
+
+   for (auto& utxo : utxoMap)
+      utxoVec.push_back(utxo.second);
+
+   return utxoVec;
+}

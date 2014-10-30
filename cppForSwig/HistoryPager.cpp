@@ -1,6 +1,6 @@
 #include "HistoryPager.h"
 
-uint32_t HistoryPager::txnPerPage_ = 10;
+uint32_t HistoryPager::txnPerPage_ = 100;
 
 ////////////////////////////////////////////////////////////////////////////////
 void HistoryPager::addPage(uint32_t count, uint32_t bottom, uint32_t top)

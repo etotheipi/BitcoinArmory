@@ -511,7 +511,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
    for (const auto& scrAddr : scrAddrMap_)
    {
-      const auto& utxoMap = scrAddr.second.getSpendableTxOutList();
+      const auto& utxoMap = scrAddr.second.getPreparedTxOutList();
 
       for (const auto& txioPair : utxoMap)
       {

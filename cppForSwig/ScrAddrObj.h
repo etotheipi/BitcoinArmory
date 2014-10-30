@@ -204,7 +204,8 @@ public:
       uint32_t currBlk, 
       bool includeAllZeroConf=false
    ) const;
-   //vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
+   vector<UnspentTxOut> getSpendableTxOutList(void) const;
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 
@@ -275,7 +276,7 @@ public:
 
    ScrAddrObj& operator= (const ScrAddrObj& rhs);
 
-   const map<BinaryData, TxIOPair>& getSpendableTxOutList(void) const
+   const map<BinaryData, TxIOPair>& getPreparedTxOutList(void) const
    { return utxos_.getUTXOs(); }
    
    bool getMoreUTXOs(function<bool(BinaryData)> hasTxOutInZC);
