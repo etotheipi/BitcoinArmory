@@ -132,7 +132,6 @@ printBlkInfo(Blk4, '4')
 Blk3A_Tx0 = PyCreateAndSignTx_old( [COINBASE],               [[AddrD, btcValue(50)]] )
 Blk3A_Tx1 = PyTx().unserialize(Blk3.tx(1).serialize())
 Blk3A_Tx2 = PyCreateAndSignTx_old( [[AddrC, Blk2.tx(1), 0]], [[AddrB, btcValue(10)]] )
-
 Blk3A        = createPyBlock(Blk2.blockHeader, [Blk3A_Tx0, Blk3A_Tx1, Blk3A_Tx2] )
 printBlkInfo(Blk3A, '3A')
 
@@ -169,14 +168,23 @@ def writeBlkPrettyHex(fileHandle, blk):
                               indent=' '*6, withAddr=False) + '\n')
    fileHandle.write('\n')
 
-rtfile = open('reorgTest/reorgTest.hex','w')
+# Make sure the directory exists.
+filePath = os.path.join(os.getcwd(), "reorgTest")
+try:
+   os.makedirs(filePath)
+except OSError as exception:
+   if exception.errno != errno.EEXIST:
+      raise
+
+# Write the files.
+rtfile = open('reorgTest/reorgTest.hex','w+')
 def pr(prstr):
    print prstr
    rtfile.write(prstr + '\n')
 
 pr('\n\nWriting blocks to ReorgTest/ directory')
 pr( 'File path: ' + 'reorgTest/blk_0_to_4.dat' )
-blkFirstChain = open('reorgTest/blk_0_to_4.dat','wb')
+blkFirstChain = open('reorgTest/blk_0_to_4.dat','wb+')
 for blk in [genBlock, Blk1, Blk2, Blk3, Blk4]:
    writeBlkBin(blkFirstChain, blk)
    writeBlkPrettyHex(rtfile, blk)
@@ -185,7 +193,7 @@ blkFirstChain.close()
 for blk,suffix in [[Blk3A,'3A'], [Blk4A, '4A'], [Blk5A, '5A']]:
    filename = 'reorgTest/blk_%s.dat' % suffix
    pr( 'File path: ' + filename + '\n')
-   blkAlt = open(filename, 'wb')
+   blkAlt = open(filename, 'wb+')
    sleep(1)
    writeBlkBin(blkAlt, blk)
    writeBlkPrettyHex(rtfile, blk)
