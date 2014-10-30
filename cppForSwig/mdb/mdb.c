@@ -464,7 +464,8 @@ typedef uint16_t	 indx_t;
 	 *	This is certainly too small for any actual applications. Apps should always set
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
-#define DEFAULT_MAPSIZE	1048576
+#define DEFAULT_MAPSIZE	         1048576
+#define MAX_MAPSIZE_INCEREMENT	1024*1024*128
 
 /**	@defgroup readers	Reader Lock Table
  *	Readers don't acquire any locks for their data access. Instead, they
@@ -8087,7 +8088,7 @@ done:
 	return rc;
 }
 
-void mdb_enlarge_map(MDB_env *env)
+void mdb_enlarge_map(MDB_env *env, size_t extraDataSize)
 {
    MDB_envinfo info;
    mdb_env_info(env, &info);
@@ -8107,7 +8108,16 @@ void mdb_enlarge_map(MDB_env *env)
       v = (v >> 16) | v;
       v = (v >> 32) | v;
    }
+
+   //don't increase of the default max increment
    v *= 2;
+   if (v - info.me_mapsize > MAX_MAPSIZE_INCEREMENT)
+      v = info.me_mapsize + MAX_MAPSIZE_INCEREMENT;
+
+   //however if the added size if smaller than the requested extra size
+   while (v - info.me_mapsize < extraDataSize)
+      v *= 2;
+
    mdb_env_set_mapsize(env, v);
 }
 
@@ -8136,7 +8146,7 @@ mdb_put(MDB_txn *txn, MDB_dbi dbi,
       txn->mt_env->me_maps[txn->mt_mapindex].sema--;
 
       //enlarge the map
-      mdb_enlarge_map(txn->mt_env);
+      mdb_enlarge_map(txn->mt_env, key->mv_size + data->mv_size);
 
       //assign current txn to current map
       txn->mt_mapindex = txn->mt_env->me_currentmap;

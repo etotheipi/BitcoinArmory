@@ -134,7 +134,8 @@ public:
             if (index == 0)
                return { 0, 0 };
             
-            index--;
+            //index--;
+            break;
          }
       }
       
