@@ -7353,7 +7353,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, DISABLED_CorruptedBlock)
+TEST_F(BlockUtilsBare, CorruptedBlock)
 {
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(scrAddrA_);
