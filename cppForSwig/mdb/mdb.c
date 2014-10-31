@@ -2506,6 +2506,10 @@ mdb_txn_begin(MDB_env *env, MDB_txn *parent, unsigned int flags, MDB_txn **ret)
 		txn->mt_numdbs = parent->mt_numdbs;
 		txn->mt_flags = parent->mt_flags;
 		txn->mt_dbxs = parent->mt_dbxs;
+
+      txn->mt_mapindex = parent->mt_mapindex;
+      env->me_maps[txn->mt_mapindex].sema++;
+
 		memcpy(txn->mt_dbs, parent->mt_dbs, txn->mt_numdbs * sizeof(MDB_db));
 		/* Copy parent's mt_dbflags, but clear DB_NEW */
 		for (i=0; i<txn->mt_numdbs; i++)
@@ -3583,7 +3587,7 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
 
       //create new file map in the selected index
       env->me_maps[i].me_mapsize = size;
-      old = (env->me_flags & MDB_FIXEDMAP) ? env->me_maps[env->me_currentmap].me_map : NULL;
+      old = (env->me_flags & MDB_FIXEDMAP) ? env->me_maps[i].me_map : NULL;
 		rc = mdb_env_map(env, old, 1, i);
 		if (rc)
 			return rc;
@@ -8094,22 +8098,6 @@ void mdb_enlarge_map(MDB_env *env, size_t extraDataSize)
    mdb_env_info(env, &info);
    size_t v = info.me_mapsize;
 
-   /*if (v < 1024 * 1024 * 10)
-   {
-      v = 1024 * 1024 * 10;
-   }
-   else
-   {
-      v--;
-      v = (v >> 1) | v;
-      v = (v >> 2) | v;
-      v = (v >> 4) | v;
-      v = (v >> 8) | v;
-      v = (v >> 16) | v;
-      v = (v >> 32) | v;
-   }
-   */
-   //don't increase of the default max increment
    v *= 2;
    if (v - info.me_mapsize > MAX_MAPSIZE_INCEREMENT)
       v = info.me_mapsize + MAX_MAPSIZE_INCEREMENT;
@@ -8137,7 +8125,6 @@ void mdb_txn_setnewmapreference(MDB_txn* txn, unsigned int newMapIndex)
 
    txn->mt_mapindex = newMapIndex;
    txn->mt_env->me_maps[newMapIndex].sema++;
-   txn->mt_flags = 0;
 
    mdb_txn_setnewmapreference(txn->mt_parent, newMapIndex);
 }
