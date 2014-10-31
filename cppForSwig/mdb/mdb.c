@@ -8148,7 +8148,7 @@ int mdb_cursor_put_mapguard(MDB_cursor *mc, MDB_val *key, MDB_val *data,
       mc->mc_txn->mt_flags = 0;
 
       //try to put again, from the top
-      rt = mdb_cursor_init(mc, mc->mc_txn, mc->mc_db, mc->mc_xcursor);
+      rt = mdb_cursor_init(mc, mc->mc_txn, mc->mc_dbi, mc->mc_xcursor);
       rt = mdb_cursor_put(mc, key, data, flags);
    }
 
