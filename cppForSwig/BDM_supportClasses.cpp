@@ -226,7 +226,7 @@ void ScrAddrFilter::scanScrAddrMapInNewThread()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::merge(BinaryData lastScannedBlkHash)
+void ScrAddrFilter::merge(const BinaryData& lastScannedBlkHash)
 {
    /***
    Merge in the scrAddrMap and UTxOs scanned in a side thread with the BDM's

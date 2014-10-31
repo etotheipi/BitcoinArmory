@@ -185,9 +185,9 @@ public:
    //the first one is done scanning, a SCA will be built and referenced to as
    //the child to previous side thread scan SCA, which will initiate the next 
    //scan before it cleans itself up
-   void setChild (shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
+   void setChild(const shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
 
-   void merge(BinaryData lastScannedBlkHash);
+   void merge(const BinaryData& lastScannedBlkHash);
    void checkForMerge(void);
 
    void startSideScan(
