@@ -126,7 +126,7 @@ public:
    { return zeroConfCont_.getSpentSAforZCKey(zcKey); }
 
    ScrAddrFilter* getSAF(void) { return saf_; }
-   BlockDataManagerConfig config(void) { return config_; }
+   const BlockDataManagerConfig& config() const { return bdmPtr_->config_; }
 
 public:
    bool rescanZC_    = false;
@@ -157,9 +157,6 @@ private:
    LMDBBlockDatabase*        db_;
    Blockchain*               bc_;
    ScrAddrFilter*            saf_;
-
-   //about time we had a bdmconfig object in bdv
-   BlockDataManagerConfig    config_;
 
    //Wanna keep the BtcWallet non copyable so the only existing object for
    //a given wallet is in the registered* map. Don't want to save pointers
