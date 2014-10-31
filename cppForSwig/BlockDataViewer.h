@@ -126,7 +126,7 @@ public:
    { return zeroConfCont_.getSpentSAforZCKey(zcKey); }
 
    ScrAddrFilter* getSAF(void) { return saf_; }
-   const BlockDataManagerConfig& config() const { return bdmPtr_->config_; }
+   const BlockDataManagerConfig& config() const { return bdmPtr_->config(); }
 
 public:
    bool rescanZC_    = false;
