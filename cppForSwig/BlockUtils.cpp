@@ -1179,7 +1179,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    //pull last scanned blockhash from sdbi
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);
-   const BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
    
    // load the headers from lmdb into blockchain()
    loadBlockHeadersFromDB();
@@ -1203,6 +1203,9 @@ void BlockDataManager_LevelDB::loadDiskState(
    {
       deleteHistories();
       scrAddrData_->clear();
+      
+      iface_->getStoredDBInfo(BLKDATA, sdbi);
+      lastTopBlockHash = sdbi.topBlkHash_;
    }
    
    if (config_.armoryDbType != ARMORY_DB_SUPER)

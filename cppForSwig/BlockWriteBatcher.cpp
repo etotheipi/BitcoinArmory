@@ -1285,7 +1285,6 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          uint32_t blockSize = sbh->numBytes_;
 
          //scan block
-;
          lastScannedBlockHash = 
             applyBlockToDB(*sbh, tempBlockData_->scrAddrFilter_);
  

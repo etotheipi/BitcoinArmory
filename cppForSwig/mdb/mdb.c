@@ -3587,7 +3587,7 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
 
       //create new file map in the selected index
       env->me_maps[i].me_mapsize = size;
-      old = (env->me_flags & MDB_FIXEDMAP) ? env->me_maps[i].me_map : NULL;
+      old = NULL;
 		rc = mdb_env_map(env, old, 1, i);
 		if (rc)
 			return rc;
