@@ -6298,7 +6298,7 @@ put_sub:
 			}
 			/* converted, write the original data first */
 			if (dkey.mv_size) {
-				rc = mdb_cursor_put(&mc->mc_xcursor->mx_cursor, &dkey, &xdata, xflags);
+				rc = mdb_cursor_put_mapguard(&mc->mc_xcursor->mx_cursor, &dkey, &xdata, xflags);
 				if (rc) {
 					mc->mc_txn->mt_flags |= MDB_TXN_ERROR;
 					return rc == MDB_KEYEXIST ? MDB_CORRUPTED : rc;
@@ -6322,7 +6322,7 @@ put_sub:
 			}
 			if (flags & MDB_APPENDDUP)
 				xflags |= MDB_APPEND;
-			rc = mdb_cursor_put(&mc->mc_xcursor->mx_cursor, data, &xdata, xflags);
+			rc = mdb_cursor_put_mapguard(&mc->mc_xcursor->mx_cursor, data, &xdata, xflags);
 			if (flags & F_SUBDATA) {
 				void *db = NODEDATA(leaf);
 				memcpy(db, &mc->mc_xcursor->mx_db, sizeof(MDB_db));
@@ -8094,7 +8094,7 @@ void mdb_enlarge_map(MDB_env *env, size_t extraDataSize)
    mdb_env_info(env, &info);
    size_t v = info.me_mapsize;
 
-   if (v < 1024 * 1024 * 10)
+   /*if (v < 1024 * 1024 * 10)
    {
       v = 1024 * 1024 * 10;
    }
@@ -8108,7 +8108,7 @@ void mdb_enlarge_map(MDB_env *env, size_t extraDataSize)
       v = (v >> 16) | v;
       v = (v >> 32) | v;
    }
-
+   */
    //don't increase of the default max increment
    v *= 2;
    if (v - info.me_mapsize > MAX_MAPSIZE_INCEREMENT)
@@ -8121,28 +8121,47 @@ void mdb_enlarge_map(MDB_env *env, size_t extraDataSize)
    mdb_env_set_mapsize(env, v);
 }
 
+void mdb_txn_dropoldmapreference(MDB_txn* txn)
+{
+   if (!txn)
+      return;
+   
+   txn->mt_env->me_maps[txn->mt_mapindex].sema--;
+   mdb_txn_dropoldmapreference(txn->mt_parent);
+}
+
+void mdb_txn_setnewmapreference(MDB_txn* txn, unsigned int newMapIndex)
+{
+   if (!txn)
+      return;
+
+   txn->mt_mapindex = newMapIndex;
+   txn->mt_env->me_maps[newMapIndex].sema++;
+   txn->mt_flags = 0;
+
+   mdb_txn_setnewmapreference(txn->mt_parent, newMapIndex);
+}
+
 int mdb_cursor_put_mapguard(MDB_cursor *mc, MDB_val *key, MDB_val *data,
    unsigned int flags)
 {
    int rt = mdb_cursor_put(mc, key, data, flags);
 
-   if (rt == MDB_MAP_FULL)
+   while (rt == MDB_MAP_FULL)
    {
-      MDB_env* env = mc->mc_txn->mt_env;
-      unsigned int* mapindex = &mc->mc_txn->mt_mapindex;
       //map is full, time to enlarge it
+      
+      int abc;
+      MDB_env* env = mc->mc_txn->mt_env;
 
-      //decrement current map semaphore
-      env->me_maps[*mapindex].sema--;
+      //decrement current map semaphore for the txn chain
+      mdb_txn_dropoldmapreference(mc->mc_txn);
 
       //enlarge the map
       mdb_enlarge_map(env, key->mv_size + data->mv_size);
 
-      //assign current txn to current map
-      *mapindex = env->me_currentmap;
-
-      //increment current map semaphore
-      env->me_maps[*mapindex].sema++;
+      //assign txn chain to current map
+      mdb_txn_setnewmapreference(mc->mc_txn, env->me_currentmap);
 
       //reset txn error flag set by the previous put failure
       mc->mc_txn->mt_flags = 0;
