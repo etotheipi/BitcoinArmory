@@ -431,7 +431,7 @@ bool ScrAddrObj::getMoreUTXOs(function<bool(BinaryData)> spentByZC)
 ////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t currBlk) const
 {
-   if (currBlk = 0)
+   if (currBlk == 0)
       currBlk = UINT32_MAX;
 
    auto utxoVec = getSpendableTxOutList();
