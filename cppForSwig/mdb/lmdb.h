@@ -1376,6 +1376,12 @@ int  mdb_cursor_get(MDB_cursor *cursor, MDB_val *key, MDB_val *data,
 	 *	<li>EINVAL - an invalid parameter was specified.
 	 * </ul>
 	 */
+
+//map guard version enlarges the map if mdb_cursor_put return MDB_MAP_FULL,
+//the calls mdb_cursor_put again
+int mdb_cursor_put_mapguard(MDB_cursor *mc, MDB_val *key, MDB_val *data,
+            unsigned int flags);
+
 int  mdb_cursor_put(MDB_cursor *cursor, MDB_val *key, MDB_val *data,
 				unsigned int flags);
 
