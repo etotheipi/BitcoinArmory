@@ -516,7 +516,7 @@ class PyBtcWallet(object):
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
-            return cppAddr.getSpendableTxOutList(topBlockHeight, IGNOREZC);
+            return cppAddr.getSpendableTxOutList();
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return cppAddr.getFullTxOutList(topBlockHeight);
          else:

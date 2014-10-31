@@ -976,7 +976,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             # We simply grab the UTXO list for the lbox, both p2sh and multisig
             cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
-            utxoList = cppWallet.getSpendableTxOutList(topBlk, IGNOREZC)
+            utxoList = cppWallet.getSpendableTxOutList()
          else:
             raise NetworkIDError('Addr for the wrong network!')
 
@@ -1694,7 +1694,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
-         utxoList = cppWlt.getSpendableTxOutList(topBlk, IGNOREZC)
+         utxoList = cppWlt.getSpendableTxOutList()
 
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 

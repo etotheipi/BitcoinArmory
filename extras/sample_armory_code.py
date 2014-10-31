@@ -87,7 +87,7 @@ if run_WalletRescan:
 
    print '\n\nBalance of this wallet:', coin2str(cppWallet.getSpendableBalance())
    print 'Unspent outputs:'
-   unspentTxOuts = cppWallet.getSpendableTxOutList(topBlock)
+   unspentTxOuts = cppWallet.getSpendableTxOutList()
    for utxo in unspentTxOuts:
       utxo.pprintOneLine(topBlock)
 
