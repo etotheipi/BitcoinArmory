@@ -464,7 +464,7 @@ typedef uint16_t	 indx_t;
 	 *	This is certainly too small for any actual applications. Apps should always set
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
-#define DEFAULT_MAPSIZE	         128*1024 //keeping this low so unit test can trigger remaps
+#define DEFAULT_MAPSIZE	         32*1024 //keeping this low so unit test can trigger remaps
 #define MAX_MAPSIZE_INCEREMENT	1024*1024*128
 
 /**	@defgroup readers	Reader Lock Table
@@ -1117,8 +1117,9 @@ typedef struct MDB_ntxn {
 #define TXN_DBI_EXIST(txn, dbi) \
 	((txn) && (dbi) < (txn)->mt_numdbs && ((txn)->mt_dbflags[dbi] & DB_VALID))
 
+void mdb_txn_dropoldmapreference(MDB_txn* txn);
+void mdb_txn_setnewmapreference(MDB_txn* txn, unsigned int newMapIndex);
 void mdb_enlarge_map(MDB_env *env, size_t extraDataSize);
-static int  mdb_page_alloc_mapguard(MDB_cursor *mc, int num, MDB_page **mp);
 static int  mdb_page_alloc(MDB_cursor *mc, int num, MDB_page **mp);
 static int  mdb_page_new(MDB_cursor *mc, uint32_t flags, int num, MDB_page **mp);
 static int  mdb_page_touch(MDB_cursor *mc);
@@ -1814,36 +1815,6 @@ void mdb_txn_setnewmapreference(MDB_txn* txn, unsigned int newMapIndex)
    mdb_txn_setnewmapreference(txn->mt_parent, newMapIndex);
 }
 
-static int mdb_page_alloc_mapguard(MDB_cursor *mc, int num, MDB_page **mp)
-{
-   int rt = mdb_page_alloc(mc, num, mp);
-
-   while (rt == MDB_MAP_FULL)
-   {
-      //map is full, time to enlarge it
-
-      int abc;
-      MDB_env* env = mc->mc_txn->mt_env;
-
-      //decrement current map semaphore for the txn chain
-      mdb_txn_dropoldmapreference(mc->mc_txn);
-
-      //enlarge the map
-      mdb_enlarge_map(env, num * env->me_psize);
-
-      //assign txn chain to current map
-      mdb_txn_setnewmapreference(mc->mc_txn, env->me_currentmap);
-
-      //reset txn error flag set by the previous put failure
-      mc->mc_txn->mt_flags = 0;
-
-      //try to put again, from the top
-      rt = mdb_page_alloc(mc, num, mp);
-   }
-
-   return rt;
-}
-
 static int
 mdb_page_alloc(MDB_cursor *mc, int num, MDB_page **mp)
 {
@@ -2108,7 +2079,7 @@ mdb_page_touch(MDB_cursor *mc)
 				goto done;
 		}
 		if ((rc = mdb_midl_need(&txn->mt_free_pgs, 1)) ||
-			(rc = mdb_page_alloc_mapguard(mc, 1, &np)))
+			(rc = mdb_page_alloc(mc, 1, &np)))
 			goto fail;
 		pgno = np->mp_pgno;
 		DPRINTF(("touched db %d page %"Z"u -> %"Z"u", DDBI(mc),
@@ -3184,6 +3155,8 @@ mdb_txn_commit(MDB_txn *txn)
 		MDB_val data;
 		data.mv_size = sizeof(MDB_db);
 
+      //this should never fail with MDB_MAP_FULL 
+      //as it is trying to update root db pointers
 		mdb_cursor_init(&mc, txn, MAIN_DBI, NULL);
 		for (i = 2; i < txn->mt_numdbs; i++) {
 			if (txn->mt_dbflags[i] & DB_DIRTY) {
@@ -3195,7 +3168,19 @@ mdb_txn_commit(MDB_txn *txn)
 		}
 	}
 
-	rc = mdb_freelist_save(txn);
+   while (1)
+   {
+      rc = mdb_freelist_save(txn);
+      if (rc != MDB_MAP_FULL)
+         break;
+
+      mdb_txn_dropoldmapreference(txn);
+      mdb_enlarge_map(txn->mt_env, txn->mt_env->me_psize);
+      mdb_txn_setnewmapreference(txn, txn->mt_env->me_currentmap);
+
+      txn->mt_flags &= 0xFFFFFFFD;
+   }
+
 	if (rc)
 		goto fail;
 
@@ -3656,8 +3641,8 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
          env->me_maps[y].me_map = 0;
       }
 	}
-   env->me_maps[env->me_currentmap].me_mapsize = size;
-	if (env->me_psize)
+
+   if (env->me_psize)
       env->me_maxpg = env->me_maps[env->me_currentmap].me_mapsize / env->me_psize;
 	return MDB_SUCCESS;
 }
@@ -6193,7 +6178,7 @@ prep_subDB:
 					dummy.md_entries = NUMKEYS(fp);
 					xdata.mv_size = sizeof(MDB_db);
 					xdata.mv_data = &dummy;
-					if ((rc = mdb_page_alloc_mapguard(mc, 1, &mp)))
+					if ((rc = mdb_page_alloc(mc, 1, &mp)))
 						return rc;
 					offset = env->me_psize - olddata.mv_size;
 					flags |= F_DUPDATA|F_SUBDATA;
@@ -6517,7 +6502,7 @@ mdb_page_new(MDB_cursor *mc, uint32_t flags, int num, MDB_page **mp)
 	MDB_page	*np;
 	int rc;
 
-	if ((rc = mdb_page_alloc_mapguard(mc, num, &np)))
+	if ((rc = mdb_page_alloc(mc, num, &np)))
 		return rc;
 	DPRINTF(("allocated new mpage %"Z"u, page size %u",
 	    np->mp_pgno, mc->mc_txn->mt_env->me_psize));
@@ -7686,6 +7671,8 @@ int
 mdb_del(MDB_txn *txn, MDB_dbi dbi,
     MDB_val *key, MDB_val *data)
 {
+   int rt;
+
 	if (!key || dbi == FREE_DBI || !TXN_DBI_EXIST(txn, dbi))
 		return EINVAL;
 
@@ -7697,7 +7684,19 @@ mdb_del(MDB_txn *txn, MDB_dbi dbi,
 		data = NULL;
 	}
 
-	return mdb_del0(txn, dbi, key, data, 0);
+   while (1)
+   {
+      rt = mdb_del0(txn, dbi, key, data, 0);
+      if (rt != MDB_MAP_FULL)
+         break;
+
+      mdb_txn_dropoldmapreference(txn);
+      mdb_enlarge_map(txn->mt_env, txn->mt_env->me_psize);
+      mdb_txn_setnewmapreference(txn, txn->mt_env->me_currentmap);
+
+      txn->mt_flags &= 0xFFFFFFFD;
+   }
+   return rt;
 }
 
 static int
@@ -8169,14 +8168,30 @@ mdb_put(MDB_txn *txn, MDB_dbi dbi,
 	MDB_cursor mc, mc1;
 	MDB_xcursor mx;
 
+   int rt;
+
 	if (!key || !data || dbi == FREE_DBI || !TXN_DBI_EXIST(txn, dbi))
 		return EINVAL;
 
 	if ((flags & (MDB_NOOVERWRITE|MDB_NODUPDATA|MDB_RESERVE|MDB_APPEND|MDB_APPENDDUP)) != flags)
 		return EINVAL;
 
-	mdb_cursor_init(&mc, txn, dbi, &mx);
-	return mdb_cursor_put(&mc, key, data, flags);
+   while (1)
+   {
+      mdb_cursor_init(&mc, txn, dbi, &mx);
+      rt = mdb_cursor_put(&mc, key, data, flags);
+
+      if (rt != MDB_MAP_FULL)
+         return rt;
+
+      mdb_txn_dropoldmapreference(txn);
+      mdb_enlarge_map(txn->mt_env, key->mv_size + data->mv_size);
+      mdb_txn_setnewmapreference(txn, txn->mt_env->me_currentmap);
+
+      txn->mt_flags &= 0xFFFFFFFD;
+   }
+
+   return rt;
 }
 
 int
@@ -8322,6 +8337,25 @@ mdb_default_cmp(MDB_txn *txn, MDB_dbi dbi)
 		((f & MDB_INTEGERDUP)
 		 ? ((f & MDB_DUPFIXED)   ? mdb_cmp_int   : mdb_cmp_cint)
 		 : ((f & MDB_REVERSEDUP) ? mdb_cmp_memnr : mdb_cmp_memn));
+}
+
+int mdb_dbi_open_safe(MDB_txn *txn, const char *name, unsigned int flags, MDB_dbi *dbi)
+{
+   int rt;
+   while (1)
+   {
+      rt = mdb_dbi_open(txn, name, flags, dbi);
+      if (rt != MDB_MAP_FULL)
+         break;
+
+      mdb_txn_dropoldmapreference(txn);
+      mdb_enlarge_map(txn->mt_env, txn->mt_env->me_psize * 2);
+      mdb_txn_setnewmapreference(txn, txn->mt_env->me_currentmap);
+
+      txn->mt_flags &= 0xFFFFFFFD;
+   }
+
+   return rt;
 }
 
 int mdb_dbi_open(MDB_txn *txn, const char *name, unsigned int flags, MDB_dbi *dbi)

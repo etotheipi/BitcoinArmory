@@ -941,7 +941,7 @@ void mdb_txn_reset(MDB_txn *txn);
 int  mdb_txn_renew(MDB_txn *txn);
 
 /** Compat with version <= 0.9.4, avoid clash with libmdb from MDB Tools project */
-#define mdb_open(txn,name,flags,dbi)	mdb_dbi_open(txn,name,flags,dbi)
+#define mdb_open(txn,name,flags,dbi)	mdb_dbi_open_safe(txn,name,flags,dbi)
 /** Compat with version <= 0.9.4, avoid clash with libmdb from MDB Tools project */
 #define mdb_close(env,dbi)				mdb_dbi_close(env,dbi)
 
@@ -1008,7 +1008,7 @@ int  mdb_txn_renew(MDB_txn *txn);
 	 *	<li>#MDB_DBS_FULL - too many databases have been opened. See #mdb_env_set_maxdbs().
 	 * </ul>
 	 */
-int  mdb_dbi_open(MDB_txn *txn, const char *name, unsigned int flags, MDB_dbi *dbi);
+int  mdb_dbi_open_safe(MDB_txn *txn, const char *name, unsigned int flags, MDB_dbi *dbi);
 
 	/** @brief Retrieve statistics for a database.
 	 *

@@ -501,7 +501,7 @@ void LMDB::open(LMDBEnv *env, const std::string &name)
       throw LMDBException("Failed to insert: need transaction");
    lock.unlock();
       
-   int rc = mdb_dbi_open(txnIter->second.txn_, name.c_str(), MDB_CREATE, &dbi);
+   int rc = mdb_open(txnIter->second.txn_, name.c_str(), MDB_CREATE, &dbi);
    if (rc != MDB_SUCCESS)
    {
       // cleanup here
