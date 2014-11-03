@@ -316,7 +316,7 @@ public:
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
-   void loadZeroConfMempool(function<bool(const BinaryData&)>);
+   void loadZeroConfMempool(function<bool(const BinaryData&)>, bool clearMempool);
 };
 
 #endif

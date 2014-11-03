@@ -877,6 +877,7 @@ fileRedownload  = os.path.join(ARMORY_HOME_DIR, 'redownload.flag')
 fileRebuild     = os.path.join(ARMORY_HOME_DIR, 'rebuild.flag')
 fileRescan      = os.path.join(ARMORY_HOME_DIR, 'rescan.flag')
 fileDelSettings = os.path.join(ARMORY_HOME_DIR, 'delsettings.flag')
+fileClrMempool  = os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
@@ -910,6 +911,14 @@ elif os.path.exists(fileRescan):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
 
+CLI_OPTIONS.clearMempool = False
+if os.path.exists(fileClrMempool):
+   # Flag to clear all ZC transactions from database
+   LOGINFO('Found %s, will destroy all zero conf transaction in DB' % fileClrMempool)
+   os.remove(fileClrMempool)
+   
+   CLI_OPTIONS.clearMempool = True
+   
 
 # Separately, we may want to delete the settings file, which couldn't
 # be done easily from the GUI, because it frequently gets rewritten to

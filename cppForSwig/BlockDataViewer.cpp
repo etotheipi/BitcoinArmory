@@ -296,7 +296,7 @@ void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::enableZeroConf()
+void BlockDataViewer::enableZeroConf(bool clearMempool)
 {
    SCOPED_TIMER("enableZeroConf");
    LOGINFO << "Enabling zero-conf tracking ";
@@ -306,7 +306,7 @@ void BlockDataViewer::enableZeroConf()
    auto zcFilter = [this](const BinaryData& scrAddr)->bool
    { return this->bdmPtr_->getScrAddrFilter()->hasScrAddress(scrAddr); };
 
-   zeroConfCont_.loadZeroConfMempool(zcFilter);
+   zeroConfCont_.loadZeroConfMempool(zcFilter, clearMempool);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

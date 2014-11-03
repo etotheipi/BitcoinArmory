@@ -261,9 +261,12 @@ try
 
          bdm->openDatabase();
 
-         if(pimpl->mode==0) bdm->doInitialSyncOnLoad(loadProgress);
-         else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
-         else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
+         unsigned mode = pimpl->mode & 0x00000003;
+         bool clearZc = pimpl->mode && 0x00000004;
+
+         if(mode==0) bdm->doInitialSyncOnLoad(loadProgress);
+         else if(mode==1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
+         else if(mode==2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
 
          if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
          {
@@ -282,7 +285,7 @@ try
             callback->run(7, &errorMsg, bdm->missingBlockHashes().size());
          }
 
-         bdv->enableZeroConf();
+         bdv->enableZeroConf(clearZc);
 
          bdv->scanWallets();
       }

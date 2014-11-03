@@ -278,6 +278,7 @@ class BlockDataManager(object):
 
       self.ldbdir = ldbdir
    
+   #############################################################################   
    @ActLikeASingletonBDM
    def bdmMode(self):
       if CLI_OPTIONS.rebuild:
@@ -286,6 +287,9 @@ class BlockDataManager(object):
          mode = 1
       else:
          mode = 0
+         
+      if CLI_OPTIONS.clearMempool:
+         mode += 4
       return mode
       
    #############################################################################

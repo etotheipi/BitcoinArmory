@@ -53,7 +53,7 @@ public:
    
    void pprintRegisteredWallets(void) const;
 
-   void enableZeroConf();
+   void enableZeroConf(bool cleanMempool = false);
    void disableZeroConf(void);
    void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime,
       bool writeToFile);
