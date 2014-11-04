@@ -500,7 +500,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             # We simply grab the UTXO list for the lbox, both p2sh and multisig
             cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
-            utxoList = cppWallet.getSpendableTxOutListForValue()
+            utxoList = cppWallet.getFullUTXOList()
          else:
             raise NetworkIDError('Addr for the wrong network!')
 
@@ -976,7 +976,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             # We simply grab the UTXO list for the lbox, both p2sh and multisig
             cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
-            utxoList = cppWallet.getSpendableTxOutList(topBlk, IGNOREZC)
+            utxoList = cppWallet.getSpendableTxOutList()
          else:
             raise NetworkIDError('Addr for the wrong network!')
 
@@ -1694,7 +1694,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
-         utxoList = cppWlt.getSpendableTxOutList(topBlk, IGNOREZC)
+         utxoList = cppWlt.getSpendableTxOutList()
 
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
@@ -2842,15 +2842,15 @@ class Armory_Daemon(object):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
-         wltID = args[0]
-         if len(wltID) > 0:
-            if wltID in self.serverWltMap:
-               self.serverWltMap[wltID].isEnabled = True
-            else:                
-               self.serverLBMap[wltID].isEnabled = True
-             
-            #no progress repoting in armoryd yet     
-            #del self.walletSideScanProgress[wltID]
+         for wltID in args:
+            if len(wltID) > 0:
+               if wltID in self.serverWltMap:
+                  self.serverWltMap[wltID].isEnabled = True
+               else:                
+                  self.serverLBMap[wltID].isEnabled = True
+                
+               #no progress repoting in armoryd yet     
+               #del self.walletSideScanProgress[wltID]
             
       elif action == 'progress':
          #Received progress data for a wallet side scan

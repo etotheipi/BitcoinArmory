@@ -522,9 +522,9 @@ public:
    }
 
 protected:
-   virtual int32_t bdmIsRunning() const
+   virtual bool bdmIsRunning() const
    {
-      return bdm_->isRunning_;
+      return bdm_->BDMstate_ != BDM_offline;
    }
    
    virtual BinaryData applyBlockRangeToDB(
@@ -1165,7 +1165,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    };
    
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
-   isRunning_ = 1;
+   BDMstate_ = BDM_initializing;
    
    readBlockHeaders_->detectAllBlkFiles();
    if (readBlockHeaders_->numBlockFiles()==0)
@@ -1179,7 +1179,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    //pull last scanned blockhash from sdbi
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi);
-   const BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
    
    // load the headers from lmdb into blockchain()
    loadBlockHeadersFromDB();
@@ -1203,6 +1203,9 @@ void BlockDataManager_LevelDB::loadDiskState(
    {
       deleteHistories();
       scrAddrData_->clear();
+      
+      iface_->getStoredDBInfo(BLKDATA, sdbi);
+      lastTopBlockHash = sdbi.topBlkHash_;
    }
    
    if (config_.armoryDbType != ARMORY_DB_SUPER)
@@ -1330,7 +1333,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;
       
-   isRunning_ = 2;
+   BDMstate_ = BDM_ready;
 }
 
 

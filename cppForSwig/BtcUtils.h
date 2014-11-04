@@ -1631,6 +1631,12 @@ public:
       return *str;
    }
 
+   static vector<BinaryData> cast_to_BinaryDataVector(void *in)
+   {
+      vector<BinaryData>* vbd = (vector<BinaryData>*)in;
+      return *vbd;
+   }
+
    /*
    static bool verifyProofOfWork(BinaryDataRef bh80)
    {

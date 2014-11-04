@@ -99,6 +99,12 @@ private:
             {
                if (txioPair.second.isUTXO())
                {
+                  //isMultisig is only signifies this scrAddr was used in the
+                  //composition of a funded multisig transaction. This is purely
+                  //meta-data and shouldn't be returned as a spendable txout
+                  if (txioPair.second.isMultisig())
+                     continue;
+
                   if (spentByZC(txioPair.second.getDBKeyOfOutput()) == true)
                      continue;
 
@@ -204,8 +210,8 @@ public:
       uint32_t currBlk, 
       bool includeAllZeroConf=false
    ) const;
-   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
-   vector<UnspentTxOut> getSpendableTxOutList(void) const;
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=UINT32_MAX, bool ignoreZC=true) const;
+   vector<UnspentTxOut> getSpendableTxOutList(bool ignoreZC=true) const;
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 

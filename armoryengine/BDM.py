@@ -61,8 +61,8 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             TheBDM.topBlockHeight = block
          elif action == 5:
             act = 'refresh'
-            argstr = Cpp.BtcUtils_cast_to_string(arg)
-            arglist.append(argstr)
+            castArg = Cpp.BtcUtils_cast_to_BinaryDataVector(arg)
+            arglist = castArg
          elif action == 6:
             act = 'stopped'
          elif action == 7:
@@ -154,8 +154,8 @@ class BlockDataManager(object):
       self.ldbdir = ""
 
       #dbType
-      self.dbType = Cpp.ARMORY_DB_BARE
-      #self.dbType = Cpp.ARMORY_DB_SUPER      
+      #self.dbType = Cpp.ARMORY_DB_BARE
+      self.dbType = Cpp.ARMORY_DB_SUPER      
       
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
 
@@ -278,6 +278,7 @@ class BlockDataManager(object):
 
       self.ldbdir = ldbdir
    
+   #############################################################################   
    @ActLikeASingletonBDM
    def bdmMode(self):
       if CLI_OPTIONS.rebuild:
@@ -286,6 +287,9 @@ class BlockDataManager(object):
          mode = 1
       else:
          mode = 0
+         
+      if CLI_OPTIONS.clearMempool:
+         mode += 4
       return mode
       
    #############################################################################

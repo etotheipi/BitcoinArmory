@@ -448,14 +448,15 @@ class ArmoryMainWindow(QMainWindow):
             
       self.changeWltFilter()      
       
-      frmPages = QFrame()
-      frmPages.setFrameStyle(STYLE_NONE)
+      self.frmPages = QFrame()
+      self.frmPages.setFrameStyle(STYLE_NONE)
       frmPagesLayout = QGridLayout()
       frmPagesLayout.addWidget(self.lblPages, 0, 0)
       frmPagesLayout.addWidget(self.PageLineEdit, 0, 1)
       frmPagesLayout.addWidget(self.lblNPages, 0, 2)
       
-      frmPages.setLayout(frmPagesLayout)
+      self.frmPages.setLayout(frmPagesLayout)
+      self.frmPages.setVisible(False)
 
       # Will fill this in when ledgers are created & combined
       self.lblLedgShowing = QRichLabel('Showing:', hAlign=Qt.AlignHCenter)
@@ -503,7 +504,7 @@ class ArmoryMainWindow(QMainWindow):
                                  'Stretch', \
                                  self.frmLedgUpDown, \
                                  'Stretch', \
-                                 frmPages, \
+                                 self.frmPages, \
                                  'Stretch', \
                                  frmTotals])
 
@@ -3128,7 +3129,9 @@ class ArmoryMainWindow(QMainWindow):
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
 
-         self.lblNPages.setText(' out of %d' % TheBDM.bdv().getPageCount())
+         pageCount = TheBDM.bdv().getPageCount()
+         self.frmPages.setVisible(pageCount > 1)
+         self.lblNPages.setText(' out of %d' % pageCount)
          
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
@@ -3433,6 +3436,8 @@ class ArmoryMainWindow(QMainWindow):
       except KeyError:
          LOGERROR('Invalid wallet ID passed to "removeWalletFromApplication"')
          raise WalletExistsError
+      
+      self.walletMap[wltID].unregisterWallet()
 
       del self.walletMap[wltID]
       del self.walletIndices[wltID]
@@ -6167,18 +6172,18 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
-         wltID = args[0]
-         if len(wltID) > 0:
-            if wltID in self.walletMap:
-               self.walletMap[wltID].isEnabled = True
-            else:
-               lbID = self.lockboxIDMap[wltID]                
-               self.allLockboxes[lbID].isEnabled = True
-               if self.lbDialogModel != None:
-                  self.lbDialogModel.reset()
-            if self.walletSideScanProgress.has_key(wltID):
-               del self.walletSideScanProgress[wltID]
-            
+         for wltID in args:
+            if len(wltID) > 0:
+               if wltID in self.walletMap:
+                  self.walletMap[wltID].isEnabled = True
+               else:
+                  lbID = self.lockboxIDMap[wltID]                
+                  self.allLockboxes[lbID].isEnabled = True
+                  if self.lbDialogModel != None:
+                     self.lbDialogModel.reset()
+               if self.walletSideScanProgress.has_key(wltID):
+                  del self.walletSideScanProgress[wltID]
+               
          self.createCombinedLedger()
          self.walletModel.reset()
          

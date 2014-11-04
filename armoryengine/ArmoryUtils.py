@@ -877,6 +877,7 @@ fileRedownload  = os.path.join(ARMORY_HOME_DIR, 'redownload.flag')
 fileRebuild     = os.path.join(ARMORY_HOME_DIR, 'rebuild.flag')
 fileRescan      = os.path.join(ARMORY_HOME_DIR, 'rescan.flag')
 fileDelSettings = os.path.join(ARMORY_HOME_DIR, 'delsettings.flag')
+fileClrMempool  = os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
@@ -910,6 +911,14 @@ elif os.path.exists(fileRescan):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
 
+CLI_OPTIONS.clearMempool = False
+if os.path.exists(fileClrMempool):
+   # Flag to clear all ZC transactions from database
+   LOGINFO('Found %s, will destroy all zero conf transaction in DB' % fileClrMempool)
+   os.remove(fileClrMempool)
+   
+   CLI_OPTIONS.clearMempool = True
+   
 
 # Separately, we may want to delete the settings file, which couldn't
 # be done easily from the GUI, because it frequently gets rewritten to
@@ -3678,6 +3687,7 @@ class ArmoryListenerFactory(ClientFactory):
       
 # Check general internet connection
 def isInternetAvailable():
+   internetAvail = False
    try:
       import urllib2
       urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
@@ -3689,16 +3699,15 @@ def isInternetAvailable():
       # In the extremely rare case that google might be down (or just to try
       # again...)
       try:
-         response = urllib2.urlopen('http://microsoft.com', 
-            timeout=CLI_OPTIONS.nettimeout)
+         urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
+         internetAvail = True
       except:
          LOGEXCEPT('Error checking for internet connection')
          LOGERROR('Run --skip-online-check if you think this is an error')
-         internetAvail = False
    except:
       LOGEXCEPT('Error checking for internet connection')
       LOGERROR('Run --skip-online-check if you think this is an error')
-      internetAvail = False
+
    return internetAvail
 
 

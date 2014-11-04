@@ -429,12 +429,16 @@ bool ScrAddrObj::getMoreUTXOs(function<bool(BinaryData)> spentByZC)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t currBlk) const
+vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t currBlk,
+   bool ignoreZc) const
 {
-   if (currBlk = 0)
+   if (currBlk == 0)
       currBlk = UINT32_MAX;
 
-   auto utxoVec = getSpendableTxOutList();
+   if (currBlk != UINT32_MAX)
+      ignoreZc = true;
+
+   auto utxoVec = getSpendableTxOutList(ignoreZc);
 
    auto utxoIter = utxoVec.rbegin();
    uint32_t cutOff = UINT32_MAX;
@@ -454,19 +458,48 @@ vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t currBlk) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(void) const
+vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
+   bool ignoreZc) const
 {
    //deliberately slow, only trying to support the old bdm behavior until the
    //Python side has been reworked to ask for paged UTXO history
+
+
+
    StoredScriptHistory ssh;
    map<BinaryData, UnspentTxOut> utxoMap;
    db_->getStoredScriptHistory(ssh, scrAddr_);
-   db_->getFullUTXOMapForSSH(ssh, utxoMap);
+   db_->getFullUTXOMapForSSH(ssh, utxoMap, false);
 
    vector<UnspentTxOut> utxoVec;
 
    for (auto& utxo : utxoMap)
+   {
+      auto txioIter = relevantTxIO_.find(utxo.first);
+      if (txioIter != relevantTxIO_.end())
+         if (txioIter->second.hasTxInZC())
+            continue;
+
       utxoVec.push_back(utxo.second);
+   }
+
+   if (ignoreZc)
+      return utxoVec;
+
+   for (auto& txio : relevantTxIO_)
+   {
+      if (!txio.second.hasTxOutZC())
+         continue;
+      if (txio.second.hasTxInZC())
+         continue;
+
+      TxOut txout = txio.second.getTxOutCopy(db_);
+      uint32_t blk = DBUtils::hgtxToHeight(
+         txio.second.getDBKeyOfOutput().getSliceCopy(0, 4));
+      UnspentTxOut UTXO = UnspentTxOut(db_, txout, blk);
+
+      utxoVec.push_back(UTXO);
+   }
 
    return utxoVec;
 }

@@ -226,7 +226,7 @@ void ScrAddrFilter::scanScrAddrMapInNewThread()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::merge(BinaryData lastScannedBlkHash)
+void ScrAddrFilter::merge(const BinaryData& lastScannedBlkHash)
 {
    /***
    Merge in the scrAddrMap and UTxOs scanned in a side thread with the BDM's
@@ -1034,7 +1034,8 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
 
 ///////////////////////////////////////////////////////////////////////////////
 void ZeroConfContainer::loadZeroConfMempool(
-   function<bool(const BinaryData&)> filter)
+   function<bool(const BinaryData&)> filter,
+   bool clearMempool)
 {
    //run this in its own scope so the iter and tx are closed in order to open
    //RW tx afterwards
@@ -1077,7 +1078,17 @@ void ZeroConfContainer::loadZeroConfMempool(
       } while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
    }
 
-   if (newZCMap_.size())
+   if (clearMempool == true)
+   {
+      vector<BinaryData> keysToWrite, keysToDelete;
+
+      for (const auto& zcTx : newZCMap_)
+         keysToDelete.push_back(zcTx.first);
+
+      newZCMap_.clear();
+      updateZCinDB(keysToWrite, keysToDelete);
+   }
+   else if (newZCMap_.size())
    {   
 
       //copy newZCmap_ to keep the pre parse ZC map

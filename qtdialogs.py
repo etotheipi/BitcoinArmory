@@ -4501,7 +4501,6 @@ class DlgRemoveWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgRemoveWallet, self).__init__(parent, main)
 
-
       wltID = wlt.uniqueIDB58
       wltName = wlt.labelName
       wltDescr = wlt.labelDescr
@@ -4709,7 +4708,7 @@ class DlgRemoveWallet(ArmoryDialog):
       # Open the print dialog.  If they hit cancel at any time, then
       # we go back to the primary wallet-remove dialog without any other action
       if self.chkPrintBackup.isChecked():
-         if not OpenPaperBackupWindow('Single', self, self.main, self.wlt, \
+         if not OpenPaperBackupWindow('Single', self, self.main, wlt, \
                                                 tr('Unlock Paper Backup')):
             QMessageBox.warning(self, tr('Operation Aborted'), tr("""
               You requested a paper backup before deleting the wallet, but

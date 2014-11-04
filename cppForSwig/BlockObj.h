@@ -330,21 +330,21 @@ public:
    uint32_t         getScriptOffset(void) const { return scriptOffset_; }
 
    // SWIG doesn't handle these enums well, so we will provide some direct bools
-   bool             isScriptStandard(void)   { return scriptType_ != TXIN_SCRIPT_NONSTANDARD;}
-   bool             isScriptStdUncompr(void) { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
-   bool             isScriptStdCompr(void)   { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
-   bool             isScriptCoinbase(void)   { return scriptType_ == TXIN_SCRIPT_COINBASE;}
-   bool             isScriptSpendMulti(void) { return scriptType_ == TXIN_SCRIPT_SPENDMULTI; }
-   bool             isScriptSpendPubKey(void){ return scriptType_ == TXIN_SCRIPT_SPENDPUBKEY; }
-   bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
-   bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
+   bool             isScriptStandard() const   { return scriptType_ != TXIN_SCRIPT_NONSTANDARD;}
+   bool             isScriptStdUncompr() const { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
+   bool             isScriptStdCompr() const  { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
+   bool             isScriptCoinbase() const   { return scriptType_ == TXIN_SCRIPT_COINBASE;}
+   bool             isScriptSpendMulti() const { return scriptType_ == TXIN_SCRIPT_SPENDMULTI; }
+   bool             isScriptSpendPubKey() const { return scriptType_ == TXIN_SCRIPT_SPENDPUBKEY; }
+   bool             isScriptSpendP2SH() const  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
+   bool             isScriptNonStd() const    { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
 
    TxRef            getParentTxRef() const { return parentTx_; }
-   uint32_t         getIndex(void) { return index_; }
+   uint32_t         getIndex(void) const { return index_; }
 
    //void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
 
-   uint32_t         getSequence(void)   { return READ_UINT32_LE(getPtr()+getSize()-4); }
+   uint32_t         getSequence() const  { return READ_UINT32_LE(getPtr()+getSize()-4); }
 
    BinaryData       getParentHash(LMDBBlockDatabase *db);
    uint32_t         getParentHeight() const;
@@ -353,7 +353,7 @@ public:
    void             setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData       serialize(void)    { return dataCopy_; }
+   const BinaryData&  serialize(void) const { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize_checked( uint8_t const * ptr,

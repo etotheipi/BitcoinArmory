@@ -40,10 +40,13 @@ BtcWallet* BlockDataViewer::registerWallet(
 
    {
       ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-      
+
       auto regWlt = registeredWallets_.find(id);
       if (regWlt != registeredWallets_.end())
+      {
+         flagRefresh(false, id);
          return regWlt->second.get();
+      }
    }
    
    shared_ptr<BtcWallet> newWallet;
@@ -73,7 +76,6 @@ BtcWallet* BlockDataViewer::registerWallet(
    //tell the wallet it is registered
    newWallet->setRegistered();
 
-   bdmPtr_->notifyMainThread();
    return newWallet.get();
 }
 
@@ -93,8 +95,11 @@ BtcWallet* BlockDataViewer::registerLockbox(
       ReadWriteLock::ReadLock rl(registeredWalletsLock_);
       
       auto regLB = registeredLockboxes_.find(id);
-      if (regLB!= registeredLockboxes_.end())
+      if (regLB != registeredLockboxes_.end())
+      {
+         flagRefresh(false, id);
          return regLB->second.get();
+      }
    }
    
    shared_ptr<BtcWallet> newLockbox;
@@ -122,8 +127,6 @@ BtcWallet* BlockDataViewer::registerLockbox(
 
    newLockbox->setRegistered();
    
-   bdmPtr_->notifyMainThread();
-
    return newLockbox.get();
 }
 
@@ -172,7 +175,7 @@ void BlockDataViewer::unregisterLockbox(const string& IDstr)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::scanWallets(uint32_t startBlock,
-   uint32_t endBlock, uint32_t forceRefresh)
+   uint32_t endBlock, BDV_refresh forceRefresh)
 {
    if (startBlock == UINT32_MAX)
       startBlock = lastScanned_;
@@ -232,9 +235,9 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    zeroConfCont_.resetNewZC();
    lastScanned_ = endBlock;
 
-   if (forceRefresh == 1)
+   if (forceRefresh == BDV_refreshSkipRescan)
       getHistoryPage(0, true, false);
-   else if(forceRefresh == 2)
+   else if(forceRefresh == BDV_refreshAndRescan)
       getHistoryPage(0, true, true);
    else if (hist_.getCurrentPage() == 0)
    {
@@ -296,7 +299,7 @@ void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::enableZeroConf()
+void BlockDataViewer::enableZeroConf(bool clearMempool)
 {
    SCOPED_TIMER("enableZeroConf");
    LOGINFO << "Enabling zero-conf tracking ";
@@ -306,7 +309,7 @@ void BlockDataViewer::enableZeroConf()
    auto zcFilter = [this](const BinaryData& scrAddr)->bool
    { return this->bdmPtr_->getScrAddrFilter()->hasScrAddress(scrAddr); };
 
-   zeroConfCont_.loadZeroConfMempool(zcFilter);
+   zeroConfCont_.loadZeroConfMempool(zcFilter, clearMempool);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -652,15 +655,21 @@ void BlockDataViewer::updateWalletFilters(const vector<BinaryData>& walletsList)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID) 
 { 
-   if (saf_->bdmIsRunning() < 2)
+   if (saf_->bdmIsRunning() == false)
       return;
 
-   if (withRemap == true)
-      refresh_ = 2;
-   else
-      refresh_ = 1;
+   unique_lock<mutex> lock(refreshLock_);
 
-   refreshID_ = refreshID;
+   if (refresh_ != BDV_refreshAndRescan)
+   {
+      if (withRemap == true)
+         refresh_ = BDV_refreshAndRescan;
+      else
+         refresh_ = BDV_refreshSkipRescan;
+   }
+
+   if (refreshID.getSize())
+      refreshIDSet_.insert(refreshID);
 
    bdmPtr_->notifyMainThread();
 }
@@ -698,8 +707,8 @@ BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BlockDataViewer::getUnpsentTxoutsForAddr160List(
-   const vector<BinaryData>& scrAddrVec) const
+vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
+   const vector<BinaryData>& scrAddrVec, bool ignoreZc) const
 {
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter();
 
@@ -716,6 +725,8 @@ vector<UnspentTxOut> BlockDataViewer::getUnpsentTxoutsForAddr160List(
 
    for (const auto& scrAddr : scrAddrVec)
    {
+      const auto& zcTxioMap = zeroConfCont_.getZCforScrAddr(scrAddr);
+
       StoredScriptHistory ssh;
       db_->getStoredScriptHistory(ssh, scrAddr);
 
@@ -723,7 +734,31 @@ vector<UnspentTxOut> BlockDataViewer::getUnpsentTxoutsForAddr160List(
       db_->getFullUTXOMapForSSH(ssh, scrAddrUtxoMap);
 
       for (const auto& utxoPair : scrAddrUtxoMap)
+      {
+         auto zcIter = zcTxioMap.find(utxoPair.first);
+         if (zcIter != zcTxioMap.end())
+            if (zcIter->second.hasTxInZC())
+               continue;
+
          UTXOs.push_back(utxoPair.second);
+      }
+
+      if (ignoreZc)
+         continue;
+
+      for (const auto& zcTxio : zcTxioMap)
+      {
+         if (!zcTxio.second.hasTxOutZC())
+            continue;
+         
+         if (zcTxio.second.hasTxInZC())
+            continue;
+
+         TxOut txout = zcTxio.second.getTxOutCopy(db_);
+         UnspentTxOut UTXO = UnspentTxOut(db_, txout, UINT32_MAX);
+
+         UTXOs.push_back(UTXO);
+      }
    }
 
    return UTXOs;

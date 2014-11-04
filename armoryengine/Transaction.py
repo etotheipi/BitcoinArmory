@@ -2864,7 +2864,7 @@ def getUnspentTxOutsForAddr160List(addr160List):
                scrAddrList.append(Hash160ToScrAddr(addr))
       
       try:
-         utxoList = TheBDM.bdv().getUnpsentTxoutsForAddr160List(scrAddrList)
+         utxoList = TheBDM.bdv().getUnspentTxoutsForAddr160List(scrAddrList, IGNOREZC)
       except:
          raise AddressUnregisteredError
       

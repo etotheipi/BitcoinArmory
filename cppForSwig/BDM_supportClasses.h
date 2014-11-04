@@ -171,9 +171,7 @@ public:
    void setSSHLastScanned(uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
-   {
-      scrAddrMap_[scrAddr] = scanFrom; 
-   }
+   { scrAddrMap_[scrAddr] = scanFrom; }
 
    void scanScrAddrMapInNewThread(void);
 
@@ -185,9 +183,9 @@ public:
    //the first one is done scanning, a SCA will be built and referenced to as
    //the child to previous side thread scan SCA, which will initiate the next 
    //scan before it cleans itself up
-   void setChild (shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
+   void setChild(const shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
 
-   void merge(BinaryData lastScannedBlkHash);
+   void merge(const BinaryData& lastScannedBlkHash);
    void checkForMerge(void);
 
    void startSideScan(
@@ -197,7 +195,7 @@ public:
    virtual ScrAddrFilter* copy()=0;
 
 protected:
-   virtual int32_t bdmIsRunning() const=0;
+   virtual bool bdmIsRunning() const=0;
    virtual BinaryData applyBlockRangeToDB(
       uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
    )=0;
@@ -316,7 +314,7 @@ public:
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
-   void loadZeroConfMempool(function<bool(const BinaryData&)>);
+   void loadZeroConfMempool(function<bool(const BinaryData&)>, bool clearMempool);
 };
 
 #endif
