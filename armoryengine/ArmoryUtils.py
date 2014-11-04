@@ -3687,6 +3687,7 @@ class ArmoryListenerFactory(ClientFactory):
       
 # Check general internet connection
 def isInternetAvailable():
+   internetAvail = False
    try:
       import urllib2
       urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
@@ -3698,16 +3699,15 @@ def isInternetAvailable():
       # In the extremely rare case that google might be down (or just to try
       # again...)
       try:
-         response = urllib2.urlopen('http://microsoft.com', 
-            timeout=CLI_OPTIONS.nettimeout)
+         urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
+         internetAvail = True
       except:
          LOGEXCEPT('Error checking for internet connection')
          LOGERROR('Run --skip-online-check if you think this is an error')
-         internetAvail = False
    except:
       LOGEXCEPT('Error checking for internet connection')
       LOGERROR('Run --skip-online-check if you think this is an error')
-      internetAvail = False
+
    return internetAvail
 
 

@@ -3436,6 +3436,8 @@ class ArmoryMainWindow(QMainWindow):
       except KeyError:
          LOGERROR('Invalid wallet ID passed to "removeWalletFromApplication"')
          raise WalletExistsError
+      
+      self.walletMap[wltID].unregisterWallet()
 
       del self.walletMap[wltID]
       del self.walletIndices[wltID]
