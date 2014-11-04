@@ -6156,7 +6156,9 @@ class ArmoryMainWindow(QMainWindow):
          for wltID in args:
             if len(wltID) > 0:
                if wltID in self.walletMap:
-                  self.walletMap[wltID].isEnabled = True
+                  wlt = self.walletMap[wltID]
+                  wlt.isEnabled = True
+                  wlt.freshImportFindHighestIndex()
                else:
                   lbID = self.lockboxIDMap[wltID]                
                   self.allLockboxes[lbID].isEnabled = True
