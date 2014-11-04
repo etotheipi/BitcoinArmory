@@ -90,23 +90,24 @@
 #
 ################################################################################
 
-import decimal
 import base64
+from collections import defaultdict
+import decimal
+from inspect import *
 import json
 
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
+from twisted.internet.protocol import ClientFactory  # REMOVE IN 0.93
 from twisted.web import server
-from twisted.internet.protocol import ClientFactory # REMOVE IN 0.93
 from txjsonrpc.auth import wrapResource
 from txjsonrpc.web import jsonrpc
 
 from armoryengine.ALL import *
-from collections import defaultdict
 from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.PyBtcWalletRecovery import *
-from inspect import *
 from jasvet import readSigBlock, verifySignature
+
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -2769,7 +2770,7 @@ class Armory_Daemon(object):
    #############################################################################
    def handleCppNotification(self, action, args):
 
-      if action == 'finishLoadBlockchain':
+      if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          #Blockchain just finished loading, finish initializing UI and render the
          #ledgers
 
@@ -2795,13 +2796,13 @@ class Armory_Daemon(object):
          reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
          reactor.run()
    
-      elif action == 'newZC':
+      elif action == NEW_ZC_ACTION:
          #A zero conf Tx conerns one of the address Armory is tracking, pull the 
          #updated ledgers from the BDM and create the related notifications.         
 
          self.checkNewZeroConf(args)        
 
-      elif action == 'newblock':
+      elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
          #the new block height in the status bar and note the block received time         
 
@@ -2838,7 +2839,7 @@ class Armory_Daemon(object):
                      for blockFunc in self.newBlockFunctions[funcKey]:
                         blockFunc(pyHeader, pyTxList)            
       
-      elif action == 'refresh':
+      elif action == REFRESH_ACTION:
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
@@ -2857,7 +2858,7 @@ class Armory_Daemon(object):
          wltID = args[0]
          prog = args[1]
 
-      elif action == 'warning':
+      elif action == WARNING_ACTION:
          #something went wrong on the C++ side, create a message box to report
          #it to the user
          LOGWARN("BockDataManager Warning: ")

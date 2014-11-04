@@ -17,7 +17,7 @@ import copy
 import unittest
 from zipfile import ZipFile
 from armoryengine.BDM import TheBDM, BlockDataManager, newTheBDM,\
-   BDM_BLOCKCHAIN_READY
+   BDM_BLOCKCHAIN_READY, STOPPED_ACTION
 
 TOP_TIAB_BLOCK = 247
 
@@ -161,7 +161,7 @@ class TiabTest(unittest.TestCase):
    def tearDownClass(self):
       def tiabBDMShutdownCallback(action, arg):
          global doneShuttingDownBDM
-         if action == 'stopped':
+         if action == STOPPED_ACTION:
             doneShuttingDownBDM = True
       
       TheBDM.registerCppNotification(tiabBDMShutdownCallback)

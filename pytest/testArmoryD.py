@@ -15,7 +15,7 @@ from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
 from armoryengine.ArmoryUtils import hex_to_binary, \
    binary_to_base58, binary_to_hex, convertKeyDataToAddress, hash160_to_addrStr,\
    hex_switchEndian, hash160, BIGENDIAN, privKey_to_base58
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import TheBDM, REFRESH_ACTION
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import PyTx
 import unittest
@@ -42,7 +42,7 @@ class ArmoryDTest(TiabTest):
             os.remove(f)
       
    def armoryDTestCallback(self, action, args):
-      if action == 'refresh':
+      if action == REFRESH_ACTION:
          self.walletIsScanned = True
          
    def setUp(self):

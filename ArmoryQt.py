@@ -7,6 +7,7 @@
 #                                                                              #
 ################################################################################
 
+from copy import deepcopy
 from datetime import datetime
 import hashlib
 import logging
@@ -23,35 +24,34 @@ import threading
 import time
 import traceback
 import webbrowser
-import psutil
-from copy import deepcopy
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+import psutil
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
 import CppBlockUtils as Cpp
-from armoryengine.ALL import *
+from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP, \
+   DEFAULT_FETCH_INTERVAL
 from armorycolors import Colors, htmlColor, QAPP
+from armoryengine.ALL import *
+from armoryengine.Block import PyBlock
+from armoryengine.Decorators import RemoveRepeatingExtensions
+from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
+from armoryengine.parseAnnounce import changelogParser, downloadLinkParser, \
+   notificationParser
 from armorymodels import *
-from ui.toolsDialogs import MessageSigningVerificationDialog
+from jasvet import verifySignature
 import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
-from ui.Wizards import WalletWizard, TxWizard
-from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
-
-from jasvet import verifySignature
-from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP,\
-   DEFAULT_FETCH_INTERVAL
-from armoryengine.parseAnnounce import *
-from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
-
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                     DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
-from armoryengine.Decorators import RemoveRepeatingExtensions
-from armoryengine.Block import PyBlock
+from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
+from ui.Wizards import WalletWizard, TxWizard
+from ui.toolsDialogs import MessageSigningVerificationDialog
+
 
 # Load our framework with OS X-specific code.
 if OS_MACOSX:
@@ -78,7 +78,7 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   @TimeThisFunction
+
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
@@ -123,8 +123,6 @@ class ArmoryMainWindow(QMainWindow):
       self.sweepAfterScanList = []
       self.newWalletList = []
       self.newZeroConfSinceLastUpdate = []
-      self.lastBDMState = [BDM_UNINITIALIZED, None]
-      self.lastSDMState = BDM_UNINITIALIZED
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
@@ -241,18 +239,6 @@ class ArmoryMainWindow(QMainWindow):
       self.extraNewBlockFunctions = []
       self.extraShutdownFunctions = []
       self.extraGoOnlineFunctions = []
-
-      """
-      pass a function to extraHeartbeatAlways to run on every heartbeat.
-      pass a list for more control on the function, as
-         [func, [args], keep_running],
-      where:
-         func is the function
-         [args] is a list of arguments
-         keep_running is a bool, pass False to remove the function from
-         extraHeartbeatAlways on the next iteration
-      """
-
 
       self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' %
                                       htmlColor('TextWarn'), doWrap=False)
@@ -2157,7 +2143,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def setupNetworking(self):
       LOGINFO('Setting up networking...')
       self.internetAvail = False
@@ -2581,7 +2567,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def loadWalletsAndSettings(self):
       LOGINFO('loadWalletsAndSettings')
 
@@ -2956,7 +2942,7 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.set(settingName, val)
 
 
-   @TimeThisFunction
+
    # NB: armoryd has a similar function (Armory_Daemon::start()), and both share
    # common functionality in ArmoryUtils (finishLoadBlockchainCommon). If you
    # mod this function, please be mindful of what goes where, and make sure
@@ -3040,7 +3026,7 @@ class ArmoryMainWindow(QMainWindow):
       self.createCombinedLedger()
 
    #############################################################################
-   @TimeThisFunction
+
    def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
       """
       Create a ledger to display on the main screen, that consists of ledger
@@ -3169,7 +3155,7 @@ class ArmoryMainWindow(QMainWindow):
       return ' '.join(commentSet)
 
    #############################################################################
-   @TimeThisFunction
+
    def convertLedgerToTable(self, ledger, showSentToSelfAmt=True, wltIDIn=None):
       table2D = []
       datefmt = self.getPreferredDateFormat()
@@ -3253,7 +3239,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def walletListChanged(self):
       self.walletModel.reset()
       self.populateLedgerComboBox()
@@ -3261,7 +3247,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def populateLedgerComboBox(self):
       self.comboWltSelect.clear()
       self.comboWltSelect.addItem( 'My Wallets'        )
@@ -3356,7 +3342,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def getAddrCommentIfAvailAll(self, txHash):
       if not TheBDM.isInitialized():
          return ''
@@ -4289,7 +4275,7 @@ class ArmoryMainWindow(QMainWindow):
                self.numHeartBeat += 1
                self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % \
                                                 (self.numHeartBeat%6)))
-         self.extraHeartbeatAlways.append(loadBarUpdate)
+         self.extraHeartbeatAlways.append(loadBarUpdate) # TODO - Remove this. Put the method in the handle CPP Notification event handler 
       else:
          self.qmov = QMovie(':/busy.gif')
          self.lblBusy.setMovie( self.qmov )
@@ -5540,16 +5526,14 @@ class ArmoryMainWindow(QMainWindow):
                   support@bitcoinarmory.com</a>.  We apologize for the
                   inconvenience!"""))
 
-
+   # TODO - move out of polling and call on events
    #############################################################################
-   @TimeThisFunction
+
    def setDashboardDetails(self, INIT=False):
       """
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
       """
-      onlineAvail = onlineModeIsPossible()
-      
       if self.isShuttingDown:
          return
 
@@ -5617,7 +5601,7 @@ class ArmoryMainWindow(QMainWindow):
 
       if self.doAutoBitcoind and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.
-
+         # TODO -  Move to event handlers
          if not sdmState==self.lastSDMState:
 
             self.lblBusy.setVisible(False)
@@ -5747,9 +5731,6 @@ class ArmoryMainWindow(QMainWindow):
                elif sdmState in ['BitcoindNotAvailable']:
                   LOGERROR('BitcoindNotAvailable: should not happen...')
                   self.notAvailErrorCount += 1
-                  #if self.notAvailErrorCount < 5:
-                     #LOGERROR('Auto-mode-switch')
-                     #self.executeModeSwitch()
                   descr1 += ''
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -5846,7 +5827,7 @@ class ArmoryMainWindow(QMainWindow):
          # User is managing satoshi client, or bitcoind is already sync'd
          self.frmDashMidButtons.setVisible(False)
          if bdmState in (BDM_OFFLINE, BDM_UNINITIALIZED):
-            if onlineAvail and not self.lastBDMState[1]==onlineAvail:
+            if self.internetAvail:
                LOGINFO('Dashboard switched to user-OfflineOnlinePoss')
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
@@ -5858,7 +5839,15 @@ class ArmoryMainWindow(QMainWindow):
                descr  = self.GetDashStateText('User', 'OfflineButOnlinePossible')
                descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
-            elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
+               
+               if not satoshiIsAvailable():
+                  descr = self.GetDashStateText('User','OfflineNoSatoshi')
+                  setBtnRowVisible(DASHBTNS.Settings, True)
+                  setBtnFrameVisible(True, \
+                     'If you would like Armory to manage the Bitcoin software '
+                     'for you (Bitcoin-Qt or bitcoind), then adjust your '
+                     'Armory settings, then restart Armory.')
+            elif not self.internetAvail:
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
                self.lblBusy.setVisible(False)
@@ -5868,19 +5857,11 @@ class ArmoryMainWindow(QMainWindow):
                                          size=4, color='TextWarn', bold=True)
 
                if not satoshiIsAvailable():
-                  if self.internetAvail:
-                     descr = self.GetDashStateText('User','OfflineNoSatoshi')
-                     setBtnRowVisible(DASHBTNS.Settings, True)
-                     setBtnFrameVisible(True, \
-                        'If you would like Armory to manage the Bitcoin software '
-                        'for you (Bitcoin-Qt or bitcoind), then adjust your '
-                        'Armory settings, then restart Armory.')
-                  else:
-                     descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
-               elif not self.internetAvail:
-                  descr = self.GetDashStateText('User', 'OfflineNoInternet')
+                  descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
                elif not self.checkHaveBlockfiles():
                   descr = self.GetDashStateText('User', 'OfflineNoBlkFiles')
+               else:
+                  descr = self.GetDashStateText('User', 'OfflineNoInternet')
 
                descr += '<br><br>'
                descr += self.GetDashFunctionalityText('Offline')
@@ -5950,7 +5931,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGERROR('What the heck blockchain mode are we in?  %s', bdmState)
 
-      self.lastBDMState = [bdmState, onlineAvail]
+      self.lastBDMState = [bdmState, self.internetAvail]
       self.lastSDMState =  sdmState
       self.lblDashModeTorrent.setContentsMargins( 50,5,50,5)
       self.lblDashModeSync.setContentsMargins( 50,5,50,5)
@@ -6085,7 +6066,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def checkNewZeroConf(self, ledgers):
       '''
       Function that looks at an incoming zero-confirmation transaction queue and
@@ -6109,7 +6090,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def handleCppNotification(self, action, args):
 
-      if action == 'finishLoadBlockchain':
+      if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          #Blockchain just finished loading, finish initializing UI and render the
          #ledgers
          
@@ -6120,7 +6101,7 @@ class ArmoryMainWindow(QMainWindow):
             self.needUpdateAfterScan = False
             self.setDashboardDetails()
 
-      elif action == 'sweepAfterScanList':
+      elif action == SWEEP_AFTER_SCAN_LIST_ACTION:
          #A set of private keys have been loaded in a wallet for sweeping their
          #balance. This flag singnifies that these private keys, save in
          #self.sweepAfterScanList, have been scanned and are ready for being 
@@ -6134,14 +6115,14 @@ class ArmoryMainWindow(QMainWindow):
             self.sweepAfterScanList = []
             self.setDashboardDetails()     
       
-      elif action == 'newZC':
+      elif action == NEW_ZC_ACTION:
          #A zero conf Tx conerns one of the address Armory is tracking, pull the 
          #updated ledgers from the BDM and create the related notifications.         
 
          self.checkNewZeroConf(args)
          self.setDashboardDetails()          
 
-      elif action == 'newblock':
+      elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
          #the new block height in the status bar and note the block received time         
 
@@ -6168,7 +6149,7 @@ class ArmoryMainWindow(QMainWindow):
             self.walletModel.reset()    
             self.setDashboardDetails()   
       
-      elif action == 'refresh':
+      elif action == REFRESH_ACTION:
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
@@ -6200,7 +6181,7 @@ class ArmoryMainWindow(QMainWindow):
             if self.lbDialogModel != None:
                self.lbDialogModel.reset()
                
-      elif action == 'warning':
+      elif action == WARNING_ACTION:
          #something went wrong on the C++ side, create a message box to report
          #it to the user
          QMessageBox.critical(self, tr('BlockDataManager Warning'), \
@@ -6250,7 +6231,7 @@ class ArmoryMainWindow(QMainWindow):
       bdmState = TheBDM.getState()
 
       #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
-
+      # TODO - lower the frequency to 1 per minute
       self.processAnnounceData()
 
       try:
@@ -6268,11 +6249,8 @@ class ArmoryMainWindow(QMainWindow):
          for idx,wltID in enumerate(self.walletIDList):
             self.walletMap[wltID].checkWalletLockTimeout()
 
-
-
-
          if self.doAutoBitcoind:
-            if TheTDM.isRunning():
+            if TheTDM.isRunning():    # TODO Put this whole conditional block in a method
                if tdmState=='Downloading':
                   self.updateSyncProgress()
 
@@ -6305,20 +6283,10 @@ class ArmoryMainWindow(QMainWindow):
                         # For now, just show once then disable
                         self.lastAskedUserStopTorrent = UINT64_MAX
 
-            if sdmState in ['BitcoindInitializing','BitcoindSynchronizing']:
+            if (sdmState in ['BitcoindInitializing','BitcoindSynchronizing']) or \
+               (sdmState == 'BitcoindReady' and bdmState==BDM_SCANNING):
                self.updateSyncProgress()
-            elif sdmState == 'BitcoindReady':
-               if bdmState == BDM_UNINITIALIZED:
-                  LOGINFO('Starting load blockchain')
-                  self.loadBlockchainIfNecessary()
-               if bdmState == BDM_OFFLINE:
-                  LOGERROR('Bitcoind is ready, but we are offline... ?')
-               elif bdmState==BDM_SCANNING:
-                  self.updateSyncProgress()
-
-            if not sdmState==self.lastSDMState or \
-               not bdmState==self.lastBDMState[0]:
-               self.setDashboardDetails()
+               
          else:
             if bdmState in (BDM_OFFLINE,BDM_UNINITIALIZED):
                # This call seems out of place, but it's because if you are in offline
@@ -6326,7 +6294,7 @@ class ArmoryMainWindow(QMainWindow):
                # so that it can enable the "Go Online" button
                self.setDashboardDetails()
                return
-            elif bdmState==BDM_SCANNING:
+            elif bdmState==BDM_SCANNING:  # TODO - Move to handle cpp notification
                self.updateSyncProgress()
 
 
@@ -6334,14 +6302,12 @@ class ArmoryMainWindow(QMainWindow):
             if onlineModeIsPossible():
                self.switchNetworkMode(NETWORKMODE.Full)
 
-         self.setDashboardDetails()
-
 
          if bdmState==BDM_BLOCKCHAIN_READY:
-            # Trigger any notifications, if we have them...
+            # Trigger any notifications, if we have them... TODO - Remove add to new block, and block chain ready
             self.doTheSystemTrayThing()
 
-            # Any extra functions that may have been injected to be run
+            # Any extra functions that may have been injected to be run TODO - Call on New block
             # when new blocks are received.  
             if len(self.extraNewBlockFunctions) > 0:
                cppHead = TheBDM.getMainBlockFromDB(self.currBlockNum)
@@ -6351,12 +6317,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
             blkRecvAgo  = RightNow() - self.blkReceived
-            #blkStampAgo = RightNow() - TheBDM.blockchain().top().getTimestamp()
+            #blkStampAgo = RightNow() - TheBDM.blockchain().top().getTimestamp()  # TODO - show absolute time, and show only on new block
             self.lblArmoryStatus.setToolTip('Last block received is %s ago' % \
                                                 secondsToHumanTime(blkRecvAgo))
 
-
-            for func in self.extraHeartbeatOnline:
+            # TODO - remove
+            for func in self.extraHeartbeatOnline: 
                func()
 
       except:
@@ -6418,7 +6384,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def doTheSystemTrayThing(self):
       """
       I named this method as it is because this is not just "show a message."
@@ -6619,7 +6585,7 @@ class ArmoryMainWindow(QMainWindow):
 
          #no callback notify in offline mode, just exit
          if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED):
-            self.actuallyDoExitNow('stopped', 1)
+            self.actuallyDoExitNow(STOPPED_ACTION, 1)
             return
          
          TheBDM.registerCppNotification(self.actuallyDoExitNow)
@@ -6633,7 +6599,7 @@ class ArmoryMainWindow(QMainWindow):
 
    def actuallyDoExitNow(self, action, l):
       # this is a BDM callback
-      if action != 'stopped':
+      if action != STOPPED_ACTION:
          return
       # Any extra shutdown activities, perhaps added by modules
       for fn in self.extraShutdownFunctions:
@@ -6827,8 +6793,6 @@ class ArmoryMainWindow(QMainWindow):
          self.connect(self, SIGNAL('PWCE'), self.PromptWltCstError)
          self.CheckWalletConsistency(self.walletMap, self.prgAt, async=True)
          self.UpdateConsistencyCheckMessage(async = True)
-         #self.extraHeartbeatAlways.append(self.UpdateWalletConsistencyPBar)
-
    @AllowAsync
    def UpdateConsistencyCheckMessage(self):
       while self.prgAt[2] == 0:

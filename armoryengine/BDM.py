@@ -22,7 +22,15 @@ BDM_OFFLINE = 'Offline'
 BDM_UNINITIALIZED = 'Uninitialized'
 BDM_BLOCKCHAIN_READY = 'BlockChainReady'
 BDM_SCANNING = 'Scanning'
-      
+FINISH_LOAD_BLOCKCHAIN_ACTION = 'FinishLoadBlockchain'    
+SWEEP_AFTER_SCAN_LIST_ACTION = 'SweepAfterScanList'
+NEW_ZC_ACTION = 'newZC'
+NEW_BLOCK_ACTION = 'newBlock'
+REFRESH_ACTION = 'refresh'
+STOPPED_ACTION = 'stopped'
+WARNING_ACTION = 'warning'
+
+
 def newTheBDM(isOffline=False):
    global TheBDM
    if TheBDM:
@@ -45,28 +53,28 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          # AOTODO replace with constants
          
          if action == 1:
-            act = 'finishLoadBlockchain'
+            act = FINISH_LOAD_BLOCKCHAIN_ACTION
             TheBDM.topBlockHeight = block
             TheBDM.setState(BDM_BLOCKCHAIN_READY)
          elif action == 2:
-            act = 'sweepAfterScanList'
+            act = SWEEP_AFTER_SCAN_LIST_ACTION
          elif action == 3:
-            act = 'newZC'
+            act = NEW_ZC_ACTION
             castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)
             arglist = castArg
          elif action == 4:
-            act = 'newblock'
+            act = NEW_BLOCK_ACTION
             castArg = Cpp.BtcUtils_cast_to_int(arg)
             arglist.append(castArg)
             TheBDM.topBlockHeight = block
          elif action == 5:
-            act = 'refresh'
+            act = REFRESH_ACTION
             castArg = Cpp.BtcUtils_cast_to_BinaryDataVector(arg)
             arglist = castArg
          elif action == 6:
-            act = 'stopped'
+            act = STOPPED_ACTION
          elif action == 7:
-            act = 'warning'
+            act = WARNING_ACTION
             argstr = Cpp.BtcUtils_cast_to_string(arg)
             arglist.append(argstr)
             

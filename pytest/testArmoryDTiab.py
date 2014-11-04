@@ -10,7 +10,7 @@ from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
    FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
-from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
+from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY, REFRESH_ACTION
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import UnsignedTransaction, PyTx
 import unittest
@@ -115,7 +115,7 @@ TEST_MESSAGE = "All your base are belong to us."
 class ArmoryDTiabTest(TiabTest):
          
    def armoryDTiabTestCallback(self, action, args):
-      if action == 'refresh':
+      if action == REFRESH_ACTION:
          for wltID in args:
             print wltID
             if wltID in self.wltIDs:
