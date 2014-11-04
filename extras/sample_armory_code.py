@@ -87,7 +87,7 @@ if run_WalletRescan:
 
    print '\n\nBalance of this wallet:', coin2str(cppWallet.getSpendableBalance())
    print 'Unspent outputs:'
-   unspentTxOuts = cppWallet.getSpendableTxOutList()
+   unspentTxOuts = cppWallet.getSpendableTxOutList() #IGNOREZC isnt defined in this script
    for utxo in unspentTxOuts:
       utxo.pprintOneLine(topBlock)
 

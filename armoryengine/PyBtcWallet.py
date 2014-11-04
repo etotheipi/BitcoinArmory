@@ -516,9 +516,9 @@ class PyBtcWallet(object):
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
-            return cppAddr.getSpendableTxOutList();
+            return cppAddr.getSpendableTxOutList(IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
-            return cppAddr.getFullTxOutList(topBlockHeight);
+            return cppAddr.getFullTxOutList(topBlockHeight, IGNOREZC);
          else:
             raise TypeError('Unknown TxOutList type! ' + txType)
       else:

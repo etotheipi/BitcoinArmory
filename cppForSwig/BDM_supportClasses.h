@@ -171,9 +171,7 @@ public:
    void setSSHLastScanned(uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
-   {
-      scrAddrMap_[scrAddr] = scanFrom; 
-   }
+   { scrAddrMap_[scrAddr] = scanFrom; }
 
    void scanScrAddrMapInNewThread(void);
 
@@ -197,7 +195,7 @@ public:
    virtual ScrAddrFilter* copy()=0;
 
 protected:
-   virtual int32_t bdmIsRunning() const=0;
+   virtual bool bdmIsRunning() const=0;
    virtual BinaryData applyBlockRangeToDB(
       uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
    )=0;

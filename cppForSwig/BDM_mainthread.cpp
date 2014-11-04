@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include "pthread.h"
 
-
 BDM_CallBack::~BDM_CallBack()
 {}
 
@@ -348,20 +347,20 @@ try
          }
       }
 
-      if (bdv->refresh_ > 0)
+      if (bdv->refresh_ != BDV_dontRefresh)
       {
-         uint32_t refresh = bdv->refresh_;
-         bdv->refresh_ = 0;
+         unique_lock<mutex> lock(bdv->refreshLock_);
 
+         BDV_refresh refresh = bdv->refresh_;
+         bdv->refresh_ = BDV_dontRefresh;
          bdv->scanWallets(UINT32_MAX, UINT32_MAX, refresh);
          
-         string refreshID;
-         if (bdv->refreshID_.getPtr() != nullptr)
-            refreshID = string(bdv->refreshID_.getCharPtr(), bdv->refreshID_.getSize());
-         
-         bdv->refreshID_ = BinaryData();
+         vector<BinaryData> refreshIDVec;
+         for (const auto& refreshID : bdv->refreshIDSet_)
+            refreshIDVec.push_back(refreshID);
 
-         callback->run(5, &refreshID);
+         bdv->refreshIDSet_.clear();
+         callback->run(5, &refreshIDVec);
       }
 
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();

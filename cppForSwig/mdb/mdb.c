@@ -464,7 +464,7 @@ typedef uint16_t	 indx_t;
 	 *	This is certainly too small for any actual applications. Apps should always set
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
-#define DEFAULT_MAPSIZE	         32*1024 //keeping this low so unit test can trigger remaps
+#define DEFAULT_MAPSIZE	         8*1024 //keeping this low so unit test can trigger remaps
 #define MAX_MAPSIZE_INCEREMENT	1024*1024*128
 
 /**	@defgroup readers	Reader Lock Table

@@ -210,8 +210,8 @@ public:
       uint32_t currBlk, 
       bool includeAllZeroConf=false
    ) const;
-   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0) const;
-   vector<UnspentTxOut> getSpendableTxOutList(void) const;
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=UINT32_MAX, bool ignoreZC=true) const;
+   vector<UnspentTxOut> getSpendableTxOutList(bool ignoreZC=true) const;
 
 
    const map<BinaryData, LedgerEntry> & getTxLedger(void) const 

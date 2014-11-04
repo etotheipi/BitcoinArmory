@@ -83,6 +83,13 @@ typedef enum
   DB_BUILD_SCAN
 } DB_BUILD_PHASE;
 
+typedef enum 
+{
+   BDM_offline,
+   BDM_initializing,
+   BDM_ready
+}BDM_state;
+
 class ProgressReporter;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -139,7 +146,7 @@ private:
 
    Blockchain blockchain_;
 
-   uint32_t isRunning_ = 0;
+   BDM_state BDMstate_ = BDM_offline;
 
 public:
    bool                               sideScanFlag_ = false;
@@ -305,7 +312,7 @@ public:
 
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 
-   bool isRunning(void) const { return isRunning_ > 0; }
+   bool isRunning(void) const { return BDMstate_ != BDM_offline; }
 };
 
 

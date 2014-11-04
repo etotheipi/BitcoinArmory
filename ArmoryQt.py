@@ -6172,18 +6172,18 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
-         wltID = args[0]
-         if len(wltID) > 0:
-            if wltID in self.walletMap:
-               self.walletMap[wltID].isEnabled = True
-            else:
-               lbID = self.lockboxIDMap[wltID]                
-               self.allLockboxes[lbID].isEnabled = True
-               if self.lbDialogModel != None:
-                  self.lbDialogModel.reset()
-            if self.walletSideScanProgress.has_key(wltID):
-               del self.walletSideScanProgress[wltID]
-            
+         for wltID in args:
+            if len(wltID) > 0:
+               if wltID in self.walletMap:
+                  self.walletMap[wltID].isEnabled = True
+               else:
+                  lbID = self.lockboxIDMap[wltID]                
+                  self.allLockboxes[lbID].isEnabled = True
+                  if self.lbDialogModel != None:
+                     self.lbDialogModel.reset()
+               if self.walletSideScanProgress.has_key(wltID):
+                  del self.walletSideScanProgress[wltID]
+               
          self.createCombinedLedger()
          self.walletModel.reset()
          

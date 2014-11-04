@@ -116,7 +116,10 @@ class ArmoryDTiabTest(TiabTest):
          
    def armoryDTiabTestCallback(self, action, args):
       if action == 'refresh':
-         self.numberOfWalletsScanned += 1
+         for wltID in args:
+            print wltID
+            if wltID in self.wltIDs:
+               self.numberOfWalletsScanned += 1
          
    def setUp(self):
       self.verifyBlockHeight()
@@ -135,6 +138,8 @@ class ArmoryDTiabTest(TiabTest):
                                               THIRD_WLT_NAME : self.wltC}, \
                        armoryHomeDir=os.path.join(self.tiab.tiabDirectory, \
                                                   'tiab','armory'))
+      
+      self.wltIDs = [self.wltA.uniqueIDB58, self.wltB.uniqueIDB58, self.wltC.uniqueIDB58]
       #register a callback
       TheBDM.registerCppNotification(self.armoryDTiabTestCallback)
 
@@ -150,7 +155,7 @@ class ArmoryDTiabTest(TiabTest):
          time.sleep(0.5)
          i += 1
          if i >= 40:
-            raise RuntimeError("Timeout waiting for TheBDM to register the wallet.")
+            raise RuntimeError("self.numberOfWalletsScanned = %d" % self.numberOfWalletsScanned)
       
    def tearDown(self):
       TheBDM.unregisterCppNotification(self.armoryDTiabTestCallback)

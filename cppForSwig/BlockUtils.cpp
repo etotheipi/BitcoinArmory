@@ -522,9 +522,9 @@ public:
    }
 
 protected:
-   virtual int32_t bdmIsRunning() const
+   virtual bool bdmIsRunning() const
    {
-      return bdm_->isRunning_;
+      return bdm_->BDMstate_ != BDM_offline;
    }
    
    virtual BinaryData applyBlockRangeToDB(
@@ -1165,7 +1165,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    };
    
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
-   isRunning_ = 1;
+   BDMstate_ = BDM_initializing;
    
    readBlockHeaders_->detectAllBlkFiles();
    if (readBlockHeaders_->numBlockFiles()==0)
@@ -1333,7 +1333,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;
       
-   isRunning_ = 2;
+   BDMstate_ = BDM_ready;
 }
 
 

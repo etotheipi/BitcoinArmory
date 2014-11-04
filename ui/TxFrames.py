@@ -840,7 +840,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         txoList = cppWlt.getSpendableTxOutListForValue(totalSend)
+         txoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
          pyUtxoList = []
          for i in range(len(txoList)):
             pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i])

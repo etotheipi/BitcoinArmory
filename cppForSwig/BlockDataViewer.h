@@ -10,6 +10,13 @@ using namespace std;
 #include "BDM_supportClasses.h"
 #include "util.h"
 
+typedef enum
+{
+   BDV_dontRefresh,
+   BDV_refreshSkipRescan,
+   BDV_refreshAndRescan
+}BDV_refresh;
+
 class BlockDataViewer
 {
 public:
@@ -31,7 +38,7 @@ public:
    void       unregisterLockbox(const string& ID);
 
    void scanWallets(uint32_t startBlock = UINT32_MAX,
-      uint32_t endBlock = UINT32_MAX, uint32_t forceRefresh = 0);
+      uint32_t endBlock = UINT32_MAX, BDV_refresh forceRefresh = BDV_dontRefresh);
    
    bool hasWallet(const BinaryData& ID);
 
@@ -106,8 +113,8 @@ public:
       { return &bc_->getHeaderPtrForTx(theTx); }
 
    vector<UnspentTxOut> 
-      getUnpsentTxoutsForAddr160List(
-      const vector<BinaryData>&) const;
+      getUnspentTxoutsForAddr160List(
+      const vector<BinaryData>&, bool ignoreZc) const;
 
    bool isBDMRunning(void) const 
    { 
@@ -130,10 +137,11 @@ public:
 
 public:
    bool rescanZC_    = false;
-   uint32_t refresh_ = 0;
 
-   //extra arg for refresh notifications
-   BinaryData            refreshID_;
+   //refresh notifications
+   BDV_refresh refresh_ = BDV_dontRefresh;
+   set<BinaryData> refreshIDSet_;
+   mutex refreshLock_;
 
 private:
 
@@ -183,6 +191,7 @@ private:
    HistoryPager hist_;
 
    mutable ReadWriteLock registeredWalletsLock_;
+   
 };
 
 #endif
