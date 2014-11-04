@@ -1,10 +1,12 @@
 #! /usr/bin/python
 import sys
+import errno
 sys.path.append('..')
 from armoryengine.Block import *
 from armoryengine.ArmoryUtils import *
 from armoryengine.PyBtcAddress import *
 from armoryengine.Transaction import *
+from armoryengine.MultiSigUtils import *
 from CppBlockUtils import BlockHeader    as CppBlockHeader
 from CppBlockUtils import Tx             as CppTx
 from CppBlockUtils import TxIn           as CppTxIn
@@ -14,7 +16,7 @@ import os
 from time import time, sleep
 
 # Use the genesis block to kick things off. (Assume we're on Linux for now.)
-blkfile = open('/home/alan/.bitcoin/blocks/blk00000.dat','r')
+blkfile = open('/home/droark/.bitcoin/blocks/blk00000.dat','r')
 blkfile.seek(8,0)
 genBlock = PyBlock().unserialize(blkfile.read(80 + 1 + 285))
 blkfile.close()
@@ -92,9 +94,34 @@ AddrA  = PyBtcAddress().createFromPublicKey(satoshiPubKey)
 AddrB  = PyBtcAddress().createFromPrivateKey(hex_to_int('bb'*32))
 AddrC  = PyBtcAddress().createFromPrivateKey(hex_to_int('cc'*32))
 AddrD  = PyBtcAddress().createFromPrivateKey(hex_to_int('dd'*32))
+AddrE  = PyBtcAddress().createFromPrivateKey(hex_to_int('ee'*32))
+AddrF  = PyBtcAddress().createFromPrivateKey(hex_to_int('ef'*32))
 print 'Addr A: %s' % AddrA.getAddrStr(), ' (Satoshi)'
-for a,s in ([AddrB,'B'], [AddrC, 'C'], [AddrD, 'D']):
-   print 'Addr %s: %s (PrivKey:%s)' % ( s, a.getAddrStr(), binary_to_hex(a.serializePlainPrivateKey()))
+for a,s in ([AddrB, 'B'], [AddrC, 'C'], [AddrD, 'D'], [AddrE, 'E'], [AddrF, 'F']):
+   print 'Addr %s: %s (PrivKey:%s)' % (s, a.getAddrStr(),
+                                       binary_to_hex(a.serializePlainPrivateKey()))
+
+# Let's create a couple of lockboxes too.
+name = 'LB 1'
+descr = 'Lockbox 1 has B & C (1-of-2)'
+m = 1
+n = 2
+key1 = DecoratedPublicKey(AddrB.getPubKey().toBinStr())
+key2 = DecoratedPublicKey(AddrC.getPubKey().toBinStr())
+keyList1 = []
+keyList1.append(key1)
+keyList1.append(key2)
+LB1 = MultiSigLockbox(name, descr, m, n, keyList1)
+name = 'LB 2'
+descr = 'Lockbox 2 has D & E (2-of-2)'
+m = 2
+n = 2
+key3 = DecoratedPublicKey(AddrD.getPubKey().toBinStr())
+key4 = DecoratedPublicKey(AddrE.getPubKey().toBinStr())
+keyList2 = []
+keyList2.append(key3)
+keyList2.append(key4)
+LB2 = MultiSigLockbox(name, descr, m, n, keyList2)
 
 btcValue = lambda btc: btc*(10**8)
 COINBASE = -1
@@ -108,7 +135,8 @@ printBlkInfo(Blk1, '1')
 #Block 2
 Blk2_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrB, btcValue(50)]] )
 Blk2_Tx1  = PyCreateAndSignTx_old( [[AddrB, Blk1.tx(0), 0]], [[AddrC, btcValue(10)], \
-                                                          [AddrB, btcValue(40)]] )
+                                                             [LB1, btcValue(15), True], \
+                                                             [LB2, btcValue(10), True]] )
 Blk2      = createPyBlock(Blk1.blockHeader, [Blk2_Tx0, Blk2_Tx1] )
 printBlkInfo(Blk2, '2')
 

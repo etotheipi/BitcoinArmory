@@ -2629,7 +2629,7 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap, hashcode=1):
             raise SignatureError('Supplied key map cannot sign all inputs')
          ustx.createAndInsertSignatureForInput(ustxiIndex, sbdPriv, hashcode)
 
-   # Make sure everythign was good
+   # Make sure everything was good.
    if not ustx.verifySigsAllInputs():
       raise SignatureError('Not all signatures are present or valid')
 
@@ -2655,18 +2655,23 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap, hashcode=1):
 # This method will take an already-selected set of TxOuts, along with
 # PyBtcAddress objects containing necessary the private keys
 #
-#    Src TxOut ~ {PyBtcAddr, PrevTx, PrevTxOutIdx}  --OR--  COINBASE = -1
-#    Dst TxOut ~ {PyBtcAddr, value}
+#    Src TxIn  ~ {PyBtcAddr, PrevTx, PrevTxOutIdx} -OR-
+#                {MultiSigLockbox, PrevTx, PrevTxOutIdx, [PyBtcAddress], isP2SH}
+#                -OR- COINBASE = -1 (dst must not be multisig)
+#                If src is multisig, PyBtcAddress list is the signing prv keys
+#    Dst TxOut ~ {PyBtcAddr, value} -OR- {MultiSigLockbox, value, isP2SH}
 #
 # Of course, we usually don't have the private keys of the dst addrs...
 #
 def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
+   # This needs to support multisig. Perhaps the funct should just be moved....
+   from armoryengine.MultiSigUtils import *
+
    newTx = PyTx()
    newTx.version    = 1
    newTx.lockTime   = 0
    newTx.inputs     = []
    newTx.outputs    = []
-
 
    numInputs  = len(srcTxOuts)
    numOutputs = len(dstAddrsVals)
@@ -2675,20 +2680,25 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
    if numInputs==1 and srcTxOuts[0] == -1:
       coinbaseTx = True
 
-
    #############################
    # Fill in TxOuts first
    for i in range(numOutputs):
       txout       = PyTxOut()
       txout.value = dstAddrsVals[i][1]
-      dst         = dstAddrsVals[i][0]
-      if(coinbaseTx):
-         txout.binScript = pubkey_to_p2pk_script(dst.binPublicKey65.toBinStr())
+      dst = dstAddrsVals[i][0]
+      if type(dst) is not MultiSigLockbox:
+         if(coinbaseTx):
+            txout.binScript = pubkey_to_p2pk_script(dst.binPublicKey65.toBinStr())
+         else:
+            txout.binScript = hash160_to_p2pkhash_script(dst.getAddr160())
       else:
-         txout.binScript = hash160_to_p2pkhash_script(dst.getAddr160())
+         dstMultiP2SH = dstAddrsVals[i][2]
+         if not dstMultiP2SH:
+            txout.binScript = dst.binScript
+         else:
+            txout.binScript = script_to_p2sh_script(dst.binScript)
 
       newTx.outputs.append(txout)
-
 
    #############################
    # Create temp TxIns with blank scripts
@@ -2705,7 +2715,6 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
       txin.intSeq = 2**32-1
       newTx.inputs.append(txin)
 
-
    #############################
    # Now we apply the ultra-complicated signature procedure
    # We need a copy of the Tx with all the txin scripts blanked out
@@ -2714,46 +2723,54 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
       if coinbaseTx:
          pass
       else:
-         txCopy     = PyTx().unserialize(txCopySerialized)
-         srcAddr    = srcTxOuts[i][0]
-         txoutIdx   = srcTxOuts[i][2]
-         prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
-         binToSign  = ''
-
-         assert(srcAddr.hasPrivKey())
-
          # Only implemented one type of hashing:  SIGHASH_ALL
          hashType   = 1  # SIGHASH_ALL
          hashCode1  = int_to_binary(1, widthBytes=1)
          hashCode4  = int_to_binary(1, widthBytes=4)
 
+         txCopy     = PyTx().unserialize(txCopySerialized)
+         txoutIdx   = srcTxOuts[i][2]
+         prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
+         binToSign  = ''
+         src        = srcTxOuts[i][0]
+
          # Copy the script of the TxOut we're spending, into the txIn script
          txCopy.inputs[i].binScript = prevTxOut.binScript
          preHashMsg = txCopy.serialize() + hashCode4
 
-         # CppBlockUtils::CryptoECDSA modules do the hashing for us
-         ##binToSign = hash256(preHashMsg)
-         ##binToSign = binary_switchEndian(binToSign)
+         if type(src) is not MultiSigLockbox:
+            assert(src.hasPrivKey())
 
-         signature = srcAddr.generateDERSignature(preHashMsg)
+            signature = src.generateDERSignature(preHashMsg)
 
+            # If we are spending a Coinbase-TxOut, only need sig, no pubkey
+            # Don't forget to tack on the one-byte hashcode and consider it part of sig
+            if len(prevTxOut.binScript) > 30:
+               sigLenInBinary = int_to_binary(len(signature) + 1)
+               newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1
+            else:
+               pubkey = src.binPublicKey65.toBinStr()
+               sigLenInBinary    = int_to_binary(len(signature) + 1)
+               pubkeyLenInBinary = int_to_binary(len(pubkey)   )
+               newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1 + \
+                                           pubkeyLenInBinary + pubkey
 
-         # If we are spending a Coinbase-TxOut, only need sig, no pubkey
-         # Don't forget to tack on the one-byte hashcode and consider it part of sig
-         if len(prevTxOut.binScript) > 30:
-            sigLenInBinary = int_to_binary(len(signature) + 1)
-            newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1
          else:
-            pubkey = srcAddr.binPublicKey65.toBinStr()
-            sigLenInBinary    = int_to_binary(len(signature) + 1)
-            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1 + \
-                                        pubkeyLenInBinary + pubkey
+            newTx.inputs[i].binScript = OP_0
 
+            for nxtAddr in srcTxOuts[i][3]:
+               assert(nxtAddr.hasPrivKey())
+               signature = nxtAddr.generateDERSignature(preHashMsg)
+               sigLenInBinary    = int_to_binary(len(signature) + 1)
+               newTx.inputs[i].binScript += (sigLenInBinary + signature + hashCode1)
+
+            srcMultiP2SH = srcTxOuts[i][4]
+            if srcMultiP2SH:
+               newTx.inputs[i].binScript += src.binScript
+               
    #############################
    # Finally, our tx is complete!
    return newTx
-
 
 
 #############################################################################
