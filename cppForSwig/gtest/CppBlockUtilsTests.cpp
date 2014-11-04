@@ -6811,6 +6811,68 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockDir, AddBlockFileWhileUpdating)
+{
+   BlockDataManagerConfig config;
+   config.armoryDbType = ARMORY_DB_BARE;
+   config.pruneType = DB_PRUNE_NONE;
+   config.homeDirLocation = homedir_;
+   config.blkFileLocation = blkdir_;
+   config.levelDBLocation = ldbdir_;
+   
+   config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
+   config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+   config.magicBytes = READHEX(MAINNET_MAGIC_BYTES);
+      
+   concatFile("../testblocks/blk_0.dat", blk0dat_);
+   concatFile("../testblocks/blk_1.dat", blk0dat_);
+   concatFile("../testblocks/blk_2.dat", blk0dat_);
+   
+   BlockDataManager_LevelDB bdm(config);
+   bdm.openDatabase();
+   
+   const std::vector<BinaryData> scraddrs
+   {
+      HASH160PREFIX + READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"),
+      HASH160PREFIX + READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980"),
+      HASH160PREFIX + READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"),
+      HASH160PREFIX + READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232"),
+      HASH160PREFIX + READHEX("0000664fb0e55cdc5c0cea73b4aad97ec8343232")
+   };
+
+   BlockDataViewer bdv(&bdm);
+   BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
+   
+   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   
+   bdv.scanWallets();
+   
+   BlockDataManager_LevelDB::BlkFileUpdateCallbacks callbacks;
+   callbacks.headersRead = [&]()
+      {
+         concatFile("../testblocks/blk_3.dat", blk0dat_);
+      };
+   
+   bdm.readBlkFileUpdate(callbacks);
+   bdv.scanWallets();
+
+   concatFile("../testblocks/blk_4.dat", blk0dat_);
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   // we should get the same balance as we do for test 'Load5Blocks'
+   const ScrAddrObj *scrobj;
+   
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[0]);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[1]);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[2]);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks)
 {
    vector<BinaryData> scrAddrVec;

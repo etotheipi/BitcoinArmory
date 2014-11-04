@@ -92,6 +92,8 @@ typedef enum
 
 class ProgressReporter;
 
+typedef std::pair<size_t, uint64_t> BlockFilePosition;
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -112,7 +114,7 @@ private:
    // This is our permanent link to the two databases used
    LMDBBlockDatabase* iface_;
    
-   pair<size_t, uint64_t> blkDataPosition_ = {0, 0};
+   BlockFilePosition blkDataPosition_ = {0, 0};
    
    // Reorganization details
 
@@ -215,19 +217,30 @@ public:
    void doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress);
    void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
-   uint32_t readBlkFileUpdate();
+   
+   // for testing only
+   struct BlkFileUpdateCallbacks
+   {
+      std::function<void()> headersRead, headersUpdated, blockDataLoaded;
+   };
+   
+   uint32_t readBlkFileUpdate(const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
    
 private:
    void loadDiskState(
       const function<void(unsigned, double,unsigned)> &progress,
       bool doRescan=false
    );
-   void loadBlockData(ProgressReporter &prog, bool updateDupID);
+   void loadBlockData(
+      ProgressReporter &prog,
+      const BlockFilePosition &stopAt,
+      bool updateDupID
+   );
    void loadBlockHeadersFromDB();
-   pair<pair<size_t, uint64_t>, vector<BlockHeader*> >
+   pair<BlockFilePosition, vector<BlockHeader*> >
       loadBlockHeadersStartingAt(
          ProgressReporter &prog,
-         const pair<size_t, uint64_t> &fileAndOffset
+         const BlockFilePosition &fileAndOffset
       );
    void deleteHistories(void);
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);

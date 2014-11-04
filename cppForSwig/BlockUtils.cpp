@@ -117,7 +117,7 @@ public:
    }
    
    // find the location of the first block that is not in @p bc
-   pair<size_t, uint64_t> findFirstUnrecognizedBlockHeader(
+   BlockFilePosition findFirstUnrecognizedBlockHeader(
       const Blockchain &bc
    ) const
    {
@@ -146,7 +146,7 @@ public:
       // ok, now "index" is for the last blkfile that we found a header in
       // now lets linearly search this file until we find an unrecognized blk
       
-      pair<size_t, uint64_t> foundAtPosition{ 0, 0 };
+      BlockFilePosition foundAtPosition{ 0, 0 };
       
       class StopReading : public std::exception
       {
@@ -155,13 +155,12 @@ public:
       const auto stopIfBlkHeaderRecognized =
       [&allHeaders, &foundAtPosition] (
          const BinaryData &blockheader,
-         size_t fnum,
-         uint64_t offset,
+         const BlockFilePosition &pos,
          uint32_t blksize
       )
       {
          // always set our position so that eventually it's at the end
-         foundAtPosition = { fnum, offset };
+         foundAtPosition = pos;
          
          BlockHeader block;
          BinaryRefReader brr(blockheader);
@@ -194,74 +193,83 @@ public:
       return foundAtPosition;
    }
 
-   std::pair<size_t, uint64_t> readHeaders(
-      size_t startBlkFile, uint64_t startBlockFileOffset,
+   BlockFilePosition readHeaders(
+      BlockFilePosition startAt,
       const function<void(
          const BinaryData &,
-         size_t fnum,
-         uint64_t offset,
+         const BlockFilePosition &pos,
          uint32_t blksize
       )> &blockDataCallback
    ) const
    {
-      if (startBlkFile == blkFiles_.size())
-         return { startBlkFile, startBlockFileOffset };
-      if (startBlkFile > blkFiles_.size())
+      if (startAt.first == blkFiles_.size())
+         return startAt;
+      if (startAt.first > blkFiles_.size())
          throw std::runtime_error("blkFile out of range");
          
-      uint64_t finishLocation=startBlockFileOffset;
+      uint64_t finishOffset=startAt.second;
 
-      while (startBlkFile < blkFiles_.size())
+      while (startAt.first < blkFiles_.size())
       {
-         const BlkFile &f = blkFiles_[startBlkFile];
-         finishLocation = readHeadersFromFile(f, 
-            startBlockFileOffset, blockDataCallback);
-         startBlockFileOffset = 0;
-         startBlkFile++;
+         const BlkFile &f = blkFiles_[startAt.first];
+         finishOffset = readHeadersFromFile(
+            f, startAt.second, blockDataCallback
+         );
+         startAt.second = 0;
+         startAt.first++;
       }
-      return { startBlkFile-1, finishLocation };
+      return { startAt.first-1, finishOffset };
    }
    
-   std::pair<size_t, uint64_t> readRawBlocks(
-      size_t startBlkFile, uint64_t startBlockFileOffset,
+   BlockFilePosition readRawBlocks(
+      BlockFilePosition startAt,
+      BlockFilePosition stopAt,
       const function<void(
          const BinaryData &,
-         size_t fnum,
-         uint64_t offset,
+         const BlockFilePosition &pos,
          uint32_t blksize
       )> &blockDataCallback
    )
    {
-      if (startBlkFile == blkFiles_.size())
-         return { startBlkFile, startBlockFileOffset };
-      if (startBlkFile > blkFiles_.size())
+      if (startAt.first == blkFiles_.size())
+         return startAt;
+      if (startAt.first > blkFiles_.size())
          throw std::runtime_error("blkFile out of range");
 
-      uint64_t finishLocation=startBlockFileOffset;
-      while (startBlkFile < blkFiles_.size())
+      stopAt.first = std::min(stopAt.first, blkFiles_.size());
+         
+      uint64_t finishLocation=stopAt.second;
+      while (startAt.first <= stopAt.first)
       {
-         const BlkFile &f = blkFiles_[startBlkFile];
-         finishLocation = readRawBlocksFromFile(f, startBlockFileOffset, blockDataCallback);
-         startBlockFileOffset = 0;
-         startBlkFile++;
+         const BlkFile &f = blkFiles_[startAt.first];
+         const uint64_t stopAtOffset
+            = startAt.first < stopAt.first ? f.filesize : stopAt.second;
+         finishLocation = readRawBlocksFromFile(
+            f, startAt.second, stopAtOffset, blockDataCallback
+         );
+         startAt.second = 0;
+         startAt.first++;
       }
       
-      return { startBlkFile-1, finishLocation };
+      return { startAt.first-1, finishLocation };
    }
    
 private:
    // read blocks from f, starting at offset blockFileOffset,
    // returning the offset we finished at
    uint64_t readRawBlocksFromFile(
-      const BlkFile &f, uint64_t blockFileOffset,
+      const BlkFile &f, uint64_t blockFileOffset, uint64_t stopBefore,
       const function<void(
          const BinaryData &,
-         size_t fnum,
-         uint64_t offset,
+         const BlockFilePosition &pos,
          uint32_t blksize
       )> &blockDataCallback
    )
    {
+      // short circuit
+      if (blockFileOffset == stopBefore)
+         return blockFileOffset;
+         
       ifstream is(f.path, ios::binary);
       BinaryData fileMagic(4);
       is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
@@ -278,7 +286,7 @@ private:
          BinaryData magic(4), szstr(4), rawBlk;
          // read the file, we can't go past what we think is the end,
          // because we haven't gone past that in Headers
-         while(!is.eof() && uint64_t(is.tellg()) < f.filesize)
+         while(!is.eof() && uint64_t(is.tellg()) < std::min(f.filesize, stopBefore))
          {
             is.read((char*)magic.getPtr(), 4);
             if (is.eof())
@@ -305,7 +313,7 @@ private:
             
             try
             {
-               blockDataCallback(rawBlk, f.fnum, blockFileOffset, blkSize);
+               blockDataCallback(rawBlk, { f.fnum, blockFileOffset }, blkSize);
             }
             catch (std::exception &e)
             {
@@ -330,8 +338,7 @@ private:
       uint64_t blockFileOffset,
       const function<void(
          const BinaryData &,
-         size_t fnum,
-         uint64_t offset,
+         const BlockFilePosition &pos,
          uint32_t blksize
       )> &blockDataCallback
    ) const
@@ -377,7 +384,7 @@ private:
             if(is.eof()) break;
 
             is.read(reinterpret_cast<char*>(rawHead.getPtr()), HEAD_AND_NTX_SZ); // plus #tx var_int
-            blockDataCallback(rawHead, f.fnum, blockFileOffset, nextBlkSize);
+            blockDataCallback(rawHead, { f.fnum, blockFileOffset }, nextBlkSize);
             
             blockFileOffset += nextBlkSize+8;
             is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
@@ -641,10 +648,10 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 }
 
 // returns where we left off and the blockheaders
-pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
+pair<BlockFilePosition, vector<BlockHeader*>>
    BlockDataManager_LevelDB::loadBlockHeadersStartingAt(
       ProgressReporter &prog,
-      const pair<size_t, uint64_t> &fileAndOffset
+      const BlockFilePosition &fileAndOffset
    )
 {
    readBlockHeaders_->detectAllBlkFiles();
@@ -658,7 +665,7 @@ pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
    uint64_t totalOffset=0;
    
    auto blockHeaderCallback
-      = [&] (const BinaryData &blockdata, size_t fnum, uint64_t offset, uint32_t blksize)
+      = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
       {
          BlockHeader block;
          BinaryRefReader brr(blockdata);
@@ -674,8 +681,8 @@ pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
          //   << " from " << fnum << " offset " << offset;
          
          // is there any reason I can't just do this to "block"?
-         addedBlock.setBlockFileNum(fnum);
-         addedBlock.setBlockFileOffset(offset);
+         addedBlock.setBlockFileNum(pos.first);
+         addedBlock.setBlockFileOffset(pos.second);
          addedBlock.setNumTx(nTx);
          addedBlock.setBlockSize(blksize);
          
@@ -683,10 +690,8 @@ pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
          progfilter.advance(totalOffset);
       };
    
-   const pair<size_t, uint64_t> position = readBlockHeaders_->readHeaders(
-      fileAndOffset.first, fileAndOffset.second,
-      blockHeaderCallback
-   );
+   const BlockFilePosition position
+      = readBlockHeaders_->readHeaders(fileAndOffset, blockHeaderCallback);
    
    return { position, blockHeadersAdded };
 }
@@ -1233,9 +1238,11 @@ void BlockDataManager_LevelDB::loadDiskState(
       << blockchain().top().getBlockHeight();
       
    // now load the new headers found in the blkfiles
+   BlockFilePosition readHeadersUpTo;
+   
    {
       ProgressWithPhase prog(1, progress);
-      loadBlockHeadersStartingAt(prog, blkDataPosition_);
+      readHeadersUpTo = loadBlockHeadersStartingAt(prog, blkDataPosition_).first;
    }
    
    try
@@ -1290,11 +1297,11 @@ void BlockDataManager_LevelDB::loadDiskState(
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
    
-   // start reading blocks right after the last block applied
+   // start reading blocks right after the last block applied, and up
+   // to where we finished reading headers
    {
-
       ProgressWithPhase prog(2, progress);
-      loadBlockData(prog, false);
+      loadBlockData(prog, readHeadersUpTo, false);
    }
    
    {
@@ -1339,6 +1346,7 @@ void BlockDataManager_LevelDB::loadDiskState(
 
 void BlockDataManager_LevelDB::loadBlockData(
    ProgressReporter &prog,
+   const BlockFilePosition &stopAt,
    bool updateDupID
 )
 {
@@ -1350,7 +1358,7 @@ void BlockDataManager_LevelDB::loadBlockData(
    uint64_t totalOffset=0;
    
    const auto blockCallback
-      = [&] (const BinaryData &blockdata, size_t fnum, uint64_t foff, uint32_t blksize)
+      = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
       {
          LMDBEnv::Transaction tx(&iface_->dbEnv_);
 
@@ -1359,37 +1367,44 @@ void BlockDataManager_LevelDB::loadBlockData(
          
          totalOffset += blksize;
          progfilter.advance(
-            readBlockHeaders_->offsetAtStartOfFile(fnum) + foff
+            readBlockHeaders_->offsetAtStartOfFile(pos.first) + pos.second
          );
       };
    
    LOGINFO << "Loading block data... file "
       << blkDataPosition_.first << " offset " << blkDataPosition_.second;
    blkDataPosition_ = readBlockHeaders_->readRawBlocks(
-      blkDataPosition_.first, blkDataPosition_.second,
-      blockCallback
+      blkDataPosition_, stopAt, blockCallback
    );
 }
 
-uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
+uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
+   const BlockDataManager_LevelDB::BlkFileUpdateCallbacks& callbacks
+)
 {
-   
+   // callbacks is used by gtest to update the blockchain at certain moments
+
    // i don't know why this is here
    scrAddrData_->checkForMerge();
    
    uint32_t prevTopBlk = blockchain_.top().getBlockHeight()+1;
    
-   const pair<size_t, uint64_t> headerOffset
+   const BlockFilePosition headerOffset
       = blkDataPosition_;
    NullProgressReporter prog;
    
-   const pair<pair<size_t, uint64_t>, vector<BlockHeader*>>
+   const pair<BlockFilePosition, vector<BlockHeader*>>
       loadResult = loadBlockHeadersStartingAt(prog, headerOffset);
    
    const vector<BlockHeader*> &loadedBlockHeaders = loadResult.second;
-   const pair<size_t, uint64_t> &position = loadResult.first;
+   const BlockFilePosition &readHeadersUpTo = loadResult.first;
+
+   if (callbacks.headersRead)
+      callbacks.headersRead();
+      
    if (loadedBlockHeaders.empty())
       return 0;
+   
    
    try
    {
@@ -1419,8 +1434,12 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
             uint8_t dup = iface_->putBareHeader(sbh, updateDupID);
             bh->setDuplicateID(dup);
          }
+         if (callbacks.headersUpdated)
+            callbacks.headersUpdated();
          
-         loadBlockData(prog, updateDupID);
+         loadBlockData(prog, readHeadersUpTo, updateDupID);
+         if (callbacks.blockDataLoaded)
+            callbacks.blockDataLoaded();
       }
       
       if(!state.prevTopBlockStillValid)
@@ -1457,7 +1476,10 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate()
       LOGERR << "Error adding block data: " << e.what();
    }
    
-   blkDataPosition_ = position;
+   // If an orphan block is found, I won't get here and therefor
+   // the orphan block will have its header read again. Then, if 
+   // the header gets a height, its blkdata is also read
+   blkDataPosition_ = readHeadersUpTo;
    return prevTopBlk;
 }
 
