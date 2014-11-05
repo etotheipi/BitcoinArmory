@@ -5858,8 +5858,6 @@ class ArmoryMainWindow(QMainWindow):
 
                if not satoshiIsAvailable():
                   descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
-               elif not self.checkHaveBlockfiles():
-                  descr = self.GetDashStateText('User', 'OfflineNoBlkFiles')
                else:
                   descr = self.GetDashStateText('User', 'OfflineNoInternet')
 

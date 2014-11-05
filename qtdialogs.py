@@ -5757,7 +5757,7 @@ def extractTxInfo(pytx, rcvTime=None):
       txcpp = TheBDM.bdv().getTxByHash(txHash)
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
-         if hgt < TheBDM.getTopBlockHeight():
+         if hgt <= TheBDM.getTopBlockHeight():
             headref = TheBDM.bdv().blockchain().getHeaderByHeight(hgt)
             txTime = unixTimeToFormatStr(headref.getTimestamp())
             txBlk = headref.getBlockHeight()
