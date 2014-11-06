@@ -22,8 +22,7 @@ BDM_OFFLINE = 'Offline'
 BDM_UNINITIALIZED = 'Uninitialized'
 BDM_BLOCKCHAIN_READY = 'BlockChainReady'
 BDM_SCANNING = 'Scanning'
-FINISH_LOAD_BLOCKCHAIN_ACTION = 'FinishLoadBlockchain'    
-SWEEP_AFTER_SCAN_LIST_ACTION = 'SweepAfterScanList'
+FINISH_LOAD_BLOCKCHAIN_ACTION = 'FinishLoadBlockchain'   
 NEW_ZC_ACTION = 'newZC'
 NEW_BLOCK_ACTION = 'newBlock'
 REFRESH_ACTION = 'refresh'
@@ -56,8 +55,6 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             act = FINISH_LOAD_BLOCKCHAIN_ACTION
             TheBDM.topBlockHeight = block
             TheBDM.setState(BDM_BLOCKCHAIN_READY)
-         #elif action == 2:
-         #   act = SWEEP_AFTER_SCAN_LIST_ACTION
          elif action == Cpp.BDMAction_ZC:
             act = NEW_ZC_ACTION
             castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)

@@ -6098,27 +6098,12 @@ class ArmoryMainWindow(QMainWindow):
             self.finishLoadBlockchainGUI()
             self.needUpdateAfterScan = False
             self.setDashboardDetails()
-
-      elif action == SWEEP_AFTER_SCAN_LIST_ACTION:
-         #A set of private keys have been loaded in a wallet for sweeping their
-         #balance. This flag singnifies that these private keys, save in
-         #self.sweepAfterScanList, have been scanned and are ready for being 
-         #swept (spent to address belonging the wallet's chain)          
-         
-         if len(self.sweepAfterScanList)>0:
-            LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
-            self.finishSweepScan()
-            for addr in self.sweepAfterScanList:
-               addr.binPrivKey32_Plain.destroy()
-            self.sweepAfterScanList = []
-            self.setDashboardDetails()     
-      
+     
       elif action == NEW_ZC_ACTION:
          #A zero conf Tx conerns one of the address Armory is tracking, pull the 
          #updated ledgers from the BDM and create the related notifications.         
 
-         self.checkNewZeroConf(args)
-         self.setDashboardDetails()          
+         self.checkNewZeroConf(args)        
 
       elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
@@ -6145,8 +6130,6 @@ class ArmoryMainWindow(QMainWindow):
 
             # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()    
-            self.setDashboardDetails()   
-      
       elif action == REFRESH_ACTION:
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
