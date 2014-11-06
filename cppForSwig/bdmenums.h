@@ -3,14 +3,14 @@
 
 typedef enum
 {
-   BDMPhase_BlockHeaders,
+   BDMPhase_BlockHeaders=1,
    BDMPhase_BlockData,
    BDMPhase_Rescan
 }BDMPhase;
 
 typedef enum
 {
-   BDMAction_Ready,
+   BDMAction_Ready=1,
    BDMAction_NewBlock,
    BDMAction_ZC,
    BDMAction_Refresh,
