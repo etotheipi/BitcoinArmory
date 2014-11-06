@@ -1307,7 +1307,7 @@ class DlgLockboxManager(ArmoryDialog):
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
-      if TheBDM.isInitialized():
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          cppTx = TheBDM.getTxByHash(txHashBin)
          if cppTx.isInitialized():
             pytx = PyTx().unserialize(cppTx.serialize())

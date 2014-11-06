@@ -246,7 +246,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
 
 def setupTheBDM():
    TheBDM.setBlocking(True)
-   if not TheBDM.isInitialized():
+   if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       masterWallet.registerWallet()
       TheBDM.setOnlineMode(True)
       # Only executed on the first call if blockchain not loaded yet.

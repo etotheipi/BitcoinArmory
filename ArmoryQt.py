@@ -3344,7 +3344,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
 
    def getAddrCommentIfAvailAll(self, txHash):
-      if not TheBDM.isInitialized():
+      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          return ''
       else:
 
