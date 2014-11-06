@@ -6138,13 +6138,15 @@ class ArmoryMainWindow(QMainWindow):
             if len(wltID) > 0:
                if wltID in self.walletMap:
                   wlt = self.walletMap[wltID]
+                  wlt.doAfterScan()                  
                   wlt.isEnabled = True
-                  wlt.freshImportFindHighestIndex()
+
                else:
                   lbID = self.lockboxIDMap[wltID]                
                   self.allLockboxes[lbID].isEnabled = True
                   if self.lbDialogModel != None:
                      self.lbDialogModel.reset()
+                     
                if self.walletSideScanProgress.has_key(wltID):
                   del self.walletSideScanProgress[wltID]
                

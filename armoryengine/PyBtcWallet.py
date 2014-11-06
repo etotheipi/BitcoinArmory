@@ -262,6 +262,12 @@ class PyBtcWallet(object):
       
       self.mutex = threading.Lock()
       
+      #list of callables and their args to perform after a wallet 
+      #has been scanned. Entries are order as follows:
+      #[[method1, [arg1, ar2, arg3]], [method2, [arg1, arg2]]]
+      #list is cleared after each scan.
+      self.actionsToTakeAfterScan = []
+      
    #############################################################################
    def registerWallet(self, isNew=False):
       if len(self.uniqueIDB58) == 0:
@@ -1063,6 +1069,7 @@ class PyBtcWallet(object):
       if not numPool:
          numPool = self.addrPoolSize
 
+      lastComputedIndex = self.lastComputedChainIndex
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
       
@@ -1080,7 +1087,9 @@ class PyBtcWallet(object):
          #that the wallet has properly loaded the new scrAddr and scanned it
          self.cppWallet.isEnabled = False 
          self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
-
+         
+      self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
+                                          [lastComputedIndex, True]])
          
       return self.lastComputedChainIndex
 
@@ -1114,7 +1123,8 @@ class PyBtcWallet(object):
 
          
    #############################################################################
-   def detectHighestUsedIndex(self, writeResultToWallet=False, fullscan=False):
+   @CheckWalletRegistration
+   def detectHighestUsedIndex(self, startFrom=0, writeResultToWallet=False, fullscan=False):
       """
       This method is used to find the highestUsedChainIndex value of the 
       wallet WITHIN its address pool.  It will NOT extend its address pool
@@ -1131,20 +1141,14 @@ class PyBtcWallet(object):
       highest address used.      
       """
 
-      oldSync = self.doBlockchainSync
-      self.doBlockchainSync = BLOCKCHAIN_READONLY
       if fullscan:
-         # Will initiate rescan if wallet is dirty
-         self.syncWithBlockchainLite(self.lastSyncBlockNum)  
-      else:
-         # Will only use data already scanned, even if wallet is dirty
-         self.syncWithBlockchainLite(self.lastSyncBlockNum)  
-      self.doBlockchainSync = oldSync
-
+         startFrom = 0
+         
       highestIndex = max(self.highestUsedChainIndex, 0)
-      for addr in self.getLinearAddrList(withAddrPool=True):
-         a160 = addr.getAddr160()
-         if len(self.getAddrTxLedger(a160)) > 0:
+      for a160 in self.linearAddr160List[startFrom:]:
+         addr = self.addrMap[a160]
+         scrAddr = Hash160ToScrAddr(a160)
+         if self.cppWallet.getAddrTotalTxnCount(scrAddr) > 0:
             highestIndex = max(highestIndex, addr.chainIndex)
 
       if writeResultToWallet:
@@ -3142,6 +3146,15 @@ class PyBtcWallet(object):
          return self.cppWallet.getHistoryPageAsVector(pageID)
       except:
          raise 'pageID is out of range'  
+      
+   ###############################################################################
+   @CheckWalletRegistration
+   def doAfterScan(self):
+      
+      for calls in self.actionsToTakeAfterScan:
+         calls[0](*calls[1])
+         
+      self.actionsToTakeAfterScan = []
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):
