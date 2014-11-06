@@ -119,6 +119,7 @@ public:
    
    static LedgerEntry EmptyLedger_;
    static map<BinaryData, LedgerEntry> EmptyLedgerMap_;
+   static BinaryData ZCheader_;
 
 private:
    

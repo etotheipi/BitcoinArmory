@@ -11,6 +11,7 @@
 LedgerEntry LedgerEntry::EmptyLedger_;
 map<BinaryData, LedgerEntry> LedgerEntry::EmptyLedgerMap_;
 BinaryData LedgerEntry::EmptyID_ = BinaryData(0);
+BinaryData LedgerEntry::ZCheader_ = WRITE_UINT16_BE(0xFFFF);
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData const & LedgerEntry::getScrAddr(void) const
@@ -199,39 +200,24 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       auto txioIter = txioVec.second.cbegin();
 
       //get txhash, block, txIndex and txtime
-      if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+      if (!txioVec.first.startsWith(ZCheader_))
       {
-         txHash = txioIter->getTxHashOfOutput(db);
+         blockNum = DBUtils::hgtxToHeight(txioVec.first.getSliceRef(0, 4));
+         txIndex = READ_UINT16_BE(txioVec.first.getSliceRef(4, 2));
+         txTime = bc->getHeaderByHeight(blockNum).getTimestamp();
 
-         if (!txioIter->hasTxOutZC())
-         {
-            blockNum = DBUtils::hgtxToHeight(txioIter->getDBKeyOfOutput().getSliceRef(0, 4));
-            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfOutput().getSliceRef(4, 2));
-            txTime = bc->getHeaderByHeight(blockNum).getTimestamp();
-         }
-         else
-         {
-            blockNum = UINT32_MAX;
-            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfOutput().getSliceRef(6, 2));
-            txTime = txioIter->getTxTime();
-         }
+         txHash = db->getTxHashForLdbKey(txioVec.first);
       }
       else
       {
-         txHash = txioIter->getTxHashOfInput(db);
+         blockNum = UINT32_MAX;
+         txIndex = READ_UINT16_BE(txioVec.first.getSliceRef(6, 2));
+         txTime = txioIter->getTxTime();
 
-         if (!txioIter->hasTxInZC())
-         {
-            blockNum = DBUtils::hgtxToHeight(txioIter->getDBKeyOfInput().getSliceRef(0, 4));
-            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfInput().getSliceRef(4, 2));
-            txTime = bc->getHeaderByHeight(blockNum).getTimestamp();
-         }
-         else
-         {
-            blockNum = UINT32_MAX;
-            txIndex = READ_UINT16_BE(txioIter->getDBKeyOfInput().getSliceRef(6, 2));
-            txTime = txioIter->getTxTime();
-         }
+         if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+            txHash = txioIter->getTxHashOfOutput(db);
+         else if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+            txHash = txioIter->getTxHashOfInput(db);
       }
 
       if (blockNum < startBlock || blockNum > endBlock)
@@ -240,7 +226,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       bool isCoinbase=false;
       int64_t value=0;
       int64_t valIn=0, valOut=0;
-      uint32_t nHits=0;
+      uint32_t nTxInAreOurs = 0, nTxOutAreOurs = 0;
      
       while (txioIter != txioVec.second.cend())
       {
@@ -249,6 +235,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
             isCoinbase |= txioIter->isFromCoinbase();
             valIn += txioIter->getValue();
             value += txioIter->getValue();
+
+            nTxOutAreOurs++;
          }
 
          if (txioIter->getDBKeyOfInput().startsWith(txioVec.first))
@@ -256,7 +244,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
             valOut -= txioIter->getValue();
             value -= txioIter->getValue();
 
-            nHits++;
+            nTxInAreOurs++;
          }
 
          ++txioIter;
@@ -265,12 +253,29 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       bool isSentToSelf = false;
       bool isChangeBack = false;
       
-      if (valIn + valOut == 0)
+      if (nTxInAreOurs * nTxOutAreOurs > 0)
       {
-         value = valIn;
-         isSentToSelf = true;
+         //if some of the txins AND some of the txouts are ours, this could be an STS
+         //pull the txn and compare the txin and txout counts
+
+         LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadOnly);
+
+         StoredTx stx;
+         if (!txioVec.first.startsWith(ZCheader_))
+         {
+            uint8_t dupId = DBUtils::hgtxToDupID(txioVec.first.getSliceRef(0, 4));
+            db->getStoredTx(stx, blockNum, dupId, txIndex, false);
+         }
+         else
+            db->getStoredZcTx(stx, txioVec.first);
+
+         if (stx.numTxOut_ == nTxOutAreOurs)
+         {
+            value = valIn;
+            isSentToSelf = true;
+         }
       }
-      else if (nHits != 0 && (valIn + valOut) < 0)
+      else if (nTxInAreOurs != 0 && (valIn + valOut) < 0)
          isChangeBack = true;
 
       LedgerEntry le(ID, "",
