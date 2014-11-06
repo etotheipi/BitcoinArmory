@@ -2756,18 +2756,18 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
                                            pubkeyLenInBinary + pubkey
 
          else:
-            newTx.inputs[i].binScript = OP_0
+            newTx.inputs[i].binScript = int_to_binary(OP_0)
 
             for nxtAddr in srcTxOuts[i][3]:
                assert(nxtAddr.hasPrivKey())
                signature = nxtAddr.generateDERSignature(preHashMsg)
                sigLenInBinary    = int_to_binary(len(signature) + 1)
-               newTx.inputs[i].binScript += (sigLenInBinary + signature + hashCode1)
+               newTx.inputs[i].binScript += sigLenInBinary + signature + hashCode1
 
             srcMultiP2SH = srcTxOuts[i][4]
             if srcMultiP2SH:
                newTx.inputs[i].binScript += src.binScript
-               
+
    #############################
    # Finally, our tx is complete!
    return newTx

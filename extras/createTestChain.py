@@ -101,6 +101,18 @@ for a,s in ([AddrB, 'B'], [AddrC, 'C'], [AddrD, 'D'], [AddrE, 'E'], [AddrF, 'F']
    print 'Addr %s: %s (PrivKey:%s)' % (s, a.getAddrStr(),
                                        binary_to_hex(a.serializePlainPrivateKey()))
 
+# Lists of who signs off on lockbox transactions.
+signList1A = []
+signList1B = []
+signList1C = []
+signList2 = []
+signList1A.append(AddrB)
+signList1B.append(AddrC)
+signList1C.append(AddrB)
+signList1C.append(AddrC)
+signList2.append(AddrD)
+signList2.append(AddrE)
+
 # Let's create a couple of lockboxes too.
 name = 'LB 1'
 descr = 'Lockbox 1 has B & C (1-of-2)'
@@ -131,48 +143,62 @@ Blk1_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrB, btcValue(5
 Blk1      = createPyBlock(genBlock.blockHeader, [Blk1_Tx0] )
 printBlkInfo(Blk1, '1')
 
-
 #Block 2
 Blk2_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrB, btcValue(50)]] )
-Blk2_Tx1  = PyCreateAndSignTx_old( [[AddrB, Blk1.tx(0), 0]], [[AddrC, btcValue(10)], \
-                                                             [LB1, btcValue(15), True], \
-                                                             [LB2, btcValue(10), True]] )
-Blk2      = createPyBlock(Blk1.blockHeader, [Blk2_Tx0, Blk2_Tx1] )
+Blk2_Tx1  = PyCreateAndSignTx_old( [[AddrB, Blk1.tx(0), 0]], [[LB1, btcValue(15), True], \
+                                                              [LB2, btcValue(10), False],
+                                                              [AddrB, btcValue(25)]] )
+Blk2_Tx2  = PyCreateAndSignTx_old( [[AddrB, Blk2_Tx1, 2]], [[AddrF, btcValue(20)],
+                                                            [AddrB, btcValue(5)]] )
+Blk2      = createPyBlock(Blk1.blockHeader, [Blk2_Tx0, Blk2_Tx1, Blk2_Tx2] )
 printBlkInfo(Blk2, '2')
-
 
 #Block 3
 Blk3_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrC, btcValue(50)]] )  # will be reversed
-Blk3_Tx1  = PyCreateAndSignTx_old( [[AddrB, Blk2.tx(1), 1]], [[AddrD, btcValue(40)]] )  # will be in both chains
-Blk3_Tx2  = PyCreateAndSignTx_old( [[AddrC, Blk2.tx(1), 0]], [[AddrD, btcValue(10)]] )  # will be reversed
-Blk3      = createPyBlock(Blk2.blockHeader, [Blk3_Tx0, Blk3_Tx1, Blk3_Tx2] )
+Blk3_Tx1  = PyCreateAndSignTx_old( [[AddrF, Blk2.tx(2), 0]], [[AddrD, btcValue(5)],
+                                                              [AddrF, btcValue(15)]] )  # will be in both chains
+Blk3_Tx2  = PyCreateAndSignTx_old( [[LB1, Blk2.tx(1), 0, signList1A, True]], [[AddrE, btcValue(5)],
+                                                                              [LB1, btcValue(10), False]] )  # will be reversed
+Blk3_Tx3  = PyCreateAndSignTx_old( [[LB2, Blk2.tx(1), 1, signList2, False]], [[AddrC, btcValue(5)],
+                                                                              [LB2, btcValue(5), True]] )  # will be reversed
+Blk3_Tx4  = PyCreateAndSignTx_old( [[AddrB, Blk2.tx(0), 0],
+                                    [AddrB, Blk2.tx(2), 1]], [[AddrE, btcValue(25)],
+                                                              [AddrB, btcValue(30)]] )  # will be in both chains
+Blk3_Tx5  = PyCreateAndSignTx_old( [[AddrF, Blk3_Tx1, 1]], [[LB2, btcValue(10), False],
+                                                            [AddrF, btcValue(5)]] )  # will be in both chains
+Blk3      = createPyBlock(Blk2.blockHeader, [Blk3_Tx0, Blk3_Tx1, Blk3_Tx2, Blk3_Tx3, Blk3_Tx4, Blk3_Tx5] )
 printBlkInfo(Blk3, '3')
 
-
 #Block 4
-Blk4_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrA, btcValue(50)]] )
-Blk4_Tx1  = PyCreateAndSignTx_old( [[AddrB, Blk2.tx(0), 0]], [[AddrD, btcValue(50)]] )  # will be moved blk5A
-Blk4      = createPyBlock(Blk3.blockHeader, [Blk4_Tx0, Blk4_Tx1] )
+Blk4_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrD, btcValue(50)]] )  # will be reversed
+Blk4_Tx1  = PyCreateAndSignTx_old( [[LB1, Blk3.tx(2), 1, signList1C, False]], [[AddrF, btcValue(5)],
+                                                                               [LB1, btcValue(5), False]] )  # will be reversed
+Blk4_Tx2  = PyCreateAndSignTx_old( [[LB2, Blk3.tx(3), 1, signList2, True]], [[AddrD, btcValue(5)]] )  # will be reversed
+Blk4_Tx3  = PyCreateAndSignTx_old( [[AddrC, Blk3.tx(0), 0],
+                                    [AddrC, Blk3.tx(3), 0]], [[LB1, btcValue(25), True],
+                                                              [LB2, btcValue(20), False],
+                                                              [AddrC, btcValue(10)]] )  # will be in both chains
+Blk4      = createPyBlock(Blk3.blockHeader, [Blk4_Tx0, Blk4_Tx1, Blk4_Tx2, Blk4_Tx3] )
 printBlkInfo(Blk4, '4')
 
-
-#Block 3-alternate
-Blk3A_Tx0 = PyCreateAndSignTx_old( [COINBASE],               [[AddrD, btcValue(50)]] )
-Blk3A_Tx1 = PyTx().unserialize(Blk3.tx(1).serialize())
-Blk3A_Tx2 = PyCreateAndSignTx_old( [[AddrC, Blk2.tx(1), 0]], [[AddrB, btcValue(10)]] )
-Blk3A        = createPyBlock(Blk2.blockHeader, [Blk3A_Tx0, Blk3A_Tx1, Blk3A_Tx2] )
-printBlkInfo(Blk3A, '3A')
-
+#Block 5
+Blk5_Tx0  = PyCreateAndSignTx_old( [COINBASE],               [[AddrB, btcValue(50)]] )  # will be reversed
+Blk5_Tx1  = PyCreateAndSignTx_old( [[AddrB, Blk3.tx(4), 1]], [[AddrC, btcValue(10)],
+                                                              [AddrB, btcValue(20)]] )  # will be in both chains
+Blk5_Tx2  = PyCreateAndSignTx_old( [[AddrF, Blk4.tx(1), 0]], [[AddrD, btcValue(5)]] )  # will be reversed
+Blk5      = createPyBlock(Blk4.blockHeader, [Blk5_Tx0, Blk5_Tx1, Blk5_Tx2] )
+printBlkInfo(Blk5, '5')
 
 #Block 4-alternate
-Blk4A_Tx0 = PyCreateAndSignTx_old( [COINBASE],             [[AddrA, btcValue(50)]] )
-Blk4A        = createPyBlock(Blk3A.blockHeader, [Blk4A_Tx0])
+Blk4A_Tx0 = PyCreateAndSignTx_old( [COINBASE],             [[AddrF, btcValue(50)]] )
+Blk4A        = createPyBlock(Blk3.blockHeader, [Blk4A_Tx0])
 printBlkInfo(Blk4A, '4A')
 
 #Block 5-alternate
-Blk5A_Tx0 = PyCreateAndSignTx_old( [COINBASE],             [[AddrA, btcValue(50)]] )
+Blk5A_Tx0 = PyCreateAndSignTx_old( [COINBASE],             [[AddrD, btcValue(50)]] )
 Blk5A_Tx1 = PyTx().unserialize(Blk4.tx(1).serialize())
-Blk5A        = createPyBlock(Blk4A.blockHeader, [Blk5A_Tx0, Blk5A_Tx1] )
+Blk5A_Tx2 = PyTx().unserialize(Blk4.tx(2).serialize())
+Blk5A        = createPyBlock(Blk4A.blockHeader, [Blk5A_Tx0, Blk5A_Tx1, Blk5A_Tx2] )
 printBlkInfo(Blk5A, '5A')
 
 
@@ -213,12 +239,12 @@ def pr(prstr):
 pr('\n\nWriting blocks to ReorgTest/ directory')
 pr( 'File path: ' + 'reorgTest/blk_0_to_4.dat' )
 blkFirstChain = open('reorgTest/blk_0_to_4.dat','wb+')
-for blk in [genBlock, Blk1, Blk2, Blk3, Blk4]:
+for blk in [genBlock, Blk1, Blk2, Blk3, Blk4, Blk5]:
    writeBlkBin(blkFirstChain, blk)
    writeBlkPrettyHex(rtfile, blk)
 blkFirstChain.close()
 
-for blk,suffix in [[Blk3A,'3A'], [Blk4A, '4A'], [Blk5A, '5A']]:
+for blk,suffix in [[Blk4A, '4A'], [Blk5A, '5A']]:
    filename = 'reorgTest/blk_%s.dat' % suffix
    pr( 'File path: ' + filename + '\n')
    blkAlt = open(filename, 'wb+')
