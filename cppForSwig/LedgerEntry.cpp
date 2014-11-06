@@ -162,7 +162,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
    Blockchain* bc,
    bool purge)
 {
-   if (purge == true)
+   if (purge)
       LedgerEntry::purgeLedgerMapFromHeight(leMap, startBlock);
 
    //arrange txios by transaction
@@ -185,28 +185,16 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
    }
 
    //convert TxIO to ledgers
-   int64_t value;
-   int64_t valIn, valOut;
-
-   uint32_t blockNum;
-   uint32_t txTime;
-   uint32_t nHits;
-   uint16_t txIndex;
-   BinaryData txHash;
-
-   bool isCoinbase;
-   bool isChangeBack;
-   bool isSendToSelf;
-
-   BinaryData dbKey;
 
    for (const auto& txioVec : TxnTxIOMap)
    {
       //reset ledger variables
-      value = valIn = valOut = 0;
-      isCoinbase = isChangeBack = isSendToSelf = false;
-      nHits = 0;
+      BinaryData txHash;
 
+      uint32_t blockNum;
+      uint32_t txTime;
+      uint16_t txIndex;
+      
       //grab iterator
       auto txioIter = txioVec.second.cbegin();
 
@@ -249,6 +237,11 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       if (blockNum < startBlock || blockNum > endBlock)
          continue;
 
+      bool isCoinbase=false;
+      int64_t value=0;
+      int64_t valIn=0, valOut=0;
+      uint32_t nHits=0;
+     
       while (txioIter != txioVec.second.cend())
       {
          if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
@@ -269,10 +262,13 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          ++txioIter;
       }
 
+      bool isSentToSelf = false;
+      bool isChangeBack = false;
+      
       if (valIn + valOut == 0)
       {
          value = valIn;
-         isSendToSelf = true;
+         isSentToSelf = true;
       }
       else if (nHits != 0 && (valIn + valOut) < 0)
          isChangeBack = true;
@@ -284,10 +280,11 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          txIndex,
          txTime,
          isCoinbase,
-         isSendToSelf,
+         isSentToSelf,
          isChangeBack);
 
       leMap[txioVec.first] = le;
    }
 }
 
+// kate: indent-width 3; replace-tabs on;
