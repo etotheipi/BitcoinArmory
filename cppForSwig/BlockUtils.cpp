@@ -236,7 +236,7 @@ public:
       if (startAt.first > blkFiles_.size())
          throw std::runtime_error("blkFile out of range");
 
-      stopAt.first = std::min(stopAt.first, blkFiles_.size());
+      stopAt.first = (std::min)(stopAt.first, blkFiles_.size());
          
       uint64_t finishLocation=stopAt.second;
       while (startAt.first <= stopAt.first)
@@ -286,7 +286,7 @@ private:
          BinaryData magic(4), szstr(4), rawBlk;
          // read the file, we can't go past what we think is the end,
          // because we haven't gone past that in Headers
-         while(!is.eof() && uint64_t(is.tellg()) < std::min(f.filesize, stopBefore))
+         while(!is.eof() && uint64_t(is.tellg()) < (std::min)(f.filesize, stopBefore))
          {
             is.read((char*)magic.getPtr(), 4);
             if (is.eof())

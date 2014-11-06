@@ -84,6 +84,9 @@
     <ClInclude Include="..\ReorgUpdater.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\bdmenums.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">

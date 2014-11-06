@@ -167,6 +167,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\bdmenums.h" />
     <ClInclude Include="..\BDM_supportClasses.h" />
     <ClInclude Include="..\BinaryData.h" />
     <ClInclude Include="..\Blockchain.h" />
