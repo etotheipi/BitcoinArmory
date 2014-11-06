@@ -52,28 +52,28 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          
          # AOTODO replace with constants
          
-         if action == 1:
+         if action == Cpp.BDMAction_Ready:
             act = FINISH_LOAD_BLOCKCHAIN_ACTION
             TheBDM.topBlockHeight = block
             TheBDM.setState(BDM_BLOCKCHAIN_READY)
-         elif action == 2:
-            act = SWEEP_AFTER_SCAN_LIST_ACTION
-         elif action == 3:
+         #elif action == 2:
+         #   act = SWEEP_AFTER_SCAN_LIST_ACTION
+         elif action == Cpp.BDMAction_ZC:
             act = NEW_ZC_ACTION
             castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)
             arglist = castArg
-         elif action == 4:
+         elif action == Cpp.BDMAction_NewBlock:
             act = NEW_BLOCK_ACTION
             castArg = Cpp.BtcUtils_cast_to_int(arg)
             arglist.append(castArg)
             TheBDM.topBlockHeight = block
-         elif action == 5:
+         elif action == Cpp.BDMAction_Refresh:
             act = REFRESH_ACTION
             castArg = Cpp.BtcUtils_cast_to_BinaryDataVector(arg)
             arglist = castArg
-         elif action == 6:
+         elif action == Cpp.BDMAction_Exited:
             act = STOPPED_ACTION
-         elif action == 7:
+         elif action == Cpp.BDMAction_ErrorMsg:
             act = WARNING_ACTION
             argstr = Cpp.BtcUtils_cast_to_string(arg)
             arglist.append(argstr)

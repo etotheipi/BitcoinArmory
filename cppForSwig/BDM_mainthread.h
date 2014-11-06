@@ -11,7 +11,8 @@
 #endif
 
 #include "UniversalTimer.h"
-
+#include "bdmenums.h"
+#include "BlockUtils.h"
 
 struct BlockDataManagerConfig;
 
@@ -21,9 +22,9 @@ class BDM_CallBack
 {
 public:
    virtual ~BDM_CallBack();
-   virtual void run(int action, void* ptr, int block=0)=0;
+   virtual void run(BDMAction action, void* ptr, int block=0)=0;
    virtual void progress(
-      unsigned phase,
+      BDMPhase phase,
       const string &walletId,
       float progress, unsigned secondsRem
    )=0;
@@ -37,7 +38,7 @@ public:
    BDMFailure() { }
 };
 
-class BDM_Inject
+class BDM_Inject : public BlockDataManager_LevelDB::Notifier
 {
    struct BDM_Inject_Impl;
    BDM_Inject_Impl *pimpl;

@@ -221,7 +221,9 @@ try
    
    BDM_CallBack *const callback = pimpl->callback;
 
-   OnFinish onFinish( [callback] () { callback->run(6, nullptr); } );
+   OnFinish onFinish(
+      [callback] () { callback->run(BDMAction_Exited, nullptr); }
+   );
    
    {
       double lastprog=0;
@@ -234,7 +236,7 @@ try
       };
      
       const auto loadProgress
-         = [&] (unsigned phase, double prog,unsigned time)
+         = [&] (BDMPhase phase, double prog,unsigned time)
       {
          if (prog == lastprog && time==lasttime)
             return; // don't go to python if nothing's changed
@@ -256,7 +258,7 @@ try
       try
       {
          //don't call this unless you're trying to get online
-         pimpl->bdm->setNotifyPtr(pimpl->inject);
+         pimpl->bdm->setNotifier(pimpl->inject);
 
          bdm->openDatabase();
 
@@ -269,19 +271,19 @@ try
 
          if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
          {
-            string errorMsg("\
-               Armory has detected an error in the blockchain database\
-               maintained by the third - party Bitcoin software(Bitcoin - Qt\
-               or bitcoind).This error is not fatal, but may lead to\
-               incorrect balances, inability to send coins, or application\
-               instability.\
-               <br><br>\
-               It is unlikely that the error affects your wallets,\
-               but it <i>is< / i> possible.If you experience crashing,\
-               or see incorrect balances on any wallets, it is strongly\
-               recommended you re - download the blockchain using:\
-            \"<b>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
-            callback->run(7, &errorMsg, bdm->missingBlockHashes().size());
+            string errorMsg(
+               "Armory has detected an error in the blockchain database "
+               "maintained by the third-party Bitcoin software (Bitcoin-Qt "
+               "or bitcoind). This error is not fatal, but may lead to "
+               "incorrect balances, inability to send coins, or application "
+               "instability."
+               "<br><br> "
+               "It is unlikely that the error affects your wallets, "
+               "but it <i>is</i> possible. If you experience crashing, "
+               "or see incorrect balances on any wallets, it is strongly "
+               "recommended you re-download the blockchain using: "
+               "<i>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
+            callback->run(BDMAction_ErrorMsg, &errorMsg, bdm->missingBlockHashes().size());
          }
 
          bdv->enableZeroConf(clearZc);
@@ -307,11 +309,11 @@ try
       lastprog = prog;
       lasttime = time;
       
-      callback->progress(5, string(wltId.getCharPtr(), wltId.getSize()), lastprog, lasttime);
+      callback->progress(BDMPhase_Rescan, string(wltId.getCharPtr(), wltId.getSize()), lastprog, lasttime);
    };   
    
    //push 'bdm is ready' to Python
-   callback->run(1, 0, bdm->getTopBlockHeight());
+   callback->run(BDMAction_Ready, nullptr, bdm->getTopBlockHeight());
    
    while(pimpl->run)
    {
@@ -343,7 +345,7 @@ try
 
             LOGINFO << newZCLedgers.size() << " new ZC Txn";
             //notify ZC
-            callback->run(3, &newZCLedgers);
+            callback->run(BDMAction_ZC, &newZCLedgers);
          }
       }
 
@@ -360,7 +362,7 @@ try
             refreshIDVec.push_back(refreshID);
 
          bdv->refreshIDSet_.clear();
-         callback->run(5, &refreshIDVec);
+         callback->run(BDMAction_Refresh, &refreshIDVec);
       }
 
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
@@ -371,7 +373,7 @@ try
          //notify Python that new blocks have been parsed
          int nNewBlocks = bdm->blockchain().top().getBlockHeight() + 1
             - prevTopBlk;
-         callback->run(4, &nNewBlocks,
+         callback->run(BDMAction_NewBlock, &nNewBlocks,
             bdm->getTopBlockHeight()
          );
       }

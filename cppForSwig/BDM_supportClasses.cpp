@@ -82,7 +82,7 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       StoredScriptHistory ssh;
          
       ScrAddrFilter* topChild = this;
-      while (topChild->child_.get() != nullptr)
+      while (topChild->child_)
          topChild = topChild->child_.get();
 
       topChild->child_ = shared_ptr<ScrAddrFilter>(copy());

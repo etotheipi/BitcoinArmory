@@ -4992,14 +4992,14 @@ class ArmoryMainWindow(QMainWindow):
          # with the number of bytes remaining.
 
          phase,pct,tleft = TheBDM.predictLoadTime()
-         if phase==1:
+         if phase==Cpp.BDMPhase_BlockHeaders:
             self.lblDashModeBuild.setText( 'Reading Block Headers', \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
-         elif phase==2:
+         elif phase==Cpp.BDMPhase_BlockData:
             self.lblDashModeBuild.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
@@ -5007,7 +5007,7 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
 
-         elif phase==3:
+         elif phase==Cpp.BDMPhase_Rescan:
             self.lblDashModeBuild.setText( 'Build Databases', \
                                         size=4, bold=True, color='DisableFG')
             self.lblDashModeScan.setText( 'Scanning Transaction History', \
@@ -5016,9 +5016,9 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setFormat('')
             self.barProgressBuild.setValue(100)
             self.barProgressScan.setFormat('%p%')
-         elif phase==4:
-            self.lblDashModeScan.setText( 'Global Blockchain Index', \
-                                        size=4, bold=True, color='Foreground')
+         #elif phase==4:
+         #   self.lblDashModeScan.setText( 'Global Blockchain Index', \
+         #                               size=4, bold=True, color='Foreground')
 
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:

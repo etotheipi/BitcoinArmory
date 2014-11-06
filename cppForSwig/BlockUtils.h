@@ -29,6 +29,7 @@
 #include "BlockDataManagerConfig.h"
 #include "lmdb_wrapper.h"
 #include "ScrAddrObj.h"
+#include "bdmenums.h"
 
 #include "cryptlib.h"
 #include "sha.h"
@@ -37,7 +38,6 @@
 #include "pthread.h"
 #include <functional>
 #include "BDM_supportClasses.h"
-#include "BDM_mainthread.h"
 
 #ifndef MAXSIZE_T
    #if defined(_WIN64) || defined(__X86_64__)
@@ -121,7 +121,6 @@ private:
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
 
-   BDM_Inject*                      bdmInjectPtr_ = nullptr;
   
    // If the BDM is not in super-node mode, then it will be specifically tracking
    // a set of addresses & wallets.  We register those addresses and wallets so
@@ -153,6 +152,16 @@ private:
 public:
    bool                               sideScanFlag_ = false;
    
+   class Notifier
+   {
+   public:
+      virtual ~Notifier() { }
+      virtual void notify()=0;
+   };
+
+private:
+   Notifier* notifier_ = nullptr;
+
 public:
    BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
    ~BlockDataManager_LevelDB();
@@ -213,10 +222,10 @@ public:
 
    void     destroyAndResetDatabases(void);
    
-   void doRebuildDatabases(const function<void(unsigned, double,unsigned)> &progress);
-   void doInitialSyncOnLoad(const function<void(unsigned, double,unsigned)> &progress);
-   void doInitialSyncOnLoad_Rescan(const function<void(unsigned, double,unsigned)> &progress);
-   void doInitialSyncOnLoad_Rebuild(const function<void(unsigned, double,unsigned)> &progress);
+   void doRebuildDatabases(const function<void(BDMPhase, double,unsigned)> &progress);
+   void doInitialSyncOnLoad(const function<void(BDMPhase, double,unsigned)> &progress);
+   void doInitialSyncOnLoad_Rescan(const function<void(BDMPhase, double,unsigned)> &progress);
+   void doInitialSyncOnLoad_Rebuild(const function<void(BDMPhase, double,unsigned)> &progress);
    
    // for testing only
    struct BlkFileUpdateCallbacks
@@ -228,7 +237,7 @@ public:
    
 private:
    void loadDiskState(
-      const function<void(unsigned, double,unsigned)> &progress,
+      const function<void(BDMPhase, double,unsigned)> &progress,
       bool doRescan=false
    );
    void loadBlockData(
@@ -246,14 +255,14 @@ private:
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
 
 public:
-   
-   void setNotifyPtr(BDM_Inject* injectPtr) { bdmInjectPtr_ = injectPtr; }
-   void notifyMainThread(void) 
+   void setNotifier(Notifier* notifier) { notifier_ = notifier; }
+   void notifyMainThread() const
    { 
-      if (bdmInjectPtr_) 
-         bdmInjectPtr_->notify(); 
+      if (notifier_)
+         notifier_->notify(); 
    }
-   bool hasInjectPtr(void) const { return bdmInjectPtr_ != nullptr; }
+   
+   bool hasNotifier() const { return notifier_; }
 
    BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
                             uint32_t blk0, uint32_t blk1,

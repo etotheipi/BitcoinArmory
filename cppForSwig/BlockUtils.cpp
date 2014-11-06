@@ -1102,7 +1102,7 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad(
-   const function<void(unsigned, double,unsigned)> &progress
+   const function<void(BDMPhase, double,unsigned)> &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad";
@@ -1111,7 +1111,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
-   const function<void(unsigned, double,unsigned)> &progress
+   const function<void(BDMPhase, double,unsigned)> &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
@@ -1120,7 +1120,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
-   const function<void(unsigned, double,unsigned)> &progress
+   const function<void(BDMPhase, double,unsigned)> &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
@@ -1132,7 +1132,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doRebuildDatabases(
-   const function<void(unsigned, double,unsigned)> &progress
+   const function<void(BDMPhase, double,unsigned)> &progress
 )
 {
    LOGINFO << "Executing: doRebuildDatabases";
@@ -1144,18 +1144,18 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
 
 
 void BlockDataManager_LevelDB::loadDiskState(
-   const function<void(unsigned, double,unsigned)> &progress,
+   const function<void(BDMPhase, double,unsigned)> &progress,
    bool forceRescan
 )
 {
    class ProgressWithPhase : public ProgressReporter
    {
-      const unsigned phase_;
-      const function<void(unsigned, double,unsigned)> progress_;
+      const BDMPhase phase_;
+      const function<void(BDMPhase, double,unsigned)> progress_;
    public:
       ProgressWithPhase(
-         unsigned phase,
-         const function<void(unsigned, double,unsigned)>& progress
+         BDMPhase phase,
+         const function<void(BDMPhase, double,unsigned)>& progress
       ) : phase_(phase), progress_(progress)
       {
          this->progress(0.0, 0);
@@ -1241,7 +1241,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    BlockFilePosition readHeadersUpTo;
    
    {
-      ProgressWithPhase prog(1, progress);
+      ProgressWithPhase prog(BDMPhase_BlockHeaders, progress);
       readHeadersUpTo = loadBlockHeadersStartingAt(prog, blkDataPosition_).first;
    }
    
@@ -1300,12 +1300,12 @@ void BlockDataManager_LevelDB::loadDiskState(
    // start reading blocks right after the last block applied, and up
    // to where we finished reading headers
    {
-      ProgressWithPhase prog(2, progress);
+      ProgressWithPhase prog(BDMPhase_BlockData, progress);
       loadBlockData(prog, readHeadersUpTo, false);
    }
    
    {
-      ProgressWithPhase progPhase(3, progress);
+      ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
       if (!blockchain_.hasHeaderWithHash(sdbi.topScannedBlkHash_))
          scanFrom = 0;
       else
