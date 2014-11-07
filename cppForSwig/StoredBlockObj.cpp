@@ -1604,7 +1604,7 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh,
 
 ////////////////////////////////////////////////////////////////////////////////
 // This adds the TxOut if it doesn't exist yet
-int64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
+bool StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
    BinaryData txOutKey8B,
    BinaryData txInKey8B,
    uint32_t& commitId,
@@ -1631,15 +1631,17 @@ int64_t StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db,
       return UINT64_MAX;
    }
 
-   int64_t val = iter->second.markTxOutSpent(db, txOutKey8B, commitId, 
+   int64_t val;
+   bool wasMarkedSpent = iter->second.markTxOutSpent(db, txOutKey8B, 
+                                              commitId, val,
                                               dbType, pruneType);
-   if (val > 0)
+   if (wasMarkedSpent)
       totalUnspent_ -= val;
    else if (alreadyScannedUpToBlk_ < 
             DBUtils::hgtxToHeight(txInKey8B.getSliceCopy(0, 4)))
       totalUnspent_ += val;
 
-   return val;
+   return wasMarkedSpent;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2142,27 +2144,30 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-int64_t StoredSubHistory::markTxOutSpent(
-   LMDBBlockDatabase *db,
-   BinaryData txOutKey8B, uint32_t& commitId,
+bool StoredSubHistory::markTxOutSpent(
+   LMDBBlockDatabase *db, BinaryData txOutKey8B, 
+   uint32_t& commitId, int64_t& retVal,
    ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    // We found the TxIO we care about 
    if(pruneType != DB_PRUNE_NONE)
    {
-      LOGERR << "Have not yet implemented pruning logic yet!";
+      LOGERR << "Have not implemented pruning logic yet!";
       return UINT64_MAX;
    }
 
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
    {
-      //LOGERR << "We should've found an STXO in the SSH but didn't";
+      LOGERR << "We should've found an STXO in the SSH but didn't";
       return UINT64_MAX;
    }
 
    if (!txioptr->isUTXO())
-      return (txioptr->isMultisig() ? 0 : (int64_t)txioptr->getValue() * -1);
+   {
+      retVal = (txioptr->isMultisig() ? 0 : (int64_t)txioptr->getValue() * -1);
+      return false;
+   }
 
    //make sure this object isn't being read by the commit thread
    while (accessing_.test_and_set(memory_order_relaxed));
@@ -2173,7 +2178,8 @@ int64_t StoredSubHistory::markTxOutSpent(
    accessing_.clear(memory_order_relaxed);
 
    // Return value spent only if not multisig
-   return (txioptr->isMultisig() ? 0 : txioptr->getValue());
+   retVal = (txioptr->isMultisig() ? 0 : txioptr->getValue());
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

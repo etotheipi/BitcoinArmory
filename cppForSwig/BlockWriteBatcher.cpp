@@ -787,19 +787,27 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          );
 
       // update the txio in its subSSH
-      sshptr->markTxOutSpent(
+      if (sshptr->markTxOutSpent(
          iface_,
          stxoSpend.getDBKey(false),
          thisSTX.getDBKeyOfChild(iin, false),
          commitId_,
          config_.armoryDbType,
-         config_.pruneType
-      );
+         config_.pruneType) == true)
+      {
+         /***Mirror the spent txio at txin height only if the txout was marked
+         unspent.
 
-      //mirror the spent txio at txin height
-      sshptr->insertSpentTxio(stxoSpend.getDBKey(false), 
-                              thisSTX.getDBKeyOfChild(iin, false),
-                              dbUpdateSize_, commitId_);
+         makeSureSSHInMap grabs a SSH from DB as well as the subSSH at
+         the relevant height. insertSpentTxio does not check if the subSSH
+         exists in DB before hand, it overwrites it always. So that operation
+         should not occur if markTxOutSpent revealed the TxIO was already
+         marked spent, otherwise an existing subSSH will be overwritten.
+         ***/
+         sshptr->insertSpentTxio(stxoSpend.getDBKey(false),
+                                 thisSTX.getDBKeyOfChild(iin, false),
+                                 dbUpdateSize_, commitId_);
+      }
       //TIMER_STOP("CommitTxIn");
    }
 

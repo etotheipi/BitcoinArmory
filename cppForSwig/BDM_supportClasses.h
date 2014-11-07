@@ -251,7 +251,6 @@ private:
 
 
    std::atomic<uint32_t>       topId_;
-
    atomic<uint32_t>            lock_;
 
    //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
@@ -267,6 +266,8 @@ private:
 
    static map<BinaryData, TxIOPair> emptyTxioMap_;
    bool enabled_ = false;
+
+   vector<BinaryData> emptyVecBinData_;
 
 private:
    BinaryData getNewZCkey(void);

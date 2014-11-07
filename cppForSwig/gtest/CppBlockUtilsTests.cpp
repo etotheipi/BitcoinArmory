@@ -7159,6 +7159,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    iface_ = theBDM->getIFace();
 
    wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   wlt->addScrAddress(scrAddrE_);
 
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->enableZeroConf();
@@ -7167,7 +7168,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
-   EXPECT_EQ(scrobj->getFullBalance(), 60*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
 
@@ -7176,12 +7177,12 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    unconfirmedBalance = wlt->getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 165 * COIN);
    EXPECT_EQ(spendableBalance, 65 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
 
    //add ZC
-   BinaryData rawZC(159);
+   BinaryData rawZC(258);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 159, 1, ff);
+   fread(rawZC.getPtr(), 258, 1, ff);
    fclose(ff);
 
    theBDV->addNewZeroConfTx(rawZC, 0, false);
@@ -7190,15 +7191,15 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
-   EXPECT_EQ(scrobj->getFullBalance(), 60*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(4);
    unconfirmedBalance = wlt->getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 165*COIN);
-   EXPECT_EQ(spendableBalance, 65*COIN);
+   EXPECT_EQ(spendableBalance, 35*COIN);
    EXPECT_EQ(unconfirmedBalance, 135*COIN);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_5.dat", blk0dat_);
@@ -7212,7 +7213,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),  50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
-   EXPECT_EQ(scrobj->getFullBalance(), 100*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(),  70*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(),  20*COIN);
 
@@ -7221,7 +7222,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus1)
    unconfirmedBalance = wlt->getUnconfirmedBalance(5);
    EXPECT_EQ(fullBalance, 170*COIN);
    EXPECT_EQ(spendableBalance, 70*COIN);
-   EXPECT_EQ(unconfirmedBalance, 140*COIN);
+   EXPECT_EQ(unconfirmedBalance, 170*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -7254,7 +7255,7 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
 
@@ -7266,12 +7267,12 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(unconfirmedBalance, 105 * COIN);
 
    //add ZC
-   BinaryData rawZC(159);
+   BinaryData rawZC(258);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 159, 1, ff);
+   fread(rawZC.getPtr(), 258, 1, ff);
    fclose(ff);
 
-   BinaryData ZChash = READHEX("223212f753be87b7d0f9855196a578055079aa3561dc0532bbd89f2cd6b6df94");
+   BinaryData ZChash = READHEX("d417243bb2794a5d4f114e949d6e54a52d52056c405f6a00232b9d9213635a12");
 
    theBDV->addNewZeroConfTx(rawZC, 1300000000, false);
    theBDV->parseNewZeroConfTx();
@@ -7279,22 +7280,22 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 75*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
-   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(),  10*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(4);
    unconfirmedBalance = wlt->getUnconfirmedBalance(4);
-   EXPECT_EQ(fullBalance, 105 * COIN);
+   EXPECT_EQ(fullBalance, 135 * COIN);
    EXPECT_EQ(spendableBalance, 5 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 105 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
    //check ledger for ZC
    // These aren't right. Need to re-analyze.
    LedgerEntry le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
-   EXPECT_EQ(le.getValue(), -5000000000);
+   EXPECT_EQ(le.getValue(),  3000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
 
    //pull ZC from DB, verify it's carrying the proper data
@@ -7307,10 +7308,10 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    // These aren't right. Need to re-analyze.
    EXPECT_EQ(iface_->getStoredZcTx(zcStx, zcKey), true);
    EXPECT_EQ(zcStx.thisHash_, ZChash);
-   EXPECT_EQ(zcStx.numBytes_ , 159);
-   EXPECT_EQ(zcStx.fragBytes_, 125);
-   EXPECT_EQ(zcStx.numTxOut_, 1);
-   EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 50 * COIN);
+   EXPECT_EQ(zcStx.numBytes_ , 258);
+   EXPECT_EQ(zcStx.fragBytes_, 190);
+   EXPECT_EQ(zcStx.numTxOut_, 2);
+   EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
 
    delete dbtx;
 
@@ -7342,20 +7343,20 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    scrobj = wlt->getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrB_);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scrAddrC_);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(5);
    unconfirmedBalance = wlt->getUnconfirmedBalance(5);
-   EXPECT_EQ(fullBalance, 135 * COIN);
+   EXPECT_EQ(fullBalance, 165 * COIN);
    EXPECT_EQ(spendableBalance, 35 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
 
    le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
-   EXPECT_EQ(le.getValue(), -5000000000);
+   EXPECT_EQ(le.getValue(),  3000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
 
    //The BDM was recycled, but the ZC is still live, and the mempool should 
@@ -7367,10 +7368,10 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
    // commented out.)
    EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
    EXPECT_EQ(zcStx2.thisHash_, ZChash);
-   EXPECT_EQ(zcStx2.numBytes_, 159);
-   EXPECT_EQ(zcStx2.fragBytes_, 125);
-   EXPECT_EQ(zcStx2.numTxOut_, 1);
-//   EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 50 * COIN);
+   EXPECT_EQ(zcStx2.numBytes_, 258);
+   EXPECT_EQ(zcStx2.fragBytes_, 190);
+   EXPECT_EQ(zcStx2.numTxOut_, 2);
+   EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 10 * COIN);
 
    delete dbtx;
 
@@ -7399,9 +7400,9 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus2_TestLedgers)
 
    // These aren't right. Need to re-analyze.
    le = wlt->getLedgerEntryForTx(ZChash);
-   EXPECT_EQ(le.getTxTime(), 1231008907);
-   EXPECT_EQ(le.getValue(), -5000000000);
-   EXPECT_EQ(le.getBlockNum(), 4);
+   EXPECT_EQ(le.getTxTime(), 1231009505);
+   EXPECT_EQ(le.getValue(),  3000000000);
+   EXPECT_EQ(le.getBlockNum(), 5);
 
    //Tx is now in a block, ZC should be gone from DB
    dbtx = new LMDBEnv::Transaction(&iface_->dbEnv_, LMDB::ReadWrite);
@@ -9243,34 +9244,27 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
-   // These probably need to be updated. Comments would've been swell....
-   BinaryData txWithChangeHash = READHEX(
-      "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
-   BinaryData txWithChange = READHEX(
-      "0100000001aee7e7fc832d028f454d4fa1ca60ba2f1760d35a80570cb63fe0d6"
-      "dd4755087a000000004a49304602210038fcc428e8f28ebea2e8682a611ac301"
-      "2aedf5289535f3776c3b3acf5fbcff74022100c51c373fab30abd0e9a594be13"
-      "8bdd99a21cdcdb2258cf9795c3d569ac25c3aa01ffffffff0200ca9a3b000000"
-      "001976a914cb2abde8bccacc32e893df3a054b9ef7f227a4ce88ac00286bee00"
-      "0000001976a914ee26c56fc1d942be8d7a24b2a1001dd89469398088ac000000"
-      "00");
+   BinaryData ZChash = READHEX("d417243bb2794a5d4f114e949d6e54a52d52056c405f6a00232b9d9213635a12");
+   BinaryData rawZC(258);
+   FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
+   fread(rawZC.getPtr(), 258, 1, ff);
+   fclose(ff);
 
-   // For now, the wallet scan is crashing the test. Need to fix it.
-   theBDV->addNewZeroConfTx(txWithChange, 1300000000, false);
+   theBDV->addNewZeroConfTx(rawZC, 1300000000, false);
    theBDV->parseNewZeroConfTx();
-//   theBDV->scanWallets();
+   theBDV->scanWallets();
 
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_)->getFullBalance(),  50*COIN);
-   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance(),  40*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_)->getFullBalance(),  70*COIN);
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_)->getFullBalance(),  10*COIN);
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_)->getFullBalance(),   0*COIN);
 
    //test ledger entry
-   LedgerEntry le = wlt.getLedgerEntryForTx(txWithChangeHash);
+   LedgerEntry le = wlt.getLedgerEntryForTx(ZChash);
 
    EXPECT_EQ(le.getTxTime(), 1300000000);
-   EXPECT_EQ(le.isSentToSelf(), true);
-   EXPECT_EQ(le.getValue(), 50*COIN);
+   EXPECT_EQ(le.isSentToSelf(), false);
+   EXPECT_EQ(le.getValue(), 30*COIN);
 }
 
 // This was really just to time the logging to determine how much impact it 

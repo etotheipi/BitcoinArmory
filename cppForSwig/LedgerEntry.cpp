@@ -211,7 +211,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       else
       {
          blockNum = UINT32_MAX;
-         txIndex = READ_UINT16_BE(txioVec.first.getSliceRef(6, 2));
+         txIndex = READ_UINT16_BE(txioVec.first.getSliceRef(4, 2));
          txTime = txioIter->getTxTime();
 
          if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))

@@ -357,9 +357,9 @@ int8_t ScrAddrFilter::hasUTxO(const BinaryData& dbkey) const
    {
       uint32_t height = DBUtils::hgtxToHeight(dbkey.getSliceRef(0, 4));
       if (height < blockHeightCutOff_)
-         return -1;
+         return 0;
 
-      return 0;
+      return -1;
    }
 
    return 1;
@@ -929,6 +929,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
             txio.setValue(txout.getValue());
             txio.setTxTime(txtime);
             txio.setUTXO(true);
+            txio.setMultisig(true);
 
             auto& key_txioPair = processedTxIO[scrAddr];
 
@@ -980,6 +981,9 @@ const vector<BinaryData>& ZeroConfContainer::getSpentSAforZCKey(
    const BinaryData& zcKey) const
 {
    auto iter = keyToSpentScrAddr_.find(zcKey);
+   if (iter == keyToSpentScrAddr_.end())
+      return emptyVecBinData_;
+
    return iter->second;
 }
 
