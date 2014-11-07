@@ -1360,7 +1360,7 @@ void BlockDataManager_LevelDB::loadBlockData(
    const auto blockCallback
       = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
       {
-         LMDBEnv::Transaction tx(&iface_->dbEnv_);
+         LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
          BinaryRefReader brr(blockdata);
          addRawBlockToDB(brr, updateDupID);
@@ -1560,58 +1560,59 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    while (!done)
    {
-      std::shared_ptr<LDBIter> ldbIter; 
-
-      try
-      {
-         ldbIter = make_shared<LDBIter>(iface_->getIterator(BLKDATA));
-
-         if (!ldbIter->seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
-         {
-            done = true;
-            break;
-         }
-      }
-      catch (runtime_error &e)
-      {
-         LOGERR << "iter recycling snafu";
-         LOGERR << e.what();
-         done = true;
-         break;
-      }
-      catch (...)
-      {
-         LOGERR << "iter recycling snafu";
-         LOGERR << "unknown exception";
-         done = true;
-         break;
-      }
-
       bool recycle = false;
-      do
+
       {
-         if ((++i % 10000) == 0)
+         LDBIter ldbIter(iface_->getIterator(BLKDATA));
+
+         try
          {
-            recycle = true;
-            break;
+            if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
+            {
+               done = true;
+               break;
+            }
          }
-
-         BinaryData key = ldbIter->getKey();
-
-         if (key.getSize() == 0)
+         catch (runtime_error &e)
          {
+            LOGERR << "iter recycling snafu";
+            LOGERR << e.what();
             done = true;
             break;
          }
-         
-         if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
+         catch (...)
          {
+            LOGERR << "iter recycling snafu";
+            LOGERR << "unknown exception";
             done = true;
             break;
          }
 
-         keysToDelete.push_back(key);
-      } while (ldbIter->advanceAndRead(DB_PREFIX_SCRIPT));
+         do
+         {
+            if ((++i % 10000) == 0)
+            {
+               recycle = true;
+               break;
+            }
+
+            BinaryData key = ldbIter.getKey();
+
+            if (key.getSize() == 0)
+            {
+               done = true;
+               break;
+            }
+
+            if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
+            {
+               done = true;
+               break;
+            }
+
+            keysToDelete.push_back(key);
+         } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+      }
 
       for (auto& keytodel : keysToDelete)
          iface_->deleteValue(BLKDATA, keytodel);
