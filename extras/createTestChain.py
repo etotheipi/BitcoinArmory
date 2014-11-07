@@ -237,8 +237,8 @@ def pr(prstr):
    rtfile.write(prstr + '\n')
 
 pr('\n\nWriting blocks to ReorgTest/ directory')
-pr( 'File path: ' + 'reorgTest/blk_0_to_4.dat' )
-blkFirstChain = open('reorgTest/blk_0_to_4.dat','wb+')
+pr( 'File path: ' + 'reorgTest/blk_0_to_5.dat' )
+blkFirstChain = open('reorgTest/blk_0_to_5.dat','wb+')
 for blk in [genBlock, Blk1, Blk2, Blk3, Blk4, Blk5]:
    writeBlkBin(blkFirstChain, blk)
    writeBlkPrettyHex(rtfile, blk)
