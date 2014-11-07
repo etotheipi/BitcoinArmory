@@ -464,7 +464,7 @@ typedef uint16_t	 indx_t;
 	 *	This is certainly too small for any actual applications. Apps should always set
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
-#define DEFAULT_MAPSIZE	         8*1024 //keeping this low so unit test can trigger remaps
+#define DEFAULT_MAPSIZE	         8*1024LL //keeping this low so unit test can trigger remaps
 #define MAX_MAPSIZE_INCEREMENT	1024*1024*128
 
 /**	@defgroup readers	Reader Lock Table
@@ -2751,9 +2751,26 @@ mdb_freelist_save(MDB_txn *txn)
 			do {
 				freecnt = free_pgs[0];
 				data.mv_size = MDB_IDL_SIZEOF(free_pgs);
-				rc = mdb_cursor_put(&mc, &key, &data, MDB_RESERVE);
-				if (rc)
-					return rc;
+
+            
+            rc = mdb_cursor_put(&mc, &key, &data, MDB_RESERVE);
+            if (rc == MDB_MAP_FULL)
+            {
+               while (rc == MDB_MAP_FULL)
+               {
+                  mdb_txn_dropoldmapreference(txn);
+                  mdb_enlarge_map(env, key.mv_size + data.mv_size);
+                  mdb_txn_setnewmapreference(txn, env->me_currentmap);
+                  txn->mt_flags &= 0xFFFFFFFD;
+
+                  rc = mdb_cursor_put(&mc, &key, &data, MDB_RESERVE);
+               }
+            }
+            else if (rc)
+            {
+               return rc;
+            }
+
 				/* Retry if mt_free_pgs[] grew during the Put() */
 				free_pgs = txn->mt_free_pgs;
 			} while (freecnt < free_pgs[0]);

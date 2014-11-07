@@ -1413,31 +1413,6 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
    if(!isInitialized() || subHistMap_.size() == 0)
       return NULL;
 
-   // Optimize case of 1 txio -- don't bother with extra copies or map.find ops
-   /*if(totalTxioCount_ == 1)
-   {
-      // We gotta do some simple checks to avoid segfaulting in case 
-      // totalTxioCount_ is wrong (which shouldn't ever happen)
-      if(subHistMap_.size() != 1)
-      {
-         LOGERR << "totalTxioCount_ and subHistMap_.size do not agree!";
-         return NULL;
-      }
-
-      StoredSubHistory & subSSH = subHistMap_.begin()->second;
-      if(subSSH.txioMap_.size() != 1)
-      {
-         LOGERR << "totalTxioCount_ and subSSH.txioSet_.size() do not agree!";
-         return NULL;
-      }
-
-      TxIOPair* outptr = &(subSSH.txioMap_.begin()->second);
-      if(!includeMultisig && outptr->isMultisig())
-         return NULL;
-
-      return (outptr->getDBKeyOfOutput() == dbKey8B ? outptr : NULL);
-   }
-   else*/
    {
       // Otherwise, we go searching...
       BinaryData first4 = dbKey8B.getSliceCopy(0,4);
@@ -1816,7 +1791,12 @@ void StoredScriptHistory::insertSpentTxio(const BinaryData& txOutDbKey,
    if (!isInitialized())
       return;
 
-   TxIOPair txio = *findTxio(txOutDbKey, false);
+   TxIOPair* txioPtr = findTxio(txOutDbKey, false);
+   if (txioPtr == nullptr)
+      throw std::runtime_error("trying to mark txio as spent, but it is missing");
+
+   TxIOPair txio = *txioPtr;
+
    BinaryData txInHgtX = txInDbKey.getSliceCopy(0, 4);
    StoredSubHistory &subssh = subHistMap_[txInHgtX];
    if (subssh.uniqueKey_.getSize() == 0) //uninitialized subSSH
