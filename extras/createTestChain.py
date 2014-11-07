@@ -236,22 +236,32 @@ def pr(prstr):
    print prstr
    rtfile.write(prstr + '\n')
 
+# Write the initial chain.
 pr('\n\nWriting blocks to ReorgTest/ directory')
 pr( 'File path: ' + 'reorgTest/blk_0_to_5.dat' )
 blkFirstChain = open('reorgTest/blk_0_to_5.dat','wb+')
 for blk in [genBlock, Blk1, Blk2, Blk3, Blk4, Blk5]:
    writeBlkBin(blkFirstChain, blk)
    writeBlkPrettyHex(rtfile, blk)
+
+# Get all the blocks. They'll go in the reorg branch files. (The idea is that
+# Armory will see all the blocks, so we don't pretend the blocks disappear.)
+blkFirstChain.seek(0)
+blkChainDataComplete = blkFirstChain.read()
 blkFirstChain.close()
 
+# Write the alternate branches.
 for blk,suffix in [[Blk4A, '4A'], [Blk5A, '5A']]:
    filename = 'reorgTest/blk_%s.dat' % suffix
    pr( 'File path: ' + filename + '\n')
    blkAlt = open(filename, 'wb+')
    sleep(1)
+   writeBlkBin(blkAlt, blkChainDataComplete)
    writeBlkBin(blkAlt, blk)
    writeBlkPrettyHex(rtfile, blk)
+   blkChainDataComplete.append(blk)
 
    blkAlt.close()
+rtfile.close()
 
 pr( '\nDone!')

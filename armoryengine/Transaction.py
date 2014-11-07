@@ -1212,7 +1212,7 @@ class UnsignedTxInput(AsciiSerializable):
 
 
    #############################################################################
-   def createTxSignature(self, pytx, sbdPrivKey, hashcode=1):
+   def createTxSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
       """
       This might be a little confusing ... remember this is an input for a
       transaction which may not have been fully defined at the time this
@@ -1239,7 +1239,7 @@ class UnsignedTxInput(AsciiSerializable):
 
       msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, 
                                     self.getTxoScriptToSign(), hashcode)
-      sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
+      sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey, DetSign)
       binSig = sbdSig.toBinStr()
       return createDERSigFromRS(binSig[:32], binSig[32:]) + hc
 
@@ -1266,9 +1266,9 @@ class UnsignedTxInput(AsciiSerializable):
 
 
    #############################################################################
-   def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1):
+   def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
 
-      derSig = self.createTxSignature(pytx, sbdPrivKey, hashcode)
+      derSig = self.createTxSignature(pytx, sbdPrivKey, hashcode, DetSign)
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
 
       msIdx = self.insertSignature(derSig, computedPub)
@@ -2471,12 +2471,13 @@ class UnsignedTransaction(AsciiSerializable):
 
 
    #############################################################################
-   def createAndInsertSignatureForInput(self, txInIndex, sbdPrivKey, hashcode=1):
+   def createAndInsertSignatureForInput(self, txInIndex, sbdPrivKey, hashcode=1,
+                                        DetSign=True):
       if txInIndex >= len(self.ustxInputs):
          raise SignatureError('TxIn index is out of range for this USTX')
 
       ustxi = self.ustxInputs[txInIndex]
-      ustxi.createAndInsertSignature(self.pytxObj, sbdPrivKey, hashcode)
+      ustxi.createAndInsertSignature(self.pytxObj, sbdPrivKey, hashcode, DetSign)
 
 
    #############################################################################
@@ -2619,7 +2620,7 @@ class UnsignedTransaction(AsciiSerializable):
 #
 # This method is intended for sweep transaction where a bundle of private keys
 # were provided.
-def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap, hashcode=1):
+def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap, hashcode=1, DetSign=True):
    ustx = UnsignedTransaction().createFromUnsignedTxIO(ustxiList, dtxoList)
 
    for ustxiIndex in range(len(ustx.ustxInputs)):
@@ -2627,7 +2628,8 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap, hashcode=1):
          sbdPriv = sbdPrivKeyMap.get(scrAddr)
          if sbdPriv is None:
             raise SignatureError('Supplied key map cannot sign all inputs')
-         ustx.createAndInsertSignatureForInput(ustxiIndex, sbdPriv, hashcode)
+         ustx.createAndInsertSignatureForInput(ustxiIndex, sbdPriv, hashcode,
+                                               DetSign)
 
    # Make sure everything was good.
    if not ustx.verifySigsAllInputs():
@@ -2741,7 +2743,8 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
          if type(src) is not MultiSigLockbox:
             assert(src.hasPrivKey())
 
-            signature = src.generateDERSignature(preHashMsg)
+            # Create the sig, and use deterministic signing.
+            signature = src.generateDERSignature(preHashMsg, DetSign=True)
 
             # If we are spending a Coinbase-TxOut, only need sig, no pubkey
             # Don't forget to tack on the one-byte hashcode and consider it part of sig

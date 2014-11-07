@@ -688,7 +688,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    @TimeThisFunction
-   def generateDERSignature(self, binMsg, secureKdfOutput=None):
+   def generateDERSignature(self, binMsg, secureKdfOutput=None, DetSign=True):
       """
       This generates a DER signature for this address using the private key.
       Obviously, if we don't have the private key, we throw an error.  Or if
