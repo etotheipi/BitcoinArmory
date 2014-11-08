@@ -710,7 +710,8 @@ class PyBtcAddress(object):
 
       try:
          secureMsg = SecureBinaryData(binMsg)
-         sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain)
+         sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain,
+                                      DetSign)
          sigstr = sig.toBinStr()
 
          rBin   = sigstr[:32 ]

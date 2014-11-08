@@ -2763,7 +2763,7 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 
             for nxtAddr in srcTxOuts[i][3]:
                assert(nxtAddr.hasPrivKey())
-               signature = nxtAddr.generateDERSignature(preHashMsg)
+               signature = nxtAddr.generateDERSignature(preHashMsg, DetSign=True)
                sigLenInBinary    = int_to_binary(len(signature) + 1)
                newTx.inputs[i].binScript += sigLenInBinary + signature + hashCode1
 
