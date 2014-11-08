@@ -256,7 +256,7 @@ for blk,suffix in [[Blk4A, '4A'], [Blk5A, '5A']]:
    pr( 'File path: ' + filename + '\n')
    blkAlt = open(filename, 'wb+')
    sleep(1)
-   writeBlkBin(blkAlt, blkChainDataComplete)
+   blkAlt.write(blkChainDataComplete)
    writeBlkBin(blkAlt, blk)
    writeBlkPrettyHex(rtfile, blk)
    blkChainDataComplete.append(blk)
