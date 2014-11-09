@@ -11,6 +11,7 @@
 #include <map>
 #include <cmath>
 #include <algorithm>
+#include <thread>
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -92,31 +93,67 @@ void BlockHeader::pprintAlot(ostream & os)
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockHeader::findNonce(void)
 {
-   BinaryData playHeader(serialize());
-   BinaryData fourZeros = BinaryData::CreateFromHex("00000000");
-   BinaryData hashResult(32);
-   for(uint32_t nonce=0; nonce<(uint32_t)(-1); nonce++)
+   const BinaryData playHeader(serialize());
+   const BinaryData fourZeros = BinaryData::CreateFromHex("00000000");
+   
+   volatile bool stopNow=false;
+   
+   std::mutex lockSolution;
+   bool hasSolution=false;
+   uint32_t solution=0;
+   
+   const auto computer = [&] (uint32_t startAt, uint32_t stopAt)
    {
-      *(uint32_t*)(playHeader.getPtr()+76) = nonce;
-      BtcUtils::getHash256_NoSafetyCheck(playHeader.getPtr(), HEADER_SIZE, hashResult);
-      if(hashResult.getSliceRef(28,4) == fourZeros)
+      BinaryData hashResult(32);
+      for(uint32_t nonce=startAt; nonce<stopAt; nonce++)
       {
-         cout << "NONCE FOUND! " << nonce << endl;
-         unserialize(playHeader);
-         cout << "Raw Header: " << serialize().toHexStr() << endl;
-         pprint();
-         cout << "Hash:       " << hashResult.toHexStr() << endl;
-         return nonce;
-      }
+         *(uint32_t*)(playHeader.getPtr()+76) = nonce;
+         BtcUtils::getHash256_NoSafetyCheck(playHeader.getPtr(), HEADER_SIZE, hashResult);
+         if(hashResult.getSliceRef(28,4) == fourZeros)
+         {
+            unique_lock<mutex> l(lockSolution);
+            cout << "NONCE FOUND! " << nonce << endl;
+            unserialize(playHeader);
+            cout << "Raw Header: " << serialize().toHexStr() << endl;
+            pprint();
+            cout << "Hash:       " << hashResult.toHexStr() << endl;
+            hasSolution=true;
+            solution = nonce;
+            stopNow=true;
+            return;
+         }
 
-      if(nonce % 10000000 == 0)
-      {
-         cout << ".";
-         cout.flush();
+         if (stopNow)
+         {
+            break;
+         }
+         
+         if(startAt==0 && nonce % 10000000 == 0)
+         {
+            cout << ".";
+            cout.flush();
+         }
       }
+   };
+
+   const unsigned numThreads = thread::hardware_concurrency();
+   vector<thread> threads;
+   threads.reserve(numThreads);
+   
+   for (unsigned i=0; i < numThreads; i++)
+   {
+      threads.emplace_back(
+         computer,
+         (uint32_t)(-1)/numThreads*i,
+         (uint32_t)(-1)/numThreads*(i+1)
+      );
    }
-   cout << "No nonce found!" << endl;
-   return 0;
+   for (unsigned i=0; i < numThreads; i++)
+      threads[i].join();
+   
+   if (!hasSolution)
+      cout << "No nonce found!" << endl;
+   return solution;
    // We have to change the coinbase script, recompute merkle root, and then
    // can cycle through all the nonces again.
 }
