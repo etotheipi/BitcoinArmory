@@ -87,6 +87,28 @@ static void mkdir(string newdir)
 }
 #endif
 
+static void concatFile(const string &from, const string &to)
+{
+   std::ifstream i(from, ios::binary);
+   std::ofstream o(to, ios::app | ios::binary);
+
+   o << i.rdbuf();
+}
+
+static void appendBlocks(const std::vector<std::string> &files, const std::string &to)
+{
+   for (const std::string &f : files)
+      concatFile("../reorgTest/blk_" + f + ".dat", to);
+}
+
+static void setBlocks(const std::vector<std::string> &files, const std::string &to)
+{
+   std::ofstream o(to, ios::trunc | ios::binary);
+   o.close();
+   
+   for (const std::string &f : files)
+      concatFile("../reorgTest/blk_" + f + ".dat", to);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Test any custom Crypto++ code we've written.
@@ -6290,7 +6312,7 @@ protected:
 
       // Put the first 5 blocks into the blkdir
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
-      BtcUtils::copyFile("../reorgTest/blk_0_to_5.dat", blk0dat_);
+      setBlocks({"0", "1", "2", "3", "4", "5"}, blk0dat_);
 
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
@@ -6396,28 +6418,6 @@ protected:
 };
 
 
-static void concatFile(const string &from, const string &to)
-{
-   std::ifstream i(from, ios::binary);
-   std::ofstream o(to, ios::app | ios::binary);
-
-   o << i.rdbuf();
-}
-
-static void appendBlocks(const std::vector<std::string> &files, const std::string &to)
-{
-   for (const std::string &f : files)
-      concatFile("../reorgTest/blk_" + f + ".dat", to);
-}
-
-static void setBlocks(const std::vector<std::string> &files, const std::string &to)
-{
-   std::ofstream o(to, ios::trunc | ios::binary);
-   o.close();
-   
-   for (const std::string &f : files)
-      concatFile("../reorgTest/blk_" + f + ".dat", to);
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -7302,7 +7302,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
+   EXPECT_EQ(scrobj->getFullBalance(), 60*COIN);
    scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
    EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
 
@@ -7313,7 +7313,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    scrobj = wlt2->getScrAddrObjByKey(TestChain::scrAddrF);
    EXPECT_EQ(scrobj->getFullBalance(), 60 * COIN);
 
-   EXPECT_EQ(wlt->getFullBalance(), 135 * COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 165 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -8850,7 +8850,7 @@ TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
 TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 {
    // Copy only the first two blocks
-   BtcUtils::copyFile("../reorgTest/blk_0_to_5.dat", blk0dat_, 513);
+   setBlocks({"0", "1"}, blk0dat_);
 
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
