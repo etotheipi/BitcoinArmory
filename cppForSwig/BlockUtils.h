@@ -9,17 +9,10 @@
 #ifndef _BLOCKUTILS_H_
 #define _BLOCKUTILS_H_
 
-#include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <queue>
-#include <deque>
-#include <list>
-#include <bitset>
-#include <map>
 #include <set>
-#include <limits>
 
 #include "Blockchain.h"
 #include "BinaryData.h"
@@ -35,7 +28,6 @@
 #include "sha.h"
 #include "UniversalTimer.h"
 
-#include "pthread.h"
 #include <functional>
 #include "BDM_supportClasses.h"
 
