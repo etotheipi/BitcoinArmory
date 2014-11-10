@@ -2382,8 +2382,18 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
 bool LMDBBlockDatabase::getStoredTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey)
 {
+   if (DBkey.getSize() != 8)
+   {
+      LOGERR << "Tried to get StoredTxOut, but the provided key is not of the \
+                 proper size. Expect size is 8, this key is: " << DBkey.getSize();
+      return false;
+   }
+
+   BinaryData key = WRITE_UINT8_BE(DB_PREFIX_TXDATA);
+   key.append(DBkey);
+
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
-   BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
+   BinaryRefReader brr = getValueReader(BLKDATA, key);
    if (brr.getSize() == 0)
    {
       LOGERR << "BLKDATA DB does not have the requested TxOut";

@@ -357,9 +357,9 @@ int8_t ScrAddrFilter::hasUTxO(const BinaryData& dbkey) const
    {
       uint32_t height = DBUtils::hgtxToHeight(dbkey.getSliceRef(0, 4));
       if (height < blockHeightCutOff_)
-         return 0;
+         return -1;
 
-      return -1;
+      return 0;
    }
 
    return 1;
@@ -861,10 +861,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
       {
          //found outPoint DBKey, grab the StoredTxOut
          StoredTxOut stxOut;
-         if (db_->getStoredTxOut(
-            stxOut,
-            WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA) + opKey)
-            )
+         if (db_->getStoredTxOut(stxOut, opKey))
          {
             BinaryData sa = stxOut.getScrAddress();
             if (filter(sa))

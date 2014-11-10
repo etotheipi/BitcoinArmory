@@ -216,7 +216,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
 
          if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
             txHash = txioIter->getTxHashOfOutput(db);
-         else if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+         else if (txioIter->getDBKeyOfInput().startsWith(txioVec.first))
             txHash = txioIter->getTxHashOfInput(db);
       }
 

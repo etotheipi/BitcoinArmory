@@ -2846,6 +2846,7 @@ class Armory_Daemon(object):
          for wltID in args:
             if len(wltID) > 0:
                if wltID in self.serverWltMap:
+                  self.serverWltMap[wltID].doAfterScan()
                   self.serverWltMap[wltID].isEnabled = True
                else:                
                   self.serverLBMap[wltID].isEnabled = True
