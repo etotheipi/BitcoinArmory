@@ -1149,7 +1149,7 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 //       that would get us since we are reading all the headers and doing
 //       a fresh organize/sort anyway.
 void LMDBBlockDatabase::readAllHeaders(
-   unordered_map<HashString, BlockHeader, BinaryDataHash> & headerMap
+   const function<void(const BlockHeader&)> &callback
 )
 {
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
@@ -1161,7 +1161,6 @@ void LMDBBlockDatabase::readAllHeaders(
       return;
    }
    
-
    StoredHeader sbh;
    BlockHeader  regHead;
    do
@@ -1180,7 +1179,7 @@ void LMDBBlockDatabase::readAllHeaders(
       sbh.unserializeDBValue(HEADERS, ldbIter.getValueRef());
       regHead.unserialize(sbh.dataCopy_);
 
-      headerMap[sbh.thisHash_] = regHead;
+      callback(regHead);
 
    } while(ldbIter.advanceAndRead(DB_PREFIX_HEADHASH));
 }

@@ -1487,14 +1487,13 @@ void BlockDataManager_LevelDB::loadBlockHeadersFromDB()
 {
    LOGINFO << "Reading headers from db";
    blockchain().clear();
+   
+   const auto callback= [&] (const BlockHeader &h)
    {
-      unordered_map<HashString, BlockHeader, BinaryDataHash> headers;
-      iface_->readAllHeaders(headers);
-      for (auto& i : headers)
-      {
-         blockchain().addBlock(i.first, i.second);
-      }
-   }
+      blockchain().addBlock(h.getThisHash(), h);
+   };
+   
+   iface_->readAllHeaders(callback);
    
    LOGINFO << "Found " << blockchain().allHeaders().size() << " headers in db";
    
