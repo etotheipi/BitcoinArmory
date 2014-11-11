@@ -87,14 +87,6 @@ class ProgressReporter;
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
 
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// This class is a singleton -- there can only ever be one, accessed through
-// the static method GetInstance().  This method gets the single instantiation
-// of the BDM class, and then its public members can be used to access the 
-// block data that is sitting in memory.
-//
-
 class BlockDataManager_LevelDB
 {
 private:
