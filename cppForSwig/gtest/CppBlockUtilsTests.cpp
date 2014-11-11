@@ -6615,7 +6615,6 @@ TEST_F(BlockDir, AddBlockWhileUpdating)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6672,7 +6671,6 @@ TEST_F(BlockDir, BlockFileSplit)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6718,7 +6716,6 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
