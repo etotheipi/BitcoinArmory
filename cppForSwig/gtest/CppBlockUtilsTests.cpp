@@ -44,6 +44,38 @@
 
 #define TheBDM (*theBDM)
 
+static uint32_t getTopBlockHeightInDB(BlockDataManager_LevelDB &bdm, DB_SELECT db)
+{
+   StoredDBInfo sdbi;
+   bdm.getIFace()->getStoredDBInfo(db, sdbi, false); 
+   return sdbi.topBlkHgt_;
+}
+
+static uint64_t getDBBalanceForHash160(
+   BlockDataManager_LevelDB &bdm,
+   BinaryDataRef addr160
+)
+{
+   StoredScriptHistory ssh;
+
+   bdm.getIFace()->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
+   if(!ssh.isInitialized())
+      return 0;
+
+   return ssh.getScriptBalance();
+}
+
+
+/*
+unused
+static uint32_t getAppliedToHeightInDB(BlockDataManager_LevelDB &bdm)
+{
+   StoredDBInfo sdbi;
+   bdm.getIFace()->getStoredDBInfo(BLKDATA, sdbi, false); 
+   return sdbi.appliedToHgt_;
+}
+*/
+
 // Utility function - Clean up comments later
 static int char2int(char input)
 {
@@ -8302,8 +8334,8 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, HEADERS), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, BLKDATA), 4);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash4).isMainBranch());
 
    StoredScriptHistory ssh;
@@ -8350,8 +8382,8 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, HEADERS), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, BLKDATA), 4);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash4).isMainBranch());
 
    StoredScriptHistory ssh;
@@ -8407,7 +8439,7 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
    BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
    BinaryData scrAddr4 = READHEX("6c22eb00e3f93acac5ae5d81a9db78a645dfc9c7");
-   EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
+   EXPECT_EQ(getDBBalanceForHash160(TheBDM, scrAddr), 18*COIN);
    /*TheBDM.pprintSSHInfoAboutHash160(scrAddr);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr3);

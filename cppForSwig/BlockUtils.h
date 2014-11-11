@@ -158,53 +158,27 @@ public:
    
    const BlockDataManagerConfig &config() const { return config_; }
    void setConfig(const BlockDataManagerConfig &bdmConfig);
-   void openDatabase(void);
    
-private:
-   //////////////////////////////////////////////////////////////////////////
-   // This method opens the databases, and figures out up to what block each
-   // of them is sync'd to.  Then it figures out where that corresponds in
-   // the blk*.dat files, so that it can pick up where it left off.  You can 
-   // use the last argument to specify an approximate amount of blocks 
-   // (specified in bytes) that you would like to replay:  i.e. if 10 MB,
-   // lastBlkFileNum_ and endOfLastBlockByte_ variables will be set to
-   // the first block that is approximately 10 MB behind your latest block.
-   // Then you can pick up from there and let the DB clean up any mess that
-   // was left from an unclean shutdown.
-   bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
-                              DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER);
+   LMDBBlockDatabase *getIFace(void) {return iface_;}
+   void setNotifier(Notifier* notifier) { notifier_ = notifier; }
+   void notifyMainThread() const
+   { 
+      if (notifier_)
+         notifier_->notify(); 
+   }
+   
+   bool hasNotifier() const { return notifier_; }
 
-public:
+   
+   
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
    const BinaryData& getGenesisHash(void) const  { return config_.genesisBlockHash;   }
    const BinaryData& getGenesisTxHash(void) const { return config_.genesisTxHash; }
    const BinaryData& getMagicBytes(void) const   { return config_.magicBytes;    }
 
-   /////////////////////////////////////////////////////////////////////////////
-   // These don't actually work while scanning in another thread!? 
-   // The getLoadProgress* methods don't seem to update until after scan done
-   uint64_t getTotalBlockchainBytes() const;
-   uint32_t getTotalBlkFiles()        const;
-   
-   uint32_t getTopBlockHeightInDB(DB_SELECT db); // testing
-   uint32_t getAppliedToHeightInDB(void);
-
-   /////////////////////////////////////////////////////////////////////////////
 public:
-   int32_t          getNumConfirmations(BinaryData txHash);
-
-   TxRef            getTxRefByHash(BinaryData const & txHash);
-
-   bool isDirty(uint32_t numBlockToBeConsideredDirty=NUM_BLKS_IS_DIRTY) const; 
-
-   // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
-   // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
-   //bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
-                          //uint32_t fileIndex,
-                          //uint32_t thisHeaderOffset,
-                          //uint32_t blockSize);
-
+   void openDatabase(void);
    void     destroyAndResetDatabases(void);
    
    void doRebuildDatabases(const ProgressCallback &progress);
@@ -240,14 +214,6 @@ private:
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
 
 public:
-   void setNotifier(Notifier* notifier) { notifier_ = notifier; }
-   void notifyMainThread() const
-   { 
-      if (notifier_)
-         notifier_->notify(); 
-   }
-   
-   bool hasNotifier() const { return notifier_; }
 
    BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
                             uint32_t blk0, uint32_t blk1,
@@ -255,40 +221,15 @@ public:
                             bool updateSDBI = true);
 
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
-   LMDBBlockDatabase *getIFace(void) {return iface_;}
       
-   LDBIter getIterator(DB_SELECT db)
-   {
-      return iface_->getIterator(db);
-   }
-   
-   bool readStoredBlockAtIter(LDBIter & iter, StoredHeader & sbh)
-   { return iface_->readStoredBlockAtIter(iter, sbh); }
-
-   uint8_t getValidDupIDForHeight(uint32_t blockHgt)
+   uint8_t getValidDupIDForHeight(uint32_t blockHgt) const
    { return iface_->getValidDupIDForHeight(blockHgt); }
-
-   // Check for availability of data with a given hash
-   bool hasTxWithHash(BinaryData const & txhash);
-   bool hasTxWithHashInDB(BinaryData const & txhash);
 
    ScrAddrFilter* getScrAddrFilter(void) const;
 
 
-   StoredHeader getMainBlockFromDB(uint32_t hgt);
-   uint8_t      getMainDupFromDB(uint32_t hgt) const;
-   StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // With the blockchain in supernode mode, we can just query address balances
-   // and UTXO sets directly.  These will fail if not supernode mode
-   uint64_t             getDBBalanceForHash160(BinaryDataRef addr160);
-private:
-   uint64_t             getDBReceivedForHash160(BinaryDataRef addr160);
-   vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
-public:
-   // For zero-confirmation tx-handling
-   bool isTxFinal(const Tx & tx) const;
+   StoredHeader getMainBlockFromDB(uint32_t hgt) const;
+   StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup) const;
 
 public:
 
@@ -300,9 +241,6 @@ public:
    //void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
    // Simple wrapper around the logger so that they are easy to access from SWIG
-
-   ////////////////////////////////////////////////////////////////////////////////
-   void debugPrintDatabases(void) { iface_->pprintBlkDataDB(BLKDATA); }
 
    /////////////////////////////////////////////////////////////////////////////
    // We may use this to trigger flushing the queued DB updates
