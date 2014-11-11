@@ -4305,7 +4305,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.barProgressTorrent.setRange(0,100)
       self.barProgressSync.setRange(0,100)
-      self.barProgressBuild.setRange(0,100)
       self.barProgressScan.setRange(0,100)
 
 
@@ -4988,17 +4987,36 @@ class ArmoryMainWindow(QMainWindow):
          self.barProgressScan.setVisible(True)
          self.lblTimeLeftScan.setVisible(True)
 
-         # Scan time is super-simple to predict: it's pretty much linear
-         # with the number of bytes remaining.
-
-         phase,pct,tleft = TheBDM.predictLoadTime()
-         if phase==Cpp.BDMPhase_BlockHeaders:
-            self.lblDashModeBuild.setText( 'Reading Block Headers', \
+         phase,pct,tleft,numericProgress = TheBDM.predictLoadTime()
+         if phase==Cpp.BDMPhase_DBHeaders:
+            self.lblDashModeBuild.setText( 'Loading Database Headers', \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setValue(0)
+            self.barProgressBuild.setRange(0,0)
+            self.lblTimeLeftBuild.setText(str(numericProgress) + " headers")
+            
+         elif phase==Cpp.BDMPhase_OrganizingChain:
+            self.lblDashModeBuild.setText( 'Organizing Blockchain', \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setValue(0)
+            self.barProgressBuild.setRange(0,0)
+            self.lblTimeLeftBuild.setVisible(False)
+         elif phase==Cpp.BDMPhase_BlockHeaders:
+            self.lblDashModeBuild.setText( 'Reading New Block Headers', \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
+            self.barProgressBuild.setRange(0,100)
          elif phase==Cpp.BDMPhase_BlockData:
             self.lblDashModeBuild.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
@@ -5006,7 +5024,7 @@ class ArmoryMainWindow(QMainWindow):
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
-
+            self.barProgressBuild.setRange(0,100)
          elif phase==Cpp.BDMPhase_Rescan:
             self.lblDashModeBuild.setText( 'Build Databases', \
                                         size=4, bold=True, color='DisableFG')
@@ -5015,23 +5033,21 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTimeLeftBuild.setVisible(False)
             self.barProgressBuild.setFormat('')
             self.barProgressBuild.setValue(100)
+            self.barProgressBuild.setRange(0,100)
             self.barProgressScan.setFormat('%p%')
-         #elif phase==4:
-         #   self.lblDashModeScan.setText( 'Global Blockchain Index', \
-         #                               size=4, bold=True, color='Foreground')
 
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
             tstring = ''
-            pvalue  = 100
+            pvalue  = pct*100
          else:
             tstring = secondsToHumanTime(tleft15)
             pvalue = pct*100
 
-         if phase==1 or phase==2:
+         if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData:
             self.lblTimeLeftBuild.setText(tstring)
             self.barProgressBuild.setValue(pvalue)
-         elif phase==3:
+         elif phase==BDMPhase_Rescan:
             self.lblTimeLeftScan.setText(tstring)
             self.barProgressScan.setValue(pvalue)
 

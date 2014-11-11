@@ -43,6 +43,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       self.bdm.progressComplete=0
       self.bdm.secondsRemaining=0
       self.bdm.progressPhase=0
+      self.bdm.progressNumeric=0
       
    def run(self, action, arg, block):
       try:
@@ -83,13 +84,14 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          print sys.exc_info()
          raise
 
-   def progress(self, phase, walletId, prog, seconds):
+   def progress(self, phase, walletId, prog, seconds, progressNumeric):
       try:
          walletIdString = str(walletId)
          if len(walletIdString) == 0:
             self.bdm.progressPhase = phase
             self.bdm.progressComplete = prog
             self.bdm.secondsRemaining = seconds
+            self.bdm.progressNumeric = progressNumeric
          else:
             progInfo = [walletIdString, prog]
             for cppNotificationListener in TheBDM.getListenerList():
@@ -345,7 +347,7 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def predictLoadTime(self):
-      return (self.progressPhase, self.progressComplete, self.secondsRemaining)
+      return (self.progressPhase, self.progressComplete, self.secondsRemaining, self.progressNumeric)
 
    #############################################################################
    @TimeThisFunction

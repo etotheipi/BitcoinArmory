@@ -143,6 +143,7 @@ private:
 
 public:
    bool                               sideScanFlag_ = false;
+   typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;
    
    class Notifier
    {
@@ -214,10 +215,10 @@ public:
 
    void     destroyAndResetDatabases(void);
    
-   void doRebuildDatabases(const function<void(BDMPhase, double,unsigned)> &progress);
-   void doInitialSyncOnLoad(const function<void(BDMPhase, double,unsigned)> &progress);
-   void doInitialSyncOnLoad_Rescan(const function<void(BDMPhase, double,unsigned)> &progress);
-   void doInitialSyncOnLoad_Rebuild(const function<void(BDMPhase, double,unsigned)> &progress);
+   void doRebuildDatabases(const ProgressCallback &progress);
+   void doInitialSyncOnLoad(const ProgressCallback &progress);
+   void doInitialSyncOnLoad_Rescan(const ProgressCallback &progress);
+   void doInitialSyncOnLoad_Rebuild(const ProgressCallback &progress);
    
    // for testing only
    struct BlkFileUpdateCallbacks
@@ -229,7 +230,7 @@ public:
    
 private:
    void loadDiskState(
-      const function<void(BDMPhase, double,unsigned)> &progress,
+      const ProgressCallback &progress,
       bool doRescan=false
    );
    void loadBlockData(
@@ -237,7 +238,7 @@ private:
       const BlockFilePosition &stopAt,
       bool updateDupID
    );
-   void loadBlockHeadersFromDB();
+   void loadBlockHeadersFromDB(const ProgressCallback &progress);
    pair<BlockFilePosition, vector<BlockHeader*> >
       loadBlockHeadersStartingAt(
          ProgressReporter &prog,
@@ -322,7 +323,8 @@ public:
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
    void startSideScan(
-      function<void(const BinaryData&, double prog, unsigned time)> progress);
+      const function<void(const BinaryData&, double prog,unsigned time)> &cb
+   );
 
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 

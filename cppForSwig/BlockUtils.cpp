@@ -886,13 +886,24 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    ScrAddrFilter& scrAddrData,
    bool updateSDBI)
 {
-   ProgressFilter progress(&prog, readBlockHeaders_->totalBlockchainBytes());
+   // compute how many bytes of raw blockdata we're going to apply
+   uint64_t startingAt=0, totalBytes=0;
+   for (unsigned i=0; i < blockchain().top().getBlockHeight(); i++)
+   {
+      const BlockHeader &bh = blockchain().getHeaderByHeight(i);
+      if (i < blk0)
+         startingAt += bh.getBlockSize();
+      totalBytes += bh.getBlockSize();
+   }
+   
+   ProgressFilter progress(&prog, startingAt, totalBytes);
    
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_);
    blockWrites.setUpdateSDBI(updateSDBI);
 
    LOGWARN << "Scanning from " << blk0 << " to " << blk1;
+   
    return blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
 }
 
@@ -1102,7 +1113,7 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad";
@@ -1111,7 +1122,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
@@ -1120,7 +1131,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
@@ -1132,7 +1143,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doRebuildDatabases(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doRebuildDatabases";
@@ -1144,18 +1155,18 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
 
 
 void BlockDataManager_LevelDB::loadDiskState(
-   const function<void(BDMPhase, double,unsigned)> &progress,
+   const ProgressCallback &progress,
    bool forceRescan
 )
 {
    class ProgressWithPhase : public ProgressReporter
    {
       const BDMPhase phase_;
-      const function<void(BDMPhase, double,unsigned)> progress_;
+      const ProgressCallback progress_;
    public:
       ProgressWithPhase(
          BDMPhase phase,
-         const function<void(BDMPhase, double,unsigned)>& progress
+         const ProgressCallback& progress
       ) : phase_(phase), progress_(progress)
       {
          this->progress(0.0, 0);
@@ -1165,7 +1176,7 @@ void BlockDataManager_LevelDB::loadDiskState(
          double progress, unsigned secondsRemaining
       )
       {
-         progress_(phase_, progress, secondsRemaining);
+         progress_(phase_, progress, secondsRemaining, 0);
       }
    };
    
@@ -1187,11 +1198,12 @@ void BlockDataManager_LevelDB::loadDiskState(
    BinaryData lastTopBlockHash = sdbi.topBlkHash_;
    
    // load the headers from lmdb into blockchain()
-   loadBlockHeadersFromDB();
+   loadBlockHeadersFromDB(progress);
    
    uint32_t firstUnappliedHeight=0;
    
    {
+      progress(BDMPhase_OrganizingChain, 0, 0, 0);
       // organize the blockchain we have so far
       const Blockchain::ReorganizationState state
          = blockchain().forceOrganize();
@@ -1248,6 +1260,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    try
    {
       // This will return true unless genesis block was reorg'd...
+      progress(BDMPhase_OrganizingChain, 0, 0, 0);
       bool prevTopBlkStillValid = blockchain_.forceOrganize().prevTopBlockStillValid;
       if(!prevTopBlkStillValid)
       {
@@ -1319,7 +1332,7 @@ void BlockDataManager_LevelDB::loadDiskState(
       if (config_.armoryDbType == ARMORY_DB_SUPER)
       {
          applyBlockRangeToDB(progPhase, scanFrom,
-         blockchain_.top().getBlockHeight(), *scrAddrData_.get());
+            blockchain_.top().getBlockHeight(), *scrAddrData_);
       }
       else
       {
@@ -1483,13 +1496,16 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    return prevTopBlk;
 }
 
-void BlockDataManager_LevelDB::loadBlockHeadersFromDB()
+void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
 {
    LOGINFO << "Reading headers from db";
    blockchain().clear();
    
+   unsigned counter=0;
+   
    const auto callback= [&] (const BlockHeader &h)
    {
+      progress(BDMPhase_DBHeaders, 0.0, 0, counter++);
       blockchain().addBlock(h.getThisHash(), h);
    };
    
@@ -1572,17 +1588,10 @@ void BlockDataManager_LevelDB::deleteHistories(void)
                break;
             }
          }
-         catch (runtime_error &e)
+         catch (exception &e)
          {
             LOGERR << "iter recycling snafu";
             LOGERR << e.what();
-            done = true;
-            break;
-         }
-         catch (...)
-         {
-            LOGERR << "iter recycling snafu";
-            LOGERR << "unknown exception";
             done = true;
             break;
          }
@@ -1900,9 +1909,10 @@ ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::startSideScan(
-   function<void(const BinaryData&, double prog, unsigned time)> progress)
+   const function<void(const BinaryData&, double prog,unsigned time)> &cb
+)
 {
-   scrAddrData_->startSideScan(progress);
+   scrAddrData_->startSideScan(cb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
