@@ -1,16 +1,16 @@
 #ifndef _BDM_ENUMS_H
 #define _BDM_ENUMS_H
 
-typedef enum
+enum BDMPhase
 {
    BDMPhase_DBHeaders=1,
    BDMPhase_OrganizingChain,
    BDMPhase_BlockHeaders,
    BDMPhase_BlockData,
    BDMPhase_Rescan
-}BDMPhase;
+};
 
-typedef enum
+enum BDMAction
 {
    BDMAction_Ready=1,
    BDMAction_NewBlock,
@@ -18,6 +18,6 @@ typedef enum
    BDMAction_Refresh,
    BDMAction_Exited,
    BDMAction_ErrorMsg
-}BDMAction;
+};
 
 #endif
