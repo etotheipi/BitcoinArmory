@@ -116,7 +116,7 @@ uint32_t BlockHeader::findNonce(void)
             unserialize(playHeader);
             cout << "Raw Header: " << serialize().toHexStr() << endl;
             pprint();
-            cout << "Hash:       " << hashResult.toHexStr() << endl;
+            cout << "Hash:       " << hashResult.copySwapEndian().toHexStr() << endl;
             hasSolution=true;
             solution = nonce;
             stopNow=true;
@@ -409,7 +409,7 @@ void TxIn::pprint(ostream & os, int nIndent, bool pBigendian) const
          
    }
    os << indent << "   Bytes:   " << getSize() << endl;
-   os << indent << "   Sender:  " << getSenderScrAddrIfAvail().toHexStr() << endl;
+   os << indent << "   Sender:  " << getSenderScrAddrIfAvail().copySwapEndian().toHexStr() << endl;
 }
 
 

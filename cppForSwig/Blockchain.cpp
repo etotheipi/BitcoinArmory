@@ -35,7 +35,7 @@ BlockHeader& Blockchain::addBlock(
    if (hasHeaderWithHash(blockhash) && blockhash != genesisHash_)
    { // we don't show this error for the genesis block
       LOGWARN << "Somehow tried to add header that's already in map";
-      LOGWARN << "    Header Hash: " << blockhash.toHexStr();
+      LOGWARN << "    Header Hash: " << blockhash.copySwapEndian().toHexStr();
    }
    return headerMap_[blockhash] = block;
 }
@@ -116,7 +116,7 @@ const BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash) const
 {
    map<HashString, BlockHeader>::const_iterator it = headerMap_.find(blkHash);
    if(ITER_NOT_IN_MAP(it, headerMap_))
-      throw std::range_error("Cannot find block with hash " + blkHash.toHexStr());
+      throw std::range_error("Cannot find block with hash " + blkHash.copySwapEndian().toHexStr());
    else
       return it->second;
 }
@@ -124,7 +124,7 @@ BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash)
 {
    map<HashString, BlockHeader>::iterator it = headerMap_.find(blkHash);
    if(ITER_NOT_IN_MAP(it, headerMap_))
-      throw std::range_error("Cannot find block with hash " + blkHash.toHexStr());
+      throw std::range_error("Cannot find block with hash " + blkHash.copySwapEndian().toHexStr());
    else
       return it->second;
 }

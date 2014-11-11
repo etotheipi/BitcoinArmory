@@ -1183,8 +1183,8 @@ void LMDBBlockDatabase::readAllHeaders(
       if (sbh.thisHash_ != regHead.getThisHash())
       {
          LOGWARN << "Corruption detected: block header hash " <<
-            sbh.thisHash_.toHexStr() << " does not match "
-            << regHead.getThisHash().toHexStr();
+            sbh.thisHash_.copySwapEndian().toHexStr() << " does not match "
+            << regHead.getThisHash().copySwapEndian().toHexStr();
       }
       callback(regHead);
 
@@ -2627,7 +2627,7 @@ bool LMDBBlockDatabase::markBlockHeaderValid(BinaryDataRef headHash)
    BinaryRefReader brr = getValueReader(HEADERS, DB_PREFIX_HEADHASH, headHash);
    if(brr.getSize()==0)
    {
-      LOGERR << "Invalid header hash: " << headHash.toHexStr();
+      LOGERR << "Invalid header hash: " << headHash.copy().copySwapEndian().toHexStr();
       return false;
    }
    brr.advance(HEADER_SIZE);

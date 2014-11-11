@@ -1653,13 +1653,13 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
          if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
             throw BlockDeserializingException(
                "Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup (hash="
-                  + bh.getThisHash().toHexStr() + ")"
+                  + bh.getThisHash().copySwapEndian().toHexStr() + ")"
                );
 
          iface_->putStoredHeader(sbh, true);
          missingBlockHashes_.push_back( sbh.thisHash_ );
          throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid (hash="
-            + bh.getThisHash().toHexStr() + ")"
+            + bh.getThisHash().copySwapEndian().toHexStr() + ")"
          );
       }
       else
@@ -1678,7 +1678,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
    {
       throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup (hash="
-         + bh.getThisHash().toHexStr() + ")"
+         + bh.getThisHash().copySwapEndian().toHexStr() + ")"
       );
    }
    iface_->putStoredHeader(sbh, true, updateDupID);
