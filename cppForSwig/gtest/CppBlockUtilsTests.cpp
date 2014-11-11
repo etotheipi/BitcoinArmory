@@ -2859,7 +2859,7 @@ protected:
       tx2_.unserialize(rawTx1_);
 
 
-      sbh_.unserialize(rawHead_);
+      sbh_.setHeaderData(rawHead_);
    }
 
    BinaryData PREFBYTE(DB_PREFIX pref) 
@@ -3259,10 +3259,10 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
    sbh_.merkleIsPartial_  = false;
    sbh_.isMainBranch_     = true;
    sbh_.numTx_            = 15;
-   sbh_.numBytes_         = 65535;
+   sbh_.numBytes_         = 0xdeadbeef;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData last4 = READHEX("00ffff01");
+   BinaryData last4 = READHEX("00ffff01efbeadde");
    EXPECT_EQ(serializeDBValue(sbh_, HEADERS, ARMORY_DB_FULL, DB_PRUNE_NONE), rawHead_ + last4);
 }
 
@@ -3351,12 +3351,13 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_H)
    BinaryData dbval = READHEX(
       "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
       "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
-      "b4450081d8c8c84db3936a1a334b035b00ffff01");
+      "b4450081d8c8c84db3936a1a334b035b00ffff01ee110000");
 
    BinaryRefReader brr(dbval);
    sbh_.unserializeDBValue(HEADERS, brr);
 
    EXPECT_EQ(sbh_.blockHeight_, 65535);
+   EXPECT_EQ(sbh_.numBytes_, 0x11ee);
    EXPECT_EQ(sbh_.duplicateID_, 1);
 }
 
@@ -4770,7 +4771,7 @@ protected:
       bh_.unserialize(rawHead_);
       tx1_.unserialize(rawTx0_);
       tx2_.unserialize(rawTx1_);
-      sbh_.unserialize(rawHead_);
+      sbh_.setHeaderData(rawHead_);
 
       LOGDISABLESTDOUT();
    }
@@ -5298,7 +5299,7 @@ TEST_F(LevelDBTest, PutFullBlockNoTx)
    BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
    BinaryData hgtx  = READHEX("01e078""00");
    BinaryData sbh_HH_key = HHP + sbh.thisHash_;
-   BinaryData sbh_HH_val = sbh.dataCopy_ + hgtx;
+   BinaryData sbh_HH_val = sbh.dataCopy_ + hgtx + READHEX("46040000");
    BinaryData sbh_HG_key = hhl.getDBKey();
    BinaryData sbh_HG_val = hhl.serializeDBValue();
    
@@ -5348,7 +5349,7 @@ TEST_F(LevelDBTest, PutGetBareHeader)
    BinaryData header1 = BtcUtils::getHash256(newHeader);
 
    StoredHeader sbh2;
-   sbh2.unserialize(newHeader);
+   sbh2.setHeaderData(newHeader);
    sbh2.setKeyData(123000, UINT8_MAX);
    
    uint8_t newDup = iface_->putBareHeader(sbh2);
@@ -5363,7 +5364,7 @@ TEST_F(LevelDBTest, PutGetBareHeader)
       "b4450081d8c8c84db3936a1a334b035b");
    BinaryData header2 = BtcUtils::getHash256(anotherHead);
 
-   sbh3.unserialize(anotherHead);
+   sbh3.setHeaderData(anotherHead);
    sbh3.setKeyData(123000, UINT8_MAX);
    sbh3.isMainBranch_ = true;
    uint8_t anotherDup = iface_->putBareHeader(sbh3);
@@ -5413,7 +5414,7 @@ TEST_F(LevelDBTest, PutFullBlock)
    BinaryData HHP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHASH);
    BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
    BinaryData sbh_HH_key = HHP + sbh.thisHash_;
-   BinaryData sbh_HH_val = rawHeader + READHEX("01e078""00");
+   BinaryData sbh_HH_val = rawHeader + READHEX("01e078""00") + READHEX("46040000");
    BinaryData sbh_HG_key = hhl.getDBKey();
    BinaryData sbh_HG_val = hhl.serializeDBValue();
    // Only HEADHASH and HEADHGT entries get written

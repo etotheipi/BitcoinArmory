@@ -264,9 +264,7 @@ public:
    void setHeightAndDup(uint32_t hgt, uint8_t dupID);
    void setHeightAndDup(BinaryData hgtx);
 
-   void unserialize(BinaryData const & header80B);
-   void unserialize(BinaryDataRef header80B);
-   void unserialize(BinaryRefReader brr);
+   void setHeaderData(BinaryData const & header80B);
 
    void unserializeFullBlock(BinaryDataRef block, 
                              bool doFrag=true,

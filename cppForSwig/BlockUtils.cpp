@@ -1854,6 +1854,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
          sbh.blockHeight_  = bh.getBlockHeight();
          sbh.duplicateID_  = bh.getDuplicateID();
          sbh.isMainBranch_ = bh.isMainBranch();
+         sbh.numBytes_ = bh.getBlockSize();
          sbh.blockAppliedToDB_ = false;
 
          // Don't put it into the DB if it's not proper!
@@ -1879,6 +1880,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    sbh.duplicateID_  = bh.getDuplicateID();
    sbh.isMainBranch_ = bh.isMainBranch();
    sbh.blockAppliedToDB_ = false;
+   sbh.numBytes_ = bh.getBlockSize();
 
    // Don't put it into the DB if it's not proper!
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)

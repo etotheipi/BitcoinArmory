@@ -1178,7 +1178,14 @@ void LMDBBlockDatabase::readAllHeaders(
 
       sbh.unserializeDBValue(HEADERS, ldbIter.getValueRef());
       regHead.unserialize(sbh.dataCopy_);
+      regHead.setBlockSize(sbh.numBytes_);
 
+      if (sbh.thisHash_ != regHead.getThisHash())
+      {
+         LOGWARN << "Corruption detected: block header hash " <<
+            sbh.thisHash_.toHexStr() << " does not match "
+            << regHead.getThisHash().toHexStr();
+      }
       callback(regHead);
 
    } while(ldbIter.advanceAndRead(DB_PREFIX_HEADHASH));
