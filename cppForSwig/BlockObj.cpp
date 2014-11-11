@@ -888,7 +888,7 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
 }
 
 //////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
+TxIOPair::TxIOPair(const BinaryData& txOutKey8B, uint64_t val) :
    amount_(val),
    indexOfOutput_(0),
    indexOfInput_(0),
@@ -967,7 +967,7 @@ bool TxIOPair::setTxIn(TxRef  txref, uint32_t index)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxIn(BinaryData dbKey8B)
+bool TxIOPair::setTxIn(const BinaryData& dbKey8B)
 {
    if (dbKey8B.getSize() == 8)
    {
@@ -985,7 +985,7 @@ bool TxIOPair::setTxIn(BinaryData dbKey8B)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOut(BinaryData dbKey8B)
+bool TxIOPair::setTxOut(const BinaryData& dbKey8B)
 {
    if (dbKey8B.getSize() == 8)
    {
