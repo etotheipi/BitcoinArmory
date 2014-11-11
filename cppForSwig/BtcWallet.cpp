@@ -255,7 +255,7 @@ void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr
       {
          const ScrAddrObj & addr = sa.second;
          HashString scraddr = addr.getScrAddr();
-         cout << "\nAddress: " << scraddr.toHexStr().c_str() << endl;
+         cout << "\nAddress: " << scraddr.copySwapEndian().toHexStr() << endl;
          cout << "   Tot: " << addr.getFullBalance() << endl;
          cout << "   Spd: " << addr.getSpendableBalance(topBlk) << endl;
          cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
@@ -322,7 +322,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
       LOGERR << "   Tx Hash:      " << tx.getThisHash().copySwapEndian().toHexStr() 
                                << " (BE)";
       LOGERR << "   TxOut Index:  " << txoutidx;
-      LOGERR << "   PubKey Hash:  " << thisAddr.getScrAddr().toHexStr() << " (LE)";
+      LOGERR << "   PubKey Hash:  " << thisAddr.getScrAddr().copySwapEndian().toHexStr() << " (BE)";
       LOGERR << "   RawScript:    ";
       BinaryDataRef scr = txout.getScriptRef();
       size_t sz = scr.getSize(); 
