@@ -26,7 +26,6 @@ struct BlockDataManagerConfig
    ARMORY_DB_TYPE armoryDbType;
    DB_PRUNE_TYPE pruneType;
    
-   string homeDirLocation;
    string blkFileLocation;
    string levelDBLocation;
    

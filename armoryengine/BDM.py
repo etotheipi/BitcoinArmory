@@ -301,9 +301,8 @@ class BlockDataManager(object):
       
    #############################################################################
    @ActLikeASingletonBDM
-   def bdmConfig(self, armoryHomeDir=None, forInit=False):
+   def bdmConfig(self, forInit=False):
 
-      
       blkdir = ""
       
       if forInit == False:
@@ -319,14 +318,10 @@ class BlockDataManager(object):
             LOGERROR('Blockchain data not available: %s', blk1st)
             raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
-      if armoryHomeDir == None:
-         armoryHomeDir = ARMORY_HOME_DIR
       blockdir = blkdir
       leveldbdir = self.ldbdir
       
       if OS_WINDOWS:
-         if isinstance(ARMORY_HOME_DIR, unicode):
-            armoryHomeDir = ARMORY_HOME_DIR.encode('utf8')
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
          if isinstance(self.ldbdir, unicode):
@@ -335,7 +330,6 @@ class BlockDataManager(object):
       bdmConfig = Cpp.BlockDataManagerConfig()
       bdmConfig.armoryDbType = self.dbType
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
-      bdmConfig.homeDirLocation = armoryHomeDir
       bdmConfig.blkFileLocation = blockdir
       bdmConfig.levelDBLocation = leveldbdir
       bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)

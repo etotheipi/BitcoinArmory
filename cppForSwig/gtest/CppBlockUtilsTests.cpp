@@ -6354,7 +6354,6 @@ protected:
 
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
       
@@ -6464,7 +6463,6 @@ TEST_F(BlockDir, HeadersFirst)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6510,7 +6508,6 @@ TEST_F(BlockDir, HeadersFirstUpdate)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6561,7 +6558,6 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -7985,7 +7981,6 @@ protected:
       
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
       
@@ -8065,7 +8060,6 @@ protected:
       BlockDataManagerConfig config;
       config.armoryDbType = ARMORY_DB_SUPER;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
       
@@ -8486,7 +8480,6 @@ protected:
       BlockDataManagerConfig config;
       config.armoryDbType = ARMORY_DB_SUPER;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
 
@@ -8790,7 +8783,6 @@ protected:
 
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
       TheBDM.SetLevelDBLocation(ldbdir_);
 
       TestChain::addrA = READHEX("b077a2b5e8a53f1d3ef4100117125de6a5b15f6b");

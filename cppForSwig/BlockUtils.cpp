@@ -622,7 +622,6 @@ void BlockDataManager_LevelDB::setConfig(
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::openDatabase()
 {
-   LOGINFO << "Set home directory: " << config_.homeDirLocation;
    LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
    LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
    if (config_.genesisBlockHash.getSize() == 0)
