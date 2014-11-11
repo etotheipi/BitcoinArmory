@@ -814,11 +814,11 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
       return processedTxIO;
    }
 
-   OutPoint op; // reused
    uint8_t const * txStartPtr = tx.getPtr();
    for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
+      OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin), 36);
 
       //check ZC txhash first, always cheaper than grabing a stxo from DB,
