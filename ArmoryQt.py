@@ -51,6 +51,8 @@ from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.Wizards import WalletWizard, TxWizard
 from ui.toolsDialogs import MessageSigningVerificationDialog
+from dynamicImport import FILENAME_KEY, SOURCE_CODE_KEY, SOURCE_DIR_KEY,\
+   SIG_DATA_KEY, ZIP_EXTENSION
 
 
 # Load our framework with OS X-specific code.
@@ -920,12 +922,12 @@ class ArmoryMainWindow(QMainWindow):
       # loads the python files as raw chunks of text so we can
       # check hashes and signatures
       modMap = getModuleList(moduleDir)
-      for name,infoMap in modMap.iteritems():
-         modPath = os.path.join(infoMap['SourceDir'], infoMap['Filename'])
-         modHash = binary_to_hex(sha256(infoMap['SourceCode']))
+      for moduleName,infoMap in modMap.iteritems():
+         modPath = os.path.join(infoMap[SOURCE_DIR_KEY], infoMap[FILENAME_KEY])
+         modHash = binary_to_hex(sha256(infoMap[SOURCE_CODE_KEY]))
 
          isSignedByATI = False
-         if 'Signature' in infoMap:
+         if SIG_DATA_KEY in infoMap:
             """
             Signature file contains multiple lines, of the form "key=value\n"
             The last line is the hex-encoded signature, which is over the 
@@ -933,16 +935,16 @@ class ArmoryMainWindow(QMainWindow):
             The key-value lines may contain properties such as signature 
             validity times/expiration, contact info of author, etc.
             """
-            sigFile = infoMap['SigData']
+            sigFile = infoMap[SIG_DATA_KEY]
             sigLines = [line.strip() for line in sigFile.strip().split('\n')]
             properties = dict([line.split('=') for line in sigLines[:-1]])
-            msgSigned = infoMap['SourceCode'] + '\x00' + '\n'.join(sigLines[:1])
+            msgSigned = infoMap[SOURCE_CODE_KEY] + '\x00' + '\n'.join(sigLines[:1])
 
             sbdMsg = SecureBinaryData(sha256(msgSigned))
             sbdSig = SecureBinaryData(hex_to_binary(sigLines[-1]))
             sbdPub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
             isSignedByATI = CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub)
-            LOGWARN('Sig on "%s" is valid: %s' % (name, str(isSignedByATI)))
+            LOGWARN('Sig on "%s" is valid: %s' % (moduleName, str(isSignedByATI)))
             
 
          if not isSignedByATI and not USE_TESTNET:
@@ -954,25 +956,25 @@ class ArmoryMainWindow(QMainWindow):
                   <b>Module Path:</b>  %s<br>
                   <b>Module Hash:</b>  %s<br>
                <br><br>
-               You should <u>never</u> trust unsigned modules!  At this time,
-               Armory will not allow you to run this module unless you are 
-               in testnet mode.""") % \
-               (name, modPath, modHash[:16]), QMessageBox.Ok)
+               Armory will not allow you to run this module.""") % \
+               (moduleName, modPath, modHash[:16]), QMessageBox.Ok)
 
             if not reply==QMessageBox.Yes:
                continue
+            
+         if modPath.endswith(ZIP_EXTENSION):
+            ZipFile(modPath).extractall(moduleDir)
 
-
-         module = dynamicImport(moduleDir, name, globals())
+         module = dynamicImport(moduleDir, moduleName, globals())
          plugObj = module.PluginObject(self)
 
          if not hasattr(plugObj,'getTabToDisplay') or \
             not hasattr(plugObj,'tabName'):
             LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
-            QMessageBox.critical(self, tr("Bad Module"), tr("""
+            QMessageBox.critmoduleName(self, tr("Bad Module"), tr("""
                The module you attempted to load (%s) is malformed.  It is 
                missing attributes that are needed for Armory to load it.  
-               It will be skipped.""") % name, QMessageBox.Ok)
+               It will be skipped.""") % moduleName, QMessageBox.Ok)
             continue
                
          verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))

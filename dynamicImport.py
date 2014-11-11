@@ -1,7 +1,22 @@
 import os
 import sys
 from armoryengine.ArmoryUtils import LOGEXCEPT
+from zipfile import ZipFile
+ZIP_EXTENSION = '.zip'
+PY_EXTENSION = '.py'
+SIG_EXTENSION = '.sig'
+SOURCE_DIR_KEY = 'SourceDir'
+SIG_DATA_KEY = 'SigData'
+FILENAME_KEY = 'Filename'
+SOURCE_CODE_KEY = 'SourceCode'
 
+
+def getZipContents(filePath):
+   zipFile = ZipFile(filePath)
+   zipContents = []
+   for fileName in zipFile.namelist():
+      zipContents.append(zipFile.read(fileName))
+   return ''.join(zipContents)
 
 def getModuleList(inDir):
    moduleMap = {}
@@ -9,27 +24,34 @@ def getModuleList(inDir):
       return moduleMap
 
    
-   for fn in os.listdir(inDir):
-      if not fn.endswith('.py') and not fn.endswith('.sig'):
+   for fileName in os.listdir(inDir):
+
+      if not fileName.endswith(ZIP_EXTENSION) and not fileName.endswith(PY_EXTENSION) and not fileName.endswith(SIG_EXTENSION):
          continue
 
       try:
-         modName = fn.split('.')[0]
-         fullfn = os.path.join(inDir, fn)
-         with open(fullfn, 'r') as f:
-            fileData = f.read()
+         modName = fileName.split('.')[0]
+         filePath = os.path.join(inDir, fileName)
 
          if not modName in moduleMap:
             moduleMap[modName] = {}
-      
-         if fn.endswith('.py'):
-            moduleMap[modName]['SourceCode'] = fileData
-            moduleMap[modName]['SourceDir']  = inDir
-            moduleMap[modName]['Filename']   = fn
-         elif fn.endswith('.sig'):
-            moduleMap[modName]['SigData']  = fileData
+            
+         if fileName.endswith(ZIP_EXTENSION):
+            moduleMap[modName][SOURCE_CODE_KEY] = getZipContents(filePath)
+            moduleMap[modName][SOURCE_DIR_KEY]  = inDir
+            moduleMap[modName][FILENAME_KEY]   = fileName
+         elif fileName.endswith(PY_EXTENSION):
+            with open(filePath, 'r') as f:
+               fileData = f.read()
+            moduleMap[modName][SOURCE_CODE_KEY] = fileData
+            moduleMap[modName][SOURCE_DIR_KEY]  = inDir
+            moduleMap[modName][FILENAME_KEY]   = fileName
+         elif fileName.endswith(SIG_EXTENSION):
+            with open(filePath, 'r') as f:
+               fileData = f.read()
+            moduleMap[modName][SIG_DATA_KEY]  = fileData
       except:
-         LOGEXCEPT('Loading plugin %s failed.  Skipping' % fullfn)
+         LOGEXCEPT('Loading plugin %s failed.  Skipping' % filePath)
          
       
    return moduleMap
