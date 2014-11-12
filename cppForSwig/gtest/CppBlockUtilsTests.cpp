@@ -6332,21 +6332,18 @@ protected:
 
    // Run this before registering a BDM.
    void regWallet(const vector<BinaryData>& scrAddrs, const string& wltName,
-                  BlockDataViewer*& inBDV, BtcWallet*& inWlt)
+                  BlockDataViewer*& inBDV, BtcWallet** inWlt)
    {
       // Register the standalone address wallet. (All registrations should be
       // done before initializing the BDM. This is critical!)
-      inWlt = inBDV->registerWallet(scrAddrs, wltName, false);
-      if(inWlt == nullptr)
-      {
-         cout << "DOUG DEBUG: NULL PTR IS NULL!" << endl;
-      }
+      *inWlt = inBDV->registerWallet(scrAddrs, wltName, false);
    }
+
 
    // Run this before registering a BDM. (For now, just make the two lockboxes a
    // package deal. Code can be altered later if needed.)
-   void regLockboxes(BlockDataViewer*& inBDV, BtcWallet*& inLB1,
-                     BtcWallet*& inLB2)
+   void regLockboxes(BlockDataViewer*& inBDV, BtcWallet** inLB1,
+                     BtcWallet** inLB2)
    {
       // Register the two lockboxes. Note that the lockbox data is pulled from
       // createTestChain.py, the script that built most of the blocks used in
@@ -6365,8 +6362,8 @@ protected:
          TestChain::lb2ScrAddr,
          TestChain::lb2ScrAddrP2SH
       };
-      inLB1 = inBDV->registerLockbox(lb1ScrAddrs, TestChain::lb1B58ID, false);
-      inLB2 = inBDV->registerLockbox(lb2ScrAddrs, TestChain::lb2B58ID, false);
+      *inLB1 = inBDV->registerLockbox(lb1ScrAddrs, TestChain::lb1B58ID, false);
+      *inLB2 = inBDV->registerLockbox(lb2ScrAddrs, TestChain::lb2B58ID, false);
    }
 
 
@@ -6806,8 +6803,8 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    BtcWallet* wlt;
    BtcWallet* wltLB1;
    BtcWallet* wltLB2;
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
@@ -6839,8 +6836,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_DamagedBlkFile)
    BtcWallet* wlt;
    BtcWallet* wltLB1;
    BtcWallet* wltLB2;
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    // this test should be reworked to be in terms of createTestChain.py
    BtcUtils::copyFile("../reorgTest/botched_block.dat", blk0dat_);
@@ -6871,8 +6868,8 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    BtcWallet* wlt;
    BtcWallet* wltLB1;
    BtcWallet* wltLB2;
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
@@ -6930,8 +6927,8 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    BtcWallet* wlt;
    BtcWallet* wltLB1;
    BtcWallet* wltLB2;
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    wlt->addScrAddress(TestChain::scrAddrE);
 
@@ -7049,8 +7046,8 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    BtcWallet* wlt;
    BtcWallet* wltLB1;
    BtcWallet* wltLB2;
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    wlt->addScrAddress(TestChain::scrAddrE);
 
@@ -7142,8 +7139,8 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    theBDV = new BlockDataViewer(theBDM);
    iface_ = theBDM->getIFace();
 
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
@@ -7244,14 +7241,14 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet2", theBDV, &wlt2);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
@@ -7295,12 +7292,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load5Blocks_DoubleReorg)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
-   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet2", theBDV, &wlt2);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    // this file doesn't exist, rewrite it in terms of createTestChain.py
    BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_, 1596);
@@ -7354,15 +7351,15 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
-   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet2", theBDV, &wlt2);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
-   
+
    //reload BDM
    delete theBDV;
    delete theBDM;
@@ -7379,13 +7376,13 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
+   regWallet(scrAddrVec, "wallet2", theBDV, &wlt2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
@@ -7421,8 +7418,8 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    {
@@ -7469,8 +7466,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    // Regular sync
    TheBDM.doInitialSyncOnLoad(nullProgress);
@@ -7550,8 +7547,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    TheBDM.doInitialSyncOnLoad_Rescan(nullProgress);
    //TheBDM.scanBlockchainForTx(wlt);
@@ -7584,8 +7581,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    ///////////////////////////////////////////
    TheBDM.doInitialSyncOnLoad_Rebuild(nullProgress);
@@ -7619,8 +7616,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad(nullProgress);
@@ -7686,8 +7683,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    scrAddrVec.push_back(TestChain::scrAddrC);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
-   regLockboxes(theBDV, wltLB1, wltLB2);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad(nullProgress);
