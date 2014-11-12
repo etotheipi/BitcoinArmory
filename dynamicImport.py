@@ -5,7 +5,6 @@ from zipfile import ZipFile
 ZIP_EXTENSION = '.zip'
 PY_EXTENSION = '.py'
 SIG_EXTENSION = '.sig'
-SOURCE_DIR_KEY = 'SourceDir'
 SIG_DATA_KEY = 'SigData'
 FILENAME_KEY = 'Filename'
 SOURCE_CODE_KEY = 'SourceCode'
@@ -18,46 +17,36 @@ def getZipContents(filePath):
       zipContents.append(zipFile.read(fileName))
    return ''.join(zipContents)
 
-def getModuleList(inDir):
+def getModuleList(zipDir):
    moduleMap = {}
-   if not os.path.exists(inDir):
-      return moduleMap
-
-   
-   for fileName in os.listdir(inDir):
-
-      if not fileName.endswith(ZIP_EXTENSION) and not fileName.endswith(PY_EXTENSION) and not fileName.endswith(SIG_EXTENSION):
-         continue
-
-      try:
-         modName = fileName.split('.')[0]
-         filePath = os.path.join(inDir, fileName)
-
-         if not modName in moduleMap:
-            moduleMap[modName] = {}
-            
+   if os.path.exists(zipDir):
+      for fileName in os.listdir(zipDir):
          if fileName.endswith(ZIP_EXTENSION):
-            moduleMap[modName][SOURCE_CODE_KEY] = getZipContents(filePath)
-            moduleMap[modName][SOURCE_DIR_KEY]  = inDir
-            moduleMap[modName][FILENAME_KEY]   = fileName
-         elif fileName.endswith(PY_EXTENSION):
-            with open(filePath, 'r') as f:
-               fileData = f.read()
-            moduleMap[modName][SOURCE_CODE_KEY] = fileData
-            moduleMap[modName][SOURCE_DIR_KEY]  = inDir
-            moduleMap[modName][FILENAME_KEY]   = fileName
-         elif fileName.endswith(SIG_EXTENSION):
-            with open(filePath, 'r') as f:
-               fileData = f.read()
-            moduleMap[modName][SIG_DATA_KEY]  = fileData
-      except:
-         LOGEXCEPT('Loading plugin %s failed.  Skipping' % filePath)
-         
+            try:
+               modName = fileName.split('.')[0]
+               filePath = os.path.join(zipDir, fileName)
       
+               if not modName in moduleMap:
+                  moduleMap[modName] = {}
+                  
+               if fileName.endswith(ZIP_EXTENSION):
+                  moduleMap[modName][SOURCE_CODE_KEY] = getZipContents(filePath)
+                  moduleMap[modName][FILENAME_KEY]   = fileName
+               elif fileName.endswith(PY_EXTENSION):
+                  with open(filePath, 'r') as f:
+                     fileData = f.read()
+                  moduleMap[modName][SOURCE_CODE_KEY] = fileData
+                  moduleMap[modName][FILENAME_KEY]   = fileName
+               elif fileName.endswith(SIG_EXTENSION):
+                  with open(filePath, 'r') as f:
+                     fileData = f.read()
+                  moduleMap[modName][SIG_DATA_KEY]  = fileData
+            except:
+               LOGEXCEPT('Loading plugin %s failed.  Skipping' % filePath)
    return moduleMap
       
 
-def dynamicImport(inDir, moduleName, injectLocals=None):
+def importModule(modulesDir, moduleName, injectLocals=None):
    """
    We import from an arbitrary directory, we need to add the dir
    to sys.path, but we want to prevent any shenanigans by an imported
@@ -73,13 +62,13 @@ def dynamicImport(inDir, moduleName, injectLocals=None):
    if injectLocals is None:
       injectLocals = {}
 
-   pluginPath = os.path.join(inDir, moduleName+'.py')  
+   pluginPath = os.path.join(modulesDir, moduleName+'.py')  
    if not os.path.exists(pluginPath):
       return None
 
    # Join using a character that would be invalid in a pathname
    prevSysPath = '\x00'.join(sys.path)
-   sys.path.append(inDir)
+   sys.path.append(modulesDir)
 
 
    modTemp = __import__(moduleName)
