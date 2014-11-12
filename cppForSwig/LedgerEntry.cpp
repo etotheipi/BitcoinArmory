@@ -79,10 +79,10 @@ bool LedgerEntry::operator==(LedgerEntry const & le2) const
 void LedgerEntry::pprint(void)
 {
    cout << "LedgerEntry: " << endl;
-   cout << "   ScrAddr : " << getScrAddr().toHexStr() << endl;
+   cout << "   ScrAddr : " << getScrAddr().copySwapEndian().toHexStr() << endl;
    cout << "   Value   : " << getValue()/1e8 << endl;
    cout << "   BlkNum  : " << getBlockNum() << endl;
-   cout << "   TxHash  : " << getTxHash().toHexStr() << endl;
+   cout << "   TxHash  : " << getTxHash().copySwapEndian().toHexStr() << endl;
    cout << "   TxIndex : " << getIndex() << endl;
    cout << "   Coinbase: " << (isCoinbase() ? 1 : 0) << endl;
    cout << "   sentSelf: " << (isSentToSelf() ? 1 : 0) << endl;
@@ -216,7 +216,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
 
          if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
             txHash = txioIter->getTxHashOfOutput(db);
-         else if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+         else if (txioIter->getDBKeyOfInput().startsWith(txioVec.first))
             txHash = txioIter->getTxHashOfInput(db);
       }
 

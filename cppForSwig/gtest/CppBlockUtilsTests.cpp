@@ -44,6 +44,38 @@
 
 #define TheBDM (*theBDM)
 
+static uint32_t getTopBlockHeightInDB(BlockDataManager_LevelDB &bdm, DB_SELECT db)
+{
+   StoredDBInfo sdbi;
+   bdm.getIFace()->getStoredDBInfo(db, sdbi, false); 
+   return sdbi.topBlkHgt_;
+}
+
+static uint64_t getDBBalanceForHash160(
+   BlockDataManager_LevelDB &bdm,
+   BinaryDataRef addr160
+)
+{
+   StoredScriptHistory ssh;
+
+   bdm.getIFace()->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
+   if(!ssh.isInitialized())
+      return 0;
+
+   return ssh.getScriptBalance();
+}
+
+
+/*
+unused
+static uint32_t getAppliedToHeightInDB(BlockDataManager_LevelDB &bdm)
+{
+   StoredDBInfo sdbi;
+   bdm.getIFace()->getStoredDBInfo(BLKDATA, sdbi, false); 
+   return sdbi.appliedToHgt_;
+}
+*/
+
 // Utility function - Clean up comments later
 static int char2int(char input)
 {
@@ -108,6 +140,11 @@ static void setBlocks(const std::vector<std::string> &files, const std::string &
    
    for (const std::string &f : files)
       concatFile("../reorgTest/blk_" + f + ".dat", to);
+}
+
+static void nullProgress(unsigned, double, unsigned, unsigned)
+{
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2859,7 +2896,7 @@ protected:
       tx2_.unserialize(rawTx1_);
 
 
-      sbh_.unserialize(rawHead_);
+      sbh_.setHeaderData(rawHead_);
    }
 
    BinaryData PREFBYTE(DB_PREFIX pref) 
@@ -3259,10 +3296,10 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
    sbh_.merkleIsPartial_  = false;
    sbh_.isMainBranch_     = true;
    sbh_.numTx_            = 15;
-   sbh_.numBytes_         = 65535;
+   sbh_.numBytes_         = 0xdeadbeef;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData last4 = READHEX("00ffff01");
+   BinaryData last4 = READHEX("00ffff01efbeadde");
    EXPECT_EQ(serializeDBValue(sbh_, HEADERS, ARMORY_DB_FULL, DB_PRUNE_NONE), rawHead_ + last4);
 }
 
@@ -3351,12 +3388,13 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_H)
    BinaryData dbval = READHEX(
       "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
       "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
-      "b4450081d8c8c84db3936a1a334b035b00ffff01");
+      "b4450081d8c8c84db3936a1a334b035b00ffff01ee110000");
 
    BinaryRefReader brr(dbval);
    sbh_.unserializeDBValue(HEADERS, brr);
 
    EXPECT_EQ(sbh_.blockHeight_, 65535);
+   EXPECT_EQ(sbh_.numBytes_, 0x11ee);
    EXPECT_EQ(sbh_.duplicateID_, 1);
 }
 
@@ -4770,7 +4808,7 @@ protected:
       bh_.unserialize(rawHead_);
       tx1_.unserialize(rawTx0_);
       tx2_.unserialize(rawTx1_);
-      sbh_.unserialize(rawHead_);
+      sbh_.setHeaderData(rawHead_);
 
       LOGDISABLESTDOUT();
    }
@@ -5298,7 +5336,7 @@ TEST_F(LevelDBTest, PutFullBlockNoTx)
    BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
    BinaryData hgtx  = READHEX("01e078""00");
    BinaryData sbh_HH_key = HHP + sbh.thisHash_;
-   BinaryData sbh_HH_val = sbh.dataCopy_ + hgtx;
+   BinaryData sbh_HH_val = sbh.dataCopy_ + hgtx + READHEX("46040000");
    BinaryData sbh_HG_key = hhl.getDBKey();
    BinaryData sbh_HG_val = hhl.serializeDBValue();
    
@@ -5348,7 +5386,7 @@ TEST_F(LevelDBTest, PutGetBareHeader)
    BinaryData header1 = BtcUtils::getHash256(newHeader);
 
    StoredHeader sbh2;
-   sbh2.unserialize(newHeader);
+   sbh2.setHeaderData(newHeader);
    sbh2.setKeyData(123000, UINT8_MAX);
    
    uint8_t newDup = iface_->putBareHeader(sbh2);
@@ -5363,7 +5401,7 @@ TEST_F(LevelDBTest, PutGetBareHeader)
       "b4450081d8c8c84db3936a1a334b035b");
    BinaryData header2 = BtcUtils::getHash256(anotherHead);
 
-   sbh3.unserialize(anotherHead);
+   sbh3.setHeaderData(anotherHead);
    sbh3.setKeyData(123000, UINT8_MAX);
    sbh3.isMainBranch_ = true;
    uint8_t anotherDup = iface_->putBareHeader(sbh3);
@@ -5413,7 +5451,7 @@ TEST_F(LevelDBTest, PutFullBlock)
    BinaryData HHP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHASH);
    BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
    BinaryData sbh_HH_key = HHP + sbh.thisHash_;
-   BinaryData sbh_HH_val = rawHeader + READHEX("01e078""00");
+   BinaryData sbh_HH_val = rawHeader + READHEX("01e078""00") + READHEX("46040000");
    BinaryData sbh_HG_key = hhl.getDBKey();
    BinaryData sbh_HG_val = hhl.serializeDBValue();
    // Only HEADHASH and HEADHGT entries get written
@@ -6356,7 +6394,6 @@ protected:
 
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
       
@@ -6412,7 +6449,7 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, BuildNoRegisterWlt)
 {
-   TheBDM.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   TheBDM.doInitialSyncOnLoad( nullProgress ); 
 }
 
 
@@ -6462,7 +6499,6 @@ TEST_F(BlockDir, HeadersFirst)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6487,7 +6523,7 @@ TEST_F(BlockDir, HeadersFirst)
    BlockDataViewer bdv(&bdm);
    BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
    
-   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   bdm.doInitialSyncOnLoad( nullProgress ); 
    
    bdv.scanWallets();
    
@@ -6508,7 +6544,6 @@ TEST_F(BlockDir, HeadersFirstUpdate)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6533,7 +6568,7 @@ TEST_F(BlockDir, HeadersFirstUpdate)
    BlockDataViewer bdv(&bdm);
    BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
    
-   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   bdm.doInitialSyncOnLoad( nullProgress ); 
    
    bdv.scanWallets();
    
@@ -6559,7 +6594,6 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6584,7 +6618,7 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
    BlockDataViewer bdv(&bdm);
    BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
    
-   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   bdm.doInitialSyncOnLoad( nullProgress ); 
    
    bdv.scanWallets();
    
@@ -6617,7 +6651,6 @@ TEST_F(BlockDir, AddBlockWhileUpdating)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6640,7 +6673,7 @@ TEST_F(BlockDir, AddBlockWhileUpdating)
    BlockDataViewer bdv(&bdm);
    BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
    
-   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   bdm.doInitialSyncOnLoad( nullProgress ); 
    
    bdv.scanWallets();
    
@@ -6674,7 +6707,6 @@ TEST_F(BlockDir, BlockFileSplit)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6698,7 +6730,7 @@ TEST_F(BlockDir, BlockFileSplit)
    BlockDataViewer bdv(&bdm);
    BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
    
-   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   bdm.doInitialSyncOnLoad( nullProgress ); 
    bdv.scanWallets();
    
    
@@ -6720,7 +6752,6 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
-   config.homeDirLocation = homedir_;
    config.blkFileLocation = blkdir_;
    config.levelDBLocation = ldbdir_;
    
@@ -6742,7 +6773,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
    BlockDataViewer bdv(&bdm);
    BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
    
-   bdm.doInitialSyncOnLoad( [] (unsigned, double,unsigned) {} ); 
+   bdm.doInitialSyncOnLoad( nullProgress ); 
    bdv.scanWallets();
  
    std::string blk1dat = BtcUtils::getBlkFilename(blkdir_, 1);
@@ -6778,7 +6809,7 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    regWallet(scrAddrVec, "wallet1", theBDV, wlt);
    regLockboxes(theBDV, wltLB1, wltLB2);
 
-   TheBDM.doInitialSyncOnLoad([] (unsigned, double,unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
 
    const ScrAddrObj* scrObj;
@@ -6813,7 +6844,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_DamagedBlkFile)
 
    // this test should be reworked to be in terms of createTestChain.py
    BtcUtils::copyFile("../reorgTest/botched_block.dat", blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
 
    const ScrAddrObj* scrObj;
@@ -6846,7 +6877,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
@@ -6907,7 +6938,7 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
@@ -6943,7 +6974,7 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
    wlt->addScrAddress(TestChain::scrAddrE);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
@@ -7025,7 +7056,7 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
 
    //copy the first 3 blocks
    setBlocks({ "0", "1", "2" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    //enable ZC after the initial sync
    theBDV->enableZeroConf();
@@ -7114,7 +7145,7 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    regWallet(scrAddrVec, "wallet1", theBDV, wlt);
    regLockboxes(theBDV, wltLB1, wltLB2);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
@@ -7273,7 +7304,7 @@ TEST_F(BlockUtilsBare, DISABLED_Load5Blocks_DoubleReorg)
 
    // this file doesn't exist, rewrite it in terms of createTestChain.py
    BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
 
    //first reorg: add blocks 3 and 4
@@ -7330,8 +7361,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
    regLockboxes(theBDV, wltLB1, wltLB2);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
-
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+   
    //reload BDM
    delete theBDV;
    delete theBDM;
@@ -7356,7 +7387,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    scrAddrVec.push_back(TestChain::scrAddrF);
    regWallet(scrAddrVec, "wallet2", theBDV, wlt);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
 
    EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 5);
@@ -7393,7 +7424,7 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    regWallet(scrAddrVec, "wallet1", theBDV, wlt);
    regLockboxes(theBDV, wltLB1, wltLB2);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    {
       setBlocks({ "0", "1", "2", "3", "4A", "5A" }, blk0dat_);
       const uint64_t srcsz = BtcUtils::GetFileSize(blk0dat_);
@@ -7442,7 +7473,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    regLockboxes(theBDV, wltLB1, wltLB2);
 
    // Regular sync
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -7458,7 +7489,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
    // Rebuild on-the-fly
-   TheBDM.doRebuildDatabases([](unsigned, double, unsigned) {});
+   TheBDM.doRebuildDatabases(nullProgress);
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -7475,7 +7506,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 
    // Rebuild on-the-fly
    // used to be doFullRescanRegardlessOfSync, but this is a synonym
-   TheBDM.doInitialSyncOnLoad_Rebuild([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad_Rebuild(nullProgress);
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -7490,7 +7521,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
    EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -7522,7 +7553,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
    regWallet(scrAddrVec, "wallet1", theBDV, wlt);
    regLockboxes(theBDV, wltLB1, wltLB2);
 
-   TheBDM.doInitialSyncOnLoad_Rescan([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad_Rescan(nullProgress);
    //TheBDM.scanBlockchainForTx(wlt);
 
    const ScrAddrObj* scrObj;
@@ -7557,7 +7588,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
    regLockboxes(theBDV, wltLB1, wltLB2);
 
    ///////////////////////////////////////////
-   TheBDM.doInitialSyncOnLoad_Rebuild([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad_Rebuild(nullProgress);
    ///////////////////////////////////////////
 
    //TheBDM.scanBlockchainForTx(wlt);
@@ -7592,7 +7623,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    regLockboxes(theBDV, wltLB1, wltLB2);
 
    // This is just a regular load
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    //post initial load address registration
    wlt->addScrAddress(TestChain::scrAddrD);
@@ -7617,7 +7648,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doInitialSyncOnLoad_Rescan([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad_Rescan(nullProgress);
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
@@ -7630,7 +7661,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doRebuildDatabases([](unsigned, double, unsigned) {});
+   TheBDM.doRebuildDatabases(nullProgress);
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
@@ -7659,7 +7690,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    regLockboxes(theBDV, wltLB1, wltLB2);
 
    // This is just a regular load
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    wlt->addScrAddress(TestChain::scrAddrD);
 
@@ -7687,7 +7718,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
@@ -7704,7 +7735,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    ///////////////////////////////////////////
    theBDV->reset();
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
@@ -8029,7 +8060,6 @@ protected:
       
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
       
@@ -8070,7 +8100,7 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
 
    BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    //TheBDM.scanBlockchainForTx(wlt);
 }
 
@@ -8109,7 +8139,6 @@ protected:
       BlockDataManagerConfig config;
       config.armoryDbType = ARMORY_DB_SUPER;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
       
@@ -8238,7 +8267,7 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks)
 {
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    StoredScriptHistory ssh;
 
@@ -8279,7 +8308,7 @@ TEST_F(BlockUtilsSuper, Load4BlocksPlus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
@@ -8296,7 +8325,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 {
 //    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
 //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
 
    setBlocks({ "0", "1", "2", "3", "4", "5", "4A" }, blk0dat_);
@@ -8319,7 +8348,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 {
 //    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
 //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    setBlocks({ "0", "1", "2", "3", "4", "5", "4A" }, blk0dat_);
    TheBDM.readBlkFileUpdate();
@@ -8366,7 +8395,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
@@ -8376,10 +8405,10 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
 
    // Now reinitialize the DB and hopefully detect the new blocks and update
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, HEADERS), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, BLKDATA), 4);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash4).isMainBranch());
 
    StoredScriptHistory ssh;
@@ -8412,7 +8441,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
@@ -8424,10 +8453,10 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
 
    uint32_t replayRewind = 700;
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
-   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, HEADERS), 4);
+   EXPECT_EQ(getTopBlockHeightInDB(TheBDM, BLKDATA), 4);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash4).isMainBranch());
 
    StoredScriptHistory ssh;
@@ -8478,12 +8507,12 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
    blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
 
    StoredScriptHistory ssh;
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
    BinaryData scrAddr4 = READHEX("6c22eb00e3f93acac5ae5d81a9db78a645dfc9c7");
-   EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
+   EXPECT_EQ(getDBBalanceForHash160(TheBDM, scrAddr), 18*COIN);
    /*TheBDM.pprintSSHInfoAboutHash160(scrAddr);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr3);
@@ -8530,7 +8559,6 @@ protected:
       BlockDataManagerConfig config;
       config.armoryDbType = ARMORY_DB_SUPER;
       config.pruneType = DB_PRUNE_NONE;
-      config.homeDirLocation = homedir_;
       config.blkFileLocation = blkdir_;
       config.levelDBLocation = ldbdir_;
 
@@ -8622,7 +8650,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 
    setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    theBDV->scanWallets();
 
@@ -8656,7 +8684,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
 {
    setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    // We do all the database stuff first, THEN load the addresses
    vector<BinaryData> scrAddrVec;
@@ -8834,7 +8862,6 @@ protected:
 
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
       TheBDM.SetLevelDBLocation(ldbdir_);
 
       TestChain::addrA = READHEX("b077a2b5e8a53f1d3ef4100117125de6a5b15f6b");
@@ -8942,7 +8969,7 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
    wlt.addScrAddress(TestChain::scrAddrD);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 

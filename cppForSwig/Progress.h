@@ -52,13 +52,11 @@ public:
 class ProgressReporterFilter : public ProgressReporter
 {
    ProgressReporter *const to_;
-   const double scale_;
    double progress_=0.0;
    unsigned secondsRemaining_=0;
-   bool never_=true;
 
 public:
-   ProgressReporterFilter(ProgressReporter *to, double scale=1.0);
+   ProgressReporterFilter(ProgressReporter *to);
    
    virtual void progress(
       double progress, unsigned secondsRemaining
@@ -68,8 +66,11 @@ public:
 class ProgressFilter : public ProgressReporterFilter
 {
    ProgressCalculator calc_;
+   const int64_t offset_=0;
 public:
-   ProgressFilter(ProgressReporter *to, uint64_t total, double scale=1.0);
+   ProgressFilter(ProgressReporter *to, uint64_t total);
+   // when advance(x) is called, offset is added to 'x'
+   ProgressFilter(ProgressReporter *to, int64_t offset, uint64_t total);
    ~ProgressFilter();
    
    void advance(uint64_t to);

@@ -1,41 +1,52 @@
 import os
 import sys
 from armoryengine.ArmoryUtils import LOGEXCEPT
+from zipfile import ZipFile
+ZIP_EXTENSION = '.zip'
+PY_EXTENSION = '.py'
+SIG_EXTENSION = '.sig'
+SIG_DATA_KEY = 'SigData'
+FILENAME_KEY = 'Filename'
+SOURCE_CODE_KEY = 'SourceCode'
 
 
-def getModuleList(inDir):
+def getZipContents(filePath):
+   zipFile = ZipFile(filePath)
+   zipContents = []
+   for fileName in zipFile.namelist():
+      zipContents.append(zipFile.read(fileName))
+   return ''.join(zipContents)
+
+def getModuleList(zipDir):
    moduleMap = {}
-   if not os.path.exists(inDir):
-      return moduleMap
-
-   
-   for fn in os.listdir(inDir):
-      if not fn.endswith('.py') and not fn.endswith('.sig'):
-         continue
-
-      try:
-         modName = fn.split('.')[0]
-         fullfn = os.path.join(inDir, fn)
-         with open(fullfn, 'r') as f:
-            fileData = f.read()
-
-         if not modName in moduleMap:
-            moduleMap[modName] = {}
+   if os.path.exists(zipDir):
+      for fileName in os.listdir(zipDir):
+         if fileName.endswith(ZIP_EXTENSION):
+            try:
+               modName = fileName.split('.')[0]
+               filePath = os.path.join(zipDir, fileName)
       
-         if fn.endswith('.py'):
-            moduleMap[modName]['SourceCode'] = fileData
-            moduleMap[modName]['SourceDir']  = inDir
-            moduleMap[modName]['Filename']   = fn
-         elif fn.endswith('.sig'):
-            moduleMap[modName]['SigData']  = fileData
-      except:
-         LOGEXCEPT('Loading plugin %s failed.  Skipping' % fullfn)
-         
-      
+               if not modName in moduleMap:
+                  moduleMap[modName] = {}
+                  
+               if fileName.endswith(ZIP_EXTENSION):
+                  moduleMap[modName][SOURCE_CODE_KEY] = getZipContents(filePath)
+                  moduleMap[modName][FILENAME_KEY]   = fileName
+               elif fileName.endswith(PY_EXTENSION):
+                  with open(filePath, 'r') as f:
+                     fileData = f.read()
+                  moduleMap[modName][SOURCE_CODE_KEY] = fileData
+                  moduleMap[modName][FILENAME_KEY]   = fileName
+               elif fileName.endswith(SIG_EXTENSION):
+                  with open(filePath, 'r') as f:
+                     fileData = f.read()
+                  moduleMap[modName][SIG_DATA_KEY]  = fileData
+            except:
+               LOGEXCEPT('Loading plugin %s failed.  Skipping' % filePath)
    return moduleMap
       
 
-def dynamicImport(inDir, moduleName, injectLocals=None):
+def importModule(modulesDir, moduleName, injectLocals=None):
    """
    We import from an arbitrary directory, we need to add the dir
    to sys.path, but we want to prevent any shenanigans by an imported
@@ -51,13 +62,13 @@ def dynamicImport(inDir, moduleName, injectLocals=None):
    if injectLocals is None:
       injectLocals = {}
 
-   pluginPath = os.path.join(inDir, moduleName+'.py')  
+   pluginPath = os.path.join(modulesDir, moduleName+'.py')  
    if not os.path.exists(pluginPath):
       return None
 
    # Join using a character that would be invalid in a pathname
    prevSysPath = '\x00'.join(sys.path)
-   sys.path.append(inDir)
+   sys.path.append(modulesDir)
 
 
    modTemp = __import__(moduleName)

@@ -642,7 +642,7 @@ public:
    TxIOPair(void);
    explicit TxIOPair(uint64_t amount);
    explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex);
-   explicit TxIOPair(BinaryData txOutKey8B, uint64_t value);
+   explicit TxIOPair(const BinaryData& txOutKey8B, uint64_t value);
    explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex, 
                      TxRef txRefI, uint32_t txinIndex);
 
@@ -690,9 +690,9 @@ public:
    TxIn  getTxInCopy (LMDBBlockDatabase *db) const;
 
    bool setTxIn   (TxRef  txref, uint32_t index);
-   bool setTxIn   (BinaryData dbKey8B);
+   bool setTxIn   (const BinaryData& dbKey8B);
    bool setTxOut  (TxRef  txref, uint32_t index);
-   bool setTxOut  (BinaryData dbKey8B);
+   bool setTxOut  (const BinaryData& dbKey8B);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }

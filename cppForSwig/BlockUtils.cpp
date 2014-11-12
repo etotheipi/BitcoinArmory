@@ -622,7 +622,6 @@ void BlockDataManager_LevelDB::setConfig(
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::openDatabase()
 {
-   LOGINFO << "Set home directory: " << config_.homeDirLocation;
    LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
    LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
    if (config_.genesisBlockHash.getSize() == 0)
@@ -696,84 +695,6 @@ pair<BlockFilePosition, vector<BlockHeader*>>
    return { position, blockHeadersAdded };
 }
 
-uint64_t BlockDataManager_LevelDB::getTotalBlockchainBytes() const
-{
-   return readBlockHeaders_->totalBlockchainBytes();
-}
-
-uint32_t BlockDataManager_LevelDB::getTotalBlkFiles()        const
-{
-   return readBlockHeaders_->numBlockFiles();
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::getTopBlockHeightInDB(DB_SELECT db)
-{
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(db, sdbi, false); 
-   return sdbi.topBlkHgt_;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
-{
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(BLKDATA, sdbi, false); 
-   return sdbi.appliedToHgt_;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
-{
-   try
-   {
-      const TxRef txrefobj = getTxRefByHash(txHash);
-      try
-      {
-         BlockHeader & txbh = blockchain_.getHeaderByHeight(txrefobj.getBlockHeight());
-         if(!txbh.isMainBranch())
-            return TX_OFF_MAIN_BRANCH;
-
-         int32_t txBlockHeight  = txbh.getBlockHeight();
-         int32_t topBlockHeight = blockchain_.top().getBlockHeight();
-         return  topBlockHeight - txBlockHeight + 1;
-      }
-      catch (std::exception &e)
-      {
-         LOGERR << "Failed to get num confirmations: " << e.what();
-         return TX_0_UNCONFIRMED;
-      }
-   }
-   catch (NoValue&)
-   {
-      return TX_NOT_EXIST;
-   }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-TxRef BlockDataManager_LevelDB::getTxRefByHash(HashString const & txhash) 
-{
-   return iface_->getTxRef(txhash);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
-{
-   return iface_->getTxRef(txHash).isInitialized();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
-{
-   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
-   TxRef txref = iface_->getTxRef(txHash);
-   if (txref.isInitialized())
-      return true;
-
-   return false;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 /*
@@ -858,23 +779,6 @@ vector<BinaryData> BlockDataManager_LevelDB::prefixSearchAddress(BinaryData cons
 */
 
 /////////////////////////////////////////////////////////////////////////////
-// This method needs to be callable from another thread.  Therefore, I don't
-// seek an exact answer, instead just estimate it based on the last block, 
-// and the set of currently-registered addresses.  The method called
-// "evalRescanIsRequired()" answers a different question, and iterates 
-// through the list of registered addresses, which may be changing in 
-// another thread.  
-bool BlockDataManager_LevelDB::isDirty(
-   uint32_t numBlocksToBeConsideredDirty
-) const
-{
-   if (config_.armoryDbType == ARMORY_DB_SUPER)
-      return false;
-
-   return false;
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // This used to be "rescanBlocks", but now "scanning" has been replaced by
 // "reapplying" the blockdata to the databases.  Basically assumes that only
 // raw blockdata is stored in the DB with no SSH objects.  This goes through
@@ -886,90 +790,25 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    ScrAddrFilter& scrAddrData,
    bool updateSDBI)
 {
-   ProgressFilter progress(&prog, readBlockHeaders_->totalBlockchainBytes());
+   // compute how many bytes of raw blockdata we're going to apply
+   uint64_t startingAt=0, totalBytes=0;
+   for (unsigned i=0; i < blockchain().top().getBlockHeight(); i++)
+   {
+      const BlockHeader &bh = blockchain().getHeaderByHeight(i);
+      if (i < blk0)
+         startingAt += bh.getBlockSize();
+      totalBytes += bh.getBlockSize();
+   }
+   
+   ProgressFilter progress(&prog, startingAt, totalBytes);
    
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_);
    blockWrites.setUpdateSDBI(updateSDBI);
 
    LOGWARN << "Scanning from " << blk0 << " to " << blk1;
-   return blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-uint64_t BlockDataManager_LevelDB::getDBBalanceForHash160(   
-                                                      BinaryDataRef addr160)
-{
-   StoredScriptHistory ssh;
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
-   if(!ssh.isInitialized())
-      return 0;
-
-   return ssh.getScriptBalance();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-uint64_t BlockDataManager_LevelDB::getDBReceivedForHash160(   
-                                                      BinaryDataRef addr160)
-{
-   StoredScriptHistory ssh;
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
-   if(!ssh.isInitialized())
-      return 0;
-
-   return ssh.getScriptReceived();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
-                                                      BinaryDataRef addr160)
-{
-   StoredScriptHistory ssh;
-   vector<UnspentTxOut> outVect(0);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
-   if(!ssh.isInitialized())
-      return outVect;
-
-
-   size_t numTxo = (size_t)ssh.totalTxioCount_;
-   outVect.reserve(numTxo);
-   map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
-   map<BinaryData, TxIOPair>::iterator iterTxio;
-   for(iterSubSSH  = ssh.subHistMap_.begin(); 
-       iterSubSSH != ssh.subHistMap_.end(); 
-       iterSubSSH++)
-   {
-      StoredSubHistory & subSSH = iterSubSSH->second;
-      for(iterTxio  = subSSH.txioMap_.begin(); 
-          iterTxio != subSSH.txioMap_.end(); 
-          iterTxio++)
-      {
-         TxIOPair & txio = iterTxio->second;
-         StoredTx stx;
-         BinaryData txKey = txio.getTxRefOfOutput().getDBKey();
-         uint16_t txoIdx = txio.getIndexOfOutput();
-         iface_->getStoredTx(stx, txKey);
-
-         StoredTxOut & stxo = stx.stxoMap_[txoIdx];
-         if(stxo.isSpent())
-            continue;
    
-         UnspentTxOut utxo(stx.thisHash_, 
-                           txoIdx,
-                           stx.blockHeight_,
-                           txio.getValue(),
-                           stx.stxoMap_[txoIdx].getScriptRef());
-         
-         outVect.push_back(utxo);
-      }
-   }
-
-   return outVect;
-
+   return blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1102,7 +941,7 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad";
@@ -1111,7 +950,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
@@ -1120,7 +959,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
@@ -1132,7 +971,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doRebuildDatabases(
-   const function<void(BDMPhase, double,unsigned)> &progress
+   const ProgressCallback &progress
 )
 {
    LOGINFO << "Executing: doRebuildDatabases";
@@ -1144,18 +983,18 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
 
 
 void BlockDataManager_LevelDB::loadDiskState(
-   const function<void(BDMPhase, double,unsigned)> &progress,
+   const ProgressCallback &progress,
    bool forceRescan
 )
 {
    class ProgressWithPhase : public ProgressReporter
    {
       const BDMPhase phase_;
-      const function<void(BDMPhase, double,unsigned)> progress_;
+      const ProgressCallback progress_;
    public:
       ProgressWithPhase(
          BDMPhase phase,
-         const function<void(BDMPhase, double,unsigned)>& progress
+         const ProgressCallback& progress
       ) : phase_(phase), progress_(progress)
       {
          this->progress(0.0, 0);
@@ -1165,7 +1004,7 @@ void BlockDataManager_LevelDB::loadDiskState(
          double progress, unsigned secondsRemaining
       )
       {
-         progress_(phase_, progress, secondsRemaining);
+         progress_(phase_, progress, secondsRemaining, 0);
       }
    };
    
@@ -1187,11 +1026,12 @@ void BlockDataManager_LevelDB::loadDiskState(
    BinaryData lastTopBlockHash = sdbi.topBlkHash_;
    
    // load the headers from lmdb into blockchain()
-   loadBlockHeadersFromDB();
+   loadBlockHeadersFromDB(progress);
    
    uint32_t firstUnappliedHeight=0;
    
    {
+      progress(BDMPhase_OrganizingChain, 0, 0, 0);
       // organize the blockchain we have so far
       const Blockchain::ReorganizationState state
          = blockchain().forceOrganize();
@@ -1248,6 +1088,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    try
    {
       // This will return true unless genesis block was reorg'd...
+      progress(BDMPhase_OrganizingChain, 0, 0, 0);
       bool prevTopBlkStillValid = blockchain_.forceOrganize().prevTopBlockStillValid;
       if(!prevTopBlkStillValid)
       {
@@ -1319,7 +1160,7 @@ void BlockDataManager_LevelDB::loadDiskState(
       if (config_.armoryDbType == ARMORY_DB_SUPER)
       {
          applyBlockRangeToDB(progPhase, scanFrom,
-         blockchain_.top().getBlockHeight(), *scrAddrData_.get());
+            blockchain_.top().getBlockHeight(), *scrAddrData_);
       }
       else
       {
@@ -1483,18 +1324,20 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    return prevTopBlk;
 }
 
-void BlockDataManager_LevelDB::loadBlockHeadersFromDB()
+void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
 {
    LOGINFO << "Reading headers from db";
    blockchain().clear();
+   
+   unsigned counter=0;
+   
+   const auto callback= [&] (const BlockHeader &h)
    {
-      unordered_map<HashString, BlockHeader, BinaryDataHash> headers;
-      iface_->readAllHeaders(headers);
-      for (auto& i : headers)
-      {
-         blockchain().addBlock(i.first, i.second);
-      }
-   }
+      progress(BDMPhase_DBHeaders, 0.0, 0, counter++);
+      blockchain().addBlock(h.getThisHash(), h);
+   };
+   
+   iface_->readAllHeaders(callback);
    
    LOGINFO << "Found " << blockchain().allHeaders().size() << " headers in db";
    
@@ -1502,35 +1345,28 @@ void BlockDataManager_LevelDB::loadBlockHeadersFromDB()
 
 
 ////////////////////////////////////////////////////////////////////////////////
-StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
+StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup) const
 {
-   StoredHeader nullSBH;
-   StoredHeader returnSBH;
 
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
    BinaryData firstKey = DBUtils::getBlkDataKey(hgt, dup);
 
    if(!ldbIter.seekToExact(firstKey))
-      return nullSBH;
+      return {};
 
    // Get the full block from the DB
+   StoredHeader returnSBH;
    iface_->readStoredBlockAtIter(ldbIter, returnSBH);
 
    if(returnSBH.blockHeight_ != hgt || returnSBH.duplicateID_ != dup)
-      return nullSBH;
+      return {};
 
    return returnSBH;
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt) const
-{
-   return iface_->getValidDupIDForHeight(hgt);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt)
+StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 {
    uint8_t dupMain = iface_->getValidDupIDForHeight(hgt);
    return getBlockFromDB(hgt, dupMain);
@@ -1573,17 +1409,10 @@ void BlockDataManager_LevelDB::deleteHistories(void)
                break;
             }
          }
-         catch (runtime_error &e)
+         catch (exception &e)
          {
             LOGERR << "iter recycling snafu";
             LOGERR << e.what();
-            done = true;
-            break;
-         }
-         catch (...)
-         {
-            LOGERR << "iter recycling snafu";
-            LOGERR << "unknown exception";
             done = true;
             break;
          }
@@ -1777,44 +1606,6 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 #endif
 */
    
-/////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::isTxFinal(const Tx & tx) const
-{
-   // Anything that is replaceable (regular or through blockchain injection)
-   // will be considered isFinal==false.  Users shouldn't even see the tx,
-   // because the concept may be confusing, and the CURRENT use of non-final
-   // tx is most likely for malicious purposes (as of this writing)
-   //
-   // This will change as multi-sig becomes integrated, and replacement will
-   // eventually be enabled (properly), in which case I will expand this
-   // to be more rigorous.
-   //
-   // For now I consider anything time-based locktimes (instead of block-
-   // based locktimes) to be final if this is more than one day after the 
-   // locktime expires.  This accommodates the most extreme case of silliness
-   // due to time-zones (this shouldn't be an issue, but I haven't spent the
-   // time to figure out how UTC and local time interact with time.h and 
-   // block timestamps).  In cases where locktime is legitimately used, it 
-   // is likely to be many days in the future, and one day may not even
-   // matter.  I'm erring on the side of safety, not convenience.
-   
-   if(tx.getLockTime() == 0)
-      return true;
-
-   bool allSeqMax = true;
-   for(uint32_t i=0; i<tx.getNumTxIn(); i++)
-      if(tx.getTxInCopy(i).getSequence() < UINT32_MAX)
-         allSeqMax = false;
-
-   if(allSeqMax)
-      return true;
-
-   if(tx.getLockTime() < 500000000)
-      return (blockchain_.top().getBlockHeight()>tx.getLockTime());
-   else
-      return (time(NULL)>tx.getLockTime()+86400);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
 void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr, 
@@ -1855,19 +1646,20 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
          sbh.blockHeight_  = bh.getBlockHeight();
          sbh.duplicateID_  = bh.getDuplicateID();
          sbh.isMainBranch_ = bh.isMainBranch();
+         sbh.numBytes_ = bh.getBlockSize();
          sbh.blockAppliedToDB_ = false;
 
          // Don't put it into the DB if it's not proper!
          if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
             throw BlockDeserializingException(
                "Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup (hash="
-                  + bh.getThisHash().toHexStr() + ")"
+                  + bh.getThisHash().copySwapEndian().toHexStr() + ")"
                );
 
          iface_->putStoredHeader(sbh, true);
          missingBlockHashes_.push_back( sbh.thisHash_ );
          throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid (hash="
-            + bh.getThisHash().toHexStr() + ")"
+            + bh.getThisHash().copySwapEndian().toHexStr() + ")"
          );
       }
       else
@@ -1880,12 +1672,13 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    sbh.duplicateID_  = bh.getDuplicateID();
    sbh.isMainBranch_ = bh.isMainBranch();
    sbh.blockAppliedToDB_ = false;
+   sbh.numBytes_ = bh.getBlockSize();
 
    // Don't put it into the DB if it's not proper!
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
    {
       throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup (hash="
-         + bh.getThisHash().toHexStr() + ")"
+         + bh.getThisHash().copySwapEndian().toHexStr() + ")"
       );
    }
    iface_->putStoredHeader(sbh, true, updateDupID);
@@ -1899,9 +1692,10 @@ ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::startSideScan(
-   function<void(const BinaryData&, double prog, unsigned time)> progress)
+   const function<void(const BinaryData&, double prog,unsigned time)> &cb
+)
 {
-   scrAddrData_->startSideScan(progress);
+   scrAddrData_->startSideScan(cb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

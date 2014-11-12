@@ -61,7 +61,7 @@ all-test-tools: all
 gtest: all-test-tools
 	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
 
-pytest: all-test-tools
+pytest: all
 	python -m unittest discover
 
 test: gtest pytest

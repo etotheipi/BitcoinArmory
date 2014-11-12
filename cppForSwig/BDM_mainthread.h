@@ -26,7 +26,8 @@ public:
    virtual void progress(
       BDMPhase phase,
       const string &walletId,
-      float progress, unsigned secondsRem
+      float progress, unsigned secondsRem,
+      unsigned progressNumeric
    )=0;
 };
 

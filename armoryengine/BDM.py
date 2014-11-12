@@ -43,6 +43,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       self.bdm.progressComplete=0
       self.bdm.secondsRemaining=0
       self.bdm.progressPhase=0
+      self.bdm.progressNumeric=0
       
    def run(self, action, arg, block):
       try:
@@ -83,13 +84,14 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          print sys.exc_info()
          raise
 
-   def progress(self, phase, walletId, prog, seconds):
+   def progress(self, phase, walletId, prog, seconds, progressNumeric):
       try:
          walletIdString = str(walletId)
          if len(walletIdString) == 0:
             self.bdm.progressPhase = phase
             self.bdm.progressComplete = prog
             self.bdm.secondsRemaining = seconds
+            self.bdm.progressNumeric = progressNumeric
          else:
             progInfo = [walletIdString, prog]
             for cppNotificationListener in TheBDM.getListenerList():
@@ -299,9 +301,8 @@ class BlockDataManager(object):
       
    #############################################################################
    @ActLikeASingletonBDM
-   def bdmConfig(self, armoryHomeDir=None, forInit=False):
+   def bdmConfig(self, forInit=False):
 
-      
       blkdir = ""
       
       if forInit == False:
@@ -317,14 +318,10 @@ class BlockDataManager(object):
             LOGERROR('Blockchain data not available: %s', blk1st)
             raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
-      if armoryHomeDir == None:
-         armoryHomeDir = ARMORY_HOME_DIR
       blockdir = blkdir
       leveldbdir = self.ldbdir
       
       if OS_WINDOWS:
-         if isinstance(ARMORY_HOME_DIR, unicode):
-            armoryHomeDir = ARMORY_HOME_DIR.encode('utf8')
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
          if isinstance(self.ldbdir, unicode):
@@ -333,7 +330,6 @@ class BlockDataManager(object):
       bdmConfig = Cpp.BlockDataManagerConfig()
       bdmConfig.armoryDbType = self.dbType
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
-      bdmConfig.homeDirLocation = armoryHomeDir
       bdmConfig.blkFileLocation = blockdir
       bdmConfig.levelDBLocation = leveldbdir
       bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
@@ -345,7 +341,7 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def predictLoadTime(self):
-      return (self.progressPhase, self.progressComplete, self.secondsRemaining)
+      return (self.progressPhase, self.progressComplete, self.secondsRemaining, self.progressNumeric)
 
    #############################################################################
    @TimeThisFunction

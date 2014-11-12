@@ -3,7 +3,7 @@
 ProgressCalculator::ProgressCalculator(uint64_t total)
    : total_(total)
 {
-   then_ = time(0);
+   then_ = 0;
 }
 
 void ProgressCalculator::advance(uint64_t to)
@@ -12,6 +12,11 @@ void ProgressCalculator::advance(uint64_t to)
    
    if (to == lastSample_) return;
    const time_t now = time(0);
+   if (then_ == 0)
+   {
+      then_ = now;
+      lastSample_ = to;
+   }
    if (now == then_) return;
    
    if (now < then_+10) return;
@@ -27,35 +32,38 @@ void ProgressCalculator::advance(uint64_t to)
    then_ = now;
 }
 
-ProgressReporterFilter::ProgressReporterFilter(ProgressReporter *to, double scale)
-   : to_(to), scale_(scale)
+ProgressReporterFilter::ProgressReporterFilter(ProgressReporter *to)
+   : to_(to)
 { }
 
 void ProgressReporterFilter::progress(
    double progress, unsigned secondsRemaining
 )
 {
-   if (!never_ && secondsRemaining == secondsRemaining_ && progress_ == progress)
-      return;
-   never_ = true;
    secondsRemaining_ = secondsRemaining;
    progress_ = progress;
-   to_->progress(progress*scale_, secondsRemaining/scale_);
+   to_->progress(progress, secondsRemaining);
 }
 
 
-ProgressFilter::ProgressFilter(ProgressReporter *to, uint64_t total, double scale)
-   : ProgressReporterFilter(to, scale), calc_(total)
+ProgressFilter::ProgressFilter(ProgressReporter *to, int64_t offset, uint64_t total)
+   : ProgressReporterFilter(to), calc_(total), offset_(offset)
 {
    advance(0);
 }
+ProgressFilter::ProgressFilter(ProgressReporter *to, uint64_t total)
+   : ProgressReporterFilter(to), calc_(total)
+{
+   advance(0);
+}
+
 ProgressFilter::~ProgressFilter()
 {
    advance(calc_.total());
 }
 void ProgressFilter::advance(uint64_t to)
 {
-   calc_.advance(to);
+   calc_.advance(to+offset_);
    progress(calc_.fractionCompleted(), calc_.remainingSeconds());
 }   
 

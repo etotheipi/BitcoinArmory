@@ -51,6 +51,9 @@ from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.Wizards import WalletWizard, TxWizard
 from ui.toolsDialogs import MessageSigningVerificationDialog
+from dynamicImport import FILENAME_KEY, SOURCE_CODE_KEY, \
+   SIG_DATA_KEY, ZIP_EXTENSION, getModuleList, importModule
+import tempfile
 
 
 # Load our framework with OS X-specific code.
@@ -72,7 +75,9 @@ if OS_MACOSX:
 # All the twisted/networking functionality
 if OS_WINDOWS:
    from _winreg import *
-   
+
+
+MODULES_ZIP_DIR_NAME = 'modules'
 
 class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
@@ -161,6 +166,7 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiVersions = ['','']  # [curr, avail]
       self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
       self.NetworkingFactory = None
+      self.tempModulesDirName = None
 
 
       # Kick off announcement checking, unless they explicitly disabled it
@@ -906,116 +912,113 @@ class ArmoryMainWindow(QMainWindow):
    ############################################################################
    def loadArmoryModules(self):
       """
-      This method checks for any .py files in the exec directory
+      This method checks for any .zip files in the modules directory
       """ 
-      moduleDir = os.path.join(GetExecDir(), 'modules')
-      if not moduleDir or not os.path.exists(moduleDir):
-         return
+      modulesZipDirPath = os.path.join(GetExecDir(), MODULES_ZIP_DIR_NAME)
+      if modulesZipDirPath and os.path.exists(modulesZipDirPath):
+         
+         self.tempModulesDirName = tempfile.mkdtemp('modules')
 
-      LOGWARN('Attempting to load modules from: %s' % moduleDir)
-
-      from dynamicImport import getModuleList, dynamicImport
-
-      # This call does not eval any code in the modules.  It simply
-      # loads the python files as raw chunks of text so we can
-      # check hashes and signatures
-      modMap = getModuleList(moduleDir)
-      for name,infoMap in modMap.iteritems():
-         modPath = os.path.join(infoMap['SourceDir'], infoMap['Filename'])
-         modHash = binary_to_hex(sha256(infoMap['SourceCode']))
-
-         isSignedByATI = False
-         if 'Signature' in infoMap:
-            """
-            Signature file contains multiple lines, of the form "key=value\n"
-            The last line is the hex-encoded signature, which is over the 
-            source code + everything in the sig file up to the last line.
-            The key-value lines may contain properties such as signature 
-            validity times/expiration, contact info of author, etc.
-            """
-            sigFile = infoMap['SigData']
-            sigLines = [line.strip() for line in sigFile.strip().split('\n')]
-            properties = dict([line.split('=') for line in sigLines[:-1]])
-            msgSigned = infoMap['SourceCode'] + '\x00' + '\n'.join(sigLines[:1])
-
-            sbdMsg = SecureBinaryData(sha256(msgSigned))
-            sbdSig = SecureBinaryData(hex_to_binary(sigLines[-1]))
-            sbdPub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
-            isSignedByATI = CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub)
-            LOGWARN('Sig on "%s" is valid: %s' % (name, str(isSignedByATI)))
-            
-
-         if not isSignedByATI and not USE_TESTNET:
-            reply = QMessageBox.warning(self, tr("UNSIGNED Module"), tr("""
-               Armory detected the following module which is 
-               <font color="%s"><b>unsigned</b></font> and may be dangerous:
-               <br><br>
-                  <b>Module Name:</b>  %s<br>
-                  <b>Module Path:</b>  %s<br>
-                  <b>Module Hash:</b>  %s<br>
-               <br><br>
-               You should <u>never</u> trust unsigned modules!  At this time,
-               Armory will not allow you to run this module unless you are 
-               in testnet mode.""") % \
-               (name, modPath, modHash[:16]), QMessageBox.Ok)
-
-            if not reply==QMessageBox.Yes:
-               continue
-
-
-         module = dynamicImport(moduleDir, name, globals())
-         plugObj = module.PluginObject(self)
-
-         if not hasattr(plugObj,'getTabToDisplay') or \
-            not hasattr(plugObj,'tabName'):
-            LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
-            QMessageBox.critical(self, tr("Bad Module"), tr("""
-               The module you attempted to load (%s) is malformed.  It is 
-               missing attributes that are needed for Armory to load it.  
-               It will be skipped.""") % name, QMessageBox.Ok)
-            continue
+   
+         # This call does not eval any code in the modules.  It simply
+         # loads the python files as raw chunks of text so we can
+         # check hashes and signatures
+         modMap = getModuleList(modulesZipDirPath)
+         for moduleName,infoMap in modMap.iteritems():
+            moduleZipPath = os.path.join(modulesZipDirPath, infoMap[FILENAME_KEY])
+            modHash = binary_to_hex(sha256(infoMap[SOURCE_CODE_KEY]))
+   
+            isSignedByATI = False
+            if SIG_DATA_KEY in infoMap:
+               """
+               Signature file contains multiple lines, of the form "key=value\n"
+               The last line is the hex-encoded signature, which is over the 
+               source code + everything in the sig file up to the last line.
+               The key-value lines may contain properties such as signature 
+               validity times/expiration, contact info of author, etc.
+               """
+               sigFile = infoMap[SIG_DATA_KEY]
+               sigLines = [line.strip() for line in sigFile.strip().split('\n')]
+               properties = dict([line.split('=') for line in sigLines[:-1]])
+               msgSigned = infoMap[SOURCE_CODE_KEY] + '\x00' + '\n'.join(sigLines[:1])
+   
+               sbdMsg = SecureBinaryData(sha256(msgSigned))
+               sbdSig = SecureBinaryData(hex_to_binary(sigLines[-1]))
+               sbdPub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
+               isSignedByATI = CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub)
+               LOGWARN('Sig on "%s" is valid: %s' % (moduleName, str(isSignedByATI)))
                
-         verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
-         verArmoryInt = getVersionInt(BTCARMORY_VERSION)
-         if verArmoryInt >verPluginInt:
-            reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
-               Module "%s" is only specified to work up to Armory version %s.
-               You are using Armory version %s.  Please remove the module if
-               you experience any problems with it, or contact the maintainer
-               for a new version.
-               <br><br>
-               Do you want to continue loading the module?"""), 
-               QMessageBox.Yes | QMessageBox.No)
+   
+            if not isSignedByATI and not USE_TESTNET:
+               reply = QMessageBox.warning(self, tr("UNSIGNED Module"), tr("""
+                  Armory detected the following module which is 
+                  <font color="%s"><b>unsigned</b></font> and may be dangerous:
+                  <br><br>
+                     <b>Module Name:</b>  %s<br>
+                     <b>Module Path:</b>  %s<br>
+                     <b>Module Hash:</b>  %s<br>
+                  <br><br>
+                  Armory will not allow you to run this module.""") % \
+                  (moduleName, moduleZipPath, modHash[:16]), QMessageBox.Ok)
 
-            if not reply==QMessageBox.Yes:
+            innerZipName = ''.join([moduleName, ZIP_EXTENSION])
+            # TODO - check existence of the inner zip file
+            ZipFile(moduleZipPath).extract(innerZipName, self.tempModulesDirName)
+            ZipFile(os.path.join(self.tempModulesDirName,innerZipName)).extractall(self.tempModulesDirName)
+            
+            plugin = importModule(self.tempModulesDirName, moduleName, globals())
+            plugObj = plugin.PluginObject(self)
+   
+            if not hasattr(plugObj,'getTabToDisplay') or \
+               not hasattr(plugObj,'tabName'):
+               LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
+               QMessageBox.critmoduleName(self, tr("Bad Module"), tr("""
+                  The module you attempted to load (%s) is malformed.  It is 
+                  missing attributes that are needed for Armory to load it.  
+                  It will be skipped.""") % moduleName, QMessageBox.Ok)
                continue
-
-         # All plugins should have "tabToDisplay" and "tabName" attributes
-         LOGWARN('Adding module to tab list: "' + plugObj.tabName + '"')
-         self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
-
-         # Also inject any extra methods that will be 
-         injectFuncList = [ \
-               ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
-               ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
-               ['injectGoOnlineFunc',        'extraGoOnlineFunctions'], 
-               ['injectNewTxFunc',           'extraNewTxFunctions'], 
-               ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
-               ['injectShutdownFunc',        'extraShutdownFunctions'] ]
-
-         # Add any methods
-         for plugFuncName,funcListName in injectFuncList:
-            if not hasattr(plugObj, plugFuncName):
-               continue
-      
-            if not hasattr(self, funcListName):
-               LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
-               continue
-
-            LOGINFO('Found module function: %s' % plugFuncName)
-            funcList = getattr(self, funcListName)
-            plugFunc = getattr(plugObj, plugFuncName)
-            funcList.append(plugFunc)
+                  
+            verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
+            verArmoryInt = getVersionInt(BTCARMORY_VERSION)
+            if verArmoryInt >verPluginInt:
+               reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
+                  Module "%s" is only specified to work up to Armory version %s.
+                  You are using Armory version %s.  Please remove the module if
+                  you experience any problems with it, or contact the maintainer
+                  for a new version.
+                  <br><br>
+                  Do you want to continue loading the module?"""), 
+                  QMessageBox.Yes | QMessageBox.No)
+   
+               if not reply==QMessageBox.Yes:
+                  continue
+   
+            # All plugins should have "tabToDisplay" and "tabName" attributes
+            LOGWARN('Adding module to tab list: "' + plugObj.tabName + '"')
+            self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
+   
+            # Also inject any extra methods that will be 
+            injectFuncList = [ \
+                  ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
+                  ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
+                  ['injectGoOnlineFunc',        'extraGoOnlineFunctions'], 
+                  ['injectNewTxFunc',           'extraNewTxFunctions'], 
+                  ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
+                  ['injectShutdownFunc',        'extraShutdownFunctions'] ]
+   
+            # Add any methods
+            for plugFuncName,funcListName in injectFuncList:
+               if not hasattr(plugObj, plugFuncName):
+                  continue
+         
+               if not hasattr(self, funcListName):
+                  LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
+                  continue
+   
+               LOGINFO('Found module function: %s' % plugFuncName)
+               funcList = getattr(self, funcListName)
+               plugFunc = getattr(plugObj, plugFuncName)
+               funcList.append(plugFunc)
                                     
 
    ############################################################################
@@ -4305,7 +4308,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.barProgressTorrent.setRange(0,100)
       self.barProgressSync.setRange(0,100)
-      self.barProgressBuild.setRange(0,100)
       self.barProgressScan.setRange(0,100)
 
 
@@ -4988,17 +4990,36 @@ class ArmoryMainWindow(QMainWindow):
          self.barProgressScan.setVisible(True)
          self.lblTimeLeftScan.setVisible(True)
 
-         # Scan time is super-simple to predict: it's pretty much linear
-         # with the number of bytes remaining.
-
-         phase,pct,tleft = TheBDM.predictLoadTime()
-         if phase==Cpp.BDMPhase_BlockHeaders:
-            self.lblDashModeBuild.setText( 'Reading Block Headers', \
+         phase,pct,tleft,numericProgress = TheBDM.predictLoadTime()
+         if phase==Cpp.BDMPhase_DBHeaders:
+            self.lblDashModeBuild.setText( 'Loading Database Headers', \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setValue(0)
+            self.barProgressBuild.setRange(0,0)
+            self.lblTimeLeftBuild.setText(str(numericProgress) + " headers")
+            
+         elif phase==Cpp.BDMPhase_OrganizingChain:
+            self.lblDashModeBuild.setText( 'Organizing Blockchain', \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setValue(0)
+            self.barProgressBuild.setRange(0,0)
+            self.lblTimeLeftBuild.setVisible(False)
+         elif phase==Cpp.BDMPhase_BlockHeaders:
+            self.lblDashModeBuild.setText( 'Reading New Block Headers', \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
+            self.barProgressBuild.setRange(0,100)
          elif phase==Cpp.BDMPhase_BlockData:
             self.lblDashModeBuild.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
@@ -5006,7 +5027,7 @@ class ArmoryMainWindow(QMainWindow):
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
-
+            self.barProgressBuild.setRange(0,100)
          elif phase==Cpp.BDMPhase_Rescan:
             self.lblDashModeBuild.setText( 'Build Databases', \
                                         size=4, bold=True, color='DisableFG')
@@ -5015,23 +5036,21 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTimeLeftBuild.setVisible(False)
             self.barProgressBuild.setFormat('')
             self.barProgressBuild.setValue(100)
+            self.barProgressBuild.setRange(0,100)
             self.barProgressScan.setFormat('%p%')
-         #elif phase==4:
-         #   self.lblDashModeScan.setText( 'Global Blockchain Index', \
-         #                               size=4, bold=True, color='Foreground')
 
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
             tstring = ''
-            pvalue  = 100
+            pvalue  = pct*100
          else:
             tstring = secondsToHumanTime(tleft15)
             pvalue = pct*100
 
-         if phase==1 or phase==2:
+         if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData:
             self.lblTimeLeftBuild.setText(tstring)
             self.barProgressBuild.setValue(pvalue)
-         elif phase==3:
+         elif phase==BDMPhase_Rescan:
             self.lblTimeLeftScan.setText(tstring)
             self.barProgressScan.setValue(pvalue)
 
@@ -6576,7 +6595,9 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.registerCppNotification(self.actuallyDoExitNow)
          TheBDM.beginCleanShutdown()
 
-         
+         # Remove Temp Modules Directory if it exists:
+         if self.tempModulesDirName:
+            shutil.rmtree(self.tempModulesDirName)
       except:
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')

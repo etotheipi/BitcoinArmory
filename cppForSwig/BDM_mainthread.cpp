@@ -2,6 +2,7 @@
 #include "BlockUtils.h"
 #include "BlockDataViewer.h"
 
+#include <ctime>
 #include <unistd.h>
 #include "pthread.h"
 
@@ -226,8 +227,8 @@ try
    );
    
    {
-      double lastprog=0;
-      unsigned lasttime=0;
+      tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
+      time_t lastProgressTime=0;
       
       class BDMStopRequest
       {
@@ -236,16 +237,29 @@ try
       };
      
       const auto loadProgress
-         = [&] (BDMPhase phase, double prog,unsigned time)
+         = [&] (BDMPhase phase, double prog,unsigned time, unsigned numericProgress)
       {
-         if (prog == lastprog && time==lasttime)
+         const tuple<BDMPhase, double, unsigned, unsigned> currentvalues
+            { phase, prog, time, numericProgress };
+         if (currentvalues == lastvalues)
             return; // don't go to python if nothing's changed
-         //callback->progress("blk", prog, time);
-         lastprog = prog;
-         lasttime = time;
+         
+         // also, don't go to the python if the phase is the same and it's been
+         // less than 1 second since the last time this has been called
+         // python is a lot slower than C++, so we don't want to invoke
+         // the python interpreter to frequently
+         const time_t currentProgressTime = std::time(nullptr);
+         if (phase == get<0>(lastvalues)
+            && currentProgressTime <= lastProgressTime+1
+            && fabs(get<1>(lastvalues)-get<1>(currentvalues)) <= .01 )
+            return;
+            
+         lastProgressTime = currentProgressTime;
+         
+         lastvalues = currentvalues;
          
          //pass empty walletID for main build&scan calls
-         callback->progress(phase, string(), lastprog, lasttime);
+         callback->progress(phase, string(), prog, time, numericProgress);
          
          if (!pimpl->run)
          {
@@ -309,7 +323,11 @@ try
       lastprog = prog;
       lasttime = time;
       
-      callback->progress(BDMPhase_Rescan, string(wltId.getCharPtr(), wltId.getSize()), lastprog, lasttime);
+      callback->progress(
+         BDMPhase_Rescan,
+         string(wltId.getCharPtr(), wltId.getSize()),
+         lastprog, lasttime, 0
+      );
    };   
    
    //push 'bdm is ready' to Python

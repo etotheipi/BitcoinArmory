@@ -1149,7 +1149,7 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 //       that would get us since we are reading all the headers and doing
 //       a fresh organize/sort anyway.
 void LMDBBlockDatabase::readAllHeaders(
-   unordered_map<HashString, BlockHeader, BinaryDataHash> & headerMap
+   const function<void(const BlockHeader&)> &callback
 )
 {
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
@@ -1161,7 +1161,6 @@ void LMDBBlockDatabase::readAllHeaders(
       return;
    }
    
-
    StoredHeader sbh;
    BlockHeader  regHead;
    do
@@ -1179,8 +1178,15 @@ void LMDBBlockDatabase::readAllHeaders(
 
       sbh.unserializeDBValue(HEADERS, ldbIter.getValueRef());
       regHead.unserialize(sbh.dataCopy_);
+      regHead.setBlockSize(sbh.numBytes_);
 
-      headerMap[sbh.thisHash_] = regHead;
+      if (sbh.thisHash_ != regHead.getThisHash())
+      {
+         LOGWARN << "Corruption detected: block header hash " <<
+            sbh.thisHash_.copySwapEndian().toHexStr() << " does not match "
+            << regHead.getThisHash().copySwapEndian().toHexStr();
+      }
+      callback(regHead);
 
    } while(ldbIter.advanceAndRead(DB_PREFIX_HEADHASH));
 }
@@ -2383,8 +2389,18 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
 bool LMDBBlockDatabase::getStoredTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey)
 {
+   if (DBkey.getSize() != 8)
+   {
+      LOGERR << "Tried to get StoredTxOut, but the provided key is not of the \
+                 proper size. Expect size is 8, this key is: " << DBkey.getSize();
+      return false;
+   }
+
+   BinaryData key = WRITE_UINT8_BE(DB_PREFIX_TXDATA);
+   key.append(DBkey);
+
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
-   BinaryRefReader brr = getValueReader(BLKDATA, DBkey);
+   BinaryRefReader brr = getValueReader(BLKDATA, key);
    if (brr.getSize() == 0)
    {
       LOGERR << "BLKDATA DB does not have the requested TxOut";
@@ -2611,7 +2627,7 @@ bool LMDBBlockDatabase::markBlockHeaderValid(BinaryDataRef headHash)
    BinaryRefReader brr = getValueReader(HEADERS, DB_PREFIX_HEADHASH, headHash);
    if(brr.getSize()==0)
    {
-      LOGERR << "Invalid header hash: " << headHash.toHexStr();
+      LOGERR << "Invalid header hash: " << headHash.copy().copySwapEndian().toHexStr();
       return false;
    }
    brr.advance(HEADER_SIZE);
