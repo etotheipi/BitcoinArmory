@@ -7385,7 +7385,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   regWallet(scrAddrVec, "wallet2", theBDV, wlt);
+   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->scanWallets();
@@ -9043,6 +9043,3 @@ GTEST_API_ int main(int argc, char **argv)
 
    return exitCode;
 }
-
-// kate: indent-width 3; replace-tabs on;
-
