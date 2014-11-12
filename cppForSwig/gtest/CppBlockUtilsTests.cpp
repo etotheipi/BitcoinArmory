@@ -6292,6 +6292,46 @@ protected:
    BlockDataManager_LevelDB *theBDM;
    BlockDataViewer *theBDV;
 
+   // Run this before registering a BDM.
+   void regWallet(const vector<BinaryData>& scrAddrs, const string& wltName,
+                  BlockDataViewer*& inBDV, BtcWallet*& inWlt)
+   {
+      // Register the standalone address wallet. (All registrations should be
+      // done before initializing the BDM. This is critical!)
+      inWlt = inBDV->registerWallet(scrAddrs, wltName, false);
+      if(inWlt == nullptr)
+      {
+         cout << "DOUG DEBUG: NULL PTR IS NULL!" << endl;
+      }
+   }
+
+   // Run this before registering a BDM. (For now, just make the two lockboxes a
+   // package deal. Code can be altered later if needed.)
+   void regLockboxes(BlockDataViewer*& inBDV, BtcWallet*& inLB1,
+                     BtcWallet*& inLB2)
+   {
+      // Register the two lockboxes. Note that the lockbox data is pulled from
+      // createTestChain.py, the script that built most of the blocks used in
+      // these unit tests. Python, not C++, is where we find the code needed to
+      // generate the data required by C++ lockboxes. If the lockboxes and/or
+      // blocks are redone, this data's automatically redone.
+      // LB1 = AddrB + AddrC
+      // LB2 = AddrD + AddrE
+      const vector<BinaryData> lb1ScrAddrs
+      {
+         TestChain::lb1ScrAddr,
+         TestChain::lb1ScrAddrP2SH
+      };
+      const vector<BinaryData> lb2ScrAddrs
+      {
+         TestChain::lb2ScrAddr,
+         TestChain::lb2ScrAddrP2SH
+      };
+      inLB1 = inBDV->registerLockbox(lb1ScrAddrs, TestChain::lb1B58ID, false);
+      inLB2 = inBDV->registerLockbox(lb2ScrAddrs, TestChain::lb2B58ID, false);
+   }
+
+
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp()
    {
@@ -6355,8 +6395,6 @@ protected:
       CLEANUP_ALL_TIMERS();
    }
 
-
-
    BlockDataManagerConfig config;
 
    LMDBBlockDatabase* iface_;
@@ -6416,8 +6454,6 @@ protected:
    }
 
 };
-
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6726,7 +6762,6 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
 }
 
 
-
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks)
 {
@@ -6737,27 +6772,30 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    TheBDM.doInitialSyncOnLoad([] (unsigned, double,unsigned) {});
    theBDV->scanWallets();
 
-   const ScrAddrObj *scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
-   EXPECT_EQ(wlt.getFullBalance(), 240*COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 240*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6767,23 +6805,26 @@ TEST_F(BlockUtilsBare, Load5Blocks_DamagedBlkFile)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    // this test should be reworked to be in terms of createTestChain.py
    BtcUtils::copyFile("../reorgTest/botched_block.dat", blk0dat_);
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->scanWallets();
 
-   const ScrAddrObj *scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 100*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(),   0*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(),  50*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 100*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(),   0*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(),  50*COIN);
 
-   EXPECT_EQ(wlt.getFullBalance(), 150 * COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 150 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6796,8 +6837,11 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
@@ -6809,19 +6853,19 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
 
-   const ScrAddrObj * scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
    // Load the remaining blocks.
    setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
@@ -6831,18 +6875,18 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6852,8 +6896,11 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet* wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    wlt->addScrAddress(TestChain::scrAddrE);
 
@@ -6868,14 +6915,13 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
 
-   const ScrAddrObj * scrobj;
-
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55*COIN);
 
    uint64_t fullBalance = wlt->getFullBalance();
    uint64_t spendableBalance = wlt->getSpendableBalance(4);
@@ -6901,12 +6947,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(4);
@@ -6925,12 +6971,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    theBDV->addNewZeroConfTx(rawZC, 0, false);
    theBDV->parseNewZeroConfTx();
    theBDV->scanWallets();
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(4);
@@ -6947,12 +6993,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load4Blocks_ReloadBDM_ZC_Plus1)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
 
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(),  50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(),  70*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(),  20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(),  50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(),  70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(),  20*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(5);
@@ -6969,8 +7015,11 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet* wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    wlt->addScrAddress(TestChain::scrAddrE);
 
@@ -6987,14 +7036,13 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
 
-   const ScrAddrObj * scrobj;
-
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 55*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(),  0*COIN);
 
    uint64_t fullBalance = wlt->getFullBalance();
    uint64_t spendableBalance = wlt->getSpendableBalance(3);
@@ -7015,12 +7063,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    theBDV->addNewZeroConfTx(rawZC, 1300000000, false);
    theBDV->parseNewZeroConfTx();
    theBDV->scanWallets();
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 75*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(),  10*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 75*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(),  10*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(4);
@@ -7063,7 +7111,8 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    theBDV = new BlockDataViewer(theBDM);
    iface_ = theBDM->getIFace();
 
-   wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->enableZeroConf();
@@ -7078,12 +7127,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
 
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(5);
@@ -7123,12 +7172,12 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
 
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(5);
@@ -7155,62 +7204,72 @@ TEST_F(BlockUtilsBare, DISABLED_Load3locks_ZC_Plus2_TestLedgers)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
 {
+   BtcWallet* wlt;
+   BtcWallet* wlt2;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   BtcWallet& wlt2 = *theBDV->registerWallet(scrAddrVec, "wallet2", false);
-   
+   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
+   regLockboxes(theBDV, wltLB1, wltLB2);
+
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
-   
    setBlocks({ "0", "1", "2", "3", "4A" }, blk0dat_);
    TheBDM.readBlkFileUpdate();
 
    setBlocks({ "0", "1", "2", "3", "4A", "5A" }, blk0dat_);
-   
+
    uint32_t prevBlock = TheBDM.readBlkFileUpdate();
 
    theBDV->scanWallets(prevBlock);
 
-   const ScrAddrObj * scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
 
-   scrobj = wlt2.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(),65*COIN);
-   scrobj = wlt2.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(),30*COIN);
-   scrobj = wlt2.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(), 5*COIN);
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(),65*COIN);
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(),30*COIN);
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(), 5*COIN);
 
-   EXPECT_EQ(wlt.getFullBalance(), 140*COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 140*COIN);
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, DISABLED_Load5Blocks_DoubleReorg)
 {
+   BtcWallet* wlt;
+   BtcWallet* wlt2;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
-   BtcWallet& wlt2 = *theBDV->registerWallet(scrAddrVec, "wallet2", false);
+   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    // this file doesn't exist, rewrite it in terms of createTestChain.py
    BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_, 1596);
@@ -7222,15 +7281,15 @@ TEST_F(BlockUtilsBare, DISABLED_Load5Blocks_DoubleReorg)
    uint32_t prevBlock = TheBDM.readBlkFileUpdate();
    theBDV->scanWallets(prevBlock);
 
-   const ScrAddrObj *scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 100*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(),   0*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(),  50*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 100*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(),   0*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(),  50*COIN);
 
-   EXPECT_EQ(wlt.getFullBalance(), 150 * COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 150 * COIN);
 
    //second reorg: add block 4A and 5A
    BtcUtils::copyFile("../reorgTest/blk_doubleReorg.dat", blk0dat_);
@@ -7238,80 +7297,84 @@ TEST_F(BlockUtilsBare, DISABLED_Load5Blocks_DoubleReorg)
 
    theBDV->scanWallets(prevBlock);
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 150*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(),  10*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(),   0*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 150*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(),  10*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(),   0*COIN);
 
-   scrobj = wlt2.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 140 * COIN);
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 140 * COIN);
 
-   EXPECT_EQ(wlt.getFullBalance(), 160 * COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 160 * COIN);
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
 {
+   BtcWallet* wlt;
+   BtcWallet* wlt2;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet* wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
-   BtcWallet* wlt2 = theBDV->registerWallet(scrAddrVec, "wallet2", false);
+   regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
-   
+
    //reload BDM
    delete theBDV;
    delete theBDM;
-   
+
    //add the reorg blocks
    setBlocks({ "0", "1", "2", "3", "4A", "5A" }, blk0dat_);
 
-   
    theBDM = new BlockDataManager_LevelDB(config);
    theBDM->openDatabase();
    iface_ = theBDM->getIFace();
    theBDV = new BlockDataViewer(theBDM);
-   
+
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
 
    scrAddrVec.clear();
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   wlt2 = theBDV->registerWallet(scrAddrVec, "wallet2", false);
+   regWallet(scrAddrVec, "wallet2", theBDV, wlt);
 
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    theBDV->scanWallets();
 
    EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 5);
-   
-   const ScrAddrObj * scrobj;
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 60*COIN);
-   scrobj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 55*COIN);
 
-   scrobj = wlt2->getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 60 * COIN);
-   scrobj = wlt2->getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30 * COIN);
-   scrobj = wlt2->getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(), 60 * COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 60*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55*COIN);
+
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 60 * COIN);
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wlt2->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(), 60 * COIN);
 
    EXPECT_EQ(wlt->getFullBalance(), 165 * COIN);
 }
@@ -7319,12 +7382,16 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, CorruptedBlock)
 {
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
    {
@@ -7335,9 +7402,9 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
          ifstream is(blk0dat_.c_str(), ios::in  | ios::binary);
          is.read((char*)temp.getPtr(), srcsz);
       }
-      
+
       const std::string dst = blk0dat_;
-      
+
       ofstream os(dst.c_str(), ios::out | ios::binary);
       os.write((char*)temp.getPtr(), 100);
       os.write((char*)temp.getPtr()+120, srcsz-100-20); // erase 20 bytes
@@ -7346,21 +7413,24 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    TheBDM.readBlkFileUpdate();
    theBDV->scanWallets();
 
-   const ScrAddrObj * scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   //scrobj = &wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   //EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   //scrObj = &wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   //EXPECT_EQ(scrObj->getFullBalance(),140*COIN);
 
-   EXPECT_EQ(wlt.getFullBalance(), 140*COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 140*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 {
-   const ScrAddrObj * scrobj;
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   const ScrAddrObj* scrObj;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
@@ -7368,77 +7438,80 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    // Regular sync
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
    // Rebuild on-the-fly
    TheBDM.doRebuildDatabases([](unsigned, double, unsigned) {});
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
    // Rebuild on-the-fly
    // used to be doFullRescanRegardlessOfSync, but this is a synonym
    TheBDM.doInitialSyncOnLoad_Rebuild([](unsigned, double, unsigned) {});
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
 {
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
@@ -7446,30 +7519,33 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    TheBDM.doInitialSyncOnLoad_Rescan([](unsigned, double, unsigned) {});
    //TheBDM.scanBlockchainForTx(wlt);
 
-   const ScrAddrObj * scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
 {
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
@@ -7477,8 +7553,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    ///////////////////////////////////////////
    TheBDM.doInitialSyncOnLoad_Rebuild([](unsigned, double, unsigned) {});
@@ -7486,37 +7562,40 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
 
    //TheBDM.scanBlockchainForTx(wlt);
 
-   const ScrAddrObj * scrobj;
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj->getFullBalance(), 65*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 {
-   const ScrAddrObj * scrobj;
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   const ScrAddrObj* scrObj;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
    //post initial load address registration
-   wlt.addScrAddress(TestChain::scrAddrD);
+   wlt->addScrAddress(TestChain::scrAddrD);
 
    EXPECT_EQ(TheBDM.sideScanFlag_, true);
 
@@ -7524,17 +7603,17 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
 
    //wait on the address scan
-   while (wlt.getMergeFlag() == false)
+   while (wlt->getMergeFlag() == false)
       usleep(100);
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj,  nullptr);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj,  nullptr);
 
    ///////////////////////////////////////////
    theBDV->reset();
@@ -7542,12 +7621,12 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
 
    ///////////////////////////////////////////
    theBDV->reset();
@@ -7555,31 +7634,34 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 {
-   const ScrAddrObj * scrobj;
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   const ScrAddrObj* scrObj;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-
-   BtcWallet& wlt = *theBDV->registerWallet(scrAddrVec, "wallet1", false);
+   regWallet(scrAddrVec, "wallet1", theBDV, wlt);
+   regLockboxes(theBDV, wltLB1, wltLB2);
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
 
-   wlt.addScrAddress(TestChain::scrAddrD);
+   wlt->addScrAddress(TestChain::scrAddrD);
 
    EXPECT_EQ(TheBDM.sideScanFlag_, true);
 
@@ -7587,21 +7669,21 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
 
    //wait on the address scan
-   while (wlt.getMergeFlag() == false)
+   while (wlt->getMergeFlag() == false)
       usleep(100);
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrobj, nullptr);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj, nullptr);
 
    ///////////////////////////////////////////
    theBDV->reset();
@@ -7609,16 +7691,16 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
    ///////////////////////////////////////////
    theBDV->reset();
@@ -7626,16 +7708,16 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    theBDV->scanWallets();
    ///////////////////////////////////////////
 
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrobj->getFullBalance(), 70*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrE);
-   EXPECT_EQ(scrobj->getFullBalance(), 30*COIN);
-   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrF);
-   EXPECT_EQ(scrobj->getFullBalance(),  5*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30*COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
