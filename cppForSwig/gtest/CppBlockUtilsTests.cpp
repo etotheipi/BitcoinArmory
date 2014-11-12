@@ -7253,7 +7253,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    regWallet(scrAddrVec, "wallet2", theBDV, wlt2);
    regLockboxes(theBDV, wltLB1, wltLB2);
 
-   TheBDM.doInitialSyncOnLoad([](unsigned, double, unsigned) {});
+   TheBDM.doInitialSyncOnLoad(nullProgress);
 
    setBlocks({ "0", "1", "2", "3", "4A" }, blk0dat_);
    TheBDM.readBlkFileUpdate();
