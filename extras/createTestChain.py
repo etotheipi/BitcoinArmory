@@ -86,7 +86,7 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
       # indicated otherwise, then use values for next-highest diff (0x1d00fffe).
       diffHex = 'FFFF0000000000000000000000000000000000000000000000000000h'
       if not useMinDiff:
-         blk.blkockHeader.diffBits = hex_to_binary('1d00fffe', BIGENDIAN)
+         blk.blockHeader.diffBits = hex_to_binary('1d00fffe', BIGENDIAN)
          diffHex = 'FEFF0000000000000000000000000000000000000000000000000000h'
 
       newbh = CppBlockHeader()
@@ -271,11 +271,11 @@ addrfile.write("\n")
 addrfile.write("// LB1 = AddrB + AddrC\n")
 addrfile.write("// LB2 = AddrD + AddrE\n")
 addrfile.write("const string lb1B58ID = \"" + LB1.uniqueIDB58 + "\";\n")
-addrfile.write("const string lb1ScrAddr = \"" + binary_to_hex(LB1.scrAddr) + "\";\n")
-addrfile.write("const string lb1ScrAddrP2SH = \"" + binary_to_hex(LB1.p2shScrAddr) + "\";\n")
+addrfile.write("const BinaryData lb1ScrAddr = BinaryData::CreateFromHex(\"" + binary_to_hex(LB1.scrAddr) + "\");\n")
+addrfile.write("const BinaryData lb1ScrAddrP2SH = BinaryData::CreateFromHex(\"" + binary_to_hex(LB1.p2shScrAddr) + "\");\n")
 addrfile.write("const string lb2B58ID = \"" + LB2.uniqueIDB58 + "\";\n")
-addrfile.write("const string lb2ScrAddr = \"" + binary_to_hex(LB2.scrAddr) + "\";\n")
-addrfile.write("const string lb2ScrAddrP2SH = \"" + binary_to_hex(LB2.p2shScrAddr) + "\";\n\n")
+addrfile.write("const BinaryData lb2ScrAddr = BinaryData::CreateFromHex(\"" + binary_to_hex(LB2.scrAddr) + "\");\n")
+addrfile.write("const BinaryData lb2ScrAddrP2SH = BinaryData::CreateFromHex(\"" + binary_to_hex(LB2.p2shScrAddr) + "\");\n\n")
 
 for blk,name in ([genBlock, '0'], [Blk1, '1'], [Blk2, '2'], [Blk3, '3'], \
       [Blk4, '4'], [Blk5, '5'], [Blk4A, '4A'], [Blk5A, '5A']):

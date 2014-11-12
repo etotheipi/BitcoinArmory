@@ -23,14 +23,22 @@ const BinaryData addrF = BinaryData::CreateFromHex("d63b766cd342e6f0f7390dd45406
 const BinaryData scrAddrF = HASH160PREFIX + addrF;
 const BinaryData privKeyAddrF = BinaryData::CreateFromHex("efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef");
 
+// LB1 = AddrB + AddrC
+// LB2 = AddrD + AddrE
+const string lb1B58ID = "DuR9CQX6";
+const string lb2B58ID = "eqWJZTcT";
+const BinaryData lb1ScrAddr = BinaryData::CreateFromHex("fe0102cb2abde8bccacc32e893df3a054b9ef7f227a4ceee26c56fc1d942be8d7a24b2a1001dd894693980");
+const BinaryData lb1ScrAddrP2SH = BinaryData::CreateFromHex("05ae3c7b8b4b00ae7b3d8702d0a23bcda2ac541e34");
+const BinaryData lb2ScrAddr = BinaryData::CreateFromHex("fe020247b8ad0b1d6803260ce428d9e09e2cd99fd3b359c522664fb0e55cdc5c0cea73b4aad97ec8343232");
+const BinaryData lb2ScrAddrP2SH = BinaryData::CreateFromHex("05de46f84ba728121eb3bdb1c30140cd6c0c8b7e25");
 const BinaryData blkHash0 = BinaryData::CreateFromHex("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
-const BinaryData blkHash1 = BinaryData::CreateFromHex("cf62cfe3a3686ec4f0c09d64a5fce8f1de37996d384a805b19fc316500000000");
-const BinaryData blkHash2 = BinaryData::CreateFromHex("7b1561d24a566e7051268aadb1264c3b8865905bb17bd6c02195e26eeaadc15f");
-const BinaryData blkHash3 = BinaryData::CreateFromHex("28953fc15c15f6d948c1383e19a74fd06f4a0c752accc79b624dba022abe0126");
-const BinaryData blkHash4 = BinaryData::CreateFromHex("08ff45cd85c0ab679cc9bb6a318ca5486070e9197aa2ec3fa79aa71e00000000");
-const BinaryData blkHash5 = BinaryData::CreateFromHex("71d47509174ac68b1642385e62f2eb6bb8335b8d1d4b3b5f95f18295223db2e9");
-const BinaryData blkHash4A = BinaryData::CreateFromHex("177a3ca98318bb77c8414c321d290b396bb945c849781f26d7d42390f3fae9fe");
-const BinaryData blkHash5A = BinaryData::CreateFromHex("5f089e11b0f9a106b6acd131f06aad6014b382614b5dbfeda7815849f0df6830");
+const BinaryData blkHash1 = BinaryData::CreateFromHex("6a48502e32b1a2fcdb1d3f6dac6ac5d308513d14c0b3cbdddf29b04a00000000");
+const BinaryData blkHash2 = BinaryData::CreateFromHex("916ee47c6b2c7527b6d944a50ed5d38e8a89d3eeb28dde38929198194a8371c5");
+const BinaryData blkHash3 = BinaryData::CreateFromHex("ab29a55bab549d7f3a96acc2b1423c93eca8280ae0f1356d50f55f178dd832bc");
+const BinaryData blkHash4 = BinaryData::CreateFromHex("53b68270b0c76100a134c5f85703ced2a82a25d72b985c132208cb4b78bc472d");
+const BinaryData blkHash5 = BinaryData::CreateFromHex("a336d1b7d6965065ac2b65f0253b27aa1b95a9a4fd57ab61e03ce73d01339930");
+const BinaryData blkHash4A = BinaryData::CreateFromHex("71ddd80c8fbd0041f957c0a4b8a529dfc156b290fa89c90d95bd750700000000");
+const BinaryData blkHash5A = BinaryData::CreateFromHex("14d0301d06fd7c57baa631d587e45ce78a84107349c7fdaf63c33a9000000000");
 }
 
 #endif
