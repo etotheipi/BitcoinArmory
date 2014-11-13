@@ -87,7 +87,7 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
       diffHex = 'FFFF0000000000000000000000000000000000000000000000000000h'
       if not useMinDiff:
          blk.blockHeader.diffBits = hex_to_binary('1d00fffe', BIGENDIAN)
-         diffHex = 'FEFF0000000000000000000000000000000000000000000000000000h'
+         diffHex = 'FFFE0000000000000000000000000000000000000000000000000000h'
 
       newbh = CppBlockHeader()
       newbh.unserialize_1_(blk.blockHeader.serialize())
