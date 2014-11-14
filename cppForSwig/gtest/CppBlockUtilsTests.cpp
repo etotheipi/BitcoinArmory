@@ -8537,7 +8537,6 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks)
 {
-   cout << "Please double check these values." << endl;
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
    StoredScriptHistory ssh;
@@ -8549,7 +8548,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(),   70*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 205*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 230*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      13);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
@@ -8569,7 +8568,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 30*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 45*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      6);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
@@ -8639,9 +8638,6 @@ TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 {
-   cout << "Please double check these values." << endl;
-//    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
-//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
    setBlocks({ "0", "1", "2", "3", "4", "5", "4A" }, blk0dat_);
@@ -8658,7 +8654,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(),   30*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 135*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 160*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      10);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
@@ -8678,7 +8674,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(),  60*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 80*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 95*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      6);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);

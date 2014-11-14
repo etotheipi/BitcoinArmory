@@ -2226,9 +2226,12 @@ uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
    uint64_t bal = 0;
    map<BinaryData, TxIOPair>::iterator iter;
    for (iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
-   if (!iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
-      bal += iter->second.getValue();
-
+   {
+      if (iter->second.isUTXO() && (!iter->second.isMultisig() || withMultisig))
+         bal += iter->second.getValue();
+      if (iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
+         bal += iter->second.getValue();
+   }
    return bal;
 }
 
