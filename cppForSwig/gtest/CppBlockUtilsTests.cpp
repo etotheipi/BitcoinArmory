@@ -6984,6 +6984,18 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    EXPECT_EQ(spendableBalance, 65*COIN);
    EXPECT_EQ(unconfirmedBalance, 165*COIN);
 
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+
+   EXPECT_EQ(wltLB1->getFullBalance(), 10 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 15 * COIN);
+
    //restart bdm
    theBDV->unregisterWallet("wallet1");
    delete theBDM;
@@ -6996,6 +7008,9 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
 
    wlt = theBDV->registerWallet(scrAddrVec, "wallet1", false);
    wlt->addScrAddress(TestChain::scrAddrE);
+
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
+
 
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
@@ -7015,13 +7030,32 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    EXPECT_EQ(spendableBalance, 65 * COIN);
    EXPECT_EQ(unconfirmedBalance, 165 * COIN);
 
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+
+   EXPECT_EQ(wltLB1->getFullBalance(), 10 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 15 * COIN);
+
+
    //add ZC
    BinaryData rawZC(258);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
    fread(rawZC.getPtr(), 258, 1, ff);
    fclose(ff);
 
+   BinaryData rawLBZC(378);
+   FILE *flb = fopen("../reorgTest/LBZC.tx", "rb");
+   fread(rawLBZC.getPtr(), 378, 1, flb);
+   fclose(flb);
+
    theBDV->addNewZeroConfTx(rawZC, 0, false);
+   theBDV->addNewZeroConfTx(rawLBZC, 0, false);
    theBDV->parseNewZeroConfTx();
    theBDV->scanWallets();
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
@@ -7038,6 +7072,19 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    EXPECT_EQ(spendableBalance, 35*COIN);
    EXPECT_EQ(unconfirmedBalance, 135*COIN);
 
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+
+   EXPECT_EQ(wltLB1->getFullBalance(), 5 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 15 * COIN);
+
+   //
    setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
    TheBDM.readBlkFileUpdate();
    theBDV->scanWallets();
@@ -7059,6 +7106,18 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    EXPECT_EQ(fullBalance, 170*COIN);
    EXPECT_EQ(spendableBalance, 70*COIN);
    EXPECT_EQ(unconfirmedBalance, 170*COIN);
+
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 25 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   EXPECT_EQ(wltLB1->getFullBalance(), 30 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 30 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
