@@ -1496,9 +1496,9 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B,
       return false;
 
    StoredSubHistory & subssh = iterSubHist->second;
-   uint64_t valueRemoved = subssh.eraseTxio(dbKey8B, commitId);
+   uint64_t valueRemoved; 
 
-   bool wasRemoved = (valueRemoved!=UINT64_MAX);
+   bool wasRemoved = subssh.eraseTxio(dbKey8B, commitId, valueRemoved);
    if(wasRemoved)
    {
       totalTxioCount_ -= 1;
@@ -1831,7 +1831,8 @@ bool StoredScriptHistory::eraseSpentTxio(const BinaryData& hgtX,
       return false;
 
    StoredSubHistory & subssh = iterSubHist->second;
-   if (subssh.eraseTxio(dbKey8B, commitId))
+   uint64_t valueRemoved;
+   if (subssh.eraseTxio(dbKey8B, commitId, valueRemoved))
    {
       subssh.txioCount_--;
       totalTxioCount_--;
@@ -2156,24 +2157,26 @@ bool StoredSubHistory::markTxOutSpent(
 // Since the outer-SSH object tracks total unspent balances, we need to pass 
 // out the total amount that was deleted from the sub-history, and of course
 // return zero if nothing was removed.
-uint64_t StoredSubHistory::eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId)
+bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId,
+                                 uint64_t& valueRemoved)
 {
+   valueRemoved = 0;
    auto txioIter = txioMap_.find(dbKey8B);
 
    if (ITER_NOT_IN_MAP(txioIter, txioMap_))
-      return UINT64_MAX;
+      return false;
 
    TxIOPair& txio = txioIter->second;
 
    while (accessing_.test_and_set(memory_order_relaxed));
 
    commitId_ = commitId;
-   uint64_t val = txio.isMultisig() ? 0 : txio.getValue();
+   valueRemoved = txio.isMultisig() ? 0 : txio.getValue();
    txioMap_.erase(txioIter);
 
    accessing_.clear(memory_order_relaxed);
 
-   return val;
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -515,7 +515,8 @@ public:
                         uint32_t commitId = 0,
                         bool withOverwrite=true, 
                         uint64_t* additionalSize = nullptr);
-   uint64_t   eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId);
+   bool      eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId,
+                       uint64_t& valueRemoved);
 
    
    // This adds the TxOut if it doesn't exist yet

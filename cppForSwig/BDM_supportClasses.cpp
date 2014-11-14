@@ -388,6 +388,9 @@ void ScrAddrFilter::clear()
    checkForMerge();
    UTxO_.clear();
    blockHeightCutOff_ = 0;
+
+   for (auto& regScrAddr : scrAddrMap_)
+      regScrAddr.second = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
