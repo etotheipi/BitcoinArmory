@@ -31,8 +31,9 @@ BtcWallet* BlockDataViewer::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
    if (IDstr.empty())
+   {
       return nullptr;
-
+   }
    LOGINFO << "Registering Wallet " << IDstr;
 
    // Check if the wallet is already registered

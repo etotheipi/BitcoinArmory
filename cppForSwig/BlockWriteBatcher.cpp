@@ -44,7 +44,11 @@ static StoredTx* makeSureSTXInMap(
    {
       //allocate new stx that will be cleaned after it is commited
       StoredTx *stxTemp = new StoredTx();
-      iface->getStoredTx(*stxTemp, txHash);
+      if (!iface->getStoredTx(*stxTemp, txHash))
+      {
+         LOGERR << "could not grab STX for hash: " << txHash.toHexStr(false);
+         throw std::runtime_error("iface->getStoredTx failed in makeSureSTXInMap");
+      }
       stxMap[txHash] = stxTemp;
 
       //keep track of this pointer for commit thread to delete
@@ -264,11 +268,12 @@ BinaryData BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh,
    for(map<uint16_t, StoredTx>::iterator iter = sbh.stxMap_.begin();
       iter != sbh.stxMap_.end(); iter++)
    {
-      // This will fetch all the affected [Stored]Tx and modify the maps in 
-      // RAM.  It will check the maps first to see if it's already been pulled,
-      // and then it will modify either the pulled StoredTx or pre-existing
-      // one.  This means that if a single Tx is affected by multiple TxIns
-      // or TxOuts, earlier changes will not be overwritten by newer changes.
+      if (iter->second.dataCopy_.getSize() == 0)
+      {
+         LOGERR << "bad STX data in applyBlockToDB at height " << sbh.blockHeight_;
+         throw std::range_error("bad STX data while applying blocks");
+      }
+
       applyTxToBatchWriteData(iter->second, &sud, scrAddrData);
    }
 
@@ -1038,6 +1043,10 @@ void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
 void* BlockWriteBatcher::commitThread(void *argPtr)
 {
    BlockWriteBatcher* bwbPtr = static_cast<BlockWriteBatcher*>(argPtr);
+
+   if (bwbPtr == nullptr)
+      LOGERR << "bad bwbPtr in commitThread";
+
    unique_lock<mutex> lock(bwbPtr->parent_->writeLock_);
 
    //create readwrite transactions to apply data to DB
@@ -1046,40 +1055,53 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
    // Check for any SSH objects that are now completely empty.  If they exist,
    // they should be removed from the DB, instead of simply written as empty
    // objects
-//   TIMER_START("commitToDB");
+   //   TIMER_START("commitToDB");
 
    {
-      for (auto& sshPair : bwbPtr->sshToModify_)
+      for (auto sshPair : bwbPtr->sshToModify_)
          bwbPtr->iface_->putStoredScriptHistorySummary(sshPair.second);
-      
+
       for (auto subSshPtr : bwbPtr->subSshToApply_)
       {
          //only apply if subssh wasnt modified
+         if (subSshPtr == nullptr)
+            LOGERR << "nullptr subSSH in commitThread";
+
          while (subSshPtr->accessing_.test_and_set(memory_order_relaxed) == true);
-            //if (subSshPtr->commitId_ == bwbPtr->commitId_)
+         //if (subSshPtr->commitId_ == bwbPtr->commitId_)
          bwbPtr->iface_->putStoredSubHistory(*subSshPtr);
-         
+
          subSshPtr->accessing_.clear(memory_order_relaxed);
       }
-      
-      bwbPtr->txn_.commit();
-      bwbPtr->txn_.begin();
-      
-      for (auto& stxPair : bwbPtr->stxToModify_)
-         bwbPtr->iface_->updateStoredTx(*stxPair.second);
-      
+
       bwbPtr->txn_.commit();
       bwbPtr->txn_.begin();
 
-      for (auto& sbh : bwbPtr->sbhToUpdate_)
+      for (auto stxPair : bwbPtr->stxToModify_)
+      {
+         if (stxPair.second == nullptr)
+            LOGERR << "nullptr stx in commitThread";
+
+         bwbPtr->iface_->updateStoredTx(*stxPair.second);
+      }
+
+      bwbPtr->txn_.commit();
+      bwbPtr->txn_.begin();
+
+      for (auto sbh : bwbPtr->sbhToUpdate_)
+      {
+         if (sbh == nullptr)
+            LOGERR << "nullptr sbh in commitThread";
+
          updateBlkDataHeader(bwbPtr->config_, bwbPtr->iface_, *sbh);
+      }
 
       bwbPtr->txn_.commit();
       bwbPtr->txn_.begin();
 
       for (auto& toDel : bwbPtr->keysToDelete_)
          bwbPtr->iface_->deleteValue(BLKDATA, toDel);
-      
+
       bwbPtr->txn_.commit();
       bwbPtr->txn_.begin();
 
@@ -1108,15 +1130,17 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
       //final commit
       bwbPtr->clearTransactions();
    }
-   
+
    BlockWriteBatcher* bwbParent = bwbPtr->parent_;
-   
+   if (bwbParent == nullptr)
+      LOGERR << "bwb empty parent pointer";
+
    //signal the transaction reset
    bwbParent->resetTxn_ = true;
-   
+
    //signal DB is ready for new commit
    lock.unlock();
-   
+
    //clean up
    for (auto storedTxPtr : bwbPtr->stxPulledFromDB_)
       delete storedTxPtr;
@@ -1126,9 +1150,9 @@ void* BlockWriteBatcher::commitThread(void *argPtr)
 
    delete bwbPtr;
 
-/*   TIMER_STOP("commitToDB");
+   /*   TIMER_STOP("commitToDB");
    LOGWARN << "Commited";*/
-   
+
    return nullptr;
 }
 
@@ -1273,6 +1297,19 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          vectorIndex = i - tempBlockData_->blockOffset_;
 
          StoredHeader** sbhEntry = &tempBlockData_->sbhVec_[vectorIndex];
+
+         if (sbhEntry == nullptr)
+         {
+            LOGERR << "nullptr ** at height " << i;
+            throw std::runtime_error("bad sbh pointer at height i");
+         }
+
+         if (*sbhEntry == nullptr)
+         {
+            LOGERR << "nullptr * at height " << i;
+            throw std::runtime_error("bad sbh pointer at height i");
+         }
+
          sbh = *sbhEntry;
          *sbhEntry = nullptr;
 

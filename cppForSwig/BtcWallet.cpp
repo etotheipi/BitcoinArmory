@@ -967,8 +967,9 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
 {
    auto saIter = scrAddrMap_.find(key);
    if (saIter != scrAddrMap_.end())
+   {
       return &saIter->second;
-
+   }
    return nullptr;
 }
 

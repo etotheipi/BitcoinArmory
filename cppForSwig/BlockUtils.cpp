@@ -1123,13 +1123,48 @@ void BlockDataManager_LevelDB::loadDiskState(
          //entries up to the branch point, then scan from there
          const Blockchain::ReorganizationState state =
             blockchain_.findReorgPointFromBlock(lastTopBlockHash);
-            
-         //undo blocks up to the branch point, we'll apply the main chain
-         //through the regular scan
-         ReorgUpdater reorgOnlyUndo(state,
-            &blockchain_, iface_, config_, scrAddrData_.get(), true);
          
-         scanFrom = state.reorgBranchPoint->getBlockHeight() + 1;
+         bool undoData = true;
+         if (config_.armoryDbType != ARMORY_DB_SUPER)
+         {
+            uint32_t topScannedBlock = scrAddrData_->scanFrom();
+            if (topScannedBlock < state.reorgBranchPoint->getBlockHeight())
+            {
+               /***This is a special case. In full node only registered 
+               addresses are scanned. If we got here we hit 2 special 
+               conditions: 
+               
+               1) The BDM was shutdown on a chain invalidated before the next 
+                  load
+               2) Fresh addresses were registered, which need to be scanned on 
+                  their own.
+
+               The simplest approach here is to wipe all SSH history and scan 
+               from 0. The other solution is to unod the original set of 
+               scrAddr to the reorg point, and scan the fresh addresses 
+               independantly up to the reorg point, which is way too convoluted
+               for such a rare case.
+               ***/
+
+               undoData = false;
+               deleteHistories();
+
+               scrAddrData_->clear();
+
+               iface_->getStoredDBInfo(BLKDATA, sdbi);
+               BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+            }
+         }
+
+         if (undoData == true)
+         {
+            //undo blocks up to the branch point, we'll apply the main chain
+            //through the regular scan
+            ReorgUpdater reorgOnlyUndo(state,
+               &blockchain_, iface_, config_, scrAddrData_.get(), true);
+
+            scanFrom = state.reorgBranchPoint->getBlockHeight() + 1;
+         }
       }
    }
    

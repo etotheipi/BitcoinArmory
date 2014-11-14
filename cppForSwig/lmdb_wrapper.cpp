@@ -2080,7 +2080,7 @@ BinaryData LMDBBlockDatabase::getTxHashForHeightAndIndex( uint32_t height,
    uint8_t dup = getValidDupIDForHeight(height);
    if(dup == UINT8_MAX)
       LOGERR << "Headers DB has no block at height: " << height;
-   return getTxHashForLdbKey(DBUtils::getBlkDataKey(height, dup, txIndex));
+   return getTxHashForLdbKey(DBUtils::getBlkDataKeyNoPrefix(height, dup, txIndex));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2089,7 +2089,7 @@ BinaryData LMDBBlockDatabase::getTxHashForHeightAndIndex( uint32_t height,
                                                        uint16_t txIndex)
 {
    SCOPED_TIMER("getTxHashForHeightAndIndex");
-   return getTxHashForLdbKey(DBUtils::getBlkDataKey(height, dupID, txIndex));
+   return getTxHashForLdbKey(DBUtils::getBlkDataKeyNoPrefix(height, dupID, txIndex));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
