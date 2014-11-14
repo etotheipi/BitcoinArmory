@@ -520,12 +520,6 @@ CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
 
-
-ARMORY_INFO_SIGN_ADDR      = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
-ARMORY_INFO_SIGN_PUBLICKEY = ('04'
-   '601c891a2cbc14a7b2bb1ecc9b6e42e166639ea4c2790703f8e2ed126fce432c'
-   '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
-
 ################################################################################
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
