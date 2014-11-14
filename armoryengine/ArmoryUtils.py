@@ -1669,6 +1669,7 @@ def enum(*sequential, **named):
    return type('Enum', (), enums)
 
 DATATYPE = enum("Binary", 'Base58', 'Hex')
+INTERNET_STATUS = enum('Available', 'Unavailable', 'DidNotCheck')
 
 
 def isLikelyDataType(theStr, dtype=None):
@@ -3686,33 +3687,38 @@ class ArmoryListenerFactory(ClientFactory):
       self.func_recv_data = fn_recv_data
       
 # Check general internet connection
-def isInternetAvailable():
-   internetAvail = False
-   try:
-      import urllib2
-      urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-      internetAvail = True
-   except ImportError:
-      LOGERROR('No module urllib2 -- cannot determine if internet is '
-         'available')
-   except urllib2.URLError:
-      # In the extremely rare case that google might be down (or just to try
-      # again...)
+# Do not Check when ForceOnline is true
+def isInternetAvailable(forceOnline = False):
+   internetStatus = INTERNET_STATUS.Unavailable
+   if forceOnline:
+      internetStatus = INTERNET_STATUS.DidNotCheck
+   else:
       try:
-         urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-         internetAvail = True
+         import urllib2
+         urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
+         internetStatus = INTERNET_STATUS.Available
+      except ImportError:
+         LOGERROR('No module urllib2 -- cannot determine if internet is '
+            'available')
+      except urllib2.URLError:
+         # In the extremely rare case that google might be down (or just to try
+         # again...)
+         try:
+            urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
+            internetStatus = INTERNET_STATUS.Available
+         except:
+            LOGEXCEPT('Error checking for internet connection')
+            LOGERROR('Run --skip-online-check if you think this is an error')
       except:
          LOGEXCEPT('Error checking for internet connection')
          LOGERROR('Run --skip-online-check if you think this is an error')
-   except:
-      LOGEXCEPT('Error checking for internet connection')
-      LOGERROR('Run --skip-online-check if you think this is an error')
 
-   return internetAvail
+   return internetStatus
 
 
 # Returns true if Online Mode is possible
 def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
-   return (CLI_OPTIONS.forceOnline or isInternetAvailable()) and \
+   return isInternetAvailable(forceOnline=CLI_OPTIONS.forceOnline) != \
+                INTERNET_STATUS.Unavailable and \
       satoshiIsAvailable() and \
       os.path.exists(os.path.join(btcdir, 'blocks'))
