@@ -3143,7 +3143,8 @@ class ArmoryMainWindow(QMainWindow):
    def convertLedgerToTable(self, ledger, showSentToSelfAmt=True, wltIDIn=None):
       table2D = []
       datefmt = self.getPreferredDateFormat()
-      for le in ledger:
+      for leList in ledger:
+         le = leList[1]
          if wltIDIn is None:
             wltID = le.getWalletID()
          else: 
