@@ -22,11 +22,11 @@ if not os.path.isdir('cppForSwig/reorgTest'):
       "file to the root directory and run it from there."
    sys.exit(1);
 
-# Set up the command line parser.
-parser = argparse.ArgumentParser(description='Create a blockchain.')
-parser.add_argument('--fake', dest='fakeBlocks', action='store_true',
-                    help='Create invalid blocks with bad nonces')
-parser.set_defaults(fakeBlocks=False)
+# Real blocks have to be properly mined, which takes hours. If messing with this
+# file, using fake blocks will be a lot faster and allow almost all C++ unit
+# tests to pass. (Command line args are ideal but this script collides with the
+# parser in ArmoryUtils.)
+fakeBlocks=False
 
 # Use the genesis block to kick things off. (Might not work on Windows.)
 blkfile = open(os.environ['HOME'] + '/.bitcoin/blocks/blk00000.dat','r')
@@ -85,7 +85,7 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
    # http://bitcoin.stackexchange.com/questions/5048/what-is-the-extranonce for
    # more info on why we mod the timestamp instead of the coinbase script
    # (extraNonce).
-   nonceVal = 0
+   nonceVal = -1
    while not aGoodNonce:
       blk = PyBlock(prevBlkHeader, txlist)
       blk.blockHeader.timestamp += numTries
@@ -99,13 +99,14 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
 
       newbh = CppBlockHeader()
       newbh.unserialize_1_(blk.blockHeader.serialize())
-      # Our choice depends on whether or not we wish to create real or fake
-      # blocks. Real blocks will have to be properly mined, which takes hours.
       if fakeBlocks:
          nonceVal = 1414
          aGoodNonce = True
       else:
-         aGoodNonce = newbh.findNonce(diffHex, nonceVal)
+         # C++ returns -1 if a nonce isn't found.
+         nonceVal = newbh.findNonce(diffHex)
+         if nonceVal != -1:
+            aGoodNonce = True
       numTries += 1
 
    blk.blockHeader.nonce = nonceVal
@@ -313,7 +314,3 @@ b4tx1File.close()
 addrfile.write("}\n")
 addrfile.write("\n#endif\n")
 addrfile.close()
-
-dsa = 0
-for tx in b5tx1File.blockData.txList:
-   dsa += tx.serialize()

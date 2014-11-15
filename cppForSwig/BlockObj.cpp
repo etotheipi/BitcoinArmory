@@ -92,7 +92,10 @@ void BlockHeader::pprintAlot(ostream & os)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockHeader::findNonce(const char* inDiffStr, uint32_t& retNonce)
+// Due to SWIG complications, passing in a value by reference really isn't
+// feasible. Therefore, we'll use int64 and pass back -1 if we don't find a
+// nonce.
+int64_t BlockHeader::findNonce(const char* inDiffStr)
 {
    const BinaryData playHeader(serialize());
    const CryptoPP::Integer minBDiff("FFFF0000000000000000000000000000000000000000000000000000h");
@@ -127,9 +130,8 @@ bool BlockHeader::findNonce(const char* inDiffStr, uint32_t& retNonce)
                pprint();
                cout << "Hash:       " << hashResult.toHexStr() << endl;
                hasSolution=true;
-               retNonce = nonce;
                stopNow=true;
-               return true;
+               return nonce;
             }
 
             if (stopNow)
@@ -168,7 +170,7 @@ bool BlockHeader::findNonce(const char* inDiffStr, uint32_t& retNonce)
    }
 
    // If we've landed here for one reason or another, we've failed. Return 0.
-   return false;
+   return -1;
 }
 
 
