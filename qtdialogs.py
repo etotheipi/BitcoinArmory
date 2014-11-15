@@ -9739,8 +9739,7 @@ class DlgExportTxHistory(ArmoryDialog):
       wltBalances = {}
       for wltID in wltIDList:
          wlt = self.main.walletMap[wltID]
-         id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
-         combinedLedger.extend(id_le_pairs)
+         combinedLedger.extend(wlt.getTxLedger('Full'))
          totalFunds += wlt.getBalance('Total')
          spendFunds += wlt.getBalance('Spendable')
          unconfFunds += wlt.getBalance('Unconfirmed')
