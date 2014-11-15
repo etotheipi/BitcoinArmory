@@ -92,12 +92,11 @@ void BlockHeader::pprintAlot(ostream & os)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockHeader::findNonce(const char* inDiffStr)
+bool BlockHeader::findNonce(const char* inDiffStr, uint32_t& retNonce)
 {
    const BinaryData playHeader(serialize());
    const CryptoPP::Integer minBDiff("FFFF0000000000000000000000000000000000000000000000000000h");
    const CryptoPP::Integer inDiff(inDiffStr);
-   uint32_t solution = 0;
 
    if(inDiff > minBDiff) {
       cout << "Difficulty " << inDiffStr << " is too high for Bitcoin (bdiff)." << endl;
@@ -128,9 +127,9 @@ uint32_t BlockHeader::findNonce(const char* inDiffStr)
                pprint();
                cout << "Hash:       " << hashResult.toHexStr() << endl;
                hasSolution=true;
-               solution = nonce;
+               retNonce = nonce;
                stopNow=true;
-               return;
+               return true;
             }
 
             if (stopNow)
@@ -169,10 +168,8 @@ uint32_t BlockHeader::findNonce(const char* inDiffStr)
    }
 
    // If we've landed here for one reason or another, we've failed. Return 0.
-   return solution;
+   return false;
 }
-
-
 
 
 /////////////////////////////////////////////////////////////////////////////

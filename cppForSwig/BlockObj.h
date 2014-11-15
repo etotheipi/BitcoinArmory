@@ -110,7 +110,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
-   uint32_t      findNonce(const char* inDiffStr);
+   bool findNonce(const char* inDiffStr, uint32_t& retNonce);
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, uint32_t size);

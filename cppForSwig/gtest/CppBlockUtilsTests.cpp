@@ -7011,7 +7011,6 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
 
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
-
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
    theBDV->scanWallets();
@@ -7042,16 +7041,15 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    EXPECT_EQ(wltLB1->getFullBalance(), 10 * COIN);
    EXPECT_EQ(wltLB2->getFullBalance(), 15 * COIN);
 
-
    //add ZC
-   BinaryData rawZC(258);
+   BinaryData rawZC(TestChain::zcTxSize);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 258, 1, ff);
+   fread(rawZC.getPtr(), TestChain::zcTxSize, 1, ff);
    fclose(ff);
 
-   BinaryData rawLBZC(378);
+   BinaryData rawLBZC(TestChain::lbZCTxSize);
    FILE *flb = fopen("../reorgTest/LBZC.tx", "rb");
-   fread(rawLBZC.getPtr(), 378, 1, flb);
+   fread(rawLBZC.getPtr(), TestChain::lbZCTxSize, 1, flb);
    fclose(flb);
 
    theBDV->addNewZeroConfTx(rawZC, 0, false);
@@ -7121,7 +7119,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, Load3locks_ZC_Plus3_TestLedgers)
+TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 {
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -7164,12 +7162,12 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(unconfirmedBalance, 105 * COIN);
 
    //add ZC
-   BinaryData rawZC(258);
+   BinaryData rawZC(259);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 258, 1, ff);
+   fread(rawZC.getPtr(), 259, 1, ff);
    fclose(ff);
 
-   BinaryData ZChash = READHEX("b6b6f145742a9072fd85f96772e63a00eb4101709aa34ec5dd59e8fc904191a7");
+   BinaryData ZChash = READHEX(TestChain::zcTxHash256);
 
    theBDV->addNewZeroConfTx(rawZC, 1300000000, false);
    theBDV->parseNewZeroConfTx();
@@ -7189,7 +7187,6 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
    //check ledger for ZC
-   // These aren't right. Need to re-analyze.
    LedgerEntry le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
    EXPECT_EQ(le.getValue(),  3000000000);
@@ -7202,10 +7199,9 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus3_TestLedgers)
    BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
    zcKey.append(WRITE_UINT32_LE(0));
 
-   // These aren't right. Need to re-analyze.
    EXPECT_EQ(iface_->getStoredZcTx(zcStx, zcKey), true);
    EXPECT_EQ(zcStx.thisHash_, ZChash);
-   EXPECT_EQ(zcStx.numBytes_ , 258);
+   EXPECT_EQ(zcStx.numBytes_ , TestChain::zcTxSize);
    EXPECT_EQ(zcStx.fragBytes_, 190);
    EXPECT_EQ(zcStx.numTxOut_, 2);
    EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
@@ -7264,7 +7260,7 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus3_TestLedgers)
 
    EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
    EXPECT_EQ(zcStx2.thisHash_, ZChash);
-   EXPECT_EQ(zcStx2.numBytes_, 258);
+   EXPECT_EQ(zcStx2.numBytes_, TestChain::zcTxSize);
    EXPECT_EQ(zcStx2.fragBytes_, 190);
    EXPECT_EQ(zcStx2.numTxOut_, 2);
    EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 10 * COIN);
@@ -7300,8 +7296,8 @@ TEST_F(BlockUtilsBare, Load3locks_ZC_Plus3_TestLedgers)
 
    EXPECT_EQ(iface_->getStoredZcTx(zcStx3, zcKey), true);
    EXPECT_EQ(zcStx3.thisHash_, ZChash);
-   EXPECT_EQ(zcStx3.numBytes_, 258);
-   EXPECT_EQ(zcStx3.fragBytes_, 190);
+   EXPECT_EQ(zcStx3.numBytes_, TestChain::zcTxSize);
+   EXPECT_EQ(zcStx3.fragBytes_, 190); // Not sure how Python can get this value
    EXPECT_EQ(zcStx3.numTxOut_, 2);
    EXPECT_EQ(zcStx3.stxoMap_.begin()->second.getValue(), 10 * COIN);
 
@@ -9407,9 +9403,9 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    theBDV->scanWallets();
 
    BinaryData ZChash = READHEX("b6b6f145742a9072fd85f96772e63a00eb4101709aa34ec5dd59e8fc904191a7");
-   BinaryData rawZC(258);
+   BinaryData rawZC(259);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 258, 1, ff);
+   fread(rawZC.getPtr(), 259, 1, ff);
    fclose(ff);
 
    theBDV->addNewZeroConfTx(rawZC, 1300000000, false);

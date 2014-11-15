@@ -40,6 +40,10 @@ const BinaryData blkHash4 = BinaryData::CreateFromHex("7f640833c553582959a144f27
 const BinaryData blkHash5 = BinaryData::CreateFromHex("e4b8313bec211633992fde8b9bb9727f56cb0413e2108ceab280fc7e00000000");
 const BinaryData blkHash4A = BinaryData::CreateFromHex("fb97af2c706d9410d90651d171f8e728d228fbfe7a14b58d475cb55800000000");
 const BinaryData blkHash5A = BinaryData::CreateFromHex("3a6a8a8a1b0a64d28c07b680e3a079530c5997894aafd31684b5f83500000000");
+
+const unsigned int zcTxSize = 258;
+const string zcTxHash256 = "b6b6f145742a9072fd85f96772e63a00eb4101709aa34ec5dd59e8fc904191a7";
+const unsigned int lbZCTxSize = 378;
 }
 
 #endif
