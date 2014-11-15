@@ -640,12 +640,14 @@ class PyBtcWallet(object):
    def createWalletFromMasterPubKey(self, masterHex, \
                                           isActuallyNew=True, \
                                           doRegisterWithBDM=True):
-      # This function eats hex inputs, not sure why I chose to do that...
-      p0 = masterHex.index('4104') + 2
+      # This function eats hex inputs. (Not sure why I chose to do that.)
+      # B/c we have a known starting pt. for keys, use that instead of trying to
+      # index off a chaincode value, as the value could be in the key.
+      p0 = masterHex.index('4104') + 1
       pubkey = SecureBinaryData(hex_to_binary(masterHex[p0:p0+130]))
-      c0 = masterHex.index('1220') + 4
+      c0 = masterHex.index('4104') + 66
       chain = SecureBinaryData(hex_to_binary(masterHex[c0:c0+64]))
-      
+
       # Create the root address object
       rootAddr = PyBtcAddress().createFromPublicKeyData( pubkey )
       rootAddr.markAsRootAddr(chain)
