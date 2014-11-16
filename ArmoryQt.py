@@ -129,6 +129,7 @@ class ArmoryMainWindow(QMainWindow):
       self.sweepAfterScanList = []
       self.newWalletList = []
       self.newZeroConfSinceLastUpdate = []
+      self.lastSDMState = BDM_UNINITIALIZED
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
