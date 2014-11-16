@@ -110,7 +110,7 @@ int64_t BlockHeader::findNonce(const char* inDiffStr)
       std::mutex lockSolution;
       bool hasSolution=false;
 
-      const auto computer = [&] (uint32_t startAt, uint32_t stopAt)
+      const auto computer = [&] (uint32_t startAt, uint32_t stopAt)->int64_t
       {
          BinaryData hashResult(32);
          for(uint32_t nonce=startAt; nonce<stopAt; nonce++)
@@ -145,6 +145,9 @@ int64_t BlockHeader::findNonce(const char* inDiffStr)
                cout.flush();
             }
          }
+
+         //needs a return val for windows to build
+         return -1;
       };
 
       const unsigned numThreads = thread::hardware_concurrency();

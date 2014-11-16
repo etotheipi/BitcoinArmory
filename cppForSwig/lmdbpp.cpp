@@ -529,7 +529,10 @@ void LMDB::insert(
    
    int rc = mdb_put(txnIter->second.txn_, dbi, &mkey, &mval, 0);
    if (rc != MDB_SUCCESS)
+   {
+      std::cout << "failed to insert data, returned following error string: " << errorString(rc) << std::endl;
       throw LMDBException("Failed to insert (" + errorString(rc) + ")");
+   }
 }
 
 void LMDB::erase(const CharacterArrayRef& key)
@@ -545,7 +548,10 @@ void LMDB::erase(const CharacterArrayRef& key)
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    int rc = mdb_del(txnIter->second.txn_, dbi, &mkey, 0);
    if (rc != MDB_SUCCESS && rc != MDB_NOTFOUND)
+   {
+      std::cout << "failed to erase data, returned following error string: " << errorString(rc) << std::endl;
       throw LMDBException("Failed to erase (" + errorString(rc) + ")");
+   }
 }
 
 std::string LMDB::value(const CharacterArrayRef& key) const

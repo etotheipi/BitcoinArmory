@@ -89,6 +89,7 @@ typedef std::pair<size_t, uint64_t> BlockFilePosition;
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
+
 private:
    BlockDataManagerConfig config_;
    

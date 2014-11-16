@@ -85,11 +85,24 @@ private:
    void searchForSSHKeysToDelete(map<BinaryData, StoredScriptHistory>& sshToModify);
 
    void preloadSSH(const ScrAddrFilter& sasd);
-   BinaryData applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData);
+   BinaryData applyBlockToDB(StoredHeader &sbh, ScrAddrFilter& scrAddrData,
+                             bool forceUpdateValue = false);
    bool applyTxToBatchWriteData(
                            StoredTx &       thisSTX,
                            StoredUndoData * sud,
-                           ScrAddrFilter& scrAddrMap);
+                           ScrAddrFilter& scrAddrMap,
+                           bool forceUpdateValue);
+
+   bool parseTxIns(
+      StoredTx& thisSTX,
+      StoredUndoData * sud,
+      ScrAddrFilter& scrAddrData,
+      bool forceUpdateValue);
+   bool parseTxOuts(
+      StoredTx& thisSTX,
+      StoredUndoData * sud,
+      ScrAddrFilter& scrAddrData,
+      bool forceUpdateValue);
 
    void resetTransactions(void);
    void clearTransactions(void);
@@ -109,7 +122,10 @@ private:
    map<BinaryData, StoredScriptHistory>   sshToModify_;
    vector<StoredHeader*>                  sbhToUpdate_;
    set<BinaryData>                        keysToDelete_;
-   vector<StoredSubHistory*>              subSshToApply_;
+
+   map<BinaryData, BinaryWriter>          serialuzedSubSshToApply_;
+   map<BinaryData, BinaryWriter>          serializedSshToModify_;
+   map<BinaryData, BinaryWriter>          serializedStxOutToModify_;
    
    // (theoretically) incremented for each
    // applyBlockToDB and decremented for each

@@ -489,7 +489,6 @@ public:
    StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
                             txioCount_(0) 
    {
-      accessing_.clear();
    }
                                
 
@@ -524,7 +523,7 @@ public:
                              uint32_t& commitId, int64_t& retVal,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
-   int64_t markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
+   bool markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                              uint64_t&  additionalSize,
                              uint64_t   value,
@@ -558,7 +557,6 @@ public:
       //std::atomic types are copyable, and we do not copy
       //accessing_, as this flag is meant to signify 
       //access to the particular object, not that data per say
-      this->accessing_.clear();
 
       return *this;
    }
@@ -573,7 +571,6 @@ public:
 
    //used to sync subssh dumping in DB, not saved
    uint32_t commitId_ = UINT32_MAX;
-   atomic_flag accessing_;
 };
 
 
@@ -632,14 +629,16 @@ public:
                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                uint64_t&  additionalSize,
                                uint32_t& commitId, 
-                               uint64_t   value=UINT64_MAX,
+                               uint64_t   value,
                                bool       isCoinbase= false,
-                               bool       isMultisigRef=false);
+                               bool       isMultisigRef=false,
+                               bool       forceValUpdate=false);
 
    bool   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
                              uint32_t& commitId,
-                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+                             bool forceUpdateValue);
 
    void insertSpentTxio(const BinaryData& txOutDbKey,
                          const BinaryData& txInDbKey,
