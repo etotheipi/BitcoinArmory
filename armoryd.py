@@ -143,7 +143,7 @@ NOT_IMPLEMENTED = '--Not Implemented--'
 # the wallets to a wallet set (actually a dictionary, with the wallet ID as the
 # key and the wallet as the value), along with adding the wallet ID to a
 # separate set.
-def addMultWallets(inWltPaths, inWltMap, inWltIDSet):
+def addMultWallets(inWltPaths, inWltMap):
    '''Function that adds multiple wallets to an armoryd server.'''
    newWltList = []
 
@@ -160,7 +160,7 @@ def addMultWallets(inWltPaths, inWltMap, inWltIDSet):
 
          # A directory can have multiple versions of the same
          # wallet. We'd prefer to skip watch-only wallets.
-         if wltID in inWltIDSet:
+         if wltID in inWltMap.keys():
             LOGWARN('***WARNING: Duplicate wallet (%s) detected' % wltID)
             wo1 = inWltMap[wltID].watchingOnly
             wo2 = wltLoad.watchingOnly
@@ -178,7 +178,6 @@ def addMultWallets(inWltPaths, inWltMap, inWltIDSet):
          else:
             # Update the wallet structs.
             inWltMap[wltID] = wltLoad
-            inWltIDSet.add(wltID)
             newWltList.append(wltID)
       except:
          LOGEXCEPT('***WARNING: Unable to load wallet %s. Skipping.', aWlt)
@@ -192,7 +191,7 @@ def addMultWallets(inWltPaths, inWltMap, inWltIDSet):
 # the lockboxes to a lockbox set (actually a dictionary, with the lockbox ID as
 # the key and the lockbox as the value), along with adding the lockboxy ID to a
 # separate set.
-def addMultLockboxes(inLBPaths, inLboxMap, inLBIDSet):
+def addMultLockboxes(inLBPaths, inLboxMap):
    '''Function that adds multiple lockboxes to an armoryd server.'''
    newLBList = []
 
@@ -201,11 +200,10 @@ def addMultLockboxes(inLBPaths, inLboxMap, inLBIDSet):
          curLBList = readLockboxesFile(curLBFile)
          for curLB in curLBList:
             lbID = curLB.uniqueIDB58
-            if lbID in inLBIDSet:
+            if lbID in inLboxMap.keys():
                LOGINFO('***WARNING: Duplicate lockbox (%s) detected' % lbID)
             else:
                inLboxMap[lbID] = curLB
-               inLBIDSet.add(lbID)
                newLBList.append(lbID)
       except:
          LOGEXCEPT('***WARNING: Unable to load lockbox file %s. Skipping.', \
@@ -218,8 +216,8 @@ def addMultLockboxes(inLBPaths, inLboxMap, inLBIDSet):
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def __init__(self, wallet, lockbox=None, inWltMap=None, inLBMap=None, \
-                inWltIDSet=None, inLBIDSet=None, inLBCppWalletMap=None, \
-                armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
+                inLBCppWalletMap=None, armoryHomeDir=ARMORY_HOME_DIR, \
+                addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
@@ -232,18 +230,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # is to check for None and set to the proper type.
       if inWltMap == None:
          inWltMap = {}
-      if inWltIDSet == None:
-         inWltIDSet = set()
       if inLBMap == None:
          inLBMap = {}
-      if inLBIDSet == None:
-         inLBIDSet = set()
       if inLBCppWalletMap == None:
          inLBCppWalletMap = {}
       self.serverWltMap = inWltMap                 # Dict
-      self.serverWltIDSet = inWltIDSet             # set()
       self.serverLBMap = inLBMap                   # Dict
-      self.serverLBIDSet = inLBIDSet               # set()
       self.serverLBCppWalletMap = inLBCppWalletMap # Dict
 
       self.armoryHomeDir = armoryHomeDir
@@ -901,7 +893,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # If we're not getting info on the currently loaded wallet, check to make
       # sure the incoming wallet ID points to an actual wallet.
       if inWltID:
-         if self.serverWltIDSet[inWltID] != None:
+         if self.serverWltMap[inWltID] != None:
             self.wltToUse = self.serverWltMap[inWltID]
          else:
             raise WalletDoesNotExist
@@ -1944,7 +1936,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # We'll return info on the currently loaded LB if no LB ID has been
       # specified. If an LB ID has been specified, we'll get info on it if the
       # specified LB has been loaded.
-      if inLBID in self.serverLBIDSet:
+      if inLBID in self.serverLBMap.keys():
          self.lbToUse = self.serverLBMap[inLBID]
       else:
          # Unlike wallets, LBs are optional in armoryd, so we need to make sure
@@ -2608,13 +2600,11 @@ class Armory_Daemon(object):
 
       # WltMap:   wltID --> PyBtcWallet
       self.WltMap = {}
-      self.wltIDSet = set()
 
       # lboxMap:           lboxID --> MultiSigLockbox
       # lboxCppWalletMap:  lboxID --> Cpp.BtcWallet
       self.lboxMap = {}   
       self.lboxCppWalletMap = {}
-      self.lbIDSet = set()
 
       self.curWlt = None
       self.curLB = None
@@ -2681,7 +2671,7 @@ class Armory_Daemon(object):
                # Get the lockboxes in standard Armory LB file and store pointers
                # to them, assuming any exist.
                lbPaths = getLockboxFilePaths()
-               addMultLockboxes(lbPaths, self.lboxMap, self.lbIDSet)
+               addMultLockboxes(lbPaths, self.lboxMap)
                if len(self.lboxMap) > 0:
                   # Set the current LB to the 1st wallet in the set. (The choice
                   # is arbitrary.)
@@ -2710,11 +2700,10 @@ class Armory_Daemon(object):
                # to them. Also, set the current wallet to the 1st wallet in the
                # set. (The choice is arbitrary.)
                wltPaths = readWalletFiles()
-               addMultWallets(wltPaths, self.WltMap, self.wltIDSet)
+               addMultWallets(wltPaths, self.WltMap)
                if len(self.WltMap) > 0:
                   self.curWlt = self.WltMap[self.WltMap.keys()[0]]
                   self.WltMap[self.curWlt.uniqueIDB58] = self.curWlt
-                  self.wltIDSet.add(self.curWlt.uniqueIDB58)
                else:
                   LOGERROR('No wallets could be loaded! armoryd will exit.')
 
@@ -2749,7 +2738,6 @@ class Armory_Daemon(object):
             LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
             resource = Armory_Json_Rpc_Server(self.curWlt, self.curLB, \
                                               self.WltMap, self.lboxMap, \
-                                              self.wltIDSet, self.lbIDSet, \
                                               self.lboxCppWalletMap)
             secured_resource = self.set_auth(resource)
 
