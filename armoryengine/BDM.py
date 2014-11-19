@@ -161,8 +161,8 @@ class BlockDataManager(object):
       self.ldbdir = ""
 
       #dbType
-      #self.dbType = Cpp.ARMORY_DB_BARE
-      self.dbType = Cpp.ARMORY_DB_SUPER      
+      self.dbType = Cpp.ARMORY_DB_BARE
+      #self.dbType = Cpp.ARMORY_DB_SUPER      
       
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
 
