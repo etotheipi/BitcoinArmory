@@ -1294,16 +1294,12 @@ class PyBtcWallet(object):
 
       # Neither should happen, but just in case....
       if len(wltRootPubKey) != 65:
-         QMessageBox.critical(self, 'There\'s something wrong with your', \
-            'watching-only wallet! The root public key can\'t be retrieved.', \
-            QMessageBox.Ok)
-         self.accept()
+         LOGERROR('There\'s something wrong with your watch-only wallet! The ')
+         LOGERROR('root public key can\'t be retrieved.')
          return
       if len(wltChainCode) != 32:
-         QMessageBox.critical(self, 'There\'s something wrong with your', \
-            'watching-only wallet! The root chain code can\'t be retrieved.', \
-            QMessageBox.Ok)
-         self.accept()
+         LOGERROR('There\'s something wrong with your watch-only wallet! The ')
+         LOGERROR('root chain code can\'t be retrieved.')
          return
 
       # Finish assembling data for the final output.
