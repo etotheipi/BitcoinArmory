@@ -118,10 +118,10 @@ public:
    
    // find the location of the first block that is not in @p bc
    BlockFilePosition findFirstUnrecognizedBlockHeader(
-      const Blockchain &bc
-   ) const
+      Blockchain &bc
+   ) 
    {
-      const map<HashString, BlockHeader> &allHeaders = bc.allHeaders();
+      map<HashString, BlockHeader> &allHeaders = bc.allHeaders();
       
       size_t index=0;
       
@@ -134,7 +134,6 @@ public:
             if (index == 0)
                return { 0, 0 };
             
-            //index--;
             break;
          }
       }
@@ -167,8 +166,13 @@ public:
          block.unserialize(brr);
          
          const HashString blockhash = block.getThisHash();
-         if (allHeaders.find(blockhash) == allHeaders.end())
+         auto bhIter = allHeaders.find(blockhash);
+         
+         if(bhIter == allHeaders.end())
             throw StopReading();
+
+         bhIter->second.setBlockFileNum(pos.first);
+         bhIter->second.setBlockFileOffset(pos.second);
       };
       
       try
@@ -253,7 +257,57 @@ public:
       
       return { startAt.first-1, finishLocation };
    }
-   
+
+   void getFileAndPosForBlockHash(BlockHeader& blk)
+   {
+      BlockFilePosition filePos = { 0, 0 };
+
+      //we dont have the file position for this header, let's find it
+      class StopReading : public std::exception
+      {
+      };
+
+      const BinaryData& thisHash = blk.getThisHash();
+
+      const auto stopIfBlkHeaderRecognized =
+         [&thisHash, &filePos](
+         const BinaryData &blockheader,
+         const BlockFilePosition &pos,
+         uint32_t blksize
+         )
+      {
+         filePos = pos;
+
+         BlockHeader block;
+         BinaryRefReader brr(blockheader);
+         block.unserialize(brr);
+
+         const HashString blockhash = block.getThisHash();
+         if (blockhash == thisHash)
+            throw StopReading();
+      };
+
+      try
+      {
+         //at this point, the last blkFile has been scanned for block, so skip it
+         for (int32_t i = blkFiles_.size() - 2; i > -1; i--)
+         {
+            readHeadersFromFile(
+               blkFiles_[i],
+               0,
+               stopIfBlkHeaderRecognized
+               );
+         }
+      }
+      catch (StopReading&)
+      {
+         // we're fine
+      }
+
+      blk.setBlockFileNum(filePos.first);
+      blk.setBlockFileOffset(filePos.second);
+   }
+
 private:
    // read blocks from f, starting at offset blockFileOffset,
    // returning the offset we finished at
@@ -1007,7 +1061,7 @@ void BlockDataManager_LevelDB::loadDiskState(
          progress_(phase_, progress, secondsRemaining, 0);
       }
    };
-   
+  
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
    BDMstate_ = BDM_initializing;
    
@@ -1019,17 +1073,10 @@ void BlockDataManager_LevelDB::loadDiskState(
    LOGINFO << "Total number of blk*.dat files: " << readBlockHeaders_->numBlockFiles();
    LOGINFO << "Total blockchain bytes: " 
       << BtcUtils::numToStrWCommas(readBlockHeaders_->totalBlockchainBytes());
-   
-   //pull last scanned blockhash from sdbi
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(BLKDATA, sdbi);
-   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
-   
+      
    // load the headers from lmdb into blockchain()
    loadBlockHeadersFromDB(progress);
-   
-   uint32_t firstUnappliedHeight=0;
-   
+      
    {
       progress(BDMPhase_OrganizingChain, 0, 0, 0);
       // organize the blockchain we have so far
@@ -1040,17 +1087,12 @@ void BlockDataManager_LevelDB::loadDiskState(
          LOGERR << "Organize chain indicated reorg in process all headers!";
          LOGERR << "Did we shut down last time on an orphan block?";
       }
-      firstUnappliedHeight = blockchain_.top().getBlockHeight();
    }
-   
    
    if (forceRescan)
    {
       deleteHistories();
       scrAddrData_->clear();
-      
-      iface_->getStoredDBInfo(BLKDATA, sdbi);
-      lastTopBlockHash = sdbi.topBlkHash_;
    }
    
    if (config_.armoryDbType != ARMORY_DB_SUPER)
@@ -1103,73 +1145,9 @@ void BlockDataManager_LevelDB::loadDiskState(
 
    //write headers to the DB, update dupIDs in RAM
    blockchain_.putBareHeaders(iface_);
-   
-   uint32_t scanFrom = 0;
-   if (blockchain_.hasHeaderWithHash(lastTopBlockHash))
-   {
-      const BlockHeader& lastTopBlockHeader =
-         blockchain_.getHeaderByHash(lastTopBlockHash);
+      
+   findFirstBlockToApply();
 
-      if (lastTopBlockHeader.isMainBranch())
-      {
-         //if the last known top block is on the main branch, nothing to do,
-         //set scanFrom to height +1
-         if (lastTopBlockHeader.getBlockHeight() > 0)
-            scanFrom = lastTopBlockHeader.getBlockHeight() + 1;
-      }
-      else
-      {
-         //last known top block is not on the main branch anymore, undo SSH
-         //entries up to the branch point, then scan from there
-         const Blockchain::ReorganizationState state =
-            blockchain_.findReorgPointFromBlock(lastTopBlockHash);
-         
-         bool undoData = true;
-         if (config_.armoryDbType != ARMORY_DB_SUPER)
-         {
-            uint32_t topScannedBlock = scrAddrData_->scanFrom();
-            if (topScannedBlock < state.reorgBranchPoint->getBlockHeight())
-            {
-               /***This is a special case. In full node only registered 
-               addresses are scanned. If we got here we hit 2 special 
-               conditions: 
-               
-               1) The BDM was shutdown on a chain invalidated before the next 
-                  load
-               2) Fresh addresses were registered, which need to be scanned on 
-                  their own.
-
-               The simplest approach here is to wipe all SSH history and scan 
-               from 0. The other solution is to unod the original set of 
-               scrAddr to the reorg point, and scan the fresh addresses 
-               independantly up to the reorg point, which is way too convoluted
-               for such a rare case.
-               ***/
-
-               undoData = false;
-               deleteHistories();
-
-               scrAddrData_->clear();
-
-               iface_->getStoredDBInfo(BLKDATA, sdbi);
-               BinaryData lastTopBlockHash = sdbi.topBlkHash_;
-            }
-         }
-
-         if (undoData == true)
-         {
-            //undo blocks up to the branch point, we'll apply the main chain
-            //through the regular scan
-            ReorgUpdater reorgOnlyUndo(state,
-               &blockchain_, iface_, config_, scrAddrData_.get(), true);
-
-            scanFrom = state.reorgBranchPoint->getBlockHeight() + 1;
-         }
-      }
-   }
-   
-   firstUnappliedHeight = min(scanFrom, firstUnappliedHeight);
-   
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
    
@@ -1180,15 +1158,11 @@ void BlockDataManager_LevelDB::loadDiskState(
       loadBlockData(prog, readHeadersUpTo, false);
    }
    
+   uint32_t scanFrom = findFirstBlockToScan();
+
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
-      if (!blockchain_.hasHeaderWithHash(sdbi.topScannedBlkHash_))
-         scanFrom = 0;
-      else
-      {
-         const BlockHeader& bh = blockchain_.getHeaderByHash(sdbi.topScannedBlkHash_);
-         scanFrom = min(scanFrom, bh.getBlockHeight());
-      }
+
       // TODO: use applyBlocksProgress in applyBlockRangeToDB
       // scan addresses from BDM
       TIMER_START("applyBlockRangeToDB");
@@ -1202,16 +1176,21 @@ void BlockDataManager_LevelDB::loadDiskState(
          if (scrAddrData_->numScrAddr() > 0)
          {
             uint32_t scanfrom = min(scrAddrData_->scanFrom(), scanFrom);
+
+            if (!scanfrom)
+               deleteHistories();
+
             applyBlockRangeToDB(progPhase, scanfrom,
                blockchain_.top().getBlockHeight(),
                *scrAddrData_.get());
          }
       }
+      
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
       CLEANUP_ALL_TIMERS();
       LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
-   }   
+   }
    
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;
@@ -1411,7 +1390,7 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 // Deletes all SSH entries in the database
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
-   LOGINFO << "Clearing all SSH";
+   //LOGINFO << "Clearing all SSH";
 
    LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
 
@@ -1419,7 +1398,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    iface_->getStoredDBInfo(BLKDATA, sdbi);
 
    sdbi.appliedToHgt_ = 0;
-   sdbi.topBlkHash_ = config_.genesisBlockHash;
    sdbi.topScannedBlkHash_ = BinaryData(0);
    iface_->putStoredDBInfo(BLKDATA, sdbi);
    //////////
@@ -1495,7 +1473,8 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    for (auto& keytodel : keysToDelete)
       iface_->deleteValue(BLKDATA, keytodel);
 
-   LOGINFO << "Deleted " << i << " SSH and subSSH entries";
+   if (i)
+      LOGINFO << "Deleted " << i << " SSH and subSSH entries";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1768,4 +1747,131 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BlockDataManager_LevelDB::getNextWalletIDToScan(void)
+{
+   return scrAddrData_->getNextWalletIDToScan();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_LevelDB::findFirstBlockToScan(void)
+{
+   StoredDBInfo sdbi;
+   BinaryData lastTopBlockHash;
+
+   {
+      //pull last scanned blockhash from sdbi
+      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+      iface_->getStoredDBInfo(BLKDATA, sdbi);
+      lastTopBlockHash = sdbi.topScannedBlkHash_;
+   }
+
+   //check if blockchain_ has the header for this hash
+   uint32_t scanFrom = 0;
+   if (blockchain_.hasHeaderWithHash(lastTopBlockHash))
+   {
+      const BlockHeader& lastTopBlockHeader =
+         blockchain_.getHeaderByHash(lastTopBlockHash);
+
+      if (lastTopBlockHeader.isMainBranch())
+      {
+         //if the last known top block is on the main branch, nothing to do,
+         //set scanFrom to height +1
+         if (lastTopBlockHeader.getBlockHeight() > 0)
+            scanFrom = lastTopBlockHeader.getBlockHeight() + 1;
+      }
+      else
+      {
+         //last known top block is not on the main branch anymore, undo SSH
+         //entries up to the branch point, then scan from there
+         const Blockchain::ReorganizationState state =
+            blockchain_.findReorgPointFromBlock(lastTopBlockHash);
+
+         bool undoData = true;
+         if (config_.armoryDbType != ARMORY_DB_SUPER)
+         {
+            uint32_t topScannedBlock = scrAddrData_->scanFrom();
+            if (topScannedBlock < state.reorgBranchPoint->getBlockHeight())
+            {
+               /***This is a special case. In full node only registered
+               addresses are scanned. If we got here we hit 2 special
+               conditions:
+
+               1) The BDM was shutdown on a chain invalidated before the next
+               load
+               2) Fresh addresses were registered, which need to be scanned on
+               their own.
+
+               The simplest approach here is to wipe all SSH history and scan
+               from 0. The other solution is to unod the original set of
+               scrAddr to the reorg point, and scan the fresh addresses
+               independantly up to the reorg point, which is way too convoluted
+               for such a rare case.
+               ***/
+
+               undoData = false;
+               deleteHistories();
+
+               scrAddrData_->clear();
+            }
+         }
+
+         if (undoData == true)
+         {
+            //undo blocks up to the branch point, we'll apply the main chain
+            //through the regular scan
+            ReorgUpdater reorgOnlyUndo(state,
+               &blockchain_, iface_, config_, scrAddrData_.get(), true);
+
+            scanFrom = state.reorgBranchPoint->getBlockHeight() + 1;
+         }
+      }
+   }
+
+   return scanFrom;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::findFirstBlockToApply(void)
+{
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi);
+   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+
+   if (blockchain_.hasHeaderWithHash(lastTopBlockHash))
+   {
+      BlockHeader* bh = &blockchain_.getHeaderByHash(lastTopBlockHash);
+
+      if (bh->getBlockHeight() == 0)
+      {
+         blkDataPosition_ = { 0, 0 };
+         return;
+      }
+
+      BinaryData nextHash = bh->getNextHash();
+
+      if (nextHash == BtcUtils::EmptyHash_ || nextHash.getSize() == 0)
+         return;
+
+      if (bh->hasFilePos())
+      {
+         blkDataPosition_ = { bh->getBlockFileNum(), bh->getOffset() + bh->getBlockSize() };
+         return;
+      }
+
+      bh = &blockchain_.getHeaderByHash(nextHash);
+      
+      if (!bh->hasFilePos())
+         readBlockHeaders_->getFileAndPosForBlockHash(*bh);
+
+      blkDataPosition_ = { bh->getBlockFileNum(), bh->getOffset() };
+   }
+   else
+   {
+      blkDataPosition_ = { 0, 0 };
+   }
+}
 // kate: indent-width 3; replace-tabs on;

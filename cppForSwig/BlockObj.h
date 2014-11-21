@@ -82,6 +82,7 @@ public:
 
    const string&  getFileName(void) const { return blkFile_; }
    uint64_t       getOffset(void) const { return blkFileOffset_; }
+   uint32_t       getBlockFileNum(void) const { return blkFileNum_; }
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const  {
       assert(isInitialized_);
@@ -107,6 +108,8 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    const BinaryData& serialize(void) const   { return dataCopy_; }
+
+   bool hasFilePos(void) const { return blkFileNum_ != UINT32_MAX; }
 
    /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
@@ -147,7 +150,7 @@ private:
    double         difficultySum_;
 
    string         blkFile_;
-   uint32_t       blkFileNum_;
+   uint32_t       blkFileNum_ = UINT32_MAX;
    uint64_t       blkFileOffset_;
 
 

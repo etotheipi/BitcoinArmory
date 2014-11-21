@@ -190,6 +190,8 @@ public:
 
    void startSideScan(
       function<void(const BinaryData&, double prog, unsigned time)> progress);
+
+   const BinaryData getNextWalletIDToScan(void);
  
 public:
    virtual ScrAddrFilter* copy()=0;

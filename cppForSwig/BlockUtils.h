@@ -213,6 +213,8 @@ private:
       );
    void deleteHistories(void);
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
+   uint32_t findFirstBlockToScan(void);
+   void findFirstBlockToApply(void);
 
 public:
 
@@ -260,6 +262,8 @@ public:
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
+
+   BinaryData getNextWalletIDToScan(void);
 };
 
 

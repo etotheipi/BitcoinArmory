@@ -679,11 +679,6 @@ bool BlockWriteBatcher::parseTxIns(
    BtcUtils::TxInCalcLength(thisSTX.dataCopy_.getPtr(), thisSTX.dataCopy_.getSize(),
       &TxInIndexes);
 
-   // We never expect thisSTX to already be in the map (other tx in the map
-   // may be affected/retrieved multiple times).  
-   if (KEY_IN_MAP(thisSTX.thisHash_, stxToModify_))
-      LOGERR << "How did we already add this tx?";
-
    for (StoredTxOut &stx : values(thisSTX.stxoMap_))
       stx.spentness_ = TXOUT_UNSPENT;
 

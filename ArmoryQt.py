@@ -247,6 +247,8 @@ class ArmoryMainWindow(QMainWindow):
       self.extraNewBlockFunctions = []
       self.extraShutdownFunctions = []
       self.extraGoOnlineFunctions = []
+      
+      self.walletDialogDict = {}
 
       self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' %
                                       htmlColor('TextWarn'), doWrap=False)
@@ -3271,8 +3273,10 @@ class ArmoryMainWindow(QMainWindow):
 
       wlt = self.walletMap[self.walletIDList[index.row()]]
       dialog = DlgWalletDetails(wlt, self.usermode, self, self)
+      self.walletDialogDict[wlt.uniqueIDB58] = dialog
       dialog.exec_()
-      #self.walletListChanged()
+      if wlt.uniqueIDB58 in self.walletDialogDict:
+         del self.walletDialogDict[wlt.uniqueIDB58]
 
    #############################################################################
    def execClickRow(self, index=None):
@@ -3363,18 +3367,11 @@ class ArmoryMainWindow(QMainWindow):
 
       return comment
       """
-   #############################################################################      
-   def setWalletIsScanning(self, newWallet):
-      if TheBDM.getState() in (BDM_BLOCKCHAIN_READY, BDM_SCANNING):
-         newWltID = newWallet.uniqueIDB58
-         newWallet.isEnabled = False
-         self.walletSideScanProgress[newWltID] = 0
+
             
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):
       LOGINFO('addWalletToApplication')
-      
-      self.setWalletIsScanning(newWallet)
       
       newWallet.registerWallet()
 
@@ -3440,7 +3437,6 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('createSweepAddrTx')
       if not isinstance(sweepFromAddrObjList, (list, tuple)):
          sweepFromAddrObjList = [sweepFromAddrObjList]
-
       
       addr160List = [a.getAddr160() for a in sweepFromAddrObjList]
       utxoList = getUnspentTxOutsForAddr160List(addr160List)
@@ -3450,12 +3446,10 @@ class ArmoryMainWindow(QMainWindow):
       outValue = sumTxOutList(utxoList)
 
       inputSide = []
-      outputSide = []
 
       for utxo in utxoList:
          # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
-         rawTx = TheBDM.getTxByHash(utxo.getTxHash()).serialize()
-         PyPrevTx = PyTx().unserialize(rawTx)
+         rawTx = TheBDM.bdv().getTxByHash(utxo.getTxHash()).serialize()
          a160 = CheckHash160(utxo.getRecipientScrAddr())
          for aobj in sweepFromAddrObjList:
             if a160 == aobj.getAddr160():
@@ -3558,14 +3552,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def finishSweepScan(self):
+   def finishSweepScan(self, wlt, sweepList, sweepAfterScanTarget):
       LOGINFO('finishSweepScan')
-      sweepList, self.sweepAfterScanList = self.sweepAfterScanList,[]
+      self.sweepAfterScanList = []
 
       #######################################################################
       # The createSweepTx method will return instantly because the blockchain
       # has already been rescanned, as described above
-      targScript = scrAddr_to_script(SCRADDR_P2PKH_BYTE + self.sweepAfterScanTarg)
+      targScript = scrAddr_to_script(SCRADDR_P2PKH_BYTE + sweepAfterScanTarget)
       finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, targScript)
 
       gt1 = len(sweepList)>1
@@ -3593,9 +3587,6 @@ class ArmoryMainWindow(QMainWindow):
                      coin2str(outVal+fee, maxZeros=0), coin2str(fee, maxZeros=0))
             return
 
-      wltID = self.getWalletForAddr160(self.sweepAfterScanTarg)
-      wlt = self.walletMap[wltID]
-
       # Finally, if we got here, we're ready to broadcast!
       if gt1:
          dispIn  = 'multiple addresses'
@@ -3606,10 +3597,7 @@ class ArmoryMainWindow(QMainWindow):
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
          self.broadcastTransaction(finishedTx, dryRun=False)
 
-      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         wlt.syncWithBlockchainLite(0)
-
-      self.walletListChanged()
+      wlt.finishSweepScan(sweepList)
 
    #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False, withOldSigWarning=True):
@@ -6143,9 +6131,10 @@ class ArmoryMainWindow(QMainWindow):
          for wltID in args:
             if len(wltID) > 0:
                if wltID in self.walletMap:
-                  wlt = self.walletMap[wltID]
-                  wlt.doAfterScan()                  
+                  wlt = self.walletMap[wltID]                  
                   wlt.isEnabled = True
+                  self.walletModel.reset()                  
+                  wlt.doAfterScan()                  
 
                else:
                   lbID = self.lockboxIDMap[wltID]                
@@ -6157,7 +6146,7 @@ class ArmoryMainWindow(QMainWindow):
                   del self.walletSideScanProgress[wltID]
                
          self.createCombinedLedger()
-         self.walletModel.reset()
+
          
       elif action == 'progress':
          #Received progress data for a wallet side scan
@@ -6178,7 +6167,23 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.critical(self, tr('BlockDataManager Warning'), \
                               tr(args[0]), \
                               QMessageBox.Ok) 
-         
+      
+      elif action == SCAN_ACTION:
+         wltID = args[0]
+         self.walletSideScanProgress[wltID] = 0    
+         if len(wltID) > 0:
+            if wltID in self.walletMap:
+               wlt = self.walletMap[wltID]                
+               wlt.disableWalletUI()
+               if wltID in self.walletDialogDict:
+                  self.walletDialogDict[wltID].reject()
+                  del self.walletDialogDict[wltID]
+            else:
+               lbID = self.lockboxIDMap[wltID]                
+               self.allLockboxes[lbID].isEnabled = False
+               self.allLockboxes[lbID].disableLockBoxUI()
+               if self.lbDialogModel != None:
+                  self.lbDialogModel.reset()       
                  
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):

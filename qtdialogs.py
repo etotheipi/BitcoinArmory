@@ -2665,19 +2665,6 @@ class DlgKeypoolSettings(ArmoryDialog):
       self.setLayout(layout)
       self.setWindowTitle('Extend Address Pool')
 
-
-   #############################################################################
-   def reject(self):
-      if self.addressesWereGenerated and not TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
-         QMessageBox.warning(self, 'Rescan Required', \
-            'New addresses have been generated for your wallet, but their '
-            'balances are not yet reflected on the main screen.  You must '
-            'initiate a blockchain rescan before this happens.  Press the '
-            'button on the dashboard to do a rescan, or simply restart Armory', \
-            QMessageBox.Ok)
-
-      super(DlgKeypoolSettings, self).reject()
-
    #############################################################################
    def clickCompute(self):
       # if TheBDM.getState()==BDM_SCANNING:
@@ -2734,10 +2721,7 @@ class DlgKeypoolSettings(ArmoryDialog):
       #from twisted.internet import reactor
       #reactor.callLater(0.1, doit)
       doit()
-      self.main.setWalletIsScanning(self.wlt)
-      self.main.walletModel.reset()
-      self.reject()
-      self.parent.reject()
+
 
 ################################################################################
 class DlgNewAddressDisp(ArmoryDialog):
@@ -3234,11 +3218,10 @@ class DlgImportAddress(ArmoryDialog):
                   return
 
          # Create the address object for the addr to be swept
-         sweepAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
-         targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
-
-         self.main.confirmSweepScan([sweepAddr], targAddr160)
-
+         sweepAddrList = []
+         sweepAddrList.append(PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData)))
+         self.wlt.sweepAddressList(sweepAddrList, self.main)
+         
          # Regardless of the user confirmation, we're done here
          self.accept()
 
@@ -3392,21 +3375,15 @@ class DlgImportAddress(ArmoryDialog):
                return
 
 
-         cppWlt = Cpp.BtcWallet()
-         for addr160, addrStr, SecurePriv in privKeyList:
-            cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr160))
-
-
-         # If we got here, let's go ahead and sweep!
+         #create address less to sweep
          addrList = []
          for addr160, addrStr, SecurePriv in privKeyList:
             pyAddr = PyBtcAddress().createFromPlainKeyData(SecurePriv)
             addrList.append(pyAddr)
 
-         targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
-         self.main.confirmSweepScan(addrList, targAddr160)
-
-
+         #get PyBtcWallet object
+         self.wlt.sweepAddressList(addrList, self.main)
+         
       else:
          ##### IMPORTING #####
 

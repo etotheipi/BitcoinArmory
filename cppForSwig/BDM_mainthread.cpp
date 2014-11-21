@@ -342,6 +342,13 @@ try
          bdm->sideScanFlag_ = false;
 
          bdm->startSideScan(rescanProgress);
+         
+         BinaryData bdWltID = bdm->getNextWalletIDToScan();
+         if (bdWltID.getSize())
+         {
+            string wltID(bdWltID.getCharPtr(), bdWltID.getSize());
+            callback->run(BDMAction_StartedWalletScan, &wltID);
+         }
       }
 
       if(bdv->rescanZC_)

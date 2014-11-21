@@ -55,15 +55,21 @@ class BtcWallet
 
 public:
 
-   enum MergeMode
+   enum MergeWallet
    {
       NoMerge,
+      NeedsMerging
+   };
+
+   enum MergeAction
+   {
+      NoRescan,
       Rescan,
-      NoRescan
+      DeleteAddresses
    };
 
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
-      : bdvPtr_(bdv), mergeLock_(0), walletID_(ID)
+      : bdvPtr_(bdv), walletID_(ID)
    {}
    
    ~BtcWallet(void);
@@ -79,6 +85,7 @@ public:
                    uint32_t      lastBlockNum   = 0);
    void addAddressBulk(vector<BinaryData> const & scrAddrBulk,
                        bool areNew);
+   void removeAddressBulk(vector<BinaryData> const & scrAddrBulk);
 
 
    // SWIG has some serious problems with typemaps and variable arg lists
@@ -168,6 +175,8 @@ public:
    void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 
                                bool isNew,
                                BinaryData topScannedBlockHash);
+   void markAddressListForDeletion(const vector<BinaryData>& scrAddrVecToDel);
+
 
    void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
    const BinaryData& walletID() const { return walletID_; }
@@ -226,6 +235,17 @@ private:
    void resetTxOutHistory(void);
 
 private:
+
+   struct mergeStruct
+   {
+      map<BinaryData, ScrAddrObj> scrAddrMapToMerge_;
+      vector<BinaryData>          scrAddrVecToDelete_;
+      BinaryData                  mergeTopScannedBlkHash_;
+      MergeAction                 mergeAction_;
+
+      shared_ptr<mergeStruct> nextMergeData_;
+   };
+
    BlockDataViewer* const        bdvPtr_;
    map<BinaryData, ScrAddrObj>   scrAddrMap_;
    
@@ -237,10 +257,9 @@ private:
    BtcWallet(const BtcWallet&); // no copies
 
    //for post init importing of new addresses
-   atomic<uint32_t>              mergeLock_;
-   map<BinaryData, ScrAddrObj>   scrAddrMapToMerge_;
-   BinaryData                    mergeTopScannedBlkHash_;
-   MergeMode                     mergeFlag_ = MergeMode::NoMerge;
+   mutex                         mergeLock_;
+   shared_ptr<mergeStruct>       mergeData_;
+   MergeWallet                   mergeFlag_ = MergeWallet::NoMerge;
    
    //manages history pages
    HistoryPager                  histPages_;

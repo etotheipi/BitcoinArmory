@@ -230,7 +230,7 @@ public:
 
    BinaryData      magic_;
    uint32_t        topBlkHgt_=0;
-   BinaryData      topBlkHash_; //commmited in DB
+   BinaryData      topBlkHash_; //hash of last block commited
    BinaryData      topScannedBlkHash_; //commited to SSH
    uint32_t        appliedToHgt_=0; // only used in BLKDATA DB
    uint32_t        armoryVer_=ARMORY_DB_VERSION;

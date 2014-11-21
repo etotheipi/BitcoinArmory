@@ -17,7 +17,8 @@ enum BDMAction
    BDMAction_ZC,
    BDMAction_Refresh,
    BDMAction_Exited,
-   BDMAction_ErrorMsg
+   BDMAction_ErrorMsg,
+   BDMAction_StartedWalletScan
 };
 
 #endif

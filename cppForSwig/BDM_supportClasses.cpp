@@ -139,6 +139,7 @@ void ScrAddrFilter::scanScrAddrThread()
    //Only one wallet at a time
 
    shared_ptr<BtcWallet> wltPtr = scrAddrDataForSideScan_.wltPtr_;
+   BinaryData wltID = wltPtr->walletID();
          
    uint32_t startBlock = scanFrom();
    uint32_t endBlock = currentTopBlockHeight();
@@ -153,9 +154,6 @@ void ScrAddrFilter::scanScrAddrThread()
 
    if (doScan_ == 1)
    {
-      //TODO: keep scanning if the top changed, just handle that in the last
-      //during main thread BtcWallet::merge()
-
       //scan on top of existing history
       topScannedBlockHash = 
          applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
@@ -211,8 +209,13 @@ void ScrAddrFilter::scanScrAddrThread()
       root->child_ = newChild;
 
       root->isScanning_ = false;
-      root->flagForScanThread();
+
+      if (root->child_)
+         root->flagForScanThread();
    }
+
+   string strWltID(wltID.getCharPtr(), wltID.getSize());
+   LOGINFO << "Done with side scan of wallet " << strWltID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -416,6 +419,16 @@ void ScrAddrFilter::buildSideScanData(shared_ptr<BtcWallet> wltPtr)
       min(scrAddrDataForSideScan_.startScanFrom_, scrAddrPair.second);
 
    scrAddrDataForSideScan_.wltPtr_ = wltPtr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+const BinaryData ScrAddrFilter::getNextWalletIDToScan(void)
+{
+   if (child_.get() != nullptr)
+   if (child_->scrAddrDataForSideScan_.wltPtr_.get() != nullptr)
+      return child_->scrAddrDataForSideScan_.wltPtr_->walletID();
+   
+   return BinaryData();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

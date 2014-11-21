@@ -734,12 +734,21 @@ class ArmoryFrame(QFrame):
 
 ################################################################################
 class ArmoryDialog(QDialog):
+   #create a signal with a random name that children to this dialog will 
+   #connect to close themselves if the parent is closed first   
+
+      
    def __init__(self, parent=None, main=None):
       super(ArmoryDialog, self).__init__(parent)
 
+      self.closeSignal = str(random.random())       
       self.parent = parent
       self.main   = main
-
+      
+      #connect this dialog to the parent's close signal
+      if self.parent is not None and hasattr(self.parent, 'closeSignal'):
+         self.connect(self.parent, SIGNAL(self.parent.closeSignal), self.reject)
+         
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
 
@@ -753,6 +762,10 @@ class ArmoryDialog(QDialog):
    @AddToRunningDialogsList
    def exec_(self):
       return super(ArmoryDialog, self).exec_()
+   
+   def reject(self):
+      self.emit(SIGNAL(self.closeSignal))
+      super(ArmoryDialog, self).reject()
       
 
 ################################################################################

@@ -28,7 +28,7 @@ NEW_BLOCK_ACTION = 'newBlock'
 REFRESH_ACTION = 'refresh'
 STOPPED_ACTION = 'stopped'
 WARNING_ACTION = 'warning'
-
+SCAN_ACTION = 'StartedWalletScan'
 
 def newTheBDM(isOffline=False):
    global TheBDM
@@ -73,6 +73,10 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             act = STOPPED_ACTION
          elif action == Cpp.BDMAction_ErrorMsg:
             act = WARNING_ACTION
+            argstr = Cpp.BtcUtils_cast_to_string(arg)
+            arglist.append(argstr)
+         elif action == Cpp.BDMAction_StartedWalletScan:
+            act = SCAN_ACTION
             argstr = Cpp.BtcUtils_cast_to_string(arg)
             arglist.append(argstr)
             

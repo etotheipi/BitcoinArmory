@@ -3153,6 +3153,39 @@ class PyBtcWallet(object):
          calls[0](*calls[1])
          
       self.actionsToTakeAfterScan = []
+      
+   ###############################################################################
+   @CheckWalletRegistration
+   def sweepAfterRescan(self, addrList, main): 
+      #get a new address from the wallet to sweep the funds to
+      sweepToAddr = self.getNextUnusedAddress().getAddr160()
+      
+      main.finishSweepScan(self, addrList, sweepToAddr)
+      return
+ 
+   ###############################################################################
+   @CheckWalletRegistration
+   def sweepAddressList(self, addrList, main):
+      self.actionsToTakeAfterScan.append([self.sweepAfterRescan, [addrList, main]])    
+      
+      addrBulk = []
+      for addr in addrList:
+         addrBulk.append(Hash160ToScrAddr(addr.getAddr160()))  
+      self.cppWallet.addAddressBulk(addrBulk, False)
+
+   ###############################################################################
+   @CheckWalletRegistration
+   def finishSweepScan(self, addrList):
+      #done with the sweep scan, unregister the swept addresses
+      addrBulk = []
+      for addr in addrList:
+         addrBulk.append(Hash160ToScrAddr(addr.getAddr160()))  
+      self.cppWallet.removeAddressBulk(addrBulk)
+      
+   ###############################################################################
+   @CheckWalletRegistration
+   def disableWalletUI(self):
+      self.isEnabled = False   
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):
