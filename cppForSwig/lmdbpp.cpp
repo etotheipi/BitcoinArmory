@@ -452,6 +452,10 @@ void LMDBEnv::Transaction::rollback()
    throw std::runtime_error("unimplemented");
 }
 
+void LMDBEnv::print_remap_status(void)
+{ 
+   mdb_print_remap_count(); 
+}
 
 
 

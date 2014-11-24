@@ -205,7 +205,7 @@ private:
       const BlockFilePosition &stopAt,
       bool updateDupID
    );
-   void loadBlockHeadersFromDB(const ProgressCallback &progress);
+   uint32_t loadBlockHeadersFromDB(const ProgressCallback &progress);
    pair<BlockFilePosition, vector<BlockHeader*> >
       loadBlockHeadersStartingAt(
          ProgressReporter &prog,

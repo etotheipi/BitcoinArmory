@@ -23,6 +23,7 @@ void Blockchain::clear()
 {
    headerMap_.clear();
    headersByHeight_.resize(0);
+   headersByReadOrder_.clear();
    topBlockPtr_ = genesisBlockBlockPtr_ =
       &headerMap_[genesisHash_];
 }
@@ -37,7 +38,10 @@ BlockHeader& Blockchain::addBlock(
       LOGWARN << "Somehow tried to add header that's already in map";
       LOGWARN << "    Header Hash: " << blockhash.copySwapEndian().toHexStr();
    }
-   return headerMap_[blockhash] = block;
+   
+   BlockHeader& bh = headerMap_[blockhash] = block;
+   headersByReadOrder_.push_back(&bh);
+   return bh;
 }
 
 Blockchain::ReorganizationState Blockchain::organize()
@@ -364,3 +368,20 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void Blockchain::putBareHeadersByReadOrder(LMDBBlockDatabase *db, 
+   uint32_t start, uint32_t end)
+{
+   auto blockIter = headersByReadOrder_.begin() + start;
+
+   while (blockIter != headersByReadOrder_.end() && 
+          (*blockIter)->blockHeight_ < end)
+   {
+      StoredHeader sbh;
+      sbh.createFromBlockHeader(*(*blockIter));
+      uint8_t dup = db->putBareHeader(sbh);
+      (*blockIter)->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+
+      ++blockIter;
+   }
+}

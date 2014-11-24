@@ -1468,6 +1468,8 @@ int	mdb_reader_list(MDB_env *env, MDB_msg_func *func, void *ctx);
 int	mdb_reader_check(MDB_env *env, int *dead);
 /**	@} */
 
+void mdb_print_remap_count(void);
+
 #ifdef __cplusplus
 }
 #endif

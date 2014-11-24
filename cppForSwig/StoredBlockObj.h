@@ -98,7 +98,7 @@ class TxOut;
 class TxRef;
 class TxIOPair;
 
-class StoredTx;
+class DBTx;
 class StoredTxOut;
 class StoredScriptHistory;
 class StoredSubHistory;
@@ -238,14 +238,104 @@ public:
    DB_PRUNE_TYPE   pruneType_=DB_PRUNE_WHATEVER;
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
-class StoredHeader
+class DBTx
 {
 public:
+   bool       isInitialized(void) const { return dataCopy_.getSize() > 0; }
+   bool       isNull(void) { return !isInitialized(); }
+
+   BinaryData getSerializedTxFragged(void) const;
+   Tx         getTxCopy(void) const;
+   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx);
+
+   void unserialize(BinaryData const & data, bool isFragged = false);
+   void unserialize(BinaryDataRef data, bool isFragged = false);
+   virtual void unserialize(BinaryRefReader & brr, bool isFragged = false);
+
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(ARMORY_DB_TYPE dbType,
+      DB_PRUNE_TYPE pruneType) const;
+   void       unserializeDBKey(BinaryDataRef key);
+
+   BinaryData getDBKey(bool withPrefix = true) const;
+   BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix = true) const;
+   BinaryData getHgtX(void) const { return getDBKey(false).getSliceCopy(0, 4); }
+
+   void pprintOneLine(uint32_t indent = 3);
+
+   virtual StoredTxOut& getStxoByIndex(uint16_t index) = 0;
+   virtual bool haveAllTxOut(void) const = 0;
+   /////
+
+   BinaryData           thisHash_;
+   uint32_t             lockTime_ = 0;
+   uint32_t             unixTime_ = 0;
+
+   BinaryData           dataCopy_;
+   bool                 isFragged_ = false;
+   uint32_t             version_ = 0;
+   uint32_t             blockHeight_ = UINT32_MAX;
+   uint8_t              duplicateID_ = UINT8_MAX;
+   uint16_t             txIndex_ = UINT16_MAX;
+   uint16_t             numTxOut_ = UINT16_MAX;
+   uint32_t             numBytes_ = UINT32_MAX;
+   uint32_t             fragBytes_ = UINT32_MAX;
+
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   uint32_t          unserArmVer_;
+   uint32_t          unserTxVer_;
+   TX_SERIALIZE_TYPE unserTxType_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class StoredTx : public DBTx
+{
+public:
+   StoredTx&  createFromTx(Tx & tx,
+      bool doFrag = true,
+      bool withTxOuts = true);
+   StoredTx& createFromTx(BinaryDataRef rawTx,
+      bool doFrag = true,
+      bool withTxOuts = true);
+
+
+   void         serializeDBValue(
+      BinaryWriter &    bw,
+      ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
+      ) const;
+
+   BinaryData getSerializedTx(void) const;
+   Tx         getTxCopy(void) const;
+   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx);
+
+   void addTxOutToMap(uint16_t idx, TxOut & txout);
+   void addStoredTxOutToMap(uint16_t idx, StoredTxOut & txout);
+
+   void pprintFullTx(uint32_t indent = 3);
+
+   virtual StoredTxOut& getStxoByIndex(uint16_t index)
+   {return stxoMap_[index];}
+
+   virtual bool haveAllTxOut(void) const;
+
+   ////
+   map<uint16_t, StoredTxOut> stxoMap_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class DBBlock
+{
+public:
+
+   virtual ~DBBlock() {}
+
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool isNull(void) const {return !isInitialized(); }
-   bool haveFullBlock(void) const;
    BlockHeader getBlockHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
    BinaryData getSerializedBlockHeader(void) const;
@@ -253,28 +343,10 @@ public:
 
    uint32_t getNumTx() { return (isNull() ? 0 : numTx_); } 
 
-   Tx getTxCopy(uint16_t i);
-   BinaryData getSerializedTx(uint16_t i);
-    
-
-   void addTxToMap(uint16_t txIdx, Tx & tx);
-   void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
-
-   void setKeyData(uint32_t hgt, uint8_t dupID=UINT8_MAX);
    void setHeightAndDup(uint32_t hgt, uint8_t dupID);
    void setHeightAndDup(BinaryData hgtx);
 
    void setHeaderData(BinaryData const & header80B);
-
-   void unserializeFullBlock(BinaryDataRef block, 
-                             bool doFrag=true,
-                             bool withPrefix8=false);
-
-   void unserializeFullBlock(BinaryRefReader brr, 
-                             bool doFrag=true,
-                             bool withPrefix8=false);
-
-   bool serializeFullBlock( BinaryWriter & bw) const;
 
    void unserializeDBValue( DB_SELECT         db,
                             BinaryRefReader & brr,
@@ -294,9 +366,10 @@ public:
 
    bool isMerkleCreated(void) { return (merkle_.getSize() != 0);}
 
-
    void pprintOneLine(uint32_t indent=3);
-   void pprintFullBlock(uint32_t indent=3);
+
+   virtual DBTx& getTxByIndex(uint16_t index) = 0;
+   ////
    
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
@@ -310,7 +383,6 @@ public:
    bool           blockAppliedToDB_=false;
 
    bool           isPartial_=false;
-   map<uint16_t, StoredTx> stxMap_;
 
    // We don't actually enforce these members.  They're solely for recording
    // the values that were unserialized with everything else, so that we can
@@ -322,9 +394,40 @@ public:
    MERKLE_SER_TYPE unserMkType_;
    
    bool hasBlockHeader_=false;
-   
 };
 
+////////////////////////////////////////////////////////////////////////////////
+class StoredHeader : public DBBlock
+{
+public:
+   BinaryData getSerializedBlock(void) const;
+
+   Tx getTxCopy(uint16_t i);
+   BinaryData getSerializedTx(uint16_t i);
+   bool haveFullBlock(void) const;
+
+   void addTxToMap(uint16_t txIdx, Tx & tx);
+   void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
+
+   void unserializeFullBlock(BinaryDataRef block,
+      bool doFrag = true,
+      bool withPrefix8 = false);
+
+   void unserializeFullBlock(BinaryRefReader brr,
+      bool doFrag = true,
+      bool withPrefix8 = false);
+
+   bool serializeFullBlock(BinaryWriter & bw) const;
+   void setKeyData(uint32_t hgt, uint8_t dupID = UINT8_MAX);
+   
+   void pprintFullBlock(uint32_t indent = 3);
+
+   virtual DBTx& getTxByIndex(uint16_t index)
+   { return static_cast<DBTx&>(stxMap_[index]); }
+
+   ///
+   map<uint16_t, StoredTx> stxMap_;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 class StoredTxOut
@@ -365,9 +468,9 @@ public:
    BinaryData    getSerializedTxOut(void) const;
    TxOut         getTxOutCopy(void) const;
 
-   BinaryData    getScrAddress(void) const;
-   BinaryDataRef getScriptRef(void) const;
-   uint64_t      getValue(void) const;
+   const BinaryData& getScrAddress(void) const;
+   BinaryDataRef     getScriptRef(void) const;
+   uint64_t          getValue(void) const;
 
    bool matchesDBKey(BinaryDataRef dbkey) const;
 
@@ -395,82 +498,14 @@ public:
    TXOUT_SPENTNESS   spentness_;
    bool              isCoinbase_;
    BinaryData        spentByTxInKey_;
+   
+   mutable BinaryData scrAddr_;
 
    // We don't actually enforce these members.  They're solely for recording
    // the values that were unserialized with everything else, so that we can
    // leter check that it
    uint32_t          unserArmVer_;
    uint32_t          unserDbType_;
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-class StoredTx
-{
-public:
-   bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
-   bool       isNull(void) { return !isInitialized(); }
-   bool       haveAllTxOut(void) const;
-
-   StoredTx&  createFromTx(Tx & tx, 
-                           bool doFrag=true, 
-                           bool withTxOuts=true);
-   StoredTx & createFromTx(BinaryDataRef rawTx, 
-                           bool doFrag=true, 
-                           bool withTxOuts=true);
-
-   BinaryData getSerializedTx(void) const;
-   BinaryData getSerializedTxFragged(void) const;
-   Tx         getTxCopy(void) const;
-   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx); 
-
-   void addTxOutToMap(uint16_t idx, TxOut & txout);
-   void addStoredTxOutToMap(uint16_t idx, StoredTxOut & txout);
-
-   void unserialize(BinaryData const & data, bool isFragged=false);
-   void unserialize(BinaryDataRef data,      bool isFragged=false);
-   void unserialize(BinaryRefReader & brr,   bool isFragged=false);
-
-   void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(
-      BinaryWriter &    bw,
-      ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
-   ) const;
-   void       unserializeDBValue(BinaryData const & bd);
-   void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(ARMORY_DB_TYPE dbType,
-      DB_PRUNE_TYPE pruneType) const;
-   void       unserializeDBKey(BinaryDataRef key);
-
-   BinaryData getDBKey(bool withPrefix=true) const;
-   BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix=true) const;
-   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
-
-   void pprintOneLine(uint32_t indent=3);
-   void pprintFullTx(uint32_t indent=3);
-
-
-   BinaryData           thisHash_;
-   uint32_t             lockTime_=0;
-   uint32_t             unixTime_=0;
-
-   BinaryData           dataCopy_;
-   bool                 isFragged_=false;
-   uint32_t             version_=0;
-   uint32_t             blockHeight_ = UINT32_MAX;
-   uint8_t              duplicateID_ = UINT8_MAX;
-   uint16_t             txIndex_=UINT16_MAX;
-   uint16_t             numTxOut_=UINT16_MAX;
-   uint32_t             numBytes_=UINT32_MAX;
-   uint32_t             fragBytes_=UINT32_MAX;
-   map<uint16_t, StoredTxOut> stxoMap_;
-
-   // We don't actually enforce these members.  They're solely for recording
-   // the values that were unserialized with everything else, so that we can
-   // leter check that it
-   uint32_t          unserArmVer_;
-   uint32_t          unserTxVer_; 
-   TX_SERIALIZE_TYPE unserTxType_;
 };
 
 

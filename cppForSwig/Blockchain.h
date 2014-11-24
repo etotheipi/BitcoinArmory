@@ -71,6 +71,8 @@ public:
    }
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
+   void putBareHeadersByReadOrder(LMDBBlockDatabase *db, uint32_t start = 0, 
+                                  uint32_t end = UINT32_MAX);
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);
@@ -85,6 +87,7 @@ private:
    const HashString genesisHash_;
    map<HashString, BlockHeader> headerMap_;
    deque<BlockHeader*> headersByHeight_;
+   vector<BlockHeader*> headersByReadOrder_;
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;
    Blockchain(const Blockchain&); // not defined

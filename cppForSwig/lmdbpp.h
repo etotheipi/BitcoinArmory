@@ -279,6 +279,7 @@ public:
       void rollback();
       // start a new transaction. If one already exists, do nothing
       void begin();
+
    private:
       Transaction(const Transaction&); // no copies
    };
@@ -293,6 +294,8 @@ public:
 
    // close a database, doing nothing if one is presently not open
    void close();
+
+   void print_remap_status(void);
    
 private:
    LMDBEnv(const LMDBEnv&); // disallow copy

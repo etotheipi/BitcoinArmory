@@ -108,14 +108,14 @@ void StoredHeader::setKeyData(uint32_t hgt, uint8_t dupID)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::setHeightAndDup(uint32_t hgt, uint8_t dupID)
+void DBBlock::setHeightAndDup(uint32_t hgt, uint8_t dupID)
 {
    blockHeight_ = hgt;
    duplicateID_ = dupID;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::setHeightAndDup(BinaryData hgtx)
+void DBBlock::setHeightAndDup(BinaryData hgtx)
 {
    blockHeight_ = DBUtils::hgtxToHeight(hgtx);
    duplicateID_ = DBUtils::hgtxToDupID(hgtx);
@@ -159,7 +159,7 @@ BinaryData StoredHeader::getSerializedBlock(void) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredHeader::getDBKey(bool withPrefix) const
+BinaryData DBBlock::getDBKey(bool withPrefix) const
 {
    if(blockHeight_==UINT32_MAX || duplicateID_==UINT8_MAX)
    {
@@ -177,7 +177,7 @@ BinaryData StoredHeader::getDBKey(bool withPrefix) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::createFromBlockHeader(const BlockHeader & bh)
+void DBBlock::createFromBlockHeader(const BlockHeader & bh)
 {
    if(!bh.isInitialized())
    {
@@ -214,7 +214,7 @@ BinaryData StoredHeader::getSerializedTx(uint16_t i)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::setHeaderData(BinaryData const & header80B)
+void DBBlock::setHeaderData(BinaryData const & header80B)
 {
    if(header80B.getSize() != HEADER_SIZE)
    {
@@ -408,7 +408,7 @@ void StoredTx::addStoredTxOutToMap(uint16_t idx, StoredTxOut & stxo)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeader StoredHeader::getBlockHeaderCopy(void) const
+BlockHeader DBBlock::getBlockHeaderCopy(void) const
 {
    if(!isInitialized())
       return BlockHeader(); 
@@ -423,7 +423,7 @@ BlockHeader StoredHeader::getBlockHeaderCopy(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredHeader::getSerializedBlockHeader(void) const
+BinaryData DBBlock::getSerializedBlockHeader(void) const
 {
    if(!isInitialized())
       return BinaryData(0);
@@ -432,7 +432,7 @@ BinaryData StoredHeader::getSerializedBlockHeader(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredHeader::unserializeDBValue(DB_SELECT db,
+void DBBlock::unserializeDBValue(DB_SELECT db,
                                       BinaryData const & bd,
                                       bool ignoreMerkle)
 {
@@ -441,7 +441,7 @@ void StoredHeader::unserializeDBValue(DB_SELECT db,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredHeader::unserializeDBValue(DB_SELECT db,
+void DBBlock::unserializeDBValue(DB_SELECT db,
                                       BinaryDataRef bdr,
                                       bool ignoreMerkle)
 {
@@ -450,7 +450,7 @@ void StoredHeader::unserializeDBValue(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::unserializeDBValue( DB_SELECT         db,
+void DBBlock::unserializeDBValue( DB_SELECT         db,
                                        BinaryRefReader & brr,
                                        bool              ignoreMerkle)
 {
@@ -500,7 +500,7 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::serializeDBValue(
+void DBBlock::serializeDBValue(
    BinaryWriter &  bw,
    DB_SELECT       db,
    ARMORY_DB_TYPE dbType,
@@ -574,7 +574,7 @@ void StoredHeader::serializeDBValue(
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::unserializeDBKey(DB_SELECT db, BinaryDataRef key)
+void DBBlock::unserializeDBKey(DB_SELECT db, BinaryDataRef key)
 {
    if(db==BLKDATA)
    {
@@ -592,7 +592,7 @@ void StoredHeader::unserializeDBKey(DB_SELECT db, BinaryDataRef key)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::pprintOneLine(uint32_t indent)
+void DBBlock::pprintOneLine(uint32_t indent)
 {
    for(uint32_t i=0; i<indent; i++)
       cout << " ";
@@ -619,7 +619,7 @@ void StoredHeader::pprintFullBlock(uint32_t indent)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredTx::getDBKey(bool withPrefix) const
+BinaryData DBTx::getDBKey(bool withPrefix) const
 {
    if(blockHeight_ == UINT32_MAX || 
       duplicateID_ == UINT8_MAX  || 
@@ -636,20 +636,20 @@ BinaryData StoredTx::getDBKey(bool withPrefix) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredTx::getDBKeyOfChild(uint16_t i, bool withPrefix) const
+BinaryData DBTx::getDBKeyOfChild(uint16_t i, bool withPrefix) const
 {
    return (getDBKey(withPrefix) + WRITE_UINT16_BE(i));
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserialize(BinaryData const & data, bool fragged)
+void DBTx::unserialize(BinaryData const & data, bool fragged)
 {
    BinaryRefReader brr(data);
    unserialize(brr, fragged);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserialize(BinaryDataRef data, bool fragged)
+void DBTx::unserialize(BinaryDataRef data, bool fragged)
 {
    BinaryRefReader brr(data);
    unserialize(brr, fragged);
@@ -657,7 +657,7 @@ void StoredTx::unserialize(BinaryDataRef data, bool fragged)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
+void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
 {
    vector<size_t> offsetsIn, offsetsOut; 
    uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
@@ -693,14 +693,14 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserializeDBValue(BinaryData const & bd)
+void DBTx::unserializeDBValue(BinaryData const & bd)
 {
    BinaryRefReader brr(bd);
    unserializeDBValue(brr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserializeDBValue(BinaryDataRef bdr)
+void DBTx::unserializeDBValue(BinaryDataRef bdr)
                                   
 {
    BinaryRefReader brr(bdr);
@@ -709,7 +709,7 @@ void StoredTx::unserializeDBValue(BinaryDataRef bdr)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserializeDBValue(BinaryRefReader & brr)
+void DBTx::unserializeDBValue(BinaryRefReader & brr)
 {
    // flags
    //    DBVersion      4 bits
@@ -842,7 +842,7 @@ BinaryData StoredTx::getSerializedTx(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredTx::getSerializedTxFragged(void) const
+BinaryData DBTx::getSerializedTxFragged(void) const
 {
    if(!isInitialized())
       return BinaryData(0); 
@@ -870,7 +870,7 @@ BinaryData StoredTx::getSerializedTxFragged(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserializeDBKey(BinaryDataRef key)
+void DBTx::unserializeDBKey(BinaryDataRef key)
 {
    BinaryRefReader brr(key);
    if(key.getSize() == 6)
@@ -882,7 +882,7 @@ void StoredTx::unserializeDBKey(BinaryDataRef key)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTx::pprintOneLine(uint32_t indent)
+void DBTx::pprintOneLine(uint32_t indent)
 {
    for(uint32_t i=0; i<indent; i++)
       cout << " ";
@@ -974,7 +974,6 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    unserialize(brr);
    if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
       spentByTxInKey_ = brr.get_BinaryData(8); 
-
 }
 
 
@@ -1189,12 +1188,17 @@ TxOut StoredTxOut::getTxOutCopy(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredTxOut::getScrAddress(void) const
+const BinaryData& StoredTxOut::getScrAddress(void) const
 {
+   if (scrAddr_.getSize() > 0)
+      return scrAddr_;
+
    BinaryRefReader brr(dataCopy_);
    brr.advance(8);
    uint32_t scrsz = (uint32_t)brr.get_var_int();
-   return BtcUtils::getTxOutScrAddr(brr.get_BinaryDataRef(scrsz));
+   scrAddr_ = BtcUtils::getTxOutScrAddr(brr.get_BinaryDataRef(scrsz));
+
+   return scrAddr_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2140,7 +2144,7 @@ bool StoredSubHistory::markTxOutSpent(
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
    {
-      LOGERR << "We should've found an STXO in the SSH but didn't";
+      LOGERR << "We should've found a STXO in the SSH but didn't";
       return false;
    }
 

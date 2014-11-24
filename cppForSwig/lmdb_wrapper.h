@@ -530,13 +530,12 @@ public:
    // Some methods to grab data at the current iterator location.  Return
    // false if reading fails (maybe because we were expecting to find the
    // specified DB entry type, but the prefix byte indicated something else
-   bool readStoredBlockAtIter(LDBIter & iter,
-      StoredHeader & sbh);
+   bool readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh);
 
    bool readStoredTxAtIter(LDBIter & iter,
       uint32_t height,
       uint8_t dupID,
-      StoredTx & stx);
+      DBTx & stx);
 
    bool readStoredTxOutAtIter(LDBIter & iter,
       uint32_t height,

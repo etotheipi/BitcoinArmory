@@ -1075,8 +1075,8 @@ void BlockDataManager_LevelDB::loadDiskState(
       << BtcUtils::numToStrWCommas(readBlockHeaders_->totalBlockchainBytes());
       
    // load the headers from lmdb into blockchain()
-   loadBlockHeadersFromDB(progress);
-      
+   uint32_t headerCountFromDB = loadBlockHeadersFromDB(progress);
+   
    {
       progress(BDMPhase_OrganizingChain, 0, 0, 0);
       // organize the blockchain we have so far
@@ -1142,11 +1142,18 @@ void BlockDataManager_LevelDB::loadDiskState(
    {
       LOGERR << e.what() << ", continuing";
    }
+   
+   //This calls writes new headers to DB and update dupIDs in RAM.
+   //For now we will only run in on headers found in the DB, in order
+   //to get their dupIDs in RAM. This will allow us to undo the current
+   //blocks currently scanned in the DB, in case of a reorg.
+   blockchain_.putBareHeadersByReadOrder(iface_, 0, headerCountFromDB);
 
-   //write headers to the DB, update dupIDs in RAM
-   blockchain_.putBareHeaders(iface_);
-      
    findFirstBlockToApply();
+   uint32_t scanFrom = findFirstBlockToScan();
+
+   //Now we can put the new headers found in blk files.
+   blockchain_.putBareHeadersByReadOrder(iface_, headerCountFromDB);
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
@@ -1155,11 +1162,9 @@ void BlockDataManager_LevelDB::loadDiskState(
    // to where we finished reading headers
    {
       ProgressWithPhase prog(BDMPhase_BlockData, progress);
-      loadBlockData(prog, readHeadersUpTo, false);
+      loadBlockData(prog, readHeadersUpTo, true);
    }
    
-   uint32_t scanFrom = findFirstBlockToScan();
-
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
 
@@ -1231,6 +1236,8 @@ void BlockDataManager_LevelDB::loadBlockData(
    blkDataPosition_ = readBlockHeaders_->readRawBlocks(
       blkDataPosition_, stopAt, blockCallback
    );
+
+   iface_->dbEnv_.print_remap_status();
 }
 
 uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
@@ -1338,7 +1345,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    return prevTopBlk;
 }
 
-void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
+uint32_t BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
 {
    LOGINFO << "Reading headers from db";
    blockchain().clear();
@@ -1354,7 +1361,8 @@ void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &pr
    iface_->readAllHeaders(callback);
    
    LOGINFO << "Found " << blockchain().allHeaders().size() << " headers in db";
-   
+
+   return blockchain().allHeaders().size();
 }
 
 
@@ -1362,17 +1370,9 @@ void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &pr
 StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup) const
 {
 
-   LDBIter ldbIter = iface_->getIterator(BLKDATA);
-   BinaryData firstKey = DBUtils::getBlkDataKey(hgt, dup);
-
-   if(!ldbIter.seekToExact(firstKey))
-      return {};
-
    // Get the full block from the DB
    StoredHeader returnSBH;
-   iface_->readStoredBlockAtIter(ldbIter, returnSBH);
-
-   if(returnSBH.blockHeight_ != hgt || returnSBH.duplicateID_ != dup)
+   if(!iface_->getStoredHeader(returnSBH, hgt, dup))
       return {};
 
    return returnSBH;

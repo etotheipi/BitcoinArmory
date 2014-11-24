@@ -465,7 +465,14 @@ typedef uint16_t	 indx_t;
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
 #define DEFAULT_MAPSIZE	         8*1024LL //keeping this low so unit test can trigger remaps
-#define MAX_MAPSIZE_INCEREMENT	1024*1024*128
+#define MAX_MAPSIZE_INCEREMENT	128*1024*1024
+
+int nremaps = 0;
+int mdbputremaps = 0, mdbputforwardremaps = 0;
+int nfreelistsaveremaps = 0, nfreelistsaveforwardremaps = 0; 
+int mdbdelremaps = 0;
+int opendbiremaps = 0;
+
 
 /**	@defgroup readers	Reader Lock Table
  *	Readers don't acquire any locks for their data access. Instead, they
@@ -1156,7 +1163,7 @@ static void mdb_env_close0(MDB_env *env, int excl);
 static MDB_node *mdb_node_search(MDB_cursor *mc, MDB_val *key, int *exactp);
 static int  mdb_node_add(MDB_cursor *mc, indx_t indx,
 			    MDB_val *key, MDB_val *data, pgno_t pgno, unsigned int flags);
-static void mdb_node_del(MDB_cursor *mc, int ksize);
+static void mdb_node_del(MDB_cursor *mc, size_t ksize);
 static void mdb_node_shrink(MDB_page *mp, indx_t indx);
 static int	mdb_node_move(MDB_cursor *csrc, MDB_cursor *cdst);
 static int  mdb_node_read(MDB_txn *txn, MDB_node *leaf, MDB_val *data);
@@ -2796,21 +2803,8 @@ mdb_freelist_save(MDB_txn *txn)
 
             
             rc = mdb_cursor_put(&mc, &key, &data, MDB_RESERVE);
-            if (rc == MDB_MAP_FULL)
-            {
-               while (rc == MDB_MAP_FULL)
-               {
-                  mdb_enlarge_map(env, key.mv_size + data.mv_size);
-                  mdb_txn_setnewmapreference(txn);
-                  txn->mt_flags &= 0xFFFFFFFD;
-
-                  rc = mdb_cursor_put(&mc, &key, &data, MDB_RESERVE);
-               }
-            }
-            else if (rc)
-            {
+            if (rc)
                return rc;
-            }
 
 				/* Retry if mt_free_pgs[] grew during the Put() */
 				free_pgs = txn->mt_free_pgs;
@@ -3226,10 +3220,19 @@ mdb_txn_commit(MDB_txn *txn)
 
    while (1)
    {
+      int expected_newpages = 8 + OVPAGES(MDB_IDL_SIZEOF(txn->mt_free_pgs), txn->mt_env->me_psize);
+      if (txn->mt_next_pgno + expected_newpages >= txn->mt_env->me_maxpg)
+      {
+         nfreelistsaveforwardremaps++;
+         mdb_enlarge_map(txn->mt_env, expected_newpages*txn->mt_env->me_psize);
+         mdb_txn_setnewmapreference(txn);
+      }
+
       rc = mdb_freelist_save(txn);
       if (rc != MDB_MAP_FULL)
          break;
 
+      nfreelistsaveremaps++;
       mdb_enlarge_map(txn->mt_env, txn->mt_env->me_psize);
       mdb_txn_setnewmapreference(txn);
 
@@ -3677,7 +3680,7 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
             break;
       }
 
-      //printf("next free reader index: %d\n", i);
+      //printf("first free map index: %d\n", i);
 
       if (i == DEFAULT_READERS)
       {
@@ -3696,7 +3699,7 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
       y = env->me_currentmap;
       env->me_currentmap = i;
       
-      //clean up old page if necessary
+      //clean up old page if possible
       /*if (env->me_maps[y].sema == 0)
       {
          munmap(env->me_maps[y].me_map, env->me_maps[y].me_mapsize);
@@ -6475,12 +6478,18 @@ mdb_cursor_del(MDB_cursor *mc, unsigned int flags)
 	if (mc->mc_ki[mc->mc_top] >= NUMKEYS(mc->mc_pg[mc->mc_top]))
 		return MDB_NOTFOUND;
 
-	if (!(flags & MDB_NOSPILL) && (rc = mdb_page_spill(mc, NULL, NULL)))
-		return rc;
+   if (!(flags & MDB_NOSPILL) && (rc = mdb_page_spill(mc, NULL, NULL)))
+   {
+      printf("mdb_cursor_del failed at mdb_page_spill with error: %d\n", rc);
+      return rc;
+   }
 
 	rc = mdb_cursor_touch(mc);
-	if (rc)
-		return rc;
+   if (rc)
+   {
+      printf("mdb_cursor_del failed at mdb_cursor_touch with error: %d\n", rc);
+      return rc;
+   }
 
 	mp = mc->mc_pg[mc->mc_top];
 	if (IS_LEAF2(mp))
@@ -6493,8 +6502,8 @@ mdb_cursor_del(MDB_cursor *mc, unsigned int flags)
 				mc->mc_xcursor->mx_cursor.mc_pg[0] = NODEDATA(leaf);
 			}
 			rc = mdb_cursor_del(&mc->mc_xcursor->mx_cursor, MDB_NOSPILL);
-			if (rc)
-				return rc;
+         if (rc)
+            return rc;
 			/* If sub-DB still has entries, we're done */
 			if (mc->mc_xcursor->mx_db.md_entries) {
 				if (leaf->mn_flags & F_SUBDATA) {
@@ -6525,8 +6534,11 @@ mdb_cursor_del(MDB_cursor *mc, unsigned int flags)
 		if (leaf->mn_flags & F_SUBDATA) {
 			/* add all the child DB's pages to the free list */
 			rc = mdb_drop0(&mc->mc_xcursor->mx_cursor, 0);
-			if (rc)
-				goto fail;
+         if (rc)
+         {
+            printf("mdb_cursor_del failed at mdb_drop0 with error: %d\n", rc);
+            goto fail;
+         }
 			mc->mc_db->md_entries -= mc->mc_xcursor->mx_db.md_entries;
 		}
 	}
@@ -6779,7 +6791,7 @@ full:
  * part of a #MDB_DUPFIXED database.
  */
 static void
-mdb_node_del(MDB_cursor *mc, int ksize)
+mdb_node_del(MDB_cursor *mc, size_t ksize)
 {
 	MDB_page *mp = mc->mc_pg[mc->mc_top];
 	indx_t	indx = mc->mc_ki[mc->mc_top];
@@ -7752,6 +7764,7 @@ mdb_del(MDB_txn *txn, MDB_dbi dbi,
       if (rt != MDB_MAP_FULL)
          break;
 
+      mdbdelremaps++;
       mdb_enlarge_map(txn->mt_env, txn->mt_env->me_psize);
       mdb_txn_setnewmapreference(txn);
 
@@ -8212,18 +8225,20 @@ void mdb_enlarge_map(MDB_env *env, size_t extraDataSize)
    mdb_env_info(env, &info);
    size_t v = info.me_mapsize;
 
+   nremaps++;
+
    v *= 2;
    if (v - info.me_mapsize > MAX_MAPSIZE_INCEREMENT)
       v = info.me_mapsize + MAX_MAPSIZE_INCEREMENT;
 
    //however if the added size if smaller than the requested extra size
    while (v - info.me_mapsize < extraDataSize)
-      v *= 2;
+      v += extraDataSize;
 
    rc = mdb_env_set_mapsize(env, v);
 
    if (rc)
-      printf("mdb_enlarge_map failed with error: %s\n", mdb_strerror(rc));
+      printf("mdb_enlarge_map failed with error: \"%s\", id: %d\n", mdb_strerror(rc), rc);
 }
 
 int
@@ -8243,14 +8258,24 @@ mdb_put(MDB_txn *txn, MDB_dbi dbi,
 
    while (1)
    {
+      int ovpages = OVPAGES(data->mv_size, txn->mt_env->me_psize);      
+      pgno_t txn_curr_page = txn->mt_next_pgno;
+
+      if (txn->mt_next_pgno + ovpages +4 >= txn->mt_env->me_maxpg)
+      {
+         mdb_enlarge_map(txn->mt_env, (ovpages + 4) * txn->mt_env->me_psize);
+         mdb_txn_setnewmapreference(txn);
+
+         mdbputforwardremaps++;
+      }
+
       mdb_cursor_init(&mc, txn, dbi, &mx);
       rt = mdb_cursor_put(&mc, key, data, flags);
 
       if (rt != MDB_MAP_FULL)
          return rt;
 
-      mdb_enlarge_map(txn->mt_env, key->mv_size + data->mv_size);
-      mdb_txn_setnewmapreference(txn);
+      mdbputremaps++;
 
       txn->mt_flags &= 0xFFFFFFFD;
    }
@@ -8403,6 +8428,7 @@ mdb_default_cmp(MDB_txn *txn, MDB_dbi dbi)
 		 : ((f & MDB_REVERSEDUP) ? mdb_cmp_memnr : mdb_cmp_memn));
 }
 
+
 int mdb_dbi_open(MDB_txn *txn, const char *name, unsigned int flags, MDB_dbi *dbi)
 {
 	MDB_val key, data;
@@ -8516,6 +8542,8 @@ int mdb_dbi_open_safe(MDB_txn *txn, const char *name, unsigned int flags, MDB_db
 
       mdb_enlarge_map(txn->mt_env, txn->mt_env->me_psize * 2);
       mdb_txn_setnewmapreference(txn);
+
+      opendbiremaps++;
 
       txn->mt_flags &= 0xFFFFFFFD;
    }
@@ -8852,5 +8880,17 @@ int mdb_reader_check(MDB_env *env, int *dead)
 	if (dead)
 		*dead = count;
 	return MDB_SUCCESS;
+}
+
+void mdb_print_remap_count(void)
+{
+/*   int unaccounted = nremaps - mdbputremaps - nfreelistsaveremaps - nfreelistsaveforwardremaps - mdbputforwardremaps - mdbdelremaps - opendbiremaps;
+   printf("\n   nremaps: %d\n", nremaps);
+   printf("   mdbputremaps: %d\n", mdbputremaps);
+   printf("   mdbputforwardremaps: %d\n", mdbputforwardremaps);
+   printf("   freelistsaveremaps: %d\n", nfreelistsaveremaps);
+   printf("   freelistsaveforwardremaps: %d\n", nfreelistsaveforwardremaps);
+   printf("   mdbdelremaps: %d\n", mdbdelremaps);
+   printf("   opendbiremaps: %d\n", opendbiremaps);*/
 }
 /** @} */

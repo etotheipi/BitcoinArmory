@@ -1722,7 +1722,7 @@ void LMDBBlockDatabase::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume we have a valid iterator left at the header entry for this block
-bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & sbh)
+bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh)
 {
    SCOPED_TIMER("readStoredBlockAtIter");
 
@@ -1769,14 +1769,12 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & 
          return false;
       }
 
-      //if(sbh.stxMap_.find(currIdx) == sbh.stxMap_.end())
-      if(KEY_NOT_IN_MAP(currIdx, sbh.stxMap_))
-         sbh.stxMap_[currIdx] = StoredTx();
+      DBTx& thisTx = sbh.getTxByIndex(currIdx);
 
       readStoredTxAtIter(ldbIter,
                          sbh.blockHeight_, 
                          sbh.duplicateID_, 
-                         sbh.stxMap_[currIdx]);
+                         thisTx);
    } 
    return true;
 } 
@@ -1789,7 +1787,7 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & 
 bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
                                          uint32_t height,
                                          uint8_t  dupID,
-                                         StoredTx & stx)
+                                         DBTx & stx)
 {
    SCOPED_TIMER("readStoredTxAtIter");
    BinaryData blkPrefix = DBUtils::getBlkDataKey(height, dupID);
@@ -1854,8 +1852,7 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
       }
       else if(bdtype == BLKDATA_TXOUT)
       {
-         stx.stxoMap_[txOutIdx] = StoredTxOut();
-         StoredTxOut & stxo = stx.stxoMap_[txOutIdx];
+         StoredTxOut & stxo = stx.getStxoByIndex(txOutIdx);
          readStoredTxOutAtIter(ldbIter, height, dupID, stx.txIndex_, stxo);
          stxo.parentHash_ = stx.thisHash_;
          stxo.txVersion_  = stx.version_;

@@ -8490,17 +8490,16 @@ protected:
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
 
-      BlockDataManagerConfig config;
-      config.armoryDbType = ARMORY_DB_SUPER;
-      config.pruneType = DB_PRUNE_NONE;
-      config.blkFileLocation = blkdir_;
-      config.levelDBLocation = ldbdir_;
+      config_.armoryDbType = ARMORY_DB_SUPER;
+      config_.pruneType = DB_PRUNE_NONE;
+      config_.blkFileLocation = blkdir_;
+      config_.levelDBLocation = ldbdir_;
       
-      config.genesisBlockHash = ghash_;
-      config.genesisTxHash = gentx_;
-      config.magicBytes = magic_;
+      config_.genesisBlockHash = ghash_;
+      config_.genesisTxHash = gentx_;
+      config_.magicBytes = magic_;
       
-      theBDM = new BlockDataManager_LevelDB(config);
+      theBDM = new BlockDataManager_LevelDB(config_);
       theBDM->openDatabase();
       theBDV = new BlockDataViewer(theBDM);
 
@@ -8594,6 +8593,7 @@ protected:
    BinaryData ghash_;
    BinaryData gentx_;
    BinaryData zeros_;
+   BlockDataManagerConfig config_;
 
    string blkdir_;
    string homedir_;
@@ -8817,6 +8817,75 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
    EXPECT_EQ(ssh.getScriptBalance(),   0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  5*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM_Reorg)
+{
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+
+   //reload BDM
+   delete theBDM;
+   theBDM = new BlockDataManager_LevelDB(config_);
+   theBDM->openDatabase();
+   iface_ = theBDM->getIFace();
+
+   setBlocks({ "0", "1", "2", "3", "4", "5", "4A", "5A" }, blk0dat_);
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+
+   EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 5);
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrA);
+   EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 1);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 160 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 10);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
+   EXPECT_EQ(ssh.getScriptBalance(), 55 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 55 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 4);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
+   EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 60 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 5);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 4);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
+   EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 95 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 6);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 2);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 10 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 20 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 2);
 }
 
 
