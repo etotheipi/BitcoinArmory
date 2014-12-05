@@ -1857,7 +1857,7 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const TxIOPair& StoredSubHistory::markTxOutSpent(BinaryData txOutKey8B) 
+const TxIOPair& StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
 {
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
@@ -1968,7 +1968,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 //   
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
-void StoredSubHistory::markTxOutUnspent(BinaryData& txOutKey8B, 
+void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B, 
                                         uint64_t&  additionalSize,
                                         const uint64_t&  value,
                                         bool       isCoinbase,

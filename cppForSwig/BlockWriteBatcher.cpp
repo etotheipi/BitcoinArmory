@@ -1322,7 +1322,7 @@ void DataToCommit::serializeData(BlockWriteBatcher& bwb,
 
    thread serThread = thread(serialize);
 
-   auto& keysToDelete = serializeSSH(bwb, subsshMap);
+   const auto& keysToDelete = serializeSSH(bwb, subsshMap);
    lock.unlock();
 
    if (serThread.joinable())
