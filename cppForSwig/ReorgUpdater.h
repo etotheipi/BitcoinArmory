@@ -242,7 +242,7 @@ private:
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
 
-         blockWrites.applyBlockToDB(hgt, dup, *scrAddrData_);
+         blockWrites.reorgApplyBlock(hgt, dup, *scrAddrData_);
       }
    }
 

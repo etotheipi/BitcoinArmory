@@ -28,263 +28,197 @@ static void updateBlkDataHeader(
 // We still pass in the hash anyway, because the map is indexed by the hash,
 // and we'd like to not have to do a lookup for the hash if only provided
 // {hgt, dup, idx}
-shared_ptr<StoredTxOut>& BlockWriteBatcher::makeSureSTXOInMap(
+StoredTxOut* BlockWriteBatcher::makeSureSTXOInMap(
             LMDBBlockDatabase* iface,
             BinaryDataRef txHash, 
             uint16_t txoId)
 {
-   // Get the existing STX or make a new one
-   auto& stxoMap = stxoToModify_[txHash];
+   // Get the existing STX in RAM and move it to the stxo vector 
+   // or grab it from DB
 
-   auto& stxo = stxoMap[txoId];
+   BinaryData hashAndId = txHash;
+   hashAndId.append(WRITE_UINT16_BE(txoId));
 
-   if (!stxo)
+   auto stxoIter = utxoMap_.find(hashAndId);
+   if (stxoIter != utxoMap_.end())
    {
-      stxo.reset(new StoredTxOut);
+      stxoToUpdate_.push_back(stxoIter->second);
+      utxoMap_.erase(stxoIter);
+
+      return stxoToUpdate_.back().get();
+   }
+
+   stxoIter = utxoMapBackup_.find(hashAndId);
+   if (stxoIter != utxoMapBackup_.end())
+   {
+      stxoToUpdate_.push_back(stxoIter->second);
+      utxoMapBackup_.erase(stxoIter);
+
+      return stxoToUpdate_.back().get();
+   }
+
+   shared_ptr<StoredTxOut> stxo(new StoredTxOut);
+   BinaryData dbKey;
+   iface->getStoredTx_byHash(txHash, nullptr, &dbKey);
+   dbKey.append(WRITE_UINT16_BE(txoId));
+   iface->getStoredTxOut(*stxo, dbKey);
+
+   dbUpdateSize_ += sizeof(StoredTxOut) + stxo->dataCopy_.getSize();
+   stxoToUpdate_.push_back(move(stxo));
+
+   return stxoToUpdate_.back().get();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::moveStxoToUTXOMap(
+   const shared_ptr<StoredTxOut>& thisTxOut)
+{
+   stxoToUpdate_.push_back(thisTxOut);
+   dbUpdateSize_ += sizeof(StoredTxOut)+thisTxOut->dataCopy_.getSize();
+
+   utxoMap_[thisTxOut->hashAndId_] = thisTxOut; 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash, 
+   const uint16_t& txoId)
+{
+   auto utxoIter = utxoMap_.find(txHash);
+   if (utxoIter != utxoMap_.end())
+   {
+      stxoToUpdate_.push_back(utxoIter->second);
+
+      return utxoIter->second.get();
+   }
+
+   utxoIter = utxoMapBackup_.find(txHash);
+   if (utxoIter != utxoMapBackup_.end())
+   {
+      stxoToUpdate_.push_back(utxoIter->second);
+
+      return utxoIter->second.get();
+   }
+
+   if (config_.armoryDbType == ARMORY_DB_SUPER)
+   {
+      shared_ptr<StoredTxOut> stxo(new StoredTxOut);
       BinaryData dbKey;
-      iface->getStoredTx_byHash(txHash, nullptr, &dbKey);
+      iface_->getStoredTx_byHash(txHash.getSliceRef(0, 32), nullptr, &dbKey);
       dbKey.append(WRITE_UINT16_BE(txoId));
-      iface->getStoredTxOut(*stxo.get(), dbKey);
+      iface_->getStoredTxOut(*stxo, dbKey);
 
-      dbUpdateSize_ += sizeof(StoredTxOut) + stxo->dataCopy_.getSize();
+      dbUpdateSize_ += sizeof(StoredTxOut)+stxo->dataCopy_.getSize();
+      stxoToUpdate_.push_back(stxo);
+
+      return stxoToUpdate_.back().get();
    }
-   
-   return stxo;
+
+   return nullptr;
+}
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::getSshHeader(
+   StoredScriptHistory& ssh, const BinaryData& uniqKey) const
+{
+   iface_->getStoredScriptHistorySummary(ssh, uniqKey);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::addStxToSTXOMap(const shared_ptr<PulledTx>& thisTx)
+StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
+   const BinaryData& uniqKey,
+   const BinaryData& hgtX)
 {
-   auto& stxoMap = stxoToModify_[thisTx->thisHash_];
+   auto& subsshmap = subSshMap_[uniqKey];
+   auto& subssh = subsshmap[hgtX];
 
-   for (auto& stxo : thisTx->stxoMap_)
+   if (subssh.hgtX_.getSize() == 0)
    {
-      auto wasInserted = stxoMap.insert(stxo);
-      if (wasInserted.second == true)
-         dbUpdateSize_ += sizeof(StoredTxOut) + stxo.second->dataCopy_.getSize();
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::addStxoToSTXOMap(const shared_ptr<StoredTxOut>& thisTxOut)
-{
-   auto& stxoMap = stxoToModify_[thisTxOut->parentHash_];
-
-   auto wasInserted = stxoMap.insert({ thisTxOut->txOutIndex_, thisTxOut });
-   if(wasInserted.second == true)
-      dbUpdateSize_ += sizeof(StoredTxOut) + thisTxOut->dataCopy_.getSize();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockWriteBatcher::lookForSTXOInMap(const BinaryData& txHash, 
-   const uint16_t& txoId, shared_ptr<StoredTxOut>& txOut) const
-{
-   //TIMER_START("leverageStxInRAM");
-
-   auto stxIter = stxoToModify_.find(txHash);
-   if (stxIter == stxoToModify_.end())
-      return false;
-
-   auto stxoIter = stxIter->second.find(txoId);
-   if (stxoIter == stxIter->second.end())
-      return false;
-
-   txOut = stxoIter->second;
-
-   //TIMER_STOP("leverageStxInRAM");
-   return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-static StoredScriptHistory* makeSureSSHInMap_BlindFetch(
-   LMDBBlockDatabase* iface,
-   BinaryDataRef uniqKey,
-   BinaryDataRef hgtX,
-   map<BinaryData, StoredScriptHistory> & sshMap,
-   uint64_t& additionalSize,
-   uint32_t commitId,
-   uint32_t currentBlockHeight,
-   bool forceFetch)
-{
-   //SCOPED_TIMER("makeSureSSHInMap");
-   StoredScriptHistory * sshptr;
-
-   // If already in Map
-   map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
-   if (ITER_IN_MAP(iter, sshMap))
-   {
-      //SCOPED_TIMER("___SSH_AlreadyInMap");
-      sshptr = &(iter->second);
-   }
-   else
-   {
-      StoredScriptHistory sshTemp;
-
-      iface->getStoredScriptHistorySummary(sshTemp, uniqKey);
-      // sshTemp.alreadyScannedUpToBlk_ = getAppliedToHeightInDB(); TODO
-      additionalSize += UPDATE_BYTES_SSH;
-
-      if (sshTemp.isInitialized())
+      if (subSshMapToWrite_.size() != 0)
       {
-         //SCOPED_TIMER("___SSH_AlreadyInDB");
-         // We already have an SSH in DB -- pull it into the map
-         sshMap[uniqKey] = sshTemp;
-         sshptr = &sshMap[uniqKey];
-      }
-      else
-      {
-         sshMap[uniqKey] = StoredScriptHistory();
-         sshptr = &sshMap[uniqKey];
-         sshptr->uniqueKey_ = uniqKey;
-      }
-   }
-
-   if (hgtX.getSize() == 4)
-   {
-      size_t prevSize = sshptr->subHistMap_.size();
-      
-      auto subIter = sshptr->subHistMap_.find(hgtX);
-      if (subIter == sshptr->subHistMap_.end())
-      {
-         uint32_t fetchHeight = DBUtils::hgtxToHeight(hgtX);
-         BinaryData key = sshptr->uniqueKey_ + hgtX;
-
-         StoredSubHistory subssh;
-         subssh.uniqueKey_ = sshptr->uniqueKey_;
-         subssh.hgtX_ = hgtX;
-
-         //only fetch if the ssh wasnt scanned up to this point, otherwise create.
-         if (fetchHeight < currentBlockHeight || forceFetch)
+         auto sshIter = subSshMapToWrite_.find(uniqKey);
+         if (sshIter != subSshMapToWrite_.end())
          {
-            BinaryRefReader brr = iface->getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
-            if (brr.getSize() > 0)
-               subssh.unserializeDBValue(brr);
+            auto subsshIter = sshIter->second.find(hgtX);
+            if (subsshIter != sshIter->second.end())
+            {
+               subssh = subsshIter->second;
+               return subssh;
+            }
          }
-         
-         sshptr->mergeSubHistory(subssh, additionalSize, commitId);
       }
 
-      size_t newSize = sshptr->subHistMap_.size();
-      additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+      subssh.hgtX_ = hgtX;
+
+      BinaryData key(uniqKey);
+      key.append(hgtX);
+
+      BinaryRefReader brr = iface_->getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
+      if (brr.getSize() > 0)
+         subssh.unserializeDBValue(brr);
+      
+      dbUpdateSize_ += UPDATE_BYTES_SUBSSH;
    }
 
-   sshptr->commitId_ = commitId;
-
-   return sshptr;
+   return subssh;
 }
 
-static StoredScriptHistory* makeSureSSHInMap(
-            LMDBBlockDatabase* iface,
-            BinaryDataRef uniqKey,
-            BinaryDataRef hgtX,
-            map<BinaryData, StoredScriptHistory> & sshMap,
-            uint64_t& additionalSize,
-            uint32_t commitId,
-            bool createIfDNE)
+////////////////////////////////////////////////////////////////////////////////
+StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap_IgnoreDB(
+   const BinaryData& uniqKey,
+   const BinaryData& hgtX,
+   const uint32_t& currentBlockHeight)
 {
-   //SCOPED_TIMER("makeSureSSHInMap");
-   StoredScriptHistory * sshptr;
+   auto& subsshmap = subSshMap_[uniqKey];
+   auto& subssh = subsshmap[hgtX];
 
-   // If already in Map
-   map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
-   if(ITER_IN_MAP(iter, sshMap))
+   if (subssh.hgtX_.getSize() == 0)
    {
-      //SCOPED_TIMER("___SSH_AlreadyInMap");
-      sshptr = &(iter->second);
-   }
-   else
-   {
-      StoredScriptHistory sshTemp;
-      
-      iface->getStoredScriptHistorySummary(sshTemp, uniqKey);
-      // sshTemp.alreadyScannedUpToBlk_ = getAppliedToHeightInDB(); TODO
-      additionalSize += UPDATE_BYTES_SSH;
+      uint32_t fetchHeight = DBUtils::hgtxToHeight(hgtX);
+      subssh.hgtX_ = hgtX;
 
-      if(sshTemp.isInitialized())
+      if (fetchHeight < currentBlockHeight)
       {
-         //SCOPED_TIMER("___SSH_AlreadyInDB");
-         // We already have an SSH in DB -- pull it into the map
-         sshMap[uniqKey] = sshTemp; 
-         sshptr = &sshMap[uniqKey];
-      }
-      else
-      {
-         //SCOPED_TIMER("___SSH_NeedCreate");
-         if(!createIfDNE)
-            return NULL;
+         BinaryData key(uniqKey);
+         key.append(hgtX);
 
-         sshMap[uniqKey] = StoredScriptHistory(); 
-         sshptr = &sshMap[uniqKey];
-         sshptr->uniqueKey_ = uniqKey;
+         BinaryRefReader brr = iface_->getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
+         if (brr.getSize() > 0)
+            subssh.unserializeDBValue(brr);
       }
+
+      dbUpdateSize_ += UPDATE_BYTES_SUBSSH;
    }
 
-   // If sub-history for this block doesn't exist, add an empty one before
-   // returning the pointer to the SSH.  Since we haven't actually inserted
-   // anything into the SubSSH, we don't need to adjust the totalTxioCount_
-   if (hgtX.getSize() == 4)
+   return subssh;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredScriptHistory& BlockWriteBatcher::makeSureSSHInMap(
+   const BinaryData& uniqKey)
+{  
+   auto& ssh = (*sshToModify_)[uniqKey];
+   if (!ssh.isInitialized())
    {
-      size_t prevSize = sshptr->subHistMap_.size();
-      iface->fetchStoredSubHistory(*sshptr, hgtX, additionalSize, commitId, true, false);
-      size_t newSize = sshptr->subHistMap_.size();
-
-      additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+      getSshHeader(ssh, uniqKey);
+      ssh.uniqueKey_ = uniqKey;
    }
 
-   sshptr->commitId_ = commitId;
-
-   return sshptr;
+   return ssh;
 }
 ////////////////////////////////////////////////////////////////////////////////
-// AddRawBlockTODB
-//
-// Assumptions:
-//  -- We have already determined the correct height and dup for the header 
-//     and we assume it's part of the sbh object
-//  -- It has definitely been added to the headers DB (bail if not)
-//  -- We don't know if it's been added to the blkdata DB yet
-//
-// Things to do when adding a block:
-//
-//  -- PREPARATION:
-//    -- Create list of all OutPoints affected, and scripts touched
-//    -- If not supernode, then check above data against registeredSSHs_
-//    -- Fetch all StoredTxOuts from DB about to be removed
-//    -- Get/create TXHINT entries for all tx in block
-//    -- Compute all script keys and get/create all StoredScriptHistory objs
-//    -- Check if any multisig scripts are affected, if so get those objs
-//    -- If pruning, create StoredUndoData from TxOuts about to be removed
-//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
-//       block that affect any other tx in this block
-//
-//
-//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
-//  -- Check if the header has already been added to HEADERS DB
-//  
-//  -- BATCH (HEADERS)
-//    -- Add header to HEADHASH list
-//    -- Add header to HEADHGT list
-//    -- Update validDupByHeight_
-//    -- Update DBINFO top block data
-//
-//  -- BATCH (BLKDATA)
-//    -- Modify StoredTxOut with spentness info (or prep a delete operation
-//       if pruning).
-//    -- Modify StoredScriptHistory objs same as above.  
-//    -- Modify StoredScriptHistory multisig objects as well.
-//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
-//    -- Write all new TXDATA entries for {hgt,dup}
-//    -- If pruning, write StoredUndoData objs to DB
-//    -- Update DBINFO top block data
-//
-// IMPORTANT: we also need to make sure this method does nothing if the
-//            block has already been added properly (though, it okay for 
-//            it to take time to verify nothing needs to be done).  We may
-//            end up replaying some blocks to force consistency of the DB, 
-//            and this method needs to be robust to replaying already-added
-//            blocks, as well as fixing data if the replayed block appears
-//            to have been added already but is different.
-//
+void BlockWriteBatcher::insertSpentTxio(
+   const TxIOPair& txio,
+   StoredSubHistory& inHgtSubSsh,
+   const BinaryData& txOutKey, 
+   const BinaryData& txInKey)
+{
+   auto& mirrorTxio = inHgtSubSsh.txioMap_[txOutKey];
+
+   mirrorTxio = txio;
+   mirrorTxio.setTxIn(txInKey);
+
+   dbUpdateSize_ += UPDATE_BYTES_KEY;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 BlockWriteBatcher::BlockWriteBatcher(
    const BlockDataManagerConfig &config,
@@ -292,8 +226,10 @@ BlockWriteBatcher::BlockWriteBatcher(
    bool forCommit
 )
    : config_(config), iface_(iface),
-   dbUpdateSize_(0), mostRecentBlockApplied_(0), isForCommit_(forCommit)
-{}
+   mostRecentBlockApplied_(0), isForCommit_(forCommit)
+{
+   parent_ = this;
+}
 
 BlockWriteBatcher::~BlockWriteBatcher()
 {
@@ -313,32 +249,35 @@ BlockWriteBatcher::~BlockWriteBatcher()
    clearTransactions();
 }
 
-BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock>& pb,
+BinaryData BlockWriteBatcher::applyBlockToDB(PulledBlock& pb,
    ScrAddrFilter& scrAddrData, bool forceUpdateValue)
 {
    //TIMER_START("applyBlockToDBinternal");
-   if(iface_->getValidDupIDForHeight(pb->blockHeight_) != pb->duplicateID_)
+   if(iface_->getValidDupIDForHeight(pb.blockHeight_) != pb.duplicateID_)
    {
       LOGERR << "Dup requested is not the main branch for the given height!";
       return BinaryData();
    }
    else
-      pb->isMainBranch_ = true;
+      pb.isMainBranch_ = true;
    
-   mostRecentBlockApplied_ = pb->blockHeight_;
+   mostRecentBlockApplied_ = pb.blockHeight_;
 
    // We will accumulate undoData as we apply the tx
    StoredUndoData sud;
-   sud.blockHash_   = pb->thisHash_;
-   sud.blockHeight_ = pb->blockHeight_;
-   sud.duplicateID_ = pb->duplicateID_;
+   sud.blockHash_   = pb.thisHash_;
+   sud.blockHeight_ = pb.blockHeight_;
+   sud.duplicateID_ = pb.duplicateID_;
    
+   sbhToUpdate_.push_back(move(pb));
+
+   auto& block = sbhToUpdate_.back();
    // Apply all the tx to the update data
-   for (auto& stx : pb->stxMap_)
+   for (auto& stx : block.stxMap_)
    {
-      if (stx.second->dataCopy_.getSize() == 0)
+      if (stx.second.dataCopy_.getSize() == 0)
       {
-         LOGERR << "bad STX data in applyBlockToDB at height " << pb->blockHeight_;
+         LOGERR << "bad STX data in applyBlockToDB at height " << pb.blockHeight_;
          throw std::range_error("bad STX data while applying blocks");
       }
 
@@ -347,48 +286,41 @@ BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock>& pb,
 
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
-   pb->blockAppliedToDB_ = true;
-   sbhToUpdate_.push_back(pb);
-   dbUpdateSize_ += pb->numBytes_;
+   BinaryData scannedBlockHash = block.thisHash_;
+   block.blockAppliedToDB_ = true;
+   dbUpdateSize_ += block.numBytes_;
 
-   BinaryData scannedBlockHash = pb->thisHash_;
-
-   { // we want to commit the undo data at the same time as actual changes   
-      // Now actually write all the changes to the DB all at once
-      // if we've gotten to that threshold
-      if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
-      {
-         thread committhread = commit();
-         if (committhread.joinable())
-            committhread.detach();
-      }
-
-      // Only if pruning, we need to store 
-      // TODO: this is going to get run every block, probably should batch it 
-      //       like we do with the other data...when we actually implement pruning
-      //if(config_.pruneType == DB_PRUNE_ALL)
-         //iface_->putStoredUndoData(sud);
+   if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
+   {
+      thread committhread = commit();
+      if (committhread.joinable())
+         committhread.detach();
    }
 
-   //TIMER_STOP("applyBlockToDBinternal");
    return scannedBlockHash;
 }
 
-void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup, 
+void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup, 
    ScrAddrFilter& scrAddrData)
 {
+   forceUpdateSsh_ = true;
+
    resetTransactions();
 
-   preloadSSH(scrAddrData);
+   prepareSshToModify(scrAddrData);
 
-   shared_ptr<PulledBlock> pb(new PulledBlock);
+   PulledBlock pb;
    pullBlockFromDB(pb, hgt, dup);
-   if (pb->blockHeight_ == UINT32_MAX)
+   if (pb.blockHeight_ == UINT32_MAX)
    {
       LOGERR << "Failed to load block " << hgt << "," << dup;
       return;
    }
    applyBlockToDB(pb, scrAddrData, true);
+
+   thread writeThread = commit(true);
+   if (writeThread.joinable())
+      writeThread.join();
 
    clearTransactions();
 }
@@ -398,16 +330,17 @@ void BlockWriteBatcher::applyBlockToDB(uint32_t hgt, uint8_t dup,
 void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud, 
                                         ScrAddrFilter& scrAddrData)
 {
-   //SCOPED_TIMER("undoBlockFromDB");
-   if (resetTxn_ == true)
-      cleanUpSshToModify();
+   if (resetTxn_ > 0)
+      clearSubSshMap(resetTxn_);
+
+   prepareSshToModify(scrAddrData);
 
    resetTransactions();
 
-   shared_ptr<PulledBlock> pb(new PulledBlock);
+   PulledBlock pb;
    pullBlockFromDB(pb, sud.blockHeight_, sud.duplicateID_);
 
-   if(!pb->blockAppliedToDB_)
+   if(!pb.blockAppliedToDB_)
    {
       LOGERR << "This block was never applied to the DB...can't undo!";
       return;
@@ -427,12 +360,9 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
       {
          if (!scrAddrData.hasScrAddress(sudStxo.getScrAddress()))
             continue;
-         
-         //UTxO is for one of our scrAddr, add it
-         scrAddrData.addUTxO(sudStxo.getDBKey(false));
       }
 
-      shared_ptr<StoredTxOut>& stxo = makeSureSTXOInMap( 
+      StoredTxOut* stxoPtr = makeSureSTXOInMap( 
                iface_,
                sudStxo.parentHash_,
                stxoIdx);
@@ -440,23 +370,23 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
       if(config_.pruneType == DB_PRUNE_NONE)
       {
          // If full/super, we have the TxOut in DB, just need mark it unspent
-         if(stxo->spentness_ == TXOUT_UNSPENT || 
-            stxo->spentByTxInKey_.getSize() == 0 )
+         if(stxoPtr->spentness_ == TXOUT_UNSPENT || 
+            stxoPtr->spentByTxInKey_.getSize() == 0 )
          {
             LOGERR << "STXO needs to be re-added/marked-unspent but it";
             LOGERR << "was already declared unspent in the DB";
          }
          
-         stxo->spentness_ = TXOUT_UNSPENT;
-         stxo->spentByTxInKey_ = BinaryData(0);
+         stxoPtr->spentness_ = TXOUT_UNSPENT;
+         stxoPtr->spentByTxInKey_ = BinaryData(0);
       }
       else
       {
          // If we're pruning, we should have the Tx in the DB, but without the
          // TxOut because it had been pruned by this block on the forward op
 
-         stxo->spentness_      = TXOUT_UNSPENT;
-         stxo->spentByTxInKey_ = BinaryData(0);
+         stxoPtr->spentness_ = TXOUT_UNSPENT;
+         stxoPtr->spentByTxInKey_ = BinaryData(0);
       }
 
 
@@ -464,75 +394,33 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
          ////// Finished updating STX, now update the SSH in the DB
          // Updating the SSH objects works the same regardless of pruning
 
-         BinaryData uniqKey = stxo->getScrAddress();
+         BinaryData uniqKey = stxoPtr->getScrAddress();
 
-         BinaryData hgtX    = stxo->getHgtX();
-         StoredScriptHistory* sshptr = makeSureSSHInMap(
-               iface_, uniqKey, hgtX, sshToModify_, dbUpdateSize_,
-               commitId_, true);
-
-         if(sshptr==NULL)
-         {
-            LOGERR << "No SSH found for marking TxOut unspent on undo";
-            continue;
-         }
+         BinaryData hgtX = stxoPtr->getHgtX();
+         StoredSubHistory& subssh = 
+            makeSureSubSSHInMap(uniqKey, hgtX);
 
          // Readd the unspent at TxOut hgtX TxIOPair in the StoredScriptHistory
-         sshptr->markTxOutUnspent(
-            iface_,
-            stxo->getDBKey(false),
-            config_.armoryDbType,
-            config_.pruneType,
+         subssh.markTxOutUnspent(
+            stxoPtr->getDBKey(false),
             dbUpdateSize_,
-            commitId_,
-            stxo->getValue(),
-            stxo->isCoinbase_,
-            false, true
+            stxoPtr->getValue(),
+            stxoPtr->isCoinbase_,
+            false
          );
+         
+         auto& ssh = makeSureSSHInMap(uniqKey);
+         ssh.totalUnspent_ += stxoPtr->getValue();
 
          //delete the spent subssh at TxIn hgtX
          if (sudStxo.spentness_ == TXOUT_SPENT)
          {
             hgtX = sudStxo.spentByTxInKey_.getSliceCopy(0, 4);
-            sshptr = makeSureSSHInMap(
-               iface_, uniqKey, hgtX, sshToModify_, dbUpdateSize_, commitId_, true);
+            StoredSubHistory& subsshAtInHgt = 
+               makeSureSubSSHInMap(uniqKey, hgtX);
 
-            if (sshptr != nullptr)
-               sshptr->eraseSpentTxio(hgtX, sudStxo.getDBKey(false), commitId_);
-         }
-
-         // If multisig, we need to update the SSHs for individual addresses
-         if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
-         {
-            vector<BinaryData> addr160List;
-            BtcUtils::getMultisigAddrList(stxo->getScriptRef(), addr160List);
-            for(uint32_t a=0; a<addr160List.size(); a++)
-            {
-               // Get the existing SSH or make a new one
-               BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-               
-               if (config_.armoryDbType != ARMORY_DB_SUPER &&
-                   scrAddrData.hasScrAddress(uniqKey) == false)
-                     continue;
-
-               StoredScriptHistory* sshms = makeSureSSHInMap(iface_, uniqKey, 
-                                                            stxo->getHgtX(),
-                                                            sshToModify_, 
-                                                            dbUpdateSize_,
-                                                            commitId_,
-                                                            true);
-               sshms->markTxOutUnspent(
-                  iface_,
-                  stxo->getDBKey(false),
-                  config_.armoryDbType,
-                  config_.pruneType,
-                  dbUpdateSize_,
-                  commitId_,
-                  stxo->getValue(),
-                  stxo->isCoinbase_,
-                  true
-               );
-            }
+            subsshAtInHgt.eraseTxio(sudStxo.getDBKey(false));
+            ssh.totalTxioCount_--;
          }
       }
    }
@@ -542,24 +430,23 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    // When they were added, we updated all the StoredScriptHistory objects
    // to include references to them.  We need to remove them now.
    // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
-   for(int16_t itx=pb->numTx_-1; itx>=0; itx--)
+   for(int16_t itx=pb.numTx_-1; itx>=0; itx--)
    {
       // Ironically, even though I'm using hgt & dup, I still need the hash
       // in order to key the stxToModify map
-      BinaryData txHash = iface_->getHashForDBKey(pb->blockHeight_,
-                                                  pb->duplicateID_,
+      BinaryData txHash = iface_->getHashForDBKey(pb.blockHeight_,
+                                                  pb.duplicateID_,
                                                   itx);
 
       StoredTx stx;
       if (!iface_->getStoredTx(stx, txHash))
       {
          LOGERR << "could not grab STX for hash: " << txHash.toHexStr(false);
-         throw std::runtime_error("iface->getStoredTx failed in makeSureSTXInMap");
+         throw std::runtime_error("iface->getStoredTx failed in undoBlockFromDB");
       }
 
       for(int16_t txoIdx = (int16_t)stx.stxoMap_.size()-1; txoIdx >= 0; txoIdx--)
       {
-
          StoredTxOut & stxo    = stx.stxoMap_[txoIdx];
          BinaryData    stxoKey = stxo.getDBKey(false);
    
@@ -569,23 +456,16 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
          {
             if (!scrAddrData.hasScrAddress(uniqKey))
                continue;
-
-            scrAddrData.eraseUTxO(stxoKey);
          }
 
          BinaryData hgtX    = stxo.getHgtX();
-         StoredScriptHistory * sshptr = makeSureSSHInMap(
-               iface_, uniqKey, 
-               hgtX,
-               sshToModify_, 
-               dbUpdateSize_,
-               commitId_,
-               false);
+         StoredSubHistory& subssh =
+            makeSureSubSSHInMap(uniqKey, hgtX);
    
-   
-         // If we are tracking that SSH, remove the reference to this OutPoint
-         if(sshptr != NULL)
-            sshptr->eraseTxio(stxoKey, commitId_);
+         subssh.eraseTxio(stxoKey);
+         auto& ssh = makeSureSSHInMap(uniqKey);
+         ssh.totalTxioCount_--;
+         ssh.totalUnspent_ -= stxo.getValue();
    
          // Now remove any multisig entries that were added due to this TxOut
          if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
@@ -603,28 +483,20 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
                      continue;
                }
 
-               StoredScriptHistory* sshms = makeSureSSHInMap(
-                     iface_,
-                     uniqKey,
-                     hgtX,
-                     sshToModify_, 
-                     dbUpdateSize_,
-                     commitId_,
-                     false
-                  );
-               sshms->eraseTxio(stxoKey, commitId_);
+               StoredSubHistory& sshms = 
+                  makeSureSubSSHInMap(uniqKey, hgtX);
+               sshms.eraseTxio(stxoKey);
+               
+               auto& ssh = makeSureSSHInMap(uniqKey);
+               ssh.totalTxioCount_--;
             }
          }
-
-         shared_ptr<StoredTxOut> stxoSP(new StoredTxOut);
-         *stxoSP = stxo;
-         addStxoToSTXOMap(stxoSP);
       }
    }
 
    // Finally, mark this block as UNapplied.
-   pb->blockAppliedToDB_ = false;
-   sbhToUpdate_.push_back(pb);
+   pb.blockAppliedToDB_ = false;
+   sbhToUpdate_.push_back(move(pb));
    
    clearTransactions();
    
@@ -637,205 +509,140 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 }
 
 bool BlockWriteBatcher::parseTxIns(
-   shared_ptr<PulledTx>& thisSTX, 
+   PulledTx& thisSTX, 
    StoredUndoData * sud, 
    ScrAddrFilter& scrAddrData,
    bool forceUpdateValue)
 {
-   //TIMER_START("TxInParsing");
-
-   for (uint32_t iin = 0; iin < thisSTX->txInIndexes_.size() - 1; iin++)
+   for (uint32_t iin = 0; iin < thisSTX.txInIndexes_.size() - 1; iin++)
    {
-      //TIMER_START("grabTxIn");
       // Get the OutPoint data of TxOut being spent
-      const BinaryDataRef opTxHash =
-         thisSTX->dataCopy_.getSliceRef(thisSTX->txInIndexes_[iin], 32);
+      BinaryData opTxHashAndId =
+         thisSTX.dataCopy_.getSliceCopy(thisSTX.txInIndexes_[iin], 32);
 
-      if (opTxHash == BtcUtils::EmptyHash_)
-      {
-         //TIMER_STOP("grabTxIn");
+      if (opTxHashAndId == BtcUtils::EmptyHash_)
          continue;
-      }
 
       const uint32_t opTxoIdx =
-         READ_UINT32_LE(thisSTX->dataCopy_.getPtr() + thisSTX->txInIndexes_[iin] + 32);
+         READ_UINT32_LE(thisSTX.dataCopy_.getPtr() + thisSTX.txInIndexes_[iin] + 32);
 
-      BinaryDataRef       fetchBy = opTxHash;
-
-      //TIMER_STOP("grabTxIn");
+      opTxHashAndId.append(WRITE_UINT16_BE(opTxoIdx));
 
       //For scanning a predefined set of addresses, check if this txin 
       //consumes one of our utxo
 
       //leveraging the stxo in RAM
-      shared_ptr<StoredTxOut> stxo;
-      lookForSTXOInMap(opTxHash, opTxoIdx, stxo);
+      StoredTxOut* stxoPtr = nullptr;
+      stxoPtr = lookForUTXOInMap(opTxHashAndId, opTxoIdx);
 
       if (config_.armoryDbType != ARMORY_DB_SUPER)
       {
-         if (stxo)
+         if (stxoPtr == nullptr)
          {
-            //Since this STX is already in map, we have processed it, thus
-            //all the relevant outpoints of this STX are already in RAM
-            if (scrAddrData.hasUTxO(stxo->getDBKey(false)) < 1)
-               continue;
-
-            scrAddrData.eraseUTxO(stxo->getDBKey(false));
-         }
-         else
-         {
-            //TIMER_START("fecthOutPointFromDB");
-
-            //grab UTxO DBkey for comparison first
-            BinaryData          txOutDBkey;
-            iface_->getStoredTx_byHash(opTxHash, nullptr, &txOutDBkey);
-            if (txOutDBkey.getSize() != 6)
-               continue;
-            txOutDBkey.append(WRITE_UINT16_BE(opTxoIdx));
-
-            int8_t hasKey = scrAddrData.hasUTxO(txOutDBkey);
-
-            //TIMER_STOP("fecthOutPointFromDB");
-
-            if (hasKey == 0) continue;
-            else if (hasKey == -1)
+            //if we have a list of all relevant UTXO and we couldnt find this
+            //one in there, then it isnt a relevant UTXO and we can skip it
+            if (haveFullUTXOList_)
             {
-               //TIMER_START("fullFecthOutPointFromDB");
-
-               fetchBy = txOutDBkey.getSliceRef(0, 6);
-               stxo = makeSureSTXOInMap(iface_, opTxHash, opTxoIdx);
-
-               if (!scrAddrData.hasScrAddress(stxo->getScrAddress()))
-               {
-                  //TIMER_STOP("fullFecthOutPointFromDB");
+               if (thisSTX.blockHeight_ > utxoFromHeight_)
                   continue;
-               }
-
-               //TIMER_STOP("fullFecthOutPointFromDB");
             }
 
-            //if we got this far this txin spends one of our utxo, 
-            //remove it from utxo set
-            scrAddrData.eraseUTxO(txOutDBkey);
+            //otherwise we need to grab it and check it against our scrAddr
+            //list. UTXO are consumed only once so we do not need to keep
+            //this one in RAM if it turns out it isn't relevant
+            shared_ptr<StoredTxOut> stxoToSpend(new StoredTxOut);
+            BinaryData dbKey;
+            iface_->getStoredTx_byHash(opTxHashAndId.getSliceRef(0, 32), nullptr, &dbKey);
+            dbKey.append(WRITE_UINT16_BE(opTxoIdx));
+            iface_->getStoredTxOut(*stxoToSpend, dbKey);
+
+            if (!scrAddrData.hasScrAddress(stxoToSpend->getScrAddress()))
+               continue;
+           
+            dbUpdateSize_ += sizeof(StoredTxOut)+stxoToSpend->dataCopy_.getSize();
+
+            stxoToUpdate_.push_back(stxoToSpend);
+            stxoPtr = stxoToSpend.get();
          }
       }
-
-      //TIMER_START("CommitTxIn");
-
-      if (!stxo)
-         stxo = makeSureSTXOInMap(iface_, fetchBy, opTxoIdx);
-
-      const BinaryData& uniqKey = stxo->getScrAddress();
+      
+      const BinaryData& uniqKey = stxoPtr->getScrAddress();
+      BinaryData stxoKey = stxoPtr->getDBKey(false);
 
       // Need to modify existing UTXOs, so that we can delete or mark as spent
-      stxo->spentness_ = TXOUT_SPENT;
-      stxo->spentByTxInKey_ = thisSTX->getDBKeyOfChild(iin, false);
+      stxoPtr->spentness_ = TXOUT_SPENT;
+      stxoPtr->spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
 
       ////// Now update the SSH to show this TxIOPair was spent
       // Same story as stxToModify above, except this will actually create a new
       // SSH if it doesn't exist in the map or the DB
-      BinaryData hgtX = stxo->getHgtX();
+      BinaryData& hgtX = stxoPtr->getHgtX();
 
-      StoredScriptHistory* sshptr = makeSureSSHInMap_BlindFetch(
-         iface_,
-         uniqKey,
-         hgtX,
-         sshToModify_,
-         dbUpdateSize_,
-         commitId_,
-         thisSTX->blockHeight_,
-         true);
+      StoredSubHistory& subssh = makeSureSubSSHInMap(uniqKey, hgtX);
+      
+      StoredSubHistory& mirrorsubssh = 
+         makeSureSubSSHInMap_IgnoreDB(
+            uniqKey, 
+            stxoPtr->spentByTxInKey_.getSliceRef(0, 4),
+            0);
 
       // update the txio in its subSSH
-      sshptr->markTxOutSpent(
-         iface_,
-         stxo->getDBKey(false),
-         stxo->spentByTxInKey_,
-         commitId_,
-         config_.armoryDbType,
-         config_.pruneType,
-         forceUpdateValue);
+      auto& txio = subssh.markTxOutSpent(stxoKey);
          
-      //Mirror the spent txio at txin height only if the txout was marked
-      //unspent
-
-      sshptr->insertSpentTxio(stxo->getDBKey(false),
-                              stxo->spentByTxInKey_,
-                              dbUpdateSize_, commitId_);
-
-      //TIMER_STOP("CommitTxIn");
+      //Mirror the spent txio at txin height
+      insertSpentTxio(txio, mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_);
    }
-
-   //TIMER_STOP("TxInParsing");
 
    return true;
 }
 
 bool BlockWriteBatcher::parseTxOuts(
-   shared_ptr<PulledTx>& thisSTX,
+   PulledTx& thisSTX,
    StoredUndoData * sud,
    ScrAddrFilter& scrAddrData,
    bool forceUpdateValue)
 {
-   //TIMER_START("TxOutParsing");
-
-   if (config_.armoryDbType == ARMORY_DB_SUPER)
+   for (auto& stxoPair : thisSTX.stxoMap_)
    {
-      addStxToSTXOMap(thisSTX);
-   }
-
-   for (shared_ptr<StoredTxOut>& stxoToAdd : values(thisSTX->stxoMap_))
-   {
-      stxoToAdd->spentness_ = TXOUT_UNSPENT;
-
-      //TIMER_START("getTxOutScrAddrAndHgtx");
-      BinaryData uniqKey = stxoToAdd->getScrAddress();
-      BinaryData hgtX = stxoToAdd->getHgtX();
-      //TIMER_STOP("getTxOutScrAddrAndHgtx");
+      auto& stxoToAdd = *stxoPair.second;
+      const BinaryData& uniqKey = stxoToAdd.getScrAddress();
+      BinaryData hgtX = stxoToAdd.getHgtX();
 
       if (config_.armoryDbType != ARMORY_DB_SUPER)
       {
          if (!scrAddrData.hasScrAddress(uniqKey))
             continue;
-
-         //if we got this far, this utxo points to one of the address in our 
-         //list, add it to the utxo set
-         scrAddrData.addUTxO(stxoToAdd->getDBKey(false));
-
-         addStxoToSTXOMap(stxoToAdd);
       }
+         
+      stxoToAdd.spentness_ = TXOUT_UNSPENT;
 
-      //TIMER_START("createSSHentryForTXOUT");
-      StoredScriptHistory* sshptr = makeSureSSHInMap_BlindFetch(
-         iface_,
+      StoredSubHistory& subssh = makeSureSubSSHInMap_IgnoreDB(
          uniqKey,
          hgtX,
-         sshToModify_,
-         dbUpdateSize_,
-         commitId_,
-         thisSTX->blockHeight_,
-         false);
+         thisSTX.blockHeight_);
 
       // Add reference to the next STXO to the respective SSH object
-      sshptr->markTxOutUnspent(
-         iface_,
-         stxoToAdd->getDBKey(false),
-         config_.armoryDbType,
-         config_.pruneType,
-         dbUpdateSize_,
-         commitId_,
-         stxoToAdd->getValue(),
-         stxoToAdd->isCoinbase_,
-         false,
-         forceUpdateValue
-         );
-      //TIMER_STOP("createSSHentryForTXOUT");
+      if (config_.armoryDbType == ARMORY_DB_SUPER)
+      {
+         auto& txio = thisSTX.preprocessedUTXO_[stxoPair.first];
+         subssh.txioMap_[txio.getDBKeyOfOutput()] = txio;
+         dbUpdateSize_ += sizeof(TxIOPair)+8;
+      }
+      else
+      {
+         subssh.markTxOutUnspent(
+            stxoToAdd.getDBKey(false),
+            dbUpdateSize_,
+            stxoToAdd.getValue(),
+            stxoToAdd.isCoinbase_,
+            false);
+      }
 
       // If this was a multisig address, add a ref to each individual scraddr
       if (uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
       {
          vector<BinaryData> addr160List;
-         BtcUtils::getMultisigAddrList(stxoToAdd->getScriptRef(), addr160List);
+         BtcUtils::getMultisigAddrList(stxoToAdd.getScriptRef(), addr160List);
          for (uint32_t a = 0; a<addr160List.size(); a++)
          {
             // Get the existing SSH or make a new one
@@ -845,37 +652,26 @@ bool BlockWriteBatcher::parseTxOuts(
             {
                //do not maintain multisig activity on related scrAddr unless
                //in supernode
-               if (scrAddrData.hasScrAddress(uniqKey))
+               if (!scrAddrData.hasScrAddress(uniqKey))
                   continue;
             }
 
-            StoredScriptHistory* sshms = makeSureSSHInMap_BlindFetch(
-               iface_,
+            StoredSubHistory& sshms = makeSureSubSSHInMap_IgnoreDB(
                uniqKey,
                hgtX,
-               sshToModify_,
+               thisSTX.blockHeight_);
+
+            sshms.markTxOutUnspent(
+               stxoToAdd.getDBKey(false),
                dbUpdateSize_,
-               commitId_,
-               thisSTX->blockHeight_,
-               false
-               );
-            sshms->markTxOutUnspent(
-               iface_,
-               stxoToAdd->getDBKey(false),
-               config_.armoryDbType,
-               config_.pruneType,
-               dbUpdateSize_,
-               commitId_,
-               stxoToAdd->getValue(),
-               stxoToAdd->isCoinbase_,
-               true,
-               forceUpdateValue
-               );
+               stxoToAdd.getValue(),
+               stxoToAdd.isCoinbase_,
+               true);
          }
       }
-   }
 
-   //TIMER_STOP("TxOutParsing");
+      moveStxoToUTXOMap(stxoPair.second);
+   }
 
    return true;
 }
@@ -887,7 +683,7 @@ bool BlockWriteBatcher::parseTxOuts(
 // TODO:  Make sure that if Tx5 spends an input from Tx2 in the same 
 //        block that it is handled correctly, etc.
 bool BlockWriteBatcher::applyTxToBatchWriteData(
-                        shared_ptr<PulledTx>& thisSTX,
+                        PulledTx& thisSTX,
                         StoredUndoData * sud,
                         ScrAddrFilter& scrAddrData,
                         bool forceUpdateValue)
@@ -919,81 +715,63 @@ thread BlockWriteBatcher::commit(bool finalCommit)
       l.unlock();
 
    //create a BWB for commit (pass true to the constructor)
-   BlockWriteBatcher *bwbSwapPtr = new BlockWriteBatcher(config_, iface_, true);
-
-   //LOGWARN << "dumping " << dbUpdateSize_ << " bytes in the DB";
+   auto bwbWriteObj = shared_ptr<BlockWriteBatcher>(
+     new BlockWriteBatcher(config_, iface_, true));
    
-   bwbSwapPtr->commitId_ = commitId_++;
+   if (forceUpdateSsh_)
+   {
+      bwbWriteObj->dataToCommit_.forceUpdateSshAtHeight_ =
+         mostRecentBlockApplied_ -1;
+   }
+   
+   bwbWriteObj->commitId_ = commitId_++;
 
-   bwbSwapPtr->searchForSSHKeysToDelete(sshToModify_);
+   bwbWriteObj->sbhToUpdate_ = std::move(sbhToUpdate_);
+   bwbWriteObj->stxoToUpdate_ = std::move(stxoToUpdate_);
+   
+   bwbWriteObj->mostRecentBlockApplied_ = mostRecentBlockApplied_;
+   bwbWriteObj->parent_ = this;
 
-   bwbSwapPtr->sbhToUpdate_   = std::move(sbhToUpdate_);
-   bwbSwapPtr->sshToModify_   = sshToModify_;
-   bwbSwapPtr->stxoToModify_  = std::move(stxoToModify_);
-
-   bwbSwapPtr->mostRecentBlockApplied_ = mostRecentBlockApplied_;
+   if (utxoMap_.size() > UTXO_THRESHOLD)
+   {
+      utxoMapBackup_.clear();
+      utxoMapBackup_ = std::move(utxoMap_);
+      haveFullUTXOList_ = false;
+   }
 
    if (isCommiting)
    {
       //the write thread is already running and we cumulated enough data in the
       //read thread for the next write. Let's use that idle time to serialize
       //the data to commit ahead of time
-      bwbSwapPtr->serializeData();
+      bwbWriteObj->serializeData(subSshMap_);
    }
+      
+   deleteId_++;
 
-   bwbSwapPtr->dbUpdateSize_ = dbUpdateSize_;
-   bwbSwapPtr->updateSDBI_ = updateSDBI_;
-
-   bwbSwapPtr->parent_ = this;
+   bwbWriteObj->dbUpdateSize_ = dbUpdateSize_;
+   bwbWriteObj->updateSDBI_ = updateSDBI_;
+   bwbWriteObj->deleteId_ = deleteId_;
       
    dbUpdateSize_ = 0;
 
-   /*auto write = [](BlockWriteBatcher* ptr)->void
-   { ptr->writeToDB(); };*/
+   auto write = [](shared_ptr<BlockWriteBatcher> obj)->void
+   { obj->writeToDB(); };
 
    l.lock();
-   thread committhread(executeWrite, bwbSwapPtr);
+   subSshMapToWrite_ = std::move(subSshMap_);
+   commitingObject_ = bwbWriteObj;
+
+   if (isCommiting)
+      resetTransactions();
+
+   thread committhread(write, bwbWriteObj);
 
    return committhread;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::searchForSSHKeysToDelete(
-   map<BinaryData, StoredScriptHistory>& sshToModify)
-{
-   for(map<BinaryData, StoredScriptHistory>::iterator iterSSH  = sshToModify.begin();
-       iterSSH != sshToModify.end(); )
-   {
-      // get our next one in case we delete the current
-      map<BinaryData, StoredScriptHistory>::iterator nextSSHi = iterSSH;
-      ++nextSSHi;
-
-      StoredScriptHistory & ssh = iterSSH->second;
-      
-      for (const auto& subssh : ssh.subHistMap_)
-      {
-         if (subssh.second.txioMap_.size() == 0 && 
-             subssh.second.commitId_ == commitId_)
-            keysToDelete_.insert(subssh.second.getDBKey(true));
-      }
-   
-      // If the full SSH is empty (not just sub history), mark it to be removed
-      // *ONLY IN SUPERNODE* need it in full mode to update the ssh last seen 
-      // block
-
-      if (iterSSH->second.totalTxioCount_ == 0 && 
-          config_.armoryDbType == ARMORY_DB_SUPER)
-      {
-         keysToDelete_.insert(iterSSH->second.getDBKey(true));
-         sshToModify.erase(iterSSH);
-      }
-      
-      iterSSH = nextSSHi;
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
+void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
 {
    //In full mode, the sshToModify_ container is not wiped after each commit.
    //Instead, all SSH for tracked scrAddr, since we know they're the onyl one
@@ -1002,13 +780,73 @@ void BlockWriteBatcher::preloadSSH(const ScrAddrFilter& sasd)
 
    //pass a 0 size BinaryData to avoid loading any subSSH
 
-   if (config_.armoryDbType != ARMORY_DB_SUPER)
-   {
-      uint64_t updateSize;
-      BinaryData hgtX(0);
+   if (sshToModify_)
+      return;
 
-      for (auto saPair : sasd.getScrAddrMap())
-         makeSureSSHInMap(iface_, saPair.first, hgtX, sshToModify_, updateSize, 0, true);
+   sshToModify_ = shared_ptr<map<BinaryData, StoredScriptHistory>>(
+      new map<BinaryData, StoredScriptHistory>);
+   
+   if (config_.armoryDbType == ARMORY_DB_SUPER)
+      return;
+
+   BinaryData hgtX(0);
+
+   uint32_t utxoCount=0;
+   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi);
+   utxoFromHeight_ = sdbi.topBlkHgt_;
+
+   for (auto saPair : sasd.getScrAddrMap())
+   {
+      auto& ssh = (*sshToModify_)[saPair.first];
+      getSshHeader(ssh, saPair.first);
+
+      if (ssh.totalTxioCount_ != 0 &&
+          utxoCount + ssh.totalTxioCount_ < UTXO_THRESHOLD)
+      {
+         BinaryWriter bwKey(saPair.first.getSize() + 1);
+         bwKey.put_uint8_t((uint8_t)DB_PREFIX_SCRIPT);
+         bwKey.put_BinaryData(saPair.first);
+
+         LDBIter dbIter = iface_->getIterator(BLKDATA);
+
+         dbIter.seekToExact(bwKey.getDataRef());
+         while (dbIter.getKeyRef().startsWith(bwKey.getDataRef()))
+         {
+            if (dbIter.getKeyRef().getSize()==bwKey.getSize() +4)
+            {
+               //grab subssh
+               StoredSubHistory subssh;
+               subssh.hgtX_ = dbIter.getKeyRef().getSliceRef(-4, 4);
+               subssh.unserializeDBValue(dbIter.getValueReader());
+
+               //load all UTXOs listed
+               for (auto txio : subssh.txioMap_)
+               {
+                  if (txio.second.isUTXO())
+                  {
+                     BinaryData dbKey = txio.second.getDBKeyOfOutput();
+                     shared_ptr<StoredTxOut> stxo(new StoredTxOut);
+                     iface_->getStoredTxOut(*stxo, dbKey);
+                     
+                     BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
+
+                     BinaryWriter bwUtxoKey(34);
+                     bwUtxoKey.put_BinaryData(txHash);
+                     bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
+                     
+                     utxoMap_[bwUtxoKey.getDataRef()] = stxo;
+                     utxoCount++;
+                  }
+               }
+            }
+               
+            dbIter.advanceAndRead(DB_PREFIX_SCRIPT);
+         }
+      }
+      else haveFullUTXOList_ = false;
    }
 }
 
@@ -1017,11 +855,9 @@ void BlockWriteBatcher::writeToDB(void)
 {
    unique_lock<mutex> lock(parent_->writeLock_);
 
-   dataToCommit_.serializeData(*this);
+   dataToCommit_.serializeData(*this, parent_->subSshMapToWrite_);
 
    txn_.open(&iface_->dbEnv_, LMDB::ReadWrite);
-
-   //   TIMER_START("commitToDB");
 
    {
       dataToCommit_.putSSH(iface_);
@@ -1039,8 +875,7 @@ void BlockWriteBatcher::writeToDB(void)
       txn_.commit();
       txn_.begin();
 
-      for (auto& toDel : keysToDelete_)
-         iface_->deleteValue(BLKDATA, toDel);
+      dataToCommit_.deleteEmptyKeys(iface_);
 
       txn_.commit();
       txn_.begin();
@@ -1050,33 +885,22 @@ void BlockWriteBatcher::writeToDB(void)
 
       //final commit
       clearTransactions();
+      parent_->commitingObject_.reset();
    }
-
-   iface_->dbEnv_.print_remap_status();
 
    BlockWriteBatcher* bwbParent = parent_;
 
    //signal the readonly transaction to reset
-   bwbParent->resetTxn_ = true;
+   bwbParent->resetTxn_ = deleteId_;
 
    //signal DB is ready for new commit
    lock.unlock();
-
-   //delete this;
-
-   //TIMER_STOP("commitToDB");
-}
-
-void BlockWriteBatcher::executeWrite(BlockWriteBatcher* ptr)
-{
-   ptr->writeToDB();
-   delete ptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::resetTransactions(void)
 {
-   resetTxn_ = false;
+   resetTxn_ = 0;
    
    txn_.commit();
    txn_.open(&iface_->dbEnv_, LMDB::ReadOnly);
@@ -1095,13 +919,14 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    Grab blocks from the DB, put them in the tempBlockVec
    ***/
 
+   //TIMER_START("grabBlocksFromDB");
    //mon
    BlockWriteBatcher* const dis = static_cast<BlockWriteBatcher*>(in);
 
    //read only db txn
    LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
 
-   vector<shared_ptr<PulledBlock> > pbVec;
+   vector<PulledBlock> pbVec;
    uint32_t hgt = dis->tempBlockData_->topLoadedBlock_;
    uint32_t memoryLoad = 0; 
 
@@ -1121,7 +946,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
          break;
       }
       
-      shared_ptr<PulledBlock> pb(new PulledBlock);
+      PulledBlock pb;
       if (!dis->pullBlockFromDB(pb, hgt, dupID))
       {
          dis->tempBlockData_->endBlock_ = hgt - 1;
@@ -1129,8 +954,8 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
          break;
       }
 
-      memoryLoad += pb->numBytes_;
-      pbVec.push_back(pb);
+      memoryLoad += pb.numBytes_;
+      pbVec.push_back(move(pb));
 
       ++hgt;
    }
@@ -1150,6 +975,7 @@ void* BlockWriteBatcher::grabBlocksFromDB(void *in)
    
    dis->grabThreadCondVar_.notify_all();
 
+   //TIMER_STOP("grabBlocksFromDB");
    return nullptr;
 }
 
@@ -1178,16 +1004,17 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
       {
          uint32_t vectorIndex;
          
-         if (resetTxn_ == true)
+         if (resetTxn_ != 0)
          {
+            uint32_t id = resetTxn_;
             resetTransactions();
-            cleanUpSshToModify();
+            clearSubSshMap(id);
          }
 
          if (!tempBlockData_->fetching_)
          if (tempBlockData_->topLoadedBlock_ <=
             tempBlockData_->endBlock_ &&
-            tempBlockData_->bufferLoad_ < UPDATE_BYTES_THRESH / 6)
+            tempBlockData_->bufferLoad_ < UPDATE_BYTES_THRESH / 3)
          {
             //block buffer is below half load, refill it in a side thread
             tempBlockData_->fetching_ = true;
@@ -1202,9 +1029,9 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 
          //make sure there's enough data to grab from the block buffer
          grabThreadCondVar_.wait(uniqLock, 
-            [&, this]{return (i < this->tempBlockData_->topLoadedBlock_ ||
-                              i > this->tempBlockData_->endBlock_); });
-
+               [&, this]{return (i < this->tempBlockData_->topLoadedBlock_ ||
+                                 i > this->tempBlockData_->endBlock_); });
+         
          if (i > tempBlockData_->endBlock_)
             break;
 
@@ -1212,15 +1039,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          while (tempBlockData_->lock_.fetch_or(1, memory_order_relaxed));
          vectorIndex = i - tempBlockData_->blockOffset_;
 
-         shared_ptr<PulledBlock> pb = tempBlockData_->pbVec_[vectorIndex];
-
-         if (!pb)
-         {
-            LOGERR << "nullptr ** at height " << i;
-            throw std::runtime_error("bad sbh pointer at height i");
-         }
-
-         tempBlockData_->pbVec_[vectorIndex].reset();
+         PulledBlock pb = move(tempBlockData_->pbVec_[vectorIndex]);
 
          //clean up used vector indexes
          uint32_t nParsedBlocks = i - tempBlockData_->startBlock_;
@@ -1236,7 +1055,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
          //release lock
          tempBlockData_->lock_.store(0, memory_order_relaxed);
 
-         uint32_t blockSize = pb->numBytes_;
+         uint32_t blockSize = pb.numBytes_;
 
          //scan block
          lastScannedBlockHash = 
@@ -1287,30 +1106,10 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::cleanUpSshToModify(void)
+void BlockWriteBatcher::clearSubSshMap(uint32_t id)
 {
-   auto sshIter = sshToModify_.begin();
-
-   while (sshIter != sshToModify_.end())
-   {
-      auto subSshIter = sshIter->second.subHistMap_.begin();
-      while (subSshIter != sshIter->second.subHistMap_.end())
-      {
-         if (subSshIter->second.commitId_ == deleteId_)
-            sshIter->second.subHistMap_.erase(subSshIter++);
-         else
-            ++subSshIter;
-      }
-
-      if (sshIter->second.subHistMap_.size() == 0 &&
-         config_.armoryDbType ==
-         ARMORY_DB_SUPER)
-         sshToModify_.erase(sshIter++);
-      else
-         ++sshIter;
-   }
-
-   ++deleteId_;
+   if (id == deleteId_)
+      subSshMapToWrite_.clear();
 }
 
 
@@ -1323,57 +1122,16 @@ BinaryData BlockWriteBatcher::scanBlocks(
 {
    //TIMER_START("applyBlockRangeToDBIter");
    
-   preloadSSH(scf);
+   prepareSshToModify(scf);
 
    tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
    grabBlocksFromDB(this);
 
    return applyBlocksToDB(prog);
-
-   /*TIMER_STOP("applyBlockRangeToDBIter");
-
-   double applyBlockRangeToDBIter = TIMER_READ_SEC("applyBlockRangeToDBIter");
-   LOGWARN << "applyBlockRangeToDBIter: " << applyBlockRangeToDBIter << " sec";
-
-   double applyBlockToDBinternal = TIMER_READ_SEC("applyBlockToDBinternal");
-   LOGWARN << "applyBlockToDBinternal: " << applyBlockToDBinternal << " sec";
-
-   double applyTxToBatchWriteData = TIMER_READ_SEC("applyTxToBatchWriteData");
-   LOGWARN << "applyTxToBatchWriteData: " << applyTxToBatchWriteData << " sec";
-
-   double TxInParsing = TIMER_READ_SEC("TxInParsing");
-   LOGWARN << "TxInParsing: " << TxInParsing << " sec";
-
-   double grabTxIn = TIMER_READ_SEC("grabTxIn");
-   LOGWARN << "grabTxIn: " << grabTxIn << " sec";
-
-   double leverageStxInRAM = TIMER_READ_SEC("leverageStxInRAM");
-   LOGWARN << "leverageStxInRAM: " << leverageStxInRAM << " sec";
-
-   double fecthOutPointFromDB = TIMER_READ_SEC("fecthOutPointFromDB");
-   LOGWARN << "fecthOutPointFromDB: " << fecthOutPointFromDB << " sec";
-
-   double fullFecthOutPointFromDB = TIMER_READ_SEC("fullFecthOutPointFromDB");
-   LOGWARN << "fullFecthOutPointFromDB: " << fullFecthOutPointFromDB << " sec";
-
-   double CommitTxIn = TIMER_READ_SEC("CommitTxIn");
-   LOGWARN << "CommitTxIn: " << CommitTxIn << " sec";
-
-   double TxOutParsing = TIMER_READ_SEC("TxOutParsing");
-   LOGWARN << "TxOutParsing: " << TxOutParsing << " sec";
-
-   double getTxOutScrAddrAndHgtx = TIMER_READ_SEC("getTxOutScrAddrAndHgtx");
-   LOGWARN << "getTxOutScrAddrAndHgtx: " << getTxOutScrAddrAndHgtx << " sec";
-
-   double createSSHentryForTXOUT = TIMER_READ_SEC("createSSHentryForTXOUT");
-   LOGWARN << "createSSHentryForTXOUT: " << createSSHentryForTXOUT << " sec";
-
-   double commitToDB = TIMER_READ_SEC("commitToDB");
-   LOGWARN << "commitToDB: " << commitToDB << " sec";*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockWriteBatcher::pullBlockFromDB(shared_ptr<PulledBlock>& pb, 
+bool BlockWriteBatcher::pullBlockFromDB(PulledBlock& pb, 
                                         uint32_t height, 
                                         uint8_t dup)
 {
@@ -1386,88 +1144,201 @@ bool BlockWriteBatcher::pullBlockFromDB(shared_ptr<PulledBlock>& pb,
    }
 
    // Now we read the whole block, not just the header
-   bool success = iface_->readStoredBlockAtIter(ldbIter, *pb.get());
+   bool success = iface_->readStoredBlockAtIter(ldbIter, pb);
    
+   pb.preprocessStxo(config_.armoryDbType);
+
    return success;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<BinaryData, StoredScriptHistory>& BlockWriteBatcher::getSSHMap(
+   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
+{
+   {
+      shared_ptr<BlockWriteBatcher> commitingObj = parent_->commitingObject_;
+      if (commitingObj)
+      {
+         if (&commitingObj->dataToCommit_ != &dataToCommit_)
+         {
+            sshToModify_ = commitingObj->sshToModify_;
+            
+            if(!commitingObj->dataToCommit_.sshReady_)
+               unique_lock<mutex> lock(commitingObj->dataToCommit_.lock_);
+         }
+      }
+      else parent_->resetTransactions();
+   }
+
+   if (parent_->sshToModify_ && parent_->sshToModify_->size() != 0)
+      return *parent_->sshToModify_;
+
+   if (!sshToModify_)
+      sshToModify_ = shared_ptr<map<BinaryData, StoredScriptHistory>>(
+      new map<BinaryData, StoredScriptHistory>);
+
+   for (auto& scrAddr : subsshMap)
+   {
+      auto& ssh = (*sshToModify_)[scrAddr.first];
+      if (ssh.alreadyScannedUpToBlk_ == 0)
+         getSshHeader(ssh, scrAddr.first);
+   }
+
+   return *sshToModify_;
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DataToCommit
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::serializeData(BlockWriteBatcher& bwb)
+set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
+   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
 {
-   if (isSerialized_)
-      return;
+   set<BinaryData> keysToDelete;
 
    auto dbType = bwb.config_.armoryDbType;
    auto pruneType = bwb.config_.pruneType;
 
-   //stxout
-   for (auto& stxByHash : bwb.stxoToModify_)
+   auto& sshMap = bwb.getSSHMap(subsshMap);
+   
+   for (auto& sshPair : sshMap)
    {
-      for (auto& stxo : stxByHash.second)
+      BinaryData sshKey;
+      sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
+      sshKey.append(sshPair.first);
+      
+      auto& ssh = sshPair.second;
+      auto subsshIter = subsshMap.find(sshPair.first);
+
+      if (subsshIter != subsshMap.end())
       {
-         BinaryWriter& bw = serializedStxOutToModify_[stxo.second->getDBKey()];
-         stxo.second->serializeDBValue(bw, dbType, pruneType);
+         for (auto& subsshPair : subsshIter->second)
+         {
+            auto& subssh = subsshPair.second;
+            uint32_t subsshHeight = DBUtils::hgtxToHeight(subsshPair.first);
+            if (subsshHeight > ssh.alreadyScannedUpToBlk_ ||
+               !ssh.alreadyScannedUpToBlk_ ||
+               subsshHeight > forceUpdateSshAtHeight_)
+            {
+               for (const auto& txioPair : subssh.txioMap_)
+               {
+                  auto& txio = txioPair.second;
+                  if (!txio.isMultisig())
+                  {
+                     if (!txio.hasTxIn())
+                        ssh.totalUnspent_ += txio.getValue();
+                     else if (!txio.flagged)
+                        ssh.totalUnspent_ -= txio.getValue();
+                  }
+               }
+
+               ssh.totalTxioCount_ += subssh.txioMap_.size();
+            }
+         }
+            
+         if (ssh.totalTxioCount_ > 0)
+         {
+            ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
+            BinaryWriter& bw = serializedSshToModify_[sshKey];
+            ssh.serializeDBValue(bw, bwb.iface_, dbType, pruneType);
+         }
+         else
+            keysToDelete.insert(sshKey);
       }
    }
 
-   bwb.stxoToModify_.clear();
-   
-   //ssh and subssh
-   for (auto& ssh : bwb.sshToModify_)
+   sshReady_ = true;
+   //condVar_.notify_all();
+
+   return keysToDelete;
+}
+////////////////////////////////////////////////////////////////////////////////
+void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
+   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
+{
+   auto dbType = bwb.config_.armoryDbType;
+   auto pruneType = bwb.config_.pruneType;
+
+   //subssh
    {
-      if (ssh.second.commitId_ == bwb.commitId_ ||
-         bwb.config_.armoryDbType != ARMORY_DB_SUPER)
+      for (auto& sshPair : subsshMap)
       {
-         ssh.second.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
+         BinaryData sshKey;
+         sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
+         sshKey.append(sshPair.first);
 
-         BinaryWriter& bw = serializedSshToModify_[ssh.second.getDBKey()];
-         ssh.second.serializeDBValue(bw, bwb.iface_, dbType, pruneType);
-      }
-
-      for (const auto& subssh : ssh.second.subHistMap_)
-      {
-         if (subssh.second.commitId_ == bwb.commitId_ &&
-            subssh.second.txioMap_.size() != 0)
+         for (const auto& subsshPair : sshPair.second)
          {
-            BinaryWriter& bw = serialuzedSubSshToApply_[subssh.second.getDBKey()];
-            subssh.second.serializeDBValue(bw, bwb.iface_, dbType, pruneType);
+            auto& subssh = subsshPair.second;
+
+            BinaryData subsshKey = sshKey + subssh.hgtX_;
+            if (subssh.txioMap_.size() != 0)
+            {
+               BinaryWriter& bw = serializedSubSshToApply_[subsshKey];
+               subssh.serializeDBValue(bw, bwb.iface_, dbType, pruneType);
+            }
+            else
+               keysToDelete_.insert(subsshKey);
          }
       }
    }
-
-   bwb.sshToModify_.clear();
+   
+   //stxout
+   for (auto& spentStxo : bwb.stxoToUpdate_)
+   {
+      BinaryWriter& bw = serializedStxOutToModify_[spentStxo->getDBKey()];
+      spentStxo->serializeDBValue(bw, dbType, pruneType);
+   }
 
    //sbh
    for (auto& sbh : bwb.sbhToUpdate_)
    {
-      BinaryWriter& bw = serializedSbhToUpdate_[sbh->getDBKey()];
-      sbh->serializeDBValue(bw, BLKDATA, dbType, pruneType);
+      BinaryWriter& bw = serializedSbhToUpdate_[sbh.getDBKey()];
+      if (bw.getSize() == 0)
+         sbh.serializeDBValue(bw, BLKDATA, dbType, pruneType);
    }
 
    if (bwb.sbhToUpdate_.size())
    {
       auto iterLast = bwb.sbhToUpdate_.rbegin();
-      topBlockHash_ = (*iterLast)->thisHash_;
+      topBlockHash_ = iterLast->thisHash_;
    }
    else topBlockHash_ = BtcUtils::EmptyHash_;
 
-   bwb.sbhToUpdate_.clear();
-
    mostRecentBlockApplied_ = bwb.mostRecentBlockApplied_ +1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void DataToCommit::serializeData(BlockWriteBatcher& bwb,
+   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
+{
+   if (isSerialized_)
+      return;
+
+   unique_lock<mutex> lock(lock_);
+
+   auto serialize = [&](void)
+   { serializeDataToCommit(bwb, subsshMap); };
+
+   thread serThread = thread(serialize);
+
+   auto& keysToDelete = serializeSSH(bwb, subsshMap);
+   lock.unlock();
+
+   if (serThread.joinable())
+      serThread.join();
+   
+   keysToDelete_.insert(keysToDelete.begin(), keysToDelete.end());
 
    isSerialized_ = true;
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::putSSH(LMDBBlockDatabase* db)
 {
    for (auto& sshPair : serializedSshToModify_)
       db->putValue(BLKDATA, sshPair.first, sshPair.second.getData());
 
-   for (auto subSshPair : serialuzedSubSshToApply_)
+   for (auto subSshPair : serializedSubSshToApply_)
       db->putValue(BLKDATA, subSshPair.first, subSshPair.second.getData());
 }
 
@@ -1483,6 +1354,13 @@ void DataToCommit::putSBH(LMDBBlockDatabase* db)
 {
    for (auto sbh : serializedSbhToUpdate_)
       db->putValue(BLKDATA, sbh.first, sbh.second.getData());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void DataToCommit::deleteEmptyKeys(LMDBBlockDatabase* db)
+{
+   for (auto& toDel : keysToDelete_)
+      db->deleteValue(BLKDATA, toDel);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

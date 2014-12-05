@@ -120,7 +120,7 @@ public:
    BinaryData(BinaryData const & bd)           { copyFrom(bd);           }
 
    BinaryData(BinaryData && copy)
-      { data_.swap(copy.data_);           }
+      { data_ = move(copy.data_);           }
 
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }

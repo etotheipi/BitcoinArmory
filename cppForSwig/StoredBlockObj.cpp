@@ -1048,6 +1048,16 @@ BinaryData StoredTxOut::getDBKeyOfParentTx(bool withPrefix) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData& StoredTxOut::getHgtX(void)
+{ 
+   if (hgtX_.getSize())
+      return hgtX_;
+
+   hgtX_ = getDBKey(false).getSliceCopy(0, 4); 
+   return hgtX_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 bool StoredTxOut::matchesDBKey(BinaryDataRef dbkey) const
 {
    if(dbkey.getSize() == 8)
@@ -1258,6 +1268,28 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+StoredTxOut::StoredTxOut(StoredTxOut&& stxo)
+{
+   this->txVersion_   = stxo.txVersion_;
+   this->blockHeight_ = stxo.blockHeight_;
+   this->duplicateID_ = stxo.duplicateID_;
+   this->txIndex_     = stxo.txIndex_;
+   this->txOutIndex_  = stxo.txOutIndex_;
+   this->spentness_   = stxo.spentness_;
+   this->isCoinbase_  = stxo.isCoinbase_;
+   this->unserArmVer_ = stxo.unserArmVer_;
+   this->unserDbType_ = stxo.unserDbType_;
+
+   this->dataCopy_         = move(stxo.dataCopy_);
+   this->parentHash_       = move(stxo.parentHash_);
+   this->spentByTxInKey_   = move(stxo.spentByTxInKey_);
+   this->scrAddr_          = move(stxo.scrAddr_);
+   this->hgtX_             = move(stxo.hgtX_);
+   this->hashAndId_        = move(stxo.hashAndId_);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 // The list of spent/unspent txOuts is exactly what is needed to construct 
 // a full vector<TxIOPair> for each address.  Keep in mind that this list
 // only contains TxOuts and spentness of those TxOuts that are:
@@ -1290,28 +1322,22 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDat
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
+void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, 
+   LMDBBlockDatabase *db, 
+   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) 
+   const
 {
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
-   bitpack.putBits((uint16_t)dbType,       4);
-   bitpack.putBits((uint16_t)pruneType,2);
+   bitpack.putBits((uint16_t)dbType,                  4);
+   bitpack.putBits((uint16_t)pruneType,               2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
-
-   // We shouldn't end up with empty SSH's, but should catch it just in case
-   if(totalTxioCount_==0)
-      return;
-
-   // Most addresses have only one TxIO, so we store it in the base SSH
-   // DB entry.   If there's more than one, we serialize nothing else,
-   // and stored all the TxIOs in the sub-SSH entries (sub-histories).
    bw.put_uint64_t(totalUnspent_);
-
 }
 
 
@@ -1428,274 +1454,6 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIOPair& StoredScriptHistory::insertTxio(
-   LMDBBlockDatabase *db,
-   TxIOPair const & txio, 
-   bool withOverwrite,
-   bool skipTally
-)
-{
-   BinaryData dbKey8  = txio.getDBKeyOfOutput();
-   BinaryData first4 = dbKey8.getSliceCopy(0,4);
-   map<BinaryData, StoredSubHistory>::iterator iterSubHist;
-   iterSubHist = subHistMap_.find(first4);
-   if(ITER_NOT_IN_MAP(iterSubHist, subHistMap_))
-   {
-      // Create a new sub-history add it to its map
-      StoredSubHistory& subHistEntry = subHistMap_[first4];
-      subHistEntry.uniqueKey_ = uniqueKey_;
-      subHistEntry.hgtX_ = first4;
-      subHistEntry.height_ = DBUtils::hgtxToHeight(first4);
-
-      if(!skipTally)
-      {
-         totalTxioCount_ += 1;
-         if(!txio.hasTxInInMain(db) && !txio.isMultisig())
-            totalUnspent_ += txio.getValue();
-
-      }
-      return subHistMap_[first4].insertTxio(txio, withOverwrite);
-   }
-   else
-   {
-      // We have sub-history already, though not sure about this specific Txio
-      if(iterSubHist->second.findTxio(dbKey8) == NULL && !skipTally)
-      {
-         // We don't have it yet, the insert call will add it
-         totalTxioCount_ += 1;
-         if(!txio.hasTxInInMain(db) && !txio.isMultisig())
-            totalUnspent_ += txio.getValue();
-
-      }
-      return iterSubHist->second.insertTxio(txio, withOverwrite); 
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// For subtle bugginess reasons, even if we are pruning and reduce the total
-// TxIO count to one, we will keep "useMultipleEntries_=true".  Once true, always
-// true, regardless of how many TxIO we have.  
-bool StoredScriptHistory::eraseTxio(TxIOPair const & txio, uint32_t& commitId)
-{
-   return eraseTxio(txio.getDBKeyOfOutput(), commitId);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B, 
-                                    uint32_t& commitId)
-{
-   if(!isInitialized())
-      return false;
-
-   if(dbKey8B.getSize() != 8)
-   {
-      LOGERR << "Invalid dbKey: " << dbKey8B.toHexStr().c_str();
-      return false;
-   }
-
-   BinaryData first4 = dbKey8B.getSliceCopy(0,4);
-   map<BinaryData, StoredSubHistory>::iterator iterSubHist;
-   iterSubHist = subHistMap_.find(first4);
-   if(ITER_NOT_IN_MAP(iterSubHist, subHistMap_))
-      return false;
-
-   StoredSubHistory & subssh = iterSubHist->second;
-   uint64_t valueRemoved; 
-
-   bool wasRemoved = subssh.eraseTxio(dbKey8B, commitId, valueRemoved);
-   if(wasRemoved)
-   {
-      totalTxioCount_ -= 1;
-      totalUnspent_   -= valueRemoved;
-   }
-
-   // Commented out because we need to be able to iterate through and see 
-   // which subHistMap_ are empty (later) so they can be removed from the DB.
-   // If we erase it here without recording any kind of tracking data, later 
-   // we have no idea what was removed and those dead SubSSH objects are left
-   // in the DB. 
-   //if(iterSubHist->second.txioSet_.size() == 0)
-      //subHistMap_.erase(iterSubHist);
-
-   return wasRemoved;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh,
-                                          uint64_t& additionalSize,
-                                          uint32_t commitId)
-{
-   if(uniqueKey_ != subssh.uniqueKey_)
-   {
-      LOGERR << "Attempting to add sub-SSH to incorrect SSH";
-      return false;
-   }
-
-   subssh.commitId_ = commitId;
-   pair<BinaryData, StoredSubHistory> keyValPair;
-   keyValPair.first = subssh.hgtX_;
-   keyValPair.second = subssh;
-   auto insResult = subHistMap_.insert(keyValPair);
-   
-   bool alreadyExisted = !insResult.second;
-   if(alreadyExisted)
-   {
-      // If already existed, we need to merge the DB data into the RAM struct
-      StoredSubHistory & subsshAlreadyInRAM = insResult.first->second;
-      StoredSubHistory & subsshTriedToAdd   = subssh;
-      LOGINFO << "SubSSH already in SSH...should this happen?";
-      map<BinaryData, TxIOPair>::iterator iter;
-
-      subsshAlreadyInRAM.commitId_ = commitId;
-
-      for(iter  = subsshTriedToAdd.txioMap_.begin();
-          iter != subsshTriedToAdd.txioMap_.end();
-          iter++)
-      {
-         subsshAlreadyInRAM.txioMap_[iter->first] = iter->second;
-         
-         additionalSize += UPDATE_BYTES_KEY;
-         if (iter->second.hasTxIn())
-            additionalSize += UPDATE_BYTES_KEY;
-      }
-   }
-   else
-   {
-      additionalSize += UPDATE_BYTES_KEY * 2 * subssh.txioMap_.size();
-   }
-   return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// This adds the TxOut if it doesn't exist yet
-bool StoredScriptHistory::markTxOutSpent(LMDBBlockDatabase *db, 
-   BinaryData txOutKey8B,
-   BinaryData txInKey8B,
-   uint32_t& commitId,
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-   bool forceUpdateValue)
-{
-   if (!isInitialized())
-      return UINT64_MAX;
-
-   if (txOutKey8B.getSize() != 8 || txInKey8B.getSize() != 8)
-   {
-      LOGERR << "Invalid input to mark TxOut spent";
-      LOGERR << "TxOutKey: '" << txOutKey8B.toHexStr().c_str() << "'";
-      LOGERR << "TxInKey:  '" << txInKey8B.toHexStr().c_str() << "'";
-      return UINT64_MAX;
-   }
-
-   BinaryData first4 = txOutKey8B.getSliceCopy(0, 4);
-   map<BinaryData, StoredSubHistory>::iterator iter;
-   iter = subHistMap_.find(first4);
-
-   if (ITER_NOT_IN_MAP(iter, subHistMap_))
-   {
-      LOGWARN << "Trying to mark TxIO spent, but does not exist!";
-      return UINT64_MAX;
-   }
-
-   int64_t val;
-   bool wasMarkedSpent = iter->second.markTxOutSpent(db, txOutKey8B, 
-                                              commitId, val,
-                                              dbType, pruneType);
-   if (!forceUpdateValue)
-   {
-      if (wasMarkedSpent)
-      {
-         if (alreadyScannedUpToBlk_ < DBUtils::hgtxToHeight(txInKey8B.getSliceRef(0, 4)))
-            totalUnspent_ -= val;
-      }
-   }
-   else if (wasMarkedSpent)
-      totalUnspent_ -= val;
-
-   return wasMarkedSpent;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-int64_t StoredScriptHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-   uint64_t&  additionalSize,
-   uint32_t&  commitId,
-   uint64_t   value,
-   bool       isCoinbase,
-   bool       isMultisig,
-   bool       forceValUpdate)
-{
-   if (!isInitialized())
-      return UINT64_MAX;
-
-   if (txOutKey8B.getSize() != 8)
-   {
-      LOGERR << "Invalid input to mark TxOut unspent";
-      LOGERR << "TxOutKey: '" << txOutKey8B.toHexStr().c_str() << "'";
-      return UINT64_MAX;
-   }
-
-   BinaryData first4 = txOutKey8B.getSliceCopy(0, 4);
-   map<BinaryData, StoredSubHistory>::iterator iter;
-   iter = subHistMap_.find(first4);
-
-   if (ITER_NOT_IN_MAP(iter, subHistMap_))
-   {
-      // The SubHistory doesn't actually exist yet, so we have to add it
-      if (value == UINT64_MAX)
-      {
-         LOGERR << "Tried to create TxOut in SSH but no value supplied!";
-         return UINT64_MAX;
-      }
-      pair<BinaryData, StoredSubHistory> toInsert(first4, StoredSubHistory());
-      iter = subHistMap_.insert(toInsert).first;
-      iter->second.uniqueKey_ = uniqueKey_;
-      iter->second.hgtX_ = first4;
-      iter->second.commitId_ = commitId;
-
-      additionalSize += UPDATE_BYTES_SUBSSH;
-   }
-
-   // More sanity checking
-   if (ITER_NOT_IN_MAP(iter, subHistMap_))
-   {
-      LOGERR << "Somehow still don't have the subSSH after trying to insert it";
-      return UINT64_MAX;
-   }
-
-   StoredSubHistory & subssh = iter->second;
-   size_t prevSize = subssh.txioMap_.size();
-   bool marked = subssh.markTxOutUnspent(db, txOutKey8B,
-      dbType, pruneType,
-      additionalSize,
-      value, commitId,
-      isCoinbase,
-      isMultisig);
-   size_t newSize = subssh.txioMap_.size();
-
-   // Value returned above is zero if it's multisig, so no need to check here
-   // Also, markTxOutUnspent doesn't indicate whether a new entry was added,
-   // so we use txioSet_.size() to update appropriately.
-
-   if (!forceValUpdate)
-   {
-      if (alreadyScannedUpToBlk_ < DBUtils::hgtxToHeight(first4) || !alreadyScannedUpToBlk_)
-      {
-         if (marked)
-            totalUnspent_ += value;
-      }
-   }
-   else if (marked)
-      totalUnspent_ += value;
-
-   totalTxioCount_ += (newSize - prevSize); // should only ever be +=0 or +=1
-
-   return value;
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptHistory::haveFullHistoryLoaded(void) const
 {
    if(!isInitialized())
@@ -1782,81 +1540,53 @@ bool StoredScriptHistory::getFullTxioMap( map<BinaryData, TxIOPair> & mapToFill,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::insertSpentTxio(const BinaryData& txOutDbKey,
-                                          const BinaryData& txInDbKey,
-                                          uint64_t& additionalSize,
-                                          uint32_t commitId)
+void StoredScriptHistory::mergeSubHistory(const StoredSubHistory& subssh)
 {
-   /***
-   Adds a spent txio (with txout and txin keys) to the subssh history,
-   at TxIn hgtX, but saved by TxOut key
-   ***/
-
-   if (!isInitialized())
-      return;
-
-   TxIOPair* txioPtr = findTxio(txOutDbKey, false);
-   if (txioPtr == nullptr)
-      throw std::runtime_error("trying to mark txio as spent, but it is missing");
-
-   TxIOPair txio = *txioPtr;
-
-   BinaryData txInHgtX = txInDbKey.getSliceCopy(0, 4);
-   StoredSubHistory &subssh = subHistMap_[txInHgtX];
-   if (subssh.uniqueKey_.getSize() == 0) //uninitialized subSSH
+   auto& subSshEntry = subHistMap_[subssh.hgtX_];
+   if (!subSshEntry.isInitialized())
    {
-      subssh.uniqueKey_ = uniqueKey_;
-      subssh.hgtX_ = txInHgtX;
-      additionalSize += UPDATE_BYTES_SUBSSH;
-      subssh.commitId_ = commitId;
+      subSshEntry = subssh;
+      return;
    }
 
-   size_t prevSize = subssh.txioMap_.size();
-   txio.setTxIn(txInDbKey);
-   subssh.insertTxio(txio, commitId, true, &additionalSize);
-   size_t newSize = subssh.txioMap_.size();
-
-   totalTxioCount_ += (newSize - prevSize);
+   for (const auto& txioPair : subssh.txioMap_)
+      subSshEntry.txioMap_.insert(txioPair);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool StoredScriptHistory::eraseSpentTxio(const BinaryData& hgtX, 
-                                         const BinaryData& dbKey8B,
-                                         uint32_t& commitId)
+void StoredScriptHistory::insertTxio(const TxIOPair& txio)
 {
-   /***
-   Deletes spent txio added through insertSpentTxio.
-   Expect the hgtX subssh map entry to be already loaded
-   This method deletes a spent Txio, so the subssh balance doesnt need updated
-   ***/
-
-   if (!isInitialized())
-      return false;
-
-   if (dbKey8B.getSize() != 8)
+   auto& subSshEntry = subHistMap_[txio.getDBKeyOfOutput().getSliceRef(0, 4)];
+   if (!subSshEntry.isInitialized())
    {
-      LOGERR << "Invalid dbKey: " << dbKey8B.toHexStr().c_str();
-      return false;
+      subSshEntry.uniqueKey_ = uniqueKey_;
+      subSshEntry.hgtX_      = txio.getDBKeyOfOutput().getSliceCopy(0, 4);
    }
 
-   map<BinaryData, StoredSubHistory>::iterator iterSubHist;
-   iterSubHist = subHistMap_.find(hgtX);
-   if (ITER_NOT_IN_MAP(iterSubHist, subHistMap_))
-      return false;
+   auto wasInserted = subSshEntry.txioMap_.insert({ txio.getDBKeyOfOutput(), txio });
 
-   StoredSubHistory & subssh = iterSubHist->second;
-   uint64_t valueRemoved;
-   if (subssh.eraseTxio(dbKey8B, commitId, valueRemoved))
+   if (wasInserted.second == true)
    {
-      subssh.txioCount_--;
-      totalTxioCount_--;
-      return true;
+      if (!txio.hasTxIn() && !txio.isMultisig())
+         totalUnspent_ += txio.getValue();
+      totalTxioCount_++;
    }
-
-   return false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::eraseTxio(const TxIOPair& txio)
+{
+   auto& subSshEntry = subHistMap_[txio.getDBKeyOfOutput().getSliceRef(0, 4)];
 
+   auto wasRemoved = subSshEntry.txioMap_.erase(txio.getDBKeyOfOutput());
+
+   if (wasRemoved == 1)
+   {
+      if (!txio.hasTxIn() && !txio.isMultisig())
+         totalUnspent_ -= txio.getValue();
+      totalTxioCount_--;
+   }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // SubSSH object code
@@ -1946,10 +1676,9 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
                                         DB_PRUNE_TYPE pruneType) const
 {
    bw.put_var_int(txioMap_.size());
-   map<BinaryData, TxIOPair>::const_iterator iter;
-   for(iter = txioMap_.begin(); iter != txioMap_.end(); iter++)
+   for(const auto& txioPair : txioMap_)
    {
-      TxIOPair const & txio = iter->second;
+      TxIOPair const & txio = txioPair.second;
       bool isSpent = txio.hasTxInInMain(db);
 
       // If spent and only maintaining a pruned DB, skip it
@@ -1969,7 +1698,6 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
       if (isSpent)
          key8B = txio.getDBKeyOfInput();
 
-      // We need to write
       if (!key8B.startsWith(hgtX_))
         LOGERR << "How did TxIO key not match hgtX_??";
 
@@ -2117,7 +1845,7 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 ////////////////////////////////////////////////////////////////////////////////
 TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 {
-   map<BinaryData, TxIOPair>::iterator iter = txioMap_.find(dbKey8B);
+   auto iter = txioMap_.find(dbKey8B);
    if(ITER_NOT_IN_MAP(iter, txioMap_))
       return NULL;
    else
@@ -2129,65 +1857,41 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool StoredSubHistory::markTxOutSpent(
-   LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-   uint32_t& commitId, int64_t& retVal,
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+const TxIOPair& StoredSubHistory::markTxOutSpent(BinaryData txOutKey8B) 
 {
-   // We found the TxIO we care about 
-   if(pruneType != DB_PRUNE_NONE)
-   {
-      LOGERR << "Have not implemented pruning logic yet!";
-      return false;
-   }
-
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
    {
-      LOGERR << "We should've found a STXO in the SSH but didn't";
-      return false;
+      LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
+      throw runtime_error("missing txio!");
    }
 
-   if (!txioptr->isUTXO())
-   {
-      retVal = (txioptr->isMultisig() ? 0 : (int64_t)txioptr->getValue() * -1);
-      return false;
-   }
-
-   commitId_ = commitId;
    txioptr->setUTXO(false);
+   txioptr->flagged = true;
 
-   // Return value spent only if not multisig
-   retVal = (txioptr->isMultisig() ? 0 : txioptr->getValue());
-   return true;
+   return *txioptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Since the outer-SSH object tracks total unspent balances, we need to pass 
 // out the total amount that was deleted from the sub-history, and of course
 // return zero if nothing was removed.
-bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId,
-                                 uint64_t& valueRemoved)
+bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
 {
-   valueRemoved = 0;
    auto txioIter = txioMap_.find(dbKey8B);
 
    if (ITER_NOT_IN_MAP(txioIter, txioMap_))
+   {
+      LOGWARN << "failed to erase txio in subshh: doesn't exist!";
       return false;
+   }
 
-   TxIOPair& txio = txioIter->second;
-
-   commitId_ = commitId;
-   valueRemoved = txio.isMultisig() ? 0 : txio.getValue();
    txioMap_.erase(txioIter);
-
    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, 
-                                       uint32_t commitId,
-                                       bool withOverwrite,
                                        uint64_t* additionalSize)
 {
    BinaryData key8B = txio.getDBKeyOfOutput();
@@ -2201,20 +1905,14 @@ TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio,
    // If not inserted, then it was already there.  Overwrite if requested
    if (txioInsertResult.second == true)
    {
-      commitId_ = commitId;
-
       if (additionalSize != nullptr)
       {
-         additionalSize += UPDATE_BYTES_KEY;
+         *additionalSize += UPDATE_BYTES_KEY;
          if (txio.hasTxIn())
-            additionalSize += UPDATE_BYTES_KEY;
+            *additionalSize += UPDATE_BYTES_KEY;
       }
    }
-   else if (withOverwrite)
-   {
-      commitId_ = commitId;
-      txioInsertResult.first->second = txio;
-   }
+   else txioInsertResult.first->second = txio;
 
    return txioInsertResult.first->second;
 
@@ -2270,51 +1968,28 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 //   
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
-bool StoredSubHistory::markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-                                                  ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-                                                  uint64_t&  additionalSize,
-                                                  uint64_t   value,
-                                                  uint32_t&  commitId,
-                                                  bool       isCoinbase,
-                                                  bool       isMultisigRef)
+void StoredSubHistory::markTxOutUnspent(BinaryData& txOutKey8B, 
+                                        uint64_t&  additionalSize,
+                                        const uint64_t&  value,
+                                        bool       isCoinbase,
+                                        bool       isMultisigRef)
 {
-   TxIOPair* txioptr = findTxio(txOutKey8B);
-   if(txioptr != NULL)
+   TxIOPair& txio = txioMap_[txOutKey8B];
+   if(!txio.hasTxOut())
    {
-      if(pruneType != DB_PRUNE_NONE)
-      {
-         LOGERR << "Found STXO that we expected to already be pruned...";
-         return false;
-      }
-
-      if(txioptr->isUTXO() == true)
-      {
-         //LOGWARN << "STXO already marked unspent in SSH";
-         return false;
-      }
-
-      commitId_ = commitId;
-      txioptr->setTxIn(TxRef(), UINT32_MAX);
-      txioptr->setUTXO(true);
-
-      return (txioptr->isMultisig() ? false : true);
+      // The TxIOPair was not in the subSSH yet;  add it
+      txio.setTxOut(txOutKey8B);
+      txio.setValue(value);
+      txio.setFromCoinbase(isCoinbase);
+      txio.setMultisig(isMultisigRef);
+      txio.setUTXO(true);
+      
+      additionalSize += sizeof(TxIOPair)+8;
    }
    else
    {
-      if(value==UINT64_MAX)
-      {
-         LOGERR << "Need to add TxOut to sub-history, but no value supplied!";
-         return false;
-      }
-   
-      // The TxIOPair was not in the SSH yet;  add it
-      TxIOPair txio = TxIOPair(txOutKey8B, value);
-      txio.setFromCoinbase(isCoinbase);
-      txio.setMultisig(isMultisigRef);
-      txio.setTxOutFromSelf(false); // in super-node mode, we don't use this
+      txio.setTxIn(TxRef(), UINT32_MAX);
       txio.setUTXO(true);
-      insertTxio(txio, commitId, &additionalSize);
-      return (isMultisigRef ? false : true);
    }
 }
 

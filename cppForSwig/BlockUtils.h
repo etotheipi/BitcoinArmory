@@ -168,7 +168,7 @@ public:
          notifier_->notify(); 
    }
    
-   bool hasNotifier() const { return notifier_; }
+   bool hasNotifier() const { return notifier_ != nullptr; }
 
    
    

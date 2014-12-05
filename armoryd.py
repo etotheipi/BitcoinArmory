@@ -2796,10 +2796,6 @@ class Armory_Daemon(object):
 
          newBlocks = args[0]
          if newBlocks>0:       
-            print 'New Block: ', TheBDM.getTopBlockHeight()
-
-            self.ledgerModel.reset()
-
             LOGINFO('New Block! : %d', TheBDM.getTopBlockHeight())
 
             self.blkReceived  = RightNow()

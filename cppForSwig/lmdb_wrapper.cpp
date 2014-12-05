@@ -849,9 +849,6 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    BinaryDataRef sshKey = ldbIter.getKeyRef();
    ssh.unserializeDBKey(sshKey, true);
    ssh.unserializeDBValue(ldbIter.getValueReader(), this);
-
-   /*if(ssh.totalTxioCount_ == 0)
-      LOGWARN << "How did we end up with zero Txios in an SSH?";*/
       
    size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
@@ -1004,15 +1001,12 @@ void LMDBBlockDatabase::getStoredScriptHistoryByRawScript(
 // simply filling in data that the SSH may be expected to have.  
 bool LMDBBlockDatabase::fetchStoredSubHistory( StoredScriptHistory & ssh,
                                             BinaryData hgtX,
-                                            uint64_t& additionalSize,
-                                            uint32_t commitId,
                                             bool createIfDNE,
                                             bool forceReadDB)
 {
    auto subIter = ssh.subHistMap_.find(hgtX);
    if (!forceReadDB && ITER_IN_MAP(subIter, ssh.subHistMap_))
    {
-      subIter->second.commitId_ = commitId;
       return true;
    }
 
@@ -1028,7 +1022,9 @@ bool LMDBBlockDatabase::fetchStoredSubHistory( StoredScriptHistory & ssh,
    else if(!createIfDNE)
       return false;
 
-   return ssh.mergeSubHistory(subssh, additionalSize, commitId);
+   ssh.mergeSubHistory(subssh);
+   
+   return true;
 }
 
 
@@ -1852,10 +1848,8 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
       }
       else if(bdtype == BLKDATA_TXOUT)
       {
-         StoredTxOut & stxo = stx.getStxoByIndex(txOutIdx);
+         StoredTxOut & stxo = stx.initAndGetStxoByIndex(txOutIdx);
          readStoredTxOutAtIter(ldbIter, height, dupID, stx.txIndex_, stxo);
-         stxo.parentHash_ = stx.thisHash_;
-         stxo.txVersion_  = stx.version_;
          nbytes += stxo.dataCopy_.getSize();
       }
       else
@@ -2155,8 +2149,6 @@ bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
    BinaryDataRef zcKey)
 {
    //only by zcKey
-   uint16_t txi;
-
    BinaryData zcDbKey;
 
    if (zcKey.getSize() == 6)

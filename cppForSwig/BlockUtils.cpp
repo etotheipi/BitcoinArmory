@@ -1236,8 +1236,6 @@ void BlockDataManager_LevelDB::loadBlockData(
    blkDataPosition_ = readBlockHeaders_->readRawBlocks(
       blkDataPosition_, stopAt, blockCallback
    );
-
-   iface_->dbEnv_.print_remap_status();
 }
 
 uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(

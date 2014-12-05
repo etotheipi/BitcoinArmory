@@ -29,7 +29,7 @@ from armoryengine.ArmoryUtils import LOGINFO, RightNow, getVersionString, \
    BTCARMORY_VERSION, NetworkIDError, LOGERROR, BLOCKCHAINS, CLI_OPTIONS, LOGDEBUG, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
    MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
-   bitset_to_int, unixTimeToFormatStr
+   bitset_to_int, unixTimeToFormatStr, UnknownNetworkPayload
 from armoryengine.BDM import  BDM_OFFLINE, BDM_SCANNING,\
    BDM_BLOCKCHAIN_READY
 from armoryengine.BinaryPacker import BinaryPacker, BINARY_CHUNK, UINT32, UINT64, \
@@ -115,6 +115,8 @@ class ArmoryClient(Protocol):
             # Before raising the error, we should've finished reading the msg
             # So pop it off the front of the buffer
             self.recvData = buf.getRemainingString()
+            return
+         except UnknownNetworkPayload:
             return
          except UnpackerError:
             # Expect this error when buffer isn't full enough for a whole msg
@@ -467,7 +469,10 @@ class PyMessage(object):
       payload    = msgData.get(BINARY_CHUNK, length)
       payload    = verifyChecksum(payload, chksum)
 
-      self.payload = PayloadMap[self.cmd]().unserialize(payload)
+      try:
+         self.payload = PayloadMap[self.cmd]().unserialize(payload)
+      except KeyError:
+         raise UnknownNetworkPayload
 
       if self.magic != MAGIC_BYTES:
          raise NetworkIDError, 'Message has wrong network bytes!'

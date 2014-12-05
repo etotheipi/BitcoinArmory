@@ -246,22 +246,6 @@ void ScrAddrFilter::merge(const BinaryData& lastScannedBlkHash)
       root_->scrAddrDataForSideScan_.scrAddrsToMerge_.insert(
          scrAddrMap_.begin(), scrAddrMap_.end());
 
-      //copy only the UTxOs past the height cutoff
-      BinaryData cutoffHeight =
-         DBUtils::heightAndDupToHgtx(root_->blockHeightCutOff_, 0);
-      cutoffHeight.append(WRITE_UINT32_LE(0));
-
-      auto iter = UTxO_.begin();
-      while (iter != UTxO_.end())
-      {
-         if (*iter > cutoffHeight || *iter == cutoffHeight)
-            break;
-
-         ++iter;
-      }
-
-      root_->scrAddrDataForSideScan_.UTxOToMerge_.insert(iter, UTxO_.end());
-
       //set mergeFlag
       root_->mergeFlag_ = true;
 
@@ -284,8 +268,6 @@ void ScrAddrFilter::checkForMerge()
       //create SAF to scan the addresses to merge
       std::shared_ptr<ScrAddrFilter> sca(copy());
       sca->scrAddrMap_ = scrAddrDataForSideScan_.scrAddrsToMerge_;
-      sca->UTxO_ = scrAddrDataForSideScan_.UTxOToMerge_;
-      sca->blockHeightCutOff_ = blockHeightCutOff_;
 
       BinaryData lastScannedBlockHash = scrAddrDataForSideScan_.lastScannedBlkHash_;
 
@@ -318,11 +300,7 @@ void ScrAddrFilter::checkForMerge()
       while (mergeLock_.fetch_or(1, memory_order_acquire));
 
       scrAddrMap_.insert(sca->scrAddrMap_.begin(), sca->scrAddrMap_.end());
-
-      UTxO_.insert(sca->UTxO_.begin(), sca->UTxO_.end());
-
       scrAddrDataForSideScan_.scrAddrsToMerge_.clear();
-      scrAddrDataForSideScan_.UTxOToMerge_.clear();
 
       mergeFlag_ = false;
 
@@ -335,62 +313,17 @@ void ScrAddrFilter::checkForMerge()
 uint32_t ScrAddrFilter::scanFrom() const
 {
    uint32_t lowestBlock = UINT32_MAX;
-   blockHeightCutOff_ = 0;
 
    for (auto scrAddr : scrAddrMap_)
-   {
       lowestBlock = min(lowestBlock, scrAddr.second);
-      blockHeightCutOff_ =
-         max(blockHeightCutOff_, scrAddr.second);
-   }
 
    return lowestBlock;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-int8_t ScrAddrFilter::hasUTxO(const BinaryData& dbkey) const
-{
-   /*** return values:
-   -1: don't know
-   0: utxo is not for our addresses
-   1: our utxo
-   ***/
-
-   if (UTxO_.find(dbkey) == UTxO_.end())
-   {
-      uint32_t height = DBUtils::hgtxToHeight(dbkey.getSliceRef(0, 4));
-      if (height < blockHeightCutOff_)
-         return -1;
-
-      return 0;
-   }
-
-   return 1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::addUTxO(pair<const BinaryData, TxIOPair>& txio)
-{
-   if (txio.first.getSize() == 8)
-   {
-      if (txio.second.hasTxOut() && !txio.second.hasTxIn())
-         UTxO_.insert(txio.first);
-   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::addUTxO(const BinaryData& dbkey)
-{
-   if (dbkey.getSize() == 8)
-      UTxO_.insert(dbkey);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::clear()
 {
    checkForMerge();
-   UTxO_.clear();
-   blockHeightCutOff_ = 0;
 
    for (auto& regScrAddr : scrAddrMap_)
       regScrAddr.second = 0;

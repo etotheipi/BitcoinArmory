@@ -1152,7 +1152,28 @@ bool TxIOPair::operator>=(const BinaryData &dbKey) const
    return false;
 }
 
+TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
+{
+   this->amount_ = rhs.amount_;
+   
+   this->txRefOfOutput_ = rhs.txRefOfOutput_;
+   this->indexOfOutput_ = rhs.indexOfOutput_;
+   this->txRefOfInput_ = rhs.txRefOfInput_;
+   this->indexOfInput_ = rhs.indexOfInput_;
 
+   this->txHashOfOutput_ = rhs.txHashOfOutput_;
+   this->txHashOfInput_ = rhs.txHashOfInput_;
+
+   this->isTxOutFromSelf_ = rhs.isTxOutFromSelf_;
+   this->isFromCoinbase_ = rhs.isFromCoinbase_;
+   this->isMultisig_ = rhs.isMultisig_;
+
+   this->txtime_ = rhs.txtime_;
+
+   this->isUTXO_ = rhs.isUTXO_;
+
+   return *this;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

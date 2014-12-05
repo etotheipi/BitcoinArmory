@@ -77,7 +77,6 @@ public:
       BinaryData lastScannedBlkHash_;
 
       map<BinaryData, uint32_t> scrAddrsToMerge_;
-      set<BinaryData>           UTxOToMerge_;
 
       ScrAddrSideScanData(void) {}
       ScrAddrSideScanData(uint32_t height, shared_ptr<BtcWallet> wltPtr) :
@@ -90,16 +89,14 @@ private:
    //this is used only for the inital load currently
    map<BinaryData, uint32_t>   scrAddrMap_;
 
-   set<BinaryData>                UTxO_;
-   mutable uint32_t               blockHeightCutOff_=0;
    LMDBBlockDatabase *const       lmdb_;
 
    //
-   shared_ptr<ScrAddrFilter>            child_;
-   ScrAddrFilter*                       root_;
-   ScrAddrSideScanData                  scrAddrDataForSideScan_;
-   atomic<int32_t>                      mergeLock_;
-   bool                                 mergeFlag_=false;
+   shared_ptr<ScrAddrFilter>      child_;
+   ScrAddrFilter*                 root_;
+   ScrAddrSideScanData            scrAddrDataForSideScan_;
+   atomic<int32_t>                mergeLock_;
+   bool                           mergeFlag_=false;
    
    //0: dont scan
    //1: scan from existing SSH lastScannedHeight
@@ -112,10 +109,7 @@ private:
    {
       auto scrAddrIter = scrAddrMap_.find(scrAddr);
       if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
-      {
          scrAddrIter->second = blkHgt;
-         blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
-      }
    }
 
 protected:
@@ -156,14 +150,6 @@ public:
 
    bool hasScrAddress(const BinaryData & sa)
    { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
-
-   int8_t hasUTxO(const BinaryData& dbkey) const;
-
-   void addUTxO(pair<const BinaryData, TxIOPair>& txio);
-   void addUTxO(const BinaryData& dbkey);
-
-   bool eraseUTxO(const BinaryData& dbkey)
-   { return UTxO_.erase(dbkey) == 1; }
 
    void getScrAddrCurrentSyncState();
    void getScrAddrCurrentSyncState(BinaryData const & scrAddr);

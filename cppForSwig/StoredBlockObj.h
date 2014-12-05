@@ -254,6 +254,8 @@ public:
       spentByTxInKey_(0)
    {}
 
+   StoredTxOut(StoredTxOut&& stxo);
+
    bool isInitialized(void) const { return dataCopy_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
    void unserialize(BinaryData const & data);
@@ -270,7 +272,7 @@ public:
 
    BinaryData getDBKey(bool withPrefix = true) const;
    BinaryData getDBKeyOfParentTx(bool withPrefix = true) const;
-   BinaryData getHgtX(void) const { return getDBKey(false).getSliceCopy(0, 4); }
+   BinaryData& getHgtX(void);
 
    StoredTxOut & createFromTxOut(TxOut & txout);
    BinaryData    getSerializedTxOut(void) const;
@@ -303,9 +305,11 @@ public:
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
    BinaryData        parentHash_;
+   BinaryData        hashAndId_;
    TXOUT_SPENTNESS   spentness_;
    bool              isCoinbase_;
    BinaryData        spentByTxInKey_;
+   BinaryData        hgtX_;
 
    mutable BinaryData scrAddr_;
 
@@ -344,7 +348,7 @@ public:
 
    void pprintOneLine(uint32_t indent = 3);
 
-   virtual StoredTxOut& getStxoByIndex(uint16_t index) = 0;
+   virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index) = 0;
    virtual bool haveAllTxOut(void) const = 0;
    /////
 
@@ -396,8 +400,13 @@ public:
 
    void pprintFullTx(uint32_t indent = 3);
 
-   virtual StoredTxOut& getStxoByIndex(uint16_t index)
-   {return stxoMap_[index];}
+   virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index)
+   {
+      auto& stxo = stxoMap_[index];
+      stxo.parentHash_ = thisHash_;
+      stxo.txVersion_ = version_;
+      return stxo;
+   }
 
    virtual bool haveAllTxOut(void) const;
 
@@ -544,23 +553,16 @@ public:
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, 
-                        uint32_t commitId = 0,
-                        bool withOverwrite=true, 
                         uint64_t* additionalSize = nullptr);
-   bool      eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId,
-                       uint64_t& valueRemoved);
+   bool      eraseTxio(BinaryData const & dbKey8B);
 
    
    // This adds the TxOut if it doesn't exist yet
-   bool   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-                             uint32_t& commitId, int64_t& retVal,
-                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+   const TxIOPair& markTxOutSpent(BinaryData txOutKey8B);
 
-   bool markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
-                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+   void markTxOutUnspent(BinaryData& txOutKey8B,
                              uint64_t&  additionalSize,
-                             uint64_t   value,
-                             uint32_t&  commitId,
+                             const uint64_t&  value,
                              bool       isCoinbase,
                              bool       isMultisigRef);
 
@@ -585,7 +587,6 @@ public:
       height_ = copy.height_;
       dupID_ = copy.dupID_;
       txioCount_ = copy.txioCount_;
-      commitId_ = copy.commitId_;
 
       //std::atomic types are copyable, and we do not copy
       //accessing_, as this flag is meant to signify 
@@ -601,9 +602,6 @@ public:
    uint32_t height_;
    uint8_t  dupID_;
    uint32_t txioCount_;
-
-   //used to sync subssh dumping in DB, not saved
-   uint32_t commitId_ = UINT32_MAX;
 };
 
 
@@ -643,44 +641,13 @@ public:
    bool     haveFullHistoryLoaded(void) const;
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
-   bool       eraseTxio(TxIOPair const & txio, uint32_t& commitId);
-   bool       eraseTxio(BinaryData const & dbKey8B, uint32_t& commitId);
-
-   bool       mergeSubHistory(StoredSubHistory & subssh, 
-                              uint64_t& additionalSize,
-                              uint32_t commitId);
-
-   TxIOPair& insertTxio(LMDBBlockDatabase *db, TxIOPair const & txio, 
-                        bool withOverwrite=true,
-                        bool skipTally=false);
 
    bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
                        bool withMultisig=false);
 
-   // This adds the TxOut if it doesn't exist yet
-   int64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-                               ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-                               uint64_t&  additionalSize,
-                               uint32_t& commitId, 
-                               uint64_t   value,
-                               bool       isCoinbase= false,
-                               bool       isMultisigRef=false,
-                               bool       forceValUpdate=false);
-
-   bool   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
-                             BinaryData  txInKey8B,
-                             uint32_t& commitId,
-                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-                             bool forceUpdateValue);
-
-   void insertSpentTxio(const BinaryData& txOutDbKey,
-                         const BinaryData& txInDbKey,
-                         uint64_t& additionalSize,
-                         uint32_t commitId);
-
-   bool eraseSpentTxio(const BinaryData& hgtX,
-                       const BinaryData& dbKey8B,
-                       uint32_t& commitId);
+   void mergeSubHistory(const StoredSubHistory& subssh);
+   void insertTxio(const TxIOPair& txio);
+   void eraseTxio(const TxIOPair& txio);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
@@ -695,9 +662,6 @@ public:
    // it gets serialized to disk, we will store single-Txio SSHs in
    // the base entry and forego extra DB entries.
    map<BinaryData, StoredSubHistory> subHistMap_;
-
-   //to sync the DB scan read and write threads
-   uint32_t commitId_ = UINT32_MAX;
 };
 
 

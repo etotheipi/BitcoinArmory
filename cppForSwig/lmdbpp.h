@@ -294,8 +294,6 @@ public:
 
    // close a database, doing nothing if one is presently not open
    void close();
-
-   void print_remap_status(void);
    
 private:
    LMDBEnv(const LMDBEnv&); // disallow copy

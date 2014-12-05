@@ -658,7 +658,7 @@ public:
    bool      hasTxInZC(void) const;
    bool      hasValue(void) const   { return (amount_!=0); }
    uint64_t  getValue(void) const   { return  amount_;}
-   void      setValue(uint64_t newVal) { amount_ = newVal;}
+   void      setValue(const uint64_t& newVal) { amount_ = newVal;}
 
    //////////////////////////////////////////////////////////////////////////////
    TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
@@ -717,12 +717,16 @@ public:
    bool operator==(TxIOPair const & t2)
       { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
    bool operator>=(const BinaryData &) const;
+   TxIOPair& operator=(const TxIOPair &);
 
    void setTxTime(uint32_t t) { txtime_ = t; }
    uint32_t getTxTime(void) const { return txtime_; }
 
    bool isUTXO(void) const { return isUTXO_; }
    void setUTXO(bool val) { isUTXO_ = val; }
+
+public:
+   bool flagged = false;
 
 private:
    uint64_t  amount_;
@@ -736,7 +740,7 @@ private:
    mutable BinaryData txHashOfInput_;
 
    // Zero-conf data isn't on disk, yet, so can't use TxRef
-   bool      isTxOutFromSelf_;
+   bool      isTxOutFromSelf_ = false;
    bool      isFromCoinbase_;
    bool      isMultisig_;
 
@@ -754,7 +758,7 @@ private:
    While spent txouts at txin height are unique, spent txouts at txout height
    need to be differenciated from utxo.
    ***/
-   bool isUTXO_;
+   bool isUTXO_ = false;
 };
 
 

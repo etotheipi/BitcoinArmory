@@ -188,6 +188,7 @@ class PassphraseError(Exception): pass
 class EncryptionError(Exception): pass
 class InterruptTestError(Exception): pass
 class NetworkIDError(Exception): pass
+class UnknownNetworkPayload(Exception): pass
 class WalletExistsError(Exception): pass
 class WalletUnregisteredError(Exception): pass
 class AddressUnregisteredError(Exception): pass

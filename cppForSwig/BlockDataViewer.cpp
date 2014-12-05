@@ -197,7 +197,6 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    for (auto& wlt : values(registeredLockboxes))
       wlt->merge();
 
-
    if (!initialized_)
    {
       //out of date history, page all wallets' history
