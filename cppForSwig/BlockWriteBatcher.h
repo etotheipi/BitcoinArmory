@@ -67,6 +67,9 @@ struct PulledBlock : public DBBlock
    ////
    PulledBlock(void) : DBBlock() {}
 
+   PulledBlock(const PulledBlock&) = default;
+   PulledBlock& operator=(const PulledBlock&) = default;
+	
    PulledBlock(PulledBlock&& pb)
    {
       dataCopy_ = move(pb.dataCopy_);
@@ -274,11 +277,11 @@ private:
 
 private:
 
-   StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
+   StoredSubHistory& makeSureSubSSHInMap(
       const BinaryData& uniqKey,
       const BinaryData& hgtX);
 
-   StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap_IgnoreDB(
+   StoredSubHistory& makeSureSubSSHInMap_IgnoreDB(
       const BinaryData& uniqKey,
       const BinaryData& hgtX,
       const uint32_t& currentBlockHeight);

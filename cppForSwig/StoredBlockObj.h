@@ -254,8 +254,6 @@ public:
       spentByTxInKey_(0)
    {}
 
-   StoredTxOut(StoredTxOut&& stxo);
-
    bool isInitialized(void) const { return dataCopy_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
    void unserialize(BinaryData const & data);

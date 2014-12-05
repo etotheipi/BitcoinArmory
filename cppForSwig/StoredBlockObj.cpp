@@ -1267,27 +1267,6 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
         cout << " Spnt: " << "<" << spentByTxInKey_.toHexStr() << ">" << endl;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-StoredTxOut::StoredTxOut(StoredTxOut&& stxo)
-{
-   this->txVersion_   = stxo.txVersion_;
-   this->blockHeight_ = stxo.blockHeight_;
-   this->duplicateID_ = stxo.duplicateID_;
-   this->txIndex_     = stxo.txIndex_;
-   this->txOutIndex_  = stxo.txOutIndex_;
-   this->spentness_   = stxo.spentness_;
-   this->isCoinbase_  = stxo.isCoinbase_;
-   this->unserArmVer_ = stxo.unserArmVer_;
-   this->unserDbType_ = stxo.unserDbType_;
-
-   this->dataCopy_         = move(stxo.dataCopy_);
-   this->parentHash_       = move(stxo.parentHash_);
-   this->spentByTxInKey_   = move(stxo.spentByTxInKey_);
-   this->scrAddr_          = move(stxo.scrAddr_);
-   this->hgtX_             = move(stxo.hgtX_);
-   this->hashAndId_        = move(stxo.hashAndId_);
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // The list of spent/unspent txOuts is exactly what is needed to construct 

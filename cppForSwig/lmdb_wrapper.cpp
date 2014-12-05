@@ -2191,7 +2191,6 @@ bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
       else if(txKey.getSize() == 9)
       {
          txOutIdx = READ_UINT16_BE(ldbIter.getKeyRef().getSliceRef(7, 2));
-         stx.stxoMap_[txOutIdx] = StoredTxOut();
          StoredTxOut & stxo = stx.stxoMap_[txOutIdx];
          stxo.unserializeDBValue(ldbIter.getValueRef());
          stxo.parentHash_ = stx.thisHash_;
