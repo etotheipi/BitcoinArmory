@@ -22,6 +22,7 @@ BDM_OFFLINE = 'Offline'
 BDM_UNINITIALIZED = 'Uninitialized'
 BDM_BLOCKCHAIN_READY = 'BlockChainReady'
 BDM_SCANNING = 'Scanning'
+
 FINISH_LOAD_BLOCKCHAIN_ACTION = 'FinishLoadBlockchain'   
 NEW_ZC_ACTION = 'newZC'
 NEW_BLOCK_ACTION = 'newBlock'

@@ -621,10 +621,10 @@ public:
    bool isInitialized(void) const { return uniqueKey_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
 
-   void       unserializeDBValue(BinaryRefReader & brr, LMDBBlockDatabase *db);
-   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
-   void       unserializeDBValue(BinaryData const & bd, LMDBBlockDatabase *db);
-   void       unserializeDBValue(BinaryDataRef      bd, LMDBBlockDatabase *db);
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;

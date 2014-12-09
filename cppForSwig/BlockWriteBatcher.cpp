@@ -250,7 +250,7 @@ BlockWriteBatcher::~BlockWriteBatcher()
 }
 
 BinaryData BlockWriteBatcher::applyBlockToDB(PulledBlock& pb,
-   ScrAddrFilter& scrAddrData, bool forceUpdateValue)
+   ScrAddrFilter& scrAddrData)
 {
    //TIMER_START("applyBlockToDBinternal");
    if(iface_->getValidDupIDForHeight(pb.blockHeight_) != pb.duplicateID_)
@@ -281,7 +281,7 @@ BinaryData BlockWriteBatcher::applyBlockToDB(PulledBlock& pb,
          throw std::range_error("bad STX data while applying blocks");
       }
 
-      applyTxToBatchWriteData(stx.second, &sud, scrAddrData, forceUpdateValue);
+      applyTxToBatchWriteData(stx.second, &sud, scrAddrData);
    }
 
    // At this point we should have a list of STX and SSH with all the correct
@@ -316,7 +316,7 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
       LOGERR << "Failed to load block " << hgt << "," << dup;
       return;
    }
-   applyBlockToDB(pb, scrAddrData, true);
+   applyBlockToDB(pb, scrAddrData);
 
    thread writeThread = commit(true);
    if (writeThread.joinable())
@@ -511,8 +511,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 bool BlockWriteBatcher::parseTxIns(
    PulledTx& thisSTX, 
    StoredUndoData * sud, 
-   ScrAddrFilter& scrAddrData,
-   bool forceUpdateValue)
+   ScrAddrFilter& scrAddrData)
 {
    for (uint32_t iin = 0; iin < thisSTX.txInIndexes_.size() - 1; iin++)
    {
@@ -599,8 +598,7 @@ bool BlockWriteBatcher::parseTxIns(
 bool BlockWriteBatcher::parseTxOuts(
    PulledTx& thisSTX,
    StoredUndoData * sud,
-   ScrAddrFilter& scrAddrData,
-   bool forceUpdateValue)
+   ScrAddrFilter& scrAddrData)
 {
    for (auto& stxoPair : thisSTX.stxoMap_)
    {
@@ -685,11 +683,10 @@ bool BlockWriteBatcher::parseTxOuts(
 bool BlockWriteBatcher::applyTxToBatchWriteData(
                         PulledTx& thisSTX,
                         StoredUndoData * sud,
-                        ScrAddrFilter& scrAddrData,
-                        bool forceUpdateValue)
+                        ScrAddrFilter& scrAddrData)
 {
-   parseTxOuts(thisSTX, sud, scrAddrData, forceUpdateValue);
-   parseTxIns( thisSTX, sud, scrAddrData, forceUpdateValue);
+   parseTxOuts(thisSTX, sud, scrAddrData);
+   parseTxIns( thisSTX, sud, scrAddrData);
 
    return true;
 }
@@ -1240,7 +1237,7 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
          {
             ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
             BinaryWriter& bw = serializedSshToModify_[sshKey];
-            ssh.serializeDBValue(bw, bwb.iface_, dbType, pruneType);
+            ssh.serializeDBValue(bw, dbType, pruneType);
          }
          else
             keysToDelete.insert(sshKey);

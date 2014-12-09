@@ -957,15 +957,15 @@ void BtcWallet::mapPages()
    with 1VayNert, 1Exodus and 100k empty addresses.
 
    My original plan was to grab the first 100 txn of a wallet to have the first
-   page of its history ready for rendering, and parse its history in a side 
+   page of its history ready for rendering, and parse the rest in a side 
    thread, as I was expecting that process to be long.
 
    Since my original assumption understimated LMDB's speed, I can instead map 
-   the history first, then create the first page, as it results in a more 
+   the history entirely, then create the first page, as it results in a more 
    consistent txn distribution per page.
 
    Also taken in consideration is the code in updateLedgers. Ledgers are built
-   by ScrAddrObj. The particular call, updateLedgers, expects to receive parse
+   by ScrAddrObj. The particular call, updateLedgers, expects to parse
    txioPairs in ascending order (lowest to highest height). 
 
    By gradually parsing history from the top block downward, updateLedgers is

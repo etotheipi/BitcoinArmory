@@ -185,7 +185,7 @@ public:
 
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
    vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
-   uint32_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
+   size_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
    void needsRefresh(void);
    void forceScan(void);

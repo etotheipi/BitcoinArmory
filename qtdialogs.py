@@ -9554,27 +9554,32 @@ class DlgExportTxHistory(ArmoryDialog):
    def __init__(self, parent=None, main=None):
       super(DlgExportTxHistory, self).__init__(parent, main)
 
-
+      self.reversedLBdict = {v:k for k,v in self.main.lockboxIDMap.items()}
 
       self.cmbWltSelect = QComboBox()
       self.cmbWltSelect.clear()
       self.cmbWltSelect.addItem('My Wallets')
       self.cmbWltSelect.addItem('Offline Wallets')
       self.cmbWltSelect.addItem('Other Wallets')
+      
+      self.cmbWltSelect.insertSeparator(4)      
       self.cmbWltSelect.addItem('All Wallets')
+      self.cmbWltSelect.addItem('All Lockboxes')
+      self.cmbWltSelect.addItem('All Wallets & Lockboxes')
+            
+      self.cmbWltSelect.insertSeparator(8)    
       for wltID in self.main.walletIDList:
          self.cmbWltSelect.addItem(self.main.walletMap[wltID].labelName)
-      self.cmbWltSelect.insertSeparator(4)
-      self.cmbWltSelect.insertSeparator(4)
-
-
+      
+      self.cmbWltSelect.insertSeparator(8 + len(self.main.walletIDList))        
+      for idx in self.reversedLBdict:
+         self.cmbWltSelect.addItem(self.main.allLockboxes[idx].shortName)   
+ 
 
       self.cmbSortSelect = QComboBox()
       self.cmbSortSelect.clear()
       self.cmbSortSelect.addItem('Date (newest first)')
       self.cmbSortSelect.addItem('Date (oldest first)')
-      self.cmbSortSelect.addItem('Transaction ID (ascending)')
-      self.cmbSortSelect.addItem('Transaction ID (descending)')
 
 
       self.cmbFileFormat = QComboBox()
@@ -9627,15 +9632,11 @@ class DlgExportTxHistory(ArmoryDialog):
       i += 1
       dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
 
-      
-      # ACR:  Had some sorting issues that seemed unnecessary, so I just 
-      #       disabled the sort option entirely.  The user can sort it
-      #       however they want once it's loaded into their spreadsheet app
-      #i += 1
-      #dlgLayout.addWidget(QRichLabel('Sort Table:'), i, 0)
-      #dlgLayout.addWidget(self.cmbSortSelect, i, 1)
-      #i += 1
-      #dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
+      i += 1
+      dlgLayout.addWidget(QRichLabel('Sort Table:'), i, 0)
+      dlgLayout.addWidget(self.cmbSortSelect, i, 1)
+      i += 1
+      dlgLayout.addWidget(HLINE(), i, 0, 1, 2)
 
       i += 1
       dlgLayout.addWidget(QRichLabel('Date Format:'), i, 0)
@@ -9656,8 +9657,6 @@ class DlgExportTxHistory(ArmoryDialog):
       dlgLayout.addWidget(btnBox, i, 0, 1, 2)
 
       self.setLayout(dlgLayout)
-
-
 
 
    #############################################################################
@@ -9693,13 +9692,21 @@ class DlgExportTxHistory(ArmoryDialog):
       typelist = [[wid, determineWalletType(self.main.walletMap[wid], self.main)[0]] \
                                                    for wid in self.main.walletIDList]
       currIdx = self.cmbWltSelect.currentIndex()
-      if currIdx >= 4:
-         wltIDList = [self.main.walletIDList[currIdx - 6]]
+      if currIdx >= 8:
+         idx = currIdx - 8
+         if idx < len(self.main.walletIDList):
+            #picked a single wallet
+            wltIDList = [self.main.walletIDList[idx]]
+         else:
+            #picked a single lockbox
+            idx -= len(self.main.walletIDList) +1
+            wltIDList = [self.reversedLBdict[idx]]
       else:
          listOffline = [t[0] for t in filter(lambda x: x[1] == WLTTYPES.Offline, typelist)]
          listWatching = [t[0] for t in filter(lambda x: x[1] == WLTTYPES.WatchOnly, typelist)]
          listCrypt = [t[0] for t in filter(lambda x: x[1] == WLTTYPES.Crypt, typelist)]
          listPlain = [t[0] for t in filter(lambda x: x[1] == WLTTYPES.Plain, typelist)]
+         lockboxIDList = [t for t in self.main.lockboxIDMap]
 
          if currIdx == 0:
             wltIDList = listOffline + listCrypt + listPlain
@@ -9707,54 +9714,52 @@ class DlgExportTxHistory(ArmoryDialog):
             wltIDList = listOffline
          elif currIdx == 2:
             wltIDList = listWatching
-         elif currIdx == 3:
+         elif currIdx == 4:
             wltIDList = self.main.walletIDList
+         elif currIdx == 5:
+            wltIDList = lockboxIDList
+         elif currIdx == 6:
+            wltIDList = self.main.walletIDList + lockboxIDList
          else:
             pass
-
-      totalFunds, spendFunds, unconfFunds, combinedLedger = 0, 0, 0, []
-      wltBalances = {}
-      for wltID in wltIDList:
-         wlt = self.main.walletMap[wltID]
-         combinedLedger.extend(wlt.getTxLedger('Full'))
-         totalFunds += wlt.getBalance('Total')
-         spendFunds += wlt.getBalance('Spendable')
-         unconfFunds += wlt.getBalance('Unconfirmed')
-         wltBalances[wltID] = 0   # will be accumulated
-
-      # Each value in COL.Amount will be exactly how much the wallet balance
-      # increased or decreased as a result of this transaction.
-      ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
-                                                   showSentToSelfAmt=False)
-
-      # Sort the data chronologically first, compute the running balance for
-      # each row, then sort it the way that was requested by the user.
-      allBalances = 0
-      ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
-      for row in ledgerTable:
-         rawAmt = str2coin(row[COL.Amount])
-         wltBalances[row[COL.WltID]] += rawAmt
-         allBalances += rawAmt
-         row.append(wltBalances[row[COL.WltID]])
-         row.append(allBalances)
-
-      
-      """
+         
+      order = order_ascending
       sortTxt = str(self.cmbSortSelect.currentText())
       if 'newest' in sortTxt:
-         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
-      elif 'oldest' in sortTxt:
-         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
-      elif 'ascend' in sortTxt:
-         ledgerTable.sort(key=lambda x: hex_switchEndian(x[LEDGERCOLS.TxHash]))
-      elif 'descend' in sortTxt:
-         ledgerTable.sort(key=lambda x: hex_switchEndian(x[LEDGERCOLS.TxHash]), reverse=True)
+         order = order_descending
+         
+      totalFunds, spendFunds, unconfFunds = 0, 0, 0
+      wltBalances = {}
+      for wltID in wltIDList:
+         if wltID in self.main.walletMap:
+            wlt = self.main.walletMap[wltID]
+
+            totalFunds += wlt.getBalance('Total')
+            spendFunds += wlt.getBalance('Spendable')
+            unconfFunds += wlt.getBalance('Unconfirmed')
+            if order == order_ascending:
+               wltBalances[wltID] = 0   # will be accumulated
+            else:
+               wltBalances[wltID] = wlt.getBalance('Total')
+         
+         else:
+            #lockbox
+            cppwlt = self.main.cppLockboxWltMap[wltID]
+            totalFunds += cppwlt.getFullBalance()
+            spendFunds += cppwlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+            unconfFunds += cppwlt.getUnconfirmedBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+            if order == order_ascending:
+               wltBalances[wltID] = 0   # will be accumulated
+            else:
+               wltBalances[wltID] = cppwlt.getFullBalance()   
+                  
+      if order == order_ascending:
+         allBalances = 0
       else:
-         LOGERROR('***ERROR: bad sort string!?')
-         return
-      """
-
-
+         allBalances = totalFunds
+      
+               
+      #prepare csv file  
       wltSelectStr = str(self.cmbWltSelect.currentText()).replace(' ', '_')
       timestampStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
       filenamePrefix = 'ArmoryTxHistory_%s_%s' % (wltSelectStr, timestampStr)
@@ -9762,61 +9767,108 @@ class DlgExportTxHistory(ArmoryDialog):
       if 'csv' in fmtstr:
          defaultName = filenamePrefix + '.csv'
          fullpath = self.main.getFileSave('Save CSV File', \
-                                           ['Comma-Separated Values (*.csv)'], \
-                                           defaultName)
-
+                                              ['Comma-Separated Values (*.csv)'], \
+                                              defaultName)
+   
          if len(fullpath) == 0:
             return
-
+         
          f = open(fullpath, 'w')
-
+   
          f.write('Export Date:, %s\n' % unixTimeToFormatStr(RightNow()))
          f.write('Total Funds:, %s\n' % coin2str(totalFunds, maxZeros=0).strip())
          f.write('Spendable Funds:, %s\n' % coin2str(spendFunds, maxZeros=0).strip())
          f.write('Unconfirmed Funds:, %s\n' % coin2str(unconfFunds, maxZeros=0).strip())
          f.write('\n')
-
+   
          f.write('Included Wallets:\n')
          for wltID in wltIDList:
-            wlt = self.main.walletMap[wltID]
-            f.write('%s,%s\n' % (wltID, wlt.labelName.replace(',', ';')))
+            if wltID in self.main.walletMap:
+               wlt = self.main.walletMap[wltID]
+               f.write('%s,%s\n' % (wltID, wlt.labelName.replace(',', ';')))
+            else:
+               wlt = self.main.allLockboxes[self.main.lockboxIDMap[wltID]]
+               f.write('%s (lockbox),%s\n' % (wltID, wlt.shortName.replace(',', ';')))               
          f.write('\n')
-
-
+   
+   
          headerRow = ['Date', 'Transaction ID', '#Conf', 'Wallet ID', 
                       'Wallet Name', 'Credit', 'Debit', 'Fee (paid by this wallet)', 
                       'Wallet Balance', 'Total Balance', 'Label']
+   
+         f.write(','.join(headerRow) + '\n')    
+         
+         #create pager object
+         historyPager = TheBDM.bdv().getStandAloneHistoryPager(wltIDList, order)
+         nPages = historyPager.getPageCount()  
+      
+         #run through all pages
+         for page in range(0, nPages):
+            # Each value in COL.Amount will be exactly how much the wallet balance
+            # increased or decreased as a result of this transaction.
+            combinedLedger = historyPager.getHistoryPage(page)
+            ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
+                                                         showSentToSelfAmt=True)
+      
+            # Sort the data chronologically first, compute the running balance for
+            # each row, then sort it the way that was requested by the user.
+            for row in ledgerTable:
+               if row[COL.toSelf] == False:
+                  rawAmt = str2coin(row[COL.Amount])
+               else:
+                  #if SentToSelf, balance and total rolling balance should only take fee in account
+                  rawAmt = getFeeForTx(hex_to_binary(row[COL.TxHash])) * -1
+                  
+               if order == order_ascending:
+                  wltBalances[row[COL.WltID]] += rawAmt
+                  allBalances += rawAmt
+                  
+               row.append(wltBalances[row[COL.WltID]])
+               row.append(allBalances)
+               
+               if order == order_descending:
+                  wltBalances[row[COL.WltID]] -= rawAmt
+                  allBalances -= rawAmt  
 
-         f.write(','.join(headerRow) + '\n')
-         for row in ledgerTable:
-            vals = []
-
-            fmtstr = str(self.edtDateFormat.text())
-            unixTime = row[COL.UnixTime]
-            vals.append(unixTimeToFormatStr(unixTime, fmtstr))
-            vals.append(hex_switchEndian(row[COL.TxHash]))
-            vals.append(row[COL.NumConf])
-            vals.append(row[COL.WltID])
-            vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
-
-            wltEffect = row[COL.Amount]
-            txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
-            if float(wltEffect) >= 0:
-               vals.append(wltEffect.strip())
-               vals.append('')
-               vals.append('')
-            else:
-               vals.append('')
-               vals.append(wltEffect.strip()[1:]) # remove negative sign
-               vals.append(coin2str(txFee).strip())
-
-            vals.append(coin2str(row[-2]))
-            vals.append(coin2str(row[-1]))
-            vals.append(row[COL.Comment])
-
-            f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
-
-         f.close()
+            
+            for row in ledgerTable:
+               vals = []
+   
+               fmtstr = str(self.edtDateFormat.text())
+               unixTime = row[COL.UnixTime]
+               vals.append(unixTimeToFormatStr(unixTime, fmtstr))
+               vals.append(hex_switchEndian(row[COL.TxHash]))
+               vals.append(row[COL.NumConf])
+               vals.append(row[COL.WltID])
+               if row[COL.WltID] in self.main.walletMap:
+                  vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
+               else:
+                  vals.append(self.main.allLockboxes[self.main.lockboxIDMap[wltID]].shortName.replace(',', ';'))                  
+   
+               wltEffect = row[COL.Amount]
+               txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
+               if float(wltEffect) >= 0:
+                  if row[COL.toSelf] == False:
+                     vals.append(wltEffect.strip())
+                     vals.append('')
+                     vals.append('')
+                  else:
+                     vals.append(wltEffect.strip() + ' (STS)')
+                     vals.append('')
+                     vals.append(coin2str(txFee).strip())                  
+               else:
+                  vals.append('')
+                  vals.append(wltEffect.strip()[1:]) # remove negative sign
+                  vals.append(coin2str(txFee).strip())
+   
+               vals.append(coin2str(row[-2]))
+               vals.append(coin2str(row[-1]))
+               vals.append(row[COL.Comment])
+   
+               f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
+      #
+      
+      f.close()
       return True
 
 

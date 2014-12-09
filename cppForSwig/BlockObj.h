@@ -174,7 +174,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void setRef(BinaryDataRef bdr);
 
-   DBTxRef attached(LMDBBlockDatabase* db) const;
+   DBTxRef attached(const LMDBBlockDatabase* db) const;
       
    /////////////////////////////////////////////////////////////////////////////
    bool           isInitialized(void)  const {return dbKey6B_.getSize()>0;}
@@ -223,7 +223,7 @@ class DBTxRef : public TxRef
 public:
    DBTxRef()
    { }
-   DBTxRef( const TxRef &txref, LMDBBlockDatabase* db)
+   DBTxRef( const TxRef &txref, const LMDBBlockDatabase* db)
       : TxRef(txref), db_(db)
    { }
    
@@ -243,11 +243,11 @@ public:
    TxOut getTxOutCopy(uint32_t i);
 
 private:
-   LMDBBlockDatabase*  db_;  
+   const LMDBBlockDatabase*  db_;  
 };
 
 
-inline DBTxRef TxRef::attached(LMDBBlockDatabase* db) const
+inline DBTxRef TxRef::attached(const LMDBBlockDatabase* db) const
 {
    return DBTxRef(*this, db);
 }
@@ -681,8 +681,8 @@ public:
                { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(LMDBBlockDatabase *db=nullptr) const;
-   BinaryData    getTxHashOfOutput(LMDBBlockDatabase *db=nullptr) const;
+   BinaryData    getTxHashOfInput(const LMDBBlockDatabase *db=nullptr) const;
+   BinaryData    getTxHashOfOutput(const LMDBBlockDatabase *db=nullptr) const;
 
    void setTxHashOfInput(const BinaryData& txHash)
    { txHashOfInput_ = txHash; }

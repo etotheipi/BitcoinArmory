@@ -61,7 +61,6 @@ public:
       isChangeBack_(false) {}
 
    LedgerEntry(BinaryData const & ID,
-               string const & wltId,
                int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
@@ -113,8 +112,8 @@ public:
                                 const map<BinaryData, TxIOPair>& txioMap,
                                 uint32_t startBlock, uint32_t endBlock,
                                 const BinaryData& ID,
-                                LMDBBlockDatabase* db,
-                                Blockchain* bc,
+                                const LMDBBlockDatabase* db,
+                                const Blockchain* bc,
                                 bool purge);
    
    static LedgerEntry EmptyLedger_;
@@ -136,5 +135,11 @@ private:
    bool             isSentToSelf_;
    bool             isChangeBack_;
 }; 
+
+struct LedgerEntry_DescendingOrder
+{
+   bool operator() (const LedgerEntry& a, const LedgerEntry& b)
+   { return a > b; }
+};
 
 #endif

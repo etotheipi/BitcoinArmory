@@ -231,24 +231,20 @@ private:
    void writeToDB(void);
    
    void prepareSshToModify(const ScrAddrFilter& sasd);
-   BinaryData applyBlockToDB(PulledBlock& pb, ScrAddrFilter& scrAddrData,
-                             bool forceUpdateValue = false);
+   BinaryData applyBlockToDB(PulledBlock& pb, ScrAddrFilter& scrAddrData);
    bool applyTxToBatchWriteData(
                            PulledTx& thisSTX,
                            StoredUndoData * sud,
-                           ScrAddrFilter& scrAddrMap,
-                           bool forceUpdateValue);
+                           ScrAddrFilter& scrAddrMap);
 
    bool parseTxIns(
       PulledTx& thisSTX,
       StoredUndoData * sud,
-      ScrAddrFilter& scrAddrData,
-      bool forceUpdateValue);
+      ScrAddrFilter& scrAddrData);
    bool parseTxOuts(
       PulledTx& thisSTX,
       StoredUndoData * sud,
-      ScrAddrFilter& scrAddrData,
-      bool forceUpdateValue);
+      ScrAddrFilter& scrAddrData);
 
    void resetTransactions(void);
    void clearTransactions(void);

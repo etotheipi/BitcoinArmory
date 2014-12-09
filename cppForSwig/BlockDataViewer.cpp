@@ -405,6 +405,8 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
 const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
    const BinaryData& txHash) const
 {
+   checkBDMisReady();
+
    ReadWriteLock::ReadLock rl(registeredWalletsLock_);
    
    for (const auto& wlt : values(registeredWallets_))
@@ -420,6 +422,8 @@ const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
 /////////////////////////////////////////////////////////////////////////////
 TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash)
 {
+   checkBDMisReady();
+
    if (db_->getTxRef(txHash).isNull())
    {
       if (!zeroConfCont_.hasTxByHash(txHash))
@@ -434,6 +438,8 @@ TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash)
 /////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(HashString const & txhash)
 {
+   checkBDMisReady();
+
    LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
 
    TxRef txrefobj = db_->getTxRef(txhash);
@@ -449,6 +455,8 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash)
 
 bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
 {
+   checkBDMisReady();
+
    if (!tx.hasTxRef())
       return false;
    return tx.getTxRef().attached(db_).isMainBranch();
@@ -460,6 +468,8 @@ bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
 ////////////////////////////////////////////////////////////////////////////////
 TxOut BlockDataViewer::getPrevTxOut(TxIn & txin)
 {
+   checkBDMisReady();
+
    if (txin.isCoinbase())
       return TxOut();
 
@@ -475,6 +485,8 @@ TxOut BlockDataViewer::getPrevTxOut(TxIn & txin)
 ////////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getPrevTx(TxIn & txin)
 {
+   checkBDMisReady();
+
    if (txin.isCoinbase())
       return Tx();
 
@@ -485,6 +497,8 @@ Tx BlockDataViewer::getPrevTx(TxIn & txin)
 ////////////////////////////////////////////////////////////////////////////////
 HashString BlockDataViewer::getSenderScrAddr(TxIn & txin)
 {
+   checkBDMisReady();
+
    if (txin.isCoinbase())
       return HashString(0);
 
@@ -495,6 +509,8 @@ HashString BlockDataViewer::getSenderScrAddr(TxIn & txin)
 ////////////////////////////////////////////////////////////////////////////////
 int64_t BlockDataViewer::getSentValue(TxIn & txin)
 {
+   checkBDMisReady();
+
    if (txin.isCoinbase())
       return -1;
 
@@ -511,6 +527,8 @@ LMDBBlockDatabase* BlockDataViewer::getDB(void) const
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataViewer::getTopBlockHeight(void) const
 {
+   checkBDMisReady();
+
    return bc_->top().getBlockHeight();
 }
 
@@ -580,6 +598,8 @@ void BlockDataViewer::pageLockboxesHistory()
 const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId, 
    bool rebuildLedger, bool remapWallets)
 {
+   checkBDMisReady();
+
    if (pageId == hist_.getCurrentPage() && !rebuildLedger && !remapWallets)
       return globalLedger_;
 
@@ -677,6 +697,8 @@ void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID)
 ////////////////////////////////////////////////////////////////////////////////
 StoredHeader BlockDataViewer::getMainBlockFromDB(uint32_t height) const
 {
+   checkBDMisReady();
+
    uint8_t dupID = db_->getValidDupIDForHeight(height);
    
    return getBlockFromDB(height, dupID);
@@ -700,16 +722,17 @@ bool BlockDataViewer::scrAddressIsRegistered(const BinaryData& scrAddr) const
 ////////////////////////////////////////////////////////////////////////////////
 BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
 {
-   if (bc_->hasHeaderWithHash(blockHash))
-      return bc_->getHeaderByHash(blockHash);
+   checkBDMisReady();
 
-   return BlockHeader();
+   return bc_->getHeaderByHash(blockHash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
    const vector<BinaryData>& scrAddrVec, bool ignoreZc) const
 {
+   checkBDMisReady();
+
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter();
 
    if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
@@ -762,6 +785,109 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
    }
 
    return UTXOs;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StandAloneHistoryPager BlockDataViewer::getStandAloneHistoryPager(
+   const vector<BinaryData>& wltIDs, HistoryOrdering order) const
+{
+   checkBDMisReady();
+
+   StandAloneHistoryPager sahp(this, order);
+   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+
+   for (const auto& wltid : wltIDs)
+   {
+      auto wltIter = registeredWallets_.find(wltid);
+      if (wltIter != registeredWallets_.end())
+      {
+         auto& wltSAmap = sahp.scrAddrMap_[wltIter->first];
+         wltSAmap = wltIter->second->scrAddrMap_;
+      }
+      else
+      {
+         auto lbIter = registeredLockboxes_.find(wltid);
+         if (lbIter != registeredLockboxes_.end())
+         {
+            auto& lbSAmap = sahp.scrAddrMap_[lbIter->first];
+            lbSAmap = lbIter->second->scrAddrMap_;
+         }
+      }
+   }
+
+   rl.unlock();
+
+   sahp.mapHistory();
+
+   return sahp;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//// StandAloneHistoryPager
+////////////////////////////////////////////////////////////////////////////////
+void StandAloneHistoryPager::mapHistory(void)
+{
+   auto getScrAddrHistSummary = [this](bool)->map<uint32_t, uint32_t>
+   {
+      map<uint32_t, uint32_t> rt;
+      for (const auto& wlt : this->scrAddrMap_)
+      {
+         for (const auto& scrAddr : wlt.second)
+         {
+            auto& summary = scrAddr.second.getHistSSHsummary();
+
+            for (auto& range : summary)
+            {
+               auto& rt_range = rt[range.first];
+               rt_range += range.second;
+            }
+         }
+      }
+      return rt;
+   };
+
+   hist_.mapHistory(getScrAddrHistSummary, false);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntry> StandAloneHistoryPager::getHistoryPage(size_t pageId)
+{
+   if (order_ == order_ascending)
+      pageId = hist_.getPageCount() - pageId - 1;
+
+   vector<LedgerEntry> vle;
+   for (auto& wlt : scrAddrMap_)
+   {
+      auto getTxio = [&wlt](uint32_t start, uint32_t end,
+         map<BinaryData, TxIOPair>& outMap)->void
+      {
+         for (const auto& scrAddr : wlt.second)
+            scrAddr.second.getHistoryForScrAddr(start, end, outMap, false);
+      };
+      
+      auto buildLedgers = [this, &wlt](map<BinaryData, LedgerEntry>& leMap,
+         const map<BinaryData, TxIOPair>& txioMap,
+         uint32_t startBlock, uint32_t endBlock)->void
+      {
+         LedgerEntry::computeLedgerMap(leMap, txioMap, startBlock, endBlock, wlt.first,
+            bdvPtr_->getDB(), &bdvPtr_->blockchain(), false);
+      };
+
+      map<BinaryData, LedgerEntry> mapLe;
+      hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, mapLe);
+
+      for (const auto& le : mapLe)
+         vle.push_back(le.second);
+   }
+   if (order_ == order_ascending)
+      sort(vle.begin(), vle.end());
+   else
+   {
+      LedgerEntry_DescendingOrder desc;
+      sort(vle.begin(), vle.end(), desc);
+   }
+
+   return vle;
 }
 
 // kate: indent-width 3; replace-tabs on;

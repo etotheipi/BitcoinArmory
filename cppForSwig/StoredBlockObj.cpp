@@ -1279,7 +1279,7 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
 // implementing this DB stuff correctly is making sure both conditions 
 // above are adhered to, despite TxIOPair objects being used in RAM to store
 // zero-confirmation data as well as in-blockchain data.
-void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDatabase *db)
+void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 {
    // Now read the stored data fro this registered address
    BitUnpacker<uint16_t> bitunpack(brr);
@@ -1302,7 +1302,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, LMDBBlockDat
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, 
-   LMDBBlockDatabase *db, 
    ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) 
    const
 {
@@ -1321,17 +1320,17 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::unserializeDBValue(BinaryData const & bd, LMDBBlockDatabase *db)
+void StoredScriptHistory::unserializeDBValue(BinaryData const & bd)
 {
    BinaryRefReader brr(bd);
-   unserializeDBValue(brr, db);
+   unserializeDBValue(brr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::unserializeDBValue(BinaryDataRef bdr, LMDBBlockDatabase *db)
+void StoredScriptHistory::unserializeDBValue(BinaryDataRef bdr)
 {
    BinaryRefReader brr(bdr);
-   unserializeDBValue(brr, db);
+   unserializeDBValue(brr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

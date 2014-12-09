@@ -159,8 +159,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
    const map<BinaryData, TxIOPair>& txioMap,
    uint32_t startBlock, uint32_t endBlock,
    const BinaryData& ID,
-   LMDBBlockDatabase* db,
-   Blockchain* bc,
+   const LMDBBlockDatabase* db,
+   const Blockchain* bc,
    bool purge)
 {
    if (purge)
@@ -278,7 +278,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       else if (nTxInAreOurs != 0 && (valIn + valOut) < 0)
          isChangeBack = true;
 
-      LedgerEntry le(ID, "",
+      LedgerEntry le(ID,
          value,
          blockNum,
          txHash,

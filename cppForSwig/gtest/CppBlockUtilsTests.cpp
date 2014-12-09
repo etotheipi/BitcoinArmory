@@ -4255,7 +4255,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Empty SSH (shouldn't be written in supernode, should be in full node)
    BinaryData expect, expSub1, expSub2;
    expect = READHEX("0400""ffff0000""00""0000000000000000");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
    // With a single TxIO
@@ -4266,7 +4266,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    ssh.insertTxio(txio0);
 
    expect = READHEX("0400""ffff0000""01""0100000000000000");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
    // Added a second one, different subSSH
@@ -4275,7 +4275,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expect  = READHEX("0400""ffff0000""02""0102000000000000");
    expSub1 = READHEX("01""00""0100000000000000""0001""0001");
    expSub2 = READHEX("01""00""0002000000000000""0002""0002");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
 
@@ -4289,7 +4289,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expSub2 = READHEX("02"
                        "00""0002000000000000""0002""0002"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
 
@@ -4303,7 +4303,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
    
@@ -4319,7 +4319,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expSub2 = READHEX("02"
                        "00""0000030000000000""0004""0004"
                        "10""0000000400000000""0006""0006");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
    
@@ -4331,7 +4331,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
 
@@ -4343,7 +4343,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expSub1 = READHEX("00");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(serializeDBValue(ssh, nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
    EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], nullptr, ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
    
@@ -4370,7 +4370,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    ssh = sshorig;
    toUnser = READHEX("0400""ffff0000""00");
    ssh.unserializeDBKey(DBPREF + uniq);
-   ssh.unserializeDBValue(toUnser, nullptr);
+   ssh.unserializeDBValue(toUnser);
 
    EXPECT_EQ(   ssh.subHistMap_.size(), 0);
    EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
@@ -4381,7 +4381,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    ssh = sshorig;
    toUnser = READHEX("0400""ffff0000""01""0100000000000000");
    ssh.unserializeDBKey(DBPREF + uniq);
-   ssh.unserializeDBValue(toUnser, nullptr);
+   ssh.unserializeDBValue(toUnser);
    BinaryData txioKey = hgtX0 + READHEX("00010001");
 
    EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
@@ -4395,7 +4395,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    subssh1 = StoredSubHistory();
 
    ssh.unserializeDBKey(DBPREF + uniq);
-   ssh.unserializeDBValue(READHEX("0400""ffff0000""02""0000030400000000"), nullptr);
+   ssh.unserializeDBValue(READHEX("0400""ffff0000""02""0000030400000000"));
    subssh1.unserializeDBKey(DBPREF + uniq + hgtX0);
    subssh1.unserializeDBValue(READHEX("02"
                                         "00""0000030000000000""0004""0004"

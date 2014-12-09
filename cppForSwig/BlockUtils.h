@@ -262,6 +262,7 @@ public:
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
+   bool isReady(void) const   { return BDMstate_ == BDM_ready; }
 
    BinaryData getNextWalletIDToScan(void);
 };

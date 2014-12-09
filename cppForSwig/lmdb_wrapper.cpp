@@ -839,7 +839,7 @@ bool LMDBBlockDatabase::seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash) 
 bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
                                                    StoredScriptHistory & ssh,
                                                    uint32_t startBlock,
-                                                   uint32_t endBlock)
+                                                   uint32_t endBlock) const
 {
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
 
@@ -848,7 +848,7 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
 
    BinaryDataRef sshKey = ldbIter.getKeyRef();
    ssh.unserializeDBKey(sshKey, true);
-   ssh.unserializeDBValue(ldbIter.getValueReader(), this);
+   ssh.unserializeDBValue(ldbIter.getValueReader());
       
    size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
@@ -911,7 +911,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
       return;
    }
 
-   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, this, armoryDbType_, dbPruneType_));
+   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
 
    map<BinaryData, StoredSubHistory>::iterator iter;
    for(iter  = ssh.subHistMap_.begin(); 
@@ -936,7 +936,7 @@ void LMDBBlockDatabase::putStoredScriptHistorySummary(StoredScriptHistory & ssh)
       return;
    }
 
-   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, this, armoryDbType_, dbPruneType_));
+   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -950,7 +950,7 @@ void LMDBBlockDatabase::putStoredSubHistory(StoredSubHistory & subssh)
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
-                                                    BinaryDataRef scrAddrStr)
+   BinaryDataRef scrAddrStr) const
 {
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    LDBIter ldbIter = getIterator(BLKDATA);
@@ -963,14 +963,14 @@ void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh
    }
 
    ssh.unserializeDBKey(ldbIter.getKeyRef());
-   ssh.unserializeDBValue(ldbIter.getValueRef(), this);
+   ssh.unserializeDBValue(ldbIter.getValueRef());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
                                                BinaryDataRef scrAddrStr,
                                                uint32_t startBlock,
-                                               uint32_t endBlock)
+                                               uint32_t endBlock) const
 {
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
    SCOPED_TIMER("getStoredScriptHistory");
@@ -988,7 +988,7 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::getStoredScriptHistoryByRawScript(
                                              StoredScriptHistory & ssh,
-                                             BinaryDataRef script)
+                                             BinaryDataRef script) const
 {
    BinaryData uniqueKey = BtcUtils::getTxOutScrAddr(script);
    getStoredScriptHistory(ssh, uniqueKey);
@@ -1188,7 +1188,7 @@ void LMDBBlockDatabase::readAllHeaders(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t LMDBBlockDatabase::getValidDupIDForHeight(uint32_t blockHgt)
+uint8_t LMDBBlockDatabase::getValidDupIDForHeight(uint32_t blockHgt) const
 {
    if(blockHgt != UINT32_MAX && validDupByHeight_.size() < blockHgt+1)
    {
@@ -1489,7 +1489,7 @@ bool LMDBBlockDatabase::getBareHeader(StoredHeader & sbh, BinaryDataRef headHash
 bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
                                       uint32_t blockHgt,
                                       uint8_t blockDup,
-                                      bool withTx)
+                                      bool withTx) const
 {
    SCOPED_TIMER("getStoredHeader");
 
@@ -1534,7 +1534,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
                                       BinaryDataRef headHash, 
-                                      bool withTx)
+                                      bool withTx) const
 {
    SCOPED_TIMER("getStoredHeader(hashlookup)");
 
@@ -1718,7 +1718,7 @@ void LMDBBlockDatabase::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume we have a valid iterator left at the header entry for this block
-bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh)
+bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh) const
 {
    SCOPED_TIMER("readStoredBlockAtIter");
 
@@ -1783,7 +1783,7 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh)
 bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
                                          uint32_t height,
                                          uint8_t  dupID,
-                                         DBTx & stx)
+                                         DBTx & stx) const
 {
    SCOPED_TIMER("readStoredTxAtIter");
    BinaryData blkPrefix = DBUtils::getBlkDataKey(height, dupID);
@@ -1874,7 +1874,7 @@ bool LMDBBlockDatabase::readStoredTxOutAtIter(
                                        uint32_t height,
                                        uint8_t  dupID,
                                        uint16_t txIndex,
-                                       StoredTxOut & stxo)
+                                       StoredTxOut & stxo) const
 {
    if(ldbIter.getKeyRef().getSize() < 9)
       return false;
@@ -1904,7 +1904,7 @@ bool LMDBBlockDatabase::readStoredTxOutAtIter(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B )
+Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
 {
    SCOPED_TIMER("getFullTxCopy");
    if(ldbKey6B.getSize() != 6)
@@ -1939,7 +1939,7 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B )
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Tx LMDBBlockDatabase::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
+Tx LMDBBlockDatabase::getFullTxCopy( uint32_t hgt, uint16_t txIndex) const
 {
    SCOPED_TIMER("getFullTxCopy");
    uint8_t dup = getValidDupIDForHeight(hgt);
@@ -1951,7 +1951,8 @@ Tx LMDBBlockDatabase::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Tx LMDBBlockDatabase::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex)
+Tx LMDBBlockDatabase::getFullTxCopy( 
+   uint32_t hgt, uint8_t dup, uint16_t txIndex) const
 {
    SCOPED_TIMER("getFullTxCopy");
    BinaryData ldbKey = DBUtils::getBlkDataKey(hgt, dup, txIndex);
@@ -1960,7 +1961,8 @@ Tx LMDBBlockDatabase::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TxOut LMDBBlockDatabase::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
+TxOut LMDBBlockDatabase::getTxOutCopy( 
+   BinaryData ldbKey6B, uint16_t txOutIdx) const
 {
    SCOPED_TIMER("getTxOutCopy");
    BinaryWriter bw(8);
@@ -1992,7 +1994,8 @@ TxOut LMDBBlockDatabase::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
+TxIn LMDBBlockDatabase::getTxInCopy( 
+   BinaryData ldbKey6B, uint16_t txInIdx) const
 {
    SCOPED_TIMER("getTxInCopy");
    TxIn txiOut;
@@ -2041,7 +2044,7 @@ TxIn LMDBBlockDatabase::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
+BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
 {
    SCOPED_TIMER("getTxHashForLdbKey");
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
@@ -2107,7 +2110,7 @@ StoredTxHints LMDBBlockDatabase::getHintsForTxHash(BinaryDataRef txHash) const
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTx( StoredTx & stx,
-                                  BinaryDataRef txHashOrDBKey)
+                                  BinaryDataRef txHashOrDBKey) const
 {
    uint32_t sz = txHashOrDBKey.getSize();
    if(sz == 32)
@@ -2123,7 +2126,7 @@ bool LMDBBlockDatabase::getStoredTx( StoredTx & stx,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTx_byDBKey( StoredTx & stx,
-                                          BinaryDataRef dbKey)
+                                          BinaryDataRef dbKey) const
 {
    uint32_t hgt;
    uint8_t  dup;
@@ -2146,7 +2149,7 @@ bool LMDBBlockDatabase::getStoredTx_byDBKey( StoredTx & stx,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
-   BinaryDataRef zcKey)
+   BinaryDataRef zcKey) const
 {
    //only by zcKey
    BinaryData zcDbKey;
@@ -2219,7 +2222,7 @@ bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
 // and the number of modifications to make for each reorg is small.
 bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
                                            StoredTx* stx,
-                                           BinaryData *DBkey)
+                                           BinaryData *DBkey) const
 {
    SCOPED_TIMER("getStoredTx");
 
@@ -2293,7 +2296,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
 bool LMDBBlockDatabase::getStoredTx( StoredTx & stx,
                                   uint32_t blockHeight,
                                   uint16_t txIndex,
-                                  bool withTxOut)
+                                  bool withTxOut) const
 {
    uint8_t dupID = getValidDupIDForHeight(blockHeight);
    if(dupID == UINT8_MAX)
@@ -2308,7 +2311,7 @@ bool LMDBBlockDatabase::getStoredTx( StoredTx & stx,
                                   uint32_t blockHeight,
                                   uint8_t  dupID,
                                   uint16_t txIndex,
-                                  bool withTxOut)
+                                  bool withTxOut) const
 {
    SCOPED_TIMER("getStoredTx");
 
@@ -2375,7 +2378,7 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTxOut(
-   StoredTxOut & stxo, const BinaryData& DBkey)
+   StoredTxOut & stxo, const BinaryData& DBkey) const
 {
    if (DBkey.getSize() != 8)
    {
@@ -2412,7 +2415,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
                               uint32_t blockHeight,
                               uint8_t  dupID,
                               uint16_t txIndex,
-                              uint16_t txOutIndex)
+                              uint16_t txOutIndex) const
 {
    SCOPED_TIMER("getStoredTxOut");
    BinaryData blkKey = DBUtils::getBlkDataKey(blockHeight, dupID, txIndex, txOutIndex);
@@ -2438,7 +2441,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
                               StoredTxOut & stxo,
                               uint32_t blockHeight,
                               uint16_t txIndex,
-                              uint16_t txOutIndex)
+                              uint16_t txOutIndex) const
 {
    uint8_t dupID = getValidDupIDForHeight(blockHeight);
    if(dupID == UINT8_MAX)
@@ -2834,7 +2837,7 @@ void LMDBBlockDatabase::pprintBlkDataDB(uint32_t indent)
          {
             // New SSH object, base entry
             ssh.unserializeDBKey(key); 
-            ssh.unserializeDBValue(val, this); 
+            ssh.unserializeDBValue(val); 
             ssh.pprintFullSSH(indent + 3); 
             lastSSH = key;
          }
@@ -2878,7 +2881,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    StoredScriptHistory ssh;
    BinaryDataRef sshKey = ldbIter.getKeyRef();
    ssh.unserializeDBKey(sshKey, true);
-   ssh.unserializeDBValue(ldbIter.getValueReader(), this);
+   ssh.unserializeDBValue(ldbIter.getValueReader());
 
    if (ssh.totalTxioCount_ == 0)
       return SSHsummary;

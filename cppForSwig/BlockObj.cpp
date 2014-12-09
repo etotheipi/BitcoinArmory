@@ -917,7 +917,7 @@ TxIOPair::TxIOPair(const BinaryData& txOutKey8B, uint64_t val) :
    setTxOut(txOutKey8B);
 }
  //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfOutput(LMDBBlockDatabase *db) const
+HashString TxIOPair::getTxHashOfOutput(const LMDBBlockDatabase *db) const
 {
    if (!hasTxOut())
       return BtcUtils::EmptyHash();
@@ -933,7 +933,7 @@ HashString TxIOPair::getTxHashOfOutput(LMDBBlockDatabase *db) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfInput(LMDBBlockDatabase *db) const
+HashString TxIOPair::getTxHashOfInput(const LMDBBlockDatabase *db) const
 {
    if (!hasTxIn())
       return BtcUtils::EmptyHash();

@@ -17,6 +17,22 @@ typedef enum
    BDV_refreshAndRescan
 }BDV_refresh;
 
+typedef enum
+{
+   order_ascending,
+   order_descending
+}HistoryOrdering;
+
+class StandAloneHistoryPager;
+
+class BDMnotReady : public exception
+{
+   virtual const char* what() const throw()
+   {
+      return "BDM is not ready!";
+   }
+};
+
 class BlockDataViewer
 {
 public:
@@ -90,9 +106,6 @@ public:
 
    void reset();
 
-   void pageWalletsHistory(bool forcePaging = true);
-   void pageLockboxesHistory();
-
    map<uint32_t, uint32_t> computeWalletsSSHSummary(bool forcePaging = true);
    const vector<LedgerEntry>& getHistoryPage(uint32_t, 
                                              bool rebuildLedger = false, 
@@ -123,10 +136,24 @@ public:
       return bdmPtr_->isRunning(); 
    }
 
+   bool isBDMReady(void) const
+   {
+      if (bdmPtr_ == nullptr)
+         return false;
+      return bdmPtr_->isReady();
+   }
+
+   void checkBDMisReady(void) const
+   {
+      if (!isBDMReady())
+         throw BDMnotReady();
+   }
+
    bool isTxOutSpentByZC(const BinaryData& dbKey) const
    { return zeroConfCont_.isTxOutSpentByZC(dbKey); }
 
-   const map<BinaryData, TxIOPair>& getZCutxoForScrAddr(const BinaryData& scrAddr) const
+   const map<BinaryData, TxIOPair>& getZCutxoForScrAddr(
+      const BinaryData& scrAddr) const
    { return zeroConfCont_.getZCforScrAddr(scrAddr); }
 
    const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const
@@ -134,6 +161,13 @@ public:
 
    ScrAddrFilter* getSAF(void) { return saf_; }
    const BlockDataManagerConfig& config() const { return bdmPtr_->config(); }
+
+   StandAloneHistoryPager getStandAloneHistoryPager(
+      const vector<BinaryData>& wltIDs, HistoryOrdering order) const;
+
+private:
+   void pageWalletsHistory(bool forcePaging = true);
+   void pageLockboxesHistory();
 
 public:
    bool rescanZC_    = false;
@@ -192,6 +226,32 @@ private:
 
    mutable ReadWriteLock registeredWalletsLock_;
    
+};
+
+class StandAloneHistoryPager
+{
+   friend class BlockDataViewer;
+
+public:
+   StandAloneHistoryPager(const BlockDataViewer* bdv, HistoryOrdering order) :
+      bdvPtr_(bdv), order_(order)
+   {}
+
+   vector<LedgerEntry> getHistoryPage(size_t);
+   size_t getPageCount(void) const
+   { return hist_.getPageCount(); }
+
+private:
+   void mapHistory(void);
+
+private:
+   HistoryPager hist_;
+   HistoryOrdering order_;
+
+   //map<wltId, set<scrAddr>>
+   map<BinaryData, map<BinaryData, ScrAddrObj>> scrAddrMap_;
+
+   const BlockDataViewer* bdvPtr_ = nullptr;
 };
 
 #endif
