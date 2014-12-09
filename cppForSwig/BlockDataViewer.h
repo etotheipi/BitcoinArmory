@@ -249,7 +249,7 @@ private:
    HistoryOrdering order_;
 
    //map<wltId, set<scrAddr>>
-   map<BinaryData, map<BinaryData, ScrAddrObj>> scrAddrMap_;
+   map<BinaryData, map<BinaryData, ScrAddrObj> > scrAddrMap_;
 
    const BlockDataViewer* bdvPtr_ = nullptr;
 };
