@@ -19,6 +19,7 @@
 #include "../cryptopp/integer.h"
 #include "../Progress.h"
 #include "../reorgTest/blkdata.h"
+#include "../txio.h"
 
 #ifdef _MSC_VER
    #ifdef mlock
@@ -4423,8 +4424,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    EXPECT_EQ(   subssh1.txioMap_[txio1key].getValue(), val1);
    EXPECT_EQ(   subssh1.txioMap_[txio0key].getDBKeyOfOutput(), txio0key);
    EXPECT_EQ(   subssh1.txioMap_[txio1key].getDBKeyOfOutput(), txio1key);
-   
-   uint64_t addSize;
+
    ssh.mergeSubHistory(subssh1);
    EXPECT_EQ(   ssh.subHistMap_.size(), 1);
    ASSERT_NE(   ssh.subHistMap_.find(hgtX0), ssh.subHistMap_.end());

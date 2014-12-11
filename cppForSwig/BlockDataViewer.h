@@ -7,6 +7,7 @@
 using namespace std;
 
 #include "BlockUtils.h"
+#include "txio.h"
 #include "BDM_supportClasses.h"
 #include "util.h"
 

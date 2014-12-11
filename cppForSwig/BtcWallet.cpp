@@ -1,5 +1,6 @@
 #include "BtcWallet.h"
 #include "BlockUtils.h"
+#include "txio.h"
 #include "BlockDataViewer.h"
 #include "ReorgUpdater.h"
 

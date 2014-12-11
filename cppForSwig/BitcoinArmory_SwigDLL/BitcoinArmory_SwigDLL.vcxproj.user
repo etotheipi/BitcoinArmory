@@ -7,7 +7,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>ArmoryQt.py --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin" --testnet</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ArmoryQt.py --dbdir="C:\ArmoryDB\testnet5" --satoshi-datadir="C:\Bitcoin" --testnet --interport="25617"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>../../</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
@@ -19,7 +19,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --dbdir="C:\ArmoryDB\testnet4" --satoshi-datadir="C:\Bitcoin" --testnet</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>..\..\ArmoryQt.py --dbdir="C:\ArmoryDB\testnet5" --satoshi-datadir="C:\Bitcoin" --testnet --datadir="C:\bad_wallets\testnet3"</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
 </Project>

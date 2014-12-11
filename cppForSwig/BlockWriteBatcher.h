@@ -5,6 +5,7 @@
 #include "BlockObj.h"
 #include "BlockUtils.h"
 #include "log.h"
+#include "txio.h"
 
 #include <thread>
 #include <condition_variable>

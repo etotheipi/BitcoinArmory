@@ -1,5 +1,6 @@
 #include "BDM_supportClasses.h"
 #include "BlockUtils.h"
+#include "txio.h"
 #include "ReorgUpdater.h"
 #include <thread>
 

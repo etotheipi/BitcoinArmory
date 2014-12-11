@@ -87,6 +87,9 @@
     <ClInclude Include="..\bdmenums.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\txio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -162,6 +165,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\BDM_mainthread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\txio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

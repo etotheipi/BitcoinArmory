@@ -14,6 +14,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
+#include "txio.h"
 #include "BlockDataManagerConfig.h"
 #include <atomic>
 

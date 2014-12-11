@@ -17,6 +17,7 @@
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
 #include "lmdb_wrapper.h"
+#include "txio.h"
 
 struct MDB_val;
 

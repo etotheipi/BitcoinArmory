@@ -5,6 +5,7 @@
 #include "lmdb_wrapper.h"
 #include "Blockchain.h"
 #include "BlockObj.h"
+#include "txio.h"
 #include "LedgerEntry.h"
 #include "HistoryPager.h"
 
