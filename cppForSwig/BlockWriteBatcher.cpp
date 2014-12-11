@@ -1232,15 +1232,25 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
                ssh.totalTxioCount_ += subssh.txioMap_.size();
             }
          }
-            
-         if (ssh.totalTxioCount_ > 0)
+
+         if (bwb.config_.armoryDbType == ARMORY_DB_SUPER)
          {
-            ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
-            BinaryWriter& bw = serializedSshToModify_[sshKey];
-            ssh.serializeDBValue(bw, dbType, pruneType);
+            if (ssh.totalTxioCount_ > 0)
+            {
+               ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
+               BinaryWriter& bw = serializedSshToModify_[sshKey];
+               ssh.serializeDBValue(bw, dbType, pruneType);
+            }
+            else
+               keysToDelete.insert(sshKey);
          }
-         else
-            keysToDelete.insert(sshKey);
+      }
+
+      if (bwb.config_.armoryDbType != ARMORY_DB_SUPER)
+      {
+         ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
+         BinaryWriter& bw = serializedSshToModify_[sshKey];
+         ssh.serializeDBValue(bw, dbType, pruneType);
       }
    }
 
