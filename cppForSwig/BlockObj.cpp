@@ -851,7 +851,7 @@ TxOut DBTxRef::getTxOutCopy(uint32_t i)
 ////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(void) : 
+TxIOPair::TxIOPair(void) :
    amount_(0),
    indexOfOutput_(0),
    indexOfInput_(0),
@@ -871,7 +871,9 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    isFromCoinbase_(false),
    isMultisig_(false),
    txtime_(0),
-   isUTXO_(false)
+   isUTXO_(false),
+   getScrAddr_([](void)->const BinaryData&
+      { return BinaryData::EmptyBinData_; })
    {}
 
 //////////////////////////////////////////////////////////////////////////////
@@ -882,7 +884,9 @@ TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
    isFromCoinbase_(false),
    isMultisig_(false),
    txtime_(0),
-   isUTXO_(false)
+   isUTXO_(false),
+   getScrAddr_([](void)->const BinaryData&
+      { return BinaryData::EmptyBinData_; })
 { 
    setTxOut(txPtrO, txoutIndex);
 }
@@ -897,7 +901,9 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
    isFromCoinbase_(false),
    isMultisig_(false),
    txtime_(0),
-   isUTXO_(false)
+   isUTXO_(false),
+   getScrAddr_([](void)->const BinaryData&
+      { return BinaryData::EmptyBinData_; })
 { 
    setTxOut(txPtrO, txoutIndex);
    setTxIn (txPtrI, txinIndex );
@@ -912,7 +918,9 @@ TxIOPair::TxIOPair(const BinaryData& txOutKey8B, uint64_t val) :
    isFromCoinbase_(false),
    isMultisig_(false),
    txtime_(0),
-   isUTXO_(false)
+   isUTXO_(false),
+   getScrAddr_([](void)->const BinaryData&
+      { return BinaryData::EmptyBinData_; })
 {
    setTxOut(txOutKey8B);
 }
@@ -1028,7 +1036,7 @@ bool TxIOPair::setTxOut(TxRef txref, uint32_t index)
 
 
 //////////////////////////////////////////////////////////////////////////////
-pair<bool,bool> TxIOPair::reassessValidity(LMDBBlockDatabase *db)
+pair<bool, bool> TxIOPair::reassessValidity(LMDBBlockDatabase *db)
 {
    pair<bool,bool> result;
    result.first  = hasTxOutInMain(db);
@@ -1175,6 +1183,28 @@ TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
    return *this;
 }
 
+TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
+{
+   this->amount_ = toMove.amount_;
+
+   this->txRefOfOutput_ = move(toMove.txRefOfOutput_);
+   this->indexOfOutput_ = move(toMove.indexOfOutput_);
+   this->txRefOfInput_ = move(toMove.txRefOfInput_);
+   this->indexOfInput_ = move(toMove.indexOfInput_);
+
+   this->txHashOfOutput_ = move(toMove.txHashOfOutput_);
+   this->txHashOfInput_ = move(toMove.txHashOfInput_);
+
+   this->isTxOutFromSelf_ = toMove.isTxOutFromSelf_;
+   this->isFromCoinbase_ = toMove.isFromCoinbase_;
+   this->isMultisig_ = toMove.isMultisig_;
+
+   this->txtime_ = toMove.txtime_;
+
+   this->isUTXO_ = toMove.isUTXO_;
+
+   return *this;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

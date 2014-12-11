@@ -897,14 +897,14 @@ void BtcWallet::merge()
             if (bottomBlock < topBlock)
                bdvPtr_->scanScrAddrVector(scrAddrMapToMerge, bottomBlock, topBlock);
          }
-         else if (mergeData_->mergeAction_ == MergeAction::NoRescan)
+         /*else if (mergeData_->mergeAction_ == MergeAction::NoRescan)
          {
             LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
 
             //fresh addresses, just have to run mapHistory to initialize the ScrAddrObj
             for (auto& scrAddrPair : scrAddrMapToMerge)
                scrAddrPair.second.mapHistory();
-         }
+         }*/
 
          //merge scrAddrMap
          if (mergeData_->mergeAction_ != MergeAction::DeleteAddresses)

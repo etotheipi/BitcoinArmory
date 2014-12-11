@@ -804,8 +804,8 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
-      #if DO_WALLET_CHECK: 
-         #self.checkWallets()
+      if DO_WALLET_CHECK: 
+         self.checkWallets()
 
       self.blkReceived = RightNow()
 
@@ -906,11 +906,6 @@ class ArmoryMainWindow(QMainWindow):
             wltIDList.append(self.walletIDList[i])
 
       TheBDM.bdv().updateWalletFilters(wltIDList)      
-
-      #self.walletsView.reset()
-      #self.createCombinedLedger()
-      #if self.frmLedgUpDown.isVisible():
-       #  self.changeNumShow()
 
 
    ############################################################################
@@ -2936,9 +2931,6 @@ class ArmoryMainWindow(QMainWindow):
    # any critical functionality makes it into armoryd.
    def finishLoadBlockchainGUI(self):
       # Let's populate the wallet info after finishing loading the blockchain.
-      for wltStr in self.walletMap:
-         wlt = self.walletMap[wltStr]
-         wlt.syncWithBlockchainLite()
          
       self.setDashboardDetails()
       self.memPoolInit = True
@@ -3048,6 +3040,11 @@ class ArmoryMainWindow(QMainWindow):
             unconfFunds += wlt.getBalance('Unconfirmed')
 
 
+      '''
+      Python can't sort tx history anymore since it only receives partial data. Need 
+      the full data to apply any fancy filter, so this is all handled on the C++ side 
+      and served pre-computed for Python to simply render to the GUI.
+      
       def keyFuncNumConf(x):
          numConf = x.getBlockNum() - topBlockHeight  # returns neg for reverse sort
          txTime  = x.getTxTime() 
@@ -3062,6 +3059,7 @@ class ArmoryMainWindow(QMainWindow):
          value   = x.getValue()
          return (txTime, numConf, txhash, value)
 
+
       # Apply table sorting -- this is very fast
       sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
       if self.sortLedgCol == LEDGERCOLS.NumConf:
@@ -3074,13 +3072,12 @@ class ArmoryMainWindow(QMainWindow):
          self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x), reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Amount:
          self.combinedLedger.sort(key=lambda x: abs(x.getValue()), reverse=sortDir)
-
+      '''
+            
       self.ledgerSize = len(self.combinedLedger)
 
-      # Hide the ledger slicer if our data set is smaller than the slice width
+      # Hide the ledger slicer, we dont use it anymore. Should get rid of it entirely at some point.
       self.frmLedgUpDown.setVisible(False)
-      #self.lblLedgRange.setText('%d to %d' % (self.currLedgMin, self.currLedgMax))
-      #self.lblLedgTotal.setText('(of %d)' % self.ledgerSize)
 
       # Many MainWindow objects haven't been created yet...
       # let's try to update them and fail silently if they don't exist
@@ -3355,19 +3352,6 @@ class ArmoryMainWindow(QMainWindow):
       if wltID is None:
          wltID = le.getWalletID()
       return self.walletMap[wltID].getCommentForLE(le)
-      """
-      txHash = le.getTxHash()
-      if wlt.commentsMap.has_key(txHash):
-         comment = wlt.commentsMap[txHash]
-      else:
-         # [[ COMMENTS ]] are not meant to be displayed on main ledger
-         comment = self.getAddrCommentIfAvail(txHash)
-         if comment.startswith('[[') and comment.endswith(']]'):
-            comment = ''
-
-      return comment
-      """
-
             
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):

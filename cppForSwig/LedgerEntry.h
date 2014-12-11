@@ -116,15 +116,20 @@ public:
                                 const Blockchain* bc,
                                 bool purge);
    
+   set<BinaryData> getScrAddrList(void) const
+   { return scrAddrSet_; }
+   
+public:
+
    static LedgerEntry EmptyLedger_;
    static map<BinaryData, LedgerEntry> EmptyLedgerMap_;
    static BinaryData ZCheader_;
+   static BinaryData EmptyID_;
 
 private:
    
    //holds either a scrAddr or a walletId
    BinaryData       ID_;
-   static BinaryData EmptyID_;
 
    int64_t          value_;
    uint32_t         blockNum_;
@@ -134,6 +139,9 @@ private:
    bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;
+
+   //for matching scrAddr comments to LedgerEntries on the Python side
+   set<BinaryData> scrAddrSet_;
 }; 
 
 struct LedgerEntry_DescendingOrder

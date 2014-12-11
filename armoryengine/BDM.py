@@ -167,7 +167,8 @@ class BlockDataManager(object):
 
       #dbType
       self.dbType = Cpp.ARMORY_DB_BARE
-      #self.dbType = Cpp.ARMORY_DB_SUPER      
+      if ENABLE_SUPERNODE:
+         self.dbType = Cpp.ARMORY_DB_SUPER      
       
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
 

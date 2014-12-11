@@ -114,11 +114,20 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
    function<bool(const BinaryData&)> isZcFromWallet)
 {
+   //Dont use a reference for this loop. We check and set the isFromSelf flag
+   //in this operation, which is based on the wallet this scrAddr belongs to.
+   //The txio comes straight from the ZC container object, which only deals 
+   //with scrAddr. Since several wallets may reference the same scrAddr, we 
+   //can't modify original txio, so we use a copy.
+
    for (auto txioPair : zcTxIOMap)
    {
       if (txioPair.second.hasTxOutZC() &&
          isZcFromWallet(txioPair.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
          txioPair.second.setTxOutFromSelf(true);
+
+      txioPair.second.setScrAddrLambda(
+         [this](void)->const BinaryData&{ return this->getScrAddr(); });
 
       relevantTxIO_[txioPair.first] = txioPair.second;
    }
@@ -246,13 +255,20 @@ void ScrAddrObj::getHistoryForScrAddr(
    bool update,
    bool withMultisig) const
 {
-   //check ScrAddrObj::relevantTxio_ first to see if it has some of the TxIOs
+   //check relevantTxio_ first to see if it has some of the TxIOs
    uint32_t localTxioBottom = hist_.getPageBottom(0);
    if (update==false && endBlock > localTxioBottom)
    {
       if (startBlock <= localTxioBottom)
       {
-         outMap.insert(relevantTxIO_.begin(), relevantTxIO_.end());
+         for (auto txioPair : relevantTxIO_)
+         {
+            auto& txio = outMap[txioPair.first];
+            txio = txioPair.second;
+            txio.setScrAddrLambda(
+               [this](void)->const BinaryData&
+               { return this->getScrAddr(); });
+         }
       }
       else
       {
@@ -262,7 +278,13 @@ void ScrAddrObj::getHistoryForScrAddr(
          for (auto txioPair : relevantTxIO_)
          {
             if (txioPair.second >= startHeight)
-               outMap.insert(txioPair);
+            {
+               auto& txio = outMap[txioPair.first];
+               txio = txioPair.second;
+               txio.setScrAddrLambda(
+                  [this](void)->const BinaryData&
+                  { return this->getScrAddr(); });
+            }
          }
       }
          
@@ -296,9 +318,16 @@ void ScrAddrObj::getHistoryForScrAddr(
 
       for (auto &txiop : subssh.txioMap_)
       {
-         const TxIOPair & txio = txiop.second;
-         if (withMultisig || !txio.isMultisig())
-            outMap.insert(txiop); 
+         if (withMultisig || !txiop.second.isMultisig())
+         {
+            auto& txio = outMap[txiop.first];
+            txio.setScrAddrLambda(
+                  [this](void)->const BinaryData&
+               { return this->getScrAddr(); });
+            
+            if (!txio.hasValue())
+               txio = txiop.second;
+         }
       }
 
       ++subSSHiter;

@@ -103,6 +103,7 @@ parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', ty
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
 parser.add_option("--disable-modules", dest="disableModules", default=False, action="store_true", help="Disable looking for modules in the execution directory")
 parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
+parser.add_option("--supernode", dest="enableSupernode", default=False, action="store_true", help="Enabled Exhaustive Blockchain Tracking")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -250,6 +251,8 @@ if CLI_OPTIONS.interport < 0:
 # all zero-conf UTXOs as unspendable, including sent-to-self (change)
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
+#supernode
+ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''

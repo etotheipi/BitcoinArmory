@@ -55,6 +55,7 @@
 %ignore BlockDataManager_LevelDB::loadDiskState(const function<void(unsigned, double,unsigned)> &progress);
 %ignore BlockDataViewer::refreshLock_;
 
+
 %allowexception;
 
 namespace std
@@ -73,6 +74,7 @@ namespace std
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
    %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
+   %template(set_BinaryData) std::set<BinaryData>;
 }
 
 %exception
@@ -172,6 +174,28 @@ namespace std
 	$result = thisList;
 }
 
+/******************************************************************************/
+// Convert C++(set<BinaryData>) to Python(list[string])
+%typemap(out) set<BinaryData>
+{
+	set<BinaryData>::iterator bdIter = $1.begin();
+	PyObject* thisList = PyList_New($1.size());
+	int i=0;
+
+	while(bdIter != $1.end())
+	{
+		auto& bdobj = (*bdIter);
+		
+		PyObject* thisPyObj = PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+
+		PyList_SET_ITEM(thisList, i, thisPyObj);
+
+		++i;
+		++bdIter;
+	}
+
+	$result = thisList;
+}
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"

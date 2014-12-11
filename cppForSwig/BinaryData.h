@@ -566,6 +566,9 @@ public:
    // For deallocating all the memory that is currently used by this BD
    void clear(void) { data_.clear(); }
 
+public:
+   static BinaryData EmptyBinData_;
+
 private:
    vector<uint8_t> data_;
 

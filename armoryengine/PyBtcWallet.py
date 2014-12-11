@@ -317,33 +317,6 @@ class PyBtcWallet(object):
       self.doBlockchainSync = syncYes
 
    #############################################################################
-   @TimeThisFunction
-   @CheckWalletRegistration
-   def syncWithBlockchainLite(self, startBlk=None):
-      """
-      This is just like a regular sync, but it won't rescan the whole blockchain
-      if the wallet is dirty -- if addresses were imported recently, it will 
-      still only scan what the blockchain picked up on the last scan.  Use the
-      non-lite version to allow a full scan.
-      """
-
-      self.lastSyncBlockNum = TheBDM.getTopBlockHeight()
-            
-      wltLE = self.getHistoryPage(0)
-      for le in wltLE:
-         txHash = le.getTxHash()
-         if not self.txAddrMap.has_key(txHash):
-            self.txAddrMap[txHash] = []
-         scrAddr = SecureBinaryData(le.getScrAddr())
-         try:
-            addrStr = scrAddr_to_addrStr(scrAddr.toBinStr())
-            addr160 = addrStr_to_hash160(addrStr)[1] 
-            if addr160 not in self.txAddrMap[txHash]:              
-               self.txAddrMap[txHash].append(addr160)
-         except:
-            continue
-
-   #############################################################################
    def getCommentForAddrBookEntry(self, abe):
       comment = self.getComment(abe.getAddr160())
       if len(comment)>0:
@@ -1876,7 +1849,21 @@ class PyBtcWallet(object):
 
       return '; '.join(addrComments)
 
-                  
+   #############################################################################
+   def getAddrCommentFromLe(self, le):
+      # If we haven't extracted relevant addresses for this tx, yet -- do it
+      txHash = le.getTxHash()
+      if not self.txAddrMap.has_key(txHash):
+         self.txAddrMap[txHash] = le.getScrAddrList()
+                      
+      addrComments = []
+      for a160 in self.txAddrMap[txHash]:
+         hash160 = a160[1:]
+         if self.commentsMap.has_key(hash160) and '[[' not in self.commentsMap[hash160]:
+            addrComments.append(self.commentsMap[hash160])
+
+      return '; '.join(addrComments)
+                     
    #############################################################################
    def getCommentForLE(self, le):
       # Smart comments for LedgerEntry objects:  get any direct comments ... 
@@ -1886,7 +1873,7 @@ class PyBtcWallet(object):
          comment = self.commentsMap[txHash]
       else:
          # [[ COMMENTS ]] are not meant to be displayed on main ledger
-         comment = self.getAddrCommentIfAvail(txHash)
+         comment = self.getAddrCommentFromLe(le)
          if comment.startswith('[[') and comment.endswith(']]'):
             comment = ''
 

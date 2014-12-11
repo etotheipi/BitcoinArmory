@@ -262,7 +262,8 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
             globalLedger_.push_back(lePair.second);
       }
 
-      sort(globalLedger_.begin(), globalLedger_.end());
+      LedgerEntry_DescendingOrder desc;
+      sort(globalLedger_.begin(), globalLedger_.end(), desc);
    }
 }
 
@@ -635,7 +636,8 @@ const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId,
       }
    }
 
-   sort(globalLedger_.begin(), globalLedger_.end());
+   LedgerEntry_DescendingOrder desc;
+   sort(globalLedger_.begin(), globalLedger_.end(), desc);
 
    return globalLedger_;
 }
@@ -651,9 +653,6 @@ void BlockDataViewer::scanScrAddrVector(
    //register scrAddr with it
    for (auto& scrAddrPair : scrAddrMap)
       saf->regScrAddrForScan(scrAddrPair.first, startBlock);
-
-   //compute blockHeightCutOff
-   saf->scanFrom();
 
    //scan addresses
    saf->applyBlockRangeToDB(startBlock, endBlock, nullptr);
