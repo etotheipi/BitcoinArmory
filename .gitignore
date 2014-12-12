@@ -7,6 +7,7 @@ CppBlockUtils.py
 _CppBlockUtils.*
 /cppForSwig/CppBlockUtils_wrap.cxx
 /cppForSwig/libcryptopp.a
+/cppForSwig/libleveldb.a
 /cppForSwig/cryptopp/a.out
 /cppForSwig/cryptopp/Template
 /cppForSwig/cryptopp/TestData
@@ -22,9 +23,14 @@ osxbuild/Armory.app
 osxbuild/env
 
 /ArmoryStandalone/*
+/cppForSwig/CppBlockUtils_wrap.h
+/cppForSwig/leveldb/*
 /cppForSwig/libs/*
 /cppForSwig/Release/*
 /cppForSwig/swigwin/*
+
+/pytest/*.bin
+/pytest/mytxfile
 
 /*.exe
 

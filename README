@@ -65,6 +65,9 @@
 *
 *** Dependencies ***
  
+   - GNU Compiler Collection
+            Linux:   Install package "g++"
+
    - Crypto++  
             Linux:   Install package "libcrypto++-dev"
             Windows: Download from "http://www.cryptopp.com/#download"
@@ -75,15 +78,15 @@
             (MSVS: Copy swigwin-2.x directory next to cryptopp as "swigwin")
 
    - Python 2.6/2.7
-            Linux:   Should be preinstalled...
+            Linux:   Install package "python-dev"
             Windows: "http://www.python.org/getit/"
 
    - Python Twisted -- asynchronous networking
-            Linux:   Install package 'python-twisted'
+            Linux:   Install package "python-twisted"
             Windows: "http://twistedmatrix.com/trac/wiki/Downloads"
 
    - PyQt 4 (for Python 2.X)
-            Linux:   Install  "libqtcore4", "libqt4-dev" and "python-qt4"
+            Linux:   Install packages "libqtcore4", "libqt4-dev", "python-qt4", and "pyqt4-dev-tools"
             Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
 
    - qt4reactor.py -- combined eventloop for PyQt and Twisted

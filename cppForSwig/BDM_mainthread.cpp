@@ -260,7 +260,7 @@ try
          
          //pass empty walletID for main build&scan calls
          callback->progress(phase, string(), prog, time, numericProgress);
-         
+
          if (!pimpl->run)
          {
             LOGINFO << "Stop requested detected";

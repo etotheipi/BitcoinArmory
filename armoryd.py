@@ -95,6 +95,7 @@ from collections import defaultdict
 import decimal
 from inspect import *
 import json
+import sys
 
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
@@ -129,6 +130,7 @@ class PrivateKeyNotFound(Exception): pass
 class WalletDoesNotExist(Exception): pass
 class LockboxDoesNotExist(Exception): pass
 class AddressNotInWallet(Exception): pass
+class BlockchainNotReady(Exception): pass
 
 # A dictionary that includes the names of all functions an armoryd user can
 # call from the armoryd server. Implemented on the server side so that a client
@@ -925,7 +927,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          else:
             retVal = AmountToJSON(self.curWlt.getBalance(baltype))
       else:
-         LOGERROR('Blockchain not ready. Values will not be reported.')
+         raise BlockchainNotReady('Wallet is not loaded yet.')
 
       return retVal
 
@@ -2615,7 +2617,7 @@ class Armory_Daemon(object):
       if armorydIsRunning == True:
          # Execute the command and return to the command line.
          self.executeCommand()
-         os._exit(0)
+         sys.exit()
       else:
          # Make sure we're actually able to do something before proceeding.
          if onlineModeIsPossible(TheBDM.btcdir):
@@ -2663,6 +2665,9 @@ class Armory_Daemon(object):
             self.heartbeatFunctions = []
             self.newBlockFunctions = defaultdict(list)
 
+            self.settingsPath = CLI_OPTIONS.settingsPath
+            self.settings = SettingsFile(self.settingsPath)
+
             # armoryd can take a default lockbox. If it's not passed in, load
             # some lockboxes.
             if lb:
@@ -2679,14 +2684,13 @@ class Armory_Daemon(object):
 
                   # Create the CPP wallet map for each lockbox.
                   for lbID,lbox in self.lboxMap.iteritems():
-                     self.lboxCppWalletMap[lbID] = BtcWallet()
                      scraddrReg = script_to_scrAddr(lbox.binScript)
                      scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbox.binScript))
                      lockboxScrAddr = [scraddrReg, scraddrP2SH]
                      
                      LOGWARN('Registering lockbox: %s' % lbID)
                      self.lboxCppWalletMap[lbID] = \
-                      self.lbox.registerLockbox(lockboxScrAddr)
+                      TheBDM.registerLockbox(lbID, lockboxScrAddr)
 
                else:
                   LOGWARN('No lockboxes were loaded.')
@@ -2766,6 +2770,7 @@ class Armory_Daemon(object):
          TheBDM.bdv().enableZeroConf("") #mempoolfile.encode('utf-8'))        
          
          self.timeReceived = TheBDM.bdv().blockchain().top().getTimestamp()
+         self.latestBlockNum = TheBDM.bdv().blockchain().top().getBlockHeight()
          LOGINFO('Blockchain loaded. Wallets synced!')
          LOGINFO('Current block number: %d', self.latestBlockNum)
          LOGINFO('Current block received at: %d', self.timeReceived)
@@ -2782,7 +2787,6 @@ class Armory_Daemon(object):
                         func_newTx       = self.execOnNewTx, \
                         func_newBlock    = self.execOnNewBlock)
          reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
-         reactor.run()
    
       elif action == NEW_ZC_ACTION:
          #A zero conf Tx conerns one of the address Armory is tracking, pull the 
@@ -2851,6 +2855,10 @@ class Armory_Daemon(object):
          
          
    #############################################################################
+   def writeSetting(self, settingName, val):
+      self.settings.set(settingName, val)
+
+   #############################################################################
    def set_auth(self, resource):
       passwordfile = ARMORYD_CONF_FILE
       # Create User Name & Password file to use locally
@@ -2890,7 +2898,8 @@ class Armory_Daemon(object):
       for wltID, wlt in self.WltMap.iteritems():
          LOGWARN('Registering wallet: %s' % wltID)
          wlt.registerWallet()
-      TheBDM.setOnlineMode(True)
+      TheBDM.goOnline()
+      reactor.run()
 
    #############################################################################
    @classmethod

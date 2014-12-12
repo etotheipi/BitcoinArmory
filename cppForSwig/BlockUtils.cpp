@@ -1076,7 +1076,7 @@ void BlockDataManager_LevelDB::loadDiskState(
       
    // load the headers from lmdb into blockchain()
    uint32_t headerCountFromDB = loadBlockHeadersFromDB(progress);
-   
+
    {
       progress(BDMPhase_OrganizingChain, 0, 0, 0);
       // organize the blockchain we have so far
