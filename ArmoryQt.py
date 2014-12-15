@@ -967,13 +967,14 @@ class ArmoryMainWindow(QMainWindow):
                verArmoryInt = getVersionInt(BTCARMORY_VERSION)
                if verArmoryInt >verPluginInt:
                   reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
-                     Module "%s" is only specified to work up to Armory version %s.
+                     Module %s is only specified to work up to Armory version %s.
                      You are using Armory version %s.  Please remove the module if
                      you experience any problems with it, or contact the maintainer
                      for a new version.
                      <br><br>
-                     Do you want to continue loading the module?"""), 
-                     QMessageBox.Yes | QMessageBox.No)
+                     Do you want to continue loading the module?""" % (moduleName, plugObj.maxVersion, 
+                                 getVersionString(BTCARMORY_VERSION))), 
+                           QMessageBox.Yes | QMessageBox.No)
       
                   if not reply==QMessageBox.Yes:
                      continue

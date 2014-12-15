@@ -13,7 +13,7 @@ from qtdialogs import DlgAddressInfo, DlgDispTxInfo
 class PluginObject(object):
 
    tabName = 'Armory Search'
-   maxVersion = '0.93'
+   maxVersion = '0.93.99'
    
    #############################################################################
    def __init__(self, main):
