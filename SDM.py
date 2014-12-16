@@ -20,7 +20,7 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
-   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS
+   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync
 from bitcoinrpc_jsonrpc import authproxy
 
 
@@ -576,7 +576,7 @@ class SatoshiDaemonManager(object):
       pass    
 
    #############################################################################
-   def startBitcoind(self):
+   def startBitcoind(self, callback):
       self.btcOut, self.btcErr = None,None
       if self.disabled:
          LOGERROR('SDM was disabled, must be re-enabled before starting')
@@ -600,8 +600,19 @@ class SatoshiDaemonManager(object):
       else:
          self.launchBitcoindAndGuardian()
             
+      #New backend code: we wont be polling the SDM state in the main thread
+      #anymore, instead create a thread at bitcoind start to poll the SDM state
+      #and notify the main thread once bitcoind is ready, then terminates
+      self.pollBitcoindState(callback, async=True)
 
-
+      
+   #############################################################################
+   @AllowAsync
+   def pollBitcoindState(self, callback):
+      while self.getSDMStateLogic() != 'BitcoindReady':
+         time.sleep(1.0)
+      callback()
+      
    #############################################################################
    def launchBitcoindAndGuardian(self):
 

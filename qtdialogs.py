@@ -9501,8 +9501,11 @@ class DlgSettings(ArmoryDialog):
 
       self.main.writeSetting('DisableUpgradeNotify', \
                   self.chkDisableUpgradeNotify.isChecked())
-
-      self.main.createCombinedLedger()
+      
+      try:
+         self.main.createCombinedLedger()
+      except: 
+         pass
       super(DlgSettings, self).accept(*args)
 
 

@@ -2309,7 +2309,7 @@ class ArmoryMainWindow(QMainWindow):
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
          TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
-         TheSDM.startBitcoind()
+         TheSDM.startBitcoind(self.loadBlockchainIfNecessary)
          LOGDEBUG('Bitcoind started without error')
          return True
       except:
