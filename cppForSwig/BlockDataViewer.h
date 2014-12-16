@@ -236,13 +236,13 @@ public:
    BtcWallet* registerWallet(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    void unregisterWallet(const string& IDstr);
-   bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
+   bool registerAddresses(const vector<BinaryData>& saVec,
       BinaryData walletID, int32_t doScan);
 
    bool hasID(const BinaryData& ID) const;
    void pprintRegisteredWallets(void) const;
 
-   void WalletGroup::purgeZeroConfPool(
+   void purgeZeroConfPool(
       const map<BinaryData, vector<BinaryData> >& invalidatedTxIOKeys);
 
    const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
