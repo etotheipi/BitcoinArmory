@@ -13,17 +13,15 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 
    zcEnabled_ = false;
    zcLiteMode_ = false;
+
+   groups_.push_back(WalletGroup(this, saf_));
+   groups_.push_back(WalletGroup(this, saf_));
 }
 
 /////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::~BlockDataViewer()
 {
-   ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-   for (auto wlt : registeredWallets_)
-      wlt.second->unregister();
-
-   for (auto wlt : registeredLockboxes_)
-      wlt.second->unregister();
+   groups_.clear();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -31,53 +29,9 @@ BtcWallet* BlockDataViewer::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
    if (IDstr.empty())
-   {
       return nullptr;
-   }
-   LOGINFO << "Registering Wallet " << IDstr;
 
-   // Check if the wallet is already registered
-   BinaryData id(IDstr);
-
-   {
-      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-
-      auto regWlt = registeredWallets_.find(id);
-      if (regWlt != registeredWallets_.end())
-      {
-         flagRefresh(false, id);
-         return regWlt->second.get();
-      }
-   }
-   
-   shared_ptr<BtcWallet> newWallet;
-
-   {
-      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-      // Main thread isnt ruuning, just register the wallet
-      // Add it to the list of wallets to watch
-      // Instantiate the object through insert.
-      auto insertResult = registeredWallets_.insert(make_pair(
-         id, shared_ptr<BtcWallet>(new BtcWallet(this, id))
-         ));
-      newWallet = insertResult.first->second;
-   }
-
-   newWallet->addAddressBulk(scrAddrVec, wltIsNew);
-
-   //register all scrAddr in the wallet with the BDM. It doesn't matter if
-   //the data is overwritten
-   vector<BinaryData> saVec;
-   saVec.reserve(newWallet->getScrAddrMap().size());
-   for (const auto& scrAddrPair : newWallet->getScrAddrMap())
-      saVec.push_back(scrAddrPair.first);
-
-   saf_->registerAddresses(saVec, newWallet, wltIsNew);
-
-   //tell the wallet it is registered
-   newWallet->setRegistered();
-
-   return newWallet.get();
+   return groups_[group_wallet].registerWallet(scrAddrVec, IDstr, wltIsNew);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -86,92 +40,20 @@ BtcWallet* BlockDataViewer::registerLockbox(
 {
    if (IDstr.empty())
       return nullptr;
-
-   LOGINFO << "Registering Lockbox " << IDstr;
-
-   // Check if the lockbox is already registered
-   BinaryData id(IDstr);
    
-   {
-      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-      
-      auto regLB = registeredLockboxes_.find(id);
-      if (regLB != registeredLockboxes_.end())
-      {
-         flagRefresh(false, id);
-         return regLB->second.get();
-      }
-   }
-   
-   shared_ptr<BtcWallet> newLockbox;
-
-   {
-      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-      // Main thread isnt ruuning, just register the wallet
-      // Add it to the list of wallets to watch
-      // Instantiate the object through insert.
-      auto insertResult = registeredLockboxes_.insert(make_pair(
-         id, make_shared<BtcWallet>(this, id)
-      ));
-      newLockbox = insertResult.first->second;
-   }
-
-   newLockbox->addAddressBulk(scrAddrVec, wltIsNew);
-
-   //register all scrAddr in the wallet with the BDM. It doesn't matter if
-   //the data is overwritten
-   vector<BinaryData> saVec;
-   for (const auto& scrAddrPair : newLockbox->getScrAddrMap())
-      saVec.push_back(scrAddrPair.first);
-
-   saf_->registerAddresses(saVec, newLockbox, wltIsNew);
-
-   newLockbox->setRegistered();
-   
-   return newLockbox.get();
+   return groups_[group_lockbox].registerWallet(scrAddrVec, IDstr, wltIsNew);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::unregisterWallet(const string& IDstr)
 {
-   LOGINFO << "Unregistering Wallet " << IDstr;
-
-   BinaryData id(IDstr);
-
-   {
-      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-      auto wltIter = registeredWallets_.find(id);
-      if (wltIter == registeredWallets_.end())
-         return;
-   }
-   
-   {
-      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-      registeredWallets_.erase(id);
-   }
-   
-   bdmPtr_->notifyMainThread();
+   groups_[group_wallet].unregisterWallet(IDstr);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::unregisterLockbox(const string& IDstr)
 {
-   LOGINFO << "Unregistering Lockbox " << IDstr;
-
-   BinaryData id(IDstr);
-
-   {
-      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-      auto wltIter = registeredLockboxes_.find(id);
-      if (wltIter == registeredWallets_.end())
-         return;
-   }
-
-   {
-      ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-      registeredLockboxes_.erase(id);
-   }
-   bdmPtr_->notifyMainThread();
+   groups_[group_lockbox].unregisterWallet(IDstr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -182,31 +64,16 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       startBlock = lastScanned_;
    if (endBlock == UINT32_MAX)
       endBlock = getTopBlockHeight() + 1;
-
-
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   const map<BinaryData, shared_ptr<BtcWallet>> registeredWallets
-      = registeredWallets_;
-   const map<BinaryData, shared_ptr<BtcWallet>> registeredLockboxes
-      = registeredLockboxes_;
-   rl.unlock();
    
-   for (auto& wlt : values(registeredWallets))
-      wlt->merge();
-
-   for (auto& wlt : values(registeredLockboxes))
-      wlt->merge();
+   for (auto& group : groups_)
+      group.merge();
 
    if (!initialized_)
    {
       //out of date history, page all wallets' history
-      pageWalletsHistory();
-      pageLockboxesHistory();
-
-      //Now that the history is computed, we need to grab the starting block
-      //range for the first page (0), and have all wallets load their ledger
-      //from that height.
-      startBlock = hist_.getPageBottom(0);
+      startBlock = UINT32_MAX;
+      for (auto& group : groups_)
+         startBlock = min(startBlock, group.pageHistory());
 
       initialized_ = true;
    }
@@ -215,74 +82,35 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    if (startBlock != endBlock)
    {
       invalidatedZCKeys = zeroConfCont_.purge(
-         [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
+         [this](const BinaryData& sa)->bool 
+         { return saf_->hasScrAddress(sa); });
    }
 
    const bool reorg = (lastScanned_ > startBlock);
 
-   for (auto& wlt : values(registeredWallets))
+   for (auto& group : groups_)
    {
-      wlt->scanWallet(startBlock, endBlock, reorg,
-                            invalidatedZCKeys);
-   }
+      group.scanWallets(startBlock, endBlock, reorg,
+         invalidatedZCKeys);
 
-   for (auto& wlt : values(registeredLockboxes))
-   {
-      wlt->scanWallet(startBlock, endBlock, reorg,
-                            invalidatedZCKeys);
+      group.updateGlobalLedgerFirstPage(startBlock, endBlock,
+         forceRefresh);
    }
 
    zeroConfCont_.resetNewZC();
    lastScanned_ = endBlock;
-
-   if (forceRefresh == BDV_refreshSkipRescan)
-      getHistoryPage(0, true, false);
-   else if(forceRefresh == BDV_refreshAndRescan)
-      getHistoryPage(0, true, true);
-   else if (hist_.getCurrentPage() == 0)
-   {
-      //There is a fundamental difference between the first history page and all
-      //the others: the first page maintains ZC, new blocks and can undergo
-      //reorgs while every other history page is purely static.
-
-      LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
-
-      for (auto& wlt : values(registeredWallets_))
-      {
-         map<BinaryData, TxIOPair> txioMap;
-         wlt->getTxioForRange(startBlock, UINT32_MAX, txioMap);
-
-         map<BinaryData, LedgerEntry> leMap;
-         wlt->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
-
-         if (!wlt->uiFilter_)
-            continue;
-
-         for (const auto& lePair : leMap)
-            globalLedger_.push_back(lePair.second);
-      }
-
-      LedgerEntry_DescendingOrder desc;
-      sort(globalLedger_.begin(), globalLedger_.end(), desc);
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::hasWallet(const BinaryData& ID)
+bool BlockDataViewer::hasWallet(const BinaryData& ID) const
 {
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   return registeredWallets_.find(ID) != registeredWallets_.end();
+   return groups_[group_wallet].hasID(ID);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::pprintRegisteredWallets(void) const
 {
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   for (const auto& wlt : values(registeredWallets_))
-   {
-      cout << "Wallet:";
-      wlt->pprintAlittle(cout);
-   }
+   groups_[group_wallet].pprintRegisteredWallets();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -327,52 +155,8 @@ void BlockDataViewer::purgeZeroConfPool()
       = zeroConfCont_.purge(
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
 
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   for (auto& wlt : values(registeredWallets_))
-   {
-      wlt->purgeZeroConfTxIO(invalidatedTxIOKeys);
-   }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::rewriteZeroConfFile(void)
-{
-   /*SCOPED_TIMER("rewriteZeroConfFile");
-   ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
-
-   ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
-   ;
-
-   for(ts_BinDataMap::const_iterator iter = listSS.begin();
-   iter != listSS.end();
-   ++iter)
-   {
-   const ZeroConfData& zcd = zeroConfMap_[iter->first].get();
-   zcFile.write( (char*)(&zcd.txtime_), sizeof(uint64_t) );
-   zcFile.write( (char*)(zcd.txobj_.getPtr()),  zcd.txobj_.getSize());
-   }
-
-   zcFile.close();*/
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::pprintZeroConfPool(void) const
-{
-   /*ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
-
-   for (ts_BinDataMap::const_iterator iter = listSS.begin();
-   iter != listSS.end(); ++iter
-   )
-   {
-   const ZeroConfData & zcd = zeroConfMap_[iter->first];
-   const Tx & tx = zcd.txobj_;
-   cout << tx.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
-   for(uint32_t i=0; i<tx.getNumTxOut(); i++)
-   cout << tx.getTxOutCopy(i).getValue() << " ";
-   cout << endl;
-   }*/
+   for (auto& group : groups_)
+      group.purgeZeroConfPool(invalidatedTxIOKeys);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -389,17 +173,13 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    if (saVec.empty())
       return false;
    
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   
-   auto wltIter = registeredWallets_.find(walletID);
-   if (wltIter == registeredWallets_.end())
+   for (auto& group : groups_)
    {
-      wltIter = registeredLockboxes_.find(walletID);
-      if (wltIter == registeredWallets_.end())
-         return false;
+      if (group.hasID(walletID))
+         return group.registerAddresses(saVec, walletID, doScan);
    }
 
-   return saf_->registerAddresses(saVec, wltIter->second, doScan);
+   return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -407,21 +187,11 @@ const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
    const BinaryData& txHash) const
 {
    checkBDMisReady();
-
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   
-   for (const auto& wlt : values(registeredWallets_))
-   {
-      const LedgerEntry& le = wlt->getLedgerEntryForTx(txHash);
-      if (le.getTxTime() != 0)
-         return le;
-   }
-
-   return LedgerEntry::EmptyLedger_;
+   return groups_[group_wallet].getTxLedgerByHash(txHash);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash)
+TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash) const
 {
    checkBDMisReady();
 
@@ -437,7 +207,7 @@ TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-Tx BlockDataViewer::getTxByHash(HashString const & txhash)
+Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 {
    checkBDMisReady();
 
@@ -464,10 +234,7 @@ bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// We're going to need the BDM's help to get the sender for a TxIn since it
-// sometimes requires going and finding the TxOut from the distant past
-////////////////////////////////////////////////////////////////////////////////
-TxOut BlockDataViewer::getPrevTxOut(TxIn & txin)
+TxOut BlockDataViewer::getPrevTxOut(TxIn & txin) const
 {
    checkBDMisReady();
 
@@ -481,10 +248,7 @@ TxOut BlockDataViewer::getPrevTxOut(TxIn & txin)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// We're going to need the BDM's help to get the sender for a TxIn since it
-// sometimes requires going and finding the TxOut from the distant past
-////////////////////////////////////////////////////////////////////////////////
-Tx BlockDataViewer::getPrevTx(TxIn & txin)
+Tx BlockDataViewer::getPrevTx(TxIn & txin) const
 {
    checkBDMisReady();
 
@@ -496,7 +260,7 @@ Tx BlockDataViewer::getPrevTx(TxIn & txin)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-HashString BlockDataViewer::getSenderScrAddr(TxIn & txin)
+HashString BlockDataViewer::getSenderScrAddr(TxIn & txin) const
 {
    checkBDMisReady();
 
@@ -508,7 +272,7 @@ HashString BlockDataViewer::getSenderScrAddr(TxIn & txin)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-int64_t BlockDataViewer::getSentValue(TxIn & txin)
+int64_t BlockDataViewer::getSentValue(TxIn & txin) const
 {
    checkBDMisReady();
 
@@ -536,12 +300,8 @@ uint32_t BlockDataViewer::getTopBlockHeight(void) const
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::reset()
 {
-   ReadWriteLock::WriteLock wl(registeredWalletsLock_);
-   for (auto& wlt : values(registeredWallets_))
-      wlt->reset();
-
-   for (auto& wlt : values(registeredLockboxes_))
-      wlt->reset();
+   for (auto& group : groups_)
+      group.reset();
 
    rescanZC_   = false;
    zcEnabled_  = false;
@@ -551,95 +311,6 @@ void BlockDataViewer::reset()
 
    lastScanned_ = 0;
    initialized_ = false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-map<uint32_t, uint32_t> BlockDataViewer::computeWalletsSSHSummary(
-   bool forcePaging)
-{
-   map<uint32_t, uint32_t> fullSummary;
-
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   
-   for (auto& wlt : values(registeredWallets_))
-   {      
-      if (forcePaging)
-         wlt->mapPages();
-      
-      if(wlt->uiFilter_ == false)
-         continue;
-            
-      const auto& wltSummary = wlt->getSSHSummary();
-
-      for (auto summary : wltSummary)
-         fullSummary[summary.first] += summary.second;
-   }
-
-   return fullSummary;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::pageWalletsHistory(bool forcePaging)
-{
-   auto computeSummary = [this](bool force)->map<uint32_t, uint32_t>
-      { return this->computeWalletsSSHSummary(force); };
-   
-   hist_.mapHistory(computeSummary, forcePaging);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::pageLockboxesHistory()
-{
-   for (auto& wlt : values(registeredLockboxes_))
-      wlt->mapPages();
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry>& BlockDataViewer::getHistoryPage(uint32_t pageId, 
-   bool rebuildLedger, bool remapWallets)
-{
-   checkBDMisReady();
-
-   if (pageId == hist_.getCurrentPage() && !rebuildLedger && !remapWallets)
-      return globalLedger_;
-
-   if (rebuildLedger || remapWallets)
-      pageWalletsHistory(remapWallets);
-
-   hist_.setCurrentPage(pageId);
-
-   {
-      globalLedger_.clear();
-      ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-      for (auto& wlt : values(registeredWallets_))
-      {
-         auto getTxio = [&wlt](uint32_t start, uint32_t end,
-            map<BinaryData, TxIOPair>& outMap)->void
-         { return wlt->getTxioForRange(start, end, outMap); };
-
-         auto buildLedgers = [&wlt](map<BinaryData, LedgerEntry>& le,
-            const map<BinaryData, TxIOPair>& txioMap,
-            uint32_t startBlock, uint32_t endBlock)->void
-         { wlt->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
-
-         map<BinaryData, LedgerEntry> leMap;
-         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
-      
-         //this should be locked to a single thread
-
-         if (!wlt->uiFilter_)
-            continue;
-
-         for (const LedgerEntry& le : values(leMap))
-            globalLedger_.push_back(le);
-      }
-   }
-
-   LedgerEntry_DescendingOrder desc;
-   sort(globalLedger_.begin(), globalLedger_.end(), desc);
-
-   return globalLedger_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -659,16 +330,53 @@ void BlockDataViewer::scanScrAddrVector(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::updateWalletFilters(const vector<BinaryData>& walletsList)
+size_t BlockDataViewer::getWalletsPageCount(void) const
 {
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
-   for (auto& wlt : values(registeredWallets_))
-      wlt->uiFilter_ = false;
+   checkBDMisReady();
 
-   for (auto walletID : walletsList)
-      registeredWallets_[walletID]->uiFilter_ = true;
+   return groups_[group_wallet].getPageCount();
+}
 
-   flagRefresh(false, BinaryData());
+////////////////////////////////////////////////////////////////////////////////
+const vector<LedgerEntry>& BlockDataViewer::getWalletsHistoryPage(uint32_t pageId,
+   bool rebuildLedger, bool remapWallets)
+{
+   checkBDMisReady();
+
+   return groups_[group_wallet].getHistoryPage(pageId, 
+      rebuildLedger, remapWallets);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+size_t BlockDataViewer::getLockboxesPageCount(void) const
+{
+   checkBDMisReady();
+
+   return groups_[group_lockbox].getPageCount();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const vector<LedgerEntry>& BlockDataViewer::getLockboxesHistoryPage(uint32_t pageId,
+   bool rebuildLedger, bool remapWallets)
+{
+   checkBDMisReady();
+
+   return groups_[group_lockbox].getHistoryPage(pageId,
+      rebuildLedger, remapWallets);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::updateWalletsLedgerFilter(
+   const vector<BinaryData>& walletsList)
+{
+   groups_[group_wallet].updateLedgerFilter(walletsList);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::updateLockboxesLedgerFilter(
+   const vector<BinaryData>& walletsList)
+{
+   groups_[group_lockbox].updateLedgerFilter(walletsList);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -690,7 +398,7 @@ void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID)
    if (refreshID.getSize())
       refreshIDSet_.insert(refreshID);
 
-   bdmPtr_->notifyMainThread();
+   notifyMainThread();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -787,106 +495,346 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-StandAloneHistoryPager BlockDataViewer::getStandAloneHistoryPager(
-   const vector<BinaryData>& wltIDs, HistoryOrdering order) const
+WalletGroup BlockDataViewer::getStandAloneWalletGroup(
+   const vector<BinaryData>& wltIDs, HistoryOrdering order)
 {
-   checkBDMisReady();
+  checkBDMisReady();
 
-   StandAloneHistoryPager sahp(this, order);
-   ReadWriteLock::ReadLock rl(registeredWalletsLock_);
+   WalletGroup wg(this, this->saf_);
+   wg.order_ = order;
+
+   auto wallets   = groups_[group_wallet].getWalletMap();
+   auto lockboxes = groups_[group_lockbox].getWalletMap();
 
    for (const auto& wltid : wltIDs)
    {
-      auto wltIter = registeredWallets_.find(wltid);
-      if (wltIter != registeredWallets_.end())
-      {
-         auto& wltSAmap = sahp.scrAddrMap_[wltIter->first];
-         wltSAmap = wltIter->second->scrAddrMap_;
-      }
+      auto wltIter = wallets.find(wltid);
+      if (wltIter != wallets.end())
+         wg.wallets_[wltid] = wltIter->second;
       else
       {
-         auto lbIter = registeredLockboxes_.find(wltid);
-         if (lbIter != registeredLockboxes_.end())
-         {
-            auto& lbSAmap = sahp.scrAddrMap_[lbIter->first];
-            lbSAmap = lbIter->second->scrAddrMap_;
-         }
+         auto lbIter = lockboxes.find(wltid);
+         if (lbIter != lockboxes.end())
+            wg.wallets_[wltid] = lbIter->second;
       }
    }
 
-   rl.unlock();
+   wg.pageHistory(false);
 
-   sahp.mapHistory();
-
-   return sahp;
+   return wg;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//// StandAloneHistoryPager
+//// WalletGroup
 ////////////////////////////////////////////////////////////////////////////////
-void StandAloneHistoryPager::mapHistory(void)
+WalletGroup::~WalletGroup()
 {
-   auto getScrAddrHistSummary = [this](bool)->map<uint32_t, uint32_t>
-   {
-      map<uint32_t, uint32_t> rt;
-      for (const auto& wlt : this->scrAddrMap_)
-      {
-         for (const auto& scrAddr : wlt.second)
-         {
-            auto& summary = scrAddr.second.getHistSSHsummary();
-
-            for (auto& range : summary)
-            {
-               auto& rt_range = rt[range.first];
-               rt_range += range.second;
-            }
-         }
-      }
-      return rt;
-   };
-
-   hist_.mapHistory(getScrAddrHistSummary, false);
+   for (auto& wlt : wallets_)
+      wlt.second->unregister();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> StandAloneHistoryPager::getHistoryPage(size_t pageId)
+BtcWallet* WalletGroup::registerWallet(
+   vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
+{
+   if (IDstr.empty())
+   {
+      return nullptr;
+   }
+
+   // Check if the wallet is already registered
+   ReadWriteLock::WriteLock wl(lock_);
+   BinaryData id(IDstr);
+
+   {
+      auto regWlt = wallets_.find(id);
+      if (regWlt != wallets_.end())
+      {
+         bdvPtr_->flagRefresh(false, id);
+         return regWlt->second.get();
+      }
+   }
+
+   shared_ptr<BtcWallet> newWallet;
+
+   {
+      // Main thread isnt running, just register the wallet
+      // Add it to the list of wallets to watch
+      // Instantiate the object through insert.
+      auto insertResult = wallets_.insert(make_pair(
+         id, shared_ptr<BtcWallet>(new BtcWallet(bdvPtr_, id))
+         ));
+      newWallet = insertResult.first->second;
+   }
+
+   newWallet->addAddressBulk(scrAddrVec, wltIsNew);
+
+   //register all scrAddr in the wallet with the BDM. It doesn't matter if
+   //the data is overwritten
+   vector<BinaryData> saVec;
+   saVec.reserve(newWallet->getScrAddrMap().size());
+   for (const auto& scrAddrPair : newWallet->getScrAddrMap())
+      saVec.push_back(scrAddrPair.first);
+
+   saf_->registerAddresses(saVec, newWallet, wltIsNew);
+
+   //tell the wallet it is registered
+   newWallet->setRegistered();
+
+   return newWallet.get();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletGroup::unregisterWallet(const string& IDstr)
+{
+   ReadWriteLock::WriteLock wl(lock_);
+
+   BinaryData id(IDstr);
+
+   {
+      auto wltIter = wallets_.find(id);
+      if (wltIter == wallets_.end())
+         return;
+   }
+
+   wallets_.erase(id);
+
+   bdvPtr_->notifyMainThread();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
+   BinaryData walletID, int32_t doScan)
+{
+   if (saVec.empty())
+      return false;
+
+   ReadWriteLock::ReadLock rl(lock_);
+
+   auto wltIter = wallets_.find(walletID);
+   if (wltIter == wallets_.end())
+      return false;
+
+   return saf_->registerAddresses(saVec, wltIter->second, doScan);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool WalletGroup::hasID(const BinaryData& ID) const
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   return wallets_.find(ID) != wallets_.end();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void WalletGroup::pprintRegisteredWallets(void) const
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (const auto& wlt : values(wallets_))
+   {
+      cout << "Wallet:";
+      wlt->pprintAlittle(cout);
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void WalletGroup::purgeZeroConfPool(
+   const map<BinaryData, vector<BinaryData> >& invalidatedTxIOKeys)
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (auto& wlt : values(wallets_))
+      wlt->purgeZeroConfTxIO(invalidatedTxIOKeys);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+const LedgerEntry& WalletGroup::getTxLedgerByHash(
+   const BinaryData& txHash) const
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (const auto& wlt : values(wallets_))
+   {
+      const LedgerEntry& le = wlt->getLedgerEntryForTx(txHash);
+      if (le.getTxTime() != 0)
+         return le;
+   }
+
+   return LedgerEntry::EmptyLedger_;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void WalletGroup::reset()
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (const auto& wlt : values(wallets_))
+      wlt->reset();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<uint32_t, uint32_t> WalletGroup::computeWalletsSSHSummary(
+   bool forcePaging)
+{
+   map<uint32_t, uint32_t> fullSummary;
+
+   ReadWriteLock::ReadLock rl(lock_);
+
+   for (auto& wlt : values(wallets_))
+   {
+      if (forcePaging)
+         wlt->mapPages();
+
+      if (wlt->uiFilter_ == false)
+         continue;
+
+      const auto& wltSummary = wlt->getSSHSummary();
+
+      for (auto summary : wltSummary)
+         fullSummary[summary.first] += summary.second;
+   }
+
+   return fullSummary;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t WalletGroup::pageHistory(bool forcePaging)
+{
+   auto computeSummary = [this](bool force)->map<uint32_t, uint32_t>
+   { return this->computeWalletsSSHSummary(force); };
+
+   hist_.mapHistory(computeSummary, forcePaging);
+
+   return hist_.getPageBottom(0);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
+   bool rebuildLedger, bool remapWallets)
 {
    if (order_ == order_ascending)
       pageId = hist_.getPageCount() - pageId - 1;
 
-   vector<LedgerEntry> vle;
-   for (auto& wlt : scrAddrMap_)
+   if (pageId == hist_.getCurrentPage() && !rebuildLedger && !remapWallets)
+      return globalLedger_;
+
+   if (rebuildLedger || remapWallets)
+      pageHistory(remapWallets);
+
+   hist_.setCurrentPage(pageId);
+
    {
-      auto getTxio = [&wlt](uint32_t start, uint32_t end,
-         map<BinaryData, TxIOPair>& outMap)->void
+      globalLedger_.clear();
+      ReadWriteLock::ReadLock rl(lock_);
+      for (auto& wlt : values(wallets_))
       {
-         for (const auto& scrAddr : wlt.second)
-            scrAddr.second.getHistoryForScrAddr(start, end, outMap, false);
-      };
-      
-      auto buildLedgers = [this, &wlt](map<BinaryData, LedgerEntry>& leMap,
-         const map<BinaryData, TxIOPair>& txioMap,
-         uint32_t startBlock, uint32_t endBlock)->void
-      {
-         LedgerEntry::computeLedgerMap(leMap, txioMap, startBlock, endBlock, wlt.first,
-            bdvPtr_->getDB(), &bdvPtr_->blockchain(), false);
-      };
+         auto getTxio = [&wlt](uint32_t start, uint32_t end,
+            map<BinaryData, TxIOPair>& outMap)->void
+         { return wlt->getTxioForRange(start, end, outMap); };
 
-      map<BinaryData, LedgerEntry> mapLe;
-      hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, mapLe);
+         auto buildLedgers = [&wlt](map<BinaryData, LedgerEntry>& le,
+            const map<BinaryData, TxIOPair>& txioMap,
+            uint32_t startBlock, uint32_t endBlock)->void
+         { wlt->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
-      for (const auto& le : mapLe)
-         vle.push_back(le.second);
+         map<BinaryData, LedgerEntry> leMap;
+         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
+
+         //this should be locked to a single thread
+
+         if (!wlt->uiFilter_)
+            continue;
+
+         for (const LedgerEntry& le : values(leMap))
+            globalLedger_.push_back(le);
+      }
    }
+
    if (order_ == order_ascending)
-      sort(vle.begin(), vle.end());
+      sort(globalLedger_.begin(), globalLedger_.end());
    else
    {
       LedgerEntry_DescendingOrder desc;
-      sort(vle.begin(), vle.end(), desc);
+      sort(globalLedger_.begin(), globalLedger_.end(), desc);
    }
 
-   return vle;
+   return globalLedger_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (auto& wlt : values(wallets_))
+      wlt->uiFilter_ = false;
+
+   for (auto walletID : walletsList)
+      wallets_[walletID]->uiFilter_ = true;
+
+   bdvPtr_->flagRefresh(false, BinaryData());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletGroup::merge()
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (auto& wlt : values(wallets_))
+      wlt->merge();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletGroup::scanWallets(uint32_t startBlock, uint32_t endBlock, 
+   bool reorg, map<BinaryData, vector<BinaryData> > invalidatedZCKeys)
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   for (auto& wlt : values(wallets_))
+      wlt->scanWallet(startBlock, endBlock, reorg, invalidatedZCKeys);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletGroup::updateGlobalLedgerFirstPage(uint32_t startBlock,
+   uint32_t endBlock, BDV_refresh forceRefresh)
+{
+   //There is a fundamental difference between the first history page and all
+   //the others: the first page maintains ZC, new blocks and can undergo
+   //reorgs while every other history page is purely static
+
+   ReadWriteLock::ReadLock rl(lock_);
+
+   if (forceRefresh == BDV_refreshSkipRescan)
+      getHistoryPage(0, true, false);
+   else if (forceRefresh == BDV_refreshAndRescan)
+      getHistoryPage(0, true, true);
+   else if (hist_.getCurrentPage() == 0)
+   {
+      LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
+
+      for (auto& wlt : values(wallets_))
+      {
+         map<BinaryData, TxIOPair> txioMap;
+         wlt->getTxioForRange(startBlock, UINT32_MAX, txioMap);
+
+         map<BinaryData, LedgerEntry> leMap;
+         wlt->updateWalletLedgersFromTxio(leMap, txioMap, startBlock, UINT32_MAX);
+
+         if (!wlt->uiFilter_)
+            continue;
+
+         for (const auto& lePair : leMap)
+            globalLedger_.push_back(lePair.second);
+      }
+
+      if (order_ == order_ascending)
+         sort(globalLedger_.begin(), globalLedger_.end());
+      else
+      {
+         LedgerEntry_DescendingOrder desc;
+         sort(globalLedger_.begin(), globalLedger_.end(), desc);
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<BinaryData, shared_ptr<BtcWallet> > WalletGroup::getWalletMap(void)
+{
+   ReadWriteLock::ReadLock rl(lock_);
+   return wallets_;
 }
 
 // kate: indent-width 3; replace-tabs on;

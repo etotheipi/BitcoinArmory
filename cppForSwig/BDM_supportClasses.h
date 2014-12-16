@@ -282,7 +282,7 @@ public:
       function<bool(const BinaryData&)>);
 
    const map<HashString, map<BinaryData, TxIOPair> >& 
-      getNewTxioMap(void);
+      getNewTxioMap(void) const;
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 

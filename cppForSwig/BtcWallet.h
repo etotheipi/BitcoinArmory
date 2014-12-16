@@ -49,7 +49,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
-   friend class BlockDataViewer;
+   friend class WalletGroup;
 
    static const uint32_t MIN_UTXO_PER_TXN = 100;
 

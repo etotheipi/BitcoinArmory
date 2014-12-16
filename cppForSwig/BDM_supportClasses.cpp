@@ -708,7 +708,7 @@ bool ZeroConfContainer::getKeyForTxHash(const BinaryData& txHash,
 
 ///////////////////////////////////////////////////////////////////////////////
 const map<HashString, map<BinaryData, TxIOPair> >&
-ZeroConfContainer::getNewTxioMap()
+ZeroConfContainer::getNewTxioMap() const
 {
    return newTxioMap_;
 }

@@ -24,7 +24,14 @@ typedef enum
    order_descending
 }HistoryOrdering;
 
-class StandAloneHistoryPager;
+
+typedef enum
+{
+   group_wallet,
+   group_lockbox
+}LedgerGroups;
+
+class WalletGroup;
 
 class BDMnotReady : public exception
 {
@@ -57,13 +64,13 @@ public:
    void scanWallets(uint32_t startBlock = UINT32_MAX,
       uint32_t endBlock = UINT32_MAX, BDV_refresh forceRefresh = BDV_dontRefresh);
    
-   bool hasWallet(const BinaryData& ID);
+   bool hasWallet(const BinaryData& ID) const;
 
    bool registerAddresses(const vector<BinaryData>& saVec, 
                            BinaryData walletID, int32_t doScan);
 
    map<BinaryData, map<BinaryData, TxIOPair> >
-      getNewZeroConfTxIOMap()
+      getNewZeroConfTxIOMap() const
    { return zeroConfCont_.getNewTxioMap(); }
 
    const map<BinaryData, map<BinaryData, TxIOPair> >&
@@ -82,20 +89,18 @@ public:
    void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime,
       bool writeToFile);
    void purgeZeroConfPool(void);
-   void pprintZeroConfPool(void) const;
-   void rewriteZeroConfFile(void);
-   bool isZcEnabled() { return zcEnabled_; }
+   bool isZcEnabled() const { return zcEnabled_; }
    bool parseNewZeroConfTx(void);
 
-   TX_AVAILABILITY   getTxHashAvail(BinaryDataRef txhash);
-   Tx                getTxByHash(BinaryData const & txHash);
-   TxOut             getPrevTxOut(TxIn & txin);
-   Tx                getPrevTx(TxIn & txin);
+   TX_AVAILABILITY   getTxHashAvail(BinaryDataRef txhash) const;
+   Tx                getTxByHash(BinaryData const & txHash) const;
+   TxOut             getPrevTxOut(TxIn & txin) const;
+   Tx                getPrevTx(TxIn & txin) const;
    
    bool isTxMainBranch(const Tx &tx) const;
 
-   BinaryData        getSenderScrAddr(TxIn & txin);
-   int64_t           getSentValue(TxIn & txin);
+   BinaryData        getSenderScrAddr(TxIn & txin) const;
+   int64_t           getSentValue(TxIn & txin) const;
 
    LMDBBlockDatabase* getDB(void) const;
    const Blockchain& blockchain() const  { return *bc_; }
@@ -107,23 +112,27 @@ public:
 
    void reset();
 
-   map<uint32_t, uint32_t> computeWalletsSSHSummary(bool forcePaging = true);
-   const vector<LedgerEntry>& getHistoryPage(uint32_t, 
+   size_t getWalletsPageCount(void) const;
+   const vector<LedgerEntry>& getWalletsHistoryPage(uint32_t, 
                                              bool rebuildLedger = false, 
                                              bool remapWallets = false);
-   size_t getPageCount(void) const { return hist_.getPageCount(); }
+
+   size_t getLockboxesPageCount(void) const;
+   const vector<LedgerEntry>& getLockboxesHistoryPage(uint32_t,
+      bool rebuildLedger = false,
+      bool remapWallets = false);
 
    void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                            uint32_t startBlock, uint32_t endBlock) const;
 
    void flagRefresh(bool withRemap, const BinaryData& refreshId);
-   void updateWalletFilters(const vector<BinaryData>& walletsVec);
+   void notifyMainThread(void) const { bdmPtr_->notifyMainThread(); }
 
    StoredHeader getMainBlockFromDB(uint32_t height) const;
    StoredHeader getBlockFromDB(uint32_t height, uint8_t dupID) const;
    bool scrAddressIsRegistered(const BinaryData& scrAddr) const;
    
-   const BlockHeader* getHeaderPtrForTx(Tx& theTx)
+   const BlockHeader* getHeaderPtrForTx(Tx& theTx) const
       { return &bc_->getHeaderPtrForTx(theTx); }
 
    vector<UnspentTxOut> 
@@ -163,12 +172,11 @@ public:
    ScrAddrFilter* getSAF(void) { return saf_; }
    const BlockDataManagerConfig& config() const { return bdmPtr_->config(); }
 
-   StandAloneHistoryPager getStandAloneHistoryPager(
-      const vector<BinaryData>& wltIDs, HistoryOrdering order) const;
+   WalletGroup getStandAloneWalletGroup(
+      const vector<BinaryData>& wltIDs, HistoryOrdering order);
 
-private:
-   void pageWalletsHistory(bool forcePaging = true);
-   void pageLockboxesHistory();
+   void updateWalletsLedgerFilter(const vector<BinaryData>& walletsList);
+   void updateLockboxesLedgerFilter(const vector<BinaryData>& walletsList);
 
 public:
    bool rescanZC_    = false;
@@ -180,22 +188,6 @@ public:
 
 private:
 
-   enum WalletType
-   {
-      TypeWallet, TypeLockbox
-   };
-   
-   struct walletInfo
-   {
-      BinaryData            ID_;
-      shared_ptr<BtcWallet> wallet_;
-      
-      WalletType            type_; 
-      
-      //true: register, false: unregister
-      bool                  register_; 
-   };
-
    BlockDataManager_LevelDB* bdmPtr_;
    LMDBBlockDatabase*        db_;
    Blockchain*               bc_;
@@ -204,55 +196,93 @@ private:
    //Wanna keep the BtcWallet non copyable so the only existing object for
    //a given wallet is in the registered* map. Don't want to save pointers
    //to avoid cleanup snafus. Time for smart pointers
-   
-   map<BinaryData, shared_ptr<BtcWallet> >    registeredWallets_;
-   map<BinaryData, shared_ptr<BtcWallet> >    registeredLockboxes_;
 
-   ZeroConfContainer             zeroConfCont_;
+   vector<WalletGroup> groups_;
+
+   ZeroConfContainer   zeroConfCont_;
    
    bool     zcEnabled_;
    bool     zcLiteMode_;
 
    uint32_t lastScanned_ = 0;
    bool initialized_ = false;
+};
+
+
+class WalletGroup
+{
+   friend class BlockDataViewer;
+
+public:
+
+   WalletGroup(BlockDataViewer* bdvPtr, ScrAddrFilter* saf) :
+      bdvPtr_(bdvPtr), saf_(saf)
+   {}
+
+   WalletGroup(const WalletGroup& wg)
+   {
+      this->bdvPtr_ = wg.bdvPtr_;
+      this->saf_ = wg.saf_;
+
+      this->hist_ = wg.hist_;
+      this->order_ = wg.order_;
+
+      ReadWriteLock::ReadLock rl(this->lock_);
+      this->wallets_ = wg.wallets_;
+   }
+
+   ~WalletGroup();
+
+   BtcWallet* registerWallet(
+      vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
+   void unregisterWallet(const string& IDstr);
+   bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
+      BinaryData walletID, int32_t doScan);
+
+   bool hasID(const BinaryData& ID) const;
+   void pprintRegisteredWallets(void) const;
+
+   void WalletGroup::purgeZeroConfPool(
+      const map<BinaryData, vector<BinaryData> >& invalidatedTxIOKeys);
+
+   const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
+
+   void reset();
+   
+   size_t getPageCount(void) const { return hist_.getPageCount(); }
+   const vector<LedgerEntry>& getHistoryPage(uint32_t pageId,
+      bool rebuildLedger = false, bool remapWallets = false);
+
+private:   
+   map<uint32_t, uint32_t> computeWalletsSSHSummary(
+      bool forcePaging);
+   uint32_t pageHistory(bool forcePaging = true);
+   void updateLedgerFilter(const vector<BinaryData>& walletsVec);
+
+   void merge();
+   void scanWallets(uint32_t, uint32_t, bool,
+      map<BinaryData, vector<BinaryData> >);
+   void updateGlobalLedgerFirstPage(uint32_t startBlock, 
+      uint32_t endBlock, BDV_refresh forceRefresh);
+
+   map<BinaryData, shared_ptr<BtcWallet> > getWalletMap(void);
+
+private:
+   map<BinaryData, shared_ptr<BtcWallet> > wallets_;
+   mutable ReadWriteLock lock_;
 
    //The globalLedger (used to render the main transaction ledger) is
    //different from wallet ledgers. While each wallet only has a single
    //entry per transactions (wallets merge all of their scrAddr txn into
    //a single one), the globalLedger does not merge wallet level txn. It
-   //can thus have several entries under the same transaction, and cannot
-   //be a map.
+   //can thus have several entries under the same transaction. Thus, this
+   //cannot be a map nor a set.
    vector<LedgerEntry> globalLedger_;
    HistoryPager hist_;
+   HistoryOrdering order_ = order_descending;
 
-   mutable ReadWriteLock registeredWalletsLock_;
-   
-};
-
-class StandAloneHistoryPager
-{
-   friend class BlockDataViewer;
-
-public:
-   StandAloneHistoryPager(const BlockDataViewer* bdv, HistoryOrdering order) :
-      bdvPtr_(bdv), order_(order)
-   {}
-
-   vector<LedgerEntry> getHistoryPage(size_t);
-   size_t getPageCount(void) const
-   { return hist_.getPageCount(); }
-
-private:
-   void mapHistory(void);
-
-private:
-   HistoryPager hist_;
-   HistoryOrdering order_;
-
-   //map<wltId, set<scrAddr>>
-   map<BinaryData, map<BinaryData, ScrAddrObj> > scrAddrMap_;
-
-   const BlockDataViewer* bdvPtr_ = nullptr;
+   BlockDataViewer* bdvPtr_;
+   ScrAddrFilter*   saf_;
 };
 
 #endif

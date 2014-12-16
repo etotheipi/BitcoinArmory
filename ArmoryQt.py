@@ -905,7 +905,7 @@ class ArmoryMainWindow(QMainWindow):
          if vis:
             wltIDList.append(self.walletIDList[i])
 
-      TheBDM.bdv().updateWalletFilters(wltIDList)      
+      TheBDM.bdv().updateWalletsLedgerFilter(wltIDList)      
 
 
    ############################################################################
@@ -3027,11 +3027,10 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       self.combinedLedger = []
-      self.combinedLedger.extend(TheBDM.bdv().getHistoryPage(self.mainLedgerCurrentPage -1))
+      self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
-      topBlockHeight = TheBDM.getTopBlockHeight()
 
       if bdmState == BDM_BLOCKCHAIN_READY:
          for wltID in wltIDList:
@@ -3040,40 +3039,6 @@ class ArmoryMainWindow(QMainWindow):
             spendFunds += wlt.getBalance('Spendable')
             unconfFunds += wlt.getBalance('Unconfirmed')
 
-
-      '''
-      Python can't sort tx history anymore since it only receives partial data. Need 
-      the full data to apply any fancy filter, so this is all handled on the C++ side 
-      and served pre-computed for Python to simply render to the GUI.
-      
-      def keyFuncNumConf(x):
-         numConf = x.getBlockNum() - topBlockHeight  # returns neg for reverse sort
-         txTime  = x.getTxTime() 
-         txhash  = x.getTxHash()
-         value   = x.getValue()
-         return (numConf, txTime, txhash, value)
-
-      def keyFuncTxTime(x):
-         numConf = x.getBlockNum() - topBlockHeight  # returns neg for reverse sort
-         txTime  = x.getTxTime() 
-         txhash  = x.getTxHash()
-         value   = x.getValue()
-         return (txTime, numConf, txhash, value)
-
-
-      # Apply table sorting -- this is very fast
-      sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
-      if self.sortLedgCol == LEDGERCOLS.NumConf:
-         self.combinedLedger.sort(key=keyFuncNumConf, reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.DateStr:
-         self.combinedLedger.sort(key=keyFuncTxTime, reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.WltName:
-         self.combinedLedger.sort(key=lambda x: self.walletMap[x.getWalletID()].labelName, reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.Comment:
-         self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x), reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.Amount:
-         self.combinedLedger.sort(key=lambda x: abs(x.getValue()), reverse=sortDir)
-      '''
             
       self.ledgerSize = len(self.combinedLedger)
 
@@ -3100,7 +3065,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
 
-         pageCount = TheBDM.bdv().getPageCount()
+         pageCount = TheBDM.bdv().getWalletsPageCount()
          self.frmPages.setVisible(pageCount > 1)
          self.lblNPages.setText(' out of %d' % pageCount)
          
@@ -3118,10 +3083,8 @@ class ArmoryMainWindow(QMainWindow):
 
       # In expert mode, we're updating the lockbox info, too
       try:
-         lockboxTable = []
-         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-            ledger = cppWlt.getHistoryPageAsVector(0)
-            lockboxTable.extend(ledger)
+         lockboxTable = TheBDM.bdv().getLockboxesHistoryPage(0)
+
 
          self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
          self.lockboxLedgModel.ledger = self.lockboxLedgTable

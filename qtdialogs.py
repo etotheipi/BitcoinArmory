@@ -9799,14 +9799,14 @@ class DlgExportTxHistory(ArmoryDialog):
          f.write(','.join(headerRow) + '\n')    
          
          #create pager object
-         historyPager = TheBDM.bdv().getStandAloneHistoryPager(wltIDList, order)
-         nPages = historyPager.getPageCount()  
+         walletGroup = TheBDM.bdv().getStandAloneWalletGroup(wltIDList, order)
+         nPages = walletGroup.getPageCount()  
       
          #run through all pages
          for page in range(0, nPages):
             # Each value in COL.Amount will be exactly how much the wallet balance
             # increased or decreased as a result of this transaction.
-            combinedLedger = historyPager.getHistoryPage(page)
+            combinedLedger = walletGroup.getHistoryPage(page)
             ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
                                                          showSentToSelfAmt=True)
       
