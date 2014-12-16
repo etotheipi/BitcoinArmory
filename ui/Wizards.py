@@ -96,7 +96,7 @@ class WalletWizard(ArmoryWizard):
       
       # Page 5: Create Watching Only Wallet -- but only if expert, or offline
       self.hasCWOWPage = False
-      if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
+      if self.main.usermode==USERMODE.Expert or TheBDM.getState() == BDM_OFFLINE:
          self.hasCWOWPage = True
          self.createWOWPage = CreateWatchingOnlyWalletPage(self)
          self.addPage(self.createWOWPage)
