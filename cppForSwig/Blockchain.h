@@ -76,7 +76,7 @@ public:
    }
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
-   void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db);
+   void putNewBareHeaders(LMDBBlockDatabase *db);
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);
