@@ -899,9 +899,9 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
 
    Right now only supports SIGHASH_ALL
    """
-   
-   if not hashcode in [1, SIGHASH_NONE|SIGHASH_ANYONECANPAY]:
-      LOGERROR('Only hashcode=1 and 82 are supported at this time!')
+   if not hashcode == 1:
+      # NO OTHER HASHCODES HAVE BEEN TESTED
+      LOGERROR('Only hashcode=1 is supported at this time!')
       LOGERROR('Requested hashcode=%d' % hashcode)
       return None
 
@@ -913,9 +913,14 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
    # Set the script of the TxIn being signed, to the previous TxOut script
    txCopy.inputs[txInIndex].binScript = prevTxOutScript
    
-   # for SIGHASH_NONE|SIGHASH_ANYONECANPAY remove everything except the current input
-   if hashcode == SIGHASH_NONE|SIGHASH_ANYONECANPAY:
+   # Remove outputs given SIGHASH type (DISABLED DUE TO FIRST CONDITIONAL ABOVE)
+   if hashcode & 0x7fffffff == SIGHASH_NONE:
       txCopy.outputs = []
+   elif hashcode & 0x7fffffff == SIGHASH_SINGLE:
+      txCopy.outputs = [txCopy.outputs[txInIndex]]
+
+   # Remove all other inputs if needed (DISABLED DUE TO FIRST CONDITIONAL ABOVE)
+   if hashcode & SIGHASH_ANYONECANPAY:
       txCopy.inputs = [txCopy.inputs[txInIndex]]
 
    hashCode1  = int_to_binary(hashcode, widthBytes=1)
@@ -1317,6 +1322,9 @@ class UnsignedTxInput(AsciiSerializable):
 
       rBin, sBin = getRSFromDERSig(sigStr)
       hashcode  = binary_to_int(sigStr[-1])
+      if not hashcode==1:
+         LOGERROR('Cannot allow non-standard SIGHASH types: %d' % hashcode)
+         return -1
 
       # Don't forget "sigStr" has the 1-byte hashcode at the end
       msg = generatePreHashTxMsgToSign(pytx, txiIdx,

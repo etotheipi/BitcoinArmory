@@ -33,12 +33,6 @@ def verifyZipSignature(outerZipFilePath):
       # There should only be 2 files in this zip:
       #    The inner zip file and the sig file
       if len(outerZipFile.namelist()) == 3:
-         # From chat with Alan:
-         # I don't think it's a vulnerability in this case, but consider that you have two files with contents
-         # "abcdefgh" and "12345678"... doing what we did you are signing "abcdefgh12345678"....  someone could
-         #  manipulate the two files to be "abcd" and "efgh12345678", and the signature would still be valid
-         #  in this case, there's no way for that to be a real problem, but that kind of thing has been exploited before
-         # so sign sha256(sha256(a) + sha256(b))
          dataToSign = sha256(sha256(outerZipFile.read(INNER_ZIP_FILENAME)) +
                       sha256(outerZipFile.read(PROPERTIES_FILENAME)))
          signature = outerZipFile.read(SIGNATURE_FILENAME)
