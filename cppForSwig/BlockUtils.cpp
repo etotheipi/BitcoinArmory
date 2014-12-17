@@ -727,7 +727,7 @@ pair<BlockFilePosition, vector<BlockHeader*>>
          const HashString blockhash = block.getThisHash();
          
          const uint32_t nTx = brr.get_var_int();
-         BlockHeader& addedBlock = blockchain().addBlock(blockhash, block);
+         BlockHeader& addedBlock = blockchain().addNewBlock(blockhash, block);
 
          blockHeadersAdded.push_back(&addedBlock);
          //LOGINFO << "Added block header with hash " << addedBlock.getThisHash().copySwapEndian().toHexStr()
@@ -1075,7 +1075,7 @@ void BlockDataManager_LevelDB::loadDiskState(
       << BtcUtils::numToStrWCommas(readBlockHeaders_->totalBlockchainBytes());
       
    // load the headers from lmdb into blockchain()
-   uint32_t headerCountFromDB = loadBlockHeadersFromDB(progress);
+   loadBlockHeadersFromDB(progress);
 
    {
       progress(BDMPhase_OrganizingChain, 0, 0, 0);
@@ -1088,6 +1088,8 @@ void BlockDataManager_LevelDB::loadDiskState(
          LOGERR << "Did we shut down last time on an orphan block?";
       }
    }
+
+   blockchain_.setDuplicateIDinRAM(iface_, true);
    
    if (forceRescan)
    {
@@ -1147,13 +1149,13 @@ void BlockDataManager_LevelDB::loadDiskState(
    //For now we will only run in on headers found in the DB, in order
    //to get their dupIDs in RAM. This will allow us to undo the current
    //blocks currently scanned in the DB, in case of a reorg.
-   blockchain_.putBareHeadersByReadOrder(iface_, 0, headerCountFromDB);
+   //blockchain_.putBareHeadersByReadOrder(iface_, 0, headerCountFromDB);
 
    findFirstBlockToApply();
    uint32_t scanFrom = findFirstBlockToScan();
 
    //Now we can put the new headers found in blk files.
-   blockchain_.putBareHeadersByReadOrder(iface_, headerCountFromDB);
+   blockchain_.putNewBareHeaders(iface_);
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
@@ -1343,24 +1345,22 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    return prevTopBlk;
 }
 
-uint32_t BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
+void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
 {
    LOGINFO << "Reading headers from db";
    blockchain().clear();
    
    unsigned counter=0;
    
-   const auto callback= [&] (const BlockHeader &h)
+   const auto callback= [&] (const BlockHeader &h, uint32_t height, uint8_t dup)
    {
       progress(BDMPhase_DBHeaders, 0.0, 0, counter++);
-      blockchain().addBlock(h.getThisHash(), h);
+      blockchain().addBlock(h.getThisHash(), h, height, dup);
    };
    
    iface_->readAllHeaders(callback);
    
    LOGINFO << "Found " << blockchain().allHeaders().size() << " headers in db";
-
-   return blockchain().allHeaders().size();
 }
 
 
@@ -1511,111 +1511,6 @@ bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
    return isGood;
    PDEBUG("Done verifying blockfile integrity");
 }
-*/
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-// Pass in a BRR that starts at the beginning of the serialized block,
-// i.e. the first 80 bytes of this BRR is the blockheader
-/*
-bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
-                                             uint32_t fileIndex0Idx,
-                                             uint32_t thisHeaderOffset,
-                                             uint32_t blockSize)
-{
-   if(brr.getSizeRemaining() < blockSize || brr.isEndOfStream())
-   {
-      LOGERR << "***ERROR:  parseNewBlock did not get enough data...";
-      return false;
-   }
-
-   // Create the objects once that will be used for insertion
-   // (txInsResult always succeeds--because multimap--so only iterator returns)
-   static pair<HashString, BlockHeader>                      bhInputPair;
-   static pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
-   
-   // Read the header and insert it into the map.
-   bhInputPair.second.unserialize(brr);
-   bhInputPair.first = bhInputPair.second.getThisHash();
-   bhInsResult = headerMap_.insert(bhInputPair);
-   BlockHeader * bhptr = &(bhInsResult.first->second);
-   if(!bhInsResult.second)
-      *bhptr = bhInsResult.first->second; // overwrite it even if insert fails
-
-   // Then put the bare header into the DB and get its duplicate ID.
-   StoredHeader sbh;
-   sbh.createFromBlockHeader(*bhptr);
-   uint8_t dup = iface_->putBareHeader(sbh);
-   bhptr->setDuplicateID(dup);
-
-   // Regardless of whether this was a reorg, we have to add the raw block
-   // to the DB, but we don't apply it yet.
-   brr.rewind(HEADER_SIZE);
-   addRawBlockToDB(brr);
-
-   // Note where we will start looking for the next block, later
-   endOfLastBlockByte_ = thisHeaderOffset + blockSize;
-
-   // Read the #tx and fill in some header properties
-   uint8_t viSize;
-   uint32_t nTx = (uint32_t)brr.get_var_int(&viSize);
-
-   // The file offset of the first tx in this block is after the var_int
-   uint32_t txOffset = thisHeaderOffset + HEADER_SIZE + viSize; 
-
-   // Read each of the Tx
-   //bhptr->txPtrList_.resize(nTx);
-   uint32_t txSize;
-   static vector<uint32_t> offsetsIn;
-   static vector<uint32_t> offsetsOut;
-   static BinaryData hashResult(32);
-
-   for(uint32_t i=0; i<nTx; i++)
-   {
-      // We get a little funky here because I need to avoid ALL unnecessary
-      // copying -- therefore everything is pointers...and confusing...
-      uint8_t const * ptrToRawTx = brr.getCurrPtr();
-      
-      txSize = BtcUtils::TxCalcLength(ptrToRawTx, &offsetsIn, &offsetsOut);
-      BtcUtils::getHash256_NoSafetyCheck(ptrToRawTx, txSize, hashResult);
-
-      // Figure out, as quickly as possible, whether this tx has any relevance
-      // to any of the registered addresses.  Again, using pointers...
-      registeredScrAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
-
-      // Prepare for the next tx.  Manually advance brr since used ptr directly
-      txOffset += txSize;
-      brr.advance(txSize);
-   }
-   return true;
-}
-*/
-   
-
-// This piece may be useful for adding new data, but I don't want to enforce it,
-// yet
-/*
-#ifndef _DEBUG
-   // In the real client, we want to execute these checks.  But we may want
-   // to pass in hand-made data when debugging, and don't want to require
-   // the hand-made blocks to have leading zeros.
-   if(! (headHash.getSliceCopy(28,4) == BtcUtils::EmptyHash_.getSliceCopy(28,4)))
-   {
-      cout << "***ERROR: header hash does not have leading zeros" << endl;   
-      cerr << "***ERROR: header hash does not have leading zeros" << endl;   
-      return true;  // no data added, so no reorg
-   }
-
-   // Same story with merkle roots in debug mode
-   HashString merkleRoot = BtcUtils::calculateMerkleRoot(txHashes);
-   if(! (merkleRoot == BinaryDataRef(rawHeader.getPtr() + 36, 32)))
-   {
-      cout << "***ERROR: merkle root does not match header data" << endl;
-      cerr << "***ERROR: merkle root does not match header data" << endl;
-      return true;  // no data added, so no reorg
-   }
-#endif
 */
    
 ////////////////////////////////////////////////////////////////////////////////

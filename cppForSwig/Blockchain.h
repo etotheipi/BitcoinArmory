@@ -34,10 +34,15 @@ public:
     * Adds a block to the chain
     **/
    BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block);
-   
+   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block,
+                         uint32_t height, uint8_t dupId);
+   BlockHeader& addNewBlock(const HashString &blockhash, const BlockHeader &block);
+
    ReorganizationState organize();
    ReorganizationState forceOrganize();
    ReorganizationState findReorgPointFromBlock(const BinaryData& blkHash);
+
+   void setDuplicateIDinRAM(LMDBBlockDatabase* iface, bool forceUpdateDupID);
 
    BlockHeader& top() const;
    BlockHeader& getGenesisBlock() const;
@@ -71,8 +76,7 @@ public:
    }
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
-   void putBareHeadersByReadOrder(LMDBBlockDatabase *db, uint32_t start = 0, 
-                                  uint32_t end = UINT32_MAX);
+   void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db);
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);
@@ -86,8 +90,8 @@ private:
 private:
    const HashString genesisHash_;
    map<HashString, BlockHeader> headerMap_;
+   vector<BlockHeader*> newlyParsedBlocks_;
    deque<BlockHeader*> headersByHeight_;
-   vector<BlockHeader*> headersByReadOrder_;
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;
    Blockchain(const Blockchain&); // not defined

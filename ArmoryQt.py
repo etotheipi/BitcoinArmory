@@ -184,7 +184,10 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
       self.connect(self, SIGNAL('execTrigger'), self.execTrigger)
       self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
-      
+
+      #generic signal to run pass any method as the arg
+      self.connect(self, SIGNAL('method_signal') , self.method_signal)  
+                
       #push model BDM notify signal
       self.connect(self, SIGNAL('cppNotify'), self.handleCppNotification)
       TheBDM.registerCppNotification(self.cppNotifySignal)
@@ -2309,14 +2312,22 @@ class ArmoryMainWindow(QMainWindow):
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
          TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
-         TheSDM.startBitcoind(self.loadBlockchainIfNecessary)
+         TheSDM.startBitcoind(self.notifyBitcoindIsReady)
          LOGDEBUG('Bitcoind started without error')
          return True
       except:
          LOGEXCEPT('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
+   
+   ############################################################################
+   def notifyBitcoindIsReady(self):
+      self.emit(SIGNAL('method_signal'), self.proceedOnceBitcoindIsReady)    
 
-
+   ############################################################################
+   def proceedOnceBitcoindIsReady(self):
+      self.loadBlockchainIfNecessary()
+      self.setDashboardDetails()  
+      
    ############################################################################
    def setSatoshiPaths(self):
       LOGINFO('setSatoshiPaths')
@@ -2366,10 +2377,11 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('FailedLoadCount', self.numTriesOpen+1)
 
          self.switchNetworkMode(NETWORKMODE.Full)
-         TheBDM.goOnline()
-
+         TheBDM.goOnline()           
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)
+         
+ 
 
    #############################################################################
    def switchNetworkMode(self, newMode):
@@ -6805,6 +6817,10 @@ class ArmoryMainWindow(QMainWindow):
               (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl13):
             self.macNotifHdlr.notifyGrowl(dispTitle, dispText, QIcon(self.iconfile))
             
+   #############################################################################
+   def method_signal(self, method):
+      method()   
+   
 ############################################
 def checkForAlreadyOpen():
    import socket

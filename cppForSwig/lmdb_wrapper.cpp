@@ -1146,7 +1146,7 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
 //       that would get us since we are reading all the headers and doing
 //       a fresh organize/sort anyway.
 void LMDBBlockDatabase::readAllHeaders(
-   const function<void(const BlockHeader&)> &callback
+   const function<void(const BlockHeader&, uint32_t, uint8_t)> &callback
 )
 {
    LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
@@ -1183,7 +1183,7 @@ void LMDBBlockDatabase::readAllHeaders(
             sbh.thisHash_.copySwapEndian().toHexStr() << " does not match "
             << regHead.getThisHash().copySwapEndian().toHexStr();
       }
-      callback(regHead);
+      callback(regHead, sbh.blockHeight_, sbh.duplicateID_);
 
    } while(ldbIter.advanceAndRead(DB_PREFIX_HEADHASH));
 }

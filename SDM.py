@@ -133,11 +133,16 @@ class SatoshiDaemonManager(object):
       self.torrentDisabled = False
       self.tdm = None
       self.satoshiHome = None
-
+      self.satoshiRoot = None
+      
 
    #############################################################################
    def setSatoshiDir(self, newDir):
       self.satoshiHome = newDir   
+      self.satoshiRoot = newDir
+      
+      if 'testnet' in newDir:
+         self.satoshiRoot, tail = os.path.split(newDir) 
       
    #############################################################################
    def setDisableTorrentDL(self, b):
@@ -489,7 +494,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
       LOGINFO('Reading bitcoin.conf file')
-      bitconf = os.path.join( self.satoshiHome, 'bitcoin.conf' )
+      bitconf = os.path.join(self.satoshiRoot, 'bitcoin.conf')
       if not os.path.exists(bitconf):
          if not makeIfDNE:
             raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
@@ -619,14 +624,10 @@ class SatoshiDaemonManager(object):
       pargs = [self.executable]
 
       if USE_TESTNET:
-         testhome = self.satoshiHome[:]
-         if self.satoshiHome.endswith('/testnet3/'):
-            pargs.append('-datadir=%s' % self.satoshiHome[:-10])
-         elif self.satoshiHome.endswith('/testnet3'):
-            pargs.append('-datadir=%s' % self.satoshiHome[:-9])
          pargs.append('-testnet')
-      else:
-         pargs.append('-datadir=%s' % self.satoshiHome)
+
+      pargs.append('-datadir=%s' % self.satoshiRoot)
+      
       try:
          # Don't want some strange error in this size-check to abort loading
          blocksdir = os.path.join(self.satoshiHome, 'blocks')
@@ -897,8 +898,11 @@ class SatoshiDaemonManager(object):
    def getTopBlockInfo(self):
       if self.isRunningBitcoind():
          self.updateTopBlockInfo()
-         self.queryThread.join(0.001)  # In most cases, result should come in 1 ms
-         # We return a copy so that the data is not changing as we use it
+         try:
+            self.queryThread.join(0.001)  # In most cases, result should come in 1 ms
+            # We return a copy so that the data is not changing as we use it
+         except:
+            pass
 
       return self.lastTopBlockInfo.copy()
 

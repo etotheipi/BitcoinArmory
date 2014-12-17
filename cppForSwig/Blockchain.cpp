@@ -21,9 +21,9 @@ Blockchain::Blockchain(const HashString &genesisHash)
 
 void Blockchain::clear()
 {
-   headerMap_.clear();
+   newlyParsedBlocks_.clear();
    headersByHeight_.resize(0);
-   headersByReadOrder_.clear();
+   headerMap_.clear();
    topBlockPtr_ = genesisBlockBlockPtr_ =
       &headerMap_[genesisHash_];
 }
@@ -40,7 +40,28 @@ BlockHeader& Blockchain::addBlock(
    }
    
    BlockHeader& bh = headerMap_[blockhash] = block;
-   headersByReadOrder_.push_back(&bh);
+   return bh;
+}
+
+BlockHeader& Blockchain::addBlock(
+   const HashString &blockhash,
+   const BlockHeader &block,
+   uint32_t height, uint8_t dupId)
+{
+   BlockHeader& bh = addBlock(blockhash, block);
+   bh.blockHeight_ = height;
+   bh.duplicateID_ = dupId;
+
+   return bh;
+}
+
+BlockHeader& Blockchain::addNewBlock(
+   const HashString &blockhash,
+   const BlockHeader &block)
+{
+   BlockHeader& bh = addBlock(blockhash, block);
+   newlyParsedBlocks_.push_back(&bh);
+
    return bh;
 }
 
@@ -62,6 +83,14 @@ Blockchain::ReorganizationState Blockchain::forceOrganize()
    st.prevTopBlockStillValid = !st.reorgBranchPoint;
    st.hasNewTop = (st.prevTopBlock != &top());
    return st;
+}
+
+void Blockchain::setDuplicateIDinRAM(
+   LMDBBlockDatabase* iface, bool forceUpdateDupID)
+{
+   for (const auto& block : headerMap_)
+      iface->setValidDupIDForHeight(
+      block.second.blockHeight_, block.second.duplicateID_);
 }
 
 Blockchain::ReorganizationState 
@@ -369,19 +398,19 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void Blockchain::putBareHeadersByReadOrder(LMDBBlockDatabase *db, 
-   uint32_t start, uint32_t end)
+void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
-   auto blockIter = headersByReadOrder_.begin() + start;
+   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadWrite);
 
-   while (blockIter != headersByReadOrder_.end() && 
-          (*blockIter)->blockHeight_ < end)
+   for (auto& block : newlyParsedBlocks_)
    {
       StoredHeader sbh;
-      sbh.createFromBlockHeader(*(*blockIter));
-      uint8_t dup = db->putBareHeader(sbh);
-      (*blockIter)->setDuplicateID(dup);  // make sure headerMap_ and DB agree
-
-      ++blockIter;
+      sbh.createFromBlockHeader(*block);
+      uint8_t dup = db->putBareHeader(sbh, true);
+      block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
    }
+
+   //once commited to the DB, they aren't considered new anymore, 
+   //so clean up the container
+   newlyParsedBlocks_.clear();
 }
