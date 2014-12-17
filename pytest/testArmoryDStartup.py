@@ -4,6 +4,7 @@ from pytest.Tiab import *
 from twisted.trial._synctest import SkipTest
 from armoryengine.BDM import BDM_BLOCKCHAIN_READY
 import json
+import time
 
 from armoryd import Armory_Daemon
 from armoryengine.ArmoryUtils import CLI_OPTIONS
@@ -96,11 +97,11 @@ class ArmoryDStartupTest(TiabTest):
 
    def setUp(self):
       self.armoryDSession = ArmoryDSession(self.tiab)
+      time.sleep(1)
 
    def tearDown(self):
       self.armoryDSession.clean()
 
-   @SkipTest
    def testJSONGetinfo(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'])
@@ -109,7 +110,7 @@ class ArmoryDStartupTest(TiabTest):
       self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)
       self.assertEqual(actualResult['difficulty'], 1.0)
       self.assertEqual(actualResult['testnet'], True)
-      
+
    def testJSONMultipleWallets(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       wltDictionary = self.armoryDSession.callArmoryD(['listloadedwallets'])
