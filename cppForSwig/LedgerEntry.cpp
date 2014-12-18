@@ -142,6 +142,8 @@ void LedgerEntry::purgeLedgerVectorFromHeight(
    //Remove all entries starting this height, included.
    uint32_t i = 0;
 
+   sort(leVec.begin(), leVec.end());
+
    for (const auto& le : leVec)
    {
       if (le.getBlockNum() >= purgeFrom)
