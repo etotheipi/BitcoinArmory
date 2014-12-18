@@ -47,7 +47,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
 
    print '\nUpdating wallet from blockchain'
    walletObj.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-   walletObj.syncWithBlockchainLite()
+   # Out of date code: walletObj.syncWithBlockchainLite()
    print 'Total Wallet Balance:',coin2str(walletObj.getBalance('Spendable'))
    
 

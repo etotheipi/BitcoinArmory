@@ -1439,36 +1439,42 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.ustxReadable = False
 
       ustxStr = str(self.txtUSTX.toPlainText())
-      try:
-         self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
-         self.signStat = self.ustxObj.evaluateSigningStatus()
-         self.enoughSigs = self.signStat.canBroadcast
-         self.sigsValid = self.ustxObj.verifySigsAllInputs()
-         self.ustxReadable = True
-      except BadAddressError:
-         QMessageBox.critical(self, 'Inconsistent Data!', \
-            'This transaction contains inconsistent information.  This '
-            'is probably not your fault...', QMessageBox.Ok)
-         self.ustxObj = None
-         self.ustxReadable = False
-      except NetworkIDError:
-         QMessageBox.critical(self, 'Wrong Network!', \
-            'This transaction is actually for a different network!  '
-            'Did you load the correct transaction?', QMessageBox.Ok)
-         self.ustxObj = None
-         self.ustxReadable = False
-      except (UnserializeError, IndexError, ValueError):
-         self.ustxObj = None
-         self.ustxReadable = False
+      if len(ustxStr) > 0:
+         try:
+            self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
+            self.signStat = self.ustxObj.evaluateSigningStatus()
+            self.enoughSigs = self.signStat.canBroadcast
+            self.sigsValid = self.ustxObj.verifySigsAllInputs()
+            self.ustxReadable = True
+         except BadAddressError:
+            QMessageBox.critical(self, 'Inconsistent Data!', \
+               'This transaction contains inconsistent information.  This '
+               'is probably not your fault...', QMessageBox.Ok)
+            self.ustxObj = None
+            self.ustxReadable = False
+         except NetworkIDError:
+            QMessageBox.critical(self, 'Wrong Network!', \
+               'This transaction is actually for a different network!  '
+               'Did you load the correct transaction?', QMessageBox.Ok)
+            self.ustxObj = None
+            self.ustxReadable = False
+         except (UnserializeError, IndexError, ValueError):
+            self.ustxObj = None
+            self.ustxReadable = False
 
-      if not self.enoughSigs or not self.sigsValid or not self.ustxReadable:
-         self.btnBroadcast.setEnabled(False)
-      else:
-         if self.main.netMode == NETWORKMODE.Full:
-            self.btnBroadcast.setEnabled(True)
-         else:
+         if not self.enoughSigs or not self.sigsValid or not self.ustxReadable:
             self.btnBroadcast.setEnabled(False)
-            self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
+         else:
+            if self.main.netMode == NETWORKMODE.Full:
+               self.btnBroadcast.setEnabled(True)
+            else:
+               self.btnBroadcast.setEnabled(False)
+               self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
+      else:
+         self.ustxObj = None
+         self.ustxReadable = False
+         self.btnBroadcast.setEnabled(False)
+         
 
       self.btnSave.setEnabled(True)
       self.btnCopyHex.setEnabled(False)

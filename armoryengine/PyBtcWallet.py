@@ -491,7 +491,9 @@ class PyBtcWallet(object):
 
          topBlockHeight = TheBDM.getTopBlockHeight()
     
-         self.syncWithBlockchainLite()
+         # Removed this line of code because it's part of the old BDM paradigm. 
+         # Leaving this comment here in case it needs to be replaced by anything
+         # self.syncWithBlockchainLite()
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):

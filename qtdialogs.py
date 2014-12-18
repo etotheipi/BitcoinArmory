@@ -3275,8 +3275,10 @@ class DlgImportAddress(ArmoryDialog):
          if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk < 2016:
-               self.wlt.syncWithBlockchainLite(0)
-               QMessageBox.information(self, 'Import Successful', \
+                  # Removed this line of code because it's part of the old BDM paradigm. 
+                  # Leaving this comment here in case it needs to be replaced by anything
+                  # self.wlt.syncWithBlockchainLite(0)
+                  QMessageBox.information(self, 'Import Successful', \
                   'The address was imported into your wallet successfully, and '
                   'all the information needed to acquire its balance was already '
                   'available without rescanning the global transaction history. '
@@ -3476,7 +3478,9 @@ class DlgImportAddress(ArmoryDialog):
          if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk < 2016:
-               self.wlt.syncWithBlockchainLite(0)
+               # Removed this line of code because it's part of the old BDM paradigm. 
+               # Leaving this comment here in case it needs to be replaced by anything
+               # self.wlt.syncWithBlockchainLite(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The addresses were imported into your wallet successfully, and '
                   'all the information needed to acquire their balances were already '
@@ -4509,7 +4513,9 @@ class DlgRemoveWallet(ArmoryDialog):
       #        But I should verify that this is actually the case.
       wltEmpty = True
       if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-         wlt.syncWithBlockchainLite()
+         # Removed this line of code because it's part of the old BDM paradigm. 
+         # Leaving this comment here in case it needs to be replaced by anything
+         # wlt.syncWithBlockchainLite()
          bal = wlt.getBalance('Full')
          lbls.append([])
          lbls[3].append(QLabel('Current Balance (w/ unconfirmed):'))
@@ -4747,7 +4753,9 @@ class DlgRemoveWallet(ArmoryDialog):
                wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
                newWlt = PyBtcWallet().readWalletFile(newWltPath)
                newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-               newWlt.syncWithBlockchainLite()
+               # Removed this line of code because it's part of the old BDM paradigm. 
+               # Leaving this comment here in case it needs to be replaced by anything
+               # newWlt.syncWithBlockchainLite()
 
                os.remove(thepath)
                os.remove(thepathBackup)
