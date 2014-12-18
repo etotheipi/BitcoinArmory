@@ -89,8 +89,11 @@ void Blockchain::setDuplicateIDinRAM(
    LMDBBlockDatabase* iface, bool forceUpdateDupID)
 {
    for (const auto& block : headerMap_)
-      iface->setValidDupIDForHeight(
-      block.second.blockHeight_, block.second.duplicateID_);
+   {
+      if (block.second.isMainBranch_)
+         iface->setValidDupIDForHeight(
+            block.second.blockHeight_, block.second.duplicateID_);
+   }
 }
 
 Blockchain::ReorganizationState 
