@@ -28,7 +28,7 @@ static void updateBlkDataHeader(
 // We still pass in the hash anyway, because the map is indexed by the hash,
 // and we'd like to not have to do a lookup for the hash if only provided
 // {hgt, dup, idx}
-shared_ptr<StoredTxOut> BlockWriteBatcher::makeSureSTXOInMap(
+StoredTxOut* BlockWriteBatcher::makeSureSTXOInMap(
             LMDBBlockDatabase* iface,
             BinaryDataRef txHash, 
             uint16_t txoId)
@@ -45,7 +45,7 @@ shared_ptr<StoredTxOut> BlockWriteBatcher::makeSureSTXOInMap(
       stxoToUpdate_.push_back(stxoIter->second);
       utxoMap_.erase(stxoIter);
 
-      return stxoToUpdate_.back();
+      return stxoToUpdate_.back().get();
    }
 
    stxoIter = utxoMapBackup_.find(hashAndId);
@@ -54,19 +54,19 @@ shared_ptr<StoredTxOut> BlockWriteBatcher::makeSureSTXOInMap(
       stxoToUpdate_.push_back(stxoIter->second);
       utxoMapBackup_.erase(stxoIter);
 
-      return stxoToUpdate_.back();
+      return stxoToUpdate_.back().get();
    }
 
-   shared_ptr<StoredTxOut> stxo = shared_ptr<StoredTxOut>();
+   shared_ptr<StoredTxOut> stxo(new StoredTxOut);
    BinaryData dbKey;
    iface->getStoredTx_byHash(txHash, nullptr, &dbKey);
    dbKey.append(WRITE_UINT16_BE(txoId));
    iface->getStoredTxOut(*stxo, dbKey);
 
    dbUpdateSize_ += sizeof(StoredTxOut) + stxo->dataCopy_.getSize();
-   stxoToUpdate_.push_back(stxo);
+   stxoToUpdate_.push_back(move(stxo));
 
-   return stxoToUpdate_.back();
+   return stxoToUpdate_.back().get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +80,7 @@ void BlockWriteBatcher::moveStxoToUTXOMap(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<StoredTxOut> BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash, 
+StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash, 
    const uint16_t& txoId)
 {
    auto utxoIter = utxoMap_.find(txHash);
@@ -88,7 +88,7 @@ shared_ptr<StoredTxOut> BlockWriteBatcher::lookForUTXOInMap(const BinaryData& tx
    {
       stxoToUpdate_.push_back(utxoIter->second);
 
-      return utxoIter->second;
+      return utxoIter->second.get();
    }
 
    utxoIter = utxoMapBackup_.find(txHash);
@@ -96,12 +96,12 @@ shared_ptr<StoredTxOut> BlockWriteBatcher::lookForUTXOInMap(const BinaryData& tx
    {
       stxoToUpdate_.push_back(utxoIter->second);
 
-      return utxoIter->second;
+      return utxoIter->second.get();
    }
 
    if (config_.armoryDbType == ARMORY_DB_SUPER)
    {
-      shared_ptr<StoredTxOut> stxo = make_shared<StoredTxOut>();
+      shared_ptr<StoredTxOut> stxo(new StoredTxOut);
       BinaryData dbKey;
       iface_->getStoredTx_byHash(txHash.getSliceRef(0, 32), nullptr, &dbKey);
       dbKey.append(WRITE_UINT16_BE(txoId));
@@ -110,7 +110,7 @@ shared_ptr<StoredTxOut> BlockWriteBatcher::lookForUTXOInMap(const BinaryData& tx
       dbUpdateSize_ += sizeof(StoredTxOut)+stxo->dataCopy_.getSize();
       stxoToUpdate_.push_back(stxo);
 
-      return stxo;
+      return stxoToUpdate_.back().get();
    }
 
    return nullptr;
@@ -362,7 +362,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
             continue;
       }
 
-      shared_ptr<StoredTxOut> stxoPtr = makeSureSTXOInMap( 
+      StoredTxOut* stxoPtr = makeSureSTXOInMap( 
                iface_,
                sudStxo.parentHash_,
                stxoIdx);
@@ -531,11 +531,12 @@ bool BlockWriteBatcher::parseTxIns(
       //consumes one of our utxo
 
       //leveraging the stxo in RAM
-      shared_ptr<StoredTxOut> stxoPtr = lookForUTXOInMap(opTxHashAndId, opTxoIdx);
+      StoredTxOut* stxoPtr = nullptr;
+      stxoPtr = lookForUTXOInMap(opTxHashAndId, opTxoIdx);
 
       if (config_.armoryDbType != ARMORY_DB_SUPER)
       {
-         if (!stxoPtr)
+         if (stxoPtr == nullptr)
          {
             //if we have a list of all relevant UTXO and we couldnt find this
             //one in there, then it isnt a relevant UTXO and we can skip it
@@ -548,7 +549,7 @@ bool BlockWriteBatcher::parseTxIns(
             //otherwise we need to grab it and check it against our scrAddr
             //list. UTXO are consumed only once so we do not need to keep
             //this one in RAM if it turns out it isn't relevant
-            shared_ptr<StoredTxOut> stxoToSpend = make_shared<StoredTxOut>();
+            shared_ptr<StoredTxOut> stxoToSpend(new StoredTxOut);
             BinaryData dbKey;
             iface_->getStoredTx_byHash(opTxHashAndId.getSliceRef(0, 32), nullptr, &dbKey);
             dbKey.append(WRITE_UINT16_BE(opTxoIdx));
@@ -560,7 +561,7 @@ bool BlockWriteBatcher::parseTxIns(
             dbUpdateSize_ += sizeof(StoredTxOut)+stxoToSpend->dataCopy_.getSize();
 
             stxoToUpdate_.push_back(stxoToSpend);
-            stxoPtr = stxoToSpend;
+            stxoPtr = stxoToSpend.get();
          }
       }
       
@@ -723,8 +724,7 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    bwbWriteObj->commitId_ = commitId_++;
 
    bwbWriteObj->sbhToUpdate_ = std::move(sbhToUpdate_);
-   std::swap(bwbWriteObj->stxoToUpdate_, stxoToUpdate_);
-   stxoToUpdate_.resize(0); // trigger fewer reallocs
+   bwbWriteObj->stxoToUpdate_ = std::move(stxoToUpdate_);
    
    bwbWriteObj->mostRecentBlockApplied_ = mostRecentBlockApplied_;
    bwbWriteObj->parent_ = this;
