@@ -171,6 +171,11 @@ class ArmoryMainWindow(QMainWindow):
       self.tempModulesDirName = None
       self.internetStatus = None
 
+      # Boolean to keep state of whether a connection to bitcoind already
+      # exists. Note that since NetworkingFactory is reconnecting, we don't
+      # need to create a new one each time, just the first time
+      self.BitcoindConnectionExists = False
+
       # Kick off announcement checking, unless they explicitly disabled it
       # The fetch happens in the background, we check the results periodically
       self.announceFetcher = None
@@ -2433,16 +2438,17 @@ class ArmoryMainWindow(QMainWindow):
                LOGEXCEPT('Failed to show reconnect notification')
 
 
-         self.NetworkingFactory = ArmoryClientFactory( \
+         if not self.BitcoindConnectionExists:
+            # ArmoryClientFactory auto-reconnects, so add the connection
+            # only if it's not already in the reactor
+            self.NetworkingFactory = ArmoryClientFactory( \
                                           TheBDM,
                                           func_loseConnect=showOfflineMsg, \
                                           func_madeConnect=showOnlineMsg, \
                                           func_newTx=self.newTxFunc)
-                                          #func_newTx=newTxFunc)
-         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', \
+            reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', \
                                           BITCOIN_PORT, self.NetworkingFactory)
-
-
+            self.BitcoindConnectionExists = True
 
 
    #############################################################################
