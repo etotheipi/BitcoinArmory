@@ -6797,7 +6797,7 @@ class ArmoryMainWindow(QMainWindow):
       if pageInt == self.mainLedgerCurrentPage:
          return
       
-      if pageInt < 0 or pageInt > TheBDM.bdv().getPageCount():
+      if pageInt < 0 or pageInt > TheBDM.bdv().getWalletsPageCount():
          self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
          return
       
