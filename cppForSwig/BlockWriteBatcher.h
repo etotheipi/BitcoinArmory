@@ -256,12 +256,12 @@ private:
 
    bool pullBlockFromDB(PulledBlock& pb, uint32_t height, uint8_t dup);
 
-   StoredTxOut* makeSureSTXOInMap(
+   shared_ptr<StoredTxOut> makeSureSTXOInMap(
       LMDBBlockDatabase* iface,
       BinaryDataRef txHash,
       uint16_t txoId);
 
-   StoredTxOut* lookForUTXOInMap(const BinaryData& txHash, const uint16_t& txoId);
+   shared_ptr<StoredTxOut> lookForUTXOInMap(const BinaryData& txHash, const uint16_t& txoId);
 
    void moveStxoToUTXOMap(const shared_ptr<StoredTxOut>& thisTxOut);
 

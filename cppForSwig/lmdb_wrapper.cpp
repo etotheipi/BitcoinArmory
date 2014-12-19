@@ -2384,7 +2384,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
    if (DBkey.getSize() != 8)
    {
       LOGERR << "Tried to get StoredTxOut, but the provided key is not of the "
-                 "proper size. Expect size is 8, this key is: " << DBkey.getSize();
+                 "proper size. Expected size is 8, this key is: " << DBkey.getSize();
       return false;
    }
 
