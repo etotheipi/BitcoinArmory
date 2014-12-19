@@ -171,10 +171,9 @@ class ArmoryMainWindow(QMainWindow):
       self.tempModulesDirName = None
       self.internetStatus = None
 
-      # Boolean to keep state of whether a connection to bitcoind already
-      # exists. Note that since NetworkingFactory is reconnecting, we don't
-      # need to create a new one each time, just the first time
-      self.BitcoindConnectionExists = False
+      # We only need a single connection to bitcoind since it's a
+      # reconnecting connection, so we keep it around.
+      self.SingletonConnectedNetworkingFactory = None
 
       # Kick off announcement checking, unless they explicitly disabled it
       # The fetch happens in the background, we check the results periodically
@@ -2394,8 +2393,16 @@ class ArmoryMainWindow(QMainWindow):
       self.netMode=newMode
       if newMode in (NETWORKMODE.Offline, NETWORKMODE.Disconnected):
          self.NetworkingFactory = FakeClientFactory()
-         return
       elif newMode==NETWORKMODE.Full:
+         self.NetworkingFactory = self.getSingletonConnectedNetworkingFactory()
+      return
+
+
+   #############################################################################
+   def getSingletonConnectedNetworkingFactory(self):
+      if not self.SingletonConnectedNetworkingFactory:
+         # ArmoryClientFactory auto-reconnects, so add the connection
+         # the very first time and never afterwards.
 
          # Actually setup the networking, now
          from twisted.internet import reactor
@@ -2437,18 +2444,15 @@ class ArmoryMainWindow(QMainWindow):
             except:
                LOGEXCEPT('Failed to show reconnect notification')
 
-
-         if not self.BitcoindConnectionExists:
-            # ArmoryClientFactory auto-reconnects, so add the connection
-            # only if it's not already in the reactor
-            self.NetworkingFactory = ArmoryClientFactory( \
-                                          TheBDM,
-                                          func_loseConnect=showOfflineMsg, \
-                                          func_madeConnect=showOnlineMsg, \
-                                          func_newTx=self.newTxFunc)
-            reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', \
-                                          BITCOIN_PORT, self.NetworkingFactory)
-            self.BitcoindConnectionExists = True
+         self.SingletonConnectedNetworkingFactory = ArmoryClientFactory(
+                                      TheBDM,
+                                      func_loseConnect=showOfflineMsg,
+                                      func_madeConnect=showOnlineMsg,
+                                      func_newTx=self.newTxFunc)
+         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1',
+                                 BITCOIN_PORT,
+                                 self.SingletonConnectedNetworkingFactory)
+      return self.SingletonConnectedNetworkingFactory
 
 
    #############################################################################
