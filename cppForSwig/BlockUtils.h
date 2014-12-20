@@ -255,7 +255,7 @@ public:
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
-   void startSideScan(
+   bool startSideScan(
       const function<void(const BinaryData&, double prog,unsigned time)> &cb
    );
 

@@ -341,10 +341,10 @@ try
       {
          bdm->sideScanFlag_ = false;
 
-         bdm->startSideScan(rescanProgress);
+         bool doScan = bdm->startSideScan(rescanProgress);
          
          BinaryData bdWltID = bdm->getNextWalletIDToScan();
-         if (bdWltID.getSize())
+         if (bdWltID.getSize() && doScan)
          {
             string wltID(bdWltID.getCharPtr(), bdWltID.getSize());
             callback->run(BDMAction_StartedWalletScan, &wltID);

@@ -1611,11 +1611,11 @@ ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::startSideScan(
+bool BlockDataManager_LevelDB::startSideScan(
    const function<void(const BinaryData&, double prog,unsigned time)> &cb
 )
 {
-   scrAddrData_->startSideScan(cb);
+   return scrAddrData_->startSideScan(cb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

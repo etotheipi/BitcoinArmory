@@ -331,7 +331,7 @@ void ScrAddrFilter::clear()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::startSideScan(
+bool ScrAddrFilter::startSideScan(
    function<void(const BinaryData&, double prog, unsigned time)> progress)
 {
    ScrAddrFilter* sca = child_.get();
@@ -341,7 +341,12 @@ void ScrAddrFilter::startSideScan(
       isScanning_ = true;
       sca->scanThreadProgressCallback_ = progress;
       sca->scanScrAddrMapInNewThread();
+
+      if (sca->doScan_ != 0)
+         return true;
    }
+
+   return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

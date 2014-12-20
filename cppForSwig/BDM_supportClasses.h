@@ -174,7 +174,7 @@ public:
    void merge(const BinaryData& lastScannedBlkHash);
    void checkForMerge(void);
 
-   void startSideScan(
+   bool startSideScan(
       function<void(const BinaryData&, double prog, unsigned time)> progress);
 
    const BinaryData getNextWalletIDToScan(void);
