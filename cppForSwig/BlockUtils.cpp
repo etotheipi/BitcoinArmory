@@ -676,8 +676,8 @@ void BlockDataManager_LevelDB::setConfig(
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::openDatabase()
 {
-   LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
-   LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
+   LOGINFO << "blkfile dir: " << config_.blkFileLocation;
+   LOGINFO << "lmdb dir: " << config_.levelDBLocation;
    if (config_.genesisBlockHash.getSize() == 0)
    {
       throw runtime_error("ERROR: Genesis Block Hash not set!");
