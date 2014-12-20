@@ -4937,11 +4937,9 @@ class ArmoryMainWindow(QMainWindow):
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
                                         size=4, bold=True, color='DisableFG')
-            self.barProgressBuild.setFormat('')
+            self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
-            self.barProgressBuild.setValue(0)
-            self.barProgressBuild.setRange(0,0)
-            self.lblTimeLeftBuild.setText(str(numericProgress) + " headers")
+            self.barProgressBuild.setRange(0,100)
             
          elif phase==Cpp.BDMPhase_OrganizingChain:
             self.lblDashModeBuild.setText( 'Organizing Blockchain', \
@@ -4988,7 +4986,7 @@ class ArmoryMainWindow(QMainWindow):
             tstring = secondsToHumanTime(tleft15)
             pvalue = pct*100
 
-         if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData:
+         if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData or phase==BDMPhase_DBHeaders:
             self.lblTimeLeftBuild.setText(tstring)
             self.barProgressBuild.setValue(pvalue)
          elif phase==BDMPhase_Rescan:
