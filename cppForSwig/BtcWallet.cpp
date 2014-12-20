@@ -1027,7 +1027,7 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
    
    char err[200];
    printf(err, "no ScrAddr matches key %s in Wallet %s", 
-      key.toBinStr(), walletID_.toBinStr());
+      key.toBinStr().c_str(), walletID_.toBinStr().c_str());
 
    LOGERR << err;
    throw std::runtime_error(err);
