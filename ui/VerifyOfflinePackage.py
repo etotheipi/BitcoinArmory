@@ -7,7 +7,7 @@ from armorycolors import htmlColor
 
 class VerifyOfflinePackageDialog(ArmoryDialog):
    def __init__(self, parent, main):
-      super(VerifyOfflinePackageDialog, self).__init__(parent)
+      super(VerifyOfflinePackageDialog, self).__init__(parent, main)
       self.main = main
 
       layout = QVBoxLayout(self)

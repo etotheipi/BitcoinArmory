@@ -1788,7 +1788,7 @@ class DlgWalletDetails(ArmoryDialog):
          restoreTableView(self.wltAddrView, tblgeom)
 
       def remindBackup():
-         result = MsgBoxWithDNAA(MSGBOX.Warning, 'Wallet Backup', \
+         result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, 'Wallet Backup', \
             '<b><font color="red" size=4>Please backup your wallet!</font></b> '
             '<br><br>'
             'Making a paper backup will guarantee you can recover your '
@@ -2024,7 +2024,7 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def getNewAddress(self):
-      if showRecvCoinsWarningIfNecessary(self.wlt, self.main):
+      if showRecvCoinsWarningIfNecessary(self.wlt, self, self.main):
          DlgNewAddressDisp(self.wlt, self, self.main).exec_()
       self.wltAddrView.reset()
 
@@ -2144,7 +2144,7 @@ class DlgWalletDetails(ArmoryDialog):
          # return
 
       if not self.main.getSettingOrSetDefault('DNAA_ImportWarning', False):
-         result = MsgBoxWithDNAA(MSGBOX.Warning, \
+         result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, \
             tr("""Imported Address Warning"""), tr("""
             Armory supports importing of external private keys into your
             wallet but imported addresses are <u>not</u> automatically
@@ -2544,7 +2544,7 @@ class DlgWalletDetails(ArmoryDialog):
          self.setWindowTitle('Set Wallet Owner')
 
 
-def showRecvCoinsWarningIfNecessary(wlt, main):
+def showRecvCoinsWarningIfNecessary(wlt, parent, main):
 
    numTimesOnline = main.getSettingOrSetDefault("SyncSuccessCount", 0)
    if numTimesOnline < 1 and not TheBDM.getState() == BDM_OFFLINE:
@@ -2567,7 +2567,7 @@ def showRecvCoinsWarningIfNecessary(wlt, main):
    dnaaPropName = 'Wallet_%s_%s' % (wlt.uniqueIDB58, 'DNAA_RecvOther')
    dnaaThisWallet = main.getSettingOrSetDefault(dnaaPropName, False)
    if notMyWallet and not dnaaThisWallet:
-      result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+      result = MsgBoxWithDNAA(parent, main, MSGBOX.Warning, 'This is not your wallet!', \
             'You are getting an address for a wallet that '
             'does not appear to belong to you.  Any money sent to this '
             'address will not appear in your total balance, and cannot '
@@ -2580,7 +2580,7 @@ def showRecvCoinsWarningIfNecessary(wlt, main):
       return result[0]
 
    if offlineWallet and not dnaaThisWallet:
-      result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+      result = MsgBoxWithDNAA(parent, main, MSGBOX.Warning, 'This is not your wallet!', \
             'You are getting an address for a wallet that '
             'you have specified belongs to you, but you cannot actually '
             'spend the funds from this computer.  This is usually the case when '
@@ -2729,7 +2729,7 @@ class DlgNewAddressDisp(ArmoryDialog):
    We just generated a new address, let's show it to the user and let them
    a comment to it, if they want.
    """
-   def __init__(self, wlt, parent=None, main=None):
+   def __init__(self, wlt, parent, main):
       super(DlgNewAddressDisp, self).__init__(parent, main)
 
       self.wlt = wlt
@@ -5659,7 +5659,7 @@ class DlgShowKeyList(ArmoryDialog):
    def saveToFile(self):
       if self.havePriv:
          if not self.main.getSettingOrSetDefault('DNAA_WarnPrintKeys', False):
-            result = MsgBoxWithDNAA(MSGBOX.Warning, title='Plaintext Private Keys', \
+            result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, title='Plaintext Private Keys', \
                   msg='<font color="red"><b>REMEMBER:</b></font> The data you '
                   'are about to save contains private keys.  Please make sure '
                   'that only trusted persons will have access to this file.'
@@ -8795,7 +8795,7 @@ def createAddrBookButton(parent, targWidget, defaultWltID=None, actionStr="Selec
 ################################################################################
 class DlgHelpAbout(ArmoryDialog):
    def __init__(self, putResultInWidget, defaultWltID=None, parent=None, main=None):
-      super(DlgHelpAbout, self).__init__(parent)
+      super(DlgHelpAbout, self).__init__(parent, main)
 
       imgLogo = QLabel()
       imgLogo.setPixmap(QPixmap(':/armory_logo_h56.png'))

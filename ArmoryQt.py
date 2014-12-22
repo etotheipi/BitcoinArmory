@@ -1432,7 +1432,7 @@ class ArmoryMainWindow(QMainWindow):
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
-               reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+               reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, 'Default URL Handler', \
                   'Armory is not set as your default application for handling '
                   '"bitcoin:" links.  Would you like to use Armory as the '
                   'default?', 'Do not ask this question again')
@@ -1503,7 +1503,7 @@ class ArmoryMainWindow(QMainWindow):
             # If another application has it, ask for permission to change it
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
-            reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+            reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, 'Default URL Handler', \
                'Armory is not set as your default application for handling '
                '"bitcoin:" links.  Would you like to use Armory as the '
                'default?', 'Do not ask this question again')
@@ -1556,7 +1556,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def warnNewUSTXFormat(self):
       if not self.getSettingOrSetDefault('DNAA_Version092Warn', False):
-         reply = MsgBoxWithDNAA(MSGBOX.Warning, tr("Version Warning"), tr("""
+         reply = MsgBoxWithDNAA(self, self, MSGBOX.Warning, tr("Version Warning"), tr("""
             Since Armory version 0.92 the formats for offline transaction
             operations has changed to accommodate multi-signature 
             transactions.  This format is <u>not</u> compatible with
@@ -2978,7 +2978,7 @@ class ArmoryMainWindow(QMainWindow):
       self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
       if self.getSettingOrSetDefault('NotifyBlkFinish',True):
-         reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
+         reply,remember = MsgBoxWithDNAA(self, self, MSGBOX.Info, \
             'Blockchain Loaded!', 'Blockchain loading is complete.  '
             'Your balances and transaction history are now available '
             'under the "Transactions" tab.  You can also send and '
@@ -3986,7 +3986,7 @@ class ArmoryMainWindow(QMainWindow):
       if selectionMade:
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
-         if showRecvCoinsWarningIfNecessary(wlt, self):
+         if showRecvCoinsWarningIfNecessary(wlt, self, self):
             DlgNewAddressDisp(wlt, self, self).exec_()
 
 
@@ -6457,7 +6457,7 @@ class ArmoryMainWindow(QMainWindow):
       moc = self.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
       doClose, doMinimize = False, False
       if moc=='DontKnow':
-         reply,remember = MsgBoxWithDNAA(MSGBOX.Question, 'Minimize or Close', \
+         reply,remember = MsgBoxWithDNAA(self, self, MSGBOX.Question, 'Minimize or Close', \
             'Would you like to minimize Armory to the system tray instead '
             'of closing it?', dnaaMsg='Remember my answer', \
             yesStr='Minimize', noStr='Close')

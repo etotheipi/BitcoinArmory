@@ -324,7 +324,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       class DlgSetLongDescr(ArmoryDialog):
          def __init__(self, parent, currDescr=''):
-            super(DlgSetLongDescr, self).__init__(parent)
+            super(DlgSetLongDescr, self).__init__(parent, None)
             lbl = QRichLabel(tr("""
                <b><u>Set Extended Lockbox Details</u></b>
                <br><br>
@@ -2075,7 +2075,7 @@ class DlgSimulfundSelect(ArmoryDialog):
 ################################################################################
 class DlgImportAsciiBlock(ArmoryDialog):
    def __init__(self, parent, main, titleStr, descrStr, fileTypes, importType):
-      super(DlgImportAsciiBlock, self).__init__(parent)
+      super(DlgImportAsciiBlock, self).__init__(parent, main)
       self.main = main
       self.fileTypes = fileTypes
       self.importType = importType
@@ -2387,7 +2387,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 ################################################################################
 class DlgImportLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgImportLockbox, self).__init__(parent)
+      super(DlgImportLockbox, self).__init__(parent, main)
       self.main = main
       self.importedLockbox = None
       lbl = QRichLabel(tr("""

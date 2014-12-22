@@ -524,7 +524,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
 
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
+def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
                    yesStr='Yes', noStr='No', dnaaStartChk=False):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
@@ -532,8 +532,8 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
    """
 
    class dlgWarn(ArmoryDialog):
-      def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
-         super(dlgWarn, self).__init__(None)
+      def __init__(self, parent, main, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
+         super(dlgWarn, self).__init__(parent, main)
          
          msgIcon = QLabel()
          fpix = ''
@@ -601,7 +601,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
          self.setWindowTitle(dtitle)
 
 
-   dlg = dlgWarn(wtype, title, msg, dnaaMsg, wCancel) 
+   dlg = dlgWarn(parent, main, wtype, title, msg, dnaaMsg, wCancel) 
    result = dlg.exec_()
    
    return (result, dlg.chkDnaa.isChecked())
@@ -738,7 +738,7 @@ class ArmoryDialog(QDialog):
    #connect to close themselves if the parent is closed first   
 
       
-   def __init__(self, parent=None, main=None):
+   def __init__(self, parent, main):
       super(ArmoryDialog, self).__init__(parent)
 
       self.closeSignal = str(random.random())       
