@@ -1002,13 +1002,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Iterate through the address in our wallet. Include coins only if values
       # are positive and the number of confirmations is high enough.
-      txs = self.curWlt.getAddrTxLedger(addr160)
-      balance = 0
-      for curTX in txs:
-         nconf = (TheBDM.getTopBlockHeight() - \
-                  curTX.getBlockNum()) + 1
-         if (nconf >= minconf) and (curTX.getValue() > 0):
-            balance += curTX.getValue()
+      if minconf == 0:
+         balance = self.curWlt.getAddrBalance(addr160, 'full')
+      else:
+         topBlk = TheBDM.getTopBlockHeight()
+         balance = self.curWlt.getAddrBalance(addr160, 'spend', topBlk - minconf)
 
       return AmountToJSON(balance)
 
@@ -2789,10 +2787,8 @@ class Armory_Daemon(object):
          reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
    
       elif action == NEW_ZC_ACTION:
-         #A zero conf Tx conerns one of the address Armory is tracking, pull the 
-         #updated ledgers from the BDM and create the related notifications.         
-
-         self.checkNewZeroConf(args)        
+         # for zero-confirmation transcations, do nothing for now.
+         pass
 
       elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
@@ -2833,11 +2829,11 @@ class Armory_Daemon(object):
          #wallet filter was modified
          for wltID in args:
             if len(wltID) > 0:
-               if wltID in self.serverWltMap:
-                  self.serverWltMap[wltID].doAfterScan()
-                  self.serverWltMap[wltID].isEnabled = True
+               if wltID in self.WltMap:
+                  self.WltMap[wltID].doAfterScan()
+                  self.WltMap[wltID].isEnabled = True
                else:                
-                  self.serverLBMap[wltID].isEnabled = True
+                  self.lboxMap[wltID].isEnabled = True
                 
                #no progress repoting in armoryd yet     
                #del self.walletSideScanProgress[wltID]

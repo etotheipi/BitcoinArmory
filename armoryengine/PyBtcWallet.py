@@ -426,8 +426,10 @@ class PyBtcWallet(object):
          return []
       else:
          scrAddr = Hash160ToScrAddr(addr160)
-         ledgBlkChain = self.cppWallet.getScrAddrObjByKey(scrAddr).\
-                        getHistoryPageById(0)
+         obj = self.cppWallet.getScrAddrObjByKey(scrAddr)
+         if obj is None:
+            raise RuntimeError("addr %s is not in the c++ wallet" % scrAddr)
+         ledgBlkChain = obj.getHistoryPageById(0)
          if ledgType.lower() in ('full','all','ultimate'):
             ledg = []
             ledg.extend(ledgBlkChain)
