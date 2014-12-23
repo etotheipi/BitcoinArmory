@@ -1,19 +1,18 @@
 # Icelandic Translation of Armory
 # Copyright (C) 2014 Armory Technologies
 # This file is distributed under the same license as the Armory package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #: qtdialogs.py:11505 qtdialogs.py:11769 ui/MultiSigDialogs.py:3000
 #: ui/UpgradeDownloader.py:315 ui/UpgradeDownloader.py:699
-#, fuzzy
+# CS <charles@bitcoinarmory.com>, 2014.
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-12-22 15:24-0800\n"
-"PO-Revision-Date: 2014-12-22 13:18-0800\n"
+"PO-Revision-Date: 2014-12-23 14:06-0800\n"
 "Last-Translator: CS <charles@bitcoinarmory.com>\n"
-"Language-Team: Icelandic\n"
+"Language-Team: Armory <armory@bitcoinarmory.com>\n"
 "Language: is \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -42,7 +41,7 @@ msgstr "Ótengdar Hreyfingar"
 
 #: ArmoryQt.py:554
 msgid "Lockboxes (Multi-Sig)"
-msgstr ""
+msgstr "Öryggishólf (Multi-Sig)"
 
 #: ArmoryQt.py:683 ui/MultiSigDialogs.py:3648
 msgid "Not Online"
@@ -54,6 +53,9 @@ msgid ""
 "               Bitcoin Core is not available, so Armory will not be able\n"
 "               to broadcast any transactions for you."
 msgstr ""
+""
+"Bitcoin Kjarni er ekki fást, svo Armory get ekki útvarpað hreyfingum fyrir "
+"þig."
 
 #: ArmoryQt.py:703
 msgid "Offline"
@@ -6487,3 +6489,4 @@ msgid ""
 "            unless it is made\n"
 "            from a recognized address!"
 msgstr ""
+

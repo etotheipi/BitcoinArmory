@@ -435,8 +435,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
-            if not yesStr: yesStr = '&Yes'
-            if not noStr:  noStr = '&No'
+            if not yesStr: yesStr = tr('&Yes')
+            if not noStr:  noStr = tr('&No')
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
@@ -444,8 +444,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            cancelStr = '&Cancel' if (noStr is not None or withCancel) else ''
-            yesStr    = '&OK' if (yesStr is None) else yesStr
+            cancelStr = tr('&Cancel') if (noStr is not None or withCancel) else ''
+            yesStr    = tr('&OK') if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
             btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
@@ -494,13 +494,13 @@ def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
          fpix = ''
          if dtype==MSGBOX.Info:
             fpix = ':/MsgBox_info48.png'
-            if not dmsg:  dmsg = 'Do not show this message again'
+            if not dmsg:  dmsg = tr('Do not show this message again')
          if dtype==MSGBOX.Question:
             fpix = ':/MsgBox_question64.png'
-            if not dmsg:  dmsg = 'Do not ask again'
+            if not dmsg:  dmsg = tr('Do not ask again')
          if dtype==MSGBOX.Warning:
             fpix = ':/MsgBox_warning48.png'
-            if not dmsg:  dmsg = 'Do not show this warning again'
+            if not dmsg:  dmsg = tr('Do not show this warning again')
          if dtype==MSGBOX.Critical:
             fpix = ':/MsgBox_critical64.png'
             if not dmsg:  dmsg = None  # should always show crits
@@ -708,10 +708,10 @@ class ArmoryDialog(QDialog):
       self.setWindowFlags(Qt.Window)
 
       if USE_TESTNET:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management [TESTNET]'))
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management')
+         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management'))
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
    
    @AddToRunningDialogsList
@@ -824,7 +824,7 @@ class DlgInflatedQR(ArmoryDialog):
       qrDisp.mouseDoubleClickEvent = closeDlg
       self.mouseDoubleClickEvent = closeDlg
 
-      lbl = QRichLabel('<b>Double-click or press ESC to close</b>')
+      lbl = QRichLabel(tr('<b>Double-click or press ESC to close</b>'))
       lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
       frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])
