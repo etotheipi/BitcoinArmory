@@ -19,7 +19,7 @@ from armoryengine.MultiSigUtils import *
 
 import gettext
 
-translation = gettext.translation('armory', 'i18n', fallback=True)
+translation = gettext.translation('armory', os.getenv("ARMORY_LC_PATH"), fallback=True)
 def tr(x, y=None, z=None):
    if not y and not z:
       return translation.ugettext(x)

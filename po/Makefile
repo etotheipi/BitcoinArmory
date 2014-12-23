@@ -12,6 +12,6 @@ mo: $(patsubst %,%.mo,$(LANGUAGES))
 
 # must be run from the top level "make install"
 install:
-	test "$(DESTDIR)" != ''
+	test "$(PREFIX)" != ''
 	for i in $(LANGUAGES); do mkdir -p $(DESTDIR)$(PREFIX)/share/locale/$$i/LC_MESSAGES; cp $$i.mo $(DESTDIR)$(PREFIX)/share/locale/$$i/LC_MESSAGES/armory.mo; done
 

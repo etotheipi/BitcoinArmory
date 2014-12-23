@@ -55,7 +55,7 @@ install : all
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
-	$(MAKE) -C po install
+	$(MAKE) -C po install DESTDIR=$(DESTDIR) PREFIX=$(PREFIX)
 
 all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
