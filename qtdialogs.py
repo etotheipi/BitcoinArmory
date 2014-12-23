@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
@@ -38,9 +40,9 @@ BACKUP_TYPE_135A = '1.35a'
 BACKUP_TYPE_135C = '1.35c'
 BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
 BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
-BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint™)'.decode('UTF-8'))
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
-BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint™)'.decode('UTF-8'))
 MAX_QR_SIZE = 198
 MAX_SATOSHIS = 2100000000000000
 
@@ -124,7 +126,7 @@ class DlgUnlockWallet(ArmoryDialog):
 
 
       ##### Expand button
-      self.btnShowOSD = QPushButton('Show Keyboard >>>')
+      self.btnShowOSD = QPushButton(tr('Show Keyboard >>>'))
       self.btnShowOSD.setCheckable(True)
       self.btnShowOSD.setChecked(showOSD)
       if showOSD:
@@ -153,9 +155,9 @@ class DlgUnlockWallet(ArmoryDialog):
       self.main.settings.set('KeybdOSD', isChk)
       self.frmLower.setVisible(isChk)
       if isChk:
-         self.btnShowOSD.setText('Hide Keyboard <<<')
+         self.btnShowOSD.setText(tr('Hide Keyboard <<<'))
       else:
-         self.btnShowOSD.setText('Show Keyboard >>>')
+         self.btnShowOSD.setText(tr('Show Keyboard >>>'))
 
 
    #############################################################################
@@ -170,9 +172,9 @@ class DlgUnlockWallet(ArmoryDialog):
    def redrawKeys(self):
       for btn in self.btnList:
          btn.setText(btn.upper if self.btnShift.isChecked() else btn.lower)
-      self.btnShift.setText('SHIFT')
-      self.btnSpace.setText('SPACE')
-      self.btnDelete.setText('DEL')
+      self.btnShift.setText(tr('SHIFT'))
+      self.btnSpace.setText(tr('SPACE'))
+      self.btnDelete.setText(tr('DEL'))
 
    #############################################################################
    def deleteKeyboard(self):
@@ -309,7 +311,7 @@ class DlgUnlockWallet(ArmoryDialog):
       try:
          if self.returnPassphrase == False:
             unlockProgress = DlgProgress(self, self.main, HBar=1, 
-                                         Title="Unlocking Wallet")
+                                         Title=tr("Unlocking Wallet"))
             unlockProgress.exec_(self.wlt.unlock, securePassphrase=self.securePassphrase)
             self.securePassphrase.destroy()
          else:
@@ -318,8 +320,8 @@ class DlgUnlockWallet(ArmoryDialog):
 
          self.accept()
       except PassphraseError:
-         QMessageBox.critical(self, 'Invalid Passphrase', \
-           'That passphrase is not correct!', QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Invalid Passphrase'), \
+           tr('That passphrase is not correct!'), QMessageBox.Ok)
          self.securePassphrase.destroy()
          self.edtPasswd.setText('')
          return
@@ -341,16 +343,16 @@ class LetterButton(QPushButton):
       else:
          super(LetterButton, self).setFont(GETFONT('Fixed', 10))
       if self.special == 'space':
-         self.setText('SPACE')
+         self.setText(tr('SPACE'))
          self.lower = ' '
          self.upper = ' '
          self.special = 5
       elif self.special == 'shift':
-         self.setText('SHIFT')
+         self.setText(tr('SHIFT'))
          self.special = 5
          self.insertLetter = self.pressShift
       elif self.special == 'delete':
-         self.setText('DEL')
+         self.setText(tr('DEL'))
          self.special = 5
          self.insertLetter = self.pressBackspace
 
@@ -379,14 +381,14 @@ class DlgGenericGetPassword(ArmoryDialog):
 
 
       lblDescr = QRichLabel(descriptionStr)
-      lblPasswd = QRichLabel("Password:")
+      lblPasswd = QRichLabel(tr("Password:"))
       self.edtPasswd = QLineEdit()
       self.edtPasswd.setEchoMode(QLineEdit.Password)
       self.edtPasswd.setMinimumWidth(MIN_PASSWD_WIDTH(self))
       self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
-      self.btnAccept = QPushButton("OK")
-      self.btnCancel = QPushButton("Cancel")
+      self.btnAccept = QPushButton(tr("OK"))
+      self.btnCancel = QPushButton(tr("Cancel"))
       self.connect(self.btnAccept, SIGNAL(CLICKED), self.accept)
       self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
       buttonBox = QDialogButtonBox()
@@ -400,7 +402,7 @@ class DlgGenericGetPassword(ArmoryDialog):
       layout.addWidget(buttonBox, 3, 1, 1, 2)
 
       self.setLayout(layout)
-      self.setWindowTitle('Enter Password')
+      self.setWindowTitle(tr('Enter Password'))
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 ################################################################################
@@ -416,8 +418,8 @@ class DlgBugReport(ArmoryDialog):
          <b><u>Send a bug report to the Armory team</u></b>
          <br><br>
          If you are having difficulties with Armory, you should first visit
-         our <a href="%s">troubleshooting page</a> and our
-         <a href="%s">FAQ page</a> which describe solutions to
+         our <a href="%(tsurl)s">troubleshooting page</a> and our
+         <a href="%(faqurl)s">FAQ page</a> which describe solutions to
          many common problems.
          <br><br>
          If you do not find the answer to your problem on those pages,
@@ -425,22 +427,23 @@ class DlgBugReport(ArmoryDialog):
          reproduce the problem.  The more information you provide, the
          more likely we will be able to help you.
          <br><br>
-         <b><font color="%s">Note:</font></b>  Please keep in mind we 
+         <b><font color="%(color)s">Note:</font></b>  Please keep in mind we 
          are a small open-source company, and do not have a formal customer
          support department.  We will do our best to help you, but cannot
-         respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
+         respond to everyone!""") \
+            % {'tsurl' : tsPage, 'faqurl' : faqPage, 'color' :htmlColor('TextBlue')})
 
-      self.chkNoLog = QCheckBox('Do not send log file with report')
+      self.chkNoLog = QCheckBox(tr('Do not send log file with report'))
       self.chkNoLog.setChecked(False)
 
-      self.btnMoreInfo = QLabelButton('Privacy Info')
+      self.btnMoreInfo = QLabelButton(tr('Privacy Info'))
       self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
-	                              self.main.logFilePrivacyWarning)
+                              self.main.logFilePrivacyWarning)
 
       self.noLogWarn = QRichLabel(tr("""
-         <font color="%s">You are unlikely to get a response unless you 
+         <font color="%(color)s">You are unlikely to get a response unless you 
          provide a log file and a reasonable description with your support
-         request.""") % htmlColor('TextWarn'))
+         request.""") % { 'color' : htmlColor('TextWarn') })
       self.noLogWarn.setVisible(False)
 
       self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
@@ -453,7 +456,7 @@ class DlgBugReport(ArmoryDialog):
       self.lblSubject = QRichLabel(tr('Subject:'))
       self.edtSubject = QLineEdit()
       self.edtSubject.setMaxLength(64)
-      self.edtSubject.setText("Bug Report")
+      self.edtSubject.setText(tr("Bug Report"))
 
       self.txtDescr = QTextEdit()
       self.txtDescr.setFont(GETFONT('Fixed', 9))
@@ -475,10 +478,10 @@ class DlgBugReport(ArmoryDialog):
 
       armoryver = getVersionString(BTCARMORY_VERSION)
       lblDetect = QRichLabel( tr("""
-         <b>Detected:</b> %s (%s) / %0.2f GB RAM / Armory version %s<br>
+         <b>Detected:</b> %(osname)s (%(osvariant)s) / %(mem)0.2f GB RAM / Armory version %(ver)s<br>
          <font size=2>(this data will be submitted automatically with the
          report)</font>""") % \
-         (OS_NAME, OS_VARIANT[0], SystemSpecs.Memory, armoryver))
+         { 'osname' : OS_NAME, 'osvariant' : OS_VARIANT[0], 'mem' : SystemSpecs.Memory, 'ver' : armoryver})
 
 
       layout = QGridLayout()
@@ -565,9 +568,9 @@ class DlgBugReport(ArmoryDialog):
       if descrLen > maxDescr:
          reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
             You have exceeded the maximum size of the description that can
-            be submitted to our ticket system, which is %d bytes.
-            If you click "Continue", the last %d bytes of your description
-            will be removed before sending.""") % (maxDescr, descrLen-maxDescr), \
+            be submitted to our ticket system, which is %(bytes)d bytes.
+            If you click "Continue", the last %(last)s bytes of your description
+            will be removed before sending.""") % { 'bytes' : maxDescr, 'last' : descrLen-maxDescr}, \
             noStr=tr('Go Back'), yesStr=tr('Continue'))
          if not reply:
             return
@@ -648,14 +651,14 @@ class DlgBugReport(ArmoryDialog):
                <br><br>
                You should receive and email shortly from our support system.
                If you do not receive it, you should follow up your request
-               with an email to <a href="%s">%s</a>.  If you do, please
+               with an email to <a href="%(url)s">%(url)s</a>.  If you do, please
                attach the following file to your email:
                <br><br>
-               %s
+               %(path)s
                <br><br>
                Please be aware that the team receives lots of reports, 
                so it may take a few days for the team to get back to 
-               you.""") % (cemail, cemail, combinedLogPath), QMessageBox.Ok)
+               you.""") % {'url' : cemail, 'path' : combinedLogPath}, QMessageBox.Ok)
             self.accept()
          else:
             raise ConnectionError('Failed to send bug report')
@@ -667,7 +670,7 @@ class DlgBugReport(ArmoryDialog):
             There was a problem submitting your bug report.  It is recommended
             that you submit this information through our webpage instead:
             <br><br>
-            <a href="%s">%s</a>""") % (bugpage, bugpage), QMessageBox.Ok)
+            <a href="%(url)s">%(url)s</a>""") % { 'url' : bugpage }, QMessageBox.Ok)
          self.reject()
 
 
@@ -715,7 +718,8 @@ class DlgInconsistentWltReport(ArmoryDialog):
          Review</font></u></b><br>""") % htmlColor('TextWarn'), 
          hAlign=Qt.AlignHCenter)
 
-      lblDescr = QRichLabel(tr("""
+      #too complex to tr() right now
+      lblDescr = QRichLabel(("""
          Armory has detected that %s inconsistent,
          possibly due to hardware errors out of our control.  It <u>strongly
          recommended</u> you submit the wallet logs to the Armory team 
@@ -770,10 +774,10 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       armoryver = getVersionString(BTCARMORY_VERSION)
       lblDetect = QRichLabel( tr("""
-         <b>Detected:</b> %s (%s) / %0.2f GB RAM / Armory version %s<br>
+         <b>Detected:</b> %(osname)s (%(osvariant)s) / %(mem)0.2f GB RAM / Armory version %(ver)s<br>
          <font size=2>(this data will be included with the data 
          submission""") % \
-         (OS_NAME, OS_VARIANT[0], SystemSpecs.Memory, armoryver))
+         { 'osname' : OS_NAME, 'osvariant' : OS_VARIANT[0], 'mem' : SystemSpecs.Memory, 'ver' : armoryver})
 
 
       layout = QGridLayout()
@@ -852,9 +856,9 @@ class DlgInconsistentWltReport(ArmoryDialog):
       if descrLen > maxDescr:
          reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
             You have exceeded the maximum size of the description that can
-            be submitted to our ticket system, which is %d bytes.
-            If you click "Continue", the last %d bytes of your description
-            will be removed before sending.""") % (maxDescr, descrLen-maxDescr), \
+            be submitted to our ticket system, which is %(bytes)d bytes.
+            If you click "Continue", the last %(last)s bytes of your description
+            will be removed before sending.""") % { 'bytes' : maxDescr, 'last' : (descrLen-maxDescr)}, \
             noStr=tr('Go Back'), yesStr=tr('Continue'))
 
          if not reply:
@@ -937,9 +941,9 @@ class DlgInconsistentWltReport(ArmoryDialog):
                <br><br>
                You should receive and email shortly from our support system.
                If you do not receive it, you should follow up your request
-               with an email to <a href="%s">%s</a>.  
+               with an email to <a href="%(url)s">%(url)s</a>.  
                You should hear back from an Armory representative within
-               24 hours.""") % (cemail, cemail), QMessageBox.Ok)
+               24 hours.""") % { 'url' : cemail }, QMessageBox.Ok)
             self.accept()
          else:
             raise ConnectionError('Failed to send bug report')
@@ -952,11 +956,11 @@ class DlgInconsistentWltReport(ArmoryDialog):
             Please create a new support ticket using our webpage, and attach
             the following file to it:
             <br><br>
-            %s
+            %(zpath)s
             <br><br>
             Click below to go to the support page to open a new ticket. 
             <br><br>
-            <a href="%s">%s</a>""") % (zpath, bugpage, bugpage), QMessageBox.Ok)
+            <a href=%(url)s">%(url)s</a>""") % {'zpath' : zpath, 'url' :bugpage}, QMessageBox.Ok)
 
          try:
             strOut  = 'Raw response from server:\n'

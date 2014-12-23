@@ -1,4 +1,5 @@
 #! /usr/bin/python
+# -*- coding: UTF-8 -*-
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
@@ -6,6 +7,9 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
+
+import gettext
+
 
 from copy import deepcopy
 from datetime import datetime
@@ -24,6 +28,7 @@ import threading
 import time
 import traceback
 import webbrowser
+
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -488,7 +493,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.btnLedgUp,    SIGNAL('clicked()'),      self.clickLedgUp)
       self.connect(self.btnLedgDn,    SIGNAL('clicked()'),      self.clickLedgDn)
 
-      frmFilter = makeVertFrame([QLabel('Filter:'), self.comboWltSelect, 'Stretch'])
+      frmFilter = makeVertFrame([QLabel(tr('Filter:')), self.comboWltSelect, 'Stretch'])
 
       self.frmLedgUpDown = QFrame()
       layoutUpDown = QGridLayout()
@@ -935,24 +940,24 @@ class ArmoryMainWindow(QMainWindow):
             if  infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Invalid:
                reply = QMessageBox.warning(self, tr("Invalid Module"), tr("""
                   Armory detected the following module which is 
-                  <font color="%s"><b>invalid</b></font>:
+                  <font color=%(color)s"><b>invalid</b></font>:
                   <br><br>
-                     <b>Module Name:</b>  %s<br>
-                     <b>Module Path:</b>  %s<br>
+                     <b>Module Name:</b> %(name)s<br>
+                     <b>Module Path:</b> %(path)s<br>
                   <br><br>
                   Armory will only run a module from a zip file that
                   has the required stucture.""") % \
-                  (htmlColor('TextRed'), moduleName, moduleZipPath), QMessageBox.Ok)
+                  { 'color' : htmlColor('TextRed'), 'name' : moduleName, 'path' : moduleZipPath}, QMessageBox.Ok)
             elif not USE_TESTNET and infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Unsigned:
                reply = QMessageBox.warning(self, tr("UNSIGNED Module"), tr("""
                   Armory detected the following module which  
-                  <font color="%s"><b>has not been signed by Armory</b></font> and may be dangerous:
+                  <font color="%(color)s"><b>has not been signed by Armory</b></font> and may be dangerous:
                   <br><br>
-                     <b>Module Name:</b>  %s<br>
-                     <b>Module Path:</b>  %s<br>
+                     <b>Module Name:</b> %(name)s<br>
+                     <b>Module Path:</b> %(path)s<br>
                   <br><br>
                   Armory will not allow you to run this module.""") % \
-                  (htmlColor('TextRed'), moduleName, moduleZipPath), QMessageBox.Ok)
+                  { 'color' : htmlColor('TextRed'), 'name' : moduleName, 'path' : moduleZipPath}, QMessageBox.Ok)
             else:
    
                ZipFile(moduleZipPath).extract(INNER_ZIP_FILENAME, self.tempModulesDirName)
@@ -974,13 +979,14 @@ class ArmoryMainWindow(QMainWindow):
                verArmoryInt = getVersionInt(BTCARMORY_VERSION)
                if verArmoryInt >verPluginInt:
                   reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
-                     Module %s is only specified to work up to Armory version %s.
-                     You are using Armory version %s.  Please remove the module if
+                     Module %(mod)s is only specified to work up to Armory version %(maxver)s.
+                     You are using Armory version %(curver)s.  Please remove the module if
                      you experience any problems with it, or contact the maintainer
                      for a new version.
                      <br><br>
-                     Do you want to continue loading the module?""" % (moduleName, plugObj.maxVersion, 
-                                 getVersionString(BTCARMORY_VERSION))), 
+                     Do you want to continue loading the module?""") \
+                        % { 'mod' : moduleName, 'maxver' : plugObj.maxVersion, 
+                                 'curver' : getVersionString(BTCARMORY_VERSION)} , 
                            QMessageBox.Yes | QMessageBox.No)
       
                   if not reply==QMessageBox.Yes:
@@ -1961,17 +1967,17 @@ class ArmoryMainWindow(QMainWindow):
       if testing:
          return tr("""
             A new testing version of Armory is out. You can upgrade to version
-            %s through our secure downloader inside Armory (link at the bottom
+            %(ver)s through our secure downloader inside Armory (link at the bottom
             of this notification window).
-            """) % (verStr)
+            """) % { 'ver' : verStr}
          
       return tr("""
          Your version of Armory is now outdated.  Please upgrade to version
-         %s through our secure downloader inside Armory (link at the bottom
+         %(ver)s through our secure downloader inside Armory (link at the bottom
          of this notification window).  Alternatively, you can get the new
          version from our website downloads page at:
          <br><br>
-         <a href="%s">%s</a> """) % (verStr, webURL, webURL)
+         <a href="%(url)s">%(url)s</a> """) % {'ver' : verStr, 'url' : webURL}
 
 
 
@@ -3628,9 +3634,9 @@ class ArmoryMainWindow(QMainWindow):
                   <br><br>On some occasions the transaction actually did succeed 
                   and this message is the bug itself!  To confirm whether the 
                   the transaction actually succeeded, you can try this direct link 
-                  to %s:
+                  to %(blockexplorer)s:
                   <br><br>
-                  <a href="%s">%s...</a>  
+                  <a href="%(url)s">%(urlshort)s...</a>  
                   <br><br>
                   If you do not see the 
                   transaction on that webpage within one minute, it failed and you 
@@ -3644,8 +3650,9 @@ class ArmoryMainWindow(QMainWindow):
                   "<i>Submit Bug Report</i>".  Or use "<i>File</i>" -> 
                   "<i>Export Log File</i>" and then attach it to a support 
                   ticket at 
-                  <a href="%s">%s</a>""") % (BLOCKEXPLORE_NAME, blkexplURL, 
-                  blkexplURL_short, supportURL, supportURL), QMessageBox.Ok)
+                  <a href="%(supporturl)s">%(supporturl)s</a>""") % {
+                     'blockexplorer' : BLOCKEXPLORE_NAME, 'url' : blkexplURL, \
+                     'urlshort' : blkexplURL_short, 'supporturl' : supportURL}, QMessageBox.Ok)
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
@@ -3660,14 +3667,14 @@ class ArmoryMainWindow(QMainWindow):
    def warnNoImportWhileScan(self):
       extraMsg = ''
       if not self.usermode==USERMODE.Standard:
-         extraMsg = ('<br><br>'
-                     'In the future, you may avoid scanning twice by '
+         extraMsg = ('<br><br>' + \
+                     tr('In the future, you may avoid scanning twice by '
                      'starting Armory in offline mode (--offline), and '
-                     'perform the import before switching to online mode.')
-      QMessageBox.warning(self, 'Armory is Busy', \
-         'Wallets and addresses cannot be imported while Armory is in '
+                     'perform the import before switching to online mode.'))
+      QMessageBox.warning(self, tr('Armory is Busy'), \
+         tr('Wallets and addresses cannot be imported while Armory is in '
          'the middle of an existing blockchain scan.  Please wait for '
-         'the scan to finish.  ' + extraMsg, QMessageBox.Ok)
+         'the scan to finish.  ') + extraMsg, QMessageBox.Ok)
 
 
 
@@ -4027,7 +4034,7 @@ class ArmoryMainWindow(QMainWindow):
       reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
          As of version 0.91, Armory now includes a form for reporting
          problems with the software.  Please use
-         <i>"Help"</i>\xe2\x86\x92<i>"Submit Bug Report"</i>
+         <i>"Help"</i>→<i>"Submit Bug Report"</i>
          to send a report directly to the Armory team, which will include
          your log file automatically."""), QMessageBox.Ok | QMessageBox.Cancel)
 
@@ -4631,11 +4638,11 @@ class ArmoryMainWindow(QMainWindow):
       sinceLastUpd = RightNow() - lastUpdate
       if lastUpdate < RightNow()-1*WEEK:
          QMessageBox.warning(self, tr('Old Data'), tr("""
-            The last update retrieved from the <font color="%s"><b>Armory
-            Technologies, Inc.</b></font> announcement feeder was <b>%s</b>
+            The last update retrieved from the <font color="%(color)s"><b>Armory
+            Technologies, Inc.</b></font> announcement feeder was <b>%(time)s</b>
             ago.  The following downloads may not be the latest
-            available.""") % (htmlColor("TextGreen"), \
-            secondsToHumanTime(sinceLastUpd)), QMessageBox.Ok)
+            available.""") % { 'color' : htmlColor("TextGreen"), \
+            'time' : secondsToHumanTime(sinceLastUpd)}, QMessageBox.Ok)
 
       dl = self.announceFetcher.getAnnounceFile('downloads')
       cl = self.announceFetcher.getAnnounceFile('changelog')
@@ -4902,12 +4909,10 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftTorrent.setText(secondsToHumanTime(timeEst))
 
             self.lblTorrentStats.setText(tr("""
-               Bootstrap Torrent:  %s/sec from %d peers""") % \
-               (bytesToHumanSize(dlSpeed), numSeeds+numPeers))
+               Bootstrap Torrent:  %(sec)s/sec from %(peers)d peers""") % \
+               {'sec' : bytesToHumanSize(dlSpeed), 'peers' : numSeeds+numPeers})
 
             self.lblTorrentStats.setVisible(True)
-
-
 
       elif TheBDM.getState()==BDM_SCANNING:
          self.barProgressTorrent.setVisible(TheTDM.isStarted())
@@ -4933,7 +4938,7 @@ class ArmoryMainWindow(QMainWindow):
 
          phase,pct,tleft,numericProgress = TheBDM.predictLoadTime()
          if phase==Cpp.BDMPhase_DBHeaders:
-            self.lblDashModeBuild.setText( 'Loading Database Headers', \
+            self.lblDashModeBuild.setText( tr('Loading Database Headers'), \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
                                         size=4, bold=True, color='DisableFG')
@@ -4942,9 +4947,9 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setRange(0,100)
             
          elif phase==Cpp.BDMPhase_OrganizingChain:
-            self.lblDashModeBuild.setText( 'Organizing Blockchain', \
+            self.lblDashModeBuild.setText( tr('Organizing Blockchain'), \
                                         size=4, bold=True, color='Foreground')
-            self.lblDashModeScan.setText( 'Scan Transaction History', \
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('')
             self.barProgressScan.setFormat('')
@@ -4952,25 +4957,25 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setRange(0,0)
             self.lblTimeLeftBuild.setVisible(False)
          elif phase==Cpp.BDMPhase_BlockHeaders:
-            self.lblDashModeBuild.setText( 'Reading New Block Headers', \
+            self.lblDashModeBuild.setText( tr('Reading New Block Headers'), \
                                         size=4, bold=True, color='Foreground')
-            self.lblDashModeScan.setText( 'Scan Transaction History', \
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
             self.barProgressBuild.setRange(0,100)
          elif phase==Cpp.BDMPhase_BlockData:
-            self.lblDashModeBuild.setText( 'Building Databases', \
+            self.lblDashModeBuild.setText( tr('Building Databases'), \
                                         size=4, bold=True, color='Foreground')
-            self.lblDashModeScan.setText( 'Scan Transaction History', \
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
             self.barProgressBuild.setRange(0,100)
          elif phase==Cpp.BDMPhase_Rescan:
-            self.lblDashModeBuild.setText( 'Build Databases', \
+            self.lblDashModeBuild.setText( tr('Build Databases'), \
                                         size=4, bold=True, color='DisableFG')
-            self.lblDashModeScan.setText( 'Scanning Transaction History', \
+            self.lblDashModeScan.setText( tr('Scanning Transaction History'), \
                                         size=4, bold=True, color='Foreground')
             self.lblTimeLeftBuild.setVisible(False)
             self.barProgressBuild.setFormat('')
@@ -6891,7 +6896,7 @@ if 1:
 
    import qt4reactor
    qt4reactor.install()
-
+      
    if CLI_OPTIONS.interport > 1:
       checkForAlreadyOpen()
 

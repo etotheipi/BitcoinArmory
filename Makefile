@@ -5,7 +5,7 @@ PREFIX=/usr
 DESTDIR=
 UNAME_S := $(shell uname -s)
 
-all :
+all: mo
 	$(MAKE) -C cppForSwig
 
 clean :
@@ -34,6 +34,7 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp dpkgfiles/armory $(DESTDIR)$(PREFIX)/bin
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
@@ -54,6 +55,7 @@ install : all
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
+	$(MAKE) -C po install
 
 all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
@@ -65,6 +67,12 @@ pytest: all
 	python -m unittest discover
 
 test: gtest pytest
+
+mo: messages
+	$(MAKE) -C po mo
+
+messages:
+	xgettext -o po/messages.pot --from-code=UTF-8 -L Python -ktr *.py armoryengine/*.py ui/*.py
 
 osx :
 	chmod +x osxbuild/deploy.sh
