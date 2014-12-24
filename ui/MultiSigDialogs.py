@@ -1440,7 +1440,7 @@ class DlgLockboxManager(ArmoryDialog):
             if not self.main.getSettingOrSetDefault('DNAA_P2SHCompatWarn', False):
                oldStartChar = "'m' or 'n'" if USE_TESTNET else "'1'"
                newStartChar = "'2'"        if USE_TESTNET else "'3'"
-               reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Compatibility Warning'), 
+               reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, tr('Compatibility Warning'), 
                   tr("""You are about to request payment to a "P2SH" address 
                   which is the format used for receiving to multi-signature
                   addresses/lockboxes.  "P2SH" are like regular Bitcoin 
@@ -1641,7 +1641,7 @@ class DlgLockboxManager(ArmoryDialog):
          if dlg.importedLockbox is not None:
             self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
             if not self.main.getSettingOrSetDefault('DNAA_LockboxImport', False):
-               reply = MsgBoxWithDNAA(MSGBOX.Info, tr("Import Successful"), tr("""
+               reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Info, tr("Import Successful"), tr("""
                   The lockbox was imported successfully.  If this is a new 
                   lockbox that has never been used before, then you
                   can start using it right away.  
@@ -2371,7 +2371,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       
       if not self.main.getSettingOrSetDefault('DNAA_MailtoWarn', False):
-         reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Email Triggered'), tr("""
+         reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, tr('Email Triggered'), tr("""
             Armory attempted to execute a "mailto:" link which should trigger
             your email application or web browser to open a compose-email window.
             This does not work in all environments, and you might have to 

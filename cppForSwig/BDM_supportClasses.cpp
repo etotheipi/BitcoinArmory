@@ -71,7 +71,14 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       {
          //supernode: nothing to do, signal the wallet that its scrAddr bulk 
          //is ready by passing isNew as true. Pass a blank BinaryData for the 
-         //top scanned block hash in this case, it will be ignored anyways
+         //top scanned block hash in this case, it will be ignored anyways      
+         
+         while (mergeLock_.fetch_or(1, memory_order_acquire));
+         for (auto& sa : saVec)
+            scrAddrDataForSideScan_.scrAddrsToMerge_.insert({ sa, 0 });
+         mergeFlag_ = true;
+         mergeLock_.store(0, memory_order_release);
+
          wltPtr->prepareScrAddrForMerge(saVec, true, BinaryData());
 
          wltPtr->needsRefresh();
@@ -270,32 +277,35 @@ void ScrAddrFilter::checkForMerge()
       std::shared_ptr<ScrAddrFilter> sca(copy());
       sca->scrAddrMap_ = scrAddrDataForSideScan_.scrAddrsToMerge_;
 
-      BinaryData lastScannedBlockHash = scrAddrDataForSideScan_.lastScannedBlkHash_;
-
-      uint32_t topBlock = currentTopBlockHeight();
-      uint32_t startBlock;
-      
-      //check last scanned blk hash against the blockchain      
-      Blockchain& bc = blockchain();
-      const BlockHeader& bh = bc.getHeaderByHash(lastScannedBlockHash);
-
-      if (bh.isMainBranch())
+      if (config().armoryDbType != ARMORY_DB_SUPER)
       {
-         //last scanned block is still on main branch
-         startBlock = bh.getBlockHeight() + 1;
-      }
-      else
-      {
-         //last scanned block is off the main branch, undo till branch point
-         const Blockchain::ReorganizationState state =
-            bc.findReorgPointFromBlock(lastScannedBlockHash);
-         ReorgUpdater reorg(state, &bc, lmdb_, config(), sca.get(), true);
+         BinaryData lastScannedBlockHash = scrAddrDataForSideScan_.lastScannedBlkHash_;
 
-         startBlock = state.reorgBranchPoint->getBlockHeight() + 1;
-      }
+         uint32_t topBlock = currentTopBlockHeight();
+         uint32_t startBlock;
 
-      if (startBlock < topBlock)
-         sca->applyBlockRangeToDB(startBlock, topBlock + 1, nullptr);
+         //check last scanned blk hash against the blockchain      
+         Blockchain& bc = blockchain();
+         const BlockHeader& bh = bc.getHeaderByHash(lastScannedBlockHash);
+
+         if (bh.isMainBranch())
+         {
+            //last scanned block is still on main branch
+            startBlock = bh.getBlockHeight() + 1;
+         }
+         else
+         {
+            //last scanned block is off the main branch, undo till branch point
+            const Blockchain::ReorganizationState state =
+               bc.findReorgPointFromBlock(lastScannedBlockHash);
+            ReorgUpdater reorg(state, &bc, lmdb_, config(), sca.get(), true);
+
+            startBlock = state.reorgBranchPoint->getBlockHeight() + 1;
+         }
+
+         if (startBlock < topBlock)
+            sca->applyBlockRangeToDB(startBlock, topBlock + 1, nullptr);
+      }
 
       //grab merge lock
       while (mergeLock_.fetch_or(1, memory_order_acquire));

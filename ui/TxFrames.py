@@ -263,7 +263,7 @@ class SendBitcoinsFrame(ArmoryFrame):
            not loadCount == lastPestering and \
            not dnaaDonate and \
            not USE_TESTNET:
-         result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', tr("""
+         result = MsgBoxWithDNAA(self, self.main, MSGBOX.Question, 'Please donate!', tr("""
             <i>Armory</i> is the result of thousands of hours of development 
             by very talented coders.  Yet, this software 
             has been given to you for free to benefit the greater Bitcoin 
@@ -1490,7 +1490,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          return
       elif not self.enoughSigs:
          if not self.main.getSettingOrSetDefault('DNAA_ReviewOfflineTx', False):
-            result = MsgBoxWithDNAA(MSGBOX.Warning, title='Offline Warning', \
+            result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, title='Offline Warning', \
                   msg='<b>Please review your transaction carefully before '
                   'signing and broadcasting it!</b>  The extra security of '
                   'using offline wallets is lost if you do '

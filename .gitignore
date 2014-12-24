@@ -1,6 +1,6 @@
 *.swp
 *.pyc
-*.*~
+*~
 *.o
 
 CppBlockUtils.py
@@ -46,3 +46,9 @@ osxbuild/env
 /findpass.py
 /*.txt
 /sandbox.py
+
+/webshop/orders/m*
+/webshop/orders/n*
+/webshop/orders/2*
+/webshop/orders/1*
+/webshop/orders/3*

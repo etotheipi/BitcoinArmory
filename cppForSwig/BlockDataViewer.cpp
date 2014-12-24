@@ -118,6 +118,9 @@ void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
    uint32_t txtime,
    bool writeToFile)
 {
+   if (!zcEnabled_)
+      return;
+
    SCOPED_TIMER("addNewZeroConfTx");
 
    if (txtime == 0)
@@ -183,11 +186,19 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const LedgerEntry& BlockDataViewer::getTxLedgerByHash(
+const LedgerEntry& BlockDataViewer::getTxLedgerByHash_FromWallets(
    const BinaryData& txHash) const
 {
    checkBDMisReady();
    return groups_[group_wallet].getTxLedgerByHash(txHash);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const LedgerEntry& BlockDataViewer::getTxLedgerByHash_FromLockboxes(
+   const BinaryData& txHash) const
+{
+   checkBDMisReady();
+   return groups_[group_lockbox].getTxLedgerByHash(txHash);
 }
 
 /////////////////////////////////////////////////////////////////////////////

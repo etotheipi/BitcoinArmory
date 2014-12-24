@@ -363,9 +363,13 @@ try
 
             for (const auto& txHash : newZCTxHash)
             {
-               LedgerEntry le = bdv->getTxLedgerByHash(txHash);
-               if (le.getTxTime() != 0)
-                  newZCLedgers.push_back(le);
+               auto& le_w = bdv->getTxLedgerByHash_FromWallets(txHash);
+               if (le_w.getTxTime() != 0)
+                  newZCLedgers.push_back(le_w);
+
+               auto& le_lb = bdv->getTxLedgerByHash_FromLockboxes(txHash);
+               if (le_lb.getTxTime() != 0)
+                  newZCLedgers.push_back(le_lb);
             }
 
             LOGINFO << newZCLedgers.size() << " new ZC Txn";

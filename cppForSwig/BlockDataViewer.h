@@ -80,8 +80,11 @@ public:
    set<BinaryData> getNewZCTxHash(void) const
    { return zeroConfCont_.getNewZCByHash(); }
 
-   const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
-   
+   const LedgerEntry& getTxLedgerByHash_FromWallets(
+      const BinaryData& txHash) const;
+   const LedgerEntry& getTxLedgerByHash_FromLockboxes(
+      const BinaryData& txHash) const;
+
    void pprintRegisteredWallets(void) const;
 
    void enableZeroConf(bool cleanMempool = false);
