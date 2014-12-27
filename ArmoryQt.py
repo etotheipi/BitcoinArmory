@@ -3966,6 +3966,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def clickReceiveCoins(self):
       LOGDEBUG('Clicked "Receive Bitcoins Button"')
+      loading = LoadingDisp(self, self)
+      loading.show()
+      LOGDEBUG('Displaying loading bar')
+      QAPP.processEvents()
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
@@ -3994,8 +3998,9 @@ class ArmoryMainWindow(QMainWindow):
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
          if showRecvCoinsWarningIfNecessary(wlt, self, self):
-            DlgNewAddressDisp(wlt, self, self).exec_()
-
+            QAPP.processEvents()
+            dlg = DlgNewAddressDisp(wlt, self, self, loading)
+            dlg.exec_()
 
 
    #############################################################################

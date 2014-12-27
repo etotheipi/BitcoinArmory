@@ -2029,7 +2029,9 @@ class DlgWalletDetails(ArmoryDialog):
 
    def getNewAddress(self):
       if showRecvCoinsWarningIfNecessary(self.wlt, self, self.main):
-         DlgNewAddressDisp(self.wlt, self, self.main).exec_()
+         loading = LoadingDisp(self, self.main)
+         loading.show()
+         DlgNewAddressDisp(self.wlt, self, self.main, loading).exec_()
       self.wltAddrView.reset()
 
 
@@ -2727,17 +2729,37 @@ class DlgKeypoolSettings(ArmoryDialog):
       doit()
 
 
+class LoadingDisp(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(LoadingDisp, self).__init__(parent, main)
+      layout = QGridLayout()
+      self.setLayout(layout)
+      self.barLoading = QProgressBar(self)
+      self.barLoading.setRange(0,100)
+      self.barLoading.setFormat('%p%')
+      self.barLoading.setValue(0)
+      layout.addWidget(self.barLoading, 0, 0, 1, 1)
+      self.setWindowTitle('Loading...')
+      self.setFocus()
+
+   def setValue(self, val):
+      self.barLoading.setValue(val)
+
 ################################################################################
 class DlgNewAddressDisp(ArmoryDialog):
    """
    We just generated a new address, let's show it to the user and let them
    a comment to it, if they want.
    """
-   def __init__(self, wlt, parent, main):
+   def __init__(self, wlt, parent, main, loading=None):
       super(DlgNewAddressDisp, self).__init__(parent, main)
 
       self.wlt = wlt
+      if loading is not None:
+         loading.setValue(20)
       self.addr = wlt.getNextUnusedAddress()
+      if loading is not None:
+         loading.setValue(80)
       addrStr = self.addr.getAddrStr()
 
       wlttype = determineWalletType(self.wlt, self.main)[0]
@@ -2839,9 +2861,6 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.connect(self.btnDone, SIGNAL(CLICKED), self.acceptNewAddr)
       buttonBox.addButton(self.btnDone, QDialogButtonBox.AcceptRole)
 
-
-
-
       frmWlt = QFrame()
       frmWlt.setFrameShape(STYLE_RAISED)
       frmWltLayout = QGridLayout()
@@ -2866,12 +2885,11 @@ class DlgNewAddressDisp(ArmoryDialog):
       layout.addWidget(frmWlt, 3, 0, 1, 1)
       layout.addWidget(buttonBox, 4, 0, 1, 2)
       layout.addWidget(frmQR, 0, 1, 4, 1)
-
+      if loading is not None:
+         loading.reject()
       self.setLayout(layout)
       self.setWindowTitle('New Receiving Address')
       self.setFocus()
-
-      from twisted.internet import reactor
 
       try:
          self.parent.wltAddrModel.reset()
