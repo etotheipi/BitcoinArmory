@@ -11520,7 +11520,7 @@ class DlgExpWOWltData(ArmoryDialog):
       # Create the data export buttons.
       expWltButton = QPushButton(tr('Export Watching-Only Wallet File'))
       clipboardBtn = QPushButton(tr('Copy to clipboard'))
-      clipboardLbl = QRichLabel(tr(''), hAlign=Qt.AlignHCenter)
+      clipboardLbl = QRichLabel('', hAlign=Qt.AlignHCenter)
       expDataButton = QPushButton(tr('Save to Text File'))
       printWODataButton = QPushButton(tr('Print Root Data'))
 
@@ -11784,7 +11784,7 @@ class DlgWODataPrintBackup(ArmoryDialog):
                                                'Wallet ID:', 
                                                'Wallet Name:'])
       self.scene.moveCursor(15, 0)
-      colRect, rowHgt = self.scene.drawColumn([tr(''),
+      colRect, rowHgt = self.scene.drawColumn(['',
                                                self.wlt.uniqueIDB58,
                                                self.wlt.labelName])
 

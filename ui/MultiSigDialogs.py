@@ -2997,7 +2997,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       # Now modify the window/buttons based on the whole transaction state
       # (i.e. Can broadcast, etc)
-      extraTxt = tr('')
+      extraTxt = ''
       if not self.main.netMode == NETWORKMODE.Full:
          extraTxt = tr("""
             from any online computer (you are currently offline)""")

@@ -312,7 +312,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       self.lblSelectedSimple = QRichLabel(tr('No download selected'),
                                        doWrap=False, hAlign=Qt.AlignHCenter)
-      self.lblSelectedSimpleMore = QRichLabel(tr(''), doWrap=False)
+      self.lblSelectedSimpleMore = QRichLabel('', doWrap=False)
       self.lblSelectedComplex = QRichLabel(tr('No download selected'))
       self.lblCurrentVersion = QRichLabel('', hAlign=Qt.AlignHCenter)
 
@@ -696,7 +696,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       if not pkgName:
          self.lblSelectedComplex.setText(tr("""No package currently selected"""))
          self.lblSelectedSimple.setText(tr("""No package currently selected"""))
-         self.lblSelectedSimpleMore.setText(tr(""))
+         self.lblSelectedSimpleMore.setText("")
       else:
          self.lblSelectedComplex.setText(tr("""
             <font size=4><b>Selected Package:</b> {} {} for {} {} {}</font>"""). \

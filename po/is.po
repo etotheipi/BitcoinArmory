@@ -3,13 +3,11 @@
 # This file is distributed under the same license as the Armory package.
 #
 # CS <charles@bitcoinarmory.com>, 2014.
-#: qtdialogs.py:11505 qtdialogs.py:11769 ui/MultiSigDialogs.py:3000
-#: ui/UpgradeDownloader.py:315 ui/UpgradeDownloader.py:699
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-23 16:26-0800\n"
+"POT-Creation-Date: 2014-12-29 12:18-0800\n"
 "PO-Revision-Date: 2014-12-23 14:06-0800\n"
 "Last-Translator: CS <charles@bitcoinarmory.com>\n"
 "Language-Team: Armory <armory@bitcoinarmory.com>\n"
@@ -23,7 +21,7 @@ msgstr ""
 msgid "Filter:"
 msgstr "Sía:"
 
-#: ArmoryQt.py:550 qtdialogs.py:5179
+#: ArmoryQt.py:550 qtdialogs.py:5197
 msgid "Send Bitcoins"
 msgstr "Senda Bitcoin"
 
@@ -52,7 +50,8 @@ msgid ""
 "\n"
 "               Bitcoin Core is not available, so Armory will not be able\n"
 "               to broadcast any transactions for you."
-msgstr "\n"
+msgstr ""
+"\n"
 "Bitcoin Kjarni er ekki fást, svo Armory get ekki útvarpað hreyfingum fyrir "
 "þig."
 
@@ -120,7 +119,7 @@ msgstr ""
 msgid "Rebuild and Rescan Databases"
 msgstr ""
 
-#: ArmoryQt.py:773 qtdialogs.py:14888
+#: ArmoryQt.py:773 qtdialogs.py:14906
 msgid "Factory Reset"
 msgstr ""
 
@@ -272,7 +271,7 @@ msgid ""
 "            on this system."
 msgstr ""
 
-#: ArmoryQt.py:1658 qtdialogs.py:14951 qtdialogs.py:14970 qtdialogs.py:14985
+#: ArmoryQt.py:1658 qtdialogs.py:14969 qtdialogs.py:14988 qtdialogs.py:15003
 msgid "Aborted"
 msgstr ""
 
@@ -417,7 +416,7 @@ msgid ""
 "            main window."
 msgstr ""
 
-#: ArmoryQt.py:2241 ArmoryQt.py:4195
+#: ArmoryQt.py:2241 ArmoryQt.py:4200
 msgid "Still Running"
 msgstr ""
 
@@ -526,11 +525,11 @@ msgid ""
 "        other removable media."
 msgstr ""
 
-#: ArmoryQt.py:4034
+#: ArmoryQt.py:4039
 msgid "Bug Reporting"
 msgstr ""
 
-#: ArmoryQt.py:4034
+#: ArmoryQt.py:4039
 msgid ""
 "\n"
 "         As of version 0.91, Armory now includes a form for reporting\n"
@@ -540,11 +539,11 @@ msgid ""
 "         your log file automatically."
 msgstr ""
 
-#: ArmoryQt.py:4058 ArmoryQt.py:4100
+#: ArmoryQt.py:4063 ArmoryQt.py:4105
 msgid "Privacy Warning"
 msgstr ""
 
-#: ArmoryQt.py:4058
+#: ArmoryQt.py:4063
 #, python-format
 msgid ""
 "\n"
@@ -592,7 +591,7 @@ msgid ""
 "         Armory representative."
 msgstr ""
 
-#: ArmoryQt.py:4100
+#: ArmoryQt.py:4105
 #, python-format
 msgid ""
 "\n"
@@ -628,11 +627,11 @@ msgid ""
 "         review."
 msgstr ""
 
-#: ArmoryQt.py:4180
+#: ArmoryQt.py:4185
 msgid "Already running!"
 msgstr ""
 
-#: ArmoryQt.py:4180
+#: ArmoryQt.py:4185
 msgid ""
 "\n"
 "               The Bitcoin software appears to be installed now, but it\n"
@@ -641,11 +640,11 @@ msgid ""
 "               to close it for you?"
 msgstr ""
 
-#: ArmoryQt.py:4188
+#: ArmoryQt.py:4193
 msgid "Still Missing"
 msgstr ""
 
-#: ArmoryQt.py:4188
+#: ArmoryQt.py:4193
 msgid ""
 "\n"
 "               The Bitcoin software still appears to be missing.  If you\n"
@@ -653,31 +652,31 @@ msgid ""
 "               to the installation directory."
 msgstr ""
 
-#: ArmoryQt.py:4195
+#: ArmoryQt.py:4200
 msgid ""
 "\n"
 "               'Bitcoin-Qt is still running.  Armory cannot start until\n"
 "               'it is closed.  Do you want Armory to close it for you?"
 msgstr ""
 
-#: ArmoryQt.py:4328
+#: ArmoryQt.py:4333
 msgid "Preparing to shut down.."
 msgstr ""
 
-#: ArmoryQt.py:4424
+#: ArmoryQt.py:4429
 msgid ""
 "\n"
 "               Download and Install Bitcoin Core for Ubuntu/Debian"
 msgstr ""
 
-#: ArmoryQt.py:4426
+#: ArmoryQt.py:4431
 msgid ""
 "\n"
 "               'Will download and Bitcoin software and cryptographically "
 "verify it"
 msgstr ""
 
-#: ArmoryQt.py:4473
+#: ArmoryQt.py:4478
 msgid ""
 "\n"
 "         <font size=4><b>Announcements and alerts from <i>Armory "
@@ -685,11 +684,11 @@ msgid ""
 "         Inc.</i></b></font>"
 msgstr ""
 
-#: ArmoryQt.py:4482
+#: ArmoryQt.py:4487
 msgid "Not Available"
 msgstr ""
 
-#: ArmoryQt.py:4482
+#: ArmoryQt.py:4487
 #, python-format
 msgid ""
 "\n"
@@ -698,47 +697,47 @@ msgid ""
 "               Try again in a couple minutes."
 msgstr ""
 
-#: ArmoryQt.py:4488
+#: ArmoryQt.py:4493
 msgid "Update"
 msgstr ""
 
-#: ArmoryQt.py:4488
+#: ArmoryQt.py:4493
 msgid ""
 "\n"
 "               Announcements are now up to date!"
 msgstr ""
 
-#: ArmoryQt.py:4493
+#: ArmoryQt.py:4498
 msgid "Check for Updates"
 msgstr ""
 
-#: ArmoryQt.py:4503
+#: ArmoryQt.py:4508
 msgid ""
 "\n"
 "         No version information is available"
 msgstr ""
 
-#: ArmoryQt.py:4508 ArmoryQt.py:4509 ui/UpgradeDownloader.py:424
+#: ArmoryQt.py:4513 ArmoryQt.py:4514 ui/UpgradeDownloader.py:424
 msgid "Secure Downloader"
 msgstr ""
 
-#: ArmoryQt.py:4530
+#: ArmoryQt.py:4535
 msgid ""
 "<font size=4><b>\n"
 "         Software Version Updates:</b></font>"
 msgstr ""
 
-#: ArmoryQt.py:4533
+#: ArmoryQt.py:4538
 msgid ""
 "<font size=4><b>\n"
 "         All Available Notifications:</b></font>"
 msgstr ""
 
-#: ArmoryQt.py:4629
+#: ArmoryQt.py:4634
 msgid "No Data"
 msgstr ""
 
-#: ArmoryQt.py:4629
+#: ArmoryQt.py:4634
 #, python-format
 msgid ""
 "\n"
@@ -748,11 +747,11 @@ msgid ""
 "            down, or this computer cannot access the server."
 msgstr ""
 
-#: ArmoryQt.py:4640
+#: ArmoryQt.py:4645
 msgid "Old Data"
 msgstr ""
 
-#: ArmoryQt.py:4640
+#: ArmoryQt.py:4645
 #, python-format
 msgid ""
 "\n"
@@ -764,120 +763,120 @@ msgid ""
 "            available."
 msgstr ""
 
-#: ArmoryQt.py:4671
+#: ArmoryQt.py:4676
 msgid "No announcement data was found!"
 msgstr ""
 
-#: ArmoryQt.py:4674 ArmoryQt.py:4706
+#: ArmoryQt.py:4679 ArmoryQt.py:4711
 #, python-format
 msgid ""
 " You are running Armory\n"
 "            version %s"
 msgstr ""
 
-#: ArmoryQt.py:4678
+#: ArmoryQt.py:4683
 #, python-format
 msgid "<u>Last Updated</u>: %s"
 msgstr ""
 
-#: ArmoryQt.py:4694
+#: ArmoryQt.py:4699
 msgid ""
 "\n"
 "               You are using the latest version of Armory"
 msgstr ""
 
-#: ArmoryQt.py:4700
+#: ArmoryQt.py:4705
 msgid ""
 "\n"
 "               <b>There is a newer version of Armory available!</b>"
 msgstr ""
 
-#: ArmoryQt.py:4721
+#: ArmoryQt.py:4726
 #, python-format
 msgid ""
 " You are using\n"
 "                  the latest version of core Bitcoin (%s)"
 msgstr ""
 
-#: ArmoryQt.py:4727
+#: ArmoryQt.py:4732
 msgid ""
 "\n"
 "                  <b>There is a newer version of the core Bitcoin software\n"
 "                  available!</b>"
 msgstr ""
 
-#: ArmoryQt.py:4735
+#: ArmoryQt.py:4740
 #, python-format
 msgid ""
 " You are using\n"
 "               core Bitcoin version %s"
 msgstr ""
 
-#: ArmoryQt.py:4742
+#: ArmoryQt.py:4747
 #, python-format
 msgid ""
 "Core Bitcoin version\n"
 "               %s is available."
 msgstr ""
 
-#: ArmoryQt.py:4749
+#: ArmoryQt.py:4754
 msgid ""
 "No version information\n"
 "               is available for core Bitcoin"
 msgstr ""
 
-#: ArmoryQt.py:4778
+#: ArmoryQt.py:4783
 msgid ""
 "\n"
 "            There are no announcements or alerts to display"
 msgstr ""
 
-#: ArmoryQt.py:4897
+#: ArmoryQt.py:4902
 msgid "Initializing Torrent Engine"
 msgstr ""
 
-#: ArmoryQt.py:4902
+#: ArmoryQt.py:4907
 msgid "Downloading via Armory CDN"
 msgstr ""
 
-#: ArmoryQt.py:4911
+#: ArmoryQt.py:4916
 #, python-format
 msgid ""
 "\n"
 "               Bootstrap Torrent:  %(sec)s/sec from %(peers)d peers"
 msgstr ""
 
-#: ArmoryQt.py:4941
+#: ArmoryQt.py:4946
 msgid "Loading Database Headers"
 msgstr ""
 
-#: ArmoryQt.py:4950
+#: ArmoryQt.py:4955
 msgid "Organizing Blockchain"
 msgstr ""
 
-#: ArmoryQt.py:4952 ArmoryQt.py:4962 ArmoryQt.py:4970
+#: ArmoryQt.py:4957 ArmoryQt.py:4967 ArmoryQt.py:4975
 #, fuzzy
 msgid "Scan Transaction History"
 msgstr "Offline Hreyfingar"
 
-#: ArmoryQt.py:4960
+#: ArmoryQt.py:4965
 msgid "Reading New Block Headers"
 msgstr ""
 
-#: ArmoryQt.py:4968
+#: ArmoryQt.py:4973
 msgid "Building Databases"
 msgstr ""
 
-#: ArmoryQt.py:4976
+#: ArmoryQt.py:4981
 msgid "Build Databases"
 msgstr ""
 
-#: ArmoryQt.py:4978
+#: ArmoryQt.py:4983
 #, fuzzy
 msgid "Scanning Transaction History"
 msgstr "Offline Hreyfingar"
 
-#: ArmoryQt.py:5176
+#: ArmoryQt.py:5181
 msgid ""
 "\n"
 "         For more information about Armory, and even Bitcoin itself, you "
@@ -909,7 +908,7 @@ msgid ""
 "         Wallet Tutorial</a>.<br><br> "
 msgstr ""
 
-#: ArmoryQt.py:5375
+#: ArmoryQt.py:5380
 msgid ""
 "\n"
 "            <b>To maximize your security, the Bitcoin engine is downloading\n"
@@ -934,7 +933,7 @@ msgid ""
 "            until Armory is finished this initialization."
 msgstr ""
 
-#: ArmoryQt.py:5470
+#: ArmoryQt.py:5475
 msgid ""
 "\n"
 "               There was an error starting the underlying Bitcoin engine.\n"
@@ -944,7 +943,7 @@ msgid ""
 "               Output from bitcoind:<br>"
 msgstr ""
 
-#: ArmoryQt.py:5479
+#: ArmoryQt.py:5484
 msgid ""
 "\n"
 "                  There was an error starting the underlying Bitcoin "
@@ -964,7 +963,7 @@ msgid ""
 "                  inconvenience!"
 msgstr ""
 
-#: ArmoryQt.py:5713
+#: ArmoryQt.py:5718
 msgid ""
 "\n"
 "                        <b>Armory has lost connection to the\n"
@@ -975,15 +974,15 @@ msgid ""
 "                        couple minutes</b><br><br>"
 msgstr ""
 
-#: ArmoryQt.py:6141
+#: ArmoryQt.py:6146
 msgid "BlockDataManager Warning"
 msgstr ""
 
-#: ArmoryQt.py:6241
+#: ArmoryQt.py:6246
 msgid "Torrent"
 msgstr ""
 
-#: ArmoryQt.py:6241
+#: ArmoryQt.py:6246
 msgid ""
 "\n"
 "                           Armory is attempting to use BitTorrent to speed "
@@ -1001,7 +1000,7 @@ msgid ""
 "                           restart Armory."
 msgstr ""
 
-#: ArmoryQt.py:6703
+#: ArmoryQt.py:6708
 msgid ""
 "\n"
 "               The wallet analysis tool will become available\n"
@@ -1009,7 +1008,7 @@ msgid ""
 "               window and it will reappear when ready."
 msgstr ""
 
-#: ArmoryQt.py:6736
+#: ArmoryQt.py:6741
 msgid ""
 "\n"
 "                  <b>The following windows need closed before you can \n"
@@ -1168,10 +1167,10 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
-#: qtdialogs.py:391 qtdialogs.py:472 qtdialogs.py:768 qtdialogs.py:12301
-#: qtdialogs.py:12479 qtdialogs.py:12785 qtdialogs.py:13024 qtdialogs.py:13640
-#: qtdialogs.py:13775 qtdialogs.py:14004 qtdialogs.py:14188 qtdialogs.py:14874
-#: qtdialogs.py:15115 ui/MultiSigDialogs.py:1859 ui/MultiSigDialogs.py:1915
+#: qtdialogs.py:391 qtdialogs.py:472 qtdialogs.py:768 qtdialogs.py:12319
+#: qtdialogs.py:12497 qtdialogs.py:12803 qtdialogs.py:13042 qtdialogs.py:13658
+#: qtdialogs.py:13793 qtdialogs.py:14022 qtdialogs.py:14206 qtdialogs.py:14892
+#: qtdialogs.py:15133 ui/MultiSigDialogs.py:1859 ui/MultiSigDialogs.py:1915
 #: ui/MultiSigDialogs.py:2010 ui/MultiSigDialogs.py:2092
 #: ui/MultiSigDialogs.py:2219 ui/MultiSigDialogs.py:2406
 #: ui/MultiSigDialogs.py:3229 ui/MultiSigDialogs.py:3578
@@ -1315,8 +1314,8 @@ msgid ""
 "            will be removed before sending."
 msgstr ""
 
-#: qtdialogs.py:574 qtdialogs.py:862 qtdialogs.py:12300 qtdialogs.py:14726
-#: qtdialogs.py:14873 qtdialogs.py:15282 ui/MultiSigDialogs.py:2218
+#: qtdialogs.py:574 qtdialogs.py:862 qtdialogs.py:12318 qtdialogs.py:14744
+#: qtdialogs.py:14891 qtdialogs.py:15300 ui/MultiSigDialogs.py:2218
 #: ui/MultiSigDialogs.py:3230 ui/MultiSigDialogs.py:3586
 msgid "Continue"
 msgstr ""
@@ -1473,7 +1472,7 @@ msgid ""
 "            You canceled the backup operation.  No backup was made."
 msgstr ""
 
-#: qtdialogs.py:1046 qtdialogs.py:12187
+#: qtdialogs.py:1046 qtdialogs.py:12205
 msgid "Success"
 msgstr ""
 
@@ -1523,11 +1522,11 @@ msgid ""
 "               <a href=\"%s\">%s</a>"
 msgstr ""
 
-#: qtdialogs.py:2152
+#: qtdialogs.py:2154
 msgid "Imported Address Warning"
 msgstr ""
 
-#: qtdialogs.py:2152
+#: qtdialogs.py:2154
 msgid ""
 "\n"
 "            Armory supports importing of external private keys into your\n"
@@ -1541,11 +1540,11 @@ msgid ""
 "            backup window."
 msgstr ""
 
-#: qtdialogs.py:2555
+#: qtdialogs.py:2557
 msgid "Careful!"
 msgstr ""
 
-#: qtdialogs.py:2555
+#: qtdialogs.py:2557
 msgid ""
 "\n"
 "         Armory is not online yet, and will eventually need to be online to\n"
@@ -1560,35 +1559,35 @@ msgid ""
 "         Do you wish to continue?"
 msgstr ""
 
-#: qtdialogs.py:2976
+#: qtdialogs.py:2994
 msgid ""
 "\n"
 "         This is from a backup with SecurePrint™"
 msgstr ""
 
-#: qtdialogs.py:3017
+#: qtdialogs.py:3035
 msgid ""
 "\n"
 "               Sweep any funds owned by this address into your wallet"
 msgstr ""
 
-#: qtdialogs.py:3116
+#: qtdialogs.py:3134
 msgid "Invalid Private Key"
 msgstr ""
 
-#: qtdialogs.py:3116
+#: qtdialogs.py:3134
 msgid ""
 "\n"
 "               You entered all zeros.  This is not a valid private key!"
 msgstr ""
 
-#: qtdialogs.py:3243
+#: qtdialogs.py:3261
 msgid ""
 "The key you entered is already part of another wallet you own:"
 "<br><br><b>Address</b>: "
 msgstr ""
 
-#: qtdialogs.py:3455
+#: qtdialogs.py:3473
 msgid ""
 "\n"
 "               Failed:  No addresses could be imported.\n"
@@ -1599,7 +1598,7 @@ msgid ""
 "               for help fixing the problem). "
 msgstr ""
 
-#: qtdialogs.py:3501
+#: qtdialogs.py:3519
 msgid ""
 "The addresses were imported successfully, but your wallet balance will be "
 "incorrect until the global transaction history is searched for previous "
@@ -1608,13 +1607,13 @@ msgid ""
 "address balances will not be available until these operations are completed."
 msgstr ""
 
-#: qtdialogs.py:4614
+#: qtdialogs.py:4632
 msgid ""
 "\n"
 "         Print a paper backup of this wallet before deleting"
 msgstr ""
 
-#: qtdialogs.py:4618
+#: qtdialogs.py:4636
 msgid ""
 "\n"
 "            This will delete the wallet file from your system.\n"
@@ -1622,14 +1621,14 @@ msgid ""
 "            will be deleted."
 msgstr ""
 
-#: qtdialogs.py:4622
+#: qtdialogs.py:4640
 msgid ""
 "\n"
 "            This wallet is already a watching-only wallet so this option\n"
 "            is pointless"
 msgstr ""
 
-#: qtdialogs.py:4662
+#: qtdialogs.py:4680
 msgid ""
 "\n"
 "         If this box is checked, you will have the ability to print off an\n"
@@ -1639,15 +1638,15 @@ msgid ""
 "         to prevent the delete operation from continuing</b>"
 msgstr ""
 
-#: qtdialogs.py:4699 qtdialogs.py:7627
+#: qtdialogs.py:4717 qtdialogs.py:7645
 msgid "Unlock Paper Backup"
 msgstr ""
 
-#: qtdialogs.py:4700
+#: qtdialogs.py:4718
 msgid "Operation Aborted"
 msgstr ""
 
-#: qtdialogs.py:4700
+#: qtdialogs.py:4718
 msgid ""
 "\n"
 "              You requested a paper backup before deleting the wallet, but\n"
@@ -1656,11 +1655,11 @@ msgid ""
 "              operation was canceled as well."
 msgstr ""
 
-#: qtdialogs.py:4713
+#: qtdialogs.py:4731
 msgid "Verify Intentions"
 msgstr ""
 
-#: qtdialogs.py:4713
+#: qtdialogs.py:4731
 msgid ""
 "\n"
 "           Are you sure you want to remove this wallet from your Armory\n"
@@ -1669,13 +1668,13 @@ msgid ""
 "           re-enable it through the \"Wallets\"->\"Excluded Wallets\" menu."
 msgstr ""
 
-#: qtdialogs.py:5071
+#: qtdialogs.py:5089
 msgid ""
 " To see complete transaction details \n"
 "                             <a href=\"None\">click here</a></font>"
 msgstr ""
 
-#: qtdialogs.py:5080
+#: qtdialogs.py:5098
 #, python-format
 msgid ""
 "\n"
@@ -1685,7 +1684,7 @@ msgid ""
 "         recipients:"
 msgstr ""
 
-#: qtdialogs.py:5087
+#: qtdialogs.py:5105
 #, python-format
 msgid ""
 "\n"
@@ -1696,31 +1695,31 @@ msgid ""
 "            <b>%s BTC</b> as a result of this transaction.  %s</font>"
 msgstr ""
 
-#: qtdialogs.py:5266
+#: qtdialogs.py:5284
 msgid "Review Offline Transaction"
 msgstr ""
 
-#: qtdialogs.py:5328
+#: qtdialogs.py:5346
 msgid ""
 "\n"
 "         Create a transaction from an Offline/Watching-Only wallet\n"
 "         to be signed by the computer with the full wallet "
 msgstr ""
 
-#: qtdialogs.py:5332
+#: qtdialogs.py:5350
 msgid ""
 "\n"
 "         Review an unsigned transaction and sign it if you have\n"
 "         the private keys needed for it "
 msgstr ""
 
-#: qtdialogs.py:5336
+#: qtdialogs.py:5354
 msgid ""
 "\n"
 "         Send a pre-signed transaction to the Bitcoin network to finalize it"
 msgstr ""
 
-#: qtdialogs.py:6287
+#: qtdialogs.py:6305
 msgid ""
 "Some outputs might be \"change.\"\n"
 "         <a href=\"https://bitcoinarmory.com/all-about-change\">Click for "
@@ -1728,23 +1727,23 @@ msgid ""
 "         info</a>"
 msgstr ""
 
-#: qtdialogs.py:6515
+#: qtdialogs.py:6533
 msgid "<center><u><b>TxIn Information</b></u></center>"
 msgstr ""
 
-#: qtdialogs.py:6605 qtdialogs.py:6673 qtdialogs.py:13609 qtdialogs.py:15287
+#: qtdialogs.py:6623 qtdialogs.py:6691 qtdialogs.py:13627 qtdialogs.py:15305
 msgid "Ok"
 msgstr ""
 
-#: qtdialogs.py:6623
+#: qtdialogs.py:6641
 msgid "<center><u><b>TxOut Information</b></u></center>"
 msgstr ""
 
-#: qtdialogs.py:6988
+#: qtdialogs.py:7006
 msgid "Error Creating Backup"
 msgstr ""
 
-#: qtdialogs.py:6988
+#: qtdialogs.py:7006
 msgid ""
 "\n"
 "            There was an error with the backup creator.  The operation is "
@@ -1752,22 +1751,22 @@ msgid ""
 "            canceled to avoid making bad backups!"
 msgstr ""
 
-#: qtdialogs.py:7069
+#: qtdialogs.py:7087
 msgid "Print imported keys"
 msgstr ""
 
-#: qtdialogs.py:7072
+#: qtdialogs.py:7090
 msgid "Page:"
 msgstr ""
 
-#: qtdialogs.py:7085
+#: qtdialogs.py:7103
 msgid ""
 "\n"
 "         Use SecurePrint™ to prevent exposing keys to printer or other\n"
 "         network devices"
 msgstr ""
 
-#: qtdialogs.py:7092
+#: qtdialogs.py:7110
 msgid ""
 "\n"
 "         SecurePrint™ encrypts your backup with a code displayed on\n"
@@ -1780,7 +1779,7 @@ msgid ""
 "         you copy the data by hand."
 msgstr ""
 
-#: qtdialogs.py:7100
+#: qtdialogs.py:7118
 #, python-format
 msgid ""
 "\n"
@@ -1793,7 +1792,7 @@ msgid ""
 "         if this code is lost!</font> "
 msgstr ""
 
-#: qtdialogs.py:7119
+#: qtdialogs.py:7137
 #, python-format
 msgid ""
 "\n"
@@ -1808,7 +1807,7 @@ msgid ""
 "            of <b>4 characters each</b> (excluding \"ID\" lines)."
 msgstr ""
 
-#: qtdialogs.py:7130
+#: qtdialogs.py:7148
 #, python-format
 msgid ""
 "\n"
@@ -1822,11 +1821,11 @@ msgid ""
 "            of <b>4 characters each</b>."
 msgstr ""
 
-#: qtdialogs.py:7213
+#: qtdialogs.py:7231
 msgid "Lots to Print!"
 msgstr ""
 
-#: qtdialogs.py:7213
+#: qtdialogs.py:7231
 #, python-format
 msgid ""
 "\n"
@@ -1842,12 +1841,12 @@ msgid ""
 "            <br><br> Do you want to print the imported keys, anyway?"
 msgstr ""
 
-#: qtdialogs.py:7244 qtdialogs.py:7248
+#: qtdialogs.py:7262 qtdialogs.py:7266
 #, python-format
 msgid "of %d"
 msgstr ""
 
-#: qtdialogs.py:7291
+#: qtdialogs.py:7309
 #, python-format
 msgid ""
 "\n"
@@ -1859,25 +1858,25 @@ msgid ""
 "               <b>NOTE: the above code <u>is</u> case-sensitive!</b>"
 msgstr ""
 
-#: qtdialogs.py:7361
+#: qtdialogs.py:7379
 msgid "Single-Sheet "
 msgstr ""
 
-#: qtdialogs.py:7363
+#: qtdialogs.py:7381
 msgid "Imported Keys "
 msgstr ""
 
-#: qtdialogs.py:7365
+#: qtdialogs.py:7383
 #, python-format
 msgid "Fragmented Backup (%d-of-%d)"
 msgstr ""
 
-#: qtdialogs.py:7382
+#: qtdialogs.py:7400
 #, python-format
 msgid "<b>%s-<font color=\"%s\">#%d</font></b>"
 msgstr ""
 
-#: qtdialogs.py:7395
+#: qtdialogs.py:7413
 #, python-format
 msgid ""
 "\n"
@@ -1890,7 +1889,7 @@ msgid ""
 "            your wallet, please store the fragments in different locations."
 msgstr ""
 
-#: qtdialogs.py:7404
+#: qtdialogs.py:7422
 #, python-format
 msgid ""
 "\n"
@@ -1900,7 +1899,7 @@ msgid ""
 "            page in a safe place."
 msgstr ""
 
-#: qtdialogs.py:7422
+#: qtdialogs.py:7440
 #, python-format
 msgid ""
 "\n"
@@ -1911,7 +1910,7 @@ msgid ""
 "            suffer hardware failure and lose your wallet files. "
 msgstr ""
 
-#: qtdialogs.py:7429
+#: qtdialogs.py:7447
 msgid ""
 "\n"
 "               The following is a list of all private keys imported into "
@@ -1925,7 +1924,7 @@ msgid ""
 "               them into another application."
 msgstr ""
 
-#: qtdialogs.py:7437
+#: qtdialogs.py:7455
 msgid ""
 "\n"
 "               The following is a list of all private keys imported into "
@@ -1934,7 +1933,7 @@ msgid ""
 "               manually into the application where you wish to import them.  "
 msgstr ""
 
-#: qtdialogs.py:7443
+#: qtdialogs.py:7461
 #, python-format
 msgid ""
 "\n"
@@ -1943,7 +1942,7 @@ msgid ""
 "            wallet. "
 msgstr ""
 
-#: qtdialogs.py:7466
+#: qtdialogs.py:7484
 msgid ""
 "\n"
 "            <b><font color=\"#770000\">CRITICAL:</font>  This backup will "
@@ -1953,7 +1952,7 @@ msgid ""
 "            Copy it here in ink:"
 msgstr ""
 
-#: qtdialogs.py:7573
+#: qtdialogs.py:7591
 #, python-format
 msgid ""
 "\n"
@@ -1962,18 +1961,18 @@ msgid ""
 "         by hand, you can safely ignore this QR code. "
 msgstr ""
 
-#: qtdialogs.py:7630 ui/WalletFrames.py:978 ui/WalletFrames.py:984
+#: qtdialogs.py:7648 ui/WalletFrames.py:978 ui/WalletFrames.py:984
 msgid "Unlock Failed"
 msgstr ""
 
-#: qtdialogs.py:7630
+#: qtdialogs.py:7648
 msgid ""
 "\n"
 "            The wallet could not be unlocked.  Please try again with\n"
 "            the correct unlock passphrase."
 msgstr ""
 
-#: qtdialogs.py:7639
+#: qtdialogs.py:7657
 msgid ""
 "\n"
 "         If the backup was printed with SecurePrint™, please\n"
@@ -1982,7 +1981,7 @@ msgid ""
 "         case-sensitive!"
 msgstr ""
 
-#: qtdialogs.py:7646
+#: qtdialogs.py:7664
 msgid ""
 "\n"
 "         If the backup was created with SecurePrint™, please\n"
@@ -1991,11 +1990,11 @@ msgid ""
 "         same for all fragments."
 msgstr ""
 
-#: qtdialogs.py:7652
+#: qtdialogs.py:7670
 msgid "Verify Your Backup!"
 msgstr ""
 
-#: qtdialogs.py:7652
+#: qtdialogs.py:7670
 #, python-format
 msgid ""
 "\n"
@@ -2018,7 +2017,7 @@ msgid ""
 "      "
 msgstr ""
 
-#: qtdialogs.py:8067
+#: qtdialogs.py:8085
 #, python-format
 msgid ""
 "\n"
@@ -2033,7 +2032,7 @@ msgid ""
 "            <b>G</b><sub>y</sub>: %s"
 msgstr ""
 
-#: qtdialogs.py:8333 ui/MultiSigDialogs.py:3580
+#: qtdialogs.py:8351 ui/MultiSigDialogs.py:3580
 msgid ""
 "\n"
 "         EXPERT OPTION:  Do not check this box unless you know what it "
@@ -2045,18 +2044,18 @@ msgid ""
 "                         and otherwise creates blockchain bloat."
 msgstr ""
 
-#: qtdialogs.py:8618
+#: qtdialogs.py:8636
 msgid ""
 "\n"
 "               Bare multi-sig is not available for M-of-N lockboxes on the \n"
 "               main Bitcoin network with N higher than 3."
 msgstr ""
 
-#: qtdialogs.py:8666
+#: qtdialogs.py:8684
 msgid "P2SH Not Allowed"
 msgstr ""
 
-#: qtdialogs.py:8666
+#: qtdialogs.py:8684
 msgid ""
 "\n"
 "               This operation requires a public key, but you selected a \n"
@@ -2065,11 +2064,11 @@ msgid ""
 "               start with \"2\" or \"3\").  Please select a different address"
 msgstr ""
 
-#: qtdialogs.py:8700
+#: qtdialogs.py:8718
 msgid "No Public Key"
 msgstr ""
 
-#: qtdialogs.py:8700
+#: qtdialogs.py:8718
 msgid ""
 "\n"
 "            This operation requires a full public key, not just an "
@@ -2080,56 +2079,56 @@ msgid ""
 "            for addresses in your wallet."
 msgstr ""
 
-#: qtdialogs.py:8813
+#: qtdialogs.py:8831
 msgid ""
 "Licensed under the <a href=\"http://www.gnu.org/licenses/agpl-3.0.html"
 "\">Affero General Public License, Version 3</a> (AGPLv3)"
 msgstr ""
 
-#: qtdialogs.py:8841
+#: qtdialogs.py:8859
 msgid ""
 "\n"
 "         Let Armory run Bitcoin-Qt/bitcoind in the background"
 msgstr ""
 
-#: qtdialogs.py:8906
+#: qtdialogs.py:8924
 msgid ""
 "\n"
 "         Skip online check on startup (assume internet is available, do\n"
 "         not check)"
 msgstr ""
 
-#: qtdialogs.py:8912
+#: qtdialogs.py:8930
 msgid ""
 "\n"
 "         Skip periodic version queries to Armory server"
 msgstr ""
 
-#: qtdialogs.py:8918
+#: qtdialogs.py:8936
 msgid ""
 "\n"
 "         Disable torrent download (force synchronization via Bitcoin P2P)"
 msgstr ""
 
-#: qtdialogs.py:8941
+#: qtdialogs.py:8959
 msgid ""
 "\n"
 "         Disable OS and version reporting"
 msgstr ""
 
-#: qtdialogs.py:8944
+#: qtdialogs.py:8962
 msgid ""
 "\n"
 "         Enable settings for proxies/Tor"
 msgstr ""
 
-#: qtdialogs.py:8956
+#: qtdialogs.py:8974
 msgid ""
 "\n"
 "         <b>Set Armory as default URL handler</b>"
 msgstr ""
 
-#: qtdialogs.py:8958
+#: qtdialogs.py:8976
 msgid ""
 "\n"
 "         Set Armory to be the default when you click on \"bitcoin:\"\n"
@@ -2138,21 +2137,21 @@ msgid ""
 "         on a \"bitcoin:\" link right after clicking this button."
 msgstr ""
 
-#: qtdialogs.py:8963
+#: qtdialogs.py:8981
 msgid "Set Armory as Default"
 msgstr ""
 
-#: qtdialogs.py:8966
+#: qtdialogs.py:8984
 msgid ""
 "\n"
 "         Check whether Armory is the default handler at startup"
 msgstr ""
 
-#: qtdialogs.py:8973
+#: qtdialogs.py:8991
 msgid "Registered"
 msgstr ""
 
-#: qtdialogs.py:8973
+#: qtdialogs.py:8991
 msgid ""
 "\n"
 "            Armory just attempted to register itself to handle \"bitcoin:\"\n"
@@ -2164,7 +2163,7 @@ msgid ""
 "            homepage."
 msgstr ""
 
-#: qtdialogs.py:8986
+#: qtdialogs.py:9004
 msgid ""
 "\n"
 "         Armory Technologies, Inc. will periodically post announcements and\n"
@@ -2173,37 +2172,37 @@ msgid ""
 "         offline private key controlled exclusively by ATI."
 msgstr ""
 
-#: qtdialogs.py:8991
+#: qtdialogs.py:9009
 msgid ""
 "\n"
 "         (Level 1) All announcements including testing/unstable versions"
 msgstr ""
 
-#: qtdialogs.py:8993
+#: qtdialogs.py:9011
 msgid ""
 "\n"
 "         (Level 2) Standard announcements and notifications"
 msgstr ""
 
-#: qtdialogs.py:8995
+#: qtdialogs.py:9013
 msgid ""
 "\n"
 "         (Level 3) Only important announcements and alerts"
 msgstr ""
 
-#: qtdialogs.py:8997
+#: qtdialogs.py:9015
 msgid ""
 "\n"
 "         (Level 4) Only critical security alerts"
 msgstr ""
 
-#: qtdialogs.py:9000
+#: qtdialogs.py:9018
 msgid ""
 "\n"
 "         Disable software upgrade notifications "
 msgstr ""
 
-#: qtdialogs.py:9006
+#: qtdialogs.py:9024
 #, python-format
 msgid ""
 "\n"
@@ -2214,27 +2213,27 @@ msgid ""
 "         the Armory shortcut target</font>"
 msgstr ""
 
-#: qtdialogs.py:9030
+#: qtdialogs.py:9048
 msgid "Reset Notifications"
 msgstr ""
 
-#: qtdialogs.py:9037
+#: qtdialogs.py:9055
 msgid "Settings Changed"
 msgstr ""
 
-#: qtdialogs.py:9037
+#: qtdialogs.py:9055
 msgid ""
 "\n"
 "            All notifications have been reset!"
 msgstr ""
 
-#: qtdialogs.py:9044
+#: qtdialogs.py:9062
 msgid ""
 "\n"
 "         <b>Default fee to include with transactions:</b><br>"
 msgstr ""
 
-#: qtdialogs.py:9046
+#: qtdialogs.py:9064
 #, python-format
 msgid ""
 "\n"
@@ -2243,7 +2242,7 @@ msgid ""
 "         transactions so they confirm faster (%s BTC is standard)."
 msgstr ""
 
-#: qtdialogs.py:9052
+#: qtdialogs.py:9070
 msgid ""
 "\n"
 "         NOTE: some transactions will require a certain fee\n"
@@ -2252,7 +2251,7 @@ msgid ""
 "         value or cancel the transaction"
 msgstr ""
 
-#: qtdialogs.py:9067
+#: qtdialogs.py:9085
 msgid ""
 "\n"
 "         <b>Minimize to System Tray</b>\n"
@@ -2270,15 +2269,15 @@ msgid ""
 "         <i>\"File\"</i>→<i>\"Quit Armory\"</i> to actually close it."
 msgstr ""
 
-#: qtdialogs.py:9080
+#: qtdialogs.py:9098
 msgid "Minimize to system tray on open"
 msgstr ""
 
-#: qtdialogs.py:9085
+#: qtdialogs.py:9103
 msgid "Minimize to system tray on close"
 msgstr ""
 
-#: qtdialogs.py:9491
+#: qtdialogs.py:9509
 #, python-format
 msgid ""
 "\n"
@@ -2293,113 +2292,113 @@ msgid ""
 "            <a href=\"%s\">%s</a>"
 msgstr ""
 
-#: qtdialogs.py:10350
+#: qtdialogs.py:10368
 #, python-format
 msgid "You are using version %s<br>"
 msgstr ""
 
-#: qtdialogs.py:10352
+#: qtdialogs.py:10370
 msgid "Affects Armory versions:  "
-msgstr ""
-
-#: qtdialogs.py:10356
-#, python-format
-msgid "before %s<br>"
-msgstr ""
-
-#: qtdialogs.py:10358 qtdialogs.py:10370
-#, python-format
-msgid "%s%s<br>"
-msgstr ""
-
-#: qtdialogs.py:10360 qtdialogs.py:10368
-msgid "Affects Armory versions "
-msgstr ""
-
-#: qtdialogs.py:10362
-#, python-format
-msgid "after %s<br>"
-msgstr ""
-
-#: qtdialogs.py:10364
-#, python-format
-msgid "between %s and %s<br>"
-msgstr ""
-
-#: qtdialogs.py:10366
-#, python-format
-msgid "after %s,  %s%s<br>"
-msgstr ""
-
-#: qtdialogs.py:10372
-#, python-format
-msgid "%s%s and before %s<br>"
 msgstr ""
 
 #: qtdialogs.py:10374
 #, python-format
-msgid "%s%s and %s%s<br>"
+msgid "before %s<br>"
+msgstr ""
+
+#: qtdialogs.py:10376 qtdialogs.py:10388
+#, python-format
+msgid "%s%s<br>"
+msgstr ""
+
+#: qtdialogs.py:10378 qtdialogs.py:10386
+msgid "Affects Armory versions "
+msgstr ""
+
+#: qtdialogs.py:10380
+#, python-format
+msgid "after %s<br>"
 msgstr ""
 
 #: qtdialogs.py:10382
 #, python-format
-msgid "Released: %s<br>"
+msgid "between %s and %s<br>"
+msgstr ""
+
+#: qtdialogs.py:10384
+#, python-format
+msgid "after %s,  %s%s<br>"
+msgstr ""
+
+#: qtdialogs.py:10390
+#, python-format
+msgid "%s%s and before %s<br>"
 msgstr ""
 
 #: qtdialogs.py:10392
-msgid "New Armory Test Build"
-msgstr ""
-
-#: qtdialogs.py:10393
-msgid "New Testing Version Available!"
-msgstr ""
-
-#: qtdialogs.py:10395
-msgid "Upgrade Armory"
-msgstr ""
-
-#: qtdialogs.py:10396
-msgid "Armory is out-of-date!"
+#, python-format
+msgid "%s%s and %s%s<br>"
 msgstr ""
 
 #: qtdialogs.py:10400
+#, python-format
+msgid "Released: %s<br>"
+msgstr ""
+
+#: qtdialogs.py:10410
+msgid "New Armory Test Build"
+msgstr ""
+
+#: qtdialogs.py:10411
+msgid "New Testing Version Available!"
+msgstr ""
+
+#: qtdialogs.py:10413
+msgid "Upgrade Armory"
+msgstr ""
+
+#: qtdialogs.py:10414
+msgid "Armory is out-of-date!"
+msgstr ""
+
+#: qtdialogs.py:10418
 msgid "Information"
 msgstr ""
 
-#: qtdialogs.py:10402
+#: qtdialogs.py:10420
 msgid "General Notification"
 msgstr ""
 
-#: qtdialogs.py:10407
+#: qtdialogs.py:10425
 msgid ""
 "\n"
 "            Important Information from <i>Armory Technologies, Inc.</i>"
 msgstr ""
 
-#: qtdialogs.py:10411 qtdialogs.py:10417
+#: qtdialogs.py:10429 qtdialogs.py:10435
 msgid "Alert"
 msgstr ""
 
-#: qtdialogs.py:10413
+#: qtdialogs.py:10431
 msgid ""
 "\n"
 "            Security Alert from <i>Armory Technologies, Inc.</i>"
 msgstr ""
 
-#: qtdialogs.py:10419
+#: qtdialogs.py:10437
 msgid ""
 "\n"
 "            Critical Security Alert from <i>Armory Technologies, Inc.</i>"
 msgstr ""
 
-#: qtdialogs.py:10422
+#: qtdialogs.py:10440
 #, python-format
 msgid ""
 "\n"
 "         <font size=%d color=\"%s\"><b>%s</b></font><br>"
 msgstr ""
 
-#: qtdialogs.py:10427
+#: qtdialogs.py:10445
 #, python-format
 msgid ""
 "\n"
@@ -2410,7 +2409,7 @@ msgid ""
 "         "
 msgstr ""
 
-#: qtdialogs.py:10436
+#: qtdialogs.py:10454
 msgid ""
 "\n"
 "         If new versions of Armory are available, you can get them\n"
@@ -2418,33 +2417,33 @@ msgid ""
 "         downloader</a></font> "
 msgstr ""
 
-#: qtdialogs.py:10441
+#: qtdialogs.py:10459
 msgid ""
 "\n"
 "         You can access all alerts and announcements from the\n"
 "         \"Announcements\" tab on the main Armory window."
 msgstr ""
 
-#: qtdialogs.py:10472 qtdialogs.py:11892 qtdialogs.py:14339 qtdialogs.py:14638
+#: qtdialogs.py:10490 qtdialogs.py:11910 qtdialogs.py:14357 qtdialogs.py:14656
 #: ui/UpgradeDownloader.py:305
 msgid "Close"
 msgstr ""
 
-#: qtdialogs.py:10473
+#: qtdialogs.py:10491
 msgid "Do not popup again"
 msgstr ""
 
-#: qtdialogs.py:10474
+#: qtdialogs.py:10492
 msgid "Secure Download"
 msgstr ""
 
-#: qtdialogs.py:11403
+#: qtdialogs.py:11421
 msgid ""
 "\n"
 "         <b>Protect Your Bitcoins -- Make a Wallet Backup!</b>"
 msgstr ""
 
-#: qtdialogs.py:11406
+#: qtdialogs.py:11424
 msgid ""
 "\n"
 "         A failed hard-drive or forgotten passphrase will lead to\n"
@@ -2454,56 +2453,56 @@ msgid ""
 "         a hardware failure, make a backup! "
 msgstr ""
 
-#: qtdialogs.py:11414
+#: qtdialogs.py:11432
 msgid ""
 "\n"
 "         Use a printer or pen-and-paper to write down your wallet \"seed.\" "
 msgstr ""
 
-#: qtdialogs.py:11416
+#: qtdialogs.py:11434
 msgid "Make Paper Backup"
 msgstr ""
 
-#: qtdialogs.py:11419
+#: qtdialogs.py:11437
 msgid ""
 "\n"
 "         Create an unencrypted copy of your wallet file, including imported\n"
 "         addresses."
 msgstr ""
 
-#: qtdialogs.py:11422
+#: qtdialogs.py:11440
 msgid "Make Digital Backup"
 msgstr ""
 
-#: qtdialogs.py:11425
+#: qtdialogs.py:11443
 msgid " "
 msgstr ""
 
-#: qtdialogs.py:11426
+#: qtdialogs.py:11444
 msgid "See Other Backup Options"
 msgstr ""
 
-#: qtdialogs.py:11479
+#: qtdialogs.py:11497
 msgid "Backup Options"
 msgstr ""
 
-#: qtdialogs.py:11503
+#: qtdialogs.py:11521
 msgid "Export Watching-Only Wallet File"
 msgstr ""
 
-#: qtdialogs.py:11504
+#: qtdialogs.py:11522
 msgid "Copy to clipboard"
 msgstr ""
 
-#: qtdialogs.py:11506
+#: qtdialogs.py:11524
 msgid "Save to Text File"
 msgstr ""
 
-#: qtdialogs.py:11507
+#: qtdialogs.py:11525
 msgid "Print Root Data"
 msgstr ""
 
-#: qtdialogs.py:11519
+#: qtdialogs.py:11537
 #, python-format
 msgid ""
 "\n"
@@ -2512,15 +2511,15 @@ msgid ""
 "         Watch-Only Root Data:"
 msgstr ""
 
-#: qtdialogs.py:11526
+#: qtdialogs.py:11544
 msgid "Watch-Only Wallet Export"
 msgstr ""
 
-#: qtdialogs.py:11538
+#: qtdialogs.py:11556
 msgid "<i>Copied!</i>"
 msgstr ""
 
-#: qtdialogs.py:11543
+#: qtdialogs.py:11561
 #, python-format
 msgid ""
 "\n"
@@ -2532,7 +2531,7 @@ msgid ""
 "         without the ability to move the funds."
 msgstr ""
 
-#: qtdialogs.py:11552
+#: qtdialogs.py:11570
 #, python-format
 msgid ""
 "\n"
@@ -2545,7 +2544,7 @@ msgid ""
 "         from this system to the target system."
 msgstr ""
 
-#: qtdialogs.py:11562
+#: qtdialogs.py:11580
 msgid ""
 "\n"
 "         <center><b><u>Only Root Data</u></b></center>\n"
@@ -2556,14 +2555,14 @@ msgid ""
 "         it."
 msgstr ""
 
-#: qtdialogs.py:11570 qtdialogs.py:13639 qtdialogs.py:13774
+#: qtdialogs.py:11588 qtdialogs.py:13657 qtdialogs.py:13792
 #: ui/MultiSigDialogs.py:340 ui/MultiSigDialogs.py:697
 #: ui/MultiSigDialogs.py:2091 ui/MultiSigDialogs.py:2320
 #: ui/MultiSigDialogs.py:2405 ui/MultiSigDialogs.py:3925
 msgid "Done"
 msgstr ""
 
-#: qtdialogs.py:11667
+#: qtdialogs.py:11685
 msgid ""
 "\n"
 "         <b><u>Print Watch-Only Wallet Root</u></b><br><br>\n"
@@ -2574,7 +2573,7 @@ msgid ""
 "         but without the ability to spend the funds."
 msgstr ""
 
-#: qtdialogs.py:11751
+#: qtdialogs.py:11769
 msgid ""
 "\n"
 "         <b><font size=4><font color=\"#aa0000\">WARNING:</font>  <u>This is "
@@ -2588,14 +2587,14 @@ msgid ""
 "         funds."
 msgstr ""
 
-#: qtdialogs.py:11781
+#: qtdialogs.py:11799
 msgid ""
 "\n"
 "         The following five lines are sufficient to reproduce all public\n"
 "         keys matching the private keys produced by the full wallet."
 msgstr ""
 
-#: qtdialogs.py:11820
+#: qtdialogs.py:11838
 msgid ""
 "\n"
 "         The following QR code is for convenience only.  It contains the\n"
@@ -2603,20 +2602,20 @@ msgid ""
 "         by hand, you can safely ignore this QR code. "
 msgstr ""
 
-#: qtdialogs.py:11852
+#: qtdialogs.py:11870
 #, python-format
 msgid ""
 "\n"
 "         <b><u>Create M-of-N Fragmented Backup</u> of \"%s\" (%s)</b>"
 msgstr ""
 
-#: qtdialogs.py:11909
+#: qtdialogs.py:11927
 msgid ""
 " Use SecurePrint™ \n"
 "         to prevent exposing keys to printer or other devices"
 msgstr ""
 
-#: qtdialogs.py:11916
+#: qtdialogs.py:11934
 msgid ""
 "\n"
 "         SecurePrint™ encrypts your backup with a code displayed on\n"
@@ -2627,7 +2626,7 @@ msgid ""
 "         <u>You must keep the SecurePrint™ code with the backup!</u>"
 msgstr ""
 
-#: qtdialogs.py:11922
+#: qtdialogs.py:11940
 #, python-format
 msgid ""
 "\n"
@@ -2639,19 +2638,19 @@ msgid ""
 "         same code.</font>"
 msgstr ""
 
-#: qtdialogs.py:11983
+#: qtdialogs.py:12001
 msgid "<u><b>Required Fragments</b></u> "
 msgstr ""
 
-#: qtdialogs.py:11984
+#: qtdialogs.py:12002
 msgid "<u><b>Total Fragments</b></u> "
 msgstr ""
 
-#: qtdialogs.py:11988
+#: qtdialogs.py:12006
 msgid "Print All Fragments"
 msgstr ""
 
-#: qtdialogs.py:12015
+#: qtdialogs.py:12033
 #, python-format
 msgid ""
 "\n"
@@ -2666,24 +2665,24 @@ msgid ""
 "         here</a> to read more about our backup system.<br>"
 msgstr ""
 
-#: qtdialogs.py:12033
+#: qtdialogs.py:12051
 #, python-format
 msgid "<b>Fragment ID:<br>%(prefix)s-%(idx)d</b>"
 msgstr ""
 
-#: qtdialogs.py:12066
+#: qtdialogs.py:12084
 msgid "View/Print"
 msgstr ""
 
-#: qtdialogs.py:12067 ui/MultiSigDialogs.py:2318
+#: qtdialogs.py:12085 ui/MultiSigDialogs.py:2318
 msgid "Save to File"
 msgstr ""
 
-#: qtdialogs.py:12101 qtdialogs.py:13072
+#: qtdialogs.py:12119 qtdialogs.py:13090
 msgid "Fragments"
 msgstr ""
 
-#: qtdialogs.py:12111
+#: qtdialogs.py:12129
 msgid ""
 "\n"
 "            You have selected to use SecurePrint™ for the printed\n"
@@ -2696,15 +2695,15 @@ msgid ""
 "            file with the same SecurePrint™ code?"
 msgstr ""
 
-#: qtdialogs.py:12136
+#: qtdialogs.py:12154
 msgid "Save Fragment"
 msgstr ""
 
-#: qtdialogs.py:12137 qtdialogs.py:13177
+#: qtdialogs.py:12155 qtdialogs.py:13195
 msgid "Wallet Fragments (*.frag)"
 msgstr ""
 
-#: qtdialogs.py:12171
+#: qtdialogs.py:12189
 #, python-format
 msgid ""
 "\n"
@@ -2712,7 +2711,7 @@ msgid ""
 "         <br><br> %(path)s <br><br> "
 msgstr ""
 
-#: qtdialogs.py:12176
+#: qtdialogs.py:12194
 #, python-format
 msgid ""
 "\n"
@@ -2727,13 +2726,13 @@ msgid ""
 "            The above code <u><b>is</b></u> case-sensitive!"
 msgstr ""
 
-#: qtdialogs.py:12273
+#: qtdialogs.py:12291
 msgid ""
 "\n"
 "         <b><u>Restore Wallet from Backup</u></b>"
 msgstr ""
 
-#: qtdialogs.py:12275
+#: qtdialogs.py:12293
 msgid ""
 "You can restore any kind of backup ever created by Armory using\n"
 "         one of the options below.  If you have a list of private keys\n"
@@ -2741,46 +2740,46 @@ msgid ""
 "         Private Keys.\"  "
 msgstr ""
 
-#: qtdialogs.py:12280
+#: qtdialogs.py:12298
 msgid "I am restoring a..."
 msgstr ""
 
-#: qtdialogs.py:12282
+#: qtdialogs.py:12300
 msgid "Single-Sheet Backup (printed)"
 msgstr ""
 
-#: qtdialogs.py:12283
+#: qtdialogs.py:12301
 msgid "Fragmented Backup (incl. mix of paper and files)"
 msgstr ""
 
-#: qtdialogs.py:12284
+#: qtdialogs.py:12302
 msgid "Import digital backup or watching-only wallet"
 msgstr ""
 
-#: qtdialogs.py:12285
+#: qtdialogs.py:12303
 msgid "Import watching-only wallet data"
 msgstr ""
 
-#: qtdialogs.py:12286
+#: qtdialogs.py:12304
 msgid "This is a test recovery to make sure my backup works"
 msgstr ""
 
-#: qtdialogs.py:12384
+#: qtdialogs.py:12402
 msgid "Invalid Code"
 msgstr ""
 
-#: qtdialogs.py:12384
+#: qtdialogs.py:12402
 msgid ""
 "\n"
 "            You didn't enter a full SecurePrint™ code.  This\n"
 "            code is needed to decrypt your backup file."
 msgstr ""
 
-#: qtdialogs.py:12389 qtdialogs.py:12395
+#: qtdialogs.py:12407 qtdialogs.py:12413
 msgid "Bad SecurePrint™ Code"
 msgstr ""
 
-#: qtdialogs.py:12389
+#: qtdialogs.py:12407
 msgid ""
 "\n"
 "            The SecurePrint™ code you entered has an error\n"
@@ -2788,7 +2787,7 @@ msgid ""
 "            you entered it correctly and try again."
 msgstr ""
 
-#: qtdialogs.py:12395
+#: qtdialogs.py:12413
 #, python-format
 msgid ""
 "\n"
@@ -2797,7 +2796,7 @@ msgid ""
 "%(base58)s"
 msgstr ""
 
-#: qtdialogs.py:12412
+#: qtdialogs.py:12430
 msgid ""
 "\n"
 "         <b><u><font color=\"blue\" size=\"4\">Test a Paper Backup</font></"
@@ -2808,7 +2807,7 @@ msgid ""
 "test.  "
 msgstr ""
 
-#: qtdialogs.py:12418
+#: qtdialogs.py:12436
 msgid ""
 "\n"
 "         <b><u>Restore a Wallet from Paper Backup</u></b>\n"
@@ -2820,75 +2819,75 @@ msgid ""
 "         Keys\" from the right-hand menu. "
 msgstr ""
 
-#: qtdialogs.py:12428 qtdialogs.py:13727
+#: qtdialogs.py:12446 qtdialogs.py:13745
 msgid "<b>Backup Type:</b>"
 msgstr ""
 
-#: qtdialogs.py:12430
+#: qtdialogs.py:12448
 msgid "Version 1.35 (4 lines)"
 msgstr ""
 
-#: qtdialogs.py:12431
+#: qtdialogs.py:12449
 msgid "Version 1.35a (4 lines Unencrypted)"
 msgstr ""
 
-#: qtdialogs.py:12432
+#: qtdialogs.py:12450
 msgid "Version 1.35a (4 lines + SecurePrint™)"
 msgstr ""
 
-#: qtdialogs.py:12433
+#: qtdialogs.py:12451
 msgid "Version 1.35c (2 lines Unencrypted)"
 msgstr ""
 
-#: qtdialogs.py:12434
+#: qtdialogs.py:12452
 msgid "Version 1.35c (2 lines + SecurePrint™)"
 msgstr ""
 
-#: qtdialogs.py:12457 qtdialogs.py:13031 qtdialogs.py:13759
+#: qtdialogs.py:12475 qtdialogs.py:13049 qtdialogs.py:13777
 msgid "SecurePrint™ Code:"
 msgstr ""
 
-#: qtdialogs.py:12459
+#: qtdialogs.py:12477
 msgid "Root Key:"
 msgstr ""
 
-#: qtdialogs.py:12459
+#: qtdialogs.py:12477
 msgid "Chaincode:"
 msgstr ""
 
-#: qtdialogs.py:12476 qtdialogs.py:12782 qtdialogs.py:13022
+#: qtdialogs.py:12494 qtdialogs.py:12800 qtdialogs.py:13040
 msgid "Test Backup"
 msgstr ""
 
-#: qtdialogs.py:12476 qtdialogs.py:12782
+#: qtdialogs.py:12494 qtdialogs.py:12800
 msgid "Restore Wallet"
 msgstr ""
 
-#: qtdialogs.py:12486
+#: qtdialogs.py:12504
 msgid "Encrypt Wallet"
 msgstr ""
 
-#: qtdialogs.py:12492
+#: qtdialogs.py:12510
 msgid "Backup"
 msgstr ""
 
-#: qtdialogs.py:12494 qtdialogs.py:13074
+#: qtdialogs.py:12512 qtdialogs.py:13092
 msgid "Advanced Options"
 msgstr ""
 
-#: qtdialogs.py:12508
+#: qtdialogs.py:12526
 msgid "Test Single-Sheet Backup"
 msgstr ""
 
-#: qtdialogs.py:12510 qtdialogs.py:13791
+#: qtdialogs.py:12528 qtdialogs.py:13809
 msgid "Restore Single-Sheet Backup"
 msgstr ""
 
-#: qtdialogs.py:12567 qtdialogs.py:12876 qtdialogs.py:12906
+#: qtdialogs.py:12585 qtdialogs.py:12894 qtdialogs.py:12924
 msgid "Invalid Data"
 msgstr ""
 
-#: qtdialogs.py:12567
+#: qtdialogs.py:12585
 #, python-format
 msgid ""
 "\n"
@@ -2901,29 +2900,29 @@ msgid ""
 "font>."
 msgstr ""
 
-#: qtdialogs.py:12580 qtdialogs.py:13365
+#: qtdialogs.py:12598 qtdialogs.py:13383
 msgid "Invalid Target Compute Time"
 msgstr ""
 
-#: qtdialogs.py:12581 qtdialogs.py:13366
+#: qtdialogs.py:12599 qtdialogs.py:13384
 msgid ""
 "You entered Target Compute Time incorrectly.\n"
 "\n"
 "Enter: <Number> (ms, s)"
 msgstr ""
 
-#: qtdialogs.py:12584 qtdialogs.py:13369
+#: qtdialogs.py:12602 qtdialogs.py:13387
 msgid "Invalid Max Memory Usage"
 msgstr ""
 
-#: qtdialogs.py:12585 qtdialogs.py:13370
+#: qtdialogs.py:12603 qtdialogs.py:13388
 msgid ""
 "You entered Max Memory Usage incorrectly.\n"
 "\n"
 "nter: <Number> (kb, mb)"
 msgstr ""
 
-#: qtdialogs.py:12590
+#: qtdialogs.py:12608
 #, python-format
 msgid ""
 "\n"
@@ -2933,15 +2932,15 @@ msgid ""
 "            closely on the next window."
 msgstr ""
 
-#: qtdialogs.py:12600
+#: qtdialogs.py:12618
 msgid "Errors Corrected"
 msgstr ""
 
-#: qtdialogs.py:12649 qtdialogs.py:12947 qtdialogs.py:13438 qtdialogs.py:13875
+#: qtdialogs.py:12667 qtdialogs.py:12965 qtdialogs.py:13456 qtdialogs.py:13893
 msgid "Verify Wallet ID"
 msgstr ""
 
-#: qtdialogs.py:12650
+#: qtdialogs.py:12668
 #, python-format
 msgid ""
 "The data you entered corresponds to a wallet with a wallet ID: \n"
@@ -2952,25 +2951,25 @@ msgid ""
 "If not, click \"No\" and reenter key and chain-code data again."
 msgstr ""
 
-#: qtdialogs.py:12664 qtdialogs.py:13454
+#: qtdialogs.py:12682 qtdialogs.py:13472
 msgid "Cannot Encrypt"
 msgstr ""
 
-#: qtdialogs.py:12665
+#: qtdialogs.py:12683
 msgid ""
 "You requested your restored wallet be encrypted, but no valid passphrase was "
 "supplied.  Aborting wallet recovery."
 msgstr ""
 
-#: qtdialogs.py:12686 qtdialogs.py:12700 qtdialogs.py:13474 qtdialogs.py:13486
+#: qtdialogs.py:12704 qtdialogs.py:12718 qtdialogs.py:13492 qtdialogs.py:13504
 msgid "Restored - "
 msgstr ""
 
-#: qtdialogs.py:12707 qtdialogs.py:12963 qtdialogs.py:13495
+#: qtdialogs.py:12725 qtdialogs.py:12981 qtdialogs.py:13513
 msgid "Computing New Addresses"
 msgstr ""
 
-#: qtdialogs.py:12740
+#: qtdialogs.py:12758
 msgid ""
 "\n"
 "         <b><u><font color=\"blue\" size=\"4\">Test a Watch-Only Wallet "
@@ -2982,7 +2981,7 @@ msgid ""
 "         printout or import the data from a file."
 msgstr ""
 
-#: qtdialogs.py:12747
+#: qtdialogs.py:12765
 msgid ""
 "\n"
 "         <b><u><font color=\"blue\" size=\"4\">Restore a Watch-Only Wallet\n"
@@ -2993,35 +2992,35 @@ msgid ""
 "         the data from a file."
 msgstr ""
 
-#: qtdialogs.py:12755
+#: qtdialogs.py:12773
 msgid "Watch-Only Root ID:"
 msgstr ""
 
-#: qtdialogs.py:12763
+#: qtdialogs.py:12781
 msgid "Data:"
 msgstr ""
 
-#: qtdialogs.py:12783
+#: qtdialogs.py:12801
 msgid "Load From Text File"
 msgstr ""
 
-#: qtdialogs.py:12812
+#: qtdialogs.py:12830
 msgid "Test Watch-Only Wallet Backup"
 msgstr ""
 
-#: qtdialogs.py:12814
+#: qtdialogs.py:12832
 msgid "Restore Watch-Only Wallet Backup"
 msgstr ""
 
-#: qtdialogs.py:12824
+#: qtdialogs.py:12842
 msgid "Import Wallet File"
 msgstr ""
 
-#: qtdialogs.py:12825
+#: qtdialogs.py:12843
 msgid "Root Pubkey Text Files (*.rootpubkey)"
 msgstr ""
 
-#: qtdialogs.py:12876
+#: qtdialogs.py:12894
 msgid ""
 "\n"
 "               There is an error in the root ID you entered that could not\n"
@@ -3030,7 +3029,7 @@ msgid ""
 "               text exactly as it appears on the wallet-backup page.<br><br>"
 msgstr ""
 
-#: qtdialogs.py:12906
+#: qtdialogs.py:12924
 #, python-format
 msgid ""
 "\n"
@@ -3044,18 +3043,18 @@ msgid ""
 "font>."
 msgstr ""
 
-#: qtdialogs.py:12940
+#: qtdialogs.py:12958
 msgid "Wallet Already Exists"
 msgstr ""
 
-#: qtdialogs.py:12940
+#: qtdialogs.py:12958
 msgid ""
 "The\n"
 "                             wallet already exists and will not be\n"
 "                             replaced."
 msgstr ""
 
-#: qtdialogs.py:12948
+#: qtdialogs.py:12966
 #, python-format
 msgid ""
 "The data you entered corresponds to a wallet with a wallet ID: \n"
@@ -3066,17 +3065,17 @@ msgid ""
 "click \"No\" and enter the key and chain-code data again."
 msgstr ""
 
-#: qtdialogs.py:12978
+#: qtdialogs.py:12996
 msgid ""
 "<font color=\"blue\" size=\"4\">Testing a\n"
 "                     Fragmented Backup</font>"
 msgstr ""
 
-#: qtdialogs.py:12981
+#: qtdialogs.py:12999
 msgid "Restore Wallet from Fragments"
 msgstr ""
 
-#: qtdialogs.py:12983
+#: qtdialogs.py:13001
 #, python-format
 msgid ""
 "\n"
@@ -3090,7 +3089,7 @@ msgid ""
 "         all fragments of any given wallet. "
 msgstr ""
 
-#: qtdialogs.py:12992
+#: qtdialogs.py:13010
 msgid ""
 " <br><br>\n"
 "            <b>For testing purposes, you may enter more fragments than "
@@ -3100,47 +3099,47 @@ msgid ""
 "            that each one still recovers the wallet successfully.</b>"
 msgstr ""
 
-#: qtdialogs.py:13007
+#: qtdialogs.py:13025
 msgid "Input Fragments Below:"
 msgstr ""
 
-#: qtdialogs.py:13008
+#: qtdialogs.py:13026
 msgid "+Frag"
 msgstr ""
 
-#: qtdialogs.py:13009
+#: qtdialogs.py:13027
 msgid "-Frag"
 msgstr ""
 
-#: qtdialogs.py:13013
+#: qtdialogs.py:13031
 msgid "Encrypt Restored Wallet"
 msgstr ""
 
-#: qtdialogs.py:13089
+#: qtdialogs.py:13107
 msgid "Restore wallet from fragments"
 msgstr ""
 
-#: qtdialogs.py:13107
+#: qtdialogs.py:13125
 msgid "Type Data"
 msgstr ""
 
-#: qtdialogs.py:13108
+#: qtdialogs.py:13126
 msgid "Load File"
 msgstr ""
 
-#: qtdialogs.py:13109
+#: qtdialogs.py:13127
 msgid "Clear"
 msgstr ""
 
-#: qtdialogs.py:13176
+#: qtdialogs.py:13194
 msgid "Load Fragment File"
 msgstr ""
 
-#: qtdialogs.py:13184
+#: qtdialogs.py:13202
 msgid "File Does Not Exist"
 msgstr ""
 
-#: qtdialogs.py:13184
+#: qtdialogs.py:13202
 #, python-format
 msgid ""
 "\n"
@@ -3148,11 +3147,11 @@ msgid ""
 "            <br><br>%(toload)s<br><br> Try a different file"
 msgstr ""
 
-#: qtdialogs.py:13218
+#: qtdialogs.py:13236
 msgid "Fragment Error"
 msgstr ""
 
-#: qtdialogs.py:13218
+#: qtdialogs.py:13236
 #, python-format
 msgid ""
 "\n"
@@ -3160,36 +3159,36 @@ msgid ""
 "                  <br><br> File: %s <br> Line: %s <br>"
 msgstr ""
 
-#: qtdialogs.py:13246
+#: qtdialogs.py:13264
 msgid ""
 "\n"
 "         <b>Start entering fragments into the table to left...</b>"
 msgstr ""
 
-#: qtdialogs.py:13251
+#: qtdialogs.py:13269
 msgid "<b><u>Wallet Being Restored:</u></b>"
 msgstr ""
 
-#: qtdialogs.py:13253
+#: qtdialogs.py:13271
 #, python-format
 msgid "<b>Frags Needed:</b> %d"
 msgstr ""
 
-#: qtdialogs.py:13254
+#: qtdialogs.py:13272
 #, python-format
 msgid "<b>Wallet:</b> %s"
 msgstr ""
 
-#: qtdialogs.py:13255
+#: qtdialogs.py:13273
 #, python-format
 msgid "<b>Fragments:</b> %s"
 msgstr ""
 
-#: qtdialogs.py:13297
+#: qtdialogs.py:13315
 msgid "Mixed fragment types"
 msgstr ""
 
-#: qtdialogs.py:13297
+#: qtdialogs.py:13315
 msgid ""
 "\n"
 "            You entered a fragment for a different wallet type.  Please "
@@ -3199,11 +3198,11 @@ msgid ""
 "            and require the same number of fragments."
 msgstr ""
 
-#: qtdialogs.py:13317
+#: qtdialogs.py:13335
 msgid "Multiple Walletss"
 msgstr ""
 
-#: qtdialogs.py:13317
+#: qtdialogs.py:13335
 msgid ""
 "\n"
 "            The fragment you just entered is actually for a different "
@@ -3215,11 +3214,11 @@ msgid ""
 "            have the \"number of needed fragments\" (M-value, in M-of-N)."
 msgstr ""
 
-#: qtdialogs.py:13328
+#: qtdialogs.py:13346
 msgid "Duplicate Fragment"
 msgstr ""
 
-#: qtdialogs.py:13328
+#: qtdialogs.py:13346
 #, python-format
 msgid ""
 "\n"
@@ -3228,7 +3227,7 @@ msgid ""
 "            entered!"
 msgstr ""
 
-#: qtdialogs.py:13438
+#: qtdialogs.py:13456
 msgid ""
 "\n"
 "         The data you entered corresponds to a wallet with a wallet\n"
@@ -3238,7 +3237,7 @@ msgid ""
 "         again."
 msgstr ""
 
-#: qtdialogs.py:13454
+#: qtdialogs.py:13472
 msgid ""
 "\n"
 "               You requested your restored wallet be encrypted, but no\n"
@@ -3246,7 +3245,7 @@ msgid ""
 "               recovery."
 msgstr ""
 
-#: qtdialogs.py:13562
+#: qtdialogs.py:13580
 #, python-format
 msgid ""
 "\n"
@@ -3255,7 +3254,7 @@ msgid ""
 "            at random.  The results are below "
 msgstr ""
 
-#: qtdialogs.py:13567
+#: qtdialogs.py:13585
 #, python-format
 msgid ""
 "\n"
@@ -3264,7 +3263,7 @@ msgid ""
 "            The test results for all subsets are shown below"
 msgstr ""
 
-#: qtdialogs.py:13574
+#: qtdialogs.py:13592
 msgid ""
 "\n"
 "         The wallet ID is computed from the first\n"
@@ -3273,7 +3272,7 @@ msgid ""
 "         the wallet will produce identical addresses."
 msgstr ""
 
-#: qtdialogs.py:13587
+#: qtdialogs.py:13605
 #, python-format
 msgid ""
 "\n"
@@ -3281,11 +3280,11 @@ msgid ""
 "            wallet with ID \"<b>%(id)s</b>\" "
 msgstr ""
 
-#: qtdialogs.py:13621
+#: qtdialogs.py:13639
 msgid "Fragment Test Results"
 msgstr ""
 
-#: qtdialogs.py:13630
+#: qtdialogs.py:13648
 msgid ""
 "\n"
 "         This fragment file requires a SecurePrint™ code.  \n"
@@ -3293,20 +3292,20 @@ msgid ""
 "         on all fragments."
 msgstr ""
 
-#: qtdialogs.py:13635
+#: qtdialogs.py:13653
 msgid "SecurePrint™ Code: "
 msgstr ""
 
-#: qtdialogs.py:13652
+#: qtdialogs.py:13670
 msgid "Enter Secure Print Code"
 msgstr ""
 
-#: qtdialogs.py:13675
+#: qtdialogs.py:13693
 #, python-format
 msgid " You have entered fragments %(replstr)s, so far.  "
 msgstr ""
 
-#: qtdialogs.py:13677
+#: qtdialogs.py:13695
 #, python-format
 msgid ""
 "\n"
@@ -3318,7 +3317,7 @@ msgid ""
 "         require it."
 msgstr ""
 
-#: qtdialogs.py:13857
+#: qtdialogs.py:13875
 msgid ""
 "\n"
 "               The ID field indicates that this is a SecurePrint™\n"
@@ -3326,7 +3325,7 @@ msgid ""
 "               have chosen an incorrect Backup Type."
 msgstr ""
 
-#: qtdialogs.py:13875
+#: qtdialogs.py:13893
 #, python-format
 msgid ""
 "\n"
@@ -3338,11 +3337,11 @@ msgid ""
 "               The error occured on the \"%(text)s\" line."
 msgstr ""
 
-#: qtdialogs.py:13895
+#: qtdialogs.py:13913
 msgid "Verify Fragment ID"
 msgstr ""
 
-#: qtdialogs.py:13895
+#: qtdialogs.py:13913
 #, python-format
 msgid ""
 "\n"
@@ -3354,11 +3353,11 @@ msgid ""
 "         If not, click \"No\" and re-enter the fragment data."
 msgstr ""
 
-#: qtdialogs.py:13912
+#: qtdialogs.py:13930
 msgid "Recovery Test"
 msgstr ""
 
-#: qtdialogs.py:13912
+#: qtdialogs.py:13930
 #, python-format
 msgid ""
 "\n"
@@ -3369,11 +3368,11 @@ msgid ""
 "         testing?"
 msgstr ""
 
-#: qtdialogs.py:13920 qtdialogs.py:13940
+#: qtdialogs.py:13938 qtdialogs.py:13958
 msgid "Bad Backup!"
 msgstr ""
 
-#: qtdialogs.py:13920
+#: qtdialogs.py:13938
 #, python-format
 msgid ""
 "\n"
@@ -3387,11 +3386,11 @@ msgid ""
 "            Wallet ID of the data you entered: %(id)s <br> "
 msgstr ""
 
-#: qtdialogs.py:13930 qtdialogs.py:13953
+#: qtdialogs.py:13948 qtdialogs.py:13971
 msgid "Backup is Good!"
 msgstr ""
 
-#: qtdialogs.py:13930
+#: qtdialogs.py:13948
 msgid ""
 "\n"
 "            <b>Your backup works!</b>\n"
@@ -3403,7 +3402,7 @@ msgid ""
 "            the original."
 msgstr ""
 
-#: qtdialogs.py:13940
+#: qtdialogs.py:13958
 #, python-format
 msgid ""
 "\n"
@@ -3419,7 +3418,7 @@ msgid ""
 "            one you just made? "
 msgstr ""
 
-#: qtdialogs.py:13953
+#: qtdialogs.py:13971
 #, python-format
 msgid ""
 "\n"
@@ -3435,7 +3434,7 @@ msgid ""
 "            "
 msgstr ""
 
-#: qtdialogs.py:13969
+#: qtdialogs.py:13987
 msgid ""
 "\n"
 "         Please make sure that any printed backups you create  (excluding "
@@ -3448,17 +3447,17 @@ msgid ""
 "         "
 msgstr ""
 
-#: qtdialogs.py:13978
+#: qtdialogs.py:13996
 msgid "Test Your Backup!"
 msgstr ""
 
-#: qtdialogs.py:13978
+#: qtdialogs.py:13996
 msgid ""
 "\n"
 "      "
 msgstr ""
 
-#: qtdialogs.py:13989
+#: qtdialogs.py:14007
 msgid ""
 "\n"
 "                       <b>You already have this wallet loaded!</b><br>\n"
@@ -3470,23 +3469,23 @@ msgid ""
 "                       "
 msgstr ""
 
-#: qtdialogs.py:14005
+#: qtdialogs.py:14023
 msgid "Overwrite"
 msgstr ""
 
-#: qtdialogs.py:14006
+#: qtdialogs.py:14024
 msgid "Merge"
 msgstr ""
 
-#: qtdialogs.py:14054
+#: qtdialogs.py:14072
 msgid "Ripping Meta Data"
 msgstr ""
 
-#: qtdialogs.py:14072
+#: qtdialogs.py:14090
 msgid "Browse File System"
 msgstr ""
 
-#: qtdialogs.py:14076
+#: qtdialogs.py:14094
 #, python-format
 msgid ""
 "\n"
@@ -3502,80 +3501,80 @@ msgid ""
 "         transition to a new wallet. "
 msgstr ""
 
-#: qtdialogs.py:14088
+#: qtdialogs.py:14106
 msgid "Wallet Path:"
 msgstr ""
 
-#: qtdialogs.py:14093
+#: qtdialogs.py:14111
 msgid "Select Wallet..."
 msgstr ""
 
-#: qtdialogs.py:14099
+#: qtdialogs.py:14117
 msgid "Select Loaded Wallet"
 msgstr ""
 
-#: qtdialogs.py:14123
+#: qtdialogs.py:14141
 msgid ""
 "<b>Stripped Recovery</b><br>Only attempts to                             "
 "recover the wallet's rootkey and chaincode"
 msgstr ""
 
-#: qtdialogs.py:14130
+#: qtdialogs.py:14148
 msgid ""
 "<b>Bare Recovery</b><br>Attempts to recover all private key related data"
 msgstr ""
 
-#: qtdialogs.py:14137
+#: qtdialogs.py:14155
 msgid "<b>Full Recovery</b><br>Attempts to recover as much data as possible"
 msgstr ""
 
-#: qtdialogs.py:14143
+#: qtdialogs.py:14161
 msgid ""
 "<b>Consistency Check</b><br>Checks wallet consistency. Works will both full "
 "and watch only<br> wallets. Unlocking of encrypted wallets is not mandatory"
 msgstr ""
 
-#: qtdialogs.py:14187
+#: qtdialogs.py:14205
 msgid "Recover"
 msgstr ""
 
-#: qtdialogs.py:14199
+#: qtdialogs.py:14217
 msgid "The entered path does not exist"
 msgstr ""
 
-#: qtdialogs.py:14212
+#: qtdialogs.py:14230
 msgid "Wallet Recovery Tool"
 msgstr ""
 
-#: qtdialogs.py:14256
+#: qtdialogs.py:14274
 msgid "Wallet files (*.wallet);; All files (*)"
 msgstr ""
 
-#: qtdialogs.py:14259 qtdialogs.py:14264
+#: qtdialogs.py:14277 qtdialogs.py:14282
 msgid "Recover Wallet"
 msgstr ""
 
-#: qtdialogs.py:14370
+#: qtdialogs.py:14388
 msgid "Enter Passphrase"
 msgstr ""
 
-#: qtdialogs.py:14460
+#: qtdialogs.py:14478
 msgid "%(title)s: %p%"
 msgstr ""
 
-#: qtdialogs.py:14489
+#: qtdialogs.py:14507
 msgid "Progress Bar"
 msgstr ""
 
-#: qtdialogs.py:14524
+#: qtdialogs.py:14542
 msgid "Wallet Consistency Check Failed!"
 msgstr ""
 
-#: qtdialogs.py:14526
+#: qtdialogs.py:14544
 msgid "Perform Wallet Consistency Check"
 msgstr ""
 
-#: qtdialogs.py:14528
+#: qtdialogs.py:14546
 #, python-format
 msgid ""
 "\n"
@@ -3586,7 +3585,7 @@ msgid ""
 "         <br> "
 msgstr ""
 
-#: qtdialogs.py:14539
+#: qtdialogs.py:14557
 #, python-format
 msgid ""
 "\n"
@@ -3601,7 +3600,7 @@ msgid ""
 "            Armory until the wallet has been analyzed and fixed!</font>"
 msgstr ""
 
-#: qtdialogs.py:14548
+#: qtdialogs.py:14566
 #, python-format
 msgid ""
 "\n"
@@ -3614,27 +3613,27 @@ msgid ""
 "            check."
 msgstr ""
 
-#: qtdialogs.py:14579
+#: qtdialogs.py:14597
 msgid "Hide"
 msgstr ""
 
-#: qtdialogs.py:14580
+#: qtdialogs.py:14598
 msgid "Run Analysis and Recovery Tool"
 msgstr ""
 
-#: qtdialogs.py:14590
+#: qtdialogs.py:14608
 msgid ""
 "\n"
 "         <u>Your wallets will be ready to fix once the scan is over</u><br>\n"
 "         You can hide this window until then<br>"
 msgstr ""
 
-#: qtdialogs.py:14612
+#: qtdialogs.py:14630
 #, fuzzy
 msgid "Wallet Error"
 msgstr "Veski Eðli"
 
-#: qtdialogs.py:14741
+#: qtdialogs.py:14759
 #, python-format
 msgid ""
 "\n"
@@ -3642,7 +3641,7 @@ msgid ""
 "font>"
 msgstr ""
 
-#: qtdialogs.py:14746
+#: qtdialogs.py:14764
 #, python-format
 msgid ""
 "\n"
@@ -3651,11 +3650,11 @@ msgid ""
 "            fix.</b></font>"
 msgstr ""
 
-#: qtdialogs.py:14754
+#: qtdialogs.py:14772
 msgid "Wallet consistent!"
 msgstr ""
 
-#: qtdialogs.py:14758
+#: qtdialogs.py:14776
 #, python-format
 msgid ""
 " \n"
@@ -3668,13 +3667,13 @@ msgid ""
 "               further risk to your funds!</b></font>"
 msgstr ""
 
-#: qtdialogs.py:14769
+#: qtdialogs.py:14787
 msgid ""
 "<h2 style=\"color: red;\">                                     Consistency "
 "check failed! </h2>"
 msgstr ""
 
-#: qtdialogs.py:14801
+#: qtdialogs.py:14819
 msgid ""
 "\n"
 "         <b><u>Armory Factory Reset</u></b>\n"
@@ -3693,26 +3692,26 @@ msgid ""
 "         extreme options."
 msgstr ""
 
-#: qtdialogs.py:14818
+#: qtdialogs.py:14836
 msgid ""
 "\n"
 "         <b>Delete settings and rescan (lightest option)</b>"
 msgstr ""
 
-#: qtdialogs.py:14820
+#: qtdialogs.py:14838
 msgid ""
 "\n"
 "         Only delete the settings file and transient network data.  The\n"
 "         databases built by Armory will be rescanned (about 5-45 minutes)"
 msgstr ""
 
-#: qtdialogs.py:14825
+#: qtdialogs.py:14843
 msgid ""
 "\n"
 "         <b>Also delete databases and rebuild</b>"
 msgstr ""
 
-#: qtdialogs.py:14827
+#: qtdialogs.py:14845
 msgid ""
 "\n"
 "         Will delete settings, network data, and delete and Armory's "
@@ -3720,13 +3719,13 @@ msgid ""
 "         forcing a rebuild and rescan (45 min to 3 hours)"
 msgstr ""
 
-#: qtdialogs.py:14832
+#: qtdialogs.py:14850
 msgid ""
 "\n"
 "         <b>Also re-download the blockchain (most extreme)</b>"
 msgstr ""
 
-#: qtdialogs.py:14834
+#: qtdialogs.py:14852
 msgid ""
 "\n"
 "         This will delete settings, network data, Armory's databases,\n"
@@ -3739,15 +3738,15 @@ msgid ""
 "         on the dashboard (8-72 hours depending on your connection)"
 msgstr ""
 
-#: qtdialogs.py:14842
+#: qtdialogs.py:14860
 msgid "Do not delete settings files"
 msgstr ""
 
-#: qtdialogs.py:14898 qtdialogs.py:14913 qtdialogs.py:14947
+#: qtdialogs.py:14916 qtdialogs.py:14931 qtdialogs.py:14965
 msgid "Confirmation"
 msgstr ""
 
-#: qtdialogs.py:14898
+#: qtdialogs.py:14916
 msgid ""
 "\n"
 "            You are about to delete your settings and force Armory to "
@@ -3755,7 +3754,7 @@ msgid ""
 "            its databases.  Are you sure you want to do this?"
 msgstr ""
 
-#: qtdialogs.py:14913
+#: qtdialogs.py:14931
 msgid ""
 "\n"
 "            You are about to delete your settings and force Armory to "
@@ -3763,7 +3762,7 @@ msgid ""
 "            and rebuild its databases.  Are you sure you want to do this?"
 msgstr ""
 
-#: qtdialogs.py:14931
+#: qtdialogs.py:14949
 msgid ""
 "\n"
 "               You are about to delete <b>all</b>\n"
@@ -3777,7 +3776,7 @@ msgid ""
 "               sure you want to do this?</b>"
 msgstr ""
 
-#: qtdialogs.py:14939
+#: qtdialogs.py:14957
 msgid ""
 "\n"
 "               You are about to delete your settings and delete <b>all</b>\n"
@@ -3791,7 +3790,7 @@ msgid ""
 "               sure you want to do this?</b>"
 msgstr ""
 
-#: qtdialogs.py:14951 qtdialogs.py:14985
+#: qtdialogs.py:14969 qtdialogs.py:15003
 msgid ""
 "\n"
 "                  You canceled the factory reset operation.  No changes "
@@ -3799,11 +3798,11 @@ msgid ""
 "                  made."
 msgstr ""
 
-#: qtdialogs.py:14960 qtdialogs.py:14979 qtdialogs.py:15002
+#: qtdialogs.py:14978 qtdialogs.py:14997 qtdialogs.py:15020
 msgid "Restart Armory"
 msgstr ""
 
-#: qtdialogs.py:14960
+#: qtdialogs.py:14978
 msgid ""
 "\n"
 "               <b>Bitcoin-Qt (or bitcoind) must be closed to do the reset!</"
@@ -3817,7 +3816,7 @@ msgid ""
 "               Armory."
 msgstr ""
 
-#: qtdialogs.py:14970
+#: qtdialogs.py:14988
 msgid ""
 "\n"
 "                  You canceled the factory-reset operation.  No changes "
@@ -3825,7 +3824,7 @@ msgid ""
 "                  made."
 msgstr ""
 
-#: qtdialogs.py:14979
+#: qtdialogs.py:14997
 msgid ""
 "\n"
 "               Armory will now close to apply the requested changes.  "
@@ -3835,24 +3834,24 @@ msgid ""
 "               again."
 msgstr ""
 
-#: qtdialogs.py:15002
+#: qtdialogs.py:15020
 msgid ""
 "\n"
 "         Armory will now close so that the requested changes can\n"
 "         be applied."
 msgstr ""
 
-#: qtdialogs.py:15013
+#: qtdialogs.py:15031
 msgid ""
 "<h2 style=\"color: red; text-align: center;\">Forked imported addresses have "
 "been       detected in your wallets!!!</h2>"
 msgstr ""
 
-#: qtdialogs.py:15016
+#: qtdialogs.py:15034
 msgid "The following wallets have forked imported addresses: <br><br><b>"
 msgstr ""
 
-#: qtdialogs.py:15019
+#: qtdialogs.py:15037
 msgid ""
 "When you fix a corrupted wallet, any damaged private keys will be off       "
 "the determinstic chain. It means these private keys cannot be "
@@ -3861,18 +3860,18 @@ msgid ""
 "relevant wallets."
 msgstr ""
 
-#: qtdialogs.py:15024
+#: qtdialogs.py:15042
 msgid ""
 "<h1 style=\"color: orange;\"> - Do not accept payments to these wallets "
 "anymore<br>      - Do not delete or overwrite these wallets. <br>       - "
 "Transfer all funds to a fresh and backed up wallet<h1>"
 msgstr ""
 
-#: qtdialogs.py:15060
+#: qtdialogs.py:15078
 msgid "Forked Imported Addresses"
 msgstr ""
 
-#: qtdialogs.py:15071
+#: qtdialogs.py:15089
 msgid ""
 "\n"
 "         Copy a raw, hex-encoded transaction below to have Armory \n"
@@ -3902,30 +3901,30 @@ msgid ""
 "         </ul>"
 msgstr ""
 
-#: qtdialogs.py:15105
+#: qtdialogs.py:15123
 msgid "Parsed Transaction:"
 msgstr ""
 
-#: qtdialogs.py:15116 ui/MultiSigDialogs.py:2854
+#: qtdialogs.py:15134 ui/MultiSigDialogs.py:2854
 msgid "Broadcast"
 msgstr ""
 
-#: qtdialogs.py:15132
+#: qtdialogs.py:15150
 msgid "Broadcast Raw Transaction"
 msgstr ""
 
-#: qtdialogs.py:15158
+#: qtdialogs.py:15176
 #, python-format
 msgid ""
 "<font color=\"%s\"><b>Raw transaction \n"
 "            is invalid!</font></b>"
 msgstr ""
 
-#: qtdialogs.py:15180
+#: qtdialogs.py:15198
 msgid "Broadcast!"
 msgstr ""
 
-#: qtdialogs.py:15180
+#: qtdialogs.py:15198
 #, python-format
 msgid ""
 "\n"
@@ -3948,14 +3947,14 @@ msgid ""
 "         <a href=\"%(link)s\">%(disp)s</a>"
 msgstr ""
 
-#: qtdialogs.py:15207
+#: qtdialogs.py:15225
 msgid ""
 "\n"
 "         <font size=4><b>Armory Technologies, Inc. Privacy \n"
 "         Policy</b></font>"
 msgstr ""
 
-#: qtdialogs.py:15212
+#: qtdialogs.py:15230
 msgid ""
 "\n"
 "            Unless explicitly disabled, Armory periodically contacts ATI \n"
@@ -3973,7 +3972,7 @@ msgid ""
 "            about changing Armory's default privacy settings."
 msgstr ""
 
-#: qtdialogs.py:15227
+#: qtdialogs.py:15245
 msgid ""
 "\n"
 "            You are submitting a bug report to ATI servers.  Your log \n"
@@ -3992,7 +3991,7 @@ msgid ""
 "            link below."
 msgstr ""
 
-#: qtdialogs.py:15244
+#: qtdialogs.py:15262
 msgid ""
 "\n"
 "            By using this software and submitting this information to \n"
@@ -4002,23 +4001,23 @@ msgid ""
 "            <br><br>"
 msgstr ""
 
-#: qtdialogs.py:15252
+#: qtdialogs.py:15270
 #, python-format
 msgid "<br><a href=\"%s\">%s</a><br><br>"
 msgstr ""
 
-#: qtdialogs.py:15257
+#: qtdialogs.py:15275
 #, python-format
 msgid "<br> %s"
 msgstr ""
 
-#: qtdialogs.py:15259
+#: qtdialogs.py:15277
 msgid ""
 "\n"
 "         I have read and agree to the ATI privacy policy"
 msgstr ""
 
-#: qtdialogs.py:15290
+#: qtdialogs.py:15308
 msgid "Privacy Policy"
 msgstr ""
 
