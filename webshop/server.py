@@ -1,11 +1,12 @@
 from flask import Flask, render_template, session, redirect, url_for, request
 from flask.ext.socketio import SocketIO, emit
 
+import argparse
 import base64
 import httplib
 import json
-import optparse
 import os
+import sys
 
 
 ORDERS_DIRECTORY = "orders"
@@ -32,6 +33,7 @@ products = {
 }
 
 options = {}
+lockbox_args = None
 
 def armoryd_request(method, params):
     subdir = "testnet3"
@@ -102,12 +104,8 @@ def pay():
         return redirect(url_for('ship'))
 
     if not session.get("bitcoinaddress"):
-        if options.lockbox:
-            wallets = armoryd_request("listloadedwallets", [])
-            args = [2,3]
-            for key in sorted(wallets.keys()):
-                args.append(wallets[key])
-            lockbox = armoryd_request("createlockbox", args)
+        if lockbox_args:
+            lockbox = armoryd_request("createlockbox", lockbox_args)
             session["bitcoinaddress"] = lockbox["p2shaddr"]
         else:
             session["bitcoinaddress"] = armoryd_request("getnewaddress",[])
@@ -165,6 +163,13 @@ def address():
     session["ship"]["address"] = request.form['address']
     return "success"
 
+@app.route("/email", methods=['POST'])
+def email():
+    if not session["ship"]:
+        session["ship"] = {}
+    session["ship"]["email"] = request.form['email']
+    return "success"
+
 @app.route("/reset")
 def reset():
     session["bitcoinaddress"] = None
@@ -194,10 +199,28 @@ def ws_listen(message):
 
 
 if __name__ == "__main__":
-    parser = optparse.OptionParser()
-    parser.add_option("-m", "--mainnet", action="store_true", dest="mainnet",
-                      default=False, help="connect to mainnet")
-    parser.add_option("-l", "--lockbox", action="store_true", dest="lockbox",
-                      default=False, help="Use a 2 of 3 lockbox")
-    options, args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mainnet", action="store_true", default=False,
+                        help="connect to mainnet")
+    parser.add_argument("--lockbox", action="store", default=None,
+                        help="Comma-separated list of wallets to use for an m-of-n lockbox to receive payment. There should be n elements.")
+    parser.add_argument("-m", action="store", type=int, default=2,
+                        help="M in m-of-n for the lockbox. M is the number of signatures required to unlock funds.")
+    options = parser.parse_args()
+    # check that the lockboxes are vaild
+    if options.lockbox:
+        lockboxes = options.lockbox.split(",")
+        if len(lockboxes) < options.m:
+            print "There are only %s lockboxes when you need at least %s" % (len(lockboxes), options.m)
+            sys.exit()
+        lockbox_args = [options.m, len(lockboxes)]
+        # make sure the wallets in the lockbox list are valid
+        wallets = armoryd_request("listloadedwallets", [])
+        wallet_lookup = { v:True for v in wallets.values() }
+        for lockbox in lockboxes:
+            if not wallet_lookup.get(lockbox):
+                print "%s is not a valid wallet to create a lockbox" % lockbox
+                sys.exit()
+            lockbox_args.append(lockbox)
+
     socketio.run(app,host="0.0.0.0")

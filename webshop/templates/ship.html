@@ -15,6 +15,16 @@ function updateAddress() {
         'data' : 'address=' + address
     });
 }
+
+function updateEmail() {
+    // tell the server to update the address
+    var email = $("input").val();
+    $.ajax({
+        'url'  : '/email',
+        'type' : 'POST',
+        'data' : 'email=' + email
+    });
+}
 </script>
 {% endblock %}
 
@@ -30,6 +40,12 @@ function updateAddress() {
 <div class="container text-center">
   <div class="col-md-12 col-sm-12 text-left">
     <ul>
+      <li class="row">
+	<span class="shiplabel">Email (optional):</span>
+      </li>
+      <li class="row">
+	<span class="field"><input type="text" onchange="updateEmail()" value="{{ ship.email }}"></span>
+      </li>
       <li class="row">
 	<span class="shiplabel">Full Name and Address:</span>
       </li>
