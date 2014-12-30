@@ -24,7 +24,7 @@ from qtdialogs import DlgProgress
 # Wizards in Armory. 
 class ArmoryWizard(QWizard):
    def __init__(self, parent, main):
-      super(QWizard, self).__init__(parent, main)
+      super(QWizard, self).__init__(parent)
       self.setWizardStyle(QWizard.ClassicStyle)
       self.parent = parent
       self.main   = main
