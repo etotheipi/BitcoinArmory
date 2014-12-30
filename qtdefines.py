@@ -198,13 +198,13 @@ def relaxedSizeNChar(obj, nChar):
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
       if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
-         return [WLTTYPES.Offline, 'Offline']
+         return [WLTTYPES.Offline, tr('Offline')]
       else:
-         return [WLTTYPES.WatchOnly, 'Watching-Only']
+         return [WLTTYPES.WatchOnly, tr('Watching-Only')]
    elif wlt.useEncryption:
-      return [WLTTYPES.Crypt, 'Encrypted']
+      return [WLTTYPES.Crypt, tr('Encrypted')]
    else:
-      return [WLTTYPES.Plain, 'No Encryption']
+      return [WLTTYPES.Plain, tr('No Encryption')]
 
 
 

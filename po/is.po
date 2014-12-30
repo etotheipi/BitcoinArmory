@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-30 12:32-0800\n"
-"PO-Revision-Date: 2014-12-30 15:04-0800\n"
+"POT-Creation-Date: 2014-12-30 15:23-0800\n"
+"PO-Revision-Date: 2014-12-30 15:27-0800\n"
 "Last-Translator: Charles Samuels <charles@derkarl.org>\n"
 "Language-Team: American English <kde-i18n-doc@kde.org>\n"
 "Language: is \n"
@@ -34,7 +34,7 @@ msgstr "Flytja inn eða endurheimta veski"
 
 #: ArmoryQt.py:367
 msgid "<b>Available Wallets:</b>"
-msgstr ""
+msgstr "<b>Fást Veski:</b>"
 
 #: ArmoryQt.py:496
 msgid "Filter:"
@@ -90,7 +90,7 @@ msgstr "&Utanáskrift"
 
 #: ArmoryQt.py:615
 msgid "&Wallets"
-msgstr "Veski"
+msgstr "&Veski"
 
 #: ArmoryQt.py:616
 msgid "&MultiSig"
@@ -114,7 +114,7 @@ msgstr ""
 "Bitcoin Kjarni er ekki fást, svo Armory get ekki útvarpað hreyfingum fyrir "
 "þig."
 
-#: ArmoryQt.py:703 ArmoryQt.py:5631
+#: ArmoryQt.py:703 ArmoryQt.py:5631 qtdefines.py:201
 msgid "Offline"
 msgstr "Ótengdur"
 
@@ -1301,7 +1301,7 @@ msgstr ""
 #: ArmoryQt.py:5602 ArmoryQt.py:5637 ArmoryQt.py:5683 ArmoryQt.py:5702
 #: ArmoryQt.py:5743 ArmoryQt.py:5816 ArmoryQt.py:5832
 msgid "Armory is <u>offline</u>"
-msgstr ""
+msgstr "Armory er <u>ótengdur</u>"
 
 #: ArmoryQt.py:5623
 msgid ""
@@ -1531,6 +1531,14 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
+#: ArmoryQt.py:6705
+msgid "All wallets are consistent"
+msgstr "Öll veski eru trú"
+
+#: ArmoryQt.py:6709
+msgid "Consistency Check Failed!"
+msgstr ""
+
 #: ArmoryQt.py:6721
 msgid ""
 "\n"
@@ -1568,19 +1576,19 @@ msgstr ""
 
 #: armorymodels.py:112
 msgid "ID"
-msgstr ""
+msgstr "ID"
 
 #: armorymodels.py:112
 msgid "Wallet Name"
-msgstr ""
+msgstr "Veski Nafn"
 
 #: armorymodels.py:112
 msgid "Security"
-msgstr ""
+msgstr "Dulkóðun"
 
 #: armorymodels.py:112
 msgid "Balance"
-msgstr ""
+msgstr "Innistæða"
 
 #: qtdefines.py:138
 msgid "Standard User"
@@ -1592,7 +1600,19 @@ msgstr ""
 
 #: qtdefines.py:142
 msgid "Expert User"
+msgstr "Kunnáttumaður"
+
+#: qtdefines.py:203
+msgid "Watching-Only"
 msgstr ""
+
+#: qtdefines.py:205 ui/WalletFrames.py:609
+msgid "Encrypted"
+msgstr ""
+
+#: qtdefines.py:207
+msgid "No Encryption"
+msgstr "Ódulkóðuð"
 
 #: qtdefines.py:440
 msgid "&Yes"
@@ -6989,10 +7009,6 @@ msgstr ""
 
 #: ui/WalletFrames.py:607
 msgid "Unencrypted"
-msgstr ""
-
-#: ui/WalletFrames.py:609
-msgid "Encrypted"
 msgstr ""
 
 #: ui/WalletFrames.py:612 ui/WalletFrames.py:885 ui/WalletFrames.py:946
