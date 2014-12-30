@@ -971,7 +971,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             # We simply grab the UTXO list for the lbox, both p2sh and multisig
             cppWallet = self.serverLBCppWalletMap[lbox.uniqueIDB58]
-            utxoList = cppWallet.getSpendableTxOutList()
+            utxoList = cppWallet.getSpendableTxOutListForValue()
          else:
             raise NetworkIDError('Addr for the wrong network!')
 
@@ -1044,6 +1044,32 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       amtCoin = JSONtoAmount(amount)
       return self.create_unsigned_transaction([[str(ustxScr['Script']), \
                                                 amtCoin]])
+
+
+   #############################################################################
+   @catchErrsForJSON
+   def jsonrpc_createlockboxustxtoaddress(self, recAddr, amount):
+      """
+      DESCRIPTION:
+      Create an unsigned transaction to be sent to one recipient from the
+      currently loaded lockbox.
+      PARAMETERS:
+      recAddr - The recipient. This can be an address, a P2SH script address, a
+                lockbox (e.g., "Lockbox[83jcAqz9]" or "Lockbox[Bare:83jcAqz9]"),
+                or a public key (compressed or uncompressed) string.
+      amount - The number of Bitcoins to send to the recipient.
+      RETURN:
+      An ASCII-formatted unsigned transaction, similar to the one output by
+      Armory for offline signing.
+      """
+
+      if CLI_OPTIONS.offline:
+         raise ValueError('Cannot create transactions when offline')
+      ustxScr = getScriptForUserString(recAddr, self.serverWltMap, \
+                                       self.convLBDictToList())
+      amtCoin = JSONtoAmount(amount)
+      return self.create_unsigned_transaction(
+         [[str(ustxScr['Script']), amtCoin]], self.curLB.uniqueIDB58)
 
 
    #############################################################################
@@ -1696,7 +1722,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
-         utxoList = cppWlt.getSpendableTxOutList()
+         utxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
 
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
@@ -1725,6 +1751,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Generate and shuffle the recipient list.
       outputPairs = scriptValuePairs[:]
+      p2shMap = {}
       if totalChange > 0:
          if spendFromLboxID is None:
             nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
@@ -1732,9 +1759,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                              self.convLBDictToList())
             outputPairs.append( [ustxScr['Script'], totalChange] )
          else:
-            ustxScr = getScriptForUserString(lbox.binScript, self.serverWltMap, \
-                                             self.convLBDictToList())
-            outputPairs.append( [ustxScr['Script'], totalChange] )
+            outputPairs.append( [lbox.binScript, totalChange] )
+            p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+                        lbox.binScript))) : lbox.binScript}
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
@@ -1749,10 +1776,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             if addrObj:
                pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
 
+
       # Create an unsigned transaction and return the ASCII version.
       usTx = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \
                                                             outputPairs, \
-                                                            pubKeyMap)
+                                                            pubKeyMap,
+                                                            p2shMap=p2shMap)
       return usTx.serializeAscii()
 
    #############################################################################
