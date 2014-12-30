@@ -40,9 +40,9 @@ BACKUP_TYPE_135A = '1.35a'
 BACKUP_TYPE_135C = '1.35c'
 BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
 BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
-BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint™)'.decode('UTF-8'))
+BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint™)')
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
-BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint™)'.decode('UTF-8'))
+BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint™)')
 MAX_QR_SIZE = 198
 MAX_SATOSHIS = 2100000000000000
 
@@ -13875,7 +13875,7 @@ class DlgEnterOneFrag(ArmoryDialog):
             QMessageBox.critical(self, 'Bad Encryption Code', tr("""
                The ID field indicates that this is a SecurePrint™
                Backup Type. You have either entered the ID incorrectly or
-               have chosen an incorrect Backup Type.""".decode('UTF-8')), QMessageBox.Ok)
+               have chosen an incorrect Backup Type."""), QMessageBox.Ok)
             return
       for i in rng:
          hasError = False

@@ -21,6 +21,8 @@ import gettext
 
 translation = gettext.translation('armory', os.getenv("ARMORY_LC_PATH"), fallback=True)
 def tr(x, y=None, z=None):
+   if x is not unicode:
+      x = x.decode('UTF-8')
    if not y and not z:
       return translation.ugettext(x)
    else:

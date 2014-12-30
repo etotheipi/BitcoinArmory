@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-30 11:36-0800\n"
+"POT-Creation-Date: 2014-12-30 12:32-0800\n"
 "PO-Revision-Date: 2014-12-30 12:17-0800\n"
 "Last-Translator: Charles Samuels <charles@derkarl.org>\n"
 "Language-Team: American English <kde-i18n-doc@kde.org>\n"
@@ -1076,14 +1076,11 @@ msgid ""
 msgstr ""
 "Það er ekki nettenging, og það er ekki annar Bitcoin hugbúnaður í gangi. "
 "Líklega, þú ert herna af því þessi tölva er fyrir ótengd veski.<br><br><b>Ef "
-"þú búast við "
-"Armory að vera á netinu</b>, staðfesta nettengingina þína og endurræsa "
-"Armory.<br><br> "
-"Ef þú heldur þú ert á netinu (kannski ef þú er að brúka Tor), þó endurræsa "
-"Armory með skipunalínubreytunni "
-"\"--skip-online-check\", eða breyta því í Armory Stillingar. Þú getur fá "
-"Bitcoin-Qt frá <a href="
-"\"http://www.bitcoin.org\">http://www.bitcoin.org</a>."
+"þú búast við Armory að vera á netinu</b>, staðfesta nettengingina þína og "
+"endurræsa Armory.<br><br> Ef þú heldur þú ert á netinu (kannski ef þú er að "
+"brúka Tor), þó endurræsa Armory með skipunalínubreytunni \"--skip-online-"
+"check\", eða breyta því í Armory Stillingar. Þú getur fá Bitcoin-Qt frá <a "
+"href=\"http://www.bitcoin.org\">http://www.bitcoin.org</a>."
 
 #: ArmoryQt.py:5277
 msgid ""
@@ -1585,44 +1582,56 @@ msgstr ""
 msgid "Balance"
 msgstr ""
 
-#: qtdefines.py:438
+#: qtdefines.py:138
+msgid "Standard User"
+msgstr ""
+
+#: qtdefines.py:140
+msgid "Advanced User"
+msgstr ""
+
+#: qtdefines.py:142
+msgid "Expert User"
+msgstr ""
+
+#: qtdefines.py:440
 msgid "&Yes"
 msgstr ""
 
-#: qtdefines.py:439
+#: qtdefines.py:441
 msgid "&No"
 msgstr ""
 
-#: qtdefines.py:447
+#: qtdefines.py:449
 msgid "&Cancel"
 msgstr ""
 
-#: qtdefines.py:448
+#: qtdefines.py:450
 msgid "&OK"
 msgstr ""
 
-#: qtdefines.py:497 ui/MultiSigDialogs.py:1455 ui/MultiSigDialogs.py:1653
+#: qtdefines.py:499 ui/MultiSigDialogs.py:1455 ui/MultiSigDialogs.py:1653
 #: ui/MultiSigDialogs.py:2379
 msgid "Do not show this message again"
 msgstr ""
 
-#: qtdefines.py:500
+#: qtdefines.py:502
 msgid "Do not ask again"
 msgstr ""
 
-#: qtdefines.py:503
+#: qtdefines.py:505
 msgid "Do not show this warning again"
 msgstr ""
 
-#: qtdefines.py:711
+#: qtdefines.py:713
 msgid "Armory - Bitcoin Wallet Management [TESTNET]"
 msgstr ""
 
-#: qtdefines.py:714
+#: qtdefines.py:716
 msgid "Armory - Bitcoin Wallet Management"
 msgstr ""
 
-#: qtdefines.py:827
+#: qtdefines.py:829
 msgid "<b>Double-click or press ESC to close</b>"
 msgstr ""
 
@@ -2804,7 +2813,7 @@ msgid ""
 "will\n"
 "         minimize Armory instead of exiting the application.  You can always "
 "use\n"
-"         <i>\"File\"</i>→<i>\"Quit Armory\"</i> to actually close it."
+"         <i>\"File\"</i> -> <i>\"Quit Armory\"</i> to actually close it."
 msgstr ""
 
 #: qtdialogs.py:9098
@@ -4092,7 +4101,7 @@ msgid "Enter Passphrase"
 msgstr ""
 
 #: qtdialogs.py:14478
-msgid "%(title)s: %p%"
+msgid "%(title)s: %(pct)%%"
 msgstr ""
 
 #: qtdialogs.py:14507
@@ -7349,4 +7358,3 @@ msgid ""
 "            unless it is made\n"
 "            from a recognized address!"
 msgstr ""
-
