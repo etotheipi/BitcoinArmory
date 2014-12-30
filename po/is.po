@@ -3,23 +3,54 @@
 # This file is distributed under the same license as the Armory package.
 #
 # CS <charles@bitcoinarmory.com>, 2014.
+# Charles Samuels <charles@derkarl.org>, 2014.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-29 12:18-0800\n"
-"PO-Revision-Date: 2014-12-23 14:06-0800\n"
-"Last-Translator: CS <charles@bitcoinarmory.com>\n"
-"Language-Team: Armory <armory@bitcoinarmory.com>\n"
+"POT-Creation-Date: 2014-12-30 11:36-0800\n"
+"PO-Revision-Date: 2014-12-30 12:17-0800\n"
+"Last-Translator: Charles Samuels <charles@derkarl.org>\n"
+"Language-Team: American English <kde-i18n-doc@kde.org>\n"
 "Language: is \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Lokalize 1.4\n"
+
+#: ArmoryQt.py:265
+#, python-format
+msgid "<font color=%(color)s>Offline</font> "
+msgstr "<font color=%(color)s>Ótengdur</font> "
+
+#: ArmoryQt.py:361
+msgid "Create Wallet"
+msgstr "Skapa Veski"
+
+#: ArmoryQt.py:362
+msgid "Import or Restore Wallet"
+msgstr "Flytja inn eða endurheimta veski"
+
+#: ArmoryQt.py:367
+msgid "<b>Available Wallets:</b>"
+msgstr ""
 
 #: ArmoryQt.py:496
 msgid "Filter:"
 msgstr "Sía:"
+
+#: ArmoryQt.py:540 ui/MultiSigDialogs.py:760
+msgid "Dashboard"
+msgstr "Mælaborð"
+
+#: ArmoryQt.py:541 ui/MultiSigDialogs.py:762
+msgid "Transactions"
+msgstr "Hreyfingar"
+
+#: ArmoryQt.py:542
+msgid "Announcements"
+msgstr "Tilkynningar"
 
 #: ArmoryQt.py:550 qtdialogs.py:5197
 msgid "Send Bitcoins"
@@ -41,6 +72,34 @@ msgstr "Ótengdar Hreyfingar"
 msgid "Lockboxes (Multi-Sig)"
 msgstr "Öryggishólf (Multi-Sig)"
 
+#: ArmoryQt.py:611
+msgid "&File"
+msgstr "&Skrá"
+
+#: ArmoryQt.py:612
+msgid "&User"
+msgstr "&Notanda"
+
+#: ArmoryQt.py:613
+msgid "&Tools"
+msgstr "Á&höld"
+
+#: ArmoryQt.py:614
+msgid "&Addresses"
+msgstr "&Utanáskrift"
+
+#: ArmoryQt.py:615
+msgid "&Wallets"
+msgstr "Veski"
+
+#: ArmoryQt.py:616
+msgid "&MultiSig"
+msgstr ""
+
+#: ArmoryQt.py:617
+msgid "&Help"
+msgstr "&Hjálp"
+
 #: ArmoryQt.py:683 ui/MultiSigDialogs.py:3648
 msgid "Not Online"
 msgstr "Ekki á netinu"
@@ -55,7 +114,7 @@ msgstr ""
 "Bitcoin Kjarni er ekki fást, svo Armory get ekki útvarpað hreyfingum fyrir "
 "þig."
 
-#: ArmoryQt.py:703
+#: ArmoryQt.py:703 ArmoryQt.py:5631
 msgid "Offline"
 msgstr "Ótengdur"
 
@@ -835,7 +894,7 @@ msgstr ""
 msgid "Initializing Torrent Engine"
 msgstr ""
 
-#: ArmoryQt.py:4907
+#: ArmoryQt.py:4907 ArmoryQt.py:5765
 msgid "Downloading via Armory CDN"
 msgstr ""
 
@@ -854,7 +913,8 @@ msgstr ""
 msgid "Organizing Blockchain"
 msgstr ""
 
-#: ArmoryQt.py:4957 ArmoryQt.py:4967 ArmoryQt.py:4975
+#: ArmoryQt.py:4957 ArmoryQt.py:4967 ArmoryQt.py:4975 ArmoryQt.py:5786
+#: ArmoryQt.py:5901
 #, fuzzy
 msgid "Scan Transaction History"
 msgstr "Offline Hreyfingar"
@@ -867,7 +927,7 @@ msgstr ""
 msgid "Building Databases"
 msgstr ""
 
-#: ArmoryQt.py:4981
+#: ArmoryQt.py:4981 ArmoryQt.py:5784
 msgid "Build Databases"
 msgstr ""
 
@@ -875,6 +935,54 @@ msgstr ""
 #, fuzzy
 msgid "Scanning Transaction History"
 msgstr "Offline Hreyfingar"
+
+#: ArmoryQt.py:5082
+msgid "Almost Done..."
+msgstr ""
+
+#: ArmoryQt.py:5088
+#, python-format
+msgid "%(n)d blocks"
+msgstr ""
+
+#: ArmoryQt.py:5123
+msgid ""
+"The following functionality is available while scanning in offline mode:"
+"<ul><li>Create new wallets</li><li>Generate receiving addresses for your "
+"wallets</li><li>Create backups of your wallets (printed or digital)</"
+"li><li>Change wallet encryption settings</li><li>Sign transactions created "
+"from an online system</li><li>Sign messages</li></ul><br><br><b>NOTE:</b>  "
+"The Bitcoin network <u>will</u> process transactions to your addresses, even "
+"if you are offline.  It is perfectly okay to create and distribute payment "
+"addresses while Armory is offline, you just won't be able to verify those "
+"payments until the next time Armory is online."
+msgstr ""
+
+#: ArmoryQt.py:5139
+msgid ""
+"The following functionality is available in offline mode:<ul><li>Create, "
+"import or recover wallets</li><li>Generate new receiving addresses for your "
+"wallets</li><li>Create backups of your wallets (printed or digital)</"
+"li><li>Import private keys to wallets</li><li>Change wallet encryption "
+"settings</li><li>Sign messages</li><li><b>Sign transactions created from an "
+"online system</b></li></ul><br><br><b>NOTE:</b>  The Bitcoin network "
+"<u>will</u> process transactions to your addresses, regardless of whether "
+"you are online.  It is perfectly okay to create and distribute payment "
+"addresses while Armory is offline, you just won't be able to verify those "
+"payments until the next time Armory is online."
+msgstr ""
+
+#: ArmoryQt.py:5156
+msgid ""
+"<ul><li>Create, import or recover Armory wallets</li><li>Generate new "
+"addresses to receive coins</li><li>Send bitcoins to other people</"
+"li><li>Create one-time backups of your wallets (in printed or digital form)</"
+"li><li>Click on \"bitcoin:\" links in your web browser (not supported on all "
+"operating systems)</li><li>Import private keys to wallets</li><li>Monitor "
+"payments to watching-only wallets and create unsigned transactions</"
+"li><li>Sign messages</li><li><b>Create transactions with watching-only "
+"wallets, to be signed by an offline wallets</b></li></ul>"
+msgstr ""
 
 #: ArmoryQt.py:5181
 msgid ""
@@ -908,6 +1016,170 @@ msgid ""
 "         Wallet Tutorial</a>.<br><br> "
 msgstr ""
 
+#: ArmoryQt.py:5207
+msgid ""
+"<p><b>You now have access to all the features Armory has to offer!</b><br>To "
+"see your balances and transaction history, please click on the \"Transactions"
+"\" tab above this text.  <br>Here's some things you can do with Armory "
+"Bitcoin Client:<br>"
+msgstr ""
+
+#: ArmoryQt.py:5214
+msgid ""
+"If you experience any performance issues with Armory, please confirm that "
+"Bitcoin-Qt is running and <i>fully synchronized with the Bitcoin network</"
+"i>.  You will see a green checkmark in the bottom right corner of the "
+"Bitcoin-Qt window if it is synchronized.  If not, it is recommended you "
+"close Armory and restart it only when you see that checkmark.<br><br>"
+msgstr ""
+
+#: ArmoryQt.py:5222
+msgid ""
+"<b>Please backup your wallets!</b>  Armory wallets are \"deterministic\", "
+"meaning they only need to be backed up one time (unless you have imported "
+"external addresses/keys). Make a backup and keep it in a safe place!  All "
+"funds from Armory-generated addresses will always be recoverable with a "
+"paper backup, any time in the future.  Use the \"Backup Individual Keys\" "
+"option for each wallet to backup imported keys.</p>"
+msgstr ""
+
+#: ArmoryQt.py:5232
+msgid ""
+"Armory is currently online, but you have requested a sweep operation on one "
+"or more private keys.  This requires searching the global transaction "
+"history for the available balance of the keys to be swept. <br><br>Press the "
+"button to start the blockchain scan, which will also put Armory into offline "
+"mode for a few minutes until the scan operation is complete"
+msgstr ""
+
+#: ArmoryQt.py:5242
+msgid ""
+"<b>Wallet balances may be incorrect until the rescan operation is performed!"
+"</b><br><br>Armory is currently online, but addresses/keys have been added "
+"without rescanning the blockchain.  You may continue using Armory in online "
+"mode, but any transactions associated with the new addresses will not appear "
+"in the ledger. <br><br>Pressing the button above will put Armory into "
+"offline mode for a few minutes until the scan operation is complete."
+msgstr ""
+
+#: ArmoryQt.py:5254
+msgid ""
+"There is no connection to the internet, and there is no other Bitcoin "
+"software running.  Most likely you are here because this is a system "
+"dedicated to manage offline wallets! <br><br><b>If you expected Armory to be "
+"in online mode</b>, please verify your internet connection is active, then "
+"restart Armory.  If you think the lack of internet connection is in error "
+"(such as if you are using Tor), then you can restart Armory with the \"--"
+"skip-online-check\" option, or change it in the Armory settings.<br><br>If "
+"you do not have Bitcoin-Qt installed, you can download it from <a href="
+"\"http://www.bitcoin.org\">http://www.bitcoin.org</a>."
+msgstr ""
+"Það er ekki nettenging, og það er ekki annar Bitcoin hugbúnaður í gangi. "
+"Líklega, þú ert herna af því þessi tölva er fyrir ótengd veski.<br><br><b>Ef "
+"þú búast við "
+"Armory að vera á netinu</b>, staðfesta nettengingina þína og endurræsa "
+"Armory.<br><br> "
+"Ef þú heldur þú ert á netinu (kannski ef þú er að brúka Tor), þó endurræsa "
+"Armory með skipunalínubreytunni "
+"\"--skip-online-check\", eða breyta því í Armory Stillingar. Þú getur fá "
+"Bitcoin-Qt frá <a href="
+"\"http://www.bitcoin.org\">http://www.bitcoin.org</a>."
+
+#: ArmoryQt.py:5277
+msgid ""
+"You are currently in offline mode, but can switch to online mode by pressing "
+"the button above.  However, it is not recommended that you switch until "
+"Bitcoin-Qt/bitcoind is fully synchronized with the bitcoin network.  You "
+"will see a green checkmark in the bottom-right corner of the Bitcoin-Qt "
+"window when it is finished.<br><br>Switching to online mode will give you "
+"access to more Armory functionality, including sending and receiving "
+"bitcoins and viewing the balances and transaction histories of each of your "
+"wallets.<br><br>"
+msgstr ""
+
+#: ArmoryQt.py:5291
+msgid ""
+"You are currently in offline mode because Bitcoin-Qt is not running.  To "
+"switch to online mode, start Bitcoin-Qt and let it synchronize with the "
+"network -- you will see a green checkmark in the bottom-right corner when it "
+"is complete.  If Bitcoin-Qt is already running and you believe the lack of "
+"connection is an error (especially if using proxies), please see <a href="
+"\"https://bitcointalk.org/index.php?topic=155717."
+"msg1719077#msg1719077\">this link</a> for options.<br><br><b>If you prefer "
+"to have Armory do this for you</b>, then please check \"Let Armory run "
+"Bitcoin-Qt in the background\" under \"File\"->\"Settings.\"<br><br>If you "
+"are new to Armory and/or Bitcoin-Qt, please visit the Armory webpage for "
+"more information.  Start at <a href=\"https://bitcoinarmory.com/armory-and-"
+"bitcoin-qt\">Why Armory needs Bitcoin-Qt</a> or go straight to our <a href="
+"\"https://bitcoinarmory.com/faqs/\">frequently asked questions</a> page for "
+"more general information.  If you already know what you're doing and simply "
+"need to fetch the latest version of Bitcoin-Qt, you can download it from <a "
+"href=\"http://www.bitcoin.org\">http://www.bitcoin.org</a>."
+msgstr ""
+
+#: ArmoryQt.py:5317
+msgid ""
+"You are currently in offline mode because Armory could not detect an "
+"internet connection.  If you think this is in error, then restart Armory "
+"using the \" --skip-online-check\" option, or adjust the Armory settings.  "
+"Then restart Armory.<br><br>If this is intended to be an offline computer, "
+"note that it is not necessary to have Bitcoin-Qt or bitcoind running."
+msgstr ""
+
+#: ArmoryQt.py:5328
+#, python-format
+msgid ""
+"You are currently in offline mode because Armory could not find the "
+"blockchain files produced by Bitcoin-Qt.  Do you run Bitcoin-Qt (or "
+"bitcoind) from a non-standard directory?   Armory expects to find the "
+"blkXXXX.dat files in <br><br>%s<br><br> If you know where they are located, "
+"please restart Armory using the \" --satoshi-datadir=[path]\" to notify "
+"Armory where to find them."
+msgstr ""
+
+#: ArmoryQt.py:5338
+msgid ""
+"Armory was previously online, but the connection to Bitcoin-Qt/bitcoind was "
+"interrupted.  You will not be able to send bitcoins or confirm receipt of "
+"bitcoins until the connection is reestablished.  br><br>Please check that "
+"Bitcoin-Qt is open and synchronized with the network.  Armory will <i>try to "
+"reconnect</i> automatically when the connection is available again.  If "
+"Bitcoin-Qt is available again, and reconnection does not happen, please "
+"restart Armory.<br><br>"
+msgstr ""
+
+#: ArmoryQt.py:5348
+msgid ""
+"Please wait while the global transaction history is scanned. Armory will go "
+"into online mode automatically, as soon as the scan is complete."
+msgstr ""
+
+#: ArmoryQt.py:5353
+msgid ""
+"Armory is scanning the global transaction history to retrieve information "
+"about your wallets.  The \"Transactions\" tab will be updated with wallet "
+"balance and history as soon as the scan is complete.  You may manage your "
+"wallets while you wait.<br><br>"
+msgstr ""
+
+#: ArmoryQt.py:5364
+msgid ""
+"It appears you are already running Bitcoin software (Bitcoin-Qt or "
+"bitcoind). Unlike previous versions of Armory, you should <u>not</u> run "
+"this software yourself --  Armory will run it in the background for you.  "
+"Either close the Bitcoin application or adjust your settings.  If you change "
+"your settings, then please restart Armory."
+msgstr ""
+
+#: ArmoryQt.py:5373
+msgid ""
+"<b>Only one more step to getting online with Armory!</b>   You must install "
+"the Bitcoin software from www.bitcoin.org in order for Armory to communicate "
+"with the Bitcoin network.  If the Bitcoin software is already installed and/"
+"or you would prefer to manage it yourself, please adjust your settings and "
+"restart Armory."
+msgstr ""
+
 #: ArmoryQt.py:5380
 msgid ""
 "\n"
@@ -933,7 +1205,73 @@ msgid ""
 "            until Armory is finished this initialization."
 msgstr ""
 
-#: ArmoryQt.py:5475
+#: ArmoryQt.py:5401
+msgid ""
+"The software is downloading and processing the latest activity on the "
+"network related to your wallet.  This should take only a few minutes.  While "
+"you wait, you can manage your wallets.  <br><br>Now would be a good time to "
+"make paper (or digital) backups of your wallet if you have not done so "
+"already!  You are protected <i>forever</i> from hard-drive loss, or "
+"forgetting you password. If you do not have a backup, you could lose all of "
+"your Bitcoins forever!  See the <a href=\"https://bitcoinarmory.com/"
+"\">Armory Backups page</a> for more info."
+msgstr ""
+
+#: ArmoryQt.py:5427
+#, python-format
+msgid ""
+"Armory's communication with the Bitcoin network was interrupted. This "
+"usually does not happen unless you closed the process that Armory was using "
+"to communicate with the network. Armory requires %(sdm)s to be running in "
+"the background, and this error pops up if it disappears.<br><br>You may "
+"continue in offline mode, or you can close all Bitcoin processes and restart "
+"Armory."
+msgstr ""
+
+#: ArmoryQt.py:5437
+msgid ""
+"Armory has experienced an issue trying to communicate with the Bitcoin "
+"software.  The software is running in the background, but Armory cannot "
+"communicate with it through RPC as it expects to be able to.  If you changed "
+"any settings in the Bitcoin home directory, please make sure that RPC is "
+"enabled and that it is accepting connections from localhost.  <br><br>If you "
+"have not changed anything, please export the log file (from the \"File\" "
+"menu) and send it to support@bitcoinarmory.com"
+msgstr ""
+
+#: ArmoryQt.py:5448
+msgid ""
+"Armory does not detect internet access, but it does detect running Bitcoin "
+"software.  Armory is in offline-mode. <br><br>If you are intending to run an "
+"offline system, you will not need to have the Bitcoin software installed on "
+"the offline computer.  It is only needed for the online computer. If you "
+"expected to be online and the absence of internet is an error, please "
+"restart Armory using the \"--skip-online-check\" option.  "
+msgstr ""
+
+#: ArmoryQt.py:5458
+msgid ""
+"Armory was started in offline-mode, but detected you are running Bitcoin "
+"software.  If you are intending to run an offline system, you will <u>not</"
+"u> need to have the Bitcoin software installed or running on the offline "
+"computer.  It is only required for being online. "
+msgstr ""
+
+#: ArmoryQt.py:5465
+#, python-format
+msgid ""
+"The Bitcoin software indicates there is a problem with its databases.  This "
+"can occur when Bitcoin-Qt/bitcoind is upgraded or downgraded, or sometimes "
+"just by chance after an unclean shutdown.<br><br>You can either revert your "
+"installed Bitcoin software to the last known working version (but not "
+"earlier than version 0.8.1) or delete everything <b>except</b> \"wallet.dat"
+"\" from the your Bitcoin home directory:<br><br><font face=\"courier\"><b>"
+"%(satoshipath)s</b></font><br><br>If you choose to delete the contents of "
+"the Bitcoin home directory, you will have to do a fresh download of the "
+"blockchain again, which will require a few hours the first time."
+msgstr ""
+
+#: ArmoryQt.py:5488
 msgid ""
 "\n"
 "               There was an error starting the underlying Bitcoin engine.\n"
@@ -943,7 +1281,7 @@ msgid ""
 "               Output from bitcoind:<br>"
 msgstr ""
 
-#: ArmoryQt.py:5484
+#: ArmoryQt.py:5497
 msgid ""
 "\n"
 "                  There was an error starting the underlying Bitcoin "
@@ -963,7 +1301,42 @@ msgid ""
 "                  inconvenience!"
 msgstr ""
 
-#: ArmoryQt.py:5718
+#: ArmoryQt.py:5602 ArmoryQt.py:5637 ArmoryQt.py:5683 ArmoryQt.py:5702
+#: ArmoryQt.py:5743 ArmoryQt.py:5816 ArmoryQt.py:5832
+msgid "Armory is <u>offline</u>"
+msgstr ""
+
+#: ArmoryQt.py:5623
+msgid ""
+"In case you actually do have internet access, you can use the following "
+"links to get Armory installed.  Or change your settings."
+msgstr ""
+
+#: ArmoryQt.py:5643
+msgid " Please close Bitcoin-Qt"
+msgstr ""
+
+#: ArmoryQt.py:5648 ArmoryQt.py:5670
+msgid "Check Again"
+msgstr ""
+
+#: ArmoryQt.py:5659
+msgid "Cannot find Bitcoin Installation"
+msgstr ""
+
+#: ArmoryQt.py:5662
+msgid "Cannot find Bitcoin Home Directory"
+msgstr ""
+
+#: ArmoryQt.py:5694
+msgid ""
+"Try reinstalling the Bitcoin software then restart Armory.  If you continue "
+"to have problems, please contact Armory's core developer at <a href=\"mailto:"
+"support@bitcoinarmory.com?Subject=Bitcoind%20Crash\">support@bitcoinarmory."
+"com</a>."
+msgstr ""
+
+#: ArmoryQt.py:5731
 msgid ""
 "\n"
 "                        <b>Armory has lost connection to the\n"
@@ -974,15 +1347,63 @@ msgid ""
 "                        couple minutes</b><br><br>"
 msgstr ""
 
-#: ArmoryQt.py:6146
+#: ArmoryQt.py:5767 ArmoryQt.py:5889
+msgid "Synchronizing with Network"
+msgstr ""
+
+#: ArmoryQt.py:5771 ArmoryQt.py:5777
+msgid "Download via Armory CDN"
+msgstr ""
+
+#: ArmoryQt.py:5773
+msgid "Initializing Bitcoin Engine"
+msgstr ""
+
+#: ArmoryQt.py:5799
+msgid ""
+"Since version 0.88, Armory runs bitcoind in the background.  You can switch "
+"back to the old way in the Settings dialog. "
+msgstr ""
+
+#: ArmoryQt.py:5841
+msgid ""
+"If you would like Armory to manage the Bitcoin software for you (Bitcoin-Qt "
+"or bitcoind), then adjust your Armory settings, then restart Armory."
+msgstr ""
+
+#: ArmoryQt.py:5848
+#, fuzzy
+msgid "Go Online!"
+msgstr "Ekki á netinu"
+
+#: ArmoryQt.py:5861
+#, fuzzy
+msgid "Armory is disconnected"
+msgstr "Armory Útgáfunúmer"
+
+#: ArmoryQt.py:5868
+#, fuzzy
+msgid "Armory is online!"
+msgstr "Armory Útgáfunúmer"
+
+#: ArmoryQt.py:5897
+msgid "Preparing Databases"
+msgstr ""
+
+#: ArmoryQt.py:6114
+#, python-format
+msgid "<font color=%(color)s>Connected (%(hgt)s blocks)</font> "
+msgstr ""
+
+#: ArmoryQt.py:6159
 msgid "BlockDataManager Warning"
 msgstr ""
 
-#: ArmoryQt.py:6246
+#: ArmoryQt.py:6259
 msgid "Torrent"
 msgstr ""
 
-#: ArmoryQt.py:6246
+#: ArmoryQt.py:6259
 msgid ""
 "\n"
 "                           Armory is attempting to use BitTorrent to speed "
@@ -1000,7 +1421,120 @@ msgid ""
 "                           restart Armory."
 msgstr ""
 
-#: ArmoryQt.py:6708
+#: ArmoryQt.py:6309
+#, python-format
+msgid "Last block received is %(time)s ago"
+msgstr ""
+
+#: ArmoryQt.py:6342
+#, python-format
+msgid "\"%(name)s\""
+msgstr ""
+
+#: ArmoryQt.py:6344
+#, python-format
+msgid "\"%(shortname)s...\""
+msgstr ""
+
+#: ArmoryQt.py:6345
+#, python-format
+msgid "Wallet %(n)s (%(id)s)"
+msgstr ""
+
+#: ArmoryQt.py:6351
+#, python-format
+msgid "%(M)d-of-%(N)d \"%(shortname)s...\""
+msgstr ""
+
+#: ArmoryQt.py:6352
+#, python-format
+msgid "Lockbox %(name)s (%(id)s)"
+msgstr ""
+
+#: ArmoryQt.py:6360 ArmoryQt.py:6447
+msgid "Bitcoins Received!"
+msgstr ""
+
+#: ArmoryQt.py:6361
+#, python-format
+msgid "Amount:  %(total)s BTC"
+msgstr ""
+
+#: ArmoryQt.py:6362
+#, python-format
+msgid "Recipient:  %(recp)s"
+msgstr ""
+
+#: ArmoryQt.py:6365 ArmoryQt.py:6464
+msgid "Bitcoins Sent!"
+msgstr ""
+
+#: ArmoryQt.py:6366 ArmoryQt.py:6448 ArmoryQt.py:6465
+#, python-format
+msgid "Amount:  %(tot)s BTC"
+msgstr ""
+
+#: ArmoryQt.py:6367
+#, python-format
+msgid "Sender:  %(disp)s"
+msgstr ""
+
+#: ArmoryQt.py:6418
+#, python-format
+msgid "Wallet \"%(wname)s\" (%(moneyID)s)"
+msgstr ""
+
+#: ArmoryQt.py:6427
+#, python-format
+msgid "Lockbox %(M)d-of-%(N)d \"%(lname)s\" (%(id)s)"
+msgstr ""
+
+#: ArmoryQt.py:6438
+msgid "Your bitcoins just did a lap!"
+msgstr ""
+
+#: ArmoryQt.py:6439
+#, python-format
+msgid "%(wltName)s just sent some BTC to itself!"
+msgstr ""
+
+#: ArmoryQt.py:6449 ArmoryQt.py:6466
+#, python-format
+msgid "From:    %(wlt)s"
+msgstr ""
+
+#: ArmoryQt.py:6462
+msgid "<Multiple Recipients>"
+msgstr ""
+
+#: ArmoryQt.py:6467
+#, python-format
+msgid "To:      %(recp)s"
+msgstr ""
+
+#: ArmoryQt.py:6483
+msgid "Minimize or Close"
+msgstr ""
+
+#: ArmoryQt.py:6484
+msgid ""
+"Would you like to minimize Armory to the system tray instead of closing it?"
+msgstr ""
+
+#: ArmoryQt.py:6485
+msgid "Remember my answer"
+msgstr ""
+
+#: ArmoryQt.py:6486
+msgid "Minimize"
+msgstr ""
+
+#: ArmoryQt.py:6486 qtdialogs.py:10490 qtdialogs.py:11910 qtdialogs.py:14357
+#: qtdialogs.py:14656 ui/UpgradeDownloader.py:305
+msgid "Close"
+msgstr ""
+
+#: ArmoryQt.py:6721
 msgid ""
 "\n"
 "               The wallet analysis tool will become available\n"
@@ -1008,11 +1542,15 @@ msgid ""
 "               window and it will reappear when ready."
 msgstr ""
 
-#: ArmoryQt.py:6741
+#: ArmoryQt.py:6754
 msgid ""
 "\n"
 "                  <b>The following windows need closed before you can \n"
 "                  run the wallet analysis tool:</b>"
+msgstr ""
+
+#: ArmoryQt.py:6778
+msgid "Wallet Consistency Check: %p%"
 msgstr ""
 
 #: SDM.py:219
@@ -2422,11 +2960,6 @@ msgid ""
 "\n"
 "         You can access all alerts and announcements from the\n"
 "         \"Announcements\" tab on the main Armory window."
-msgstr ""
-
-#: qtdialogs.py:10490 qtdialogs.py:11910 qtdialogs.py:14357 qtdialogs.py:14656
-#: ui/UpgradeDownloader.py:305
-msgid "Close"
 msgstr ""
 
 #: qtdialogs.py:10491
@@ -4311,18 +4844,9 @@ msgid ""
 "         examples and info"
 msgstr ""
 
-#: ui/MultiSigDialogs.py:760
-msgid "Dashboard"
-msgstr ""
-
 #: ui/MultiSigDialogs.py:761
 msgid "Info"
 msgstr ""
-
-#: ui/MultiSigDialogs.py:762
-#, fuzzy
-msgid "Transactions"
-msgstr "Ótengdar Hreyfingar"
 
 #: ui/MultiSigDialogs.py:814
 msgid "Create Lockbox"
@@ -6825,3 +7349,4 @@ msgid ""
 "            unless it is made\n"
 "            from a recognized address!"
 msgstr ""
+
