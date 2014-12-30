@@ -133,11 +133,11 @@ def UnicodeErrorBox(parent):
 #######
 def UserModeStr(mode):
    if mode==USERMODE.Standard:
-      return 'Standard'
+      return tr('Standard User')
    elif mode==USERMODE.Advanced:
-      return 'Advanced'
+      return tr('Advanced User')
    elif mode==USERMODE.Expert:
-      return 'Expert'
+      return tr('Expert User')
 
 
 #######
