@@ -1724,6 +1724,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
          utxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
 
+      if spendBal < totalSend:
+         raise NotEnoughCoinsError, "You have %s satoshis which is not enough to send %s satoshis." % (spendBal, totalSend)
+
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
       # Calculate the real fee and make sure it's affordable.
