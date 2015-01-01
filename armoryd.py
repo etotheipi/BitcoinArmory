@@ -1111,6 +1111,38 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
+   def jsonrpc_createlockboxustxformany(self, *args):
+      """
+      DESCRIPTION:
+      Create an unsigned transaction to be sent to multiple recipients from
+      the currently loaded lockbox.
+      PARAMETERS:
+      args - An indefinite number of comma-separated sets of recipients and the
+             number of Bitcoins to send to the recipients. The recipients can be
+             an address, a P2SH script address, a lockbox (e.g.,
+             "Lockbox[83jcAqz9]" or "Lockbox[Bare:83jcAqz9]"), or a public key
+             (compressed or uncompressed) string.
+      RETURN:
+      An ASCII-formatted unsigned transaction, similar to the one output by
+      Armory for offline signing.
+      """
+
+      if CLI_OPTIONS.offline:
+         raise ValueError('Cannot create transactions when offline')
+
+      scriptValuePairs = []
+      for a in args:
+         r,v = a.split(',')
+         ustxScr = getScriptForUserString(r, self.serverWltMap,
+                                          self.convLBDictToList())
+         scriptValuePairs.append([ustxScr['Script'], JSONtoAmount(v)])
+
+      return self.create_unsigned_transaction(scriptValuePairs,
+                                              self.curLB.uniqueIDB58)
+
+
+   #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getledgersimple(self, inB58ID, tx_count=10, from_tx=0):
       """
       DESCRIPTION:
@@ -1787,6 +1819,104 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                                             p2shMap=p2shMap)
       return usTx.serializeAscii()
 
+
+   #############################################################################
+   # Function that signs a transaction given in armory ascii format
+   @catchErrsForJSON
+   def jsonrpc_signtransaction(self, txASCIIFile):
+      """
+      DESCRIPTION:
+      Sign whatever parts of the transaction the currently active wallet and/or
+      lockbox can.
+      PARAMETERS:
+      txASCIIFile - The path to a file with an unsigned transacion.
+      RETURN:
+      An ASCII-formatted semi-signed transaction, similar to the one output by
+      Armory for offline signing.
+      """
+
+      ustxObj = None
+      enoughSigs = False
+      sigStatus = None
+      sigsValid = False
+      ustxReadable = False
+      allData = ''
+      finalTx = None
+
+      # Read in the signed Tx data. HANDLE UNREADABLE FILE!!!
+      with open(txASCIIFile, 'r') as lbTxData:
+         allData = lbTxData.read()
+
+      # Try to decipher the Tx and make sure it's actually signed.
+      try:
+         ustxObj = UnsignedTransaction().unserializeAscii(allData)
+         sigStatus = ustxObj.evaluateSigningStatus()
+         enoughSigs = sigStatus.canBroadcast
+         sigsValid = ustxObj.verifySigsAllInputs()
+         ustxReadable = True
+      except BadAddressError:
+         LOGERROR('This transaction contains inconsistent information. This ' \
+                  'is probably not your fault...')
+         ustxObj = None
+         ustxReadable = False
+      except NetworkIDError:
+         LOGERROR('This transaction is actually for a different network! Did' \
+                  'you load the correct transaction?')
+         ustxObj = None
+         ustxReadable = False
+      except (UnserializeError, IndexError, ValueError):
+         LOGERROR('This transaction can\'t be read.')
+         ustxObj = None
+         ustxReadable = False
+
+      # If we have a signed Tx object, let's make sure it's actually usable.
+      if ustxObj:
+         if not ustxReadable:
+            if not ustxReadable:
+               if len(allData) > 0:
+                  LOGERROR('The Tx data was read but was corrupt.')
+               else:
+                  LOGERROR('The Tx data couldn\'t be read.')
+         else:
+            partSignedTx = self.sign_transaction(ustxObj)
+            if partSignedTx:
+               return partSignedTx.serializeAscii()
+            else:
+               LOGERROR('The Tx data isn\'t ready to be broadcast')
+
+      return
+
+   #############################################################################
+   # Function that signs whatever inputs it can using the active lockbox/wallet
+   # for an unsigned transaction
+   def sign_transaction(self, ustx):
+      pytx = ustx.pytxObj
+      signed = 0
+      for ustxi in ustx.ustxInputs:
+
+         displayInfo = getDisplayStringForScript(ustxi.txoScript, self.serverWltMap, self.serverLBMap.values(), 60, 2)
+         scriptType = None
+         if displayInfo['WltID'] is not None:
+            if displayInfo['WltID'] == self.curWlt.uniqueIDB58:
+               if self.curWlt.useEncryption and self.curWlt.isLocked:
+                  raise WalletUnlockNeeded, "You need to unlock this wallet before you can sign this transaction"
+               a160 = CheckHash160(ustxi.scrAddrs[0])
+               addrObj = self.curWlt.getAddrByHash160(a160)
+               ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
+               signed += 1
+         elif displayInfo['LboxID'] is not None:
+            lockbox = self.serverLBMap.get(displayInfo['LboxID'])
+            if lockbox:
+               for a160 in lockbox.a160List:
+                  addrObj = self.curWlt.getAddrByHash160(a160)
+                  if addrObj:
+                     if self.curWlt.useEncryption and self.curWlt.isLocked:
+                        raise WalletUnlockNeeded, "You need to unlock this wallet before you can sign this transaction"
+                     ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
+                     signed += 1
+      LOGWARN("Signed transaction %s times" % signed)
+      return ustx
+
    #############################################################################
    # Create a multisig lockbox. The user must specify the number of keys needed
    # to unlock a lockbox, the number of keys in a lockbox, and the exact keys or
@@ -2350,7 +2480,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get a signed Tx from a file and get the raw hex data to broadcast.
       PARAMETERS:
-      txASCIIFile - The path to a file with an signed transacion.
+      txASCIIFile - The path to a file with a signed transacion.
       RETURN:
       A hex string of the raw transaction data to be transmitted.
       """
@@ -3009,8 +3139,11 @@ class Armory_Daemon(object):
             # Call the user's command (e.g., "getbalance full" ->
             # jsonrpc_getbalance(full)) and print results.
             result = proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
-            print json.dumps(result, indent=4, sort_keys=True, \
-                             cls=UniversalEncoder)
+            if type(result) in (unicode, str):
+               print result
+            else:
+               print json.dumps(result, indent=4, sort_keys=True, \
+                                cls=UniversalEncoder)
 
             # If there are any special cases where we wish to do some
             # post-processing on the client side, do it here.
