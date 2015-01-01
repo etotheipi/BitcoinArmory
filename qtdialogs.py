@@ -14475,7 +14475,7 @@ class DlgProgress(ArmoryDialog):
          self.HBarCount = 0
 
          if self.HBar:
-            self.hbarProgress.setFormat(tr( "%(title)s: %(pct)%%") % { 'title' : self.Title, 'pct' : "%p" })
+            self.hbarProgress.setFormat(tr( "%(title)s: %(pct)s%%") % { 'title' : self.Title, 'pct' : "%p" })
       else:
          layoutMgmt.addWidget(self.lblDesc)
 
