@@ -65,7 +65,7 @@ class ArmoryDSession:
             raise RuntimeError("armoryd isn't running")
 
          # If there is output coming back convert it from a string to a dictionary
-         return json.loads(subprocess.check_output(armoryDArgs))
+         return subprocess.check_output(armoryDArgs)
       else:
          # If we are not waiting output, e.g. when starting ArmoryD, return the started process.
          startedProcess = subprocess.Popen(armoryDArgs)
@@ -104,7 +104,7 @@ class ArmoryDStartupTest(TiabTest):
 
    def testJSONGetinfo(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
-      actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'])
+      actualResult = json.loads(self.armoryDSession.callArmoryD(['getarmorydinfo']))
       self.assertEqual(actualResult['balance'], FIRST_WLT_BALANCE)
       self.assertEqual(actualResult['bdmstate'], BDM_BLOCKCHAIN_READY)
       self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)
@@ -113,13 +113,13 @@ class ArmoryDStartupTest(TiabTest):
 
    def testJSONMultipleWallets(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
-      wltDictionary = self.armoryDSession.callArmoryD(['listloadedwallets'])
+      wltDictionary = json.loads(self.armoryDSession.callArmoryD(['listloadedwallets']))
       self.assertTrue(len(wltDictionary), 3)
-      actualResult = self.armoryDSession.callArmoryD(['getwalletinfo'])
+      actualResult = json.loads(self.armoryDSession.callArmoryD(['getwalletinfo']))
       self.assertEqual(actualResult['name'], 'Primary Wallet')
       setWltResult = self.armoryDSession.callArmoryD(['setactivewallet', THIRD_WLT_NAME])
       self.assertTrue(setWltResult.index(THIRD_WLT_NAME) > 0)
-      actualResult2 = self.armoryDSession.callArmoryD(['getwalletinfo'])
+      actualResult2 = json.loads(self.armoryDSession.callArmoryD(['getwalletinfo']))
       self.assertEqual(actualResult2['name'], 'Third Wallet')
 
 # Running tests with "python <module name>" will NOT work for any Armory tests
