@@ -530,12 +530,16 @@ def compile_qt():
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40612.patch'), \
                cwd=qtBuildDir)
    # For now, Qt requires a patch to compile on 10.10, and may require a more
-   # comprehensive patch later.
+   # comprehensive patch later. (Should be okay to remove for Qt 4.8.7.)
    osMjrVer = os.uname()[2].split('.')[0]
    if osMjrVer == '14':
       execAndWait('patch -p0 < %s' % path.join(os.getcwd(), \
                                                'QTBUG-39644.patch'), \
                   cwd=qtBuildDir)
+   # "Untitled" filename fix when trying to save a file via a native dialog.
+   # (Can be removed when Qt 4.8.7 is released.)
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-36212.patch'), \
+               cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
