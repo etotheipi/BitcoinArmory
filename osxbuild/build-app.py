@@ -18,18 +18,18 @@ from tempfile import mkstemp
 # Set some constants up front
 #swigBinVer = '2.0.12'
 osxName      = 'Yosemite'
-pythonVer    = '2.7.8'  # NB: ArmoryMac.pro must also be kept up to date!!!
-setToolVer   = '6.0.2'
-pipVer       = '1.5.6'
+pythonVer    = '2.7.9'  # NB: ArmoryMac.pro must also be kept up to date!!!
+setToolVer   = '10.2.1'
+pipVer       = '6.0.3'
 psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
-libpngVer    = '1.6.12'
+libpngVer    = '1.6.15'
 qtVer        = '4.8.6'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
-sipVer       = '4.16.3' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer      = '4.11.2' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev    = '174196'
+sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev    = '175335'
 LOGFILE      = 'build-app.log.txt'
 LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR    = '..'
@@ -328,17 +328,17 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "9c6281eeace0c3646fa556c8087bb1b7e033c9c4" ] )
+                    "3172f6e957713c2d9fca462cc16068222fd1b9d3" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
                     "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "a29a81b7913151697cb15b069844af75d441408f" ] )
+                    "09da3f767e40d1451cac97af59afd99802c77076" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
                     "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-                    "e6cd9e6f2fd8d28c9976313632ef8aa8ac31249e" ] )
+                    "67d4affd83ee2f3514ac1386bee59f10f672517c" ] )
 
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
@@ -354,7 +354,7 @@ distfiles.append( [ 'Twisted', \
 distfiles.append( [ 'libpng', \
                     "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
                     "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "6b82dd8fc966b83b15ab27224f864a384b7b766d" ] )
+                    "059d99d0321a8519252ae860667237a838d2a557" ] )
 
 # Skipping Git for now.
 #distfiles.append( [ "Qt-git", \
@@ -383,12 +383,12 @@ distfiles.append( [ "Qt", \
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "0bb3ebd4003da7111bcc5c24b963eab9ca2295a3" ] )
+                    "c8db972c03953d0d3ef89c7e67ce4a2e46dd9c36" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    '7c4079d164ccbfe4a5274eaeebe8e3cc86e3a75a' ] )
+                    'd5d7b6765de8634eccf48a250dbd915f01b2a771' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
@@ -404,7 +404,7 @@ distfiles.append( [ "zope", \
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    'c8534aa008b311ec370fc87a0748b510d6436e60' ] )
+                    '8c53254b38686e5366d74eba81f02f9611f39166' ] )
 
 # May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
 #distfiles.append( [ 'swig', \
