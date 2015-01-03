@@ -5,8 +5,13 @@ ifdef DEBUG
 CFLAGS=-g3 -Wall -pipe -fPIC
 CXXFLAGS=-g3 -Wall -pipe -fPIC
 else
-CFLAGS=-O2 -pipe -fPIC
-CXXFLAGS=-O2 -pipe -fPIC
+CFLAGS = -O2 -pipe -fPIC
+CXXFLAGS = -O2 -pipe -fPIC
+endif
+
+ifdef STATIC_LINK
+CFLAGS += -static-libstdc++ -static-libgcc
+CXXFLAGS += -static-libstdc++ -static-libgcc
 endif
 
 platform=$(shell uname)
