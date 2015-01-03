@@ -16,8 +16,8 @@
 # not be strictly required, but hey, if it ain't broke....
 # NB: The "version" values must be updated alongside build-app.py!!!
 QTVER = 4.8.6
-SIPVER = 4.16.3
-PYVER = 2.7.8
+SIPVER = 4.16.5
+PYVER = 2.7.9
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}
 PYTHON_UNPACK_BASE = ../workspace/unpackandbuild/Python-$${PYVER}
