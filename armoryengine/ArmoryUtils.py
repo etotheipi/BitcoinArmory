@@ -751,8 +751,6 @@ def LOGEXCEPT(msg, *a):
       traceback.print_stack()
       raise
 
-
-
 def chopLogFile(filename, size):
    if not os.path.exists(filename):
       print 'Log file doesn\'t exist [yet]'
@@ -765,8 +763,8 @@ def chopLogFile(filename, size):
       # this makes sure we don't get stuck reading an entire file
       # that is bigger than the available memory.
       # Also have to avoid cutting off the first line if truncating the file.
-      if currentSize > size*2:
-         logFile.seek(-size*2, 2)
+      if currentSize > size+MEGABYTE:
+         logFile.seek(-(size+MEGABYTE), 2)
       else:
          logFile.seek(0,0)
       logLines = logFile.readlines()
@@ -784,9 +782,8 @@ def chopLogFile(filename, size):
          logFile.write(line)
       logFile.close()
 
-
 # Cut down the log file to just the most recent 1 MB
-chopLogFile(ARMORY_LOG_FILE, 1024*1024)
+chopLogFile(ARMORY_LOG_FILE, MEGABYTE)
 
 
 # Now set loglevels
