@@ -1,7 +1,3 @@
-// Copyright (c) 2011-2014 The Bitcoin Core developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Copyright (C) 2011-2014, Armory Technologies, Inc.
@@ -16,15 +12,20 @@
 #include <Cocoa/Cocoa.h>
 #include <QString>
 
-// For future reference, the following C++string/NSString code _should_ work.
+// Class that provides miscellaneous functionality to Armory's OS X build.
+// Similar in spirit to armoryengine's ArmoryUtils.
+//
+// For future reference, the following C++-string/NSString code _should_ work if
+// it's ever needed. (Using QString seems to be sufficient for now.)
 // C++ to Obj-C++
 // NSString* result = [[NSString alloc] initWithUTF8String:cppString.c_str()];
 // Obj-C++ to C++
 // NSString* strToConv = "xyz"; string retStr = [strToConv UTF8String];
 
-// Code that create a file open dialog. For unknown reasons, Qt/PyQt/SWIG/???
+// Code that creates a file open dialog. For unknown reasons, Qt/PyQt/SWIG/???
 // creates non-responsive native file dialogs. Handling things directly seems to
-// help. Only returns one filename for now. Needs more polish.
+// help, although the dialog still freezes eventually. Only returns one filename
+// for now. Needs a fair amount of polish.
 QString MacUtils::openFile()
 {
     NSUInteger i; // Loop counter.
@@ -57,10 +58,14 @@ QString MacUtils::openFile()
     return retStr;
 }
 
+
+// Get an instance of MacUtils. Used by Python to access class functs.
 MacUtils* MacUtils::instance()
 {
     static MacUtils* s_instance = NULL;
     if (!s_instance)
+    {
         s_instance = new MacUtils();
+    }
     return s_instance;
 }
