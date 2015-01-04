@@ -16,8 +16,8 @@
 # not be strictly required, but hey, if it ain't broke....
 # NB: The "version" values must be updated alongside build-app.py!!!
 QTVER = 4.8.6
-SIPVER = 4.16.3
-PYVER = 2.7.8
+SIPVER = 4.16.5
+PYVER = 2.7.9
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}
 PYTHON_UNPACK_BASE = ../workspace/unpackandbuild/Python-$${PYVER}
@@ -45,7 +45,7 @@ QMAKE_LFLAGS += "-undefined dynamic_lookup"
 # Source: http://el-tramo.be/blog/mixing-cocoa-and-qt
 # Source: http://stackoverflow.com/questions/18768219/sdl-framework-include-on-macos-qt
 QMAKE_OBJECTIVE_CFLAGS += -pipe -Xarch_x86_64 -mmacosx-version-min=10.7 -O2 -arch x86_64 -mssse3 -Wall -W -fPIC
-OBJECTIVE_SOURCES += macdockiconhandler.mm macnotificationhandler.mm
+OBJECTIVE_SOURCES += macdockiconhandler.mm macnotificationhandler.mm macutils.mm
 HEADERS += ./ArmoryMac.h
 LIBS += -framework Foundation
 
@@ -59,7 +59,7 @@ LIBS += -framework Foundation
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.7
 ARMORYNAME = ArmoryMac
 DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/lib/armory
-SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacNotificationHandler.cpp ./sip$${ARMORYNAME}cmodule.cpp
+SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacNotificationHandler.cpp ./sip$${ARMORYNAME}MacUtils.cpp ./sip$${ARMORYNAME}cmodule.cpp
 LIBS += -L$$QT_UNPACK_BASE/lib -framework QtCore -framework QtGui -L$$QT_UNPACK_BASE/lib -framework Carbon -lz -framework AppKit -framework Python
 QMAKE_LFLAGS += -Xarch_x86_64 -mmacosx-version-min=10.7
 QMAKE_CXXFLAGS += $$QMAKE_OBJECTIVE_CFLAGS

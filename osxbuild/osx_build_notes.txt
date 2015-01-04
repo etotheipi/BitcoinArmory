@@ -31,7 +31,9 @@ are executed from a terminal (aka command line) window.
 
 (6) Execute "brew install swig".
 
-(7) "cd" into the "osxbuild" directory, and execute "python build-app.py".
+(7) Execute "brew install gettext" and "brew link gettext --force".
+
+(8) "cd" into the "osxbuild" directory, and execute "python build-app.py".
     Armory will be found under the "workspace" subdirectory. Armory.app can be
     moved elsewhere on the system, including under /Applications so that it's
     accessible by the OS X Launchpad.

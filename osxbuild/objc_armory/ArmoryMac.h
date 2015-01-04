@@ -84,7 +84,18 @@ public:
     /** check if OS can handle UserNotifications */
     bool hasUserNotificationCenterSupport(void);
     notifType hasGrowl(void);
-	 void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
+    void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
     static MacNotificationHandler *instance();
+};
+
+/** Macintosh-specific utilities */
+class MacUtils : public QObject
+{
+    Q_OBJECT
+
+public:
+    /** Careate a file open dialog */
+    QString openFile();
+    static MacUtils *instance();
 };
 #endif // ARMORYMAC_H

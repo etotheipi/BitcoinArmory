@@ -1,0 +1,11 @@
+--- src/gui/dialogs/qfiledialog_mac.mm	2014-04-10 14:37:12.000000000 -0400
++++ src/gui/dialogs/qfiledialog_mac.mm	2015-01-02 02:31:44.000000000 -0500
+@@ -459,7 +459,7 @@
+ - (void)panelSelectionDidChange:(id)sender
+ {
+     Q_UNUSED(sender);
+-    if (mPriv) {
++    if (mPriv && [mSavePanel isVisible]) {
+         QString selection = QT_PREPEND_NAMESPACE(qt_mac_NSStringToQString([mSavePanel filename]));
+         if (selection != mCurrentSelection) {
+             *mCurrentSelection = selection;
