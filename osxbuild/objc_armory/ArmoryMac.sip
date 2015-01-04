@@ -22,6 +22,10 @@ http://www.opensource.org/licenses/mit-license.php for more information.
 
 class DockIconClickEventHandler;
 
+// SIP can't handle C++ strings right now. Use QStrings if you can, but code at
+// http://www.riverbankcomputing.com/pipermail/pyqt/2011-July/030115.html
+// is avaialble if you MUST use C++ strings.
+
 class MacDockIconHandler : public QObject {
 %TypeHeaderCode
 #include <ArmoryMac.h>
@@ -68,3 +72,13 @@ public:
     void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
     static MacNotificationHandler *instance();
 }; // class
+
+class MacUtils : QObject {
+%TypeHeaderCode
+#include <ArmoryMac.h>
+%End
+
+public:
+    QString openFile();
+    static MacUtils* instance();
+};
