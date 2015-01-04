@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-30 15:23-0800\n"
+"POT-Creation-Date: 2014-12-31 17:40-0500\n"
 "PO-Revision-Date: 2014-12-30 15:27-0800\n"
 "Last-Translator: Charles Samuels <charles@derkarl.org>\n"
 "Language-Team: American English <kde-i18n-doc@kde.org>\n"
@@ -1558,6 +1558,58 @@ msgstr ""
 msgid "Wallet Consistency Check: %p%"
 msgstr ""
 
+#: PromoKit.py:58 qtdialogs.py:7379
+msgid "Single-Sheet "
+msgstr ""
+
+#: PromoKit.py:71
+#, python-format
+msgid ""
+" \n"
+"         <font color=\"#aa0000\"><b>WARNING:</b></font> Anyone who has "
+"access to this \n"
+"         page has access to all the bitcoins in %s!  Please keep this \n"
+"         page in a safe place."
+msgstr ""
+
+#: PromoKit.py:84
+#, python-format
+msgid ""
+" \n"
+"      The following %s lines backup all addresses \n"
+"      <i>ever generated</i> by this wallet (previous and future).\n"
+"      This can be used to recover your wallet if you forget your passphrase "
+"or \n"
+"      suffer hardware failure and lose your wallet files. "
+msgstr ""
+
+#: PromoKit.py:121
+#, python-format
+msgid ""
+"\n"
+"      The following QR code is for convenience only.  It contains the \n"
+"      exact same data as the %s lines above.  If you copy this backup \n"
+"      by hand, you can safely ignore this QR code. "
+msgstr ""
+
+#: PromoKit.py:136
+#, python-format
+msgid ""
+" \n"
+"         <font color=\"#aa0000\"><b>CONGRATULATIONS:</b></font> You have "
+"received a Bitcoin Armory\n"
+"         promotional wallet containing %s You may collect this money by "
+"installing Bitcoin Armory\n"
+"         from the website shown above. After you install the software sweep "
+"the contents to a new\n"
+"         wallet or any address that you own. Do not deposit any bitcoins to "
+"this wallet. You\n"
+"         don't know where this paper has been! You have until %s to sweep "
+"the contents. After\n"
+"         this date we will sweep this wallet to recover all unclaimed "
+"bitcoins."
+msgstr ""
+
 #: SDM.py:219
 msgid "Hash Failure"
 msgstr ""
@@ -2423,10 +2475,6 @@ msgid ""
 "               of each printed page. <br><br>SecurePrint™ code:\n"
 "               <font color=\"%s\" size=5><b>%s</b></font> <br><br>\n"
 "               <b>NOTE: the above code <u>is</u> case-sensitive!</b>"
-msgstr ""
-
-#: qtdialogs.py:7379
-msgid "Single-Sheet "
 msgstr ""
 
 #: qtdialogs.py:7381
@@ -7374,5 +7422,3 @@ msgid ""
 "            unless it is made\n"
 "            from a recognized address!"
 msgstr ""
-
-
