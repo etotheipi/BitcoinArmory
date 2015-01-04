@@ -1,5 +1,5 @@
 --- src/gui/kernel/qeventdispatcher_mac.mm	2014-10-07 12:49:37.000000000 -0400
-+++ src/gui/kernel-alt/qeventdispatcher_mac.mm	2014-10-07 12:58:12.000000000 -0400
++++ src/gui/kernel/qeventdispatcher_mac.mm	2014-10-07 12:58:12.000000000 -0400
 @@ -558,7 +558,6 @@
  
      // In case we end up recursing while we now process events, make sure
