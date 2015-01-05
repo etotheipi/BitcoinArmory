@@ -312,7 +312,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       pytx = txObj.getSignedPyTx()
 
       self.NetworkingFactory.sendTx(pytx)
-      return pytx.getHashHex()
+      return pytx.getHashHex(BIGENDIAN)
 
 
    #############################################################################
@@ -1056,7 +1056,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_createustxtoaddress(self, recAddr, amount):
+   def jsonrpc_createustxtoaddress(self, recAddr, amount, fee=None):
       """
       DESCRIPTION:
       Create an unsigned transaction to be sent to one recipient from the
@@ -1066,6 +1066,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                 lockbox (e.g., "Lockbox[83jcAqz9]" or "Lockbox[Bare:83jcAqz9]"),
                 or a public key (compressed or uncompressed) string.
       amount - The number of Bitcoins to send to the recipient.
+      fee - Amount you want to pay in transaction fees.
       RETURN:
       An ASCII-formatted unsigned transaction, similar to the one output by
       Armory for offline signing.
@@ -1076,13 +1077,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       ustxScr = getScriptForUserString(recAddr, self.serverWltMap, \
                                        self.convLBDictToList())
       amtCoin = JSONtoAmount(amount)
+      if fee is not None:
+         fee = JSONtoAmount(fee)
       return self.create_unsigned_transaction([[str(ustxScr['Script']), \
-                                                amtCoin]])
+                                                amtCoin]], wantfee=fee)
 
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_createlockboxustxtoaddress(self, recAddr, amount):
+   def jsonrpc_createlockboxustxtoaddress(self, recAddr, amount, fee=None):
       """
       DESCRIPTION:
       Create an unsigned transaction to be sent to one recipient from the
@@ -1092,6 +1095,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                 lockbox (e.g., "Lockbox[83jcAqz9]" or "Lockbox[Bare:83jcAqz9]"),
                 or a public key (compressed or uncompressed) string.
       amount - The number of Bitcoins to send to the recipient.
+      fee - Amount you want to pay in transaction fees.
       RETURN:
       An ASCII-formatted unsigned transaction, similar to the one output by
       Armory for offline signing.
@@ -1102,8 +1106,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       ustxScr = getScriptForUserString(recAddr, self.serverWltMap, \
                                        self.convLBDictToList())
       amtCoin = JSONtoAmount(amount)
+      if fee is not None:
+         fee = JSONtoAmount(fee)
       return self.create_unsigned_transaction(
-         [[str(ustxScr['Script']), amtCoin]], self.curLB.uniqueIDB58)
+         [[str(ustxScr['Script']), amtCoin]], self.curLB.uniqueIDB58, fee)
 
 
    #############################################################################
@@ -1114,12 +1120,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # recipients but we don't use either one in this example.)
    # armoryd createustxformany Lockbox[83jcAqz9],1.0 mwpw68XWmvQKfsCJXETkDX2CWHPdchY6fi,0.12
    @catchErrsForJSON
-   def jsonrpc_createustxformany(self, *args):
+   def jsonrpc_createustxformany(self, fee, *args):
       """
       DESCRIPTION:
       Create an unsigned transaction to be sent to multiple recipients from
       the currently loaded wallet.
       PARAMETERS:
+      fee - Amount you want to pay in transaction fees. Put 0 to make the
+            fee the minimum amount for the tx to go through
       args - An indefinite number of comma-separated sets of recipients and the
              number of Bitcoins to send to the recipients. The recipients can be
              an address, a P2SH script address, a lockbox (e.g.,
@@ -1132,6 +1140,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
+
+      if fee is not None:
+         fee = JSONtoAmount(fee)
+
+      if fee == 0:
+         fee = None
 
       scriptValuePairs = []
       for a in args:
@@ -1140,17 +1154,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                           self.convLBDictToList())
          scriptValuePairs.append([ustxScr['Script'], JSONtoAmount(v)])
 
-      return self.create_unsigned_transaction(scriptValuePairs)
+      return self.create_unsigned_transaction(scriptValuePairs, wantfee=fee)
 
 
    #############################################################################
    @catchErrsForJSON
-   def jsonrpc_createlockboxustxformany(self, *args):
+   def jsonrpc_createlockboxustxformany(self, fee, *args):
       """
       DESCRIPTION:
       Create an unsigned transaction to be sent to multiple recipients from
       the currently loaded lockbox.
       PARAMETERS:
+      fee - Amount you want to pay in transaction fees. Put 0 to make the
+            fee the minimum amount for the tx to go through
       args - An indefinite number of comma-separated sets of recipients and the
              number of Bitcoins to send to the recipients. The recipients can be
              an address, a P2SH script address, a lockbox (e.g.,
@@ -1164,6 +1180,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
 
+      if fee is not None:
+         fee = JSONtoAmount(fee)
+
+      if fee == 0:
+         fee = None
+
       scriptValuePairs = []
       for a in args:
          r,v = a.split(',')
@@ -1171,8 +1193,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                           self.convLBDictToList())
          scriptValuePairs.append([ustxScr['Script'], JSONtoAmount(v)])
 
-      return self.create_unsigned_transaction(scriptValuePairs,
-                                              self.curLB.uniqueIDB58)
+      return self.create_unsigned_transaction(
+         scriptValuePairs, self.curLB.uniqueIDB58, fee)
 
 
    #############################################################################
@@ -1869,10 +1891,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # contains out-of-date notes regarding how the code works. A slightly more
    # up-to-date comparison can be made against the code in
    # SendBitcoinsFrame::validateInputsGetUSTX() (ui/TxFrames.py).
-   def create_unsigned_transaction(self, scriptValuePairs, spendFromLboxID=None):
+   def create_unsigned_transaction(self, scriptValuePairs, spendFromLboxID=None, wantfee=None):
       # Do initial setup, including choosing the coins you'll use.
       totalSend = long( sum([rv[1] for rv in scriptValuePairs]) )
-      fee = 0
+      if wantfee is None:
+         fee = 0
+      else:
+         fee = wantfee
 
       lbox = None
       if spendFromLboxID is None:
@@ -1900,6 +1925,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       minFeeRec = calcMinSuggestedFeesNew(utxoSelect, scriptValuePairs, fee)[1]
 
       if fee < minFeeRec:
+         if wantfee:
+            raise NotEnoughCoinsError, "A fee of %s is necessary for this transaction to go through. You put %s as the fee."  % (minFeeRec, fee)
          if (totalSend + minFeeRec) > spendBal:
             raise NotEnoughCoinsError, "You can't afford the fee!"
          utxoSelect = PySelectCoins(utxoList, totalSend, minFeeRec)

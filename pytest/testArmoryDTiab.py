@@ -475,7 +475,7 @@ class ArmoryDTiabTest(TiabTest):
    def testSendmany(self):
       # Send 1 BTC
       serializedUnsignedTx = \
-         self.jsonServer.jsonrpc_createustxformany(','.join([TIAB_WLT_3_ADDR_2, str(BTC_TO_SEND)]), \
+         self.jsonServer.jsonrpc_createustxformany(None, ','.join([TIAB_WLT_3_ADDR_2, str(BTC_TO_SEND)]), \
                                                    ','.join([TIAB_WLT_3_ADDR_3, str(BTC_TO_SEND)]))
       unsignedTx = UnsignedTransaction().unserializeAscii(serializedUnsignedTx)
       # Should have 2 txouts to TIAB_WLT_3_ADDR_3 and the change
