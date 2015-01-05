@@ -1950,9 +1950,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   # Function that signs a transaction given in armory ascii format
+   # Take the ASCII representation of an unsigned Tx (i.e., the data that is
+   # signed by Armory's offline Tx functionality) and returns an ASCII
+   # representation of the signed Tx, with the current wallet signing the Tx.
+   # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
+   # analog. Note this function can sign multisigs as well as normal inputs.
    @catchErrsForJSON
-   def jsonrpc_signtransaction(self, txASCIIFile):
+   def jsonrpc_signasciitransaction(self, txASCIIFile):
       """
       DESCRIPTION:
       Sign whatever parts of the transaction the currently active wallet and/or
@@ -2668,73 +2672,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       return self.retStr
 
 
-   ##################################
-   # Take the ASCII representation of an unsigned Tx (i.e., the data that is
-   # signed by Armory's offline Tx functionality) and returns an ASCII
-   # representation of the signed Tx, with the current wallet signing the Tx.
-   # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
-   # analog.
-   @catchErrsForJSON
-   def jsonrpc_signasciitransaction(self, unsignedTxASCII, wltPasswd=None):
-      """
-      DESCRIPTION:
-      Sign an unsigned transaction and get the signed ASCII data.
-      PARAMETERS:
-      unsignedTxASCII - An ASCII-formatted unsigned transaction, like the one
-                        used by Armory for offline transactions.
-      wltPasswd - (Default=None) If needed, the current wallet's password.
-      RETURN:
-      A dictionary containing a string with the ASCII-formatted signed
-      transaction or, if the signing failed, a string indicating failure.
-      """
-
-      retDict = {}
-
-      # As a courtesy to people who use them, we'll strip quotation marks
-      # from the beginning and/or end of the string.
-      unsignedTxASCII = str(unsignedTxASCII)
-      if unsignedTxASCII[0] == '\"':
-         unsignedTxASCII = unsignedTxASCII[1:]
-      if unsignedTxASCII[-1] == '\"':
-         unsignedTxASCII = unsignedTxASCII[:-1]
-
-      unsignedTx = UnsignedTransaction().unserializeAscii(unsignedTxASCII)
-
-      # If the wallet is encrypted, attempt to decrypt it.
-      decrypted = False
-      if self.curWlt.useEncryption:
-         try:
-            passwd = SecureBinaryData(str(wltPasswd))
-            if not self.curWlt.verifyPassphrase(passwd):
-               LOGERROR('Passphrase was incorrect! Wallet could not be ' \
-                        'unlocked. Signed transaction will not be created.')
-               retDict['Error'] = 'Passphrase was incorrect! Wallet could ' \
-                                  'not be unlocked. Signed transaction will ' \
-                                  'not be created.'
-            else:
-               self.curWlt.unlock(securePassphrase=passwd)
-               decrypted = True
-         finally:
-            passwd.destroy()
-
-      # If the wallet's unencrypted, we want to continue.
-      else:
-         decrypted = True
-
-      # Create the signed transaction and verify it.
-      if decrypted:
-         unsignedTx = self.curWlt.signUnsignedTx(unsignedTx)
-         self.curWlt.advanceHighestIndex()
-         if not unsignedTx.verifySigsAllInputs():
-            LOGERROR('Error signing transaction. The correct wallet was ' \
-                     'probably not used.')
-            retDict['Error'] = 'Error signing transaction. The correct ' \
-                               'wallet was probably not used.'
-         else:
-            # The signed Tx is valid.
-            retDict['SignedTx'] = unsignedTx.serializeAscii()
-
-      return retDict
 
 
    #############################################################################
