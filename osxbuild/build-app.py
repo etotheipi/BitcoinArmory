@@ -30,6 +30,7 @@ qtVer        = '4.8.6'  # NB: ArmoryMac.pro must also be kept up to date!!!
 sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 webkitRev    = '175335'
+appNopeVer   = '0.1.0'
 LOGFILE      = 'build-app.log.txt'
 LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR    = '..'
@@ -100,6 +101,7 @@ def main():
    compile_zope()
    compile_twisted()
    compile_psutil()
+   #compile_appnope() # Disable App Nap. Done already in Mac manifest.
    #unzip_swig()
    compile_armory()
    compile_objc_library()
@@ -406,6 +408,11 @@ distfiles.append( [ "pyqt", \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
                     '8c53254b38686e5366d74eba81f02f9611f39166' ] )
 
+distfiles.append( [ 'appnope', \
+                    "appnope-%s.tar.gz" % appNopeVer, \
+                    "https://pypi.python.org/packages/source/a/appnope/appnope-%s.tar.gz" % appNopeVer, \
+                    "838158bf881f3e8538b7bfeff4ad289a6623cdda" ] )
+
 # May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
 #distfiles.append( [ 'swig', \
 #                    "swig-2.0.12.mavericks.bottle.tar.gz", \
@@ -612,7 +619,6 @@ def compile_sip():
    if path.exists(path.join(PYSITEPKGS, 'sip.so')):
       logprint('Sip is already installed.')
    else:
-      #os.chdir('build/sip-4.14.6')
       sipPath = unpack(tarfilesToDL['sip'])
       command  = 'python configure.py'
       command += ' --destdir="%s"' % PYSITEPKGS
@@ -691,6 +697,17 @@ def compile_psutil():
       command = 'python -s setup.py --no-user-cfg install --force --verbose'
       psPath = unpack(tarfilesToDL['psutil'])
       execAndWait(command, cwd=psPath)
+
+################################################################################
+def compile_appnope():
+   logprint('Installing appnope')
+
+   if glob.glob(PYSITEPKGS + '/appnope*'):
+      logprint('appnope already installed')
+   else:
+      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      appnopePath = unpack(tarfilesToDL['appnope'])
+      execAndWait(command, cwd=appnopePath)
 
 ################################################################################
 def compile_armory():
