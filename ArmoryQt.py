@@ -5421,7 +5421,7 @@ class ArmoryMainWindow(QMainWindow):
                len(self.walletMap)
             )
             
-            return 
+            return msg
          if state == 'OnlineDisconnected':
             return tr( \
             'Armory\'s communication with the Bitcoin network was interrupted. '

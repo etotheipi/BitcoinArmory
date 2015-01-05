@@ -520,9 +520,13 @@ class SatoshiDaemonManager(object):
                                                 ctypes.byref(str_length))
             
             if not CLI_OPTIONS.disableConfPermis:
+               import win32process
                LOGINFO('Setting permissions on bitcoin.conf')
                cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
-               icacls_out = subprocess_check_output(cmd_icacls, shell=True)
+               kargs = {}
+               kargs['shell'] = True
+               kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+               icacls_out = subprocess_check_output(cmd_icacls, **kargs)
                LOGINFO('icacls returned: %s', icacls_out)
             else:
                LOGWARN('Skipped setting permissions on bitcoin.conf file')
@@ -647,9 +651,14 @@ class SatoshiDaemonManager(object):
       except:
          LOGEXCEPT('Failed size check of blocks directory')
 
-
+      kargs = {}
+      if OS_WINDOWS:
+         import win32process
+         kargs['shell'] = True
+         kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+         
       # Startup bitcoind and get its process ID (along with our own)
-      self.bitcoind = launchProcess(pargs)
+      self.bitcoind = launchProcess(pargs, **kargs)
 
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
@@ -662,7 +671,7 @@ class SatoshiDaemonManager(object):
       pargs = [gpath, str(self.selfpid), str(self.btcdpid)]
       if not OS_WINDOWS:
          pargs.insert(0, 'python')
-      launchProcess(pargs)
+      launchProcess(pargs, **kargs)
 
 
 
