@@ -2674,7 +2674,7 @@ class ArmoryMainWindow(QMainWindow):
          except:
             LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', 
                                                                            fpath)
-            raise
+            #raise
 
 
 

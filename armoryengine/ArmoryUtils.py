@@ -208,6 +208,7 @@ class BadInputError(Exception): pass
 class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
 class NonBase58CharacterError(Exception): pass
+class isMSWallet(Exception): pass
 
 # Get the host operating system
 opsys = platform.system()

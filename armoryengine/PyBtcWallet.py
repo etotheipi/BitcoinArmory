@@ -1931,7 +1931,8 @@ class PyBtcWallet(object):
       wltflags = int_to_bitset(wltflags, widthBytes=8)
       self.useEncryption = (wltflags[0]=='1')
       self.watchingOnly  = (wltflags[1]=='1')
-
+      if wltflags[2]=='1':
+         raise isMSWallet('Cannot Open MS Wallets')
 
    #############################################################################
    def packHeader(self, binPacker):
