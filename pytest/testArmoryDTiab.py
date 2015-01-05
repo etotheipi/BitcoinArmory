@@ -436,13 +436,15 @@ class ArmoryDTiabTest(TiabTest):
 
       # Test two paths through signing method and make sure they are equal
       # Wallets in the TIAB start out unencrypted
+      f = open(TX_FILENAME, 'w')
+      f.write(serializedUnsignedTx)
+      f.close()
       serializedSignedTxUnencrypted = \
-            self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
-                                                         '')['SignedTx']
+            self.jsonServer.jsonrpc_signasciitransaction(TX_FILENAME) 
       self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
+      self.jsonServer.jsonrpc_walletpassphrase(PASSPHRASE1)
       serializedSignedTxEncrypted = \
-            self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
-                                                         PASSPHRASE1)['SignedTx']
+            self.jsonServer.jsonrpc_signasciitransaction(TX_FILENAME)
       # Other tests expect wallet to be unencrypted
       self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                             tempKeyLifetime=1000000)
