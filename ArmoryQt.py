@@ -6825,6 +6825,7 @@ class ArmoryMainWindow(QMainWindow):
    def loadNewPage(self):
       pageInt = int(self.PageLineEdit.text())
       
+      
       if pageInt == self.mainLedgerCurrentPage:
          return
       
@@ -6832,10 +6833,15 @@ class ArmoryMainWindow(QMainWindow):
          self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
          return
       
-      self.mainLedgerCurrentPage = pageInt   
-      self.createCombinedLedger()
+      previousPage = self.mainLedgerCurrentPage
+      try:
+         self.mainLedgerCurrentPage = pageInt   
+         self.createCombinedLedger()
+      except:
+         self.mainLedgerCurrentPage = previousPage
+         self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
 
-
+   #############################################################################
    # System tray notifications require specific code for OS X. We'll handle
    # messages here to hide the ugliness.
    def showTrayMsg(self, dispTitle, dispText, dispIconType, dispTime):

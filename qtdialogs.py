@@ -3969,9 +3969,14 @@ class DlgAddressInfo(ArmoryDialog):
          self.edtPage.setText(str(self.currentPage))
          return
       
-      self.currentPage = pageInt   
-      self.loadPage(pageInt)
-
+      oldCurrent = self.currentPage
+      try:
+         self.currentPage = pageInt   
+         self.loadPage(pageInt)
+      except:
+         self.currentPage = oldCurrent
+         self.edtPage.setText(str(self.currentPage))
+         
 #############################################################################
 class DlgShowKeys(ArmoryDialog):
 
