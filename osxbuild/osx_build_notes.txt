@@ -12,12 +12,7 @@ are executed from a terminal (aka command line) window.
 (3) You may also have to run "xcode-select --install" from the terminal. If so,
     you will have to click through an EULA and a few other dialogs.
 
-(4) Execute the "xz" command. If your installation of OS X doesn't have xz, you
-    can go to http://tukaani.org/xz/ and compile your own version of xz, or go
-    to http://sourceforge.net/projects/macpkg/files/XZ/ and install a
-    pre-compiled xz package (*.pkg).
-
-(5) As seen in Red Emerald's preparation steps for compiling Armory on Mac
+(4) As seen in Red Emerald's preparation steps for compiling Armory on Mac
     (https://gist.github.com/WyseNynja/4200620), execute the following steps to
     install and update brew:
 
@@ -29,6 +24,8 @@ are executed from a terminal (aka command line) window.
        brew update
        brew doctor
 
+(5) Execute "brew install xz".
+
 (6) Execute "brew install swig".
 
 (7) Execute "brew install gettext" and "brew link gettext --force".
@@ -36,4 +33,4 @@ are executed from a terminal (aka command line) window.
 (8) "cd" into the "osxbuild" directory, and execute "python build-app.py".
     Armory will be found under the "workspace" subdirectory. Armory.app can be
     moved elsewhere on the system, including under /Applications so that it's
-    accessible by the OS X Launchpad.
+    accessible from the OS X Launchpad.
