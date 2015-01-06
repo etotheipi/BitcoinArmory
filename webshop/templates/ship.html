@@ -41,15 +41,11 @@ function updateEmail() {
   <div class="col-md-12 col-sm-12 text-left">
     <ul>
       <li class="row">
-	<span class="shiplabel">Email (optional):</span>
-      </li>
-      <li class="row">
+	<span class="fieldlabel">Email (optional):</span>
 	<span class="field"><input type="text" onchange="updateEmail()" value="{{ ship.email }}"></span>
       </li>
       <li class="row">
-	<span class="shiplabel">Full Name and Address:</span>
-      </li>
-      <li class="row">
+	<span class="fieldlabel">Full Name and Address:</span>
 	<span class="field"><textarea rows="5" onchange="updateAddress()">{{ ship.address }}</textarea></span>
       </li>
       <li class="row totals">

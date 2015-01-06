@@ -52,3 +52,8 @@ osxbuild/env
 /webshop/orders/2*
 /webshop/orders/1*
 /webshop/orders/3*
+/webshop/refunds/m*
+/webshop/refunds/n*
+/webshop/refunds/2*
+/webshop/refunds/1*
+/webshop/refunds/3*

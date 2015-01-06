@@ -1942,7 +1942,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Generate and shuffle the recipient list.
       outputPairs = scriptValuePairs[:]
-      p2shMap = {}
+      p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+         lbox.binScript))) : lbox.binScript}
       if totalChange > 0:
          if spendFromLboxID is None:
             nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
@@ -1951,8 +1952,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             outputPairs.append( [ustxScr['Script'], totalChange] )
          else:
             outputPairs.append( [lbox.binScript, totalChange] )
-            p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
-                        lbox.binScript))) : lbox.binScript}
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
@@ -1966,7 +1965,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             addrObj = self.curWlt.getAddrByHash160(a160)
             if addrObj:
                pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
-
 
       # Create an unsigned transaction and return the ASCII version.
       usTx = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \

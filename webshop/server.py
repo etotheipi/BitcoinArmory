@@ -10,6 +10,7 @@ import sys
 
 
 ORDERS_DIRECTORY = "orders"
+REFUNDS_DIRECTORY = "refunds"
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'somesecret'
 app.debug = True
@@ -63,6 +64,45 @@ def home():
 def product(product):
     return render_template("product.html", product=products[product])
 
+@app.route("/refund", methods=["GET", "POST"])
+def refund():
+    if request.form:
+        orderid = request.form['orderid']
+        refundaddress = request.form['refundaddress']
+        reason = request.form['reason']
+        thankyou = None
+        error = None
+        # check to see if this refund request already exists
+        refund_file = os.path.join(REFUNDS_DIRECTORY,orderid)
+        if os.path.isfile(refund_file):
+            error = "order id %s is already in the process of a refund please contact orders@bitcoinarmory.com if you have any questions" % orderid
+        else:
+            # check that the order exists
+            order_file = os.path.join(ORDERS_DIRECTORY,orderid)
+            if os.path.isfile(order_file):
+                order = json.loads(open(order_file, "r").read())
+                amount = order["total"] - 0.0001
+                lboxid = order["lboxid"]
+                if lboxid:
+                    armoryd_request("setactivelockbox", [lboxid])
+                    asciitx = armoryd_request("createlockboxustxtoaddress", [refundaddress, amount])
+                if type(asciitx) == dict and asciitx["Error Value"]:
+                    error = asciitx["Error Value"]
+                    if error[:10] == "You have 0":
+                        error = "Please wait for at least one confirmation of your original payment before requesting a refund"
+                else:
+                    rf = open(refund_file, 'w')
+                    data = dict(order=order, refundaddress=refundaddress, reason=reason, asciitx=asciitx)
+                    rf.write(json.dumps(data, indent=4, sort_keys=True))
+                    rf.close()
+                    thankyou = "order id %s is in the process of getting a refund" % orderid
+            else:
+                error = "order id %s is not in our system" % orderid
+        return render_template("refund.html", error=error, orderid=orderid,
+                               refundaddress=refundaddress, reason=reason,
+                               thankyou=thankyou)
+    return render_template("refund.html")
+
 @app.route("/cart")
 def cart():
     if not session.get("cart"):
@@ -103,10 +143,12 @@ def pay():
     if not session.get("ship") or not session["ship"].get("address"):
         return redirect(url_for('ship'))
 
+    session["lboxid"] = None
     if not session.get("bitcoinaddress"):
         if lockbox_args:
             lockbox = armoryd_request("createlockbox", lockbox_args)
             session["bitcoinaddress"] = lockbox["p2shaddr"]
+            session["lboxid"] = lockbox["id"]
         else:
             session["bitcoinaddress"] = armoryd_request("getnewaddress",[])
 
@@ -117,7 +159,7 @@ def pay():
             total += s
     # record the order
     f = open(os.path.join(ORDERS_DIRECTORY,session["bitcoinaddress"]), "w")
-    data = dict(cart=session["cart"],ship=session["ship"],bitcoinaddress=session["bitcoinaddress"],total=total)
+    data = dict(cart=session["cart"],ship=session["ship"],bitcoinaddress=session["bitcoinaddress"],total=total,lboxid=session["lboxid"])
     f.write(json.dumps(data, indent=4, sort_keys=True))
     f.close()
     return render_template(

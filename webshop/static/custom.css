@@ -90,6 +90,10 @@ a:hover {
     width: 30px;
 }
 
+.foot{
+    padding: 50px 0;
+}
+
 /*-----------------------------------  
   Logo and description 
   ----------------------------------- */
@@ -172,7 +176,21 @@ a:hover {
 
 /* Items */
 
-.shiplabel{
+.error {
+    color: red;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.thanks {
+    color: green;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.fieldlabel{
     color: #727578;
     font-size :16px;
     font-weight: bold;
@@ -189,6 +207,10 @@ a:hover {
     width: 90%;
     padding-left: 5%;
     padding-right: 5%;
+}
+
+.field input{
+    width: 100%;
 }
 
 .field textarea{
