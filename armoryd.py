@@ -1942,8 +1942,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Generate and shuffle the recipient list.
       outputPairs = scriptValuePairs[:]
-      p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
-         lbox.binScript))) : lbox.binScript}
+      if lbox:
+         p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+            lbox.binScript))) : lbox.binScript}
+      else:
+         p2shMap = {}
       if totalChange > 0:
          if spendFromLboxID is None:
             nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
