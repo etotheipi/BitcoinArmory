@@ -4036,12 +4036,12 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
-      reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
+      reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""<qt>
          As of version 0.91, Armory now includes a form for reporting
          problems with the software.  Please use
          <i>"Help"</i>→<i>"Submit Bug Report"</i>
          to send a report directly to the Armory team, which will include
-         your log file automatically."""), QMessageBox.Ok | QMessageBox.Cancel)
+         your log file automatically.</qt>"""), QMessageBox.Ok | QMessageBox.Cancel)
 
       if not reply==QMessageBox.Ok:
          return

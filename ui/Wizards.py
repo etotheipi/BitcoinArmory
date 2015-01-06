@@ -136,7 +136,7 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.FinishButton])
    def done(self, event):
       if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
-         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""
+         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""<qt>
                You have not made a backup for your new wallet.  You only have 
                to make a backup of your wallet <u>one time</u> to protect 
                all the funds held by this wallet <i>any time in the future</i>
@@ -147,7 +147,7 @@ class WalletWizard(ArmoryWizard):
                suffer from hardware failure.
                <br><br>
                Are you sure that you want to leave this wizard without backing 
-               up your wallet?"""), \
+               up your wallet?</qt>"""), \
                QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
             # Stay in the wizard
