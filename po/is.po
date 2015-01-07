@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-31 17:40-0500\n"
+"POT-Creation-Date: 2015-01-04 17:25-0500\n"
 "PO-Revision-Date: 2014-12-30 15:27-0800\n"
 "Last-Translator: Charles Samuels <charles@derkarl.org>\n"
 "Language-Team: American English <kde-i18n-doc@kde.org>\n"
@@ -4169,7 +4169,8 @@ msgid "Enter Passphrase"
 msgstr ""
 
 #: qtdialogs.py:14478
-msgid "%(title)s: %(pct)%%"
+#, python-format
+msgid "%(title)s: %(pct)s%%"
 msgstr ""
 
 #: qtdialogs.py:14507
