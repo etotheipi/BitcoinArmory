@@ -30,6 +30,7 @@ osxbuild/env
 /cppForSwig/libs/*
 /cppForSwig/Release/*
 /cppForSwig/swigwin/*
+/cppForSwig/pypaths.txt
 
 /pytest/*.bin
 /pytest/mytxfile
@@ -59,3 +60,8 @@ osxbuild/env
 /webshop/refunds/2*
 /webshop/refunds/1*
 /webshop/refunds/3*
+
+/osxbuild/armory_*.tar.gz
+/osxbuild/build-app.log.txt
+/osxbuild/objc_armory/*
+/osxbuild/workspace/*
