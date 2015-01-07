@@ -51,9 +51,12 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 from twisted.internet.protocol import Protocol, ClientFactory
 
 try:
-   BTCARMORY_BUILD = subprocess.check_output(["git", "rev-parse", "HEAD"])[:10]
+   # run update_version.py
+   subprocess.check_output(["python", "update_version.py"])
 except:
-   from ArmoryBuild import BTCARMORY_BUILD
+   BTCARMORY_BUILD = None
+
+from ArmoryBuild import BTCARMORY_BUILD
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 92, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
