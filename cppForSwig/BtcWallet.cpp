@@ -970,7 +970,7 @@ map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
       {
          //get hgtX for height
          uint8_t dupID = bdvPtr_->getDB()->getValidDupIDForHeight(preHistAtHeight.first);
-         BinaryData& hgtX = DBUtils::heightAndDupToHgtx(preHistAtHeight.first, dupID);
+         const BinaryData& hgtX = DBUtils::heightAndDupToHgtx(preHistAtHeight.first, dupID);
 
          set<BinaryData> txKeys;
 
