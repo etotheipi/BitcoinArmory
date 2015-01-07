@@ -50,13 +50,13 @@ from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
 from twisted.internet.protocol import Protocol, ClientFactory
 
-try:
-   # run update_version.py
+if os.path.exists('update_version.py') and os.path.exists('.git'):
    subprocess.check_output(["python", "update_version.py"])
-except:
+else:
    BTCARMORY_BUILD = None
 
 from ArmoryBuild import BTCARMORY_BUILD
+
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 92, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 

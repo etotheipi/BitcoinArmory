@@ -110,6 +110,7 @@ print '   INC:', inc1
 print '   INC:', inc2
 print '   LIB:', lib
 
+popen(['python', 'update_version.py'])
 popen(['make', 'CXX='+cxx, 
                'CC='+cc, 
                'PYVER=python2.7', 

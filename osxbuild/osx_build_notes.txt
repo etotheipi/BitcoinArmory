@@ -16,7 +16,7 @@ are executed from a terminal (aka command line) window.
     (https://gist.github.com/WyseNynja/4200620), execute the following steps to
     install and update brew:
 
-       ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
+       ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
        touch ~/.bashrc
        echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
        echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
@@ -24,13 +24,11 @@ are executed from a terminal (aka command line) window.
        brew update
        brew doctor
 
-(5) Execute "brew install xz".
+(5) Execute "brew install xz swig gettext".
 
-(6) Execute "brew install swig".
+(6) Execute "brew link gettext --force".
 
-(7) Execute "brew install gettext" and "brew link gettext --force".
-
-(8) "cd" into the "osxbuild" directory, and execute "python build-app.py".
+(7) "cd" into the "osxbuild" directory, and execute "python build-app.py".
     Armory will be found under the "workspace" subdirectory. Armory.app can be
     moved elsewhere on the system, including under /Applications so that it's
     accessible from the OS X Launchpad.

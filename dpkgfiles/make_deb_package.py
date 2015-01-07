@@ -36,7 +36,6 @@ if not os.path.exists('./armoryengine/ArmoryUtils.py') or \
    print '***ERROR: Must run this script from the root Armory directory!'
    exit(1)
 
-
 # Must get current Armory version from armoryengine.py
 # I desperately need a better way to store/read/increment version numbers
 vstr = ''
@@ -70,6 +69,7 @@ dpkgfiles = ['control', 'copyright', 'postinst', 'postrm', 'rules']
 
 # Start pseudo-bash-script
 origDir = pwd().split('/')[-1]
+execAndWait('python update_version.py')
 execAndWait('make clean')
 cd('..')
 execAndWait('rm -rf %s' % pkgdir)
@@ -84,10 +84,3 @@ for f in dpkgfiles:
 
 # Finally, all the magic happens here
 execAndWait('dpkg-buildpackage -rfakeroot')
-
-
-
-
-
-
-
