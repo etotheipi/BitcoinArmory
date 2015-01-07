@@ -50,7 +50,7 @@ from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
 from twisted.internet.protocol import Protocol, ClientFactory
 
-if os.path.exists('update_version.py') and os.path.exists('ArmoryQt.py'):
+if os.path.exists('update_version.py') and os.path.exists('.git'):
    subprocess.check_output(["python", "update_version.py"])
 else:
    BTCARMORY_BUILD = None

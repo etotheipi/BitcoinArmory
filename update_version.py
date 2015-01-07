@@ -6,7 +6,7 @@ import os
 try:
     # check if the build file exists
     build_file = os.path.join("armoryengine", "ArmoryBuild.py")
-    if os.path.exists('ArmoryQt.py') \
+    if os.path.exists('.git') \
        and os.path.exists(os.path.join("armoryengine", "ArmoryUtils.py")):
         build = check_output(["git", "rev-parse", "HEAD"])[:10]
         f = open(build_file, "w")
