@@ -481,6 +481,9 @@ public:
       uint32_t startBlock = 0,
       uint32_t endBlock = UINT32_MAX) const;
 
+   bool getStoredSubHistoryAtHgtX(StoredSubHistory& subssh,
+      const BinaryData& scrAddrStr, const BinaryData& hgtX) const;
+
    void getStoredScriptHistorySummary(StoredScriptHistory & ssh,
       BinaryDataRef scrAddrStr) const;
 
@@ -545,7 +548,6 @@ public:
       StoredScriptHistory & ssh,
       uint32_t startBlock,
       uint32_t endBlock) const;
-
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct
    TxRef getTxRef(BinaryDataRef txHash);

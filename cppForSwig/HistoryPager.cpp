@@ -103,7 +103,8 @@ void HistoryPager::mapHistory(
 
    while (histIter != SSHsummary_.crend())
    {
-      threshold += 1;
+      threshold += histIter->second;
+
       if (threshold > txnPerPage_)
       {
          addPage(threshold, histIter->first, top);
