@@ -3,6 +3,8 @@
 *~
 *.o
 
+/armoryengine/ArmoryBuild.py
+
 CppBlockUtils.py
 _CppBlockUtils.*
 /cppForSwig/CppBlockUtils_wrap.cxx
