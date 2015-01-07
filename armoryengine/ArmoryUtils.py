@@ -52,10 +52,12 @@ from twisted.internet.protocol import Protocol, ClientFactory
 
 if os.path.exists('update_version.py') and os.path.exists('.git'):
    subprocess.check_output(["python", "update_version.py"])
-else:
+
+try:
+   from ArmoryBuild import BTCARMORY_BUILD
+except:
    BTCARMORY_BUILD = None
 
-from ArmoryBuild import BTCARMORY_BUILD
 
 
 # Version Numbers 

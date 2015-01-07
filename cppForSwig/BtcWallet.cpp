@@ -936,7 +936,16 @@ void BtcWallet::merge()
 ////////////////////////////////////////////////////////////////////////////////
 map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
 {
-   map<uint32_t, uint32_t> histSummary;
+   struct preHistory
+   {
+      uint32_t txioCount_;
+      vector<const BinaryData*> scrAddrs_;
+
+      preHistory(void) : txioCount_(0) {}
+   };
+
+   map<uint32_t, preHistory> preHistSummary;
+
    LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
    for (auto& scrAddrPair : scrAddrMap_)
    {
@@ -944,8 +953,48 @@ map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
       const map<uint32_t, uint32_t>& txioSum =
          scrAddrPair.second.getHistSSHsummary();
 
+      //keep count of txios at each height with a vector of all related scrAddr
       for (const auto& histPair : txioSum)
-         histSummary[histPair.first] += histPair.second;
+      {
+         auto& preHistAtHeight = preHistSummary[histPair.first];
+
+         preHistAtHeight.txioCount_ += histPair.second;
+         preHistAtHeight.scrAddrs_.push_back(&scrAddrPair.first);
+      }
+   }
+
+   map<uint32_t, uint32_t> histSummary;
+   for (auto& preHistAtHeight : preHistSummary)
+   {
+      if (preHistAtHeight.second.scrAddrs_.size() > 1)
+      {
+         //get hgtX for height
+         uint8_t dupID = bdvPtr_->getDB()->getValidDupIDForHeight(preHistAtHeight.first);
+         const BinaryData& hgtX = DBUtils::heightAndDupToHgtx(preHistAtHeight.first, dupID);
+
+         set<BinaryData> txKeys;
+
+         //this height has several txio for several scrAddr, let's look at the
+         //txios in detail to reduce the total count for repeating txns.
+         for (auto scrAddr : preHistAtHeight.second.scrAddrs_)
+         {
+            StoredSubHistory subssh;
+            if (bdvPtr_->getDB()->getStoredSubHistoryAtHgtX(subssh, *scrAddr, hgtX))
+            {
+               for (auto& txioPair : subssh.txioMap_)
+               {
+                  if (txioPair.second.hasTxIn())
+                     txKeys.insert(txioPair.second.getTxRefOfInput().getDBKey());
+                  else
+                     txKeys.insert(txioPair.second.getTxRefOfOutput().getDBKey());
+               }
+            }
+         }
+
+         preHistAtHeight.second.txioCount_ = txKeys.size();
+      }
+   
+      histSummary[preHistAtHeight.first] = preHistAtHeight.second.txioCount_;
    }
 
    return histSummary;

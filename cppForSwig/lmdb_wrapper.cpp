@@ -898,9 +898,7 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    } while( ldbIter.advanceAndRead(DB_PREFIX_SCRIPT) );
 
    return true;
-} 
-
-      
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
@@ -985,6 +983,24 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
    return readStoredScriptHistoryAtIter(ldbIter, ssh, startBlock, endBlock);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getStoredSubHistoryAtHgtX(StoredSubHistory& subssh,
+   const BinaryData& scrAddrStr, const BinaryData& hgtX) const
+{
+   BinaryWriter bw(scrAddrStr.getSize() + hgtX.getSize());
+   bw.put_BinaryData(scrAddrStr);
+   bw.put_BinaryData(hgtX);
+
+   LMDBEnv::Transaction tx(&dbEnv_, LMDB::ReadOnly);
+   SCOPED_TIMER("getStoredScriptHistory");
+   LDBIter ldbIter = getIterator(BLKDATA);
+   if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, bw.getDataRef()))
+      return false;
+
+   subssh.hgtX_ = hgtX;
+   subssh.unserializeDBValue(ldbIter.getValueReader());
+   return true;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::getStoredScriptHistoryByRawScript(
