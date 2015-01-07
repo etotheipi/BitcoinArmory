@@ -16,7 +16,7 @@ are executed from a terminal (aka command line) window.
     (https://gist.github.com/WyseNynja/4200620), execute the following steps to
     install and update brew:
 
-       ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install)"
+       ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
        touch ~/.bashrc
        echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
        echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
