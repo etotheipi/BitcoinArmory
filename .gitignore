@@ -65,3 +65,7 @@ osxbuild/env
 /osxbuild/build-app.log.txt
 /osxbuild/objc_armory/*
 /osxbuild/workspace/*
+
+/armory_*_raspbian-armhf*
+
+/dpkgfiles/control
