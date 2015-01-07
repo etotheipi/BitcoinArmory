@@ -1600,6 +1600,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       info = { \
                'versionstr':        getVersionString(BTCARMORY_VERSION),
                'version':           getVersionInt(BTCARMORY_VERSION),
+               'build':             BTCARMORY_BUILD,
                #'protocolversion':   0,
                'walletversionstr':  getVersionString(PYBTCWALLET_VERSION),
                'walletversion':     getVersionInt(PYBTCWALLET_VERSION),

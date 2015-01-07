@@ -8828,11 +8828,11 @@ class DlgHelpAbout(ArmoryDialog):
       imgLogo.setPixmap(QPixmap(':/armory_logo_h56.png'))
       imgLogo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      lblHead = QRichLabel('Armory Bitcoin Wallet : Version %s-beta' % \
-                                    getVersionString(BTCARMORY_VERSION), doWrap=False)
+      lblHead = QRichLabel(tr('Armory Bitcoin Wallet : Version %s-beta-%s') % \
+                                    (getVersionString(BTCARMORY_VERSION), BTCARMORY_BUILD), doWrap=False)
       lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel(u'Copyright \xa9 2011-2014 Armory Technologies, Inc.')
+      lblCopyright = QRichLabel(tr(u'Copyright \xa9 2011-2015 Armory Technologies, Inc.'))
       lblLicense = QRichLabel(tr(u'Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)'))
@@ -8849,7 +8849,7 @@ class DlgHelpAbout(ArmoryDialog):
 
       self.setMinimumWidth(450)
 
-      self.setWindowTitle('About Armory')
+      self.setWindowTitle(tr('About Armory'))
 
 
 ################################################################################

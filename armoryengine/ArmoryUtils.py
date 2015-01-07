@@ -41,6 +41,7 @@ import traceback
 import shutil
 import base64
 import socket
+import subprocess
 
 #from psutil import Popen
 import psutil
@@ -49,6 +50,10 @@ from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
 from twisted.internet.protocol import Protocol, ClientFactory
 
+try:
+   BTCARMORY_BUILD = subprocess.check_output(["git", "rev-parse", "HEAD"])[:10]
+except:
+   from ArmoryBuild import BTCARMORY_BUILD
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 92, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
@@ -552,6 +557,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '********************************************************************************'
    print 'Loading Armory Engine:'
    print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
+   print '   Armory Build:        ', BTCARMORY_BUILD
    print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
    print 'Detected Operating system:', OS_NAME
    print '   OS Variant            :', OS_VARIANT
