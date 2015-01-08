@@ -15,6 +15,18 @@ import urllib
 from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import *
+from armoryengine.MultiSigUtils import *
+
+import gettext
+
+translation = gettext.translation('armory', os.getenv("ARMORY_LC_PATH"), fallback=True)
+def tr(x, y=None, z=None):
+   if x is not unicode:
+      x = x.decode('UTF-8')
+   if not y and not z:
+      return translation.ugettext(x)
+   else:
+      return translation.ungettext(x,y,z)
 
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
@@ -57,60 +69,6 @@ def AddToRunningDialogsList(func):
       runningDialogsList.remove(args[0])
       return result
    return wrapper
-
-################################################################################
-def tr(txt, replList=None, pluralList=None):
-   """
-   This is a common convention for implementing translations, where all 
-   translatable strings are put int the _(...) function, and that method 
-   does some fancy stuff to present the translation if needed. 
-
-   This is being implemented here, to not only do translations in the 
-   future, but also to clean up the typical text fields I use.  I've 
-   ended up with a program full of stuff like this:
-
-      myLabel = QRichLabel( \
-         'This text is split across mulitple lines '
-         'with a space after each one, and single '
-         'quotes on either side.')
-   
-   Instead it should really look like: 
-      
-      myLabel = QRichLabel( tr('''
-         This text is split across mulitple lines 
-         and it will acquire a space after each line 
-         as well as include newlines because it's HTML
-         and uses <br>. ''' ))
-
-   Added easy plural handling:
-
-      Just add an extra argument to specify a variable on which plurality
-      should be chosen, and then decorate your text with 
-
-         @{singular|plural}@
-   
-   For instance:
-
-      tr('The @{cat|cats}@ danced.  @{It was|They were}@ happy.', nCat)
-      tr('The @{cat|%d cats}@ danced.  @{It was|They were}@ happy.'%nCat, nCat)
-      tr('The @{cat|cats}@ attacked the @{dog|dogs}@', nCat, nDog)
-
-   This should work well for 
-   """
-
-   txt = toUnicode(txt)
-   lines = [l.strip() for l in txt.split('\n')]
-   txt = (' '.join(lines)).strip()
-
-   # Eventually we do something cool with this transalate function.
-   # It will be defined elsewhere, but for now stubbed with identity fn
-   TRANSLATE = lambda x: x
-
-   txt = TRANSLATE(txt)
-
-   return formatWithPlurals(txt, replList, pluralList)
-   
-
 
 ################################################################################
 def HLINE(style=QFrame.Plain):
@@ -177,11 +135,11 @@ def UnicodeErrorBox(parent):
 #######
 def UserModeStr(mode):
    if mode==USERMODE.Standard:
-      return 'Standard'
+      return tr('Standard User')
    elif mode==USERMODE.Advanced:
-      return 'Advanced'
+      return tr('Advanced User')
    elif mode==USERMODE.Expert:
-      return 'Expert'
+      return tr('Expert User')
 
 
 #######
@@ -239,14 +197,15 @@ def relaxedSizeNChar(obj, nChar):
 #############################################################################
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
-      if wndw.getWltSetting(wlt.uniqueIDB58,'IsMine'):
-         return [WLTTYPES.Offline, 'Offline']
+      if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
+         return [WLTTYPES.Offline, tr('Offline')]
       else:
-         return [WLTTYPES.WatchOnly, 'Watching-Only']
+         return [WLTTYPES.WatchOnly, tr('Watching-Only')]
    elif wlt.useEncryption:
-      return [WLTTYPES.Crypt, 'Encrypted']
+      return [WLTTYPES.Crypt, tr('Encrypted')]
    else:
-      return [WLTTYPES.Plain, 'No Encryption']
+      return [WLTTYPES.Plain, tr('No Encryption')]
+
 
 
 
@@ -324,31 +283,33 @@ class QRichLabel(QLabel):
 
 
 class QMoneyLabel(QRichLabel):
-   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False):
+   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, 
+                              wBold=False, txtSize=10):
       QLabel.__init__(self, coin2str(nSatoshi))
 
-      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold)
+      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold, txtSize)
 
 
-   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, wBold=None):
+   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, 
+                                             wBold=None, txtSize=10):
       """
       When we set the text of the QMoneyLabel, remember previous values unless
       explicitly respecified
       """
-      if not ndec==None:
+      if not ndec is None:
          self.ndec = ndec
 
-      if not maxZeros==None:
+      if not maxZeros is None:
          self.max0 = maxZeros
 
-      if not wColor==None:
+      if not wColor is None:
          self.colr = wColor
 
-      if not wBold==None:
+      if not wBold is None:
          self.bold = wBold
          
 
-      theFont = GETFONT("Fixed", 10)
+      theFont = GETFONT("Fixed", txtSize)
       if self.bold:
          theFont.setWeight(QFont.Bold)
 
@@ -442,7 +403,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
    Creates a message box with custom button text and icon
    """
 
-   class dlgWarn(QDialog):
+   class dlgWarn(ArmoryDialog):
       def __init__(self, dtype, dtitle, wmsg, withCancel=False, yesStr=None, noStr=None):
          super(dlgWarn, self).__init__(None)
          
@@ -476,8 +437,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
-            if not yesStr: yesStr = '&Yes'
-            if not noStr:  noStr = '&No'
+            if not yesStr: yesStr = tr('&Yes')
+            if not noStr:  noStr = tr('&No')
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
@@ -485,8 +446,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            cancelStr = '&Cancel' if (noStr is not None or withCancel) else ''
-            yesStr    = '&OK' if (yesStr is None) else yesStr
+            cancelStr = tr('&Cancel') if (noStr is not None or withCancel) else ''
+            yesStr    = tr('&OK') if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
             btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
@@ -520,28 +481,28 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
 
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
+def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
                    yesStr='Yes', noStr='No', dnaaStartChk=False):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
    """
 
-   class dlgWarn(QDialog):
-      def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
-         super(dlgWarn, self).__init__(None)
+   class dlgWarn(ArmoryDialog):
+      def __init__(self, parent, main, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
+         super(dlgWarn, self).__init__(parent, main)
          
          msgIcon = QLabel()
          fpix = ''
          if dtype==MSGBOX.Info:
             fpix = ':/MsgBox_info48.png'
-            if not dmsg:  dmsg = 'Do not show this message again'
+            if not dmsg:  dmsg = tr('Do not show this message again')
          if dtype==MSGBOX.Question:
             fpix = ':/MsgBox_question64.png'
-            if not dmsg:  dmsg = 'Do not ask again'
+            if not dmsg:  dmsg = tr('Do not ask again')
          if dtype==MSGBOX.Warning:
             fpix = ':/MsgBox_warning48.png'
-            if not dmsg:  dmsg = 'Do not show this warning again'
+            if not dmsg:  dmsg = tr('Do not show this warning again')
          if dtype==MSGBOX.Critical:
             fpix = ':/MsgBox_critical64.png'
             if not dmsg:  dmsg = None  # should always show crits
@@ -597,13 +558,13 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
          self.setWindowTitle(dtitle)
 
 
-   dlg = dlgWarn(wtype, title, msg, dnaaMsg, wCancel) 
+   dlg = dlgWarn(parent, main, wtype, title, msg, dnaaMsg, wCancel) 
    result = dlg.exec_()
    
    return (result, dlg.chkDnaa.isChecked())
 
  
-def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
+def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame, condenseMargins=False):
    frm = QFrame()
    frm.setFrameStyle(style)
 
@@ -639,19 +600,23 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
       else:
          frmLayout.addWidget(w)
 
-   frmLayout.setContentsMargins(5,5,5,5)
+   if condenseMargins:
+      frmLayout.setContentsMargins(3,3,3,3)
+      frmLayout.setSpacing(3)
+   else:
+      frmLayout.setContentsMargins(5,5,5,5)
    frm.setLayout(frmLayout)
    return frm
    
 
-def addFrame(widget, style=STYLE_SUNKEN):
-   return makeLayoutFrame(HORIZONTAL, [widget], style)
+def addFrame(widget, style=STYLE_SUNKEN, condenseMargins=False):
+   return makeLayoutFrame(HORIZONTAL, [widget], style, condenseMargins)
    
-def makeVertFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame(VERTICAL, widgetList, style)
+def makeVertFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
+   return makeLayoutFrame(VERTICAL, widgetList, style, condenseMargins)
 
-def makeHorizFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame(HORIZONTAL, widgetList, style)
+def makeHorizFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
+   return makeLayoutFrame(HORIZONTAL, widgetList, style, condenseMargins)
 
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):
@@ -726,25 +691,38 @@ class ArmoryFrame(QFrame):
 
 ################################################################################
 class ArmoryDialog(QDialog):
-   def __init__(self, parent=None, main=None):
+   #create a signal with a random name that children to this dialog will 
+   #connect to close themselves if the parent is closed first   
+
+      
+   def __init__(self, parent, main):
       super(ArmoryDialog, self).__init__(parent)
 
+      self.closeSignal = str(random.random())       
       self.parent = parent
       self.main   = main
-
+      
+      #connect this dialog to the parent's close signal
+      if self.parent is not None and hasattr(self.parent, 'closeSignal'):
+         self.connect(self.parent, SIGNAL(self.parent.closeSignal), self.reject)
+         
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
 
       if USE_TESTNET:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management [TESTNET]'))
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management')
+         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management'))
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
    
    @AddToRunningDialogsList
    def exec_(self):
       return super(ArmoryDialog, self).exec_()
+   
+   def reject(self):
+      self.emit(SIGNAL(self.closeSignal))
+      super(ArmoryDialog, self).reject()
       
 
 ################################################################################
@@ -848,7 +826,7 @@ class DlgInflatedQR(ArmoryDialog):
       qrDisp.mouseDoubleClickEvent = closeDlg
       self.mouseDoubleClickEvent = closeDlg
 
-      lbl = QRichLabel('<b>Double-click or press ESC to close</b>')
+      lbl = QRichLabel(tr('<b>Double-click or press ESC to close</b>'))
       lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
       frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])

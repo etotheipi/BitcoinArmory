@@ -1,0 +1,90 @@
+################################################################################
+#                                                                              #
+#  Copyright (C) 2011-2014, Armory Technologies, Inc.                          #
+#  Distributed under the GNU Affero General Public License (AGPL v3)           #
+#  See LICENSE or http://www.gnu.org/licenses/agpl.html                        #
+#                                                                              #
+################################################################################
+
+********************************************************************************
+*
+* Project:    Armory  (armoryd)
+* Authors:    Alan Reiner and Douglas Roark
+* Orig Date:  2014/06/21
+* Descr:      Armory is a full-featured Bitcoin client, offering a dozen 
+*             innovative features not found in any other client software!
+*             Manage multiple wallets (deterministic and watching-only), 
+*             print paper backups that work forever, import or sweep private 
+*             keys, and keep your savings in a computer that never touches 
+*             the internet, while still being able to manage incoming payments, 
+*             and create outgoing payments with the help of a USB key.
+* 
+*             ***Armory has no independent networking components built in.
+*             Instead, it relies on on the Satoshi client to securely connect 
+*             to peers, validate blockchain data, and broadcast transactions
+*             for us.  Although it was initially planned to cut the umbilical
+*             cord to the Satoshi client and implement independent networking,
+*             it has turned out to be an inconvenience worth having. 
+*             Reimplementing all the networking code would be fraught with bugs,
+*             security holes, and possible blockchain forking.  The reliance
+*             on Bitcoin-Qt right now is actually making Armory more secure!
+*
+*             armoryd is a command-line program comparable to Bitcoin Core's
+*             bitcoind. armoryd allows users to use Armory functionality solely
+*             from a command line, write scripts that implement Armory
+*             functionality, etc. armoryd relies on a client/server model. If
+*             armoryd is not already running on a computer, the first instance
+*             will place armoryd in server mode. Once armoryd is running, users
+*             may send commands to the armoryd server via JSON. A second
+*             instance of armoryd may be used to send the commands, or any other
+*             JSON client may be used.
+*
+*             Please note that Armory and armoryd should not be run at the same
+*             time!!! Any attempt to run both programs at the same time could
+*             lead to unpredictable behavior, including wallet and lockbox
+*             corruption.
+*
+*             Upon startup, armoryd will attempt to load all wallets and
+*             lockboxes in the default Armory data directory or, if overridden
+*             by the "--datadir=X" argument, a user-defined directory.
+*
+*             armoryd has access to all command line flags used by Armory. The
+*             following are some examples of how to run armoryd.
+*
+*             --SERVER--
+*             python armoryd.py - Run an armoryd server on mainnet.
+*             python armoryd.py --testnet - Run an armoryd server on testnet.
+*             python armoryd.py --datadir=/home/areiner/Armory_Wallets - Run
+*                armoryd with wallets and lockboxes loaded from a non-standard
+*                location.
+*
+*             --CLIENT--
+*             python armoryd.py getwalletinfo - Receive info about the mainnet
+*                wallet that is currently active on the armoryd server.
+*             python armoryd.py getarmorydinfo - Get information about the
+*                server version of armoryd that is currently running.
+*             python armoryd.py getarmoryfunctions - Get a list of functions
+*                available on the armoryd server.
+*             python armoryd.py watchwallet sender@c.net watchCmd=remove -
+*                Stop sending e-mail notifications from a given e-mail address.
+*             python armoryd.py --testnet createustxtoaddress
+*                n3QJ7oiaDHBMxtN5bckLDLBr98zeufEkMv 10 - Create an unsigned
+*                transaction of 10 BTC to be sent to the given address on
+*                testnet.
+*
+*             In order to run armoryd, the user must have bitcoind installed on
+*             the same computer as armoryd. As of June 2014, bitcoind can be
+*             downloaded in binary form for Windows and Linux, alongside
+*             Bitcoin Core downloads, while OS X users must build and install
+*             their own binaries. Go to https://github.com/bitcoin/bitcoin for
+*             more information on how to download, build and install the
+*             bitcoind code. In addition, be sure to download the correct
+*             branch for the latest build. For example, to download the source
+*             code for v0.9.2, https://github.com/bitcoin/bitcoin/tree/0.9.2 is
+*             the link to use, or, if using git, "0.9.2" is the correct branch.
+*
+********************************************************************************
+*
+* Please take a moment to donate some BTC!   1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv
+*
+********************************************************************************

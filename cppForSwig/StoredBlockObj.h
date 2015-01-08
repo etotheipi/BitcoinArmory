@@ -14,10 +14,17 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
+#include "txio.h"
+#include "BlockDataManagerConfig.h"
+#include <atomic>
 
 #define ARMORY_DB_VERSION   0x00
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
 #define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
+
+static const uint64_t UPDATE_BYTES_SSH    = 25;
+static const uint64_t UPDATE_BYTES_SUBSSH = 75;
+static const uint64_t UPDATE_BYTES_KEY    = 8;
 
 enum BLKDATA_TYPE
 {
@@ -37,27 +44,9 @@ enum DB_PREFIX
   DB_PREFIX_SCRIPT,
   DB_PREFIX_UNDODATA,
   DB_PREFIX_TRIENODES,
-  DB_PREFIX_COUNT
+  DB_PREFIX_COUNT,
+  DB_PREFIX_ZCDATA
 };
-
-
-enum ARMORY_DB_TYPE
-{
-  ARMORY_DB_BARE, // only raw block data
-  ARMORY_DB_LITE,
-  ARMORY_DB_PARTIAL,
-  ARMORY_DB_FULL,
-  ARMORY_DB_SUPER,
-  ARMORY_DB_WHATEVER
-};
-
-enum DB_PRUNE_TYPE
-{
-  DB_PRUNE_ALL,
-  DB_PRUNE_NONE,
-  DB_PRUNE_WHATEVER
-};
-
 
 // In ARMORY_DB_PARTIAL and LITE, we may not store full tx, but we will know 
 // its block and index, so we can just request the full block from our peer.
@@ -110,19 +99,25 @@ class TxOut;
 class TxRef;
 class TxIOPair;
 
-class StoredTx;
-class StoredTxOut;
+class DBTx;
 class StoredScriptHistory;
 class StoredSubHistory;
 
 
-#define DBUtils GlobalDBUtilities::GetInstance()
+template<class T, typename ...Args>
+static BinaryData serializeDBValue(const T &o, const Args &...a)
+{
+   BinaryWriter wr;
+   o.serializeDBValue(wr, a...);
+   return wr.getData();
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Basically making stuff globally accessible through DBUtils singleton
 ////////////////////////////////////////////////////////////////////////////////
-class GlobalDBUtilities
+class DBUtils
 {
 public:
 
@@ -211,48 +206,14 @@ public:
    static bool checkPrefixByteWError( BinaryRefReader & brr, 
                                       DB_PREFIX prefix,
                                       bool rewindWhenDone=false);
-
-   static void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
-   static void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
-
-   static ARMORY_DB_TYPE getArmoryDbType(void) { return armoryDbType_; }
-   static DB_PRUNE_TYPE  getDbPruneType(void)  { return dbPruneType_;  }
-
-   static GlobalDBUtilities& GetInstance(void)
-   {
-      if(theOneUtilsObj_==NULL)
-      {
-         theOneUtilsObj_ = new GlobalDBUtilities;
-      
-         // Default database structure
-         theOneUtilsObj_->setArmoryDbType(ARMORY_DB_FULL);
-         theOneUtilsObj_->setDbPruneType(DB_PRUNE_NONE);
-      }
-      return (*theOneUtilsObj_);
-   }
-
-
-   
-private:
-   GlobalDBUtilities(void) {}
-   static GlobalDBUtilities* theOneUtilsObj_; 
-   static DB_PRUNE_TYPE  dbPruneType_;
-   static ARMORY_DB_TYPE armoryDbType_;
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 class StoredDBInfo
 {
 public:
-   StoredDBInfo(void) : 
-      magic_(0),
-      topBlkHgt_(0),
-      topBlkHash_(0),
-      appliedToHgt_(0),
-      armoryVer_(ARMORY_DB_VERSION),
-      armoryType_(DBUtils.getArmoryDbType()),
-      pruneType_(DBUtils.getDbPruneType())   {}
+   StoredDBInfo(void)
+   {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
@@ -263,105 +224,251 @@ public:
    void         serializeDBValue(BinaryWriter &    bw ) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(void) const;
    void       unserializeDBKey(BinaryDataRef key) {}
 
    void pprintOneLine(uint32_t indent=3);
 
    BinaryData      magic_;
-   uint32_t        topBlkHgt_;
-   BinaryData      topBlkHash_;
-   uint32_t        appliedToHgt_; // only used in BLKDATA DB
-   uint32_t        armoryVer_;
-   ARMORY_DB_TYPE  armoryType_;
-   DB_PRUNE_TYPE   pruneType_;
+   uint32_t        topBlkHgt_=0;
+   BinaryData      topBlkHash_; //hash of last block commited
+   BinaryData      topScannedBlkHash_; //commited to SSH
+   uint32_t        appliedToHgt_=0; // only used in BLKDATA DB
+   uint32_t        armoryVer_=ARMORY_DB_VERSION;
+   ARMORY_DB_TYPE  armoryType_=ARMORY_DB_WHATEVER;
+   DB_PRUNE_TYPE   pruneType_=DB_PRUNE_WHATEVER;
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
-class StoredHeader
+class StoredTxOut
 {
 public:
-   StoredHeader(void) : dataCopy_(0), 
-                        thisHash_(0), 
-                        numTx_(UINT32_MAX), 
-                        numBytes_(UINT32_MAX), 
-                        blockHeight_(UINT32_MAX), 
-                        duplicateID_(UINT8_MAX), 
-                        merkle_(0), 
-                        isMainBranch_(false),
-                        blockAppliedToDB_(false), 
-                        merkleIsPartial_(false),
-                        hasBlockHeader_(false) {}
-                           
+   StoredTxOut(void)
+      : txVersion_(UINT32_MAX),
+      dataCopy_(0),
+      blockHeight_(UINT32_MAX),
+      duplicateID_(UINT8_MAX),
+      txIndex_(UINT16_MAX),
+      txOutIndex_(UINT16_MAX),
+      parentHash_(0),
+      spentness_(TXOUT_SPENTUNK),
+      isCoinbase_(false),
+      spentByTxInKey_(0)
+   {}
+
+   bool isInitialized(void) const { return dataCopy_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
+   void unserialize(BinaryData const & data);
+   void unserialize(BinaryDataRef data);
+   void unserialize(BinaryRefReader & brr);
+
+   void       unserializeDBValue(BinaryRefReader &  brr);
+   void       serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
+      DB_PRUNE_TYPE pruneType,
+      bool forceSaveSpent = false) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   void       unserializeDBKey(BinaryDataRef key);
+
+   BinaryData getDBKey(bool withPrefix = true) const;
+   BinaryData getDBKeyOfParentTx(bool withPrefix = true) const;
+   BinaryData& getHgtX(void);
+
+   StoredTxOut & createFromTxOut(TxOut & txout);
+   BinaryData    getSerializedTxOut(void) const;
+   TxOut         getTxOutCopy(void) const;
+
+   const BinaryData& getScrAddress(void) const;
+   BinaryDataRef     getScriptRef(void) const;
+   uint64_t          getValue(void) const;
+
+   bool matchesDBKey(BinaryDataRef dbkey) const;
+
+   uint64_t getValue(void)
+   {
+      if (dataCopy_.getSize() >= 8)
+         return READ_UINT64_LE(dataCopy_.getPtr());
+      else
+         return UINT64_MAX;
+   }
+
+
+   bool isSpent(void) { return spentness_ == TXOUT_SPENT; }
+
+
+   void pprintOneLine(uint32_t indent = 3);
+
+   uint32_t          txVersion_;
+   BinaryData        dataCopy_;
+   uint32_t          blockHeight_;
+   uint8_t           duplicateID_;
+   uint16_t          txIndex_;
+   uint16_t          txOutIndex_;
+   BinaryData        parentHash_;
+   BinaryData        hashAndId_;
+   TXOUT_SPENTNESS   spentness_;
+   bool              isCoinbase_;
+   BinaryData        spentByTxInKey_;
+   BinaryData        hgtX_;
+
+   mutable BinaryData scrAddr_;
+
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   uint32_t          unserArmVer_;
+   uint32_t          unserDbType_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class DBTx
+{
+public:
+   bool       isInitialized(void) const { return dataCopy_.getSize() > 0; }
+   bool       isNull(void) { return !isInitialized(); }
+
+   BinaryData getSerializedTxFragged(void) const;
+   Tx         getTxCopy(void) const;
+   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx);
+
+   void unserialize(BinaryData const & data, bool isFragged = false);
+   void unserialize(BinaryDataRef data, bool isFragged = false);
+   virtual void unserialize(BinaryRefReader & brr, bool isFragged = false);
+
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(ARMORY_DB_TYPE dbType,
+      DB_PRUNE_TYPE pruneType) const;
+   void       unserializeDBKey(BinaryDataRef key);
+
+   BinaryData getDBKey(bool withPrefix = true) const;
+   BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix = true) const;
+   BinaryData getHgtX(void) const { return getDBKey(false).getSliceCopy(0, 4); }
+
+   void pprintOneLine(uint32_t indent = 3);
+
+   virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index) = 0;
+   virtual bool haveAllTxOut(void) const = 0;
+   /////
+
+   BinaryData           thisHash_;
+   uint32_t             lockTime_ = 0;
+   uint32_t             unixTime_ = 0;
+
+   BinaryData           dataCopy_;
+   bool                 isFragged_ = false;
+   uint32_t             version_ = 0;
+   uint32_t             blockHeight_ = UINT32_MAX;
+   uint8_t              duplicateID_ = UINT8_MAX;
+   uint16_t             txIndex_ = UINT16_MAX;
+   uint16_t             numTxOut_ = UINT16_MAX;
+   uint32_t             numBytes_ = UINT32_MAX;
+   uint32_t             fragBytes_ = UINT32_MAX;
+
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   uint32_t          unserArmVer_;
+   uint32_t          unserTxVer_;
+   TX_SERIALIZE_TYPE unserTxType_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class StoredTx : public DBTx
+{
+public:
+   StoredTx&  createFromTx(Tx & tx,
+      bool doFrag = true,
+      bool withTxOuts = true);
+   StoredTx& createFromTx(BinaryDataRef rawTx,
+      bool doFrag = true,
+      bool withTxOuts = true);
+
+
+   void         serializeDBValue(
+      BinaryWriter &    bw,
+      ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
+      ) const;
+
+   BinaryData getSerializedTx(void) const;
+   Tx         getTxCopy(void) const;
+   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx);
+
+   void addTxOutToMap(uint16_t idx, TxOut & txout);
+   void addStoredTxOutToMap(uint16_t idx, StoredTxOut & txout);
+
+   void pprintFullTx(uint32_t indent = 3);
+
+   virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index)
+   {
+      auto& stxo = stxoMap_[index];
+      stxo.parentHash_ = thisHash_;
+      stxo.txVersion_ = version_;
+      return stxo;
+   }
+
+   virtual bool haveAllTxOut(void) const;
+
+   ////
+   map<uint16_t, StoredTxOut> stxoMap_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class DBBlock
+{
+public:
+
+   virtual ~DBBlock() {}
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool isNull(void) const {return !isInitialized(); }
-   bool haveFullBlock(void) const;
    BlockHeader getBlockHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
    BinaryData getSerializedBlockHeader(void) const;
-   void createFromBlockHeader(BlockHeader & bh);
+   void createFromBlockHeader(const BlockHeader & bh);
 
    uint32_t getNumTx() { return (isNull() ? 0 : numTx_); } 
 
-   Tx getTxCopy(uint16_t i);
-   BinaryData getSerializedTx(uint16_t i);
-    
-
-   void addTxToMap(uint16_t txIdx, Tx & tx);
-   void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
-
-   void setKeyData(uint32_t hgt, uint8_t dupID=UINT8_MAX);
    void setHeightAndDup(uint32_t hgt, uint8_t dupID);
    void setHeightAndDup(BinaryData hgtx);
 
-   void unserialize(BinaryData const & header80B);
-   void unserialize(BinaryDataRef header80B);
-   void unserialize(BinaryRefReader brr);
-
-   void unserializeFullBlock(BinaryDataRef block, 
-                             bool doFrag=true,
-                             bool withPrefix8=false);
-
-   void unserializeFullBlock(BinaryRefReader brr, 
-                             bool doFrag=true,
-                             bool withPrefix8=false);
-
-   bool serializeFullBlock( BinaryWriter & bw) const;
+   void setHeaderData(BinaryData const & header80B);
 
    void unserializeDBValue( DB_SELECT         db,
                             BinaryRefReader & brr,
                             bool              ignoreMerkle = false);
-   void   serializeDBValue( DB_SELECT         db,
-                            BinaryWriter &    bw) const;
+   void serializeDBValue( 
+      BinaryWriter &    bw,
+      DB_SELECT         db,
+      ARMORY_DB_TYPE dbType,
+      DB_PRUNE_TYPE pruneType
+   ) const;
 
    void unserializeDBValue(DB_SELECT db, BinaryData const & bd, bool ignMrkl=false);
    void unserializeDBValue(DB_SELECT db, BinaryDataRef bdr,     bool ignMrkl=false);
-   BinaryData serializeDBValue(DB_SELECT db) const;
-   void       unserializeDBKey(DB_SELECT db, BinaryDataRef key);
+   void unserializeDBKey  (DB_SELECT db, BinaryDataRef key);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
    bool isMerkleCreated(void) { return (merkle_.getSize() != 0);}
 
-
    void pprintOneLine(uint32_t indent=3);
-   void pprintFullBlock(uint32_t indent=3);
+
+   virtual DBTx& getTxByIndex(uint16_t index) = 0;
+   ////
    
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
-   uint32_t       numTx_;
-   uint32_t       numBytes_;
-   uint32_t       blockHeight_;
-   uint8_t        duplicateID_;
+   uint32_t       numTx_=UINT32_MAX;
+   uint32_t       numBytes_=UINT32_MAX;
+   uint32_t       blockHeight_=UINT32_MAX;
+   uint8_t        duplicateID_=UINT8_MAX;
    BinaryData     merkle_;
-   bool           merkleIsPartial_;
-   bool           isMainBranch_;
-   bool           blockAppliedToDB_;
+   bool           merkleIsPartial_=false;
+   bool           isMainBranch_=false;
+   bool           blockAppliedToDB_=false;
 
-   bool           isPartial_;
-   map<uint16_t, StoredTx> stxMap_;
+   bool           isPartial_=false;
 
    // We don't actually enforce these members.  They're solely for recording
    // the values that were unserialized with everything else, so that we can
@@ -372,159 +479,129 @@ public:
    DB_PRUNE_TYPE   unserPrType_;
    MERKLE_SER_TYPE unserMkType_;
    
-   bool hasBlockHeader_;
-   
+   bool hasBlockHeader_=false;
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
-class StoredTx
+class StoredHeader : public DBBlock
 {
 public:
-   StoredTx(void) : thisHash_(0), 
-                    dataCopy_(0), 
-                    blockHeight_(UINT32_MAX),
-                    duplicateID_(UINT8_MAX),
-                    txIndex_(UINT16_MAX),
-                    numTxOut_(UINT16_MAX),
-                    numBytes_(UINT32_MAX),
-                    fragBytes_(UINT32_MAX) {}
+   BinaryData getSerializedBlock(void) const;
+
+   Tx getTxCopy(uint16_t i);
+   BinaryData getSerializedTx(uint16_t i);
+   bool haveFullBlock(void) const;
+
+   void addTxToMap(uint16_t txIdx, Tx & tx);
+   void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
+
+   void unserializeFullBlock(BinaryDataRef block,
+      bool doFrag = true,
+      bool withPrefix8 = false);
+
+   void unserializeFullBlock(BinaryRefReader brr,
+      bool doFrag = true,
+      bool withPrefix8 = false);
+
+   bool serializeFullBlock(BinaryWriter & bw) const;
+   void setKeyData(uint32_t hgt, uint8_t dupID = UINT8_MAX);
    
-   bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
-   bool       isNull(void) { return !isInitialized(); }
-   bool       haveAllTxOut(void) const;
+   void pprintFullBlock(uint32_t indent = 3);
 
-   StoredTx&  createFromTx(Tx & tx, 
-                           bool doFrag=true, 
-                           bool withTxOuts=true);
-   StoredTx & createFromTx(BinaryDataRef rawTx, 
-                           bool doFrag=true, 
-                           bool withTxOuts=true);
+   virtual DBTx& getTxByIndex(uint16_t index)
+   { return static_cast<DBTx&>(stxMap_[index]); }
 
-   BinaryData getSerializedTx(void) const;
-   BinaryData getSerializedTxFragged(void) const;
-   Tx         getTxCopy(void) const;
-   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx); 
+   ///
+   map<uint16_t, StoredTx> stxMap_;
+};
 
-   void addTxOutToMap(uint16_t idx, TxOut & txout);
-   void addStoredTxOutToMap(uint16_t idx, StoredTxOut & txout);
+////////////////////////////////////////////////////////////////////////////////
+// We must break out script histories into isolated sub-histories, to
+// accommodate thoroughly re-used addresses like 1VayNert* and 1dice*.  If 
+// we didn't do it, those DB entries would be many megabytes, and those many
+// MB would be updated multiple times per block.   So we break them into
+// subhistories by block.  This is exceptionally well-suited for SatoshiDice
+// addresses since transactions in one block tend to be related to 
+// transactions in the previous few blocks before it.  
+class StoredSubHistory
+{
+public:
 
-   void unserialize(BinaryData const & data, bool isFragged=false);
-   void unserialize(BinaryDataRef data,      bool isFragged=false);
-   void unserialize(BinaryRefReader & brr,   bool isFragged=false);
+   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
+                            txioCount_(0) 
+   {
+   }
+                               
+
+   bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter &    bw ) const;
+   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(void) const;
-   void       unserializeDBKey(BinaryDataRef key);
+   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
+   void       getSummary(BinaryRefReader & brr);
 
-   BinaryData getDBKey(bool withPrefix=true) const;
-   BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix=true) const;
-   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
+   BinaryData    getDBKey(bool withPrefix=true) const;
+   SCRIPT_PREFIX getScriptType(void) const;
+   uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
 
-   void pprintOneLine(uint32_t indent=3);
-   void pprintFullTx(uint32_t indent=3);
+   //void pprintOneLine(uint32_t indent=3);
+   //void pprintFullSSH(uint32_t indent=3);
 
+   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
+   TxIOPair& insertTxio(TxIOPair const & txio, 
+                        uint64_t* additionalSize = nullptr);
+   bool      eraseTxio(BinaryData const & dbKey8B);
 
-   BinaryData           thisHash_;
-   uint32_t             lockTime_;
-
-   BinaryData           dataCopy_;
-   bool                 isFragged_;
-   uint32_t             version_;
-   uint32_t             blockHeight_;
-   uint8_t              duplicateID_;
-   uint16_t             txIndex_;
-   uint16_t             numTxOut_;
-   uint32_t             numBytes_;
-   uint32_t             fragBytes_;
-   map<uint16_t, StoredTxOut> stxoMap_;
-
-   // We don't actually enforce these members.  They're solely for recording
-   // the values that were unserialized with everything else, so that we can
-   // leter check that it
-   uint32_t          unserArmVer_;
-   uint32_t          unserTxVer_; 
-   TX_SERIALIZE_TYPE unserTxType_;
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-class StoredTxOut
-{
-public:
-   StoredTxOut(void) : txVersion_(UINT32_MAX), 
-                       dataCopy_(0), 
-                       blockHeight_(UINT32_MAX), 
-                       duplicateID_(UINT8_MAX), 
-                       parentHash_(0),
-                       txIndex_(UINT16_MAX), 
-                       txOutIndex_(UINT16_MAX), 
-                       spentness_(TXOUT_SPENTUNK), 
-                       isCoinbase_(false), 
-                       spentByTxInKey_(0) {}
-
-   bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
-   bool isNull(void) { return !isInitialized(); }
-   void unserialize(BinaryData const & data);
-   void unserialize(BinaryDataRef data);
-   void unserialize(BinaryRefReader & brr);
-
-   void       unserializeDBValue(BinaryRefReader &  brr);
-   void         serializeDBValue(BinaryWriter & bw, bool forceSaveSpent=false) const;
-   void       unserializeDBValue(BinaryData const & bd);
-   void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(bool forceSaveSpent=false) const;
-   void       unserializeDBKey(BinaryDataRef key);
-
-   BinaryData getDBKey(bool withPrefix=true) const;
-   BinaryData getDBKeyOfParentTx(bool withPrefix=true) const;
-   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
-
-   StoredTxOut & createFromTxOut(TxOut & txout); 
-   BinaryData    getSerializedTxOut(void) const;
-   TxOut         getTxOutCopy(void) const;
-
-   BinaryData    getScrAddress(void) const;
-   BinaryDataRef getScriptRef(void) const;
-   uint64_t      getValue(void) const;
-
-   bool matchesDBKey(BinaryDataRef dbkey) const;
-
-   uint64_t getValue(void) 
-   { 
-      if(dataCopy_.getSize()>=8)
-         return READ_UINT64_LE(dataCopy_.getPtr());
-      else
-         return UINT64_MAX;
-   }
-         
-
-   bool isSpent(void) { return spentness_==TXOUT_SPENT; }
    
+   // This adds the TxOut if it doesn't exist yet
+   const TxIOPair& markTxOutSpent(const BinaryData& txOutKey8B);
 
-   void pprintOneLine(uint32_t indent=3);
+   void markTxOutUnspent(const BinaryData& txOutKey8B,
+                             uint64_t&  additionalSize,
+                             const uint64_t&  value,
+                             bool       isCoinbase,
+                             bool       isMultisigRef);
 
-   uint32_t          txVersion_;
-   BinaryData        dataCopy_;
-   uint32_t          blockHeight_;
-   uint8_t           duplicateID_;
-   uint16_t          txIndex_;
-   uint16_t          txOutIndex_;
-   BinaryData        parentHash_;
-   TXOUT_SPENTNESS   spentness_;
-   bool              isCoinbase_;
-   BinaryData        spentByTxInKey_;
+   uint64_t getSubHistoryBalance(bool withMultisig=false);
+   uint64_t getSubHistoryReceived(bool withMultisig=false);
 
-   // We don't actually enforce these members.  They're solely for recording
-   // the values that were unserialized with everything else, so that we can
-   // leter check that it
-   uint32_t          unserArmVer_;
-   uint32_t          unserDbType_;
+   void pprintFullSubSSH(uint32_t indent=3);
+   
+   StoredSubHistory(const StoredSubHistory& copy)
+   {
+      *this = copy;
+   }
+
+   StoredSubHistory& operator=(const StoredSubHistory& copy)
+   {
+      if (&copy == this)
+         return *this;
+
+      uniqueKey_ = copy.uniqueKey_;
+      hgtX_ = copy.hgtX_;
+      txioMap_ = copy.txioMap_;
+      height_ = copy.height_;
+      dupID_ = copy.dupID_;
+      txioCount_ = copy.txioCount_;
+
+      //std::atomic types are copyable, and we do not copy
+      //accessing_, as this flag is meant to signify 
+      //access to the particular object, not that data per say
+
+      return *this;
+   }
+
+   // Store all TxIOs for this ScrAddr and block
+   BinaryData     uniqueKey_;  // includes the prefix byte!
+   BinaryData     hgtX_;
+   map<BinaryData, TxIOPair> txioMap_;
+   uint32_t height_;
+   uint8_t  dupID_;
+   uint32_t txioCount_;
 };
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -538,7 +615,6 @@ public:
    StoredScriptHistory(void) : uniqueKey_(0), 
                                version_(UINT32_MAX),
                                alreadyScannedUpToBlk_(0),
-                               useMultipleEntries_(false),
                                totalTxioCount_(0),
                                totalUnspent_(0) {}
                                
@@ -547,10 +623,9 @@ public:
    bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw ) const;
+   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(void) const;
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
@@ -565,30 +640,17 @@ public:
    bool     haveFullHistoryLoaded(void) const;
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
-   bool       eraseTxio(TxIOPair const & txio);
-   bool       eraseTxio(BinaryData const & dbKey8B);
-
-   bool       mergeSubHistory(StoredSubHistory & subssh);
-   TxIOPair& insertTxio(TxIOPair const & txio, 
-                        bool withOverwrite=true,
-                        bool skipTally=false);
 
    bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
                        bool withMultisig=false);
 
-   // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutUnspent(BinaryData txOutKey8B, 
-                               uint64_t   value=UINT64_MAX,
-                               bool       isCoinbase=false,
-                               bool       isMultisigRef=false);
-
-   uint64_t   markTxOutSpent(BinaryData txOutKey8B, 
-                             BinaryData  txInKey8B);
+   void mergeSubHistory(const StoredSubHistory& subssh);
+   void insertTxio(const TxIOPair& txio);
+   void eraseTxio(const TxIOPair& txio);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
-   bool           useMultipleEntries_;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
 
@@ -603,66 +665,6 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// We must break out script histories into isolated sub-histories, to
-// accommodate thoroughly re-used addresses like 1VayNert* and 1dice*.  If 
-// we didn't do it, those DB entries would be many megabytes, and those many
-// MB would be updated multiple times per block.   So we break them into
-// subhistories by block.  This is exceptionally well-suited for SatoshiDice
-// addresses since transactions in one block tend to be related to 
-// transactions in the previous few blocks before it.  
-class StoredSubHistory
-{
-public:
-
-   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0) {}
-                               
-
-   bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
-   bool isNull(void) { return !isInitialized(); }
-
-   void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw ) const;
-   void       unserializeDBValue(BinaryData const & bd);
-   void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(void) const;
-   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
-
-   BinaryData    getDBKey(bool withPrefix=true) const;
-   SCRIPT_PREFIX getScriptType(void) const;
-   uint64_t      getTxioCount(void) const {return (uint64_t)txioSet_.size();}
-
-   //void pprintOneLine(uint32_t indent=3);
-   //void pprintFullSSH(uint32_t indent=3);
-
-   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
-   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
-   uint64_t   eraseTxio(TxIOPair const & txio);
-   uint64_t   eraseTxio(BinaryData const & dbKey8B);
-
-   
-   // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutUnspent(BinaryData txOutKey8B, 
-                               uint64_t   value=UINT64_MAX,
-                               bool       isCoinbase=false,
-                               bool       isMultisigRef=false);
-
-   uint64_t   markTxOutSpent(BinaryData txOutKey8B, 
-                             BinaryData  txInKey8B);
-                              
-
-   uint64_t getSubHistoryBalance(bool withMultisig=false);
-   uint64_t getSubHistoryReceived(bool withMultisig=false);
-   //vector<uint64_t> getSubHistoryValues(void);
-
-   void pprintFullSubSSH(uint32_t indent=3);
-
-   // Store all TxIOs for this ScrAddr and block
-   BinaryData     uniqueKey_;  // includes the prefix byte!
-   BinaryData     hgtX_;
-   map<BinaryData, TxIOPair> txioSet_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
 // TODO:  it turns out that outPointsAddedByBlock_ is not "right."  If a Tx has
 //        20 txOuts, there's no reason to write 36 * 20 = 720 bytes when you 
 //        can just as easily write the header once, and the numTxOut and create
@@ -675,11 +677,10 @@ public:
    bool isInitialized(void) { return (outPointsAddedByBlock_.size() > 0);}
    bool isNull(void) { return !isInitialized(); }
 
-   void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw ) const;
-   void       unserializeDBValue(BinaryData const & bd);
-   void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(void) const;
+   void       unserializeDBValue(BinaryRefReader & brr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void       unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+   void       unserializeDBValue(BinaryDataRef      bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
@@ -701,11 +702,11 @@ public:
    bool isInitialized(void) { return txHashPrefix_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
 
-   uint32_t      getNumHints(void) const   { return dbKeyList_.size();      }
+   size_t        getNumHints(void) const   { return dbKeyList_.size();      }
    BinaryDataRef getHint(uint32_t i) const { return dbKeyList_[i].getRef(); }
 
    void setPreferredTx(uint32_t height, uint8_t dupID, uint16_t txIndex) 
-      { preferredDBKey_ = DBUtils.getBlkDataKeyNoPrefix(height,dupID,txIndex); }
+      { preferredDBKey_ = DBUtils::getBlkDataKeyNoPrefix(height,dupID,txIndex); }
    void setPreferredTx(BinaryData dbKey6B_) { preferredDBKey_ = dbKey6B_; }
 
    void       unserializeDBValue(BinaryRefReader & brr);
@@ -743,11 +744,11 @@ public:
          {
             if(dupAndHashList_[i].second != hash)
                LOGERR << "Pushing different hash into existing HHL dupID"; 
-            dupAndHashList_[i] = pair<uint8_t, BinaryData>(dup,hash);
+            dupAndHashList_[i] = make_pair(dup,hash);
             return;
          }
       }
-      dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup,hash));
+      dupAndHashList_.push_back(make_pair(dup,hash));
    }
 
    BinaryData getDBKey(bool withPrefix=true) const;
@@ -763,7 +764,6 @@ public:
 };
 
 
-
-
 #endif
 
+// kate: indent-width 3; replace-tabs on;

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping Cart{% endblock %}
+
+{% block header %}Shopping Cart{% endblock %}
+
+{% block head %}
+<script>
+function submitChange() {
+    // tell the server to update the quantity
+    var product = $(current).attr("product");
+    var amount = $(".small").val();
+    $.ajax({
+        'url'  : '/update/' + product + '/' + amount,
+        'type' : 'GET',
+        'success': function(data) {
+            document.location = document.location;
+        }
+    });
+}
+
+function changeQuantity(el) {
+    // change the quantity to a box
+    var quantity = $(current).children(".quantity");
+    $(current).children(".quantity").html('<input type="text" class="small" value="' + quantity.text() + '" onchange="submitChange()">');
+    $(".popover").hide();
+    $(".small").select();
+}
+function removeProduct(el) {
+    $(".popover").hide();
+    // tell the server to remove this product
+    var product = $(current).attr("product");
+    $.ajax({
+        'url'  : '/remove/' + product,
+        'type' : 'GET',
+        'success': function(data) {
+            document.location = document.location;
+        }
+    });
+}
+var current = null;
+function mark(el) {
+    current = el.parentElement;
+}
+</script>
+
+{% endblock %}
+
+{% block body %}
+{% if products|length > 0 %}
+<div class="container-fluid breadcrumbBox text-center">
+  <ol class="breadcrumb">
+    <li class="active"><a href="/cart">Review</a></li>
+    <li><a href="/ship">Order</a></li>
+    <li><a>Payment</a></li>
+  </ol>
+</div>
+
+<div class="container text-center">
+  <div class="col-md-5 col-sm-12">
+    <div class="bigcart"></div>
+    <h1>Your shopping cart</h1>
+  </div>
+  
+  <div class="col-md-7 col-sm-12 text-left">
+    <ul>
+      <li class="row list-inline columnCaptions">
+	<span>QTY</span>
+	<span>ITEM</span>
+	<span>Price</span>
+      </li>
+      {% for product in products %}
+      <li class="row" product="{{product.name}}">
+	<span class="quantity">{{product.quantity}}</span>
+	<span class="hidden"><input type="text" value="{{product.quantity}}"></span>
+	<span class="itemName">{{product.nicename}}</span>
+	<span class="popbtn" onclick="mark(this)"><a class="arrow"></a></span>
+	<span class="price">{{product.total}} BTC</span>
+      </li>
+      {% endfor %}
+      <li class="row totals">
+	<span class="itemName">Total:</span>
+	<span class="price">{{total}} BTC</span>
+	<span class="order"> <a class="text-center" href="/ship">Check Out</a></span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div id="popover" style="display: none">
+  <a href="javascript: changeQuantity(this)"><span class="glyphicon glyphicon-pencil"></span></a>
+  <a href="javascript: removeProduct(this)"><span class="glyphicon glyphicon-remove"></span></a>
+</div>
+{% else %}
+<div class="container-fluid breadcrumbBox text-center">
+  <ol class="breadcrumb">
+    <li><a>Empty Cart</a></li>
+  </ol>
+</div>
+
+<div class="container text-center">
+  <div class="col-md-5 col-sm-12">
+    <div class="bigcart"></div>
+    <h1>Your shopping cart is empty</h1>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

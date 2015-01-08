@@ -1,31 +1,34 @@
 This directory was prepared by forum user, "picobit", and reviewed by the ATI
 team.  These notes describe what had to be done on fresh installs of OS X
-10.7 (Lion), 10.8 (Mountain Lion) and 10.9 (Mavericks) in order to get
-build-app.py working.
+10.7 (Lion), 10.8 (Mountain Lion), 10.9 (Mavericks), and 10.10 (Yosemite) in
+order to get build-app.py working. Except for the first two steps, all steps
+are executed from a terminal (aka command line) window.
 
-(1) Install xcode from the Apple store (free)
+(1) Install Xcode from Apple's App Store. (It's a free download.)
 
-(2) From within xcode, install the command-line utilities
+(2) Run Xcode and install the command-line utilities.
     "Xcode" --> "Preferences" --> "Downloads"
 
-(3) You may also have to run "xcode-select --install" from the terminal.
-    You will have to click through an EULA and a few other dialogs.
+(3) You may also have to run "xcode-select --install" from the terminal. If so,
+    you will have to click through an EULA and a few other dialogs.
 
-(4) From Red Emerald's preparation steps for compiling Armory on Mac
-    (https://gist.github.com/WyseNynja/4200620), execute the following
-    to install and update brew:
+(4) As seen in Red Emerald's preparation steps for compiling Armory on Mac
+    (https://gist.github.com/WyseNynja/4200620), execute the following steps to
+    install and update brew:
 
-       $ ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
-       $ touch ~/.bashrc
-       $ echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
-       $ echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
-       $ source ~/.bashrc
-       $ brew update
-       $ brew doctor
+       ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+       touch ~/.bashrc
+       echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
+       echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
+       source ~/.bashrc
+       brew update
+       brew doctor
 
-(5) Execute "brew install swig"
+(5) Execute "brew install xz swig gettext".
 
-(6) "cd" into the "osxbuild" directory, and execute "python build-app.py".
+(6) Execute "brew link gettext --force".
+
+(7) "cd" into the "osxbuild" directory, and execute "python build-app.py".
     Armory will be found under the "workspace" subdirectory. Armory.app can be
     moved elsewhere on the system, including under /Applications so that it's
-    accessible by the OS X Launchpad.
+    accessible from the OS X Launchpad.

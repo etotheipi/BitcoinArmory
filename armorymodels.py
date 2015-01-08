@@ -17,6 +17,7 @@ from PyQt4.QtGui import *
 from CppBlockUtils import *
 from armoryengine.ALL import *
 from qtdefines import *
+from armoryengine.MultiSigUtils import calcLockboxID
 
 
 sys.path.append('..')
@@ -24,15 +25,16 @@ sys.path.append('../cppForSwig')
 
 
 
-WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
+WLTVIEWCOLS = enum('Visible', 'ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
 ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
-                                       'ScrType', 'Sequence', 'Script')
-TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script')
+                               'ScrType', 'Sequence', 'Script', 'AddrStr')
+TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script', 'AddrStr')
+PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
 
 class AllWalletsDispModel(QAbstractTableModel):
@@ -47,37 +49,46 @@ class AllWalletsDispModel(QAbstractTableModel):
       return len(self.main.walletMap)
 
    def columnCount(self, index=QModelIndex()):
-      return 4
+      return 5
 
    def data(self, index, role=Qt.DisplayRole):
+      bdmState = TheBDM.getState()
       COL = WLTVIEWCOLS
       row,col = index.row(), index.column()
       wlt = self.main.walletMap[self.main.walletIDList[row]]
       wltID = wlt.uniqueIDB58
+
       if role==Qt.DisplayRole:
-         if col==COL.ID: 
+         if col==COL.Visible:
+            return self.main.walletVisibleList[row]
+         elif col==COL.ID: 
             return QVariant(wltID)
-         if col==COL.Name: 
+         elif col==COL.Name: 
             return QVariant(wlt.labelName.ljust(32))
-         if col==COL.Secure: 
+         elif col==COL.Secure: 
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
-         if col==COL.Bal: 
-            if not TheBDM.getBDMState()=='BlockchainReady':
+         elif col==COL.Bal:
+            if not bdmState==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
-            bal = wlt.getBalance('Total')
-            if bal==-1:
-               return QVariant('(...)') 
+            if wlt.isEnabled == True:
+               bal = wlt.getBalance('Total')
+               if bal==-1:
+                  return QVariant('(...)') 
+               else:
+                  dispStr = coin2str(bal, maxZeros=2)
+                  return QVariant(dispStr)
             else:
-               dispStr = coin2str(bal, maxZeros=2)
+               dispStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[wltID])
                return QVariant(dispStr)
+            
       elif role==Qt.TextAlignmentRole:
          if col in (COL.ID, COL.Name):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          elif col in (COL.Secure,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Bal,):
-            if not TheBDM.getBDMState()=='BlockchainReady':
+            if not bdmState==BDM_BLOCKCHAIN_READY:
                return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
             else:
                return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -95,14 +106,26 @@ class AllWalletsDispModel(QAbstractTableModel):
       return QVariant()
 
 
+
+
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['ID', 'Wallet Name', 'Security', 'Balance']
+      colLabels = ['', tr('ID'), tr('Wallet Name'), tr('Security'), tr('Balance')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-
+      
+   def flags(self, index, role=Qt.DisplayRole):
+      if role == Qt.DisplayRole:
+         wlt = self.main.walletMap[self.main.walletIDList[index.row()]]
+         
+         rowFlag = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+         
+         if wlt.isEnabled is False:      
+            return Qt.ItemFlags()      
+            
+         return rowFlag
 
 
    # This might work for checkbox-in-tableview
@@ -134,14 +157,151 @@ class AllWalletsDispModel(QAbstractTableModel):
         #painter->translate(-option.rect.topLeft());
    #}
 
+
+# This was an almost-successful attempt to use a delegate to manage visibility
+# Will kind of hack around it, using a simpler delegate and a QTableView 
+# signal to do the toggling
+'''
+class AllWalletsCheckboxDelegate(QStyledItemDelegate):
+   """
+   Taken from http://stackoverflow.com/a/3366899/1610471
+   """
+   def __init__(self, parent=None):
+      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
+
+
+   def createEditor(self, parent, option, index):
+      """ Without this, an editor is created if the user clicks in this cell."""
+      return None
+
+
+   def paint(self, painter, option, index):
+      if not index.column() == WLTVIEWCOLS.Visible:
+         QStyledItemDelegate.paint(self, painter, option, index)
+      else:
+         # Paint a checkbox without the label.
+         checked = bool(index.model().data(index, Qt.DisplayRole))
+         check_box_style_option = QStyleOptionButton()
+
+         if (index.flags() & Qt.ItemIsEditable) > 0:
+            check_box_style_option.state |= QStyle.State_Enabled
+         else:
+            check_box_style_option.state |= QStyle.State_ReadOnly
+
+         if checked:
+            check_box_style_option.state |= QStyle.State_On
+         else:
+            check_box_style_option.state |= QStyle.State_Off
+
+         check_box_style_option.rect = self.getCheckboxRect(option)
+
+         #if not index.model().hasFlag(index, Qt.ItemIsEditable):
+            #check_box_style_option.state |= QStyle.State_ReadOnly
+
+         QApplication.style().drawControl(QStyle.CE_CheckBox, 
+                                          check_box_style_option, 
+                                          painter)
+
+
+   def editorEvent(self, event, model, option, index):
+      """
+      Change the data in the model and the state of the checkbox
+      if the user presses the left mousebutton or presses
+      Key_Space or Key_Select and this cell is editable. Otherwise do nothing.
+      """
+      if index.column()==WLTVIEWCOLS.Visible:
+         #if not (index.flags() & Qt.ItemIsEditable) > 0:
+            #return False
+
+         # Do not change the checkbox-state
+         if event.type() == QEvent.MouseButtonRelease or \
+            event.type() == QEvent.MouseButtonDblClick:
+            if event.button() != Qt.LeftButton or \
+               not self.getCheckboxRect(option).contains(event.pos()):
+               return False
+            if event.type() == QEvent.MouseButtonDblClick:
+               return True
+            elif event.type() == QEvent.KeyPress:
+               if event.key() != Qt.Key_Space and \
+                  event.key() != Qt.Key_Select:
+                  return False
+            else:
+               return False
+
+         # Change the checkbox-state
+         self.setModelData(None, model, index)
+         return True
+      else:
+         return False
+      
+
+
+   def setModelData(self, editor, model, index):
+      """ The user wanted to change the old state in the opposite """
+      newValue = not bool(index.model().data(index, Qt.DisplayRole))
+      model.setData(index, newValue, Qt.EditRole)
+
+
+   def getCheckboxRect(self, option):
+      check_box_style_option = QStyleOptionButton()
+      check_box_rect = QApplication.style().subElementRect( \
+            QStyle.SE_CheckBoxIndicator, check_box_style_option, None)
+      check_box_point = QPoint( option.rect.x() +
+                                option.rect.width() / 2 -
+                                check_box_rect.width() / 2,
+                                option.rect.y() +
+                                option.rect.height() / 2 -
+                                check_box_rect.height() / 2)
+      return QRect(check_box_point, check_box_rect.size())
+
+   def sizeHint(self, option, index):
+      if index.column()==WLTVIEWCOLS.Visible:
+         return QSize(28,28)
+      return QStyledItemDelegate.sizeHint(self, option, index)
+'''
+
+################################################################################
+class AllWalletsCheckboxDelegate(QStyledItemDelegate):
+   """
+   Taken from http://stackoverflow.com/a/3366899/1610471
+   """
+   EYESIZE = 20
+
+   def __init__(self, parent=None):
+      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
+
+   #############################################################################
+   def paint(self, painter, option, index):
+      bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
+      if option.state & QStyle.State_Selected:
+         bgcolor = QApplication.palette().highlight().color()
+
+      if index.column() == WLTVIEWCOLS.Visible:
+         isVisible = index.model().data(index)
+         image=None
+         painter.fillRect(option.rect, bgcolor)
+         if isVisible:
+            image = QImage(':/visible2.png').scaled(self.EYESIZE,self.EYESIZE)
+            pixmap = QPixmap.fromImage(image)
+            painter.drawPixmap(option.rect, pixmap)
+      else:
+         QStyledItemDelegate.paint(self, painter, option, index)
+
+   #############################################################################
+   def sizeHint(self, option, index):
+      if index.column()==WLTVIEWCOLS.Visible:
+         return QSize(self.EYESIZE,self.EYESIZE)
+      return QStyledItemDelegate.sizeHint(self, option, index)
+
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx10 table of pre-formatted/processed ledger entries """
-   def __init__(self, ledgerTable, parent=None, main=None):
+   def __init__(self, ledgerTable, parent=None, main=None, isLboxModel=False):
       super(LedgerDispModelSimple, self).__init__()
       self.parent = parent
       self.main   = main
       self.ledger = ledgerTable
+      self.isLboxModel = isLboxModel
 
    def rowCount(self, index=QModelIndex()):
       return len(self.ledger)
@@ -155,10 +315,18 @@ class LedgerDispModelSimple(QAbstractTableModel):
       rowData = self.ledger[row]
       nConf = rowData[LEDGERCOLS.NumConf]
       wltID = rowData[LEDGERCOLS.WltID]
-      wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+      wlt = self.main.walletMap.get(wltID)
+      
+      if wlt:
+         wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+      else:
+         wtype = WLTTYPES.WatchOnly
 
-      #LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
-                         #'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
+      #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
+                         # 'WltName', 'Comment', 'Amount', 'isOther', 
+                         # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
+                         # 'DoubleSpend')
+
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
@@ -178,9 +346,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
          else:
             return QVariant( Colors.TblWltMine )
       elif role==Qt.ForegroundRole:
-         #if self.index(index.row(),COL.DoubleSpend).data().toBool():
-         if rowData[COL.DoubleSpend]:
-            return QVariant(Colors.TextRed)
          if nConf < 2:
             return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
@@ -256,7 +421,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          if orientation==Qt.Horizontal:
             if section==COL.NumConf: return QVariant()
             if section==COL.DateStr: return QVariant('Date')
-            if section==COL.WltName: return QVariant('Wallet')
+            if section==COL.WltName: return QVariant('Lockbox') if self.isLboxModel else QVariant('Wallet')
             if section==COL.Comment: return QVariant('Comments')
             if section==COL.TxDir:   return QVariant()
             if section==COL.Amount:  return QVariant('Amount')
@@ -408,7 +573,7 @@ class WalletAddrDispModel(QAbstractTableModel):
    def filterAddrList(self):
       addrList = self.wlt.getLinearAddrList()
 
-      if self.notEmpty and TheBDM.getBDMState()=='BlockchainReady':
+      if self.notEmpty and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          hasBalance = lambda a: (self.wlt.getAddrBalance(a.getAddr160(), 'Full')>0)
          addrList = filter(hasBalance, addrList)
 
@@ -416,8 +581,8 @@ class WalletAddrDispModel(QAbstractTableModel):
          notChange = lambda a: (self.wlt.getCommentForAddress(a.getAddr160()) != CHANGE_ADDR_DESCR_STRING)
          addrList = filter(notChange, addrList)
 
-      if self.usedOnly and TheBDM.getBDMState()=='BlockchainReady':
-         isUsed = lambda a: (len(self.wlt.getAddrTxLedger(a.getAddr160(), 'Full')) > 0)
+      if self.usedOnly and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(Hash160ToScrAddr(a.getAddr160())))
          addrList = filter(isUsed, addrList)
          
       self.addr160List = [a.getAddr160() for a in addrList]
@@ -454,16 +619,17 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant('')
          if col==COL.NumTx: 
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+               return QVariant('n/a')
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            return QVariant( len(cppAddr.getTxLedger()) + \
-                             len(cppAddr.getZeroConfLedger()))
+            return QVariant( cppAddr.getTxioCountFromSSH())
          if col==COL.ChainIdx:
             if self.wlt.addrMap[addr160].chainIndex==-2:
                return QVariant('Imported')
             else:
                return QVariant(chainIdx)
          if col==COL.Balance: 
-            if not TheBDM.getBDMState()=='BlockchainReady':
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
@@ -473,20 +639,20 @@ class WalletAddrDispModel(QAbstractTableModel):
          elif col in (COL.NumTx,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Balance,):
-            if not TheBDM.getBDMState()=='BlockchainReady':
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
             else:
                return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
-            if not TheBDM.getBDMState()=='BlockchainReady':
+            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(Colors.Foreground)
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = len(self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedger())>0
+         hasTx = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedgerSize()>0
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 
@@ -515,7 +681,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                             'receive change-back-to-self from an oversized '
                             'transaction.')
       elif role==Qt.BackgroundColorRole:
-         if not TheBDM.getBDMState()=='BlockchainReady':
+         if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
 
          cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
@@ -577,17 +743,17 @@ class TxInDispModel(QAbstractTableModel):
    def __init__(self,  pytx, txinListFromBDM=None, main=None):
       super(TxInDispModel, self).__init__()
       self.main = main
-      self.txInList = []
+      self.txInList = txinListFromBDM[:]
       self.dispTable = []
 
-      # If this is actually a TxDP in here, then let's use that
-      # We do this to make sure we have somewhere to put txdp-specific
+      # If this is actually a USTX in here, then let's use that
+      # We do this to make sure we have somewhere to put USTX-specific
       # code, but we don't really need it yet, except to identify
       # signed/unsigned in the table
-      pytxdp = None
-      if isinstance(pytx, PyTxDistProposal):
-         pytxdp = pytx
-         pytx = pytxdp.pytxObj.copy()
+      ustx = None
+      if isinstance(pytx, UnsignedTransaction):
+         ustx = pytx
+         pytx = ustx.getPyTxSignedIfPossible()
       self.tx = pytx.copy()
       
       for i,txin in enumerate(self.tx.inputs):
@@ -596,10 +762,15 @@ class TxInDispModel(QAbstractTableModel):
          scrType = getTxInScriptType(txin)
          if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
-            scrAddr,val,blk,hsh,idx = txinListFromBDM[i]
-            addrStr = scrAddr_to_addrStr(scrAddr)
-            if main:
-               wltID = self.main.getWalletForAddr160(scrAddr[1:])
+            scrAddr,val,blk,hsh,idx,script = txinListFromBDM[i]
+            dispInfo = self.main.getDisplayStringForScript(script, 60)
+            addrStr = dispInfo['String']
+            wltID   = dispInfo['WltID']
+            if not wltID:
+               wltID  = dispInfo['LboxID']
+            if not wltID:
+               wltID = ''
+
             dispcoin  = '' if not val else coin2str(val,maxZeros=1)
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(addrStr)
@@ -607,12 +778,11 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
-            if pytxdp==None:
+            if ustx is None:
                self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
-               # TODO:  Assume NO multi-sig... will be updated in future to use 
-               #        PyTxDP::isSigValidForInput which will handle all cases
-               self.dispTable[-1].append('Signed' if pytxdp.signatures[i][0] else 'Unsigned')
+               isSigned = ustx.ustxInputs[i].evaluateSigningStatus().allSigned
+               self.dispTable[-1].append('Signed' if isSigned else 'Unsigned')
                
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(binary_to_hex(txin.binScript))
@@ -642,7 +812,7 @@ class TxInDispModel(QAbstractTableModel):
       return len(self.dispTable)
 
    def columnCount(self, index=QModelIndex()):
-      return 9
+      return 10
 
    #TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', 'ScrType', 'Sequence', 'Script')
    def data(self, index, role=Qt.DisplayRole):
@@ -660,7 +830,7 @@ class TxInDispModel(QAbstractTableModel):
          elif col in (COLS.Btc,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         if self.dispTable[row][COLS.WltID]:
+         if self.dispTable[row][COLS.WltID] and wltID in self.main.walletMap:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
                return QVariant( Colors.TblWltOther )
@@ -711,42 +881,40 @@ class TxOutDispModel(QAbstractTableModel):
       self.wltIDList = []
       self.idxGray = idxGray[:]
       for i,txout in enumerate(self.tx.outputs):
-         recip160 = script_to_scrAddr(txout.binScript)[1:]
          self.txOutList.append(txout)
-         if main:
-            self.wltIDList.append(main.getWalletForAddr160(recip160))
-         else:
-            self.wltIDList.append('')
 
    def rowCount(self, index=QModelIndex()):
       return len(self.txOutList)
 
    def columnCount(self, index=QModelIndex()):
-      return 5
+      return 6
 
    #TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType')
    def data(self, index, role=Qt.DisplayRole):
       COLS = TXOUTCOLS
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
+      dispInfo = self.main.getDisplayStringForScript(txout.binScript, 60)
+      wltID = ''
+      if dispInfo['WltID']:
+         wltID = dispInfo['WltID']
+      elif dispInfo['LboxID']:
+         wltID = dispInfo['LboxID']
+      
+
       stype = BtcUtils().getTxOutScriptTypeInt(txout.binScript)
       stypeStr = CPP_TXOUT_SCRIPT_NAMES[stype]
-      wltID = self.wltIDList[row]
       if stype==CPP_TXOUT_MULTISIG:
          M,N = getMultisigScriptInfo(txout.binScript)[:2]
-         stypeStr = 'MultiSig(%d-of-%d)' % (M,N)
+         stypeStr = 'MultiSig[%d-of-%d]' % (M,N)
+
       if role==Qt.DisplayRole:
          if col==COLS.WltID:   return QVariant(wltID)
          if col==COLS.ScrType: return QVariant(stypeStr)
          if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
          if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if col==COLS.Recip:   
-            if stype in CPP_TXOUT_HAS_ADDRSTR:
-               return QVariant(script_to_addrStr(txout.binScript))
-            elif stype==CPP_TXOUT_MULTISIG:
-               return QVariant('[[Multiple]]')
-            elif stype==CPP_TXOUT_NONSTANDARD:
-               return QVariant('[[Non-Standard]]')
+         if col==COLS.Recip:   return QVariant(dispInfo['String'])
+         if col==COLS.AddrStr: return QVariant(dispInfo['AddrStr'])
       elif role==Qt.TextAlignmentRole:
          if col==COLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          if col==COLS.Btc:     return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
@@ -755,7 +923,7 @@ class TxOutDispModel(QAbstractTableModel):
          if row in self.idxGray:
             return QVariant(Colors.Mid)
       elif role==Qt.BackgroundColorRole:
-         if wltID:
+         if wltID and wltID in self.main.walletMap:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
                return QVariant( Colors.TblWltOther )
@@ -804,23 +972,25 @@ class SentToAddrBookModel(QAbstractTableModel):
       # http://sourceforge.net/tracker/?func=detail&atid=101645&aid=3403085&group_id=1645
       # Must use awkwardness to get around iterating a vector<RegisteredTx> in
       # the python code... :(
-      for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
+      addressBook = self.wlt.cppWallet.createAddressBook();
+      for abe in addressBook:     
 
          scrAddr = abe.getScrAddr()
          try:
             addr160 = addrStr_to_hash160(scrAddr_to_addrStr(scrAddr))[1]
+            
+            # Only grab addresses that are not in any of your Armory wallets
+            if not self.main.getWalletForAddr160(addr160):
+               abeList = abe.getTxList()
+               ntx = len(abeList)
+               txhashlist = []
+               for i in range(ntx):
+                  txhashlist.append( abeList[i].getTxHash() )
+               self.addrBook.append( [scrAddr, txhashlist] )
          except Exception as e:
-            LOGERROR(str(e))
-            addr160 = ''
+            # This is not necessarily an error. It could be a lock box LOGERROR(str(e))
+            pass
 
-         # Only grab addresses that are not in any of your Armory wallets
-         if not self.main.getWalletForAddr160(addr160):
-            abeList = abe.getTxList()
-            ntx = len(abeList)
-            txhashlist = []
-            for i in range(ntx):
-               txhashlist.append( abeList[i].getTxHash() )
-            self.addrBook.append( [scrAddr, txhashlist] )
 
 
    def rowCount(self, index=QModelIndex()):
@@ -899,365 +1069,66 @@ class SentAddrSortProxy(QSortFilterProxyModel):
          return super(SentAddrSortProxy, self).lessThan(idxLeft, idxRight)
 
 
-"""
-
-class HeaderDataModel(QAbstractTableModel):
-   def __init__(self):
-      super(HeaderDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-
-   def rowCount(self, index=QModelIndex()):
-
-   def columnCount(self, index=QModelIndex()):
-
-   def data(self, index, role=Qt.DisplayRole):
-      nHead = self.rowCount()
-      row,col = index.row(), index.column()
-      if role==Qt.DisplayRole:
-         if col== HEAD_DATE: return QVariant(someStr)
-      elif role==Qt.TextAlignmentRole:
-         if col in (HEAD_BLKNUM, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,235,255) )
-      return QVariant()
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.DisplayRole:
-         if orientation==Qt.Horizontal:
-            return QVariant( headColLabels[section] )
-      elif role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-
-
-
 ################################################################################
-# Below is PyBtcEngine testing code -- A blockchain explorer may be a nice 
-# feature in the future, but not right now -- IGNORE THIS SECTION
-################################################################################
+class PromissoryCollectModel(QAbstractTableModel):
+   
+   # The columns enumeration
 
-HEAD_BLKNUM, HEAD_HASH, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC, HEAD_DATE = range(6)
-TX_INDEX, TX_HASH, TX_BTC, TX_SRC, TX_RECIP, TX_SIZE = range(6)
-TXIN_SRC, TXIN_BTC, TXIN_SBLK, TXIN_STYPE, TXIN_SEQ, = range(5)
-TXOUT_RECIP, TXOUT_BTC, TXOUT_STYPE, = range(3)
+   def __init__(self, main, promNoteList):
+      super(PromissoryCollectModel, self).__init__()
+      self.main = main
+      self.promNoteList = promNoteList
 
-headColLabels = {HEAD_BLKNUM: 'Block#', \
-                 HEAD_HASH:   'Hash', \
-                 HEAD_DIFF:   'Difficulty', \
-                 HEAD_NUMTX:  '#Tx', \
-                 HEAD_BTC:    'Total BTC', \
-                 HEAD_DATE:   'Date & Time'}
-txColLabels   = {TX_INDEX:    'Index', \
-                 TX_HASH:     'Hash', \
-                 TX_BTC:      'BTC', \
-                 TX_SRC:      'Source', \
-                 TX_RECIP:    'Recipient', \
-                 TX_SIZE:     'Size' }
-txinColLabels = {TXIN_SRC:    'Sender', \
-                 TXIN_BTC:    'BTC', \
-                 TXIN_SBLK:   'From#', \
-                 TXIN_STYPE:  'Script Type'}
-                 #TXIN_SEQ:    'Sequence'}
-txoutColLabels ={TXOUT_RECIP: 'Recipient',\
-                 TXOUT_BTC:   'BTC', \
-                 TXOUT_STYPE: 'Script Type'}
-
-
-b2h = lambda x: binary_to_hex(x)
-h2b = lambda x: hex_to_binary(x)
-
-
-class HeaderDataModel(QAbstractTableModel):
-
-   def __init__(self):
-      super(HeaderDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.headerData = []
-      self.endianSelect = BIGENDIAN
 
    def rowCount(self, index=QModelIndex()):
-      return self.bdm.getTopBlockHeader().getBlockHeight()+1
+      return len(self.promNoteList)
 
    def columnCount(self, index=QModelIndex()):
-      return len(headColLabels)
+      return 4
 
-   def sumBtcInHeader(self, header):
-      txlist = header.getTxRefPtrList()
-      total = 0
-      for tx in txlist:
-         txcopy = tx.getTxCopy()
-         total += txcopy.getSumOfOutputs()
-      return total
 
    def data(self, index, role=Qt.DisplayRole):
-      nHead = self.rowCount()
+      COL = PROMCOLS
       row,col = index.row(), index.column()
-      if not index.isValid() or not (0 <= row < nHead):
-         return QVariant()
+      prom = self.promNoteList[row]
+
+      #PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
       if role==Qt.DisplayRole:
-         h = nHead-row-1
-         cppHeader = self.bdm.getHeaderByHeight(h)
-         if cppHeader == None or not h>0:
-            return QVariant()
-         if col == HEAD_BLKNUM:
-            return QVariant(cppHeader.getBlockHeight())
-         elif col== HEAD_HASH:
-            return QVariant(binary_to_hex(cppHeader.getThisHash(), self.endianSelect))
-         elif col== HEAD_DIFF:
-            return QVariant("%0.2f" % cppHeader.getDifficulty())
-         elif col== HEAD_NUMTX:
-            return QVariant("%d  " % cppHeader.getNumTx())
-         elif col== HEAD_BTC:
-            return QVariant("%0.4f" % float(self.sumBtcInHeader(cppHeader)/1e8))
-         elif col== HEAD_DATE:
-            return QVariant(unixTimeToFormatStr(cppHeader.getTimestamp()))
+         if col==COL.PromID:
+            return QVariant(prom.promID)
+         elif col==COL.Label: 
+            return QVariant(prom.promLabel)
+         elif col==COL.PayAmt: 
+            return QVariant(coin2str(prom.dtxoTarget.value, maxZeros=2))
+         elif col==COL.FeeAmt: 
+            return QVariant(coin2str(prom.feeAmt, maxZeros=2))
       elif role==Qt.TextAlignmentRole:
-         if col in (HEAD_BLKNUM, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,235,255) )
-      return QVariant()
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-      
-      if role==Qt.DisplayRole:
-         if self.endianSelect==BIGENDIAN:
-            headColLabels[HEAD_HASH] = 'Hash (BE)'
-         else:
-            headColLabels[HEAD_HASH] = 'Hash (LE)'
-
-         if orientation==Qt.Horizontal:
-            return QVariant( headColLabels[section] )
-
-
-   #def getInfoDict(self, header):
-      
-      
-
-
-class TxDataModel(QAbstractTableModel):
-
-   def __init__(self):
-      super(TxDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.endianSelect = BIGENDIAN
-      self.txHashList = None 
-
-   def rowCount(self, index=QModelIndex()):
-      if self.txHashList:
-         return len(self.txHashList)
-      return 0
-
-   def columnCount(self, index=QModelIndex()):
-      return len(txColLabels)
-
-   def getTxSrcStr(self, tx):
-      if tx.getNumTxIn() > 1:
-         return '<%d sources>' % tx.getNumTxIn()
-      else:
-         txin = tx.getTxIn(0)
-         if txin.isCoinbase():
-            return '<COINBASE>'
-         else:
-            return hash160_to_addrStr(self.bdm.getSenderAddr20(txin))
-
-   def getTxDstStr(self, tx):
-      if tx.getNumTxOut() > 1:
-         return '<%d recipients>' % tx.getNumTxOut()
-      else:
-         return hash160_to_addrStr(tx.getTxOut(0).getRecipientAddr())
-
-   def data(self, index, role=Qt.DisplayRole):
-      nTx = self.rowCount()
-      row,col = index.row(), index.column()
-      if not index.isValid() or not (0 <= row < nTx):
-         return QVariant()
-
-      if role==Qt.DisplayRole:
-         cppTx = self.bdm.getTxByHash(self.txHashList[row])
-         if cppTx == None:
-            return QVariant()
-         if col == TX_INDEX:
-            return QVariant('%d  ' % int(row+1))
-         elif col== TX_HASH:
-            return QVariant(binary_to_hex(cppTx.getThisHash(), self.endianSelect))
-         elif col== TX_BTC:
-            return QVariant("%0.4f" % float(cppTx.getSumOfOutputs()/1e8))
-         elif col== TX_SRC:
-            return QVariant(self.getTxSrcStr(cppTx))
-         elif col== TX_RECIP:
-            return QVariant(self.getTxDstStr(cppTx))
-         elif col== TX_SIZE:
-            return QVariant("%0.2f kB" % float(cppTx.getSize()/1024.))
-      elif role==Qt.TextAlignmentRole:
-         if col in (TX_INDEX, TX_BTC, TX_SIZE):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,250,235) )
-      return QVariant()
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-      
-      if role==Qt.DisplayRole:
-         if self.endianSelect==BIGENDIAN:
-            txColLabels[TX_HASH] = 'Hash (BE)'
-         else:
-            txColLabels[TX_HASH] = 'Hash (LE)'
-         if orientation==Qt.Horizontal:
-            return QVariant( txColLabels[section] )
-
-
-class TxInDataModel(QAbstractTableModel):
-
-   def __init__(self,tx):
-      super(TxInDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.endianSelect = BIGENDIAN
-      self.tx = tx.copy()
-
-   def rowCount(self, index=QModelIndex()):
-      return self.tx.getNumTxIn()
-
-
-   def columnCount(self, index=QModelIndex()):
-      return 5
-
-   def data(self, index, role=Qt.DisplayRole):
-      nTxIn = self.rowCount()
-      row,col = index.row(), index.column()
-
-      if role==Qt.DisplayRole:
-         cppTxIn = self.tx.getTxIn(row)
-         if cppTxIn == None:
-            return QVariant()
-         if col == TXIN_SRC:
-            if cppTxIn.isCoinbase():
-               return QVariant("COINBASE")
-            addr20 = self.bdm.getSenderAddr20(cppTxIn)
-            return QVariant(hash160_to_addrStr(addr20))
-         elif col== TXIN_BTC:
-            if cppTxIn.isCoinbase():
-               return QVariant("%0.4f" % float(self.tx.getSumOfOutputs()/1e8))
-            return QVariant("%0.4f" % float(self.bdm.getSentValue(cppTxIn)/1e8))
-         elif col== TXIN_STYPE:
-            if cppTxIn.isScriptUncomprKey():
-               return QVariant('REG-PUBKEY')
-            if cppTxIn.isScriptComprKey():
-               return QVariant('COMPR-PUBKEY')
-            elif cppTxIn.isScriptCoinbase():
-               return QVariant('<ARBITRARY>')
-            elif cppTxIn.isScriptSpendPubKey():
-               return QVariant('SPEND-PUBKEY')
-            elif cppTxIn.isScriptSpendP2SH():
-               return QVariant('SPEND-P2SH')
-            elif cppTxIn.isScriptNonStd():
-               return QVariant('UNKNOWN')
-         elif col== TXIN_SBLK:
-            if cppTxIn.isCoinbase():
-               return QVariant('GENERATION')
-            tx = self.bdm.getPrevTxOut(cppTxIn).getParentTxPtr()
-            return QVariant("%d" % tx.getBlockHeight())
-         #elif col== TXIN_SEQ:
-            #return QVariant(int_to_hex(cppTxIn.getSequence(), 4, BIGENDIAN))
-      elif role==Qt.TextAlignmentRole:
-         if col in (TXIN_STYPE, TXIN_SBLK):
+         if col in [COL.PromID, COL.Label]:
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (TXIN_BTC,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
+         else:
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,250,235) )
+      elif role==Qt.ForegroundRole:
+         if col == COL.PayAmt:
+            if prom.dtxoTarget.value>0:  
+               return QVariant(Colors.TextGreen)
+         elif col == COL.FeeAmt:
+            if prom.feeAmt>0:
+               return QVariant(Colors.TextGreen)
+      elif role==Qt.FontRole:
+         if col in [COL.PayAmt, COL.FeeAmt]:
+            return GETFONT('Fixed')
+
       return QVariant()
 
+
+
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
+      colLabels = ['Note ID', 'Label', 'Funding', 'Fee']
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            return QVariant( txinColLabels[section] )
-
-
-class TxOutDataModel(QAbstractTableModel):
-
-   def __init__(self):
-      super(TxOutDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.endianSelect = BIGENDIAN
-      self.txSelect = None 
-
-   def rowCount(self, index=QModelIndex()):
-      if self.txSelect:
-         return self.txSelect.getNumTxOut()
-      return 0
-
-   def columnCount(self, index=QModelIndex()):
-      return len(txoutColLabels)
-
-   def data(self, index, role=Qt.DisplayRole):
-      nTxOut = self.rowCount()
-      row,col = index.row(), index.column()
-      if not index.isValid() or not (0 <= row < nTxOut):
-         return QVariant()
-
-      if role==Qt.DisplayRole:
-         cppTxOut = self.txSelect.getTxOut(row)
-         if cppTxOut == None:
-            return QVariant()
-         if col == TXOUT_RECIP:
-            return QVariant(hash160_to_addrStr(cppTxOut.getRecipientAddr()))
-         elif col== TXOUT_BTC:
-            return QVariant("%0.4f" % float(cppTxOut.getValue()/1e8))
-         elif col== TXOUT_STYPE:
-            if cppTxOut.isScriptStdHash160():
-               return QVariant('P2HASH160)')
-            elif cppTxOut.isScriptStdPubKey65():
-               return QVariant('P2PUBKEY65')
-            elif cppTxOut.isScriptStdPubKey33():
-               return QVariant('P2PUBKEY33')
-            elif cppTxOut.isScriptP2SH():
-               return QVariant('P2SH')
-            elif cppTxOut.isScriptNonStd():
-               return QVariant('UNKNOWN')
+            return QVariant(colLabels[section])
       elif role==Qt.TextAlignmentRole:
-         if col in (TXOUT_STYPE,):
-            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (TXOUT_BTC,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,250,235) )
-      return QVariant()
-      
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-      if role==Qt.DisplayRole:
-         if orientation==Qt.Horizontal:
-            return QVariant( txoutColLabels[section] )
-
-
-"""
-
-
-
-
-
-
-
-
 
 

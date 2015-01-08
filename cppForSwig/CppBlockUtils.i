@@ -9,20 +9,32 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 */
-
-%module CppBlockUtils
+%module(directors="1") CppBlockUtils
+%feature("director") BDM_CallBack;
+%feature("director") BDM_Inject;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BlockObj.h"
-#include "StoredBlockObj.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
+#include "BtcWallet.h"
+#include "LedgerEntry.h"
+#include "ScrAddrObj.h"
+#include "Blockchain.h"
+#include "BDM_mainthread.h"
+#include "BlockDataManagerConfig.h"
+#include "BlockDataViewer.h"
 %}
+
 
 %include "std_string.i"
 %include "std_vector.i"
+%include "std_set.i"
+%include "std_map.i"
+%include "std_shared_ptr.i"
+%include "exception.i"
 
 %typedef std::string string;
 %typedef unsigned char      uint8_t;
@@ -37,12 +49,23 @@
 %typedef unsigned int       TXIN_SCRIPT_TYPE;
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
 
+%ignore readVarInt(BinaryRefReader & brr);
+%ignore BlockDataViewer::blockchain() const;
+%ignore BlockDataManager_LevelDB::readBlockUpdate(const pair<size_t, uint64_t>& headerOffset);
+%ignore BlockDataManager_LevelDB::loadDiskState(const function<void(unsigned, double,unsigned)> &progress);
+%ignore BlockDataViewer::refreshLock_;
+
+
+%allowexception;
+
 namespace std
 {
    %template(vector_int) std::vector<int>;
    %template(vector_float) std::vector<float>;
-   %template(vector_BinaryData) std::vector<BinaryData>;
+   %template(vector_string) std::vector<string>;
+   //%template(vector_BinaryData) std::vector<BinaryData>;
    %template(vector_LedgerEntry) std::vector<LedgerEntry>;
+   %template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
    %template(vector_TxRefPtr) std::vector<TxRef*>;
    %template(vector_Tx) std::vector<Tx>;
    %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
@@ -50,7 +73,23 @@ namespace std
    %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
+   %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
+   %template(set_BinaryData) std::set<BinaryData>;
 }
+
+%exception
+{
+	try
+	{
+		$function
+	}
+	catch (std::exception& e)
+	{
+		SWIG_exception(SWIG_RuntimeError, e.what());
+	}
+}
+
+
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */
 %typemap(in) BinaryData
@@ -96,13 +135,80 @@ namespace std
    $result = PyString_FromStringAndSize((char*)($1->getPtr()), $1->getSize());
 }
 
+/******************************************************************************/
+// Convert Python(list[string]) to C++(vector<BinaryData>) 
+%typemap(in) const std::vector<BinaryData> & (std::vector<BinaryData> bdObjVec)
+{
+	for(int i=0; i<PyList_Size($input); i++)
+	{
+		PyObject* strobj = PyList_GetItem($input, i);
+		
+		BinaryData bdStr((uint8_t*)PyString_AsString(strobj), PyString_Size(strobj));
 
+		bdObjVec.push_back(bdStr);
+	}
+
+	$1 = &bdObjVec;
+}
+
+/******************************************************************************/
+// Convert C++(vector<BinaryData>) to Python(list[string])
+%typemap(out) vector<BinaryData>
+{
+	vector<BinaryData>::iterator bdIter = $1.begin();
+	PyObject* thisList = PyList_New($1.size());
+	int i=0;
+
+	while(bdIter != $1.end())
+	{
+		BinaryData & bdobj = (*bdIter);
+		
+		PyObject* thisPyObj = PyString_FromStringAndSize((char*)(bdobj.getPtr()), bdobj.getSize());
+
+		PyList_SET_ITEM(thisList, i, thisPyObj);
+
+		++i;
+		++bdIter;
+	}
+
+	$result = thisList;
+}
+
+/******************************************************************************/
+// Convert C++(set<BinaryData>) to Python(list[string])
+%typemap(out) set<BinaryData>
+{
+	set<BinaryData>::iterator bdIter = $1.begin();
+	PyObject* thisList = PyList_New($1.size());
+	int i=0;
+
+	while(bdIter != $1.end())
+	{
+		auto& bdobj = (*bdIter);
+		
+		PyObject* thisPyObj = PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+
+		PyList_SET_ITEM(thisList, i, thisPyObj);
+
+		++i;
+		++bdIter;
+	}
+
+	$result = thisList;
+}
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
-%include "StoredBlockObj.h"
 %include "BlockUtils.h"
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
+%include "BtcWallet.h"
+%include "LedgerEntry.h"
+%include "ScrAddrObj.h"
+%include "Blockchain.h"
+%include "BlockDataViewer.h"
+%include "BlockDataManagerConfig.h"
+%include "BDM_mainthread.h"
+%include "bdmenums.h"
 
 

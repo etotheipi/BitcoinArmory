@@ -1,3 +1,6 @@
+#ifndef WIN32_POSIX_H
+#define WIN32_POSIX_H
+
 #include <fstream>
 #include <io.h>
 #include <mman.h>
@@ -22,8 +25,8 @@
 #endif
 
 #define F_OK 0
-typedef int __ssize_t;
-typedef __ssize_t ssize_t;
+//typedef int __ssize_t;
+//typedef __ssize_t ssize_t;
 
 #ifdef small
 	#undef small
@@ -43,8 +46,6 @@ typedef __ssize_t ssize_t;
 #define fflush_unlocked _fflush_nolock
 #define fsync fsync_win32
 #define fdatasync fsync_win32
-#define close _close
-#define open open_win32
 #define access access_win32
 #define unlink unlink_win32
 #define rmdir rmdir_win32
@@ -95,7 +96,7 @@ int fread_unlockd(void *_DstBuf, size_t _EleSize, size_t _Count, FILE *_file);
 wchar_t *posix_path_to_win32(const char *posix_path);
 wchar_t *posix_path_to_win32_full(const char *posix_path);
 
-#define va_copy(d,s) ((d) = (s))
+//#define va_copy(d,s) ((d) = (s))
 
 #define pread pread_win32
 int pread_win32(int fd, void *buff, unsigned int size, off_t offset);
@@ -130,10 +131,12 @@ struct flock
 #define fcntl fcntl_win32
 int fcntl_win32(int fd, unsigned _int32 command, flock *f);
 
-#define strdup _strdup
+//#define strdup _strdup
 /***
 consider redoing snprintf
 ***/
-#define snprintf c99_snprintf //stick to this for now unless it fucks up horribly
+//#define snprintf c99_snprintf //stick to this for now unless it fucks up horribly
 int c99_vsnprintf(char* str, size_t size, const char* format, va_list ap);
 int c99_snprintf(char* str, size_t size, const char* format, ...);
+
+#endif

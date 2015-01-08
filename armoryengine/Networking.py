@@ -29,10 +29,11 @@ from armoryengine.ArmoryUtils import LOGINFO, RightNow, getVersionString, \
    BTCARMORY_VERSION, NetworkIDError, LOGERROR, BLOCKCHAINS, CLI_OPTIONS, LOGDEBUG, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
    MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
-   bitset_to_int, unixTimeToFormatStr
-from armoryengine.BDM import TheBDM
+   bitset_to_int, unixTimeToFormatStr, UnknownNetworkPayload
+from armoryengine.BDM import  BDM_OFFLINE, BDM_SCANNING,\
+   BDM_BLOCKCHAIN_READY
 from armoryengine.BinaryPacker import BinaryPacker, BINARY_CHUNK, UINT32, UINT64, \
-   UINT16, VAR_INT, INT32, INT64, VAR_STR
+   UINT16, VAR_INT, INT32, INT64, VAR_STR, INT8
 from armoryengine.BinaryUnpacker import BinaryUnpacker, UnpackerError
 from armoryengine.Block import PyBlockHeader
 from armoryengine.Transaction import PyTx, indent
@@ -115,6 +116,8 @@ class ArmoryClient(Protocol):
             # So pop it off the front of the buffer
             self.recvData = buf.getRemainingString()
             return
+         except UnknownNetworkPayload:
+            return
          except UnpackerError:
             # Expect this error when buffer isn't full enough for a whole msg
             break
@@ -186,18 +189,17 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
-               if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
-                  self.factory.bdm.hasHeaderWithHash(inv[1])):
+               if self.factory.bdm and (self.factory.bdm.getState()==BDM_SCANNING or \
+                     self.factory.bdm.bdv().blockchain().hasHeaderWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:
-               if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
-                  self.factory.bdm.hasTxWithHash(inv[1])):
+               if not self.factory.bdm or self.factory.bdm.getState()!=BDM_BLOCKCHAIN_READY:
                   continue
                getdataMsg.payload.invList.append(inv)
 
          # Now send the full request
-         if self.factory.bdm and not self.factory.bdm.getBDMState()=='Scanning':
+         if self.factory.bdm and not self.factory.bdm.getState()==BDM_SCANNING:
             self.sendMessage(getdataMsg)
 
       if msg.cmd=='tx':
@@ -220,7 +222,7 @@ class ArmoryClient(Protocol):
       msg = PyMessage('getheaders')
       msg.payload.version  = 1
       if self.factory.bdm:
-         msg.payload.hashList = [self.factory.bdm.getHeaderByHeight(i).getHash() for i in numList]
+         msg.payload.hashList = [self.factory.bdm.bdm.getHeaderByHeight(i).getHash() for i in numList]
       else:
          msg.payload.hashList = []
       msg.payload.hashStop = '\x00'*32
@@ -235,7 +237,7 @@ class ArmoryClient(Protocol):
       msg = PyMessage('getblocks')
       msg.payload.version  = 1
       if self.factory.bdm:
-         msg.payload.hashList = [self.factory.bdm.getHeaderByHeight(i).getHash() for i in numList]
+         msg.payload.hashList = [self.factory.bdm.bdm.getHeaderByHeight(i).getHash() for i in numList]
       else:
          msg.payload.hashList = []
       msg.payload.hashStop = '\x00'*32
@@ -338,7 +340,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      if self.bdm and not self.bdm.getBDMState()=='Offline':
+      if self.bdm and not self.bdm.getState()==BDM_OFFLINE:
          self.bdm.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
       
 
@@ -467,7 +469,10 @@ class PyMessage(object):
       payload    = msgData.get(BINARY_CHUNK, length)
       payload    = verifyChecksum(payload, chksum)
 
-      self.payload = PayloadMap[self.cmd]().unserialize(payload)
+      try:
+         self.payload = PayloadMap[self.cmd]().unserialize(payload)
+      except KeyError:
+         raise UnknownNetworkPayload
 
       if self.magic != MAGIC_BYTES:
          raise NetworkIDError, 'Message has wrong network bytes!'
@@ -1009,6 +1014,41 @@ class PayloadAlert(object):
    def pprint(self, nIndent=0):
       print nIndent*'\t' + 'ALERT(...)'
 
+REJECT_MALFORMED_CODE = 0x01
+REJECT_INVALID_CODE = 0x10
+REJECT_OBSOLETE_CODE = 0x11
+REJECT_DUPLICATE_CODE = 0x12
+REJECT_NONSTANDARD_CODE = 0x40
+REJECT_DUST_CODE = 0x41
+REJECT_INSUFFICIENTFEE_CODE = 0x42
+REJECT_CHECKPOINT_CODE = 0x43
+
+################################################################################
+class PayloadReject(object):
+   command = 'reject'
+
+   def __init__(self):
+      self.messageType = ''
+      self.message = ''
+      self.data = ''
+      self.serializedData = None
+      self.rejectCode = None
+      
+   def unserialize(self, toUnpack):
+      bu = BinaryUnpacker(toUnpack)
+      self.messageType = bu.get(VAR_STR)
+      self.rejectCode = bu.get(INT8)
+      self.message = bu.get(VAR_STR)
+      self.data = bu.get(BINARY_CHUNK, bu.getRemainingSize())
+      self.serializedData = toUnpack
+      return self
+
+   def serialize(self):
+      return self.serializedData
+
+   def pprint(self, nIndent=0):
+      print nIndent*'\t' + 'REJECT - Tx: ' + self.message
+      
 ################################################################################
 # Use this map to figure out which object to serialize/unserialize from a cmd
 PayloadMap = {
@@ -1023,7 +1063,8 @@ PayloadMap = {
    'getblocks':   PayloadGetBlocks,
    'block':       PayloadBlock,
    'headers':     PayloadHeaders,
-   'alert':       PayloadAlert }
+   'alert':       PayloadAlert,
+   'reject':      PayloadReject }
 
 
 class FakeClientFactory(ReconnectingClientFactory):

@@ -21,15 +21,13 @@ from pywin.scintilla import view
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError, \
-   WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO, hash160_to_p2pkhash_script
+   WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO, hash160_to_p2pkhash_script,\
+   CPP_TXOUT_STDSINGLESIG, scrAddr_to_hash160
 from armoryengine.BDM import TheBDM
 from armoryengine.CoinSelection import calcMinSuggestedFees, PySelectCoins
-from armoryengine.Transaction import PyTxDistProposal
+from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from qtdefines import GETFONT, tr
 from qtdialogs import SimplePrintableGraphicsScene
-
-
-
    
 sys.path.append('..')
 sys.path.append('.')
@@ -147,11 +145,12 @@ def createPrintScene(wallet, amountString, expiresString):
    scene.drawHLine(7*INCH, 5)
    scene.newLine(extra_dy=25)
    scene.drawText(tr(""" 
-         <font color="#aa0000"><b>CONGRATULATIONS:</b></font> You have received a Bitcoin Armory
-         promotional wallet containing %s You may collect this money by installing Bitcoin Armory
+         <font color="#aa0000"><b>CONGRATULATIONS:</b></font> Thank you for participating
+         in the MIT BitComp. You have received a Bitcoin Armory
+         wallet containing %s You may collect this money by installing Bitcoin Armory
          from the website shown above. After you install the software move the funds to a new
          wallet or any address that you own. Do not deposit any bitcoins to this wallet. You
-         don't know where this paper has been! You have until %s to claim your bitcoins. After
+         don't know who else has access to this wallet! You have until %s to claim your bitcoins. After
          this date we will remove all remaining bitcoins from this wallet.""" %
          (amountString, expiresString)), GETFONT('Var', 11), wrapWidth=wrap)
       
@@ -221,28 +220,39 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       #       to take full scripts, not just hash160 values.  Convert the list
       #       before passing it in
       scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
-      txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, scrPairs)
+            # we're providing a key map for the inputs.
+      pubKeyMap = {}
+      for utxo in selectedUtxoList:
+         scrType = getTxOutScriptType(utxo.getScript())
+         if scrType in CPP_TXOUT_STDSINGLESIG:
+            scrAddr = utxo.getRecipientScrAddr()
+            a160 = scrAddr_to_hash160(scrAddr)[1]
+            addrObj = masterWallet.getAddrByHash160(a160)
+            if addrObj:
+               pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+
+      ustx = UnsignedTransaction().createFromTxOutSelection(selectedUtxoList, scrPairs, pubKeyMap)
       
       masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
       # Sign and prepare the final transaction for broadcast
-      masterWallet.signTxDistProposal(txdp)
-      pytx = txdp.prepareFinalTx()
+      masterWallet.signUnsignedTx(ustx)
+      pytx = ustx.getPyTxSignedIfPossible()
    
       print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
-      print txdp.serializeAscii()
+      print ustx.serializeAscii()
    finally:
-      TheBDM.execCleanShutdown()
+      TheBDM.beginCleanShutdown()
    return pytx
 
 def setupTheBDM():
    TheBDM.setBlocking(True)
-   if not TheBDM.isInitialized():
-      TheBDM.registerWallet(masterWallet)
+   if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      masterWallet.registerWallet()
       TheBDM.setOnlineMode(True)
       # Only executed on the first call if blockchain not loaded yet.
       LOGINFO('Blockchain loading')
-      while not TheBDM.getBDMState()=='BlockchainReady':
-         LOGINFO('Blockchain Not Ready Yet %s' % TheBDM.getBDMState())
+      while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         LOGINFO('Blockchain Not Ready Yet %s' % TheBDM.getState())
          time.sleep(2)
 # Sweep all of the funds from the imported addrs back to a
 # new addrin the master wallet
@@ -268,15 +278,15 @@ def sweepImportedAddrs(masterWallet):
    #       to take full scripts, not just hash160 values.  Convert the list
    #       before passing it in
    scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
-   txdp = PyTxDistProposal().createFromTxOutSelection(utxoList, scrPairs)
+   ustx = UnsignedTransaction().createFromTxOutSelection(utxoList, scrPairs)
    
    masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
    # Sign and prepare the final transaction for broadcast
-   masterWallet.signTxDistProposal(txdp)
-   pytx = txdp.prepareFinalTx()
+   masterWallet.signTxDistProposal(ustx)
+   pytx = ustx.getPyTxSignedIfPossible()
 
    print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
-   print txdp.serializeAscii()
+   print ustx.serializeAscii()
    return pytx
 
 
@@ -327,7 +337,7 @@ if operation == '--create':
       masterWallet = importAddrsToMasterWallet( \
             masterWallet, walletList, addrsPerWallet, "Master Promo Wallet", )
       # Didn't want to fit these into the argument list. Need to edit based on event
-      printWalletList(walletList, "some amount of bitcoin. ", "June 1st, 2014")
+      printWalletList(walletList, "$10 in Bitcoins. ", "November 1st, 2014")
 elif operation == '--distribute':
    if len(promoKitArgList)<4:
       printHelp()

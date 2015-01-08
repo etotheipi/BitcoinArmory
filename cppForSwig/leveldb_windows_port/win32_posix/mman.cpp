@@ -56,6 +56,8 @@ static DWORD __map_mmap_prot_file(const int prot)
 
 void* mmap(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 {
+   //NEEDS UNICODE SUPPORT
+
     HANDLE fm, h;
     
     void * map = MAP_FAILED;

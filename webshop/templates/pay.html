@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Info{% endblock %}
+
+{% block header %}Payment Info{% endblock %}
+
+{% block head %}
+<script>
+$(document).ready(function(){
+    var socket = io.connect('http://' + document.domain + ':' + location.port + '/ws');
+    socket.emit('listen', {bitcoinaddress:'{{bitcoinaddress}}', amount:{{total}}});
+    socket.on('broadcast', function(msg) {
+        if (msg.data == "paid") {
+             $('.unpaid').hide();
+             $('.paid').show();
+        }
+        console.log('<p>Received: ' + msg.data + '</p>');
+        $.ajax({
+            'url'  : '/reset',
+            'type' : 'GET'
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid breadcrumbBox text-center">
+  <ol class="breadcrumb">
+    <li><a href="/cart">Review</a></li>
+    <li><a href="/ship">Order</a></li>
+    <li class="active"><a>Payment</a></li>
+  </ol>
+</div>
+<div class="container text-center">
+  <div class="col-md-12 col-sm-12">
+    <div class="unpaid">
+      <span class="shiplabel">Please send {{total}} to {{bitcoinaddress}}. This is also your order ID.</span>
+      <img src="https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=bitcoin:{{bitcoinaddress}}?amount={{total}}&label=Armory+Web+Shop+Order" class="qrcode">
+    </div>
+    <div class="paid" style="display:none">Thanks for the payment!</div>
+  </div>
+</div>
+{% endblock %}

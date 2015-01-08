@@ -651,11 +651,17 @@ def list2cmdline(seq):
 
 
 if mswindows:
+   import platform
+   if platform.machine() == 'AMD64':
+      from ctypes import c_ulonglong as handleType
+   elif platform.machine() == 'i386':   
+      from ctypes import c_uint as handleType
+      
    class STARTUP_INFO(ctypes.Structure):
       _fields_ = [
          ("cb", ctypes.c_uint),
-         ("lpReserved", ctypes.c_uint),
-         ("lpDesktop", ctypes.c_uint),
+         ("lpReserved", ctypes.c_void_p),
+         ("lpDesktop", ctypes.c_void_p),
          ("lpTitle", ctypes.c_uint),
          ("dwX", ctypes.c_uint),
          ("dwY", ctypes.c_uint),
@@ -667,18 +673,18 @@ if mswindows:
          ("dwFlags", ctypes.c_uint),
          ("wShowWindow", ctypes.c_uint16),
          ("cbReserved2", ctypes.c_uint16),
-         ("lpReserved2", ctypes.c_uint),
-         ("hStdInput", ctypes.c_uint),
-         ("hStdOutput", ctypes.c_uint),
-         ("hStdError", ctypes.c_uint)]
-
+         ("lpReserved2", ctypes.c_void_p),
+         ("hStdInput", handleType),
+         ("hStdOutput", handleType),
+         ("hStdError", ctypes.c_ulonglong)]
+   
    class PROCESS_INFORMATION(ctypes.Structure):
       _fields_ = [
-         ("hProcess", ctypes.c_uint),
-         ("hThread", ctypes.c_uint),
+         ("hProcess", ctypes.c_ulonglong),
+         ("hThread", ctypes.c_ulonglong),
          ("dwProcessId", ctypes.c_uint),
          ("dwThreadId", ctypes.c_uint)]
-
+     
 class Popen(object):
     def __init__(self, args, bufsize=0, executable=None,
                  stdin=None, stdout=None, stderr=None,
@@ -946,8 +952,7 @@ class Popen(object):
 
             # Process startup details
             startup_info = STARTUP_INFO()
-            if startupinfo is None:
-                startupinfo = STARTUPINFO()
+            
             if None not in (p2cread, c2pwrite, errwrite):
                 startup_info.dwFlags = 0x00000100
 
@@ -955,36 +960,24 @@ class Popen(object):
                 startup_info.hStdOutput = c2pwrite
                 startup_info.hStdError = errwrite
 
-            startup_info.dwFlags |= startupinfo.dwFlags
+            if startupinfo != None:
+               startup_info.dwFlags |= startupinfo.dwFlags
 
             if shell:
                 #startup_info.dwFlags |= 0x00000001
                 startup_info.wShowWindow = 0
                 comspec = os.environ.get("COMSPEC", "cmd.exe")
-                #w9args = '{} /c "{}"'.format (comspec, args)
-                if (_subprocess.GetVersion() >= 0x80000000 or
-                        os.path.basename(comspec).lower() == "command.com"):
-                    # Win9x, or using command.com on NT. We need to
-                    # use the w9xpopen intermediate program. For more
-                    # information, see KB Q150956
-                    # (http://web.archive.org/web/20011105084002/http://support.microsoft.com/support/kb/articles/Q150/9/56.asp)
-                    w9xpopen = self._find_w9xpopen()
-                    w9args = '"%s" %s' % (w9xpopen, w9args)
-                    # Not passing CREATE_NEW_CONSOLE has been known to
-                    # cause random failures on win9x.  Specifically a
-                    # dialog: "Your program accessed mem currently in
-                    # use at xxx" and a hopeful warning about the
-                    # stability of your system.  Cost is Ctrl+C wont
-                    # kill children.
-                    #creationflags |= _subprocess.CREATE_NEW_CONSOLE
-                    creationflags = 0x00040000
 
             # Start the process
 
             p_i = PROCESS_INFORMATION()
             try:
                args_u16 = unicode(args)
-               ctypes.windll.kernel32.CreateProcessW(executable, args_u16,
+               if executable == None:
+                  executable = ""
+               exec_u16 = unicode(executable)
+               
+               ctypes.windll.kernel32.CreateProcessW(None, args_u16,
                                          None, None,
                                          0,
                                          creationflags,
@@ -1012,9 +1005,12 @@ class Popen(object):
                 if errwrite is not None:
                     errwrite.Close()
 
+            le = ctypes.windll.kernel32.GetLastError()
+            
             # Retain the process handle, but close the thread handle
             self._child_created = True
             self._handle = p_i.hProcess
+              
             self.pid = p_i.dwProcessId
             ctypes.windll.kernel32.CloseHandle(p_i.hThread)
 

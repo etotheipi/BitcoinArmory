@@ -520,7 +520,6 @@ BTC_PUBKEY CryptoECDSA::ComputePublicKey(BTC_PRIVKEY const & cppPrivKey)
    // Validate the public key -- not sure why this needs a prng...
    BTC_PRNG prng;
    assert(cppPubKey.Validate(prng, 3));
-   assert(cppPubKey.Validate(prng, 3));
 
    return cppPubKey;
 }
@@ -560,17 +559,28 @@ bool CryptoECDSA::CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
    return CheckPubPrivKeyMatch(privKey, pubKey);
 }
 
-bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
+bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey)
 {
    if(CRYPTO_DEBUG)
    {
-      cout << "BinPub: " << pubKey65.toHexStr() << endl;
+      cout << "BinPub: " << pubKey.toHexStr() << endl;
+   }
+
+   SecureBinaryData keyToCheck(65);
+
+   // To support compressed keys, we'll just check to see if a key is compressed
+   // and then decompress it.
+   if(pubKey.getSize() == 33) {
+      keyToCheck = UncompressPoint(pubKey);
+   }
+   else {
+      keyToCheck = pubKey;
    }
 
    // Basically just copying the ParsePublicKey method, but without
    // the assert that would throw an error from C++
-   SecureBinaryData pubXbin(pubKey65.getSliceRef( 1,32));
-   SecureBinaryData pubYbin(pubKey65.getSliceRef(33,32));
+   SecureBinaryData pubXbin(keyToCheck.getSliceRef( 1,32));
+   SecureBinaryData pubYbin(keyToCheck.getSliceRef(33,32));
    CryptoPP::Integer pubX;
    CryptoPP::Integer pubY;
    pubX.Decode(pubXbin.getPtr(), pubXbin.getSize(), UNSIGNED);
@@ -586,9 +596,17 @@ bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
    return cppPubKey.Validate(prng, 3);
 }
 
+
 /////////////////////////////////////////////////////////////////////////////
+// Use the secp256k1 curve to sign data of an arbitrary length.
+// Input:  Data to sign  (const SecureBinaryData&)
+//         The private key used to sign the data  (const SecureBinaryData&)
+//         A flag indicating if deterministic signing is used  (const bool&)
+// Output: None
+// Return: The signature of the data  (SecureBinaryData)
 SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
-                                       SecureBinaryData const & binPrivKey)
+                                       SecureBinaryData const & binPrivKey,
+                                       const bool& detSign)
 {
    if(CRYPTO_DEBUG)
    {
@@ -597,12 +615,20 @@ SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign,
       cout << "   BinPrv: " << binPrivKey.getSize() << " " << binPrivKey.toHexStr() << endl;
    }
    BTC_PRIVKEY cppPrivKey = ParsePrivateKey(binPrivKey);
-   return SignData(binToSign, cppPrivKey);
+   return SignData(binToSign, cppPrivKey, detSign);
 }
 
+
 /////////////////////////////////////////////////////////////////////////////
+// Use the secp256k1 curve to sign data of an arbitrary length.
+// Input:  Data to sign  (const SecureBinaryData&)
+//         The private key used to sign the data  (const BTC_PRIVKEY&)
+//         A flag indicating if deterministic signing is used  (const bool&)
+// Output: None
+// Return: The signature of the data  (SecureBinaryData)
 SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
-                                       BTC_PRIVKEY const & cppPrivKey)
+                                       BTC_PRIVKEY const & cppPrivKey,
+                                       const bool& detSign)
 {
 
    // We trick the Crypto++ ECDSA module by passing it a single-hashed
@@ -617,12 +643,23 @@ SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign,
                           binToSign.getPtr(), 
                           binToSign.getSize());
 
+   // Do we want to use a PRNG or use deterministic signing (RFC 6979)?
    string signature;
-   BTC_SIGNER signer(cppPrivKey);
-   CryptoPP::StringSource(
-               hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
-               prng, signer, new CryptoPP::StringSink(signature))); 
-  
+   if(detSign)
+   {
+      BTC_DETSIGNER signer(cppPrivKey);
+      CryptoPP::StringSource(
+         hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
+         prng, signer, new CryptoPP::StringSink(signature)));
+   }
+   else
+   {
+      BTC_SIGNER signer(cppPrivKey);
+      CryptoPP::StringSource(
+         hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
+         prng, signer, new CryptoPP::StringSink(signature)));
+   }
+
    return SecureBinaryData(signature);
 }
 

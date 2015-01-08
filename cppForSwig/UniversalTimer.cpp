@@ -16,6 +16,19 @@ using namespace std;
 // START UhiversalTimer::timer methods
 ////////////////////////////////////////////////////////////////////////////////
 // START TIMER
+
+atomic<int32_t> UniversalTimer::lock_;
+
+void UniversalTimer::lock(void)
+{
+   while (lock_.fetch_or(1, memory_order_relaxed));
+}
+
+void UniversalTimer::unlock(void)
+{
+   lock_.store(0, memory_order_relaxed);
+}
+
 void UniversalTimer::timer::start(void)
 {
    if (isRunning_)
@@ -80,9 +93,20 @@ UniversalTimer* UniversalTimer::theUT_ = NULL;
 // Get THE UniversalTimer —- only one ever exists
 UniversalTimer & UniversalTimer::instance(void)
 {
-   if(theUT_ == NULL)
+   if (theUT_ == NULL)
+   {
       theUT_ = new UniversalTimer;
+      lock_.store(0);
+   }
    return *theUT_;
+}
+
+//Cleanup the singleton
+void UniversalTimer::cleanup(void)
+{
+   if (theUT_ != nullptr)
+      delete theUT_;
+   theUT_ = nullptr;
 }
 
 // Initialize a timer for the given string
@@ -100,24 +124,29 @@ void UniversalTimer::init(string key, string grpstr)
 // Start a new or existing timer —— will accumulate time
 void UniversalTimer::start(string key, string grpstr)
 {
+   lock();
    most_recent_key_ = grpstr + key;
    init(key,grpstr);
    call_timers_[most_recent_key_].start();
    call_count_[most_recent_key_]++;
+   unlock();
 }
 
 // Start a new or existing timer —— will reset accumulated time to 0
 void UniversalTimer::restart(string key, string grpstr)
 {
+   lock();
    most_recent_key_ = grpstr + key;
    init(key,grpstr);
    call_timers_[most_recent_key_].restart();
    call_count_[most_recent_key_]++;
+   unlock();
 }
 
 // Stops an existing timer, which can then be read out
 void UniversalTimer::stop(string key, string grpstr)
 {
+   lock();
    most_recent_key_ = grpstr + key;
    if( call_timers_.find(most_recent_key_) == call_timers_.end() )
    {
@@ -126,11 +155,13 @@ void UniversalTimer::stop(string key, string grpstr)
    }
    init(key,grpstr);
    call_timers_[most_recent_key_].stop();
+   unlock();
 }
 
 // Stops an existing timer, which can then be read out ~
 void UniversalTimer::reset(string key, string grpstr)
 {
+   lock();
    most_recent_key_ = grpstr + key;
    if( call_timers_.find(most_recent_key_) == call_timers_.end() )
    {
@@ -139,14 +170,18 @@ void UniversalTimer::reset(string key, string grpstr)
    }
    init(key,grpstr);
    call_timers_[most_recent_key_].reset();
+   unlock();
 }
 
 // Get the value of the accumulated time on the given timer, IN SECONDS
 double UniversalTimer::read(string key, string grpstr)
 {
+   lock();
    most_recent_key_ = grpstr + key;
    init(key,grpstr);
-   return call_timers_[most_recent_key_].read();
+   double rt = call_timers_[most_recent_key_].read();
+   unlock();
+   return rt;
 }
 
 // Print complete timing results to a file of this name
@@ -160,6 +195,7 @@ void UniversalTimer::printCSV(string filename, bool excludeZeros)
 // Print complete timing results to a given output stream
 void UniversalTimer::printCSV(ostream & os, bool excludeZeros)
 {
+   lock();
    os << "Individual timings:" << endl << endl;
    os << ",NCall,Tot,Avg,Name" << endl << endl;
    map<string, timer>::iterator itert;
@@ -200,6 +236,7 @@ void UniversalTimer::printCSV(ostream & os, bool excludeZeros)
       os << "," << iterd->first;
       os << endl;
    }
+   unlock();
 }
 
 // Print complete timing results to a file of this name
@@ -213,6 +250,7 @@ void UniversalTimer::print(string filename, bool excludeZeros)
 // Print complete timing results to a given output stream
 void UniversalTimer::print(ostream & os, bool excludeZeros)
 {
+   lock();
    os << "Individual timings:" << endl << endl;
    os << "\tNCall\tTot\tAvg\t\tName" << endl << endl;
    map<string, timer>::iterator itert;
@@ -252,4 +290,5 @@ void UniversalTimer::print(ostream & os, bool excludeZeros)
                                       string("     ").c_str(),
                                       iterd->first.c_str());
    }
+   unlock();
 }

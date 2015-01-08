@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Refunds{% endblock %}
+
+{% block header %}Refunds{% endblock %}
+
+{% block body %}
+<div class="container-fluid breadcrumbBox text-center">
+  <ol class="breadcrumb">
+    <li class="active"><a href="/refund">Refund</a></li>
+  </ol>
+</div>
+
+{% if thankyou %}
+<div class="container thanks">
+  {{thankyou}}
+</div>
+{% else %}
+{% if error %}
+<div class="container error">
+  {{error}}
+</div>
+{% endif %}
+<form method="POST" action="/refund">
+<div class="container text-center">
+  <div class="col-md-12 col-sm-12 text-left">
+    <ul>
+      <li class="row">
+	<span class="fieldlabel">Order ID:</span>
+	<span class="field"><input type="text" name="orderid" value="{{orderid}}"></span>
+      </li>
+      <li class="row">
+	<span class="fieldlabel">Refund Bitcoin Address:</span>
+	<span class="field"><input type="text" name="refundaddress" value="{{refundaddress}}"></span>
+      </li>
+      <li class="row">
+	<span class="fieldlabel">Reason:</span>
+	<span class="field"><textarea rows="5" name="reason" onchange="">{{reason}}</textarea></span>
+      </li>
+      <li class="row">
+	<span class="field"><input type="submit" value="Submit"></span>
+      </li>
+    </ul>
+  </div>
+</div>
+</form>
+{% endif %}
+{% endblock %}

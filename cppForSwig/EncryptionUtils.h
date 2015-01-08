@@ -66,6 +66,7 @@
 #include "modes.h"
 #include "eccrypto.h"
 #include "filters.h"
+#include "DetSign.h"
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -78,8 +79,9 @@
    // but, in practice, memory that has been VirtualLock'd almost never gets written to
    // the pagefile except in rare circumstances where memory is extremely low.
    #include <windows.h>
-   #define mlock(p, n) VirtualLock((p), (n));
-   #define munlock(p, n) VirtualUnlock((p), (n));
+   #include "leveldb_windows_port\win32_posix\mman.h"
+   //#define mlock(p, n) VirtualLock((p), (n));
+   //#define munlock(p, n) VirtualUnlock((p), (n));
 #else
    #include <sys/mman.h>
    #include <limits.h>
@@ -109,18 +111,19 @@ using namespace std;
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
 // and also so it's easy to switch the AES MODE or PRNG, in one place
-#define UNSIGNED   ((CryptoPP::Integer::Signedness)(0))
-#define BTC_AES      CryptoPP::AES
-#define BTC_CFB_MODE CryptoPP::CFB_Mode
-#define BTC_CBC_MODE CryptoPP::CBC_Mode
-#define BTC_PRNG     CryptoPP::AutoSeededX917RNG<CryptoPP::AES>
+#define UNSIGNED    ((CryptoPP::Integer::Signedness)(0))
+#define BTC_AES       CryptoPP::AES
+#define BTC_CFB_MODE  CryptoPP::CFB_Mode
+#define BTC_CBC_MODE  CryptoPP::CBC_Mode
+#define BTC_PRNG      CryptoPP::AutoSeededX917RNG<CryptoPP::AES>
 
-#define BTC_ECPOINT  CryptoPP::ECP::Point
-#define BTC_ECDSA    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>
-#define BTC_PRIVKEY  CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey
-#define BTC_PUBKEY   CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey
-#define BTC_SIGNER   CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Signer 
-#define BTC_VERIFIER CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Verifier
+#define BTC_ECPOINT   CryptoPP::ECP::Point
+#define BTC_ECDSA     CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>
+#define BTC_PRIVKEY   CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey
+#define BTC_PUBKEY    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey
+#define BTC_SIGNER    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Signer
+#define BTC_DETSIGNER CryptoPP::ECDSA_DetSign<CryptoPP::ECP, CryptoPP::SHA256>::DetSigner
+#define BTC_VERIFIER  CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Verifier
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +139,7 @@ public:
    // We want regular BinaryData, but page-locked and secure destruction
    SecureBinaryData(void) : BinaryData() 
                    { lockData(); }
-   SecureBinaryData(uint32_t sz) : BinaryData(sz) 
+   SecureBinaryData(size_t sz) : BinaryData(sz) 
                    { lockData(); }
    SecureBinaryData(BinaryData const & data) : BinaryData(data) 
                    { lockData(); }
@@ -343,12 +346,12 @@ public:
                                     BTC_PUBKEY  const & cppPubKey);
    
    /////////////////////////////////////////////////////////////////////////////
-   // For signing and verification, pass in original, UN-HASHED binary string
+   // For signing and verification, pass in original, UN-HASHED binary string.
+   // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    static SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                                    BTC_PRIVKEY const & cppPrivKey);
-   
-   
-   
+                                    BTC_PRIVKEY const & cppPrivKey,
+                                    const bool& detSign = true);
+
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    static bool VerifyData(SecureBinaryData const & binMessage, 
@@ -373,17 +376,19 @@ public:
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
 
    /////////////////////////////////////////////////////////////////////////////
-   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey65);
+   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey);
 
    /////////////////////////////////////////////////////////////////////////////
    bool CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
                              SecureBinaryData const & pubKey65);
 
    /////////////////////////////////////////////////////////////////////////////
-   // For signing and verification, pass in original, UN-HASHED binary string
+   // For signing and verification, pass in original, UN-HASHED binary string.
+   // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                             SecureBinaryData const & binPrivKey);
-   
+                             SecureBinaryData const & binPrivKey,
+                             const bool& detSign = true);
+
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    bool VerifyData(SecureBinaryData const & binMessage, 

@@ -16,8 +16,8 @@ from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
 from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
-from armoryengine.BDM import TheBDM
-from qtdialogs import DlgProgress, DlgConfirmSend
+from armoryengine.BDM import TheBDM, BDM_OFFLINE, BDM_UNINITIALIZED
+from qtdialogs import DlgProgress
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -96,7 +96,7 @@ class WalletWizard(ArmoryWizard):
       
       # Page 5: Create Watching Only Wallet -- but only if expert, or offline
       self.hasCWOWPage = False
-      if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
+      if self.main.usermode==USERMODE.Expert or TheBDM.getState() == BDM_OFFLINE:
          self.hasCWOWPage = True
          self.createWOWPage = CreateWatchingOnlyWalletPage(self)
          self.addPage(self.createWOWPage)
@@ -120,7 +120,12 @@ class WalletWizard(ArmoryWizard):
                   self.setPassphrasePage.pageFrame.getPassphrase())         
          self.walletBackupPage.pageFrame.setWallet(self.newWallet)
          
-         # Only hide the back button on wallet backup page  
+         # Hide the back button on wallet backup page  
+         self.setButtonLayout([QWizard.Stretch,
+                                QWizard.NextButton,
+                                QWizard.FinishButton])
+      elif self.currentPage() == self.walletCreationPage:
+         # Hide the back button on the first page  
          self.setButtonLayout([QWizard.Stretch,
                                 QWizard.NextButton,
                                 QWizard.FinishButton])
@@ -131,7 +136,7 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.FinishButton])
    def done(self, event):
       if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
-         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""
+         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""<qt>
                You have not made a backup for your new wallet.  You only have 
                to make a backup of your wallet <u>one time</u> to protect 
                all the funds held by this wallet <i>any time in the future</i>
@@ -142,7 +147,7 @@ class WalletWizard(ArmoryWizard):
                suffer from hardware failure.
                <br><br>
                Are you sure that you want to leave this wizard without backing 
-               up your wallet?"""), \
+               up your wallet?</qt>"""), \
                QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
             # Stay in the wizard
@@ -172,16 +177,19 @@ class WalletWizard(ArmoryWizard):
       wltpath = self.newWallet.walletPath
       walletFromDisk = PyBtcWallet().readWalletFile(wltpath)
       self.main.addWalletToApplication(walletFromDisk, walletIsNew=True)
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
-         TheBDM.registerWallet(walletFromDisk, isFresh=True, wait=False)
-      else:
-         self.main.newWalletList.append([walletFromDisk, True])
    
    def cleanupPage(self, *args, **kwargs):
       if self.hasCWOWPage and self.currentPage() == self.createWOWPage:
          self.setButtonLayout([QWizard.Stretch,
                                QWizard.NextButton,
                                QWizard.FinishButton])
+      # If we are backing up from setPassphrasePage must be going
+      # to the first page.
+      elif self.currentPage() == self.setPassphrasePage:
+         # Hide the back button on the first page
+         self.setButtonLayout([QWizard.Stretch,
+                                QWizard.NextButton,
+                                QWizard.FinishButton])
       else:
          self.setButtonLayout([QWizard.BackButton,
                                QWizard.Stretch,

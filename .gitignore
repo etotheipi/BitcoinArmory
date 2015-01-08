@@ -1,12 +1,15 @@
 *.swp
 *.pyc
-*.*~
+*~
 *.o
+
+/armoryengine/ArmoryBuild.py
 
 CppBlockUtils.py
 _CppBlockUtils.*
 /cppForSwig/CppBlockUtils_wrap.cxx
 /cppForSwig/libcryptopp.a
+/cppForSwig/libleveldb.a
 /cppForSwig/cryptopp/a.out
 /cppForSwig/cryptopp/Template
 /cppForSwig/cryptopp/TestData
@@ -22,9 +25,15 @@ osxbuild/Armory.app
 osxbuild/env
 
 /ArmoryStandalone/*
+/cppForSwig/CppBlockUtils_wrap.h
+/cppForSwig/leveldb/*
 /cppForSwig/libs/*
 /cppForSwig/Release/*
 /cppForSwig/swigwin/*
+/cppForSwig/pypaths.txt
+
+/pytest/*.bin
+/pytest/mytxfile
 
 /*.exe
 
@@ -40,3 +49,23 @@ osxbuild/env
 /findpass.py
 /*.txt
 /sandbox.py
+
+/webshop/orders/m*
+/webshop/orders/n*
+/webshop/orders/2*
+/webshop/orders/1*
+/webshop/orders/3*
+/webshop/refunds/m*
+/webshop/refunds/n*
+/webshop/refunds/2*
+/webshop/refunds/1*
+/webshop/refunds/3*
+
+/osxbuild/armory_*.tar.gz
+/osxbuild/build-app.log.txt
+/osxbuild/objc_armory/*
+/osxbuild/workspace/*
+
+/armory_*_raspbian-armhf*
+
+/dpkgfiles/control

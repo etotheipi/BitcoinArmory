@@ -14,6 +14,11 @@
 ################################################################################
 import ast
 from datetime import datetime
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email.MIMEText import MIMEText
+from email.Utils import COMMASPACE, formatdate
+from email import Encoders
 import hashlib
 import inspect
 import locale
@@ -25,23 +30,41 @@ import os
 import platform
 import random
 import signal
+import smtplib
 from struct import pack, unpack
+from itertools import izip
 #from subprocess import PIPE
 import sys
 import threading
 import time
 import traceback
 import shutil
+import base64
+import socket
+import subprocess
 
 #from psutil import Popen
 import psutil
 
 from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
+from twisted.internet.protocol import Protocol, ClientFactory
+
+try:
+   if os.path.exists('update_version.py') and os.path.exists('.git'):
+      subprocess.check_output(["python", "update_version.py"])
+except:
+   pass
+
+try:
+   from ArmoryBuild import BTCARMORY_BUILD
+except:
+   BTCARMORY_BUILD = None
 
 
-# Version Numbers
-BTCARMORY_VERSION    = (0, 91,  4, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+
+# Version Numbers 
+BTCARMORY_VERSION    = (0, 92, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -78,20 +101,22 @@ parser.add_option("--nologging",       dest="logDisable",  default=False,     ac
 parser.add_option("--netlog",          dest="netlog",      default=False,     action="store_true", help="Log networking messages sent and received by Armory")
 parser.add_option("--logfile",         dest="logFile",     default='DEFAULT', type='str',          help="Specify a non-default location to send logging information")
 parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
-parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
-parser.add_option("--skip-announce-check", dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
+parser.add_option("--skip-online-check",dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
+parser.add_option("--skip-stats-report", dest="skipStatsReport", default=False, action="store_true", help="Does announcement checking without any OS/version reporting (for ATI statistics)")
+parser.add_option("--skip-announce-check",dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
+parser.add_option("--tor",             dest="useTorSettings", default=False, action="store_true", help="Enable common settings for when Armory connects through Tor")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
-parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
 parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
-#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
+parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', type='str',          help="File to store information about multi-signature transactions")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
+parser.add_option("--disable-modules", dest="disableModules", default=False, action="store_true", help="Disable looking for modules in the execution directory")
 parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
+parser.add_option("--supernode", dest="enableSupernode", default=False, action="store_true", help="Enabled Exhaustive Blockchain Tracking")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -103,14 +128,12 @@ parser.add_option("--verbosity", dest="verbosity", default=None, type="int", hel
 parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 
-
-
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
+BASE16CHARS  = '0123456789abcdefABCDEF'
+LITTLEENDIAN  = '<'
+BIGENDIAN     = '>'
+NETWORKENDIAN = '!'
 ONE_BTC       = long(100000000)
 DONATION       = long(5000000)
 CENT          = long(1000000)
@@ -134,11 +157,17 @@ WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
 
+UNCOMP_PK_LEN = 65
+COMP_PK_LEN   = 33
+
 KILOBYTE = 1024.0
 MEGABYTE = 1024*KILOBYTE
 GIGABYTE = 1024*MEGABYTE
 TERABYTE = 1024*GIGABYTE
 PETABYTE = 1024*TERABYTE
+
+LB_MAXM = 7
+LB_MAXN = 7
 
 # Set the default-default
 DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
@@ -173,7 +202,10 @@ class PassphraseError(Exception): pass
 class EncryptionError(Exception): pass
 class InterruptTestError(Exception): pass
 class NetworkIDError(Exception): pass
+class UnknownNetworkPayload(Exception): pass
 class WalletExistsError(Exception): pass
+class WalletUnregisteredError(Exception): pass
+class AddressUnregisteredError(Exception): pass
 class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
@@ -186,8 +218,10 @@ class FiniteFieldError(Exception): pass
 class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
-class TxdpError(Exception): pass
+class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
+class NonBase58CharacterError(Exception): pass
+class isMSWallet(Exception): pass
 
 # Get the host operating system
 opsys = platform.system()
@@ -220,6 +254,7 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
+#USE_TESTNET = True
 
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
@@ -230,6 +265,8 @@ if CLI_OPTIONS.interport < 0:
 # all zero-conf UTXOs as unspendable, including sent-to-self (change)
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
+#supernode
+ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
@@ -273,9 +310,6 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-
-
-
 # Get the host operating system
 opsys = platform.system()
 OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
@@ -293,7 +327,6 @@ NETWORKS['\x05'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\xc4'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
-
 
 # We disable wallet checks on ARM for the sake of resources (unless forced)
 DO_WALLET_CHECK = CLI_OPTIONS.forceWalletCheck or \
@@ -331,6 +364,7 @@ def readVersionInt(verInt):
    verList.append( int(verStr[ -7:-5    ]) )
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
+
 # Allow user to override default bitcoin-qt/bitcoind home directory
 if not CLI_OPTIONS.satoshiHome.lower()=='default':
    success = True
@@ -392,6 +426,16 @@ if CLI_OPTIONS.logFile.lower()=='default':
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
+MULTISIG_FILE_NAME   = 'multisigs.txt'
+MULTISIG_FILE   = os.path.join(ARMORY_HOME_DIR, MULTISIG_FILE_NAME)
+
+
+if not CLI_OPTIONS.multisigFile.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.multisigFile):
+      print 'Multisig file "%s" does not exist!' % CLI_OPTIONS.multisigFile
+   else:
+      MULTISIG_FILE  = CLI_OPTIONS.multisigFile
+
 
 
 # If this is the first Armory has been run, create directories
@@ -401,6 +445,9 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 if not os.path.exists(LEVELDB_DIR):
    os.makedirs(LEVELDB_DIR)
+
+
+
 
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
@@ -416,6 +463,11 @@ if not USE_TESTNET:
    ADDRBYTE = '\x00'
    P2SHBYTE = '\x05'
    PRIVKEYBYTE = '\x80'
+
+   # This will usually just be used in the GUI to make links for the user
+   BLOCKEXPLORE_NAME     = 'blockchain.info'
+   BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
 else:
    BITCOIN_PORT = 18333
    BITCOIN_RPC_PORT = 18332
@@ -428,6 +480,11 @@ else:
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
+
+   # 
+   BLOCKEXPLORE_NAME     = 'blockexplorer.com'
+   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s'
 
 # These are the same regardless of network
 # They are the way data is stored in the database which is network agnostic
@@ -481,7 +538,6 @@ CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
 
-
 ################################################################################
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
@@ -489,12 +545,14 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    except:
       raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
+################################################################################
 if not CLI_OPTIONS.satoshiRpcport == 'DEFAULT':
    try:
       BITCOIN_RPC_PORT = int(CLI_OPTIONS.satoshiRpcport)
    except:
       raise TypeError('Invalid rpc port for Bitcoin-Qt, using ' + str(BITCOIN_RPC_PORT))
 
+################################################################################
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
@@ -507,6 +565,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '********************************************************************************'
    print 'Loading Armory Engine:'
    print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
+   print '   Armory Build:        ', BTCARMORY_BUILD
    print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
    print 'Detected Operating system:', OS_NAME
    print '   OS Variant            :', OS_VARIANT
@@ -576,7 +635,11 @@ def subprocess_check_output(*popenargs, **kwargs):
    Backported from Python 2.7, because it's stupid useful, short, and
    won't exist on systems using Python 2.6 or earlier
    """
-   from subprocess import CalledProcessError
+   if not OS_WINDOWS:
+      from subprocess import CalledProcessError
+   else:
+      from subprocess_win import CalledProcessError
+      
    process = launchProcess(*popenargs, **kwargs)
    output, unused_err = process.communicate()
    retcode = process.poll()
@@ -595,7 +658,11 @@ def killProcessTree(pid):
    # In this case, Windows is easier because we know it has the get_children
    # call, because have bundled a recent version of psutil.  Linux, however,
    # does not have that function call in earlier versions.
-   from subprocess import Popen, PIPE
+   if not OS_WINDOWS:
+      from subprocess import Popen, PIPE
+   else:
+      from subprocess_win import Popen, PIPE
+      
    if not OS_LINUX:
       for child in psutil.Process(pid).get_children():
          killProcess(child.pid)
@@ -699,8 +766,42 @@ def LOGEXCEPT(msg, *a):
       traceback.print_stack()
       raise
 
+def chopLogFile(filename, size):
+   if not os.path.exists(filename):
+      print 'Log file doesn\'t exist [yet]'
+      return
+
+   logFile = open(filename, 'r')
+   logFile.seek(0,2) # move the cursor to the end of the file
+   currentSize = logFile.tell()
+   if currentSize > size:
+      # this makes sure we don't get stuck reading an entire file
+      # that is bigger than the available memory.
+      # Also have to avoid cutting off the first line if truncating the file.
+      if currentSize > size+MEGABYTE:
+         logFile.seek(-(size+MEGABYTE), 2)
+      else:
+         logFile.seek(0,0)
+      logLines = logFile.readlines()
+      logFile.close()
+   
+      nBytes,nLines = 0,0;
+      for line in logLines[::-1]:
+         nBytes += len(line)
+         nLines += 1
+         if nBytes>size:
+            break
+   
+      logFile = open(filename, 'w')
+      for line in logLines[-nLines:]:
+         logFile.write(line)
+      logFile.close()
+
+# Cut down the log file to just the most recent 1 MB
+chopLogFile(ARMORY_LOG_FILE, MEGABYTE)
 
 
+# Now set loglevels
 DEFAULT_CONSOLE_LOGTHRESH = logging.WARNING
 DEFAULT_FILE_LOGTHRESH    = logging.INFO
 
@@ -713,34 +814,11 @@ if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    DEFAULT_CONSOLE_LOGTHRESH  -= 20
    DEFAULT_FILE_LOGTHRESH     -= 20
 
-
-def chopLogFile(filename, size):
-   if not os.path.exists(filename):
-      print 'Log file doesn\'t exist [yet]'
-      return
-
-   logfile = open(filename, 'r')
-   allLines = logfile.readlines()
-   logfile.close()
-
-   nBytes,nLines = 0,0;
-   for line in allLines[::-1]:
-      nBytes += len(line)
-      nLines += 1
-      if nBytes>size:
-         break
-
-   logfile = open(filename, 'w')
-   for line in allLines[-nLines:]:
-      logfile.write(line)
-   logfile.close()
+if CLI_OPTIONS.logDisable:
+   DEFAULT_CONSOLE_LOGTHRESH  += 100
+   DEFAULT_FILE_LOGTHRESH     += 100
 
 
-# Cut down the log file to just the most recent 1 MB
-chopLogFile(ARMORY_LOG_FILE, 1024*1024)
-
-
-# Now set loglevels
 DateFormat = '%Y-%m-%d %H:%M'
 logging.getLogger('').setLevel(logging.DEBUG)
 fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(message)s', \
@@ -822,6 +900,7 @@ fileRedownload  = os.path.join(ARMORY_HOME_DIR, 'redownload.flag')
 fileRebuild     = os.path.join(ARMORY_HOME_DIR, 'rebuild.flag')
 fileRescan      = os.path.join(ARMORY_HOME_DIR, 'rescan.flag')
 fileDelSettings = os.path.join(ARMORY_HOME_DIR, 'delsettings.flag')
+fileClrMempool  = os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
@@ -855,6 +934,14 @@ elif os.path.exists(fileRescan):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
 
+CLI_OPTIONS.clearMempool = False
+if os.path.exists(fileClrMempool):
+   # Flag to clear all ZC transactions from database
+   LOGINFO('Found %s, will destroy all zero conf transaction in DB' % fileClrMempool)
+   os.remove(fileClrMempool)
+   
+   CLI_OPTIONS.clearMempool = True
+   
 
 # Separately, we may want to delete the settings file, which couldn't
 # be done easily from the GUI, because it frequently gets rewritten to
@@ -910,11 +997,55 @@ if CLI_OPTIONS.testAnnounceCode:
    LOGERROR('to help with testing of announcements, which is considered')
    LOGERROR('a security risk.  ')
    LOGERROR('*'*60)
-   ARMORY_INFO_SIGN_ADDR      = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
-   ARMORY_INFO_SIGN_PUBLICKEY = ('04'
-      '601c891a2cbc14a7b2bb1ecc9b6e42e166639ea4c2790703f8e2ed126fce432c'
-      '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
 
+
+
+
+####
+if CLI_OPTIONS.useTorSettings:
+   LOGWARN('Option --tor was supplied, forcing --skip-announce-check,')
+   LOGWARN('--skip-online-check, --skip-stats-report and --disable-torrent')
+   CLI_OPTIONS.skipAnnounceCheck = True
+   CLI_OPTIONS.skipStatsReport = True
+   CLI_OPTIONS.forceOnline = True
+   CLI_OPTIONS.disableTorrent = True
+
+
+
+################################################################################
+def addWalletToList(inWltPath, inWltList):
+   '''Helper function that checks to see if a path contains a valid wallet. If
+      so, the wallet will be added to the incoming list.'''
+   if os.path.isfile(inWltPath):
+      if not inWltPath.endswith('backup.wallet'):
+         openfile = open(inWltPath, 'rb')
+         first8 = openfile.read(8)
+         openfile.close()
+         if first8=='\xbaWALLET\x00':
+            inWltList.append(inWltPath)
+   else:
+      if not os.path.isdir(inWltPath):
+         LOGWARN('Path %s does not exist.' % inWltPath)
+      else:
+         LOGDEBUG('%s is a directory.' % inWltPath)
+
+
+################################################################################
+def readWalletFiles(inWltList=None):
+   '''Function that finds the paths of all non-backup wallets in the Armory
+      data directory (nothing passed in) or in a list of wallet paths (paths
+      passed in.'''
+   wltPaths = []
+
+   if not inWltList:
+      for f in os.listdir(ARMORY_HOME_DIR):
+         fullPath = os.path.join(ARMORY_HOME_DIR, f)
+         addWalletToList(fullPath, wltPaths)
+   else:
+      for w in inWltList:
+         addWalletToList(w, wltPaths)
+
+   return wltPaths
 
 
 ################################################################################
@@ -1041,6 +1172,7 @@ LOGINFO('Invoked: ' + ' '.join(sys.argv))
 LOGINFO('************************************************************')
 LOGINFO('Loading Armory Engine:')
 LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
+LOGINFO('   Armory Build:         : ' + str(BTCARMORY_BUILD))
 LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   OS Variant            : ' + (OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)))
@@ -1078,6 +1210,17 @@ def GetExecDir():
    srcfile = inspect.getsourcefile(GetExecDir)
    srcpath = os.path.dirname(srcfile)
    srcpath = os.path.abspath(srcpath)
+   if OS_WINDOWS and srcpath.endswith('.zip'):
+      srcpath = os.path.dirname(srcpath)
+
+   # Right now we are at the armoryengine dir... walk up one more
+   srcpath = os.path.dirname(srcpath)
+
+   LOGINFO('Determined that execution dir is: %s' % srcpath)
+   if not os.path.exists(srcpath):
+      LOGERROR('Exec dir %s does not exist!' % srcpath)
+      LOGERROR('Continuing anyway...' % srcpath)
+
    return srcpath
 
 
@@ -1157,6 +1300,39 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
          raise NegativeValueError
       fullInt = (int(lhs + rhs[:9].ljust(9,'0')) + 5) / 10
       return fullInt*(-1 if isNeg else 1)
+
+
+
+################################################################################
+def makeAsciiBlock(binStr, headStr='', wid=64, newline='\n'):
+   # Convert the raw chunk of binary data
+   b64Data = base64.b64encode(binStr)
+   sz = len(b64Data)
+   firstLine = '=====%s' % headStr
+   lines = [firstLine.ljust(wid, '=')]
+   lines.extend([b64Data[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
+   lines.append("="*wid)
+   return newline.join(lines)
+
+
+################################################################################
+def readAsciiBlock(ablock, headStr=''):
+   headStr = ''
+   rawData = None
+
+   # Contiue only if we actually get data.
+   if len(ablock) > 0:
+      lines = ablock.strip().split()
+      if not lines[0].startswith('=====%s' % headStr) or \
+         not lines[-1].startswith('======'):
+         LOGERROR('Attempting to unserialize something not an ASCII block')
+         return lines[0].strip('='), None
+
+      headStr = lines[0].strip('=')
+      rawData = base64.b64decode(''.join(lines[1:-1]))
+
+   return (headStr, rawData)
+
 
 
 
@@ -1248,10 +1424,10 @@ def hash160_to_p2pkhash_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
 
    from Transaction import getOpCode
+   from Script import scriptPushData
    outScript = ''.join([  getOpCode('OP_DUP'        ), \
                           getOpCode('OP_HASH160'    ), \
-                          '\x14',                      \
-                          binStr20,
+                          scriptPushData(binStr20),
                           getOpCode('OP_EQUALVERIFY'), \
                           getOpCode('OP_CHECKSIG'   )])
    return outScript
@@ -1265,9 +1441,9 @@ def hash160_to_p2sh_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
 
    from Transaction import getOpCode
-   outScript = ''.join([  getOpCode('OP_HASH160'), \
-                          '\x14',                      \
-                          binStr20,
+   from Script import scriptPushData
+   outScript = ''.join([  getOpCode('OP_HASH160'), 
+                          scriptPushData(binStr20),
                           getOpCode('OP_EQUAL')])
    return outScript
 
@@ -1287,10 +1463,9 @@ def pubkey_to_p2pk_script(binStr33or65):
       raise KeyDataError('Invalid public key supplied to p2pk script')
 
    from Transaction import getOpCode
-   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
-   outScript =  ''.join([  lenByte,
-                           binStr33or65,
-                           getOpCode('OP_CHECKSIG')])
+   from Script import scriptPushData
+   serPubKey = scriptPushData(binStr33or65)
+   outScript = serPubKey + getOpCode('OP_CHECKSIG')
    return outScript
 
 
@@ -1300,11 +1475,10 @@ def pubkey_to_p2pk_script(binStr33or65):
 # will do that by default.  If you require a different order, pre-sort them
 # and pass withSort=False.
 #
-# NOTE:  About the hardcoded bytes in here:
-#        I made a mistake when making the databases, and hardcoded the
-#        mainnet addrByte and P2SH bytes into DB format.  This means that
-#        that any ScrAddr object will use the mainnet prefix bytes, despite
-#        being in testnet.  I will at some point fix this.
+# NOTE:  About the hardcoded bytes in here: the mainnet addrByte and P2SH  
+#        bytes are hardcoded into DB format.  This means that
+#        that any ScrAddr object will use the mainnet prefix bytes, regardless
+#        of whether it is in testnet.  
 def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
    if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
@@ -1329,7 +1503,13 @@ def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
 ################################################################################
 def scrAddr_to_script(scraddr):
-   """ Convert a scrAddr string (used by BDM) to the correct TxOut script """
+   """ 
+   Convert a scrAddr string (used by BDM) to the correct TxOut script 
+   Note this only works for P2PKH and P2SH scraddrs.  Multi-sig and 
+   all non-standard scripts cannot be derived from scrAddrs.  In a way,
+   a scrAddr is intended to be an intelligent "hash" of the script, 
+   and it's a perk that most of the time we can reverse it to get the script.
+   """
    if len(scraddr)==0:
       raise BadAddressError('Empty scraddr')
 
@@ -1364,13 +1544,12 @@ def scrAddr_to_addrStr(scrAddr):
 
    prefix = scrAddr[0]
    if not prefix in SCRADDR_BYTE_LIST or not len(scrAddr)==21:
-      LOGERROR('Bad scrAddr: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Invalid ScrAddress')
 
    if prefix==SCRADDR_P2PKH_BYTE:
       return hash160_to_addrStr(scrAddr[1:])
    elif prefix==SCRADDR_P2SH_BYTE:
-      return hash160_to_p2shStr(scrAddr[1:])
+      return hash160_to_p2shAddrStr(scrAddr[1:])
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Can only convert P2PKH and P2SH scripts')
@@ -1389,10 +1568,6 @@ def addrStr_to_scrAddr(addrStr):
    if not checkAddrStrValid(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
-   # Okay this doesn't work because of the issue outlined before, where the
-   # SCRADDR prefixes don't match the ADDRSTR prefixes.  Whoops
-   #return addrBin[:21]
-
    atype, a160 = addrStr_to_hash160(addrStr)
    if atype==ADDRBYTE:
       return SCRADDR_P2PKH_BYTE + a160
@@ -1402,6 +1577,10 @@ def addrStr_to_scrAddr(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
 
+################################################################################
+def addrStr_to_script(addrStr):
+   """ Convert an addr string to a binary script """
+   return scrAddr_to_script(addrStr_to_scrAddr(addrStr))
 
 
 
@@ -1455,13 +1634,17 @@ def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
    else:
       LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
 
+
 def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
    if isinstance(theStr, unicode):
       return theStr
    elif isinstance(theStr, str):
       return unicode(theStr, theEncoding)
    else:
-      LOGERROR('toUnicode() not been defined for input: %s', str(type(theStr)))
+      try:
+         return unicode(theStr)
+      except:
+         LOGEXCEPT('toUnicode() not defined for %s', str(type(theStr)))
 
 
 def toPreferred(theStr):
@@ -1479,8 +1662,24 @@ def unicode_truncate(theStr, length, encoding='utf-8'):
     encoded = theStr.encode(encoding)[:length]
     return encoded.decode(encoding, 'ignore')
 
-################################################################################
 
+#############################################################################
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
+
+   if not isinstance(port, (list,tuple)):
+      port = [port]
+
+   for p in port:
+      s = socket.socket()
+      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
+      try:
+         s.connect((host, p))
+         s.close()
+         return p
+      except:
+         pass
+
+   return 0
 
 
 # This is a sweet trick for create enum-like dictionaries.
@@ -1491,6 +1690,9 @@ def enum(*sequential, **named):
    return type('Enum', (), enums)
 
 DATATYPE = enum("Binary", 'Base58', 'Hex')
+INTERNET_STATUS = enum('Available', 'Unavailable', 'DidNotCheck')
+
+
 def isLikelyDataType(theStr, dtype=None):
    """
    This really shouldn't be used on short strings.  Hence
@@ -1538,7 +1740,7 @@ NONSTDPREFIX   = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
-   if not scrAddr[0] == HASH160PREFIX:
+   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX]:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 
@@ -1627,9 +1829,6 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    return outStr
 
 
-
-
-
 ################################################################################
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
@@ -1645,7 +1844,6 @@ def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    print prettyHex(theStr, indent, withAddr, major, minor)
 
 
-
 def pprintDiff(str1, str2, indent=''):
    if not len(str1)==len(str2):
       print 'pprintDiff: Strings are different length!'
@@ -1659,8 +1857,6 @@ def pprintDiff(str1, str2, indent=''):
          byteDiff.append('X')
 
    pprintHex(''.join(byteDiff), indent=indent)
-
-
 
 
 ##### Switch endian-ness #####
@@ -1825,7 +2021,10 @@ def base58_to_binary(addr):
    n = 0
    for ch in addr:
       n *= 58
-      n += BASE58CHARS.index(ch)
+      if ch in BASE58CHARS:
+         n += BASE58CHARS.index(ch)
+      else:
+         raise NonBase58CharacterError("Unrecognized Base 58 Character: %s" % ch)
 
    binOut = ''
    while n>0:
@@ -1834,6 +2033,31 @@ def base58_to_binary(addr):
       n = d
    return '\x00'*padding + binOut
 
+
+################################################################################
+def privKey_to_base58(binKey):
+   '''Convert a 32-byte private key to the Satoshi client Base58 format.'''
+
+   retBase58 = ''
+   # For now, we don't support compressed private keys. (When we do, add
+   # 0x01 after the private key when returning a private key.)
+   try:
+      compByte = ''
+      if 0:
+         compByte = '\x01'
+      privHashAddr = SecureBinaryData(PRIVKEYBYTE + binKey + compByte)
+      privHash256 = \
+                    SecureBinaryData(hash256(privHashAddr.toBinStr())[0:4])
+      privHashFinal = \
+              SecureBinaryData(binary_to_base58(privHashAddr.toBinStr() + \
+                                                privHash256.toBinStr()))
+      retBase58 = privHashFinal.toBinStr()
+   finally:
+      privHashAddr.destroy()
+      privHash256.destroy()
+      privHashFinal.destroy()
+
+   return retBase58
 
 
 ################################################################################
@@ -1851,7 +2075,7 @@ def hash160_to_addrStr(binStr, netbyte=ADDRBYTE):
    return binary_to_base58(addr25);
 
 ################################################################################
-def hash160_to_p2shStr(binStr):
+def hash160_to_p2shAddrStr(binStr):
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
 
@@ -1860,7 +2084,17 @@ def hash160_to_p2shStr(binStr):
    return binary_to_base58(addr25);
 
 ################################################################################
+def binScript_to_p2shAddrStr(binScript):
+   return hash160_to_p2shAddrStr(hash160(binScript))
+
+################################################################################
 def addrStr_is_p2sh(b58Str):
+   if len(b58Str)==0:
+      return False
+
+   if sum([(0 if c in BASE58CHARS else 1) for c in b58Str]) > 0:
+      return False
+
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False
@@ -1877,7 +2111,7 @@ def addrStr_is_p2sh(b58Str):
 def addrStr_to_hash160(b58Str, p2shAllowed=True):
    binStr = base58_to_binary(b58Str)
    if not p2shAllowed and binStr[0]==P2SHBYTE:
-         raise P2SHNotSupportedError
+      raise P2SHNotSupportedError
    if not len(binStr) == 25:
       raise BadAddressError('Address string is %d bytes' % len(binStr))
 
@@ -1955,7 +2189,22 @@ def float_to_btc (f):
    return long (round(f * ONE_BTC))
 
 
+# From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
+def JSONtoAmount(value):
+   return long(round(float(value) * 1e8))
+def AmountToJSON(amount):
+   return float(amount / 1e8)
+
+
 ##### And a few useful utilities #####
+# Take an incoming list and return a "zipped" list where every two items in the
+# list are paired and can be iterated over together.
+# http://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
+def getDualIterable(inList):
+   a = iter(inList)
+   return izip(a, a)
+
+
 def unixTimeToFormatStr(unixTime, formatStr=DEFAULT_DATE_FORMAT):
    """
    Converts a unix time (like those found in block headers) to a
@@ -2124,9 +2373,13 @@ def difficulty_to_binaryBits(i):
    pass
 
 ################################################################################
-def CreateQRMatrix(dataToEncode, errLevel='L'):
-   sz=3
-   success=False
+def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
+   dataLen = len(dataToEncode)
+   baseSz = 4 if errLevel == QRErrorCorrectLevel.L else \
+            5 if errLevel == QRErrorCorrectLevel.M else \
+            6 if errLevel == QRErrorCorrectLevel.Q else \
+            7 # errLevel = QRErrorCorrectLevel.H 
+   sz = baseSz if dataLen < 70 else  5 +  (dataLen - 70) / 30
    qrmtrx = [[]]
    while sz<20:
       try:
@@ -2464,7 +2717,12 @@ def ReadFragIDLineHex(hexLine):
 ################################################################################
 
 
-
+################################################################################
+def stripJSONStrChars(inStr):
+   '''Function that strips the extra characters from a JSON-encoded string.'''
+   # When Python decodes a JSON string, extra characters are added. For example,
+   # "Hello" becomes "u'Hello'". We want to get the original string.
+   return inStr[2:-1]
 
 
 ################################################################################
@@ -2604,42 +2862,40 @@ def encodePrivKeyBase58(privKeyBin):
 
 URI_VERSION_STR = '1.0'
 
+
 ################################################################################
-def parseBitcoinURI(theStr):
-   """ Takes a URI string, returns the pieces of it, in a dictionary """
+# Take in a "bitcoin:" URI string and parse the data out into a dictionary. If
+# the URI isn't a Bitcoin URI, return an empty dictionary.
+def parseBitcoinURI(uriStr):
+   """ Takes a URI string, returns normalized dicitonary with pieces """
+   data = {}
 
-   # Start by splitting it into pieces on any separator
-   seplist = ':;?&'
-   for c in seplist:
-      theStr = theStr.replace(c,' ')
-   parts = theStr.split()
+   # Split URI into parts. Let Python do the heavy lifting.
+   from urlparse import urlparse, parse_qs
+   uri = urlparse(uriStr)
+   query = parse_qs(uri.query)
 
-   # Now start walking through the parts and get the info out of it
-   if not parts[0] == 'bitcoin':
-      return {}
+   # If query entry has only 1 entry, flatten and remove entry from array.
+   for k in query:
+      v = query[k]
+      if len(v) == 1:
+         query[k] = v[0]
 
-   uriData = {}
+   # Now start walking through the parts and get the info out of it.
+   if uri.scheme == 'bitcoin':
+      data['address'] = uri.path
 
-   try:
-      uriData['address'] = parts[1]
-      for p in parts[2:]:
-         if not '=' in p:
-            raise BadURIError('Unrecognized URI field: "%s"'%p)
-
-         # All fields must be "key=value" making it pretty easy to parse
-         key, value = p.split('=')
-
-         # A few
-         if key.lower()=='amount':
-            uriData['amount'] = str2coin(value)
-         elif key.lower() in ('label','message'):
-            uriData[key] = uriPercentToReserved(value)
+      # Apply filters to known keys. Do NOT filter based on the "req-"
+      # prefix from BIP21. Leave that to code using the dict.
+      for k in query:
+         v = query[k]
+         kl = k.lower()
+         if kl == 'amount':
+            data['amount'] = str2coin(v) # Convert to Satoshis
          else:
-            uriData[key] = value
-   except:
-      return {}
+            data[k] = v
 
-   return uriData
+   return data
 
 
 ################################################################################
@@ -2688,8 +2944,8 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 
 ################################################################################
-def createSigScriptFromRS(rBin, sBin):
-   # Remove all leading zero-bytes
+def createDERSigFromRS(rBin, sBin):
+   # Remove all leading zero-bytes (why didn't we use lstrip() here?)
    while rBin[0]=='\x00':
       rBin = rBin[1:]
    while sBin[0]=='\x00':
@@ -2701,12 +2957,80 @@ def createSigScriptFromRS(rBin, sBin):
    sSize  = int_to_binary(len(sBin))
    rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
    sigScript = '\x30' + rsSize + \
-            '\x02' + rSize + rBin + \
-            '\x02' + sSize + sBin
+               '\x02' + rSize + rBin + \
+               '\x02' + sSize + sBin
    return sigScript
 
 
+################################################################################
+def getRSFromDERSig(derSig):
+   if not isinstance(derSig, str):
+      # In case this is a SecureBinaryData object...
+      derSig = derSig.toBinStr()
 
+   codeByte = derSig[0]
+   nBytes   = binary_to_int(derSig[1])
+   rsStr    = derSig[2:2+nBytes]
+   assert(codeByte == '\x30')
+   assert(nBytes == len(rsStr))
+   # Read r
+   codeByte  = rsStr[0]
+   rBytes    = binary_to_int(rsStr[1])
+   r         = rsStr[2:2+rBytes]
+   assert(codeByte == '\x02')
+   sStr      = rsStr[2+rBytes:]
+   # Read s
+   codeByte  = sStr[0]
+   sBytes    = binary_to_int(sStr[1])
+   s         = sStr[2:2+sBytes]
+   assert(codeByte == '\x02')
+   # Now we have the (r,s) values of the
+
+   return r[-32:], s[-32:]
+
+
+#############################################################################
+def notifyOnSurpriseTx(blk0, blk1, wltMap, lboxWltMap, isGui, bdm, notifyQueue, settings ):
+   # We usually see transactions as zero-conf first, then they show up in
+   # a block. It is a "surprise" when the first time we see it is in a block
+   if isGui:
+      notifiedAlready = set([ n[1].getTxHash() for n in notifyQueue ])
+      notifyIn  = settings.getSettingOrSetDefault('NotifyBtcIn', True)
+      notifyOut = settings.getSettingOrSetDefault('NotifyBtcOut', True)
+
+   for blk in range(blk0, blk1):
+      sbh = bdm.getMainBlockFromDB(blk)
+      for i in range(sbh.getNumTx()):
+         cppTx = sbh.getTxCopy(i)
+         # Iterate through the Python wallets and create a ledger entry for
+         # the transaction. If we haven't already been notified of the
+         # transaction, put it on the notification queue.
+         for wltID,wlt in wltMap.iteritems():
+            le = wlt.cppWallet.calcLedgerEntryForTx(cppTx)
+            if isGui and (notifyQueue != None):
+               if not le.getTxHash() in notifiedAlready:
+                  if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
+                     notifyQueue.append([wltID, le, False])
+               else:
+                  pass
+            else:
+               # There should be a log message here.
+               pass
+         # Iterate through the C++ lockbox wallets and create a ledger entry
+         # for the transaction.If we haven't already been notified of the
+         # transaction, put it on the notification queue.
+         for lbID,cppWlt in lboxWltMap.iteritems():
+            le = cppWlt.calcLedgerEntryForTx(cppTx)
+            if isGui and (notifyQueue != None):
+               if not le.getTxHash() in notifiedAlready:
+                  if (le.getValue()<=0 and notifyOut) or \
+                     (le.getValue>0 and notifyIn):
+                     notifyQueue.append([lbID, le, False])
+               else:
+                  pass
+            else:
+               # There should be a log message here.
+               pass
 
 
 ################################################################################
@@ -2919,6 +3243,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          271827 12968787968
          286296 15619588096
          290715 16626221056
+         323285 24216006308
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
@@ -2942,11 +3267,144 @@ def EstimateCumulativeBlockchainSize(blkNum):
       return dend+extraOnTop
 
 
+################################################################################
+# Function checks to see if a binary value that's passed in is a valid public
+# key. The incoming key may be binary or hex. The return value is a boolean
+# indicating whether or not the key is valid.
+def isValidPK(inPK, inStr=False):
+   retVal = False
+   checkVal = '\x00'
+
+   if inStr:
+      checkVal = hex_to_binary(inPK)
+   else:
+      checkVal = inPK
+   pkLen = len(checkVal)
+
+   if pkLen == UNCOMP_PK_LEN or pkLen == COMP_PK_LEN:
+      # The "proper" way to check the key is to feed it to Crypto++.
+      if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(checkVal)):
+         LOGWARN('Pub key %s is invalid.' % binary_to_hex(inPK))
+      else:
+         retVal = True
+   else:
+      LOGWARN('Pub key %s has an invalid length (%d bytes).' % \
+              (len(inPK), binary_to_hex(inPK)))
+
+   return retVal
+
+
+################################################################################
+# Function that extracts IDs from a given text block and returns a list of all
+# the IDs. The format should follow the example below, with "12345678" and
+# "AbCdEfGh" being the IDs, and "LOCKBOX" being the key. There may be extra
+# newline characters. The characters will be ignored.
+#
+# =====LOCKBOX-12345678=====================================================
+# ckhc3hqhhuih7gGGOUT78hweds
+# ==========================================================================
+# =====LOCKBOX-AbCdEfGh=====================================================
+# ckhc3hqhhuih7gGGOUT78hweds
+# ==========================================================================
+#
+# In addition, the incoming block of text must be from a file (using something
+# like "with open() as x") or a StringIO/cStringIO object.
+def getBlockID(asciiText, key):
+   blockList = []
+
+   # Iterate over each line in the text and get the IDs.
+   for line in asciiText:
+      if key in line:
+         stripT = line.replace("=", "").replace(key, "").replace("\n", "")
+         blockList.append(stripT)
+
+   return blockList
+
+################################################################################
+# Decompress an incoming public key. The incoming key may be binary or hex. The
+# final key is in the same form (i.e., binary or hex) as the incoming key.
+def decompressPK(inKey, inStr=False):
+   outKey = '\x00'
+   checkKey = '\x00'
+
+   # Let's support strings and binary data.
+   if inStr:
+      checkKey = hex_to_binary(inKey)
+   else:
+      checkKey = inKey
+   lenInKey = len(checkKey)
+
+   # WARNING: This function won't verify the input. It just passes the input
+   # down the line.
+   if lenInKey == UNCOMP_PK_LEN:
+       LOGWARN('The public key is already decompressed.')
+       outKey = checkKey
+   elif lenInKey != COMP_PK_LEN:
+       LOGERROR('The public key has an incorrect size (%d bytes).' % lenInKey)
+   else:
+      if checkKey[0] == '\x02' or checkKey[0] == '\x03':
+         cppKeyVal = SecureBinaryData(checkKey)
+         outKey = CryptoECDSA().UncompressPoint(cppKeyVal).toBinStr()
+         keyStr = binary_to_hex(outKey)
+      else:
+         LOGERROR('The public key\'s first byte (%s) is incorrectly ' \
+                  'formatted.' % binary_to_hex(checkKey[0]))
+
+   # Keep consistency by returning a string key if necessary.
+   if inStr:
+      outKey = binary_to_hex(outKey)
+   return outKey
+
+
+################################################################################
+# Function that can be used to send an e-mail to multiple recipients.
+def send_email(send_from, server, password, send_to, subject, text):
+   # smtp.sendmail() requires a list of recipients. If we didn't get a list,
+   # create one, and delimit based on a colon.
+   if not type(send_to) == list:
+      send_to = send_to.split(":")
+
+   # Split the server info. Also, use a default port in case the user goofed and
+   # didn't specify a port.
+   server = server.split(":")
+   serverAddr = server[0]
+   serverPort = 587
+   if len(server) > 1:
+      serverPort = int(server[1])
+
+   # Some of this may have to be modded to support non-TLS servers.
+   msg = MIMEMultipart()
+   msg['From'] = send_from
+   msg['To'] = COMMASPACE.join(send_to)
+   msg['Date'] = formatdate(localtime=True)
+   msg['Subject'] = subject
+   msg.attach(MIMEText(text))
+   mailServer = smtplib.SMTP(serverAddr, serverPort)
+   mailServer.ehlo()
+   mailServer.starttls()
+   mailServer.ehlo()
+   mailServer.login(send_from, password)
+   mailServer.sendmail(send_from, send_to, msg.as_string())
+   mailServer.close()
+
 
 #############################################################################
 def DeriveChaincodeFromRootKey(sbdPrivKey):
    return SecureBinaryData( HMAC256( sbdPrivKey.getHash256(), \
                                      'Derive Chaincode from Root Key'))
+
+
+#############################################################################
+def getLastBytesOfFile(filename, nBytes=500*1024):
+   if not os.path.exists(filename):
+      LOGERROR('File does not exist!')
+      return ''
+
+   sz = os.path.getsize(filename)
+   with open(filename, 'rb') as fin:
+      if sz > nBytes:
+         fin.seek(sz - nBytes)
+      return fin.read()
 
 
 ################################################################################
@@ -2980,11 +3438,11 @@ def HardcodedKeyMaskParams():
       out,bin7 = SecureBinaryData(binary_to_base58(bin7 + hash256(bin7)[0])), None
       return out
 
-   def hardcodeCheckPassphrase(passphrase):
-      if isinstance(passphrase, basestring):
-         pwd = base58_to_binary(passphrase)
+   def hardcodeCheckSecurePrintCode(securePrintCode):
+      if isinstance(securePrintCode, basestring):
+         pwd = base58_to_binary(securePrintCode)
       else:
-         pwd = base58_to_binary(passphrase.toBinStr())
+         pwd = base58_to_binary(securePrintCode.toBinStr())
 
       isgood,pwd = (hash256(pwd[:7])[0] == pwd[-1]), None
       return isgood
@@ -3010,11 +3468,8 @@ def HardcodedKeyMaskParams():
    paramMap['FUNC_KDF']    = hardcodeApplyKdf
    paramMap['FUNC_MASK']   = hardcodeMask
    paramMap['FUNC_UNMASK'] = hardcodeUnmask
-   paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
+   paramMap['FUNC_CHKPWD'] = hardcodeCheckSecurePrintCode
    return paramMap
-
-
-
 
 ################################################################################
 ################################################################################
@@ -3234,4 +3689,57 @@ if USE_TESTNET:
 
 
 
+############################################
+class ArmoryInstanceListener(Protocol):
+   def connectionMade(self):
+      LOGINFO('Another Armory instance just tried to open.')
+      self.factory.func_conn_made()
 
+   def dataReceived(self, data):
+      LOGINFO('Received data from alternate Armory instance')
+      self.factory.func_recv_data(data)
+      self.transport.loseConnection()
+      
+############################################
+class ArmoryListenerFactory(ClientFactory):
+   protocol = ArmoryInstanceListener
+   def __init__(self, fn_conn_made, fn_recv_data):
+      self.func_conn_made = fn_conn_made
+      self.func_recv_data = fn_recv_data
+      
+# Check general internet connection
+# Do not Check when ForceOnline is true
+def isInternetAvailable(forceOnline = False):
+   internetStatus = INTERNET_STATUS.Unavailable
+   if forceOnline:
+      internetStatus = INTERNET_STATUS.DidNotCheck
+   else:
+      try:
+         import urllib2
+         urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
+         internetStatus = INTERNET_STATUS.Available
+      except ImportError:
+         LOGERROR('No module urllib2 -- cannot determine if internet is '
+            'available')
+      except urllib2.URLError:
+         # In the extremely rare case that google might be down (or just to try
+         # again...)
+         try:
+            urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
+            internetStatus = INTERNET_STATUS.Available
+         except:
+            LOGEXCEPT('Error checking for internet connection')
+            LOGERROR('Run --skip-online-check if you think this is an error')
+      except:
+         LOGEXCEPT('Error checking for internet connection')
+         LOGERROR('Run --skip-online-check if you think this is an error')
+
+   return internetStatus
+
+
+# Returns true if Online Mode is possible
+def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
+   return isInternetAvailable(forceOnline=CLI_OPTIONS.forceOnline) != \
+                INTERNET_STATUS.Unavailable and \
+      satoshiIsAvailable() and \
+      os.path.exists(os.path.join(btcdir, 'blocks'))

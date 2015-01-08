@@ -390,6 +390,9 @@
     <ClCompile Include="tea.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DetSign.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3way.h">
@@ -786,6 +789,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DetSign.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

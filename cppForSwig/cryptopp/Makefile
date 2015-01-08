@@ -81,6 +81,7 @@ CXXFLAGS += -pipe
 endif
 
 ifeq ($(UNAME),Linux)
+CXXFLAGS += -std=c++11
 LDFLAGS += -pthread
 ifneq ($(shell uname -i | $(EGREP) -c "(_64|d64)"),0)
 M32OR64 = -m64
@@ -97,6 +98,10 @@ CXXFLAGS += -fno-coalesce-templates -fno-coalesce-static-vtables
 LDLIBS += -lstdc++
 LDFLAGS += -flat_namespace -undefined suppress -m
 endif
+
+# ARMORY - C++11 support is necessary in order to build the code.
+CXXFLAGS += -std=c++11 -stdlib=libc++
+LDFLAGS += -lc++
 endif
 
 ifeq ($(UNAME),SunOS)
@@ -128,7 +133,7 @@ OBJS = $(SRCS:.cpp=.o)
 TESTOBJS = bench.o bench2.o test.o validat1.o validat2.o validat3.o adhoc.o datatest.o regtest.o fipsalgt.o dlltest.o
 LIBOBJS = $(filter-out $(TESTOBJS),$(OBJS))
 
-DLLSRCS = algebra.cpp algparam.cpp asn.cpp basecode.cpp cbcmac.cpp channels.cpp cryptlib.cpp des.cpp dessp.cpp dh.cpp dll.cpp dsa.cpp ec2n.cpp eccrypto.cpp ecp.cpp eprecomp.cpp files.cpp filters.cpp fips140.cpp fipstest.cpp gf2n.cpp gfpcrypt.cpp hex.cpp hmac.cpp integer.cpp iterhash.cpp misc.cpp modes.cpp modexppc.cpp mqueue.cpp nbtheory.cpp oaep.cpp osrng.cpp pch.cpp pkcspad.cpp pubkey.cpp queue.cpp randpool.cpp rdtables.cpp rijndael.cpp rng.cpp rsa.cpp sha.cpp simple.cpp skipjack.cpp strciphr.cpp trdlocal.cpp
+DLLSRCS = algebra.cpp algparam.cpp asn.cpp basecode.cpp cbcmac.cpp channels.cpp cryptlib.cpp des.cpp dessp.cpp DetSign.cpp dh.cpp dll.cpp dsa.cpp ec2n.cpp eccrypto.cpp ecp.cpp eprecomp.cpp files.cpp filters.cpp fips140.cpp fipstest.cpp gf2n.cpp gfpcrypt.cpp hex.cpp hmac.cpp integer.cpp iterhash.cpp misc.cpp modes.cpp modexppc.cpp mqueue.cpp nbtheory.cpp oaep.cpp osrng.cpp pch.cpp pkcspad.cpp pubkey.cpp queue.cpp randpool.cpp rdtables.cpp rijndael.cpp rng.cpp rsa.cpp sha.cpp simple.cpp skipjack.cpp strciphr.cpp trdlocal.cpp
 DLLOBJS = $(DLLSRCS:.cpp=.export.o)
 LIBIMPORTOBJS = $(LIBOBJS:.o=.import.o)
 TESTIMPORTOBJS = $(TESTOBJS:.o=.import.o)

@@ -11,7 +11,7 @@ import socket
 import stat
 import time
 from threading import Event
-from jsonrpc import ServiceProxy
+from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    ARMORY_INFO_SIGN_PUBLICKEY, LOGINFO, BTC_HOME_DIR, LOGDEBUG, OS_WINDOWS, \
@@ -19,27 +19,9 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    BITCOIN_RPC_PORT, binary_to_base58, isASCII, USE_TESTNET, GIGABYTE, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
-   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM
-from jsonrpc import authproxy
-
-
-#############################################################################
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
-
-   if not isinstance(port, (list,tuple)):
-      port = [port]
-
-   for p in port:
-      s = socket.socket()
-      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-      try:
-         s.connect((host, p))
-         s.close()
-         return p
-      except:
-         pass
-
-   return 0
+   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
+   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync
+from bitcoinrpc_jsonrpc import authproxy
 
 
 ################################################################################
@@ -151,11 +133,16 @@ class SatoshiDaemonManager(object):
       self.torrentDisabled = False
       self.tdm = None
       self.satoshiHome = None
-
+      self.satoshiRoot = None
+      
 
    #############################################################################
    def setSatoshiDir(self, newDir):
       self.satoshiHome = newDir   
+      self.satoshiRoot = newDir
+      
+      if 'testnet' in newDir:
+         self.satoshiRoot, tail = os.path.split(newDir) 
       
    #############################################################################
    def setDisableTorrentDL(self, b):
@@ -172,6 +159,19 @@ class SatoshiDaemonManager(object):
          return False
 
       bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
+      bootfilePart = bootfile + '.partial'
+      bootfileOld  = bootfile + '.old'
+
+      # cleartorrent.flag means we should remove any pre-existing files
+      delTorrentFlag = os.path.join(ARMORY_HOME_DIR, 'cleartorrent.flag')
+      if os.path.exists(delTorrentFlag):
+         LOGWARN('Flag found to delete any pre-existing torrent files')
+         if os.path.exists(bootfile):       os.remove(bootfile)
+         if os.path.exists(bootfilePart):   os.remove(bootfilePart)
+         if os.path.exists(bootfileOld):    os.remove(bootfileOld)
+         if os.path.exists(delTorrentFlag): os.remove(delTorrentFlag)
+
+
       TheTDM.setupTorrent(torrentPath, bootfile)
       if not TheTDM.getTDMState()=='ReadyToStart':
          LOGERROR('Unknown error trying to start torrent manager')
@@ -214,14 +214,29 @@ class SatoshiDaemonManager(object):
          self.launchBitcoindAndGuardian()
 
       #####
-      def torrentFailed():
+      def warnUserHashFail():
+         from PyQt4.QtGui import QMessageBox
+         QMessageBox.warning(self, tr('Hash Failure'), tr("""The torrent download 
+            is currently encountering too many packet hash failures to allow it to 
+            progress properly. As a result, the torrent engine has been halted. You 
+            should report this incident to the Armory team and turn off this feature 
+            until further notice."""), QMessageBox.Ok)      
+      
+      #####
+      def torrentFailed(errMsg=''):
          # Not sure there's actually anything we need to do here...
+         if errMsg == 'hashFail':
+            warnUserHashFail()
+            
          bootsz = '<Unknown>'
          if os.path.exists(bootfile):
             bootsz = bytesToHumanSize(os.path.getsize(bootfile))
 
          LOGERROR('Torrent failed; size of %s is %s', torrentPath, bootsz)
          self.launchBitcoindAndGuardian()
+         
+
+ 
  
       TheTDM.setSecondsBetweenUpdates(90)
       TheTDM.setCallback('displayFunc',  torrentLogToFile)
@@ -423,7 +438,8 @@ class SatoshiDaemonManager(object):
          else:
             searchPaths.extend([os.path.join(p, 'bin/32') for p in extraSearchPaths])
 
-         searchPaths.extend(['/usr/bin/', '/usr/lib/bitcoin/'])
+         searchPaths.extend(['/usr/lib/bitcoin/'])
+         searchPaths.extend(os.getenv("PATH").split(':'))
 
          for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind')
@@ -478,7 +494,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
       LOGINFO('Reading bitcoin.conf file')
-      bitconf = os.path.join( self.satoshiHome, 'bitcoin.conf' )
+      bitconf = os.path.join(self.satoshiRoot, 'bitcoin.conf')
       if not os.path.exists(bitconf):
          if not makeIfDNE:
             raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
@@ -504,9 +520,13 @@ class SatoshiDaemonManager(object):
                                                 ctypes.byref(str_length))
             
             if not CLI_OPTIONS.disableConfPermis:
+               import win32process
                LOGINFO('Setting permissions on bitcoin.conf')
                cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
-               icacls_out = subprocess_check_output(cmd_icacls, shell=True)
+               kargs = {}
+               kargs['shell'] = True
+               kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+               icacls_out = subprocess_check_output(cmd_icacls, **kargs)
                LOGINFO('icacls returned: %s', icacls_out)
             else:
                LOGWARN('Skipped setting permissions on bitcoin.conf file')
@@ -568,7 +588,7 @@ class SatoshiDaemonManager(object):
       pass    
 
    #############################################################################
-   def startBitcoind(self):
+   def startBitcoind(self, callback):
       self.btcOut, self.btcErr = None,None
       if self.disabled:
          LOGERROR('SDM was disabled, must be re-enabled before starting')
@@ -592,22 +612,29 @@ class SatoshiDaemonManager(object):
       else:
          self.launchBitcoindAndGuardian()
             
+      #New backend code: we wont be polling the SDM state in the main thread
+      #anymore, instead create a thread at bitcoind start to poll the SDM state
+      #and notify the main thread once bitcoind is ready, then terminates
+      self.pollBitcoindState(callback, async=True)
 
-
+      
+   #############################################################################
+   @AllowAsync
+   def pollBitcoindState(self, callback):
+      while self.getSDMStateLogic() != 'BitcoindReady':
+         time.sleep(1.0)
+      callback()
+      
    #############################################################################
    def launchBitcoindAndGuardian(self):
 
       pargs = [self.executable]
 
       if USE_TESTNET:
-         testhome = self.satoshiHome[:]
-         if self.satoshiHome.endswith('/testnet3/'):
-            pargs.append('-datadir=%s' % self.satoshiHome[:-10])
-         elif self.satoshiHome.endswith('/testnet3'):
-            pargs.append('-datadir=%s' % self.satoshiHome[:-9])
          pargs.append('-testnet')
-      else:
-         pargs.append('-datadir=%s' % self.satoshiHome)
+
+      pargs.append('-datadir=%s' % self.satoshiRoot)
+      
       try:
          # Don't want some strange error in this size-check to abort loading
          blocksdir = os.path.join(self.satoshiHome, 'blocks')
@@ -627,9 +654,14 @@ class SatoshiDaemonManager(object):
       except:
          LOGEXCEPT('Failed size check of blocks directory')
 
-
+      kargs = {}
+      if OS_WINDOWS:
+         import win32process
+         kargs['shell'] = True
+         kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+         
       # Startup bitcoind and get its process ID (along with our own)
-      self.bitcoind = launchProcess(pargs)
+      self.bitcoind = launchProcess(pargs, **kargs)
 
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
@@ -642,7 +674,7 @@ class SatoshiDaemonManager(object):
       pargs = [gpath, str(self.selfpid), str(self.btcdpid)]
       if not OS_WINDOWS:
          pargs.insert(0, 'python')
-      launchProcess(pargs)
+      launchProcess(pargs, **kargs)
 
 
 
@@ -878,8 +910,11 @@ class SatoshiDaemonManager(object):
    def getTopBlockInfo(self):
       if self.isRunningBitcoind():
          self.updateTopBlockInfo()
-         self.queryThread.join(0.001)  # In most cases, result should come in 1 ms
-         # We return a copy so that the data is not changing as we use it
+         try:
+            self.queryThread.join(0.001)  # In most cases, result should come in 1 ms
+            # We return a copy so that the data is not changing as we use it
+         except:
+            pass
 
       return self.lastTopBlockInfo.copy()
 

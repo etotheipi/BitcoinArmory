@@ -8,9 +8,10 @@
 from CppBlockUtils import SecureBinaryData, CryptoAES, CryptoECDSA
 from armoryengine.ArmoryUtils import ADDRBYTE, hash256, binary_to_base58, \
    KeyDataError, RightNow, LOGERROR, ChecksumError, convertKeyDataToAddress, \
-   verifyChecksum, WalletLockError, createSigScriptFromRS, binary_to_int, computeChecksum, \
-   getVersionInt, PYBTCWALLET_VERSION, bitset_to_int, LOGDEBUG, Hash160ToScrAddr, \
-   int_to_bitset, UnserializeError, hash160_to_addrStr, int_to_binary, BIGENDIAN, \
+   verifyChecksum, WalletLockError, createDERSigFromRS, binary_to_int, \
+   computeChecksum, getVersionInt, PYBTCWALLET_VERSION, bitset_to_int, \
+   LOGDEBUG, Hash160ToScrAddr, int_to_bitset, UnserializeError, \
+   hash160_to_addrStr, int_to_binary, BIGENDIAN, \
    BadAddressError, checkAddrStrValid, binary_to_hex
 from armoryengine.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, UINT64, \
    INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
@@ -132,6 +133,29 @@ class PyBtcAddress(object):
    def hasPubKey(self):
       return (self.binPublicKey65.getSize() != 0)
 
+
+   ##############################################################################
+   def getPubKey(self):
+      '''Return the uncompressed public key of the address.'''
+      if self.binPublicKey65.getSize() != 65:
+         raise KeyDataError, 'PyBtcAddress does not have a public key!'
+      return self.binPublicKey65
+
+
+   #############################################################################
+   def hasChainCode(self):
+      '''Return a boolean indicating if the address has a chain code.'''
+      return (self.chaincode.getSize() != 0)
+
+
+   #############################################################################
+   def getChainCode(self):
+      '''Return the chain code of the address.'''
+      if len(self.chaincode) != 32:
+         raise KeyDataError, 'PyBtcAddress does not have a chain code!'
+      return self.chaincode
+
+
    #############################################################################
    def getAddrStr(self, netbyte=ADDRBYTE):
       chksum = hash256(netbyte + self.addrStr20)[:4]
@@ -165,7 +189,7 @@ class PyBtcAddress(object):
          self.timeRange[0]=2**32-1
 
       if blkNum==None:
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             topBlk = TheBDM.getTopBlockHeight()
             self.blkRange[0] = long(min(self.blkRange[0], topBlk))
             self.blkRange[1] = long(max(self.blkRange[1], topBlk))
@@ -173,8 +197,10 @@ class PyBtcAddress(object):
          self.blkRange[0]  = long(min(self.blkRange[0], blkNum))
          self.blkRange[1]  = long(max(self.blkRange[1], blkNum))
 
-         if unixTime==None and TheBDM.getBDMState()=='BlockchainReady':
-            unixTime = TheBDM.getHeaderByHeight(blkNum).getTimestamp()
+         if unixTime==None and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if TheBDM.bdv().blockchain().hasHeaderByHeight(blkNum):
+               header = TheBDM.bdv().blockchain().getHeaderByHeight(blkNum)
+               unixTime = header.getTimestamp()
 
       if unixTime==None:
          unixTime = RightNow()
@@ -662,7 +688,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    @TimeThisFunction
-   def generateDERSignature(self, binMsg, secureKdfOutput=None):
+   def generateDERSignature(self, binMsg, secureKdfOutput=None, DetSign=True):
       """
       This generates a DER signature for this address using the private key.
       Obviously, if we don't have the private key, we throw an error.  Or if
@@ -684,12 +710,13 @@ class PyBtcAddress(object):
 
       try:
          secureMsg = SecureBinaryData(binMsg)
-         sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain)
+         sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain,
+                                      DetSign)
          sigstr = sig.toBinStr()
 
          rBin   = sigstr[:32 ]
          sBin   = sigstr[ 32:]
-         return createSigScriptFromRS(rBin, sBin)
+         return createDERSigFromRS(rBin, sBin)
 
       except:
          LOGERROR('Failed signature generation')
@@ -712,30 +739,10 @@ class PyBtcAddress(object):
       if not self.hasPubKey():
          raise KeyDataError, 'No public key available for this address!'
 
-      if not isinstance(derSig, str):
-         # In case this is a SecureBinaryData object...
-         derSig = derSig.toBinStr()
-
-      codeByte = derSig[0]
-      nBytes   = binary_to_int(derSig[1])
-      rsStr    = derSig[2:2+nBytes]
-      assert(codeByte == '\x30')
-      assert(nBytes == len(rsStr))
-      # Read r
-      codeByte  = rsStr[0]
-      rBytes    = binary_to_int(rsStr[1])
-      r         = rsStr[2:2+rBytes]
-      assert(codeByte == '\x02')
-      sStr      = rsStr[2+rBytes:]
-      # Read s
-      codeByte  = sStr[0]
-      sBytes    = binary_to_int(sStr[1])
-      s         = sStr[2:2+sBytes]
-      assert(codeByte == '\x02')
-      # Now we have the (r,s) values of the
+      rBin, sBin = getRSFromDERSig(derSig)
 
       secMsg    = SecureBinaryData(binMsgVerify)
-      secSig    = SecureBinaryData(r[-32:] + s[-32:])
+      secSig    = SecureBinaryData(rBin + sBin)
       secPubKey = SecureBinaryData(self.binPublicKey65)
       return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
 
@@ -975,54 +982,6 @@ class PyBtcAddress(object):
       binOut.put(UINT32, self.blkRange[1])
 
       return binOut.getBinaryString()
-
-   #############################################################################
-   def scanBlockchainForAddress(self, abortIfBDMBusy=False):
-      """
-      This method will return null output if the BDM is currently in the
-      middle of a scan.  You can use waitAsLongAsNecessary=True if you
-      want to wait for the previous scan AND the next scan.  Otherwise,
-      you can check for bal==-1 and then try again later...
-
-      This is particularly relevant if you know that an address has already
-      been scanned, and you expect this method to return immediately.  Thus,
-      you don't want to wait for any scan at all...
-
-      This one-stop-shop method has to be blocking.  You might want to
-      register the address and rescan asynchronously, skipping this method
-      entirely:
-
-         cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.rescanBlockchain(wait=False)
-
-         <... do some other stuff ...>
-
-         if TheBDM.getBDMState()=='BlockchainReady':
-            TheBDM.updateWalletsAfterScan(wait=True) # fast after a rescan
-            bal      = cppWlt.getBalance('Spendable')
-            utxoList = cppWlt.getUnspentTxOutList()
-         else:
-            <...come back later...>
-
-      """
-      if TheBDM.getBDMState()=='BlockchainReady' or \
-                            (TheBDM.isScanning() and not abortIfBDMBusy):
-         LOGDEBUG('Scanning blockchain for address')
-
-         # We are expecting this method to return balance
-         # and UTXO data, so we must make sure we're blocking.
-         cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
-         TheBDM.registerWallet(cppWlt, wait=True)
-         TheBDM.scanBlockchainForTx(cppWlt, wait=True)
-
-         utxoList = cppWlt.getUnspentTxOutList()
-         bal = cppWlt.getSpendableBalance(-1, IGNOREZC)
-         return (bal, utxoList)
-      else:
-         return (-1, [])
 
    #############################################################################
    def unserialize(self, toUnpack):

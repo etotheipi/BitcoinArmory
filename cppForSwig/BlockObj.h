@@ -17,35 +17,35 @@
 #include <map>
 #include <set>
 #include <cassert>
+#include <functional>
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
 
-
-
 ////////////////////////////////////////////////////////////////////////////////
-class InterfaceToLDB;  
-class GlobalDBUtilities;  
+class LMDBBlockDatabase; 
 class TxRef;
 class Tx;
 class TxIn;
 class TxOut;
 
 
-
 class BlockHeader
 {
-   friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
+   friend class Blockchain;
 
 public:
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader(void) : 
       isInitialized_(false), 
+      isMainBranch_(false), 
+      isOrphan_(false),
+      isFinishedCalc_(false),
+      duplicateID_(UINT8_MAX),
       numTx_(UINT32_MAX), 
-      numBlockBytes_(UINT32_MAX),
-      duplicateID_(UINT8_MAX) {}
+      numBlockBytes_(UINT32_MAX)
+   { }
 
    explicit BlockHeader(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size); }
    explicit BlockHeader(BinaryRefReader & brr)    { unserialize(brr); }
@@ -77,10 +77,19 @@ public:
    BinaryDataRef  getDiffBitsRef(void) const   { return BinaryDataRef(getPtr()+72,4 ); }
    uint32_t       getNumTx(void) const         { return numTx_; }
 
+   const string&  getFileName(void) const { return blkFile_; }
+   uint64_t       getOffset(void) const { return blkFileOffset_; }
+   uint32_t       getBlockFileNum(void) const { return blkFileNum_; }
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t const * getPtr(void) const  { assert(isInitialized_); return dataCopy_.getPtr(); }
-   uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
-   uint32_t        isInitialized(void) const { return isInitialized_; }
+   uint8_t const * getPtr(void) const  {
+      assert(isInitialized_);
+      return dataCopy_.getPtr();
+   }
+   size_t        getSize(void) const {
+      assert(isInitialized_);
+      return dataCopy_.getSize();
+   }
+   bool            isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const { return numBlockBytes_; }
    void            setBlockSize(uint32_t sz) { numBlockBytes_ = sz; }
    void            setNumTx(uint32_t ntx) { numTx_ = ntx; }
@@ -95,12 +104,13 @@ public:
    void          pprintAlot(ostream & os=cout);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    serialize(void)    { return dataCopy_; }
+   const BinaryData& serialize(void) const   { return dataCopy_; }
 
+   bool hasFilePos(void) const { return blkFileNum_ != UINT32_MAX; }
 
    /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
-   uint32_t      findNonce(void);
+   int64_t findNonce(const char* inDiffStr);
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, uint32_t size);
@@ -117,34 +127,36 @@ public:
 
 private:
    BinaryData     dataCopy_;
-   bool           isInitialized_;
-
+   bool           isInitialized_:1;
+   bool           isMainBranch_:1;
+   bool           isOrphan_:1;
+   bool           isFinishedCalc_:1;
+   // Specific to the DB storage
+   uint8_t        duplicateID_; // ID of this blk rel to others at same height
+   uint32_t       blockHeight_;
+   
+   uint32_t       numTx_;
+   uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
+   
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
    double         difficultyDbl_;
 
    // Need to compute these later
    BinaryData     nextHash_;
-   uint32_t       blockHeight_;
    double         difficultySum_;
-   bool           isMainBranch_;
-   bool           isOrphan_;
-   bool           isFinishedCalc_;
-   uint32_t       numTx_;
-   uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
 
    string         blkFile_;
-   uint32_t       blkFileNum_;
+   uint32_t       blkFileNum_ = UINT32_MAX;
    uint64_t       blkFileOffset_;
 
-   // Specific to the DB storage
-   uint8_t        duplicateID_; // ID of this blk rel to others at same height
 
 };
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
+class DBTxRef;
 
 class TxRef
 {
@@ -153,19 +165,17 @@ class TxRef
 
 public:
    /////////////////////////////////////////////////////////////////////////////
-   TxRef(void) { setRef(); }
+   TxRef() { }
    TxRef(BinaryDataRef bdr) { setRef(bdr); }
-   TxRef(BinaryDataRef bdr, InterfaceToLDB* ifc) { setRef(bdr, ifc); }
 
    /////////////////////////////////////////////////////////////////////////////
-   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLDB* iface=NULL);
-     
+   void setRef(BinaryDataRef bdr);
+
+   DBTxRef attached(const LMDBBlockDatabase* db) const;
+      
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData     getThisHash(void) const;
-   Tx             getTxCopy(void) const;
-   bool           isMainBranch(void)  const;
    bool           isInitialized(void)  const {return dbKey6B_.getSize()>0;}
-   bool           isBound(void)  const {return dbIface_!=NULL;}
+   bool           isNull(void) const { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData     getDBKey(void) const   { return dbKey6B_;}
@@ -173,28 +183,14 @@ public:
    void           setDBKey(BinaryData    const & bd) {dbKey6B_.copyFrom(bd);}
    void           setDBKey(BinaryDataRef const & bd) {dbKey6B_.copyFrom(bd);}
 
-   bool           isNull(void) const { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData     getDBKeyOfChild(uint16_t i) const
-                                          {return dbKey6B_+WRITE_UINT16_BE(i);}
+      {return dbKey6B_+WRITE_UINT16_BE(i);}
 
-   /////////////////////////////////////////////////////////////////////////////
-   // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
-   // need multiple of them from the same Tx, you should getTxCopy() and then
-   // iterate over them in the Tx object
-   TxIn  getTxInCopy(uint32_t i); 
-   TxOut getTxOutCopy(uint32_t i);
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData         serialize(void) const; 
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData         getBlockHash(void) const;
-   uint32_t           getBlockTimestamp(void);
+   uint16_t           getBlockTxIndex(void) const;
    uint32_t           getBlockHeight(void) const;
    uint8_t            getDuplicateID(void) const;
-   uint16_t           getBlockTxIndex(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    void               pprint(ostream & os=cout, int nIndent=0) const;
@@ -203,7 +199,8 @@ public:
    bool operator==(BinaryData const & dbkey) const { return dbKey6B_ == dbkey; }
    bool operator==(TxRef const & txr) const  { return dbKey6B_ == txr.dbKey6B_;}
 
-private:
+   bool operator>=(const BinaryData& dbkey) const { return dbKey6B_ >= dbkey; }
+protected:
    //FileDataPtr        blkFilePtr_;
    //BlockHeader*       headerPtr_;
 
@@ -216,10 +213,41 @@ private:
 
    // TxRefs are associated with a particular interface (at this time, there
    // will only be one interface).
-   InterfaceToLDB*  dbIface_;  
+};
+
+class DBTxRef : public TxRef
+{
+public:
+   DBTxRef()
+   { }
+   DBTxRef( const TxRef &txref, const LMDBBlockDatabase* db)
+      : TxRef(txref), db_(db)
+   { }
+   
+   BinaryData serialize() const; 
+   
+   BinaryData getBlockHash() const;
+   uint32_t getBlockTimestamp() const;
+   BinaryData getThisHash() const;
+   Tx getTxCopy() const;
+   bool isMainBranch()  const;
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
+   // need multiple of them from the same Tx, you should getTxCopy() and then
+   // iterate over them in the Tx object
+   TxIn  getTxInCopy(uint32_t i); 
+   TxOut getTxOutCopy(uint32_t i);
+
+private:
+   const LMDBBlockDatabase*  db_;  
 };
 
 
+inline DBTxRef TxRef::attached(const LMDBBlockDatabase* db) const
+{
+   return DBTxRef(*this, db);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -239,6 +267,7 @@ public:
    BinaryData const &   getTxHash(void)     const { return txHash_; }
    BinaryDataRef        getTxHashRef(void)  const { return BinaryDataRef(txHash_); }
    uint32_t             getTxOutIndex(void) const { return txOutIndex_; }
+   bool                 isCoinbase(void) const { return txHash_ == BtcUtils::EmptyHash_; }
 
    void setTxHash(BinaryData const & hash) { txHash_.copyFrom(hash); }
    void setTxOutIndex(uint32_t idx) { txOutIndex_ = idx; }
@@ -256,11 +285,15 @@ public:
    void        unserialize(BinaryDataRef const & bdRef);
 
    void unserialize_swigsafe_(BinaryData const & rawOP) { unserialize(rawOP); }
+   const BinaryDataRef getDBkey(LMDBBlockDatabase* db=nullptr) const;
 
 private:
    BinaryData txHash_;
    uint32_t   txOutIndex_;
 
+   //this member isn't set by ctor, but processed after the first call to
+   //get DBKey
+   mutable BinaryData DBkey_;
 };
 
 
@@ -270,7 +303,6 @@ private:
 class TxIn
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
 
 public:
    TxIn(void) : dataCopy_(0), parentHash_(0), parentHeight_(UINT32_MAX),
@@ -284,7 +316,7 @@ public:
         uint32_t        idx=UINT32_MAX) { unserialize_checked(ptr, size, nBytes, parent, idx); } 
 */
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
-   uint32_t         getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
+   size_t           getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
    bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_NONSTANDARD; }
    bool             isCoinbase(void) const { return (scriptType_ == TXIN_SCRIPT_COINBASE); }
    bool             isInitialized(void) const {return dataCopy_.getSize() > 0; }
@@ -293,35 +325,35 @@ public:
    // Script ops
    BinaryData       getScript(void) const;
    BinaryDataRef    getScriptRef(void) const;
-   uint32_t         getScriptSize(void) { return getSize() - (scriptOffset_ + 4); }
+   size_t           getScriptSize(void) { return getSize() - (scriptOffset_ + 4); }
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
    uint32_t         getScriptOffset(void) const { return scriptOffset_; }
 
    // SWIG doesn't handle these enums well, so we will provide some direct bools
-   bool             isScriptStandard(void)   { return scriptType_ != TXIN_SCRIPT_NONSTANDARD;}
-   bool             isScriptStdUncompr(void) { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
-   bool             isScriptStdCompr(void)   { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
-   bool             isScriptCoinbase(void)   { return scriptType_ == TXIN_SCRIPT_COINBASE;}
-   bool             isScriptSpendMulti(void) { return scriptType_ == TXIN_SCRIPT_SPENDMULTI; }
-   bool             isScriptSpendPubKey(void){ return scriptType_ == TXIN_SCRIPT_SPENDPUBKEY; }
-   bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
-   bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
+   bool             isScriptStandard() const   { return scriptType_ != TXIN_SCRIPT_NONSTANDARD;}
+   bool             isScriptStdUncompr() const { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
+   bool             isScriptStdCompr() const  { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
+   bool             isScriptCoinbase() const   { return scriptType_ == TXIN_SCRIPT_COINBASE;}
+   bool             isScriptSpendMulti() const { return scriptType_ == TXIN_SCRIPT_SPENDMULTI; }
+   bool             isScriptSpendPubKey() const { return scriptType_ == TXIN_SCRIPT_SPENDPUBKEY; }
+   bool             isScriptSpendP2SH() const  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
+   bool             isScriptNonStd() const    { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
 
-   TxRef            getParentTxRef(void) { return parentTx_; }
-   uint32_t         getIndex(void) { return index_; }
+   TxRef            getParentTxRef() const { return parentTx_; }
+   uint32_t         getIndex(void) const { return index_; }
 
    //void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
 
-   uint32_t         getSequence(void)   { return READ_UINT32_LE(getPtr()+getSize()-4); }
+   uint32_t         getSequence() const  { return READ_UINT32_LE(getPtr()+getSize()-4); }
 
-   BinaryData       getParentHash(void);
-   uint32_t         getParentHeight(void);
+   BinaryData       getParentHash(LMDBBlockDatabase *db);
+   uint32_t         getParentHeight() const;
 
    void             setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
    void             setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData       serialize(void)    { return dataCopy_; }
+   const BinaryData&  serialize(void) const { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize_checked( uint8_t const * ptr,
@@ -377,7 +409,6 @@ private:
 class TxOut
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
 
 public:
 
@@ -390,11 +421,11 @@ public:
          uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } */
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
-   uint32_t        getSize(void) const { return dataCopy_.getSize(); }
+   uint32_t        getSize(void) const { return (uint32_t)dataCopy_.getSize(); }
    uint64_t        getValue(void) const { return READ_UINT64_LE(dataCopy_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }
-   TxRef           getParentTxRef(void) { return parentTx_; }
+   TxRef           getParentTxRef() const { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
    //void setParentTx(TxRef txref, uint32_t idx=-1) { parentTx_=txref; index_=idx;}
@@ -425,8 +456,8 @@ public:
    BinaryData         serialize(void) { return BinaryData(dataCopy_); }
    BinaryDataRef      serializeRef(void) { return dataCopy_; }
 
-   BinaryData         getParentHash(void);
-   uint32_t           getParentHeight(void);
+   BinaryData         getParentHash(LMDBBlockDatabase *db);
+   uint32_t           getParentHeight() const;
 
    void               setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
    void               setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
@@ -477,31 +508,30 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class Tx
 {
+   friend class BtcWallet;
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLDB;
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}
-   explicit Tx(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size);       }
+   explicit Tx(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size); }
    explicit Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    explicit Tx(BinaryData const & str)    { unserialize(str);       }
    explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
-   explicit Tx(TxRef txref);
      
    uint8_t const *    getPtr(void)  const { return dataCopy_.getPtr();  }
-   uint32_t           getSize(void) const { return dataCopy_.getSize(); }
+   size_t             getSize(void) const { return dataCopy_.getSize(); }
 
    /////////////////////////////////////////////////////////////////////////////
    uint32_t           getVersion(void)   const { return READ_UINT32_LE(dataCopy_.getPtr());}
-   uint32_t           getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
-   uint32_t           getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
+   size_t             getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
+   size_t             getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
    BinaryData         getThisHash(void)  const;
-   bool               isMainBranch(void) const;
+   //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
-   uint32_t           getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
+   size_t             getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
+   size_t             getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
 
    /////////////////////////////////////////////////////////////////////////////
    static Tx          createFromStr(BinaryData const & bd) {return Tx(bd);}
@@ -515,7 +545,7 @@ public:
    BinaryData         serialize(void) const    { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, uint32_t size);
+   void unserialize(uint8_t const * ptr, size_t size);
    void unserialize(BinaryData const & str) { unserialize(str.getPtr(), str.getSize()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr(), str.getSize()); }
    void unserialize(BinaryRefReader & brr);
@@ -534,13 +564,14 @@ public:
    // These are not pointers to persistent object, these methods actually 
    // CREATES the TxIn/TxOut.  But the construction is fast, so it's
    // okay to do it on the fly
-   TxIn   getTxInCopy(int i);
-   TxOut  getTxOutCopy(int i);
+   TxIn     getTxInCopy(int i) const;
+   TxOut    getTxOutCopy(int i) const;
+
 
    /////////////////////////////////////////////////////////////////////////////
    // All these methods return UINTX_MAX if txRefObj.isNull()
-   BinaryData getBlockHash(void)      { return txRefObj_.getBlockHash();      }
-   uint32_t   getBlockTimestamp(void) { return txRefObj_.getBlockTimestamp(); }
+   // BinaryData getBlockHash(void)      { return txRefObj_.getBlockHash();      }
+   // uint32_t   getBlockTimestamp(void) { return txRefObj_.getBlockTimestamp(); }
    uint32_t   getBlockHeight(void)    { return txRefObj_.getBlockHeight();    }
    uint8_t    getDuplicateID(void)    { return txRefObj_.getDuplicateID();    }
    uint16_t   getBlockTxIndex(void)   { return txRefObj_.getBlockTxIndex();   }
@@ -549,7 +580,15 @@ public:
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
    void pprintAlot(ostream & os=cout);
 
+   bool operator==(const Tx& rhs) const
+   {
+      if (this->isInitialized() && rhs.isInitialized())
+         return this->thisHash_ == rhs.thisHash_;
+      return false;
+   }
 
+   void setTxTime(uint32_t txtime) { txTime_ = txtime; }
+   uint32_t getTxTime(void) const { return txTime_; }
 
 private:
    // Full copy of the serialized tx
@@ -563,12 +602,14 @@ private:
    BinaryData    thisHash_;
 
    // Will always create TxIns and TxOuts on-the-fly; only store the offsets
-   vector<uint32_t> offsetsTxIn_;
-   vector<uint32_t> offsetsTxOut_;
+   vector<size_t> offsetsTxIn_;
+   vector<size_t> offsetsTxOut_;
 
    // To be calculated later
    //BlockHeader*  headerPtr_;
    TxRef         txRefObj_;
+
+   uint32_t      txTime_;
 };
 
 
@@ -591,101 +632,6 @@ private:
 // are no longer TxIO pairs, they're just TxO's...which eventually are removed)
 //
 //
-class TxIOPair
-{
-public:
-   //////////////////////////////////////////////////////////////////////////////
-   // TODO:  since we tend not to track TxIn/TxOuts but make them on the fly,
-   //        we should probably do that here, too.  I designed this before I
-   //        realized that these copies will fall out of sync on a reorg
-   TxIOPair(void);
-   explicit TxIOPair(uint64_t amount);
-   explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex);
-   explicit TxIOPair(BinaryData txOutKey8B, uint64_t value);
-   explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex, 
-                     TxRef txRefI, uint32_t txinIndex);
-
-   // Lots of accessors
-   bool      hasTxOut(void) const   { return (txRefOfOutput_.isInitialized()); }
-   bool      hasTxIn(void) const    { return (txRefOfInput_.isInitialized()); }
-   bool      hasTxOutInMain(void) const;
-   bool      hasTxInInMain(void) const;
-   bool      hasTxOutZC(void) const;
-   bool      hasTxInZC(void) const;
-   bool      hasValue(void) const   { return (amount_!=0); }
-   uint64_t  getValue(void) const   { return  amount_;}
-   void      setValue(uint64_t newVal) { amount_ = newVal;}
-
-   //////////////////////////////////////////////////////////////////////////////
-   TxOut     getTxOutCopy(void);
-   TxIn      getTxInCopy(void);
-   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOutCopy(indexOfOutputZC_);}
-   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxInCopy(indexOfInputZC_);}
-   TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
-   TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
-   uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
-   uint32_t  getIndexOfInput(void) const  { return indexOfInput_;  }
-   OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
-
-   pair<bool,bool> reassessValidity(void);
-   bool  isTxOutFromSelf(void) const  { return isTxOutFromSelf_; }
-   void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
-   bool  isFromCoinbase(void) const { return isFromCoinbase_; }
-   void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
-   bool  isMultisig(void) const { return isMultisig_; }
-   void setMultisig(bool isTrue=true) { isMultisig_ = isTrue; }
-
-   BinaryData getDBKeyOfOutput(void) const
-               { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
-   BinaryData getDBKeyOfInput(void) const
-               { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
-
-   //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(void);
-   BinaryData    getTxHashOfOutput(void);
-
-   bool setTxIn   (TxRef  txref, uint32_t index);
-   bool setTxIn   (BinaryData dbKey8B);
-   bool setTxOut  (TxRef  txref, uint32_t index);
-   bool setTxOut  (BinaryData dbKey8B);
-   bool setTxInZC (Tx*    tx,    uint32_t index);
-   bool setTxOutZC(Tx*    tx,    uint32_t index);
-
-   //////////////////////////////////////////////////////////////////////////////
-   bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
-   bool isStandardTxOutScript(void);
-
-   bool isSpent(void);
-   bool isUnspent(void);
-   bool isSpendable(uint32_t currBlk=0, bool ignoreAllZeroConf=false);
-   bool isMineButUnconfirmed(uint32_t currBlk, bool includeAllZeroConf=false);
-   void clearZCFields(void);
-   void pprintOneLine(void);
-
-   bool operator<(TxIOPair const & t2)
-      { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
-   bool operator==(TxIOPair const & t2)
-      { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
-
-private:
-   uint64_t  amount_;
-
-   TxRef     txRefOfOutput_;
-   uint32_t  indexOfOutput_;
-   TxRef     txRefOfInput_;
-   uint32_t  indexOfInput_;
-
-   // Zero-conf data isn't on disk, yet, so can't use TxRef
-   Tx*       txOfOutputZC_;
-   uint32_t  indexOfOutputZC_;
-   Tx*       txOfInputZC_;
-   uint32_t  indexOfInputZC_;
-
-   bool      isTxOutFromSelf_;
-   bool      isFromCoinbase_;
-   bool      isMultisig_;
-};
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Just a simple struct for storing spentness info
@@ -735,7 +681,8 @@ class UnspentTxOut
 {
 public:
    UnspentTxOut(void);
-   UnspentTxOut(TxOut & txout, uint32_t blknum) { init(txout, blknum);}
+   UnspentTxOut(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum) 
+      { init(db, txout, blknum);}
 
 
    UnspentTxOut(BinaryData const & hash, uint32_t outIndex, uint32_t height, 
@@ -743,7 +690,7 @@ public:
       txHash_(hash), txOutIndex_(outIndex), txHeight_(height),
       value_(val), script_(script) {}
 
-   void init(TxOut & txout, uint32_t blknum, bool isMultiRef=false);
+   void init(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum, bool isMultiRef=false);
 
    BinaryData   getTxHash(void) const      { return txHash_;     }
    uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
@@ -820,19 +767,10 @@ public:
                                     { return uniqueKey_ >  ra2.uniqueKey_;}
 
    
-   void setUniqueKey(BinaryData const & key)
-   {
-      addrType_ = uniqueKey_[0];
-      uniqueKey_.copyFrom(key.getPtr()+1, key.getSize()-1);
-   }
-
    BinaryData        uniqueKey_;
-   uint8_t           addrType_;
    uint32_t          blkCreated_;
    uint32_t          alreadyScannedUpToBlk_;
-   uint64_t          sumValue_;
 };
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -850,7 +788,8 @@ public:
 
 
    TxRef      getTxRef()     { return txRefObj_; }
-   Tx         getTxCopy()    { return txRefObj_.getTxCopy(); }
+   Tx         getTxCopy(LMDBBlockDatabase *db)
+      { return txRefObj_.attached(db).getTxCopy(); }
    BinaryData getTxHash()    { return txHash_; }
    uint32_t   getBlkNum()    { return blkNum_; }
    uint16_t   getTxIndex()   { return txIndex_; }
@@ -867,26 +806,21 @@ public:
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx( TxRef txref, 
+   explicit RegisteredTx(Tx & tx) :
+         txRefObj_(tx.getTxRef()),
+         txHash_(tx.getThisHash()),
+         blkNum_(tx.getBlockHeight()),
+         txIndex_(tx.getBlockTxIndex()) { }
+
+   RegisteredTx( const TxRef& txref, 
                  BinaryData const & txHash,
                  uint32_t blkNum,
                  uint16_t txIndex) :
          txRefObj_(txref),
          txHash_(txHash),
          blkNum_(blkNum),
-         txIndex_(txIndex) { }
-
-   explicit RegisteredTx(TxRef txref) :
-         txRefObj_(txref),
-         txHash_(txref.getThisHash()),
-         blkNum_(txref.getBlockHeight()),
-         txIndex_(txref.getBlockTxIndex()) { }
-
-   explicit RegisteredTx(Tx & tx) :
-         txRefObj_(tx.getTxRef()),
-         txHash_(tx.getThisHash()),
-         blkNum_(tx.getBlockHeight()),
-         txIndex_(tx.getBlockTxIndex()) { }
+         txIndex_(txIndex)
+   { }
 
    bool operator<(RegisteredTx const & rt2) const 
    {

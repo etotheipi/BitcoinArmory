@@ -32,7 +32,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    retrieved from the walletObj
    """
    
-   if not TheBDM.isInitialized():
+   if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       # Only executed on the first call if blockchain not loaded yet.
       print '\nLoading blockchain...'
       BDM_LoadBlockchainFile()  # can add optional arg for blk0001.dat location
@@ -47,7 +47,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
 
    print '\nUpdating wallet from blockchain'
    walletObj.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-   walletObj.syncWithBlockchain()
+   # Out of date code: walletObj.syncWithBlockchainLite()
    print 'Total Wallet Balance:',coin2str(walletObj.getBalance('Spendable'))
    
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
    print txdp.checkTxHasEnoughSignatures(alsoVerify=True)
    
    print 'Preparing final transaction...'
-   pytx = txdp.prepareFinalTx()
+   pytx = txdp.getPyTxSignedIfPossible()
 
    print '\nRaw transaction (pretty):'
    pprintHex(binary_to_hex(pytx.serialize()))

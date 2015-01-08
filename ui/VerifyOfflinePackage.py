@@ -5,9 +5,9 @@ from armoryengine.parseAnnounce import *
 from armorycolors import htmlColor
 
 
-class VerifyOfflinePackageDialog(QDialog):
+class VerifyOfflinePackageDialog(ArmoryDialog):
    def __init__(self, parent, main):
-      super(VerifyOfflinePackageDialog, self).__init__(parent)
+      super(VerifyOfflinePackageDialog, self).__init__(parent, main)
       self.main = main
 
       layout = QVBoxLayout(self)
@@ -34,6 +34,7 @@ class VerifyOfflinePackageDialog(QDialog):
       self.saveFileButton.setEnabled(False)
       layoutsave.addWidget(self.saveFileButton)
       self.connect(self.saveFileButton, SIGNAL('clicked()'), self.save)
+      self.setWindowTitle('Verify Signed Package')
 
       
    def load(self):

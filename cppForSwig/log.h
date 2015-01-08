@@ -79,6 +79,7 @@
 #define LOGENABLESTDOUT()   Log::SuppressStdout(false)
 #define SETLOGLEVEL(LOGLVL) Log::SetLogLevel(LOGLVL)
 #define FLUSHLOG()          Log::FlushStreams()
+#define CLEANUPLOG()        Log::CleanUp()
 
 
 #define MAX_LOG_FILE_SIZE (500*1024)
@@ -229,13 +230,13 @@ class Log
 public:
    Log(void) : isInitialized_(false), disableStdout_(false) {}
 
-   static Log & GetInstance(const char * filename=NULL)
+   static Log & GetInstance(const char * filename=nullptr)
    {
-      static Log* theOneLog=NULL;
-      if(theOneLog==NULL || filename!=NULL)
+      static Log* theOneLog = nullptr;
+      if (theOneLog == nullptr || filename != nullptr)
       {
          // Close and delete any existing Log object
-         if(theOneLog != NULL)
+         if (theOneLog != nullptr)
          {
             theOneLog->ds_.close();
             delete theOneLog;
@@ -245,7 +246,7 @@ public:
          theOneLog = new Log;
    
          // Open the filestream if it's open
-         if(filename != NULL)
+         if (filename != nullptr)
          {
             theOneLog->ds_.setLogFile(string(filename));
             theOneLog->isInitialized_ = true;
@@ -290,6 +291,8 @@ public:
     static bool isOpen(void) {return GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
     static void FlushStreams(void) {GetInstance().ds_.FlushStreams();}
+
+    static void CleanUp(void) { delete &GetInstance(); }
 
 protected:
     DualStream ds_;

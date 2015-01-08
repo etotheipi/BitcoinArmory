@@ -28,11 +28,16 @@
 #include <iomanip>
 #include <string>
 #include "log.h"
+#include <atomic>
 
 // Use these #define's to wrap code blocks, not just a single function
 #define TIMER_START(NAME) UniversalTimer::instance().start(NAME)
 #define TIMER_RESTART(NAME) UniversalTimer::instance().restart(NAME)
 #define TIMER_STOP(NAME) UniversalTimer::instance().stop(NAME)
+
+/*#define TIMER_START(NAME)
+#define TIMER_RESTART(NAME)
+#define TIMER_STOP(NAME)*/
 
 // Same as above, but include a group name, so to group like objects
 #define TIMER_START_GROUP(GRPSTR,NAME) UniversalTimer::instance().start(NAME,GRPSTR)
@@ -72,12 +77,15 @@
    #define SCOPED_TIMER(NAME) 
 //#endif
 
+#define CLEANUP_ALL_TIMERS() UniversalTimer::cleanup()
+
 using namespace std;
 
 class UniversalTimer
 {
 public:
    static UniversalTimer & instance(void);
+   static void cleanup(void);
    void init (string key, string grpstr="");
    void start (string key, string grpstr="");
    void restart (string key, string grpstr="");
@@ -93,6 +101,10 @@ public:
 protected:
    UniversalTimer(void) : most_recent_key_("") { }
 private:
+
+   static void lock(void);
+   static void unlock(void);
+
    class timer
    {
    public:
@@ -123,6 +135,8 @@ private:
    map<string, int > call_count_;
    map<string, string> call_group_;
    string most_recent_key_;
+
+   static atomic<int32_t> lock_;
 };
 
 

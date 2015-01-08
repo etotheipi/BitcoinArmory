@@ -1,4 +1,5 @@
 #! /usr/bin/python
+# -*- coding: UTF-8 -*-
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
@@ -7,6 +8,10 @@
 #                                                                              #
 ################################################################################
 
+import gettext
+
+
+from copy import deepcopy
 from datetime import datetime
 import hashlib
 import logging
@@ -23,28 +28,43 @@ import threading
 import time
 import traceback
 import webbrowser
-import psutil
-from copy import deepcopy
+
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+import psutil
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
-from armoryengine.ALL import *
+import CppBlockUtils as Cpp
+from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP, \
+   DEFAULT_FETCH_INTERVAL
 from armorycolors import Colors, htmlColor, QAPP
+from armoryengine.ALL import *
+from armoryengine.Block import PyBlock
+from armoryengine.Decorators import RemoveRepeatingExtensions
+from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
+from armoryengine.parseAnnounce import changelogParser, downloadLinkParser, \
+   notificationParser
 from armorymodels import *
-from ui.toolsDialogs import MessageSigningVerificationDialog
+from jasvet import verifySignature
 import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
-from ui.Wizards import WalletWizard, TxWizard
+from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
+                    DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
-from ui.UpgradeDownloader import UpgradeDownloaderDialog
-from jasvet import verifySignature, readSigBlock
-from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
-from armoryengine.parseAnnounce import *
-from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
+from ui.Wizards import WalletWizard, TxWizard
+from ui.toolsDialogs import MessageSigningVerificationDialog
+from dynamicImport import MODULE_PATH_KEY, ZIP_EXTENSION, getModuleList, importModule,\
+   verifyZipSignature, MODULE_ZIP_STATUS, INNER_ZIP_FILENAME,\
+   MODULE_ZIP_STATUS_KEY
+import tempfile
+
+
+# Load our framework with OS X-specific code.
+if OS_MACOSX:
+   import ArmoryMac
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -63,15 +83,18 @@ if OS_WINDOWS:
    from _winreg import *
 
 
+MODULES_ZIP_DIR_NAME = 'modules'
+
 class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   @TimeThisFunction
+
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
-
+      self.isShuttingDown = False
+      
       # Load the settings file
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.settings = SettingsFile(self.settingsPath)
@@ -90,19 +113,28 @@ class ArmoryMainWindow(QMainWindow):
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h44.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
-      self.setWindowIcon(QIcon(self.iconfile))
+
+      # OS X requires some Objective-C code if we're switching to the testnet
+      # (green) icon. We should also use a larger icon. Otherwise, Info.plist
+      # takes care of everything.
+      if not OS_MACOSX:
+         self.setWindowIcon(QIcon(self.iconfile))
+      else:
+         self.notifCtr = ArmoryMac.MacNotificationHandler.None
+         if USE_TESTNET:
+            self.iconfile = ':/armory_icon_green_fullres.png'
+            ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
+            ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.netMode     = NETWORKMODE.Offline
       self.abortLoad   = False
       self.memPoolInit = False
-      self.dirtyLastTime = False
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
       self.newWalletList = []
       self.newZeroConfSinceLastUpdate = []
-      self.lastBDMState = ['Uninitialized', None]
-      self.lastSDMState = 'Uninitialized'
+      self.lastSDMState = BDM_UNINITIALIZED
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
@@ -122,6 +154,9 @@ class ArmoryMainWindow(QMainWindow):
       self.wasSynchronizing = False
       self.announceIsSetup = False
       self.entropyAccum = []
+      self.allLockboxes = []
+      self.lockboxIDMap = {}
+      self.cppLockboxWltMap = {}
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -138,7 +173,12 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiVersions = ['','']  # [curr, avail]
       self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
       self.NetworkingFactory = None
+      self.tempModulesDirName = None
+      self.internetStatus = None
 
+      # We only need a single connection to bitcoind since it's a
+      # reconnecting connection, so we keep it around.
+      self.SingletonConnectedNetworkingFactory = None
 
       # Kick off announcement checking, unless they explicitly disabled it
       # The fetch happens in the background, we check the results periodically
@@ -153,6 +193,13 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
       self.connect(self, SIGNAL('execTrigger'), self.execTrigger)
       self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
+
+      #generic signal to run pass any method as the arg
+      self.connect(self, SIGNAL('method_signal') , self.method_signal)  
+                
+      #push model BDM notify signal
+      self.connect(self, SIGNAL('cppNotify'), self.handleCppNotification)
+      TheBDM.registerCppNotification(self.cppNotifySignal)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -205,31 +252,20 @@ class ArmoryMainWindow(QMainWindow):
       self.setupUriRegistration()
 
 
-      self.extraHeartbeatSpecial = []
-      self.extraHeartbeatOnline = []
+      self.extraHeartbeatSpecial  = []
+      self.extraHeartbeatAlways   = []
+      self.extraHeartbeatOnline   = []
+      self.extraNewTxFunctions    = []
+      self.extraNewBlockFunctions = []
+      self.extraShutdownFunctions = []
+      self.extraGoOnlineFunctions = []
+      
+      self.walletDialogDict = {}
 
-      """
-      pass a function to extraHeartbeatAlways to run on every heartbeat.
-      pass a list for more control on the function, as
-         [func, [args], keep_running],
-      where:
-         func is the function
-         [args] is a list of arguments
-         keep_running is a bool, pass False to remove the function from
-         extraHeartbeatAlways on the next iteration
-      """
-
-      self.extraHeartbeatAlways = []
-
-      self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' %
-                                      htmlColor('TextWarn'), doWrap=False)
+      self.lblArmoryStatus = QRichLabel(tr('<font color=%(color)s>Offline</font> ') %
+                                      { 'color' : htmlColor('TextWarn') }, doWrap=False)
 
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
-
-      # Keep a persistent printer object for paper backups
-      self.printer = QPrinter(QPrinter.HighResolution)
-      self.printer.setPageSize(QPrinter.Letter)
-
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
@@ -245,19 +281,29 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
+      #self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
+
+      self.walletsView.hideColumn(0)
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
-         self.walletsView.hideColumn(0)
+         initialColResize(self.walletsView, [20, 0, 0.35, 0.2, 0.2])
       else:
-         initialColResize(self.walletsView, [0.15, 0.30, 0.2, 0.20])
+         initialColResize(self.walletsView, [20, 0.15, 0.30, 0.2, 0.20])
 
 
-      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
+      if self.settings.hasSetting('LastFilterState'):
+         if self.settings.get('LastFilterState')==4:
+            self.walletsView.showColumn(0)
+
+
+      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
                    self.execDlgWalletDetails)
+      self.connect(self.walletsView, SIGNAL('clicked(QModelIndex)'), 
+                   self.execClickRow)
 
-
+      self.walletsView.setColumnWidth(WLTVIEWCOLS.Visible, 20)
       w,h = tightSizeNChar(GETFONT('var'), 100)
 
 
@@ -292,7 +338,13 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
       self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+      
 
+      # Another table and model, for lockboxes
+      self.lockboxLedgTable = []
+      self.lockboxLedgModel = LedgerDispModelSimple(self.lockboxLedgTable, 
+                                                    self, self, isLboxModel=True)
+      self.lbDialogModel = None
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
@@ -306,13 +358,13 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
-      btnAddWallet  = QPushButton("Create Wallet")
-      btnImportWlt  = QPushButton("Import or Restore Wallet")
+      btnAddWallet  = QPushButton(tr("Create Wallet"))
+      btnImportWlt  = QPushButton(tr("Import or Restore Wallet"))
       self.connect(btnAddWallet,  SIGNAL('clicked()'), self.startWalletWizard)
       self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
 
       # Put the Wallet info into it's own little box
-      lblAvail = QLabel("<b>Available Wallets:</b>")
+      lblAvail = QLabel(tr("<b>Available Wallets:</b>"))
       viewHeader = makeLayoutFrame(HORIZONTAL, [lblAvail, \
                                              'Stretch', \
                                              btnAddWallet, \
@@ -342,14 +394,9 @@ class ArmoryMainWindow(QMainWindow):
                    self.changeLedgerSorting)
 
 
-      # Create the new ledger twice:  can't update the ledger up/down
-      # widgets until we know how many ledger entries there are from
-      # the first call
-      def createLedg():
-         self.createCombinedLedger()
-         if self.frmLedgUpDown.isVisible():
-            self.changeNumShow()
-      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), createLedg)
+      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), 
+                   self.changeWltFilter)
+      
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False);
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False);
@@ -398,7 +445,26 @@ class ArmoryMainWindow(QMainWindow):
 
       frmTotals.setLayout(frmTotalsLayout)
 
-
+      #page selection UI
+      self.mainLedgerCurrentPage = 1
+      self.lblPages     = QRichLabel('Page: ')
+      self.PageLineEdit = QLineEdit('1')
+      self.lblNPages    = QRichLabel(' out of 1') 
+      
+      self.connect(self.PageLineEdit, SIGNAL('editingFinished()'), \
+                   self.loadNewPage)
+            
+      self.changeWltFilter()      
+      
+      self.frmPages = QFrame()
+      self.frmPages.setFrameStyle(STYLE_NONE)
+      frmPagesLayout = QGridLayout()
+      frmPagesLayout.addWidget(self.lblPages, 0, 0)
+      frmPagesLayout.addWidget(self.PageLineEdit, 0, 1)
+      frmPagesLayout.addWidget(self.lblNPages, 0, 2)
+      
+      self.frmPages.setLayout(frmPagesLayout)
+      self.frmPages.setVisible(False)
 
       # Will fill this in when ledgers are created & combined
       self.lblLedgShowing = QRichLabel('Showing:', hAlign=Qt.AlignHCenter)
@@ -427,7 +493,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.btnLedgUp,    SIGNAL('clicked()'),      self.clickLedgUp)
       self.connect(self.btnLedgDn,    SIGNAL('clicked()'),      self.clickLedgDn)
 
-      frmFilter = makeVertFrame([QLabel('Filter:'), self.comboWltSelect, 'Stretch'])
+      frmFilter = makeVertFrame([QLabel(tr('Filter:')), self.comboWltSelect, 'Stretch'])
 
       self.frmLedgUpDown = QFrame()
       layoutUpDown = QGridLayout()
@@ -445,6 +511,8 @@ class ArmoryMainWindow(QMainWindow):
       frmLower = makeHorizFrame([ frmFilter, \
                                  'Stretch', \
                                  self.frmLedgUpDown, \
+                                 'Stretch', \
+                                 self.frmPages, \
                                  'Stretch', \
                                  frmTotals])
 
@@ -469,22 +537,29 @@ class ArmoryMainWindow(QMainWindow):
       # Add the available tabs to the main tab widget
       self.MAINTABS  = enum('Dash','Ledger','Announce')
 
-      self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
-      self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
-      self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
+      self.mainDisplayTabs.addTab(self.tabDashboard, tr('Dashboard'))
+      self.mainDisplayTabs.addTab(self.tabActivity,  tr('Transactions'))
+      self.mainDisplayTabs.addTab(self.tabAnnounce,  tr('Announcements'))
+
+      ##########################################################################
+      if USE_TESTNET and not CLI_OPTIONS.disableModules:
+         self.loadArmoryModules()   
+      ##########################################################################
 
 
-      btnSendBtc   = QPushButton("Send Bitcoins")
-      btnRecvBtc   = QPushButton("Receive Bitcoins")
-      btnWltProps  = QPushButton("Wallet Properties")
-      btnOfflineTx = QPushButton("Offline Transactions")
+      btnSendBtc   = QPushButton(tr("Send Bitcoins"))
+      btnRecvBtc   = QPushButton(tr("Receive Bitcoins"))
+      btnWltProps  = QPushButton(tr("Wallet Properties"))
+      btnOfflineTx = QPushButton(tr("Offline Transactions"))
+      btnMultisig  = QPushButton(tr("Lockboxes (Multi-Sig)"))
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
+      self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
-      verStr = 'Armory %s - %s User' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'Armory %s / %s' % (getVersionString(BTCARMORY_VERSION),
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -497,6 +572,8 @@ class ArmoryMainWindow(QMainWindow):
       logoBtnFrame.append(btnWltProps)
       if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          logoBtnFrame.append(btnOfflineTx)
+      if self.usermode in (USERMODE.Expert,):
+         logoBtnFrame.append(btnMultisig)
       logoBtnFrame.append(lblInfo)
       logoBtnFrame.append('Stretch')
 
@@ -527,20 +604,22 @@ class ArmoryMainWindow(QMainWindow):
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
       currmode = self.getSettingOrSetDefault('User_Mode', 'Advanced')
-      MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', 'Help')
+      MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', \
+                                                'MultiSig', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
-      self.menusList.append( self.menu.addMenu('&File') )
-      self.menusList.append( self.menu.addMenu('&User') )
-      self.menusList.append( self.menu.addMenu('&Tools') )
-      self.menusList.append( self.menu.addMenu('&Addresses') )
-      self.menusList.append( self.menu.addMenu('&Wallets') )
-      self.menusList.append( self.menu.addMenu('&Help') )
+      self.menusList.append( self.menu.addMenu(tr('&File')) )
+      self.menusList.append( self.menu.addMenu(tr('&User')) )
+      self.menusList.append( self.menu.addMenu(tr('&Tools')) )
+      self.menusList.append( self.menu.addMenu(tr('&Addresses')) )
+      self.menusList.append( self.menu.addMenu(tr('&Wallets')) )
+      self.menusList.append( self.menu.addMenu(tr('&MultiSig')) )
+      self.menusList.append( self.menu.addMenu(tr('&Help')) )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
       def exportTx():
-         if not TheBDM.getBDMState()=='BlockchainReady':
+         if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             QMessageBox.warning(self, 'Transactions Unavailable', \
                'Transaction history cannot be collected until Armory is '
                'in online mode.  Please try again when Armory is online. ',
@@ -550,10 +629,10 @@ class ArmoryMainWindow(QMainWindow):
             DlgExportTxHistory(self,self).exec_()
 
 
-      actExportTx    = self.createAction('&Export Transactions', exportTx)
-      actSettings    = self.createAction('&Settings', self.openSettings)
+      actExportTx    = self.createAction('&Export Transactions...', exportTx)
+      actSettings    = self.createAction('&Settings...', self.openSettings)
       actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
-      actExportLog   = self.createAction('Export &Log File', self.exportLogFile)
+      actExportLog   = self.createAction('Export &Log File...', self.exportLogFile)
       actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
@@ -599,19 +678,63 @@ class ArmoryMainWindow(QMainWindow):
       def openMsgSigning():
          MessageSigningVerificationDialog(self,self).exec_()
 
-      actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
+      def openBlindBroad():
+         if not satoshiIsAvailable():
+            QMessageBox.warning(self, tr("Not Online"), tr("""
+               Bitcoin Core is not available, so Armory will not be able
+               to broadcast any transactions for you."""), QMessageBox.Ok)
+            return
+         DlgBroadcastBlindTx(self,self).exec_()
+
+
+
+      actOpenSigner = self.createAction('&Message Signing/Verification...', openMsgSigning)
       if currmode=='Expert':
-         actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
+         actOpenTools  = self.createAction('&EC Calculator...',   lambda: DlgECDSACalc(self,self, 1).exec_())
+         actBlindBroad = self.createAction('&Broadcast Raw Transaction...', openBlindBroad)
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       if currmode=='Expert':
          self.menusList[MENUS.Tools].addAction(actOpenTools)
+         self.menusList[MENUS.Tools].addAction(actBlindBroad)
+
+      def mkprom():
+         if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            QMessageBox.warning(self, tr('Offline'), tr("""
+               Armory is currently offline, and cannot determine what funds are
+               available for simulfunding.  Please try again when Armory is in
+               online mode."""), QMessageBox.Ok)
+         else:
+            DlgCreatePromNote(self, self).exec_()
+
+
+      def msrevsign():
+         title = tr('Import Multi-Spend Transaction')
+         descr = tr("""
+            Import a signature-collector text block for review and signing.  
+            It is usually a block of text with "TXSIGCOLLECT" in the first line,
+            or a <i>*.sigcollect.tx</i> file.""")
+         ftypes = ['Signature Collectors (*.sigcollect.tx)']
+         dlgImport = DlgImportAsciiBlock(self, self, title, descr, ftypes, 
+                                                         UnsignedTransaction)
+         dlgImport.exec_()
+         if dlgImport.returnObj:
+            DlgMultiSpendReview(self, self, dlgImport.returnObj).exec_()
+            
+
+      simulMerge   = lambda: DlgMergePromNotes(self, self).exec_()
+      actMakeProm    = self.createAction('Simulfund &Promissory Note', mkprom)
+      actPromCollect = self.createAction('Simulfund &Collect && Merge', simulMerge)
+      actMultiSpend  = self.createAction('Simulfund &Review && Sign', msrevsign)
+
+      if not self.usermode==USERMODE.Expert:
+         self.menusList[MENUS.MultiSig].menuAction().setVisible(False)
 
 
       # Addresses
-      actAddrBook   = self.createAction('View &Address Book',          self.execAddressBook)
-      actSweepKey   = self.createAction('&Sweep Private Key/Address',  self.menuSelectSweepKey)
-      actImportKey  = self.createAction('&Import Private Key/Address', self.menuSelectImportKey)
+      actAddrBook   = self.createAction('View &Address Book...',          self.execAddressBook)
+      actSweepKey   = self.createAction('&Sweep Private Key/Address...',  self.menuSelectSweepKey)
+      actImportKey  = self.createAction('&Import Private Key/Address...', self.menuSelectImportKey)
 
       self.menusList[MENUS.Addresses].addAction(actAddrBook)
       if not currmode=='Standard':
@@ -621,19 +744,12 @@ class ArmoryMainWindow(QMainWindow):
       actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
-      actRecoverWlt   = self.createAction('Fix Damaged Wallet',        self.RecoverWallet)
-      #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
-      #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
+      actRecoverWlt   = self.createAction('&Fix Damaged Wallet',        self.RecoverWallet)
 
       self.menusList[MENUS.Wallets].addAction(actCreateNew)
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
       self.menusList[MENUS.Wallets].addSeparator()
       self.menusList[MENUS.Wallets].addAction(actRecoverWlt)
-      #self.menusList[MENUS.Wallets].addAction(actRescanOnly)
-      #self.menusList[MENUS.Wallets].addAction(actRebuildAll)
-
-      #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
-      #self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
       def execVersion():
          self.explicitCheckAnnouncements()
@@ -645,8 +761,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
-      actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
-      actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actAboutWindow  = self.createAction(tr('&About Armory...'), execAbout)
+      actVersionCheck = self.createAction(tr('Armory Version'), execVersion)
       actDownloadUpgrade = self.createAction(tr('Update Software...'), self.openDownloaderAll)
       actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
@@ -671,6 +787,20 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actRebuildDB)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
 
+
+
+      execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
+      execBrowse = lambda: DlgLockboxManager(self,self).exec_()
+      actMultiHacker = self.createAction(tr('Multi-Sig Lockboxes'), execMSHack)
+      actBrowseLockboxes = self.createAction(tr('Lockbox &Manager...'), execBrowse)
+      #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
+      self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
+      self.menusList[MENUS.MultiSig].addAction(actMakeProm)
+      self.menusList[MENUS.MultiSig].addAction(actPromCollect)
+      self.menusList[MENUS.MultiSig].addAction(actMultiSpend)
+
+
+
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
       hexledgsz = self.settings.get('MainLedgerCols')
@@ -685,12 +815,11 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
-      haveGUI[0] = True
-      haveGUI[1] = self
-      BDMcurrentBlock[1] = 1
 
       if DO_WALLET_CHECK: 
          self.checkWallets()
+
+      self.blkReceived = RightNow()
 
       self.setDashboardDetails()
 
@@ -702,9 +831,22 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('MinimizeOnOpen is True')
          reactor.callLater(0, self.minimizeArmory)
 
-
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+
+      if OS_MACOSX:
+         self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
+         if self.macNotifHdlr.hasUserNotificationCenterSupport():
+            self.notifCtr = ArmoryMac.MacNotificationHandler.BuiltIn
+         else:
+            # In theory, Qt can support notifications via Growl on pre-10.8
+            # machines. It's shaky as hell, though, so we'll rely on alternate
+            # code for now. In the future, according to
+            # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
+            # be accurate, as the official documentation is contradictory),
+            # showMessage() may have direct support for the OS X notification
+            # center in Qt5.1. Something to experiment with later....
+            self.notifCtr = self.macNotifHdlr.hasGrowl()
 
 
    ####################################################
@@ -715,7 +857,170 @@ class ArmoryMainWindow(QMainWindow):
             result.append(wltID)
       return result
 
+
    ####################################################
+   def changeWltFilter(self):
+
+      currIdx  = max(self.comboWltSelect.currentIndex(), 0)
+      currText = str(self.comboWltSelect.currentText()).lower()
+
+      if currText.lower().startswith('custom filter'):
+         self.walletsView.showColumn(0)
+      else:
+         self.walletsView.hideColumn(0)
+
+
+      # If "custom" is selected, do nothing...
+      if currIdx==4:
+         return
+
+      for i in range(len(self.walletVisibleList)):
+         self.walletVisibleList[i] = False
+         self.setWltSetting(self.walletIDList[i], 'LedgerShow', False)
+
+      # If a specific wallet is selected, just set that and you're done
+      if currIdx >= 4:
+         self.walletVisibleList[currIdx-7] = True
+         self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
+      else:
+         # Else we walk through the wallets and flag the particular ones
+         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
+                                                   for wid in self.walletIDList]
+
+         for i,winfo in enumerate(typelist):
+            wid,wtype = winfo[:]
+            if currIdx==0:
+               # My wallets
+               doShow = wtype in [WLTTYPES.Offline,WLTTYPES.Crypt,WLTTYPES.Plain]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==1:
+               # Offline wallets
+               doShow = winfo[1] in [WLTTYPES.Offline]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==2:
+               # Others' Wallets
+               doShow = winfo[1] in [WLTTYPES.WatchOnly]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==3:
+               # All Wallets
+               self.walletVisibleList[i] = True
+               self.setWltSetting(wid, 'LedgerShow', True)
+      
+      self.mainLedgerCurrentPage = 1
+      self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
+      
+      wltIDList = []
+      for i,vis in enumerate(self.walletVisibleList):
+         if vis:
+            wltIDList.append(self.walletIDList[i])
+
+      TheBDM.bdv().updateWalletsLedgerFilter(wltIDList)      
+
+
+   ############################################################################
+   def loadArmoryModules(self):
+      """
+      This method checks for any .zip files in the modules directory
+      """ 
+      modulesZipDirPath = os.path.join(GetExecDir(), MODULES_ZIP_DIR_NAME)
+      if modulesZipDirPath and os.path.exists(modulesZipDirPath):
+         
+         self.tempModulesDirName = tempfile.mkdtemp('modules')
+
+   
+         # This call does not eval any code in the modules.  It simply
+         # loads the python files as raw chunks of text so we can
+         # check hashes and signatures
+         modMap = getModuleList(modulesZipDirPath)
+         for moduleName,infoMap in modMap.iteritems():
+            moduleZipPath = os.path.join(modulesZipDirPath, infoMap[MODULE_PATH_KEY])
+            if  infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Invalid:
+               reply = QMessageBox.warning(self, tr("Invalid Module"), tr("""
+                  Armory detected the following module which is 
+                  <font color=%(color)s"><b>invalid</b></font>:
+                  <br><br>
+                     <b>Module Name:</b> %(name)s<br>
+                     <b>Module Path:</b> %(path)s<br>
+                  <br><br>
+                  Armory will only run a module from a zip file that
+                  has the required stucture.""") % \
+                  { 'color' : htmlColor('TextRed'), 'name' : moduleName, 'path' : moduleZipPath}, QMessageBox.Ok)
+            elif not USE_TESTNET and infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Unsigned:
+               reply = QMessageBox.warning(self, tr("UNSIGNED Module"), tr("""
+                  Armory detected the following module which  
+                  <font color="%(color)s"><b>has not been signed by Armory</b></font> and may be dangerous:
+                  <br><br>
+                     <b>Module Name:</b> %(name)s<br>
+                     <b>Module Path:</b> %(path)s<br>
+                  <br><br>
+                  Armory will not allow you to run this module.""") % \
+                  { 'color' : htmlColor('TextRed'), 'name' : moduleName, 'path' : moduleZipPath}, QMessageBox.Ok)
+            else:
+   
+               ZipFile(moduleZipPath).extract(INNER_ZIP_FILENAME, self.tempModulesDirName)
+               ZipFile(os.path.join(self.tempModulesDirName,INNER_ZIP_FILENAME)).extractall(self.tempModulesDirName)
+               
+               plugin = importModule(self.tempModulesDirName, moduleName, globals())
+               plugObj = plugin.PluginObject(self)
+      
+               if not hasattr(plugObj,'getTabToDisplay') or \
+                  not hasattr(plugObj,'tabName'):
+                  LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
+                  QMessageBox.critmoduleName(self, tr("Bad Module"), tr("""
+                     The module you attempted to load (%s) is malformed.  It is 
+                     missing attributes that are needed for Armory to load it.  
+                     It will be skipped.""") % moduleName, QMessageBox.Ok)
+                  continue
+                     
+               verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
+               verArmoryInt = getVersionInt(BTCARMORY_VERSION)
+               if verArmoryInt >verPluginInt:
+                  reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
+                     Module %(mod)s is only specified to work up to Armory version %(maxver)s.
+                     You are using Armory version %(curver)s.  Please remove the module if
+                     you experience any problems with it, or contact the maintainer
+                     for a new version.
+                     <br><br>
+                     Do you want to continue loading the module?""") \
+                        % { 'mod' : moduleName, 'maxver' : plugObj.maxVersion, 
+                                 'curver' : getVersionString(BTCARMORY_VERSION)} , 
+                           QMessageBox.Yes | QMessageBox.No)
+      
+                  if not reply==QMessageBox.Yes:
+                     continue
+      
+               # All plugins should have "tabToDisplay" and "tabName" attributes
+               LOGWARN('Adding module to tab list: "' + plugObj.tabName + '"')
+               self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
+      
+               # Also inject any extra methods that will be 
+               injectFuncList = [ \
+                     ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
+                     ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
+                     ['injectGoOnlineFunc',        'extraGoOnlineFunctions'], 
+                     ['injectNewTxFunc',           'extraNewTxFunctions'], 
+                     ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
+                     ['injectShutdownFunc',        'extraShutdownFunctions'] ]
+      
+               # Add any methods
+               for plugFuncName,funcListName in injectFuncList:
+                  if not hasattr(plugObj, plugFuncName):
+                     continue
+            
+                  if not hasattr(self, funcListName):
+                     LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
+                     continue
+      
+                  LOGINFO('Found module function: %s' % plugFuncName)
+                  funcList = getattr(self, funcListName)
+                  plugFunc = getattr(plugObj, plugFuncName)
+                  funcList.append(plugFunc)
+                                    
+
+   ############################################################################
    def factoryReset(self):
       """
       reply = QMessageBox.information(self,'Factory Reset', \
@@ -1133,7 +1438,7 @@ class ArmoryMainWindow(QMainWindow):
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
-               reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+               reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, 'Default URL Handler', \
                   'Armory is not set as your default application for handling '
                   '"bitcoin:" links.  Would you like to use Armory as the '
                   'default?', 'Do not ask this question again')
@@ -1194,7 +1499,6 @@ class ArmoryMainWindow(QMainWindow):
 
          dontAsk = self.getSettingOrSetDefault('DNAA_DefaultApp', False)
          dontAskDefault = self.getSettingOrSetDefault('AlwaysArmoryURI', False)
-         print dontAsk, justDoIt, dontAskDefault
          if justDoIt:
             LOGINFO('URL-register: just doing it')
             action = 'DoIt'
@@ -1205,7 +1509,7 @@ class ArmoryMainWindow(QMainWindow):
             # If another application has it, ask for permission to change it
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
-            reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+            reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, 'Default URL Handler', \
                'Armory is not set as your default application for handling '
                '"bitcoin:" links.  Would you like to use Armory as the '
                'default?', 'Do not ask this question again')
@@ -1254,14 +1558,34 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
+
+   #############################################################################
+   def warnNewUSTXFormat(self):
+      if not self.getSettingOrSetDefault('DNAA_Version092Warn', False):
+         reply = MsgBoxWithDNAA(self, self, MSGBOX.Warning, tr("Version Warning"), tr("""
+            Since Armory version 0.92 the formats for offline transaction
+            operations has changed to accommodate multi-signature 
+            transactions.  This format is <u>not</u> compatible with
+            versions of Armory before 0.92.
+            <br><br>
+            To continue, the other system will need to be upgraded to
+            to version 0.92 or later.  If you cannot upgrade the other 
+            system, you will need to reinstall an older version of Armory
+            on this system."""), dnaaMsg='Do not show this warning again')
+         self.writeSetting('DNAA_Version092Warn', reply[1])
+
+
    #############################################################################
    def execOfflineTx(self):
+      self.warnNewUSTXFormat()
+
       dlgSelect = DlgOfflineSelect(self, self)
       if dlgSelect.exec_():
 
          # If we got here, one of three buttons was clicked.
          if dlgSelect.do_create:
-            DlgSendBitcoins(self.getSelectedWallet(), self, self, onlyOfflineWallets=True).exec_()
+            DlgSendBitcoins(self.getSelectedWallet(), self, self, 
+                                          onlyOfflineWallets=True).exec_()
          elif dlgSelect.do_broadc:
             DlgSignBroadcastOfflineTx(self,self).exec_()
 
@@ -1299,17 +1623,24 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def makeWalletCopy(self, parent, wlt, copyType='Same', suffix='', changePass=False):
+      '''Create a digital backup of your wallet.'''
       if changePass:
          LOGERROR('Changing password is not implemented yet!')
          raise NotImplementedError
 
-      fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
-      if wlt.watchingOnly:
+      # Set the file name.
+      if copyType.lower()=='pkcc':
+         fn = 'armory_%s.%s' % (wlt.uniqueIDB58, suffix)
+      else:
+         fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
+
+      if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
          return False
 
+      # Create the file based on the type you want.
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
       elif copyType.lower()=='decrypt':
@@ -1330,6 +1661,8 @@ class ArmoryMainWindow(QMainWindow):
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
+      elif copyType.lower() == 'pkcc':
+         wlt.writePKCCFile(savePath)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
          return False
@@ -1418,17 +1751,40 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setupAnnouncementFetcher(self):
+      # Decide if disable OS/version reporting sent with announce fetches
+      skipStats1 = self.getSettingOrSetDefault('SkipStatsReport', False)
+      skipStats2 = CLI_OPTIONS.skipStatsReport
+      self.skipStatsReport = skipStats1 or skipStats2
+
+      # This determines if we should disable all of it
       skipChk1 = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       skipChk2 = CLI_OPTIONS.skipAnnounceCheck
       skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
-      self.skipAnnounceCheck = skipChk1 or skipChk2 or skipChk3
+      skipChk4  = CLI_OPTIONS.useTorSettings 
+      skipChk5  = self.getSettingOrSetDefault('UseTorSettings', False)
+      self.skipAnnounceCheck = \
+                  skipChk1 or skipChk2 or skipChk3 or skipChk4 or skipChk5
+
 
       url1 = ANNOUNCE_URL
       url2 = ANNOUNCE_URL_BACKUP
       fetchPath = os.path.join(ARMORY_HOME_DIR, 'atisignedannounce')
       if self.announceFetcher is None:
-         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath)
-         self.announceFetcher.setDisabled(self.skipAnnounceCheck)
+
+         # We keep an ID in the settings file that can be used by ATI's
+         # statistics aggregator to remove duplicate reports.  We store
+         # the month&year that the ID was generated, so that we can change
+         # it every month for privacy reasons
+         idData = self.getSettingOrSetDefault('MonthlyID', '0000_00000000')
+         storedYM,currID = idData.split('_')
+         monthyear = unixTimeToFormatStr(RightNow(), '%m%y')
+         if not storedYM == monthyear:
+            currID = SecureBinaryData().GenerateRandom(4).toHexStr()
+            self.settings.set('MonthlyID', '%s_%s' % (monthyear, currID))
+            
+         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath, currID)
+         self.announceFetcher.setStatsDisable(self.skipStatsReport)
+         self.announceFetcher.setFullyDisabled(self.skipAnnounceCheck)
          self.announceFetcher.start()
 
          # Set last-updated vals to zero to force processing at startup
@@ -1437,11 +1793,11 @@ class ArmoryMainWindow(QMainWindow):
 
       # If we recently updated the settings to enable or disable checking...
       if not self.announceFetcher.isRunning() and not self.skipAnnounceCheck:
-         self.announceFetcher.setDisabled(False)
+         self.announceFetcher.setFullyDisabled(False)
          self.announceFetcher.setFetchInterval(DEFAULT_FETCH_INTERVAL)
          self.announceFetcher.start()
       elif self.announceFetcher.isRunning() and self.skipAnnounceCheck:
-         self.announceFetcher.setDisabled(True)
+         self.announceFetcher.setFullyDisabled(True)
          self.announceFetcher.shutdown()
 
 
@@ -1611,17 +1967,17 @@ class ArmoryMainWindow(QMainWindow):
       if testing:
          return tr("""
             A new testing version of Armory is out. You can upgrade to version
-            %s through our secure downloader inside Armory (link at the bottom
+            %(ver)s through our secure downloader inside Armory (link at the bottom
             of this notification window).
-            """) % (verStr)
+            """) % { 'ver' : verStr}
          
       return tr("""
          Your version of Armory is now outdated.  Please upgrade to version
-         %s through our secure downloader inside Armory (link at the bottom
+         %(ver)s through our secure downloader inside Armory (link at the bottom
          of this notification window).  Alternatively, you can get the new
          version from our website downloads page at:
          <br><br>
-         <a href="%s">%s</a> """) % (verStr, webURL, webURL)
+         <a href="%(url)s">%(url)s</a> """) % {'ver' : verStr, 'url' : webURL}
 
 
 
@@ -1789,10 +2145,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def setupNetworking(self):
       LOGINFO('Setting up networking...')
-      self.internetAvail = False
 
       # Prevent Armory from being opened twice
       from twisted.internet import reactor
@@ -1816,41 +2171,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
       settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
-      if self.forceOnline:
-         LOGINFO('Forced online mode: True')
-
+      useTor = self.getSettingOrSetDefault('UseTorSettings', False)
       # Check general internet connection
-      self.internetAvail = False
-      if not self.forceOnline:
-         try:
-            import urllib2
-            response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-            self.internetAvail = True
-         except ImportError:
-            LOGERROR('No module urllib2 -- cannot determine if internet is available')
-         except urllib2.URLError:
-            # In the extremely rare case that google might be down (or just to try again...)
-            try:
-               response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-            except:
-               LOGEXCEPT('Error checking for internet connection')
-               LOGERROR('Run --skip-online-check if you think this is an error')
-               self.internetAvail = False
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-            self.internetAvail = False
+      self.internetStatus = isInternetAvailable(forceOnline =
+             CLI_OPTIONS.forceOnline or settingSkipCheck or useTor)
 
-
-      LOGINFO('Internet connection is Available: %s', self.internetAvail)
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
-      LOGINFO('The first blk*.dat was Available: %s', str(self.checkHaveBlockfiles()))
-      LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
-
-
-
-
+      LOGINFO('Internet status: %s', self.internetStatus)
 
    #############################################################################
    def manageBitcoindAskTorrent(self):
@@ -1945,7 +2271,7 @@ class ArmoryMainWindow(QMainWindow):
       # If it's still not there, look for a default file
       if self.announceFetcher.getFileModTime('bootstrap') == 0:
          LOGERROR('Could not get announce bootstrap; using default')
-         srcTorrent = os.path.join(GetExecDir(), '../default_bootstrap.torrent')
+         srcTorrent = os.path.join(GetExecDir(), 'default_bootstrap.torrent')
       else:
          srcTorrent = self.announceFetcher.getAnnounceFilePath('bootstrap')
 
@@ -1966,7 +2292,7 @@ class ArmoryMainWindow(QMainWindow):
    ############################################################################
    def startBitcoindIfNecessary(self):
       LOGINFO('startBitcoindIfNecessary')
-      if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
+      if self.internetStatus == INTERNET_STATUS.Unavailable or CLI_OPTIONS.offline:
          LOGWARN('Not online, will not start bitcoind')
          return False
 
@@ -1996,14 +2322,22 @@ class ArmoryMainWindow(QMainWindow):
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
          TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
-         TheSDM.startBitcoind()
+         TheSDM.startBitcoind(self.notifyBitcoindIsReady)
          LOGDEBUG('Bitcoind started without error')
          return True
       except:
          LOGEXCEPT('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
+   
+   ############################################################################
+   def notifyBitcoindIsReady(self):
+      self.emit(SIGNAL('method_signal'), self.proceedOnceBitcoindIsReady)    
 
-
+   ############################################################################
+   def proceedOnceBitcoindIsReady(self):
+      self.loadBlockchainIfNecessary()
+      self.setDashboardDetails()  
+      
    ############################################################################
    def setSatoshiPaths(self):
       LOGINFO('setSatoshiPaths')
@@ -2029,17 +2363,21 @@ class ArmoryMainWindow(QMainWindow):
       TheBDM.setSatoshiDir(self.satoshiHomePath)
       TheSDM.setSatoshiDir(self.satoshiHomePath)
       TheTDM.setSatoshiDir(self.satoshiHomePath)
-
+      
+      
+   ############################################################################
+   # This version of online mode is possible doesn't check the internet everytime
+   def isOnlineModePossible(self):
+      return self.internetStatus != INTERNET_STATUS.Unavailable and \
+               satoshiIsAvailable() and \
+               os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
 
    ############################################################################
    def loadBlockchainIfNecessary(self):
       LOGINFO('loadBlockchainIfNecessary')
       if CLI_OPTIONS.offline:
-         if self.forceOnline:
-            LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
          self.switchNetworkMode(NETWORKMODE.Offline)
-         TheBDM.setOnlineMode(False, wait=False)
-      elif self.onlineModeIsPossible():
+      elif self.isOnlineModePossible():
          # Track number of times we start loading the blockchain.
          # We will decrement the number when loading finishes
          # We can use this to detect problems with mempool or blkxxxx.dat
@@ -2049,33 +2387,11 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('FailedLoadCount', self.numTriesOpen+1)
 
          self.switchNetworkMode(NETWORKMODE.Full)
-         #self.resetBdmBeforeScan()
-         TheBDM.setOnlineMode(True, wait=False)
-
+         TheBDM.goOnline()           
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)
-         TheBDM.setOnlineMode(False, wait=False)
-
-
-
-
-
-   #############################################################################
-   def checkHaveBlockfiles(self):
-      return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
-
-   #############################################################################
-   def onlineModeIsPossible(self):
-      return ((self.internetAvail or self.forceOnline) and \
-               self.bitcoindIsAvailable() and \
-               self.checkHaveBlockfiles())
-
-
-   #############################################################################
-   def bitcoindIsAvailable(self):
-      return satoshiIsAvailable('127.0.0.1', BITCOIN_PORT)
-
-
+         
+ 
 
    #############################################################################
    def switchNetworkMode(self, newMode):
@@ -2083,8 +2399,16 @@ class ArmoryMainWindow(QMainWindow):
       self.netMode=newMode
       if newMode in (NETWORKMODE.Offline, NETWORKMODE.Disconnected):
          self.NetworkingFactory = FakeClientFactory()
-         return
       elif newMode==NETWORKMODE.Full:
+         self.NetworkingFactory = self.getSingletonConnectedNetworkingFactory()
+      return
+
+
+   #############################################################################
+   def getSingletonConnectedNetworkingFactory(self):
+      if not self.SingletonConnectedNetworkingFactory:
+         # ArmoryClientFactory auto-reconnects, so add the connection
+         # the very first time and never afterwards.
 
          # Actually setup the networking, now
          from twisted.internet import reactor
@@ -2094,14 +2418,15 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText( \
                '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
-            if not self.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX):
+            if not self.getSettingOrSetDefault('NotifyDiscon', True):
                return
 
             try:
-               self.sysTray.showMessage('Disconnected', \
-                     'Connection to Bitcoin-Qt client lost!  Armory cannot send \n'
-                     'or receive bitcoins until connection is re-established.', \
-                     QSystemTrayIcon.Critical, 10000)
+               self.showTrayMsg('Disconnected', 'Connection to Bitcoin-Qt ' \
+			                    'client lost!  Armory cannot send nor ' \
+								'receive bitcoins until connection is ' \
+								're-established.', QSystemTrayIcon.Critical, \
+								10000)
             except:
                LOGEXCEPT('Failed to show disconnect notification')
 
@@ -2112,52 +2437,58 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' %
-                     (htmlColor('TextGreen'), self.currBlockNum))
-            if not self.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX):
+                     (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
+            if not self.getSettingOrSetDefault('NotifyReconn', True):
                return
 
             try:
                if self.connectCount>0:
-                  self.sysTray.showMessage('Connected', \
-                     'Connection to Bitcoin-Qt re-established', \
-                     QSystemTrayIcon.Information, 10000)
+                  self.showTrayMsg('Connected', 'Connection to Bitcoin-Qt ' \
+                                   're-established', \
+								   QSystemTrayIcon.Information, 10000)
                self.connectCount += 1
             except:
                LOGEXCEPT('Failed to show reconnect notification')
 
-
-         self.NetworkingFactory = ArmoryClientFactory( \
-                                          TheBDM,
-                                          func_loseConnect=showOfflineMsg, \
-                                          func_madeConnect=showOnlineMsg, \
-                                          func_newTx=self.newTxFunc)
-                                          #func_newTx=newTxFunc)
-         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', \
-                                          BITCOIN_PORT, self.NetworkingFactory)
-
-
+         self.SingletonConnectedNetworkingFactory = ArmoryClientFactory(
+                                      TheBDM,
+                                      func_loseConnect=showOfflineMsg,
+                                      func_madeConnect=showOnlineMsg,
+                                      func_newTx=self.newTxFunc)
+         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1',
+                                 BITCOIN_PORT,
+                                 self.SingletonConnectedNetworkingFactory)
+      return self.SingletonConnectedNetworkingFactory
 
 
    #############################################################################
    def newTxFunc(self, pytxObj):
-      if TheBDM.getBDMState() in ('Offline','Uninitialized') or self.doShutdown:
+      if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED) or self.doShutdown:
          return
 
-      TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True, wait=False)
-      self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
-      #LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
+      TheBDM.bdv().addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
 
+      # All extra tx functions take one arg:  the PyTx object of the new ZC tx
+      for txFunc in self.extraNewTxFunctions:
+         txFunc(pytxObj)   
 
 
 
    #############################################################################
    def parseUriLink(self, uriStr, clickOrEnter='click'):
+      if len(uriStr) < 1:
+         QMessageBox.critical(self, 'No URL String', \
+               'You have not entered a URL String yet. '
+               'Please go back and enter a URL String.', \
+               QMessageBox.Ok)
+         return {}
       ClickOrEnter = clickOrEnter[0].upper() + clickOrEnter[1:]
       LOGINFO('URI link clicked!')
       LOGINFO('The following URI string was parsed:')
       LOGINFO(uriStr.replace('%','%%'))
+
       uriDict = parseBitcoinURI(uriStr)
-      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
+      if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED):
          LOGERROR('%sed "bitcoin:" link in offline mode.' % ClickOrEnter)
          self.bringArmoryToFront()
          QMessageBox.warning(self, 'Offline Mode',
@@ -2189,7 +2520,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Verify the URI is for the same network as this Armory instnance
       theAddrByte = checkAddrType(base58_to_binary(uriDict['address']))
-      if theAddrByte!=-1 and theAddrByte!=ADDRBYTE:
+      if theAddrByte!=-1 and not theAddrByte in [ADDRBYTE, P2SHBYTE]:
          net = 'Unknown Network'
          if NETWORKS.has_key(theAddrByte):
             net = NETWORKS[theAddrByte]
@@ -2222,16 +2553,16 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def uriLinkClicked(self, uriStr):
       LOGINFO('uriLinkClicked')
-      if TheBDM.getBDMState()=='Offline':
+      if TheBDM.getState()==BDM_OFFLINE:
          QMessageBox.warning(self, 'Offline', \
             'You just clicked on a "bitcoin:" link, but Armory is offline '
             'and cannot send transactions.  Please click the link '
             'again when Armory is online.', \
             QMessageBox.Ok)
          return
-      elif not TheBDM.getBDMState()=='BlockchainReady':
+      elif not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          # BDM isnt ready yet, saved URI strings in the delayed URIDict to
-         # call later through finishLoadBlockChain
+         # call later through finishLoadBlockChainGUI
          qLen = self.delayedURIData['qLen']
 
          self.delayedURIData[qLen] = uriStr
@@ -2247,7 +2578,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def loadWalletsAndSettings(self):
       LOGINFO('loadWalletsAndSettings')
 
@@ -2268,9 +2599,6 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('AdvFeature_UseCt', 0)
       else:
          self.writeSetting('Load_Count', (self.settings.get('Load_Count')+1) % 100)
-         firstDate = self.getSettingOrSetDefault('First_Load_Date', RightNow())
-         daysSinceFirst = (RightNow() - firstDate) / (60*60*24)
-
 
       # Set the usermode, default to standard
       self.usermode = USERMODE.Standard
@@ -2292,34 +2620,23 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Load wallets found in the .armory directory
-      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}
       self.walletIDSet = set()
 
       # I need some linear lists for accessing by index
       self.walletIDList = []
+      self.walletVisibleList = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
-
-      self.currBlockNum = 0
-
+      self.walletSideScanProgress = {}
 
 
       LOGINFO('Loading wallets...')
-      for f in os.listdir(ARMORY_HOME_DIR):
-         fullPath = os.path.join(ARMORY_HOME_DIR, f)
-         if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'rb')
-            first8 = openfile.read(8)
-            openfile.close()
-            if first8=='\xbaWALLET\x00':
-               wltPaths.append(fullPath)
-
+      wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
-      wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
       for fpath in wltPaths:
          try:
             wltLoad = PyBtcWallet().readWalletFile(fpath)
@@ -2339,8 +2656,8 @@ class ArmoryMainWindow(QMainWindow):
                   LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
                else:
                   LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN('     Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
-                  LOGWARN('     Wallet 2 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 1 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 2 (loaded):  %s', self.walletMap[wltID].walletPath)
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
@@ -2349,10 +2666,15 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
+               wtype = determineWalletType(wltLoad, self)[0]
+               notWatch = (not wtype == WLTTYPES.WatchOnly)
+               defaultVisible = self.getWltSetting(wltID, 'LedgerShow', notWatch)
+               self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
-            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', fpath)
-            raise
+            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', 
+                                                                           fpath)
+            #raise
 
 
 
@@ -2363,8 +2685,15 @@ class ArmoryMainWindow(QMainWindow):
          dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
-         TheBDM.registerWallet( wlt.cppWallet )
-         TheBDM.bdm.registerWallet(wlt.cppWallet)
+         
+         wlt.registerWallet()
+
+
+      # Create one wallet per lockbox to make sure we can query individual
+      # lockbox histories easily.
+      if self.usermode==USERMODE.Expert:
+         LOGINFO('Loading Multisig Lockboxes')
+         self.loadLockboxesFromFile(MULTISIG_FILE)
 
 
       # Get the last directory
@@ -2376,6 +2705,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   @RemoveRepeatingExtensions
    def getFileSave(self, title='Save Wallet File', \
                          ffilter=['Wallet files (*.wallet)'], \
                          defaultFilename=None):
@@ -2436,14 +2766,16 @@ class ArmoryMainWindow(QMainWindow):
       return fullPath
 
    ##############################################################################
-   def getWltSetting(self, wltID, propName):
+   def getWltSetting(self, wltID, propName, defaultValue=''):
       # Sometimes we need to settings specific to individual wallets -- we will
       # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
-      try:
+      if self.settings.hasSetting(wltPropName):
          return self.settings.get(wltPropName)
-      except KeyError:
-         return ''
+      else:
+         if not defaultValue=='':
+            self.setWltSetting(wltID, propName, defaultValue)
+         return defaultValue
 
    #############################################################################
    def setWltSetting(self, wltID, propName, value):
@@ -2460,6 +2792,141 @@ class ArmoryMainWindow(QMainWindow):
          self.setWltSetting(wltID, 'IsMine', True)
 
 
+   #############################################################################
+   def loadLockboxesFromFile(self, fn):
+      self.allLockboxes = []
+      self.cppLockboxWltMap = {}
+      if not os.path.exists(fn):
+         return
+
+      lbList = readLockboxesFile(fn)
+      for lb in lbList:
+         self.updateOrAddLockbox(lb)
+
+
+   #############################################################################
+   def updateOrAddLockbox(self, lbObj, isFresh=False):
+      try:
+         lbID = lbObj.uniqueIDB58
+         index = self.lockboxIDMap.get(lbID)
+         if index is None:
+            
+            # Add new lockbox to list
+            self.allLockboxes.append(lbObj)
+            self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
+              
+            scraddrReg = script_to_scrAddr(lbObj.binScript)
+            scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
+            scrAddrList = []
+            scrAddrList.append(scraddrReg)
+            scrAddrList.append(scraddrP2SH)
+            self.cppLockboxWltMap[lbID] = lbObj.registerLockbox(scrAddrList, isFresh)
+
+         else:
+            # Replace the original
+            self.allLockboxes[index] = lbObj
+
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
+      except:
+         LOGEXCEPT('Failed to add/update lockbox')
+        
+   
+   #############################################################################
+   def removeLockbox(self, lbObj):
+      lbID = lbObj.uniqueIDB58
+      index = self.lockboxIDMap.get(lbID)
+      if index is None:
+         LOGERROR('Tried to remove lockbox that DNE: %s', lbID)
+      else:
+         del self.allLockboxes[index]
+         self.reconstructLockboxMaps()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
+
+
+   #############################################################################
+   def reconstructLockboxMaps(self):
+      self.lockboxIDMap.clear()
+      for i,box in enumerate(self.allLockboxes):
+         self.lockboxIDMap[box.uniqueIDB58] = i
+
+   #############################################################################
+   def getLockboxByID(self, boxID):
+      index = self.lockboxIDMap.get(boxID)
+      return None if index is None else self.allLockboxes[index]
+   
+   ################################################################################
+   # Get  the lock box ID if the p2shAddrString is found in one of the lockboxes
+   # otherwise it returns None
+   def getLockboxByP2SHAddrStr(self, p2shAddrStr):
+      for lboxId in self.lockboxIDMap.keys():
+         lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
+         if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
+            return lbox
+      return None
+
+
+   #############################################################################
+   def browseLockboxes(self):
+      DlgLockboxManager(self,self).exec_()
+
+
+
+   #############################################################################
+   def getContribStr(self, binScript, contribID='', contribLabel=''):
+      """ 
+      This is used to display info for the lockbox interface.  It might also be
+      useful as a general script_to_user_string method, where you have a 
+      binScript and you want to tell the user something about it.  However,
+      it is verbose, so it won't fit in a send-confirm dialog, necessarily.
+
+      We should extract as much information as possible without contrib*.  This
+      at least guarantees that we see the correct data for our own wallets
+      and lockboxes, even if the data for other parties is incorrect.
+      """
+
+      displayInfo = self.getDisplayStringForScript(binScript, 60, 2)
+      if displayInfo['WltID'] is not None:
+         return displayInfo['String'], ('WLT:%s' % displayInfo['WltID'])
+      elif displayInfo['LboxID'] is not None:
+         return displayInfo['String'], ('LB:%s' % displayInfo['LboxID'])
+
+      scriptType = getTxOutScriptType(binScript) 
+      
+      # At this point, we can use the contrib ID (and know we can't sign it)
+      if contribID or contribLabel:
+         if contribID:
+            if contribLabel:
+               outStr = 'Contributor "%s" (%s)' % (contribLabel, contribID)
+            else:
+               outStr = 'Contributor %s' % contribID
+         else:
+            if contribLabel:
+               outStr = 'Contributor "%s"' % contribLabel
+            else:
+               outStr = 'Unknown Contributor'
+               LOGERROR('How did we get to this impossible else-statement?')
+
+         return outStr, ('CID:%s' % contribID)
+
+      # If no contrib ID, then salvage anything
+      astr = displayInfo['AddrStr']
+      cid = None
+      if scriptType == CPP_TXOUT_MULTISIG:
+         M,N,a160s,pubs = getMultisigScriptInfo(binScript)
+         dispStr = 'Unrecognized Multisig %d-of-%d: P2SH=%s' % (M,N,astr)
+         cid     = 'MS:%s' % astr
+      elif scriptType == CPP_TXOUT_P2SH:
+         dispStr = 'Unrecognized P2SH: %s' % astr
+         cid     = 'P2SH:%s' % astr
+      elif scriptType in CPP_TXOUT_HAS_ADDRSTR:
+         dispStr = 'Address: %s' % astr
+         cid     = 'ADDR:%s' % astr
+      else:
+         dispStr = 'Non-standard: P2SH=%s' % astr
+         cid     = 'NS:%s' % astr
+
+      return dispStr, cid
+
 
 
    #############################################################################
@@ -2469,6 +2936,12 @@ class ArmoryMainWindow(QMainWindow):
             return wltID
       return ''
 
+   #############################################################################
+   def getWalletForScrAddr(self, scrAddr):
+      for wltID, wlt in self.walletMap.iteritems():
+         if wlt.hasScrAddr(scrAddr):
+            return wltID
+      return ''
 
    #############################################################################
    def getSettingOrSetDefault(self, settingName, defaultVal):
@@ -2479,156 +2952,59 @@ class ArmoryMainWindow(QMainWindow):
    def writeSetting(self, settingName, val):
       self.settings.set(settingName, val)
 
-   #############################################################################
-   def startRescanBlockchain(self, forceFullScan=False):
-      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
-         LOGWARN('Rescan requested but Armory is in offline mode')
-         return
-
-      if TheBDM.getBDMState()=='Scanning':
-         LOGINFO('Queueing rescan after current scan completes.')
-      else:
-         LOGINFO('Starting blockchain rescan...')
 
 
-      # Start it in the background
-      TheBDM.rescanBlockchain('AsNeeded', wait=False)
-      self.needUpdateAfterScan = True
-      self.setDashboardDetails()
-
-   #############################################################################
-   def forceRescanDB(self):
-      self.needUpdateAfterScan = True
-      self.lblDashModeBuild.setText( 'Build Databases', \
-                                        size=4, bold=True, color='DisableFG')
-      self.lblDashModeScan.setText( 'Scanning Transaction History', \
-                                        size=4, bold=True, color='Foreground')
-      TheBDM.rescanBlockchain('ForceRescan', wait=False)
-      self.setDashboardDetails()
-
-   #############################################################################
-   def forceRebuildAndRescan(self):
-      self.needUpdateAfterScan = True
-      self.lblDashModeBuild.setText( 'Preparing Databases', \
-                                        size=4, bold=True, color='Foreground')
-      self.lblDashModeScan.setText( 'Scan Transaction History', \
-                                        size=4, bold=True, color='DisableFG')
-      #self.resetBdmBeforeScan()  # this resets BDM and then re-registeres wlts
-      TheBDM.rescanBlockchain('ForceRebuild', wait=False)
-      self.setDashboardDetails()
-
-
-
-
-
-   #############################################################################
-   @TimeThisFunction
-   def initialWalletSync(self):
-      for wltID in self.walletMap.iterkeys():
-         LOGINFO('Syncing wallet: %s', wltID)
-         self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-         # Used to do "sync-lite" when we had to rescan for new addresses,
-         self.walletMap[wltID].syncWithBlockchainLite(0)
-         #self.walletMap[wltID].syncWithBlockchain(0)
-         self.walletMap[wltID].detectHighestUsedIndex(True) # expand wlt if necessary
-         self.walletMap[wltID].fillAddressPool()
-
-   @TimeThisFunction
-   def finishLoadBlockchain(self):
-      # Now that the blockchain is loaded, let's populate the wallet info
-      if TheBDM.isInitialized():
+   # NB: armoryd has a similar function (Armory_Daemon::start()), and both share
+   # common functionality in ArmoryUtils (finishLoadBlockchainCommon). If you
+   # mod this function, please be mindful of what goes where, and make sure
+   # any critical functionality makes it into armoryd.
+   def finishLoadBlockchainGUI(self):
+      # Let's populate the wallet info after finishing loading the blockchain.
          
-         #for wltID in self.walletMap.iterkeys():
-          #  TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
+      self.setDashboardDetails()
+      self.memPoolInit = True
 
-         self.currBlockNum = TheBDM.getTopBlockHeight()
-         self.setDashboardDetails()
-         if not self.memPoolInit:
-            mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-            clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.flag')
-            if os.path.exists(clearpoolfile):
-               LOGINFO('clearmempool.flag found.  Clearing memory pool')
-               os.remove(clearpoolfile)
-               if os.path.exists(mempoolfile):
-                  os.remove(mempoolfile)
-            else:
-               self.checkMemoryPoolCorruption(mempoolfile)
-               
-            cppMempoolFile = mempoolfile
-            if OS_WINDOWS and isinstance(mempoolfile, unicode):
-               cppMempoolFile = mempoolfile.encode('utf8')
-            TheBDM.enableZeroConf(cppMempoolFile)
-            self.memPoolInit = True
+      self.createCombinedLedger()
+      self.ledgerSize = len(self.combinedLedger)
+      self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
+      if self.netMode==NETWORKMODE.Full:
+         LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
+         self.lblArmoryStatus.setText(\
+            '<font color=%s>Connected (%s blocks)</font> ' %
+            (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
-         for wltID in self.walletMap.iterkeys():
-            LOGINFO('Syncing wallet: %s', wltID)
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchainLite(0)
-            self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
-            self.walletMap[wltID].fillAddressPool()
-
-         self.createCombinedLedger()
-         self.ledgerSize = len(self.combinedLedger)
-         self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
+         # We still need to put together various bits of info.
          if self.netMode==NETWORKMODE.Full:
-            LOGINFO('Current block number: %d', self.currBlockNum)
+            LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
             self.lblArmoryStatus.setText(\
                '<font color=%s>Connected (%s blocks)</font> ' %
-               (htmlColor('TextGreen'), self.currBlockNum))
+               (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
-         self.blkReceived = TheBDM.getTopBlockHeader().getTimestamp()
-         self.writeSetting('LastBlkRecv',     self.currBlockNum)
-         self.writeSetting('LastBlkRecvTime', self.blkReceived)
+      currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
+      self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
-         currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
-         self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
+      if self.getSettingOrSetDefault('NotifyBlkFinish',True):
+         reply,remember = MsgBoxWithDNAA(self, self, MSGBOX.Info, \
+            'Blockchain Loaded!', 'Blockchain loading is complete.  '
+            'Your balances and transaction history are now available '
+            'under the "Transactions" tab.  You can also send and '
+            'receive bitcoins.', \
+            dnaaMsg='Do not show me this notification again ', yesStr='OK')
 
+         if remember==True:
+            self.writeSetting('NotifyBlkFinish',False)
 
-         vectMissingBlks = TheBDM.missingBlockHashes()
-         LOGINFO('Blockfile corruption check: Missing blocks: %d', len(vectMissingBlks))
-         if len(vectMissingBlks) > 0:
-            LOGINFO('Missing blocks: %d', len(vectMissingBlks))
-            QMessageBox.critical(self, tr('Blockdata Error'), tr("""
-               Armory has detected an error in the blockchain database
-               maintained by the third-party Bitcoin software (Bitcoin-Qt
-               or bitcoind).  This error is not fatal, but may lead to
-               incorrect balances, inability to send coins, or application
-               instability.
-               <br><br>
-               It is unlikely that the error affects your wallets,
-               but it <i>is</i> possible.  If you experience crashing,
-               or see incorrect balances on any wallets, it is strongly
-               recommended you re-download the blockchain using:
-               "<b>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
-                QMessageBox.Ok)
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
 
-         if self.getSettingOrSetDefault('NotifyBlkFinish',True):
-            reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
-               'Blockchain Loaded!', 'Blockchain loading is complete.  '
-               'Your balances and transaction history are now available '
-               'under the "Transactions" tab.  You can also send and '
-               'receive bitcoins.', \
-               dnaaMsg='Do not show me this notification again ', yesStr='OK')
-
-            if remember==True:
-               self.writeSetting('NotifyBlkFinish',False)
-
-         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
-
-
-         self.netMode = NETWORKMODE.Full
-         self.settings.set('FailedLoadCount', 0)
-      else:
-         self.statusBar().showMessage('! Blockchain loading failed !', 10000)
-
+      self.netMode = NETWORKMODE.Full
+      self.settings.set('FailedLoadCount', 0)
 
       # This will force the table to refresh with new data
-      self.setDashboardDetails()
       self.updateAnnounceTab()  # make sure satoshi version info is up to date
       self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()
-
+   
       qLen = self.delayedURIData['qLen']
       if qLen > 0:
          #delayed URI parses, feed them back to the uri parser now
@@ -2645,24 +3021,6 @@ class ArmoryMainWindow(QMainWindow):
          os.remove(bfile)
 
    #############################################################################
-   def checkMemoryPoolCorruption(self, mempoolname):
-      if not os.path.exists(mempoolname):
-         return
-
-      memfile = open(mempoolname, 'rb')
-      memdata = memfile.read()
-      memfile.close()
-
-      binunpacker = BinaryUnpacker(memdata)
-      try:
-         while binunpacker.getRemainingSize() > 0:
-            binunpacker.get(UINT64)
-            PyTx().unserialize(binunpacker)
-      except:
-         os.remove(mempoolname);
-         LOGWARN('Memory pool file was corrupt.  Deleted. (no further action is needed)')
-
-   #############################################################################
    def changeLedgerSorting(self, col, order):
       """
       The direct sorting was implemented to avoid having to search for comment
@@ -2676,40 +3034,20 @@ class ArmoryMainWindow(QMainWindow):
       self.createCombinedLedger()
 
    #############################################################################
-   @TimeThisFunction
+
    def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
       """
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
-      start = RightNow()
+      bdmState = TheBDM.getState()
+      
       if wltIDList==None:
-         # Create a list of [wltID, type] pairs
-         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
-                                                      for wid in self.walletIDList]
-
-         # We need to figure out which wallets to combine here...
          currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         currText = str(self.comboWltSelect.currentText()).lower()
-         if currIdx>=4:
-            wltIDList = [self.walletIDList[currIdx-6]]
-         else:
-            listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
-            listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
-            listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
-            listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
-
-            if currIdx==0:
-               wltIDList = listOffline + listCrypt + listPlain
-            elif currIdx==1:
-               wltIDList = listOffline
-            elif currIdx==2:
-               wltIDList = listWatching
-            elif currIdx==3:
-               wltIDList = self.walletIDList
-            else:
-               pass
-               #raise WalletExistsError('Bad combo-box selection: ' + str(currIdx))
+         wltIDList = []
+         for i,vis in enumerate(self.walletVisibleList):
+            if vis:
+               wltIDList.append(self.walletIDList[i])
          self.writeSetting('LastFilterState', currIdx)
 
 
@@ -2717,46 +3055,28 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       self.combinedLedger = []
+      self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
-      currBlk = 0xffffffff
-      if TheBDM.isInitialized():
-         currBlk = TheBDM.getTopBlockHeight()
 
-      for wltID in wltIDList:
-         wlt = self.walletMap[wltID]
-         id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
-         self.combinedLedger.extend(id_le_pairs)
-         totalFunds += wlt.getBalance('Total')
-         spendFunds += wlt.getBalance('Spendable')
-         unconfFunds += wlt.getBalance('Unconfirmed')
+      if bdmState == BDM_BLOCKCHAIN_READY:
+         for wltID in wltIDList:
+            wlt = self.walletMap[wltID]
+            totalFunds += wlt.getBalance('Total')
+            spendFunds += wlt.getBalance('Spendable')
+            unconfFunds += wlt.getBalance('Unconfirmed')
 
-
-      # Apply table sorting -- this is very fast
-      sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
-      if self.sortLedgCol == LEDGERCOLS.NumConf:
-         self.combinedLedger.sort(key=lambda x: currBlk-x[1].getBlockNum()+1, reverse=not sortDir)
-      if self.sortLedgCol == LEDGERCOLS.DateStr:
-         self.combinedLedger.sort(key=lambda x: x[1].getTxTime(), reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.WltName:
-         self.combinedLedger.sort(key=lambda x: self.walletMap[x[0]].labelName, reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.Comment:
-         self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x[0],x[1]), reverse=sortDir)
-      if self.sortLedgCol == LEDGERCOLS.Amount:
-         self.combinedLedger.sort(key=lambda x: abs(x[1].getValue()), reverse=sortDir)
-
+            
       self.ledgerSize = len(self.combinedLedger)
 
-      # Hide the ledger slicer if our data set is smaller than the slice width
-      self.frmLedgUpDown.setVisible(self.ledgerSize>self.currLedgWidth)
-      self.lblLedgRange.setText('%d to %d' % (self.currLedgMin, self.currLedgMax))
-      self.lblLedgTotal.setText('(of %d)' % self.ledgerSize)
+      # Hide the ledger slicer, we dont use it anymore. Should get rid of it entirely at some point.
+      self.frmLedgUpDown.setVisible(False)
 
       # Many MainWindow objects haven't been created yet...
       # let's try to update them and fail silently if they don't exist
       try:
-         if TheBDM.getBDMState() in ('Offline', 'Scanning'):
+         if bdmState in (BDM_OFFLINE, BDM_SCANNING):
             self.lblTotalFunds.setText( '-'*12 )
             self.lblSpendFunds.setText( '-'*12 )
             self.lblUnconfFunds.setText('-'*12 )
@@ -2773,33 +3093,74 @@ class ArmoryMainWindow(QMainWindow):
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
 
+         pageCount = TheBDM.bdv().getWalletsPageCount()
+         self.frmPages.setVisible(pageCount > 1)
+         self.lblNPages.setText(' out of %d' % pageCount)
+         
          # Finally, update the ledger table
-         rmin,rmax = self.currLedgMin-1, self.currLedgMax
-         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger[rmin:rmax])
+         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
          self.ledgerModel.ledger = self.ledgerTable
          self.ledgerModel.reset()
 
       except AttributeError:
          raise
 
+
+      if not self.usermode==USERMODE.Expert:
+         return 
+
+      # In expert mode, we're updating the lockbox info, too
+      try:
+         lockboxTable = TheBDM.bdv().getLockboxesHistoryPage(0)
+
+
+         self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
+         self.lockboxLedgModel.ledger = self.lockboxLedgTable
+         self.lockboxLedgModel.reset()
+      except:
+         LOGEXCEPT('Failed to update lockbox ledger')
+
    #############################################################################
-   @TimeThisFunction
-   def convertLedgerToTable(self, ledger):
+   def getCommentForLockboxTx(self, lboxId, le):
+      commentSet = set([])
+      lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
+      for a160 in lbox.a160List:
+         wltID = self.getWalletForAddr160(a160)
+         if wltID:
+            commentSet.add(self.walletMap[wltID].getCommentForLE(le))
+      return ' '.join(commentSet)
+
+   #############################################################################
+
+   def convertLedgerToTable(self, ledger, showSentToSelfAmt=True, wltIDIn=None):
       table2D = []
       datefmt = self.getPreferredDateFormat()
-      for wltID,le in ledger:
+      for le in ledger:
+         if wltIDIn is None:
+            wltID = le.getWalletID()
+         else: 
+            wltID = wltIDIn
+          
          row = []
 
-         wlt = self.walletMap[wltID]
-         nConf = self.currBlockNum - le.getBlockNum()+1
+         wlt = self.walletMap.get(wltID)
+
+         if wlt:
+            isWatch = (determineWalletType(wlt, self)[0] == WLTTYPES.WatchOnly)
+            wltName = wlt.labelName 
+            dispComment = self.getCommentForLE(le, wltID)
+         else:
+            lboxId = wltID
+            lbox = self.getLockboxByID(lboxId)
+            if not lbox:
+               continue
+            isWatch = True
+            wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, lboxId)
+            dispComment = self.getCommentForLockboxTx(lboxId, le)
+
+         nConf = TheBDM.getTopBlockHeight() - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
             nConf=0
-
-         # We need to compute the fee by adding inputs and outputs...
-         amt = le.getValue()
-         #removeFee = self.getSettingOrSetDefault('DispRmFee', False)
-         #if TheBDM.isInitialized() and removeFee and amt<0:
-            #amt += self.getFeeForTx(le.getTxHash())
 
          # If this was sent-to-self... we should display the actual specified
          # value when the transaction was executed.  This is pretty difficult
@@ -2807,60 +3168,74 @@ class ArmoryMainWindow(QMainWindow):
          # They're actually not because we ALWAYS generate a new address to
          # for change , which means the change address MUST have a higher
          # chain index
-         if le.isSentToSelf():
+         amt = le.getValue()
+         if le.isSentToSelf() and wlt and showSentToSelfAmt:
             amt = determineSentToSelfAmt(le, wlt)[0]
-         if le.getBlockNum() >= 0xffffffff: nConf = 0
+
          # NumConf
          row.append(nConf)
+
          # UnixTime (needed for sorting)
          row.append(le.getTxTime())
+
          # Date
          row.append(unixTimeToFormatStr(le.getTxTime(), datefmt))
+
          # TxDir (actually just the amt... use the sign of the amt to determine dir)
          row.append(coin2str(le.getValue(), maxZeros=2))
+
          # Wlt Name
-         row.append(self.walletMap[wltID].labelName)
+         row.append(wltName)
+
          # Comment
-         row.append(self.getCommentForLE(wltID, le))
+         row.append(dispComment)
+
          # Amount
          row.append(coin2str(amt, maxZeros=2))
+
          # Is this money mine?
-         row.append( determineWalletType(wlt, self)[0]==WLTTYPES.WatchOnly)
-         # WltID
+         row.append(isWatch)
+
+         # ID to display (this might be the lockbox ID)
          row.append( wltID )
+
          # TxHash
          row.append( binary_to_hex(le.getTxHash() ))
+
          # Is this a coinbase/generation transaction
          row.append( le.isCoinbase() )
+
          # Sent-to-self
          row.append( le.isSentToSelf() )
-         # Tx was invalidated!  (double=spend!)
-         row.append( not le.isValid())
+
          # Finally, attach the row to the table
          table2D.append(row)
+
       return table2D
 
 
    #############################################################################
-   @TimeThisFunction
+
    def walletListChanged(self):
       self.walletModel.reset()
       self.populateLedgerComboBox()
-      self.createCombinedLedger()
+      if not TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
+         self.createCombinedLedger()
 
 
    #############################################################################
-   @TimeThisFunction
+
    def populateLedgerComboBox(self):
       self.comboWltSelect.clear()
       self.comboWltSelect.addItem( 'My Wallets'        )
       self.comboWltSelect.addItem( 'Offline Wallets'   )
       self.comboWltSelect.addItem( 'Other\'s wallets'  )
       self.comboWltSelect.addItem( 'All Wallets'       )
+      self.comboWltSelect.addItem( 'Custom Filter'     )
       for wltID in self.walletIDList:
          self.comboWltSelect.addItem( self.walletMap[wltID].labelName )
-      self.comboWltSelect.insertSeparator(4)
-      self.comboWltSelect.insertSeparator(4)
+      self.comboWltSelect.insertSeparator(5)
+      self.comboWltSelect.insertSeparator(5)
       comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
       self.comboWltSelect.setCurrentIndex(comboIdx)
 
@@ -2888,9 +3263,29 @@ class ArmoryMainWindow(QMainWindow):
 
       wlt = self.walletMap[self.walletIDList[index.row()]]
       dialog = DlgWalletDetails(wlt, self.usermode, self, self)
+      self.walletDialogDict[wlt.uniqueIDB58] = dialog
       dialog.exec_()
-      #self.walletListChanged()
+      if wlt.uniqueIDB58 in self.walletDialogDict:
+         del self.walletDialogDict[wlt.uniqueIDB58]
 
+   #############################################################################
+   def execClickRow(self, index=None):
+      row,col = index.row(), index.column()
+      if not col==WLTVIEWCOLS.Visible:
+         return
+
+      wltID = self.walletIDList[row]
+      currEye = self.walletVisibleList[row]
+      self.walletVisibleList[row] = not currEye 
+      self.setWltSetting(wltID, 'LedgerShow', not currEye)
+      
+      # Set it to "Custom Filter"
+      self.comboWltSelect.setCurrentIndex(4)
+      
+      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         self.createCombinedLedger()
+         self.ledgerModel.reset()
+         self.walletModel.reset()
 
 
    #############################################################################
@@ -2901,7 +3296,7 @@ class ArmoryMainWindow(QMainWindow):
       wltID       = str(view.model().index(row, LEDGERCOLS.WltID  ).data().toString())
       txHash      = str(view.model().index(row, LEDGERCOLS.TxHash ).data().toString())
 
-      dialog = DlgSetComment(currComment, 'Transaction', self, self)
+      dialog = DlgSetComment(self, self, currComment, 'Transaction')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
@@ -2915,7 +3310,7 @@ class ArmoryMainWindow(QMainWindow):
       currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
       addrStr     = str(view.model().index(row, ADDRESSCOLS.Address).data().toString())
 
-      dialog = DlgSetComment(currComment, 'Address', self, self)
+      dialog = DlgSetComment(self, self, currComment, 'Address')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          atype, addr160 = addrStr_to_hash160(addrStr)
@@ -2926,9 +3321,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   @TimeThisFunction
+
    def getAddrCommentIfAvailAll(self, txHash):
-      if not TheBDM.isInitialized():
+      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          return ''
       else:
 
@@ -2943,30 +3338,20 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getCommentForLE(self, wltID, le):
+   def getCommentForLE(self, le, wltID=None):
       # Smart comments for LedgerEntry objects:  get any direct comments ...
       # if none, then grab the one for any associated addresses.
 
+      if wltID is None:
+         wltID = le.getWalletID()
       return self.walletMap[wltID].getCommentForLE(le)
-      """
-      txHash = le.getTxHash()
-      if wlt.commentsMap.has_key(txHash):
-         comment = wlt.commentsMap[txHash]
-      else:
-         # [[ COMMENTS ]] are not meant to be displayed on main ledger
-         comment = self.getAddrCommentIfAvail(txHash)
-         if comment.startswith('[[') and comment.endswith(']]'):
-            comment = ''
-
-      return comment
-      """
-
-
-
-
+            
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):
       LOGINFO('addWalletToApplication')
+      
+      newWallet.registerWallet()
+
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
 
@@ -2979,9 +3364,10 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
-
-      ledger = []
-      wlt = self.walletMap[newWltID]
+      showByDefault = (determineWalletType(newWallet, self)[0] != WLTTYPES.WatchOnly)
+      self.walletVisibleList.append(showByDefault)
+      self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
+      
       self.walletListChanged()
       self.mainWnd = self
 
@@ -2995,11 +3381,14 @@ class ArmoryMainWindow(QMainWindow):
       except KeyError:
          LOGERROR('Invalid wallet ID passed to "removeWalletFromApplication"')
          raise WalletExistsError
+      
+      self.walletMap[wltID].unregisterWallet()
 
       del self.walletMap[wltID]
       del self.walletIndices[wltID]
       self.walletIDSet.remove(wltID)
       del self.walletIDList[idx]
+      del self.walletVisibleList[idx]
 
       # Reconstruct walletIndices
       for i,wltID in enumerate(self.walletIDList):
@@ -3013,7 +3402,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def createSweepAddrTx(self, a160ToSweepList, sweepTo160, forceZeroFee=False):
+   def createSweepAddrTx(self, sweepFromAddrObjList, sweepToScript):
       """
       This method takes a list of addresses (likely just created from private
       key data), finds all their unspent TxOuts, and creates a signed tx that
@@ -3023,47 +3412,55 @@ class ArmoryMainWindow(QMainWindow):
       and deducted from the output value, if necessary.
       """
       LOGINFO('createSweepAddrTx')
-      if not isinstance(a160ToSweepList, (list, tuple)):
-         a160ToSweepList = [a160ToSweepList]
-      addr160List = [a.getAddr160() for a in a160ToSweepList]
-      getAddr = lambda addr160: a160ToSweepList[addr160List.index(addr160)]
-
-      utxoList = getUnspentTxOutsForAddr160List(addr160List, 'Sweep', 0)
+      if not isinstance(sweepFromAddrObjList, (list, tuple)):
+         sweepFromAddrObjList = [sweepFromAddrObjList]
+      
+      addr160List = [a.getAddr160() for a in sweepFromAddrObjList]
+      utxoList = getUnspentTxOutsForAddr160List(addr160List)
       if len(utxoList)==0:
          return [None, 0, 0]
 
       outValue = sumTxOutList(utxoList)
 
       inputSide = []
+
       for utxo in utxoList:
          # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
-         CppPrevTx = TheBDM.getTxByHash(utxo.getTxHash())
-         PyPrevTx = PyTx().unserialize(CppPrevTx.serialize())
-         addr160 = CheckHash160(utxo.getRecipientScrAddr())
-         inputSide.append([getAddr(addr160), PyPrevTx, utxo.getTxOutIndex()])
+         rawTx = TheBDM.bdv().getTxByHash(utxo.getTxHash()).serialize()
+         a160 = CheckHash160(utxo.getRecipientScrAddr())
+         for aobj in sweepFromAddrObjList:
+            if a160 == aobj.getAddr160():
+               pubKey = aobj.binPublicKey65.toBinStr()
+               txoIdx = utxo.getTxOutIndex()
+               inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
+               break
 
-      # Try with zero fee and exactly one output
       minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)[1]
 
-      if minFee > 0 and \
-         not forceZeroFee and \
-         not self.getSettingOrSetDefault('OverrideMinFee', False):
+      if minFee > 0:
          LOGDEBUG( 'Subtracting fee from Sweep-output')
          outValue -= minFee
 
       if outValue<=0:
          return [None, outValue, minFee]
 
+      # Creating the output list is pretty easy...
       outputSide = []
-      outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), \
-                          outValue] )
+      outputSide.append(DecoratedTxOut(sweepToScript, outValue))
 
-      pytx = PyCreateAndSignTx(inputSide, outputSide)
-      return (pytx, outValue, minFee)
+      try:
+         # Make copies, destroy them in the finally clause
+         privKeyMap = {}
+         for addrObj in sweepFromAddrObjList:
+            scrAddr = SCRADDR_P2PKH_BYTE + addrObj.getAddr160()
+            privKeyMap[scrAddr] = addrObj.binPrivKey32_Plain.copy()
+   
+         pytx = PyCreateAndSignTx(inputSide, outputSide, privKeyMap)
+         return (pytx, outValue, minFee)
 
-
-
-
+      finally:
+         for scraddr in privKeyMap:
+            privKeyMap[scraddr].destroy()
 
    #############################################################################
    def confirmSweepScan(self, pybtcaddrList, targAddr160):
@@ -3086,7 +3483,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       confirmed=False
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+      if TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
          #LOGERROR('Somehow ended up at confirm-sweep while in offline mode')
          #QMessageBox.info(self, 'Armory is Offline', \
             #'Armory is currently in offline mode.  You must be in online '
@@ -3109,11 +3506,11 @@ class ArmoryMainWindow(QMainWindow):
             'able to create transactions.  The scan may take several minutes.'
             '<br><br>' % ('keys' if gt1 else 'key'))
 
-         if TheBDM.getBDMState()=='Scanning':
+         if TheBDM.getState()==BDM_SCANNING:
             msgConfirm += ( \
                'There is currently another scan operation being performed.  '
                'Would you like to start the sweep operation after it completes? ')
-         elif TheBDM.getBDMState()=='BlockchainReady':
+         elif TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             msgConfirm += ( \
                '<b>Would you like to start the scan operation right now?</b>')
 
@@ -3127,21 +3524,20 @@ class ArmoryMainWindow(QMainWindow):
             TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
          self.sweepAfterScanList = pybtcaddrList
          self.sweepAfterScanTarg = targAddr160
-         #TheBDM.rescanBlockchain('AsNeeded', wait=False)
-         self.startRescanBlockchain()
          self.setDashboardDetails()
          return True
 
 
    #############################################################################
-   def finishSweepScan(self):
+   def finishSweepScan(self, wlt, sweepList, sweepAfterScanTarget):
       LOGINFO('finishSweepScan')
-      sweepList, self.sweepAfterScanList = self.sweepAfterScanList,[]
+      self.sweepAfterScanList = []
 
       #######################################################################
       # The createSweepTx method will return instantly because the blockchain
       # has already been rescanned, as described above
-      finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, self.sweepAfterScanTarg)
+      targScript = scrAddr_to_script(SCRADDR_P2PKH_BYTE + sweepAfterScanTarget)
+      finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, targScript)
 
       gt1 = len(sweepList)>1
 
@@ -3168,12 +3564,9 @@ class ArmoryMainWindow(QMainWindow):
                      coin2str(outVal+fee, maxZeros=0), coin2str(fee, maxZeros=0))
             return
 
-      wltID = self.getWalletForAddr160(self.sweepAfterScanTarg)
-      wlt = self.walletMap[wltID]
-
       # Finally, if we got here, we're ready to broadcast!
       if gt1:
-         dispIn  = '<Multiple Addresses>'
+         dispIn  = 'multiple addresses'
       else:
          dispIn  = 'address <b>%s</b>' % sweepList[0].getAddrStr()
 
@@ -3181,20 +3574,17 @@ class ArmoryMainWindow(QMainWindow):
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
          self.broadcastTransaction(finishedTx, dryRun=False)
 
-      if TheBDM.getBDMState()=='BlockchainReady':
-         wlt.syncWithBlockchain(0)
-
-      self.walletListChanged()
+      wlt.finishSweepScan(sweepList)
 
    #############################################################################
-   def broadcastTransaction(self, pytx, dryRun=False):
+   def broadcastTransaction(self, pytx, dryRun=False, withOldSigWarning=True):
 
       if dryRun:
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
          modified, newTx = pytx.minimizeDERSignaturePadding()
-         if modified:
+         if modified and withOldSigWarning:
             reply = QMessageBox.warning(self, 'Old signature format detected', \
                  'The transaction that you are about to execute '
                  'has been signed with an older version Bitcoin Armory '
@@ -3224,80 +3614,78 @@ class ArmoryMainWindow(QMainWindow):
             # balance occur.  In some cases, that may be more satisfying than
             # just seeing the updated balance when they get back to the main
             # screen
-            if not TheBDM.getTxByHash(newTxHash).isInitialized():
+            if not TheBDM.bdv().getTxByHash(newTxHash).isInitialized():
                LOGERROR('Transaction was not accepted by the Satoshi client')
                LOGERROR('Raw transaction:')
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
                LOGERROR('Transaction details')
                LOGPPRINT(pytx, logging.ERROR)
-               searchstr = binary_to_hex(newTxHash, BIGENDIAN)
-               QMessageBox.warning(self, 'Invalid Transaction', \
-                  'The transaction that you just executed, does not '
-                  'appear to have been accepted by the Bitcoin network. '
-                  'This can happen for a variety of reasons, but it is '
-                  'usually due to a bug in the Armory software.  '
-                  '<br><br>On some occasions the transaction actually did succeed '
-                  'and this message is the bug itself!  To confirm whether the '
-                  'the transaction actually succeeded, you can try this direct link '
-                  'to blockchain.info:'
-                  '<br><br>'
-                  '<a href="https://blockchain.info/search/%s">'
-                  'https://blockchain.info/search/%s...</a>.  '
-                  '<br><br>'
-                  'If you do not see the '
-                  'transaction on that webpage within one minute, it failed and you '
-                  'should attempt to re-send it. '
-                  'If it <i>does</i> show up, then you do not need to do anything '
-                  'else -- it will show up in Armory as soon as it receives 1 '
-                  'confirmation. '
-                  '<br><br>If the transaction did fail, please consider '
-                  'reporting this error the the Armory '
-                  'developers.  From the main window, go to '
-                  '"<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" to make a copy of your '
-                  'log file to send via email to support@bitcoinarmory.com.  ' \
-                   % (searchstr,searchstr[:8]), \
-                  QMessageBox.Ok)
+               searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
+
+               supportURL       = 'https://bitcoinarmory.com/support' 
+               blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
+               blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
+
+               QMessageBox.warning(self, tr('Transaction Not Accepted'), tr("""
+                  The transaction that you just executed, does not 
+                  appear to have been accepted by the Bitcoin network. 
+                  This can happen for a variety of reasons, but it is 
+                  usually due to a bug in the Armory software.  
+                  <br><br>On some occasions the transaction actually did succeed 
+                  and this message is the bug itself!  To confirm whether the 
+                  the transaction actually succeeded, you can try this direct link 
+                  to %(blockexplorer)s:
+                  <br><br>
+                  <a href="%(url)s">%(urlshort)s...</a>  
+                  <br><br>
+                  If you do not see the 
+                  transaction on that webpage within one minute, it failed and you 
+                  should attempt to re-send it. 
+                  If it <i>does</i> show up, then you do not need to do anything 
+                  else -- it will show up in Armory as soon as it receives one
+                  confirmation. 
+                  <br><br>If the transaction did fail, please consider 
+                  reporting this error the the Armory developers.  
+                  From the main window, go to "<i>Help</i>" and select 
+                  "<i>Submit Bug Report</i>".  Or use "<i>File</i>" -> 
+                  "<i>Export Log File</i>" and then attach it to a support 
+                  ticket at 
+                  <a href="%(supporturl)s">%(supporturl)s</a>""") % {
+                     'blockexplorer' : BLOCKEXPLORE_NAME, 'url' : blkexplURL, \
+                     'urlshort' : blkexplURL_short, 'supporturl' : supportURL}, QMessageBox.Ok)
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
-         reactor.callLater(4, sendGetDataMsg)
-         reactor.callLater(5, checkForTxInBDM)
 
-         #QMessageBox.information(self, 'Broadcast Complete!', \
-            #'The transaction has been broadcast to the Bitcoin network.  However '
-            #'there is no way to know for sure whether it was accepted until you '
-            #'see it in the blockchain with 1+ confirmations.  Please search '
-            #'www.blockchain.info for the for recipient\'s address, to '
-            #'verify whether it was accepted or not.  '
-            #'\n\nAlso note: other transactions you send '
-            #'from this wallet may not succeed until that first confirmation is '
-            #'received.  Both issues are a problem with Armory that will be fixed '
-            #'with the next release.', QMessageBox.Ok)
-
+         # Send the Tx after a short delay, give the system time to see the Tx
+         # on the network and process it, and check to see if the Tx was seen.
+         # We may change this setup in the future, but for now....
+         reactor.callLater(3, sendGetDataMsg)
+         reactor.callLater(7, checkForTxInBDM)
 
 
    #############################################################################
    def warnNoImportWhileScan(self):
       extraMsg = ''
       if not self.usermode==USERMODE.Standard:
-         extraMsg = ('<br><br>'
-                     'In the future, you may avoid scanning twice by '
+         extraMsg = ('<br><br>' + \
+                     tr('In the future, you may avoid scanning twice by '
                      'starting Armory in offline mode (--offline), and '
-                     'perform the import before switching to online mode.')
-      QMessageBox.warning(self, 'Armory is Busy', \
-         'Wallets and addresses cannot be imported while Armory is in '
+                     'perform the import before switching to online mode.'))
+      QMessageBox.warning(self, tr('Armory is Busy'), \
+         tr('Wallets and addresses cannot be imported while Armory is in '
          'the middle of an existing blockchain scan.  Please wait for '
-         'the scan to finish.  ' + extraMsg, QMessageBox.Ok)
+         'the scan to finish.  ') + extraMsg, QMessageBox.Ok)
 
 
 
    #############################################################################
    def execImportWallet(self):
       sdm = TheSDM.getSDMState()
-      bdm = TheBDM.getBDMState()
+      bdm = TheBDM.getState()
       if sdm in ['BitcoindInitializing', \
                  'BitcoindSynchronizing', \
                  'TorrentSynchronizing'] or \
-         bdm in ['Scanning']:
+         bdm in [BDM_SCANNING]:
          QMessageBox.warning(self, tr('Scanning'), tr("""
             Armory is currently in the middle of scanning the blockchain for
             your existing wallets.  New wallets cannot be imported until this
@@ -3334,151 +3722,8 @@ class ArmoryMainWindow(QMainWindow):
       newWlt = PyBtcWallet().readWalletFile(newpath)
       newWlt.fillAddressPool()
 
-      self.addWalletToAppAndAskAboutRescan(newWlt)
-
-      """ I think the addWalletToAppAndAskAboutRescan replaces this...
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
-         self.addWalletToApplication(newWlt, walletIsNew=False)
-         return
-
-      if TheBDM.getBDMState()=='BlockchainReady':
-         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-            'The wallet was imported successfully, but cannot be displayed '
-            'until the global transaction history is '
-            'searched for previous transactions.  This scan will potentially '
-            'take much longer than a regular rescan, and the wallet cannot '
-            'be shown on the main display until this rescan is complete.'
-            '<br><br>'
-            '<b>Would you like to go into offline mode to start this scan now?'
-            '</b>  If you click "No" the scan will be aborted, and the wallet '
-            'will not be added to Armory.', \
-            QMessageBox.Yes | QMessageBox.No)
-      else:
-         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-            'The wallet was imported successfully, but its balance cannot '
-            'be determined until Armory performs a "recovery scan" for the '
-            'wallet.  This scan potentially takes much longer than a regular '
-            'scan, and must be completed for all imported wallets. '
-            '<br><br>'
-            'Armory is already in the middle of a scan and cannot be interrupted. '
-            'Would you like to start the recovery scan when it is done?'
-            '<br><br>'
-            '</b>  If you click "No," the wallet import will be aborted '
-            'and you must re-import the wallet when you '
-            'are able to wait for the recovery scan.', \
-            QMessageBox.Yes | QMessageBox.No)
-
-      if doRescanNow == QMessageBox.Yes:
-         LOGINFO('User requested rescan after wallet import')
-         #TheBDM.startWalletRecoveryScan(newWlt)  # TODO: re-enable this later
-         #TheBDM.rescanBlockchain('AsNeeded', wait=False)
-         self.startRescanBlockchain()
-         self.setDashboardDetails()
-      else:
-         LOGINFO('User aborted the wallet-import scan')
-         QMessageBox.warning(self, 'Import Failed', \
-            'The wallet was not imported.', QMessageBox.Ok)
-
-         # The wallet cannot exist without also being on disk.
-         # If the user aborted, we should remove the disk data.
-         thepath       = newWlt.getWalletPath()
-         thepathBackup = newWlt.getWalletPath('backup')
-         os.remove(thepath)
-         os.remove(thepathBackup)
-         return
-
-      self.addWalletToApplication(newWlt, walletIsNew=False)
-      self.newWalletList.append([newWlt, False])
-      LOGINFO('Import Complete!')
-      """
-
-
-
-
-   #############################################################################
-   def addWalletToAppAndAskAboutRescan(self, newWallet):
-      LOGINFO('Raw import successful.')
-
-      # If we are offline, then we can't assume there will ever be a
-      # rescan.  Just add the wallet to the application
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
-         TheBDM.registerWallet(newWallet.cppWallet)
-         self.addWalletToApplication(newWallet, walletIsNew=False)
-         return
-
-      """  TODO:  Temporarily removed recovery-rescan operations
-      elif TheBDM.getBDMState()=='BlockchainReady':
-         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-            'The wallet was recovered successfully, but cannot be displayed '
-            'until the global transaction history is '
-            'searched for previous transactions.  This scan will potentially '
-            'take much longer than a regular rescan, and the wallet cannot '
-            'be shown on the main display until this rescan is complete.'
-            '<br><br>'
-            '<b>Would you like to go into offline mode to start this scan now?'
-            '</b>  If you click "No" the scan will be aborted, and the wallet '
-            'will not be added to Armory.', \
-            QMessageBox.Yes | QMessageBox.No)
-         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-            'The wallet was recovered successfully, but cannot be displayed '
-            'until a special kind of rescan is performed to find previous '
-            'transactions.  However, Armory is currently in the middle of '
-            'a scan.  Would you like to start the recovery scan immediately '
-            'afterwards?'
-            '<br><br>'
-            '</b>  If you click "No" the scan will be aborted, and the wallet '
-            'will not be added to Armory.  Restore the wallet again when you '
-            'are able to wait for the recovery scan.', \
-            QMessageBox.Yes | QMessageBox.No)
-      """
-
-      doRescanNow = QMessageBox.Cancel
-
-      if TheBDM.getBDMState()=='BlockchainReady':
-         doRescanNow = QMessageBox.question(self, tr('Rescan Needed'), \
-            tr("""The wallet was restored successfully but its balance
-            cannot be displayed until the blockchain is rescanned.
-            Armory will need to go into offline mode for 5-20 minutes.
-            <br><br>
-            Would you like to do the scan now?  Clicking "No" will
-            abort the restore/import operation."""), \
-            QMessageBox.Yes | QMessageBox.No)
-      else:
-         doRescanNow = QMessageBox.question(self, tr('Rescan Needed'), \
-            tr("""The wallet was restored successfully but its balance
-            cannot be displayed until the blockchain is rescanned.
-            However, Armory is currently in the middle of a rescan
-            operation right now.  Would you like to start a new scan
-            as soon as this one is finished?
-            <br><br>
-            Clicking "No" will abort adding the wallet to Armory."""), \
-            QMessageBox.Yes | QMessageBox.No)
-
-
-      if doRescanNow == QMessageBox.Yes:
-         LOGINFO('User requested rescan after wallet restore')
-         #TheBDM.startWalletRecoveryScan(newWallet)
-         TheBDM.registerWallet(newWallet.cppWallet)
-         self.startRescanBlockchain()
-         self.setDashboardDetails()
-      else:
-         LOGINFO('User aborted the wallet-recovery scan')
-         QMessageBox.warning(self, 'Import Failed', \
-            'The wallet was not restored.  To restore the wallet, reenter '
-            'the "Restore Wallet" dialog again when you are able to wait '
-            'for the rescan operation.  ', QMessageBox.Ok)
-         # The wallet cannot exist without also being on disk.
-         # If the user aborted, we should remove the disk data.
-         thepath       = newWallet.getWalletPath()
-         thepathBackup = newWallet.getWalletPath('backup')
-         os.remove(thepath)
-         os.remove(thepathBackup)
-         return
-
-      self.addWalletToApplication(newWallet, walletIsNew=False)
-      LOGINFO('Import Complete!')
-
-
+      self.addWalletToApplication(newWlt)
+      
    #############################################################################
    def digitalBackupWarning(self):
       reply = QMessageBox.warning(self, 'Be Careful!', tr("""
@@ -3492,12 +3737,12 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execAddressBook(self):
-      if TheBDM.getBDMState()=='Scanning':
+      if TheBDM.getState()==BDM_SCANNING:
          QMessageBox.warning(self, 'Blockchain Not Ready', \
             'The address book is created from transaction data available in '
             'the blockchain, which has not finished loading.  The address '
             'book will become available when Armory is online.', QMessageBox.Ok)
-      elif TheBDM.getBDMState() in ('Uninitialized','Offline'):
+      elif TheBDM.getState() in (BDM_UNINITIALIZED,BDM_OFFLINE):
          QMessageBox.warning(self, 'Blockchain Not Ready', \
             'The address book is created from transaction data available in '
             'the blockchain, but Armory is currently offline.  The address '
@@ -3508,7 +3753,6 @@ class ArmoryMainWindow(QMainWindow):
                'there is no address book to display.', QMessageBox.Ok)
             return
          DlgAddressBook(self, self, None, None, None).exec_()
-
 
    #############################################################################
    def getUniqueWalletFilename(self, wltPath):
@@ -3551,10 +3795,9 @@ class ArmoryMainWindow(QMainWindow):
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
-      if TheBDM.isInitialized():
-         cppTx = TheBDM.getTxByHash(txHashBin)
-         if cppTx.isInitialized():
-            pytx = PyTx().unserialize(cppTx.serialize())
+      cppTx = TheBDM.runBDM( lambda : TheBDM.bdv().getTxByHash(txHashBin) )
+      if cppTx.isInitialized():
+         pytx = PyTx().unserialize(cppTx.serialize())
 
       if pytx==None:
          QMessageBox.critical(self, 'Invalid Tx:',
@@ -3572,32 +3815,32 @@ class ArmoryMainWindow(QMainWindow):
       if len(self.ledgerView.selectedIndexes())==0:
          return
 
-      actViewTx     = menu.addAction("View Details")
-      actViewBlkChn = menu.addAction("View on www.blockchain.info")
-      actComment    = menu.addAction("Change Comment")
-      actCopyTxID   = menu.addAction("Copy Transaction ID")
-      actOpenWallet = menu.addAction("Open Relevant Wallet")
       row = self.ledgerView.selectedIndexes()[0].row()
-      action = menu.exec_(QCursor.pos())
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
-      blkchnURL = 'https://blockchain.info/tx/%s' % txHash
+
+      actViewTx     = menu.addAction("View Details")
+      actViewBlkChn = menu.addAction("View on %s" % BLOCKEXPLORE_NAME)
+      actComment    = menu.addAction("Change Comment")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      actOpenWallet = menu.addAction("Open Relevant Wallet")
+      action = menu.exec_(QCursor.pos())
 
       if action==actViewTx:
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            webbrowser.open(blkchnURL)
+            webbrowser.open(BLOCKEXPLORE_URL_TX % txHash)
          except:
             LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, 'Could not open browser', \
                'Armory encountered an error opening your web browser.  To view '
                'this transaction on blockchain.info, please copy and paste '
                'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+               '<br><br>%s' % (BLOCKEXPLORE_URL_TX % txHash), QMessageBox.Ok)
       elif action==actCopyTxID:
          clipb = QApplication.clipboard()
          clipb.clear()
@@ -3621,7 +3864,7 @@ class ArmoryMainWindow(QMainWindow):
       return None if wltID == None else self.walletMap[wltID]
 
    def clickSendBitcoins(self):
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+      if TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
@@ -3631,7 +3874,7 @@ class ArmoryMainWindow(QMainWindow):
            'or initiate an "offline transaction" using a watching-only '
            'wallet on an online computer.', QMessageBox.Ok)
          return
-      elif TheBDM.getBDMState()=='Scanning':
+      elif TheBDM.getState()==BDM_SCANNING:
          QMessageBox.warning(self, 'Armory Not Ready', \
            'Armory is currently scanning the blockchain to collect '
            'the information needed to create transactions.  This typically '
@@ -3723,6 +3966,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def clickReceiveCoins(self):
       LOGDEBUG('Clicked "Receive Bitcoins Button"')
+      loading = LoadingDisp(self, self)
+      loading.show()
+      LOGDEBUG('Displaying loading bar')
+      QAPP.processEvents()
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
@@ -3750,9 +3997,10 @@ class ArmoryMainWindow(QMainWindow):
       if selectionMade:
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
-         if showRecvCoinsWarningIfNecessary(wlt, self):
-            DlgNewAddressDisp(wlt, self, self).exec_()
-
+         if showRecvCoinsWarningIfNecessary(wlt, self, self):
+            QAPP.processEvents()
+            dlg = DlgNewAddressDisp(wlt, self, self, loading)
+            dlg.exec_()
 
 
    #############################################################################
@@ -3788,12 +4036,12 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
-      reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
+      reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""<qt>
          As of version 0.91, Armory now includes a form for reporting
          problems with the software.  Please use
-         <i>"Help"</i>\xe2\x86\x92<i>"Submit Bug Report"</i>
+         <i>"Help"</i>→<i>"Submit Bug Report"</i>
          to send a report directly to the Armory team, which will include
-         your log file automatically."""), QMessageBox.Ok | QMessageBox.Cancel)
+         your log file automatically.</qt>"""), QMessageBox.Ok | QMessageBox.Cancel)
 
       if not reply==QMessageBox.Ok:
          return
@@ -3895,19 +4143,6 @@ class ArmoryMainWindow(QMainWindow):
                                   ffilter=['Text Files (*.txt)'], \
                                   defaultFilename=defaultFN)
 
-
-      def getLastBytesOfFile(filename, nBytes=500*1024):
-         if not os.path.exists(filename):
-            LOGERROR('File does not exist!')
-            return ''
-
-         sz = os.path.getsize(filename)
-         with open(filename, 'rb') as fin:
-            if sz > nBytes:
-               fin.seek(sz - nBytes)
-            return fin.read()
-
-
       if len(unicode(saveFile)) > 0:
          fout = open(saveFile, 'wb')
          fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
@@ -3915,8 +4150,6 @@ class ArmoryMainWindow(QMainWindow):
          fout.close()
 
          LOGINFO('Log saved to %s', saveFile)
-
-
 
    #############################################################################
    def blinkTaskbar(self):
@@ -3973,33 +4206,14 @@ class ArmoryMainWindow(QMainWindow):
                self.startBitcoindIfNecessary()
          else:
             self.startBitcoindIfNecessary()
-      elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
+      elif TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED):
          #self.resetBdmBeforeScan()
-         self.startRescanBlockchain()
-      elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
-         #self.resetBdmBeforeScan()
-         TheBDM.setOnlineMode(True)
+         TheBDM.goOnline()
          self.switchNetworkMode(NETWORKMODE.Full)
       else:
          LOGERROR('ModeSwitch button pressed when it should be disabled')
       time.sleep(0.3)
       self.setDashboardDetails()
-
-
-
-
-   #############################################################################
-   @TimeThisFunction
-   def resetBdmBeforeScan(self):
-      if TheBDM.getBDMState()=='Scanning':
-         LOGINFO('Aborting load')
-         touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
-         os.remove(os.path.join(ARMORY_HOME_DIR,'blkfiles.txt'))
-
-      TheBDM.Reset(wait=False)
-      for wid,wlt in self.walletMap.iteritems():
-         TheBDM.registerWallet(wlt.cppWallet)
-
 
 
    #############################################################################
@@ -4017,7 +4231,7 @@ class ArmoryMainWindow(QMainWindow):
                self.numHeartBeat += 1
                self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % \
                                                 (self.numHeartBeat%6)))
-         self.extraHeartbeatAlways.append(loadBarUpdate)
+         self.extraHeartbeatAlways.append(loadBarUpdate) # TODO - Remove this. Put the method in the handle CPP Notification event handler 
       else:
          self.qmov = QMovie(':/busy.gif')
          self.lblBusy.setMovie( self.qmov )
@@ -4047,7 +4261,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.barProgressTorrent.setRange(0,100)
       self.barProgressSync.setRange(0,100)
-      self.barProgressBuild.setRange(0,100)
       self.barProgressScan.setRange(0,100)
 
 
@@ -4092,7 +4305,7 @@ class ArmoryMainWindow(QMainWindow):
                                          self.frmDashModeSub, \
                                          'Stretch'])
 
-
+      
       self.lblDashDescr1 = QRichLabel('')
       self.lblDashDescr2 = QRichLabel('')
       for lbl in [self.lblDashDescr1, self.lblDashDescr2]:
@@ -4115,6 +4328,22 @@ class ArmoryMainWindow(QMainWindow):
       self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
 
+      # The "Now shutting down" frame
+      self.lblShuttingDown    = QRichLabel('', doWrap=False)
+      self.lblShuttingDown.setText(tr('Preparing to shut down..'), \
+                                    size=4, bold=True, color='Foreground')
+      self.lblShuttingDown.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+
+      layoutDashExit = QGridLayout()
+      layoutDashExit.addWidget(self.lblShuttingDown,  0,0, 0, 1)
+      
+      self.frmDashSubExit = QFrame()
+      self.frmDashSubExit.setFrameStyle(STYLE_SUNKEN)
+      self.frmDashSubExit.setLayout(layoutDashExit)
+      self.frmDashSubExit = makeHorizFrame(['Stretch', \
+                                         self.frmDashSubExit, \
+                                         'Stretch'])
+      
 
       #####
       def openBitcoinOrg():
@@ -4176,7 +4405,6 @@ class ArmoryMainWindow(QMainWindow):
           'This option is not yet available yet!', color='DisableFG')
       self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
 
-      #if OS_LINUX:
       if OS_WINDOWS:
          self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
          self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
@@ -4205,7 +4433,7 @@ class ArmoryMainWindow(QMainWindow):
       elif OS_MACOSX:
          pass
       else:
-         print 'Unrecognized OS!'
+         LOGERROR('Unrecognized OS!')
 
 
       self.frmDashMgmtButtons = QFrame()
@@ -4225,9 +4453,11 @@ class ArmoryMainWindow(QMainWindow):
                                               'Stretch'])
 
       dashLayout = QVBoxLayout()
+      dashLayout.addWidget(self.frmDashSubExit)
       dashLayout.addWidget(self.frmDashMode)
       dashLayout.addWidget(self.lblDashDescr1)
       dashLayout.addWidget(self.frmDashMidButtons )
+      dashLayout.addWidget(self.lblDashDescr2)
       dashLayout.addWidget(self.lblDashDescr2)
       frmInner = QFrame()
       frmInner.setLayout(dashLayout)
@@ -4238,6 +4468,7 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout = QVBoxLayout()
       scrollLayout.addWidget(self.dashScrollArea)
       self.tabDashboard.setLayout(scrollLayout)
+      self.frmDashSubExit.setVisible(False)
 
 
 
@@ -4412,11 +4643,11 @@ class ArmoryMainWindow(QMainWindow):
       sinceLastUpd = RightNow() - lastUpdate
       if lastUpdate < RightNow()-1*WEEK:
          QMessageBox.warning(self, tr('Old Data'), tr("""
-            The last update retrieved from the <font color="%s"><b>Armory
-            Technologies, Inc.</b></font> announcement feeder was <b>%s</b>
+            The last update retrieved from the <font color="%(color)s"><b>Armory
+            Technologies, Inc.</b></font> announcement feeder was <b>%(time)s</b>
             ago.  The following downloads may not be the latest
-            available.""") % (htmlColor("TextGreen"), \
-            secondsToHumanTime(sinceLastUpd)), QMessageBox.Ok)
+            available.""") % { 'color' : htmlColor("TextGreen"), \
+            'time' : secondsToHumanTime(sinceLastUpd)}, QMessageBox.Ok)
 
       dl = self.announceFetcher.getAnnounceFile('downloads')
       cl = self.announceFetcher.getAnnounceFile('changelog')
@@ -4588,83 +4819,11 @@ class ArmoryMainWindow(QMainWindow):
 
          i += 1
 
-
-
-
-
    #############################################################################
    def explicitCheckAnnouncements(self, waitTime=3):
       self.announceFetcher.fetchRightNow(waitTime)
       self.processAnnounceData()
       self.updateAnnounceTab()
-
-
-   #############################################################################
-   def installSatoshiClient(self, closeWhenDone=False):
-
-      if closeWhenDone:
-         # It's a long story why I need this, and only when closing...
-         TheSDM.stopBitcoind()
-         #self.resetBdmBeforeScan()
-         self.switchNetworkMode(NETWORKMODE.Offline)
-         from twisted.internet import reactor
-         reactor.callLater(1, self.Heartbeat)
-
-      if OS_LINUX:
-         DlgInstallLinux(self,self).exec_()
-      elif OS_WINDOWS:
-         if not 'SATOSHI' in self.downloadDict or \
-            not 'Windows' in self.downloadDict['SATOSHI']:
-            QMessageBox.warning(self, 'Verification Unavaiable', \
-               'Armory cannot verify the authenticity of any downloaded '
-               'files.  You will need t download it yourself from '
-               'bitcoin.org.', QMessageBox.Ok)
-            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
-            self.dashBtns[DASHBTNS.Install][LBL].setText( \
-               'This option is currently unavailable.  Please visit bitcoin.org '
-               'to download and install the software.', color='DisableFG')
-            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
-               'Armory has an internet connection but no way to verify '
-               'the authenticity of the downloaded files.  You should '
-               'download the installer yourself.')
-            webbrowser.open('http://www.bitcoin.org/en/download')
-            return
-
-         print self.downloadDict['SATOSHI']['Windows']
-         theLink = self.downloadDict['SATOSHI']['Windows'][0]
-         theHash = self.downloadDict['SATOSHI']['Windows'][1]
-         dlg = DlgDownloadFile(self, self, theLink, theHash, \
-            'The Bitcoin installer will start when the download is finished '
-            'and digital signatures are verified.  Please finish the installation '
-            'when it appears.')
-         dlg.exec_()
-         fileData = dlg.dlFileData
-         if len(fileData)==0 or dlg.dlVerifyFailed:
-            QMessageBox.critical(self, 'Download Failed', \
-               'The download failed.  Please visit www.bitcoin.org '
-               'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
-            webbrowser.open('http://www.bitcoin.org/en/download')
-            return
-
-         installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
-         LOGINFO('Installer path: %s', installerPath)
-         instFile = open(installerPath, 'wb')
-         instFile.write(fileData)
-         instFile.close()
-
-         def startInstaller():
-            execAndWait('"'+installerPath+'"', useStartInfo=False)
-            self.startBitcoindIfNecessary()
-
-         DlgExecLongProcess(startInstaller, tr("""
-            Please Complete Bitcoin Installation<br> (installer should
-            have opened in your taskbar)"""), self, self).exec_()
-      elif OS_MACOSX:
-         LOGERROR('Cannot install on OSX')
-
-
-      if closeWhenDone:
-         self.closeForReal(None)
 
    #############################################################################
    def closeExistingBitcoin(self):
@@ -4687,8 +4846,22 @@ class ArmoryMainWindow(QMainWindow):
       return float(curr)/float(maxb)
 
    #############################################################################
+   def showShuttingDownMessage(self):
+      self.isShuttingDown = True
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
+      self.frmDashSubExit.setVisible(True)
+      self.frmDashMode.setVisible(False)
+      self.lblDashDescr1.setVisible(False)
+      self.frmDashMidButtons.setVisible(False)
+      self.lblDashDescr2.setVisible(False)
+      self.lblDashDescr2.setVisible(False)
+   
+   #############################################################################
    def updateSyncProgress(self):
-
+      
+      if self.isShuttingDown:
+         return
+   
       if TheTDM.getTDMState()=='Downloading':
 
          dlSpeed  = TheTDM.getLastStats('downRate')
@@ -4741,14 +4914,12 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftTorrent.setText(secondsToHumanTime(timeEst))
 
             self.lblTorrentStats.setText(tr("""
-               Bootstrap Torrent:  %s/sec from %d peers""") % \
-               (bytesToHumanSize(dlSpeed), numSeeds+numPeers))
+               Bootstrap Torrent:  %(sec)s/sec from %(peers)d peers""") % \
+               {'sec' : bytesToHumanSize(dlSpeed), 'peers' : numSeeds+numPeers})
 
             self.lblTorrentStats.setVisible(True)
 
-
-
-      elif TheBDM.getBDMState()=='Scanning':
+      elif TheBDM.getState()==BDM_SCANNING:
          self.barProgressTorrent.setVisible(TheTDM.isStarted())
          self.lblDashModeTorrent.setVisible(TheTDM.isStarted())
          self.barProgressTorrent.setValue(100)
@@ -4770,43 +4941,65 @@ class ArmoryMainWindow(QMainWindow):
          self.barProgressScan.setVisible(True)
          self.lblTimeLeftScan.setVisible(True)
 
-         # Scan time is super-simple to predict: it's pretty much linear
-         # with the number of bytes remaining.
-
-         phase,pct,rate,tleft = TheBDM.predictLoadTime()
-         if phase==1:
-            self.lblDashModeBuild.setText( 'Building Databases', \
+         phase,pct,tleft,numericProgress = TheBDM.predictLoadTime()
+         if phase==Cpp.BDMPhase_DBHeaders:
+            self.lblDashModeBuild.setText( tr('Loading Database Headers'), \
                                         size=4, bold=True, color='Foreground')
             self.lblDashModeScan.setText( 'Scan Transaction History', \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
-
-         elif phase==3:
-            self.lblDashModeBuild.setText( 'Build Databases', \
+            self.barProgressBuild.setRange(0,100)
+            
+         elif phase==Cpp.BDMPhase_OrganizingChain:
+            self.lblDashModeBuild.setText( tr('Organizing Blockchain'), \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                         size=4, bold=True, color='DisableFG')
-            self.lblDashModeScan.setText( 'Scanning Transaction History', \
+            self.barProgressBuild.setFormat('')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setValue(0)
+            self.barProgressBuild.setRange(0,0)
+            self.lblTimeLeftBuild.setVisible(False)
+         elif phase==Cpp.BDMPhase_BlockHeaders:
+            self.lblDashModeBuild.setText( tr('Reading New Block Headers'), \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('%p%')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setRange(0,100)
+         elif phase==Cpp.BDMPhase_BlockData:
+            self.lblDashModeBuild.setText( tr('Building Databases'), \
+                                        size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('%p%')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setRange(0,100)
+         elif phase==Cpp.BDMPhase_Rescan:
+            self.lblDashModeBuild.setText( tr('Build Databases'), \
+                                        size=4, bold=True, color='DisableFG')
+            self.lblDashModeScan.setText( tr('Scanning Transaction History'), \
                                         size=4, bold=True, color='Foreground')
             self.lblTimeLeftBuild.setVisible(False)
             self.barProgressBuild.setFormat('')
             self.barProgressBuild.setValue(100)
+            self.barProgressBuild.setRange(0,100)
             self.barProgressScan.setFormat('%p%')
-         elif phase==4:
-            self.lblDashModeScan.setText( 'Global Blockchain Index', \
-                                        size=4, bold=True, color='Foreground')
 
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
             tstring = ''
-            pvalue  = 100
+            pvalue  = pct*100
          else:
             tstring = secondsToHumanTime(tleft15)
             pvalue = pct*100
 
-         if phase==1:
+         if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData or phase==BDMPhase_DBHeaders:
             self.lblTimeLeftBuild.setText(tstring)
             self.barProgressBuild.setValue(pvalue)
-         elif phase==3:
+         elif phase==BDMPhase_Rescan:
             self.lblTimeLeftScan.setText(tstring)
             self.barProgressScan.setValue(pvalue)
 
@@ -4886,13 +5079,13 @@ class ArmoryMainWindow(QMainWindow):
          self.barProgressSync.setFormat('%p%')
          if ssdm == 'BitcoindReady':
             return (0,0,0.99)  # because it's probably not completely done...
-            self.lblTimeLeftSync.setText('Almost Done...')
+            self.lblTimeLeftSync.setText(tr('Almost Done...'))
             self.barProgressSync.setValue(99)
          elif ssdm == 'BitcoindSynchronizing':
             sdmPercent = int(99.9*self.approxPctSoFar)
             if self.approxBlkLeft < 10000:
                if self.approxBlkLeft < 200:
-                  self.lblTimeLeftSync.setText('%d blocks' % self.approxBlkLeft)
+                  self.lblTimeLeftSync.setText(tr('%(n)d blocks') % { 'n':self.approxBlkLeft})
                else:
                   # If we're within 10k blocks, estimate based on blkspersec
                   if info['blkspersec'] > 0:
@@ -4925,9 +5118,8 @@ class ArmoryMainWindow(QMainWindow):
       Outsourcing all the verbose dashboard text to here, to de-clutter the
       logic paths in the setDashboardDetails function
       """
-      LOGINFO('Switching Armory functional mode to "%s"', func)
       if func.lower() == 'scanning':
-         return ( \
+         return tr( \
          'The following functionality is available while scanning in offline mode:'
          '<ul>'
          '<li>Create new wallets</li>'
@@ -4943,7 +5135,7 @@ class ArmoryMainWindow(QMainWindow):
          'you just won\'t be able to verify those payments until the next time '
          'Armory is online.')
       elif func.lower() == 'offline':
-         return ( \
+         return tr( \
          'The following functionality is available in offline mode:'
          '<ul>'
          '<li>Create, import or recover wallets</li>'
@@ -4960,7 +5152,7 @@ class ArmoryMainWindow(QMainWindow):
          'you just won\'t be able to verify those payments until the next time '
          'Armory is online.')
       elif func.lower() == 'online':
-         return ( \
+         return tr( \
          '<ul>'
          '<li>Create, import or recover Armory wallets</li>'
          '<li>Generate new addresses to receive coins</li>'
@@ -4983,8 +5175,7 @@ class ArmoryMainWindow(QMainWindow):
       Outsourcing all the verbose dashboard text to here, to de-clutter the
       logic paths in the setDashboardDetails function
       """
-      LOGINFO('Switching Armory state text to Mgmt:%s, State:%s', mgmtMode, state)
-
+      
       # A few states don't care which mgmtMode you are in...
       if state == 'NewUserInfo':
          return tr("""
@@ -5012,7 +5203,7 @@ class ArmoryMainWindow(QMainWindow):
          <a href="https://bitcoinarmory.com/using-our-wallet/#offlinewallet">Offline
          Wallet Tutorial</a>.<br><br> """)
       elif state == 'OnlineFull1':
-         return ( \
+         return tr( \
          '<p><b>You now have access to all the features Armory has to offer!</b><br>'
          'To see your balances and transaction history, please click '
          'on the "Transactions" tab above this text.  <br>'
@@ -5020,14 +5211,14 @@ class ArmoryMainWindow(QMainWindow):
          '<br>')
       elif state == 'OnlineFull2':
          return ( \
-         ('If you experience any performance issues with Armory, '
+         (tr('If you experience any performance issues with Armory, '
          'please confirm that Bitcoin-Qt is running and <i>fully '
          'synchronized with the Bitcoin network</i>.  You will see '
          'a green checkmark in the bottom right corner of the '
          'Bitcoin-Qt window if it is synchronized.  If not, it is '
          'recommended you close Armory and restart it only when you '
          'see that checkmark.'
-         '<br><br>'  if not self.doAutoBitcoind else '') + (
+         '<br><br>')  if not self.doAutoBitcoind else '') + tr(
          '<b>Please backup your wallets!</b>  Armory wallets are '
          '"deterministic", meaning they only need to be backed up '
          'one time (unless you have imported external addresses/keys). '
@@ -5037,7 +5228,7 @@ class ArmoryMainWindow(QMainWindow):
          'Individual Keys" option for each wallet to backup imported '
          'keys.</p>'))
       elif state == 'OnlineNeedSweep':
-         return ( \
+         return tr( \
          'Armory is currently online, but you have requested a sweep operation '
          'on one or more private keys.  This requires searching the global '
          'transaction history for the available balance of the keys to be '
@@ -5047,7 +5238,7 @@ class ArmoryMainWindow(QMainWindow):
          'will also put Armory into offline mode for a few minutes '
          'until the scan operation is complete')
       elif state == 'OnlineDirty':
-         return ( \
+         return tr( \
          '<b>Wallet balances may '
          'be incorrect until the rescan operation is performed!</b>'
          '<br><br>'
@@ -5059,7 +5250,7 @@ class ArmoryMainWindow(QMainWindow):
          'Pressing the button above will put Armory into offline mode '
          'for a few minutes until the scan operation is complete.')
       elif state == 'OfflineNoSatoshiNoInternet':
-         return ( \
+         return tr( \
          'There is no connection to the internet, and there is no other '
          'Bitcoin software running.  Most likely '
          'you are here because this is a system dedicated '
@@ -5082,7 +5273,7 @@ class ArmoryMainWindow(QMainWindow):
       # number of dashboard screens I need
       if mgmtMode.lower()=='user':
          if state == 'OfflineButOnlinePossible':
-            return ( \
+            return tr( \
             'You are currently in offline mode, but can '
             'switch to online mode by pressing the button above.  However, '
             'it is not recommended that you switch until '
@@ -5096,7 +5287,7 @@ class ArmoryMainWindow(QMainWindow):
             'of each of your wallets.<br><br>')
          elif state == 'OfflineNoSatoshi':
             bitconf = os.path.join(BTC_HOME_DIR, 'bitcoin.conf')
-            return ( \
+            return tr( \
             'You are currently in offline mode because '
             'Bitcoin-Qt is not running.  To switch to online '
             'mode, start Bitcoin-Qt and let it synchronize with the network '
@@ -5122,7 +5313,7 @@ class ArmoryMainWindow(QMainWindow):
             'to fetch the latest version of Bitcoin-Qt, you can download it from '
             '<a href="http://www.bitcoin.org">http://www.bitcoin.org</a>.')
          elif state == 'OfflineNoInternet':
-            return ( \
+            return tr( \
             'You are currently in offline mode because '
             'Armory could not detect an internet connection.  '
             'If you think this is in error, then '
@@ -5133,7 +5324,7 @@ class ArmoryMainWindow(QMainWindow):
             'that it is not necessary to have Bitcoin-Qt or bitcoind '
             'running.' )
          elif state == 'OfflineNoBlkFiles':
-            return ( \
+            return tr( \
             'You are currently in offline mode because '
             'Armory could not find the blockchain files produced '
             'by Bitcoin-Qt.  Do you run Bitcoin-Qt (or bitcoind) '
@@ -5143,7 +5334,7 @@ class ArmoryMainWindow(QMainWindow):
             'Armory using the " --satoshi-datadir=[path]" '
             'to notify Armory where to find them.') % BLKFILE_DIR
          elif state == 'Disconnected':
-            return ( \
+            return tr( \
             'Armory was previously online, but the connection to Bitcoin-Qt/'
             'bitcoind was interrupted.  You will not be able to send bitcoins '
             'or confirm receipt of bitcoins until the connection is '
@@ -5153,12 +5344,12 @@ class ArmoryMainWindow(QMainWindow):
             'again.  If Bitcoin-Qt is available again, and reconnection does '
             'not happen, please restart Armory.<br><br>')
          elif state == 'ScanNoWallets':
-            return ( \
+            return tr( \
             'Please wait while the global transaction history is scanned. '
             'Armory will go into online mode automatically, as soon as '
             'the scan is complete.')
          elif state == 'ScanWithWallets':
-            return ( \
+            return tr( \
             'Armory is scanning the global transaction history to retrieve '
             'information about your wallets.  The "Transactions" tab will '
             'be updated with wallet balance and history as soon as the scan is '
@@ -5169,7 +5360,7 @@ class ArmoryMainWindow(QMainWindow):
             return ''
       elif mgmtMode.lower()=='auto':
          if state == 'OfflineBitcoindRunning':
-            return ( \
+            return tr( \
             'It appears you are already running Bitcoin software '
             '(Bitcoin-Qt or bitcoind). '
             'Unlike previous versions of Armory, you should <u>not</u> run '
@@ -5178,7 +5369,7 @@ class ArmoryMainWindow(QMainWindow):
             'Bitcoin application or adjust your settings.  If you change '
             'your settings, then please restart Armory.')
          if state == 'OfflineNeedBitcoinInst':
-            return ( \
+            return tr( \
             '<b>Only one more step to getting online with Armory!</b>   You '
             'must install the Bitcoin software from www.bitcoin.org in order '
             'for Armory to communicate with the Bitcoin network.  If the '
@@ -5206,30 +5397,43 @@ class ArmoryMainWindow(QMainWindow):
             but you will have to verify that payment through another service
             until Armory is finished this initialization.""")
          if state == 'InitializingDoneSoon':
-            return ( \
+            msg = tr( \
             'The software is downloading and processing the latest activity '
-            'on the network related to your wallet%s.  This should take only '
+            'on the network related to your wallet.  This should take only '
             'a few minutes.  While you wait, you can manage your wallets.  '
             '<br><br>'
             'Now would be a good time to make paper (or digital) backups of '
-            'your wallet%s if you have not done so already!  You are protected '
+            'your wallet if you have not done so already!  You are protected '
             '<i>forever</i> from hard-drive loss, or forgetting you password. '
             'If you do not have a backup, you could lose all of your '
             'Bitcoins forever!  See the <a href="https://bitcoinarmory.com/">'
-            'Armory Backups page</a> for more info.' % \
-            (('' if len(self.walletMap)==1 else 's',)*2))
+            'Armory Backups page</a> for more info.',
+            'The software is downloading and processing the latest activity '
+            'on the network related to your wallets.  This should take only '
+            'a few minutes.  While you wait, you can manage your wallets.  '
+            '<br><br>'
+            'Now would be a good time to make paper (or digital) backups of '
+            'your wallets if you have not done so already!  You are protected '
+            '<i>forever</i> from hard-drive loss, or forgetting you password. '
+            'If you do not have a backup, you could lose all of your '
+            'Bitcoins forever!  See the <a href="https://bitcoinarmory.com/">'
+            'Armory Backups page</a> for more info.',
+               len(self.walletMap)
+            )
+            
+            return msg
          if state == 'OnlineDisconnected':
-            return ( \
+            return tr( \
             'Armory\'s communication with the Bitcoin network was interrupted. '
             'This usually does not happen unless you closed the process that '
             'Armory was using to communicate with the network. Armory requires '
-            '%s to be running in the background, and this error pops up if it '
+            '%(sdm)s to be running in the background, and this error pops up if it '
             'disappears.'
             '<br><br>You may continue in offline mode, or you can close '
-            'all Bitcoin processes and restart Armory.' \
-            % os.path.basename(TheSDM.executable))
+            'all Bitcoin processes and restart Armory.') \
+            % { 'sdm' : os.path.basename(TheSDM.executable) }
          if state == 'OfflineBadConnection':
-            return ( \
+            return tr( \
             'Armory has experienced an issue trying to communicate with the '
             'Bitcoin software.  The software is running in the background, '
             'but Armory cannot communicate with it through RPC as it expects '
@@ -5240,7 +5444,7 @@ class ArmoryMainWindow(QMainWindow):
             'If you have not changed anything, please export the log file '
             '(from the "File" menu) and send it to support@bitcoinarmory.com')
          if state == 'OfflineSatoshiAvail':
-            return ( \
+            return tr( \
             'Armory does not detect internet access, but it does detect '
             'running Bitcoin software.  Armory is in offline-mode. <br><br>'
             'If you are intending to run an offline system, you will not '
@@ -5250,14 +5454,14 @@ class ArmoryMainWindow(QMainWindow):
             'the absence of internet is an error, please restart Armory '
             'using the "--skip-online-check" option.  ')
          if state == 'OfflineForcedButSatoshiAvail':
-            return ( \
+            return tr( \
             'Armory was started in offline-mode, but detected you are '
             'running Bitcoin software.  If you are intending to run an '
             'offline system, you will <u>not</u> need to have the Bitcoin '
             'software installed or running on the offline '
             'computer.  It is only required for being online. ')
          if state == 'OfflineBadDBEnv':
-            return ( \
+            return tr( \
             'The Bitcoin software indicates there '
             'is a problem with its databases.  This can occur when '
             'Bitcoin-Qt/bitcoind is upgraded or downgraded, or sometimes '
@@ -5267,12 +5471,12 @@ class ArmoryMainWindow(QMainWindow):
             'last known working version (but not earlier than version 0.8.1) '
             'or delete everything <b>except</b> "wallet.dat" from the your Bitcoin '
             'home directory:<br><br>'
-            '<font face="courier"><b>%s</b></font>'
+            '<font face="courier"><b>%(satoshipath)s</b></font>'
             '<br><br>'
             'If you choose to delete the contents of the Bitcoin home '
             'directory, you will have to do a fresh download of the blockchain '
             'again, which will require a few hours the first '
-            'time.' % self.satoshiHomePath)
+            'time.') % { 'satoshipath' : self.satoshiHomePath }
          if state == 'OfflineBtcdCrashed':
             sout = '' if TheSDM.btcOut==None else str(TheSDM.btcOut)
             serr = '' if TheSDM.btcErr==None else str(TheSDM.btcErr)
@@ -5303,18 +5507,19 @@ class ArmoryMainWindow(QMainWindow):
                   support@bitcoinarmory.com</a>.  We apologize for the
                   inconvenience!"""))
 
-
+   # TODO - move out of polling and call on events
    #############################################################################
-   @TimeThisFunction
+
    def setDashboardDetails(self, INIT=False):
       """
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
       """
-      onlineAvail = self.onlineModeIsPossible()
+      if self.isShuttingDown:
+         return
 
       sdmState = TheSDM.getSDMState()
-      bdmState = TheBDM.getBDMState()
+      bdmState = TheBDM.getState()
       tdmState = TheTDM.getTDMState()
       descr  = ''
       descr1 = ''
@@ -5370,14 +5575,13 @@ class ArmoryMainWindow(QMainWindow):
          setBtnRowVisible(DASHBTNS.Settings, False)
          setBtnRowVisible(DASHBTNS.Close, False)
          setOnlyDashModeVisible()
-         self.btnModeSwitch.setVisible(False)
 
       # This keeps popping up for some reason!
       self.lblTorrentStats.setVisible(False)
 
       if self.doAutoBitcoind and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.
-
+         # TODO -  Move to event handlers
          if not sdmState==self.lastSDMState:
 
             self.lblBusy.setVisible(False)
@@ -5392,10 +5596,10 @@ class ArmoryMainWindow(QMainWindow):
             setBtnRowVisible(DASHBTNS.Settings, True)
             setBtnRowVisible(DASHBTNS.Close, False)
 
-            if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
+            if self.internetStatus == INTERNET_STATUS.Unavailable or CLI_OPTIONS.offline:
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
-               self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+               self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
                                             size=4, color='TextWarn', bold=True)
                if satoshiIsAvailable():
                   self.frmDashMidButtons.setVisible(True)
@@ -5416,32 +5620,32 @@ class ArmoryMainWindow(QMainWindow):
                else:
                   LOGINFO('Dashboard switched to auto-OfflineNoSatoshiNoInternet')
                   setBtnFrameVisible(True, \
-                     'In case you actually do have internet access, use can use '
+                     tr('In case you actually do have internet access, you can use '
                      'the following links to get Armory installed.  Or change '
-                     'your settings.')
+                     'your settings.'))
                   setBtnRowVisible(DASHBTNS.Browse, True)
                   setBtnRowVisible(DASHBTNS.Install, True)
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
-                  descr2 += self.GetDashFunctionalityText('Offline')
+                  descr2 += self.GetDashFunctionalityText(tr('Offline'))
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
             elif not TheSDM.isRunningBitcoind() and not TheTDM.isRunning():
                setOnlyDashModeVisible()
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-               self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+               self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
                                             size=4, color='TextWarn', bold=True)
                # Bitcoind is not being managed, but we want it to be
                if satoshiIsAvailable() or sdmState=='BitcoindAlreadyRunning':
                   # But bitcoind/-qt is already running
                   LOGINFO('Dashboard switched to auto-butSatoshiRunning')
-                  self.lblDashModeSync.setText(' Please close Bitcoin-Qt', \
+                  self.lblDashModeSync.setText(tr(' Please close Bitcoin-Qt'), \
                                                          size=4, bold=True)
                   setBtnFrameVisible(True, '')
                   setBtnRowVisible(DASHBTNS.Close, True)
                   self.btnModeSwitch.setVisible(True)
-                  self.btnModeSwitch.setText('Check Again')
+                  self.btnModeSwitch.setText(tr('Check Again'))
                   #setBtnRowVisible(DASHBTNS.Close, True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBitcoindRunning')
                   descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
@@ -5452,10 +5656,10 @@ class ArmoryMainWindow(QMainWindow):
                elif sdmState in ['BitcoindExeMissing', 'BitcoindHomeMissing']:
                   LOGINFO('Dashboard switched to auto-cannotFindExeHome')
                   if sdmState=='BitcoindExeMissing':
-                     self.lblDashModeSync.setText('Cannot find Bitcoin Installation', \
+                     self.lblDashModeSync.setText(tr('Cannot find Bitcoin Installation'), \
                                                          size=4, bold=True)
                   else:
-                     self.lblDashModeSync.setText('Cannot find Bitcoin Home Directory', \
+                     self.lblDashModeSync.setText(tr('Cannot find Bitcoin Home Directory'), \
                                                          size=4, bold=True)
                   setBtnRowVisible(DASHBTNS.Close, satoshiIsAvailable())
                   setBtnRowVisible(DASHBTNS.Install, True)
@@ -5463,7 +5667,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   self.btnModeSwitch.setVisible(True)
-                  self.btnModeSwitch.setText('Check Again')
+                  self.btnModeSwitch.setText(tr('Check Again'))
                   setBtnFrameVisible(True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineNeedBitcoinInst')
                   descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
@@ -5476,7 +5680,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnRowVisible(DASHBTNS.Install, True)
                   #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   setBtnRowVisible(DASHBTNS.Settings, True)
-                  self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+                  self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBadDBEnv')
                   descr2 += self.GetDashFunctionalityText('Offline')
@@ -5487,15 +5691,15 @@ class ArmoryMainWindow(QMainWindow):
                   LOGERROR('Should not usually get here')
                   setOnlyDashModeVisible()
                   setBtnFrameVisible(True, \
-                     'Try reinstalling the Bitcoin '
+                     tr('Try reinstalling the Bitcoin '
                      'software then restart Armory.  If you continue to have '
                      'problems, please contact Armory\'s core developer at '
                      '<a href="mailto:support@bitcoinarmory.com?Subject=Bitcoind%20Crash"'
-                     '>support@bitcoinarmory.com</a>.')
+                     '>support@bitcoinarmory.com</a>.'))
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnRowVisible(DASHBTNS.Install, True)
                   LOGINFO('Dashboard switched to auto-BtcdCrashed')
-                  self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+                  self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBtcdCrashed')
                   descr2 += self.GetDashFunctionalityText('Offline')
@@ -5507,9 +5711,6 @@ class ArmoryMainWindow(QMainWindow):
                elif sdmState in ['BitcoindNotAvailable']:
                   LOGERROR('BitcoindNotAvailable: should not happen...')
                   self.notAvailErrorCount += 1
-                  #if self.notAvailErrorCount < 5:
-                     #LOGERROR('Auto-mode-switch')
-                     #self.executeModeSwitch()
                   descr1 += ''
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -5539,7 +5740,7 @@ class ArmoryMainWindow(QMainWindow):
 
                   self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   LOGINFO('Dashboard switched to auto-BadConnection')
-                  self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+                  self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBadConnection')
                   descr2 += self.GetDashFunctionalityText('Offline')
@@ -5561,28 +5762,28 @@ class ArmoryMainWindow(QMainWindow):
                   setTorrentRowVisible(TheTDM.isStarted())
 
                   if TheTDM.isRunning():
-                     self.lblDashModeTorrent.setText('Downloading via Armory CDN', \
+                     self.lblDashModeTorrent.setText(tr('Downloading via Armory CDN'), \
                                           size=4, bold=True, color='Foreground')
-                     self.lblDashModeSync.setText( 'Synchronizing with Network', \
+                     self.lblDashModeSync.setText( tr('Synchronizing with Network'), \
                                           size=4, bold=True, color='DisableFG')
                      self.lblTorrentStats.setVisible(True)
                   elif sdmState=='BitcoindInitializing':
-                     self.lblDashModeTorrent.setText('Download via Armory CDN', \
+                     self.lblDashModeTorrent.setText(tr('Download via Armory CDN'), \
                                           size=4, bold=True, color='DisableFG')
-                     self.lblDashModeSync.setText( 'Initializing Bitcoin Engine', \
+                     self.lblDashModeSync.setText( tr('Initializing Bitcoin Engine'), \
                                               size=4, bold=True, color='Foreground')
                      self.lblTorrentStats.setVisible(False)
                   else:
-                     self.lblDashModeTorrent.setText('Download via Armory CDN', \
+                     self.lblDashModeTorrent.setText(tr('Download via Armory CDN'), \
                                           size=4, bold=True, color='DisableFG')
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                               size=4, bold=True, color='Foreground')
                      self.lblTorrentStats.setVisible(False)
 
 
-                  self.lblDashModeBuild.setText( 'Build Databases', \
+                  self.lblDashModeBuild.setText( tr('Build Databases'), \
                                               size=4, bold=True, color='DisableFG')
-                  self.lblDashModeScan.setText( 'Scan Transaction History', \
+                  self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                               size=4, bold=True, color='DisableFG')
 
                   # If more than 10 days behind, or still downloading torrent
@@ -5595,9 +5796,9 @@ class ArmoryMainWindow(QMainWindow):
 
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnFrameVisible(True, \
-                     'Since version 0.88, Armory runs bitcoind in the '
+                     tr('Since version 0.88, Armory runs bitcoind in the '
                      'background.  You can switch back to '
-                     'the old way in the Settings dialog. ')
+                     'the old way in the Settings dialog. '))
 
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -5605,80 +5806,73 @@ class ArmoryMainWindow(QMainWindow):
       else:
          # User is managing satoshi client, or bitcoind is already sync'd
          self.frmDashMidButtons.setVisible(False)
-         if bdmState in ('Offline', 'Uninitialized'):
-            if onlineAvail and not self.lastBDMState[1]==onlineAvail:
-               LOGINFO('Dashboard switched to user-OfflineOnlinePoss')
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-               setOnlyDashModeVisible()
-               self.lblBusy.setVisible(False)
-               self.btnModeSwitch.setVisible(True)
-               self.btnModeSwitch.setEnabled(True)
-               self.btnModeSwitch.setText('Go Online!')
-               self.lblDashModeSync.setText('Armory is <u>offline</u>', size=4, bold=True)
-               descr  = self.GetDashStateText('User', 'OfflineButOnlinePossible')
-               descr += self.GetDashFunctionalityText('Offline')
-               self.lblDashDescr1.setText(descr)
-            elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
+         if bdmState in (BDM_OFFLINE, BDM_UNINITIALIZED):
+            if self.internetStatus == INTERNET_STATUS.Unavailable:
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
                self.lblBusy.setVisible(False)
                self.btnModeSwitch.setVisible(False)
                self.btnModeSwitch.setEnabled(False)
-               self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+               self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
                                          size=4, color='TextWarn', bold=True)
 
-               if not self.bitcoindIsAvailable():
-                  if self.internetAvail:
-                     descr = self.GetDashStateText('User','OfflineNoSatoshi')
-                     setBtnRowVisible(DASHBTNS.Settings, True)
-                     setBtnFrameVisible(True, \
-                        'If you would like Armory to manage the Bitcoin software '
-                        'for you (Bitcoin-Qt or bitcoind), then adjust your '
-                        'Armory settings, then restart Armory.')
-                  else:
-                     descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
-               elif not self.internetAvail:
+               if not satoshiIsAvailable():
+                  descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
+               else:
                   descr = self.GetDashStateText('User', 'OfflineNoInternet')
-               elif not self.checkHaveBlockfiles():
-                  descr = self.GetDashStateText('User', 'OfflineNoBlkFiles')
+
+               descr += '<br><br>'
+               descr += self.GetDashFunctionalityText('Offline')
+               self.lblDashDescr1.setText(descr)
+            else:
+               LOGINFO('Dashboard switched to user-OfflineOnlinePoss')
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
+               setOnlyDashModeVisible()
+               self.lblBusy.setVisible(False)
+               self.lblDashModeSync.setText(tr('Armory is <u>offline</u>'), size=4, bold=True)
+               descr  = self.GetDashStateText('User', 'OfflineButOnlinePossible')
+               descr += self.GetDashFunctionalityText('Offline')
+               self.lblDashDescr1.setText(descr)
+               
+               if not satoshiIsAvailable():
+                  descr = self.GetDashStateText('User','OfflineNoSatoshi')
+                  setBtnRowVisible(DASHBTNS.Settings, True)
+                  setBtnFrameVisible(True, \
+                     tr('If you would like Armory to manage the Bitcoin software '
+                     'for you (Bitcoin-Qt or bitcoind), then adjust your '
+                     'Armory settings, then restart Armory.'))
+                  descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
+               else:
+                  self.btnModeSwitch.setVisible(True)
+                  self.btnModeSwitch.setEnabled(True)
+                  self.btnModeSwitch.setText(tr('Go Online!'))
+                  descr = self.GetDashStateText('User', 'OfflineNoInternet')
 
                descr += '<br><br>'
                descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
 
-         elif bdmState == 'BlockchainReady':
+         elif bdmState == BDM_BLOCKCHAIN_READY:
             setOnlyDashModeVisible()
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
             self.lblBusy.setVisible(False)
             if self.netMode == NETWORKMODE.Disconnected:
                self.btnModeSwitch.setVisible(False)
-               self.lblDashModeSync.setText( 'Armory is disconnected', size=4, color='TextWarn', bold=True)
+               self.lblDashModeSync.setText( tr('Armory is disconnected'), size=4, color='TextWarn', bold=True)
                descr  = self.GetDashStateText('User','Disconnected')
                descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
-            elif TheBDM.isDirty():
-               LOGINFO('Dashboard switched to online-but-dirty mode')
-               self.btnModeSwitch.setVisible(True)
-               self.btnModeSwitch.setText('Rescan Now')
-               self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
-               self.lblDashModeSync.setText( 'Armory is online, but needs to rescan ' \
-                              'the blockchain</b>', size=4, color='TextWarn', bold=True)
-               if len(self.sweepAfterScanList) > 0:
-                  self.lblDashDescr1.setText( self.GetDashStateText('User', 'OnlineNeedSweep'))
-               else:
-                  self.lblDashDescr1.setText( self.GetDashStateText('User', 'OnlineDirty'))
             else:
                # Fully online mode
-               LOGINFO('Dashboard switched to fully-online mode')
                self.btnModeSwitch.setVisible(False)
-               self.lblDashModeSync.setText( 'Armory is online!', color='TextGreen', size=4, bold=True)
+               self.lblDashModeSync.setText( tr('Armory is online!'), color='TextGreen', size=4, bold=True)
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
                descr  = self.GetDashStateText('User', 'OnlineFull1')
                descr += self.GetDashFunctionalityText('Online')
                descr += self.GetDashStateText('User', 'OnlineFull2')
                self.lblDashDescr1.setText(descr)
             #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
-         elif bdmState == 'Scanning':
+         elif bdmState == BDM_SCANNING:
             LOGINFO('Dashboard switched to "Scanning" mode')
             self.updateSyncProgress()
             self.lblDashModeScan.setVisible(True)
@@ -5692,7 +5886,7 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftSync.setVisible(True)
                self.lblDashModeSync.setVisible(True)
                self.lblTimeLeftSync.setText('')
-               self.lblDashModeSync.setText( 'Synchronizing with Network', \
+               self.lblDashModeSync.setText( tr('Synchronizing with Network'), \
                                        size=4, bold=True, color='DisableFG')
             else:
                self.barProgressSync.setVisible(False)
@@ -5700,11 +5894,11 @@ class ArmoryMainWindow(QMainWindow):
                self.lblDashModeSync.setVisible(False)
 
             if len(str(self.lblDashModeBuild.text()).strip()) == 0:
-               self.lblDashModeBuild.setText( 'Preparing Databases', \
+               self.lblDashModeBuild.setText( tr('Preparing Databases'), \
                                           size=4, bold=True, color='Foreground')
 
             if len(str(self.lblDashModeScan.text()).strip()) == 0:
-               self.lblDashModeScan.setText( 'Scan Transaction History', \
+               self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                           size=4, bold=True, color='DisableFG')
 
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
@@ -5722,7 +5916,6 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGERROR('What the heck blockchain mode are we in?  %s', bdmState)
 
-      self.lastBDMState = [bdmState, onlineAvail]
       self.lastSDMState =  sdmState
       self.lblDashModeTorrent.setContentsMargins( 50,5,50,5)
       self.lblDashModeSync.setContentsMargins( 50,5,50,5)
@@ -5744,46 +5937,246 @@ class ArmoryMainWindow(QMainWindow):
       """
       fgColor = htmlColor('ToolTipQ')
       lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
-      lbl.setToolTip('<u></u>' + tiptext)
       lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
-      def pressEv(ev):
-         QWhatsThis.showText(ev.globalPos(), tiptext, self)
-      lbl.mousePressEvent = pressEv
+
+      def setAllText(wself, txt):
+         def pressEv(ev):
+            QWhatsThis.showText(ev.globalPos(), txt, self)
+         wself.mousePressEvent = pressEv
+         wself.setToolTip('<u></u>' + txt)
+         
+      # Calling setText on this widget will update both the tooltip and QWT
+      from types import MethodType
+      lbl.setText = MethodType(setAllText, lbl)
+
+      lbl.setText(tiptext)
       return lbl
 
+   #############################################################################
+   def createAddressEntryWidgets(self, parent, initString='', maxDetectLen=128,
+                                           boldDetectParts=0, **cabbKWArgs):
+      """
+      If you are putting the LBL_DETECT somewhere that is space-constrained,
+      set maxDetectLen to a smaller value.  It will limit the number of chars
+      to be included in the autodetect label.
+
+      "cabbKWArgs" is "create address book button kwargs"
+      Here's the signature of that function... you can pass any named args
+      to this function and they will be passed along to createAddrBookButton
+         def createAddrBookButton(parent, targWidget, defaultWltID=None, 
+                                  actionStr="Select", selectExistingOnly=False, 
+                                  selectMineOnly=False, getPubKey=False,
+                                  showLockboxes=True)
+
+      Returns three widgets that can be put into layouts:
+         [[QLineEdit: addr/pubkey]]  [[Button: Addrbook]]
+         [[Label: Wallet/Lockbox/Addr autodetect]]
+      """
+
+      addrEntryObjs = {}
+      addrEntryObjs['QLE_ADDR'] = QLineEdit()
+      addrEntryObjs['QLE_ADDR'].setText(initString)
+      addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, 
+                                                        addrEntryObjs['QLE_ADDR'], 
+                                                        **cabbKWArgs)
+      addrEntryObjs['LBL_DETECT'] = QRichLabel('')
+      addrEntryObjs['CALLBACK_GETSCRIPT'] = None
+
+      ##########################################################################
+      # Create a function that reads the user string and updates labels if 
+      # the entry is recognized.  This will be used to automatically show the
+      # user that what they entered is recognized and gives them more info
+      # 
+      # It's a little awkward to put this whole thing in here... this could
+      # probably use some refactoring
+      def updateAddrDetectLabels():
+         try:
+            enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+
+            scriptInfo = self.getScriptForUserString(enteredText)
+            displayInfo = self.getDisplayStringForScript(
+                           scriptInfo['Script'], maxDetectLen, boldDetectParts,
+                           prefIDOverAddr=scriptInfo['ShowID'])
+
+            dispStr = displayInfo['String']
+            if displayInfo['WltID'] is None and displayInfo['LboxID'] is None:
+               addrEntryObjs['LBL_DETECT'].setText(dispStr)
+            else:
+               addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
+
+            # No point in repeating what the user just entered
+            addrEntryObjs['LBL_DETECT'].setVisible(enteredText != dispStr)
+            addrEntryObjs['QLE_ADDR'].setCursorPosition(0)
+
+         except:
+            #LOGEXCEPT('Invalid recipient string')
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
+      # End function to be connected
+      ##########################################################################
+            
+      # Now actually connect the entry widgets
+      parent.connect(addrEntryObjs['QLE_ADDR'], SIGNAL('textChanged(QString)'), 
+                                                         updateAddrDetectLabels)
+
+      updateAddrDetectLabels()
+
+      # Create a func that can be called to get the script that was entered
+      # This uses getScriptForUserString() which actually returns 4 vals
+      #        rawScript, wltIDorNone, lboxIDorNone, addrStringEntered
+      # (The last one is really only used to determine what info is most 
+      #  relevant to display to the user...it can be ignored in most cases)
+      def getScript():
+         entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+         return self.getScriptForUserString(entered)
+
+      addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
+      return addrEntryObjs
+
 
 
    #############################################################################
-   @TimeThisFunction
-   def checkNewZeroConf(self):
-      while len(self.newZeroConfSinceLastUpdate)>0:
-         rawTx = self.newZeroConfSinceLastUpdate.pop()
-         for wltID in self.walletMap.keys():
-            wlt = self.walletMap[wltID]
-            le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
-            if not le.getTxHash() == '\x00' * 32:
-               LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
-               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
-               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-               if (le.getValue() <= 0 and notifyOut) or (le.getValue() > 0 and notifyIn):
-                  self.notifyQueue.append([wltID, le, False]) # notifiedAlready=False
-               self.createCombinedLedger()
-               self.walletModel.reset()
-
-   #############################################################################
-   @TimeThisFunction
-   def newBlockSyncRescanZC(self, prevLedgSize):
-      didAffectUs = False
-      for wltID in self.walletMap.keys():
-         self.walletMap[wltID].syncWithBlockchainLite()
-         TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-         newLedgerSize = len(self.walletMap[wltID].getTxLedger())
-         didAffectUs = prevLedgSize[wltID] != newLedgerSize
-
-      return didAffectUs
+   def getScriptForUserString(self, userStr):
+      return getScriptForUserString(userStr, self.walletMap, self.allLockboxes)
 
 
    #############################################################################
+   def getDisplayStringForScript(self, binScript, maxChars=256, 
+                                 doBold=0, prefIDOverAddr=False, 
+                                 lblTrunc=12, lastTrunc=12):
+      return getDisplayStringForScript(binScript, self.walletMap, 
+                                       self.allLockboxes, maxChars, doBold,
+                                       prefIDOverAddr, lblTrunc, lastTrunc) 
+
+
+   #############################################################################
+
+   def checkNewZeroConf(self, ledgers):
+      '''
+      Function that looks at an incoming zero-confirmation transaction queue and
+      determines if any incoming transactions were created by Armory. If so, the
+      transaction will be passed along to a user notification queue.
+      '''
+      for le in ledgers:
+         notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
+                                                      not OS_MACOSX)
+         notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
+                                                       not OS_MACOSX)
+         if (le.getValue() <= 0 and notifyOut) or \
+                  (le.getValue() > 0 and notifyIn):
+                  # notifiedAlready = False, 
+            self.notifyQueue.append([le.getWalletID(), le, False])
+               
+      self.createCombinedLedger()
+      self.walletModel.reset()
+      self.lockboxLedgModel.reset()
+
+   #############################################################################
+   def handleCppNotification(self, action, args):
+
+      if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
+         #Blockchain just finished loading, finish initializing UI and render the
+         #ledgers
+         
+         self.blkReceived = RightNow()
+         if self.needUpdateAfterScan:
+            LOGDEBUG('Running finishLoadBlockchain')
+            self.finishLoadBlockchainGUI()
+            self.needUpdateAfterScan = False
+            self.setDashboardDetails()
+     
+      elif action == NEW_ZC_ACTION:
+         #A zero conf Tx conerns one of the address Armory is tracking, pull the 
+         #updated ledgers from the BDM and create the related notifications.         
+
+         self.checkNewZeroConf(args)        
+
+      elif action == NEW_BLOCK_ACTION:
+         #A new block has appeared, pull updated ledgers from the BDM, display
+         #the new block height in the status bar and note the block received time         
+
+         newBlocks = args[0]
+         if newBlocks>0:       
+            print 'New Block: ', TheBDM.getTopBlockHeight()
+
+            self.ledgerModel.reset()
+
+            LOGINFO('New Block! : %d', TheBDM.getTopBlockHeight())
+
+            self.createCombinedLedger()
+            self.blkReceived  = RightNow()
+            self.writeSetting('LastBlkRecvTime', self.blkReceived)
+            self.writeSetting('LastBlkRecv',     TheBDM.getTopBlockHeight())
+
+            if self.netMode==NETWORKMODE.Full:
+               LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
+               self.lblArmoryStatus.setText(\
+                  tr('<font color=%(color)s>Connected (%(hgt)s blocks)</font> ') % \
+                  { 'color' : htmlColor('TextGreen'), 'hgt' : TheBDM.getTopBlockHeight()})
+
+            # Update the wallet view to immediately reflect new balances
+            self.walletModel.reset()    
+      elif action == REFRESH_ACTION:
+         #The wallet ledgers have been updated from an event outside of new ZC
+         #or new blocks (usually a wallet or address was imported, or the 
+         #wallet filter was modified
+         for wltID in args:
+            if len(wltID) > 0:
+               if wltID in self.walletMap:
+                  wlt = self.walletMap[wltID]                  
+                  wlt.isEnabled = True
+                  self.walletModel.reset()                  
+                  wlt.doAfterScan()                  
+
+               else:
+                  lbID = self.lockboxIDMap[wltID]                
+                  self.allLockboxes[lbID].isEnabled = True
+                  if self.lbDialogModel != None:
+                     self.lbDialogModel.reset()
+                     
+               if self.walletSideScanProgress.has_key(wltID):
+                  del self.walletSideScanProgress[wltID]
+               
+         self.createCombinedLedger()
+
+         
+      elif action == 'progress':
+         #Received progress data for a wallet side scan
+         wltID = args[0]
+         prog = args[1]
+         self.walletSideScanProgress[wltID] = prog*100
+         
+         if wltID in self.walletMap:
+            self.walletModel.reset()
+         else:
+            self.lockboxLedgModel.reset()
+            if self.lbDialogModel != None:
+               self.lbDialogModel.reset()
+               
+      elif action == WARNING_ACTION:
+         #something went wrong on the C++ side, create a message box to report
+         #it to the user
+         QMessageBox.critical(self, tr('BlockDataManager Warning'), \
+                              tr(args[0]), \
+                              QMessageBox.Ok) 
+      
+      elif action == SCAN_ACTION:
+         wltID = args[0]
+         self.walletSideScanProgress[wltID] = 0    
+         if len(wltID) > 0:
+            if wltID in self.walletMap:
+               wlt = self.walletMap[wltID]                
+               wlt.disableWalletUI()
+               if wltID in self.walletDialogDict:
+                  self.walletDialogDict[wltID].reject()
+                  del self.walletDialogDict[wltID]
+            else:
+               lbID = self.lockboxIDMap[wltID]                
+               self.allLockboxes[lbID].isEnabled = False
+               self.allLockboxes[lbID].disableLockBoxUI()
+               if self.lbDialogModel != None:
+                  self.lbDialogModel.reset()       
+                 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
       """
@@ -5820,11 +6213,13 @@ class ArmoryMainWindow(QMainWindow):
       # TorrentDownloadManager
       # SatoshiDaemonManager
       # BlockDataManager
+      
       tdmState = TheTDM.getTDMState()
       sdmState = TheSDM.getSDMState()
-      bdmState = TheBDM.getBDMState()
-      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
+      bdmState = TheBDM.getState()
 
+      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
+      # TODO - lower the frequency to 1 per minute
       self.processAnnounceData()
 
       try:
@@ -5842,11 +6237,8 @@ class ArmoryMainWindow(QMainWindow):
          for idx,wltID in enumerate(self.walletIDList):
             self.walletMap[wltID].checkWalletLockTimeout()
 
-
-
-
          if self.doAutoBitcoind:
-            if TheTDM.isRunning():
+            if TheTDM.isRunning():    # TODO Put this whole conditional block in a method
                if tdmState=='Downloading':
                   self.updateSyncProgress()
 
@@ -5879,170 +6271,108 @@ class ArmoryMainWindow(QMainWindow):
                         # For now, just show once then disable
                         self.lastAskedUserStopTorrent = UINT64_MAX
 
-            if sdmState in ['BitcoindInitializing','BitcoindSynchronizing']:
+            if (sdmState in ['BitcoindInitializing','BitcoindSynchronizing']) or \
+               (sdmState == 'BitcoindReady' and bdmState==BDM_SCANNING):
                self.updateSyncProgress()
-            elif sdmState == 'BitcoindReady':
-               if bdmState == 'Uninitialized':
-                  LOGINFO('Starting load blockchain')
-                  self.loadBlockchainIfNecessary()
-               elif bdmState == 'Offline':
-                  LOGERROR('Bitcoind is ready, but we are offline... ?')
-               elif bdmState=='Scanning':
-                  self.updateSyncProgress()
-
-            if not sdmState==self.lastSDMState or \
-               not bdmState==self.lastBDMState[0]:
-               self.setDashboardDetails()
+               
          else:
-            if bdmState in ('Offline','Uninitialized'):
+            if bdmState in (BDM_OFFLINE,BDM_UNINITIALIZED):
                # This call seems out of place, but it's because if you are in offline
                # mode, it needs to check periodically for the existence of Bitcoin-Qt
                # so that it can enable the "Go Online" button
                self.setDashboardDetails()
                return
-            elif bdmState=='Scanning':
+            elif bdmState==BDM_SCANNING:  # TODO - Move to handle cpp notification
                self.updateSyncProgress()
 
 
          if self.netMode==NETWORKMODE.Disconnected:
-            if self.onlineModeIsPossible():
+            if self.isOnlineModePossible():
                self.switchNetworkMode(NETWORKMODE.Full)
 
-         if not TheBDM.isDirty() == self.dirtyLastTime:
-            self.setDashboardDetails()
-         self.dirtyLastTime = TheBDM.isDirty()
 
-
-         if bdmState=='BlockchainReady':
-
-            #####
-            # Blockchain just finished loading.  Do lots of stuff...
-            if self.needUpdateAfterScan:
-               LOGDEBUG('Running finishLoadBlockchain')
-               self.finishLoadBlockchain()
-               self.needUpdateAfterScan = False
-               self.setDashboardDetails()
-
-            #####
-            # If we just rescanned to sweep an address, need to finish it
-            if len(self.sweepAfterScanList)>0:
-               LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
-               self.finishSweepScan()
-               for addr in self.sweepAfterScanList:
-                  addr.binPrivKey32_Plain.destroy()
-               self.sweepAfterScanList = []
-               self.setDashboardDetails()
-
-            #####
-            # If we had initiated any wallet restoration scans, we need to add
-            # Those wallets to the display
-            if len(self.newWalletList)>0:
-               LOGDEBUG('Wallet restore completed.  Add to application.')
-               while len(self.newWalletList)>0:
-                  wlt,isFresh = self.newWalletList.pop()
-                  print 'Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED')
-                  TheBDM.registerWallet(wlt.cppWallet, isFresh)
-                  self.addWalletToApplication(wlt, walletIsNew=isFresh)
-               self.setDashboardDetails()
-
-
-            # Now we start the normal array of heartbeat operations
-            newBlocks = TheBDM.readBlkFileUpdate(wait=True)
-            self.currBlockNum = TheBDM.getTopBlockHeight()
-            if isinstance(self.currBlockNum, int): BDMcurrentBlock[0] = self.currBlockNum
-
-            if not newBlocks:
-               newBlocks = 0
-
-
-            # If we have new zero-conf transactions, scan them and update ledger
-            if len(self.newZeroConfSinceLastUpdate)>0:
-               self.newZeroConfSinceLastUpdate.reverse()
-               for wltID in self.walletMap.keys():
-                  wlt = self.walletMap[wltID]
-                  TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
-
-            self.checkNewZeroConf()
-
-            # Trigger any notifications, if we have them...
+         if bdmState==BDM_BLOCKCHAIN_READY:
+            # Trigger any notifications, if we have them... TODO - Remove add to new block, and block chain ready
             self.doTheSystemTrayThing()
 
-            if newBlocks>0 and not TheBDM.isDirty():
+            # Any extra functions that may have been injected to be run TODO - Call on New block
+            # when new blocks are received.  
+            if len(self.extraNewBlockFunctions) > 0:
+               cppHead = TheBDM.getMainBlockFromDB(self.currBlockNum)
+               pyBlock = PyBlock().unserialize(cppHead.getSerializedBlock())
+               for blockFunc in self.extraNewBlockFunctions:
+                  blockFunc(pyBlock)
 
-               # This says "after scan", but works when new blocks appear, too
-               TheBDM.updateWalletsAfterScan(wait=True)
-
-               prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-                                                   for wltID in self.walletMap.keys()])
-
-               print 'New Block: ', self.currBlockNum
-
-               self.ledgerModel.reset()
-
-               LOGINFO('New Block! : %d', self.currBlockNum)
-               didAffectUs = False
-
-               # LITE sync means it won't rescan if addresses have been imported
-               didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
-
-               if didAffectUs:
-                  LOGINFO('New Block contained a transaction relevant to us!')
-                  self.walletListChanged()
-                  self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-                                          self.currBlockNum+1)
-
-               self.createCombinedLedger()
-               self.blkReceived  = RightNow()
-               self.writeSetting('LastBlkRecvTime', self.blkReceived)
-               self.writeSetting('LastBlkRecv',     self.currBlockNum)
-
-               if self.netMode==NETWORKMODE.Full:
-                  LOGINFO('Current block number: %d', self.currBlockNum)
-                  self.lblArmoryStatus.setText(\
-                     '<font color=%s>Connected (%s blocks)</font> ' % \
-                     (htmlColor('TextGreen'), self.currBlockNum))
-
-               # Update the wallet view to immediately reflect new balances
-               self.walletModel.reset()
 
             blkRecvAgo  = RightNow() - self.blkReceived
-            #blkStampAgo = RightNow() - TheBDM.getTopBlockHeader().getTimestamp()
-            self.lblArmoryStatus.setToolTip('Last block received is %s ago' % \
-                                                secondsToHumanTime(blkRecvAgo))
+            #blkStampAgo = RightNow() - TheBDM.blockchain().top().getTimestamp()  # TODO - show absolute time, and show only on new block
+            self.lblArmoryStatus.setToolTip(tr('Last block received is %(time)s ago') % \
+                                                { 'time' : secondsToHumanTime(blkRecvAgo) })
 
-
-            for func in self.extraHeartbeatOnline:
+            # TODO - remove
+            for func in self.extraHeartbeatOnline: 
                func()
 
-
       except:
+         # When getting the error info, don't collect the traceback in order to
+         # avoid circular references. https://docs.python.org/2/library/sys.html
+         # has more info.
          LOGEXCEPT('Error in heartbeat function')
-         print sys.exc_info()
+         (errType, errVal) = sys.exc_info()[:2]
+         errStr = 'Error Type: %s\nError Value: %s' % (errType, errVal)
+         LOGERROR(errStr)
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
 
 
    #############################################################################
-   def notifyOnSurpriseTx(self, blk0, blk1):
-      # We usually see transactions as zero-conf first, then they show up in
-      # a block. It is a "surprise" when the first time we see it is in a block
-      notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
-      for blk in range(blk0, blk1):
-         for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
-            for wltID,wlt in self.walletMap.iteritems():
-               le = wlt.cppWallet.calcLedgerEntryForTx(tx)
-               if not le.getTxHash() in notifiedAlready:
-                  notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
-                  notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-                  if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
-                     self.notifyQueue.append([wltID, le, False])
-               else:
-                  pass
+   def printAlert(self, moneyID, ledgerAmt, txAmt):
+      '''
+      Function that prints a notification for a transaction that affects an
+      address we control.
+      '''
+      dispLines = []
+      title = ''
+      totalStr = coin2strNZS(txAmt)
 
+
+      if moneyID in self.walletMap:
+         wlt = self.walletMap[moneyID]
+         if len(wlt.labelName) <= 20:
+            dispName = tr('"%(name)s"') % { 'name' : wlt.labelName }
+         else:
+            dispName = tr('"%(shortname)s..."') % { 'shortname' : wlt.labelName[:17] }
+         dispName = tr('Wallet %(n)s (%(id)s)') % { 'n' : dispName, 'id':wlt.uniqueIDB58}
+      elif moneyID in self.cppLockboxWltMap:
+         lbox = self.getLockboxByID(moneyID)
+         if len(lbox.shortName) <= 20:
+            dispName = '%(M)d-of-%(N)d "%(shortname)s"' % { 'M' : lbox.M, 'N' : lbox.N, 'shortname' : lbox.shortName}
+         else:
+            dispName = tr('%(M)d-of-%(N)d "%(shortname)s..."') % {'M' : lbox.M, 'N' : lbox.N, 'shortname' : lbox.shortName[:17] }
+         dispName = tr('Lockbox %(name)s (%(id)s)') % { 'name' : dispName, 'id' : lbox.uniqueIDB58 }
+      else:
+         LOGERROR('Asked to show notification for wlt/lbox we do not have')
+         return
+
+      # Collected everything we need to display, now construct it and do it.
+      if ledgerAmt > 0:
+         # Received!
+         title = tr('Bitcoins Received!')
+         dispLines.append(tr('Amount:  %(total)s BTC') % { 'total' : totalStr })
+         dispLines.append(tr('Recipient:  %(recp)s') % { 'recp' : dispName } )
+      elif ledgerAmt < 0:
+         # Sent!
+         title = tr('Bitcoins Sent!')
+         dispLines.append(tr('Amount:  %(tot)s BTC') % { 'tot' : totalStr })
+         dispLines.append(tr('Sender:  %(disp)s') % { 'disp' : dispName })
+
+      self.showTrayMsg(title, '\n'.join(dispLines), \
+                       QSystemTrayIcon.Information, 10000)
+      LOGINFO(title)
 
 
    #############################################################################
-   @TimeThisFunction
+
    def doTheSystemTrayThing(self):
       """
       I named this method as it is because this is not just "show a message."
@@ -6050,83 +6380,99 @@ class ArmoryMainWindow(QMainWindow):
       received.  I will store them in self.notifyQueue, and this method will
       do nothing if it's empty.
       """
-      if not TheBDM.getBDMState()=='BlockchainReady' or \
+      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY or \
          RightNow()<self.notifyBlockedUntil:
          return
 
-      # Input is:  [WltID, LedgerEntry, NotifiedAlready]
-      txNotifyList = []
+      # Notify queue input is: [WltID/LBID, LedgerEntry, alreadyNotified]
       for i in range(len(self.notifyQueue)):
-         wltID, le, alreadyNotified = self.notifyQueue[i]
-         if not self.walletMap.has_key(wltID):
-            continue
-         wlt = self.walletMap[wltID]
+         moneyID, le, alreadyNotified = self.notifyQueue[i]
 
-         # Skip the ones we've notified of already
+         # Skip the ones we've notified of already.
          if alreadyNotified:
             continue
 
-         # Notification is not actually for us
+         # Marke it alreadyNotified=True
+         self.notifyQueue[i][2] = True
+
+         # Catch condition that somehow the tx isn't related to us
          if le.getTxHash()=='\x00'*32:
             continue
 
-         self.notifyQueue[i][2] = True
-         if le.isSentToSelf():
-            amt = determineSentToSelfAmt(le, wlt)[0]
-            self.sysTray.showMessage('Your bitcoins just did a lap!', \
-               'Wallet "%s" (%s) just sent %s BTC to itself!' % \
-               (wlt.labelName, wltID, coin2str(amt,maxZeros=1).strip()),
-               QSystemTrayIcon.Information, 10000)
+         # Make sure the wallet ID or lockbox ID keys are actually valid before
+         # using them to grab the appropriate C++ wallet.
+         pywlt = self.walletMap.get(moneyID)
+         lbox  = self.getLockboxByID(moneyID)
+
+         # If we couldn't find a matching wallet or lbox, bail
+         if pywlt is None and lbox is None:
+            LOGERROR('Could not find moneyID = %s; skipping notify' % moneyID)
+            continue
+
+         
+         if pywlt:
+            cppWlt  = self.walletMap[moneyID].cppWallet
+            wname = self.walletMap[moneyID].labelName
+            if len(wname)>20:
+               wname = wname[:17] + '...'
+            wltName = tr('Wallet "%(wname)s" (%(moneyID)s)') % { 'wname': wname, 'moneyID' : moneyID }
          else:
-            txref = TheBDM.getTxByHash(le.getTxHash())
+            cppWlt = self.cppLockboxWltMap[moneyID]
+            lbox   = self.getLockboxByID(moneyID)
+            M      = self.getLockboxByID(moneyID).M
+            N      = self.getLockboxByID(moneyID).N
+            lname  = self.getLockboxByID(moneyID).shortName
+            if len(lname) > 20:
+               lname = lname[:17] + '...'
+            wltName = tr('Lockbox %(M)d-of-%(N)d "%(lname)s" (%(id)s)') % { 'M' : M, 'N' : N, 'lname' : lname, 'id' : moneyID }
+
+         if le.isSentToSelf():
+            # Used to display the sent-to-self amount, but if this is a lockbox
+            # we only have a cppWallet, and the determineSentToSelfAmt() func
+            # only operates on python wallets.  Oh well, the user can double-
+            # click on the tx in their ledger if they want to see what's in it.
+            # amt = determineSentToSelfAmt(le, cppWlt)[0]
+            # self.showTrayMsg('Your bitcoins just did a lap!', \
+            #             'Wallet "%s" (%s) just sent %s BTC to itself!' % \
+            #         (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
+            self.showTrayMsg(tr('Your bitcoins just did a lap!'), \
+                             tr('%(wltName)s just sent some BTC to itself!') % { 'wltName' : wltName }, \
+                             QSystemTrayIcon.Information, 10000)
+            return
+
+         # If coins were either received or sent from the loaded wlt/lbox         
+         dispLines = []
+         totalStr = coin2strNZS(abs(le.getValue()))
+         if le.getValue() > 0:
+            title = tr('Bitcoins Received!')
+            dispLines.append(tr('Amount:  %(tot)s BTC') % { 'tot' : totalStr })
+            dispLines.append(tr('From:    %(wlt)s') % { 'wlt' : wltName })
+         elif le.getValue() < 0:
+            # Also display the address of where they went
+            txref = TheBDM.bdv().getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-            getScrAddr = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-            recips = [scrAddr_to_addrStr(getScrAddr(j))    for j in range(nOut)]
-            a160s  = [addrStr_to_hash160(recips[j])[1]     for j in range(nOut)]
-            values = [txref.getTxOutCopy(j).getValue()     for j in range(nOut)]
-            idxMine  = filter(lambda j:     wlt.hasAddr(a160s[j]), range(nOut))
-            idxOther = filter(lambda j: not wlt.hasAddr(a160s[j]), range(nOut))
-            mine  = [(recips[j],values[j]) for j in idxMine]
-            other = [(recips[j],values[j]) for j in idxOther]
-            dispLines = []
-            title = ''
-
-            # Collected everything we need to display, now construct it and do it
-            if le.getValue()>0:
-               # Received!
-               title = 'Bitcoins Received!'
-               totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=1)
-               dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
-               if len(mine)==1:
-                  dispLines.append('Address:\t%s' % mine[0][0])
-                  addrComment = wlt.getComment(addrStr_to_hash160(mine[0][0])[1])
+            recipStr = ''
+            for i in range(nOut):
+               script = txref.getTxOutCopy(i).getScript()
+               if cppWlt.hasScrAddress(script_to_scrAddr(script)):
+                  continue
+               if len(recipStr)==0:
+                  recipStr = self.getDisplayStringForScript(script, 45)['String']
                else:
-                  dispLines.append('<Received with Multiple Addresses>')
-               dispLines.append(   'Wallet:\t"%s" (%s)' % (wlt.labelName, wltID))
-            elif le.getValue()<0:
-               # Sent!
-               title = 'Bitcoins Sent!'
-               totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=1)
-               dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
-               if len(other)==1:
-                  dispLines.append('Sent To:\t%s' % other[0][0])
-                  addrComment = wlt.getComment(addrStr_to_hash160(other[0][0])[1])
-               else:
-                  dispLines.append('<Sent to Multiple Addresses>')
-               dispLines.append('From:\tWallet "%s" (%s)' % (wlt.labelName, wltID))
+                  recipStr = tr('<Multiple Recipients>')
+            
+            title = tr('Bitcoins Sent!')
+            dispLines.append(tr('Amount:  %(tot)s BTC') % { 'tot' : totalStr })
+            dispLines.append(tr('From:    %(wlt)s') % { 'wlt' : wltName })
+            dispLines.append(tr('To:      %(recp)s') % { 'recp' : recipStr })
+   
+         self.showTrayMsg(title, '\n'.join(dispLines), \
+                          QSystemTrayIcon.Information, 10000)
+         LOGINFO(title + '\n' + '\n'.join(dispLines))
 
-            self.sysTray.showMessage(title, \
-                                     '\n'.join(dispLines),  \
-                                     QSystemTrayIcon.Information, \
-                                     10000)
-            LOGINFO(title)
-            #LOGINFO('\n' + '\n'.join(dispLines))
-            #qsnd = QSound('drip.wav')
-            #qsnd.play()
-
+         # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5
          return
-
 
 
    #############################################################################
@@ -6134,10 +6480,10 @@ class ArmoryMainWindow(QMainWindow):
       moc = self.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
       doClose, doMinimize = False, False
       if moc=='DontKnow':
-         reply,remember = MsgBoxWithDNAA(MSGBOX.Question, 'Minimize or Close', \
-            'Would you like to minimize Armory to the system tray instead '
-            'of closing it?', dnaaMsg='Remember my answer', \
-            yesStr='Minimize', noStr='Close')
+         reply,remember = MsgBoxWithDNAA(self, self, MSGBOX.Question, tr('Minimize or Close'), \
+            tr('Would you like to minimize Armory to the system tray instead '
+            'of closing it?'), dnaaMsg=tr('Remember my answer'), \
+            yesStr=tr('Minimize'), noStr=tr('Close'))
          if reply==True:
             doMinimize = True
             if remember:
@@ -6154,7 +6500,8 @@ class ArmoryMainWindow(QMainWindow):
       elif doClose or moc=='Close':
          self.doShutdown = True
          self.sysTray.hide()
-         self.closeForReal(event)
+         self.closeForReal()
+         event.ignore()
       else:
          return  # how would we get here?
 
@@ -6204,39 +6551,62 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def closeForReal(self, event=None):
+   def closeForReal(self):
       '''
       Unlike File->Quit or clicking the X on the window, which may actually
       minimize Armory, this method is for *really* closing Armory
       '''
+      
+      self.setCursor(Qt.WaitCursor)
+      self.showShuttingDownMessage()
+      
       try:
          # Save the main window geometry in the settings file
          self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
          self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
          self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
 
-         if TheBDM.getBDMState()=='Scanning':
+         if TheBDM.getState()==BDM_SCANNING:
             LOGINFO('BDM state is scanning -- force shutdown BDM')
-            TheBDM.execCleanShutdown(wait=False)
          else:
             LOGINFO('BDM is safe for clean shutdown')
-            TheBDM.execCleanShutdown(wait=True)
 
-         # This will do nothing if bitcoind isn't running.
-         TheSDM.stopBitcoind()
+         #no callback notify in offline mode, just exit
+         if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED):
+            self.actuallyDoExitNow(STOPPED_ACTION, 1)
+            return
+         
+         TheBDM.registerCppNotification(self.actuallyDoExitNow)
+         TheBDM.beginCleanShutdown()
+
+         # Remove Temp Modules Directory if it exists:
+         if self.tempModulesDirName:
+            shutil.rmtree(self.tempModulesDirName)
       except:
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
 
 
+   def actuallyDoExitNow(self, action, l):
+      # this is a BDM callback
+      if action != STOPPED_ACTION:
+         return
+      # Any extra shutdown activities, perhaps added by modules
+      for fn in self.extraShutdownFunctions:
+         try:
+            fn()
+         except:
+            LOGEXCEPT('Shutdown function failed.  Skipping.')
+
+      
+      # This will do nothing if bitcoind isn't running.
+      TheSDM.stopBitcoind()
+      
 
       from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
       reactor.stop()
-      if event:
-         event.accept()
-
-
+    
 
    #############################################################################
    def execTrigger(self, toSpawn):
@@ -6332,11 +6702,11 @@ class ArmoryMainWindow(QMainWindow):
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'All wallets are consistent', 10000, dlgrdy])
+         self.emit(SIGNAL('UWCS'), [1, tr('All wallets are consistent'), 10000, dlgrdy])
          self.emit(SIGNAL('checkForNegImports'))
       else:
          while not dlgrdy:
-            self.emit(SIGNAL('UWCS'), [1, 'Consistency Check Failed!', 0, dlgrdy])
+            self.emit(SIGNAL('UWCS'), [1, tr('Consistency Check Failed!'), 0, dlgrdy])
             time.sleep(1)
 
          self.checkRdyForFix()
@@ -6347,15 +6717,15 @@ class ArmoryMainWindow(QMainWindow):
       time.sleep(1)
       self.dlgCptWlt.emit(SIGNAL('Show'))
       while 1:
-         if TheBDM.getBDMState() == 'Scanning':
+         if TheBDM.getState() == BDM_SCANNING:
             canFix = tr("""
                The wallet analysis tool will become available
                as soon as Armory is done loading.   You can close this 
                window and it will reappear when ready.""")
             self.dlgCptWlt.UpdateCanFix([canFix])
             time.sleep(1)
-         elif TheBDM.getBDMState() == 'Offline' or \
-              TheBDM.getBDMState() == 'Uninitialized':
+         elif TheBDM.getState() == BDM_OFFLINE or \
+              TheBDM.getState() == BDM_UNINITIALIZED:
             TheSDM.setDisabled(True)
             CLI_OPTIONS.offline = True
             break
@@ -6405,7 +6775,7 @@ class ArmoryMainWindow(QMainWindow):
          self.pbarWalletProgress.setMaximum(10000)
          self.pbarWalletProgress.setMaximumSize(300, 22)
          self.pbarWalletProgress.setStyleSheet('text-align: center; margin-bottom: 2px; margin-left: 10px;')
-         self.pbarWalletProgress.setFormat('Wallet Consistency Check: %p%')
+         self.pbarWalletProgress.setFormat(tr('Wallet Consistency Check: %p%'))
          self.pbarWalletProgress.setValue(0)
          self.statusBar().addWidget(self.pbarWalletProgress)
 
@@ -6413,8 +6783,6 @@ class ArmoryMainWindow(QMainWindow):
          self.connect(self, SIGNAL('PWCE'), self.PromptWltCstError)
          self.CheckWalletConsistency(self.walletMap, self.prgAt, async=True)
          self.UpdateConsistencyCheckMessage(async = True)
-         #self.extraHeartbeatAlways.append(self.UpdateWalletConsistencyPBar)
-
    @AllowAsync
    def UpdateConsistencyCheckMessage(self):
       while self.prgAt[2] == 0:
@@ -6448,28 +6816,48 @@ class ArmoryMainWindow(QMainWindow):
          self.dlgCptWlt.show()
       else:
          self.dlgCptWlt.exec_()
+      
+   #############################################################################
+   def cppNotifySignal(self, action, arg):
+      self.emit(SIGNAL('cppNotify'), action, arg)
+      
+   #############################################################################
+   def loadNewPage(self):
+      pageInt = int(self.PageLineEdit.text())
+      
+      
+      if pageInt == self.mainLedgerCurrentPage:
+         return
+      
+      if pageInt < 0 or pageInt > TheBDM.bdv().getWalletsPageCount():
+         self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
+         return
+      
+      previousPage = self.mainLedgerCurrentPage
+      try:
+         self.mainLedgerCurrentPage = pageInt   
+         self.createCombinedLedger()
+      except:
+         self.mainLedgerCurrentPage = previousPage
+         self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
 
-
-############################################
-class ArmoryInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another Armory instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate Armory instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-
-############################################
-class ArmoryListenerFactory(ClientFactory):
-   protocol = ArmoryInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-
-
-
+   #############################################################################
+   # System tray notifications require specific code for OS X. We'll handle
+   # messages here to hide the ugliness.
+   def showTrayMsg(self, dispTitle, dispText, dispIconType, dispTime):
+      if not OS_MACOSX:
+         self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
+      else:
+         if self.notifCtr == ArmoryMac.MacNotificationHandler.BuiltIn:
+            self.macNotifHdlr.showNotification(dispTitle, dispText)
+         elif (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl12) or \
+              (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl13):
+            self.macNotifHdlr.notifyGrowl(dispTitle, dispText, QIcon(self.iconfile))
+            
+   #############################################################################
+   def method_signal(self, method):
+      method()   
+   
 ############################################
 def checkForAlreadyOpen():
    import socket
@@ -6527,11 +6915,12 @@ def checkForAlreadyOpenError():
 
 
 ############################################
+
 if 1:
 
    import qt4reactor
    qt4reactor.install()
-
+      
    if CLI_OPTIONS.interport > 1:
       checkForAlreadyOpen()
 
@@ -6553,21 +6942,13 @@ if 1:
 
    from twisted.internet import reactor
    def endProgram():
-      print 'Resetting BlockDataMgr, freeing memory'
-      LOGINFO('Resetting BlockDataMgr, freeing memory')
-      TheBDM.Reset()
-      TheBDM.execCleanShutdown(wait=False)
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       QAPP.quit()
-      os._exit(0)
 
-   QAPP.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    os._exit(QAPP.exec_())
 
-
-
-
+# kate: indent-width 3; replace-tabs on;
