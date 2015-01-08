@@ -1,3 +1,11 @@
+################################################################################
+#                                                                              #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
+################################################################################
+
 from flask import Flask, render_template, session, redirect, url_for, request
 from flask.ext.socketio import SocketIO, emit
 

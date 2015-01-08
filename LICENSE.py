@@ -4,7 +4,7 @@ def licenseText():
 *                                                                              *
 *   Armory -- Advanced Bitcoin Wallet Software                                 *
 *                                                                              *
-*   Copyright (C) 2011-2014, Armory Technologies, Inc.                         *
+*   Copyright (C) 2011-2015, Armory Technologies, Inc.                         *
 *                                                                              *
 *   This program is free software: you can redistribute it and/or modify       *
 *   it under the terms of the GNU Affero General Public License as             *
@@ -268,7 +268,7 @@ END OF TERMS AND CONDITIONS
 ********************************************************************************
 The MIT License (MIT)
 
-Copyright (c) 2011-2014 The Bitcoin Core developers
+Copyright (c) 2011-2015 The Bitcoin Core developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
