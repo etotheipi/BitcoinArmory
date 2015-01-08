@@ -44,7 +44,7 @@ private:
    vector<Page> pages_;
    map<uint32_t, uint32_t> SSHsummary_;
 
-   uint32_t currentPage_ = 0;
+   uint32_t currentPage_ = -1;
    
    static uint32_t txnPerPage_;
 
