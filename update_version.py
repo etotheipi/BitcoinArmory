@@ -1,5 +1,7 @@
 import os
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(script_dir)
 
 if os.path.exists('.git') \
    and os.path.exists(os.path.join("armoryengine", "ArmoryUtils.py")):
