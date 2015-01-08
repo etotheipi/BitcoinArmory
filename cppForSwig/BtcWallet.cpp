@@ -444,6 +444,8 @@ void BtcWallet::prepareTxOutHistory(uint64_t val, bool ignoreZC)
          if (!hasMore)
             break;
       }
+      else 
+         break;
    } 
 
    if (value * 2 < val || count < MIN_UTXO_PER_TXN)
