@@ -12706,7 +12706,7 @@ class DlgRestoreSingle(ArmoryDialog):
          self.newWallet.createNewWallet( \
                                  plainRootKey=privKey, \
                                  chaincode=chain, \
-                                 shortLabel=tr('Restored - ') + newWltID +shortl, \
+                                 shortLabel='Restored - ' + newWltID +shortl, \
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
@@ -12720,7 +12720,7 @@ class DlgRestoreSingle(ArmoryDialog):
          self.newWallet.createNewWallet( \
                                  plainRootKey=privKey, \
                                  chaincode=chain, \
-                                 shortLabel=tr('Restored - ') + newWltID +shortl, \
+                                 shortLabel='Restored - ' + newWltID +shortl, \
                                  longLabel=longl, \
                                  withEncrypt=False, \
                                  isActuallyNew=False, \
@@ -13494,7 +13494,7 @@ class DlgRestoreFragged(ArmoryDialog):
          self.newWallet = PyBtcWallet().createNewWallet(\
                                  plainRootKey=priv, \
                                  chaincode=chain, \
-                                 shortLabel=tr('Restored - ') + newWltID + shortl, \
+                                 shortLabel='Restored - ' + newWltID + shortl, \
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
@@ -13506,7 +13506,7 @@ class DlgRestoreFragged(ArmoryDialog):
          self.newWallet = PyBtcWallet().createNewWallet(\
                                  plainRootKey=priv, \
                                  chaincode=chain, \
-                                 shortLabel=tr('Restored - ') + newWltID +shortl, \
+                                 shortLabel='Restored - ' + newWltID +shortl, \
                                  longLabel=longl, \
                                  withEncrypt=False, \
                                  isActuallyNew=False, \
