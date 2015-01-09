@@ -61,7 +61,10 @@ CXXFLAGS += -DCRYPTOPP_DISABLE_SSSE3
 else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
+else
+CXXFLAGS += -mpclmul -mssse3 -maes -msse4
 endif
+
 endif
 ifeq ($(UNAME),SunOS)
 CXXFLAGS += -Wa,--divide	# allow use of "/" operator
