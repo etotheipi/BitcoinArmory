@@ -22,7 +22,8 @@ typedef enum
 {
    BDV_dontRefresh,
    BDV_refreshSkipRescan,
-   BDV_refreshAndRescan
+   BDV_refreshAndRescan,
+   BDV_filterChanged
 }BDV_refresh;
 
 typedef enum
@@ -167,7 +168,7 @@ public:
    void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                            uint32_t startBlock, uint32_t endBlock) const;
 
-   void flagRefresh(bool withRemap, const BinaryData& refreshId);
+   void flagRefresh(BDV_refresh refresh, const BinaryData& refreshId);
    void notifyMainThread(void) const { bdmPtr_->notifyMainThread(); }
 
    StoredHeader getMainBlockFromDB(uint32_t height) const;

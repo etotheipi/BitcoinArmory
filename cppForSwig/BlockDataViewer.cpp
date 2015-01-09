@@ -398,7 +398,7 @@ void BlockDataViewer::updateLockboxesLedgerFilter(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID) 
+void BlockDataViewer::flagRefresh(BDV_refresh refresh, const BinaryData& refreshID)
 { 
    if (saf_->bdmIsRunning() == false)
       return;
@@ -407,7 +407,7 @@ void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID)
 
    if (refresh_ != BDV_refreshAndRescan)
    {
-      if (withRemap == true)
+      if (refresh == BDV_refreshAndRescan)
          refresh_ = BDV_refreshAndRescan;
       else
          refresh_ = BDV_refreshSkipRescan;
@@ -415,6 +415,9 @@ void BlockDataViewer::flagRefresh(bool withRemap, const BinaryData& refreshID)
 
    if (refreshID.getSize())
       refreshIDSet_.insert(refreshID);
+   
+   if (refresh == BDV_filterChanged)
+      refreshIDSet_.insert(BinaryData("wallet_filter_changed"));
 
    notifyMainThread();
 }
@@ -646,7 +649,7 @@ BtcWallet* WalletGroup::registerWallet(
       auto regWlt = wallets_.find(id);
       if (regWlt != wallets_.end())
       {
-         bdvPtr_->flagRefresh(false, id);
+         bdvPtr_->flagRefresh(BDV_refreshSkipRescan, id);
          return regWlt->second.get();
       }
    }
@@ -868,7 +871,7 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
    for (auto walletID : walletsList)
       wallets_[walletID]->uiFilter_ = true;
 
-   bdvPtr_->flagRefresh(false, BinaryData());
+   bdvPtr_->flagRefresh(BDV_filterChanged, BinaryData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

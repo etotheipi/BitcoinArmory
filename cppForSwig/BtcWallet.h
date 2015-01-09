@@ -153,9 +153,9 @@ public:
    vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX,
       bool ignoreZC = true);
 
-   vector<const LedgerEntry*>
+   vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const;
-   vector<const LedgerEntry*>
+   vector<LedgerEntry>
       getTxLedger(void) const;
 
    void pprintLedger() const;

@@ -620,32 +620,30 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<const LedgerEntry*> BtcWallet::getTxLedger(
+vector<LedgerEntry> BtcWallet::getTxLedger(
    HashString const & scraddr)
    const
 {
-   vector<const LedgerEntry*> leVec;
-   SCOPED_TIMER("BtcWallet::getTxLedger");
+   vector<LedgerEntry> leVec;
 
    auto saIter = scrAddrMap_.find(scraddr);
    if (ITER_IN_MAP(saIter, scrAddrMap_))
    {
       const auto& leMap = saIter->second.getTxLedger();
       for (const auto& lePair : leMap)
-         leVec.push_back(&lePair.second);
+         leVec.push_back(lePair.second);
    }
-   else
-      leVec.push_back(&LedgerEntry::EmptyLedger_);
+
    return leVec;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<const LedgerEntry*> BtcWallet::getTxLedger() const
+vector<LedgerEntry> BtcWallet::getTxLedger() const
 {
-   vector<const LedgerEntry*> leVec;
+   vector<LedgerEntry> leVec;
 
    for (const auto& lePair : *ledgerAllAddr_)
-      leVec.push_back(&lePair.second);
+      leVec.push_back(lePair.second);
 
    return leVec;
 }
@@ -1132,7 +1130,7 @@ vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
-   bdvPtr_->flagRefresh(true, walletID_); 
+   bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -144,9 +144,6 @@ void HistoryPager::mapHistory(
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t HistoryPager::getPageBottom(uint32_t id) const
 {
-   if (!isInitialized_)
-      throw std::runtime_error("Uninitialized history");
-
    if (id < pages_.size())
       return pages_[id].blockStart_;
 

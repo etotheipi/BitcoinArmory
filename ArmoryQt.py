@@ -3027,21 +3027,19 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
 
-   def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
+   def createCombinedLedger(self, resetMainLedger=False):
       """
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
       bdmState = TheBDM.getState()
       
-      if wltIDList==None:
-         currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         wltIDList = []
-         for i,vis in enumerate(self.walletVisibleList):
-            if vis:
-               wltIDList.append(self.walletIDList[i])
-         self.writeSetting('LastFilterState', currIdx)
-
+      currIdx  = max(self.comboWltSelect.currentIndex(), 0)
+      wltIDList = []
+      for i,vis in enumerate(self.walletVisibleList):
+         if vis:
+            wltIDList.append(self.walletIDList[i])
+      self.writeSetting('LastFilterState', currIdx)
 
       if wltIDList==None:
          return
@@ -3085,7 +3083,10 @@ class ArmoryMainWindow(QMainWindow):
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
          
-         self.ledgerModel.reset()
+         if resetMainLedger == False:
+            self.ledgerModel.reset()
+         else:
+            self.ledgerView.goToTop()
 
       except AttributeError:
          raise
@@ -6100,6 +6101,7 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
+         reset = False
          for wltID in args:
             if len(wltID) > 0:
                if wltID in self.walletMap:
@@ -6108,16 +6110,18 @@ class ArmoryMainWindow(QMainWindow):
                   self.walletModel.reset()                  
                   wlt.doAfterScan()                  
 
-               else:
+               elif wltID in self.lockboxIDMap:
                   lbID = self.lockboxIDMap[wltID]                
                   self.allLockboxes[lbID].isEnabled = True
                   if self.lbDialogModel != None:
                      self.lbDialogModel.reset()
-                     
+                 
+               elif wltID == "wallet_filter_changed":
+                  reset = True      
                if self.walletSideScanProgress.has_key(wltID):
                   del self.walletSideScanProgress[wltID]
                
-         self.createCombinedLedger()
+         self.createCombinedLedger(reset)
 
          
       elif action == 'progress':
