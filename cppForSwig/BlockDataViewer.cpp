@@ -356,7 +356,7 @@ size_t BlockDataViewer::getWalletsPageCount(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry>& BlockDataViewer::getWalletsHistoryPage(uint32_t pageId,
+vector<LedgerEntry> BlockDataViewer::getWalletsHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
    checkBDMisReady();
@@ -374,7 +374,7 @@ size_t BlockDataViewer::getLockboxesPageCount(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry>& BlockDataViewer::getLockboxesHistoryPage(uint32_t pageId,
+vector<LedgerEntry> BlockDataViewer::getLockboxesHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
    checkBDMisReady();
@@ -540,6 +540,84 @@ WalletGroup BlockDataViewer::getStandAloneWalletGroup(
    wg.pageHistory(false);
 
    return wg;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataViewer::getBlockTimeByHeight(uint32_t height) const
+{
+   auto bh = blockchain().getHeaderByHeight(height);
+
+   return bh.getTimestamp();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+LedgerDelegate BlockDataViewer::getLedgerDelegateForWallets()
+{
+   auto getHist = [this](uint32_t pageID)->vector<LedgerEntry>
+   { return this->getWalletsHistoryPage(pageID, false, false); };
+
+   auto getBlock = [this](uint32_t block)->uint32_t
+   { return this->groups_[group_wallet].getBlockInVicinity(block); };
+
+   auto getPageId = [this](uint32_t block)->uint32_t
+   { return this->groups_[group_wallet].getPageIdForBlockHeight(block); };
+
+   return LedgerDelegate(getHist, getBlock, getPageId);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+LedgerDelegate BlockDataViewer::getLedgerDelegateForLockboxes()
+{
+   auto getHist = [this](uint32_t pageID)->vector<LedgerEntry>
+   { return this->getLockboxesHistoryPage(pageID, false, false); };
+
+   auto getBlock = [this](uint32_t block)->uint32_t
+   { return this->groups_[group_lockbox].getBlockInVicinity(block); };
+
+   auto getPageId = [this](uint32_t block)->uint32_t
+   { return this->groups_[group_lockbox].getPageIdForBlockHeight(block); };
+
+   return LedgerDelegate(getHist, getBlock, getPageId);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
+{
+   //get timestamp of genesis block
+   auto& genBlock = blockchain().getGenesisBlock();
+   
+   //sanity check
+   if (timestamp < genBlock.getTimestamp())
+      return 0;
+
+   //get time diff and divide by average time per block (600 sec for Bitcoin)
+   uint32_t diff = timestamp - genBlock.getTimestamp();
+   int32_t blockHint = diff/600;
+
+   //look for a block in the hint vicinity with a timestamp lower than ours
+   while (blockHint > 0)
+   {
+      auto& block = blockchain().getHeaderByHeight(blockHint);
+      if (block.getTimestamp() < timestamp)
+         break;
+
+      blockHint -= 1000;
+   }
+
+   //another sanity check
+   if (blockHint < 0)
+      return 0;
+
+   for (uint32_t id = blockHint; id < blockchain().top().getBlockHeight() - 1; id++)
+   {
+      //not looking for a really precise block, 
+      //anything within the an hour of the timestamp is enough
+      auto& block = blockchain().getHeaderByHeight(id);
+      if (block.getTimestamp() + 3600 > timestamp)
+         return block.getBlockHeight();
+   }
+
+   return blockchain().top().getBlockHeight() - 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -723,22 +801,27 @@ uint32_t WalletGroup::pageHistory(bool forcePaging)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
+vector<LedgerEntry> WalletGroup::getHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
+   if (pageId >= hist_.getPageCount())
+      throw std::range_error("pageId out of range");
+
    if (order_ == order_ascending)
       pageId = hist_.getPageCount() - pageId - 1;
 
-   if (pageId == hist_.getCurrentPage() && !rebuildLedger && !remapWallets)
-      return globalLedger_;
+   //if (pageId == hist_.getCurrentPage() && !rebuildLedger && !remapWallets)
+      //return globalLedger_;
 
    if (rebuildLedger || remapWallets)
       pageHistory(remapWallets);
 
    hist_.setCurrentPage(pageId);
 
+   vector<LedgerEntry> vle;
+
    {
-      globalLedger_.clear();
+      //globalLedger_.clear();
       ReadWriteLock::ReadLock rl(lock_);
       for (auto& wlt : values(wallets_))
       {
@@ -760,19 +843,19 @@ const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
             continue;
 
          for (const LedgerEntry& le : values(leMap))
-            globalLedger_.push_back(le);
+            vle.push_back(le);
       }
    }
 
    if (order_ == order_ascending)
-      sort(globalLedger_.begin(), globalLedger_.end());
+      sort(vle.begin(), vle.end());
    else
    {
       LedgerEntry_DescendingOrder desc;
-      sort(globalLedger_.begin(), globalLedger_.end(), desc);
+      sort(vle.begin(), vle.end(), desc);
    }
 
-   return globalLedger_;
+   return vle;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -855,4 +938,16 @@ map<BinaryData, shared_ptr<BtcWallet> > WalletGroup::getWalletMap(void)
    return wallets_;
 }
 
-// kate: indent-width 3; replace-tabs on;
+////////////////////////////////////////////////////////////////////////////////
+uint32_t WalletGroup::getBlockInVicinity(uint32_t blk) const
+{
+   //expect history has been computed, it will throw otherwise
+   return hist_.getBlockInVicinity(blk);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t WalletGroup::getPageIdForBlockHeight(uint32_t blk) const
+{
+   //same as above
+   return hist_.getPageIdForBlockHeight(blk);
+}

@@ -513,7 +513,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    Grabs at least 100 UTXOs with enough spendable balance to cover 2x val (if 
    available of course), otherwise returns the full UTXO list for the wallet.
 
-   val defaults to UINT64_MAX, so passing not passing val will result in 
+   val defaults to UINT64_MAX, so not passing val will result in 
    grabbing all UTXOs in the wallet
    ***/
 

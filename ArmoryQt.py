@@ -269,7 +269,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
-      self.walletsView  = QTableView()
+      self.walletsView  = QTableView(self)
 
       w,h = tightSizeNChar(self.walletsView, 55)
       viewWidth  = 1.2*w
@@ -283,8 +283,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
       #self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
       self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
-
-
+      
 
       self.walletsView.hideColumn(0)
       if self.usermode == USERMODE.Standard:
@@ -318,8 +317,10 @@ class ArmoryMainWindow(QMainWindow):
       # Table to display ledger/activity
       self.ledgerTable = []
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+      self.ledgerModel.setLedgerDelegate(TheBDM.bdv().getLedgerDelegateForWallets())
+      self.ledgerModel.setConvertLedgerMethod(self.convertLedgerToTable)
 
-      self.ledgerView  = QTableView()
+      self.ledgerView  = ArmoryTableView(self, self)
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
@@ -344,6 +345,8 @@ class ArmoryMainWindow(QMainWindow):
       self.lockboxLedgTable = []
       self.lockboxLedgModel = LedgerDispModelSimple(self.lockboxLedgTable, 
                                                     self, self, isLboxModel=True)
+      self.lockboxLedgModel.setLedgerDelegate(TheBDM.bdv().getLedgerDelegateForLockboxes())
+      self.lockboxLedgModel.setConvertLedgerMethod(self.convertLedgerToTable)
       self.lbDialogModel = None
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
@@ -456,15 +459,6 @@ class ArmoryMainWindow(QMainWindow):
             
       self.changeWltFilter()      
       
-      self.frmPages = QFrame()
-      self.frmPages.setFrameStyle(STYLE_NONE)
-      frmPagesLayout = QGridLayout()
-      frmPagesLayout.addWidget(self.lblPages, 0, 0)
-      frmPagesLayout.addWidget(self.PageLineEdit, 0, 1)
-      frmPagesLayout.addWidget(self.lblNPages, 0, 2)
-      
-      self.frmPages.setLayout(frmPagesLayout)
-      self.frmPages.setVisible(False)
 
       # Will fill this in when ledgers are created & combined
       self.lblLedgShowing = QRichLabel('Showing:', hAlign=Qt.AlignHCenter)
@@ -511,8 +505,6 @@ class ArmoryMainWindow(QMainWindow):
       frmLower = makeHorizFrame([ frmFilter, \
                                  'Stretch', \
                                  self.frmLedgUpDown, \
-                                 'Stretch', \
-                                 self.frmPages, \
                                  'Stretch', \
                                  frmTotals])
 
@@ -3055,7 +3047,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       self.combinedLedger = []
-      self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
+      #self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
@@ -3092,14 +3084,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblSpendFunds.setText( '<b><font color=%s>%s</font></b>' % (goodColor, coin2str(spendFunds)))
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
-
-         pageCount = TheBDM.bdv().getWalletsPageCount()
-         self.frmPages.setVisible(pageCount > 1)
-         self.lblNPages.setText(' out of %d' % pageCount)
          
-         # Finally, update the ledger table
-         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-         self.ledgerModel.ledger = self.ledgerTable
          self.ledgerModel.reset()
 
       except AttributeError:
@@ -3111,11 +3096,6 @@ class ArmoryMainWindow(QMainWindow):
 
       # In expert mode, we're updating the lockbox info, too
       try:
-         lockboxTable = TheBDM.bdv().getLockboxesHistoryPage(0)
-
-
-         self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
-         self.lockboxLedgModel.ledger = self.lockboxLedgTable
          self.lockboxLedgModel.reset()
       except:
          LOGEXCEPT('Failed to update lockbox ledger')
@@ -6857,6 +6837,9 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def method_signal(self, method):
       method()   
+   #############################################################################      
+   def bdv(self):
+      return TheBDM.bdv()
    
 ############################################
 def checkForAlreadyOpen():

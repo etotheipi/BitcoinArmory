@@ -65,12 +65,11 @@ namespace std
    %template(vector_string) std::vector<string>;
    //%template(vector_BinaryData) std::vector<BinaryData>;
    %template(vector_LedgerEntry) std::vector<LedgerEntry>;
-   %template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
+   //%template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
    %template(vector_TxRefPtr) std::vector<TxRef*>;
    %template(vector_Tx) std::vector<Tx>;
    %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
    %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
-   %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
    %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;

@@ -711,11 +711,11 @@ class DlgLockboxManager(ArmoryDialog):
          self.lboxView.hideColumn(i)
       self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
 
-      self.ledgerProxy = LedgerDispSortProxy(self)
-      self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
+      #self.ledgerProxy = LedgerDispSortProxy(self)
+      #self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
 
-      self.ledgerView  = QTableView()
-      self.ledgerView.setModel(self.ledgerProxy)
+      self.ledgerView  = ArmoryTableView(self.parent, self.main)
+      self.ledgerView.setModel(self.main.lockboxLedgModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)

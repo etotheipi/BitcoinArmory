@@ -24,6 +24,9 @@ map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(
    uint32_t pageId,
    map<BinaryData, TxIOPair>* txioMap)
 {
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
    if (pageId >= pages_.size())
       return LedgerEntry::EmptyLedgerMap_;
 
@@ -62,6 +65,9 @@ void HistoryPager::getPageLedgerMap(
    uint32_t pageId,
    map<BinaryData, LedgerEntry>& leMap) const
 {
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
    const Page& page = pages_[pageId];
 
    //load page's block range from SSH and build ledgers
@@ -73,6 +79,9 @@ void HistoryPager::getPageLedgerMap(
 ////////////////////////////////////////////////////////////////////////////////
 map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(uint32_t pageId)
 {
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
    currentPage_ = pageId;
    Page& page = pages_[pageId];
 
@@ -101,6 +110,7 @@ void HistoryPager::mapHistory(
    if (SSHsummary_.size() == 0)
    {
       addPage(0, 0, UINT32_MAX);
+      isInitialized_ = true;
       return;
    }
 
@@ -127,11 +137,16 @@ void HistoryPager::mapHistory(
       addPage(threshold, 0, top);
 
    sortPages();
+
+   isInitialized_ = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t HistoryPager::getPageBottom(uint32_t id) const
 {
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
    if (id < pages_.size())
       return pages_[id].blockStart_;
 
@@ -142,6 +157,9 @@ uint32_t HistoryPager::getPageBottom(uint32_t id) const
 uint32_t HistoryPager::getRangeForHeightAndCount(
    uint32_t height, uint32_t count) const
 {
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
    uint32_t total = 0;
    uint32_t top = 0;
 
@@ -160,3 +178,44 @@ uint32_t HistoryPager::getRangeForHeightAndCount(
    return top;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+uint32_t HistoryPager::getBlockInVicinity(uint32_t blk) const
+{
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
+   uint32_t blkDiff = UINT32_MAX;
+   uint32_t blkHeight = UINT32_MAX;
+
+   for (auto& txioRange : SSHsummary_)
+   {
+      //look for txio summary with closest block
+      uint32_t diff = abs(int(txioRange.first - blk));
+      if (diff == 0)
+         return txioRange.first;
+      else if (diff < blkDiff)
+      {
+         blkHeight = txioRange.first;
+         blkDiff = diff;
+      }
+   }
+
+   return blkHeight;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t HistoryPager::getPageIdForBlockHeight(uint32_t blk) const
+{
+   if (!isInitialized_)
+      throw std::runtime_error("Uninitialized history");
+
+   for (int32_t i = 0; i , pages_.size(); i++)
+   {
+      auto& page = pages_[i];
+
+      if (blk >= page.blockStart_ && blk <= page.blockEnd_)
+         return i;
+   }
+
+   return 0;
+}
