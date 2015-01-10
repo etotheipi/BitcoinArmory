@@ -418,10 +418,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             #foundPackage = False
 
       self.stackedDisplay.setCurrentIndex(1)
-      QMessageBox.warning(self, tr("Not Found"), tr("""
-         Armory could not determine an appropriate download for
-         your operating system.  You will have to manually select
-         the correct download on the next window."""), QMessageBox.Ok)
+      QMessageBox.warning(self, tr("Not Found"), tr(
+         "Armory could not determine an appropriate download for "
+         "your operating system.  You will have to manually select "
+         "the correct download on the next window."), QMessageBox.Ok)
       #else:
          #self.stackedDisplay.setCurrentIndex(1)
 
