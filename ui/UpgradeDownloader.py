@@ -376,7 +376,6 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       self.cascadeOs()
       self.selectMyOs()
-      self.useSelectedPackage()
 
       # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
@@ -405,7 +404,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                packages.setCurrentItem(row)
                if not expectVer or str(row.data(1, 32).toString())==expectVer:
                   break
-            self.useSelectedPackage()
+            self.useSelectedPackage(limit=True)
          else:
             QMessageBox.warning(self, tr("Not Found"), tr(
                "Armory could not determine an appropriate download for "
@@ -485,7 +484,8 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
 
 
-   def useSelectedPackage(self):
+   def useSelectedPackage(self, *args, **kwargs):
+      limit = kwargs.get("limit")
       if self.packages.currentItem() is None:
          self.changelogView.setHtml("<html>" + tr("""
             There is no version information to be shown here.""") +"</html>")
@@ -511,7 +511,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                   break
 
             stopIndex = len(self.changelog)
-            if len(self.main.armoryVersions[0])>0:
+            if limit and len(self.main.armoryVersions[0])>0:
                for i,triplet in enumerate(self.changelog):
                   currVer = getVersionInt(readVersionString(self.main.armoryVersions[0]))
                   thisVer = getVersionInt(readVersionString(triplet[0]))
