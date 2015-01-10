@@ -516,13 +516,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                   currVer = getVersionInt(readVersionString(self.main.armoryVersions[0]))
                   thisVer = getVersionInt(readVersionString(triplet[0]))
                   if thisVer <= currVer:
-                     stopIndex = i
+                     stopIndex = i + 1
                      break
 
-
-
          if startIndex > -1:
-
             logHtml = "<html><body>"
             if startIndex >= stopIndex:
                logHtml = tr("Release notes are not available for this package")

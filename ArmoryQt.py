@@ -4696,8 +4696,9 @@ class ArmoryMainWindow(QMainWindow):
             dispIcon = QPixmap(iconArmory).scaled(24,24)
             self.icoArmorySWVersion.setPixmap(dispIcon)
             self.btnSecureDLArmory.setVisible(False)
-            self.lblArmorySWVersion.setText(tr("""
-               You are using the latest version of Armory"""))
+            self.lblArmorySWVersion.setText(tr(
+               "You are using the latest version of Armory (%s)"
+               % self.armoryVersions[0]))
          else:
             dispIcon = QPixmap(iconWarnFile).scaled(24,24)
             self.icoArmorySWVersion.setPixmap(dispIcon)
