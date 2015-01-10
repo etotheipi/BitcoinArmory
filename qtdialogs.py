@@ -15313,7 +15313,28 @@ class DlgPrivacyPolicy(ArmoryDialog):
       self.setWindowTitle(tr("Privacy Policy"))
          
 
+#################################################################################
+class ArmorySplashScreen(QSplashScreen):
+   def __init__(self, pixLogo):
+      super(ArmorySplashScreen, self).__init__(pixLogo)
 
+      css = """
+            QProgressBar{ text-align: center; font-size: 8px; }
+            """
+      self.setStyleSheet(css)   
+      
+      self.progressBar = QProgressBar(self)
+      self.progressBar.setMaximum(100)
+      self.progressBar.setMinimum(0)
+      self.progressBar.setValue(0)
+      self.progressBar.setMinimumWidth(self.width())
+      self.progressBar.setMaximumHeight(10)
+      self.progressBar.setFormat(tr(\
+         "%(title)s: %(pct)s%%") % { 'title' : "Loading", 'pct' : "%p" })
+                       
+   def updateProgress(self, val):
+      self.progressBar.setValue(val)
+      
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
    AdvancedOptionsFrame

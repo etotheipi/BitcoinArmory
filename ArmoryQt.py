@@ -90,7 +90,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
 
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, splashScreen=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.isShuttingDown = False
@@ -218,8 +218,10 @@ class ArmoryMainWindow(QMainWindow):
       # exist and this is needed to accommodate wallets with lots of them.
       self.txAddrMap = {}
 
-
-      self.loadWalletsAndSettings()
+      def updateProgress(val):
+         if splashScreen is not None:
+            splashScreen.updateProgress(val)
+      self.loadWalletsAndSettings(updateProgress)      
 
       eulaAgreed = self.getSettingOrSetDefault('Agreed_to_EULA', False)
       if not eulaAgreed:
@@ -2571,7 +2573,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
 
-   def loadWalletsAndSettings(self):
+   def loadWalletsAndSettings(self, updateProgress):
       LOGINFO('loadWalletsAndSettings')
 
       self.getSettingOrSetDefault('First_Load',         True)
@@ -2629,9 +2631,19 @@ class ArmoryMainWindow(QMainWindow):
       wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
+      ratioPerWallet = 100 / float(len(wltPaths))
+      i = 0
       for fpath in wltPaths:
+         currentProgress = float(i) * ratioPerWallet
+         updateProgress(currentProgress)
+         i += 1
+         
+         def reportProgress(val):
+            updateProgress(currentProgress + val*ratioPerWallet
+                           )
          try:
-            wltLoad = PyBtcWallet().readWalletFile(fpath)
+            wltLoad = PyBtcWallet().readWalletFile(fpath, \
+                                 reportProgress=reportProgress)
             wltID = wltLoad.uniqueIDB58
             if fpath in wltExclude or wltID in wltExclude:
                continue
@@ -2695,6 +2707,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lastDirectory = savedDir
       self.writeSetting('LastDirectory', savedDir)
 
+      updateProgress(100)
 
    #############################################################################
    @RemoveRepeatingExtensions
@@ -3682,8 +3695,7 @@ class ArmoryMainWindow(QMainWindow):
       if not os.path.exists(fn):
          return
 
-      wlt = PyBtcWallet().readWalletFile(fn, verifyIntegrity=False, \
-                                             doScanNow=False)
+      wlt = PyBtcWallet().readWalletFile(fn, verifyIntegrity=False)
       wltID = wlt.uniqueIDB58
       wlt = None
 
@@ -6914,15 +6926,16 @@ if 1:
    pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:
       pixLogo = QPixmap(':/splashlogo_testnet.png')
-   SPLASH = QSplashScreen(pixLogo)
+   SPLASH = ArmorySplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())
+   
    SPLASH.show()
    QAPP.processEvents()
 
    # Will make this customizable
    QAPP.setFont(GETFONT('var'))
 
-   form = ArmoryMainWindow()
+   form = ArmoryMainWindow(splashScreen=SPLASH)
    form.show()
 
    SPLASH.finish(form)

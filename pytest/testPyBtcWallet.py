@@ -84,11 +84,11 @@ class PyBtcWalletTest(TiabTest):
       self.assertFalse(self.wlt.isWltSigningAnyLockbox(lockboxList))
       
       lboxWltAFile   = os.path.join(self.armoryHomeDir,'armory_%s_.wallet' % FIRST_WLT_NAME)
-      lboxWltA = PyBtcWallet().readWalletFile(lboxWltAFile, doScanNow=True)
+      lboxWltA = PyBtcWallet().readWalletFile(lboxWltAFile)
       self.assertTrue(lboxWltA.isWltSigningAnyLockbox(lockboxList))
       
       lboxWltBFile   = os.path.join(self.armoryHomeDir,'armory_%s_.wallet' % SECOND_WLT_NAME)
-      lboxWltB = PyBtcWallet().readWalletFile(lboxWltBFile, doScanNow=True)
+      lboxWltB = PyBtcWallet().readWalletFile(lboxWltBFile)
       self.assertTrue(lboxWltB.isWltSigningAnyLockbox(lockboxList))
       
    # Remove wallet files, need fresh dir for this test

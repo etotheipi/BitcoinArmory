@@ -126,13 +126,13 @@ class ArmoryDTiabTest(TiabTest):
       # Load the primary file from the test net in a box
       self.fileA = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
                                 'armory_%s_.wallet' % FIRST_WLT_NAME)
-      self.wltA  = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
+      self.wltA  = PyBtcWallet().readWalletFile(self.fileA)
       self.fileB = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
                                 'armory_%s_.wallet' % SECOND_WLT_NAME)
-      self.wltB  = PyBtcWallet().readWalletFile(self.fileB, doScanNow=True)
+      self.wltB  = PyBtcWallet().readWalletFile(self.fileB)
       self.fileC = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
                                 'armory_%s_.wallet' % THIRD_WLT_NAME)
-      self.wltC  = PyBtcWallet().readWalletFile(self.fileC, doScanNow=True)
+      self.wltC  = PyBtcWallet().readWalletFile(self.fileC)
       self.jsonServer = Armory_Json_Rpc_Server(self.wltA, \
                                     inWltMap={SECOND_WLT_NAME : self.wltB, \
                                               THIRD_WLT_NAME : self.wltC}, \

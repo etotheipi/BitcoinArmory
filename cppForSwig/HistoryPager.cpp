@@ -206,7 +206,7 @@ uint32_t HistoryPager::getPageIdForBlockHeight(uint32_t blk) const
    if (!isInitialized_)
       throw std::runtime_error("Uninitialized history");
 
-   for (int32_t i = 0; i , pages_.size(); i++)
+   for (int32_t i = 0; i < pages_.size(); i++)
    {
       auto& page = pages_[i];
 

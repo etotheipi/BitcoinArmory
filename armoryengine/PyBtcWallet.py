@@ -2094,7 +2094,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    @TimeThisFunction
-   def readWalletFile(self, wltpath, verifyIntegrity=True, doScanNow=False):
+   def readWalletFile(self, wltpath, verifyIntegrity=True, reportProgress=None):
       if not os.path.exists(wltpath):
          raise FileExistsError("No wallet file:"+wltpath)
 
@@ -2117,8 +2117,14 @@ class PyBtcWallet(object):
 
       self.lastComputedChainIndex = -UINT32_MAX
       self.lastComputedChainAddr160  = None
+      i=0
       while wltdata.getRemainingSize()>0:
          byteLocation = wltdata.getPosition()
+         i += 1
+         if i%10 == 0 and reportProgress is not None:
+            progress = float(byteLocation) / float(wltdata.getSize())
+            reportProgress(progress)
+            
          dtype, hashVal, rawData = self.unpackNextEntry(wltdata)
          if dtype==WLT_DATATYPE_KEYDATA:
             newAddr = PyBtcAddress()
@@ -2452,7 +2458,7 @@ class PyBtcWallet(object):
       #             if we just "forget" the current wallet state and re-read
       #             the wallet from file
       wltPath = self.walletPath
-      self.readWalletFile(wltPath, doScanNow=True)
+      self.readWalletFile(wltPath)
 
 
    #############################################################################
