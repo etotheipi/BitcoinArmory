@@ -398,24 +398,22 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       elif showPackage == 'Satoshi':
          expectVer = self.main.satoshiVersions[1]
 
-      # This is currently broken... will have to fix later
-      # if showPackage:
-      #    for n in range(0, packages.topLevelItemCount()):
-      #       row = packages.topLevelItem(n)
-      #       if str(row.data(0, 32).toString())==showPackage:
-      #          packages.setCurrentItem(row)
-      #          if not expectVer or str(row.data(1, 32).toString())==expectVer:
-      #             break
-      #       self.useSelectedPackage()
-      #    else:
-      #       foundPackage = False
-
-      # if not foundPackage:
-      #    QMessageBox.warning(self, tr("Not Found"), tr(
-      #       "Armory could not determine an appropriate download for "
-      #       "your operating system.  You will have to manually select "
-      #       "the correct download on the next window."), QMessageBox.Ok)
-      self.stackedDisplay.setCurrentIndex(1)
+      if showPackage:
+         for n in range(0, packages.topLevelItemCount()):
+            row = packages.topLevelItem(n)
+            if str(row.data(0, 32).toString()).startswith(showPackage):
+               packages.setCurrentItem(row)
+               if not expectVer or str(row.data(1, 32).toString())==expectVer:
+                  break
+            self.useSelectedPackage()
+         else:
+            QMessageBox.warning(self, tr("Not Found"), tr(
+               "Armory could not determine an appropriate download for "
+               "your operating system.  You will have to manually select "
+               "the correct download on the next window."), QMessageBox.Ok)
+            self.stackedDisplay.setCurrentIndex(1)
+      else:
+         self.stackedDisplay.setCurrentIndex(1)
 
       self.setLayout(layout)
       self.setMinimumWidth(600)
