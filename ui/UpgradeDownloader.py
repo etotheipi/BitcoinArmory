@@ -374,31 +374,24 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       layout.setRowStretch(0, 1)
       layout.setColumnStretch(1, 1)
 
-
       self.cascadeOs()
       self.selectMyOs()
       self.useSelectedPackage()
-      self.cascadeOs()
-      # I have no clue why we have to call these things so many times!
-      self.selectMyOs()
-      self.cascadeOs()
-
 
       # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
-      #trueBits = '64' if SystemSpecs.IsX64 else '32'
-      #selectBits = self.itemData(self.osarch)[:2]
-      #if showPackage and not trueBits==selectBits:
-         #QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
-            #You appear to be on a %s-bit architecture, but the only
-            #available download is for %s-bit systems.  It is unlikely
-            #that this download will work on this operating system.
-            #<br><br>
-            #Please make sure that the correct operating system is
-            #selected before attempting to download and install any
-            #packages.""") % (trueBits, selectBits), QMessageBox.Ok)
-         #self.bitsColor = htmlColor('TextRed')
-
+      trueBits = '64' if SystemSpecs.IsX64 else '32'
+      selectBits = self.itemData(self.osarch)[:2]
+      if showPackage and not trueBits==selectBits:
+         QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
+            You appear to be on a %s-bit architecture, but the only
+            available download is for %s-bit systems.  It is unlikely
+            that this download will work on this operating system.
+            <br><br>
+            Please make sure that the correct operating system is
+            selected before attempting to download and install any
+            packages.""") % (trueBits, selectBits), QMessageBox.Ok)
+         self.bitsColor = htmlColor('TextRed')
 
       if showPackage == 'Armory':
          expectVer = self.main.armoryVersions[1]
@@ -406,25 +399,23 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          expectVer = self.main.satoshiVersions[1]
 
       # This is currently broken... will have to fix later
-      #if showPackage:
-         #for n in range(0, packages.topLevelItemCount()):
-            #row = packages.topLevelItem(n)
-            #if str(row.data(0, 32).toString())==showPackage:
-               #packages.setCurrentItem(row)
-               #if not expectVer or str(row.data(1, 32).toString())==expectVer:
-                  #break
-            #self.useSelectedPackage()
-         #else:
-            #foundPackage = False
+      # if showPackage:
+      #    for n in range(0, packages.topLevelItemCount()):
+      #       row = packages.topLevelItem(n)
+      #       if str(row.data(0, 32).toString())==showPackage:
+      #          packages.setCurrentItem(row)
+      #          if not expectVer or str(row.data(1, 32).toString())==expectVer:
+      #             break
+      #       self.useSelectedPackage()
+      #    else:
+      #       foundPackage = False
 
+      # if not foundPackage:
+      #    QMessageBox.warning(self, tr("Not Found"), tr(
+      #       "Armory could not determine an appropriate download for "
+      #       "your operating system.  You will have to manually select "
+      #       "the correct download on the next window."), QMessageBox.Ok)
       self.stackedDisplay.setCurrentIndex(1)
-      QMessageBox.warning(self, tr("Not Found"), tr(
-         "Armory could not determine an appropriate download for "
-         "your operating system.  You will have to manually select "
-         "the correct download on the next window."), QMessageBox.Ok)
-      #else:
-         #self.stackedDisplay.setCurrentIndex(1)
-
 
       self.setLayout(layout)
       self.setMinimumWidth(600)
@@ -466,14 +457,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       if OS_WINDOWS:
          osIndex = self.findCmbData(self.os, tr("Windows"))
       elif OS_LINUX:
-         if osVar.lower() in ['debian', 'linuxmint']:
-            d1 = self.findCmbData(self.os, tr('Debian'))
-            d2 = self.findCmbData(self.os, tr('Ubuntu'))
-            osIndex = max(d1,d2)
-         elif osVar.lower() == "ubuntu":
-            osIndex = self.findCmbData(self.os, tr('Ubuntu'))
+         if osVar.lower() in ('debian', 'linuxmint', 'ubuntu'):
+            osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
          else:
-            osIndex = self.findCmbData(self.os, tr('Ubuntu'))
+            osIndex = self.findCmbData(self.os, tr('Linux'))
       elif OS_MACOSX:
          osIndex = self.findCmbData(self.osver, tr('MacOSX'))
 
@@ -492,11 +479,12 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       archIndex = 0
       if platform.machine() == "x86_64":
-         archIndex = self.findCmbData(self.osarch, tr('64'))
+         archIndex = self.findCmbData(self.osarch, tr('64-bit'))
       else:
-         archIndex = self.findCmbData(self.osarch, tr('32'))
-
+         archIndex = self.findCmbData(self.osarch, tr('32-bit'))
       self.osarch.setCurrentIndex(archIndex)
+      self.cascadeOsArch()
+
 
 
    def useSelectedPackage(self):
@@ -553,11 +541,11 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                   logHtml += "</ul>\n\n"
          else:
             if packagename == "Satoshi":
-               logHtml = tr("""
-                  No version information is available here for any of the
-                  core Bitcoin software downloads. You can find the
-                  information at:
-                  <a href='https://bitcoin.org/en/version-history'>https://bitcoin.org/en/version-history</a>""")
+               logHtml = tr(
+                  "No version information is available here for any of the "
+                  "core Bitcoin software downloads. You can find the "
+                  "information at: "
+                  "<a href='https://bitcoin.org/en/version-history'>https://bitcoin.org/en/version-history</a>")
             else:
                logHtml = tr("Release notes are not available for this package")
 
@@ -719,7 +707,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Bitcoin Core version %s""") % \
                   self.main.satoshiVersions[0])
-         elif pkgName=='Armory':
+         elif pkgName.startswith('Armory'):
             if self.main.armoryVersions[0]:
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Armory version %s""") % \
