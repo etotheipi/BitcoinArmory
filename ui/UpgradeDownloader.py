@@ -426,7 +426,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.stackedDisplay.setCurrentIndex(1)
 
 
-   def findCmbData(self, cmb, findStr, last=False):
+   def findCmbData(self, cmb, findStr, last=False, nonenotfound=False):
       """
       So I ran into some issues with finding python strings in comboboxes
       full of QStrings.  I confirmed that
@@ -442,7 +442,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          if cmb.itemText(i)==findStr:
             return i
 
-      return 0 if not last else cmb.count()-1
+      if nonenotfound:
+         return None
+
+      return cmb.count()-1 if last else 0
 
 
    def selectMyOs(self):
@@ -459,7 +462,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          else:
             osIndex = self.findCmbData(self.os, tr('Linux'))
       elif OS_MACOSX:
-         osIndex = self.findCmbData(self.osver, tr('MacOSX'))
+         osIndex = self.findCmbData(self.os, tr('MacOSX'))
 
       self.os.setCurrentIndex(osIndex)
       self.cascadeOsVer() # signals don't go through for some reason
@@ -470,7 +473,11 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       elif OS_LINUX:
          osverIndex = self.findCmbData(self.osver, OS_VARIANT[1], True)
       elif OS_MACOSX:
-         osverIndex = self.findCmbData(self.osver, platform.mac_ver()[0], True)
+         mac_ver = platform.mac_ver()[0]
+         osverIndex = self.findCmbData(self.osver, mac_ver, nonenotfound=True)
+         if osverIndex is None:
+            mac_ver = mac_ver[:mac_ver.rfind(".")]
+            osverIndex = self.findCmbData(self.osver, mac_ver, True)
       self.osver.setCurrentIndex(osverIndex)
       self.cascadeOsArch()
 
