@@ -469,7 +469,8 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       osverIndex = 0
       if OS_WINDOWS:
-         osverIndex = self.findCmbData(self.osver, platform.win32_ver(), True)
+         win_ver = platform.win32_ver()[0]
+         osverIndex = self.findCmbData(self.osver, win_ver, True)
       elif OS_LINUX:
          osverIndex = self.findCmbData(self.osver, OS_VARIANT[1], True)
       elif OS_MACOSX:
@@ -482,7 +483,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.cascadeOsArch()
 
       archIndex = 0
-      if platform.machine() == "x86_64":
+      if platform.machine() in ("x86_64", "AMD64"):
          archIndex = self.findCmbData(self.osarch, tr('64-bit'))
       else:
          archIndex = self.findCmbData(self.osarch, tr('32-bit'))
