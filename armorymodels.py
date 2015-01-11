@@ -808,7 +808,7 @@ class ArmoryTableView(QTableView):
       self.BlockAndDateSelector = ArmoryBlockAndDateSelector(self, self.main)
       self.verticalScrollBar().rangeChanged.connect(self.scrollBarRangeChanged)
       self.vBarRatio = 0
-      self.verticalScrollBar().setVisible(False)
+      # self.verticalScrollBar().setVisible(False)
       self.setSelectionMode(QAbstractItemView.SingleSelection)
       
       self.prevIndex = -1
