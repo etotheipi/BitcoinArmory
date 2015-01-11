@@ -27,8 +27,7 @@ psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
 libpngVer    = '1.6.15'
-#qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
-qtVer        = '4.8.6'  # NB: ArmoryMac.pro must also be kept up to date!!!
+qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
 sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
@@ -381,12 +380,12 @@ distfiles.append( [ 'libpng', \
 # Pre-packaged source can lag a bit but provides for more consistent user
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
-#                    "qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz" % qtVer, \
-                    "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    #"http://download.qt.io/snapshots/qt/4.8/%s/2014-12-22-1/qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz" % (qtVer, qtVer), \
-                    "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
-                    #"b09249918b4de8125f3d88604a5889ce9fc151b1" ] )
+                    #"qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
+                    "qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz" % qtVer, \
+                    #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
+                    "http://download.qt.io/snapshots/qt/4.8/%s/2014-12-22-1/qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz" % (qtVer, qtVer), \
+                    #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
+                    "b09249918b4de8125f3d88604a5889ce9fc151b1" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
@@ -499,11 +498,11 @@ def compile_qt():
    # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
-#   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-2014-12-22-1' % qtVer)
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+   #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-2014-12-22-1' % qtVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-#   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz' % qtVer)
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz' % qtVer)
    #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
@@ -541,20 +540,6 @@ def compile_qt():
    # Completed bug fixes for modal windows.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
                cwd=qtBuildDir)
-   # Add OS X 10.10 support to Qt4. (Can be removed when Qt 4.8.7 is released.)
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40612.patch'), \
-               cwd=qtBuildDir)
-   # For now, Qt requires a patch to compile on 10.10, and may require a more
-   # comprehensive patch later. (Should be okay to remove for Qt 4.8.7.)
-   osMjrVer = os.uname()[2].split('.')[0]
-   if osMjrVer == '14':
-      execAndWait('patch -p0 < %s' % path.join(os.getcwd(), \
-                                               'QTBUG-39644.patch'), \
-                  cwd=qtBuildDir)
-   # "Untitled" filename fix when trying to save a file via a native dialog.
-   # (Can be removed when Qt 4.8.7 is released.)
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-36212.patch'), \
-               cwd=qtBuildDir)
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
@@ -562,9 +547,8 @@ def compile_qt():
    #     "-platform macx-clang-libc++" will also probably be required.
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
    command += '-nomake demos -nomake examples -nomake docs -cocoa -fast -release '
-   command += '-no-qt3support -arch x86_64 -no-3dnow '
-#   command += '-platform unsupported/macx-clang-libc++'
-   command += '-platform unsupported/macx-clang'
+   command += '-no-qt3support -arch x86_64 -no-3dnow ' 
+   command += '-platform unsupported/macx-clang-libc++'
    execAndWait(command % qtInstDir, cwd=qtBuildDir)
 
    ##### Make
@@ -621,8 +605,7 @@ def install_qt():
       os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
       os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (frmpath, old)
       os.environ['QTDIR'] = qtInstDir
-#      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/unsupported/macx-clang-libc++')
-      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/macx-g++')
+      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/unsupported/macx-clang-libc++')
       logprint('All the following ENV vars are now set:')
       for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
          logprint('   %s: \n      %s' % (var, os.environ[var]))
@@ -762,8 +745,8 @@ def compile_objc_library():
    # For some reason, qmake mangles LFLAGS when LFLAGS is built. The exact cause
    # is unknown but probably has to do with a conf file included in
    # mkspecs/unsupported/macx-clang-libc++/qmake.conf. Patch the output for now.
-   #execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), \
-   #            cwd=OBJCDIR)
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), \
+               cwd=OBJCDIR)
    execAndWait('make', cwd=OBJCDIR)
 
 
