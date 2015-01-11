@@ -1131,7 +1131,10 @@ def GetSystemDetails():
       raise OSError("Can't get system specs in: %s" % platform.system())
 
    out.NumCores = multiprocessing.cpu_count()
-   out.IsX64 = platform.machine().lower() == 'x86_64'
+   if OS_WINDOWS:
+      out.IsX64 = platform.machine().lower() == 'amd64'
+   else:
+      out.IsX64 = platform.machine().lower() == 'x86_64'
    out.Memory = out.Memory / (1024*1024.)
 
    def getHddSize(adir):
