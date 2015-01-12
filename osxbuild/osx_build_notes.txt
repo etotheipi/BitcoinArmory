@@ -32,3 +32,8 @@ are executed from a terminal (aka command line) window.
     Armory will be found under the "workspace" subdirectory. Armory.app can be
     moved elsewhere on the system, including under /Applications so that it's
     accessible from the OS X Launchpad.
+
+(8) To avoid runtime issues (e.g., "ImportError: No module named pkg_resources")
+    when attempting to run builds on other machines/VMs, make sure $PYTHONPATH
+    is empty. In addition, try not to have any "brew"ed Python or Qt modules
+    installed. Any of the above could lead to unpredictable behavior.
