@@ -381,11 +381,11 @@ distfiles.append( [ 'libpng', \
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
                     #"qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    "qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz" % qtVer, \
+                    "qt-everywhere-opensource-src-%s-2015-01-12-2.tar.gz" % qtVer, \
                     #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    "http://download.qt.io/snapshots/qt/4.8/%s/2014-12-22-1/qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz" % (qtVer, qtVer), \
+                    "http://download.qt.io/snapshots/qt/4.8/%s/2015-01-12-2/qt-everywhere-opensource-src-%s-2015-01-12-2.tar.gz" % (qtVer, qtVer), \
                     #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
-                    "b09249918b4de8125f3d88604a5889ce9fc151b1" ] )
+                    "7b30101413567eea3dda7f251a212d53ebe38620" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
@@ -499,10 +499,10 @@ def compile_qt():
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
    #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-2014-12-22-1' % qtVer)
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-2015-01-12-2' % qtVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
    #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-2014-12-22-1.tar.gz' % qtVer)
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-2015-01-12-2.tar.gz' % qtVer)
    #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
