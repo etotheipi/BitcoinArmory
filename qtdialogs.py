@@ -6081,8 +6081,8 @@ class DlgDispTxInfo(ArmoryDialog):
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '
-                     'this transaction entered the blockchain.  A transaciton '
-                     'with 6 more confirmations is nearly impossible to reverse.'))
+                     'this transaction entered the blockchain.  A transaction '
+                     'with 6 or more confirmations is nearly impossible to reverse.'))
                lbls[-1].append(QLabel('Confirmations:'))
                lbls[-1].append(QRichLabel(str(nConf)))
 
@@ -14857,7 +14857,7 @@ class DlgFactoryReset(ArmoryDialog):
       self.lblBitcoinDB = QRichLabel(tr("""
          This will delete settings, network data, Armory's databases,
          <b>and</b> the Bitcoin software databases.  Bitcoin-Qt/bitcoind will
-         have to download the 15+ GB blockchain again.  Only use this if you
+         have to download the blockchain again.  Only use this if you
          suspect blockchain corruption, such as receiving StdOut/StdErr errors
          on the dashboard (8-72 hours depending on your connection)"""))
 
@@ -14954,7 +14954,7 @@ class DlgFactoryReset(ArmoryDialog):
             msg = tr("""
                You are about to delete <b>all</b>
                blockchain databases on your system.  The Bitcoin software will
-               have to redownload 15+ GB of blockchain data over the peer-to-peer
+               have to redownload of blockchain data over the peer-to-peer
                network again which can take from 8 to 72 hours depending on
                your system speed and connection.  <br><br><b>Are you absolutely
                sure you want to do this?</b>""")
@@ -14962,7 +14962,7 @@ class DlgFactoryReset(ArmoryDialog):
             msg = tr("""
                You are about to delete your settings and delete <b>all</b>
                blockchain databases on your system.  The Bitcoin software will
-               have to redownload 15+ GB of blockchain data over the peer-to-peer
+               have to redownload of blockchain data over the peer-to-peer
                network again which can take from 8 to 72 hours depending on
                your system speed and connection.  <br><br><b>Are you absolutely
                sure you want to do this?</b>""")
