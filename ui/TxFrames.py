@@ -447,9 +447,9 @@ class SendBitcoinsFrame(ArmoryFrame):
       numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
          QMessageBox.critical(self, tr('Invalid Address'), tr("""
-           You have entered %d invalid @{address|addresses}@.  
-           The @{error has|errors have}@ been highlighted on the 
-           entry screen.""", numChkFail, numChkFail), QMessageBox.Ok)
+           You have entered an invalid address. The error has been highlighted on the entry screen.""",
+           """You have entered %d invalid addresses. The errors have been highlighted on the entry screen.
+           """, numChkFail), QMessageBox.Ok)
 
          for row in range(len(self.widgetTable)):
             try:

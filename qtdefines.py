@@ -110,8 +110,12 @@ def tr(txt, y=None, z=None):
 
    txt = TRANSLATE(txt)
 
-   return formatWithPlurals(txt, None, None)
-
+   if z == None:
+      return txt
+   elif z == 1:
+      return txt
+   else:
+      return y
 
 ################################################################################
 def HLINE(style=QFrame.Plain):

@@ -735,7 +735,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       self.chkIncludeReg = QCheckBox(tr("""Include all log files"""))
       self.chkIncludeWOW = QCheckBox(tr("""Include watch-only 
-         @{wallet|wallets}@""", pluralList=len(walletList)))
+         wallet""", "Include watch-only wallets", len(walletList)))
       self.chkIncludeWOW.setChecked(False)
       self.chkIncludeReg.setChecked(True)
 
