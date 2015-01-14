@@ -2726,15 +2726,9 @@ class ArmoryMainWindow(QMainWindow):
       types.append('All files (*)')
       typesStr = ';; '.join(types)
 
-      # Found a bug with Swig+Threading+PyQt+OSX -- save/load file dialogs freeze
-      # User picobit discovered this is avoided if you use the Qt dialogs, instead
-      # of the native OS dialogs.  Use native for all except OSX...
-      if not OS_MACOSX:
-         fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath, typesStr))
-      else:
-         fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath, typesStr,
-                                             options=QFileDialog.DontUseNativeDialog))
-
+      # Open the native file save dialog and grab the saved file/path.
+      fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath,
+                                                     typesStr))
 
       fdir,fname = os.path.split(fullPath)
       if fdir:
@@ -2758,14 +2752,10 @@ class ArmoryMainWindow(QMainWindow):
       types = list(ffilter)
       types.append(tr('All files (*)'))
       typesStr = ';; '.join(types)
-      # Found a bug with Swig+Threading+PyQt+OSX -- save/load file dialogs freeze
-      # User picobit discovered this is avoided if you use the Qt dialogs, instead
-      # of the native OS dialogs.  Use native for all except OSX...
-      if not OS_MACOSX:
-         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir, typesStr))
-      else:
-         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir, typesStr, \
-                                             options=QFileDialog.DontUseNativeDialog))
+
+      # Open the native file load dialog and grab the loaded file/path.
+      fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
+                                                     typesStr))
 
       self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
       return fullPath
