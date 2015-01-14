@@ -16,7 +16,6 @@ from subprocess import Popen, PIPE
 from tempfile import mkstemp
 
 # Set some constants up front
-#swigBinVer = '2.0.12'
 minOSXVer    = '10.7'
 osxName      = 'Yosemite'
 pythonVer    = '2.7.9'  # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -41,7 +40,6 @@ WORKDIR      = path.join(os.getcwd(), 'workspace')
 APPDIR       = path.join(WORKDIR, 'Armory.app') # actually make it local
 DLDIR        = path.join(WORKDIR, 'downloads')
 UNPACKDIR    = path.join(WORKDIR, 'unpackandbuild')
-#SWIGDIR      = path.join(UNPACKDIR, 'swig', swigBinVer)
 INSTALLDIR   = path.join(WORKDIR, 'install')
 PYPREFIX     = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
 PYSITEPKGS   = path.join(PYPREFIX, 'lib/python%s/site-packages' % pyMajorVer)
@@ -104,7 +102,6 @@ def main():
    compile_twisted()
    compile_psutil()
    #compile_appnope() # Disable App Nap. Done already in Mac manifest.
-   #unzip_swig()
    compile_armory()
    compile_objc_library()
    make_resources()
@@ -119,32 +116,6 @@ def logprint(s):
    print s
    with open(LOGFILE,'a') as f:
       f.write(s if s.endswith('\n') else s+'\n')
-
-################################################################################
-"""
-# While this worked well to capture the output, buffering made it impossible
-# to write the data to stdout in real time (it woud all buffer up to the end
-def execAndWait(syscmd, cwd=None):
-   try:
-      logprint('*'*80)
-      logprint('Executing: "%s"' % syscmd)
-      proc = Popen(syscmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
-      while proc.poll() == None:
-         time.sleep(0.25)
-   
-   except Exception as e:
-      logprint('\n' + '-'*80)
-      logprint('ERROR: %s' % str(e))
-      logprint('-'*80 + '\n')
-   finally:
-      out,err = proc.communicate()
-      logprint('STDOUT:')
-      logprint(out if len(out.strip()) > 0 else "<NO OUTPUT>")
-      logprint('STDERR:')
-      logprint(err if len(err.strip()) > 0 else "<NO OUTPUT>")
-      logprint('*'*80)
-      return [out,err]
-"""
 
 ################################################################################
 def getRightNowStr():
@@ -417,12 +388,6 @@ distfiles.append( [ "pyqt", \
 #                    "appnope-%s.tar.gz" % appNopeVer, \
 #                    "https://pypi.python.org/packages/source/a/appnope/appnope-%s.tar.gz" % appNopeVer, \
 #                    "838158bf881f3e8538b7bfeff4ad289a6623cdda" ] )
-
-# May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
-#distfiles.append( [ 'swig', \
-#                    "swig-2.0.12.mavericks.bottle.tar.gz", \
-#                    "https://downloads.sf.net/project/machomebrew/Bottles/swig-2.0.12.mavericks.bottle.tar.gz", \
-#                    "5e429bc6228e8ec1f154ee5eb9497b54b8b765d5" ] )
 
 # Now repack the information in distfiles
 tarfilesToDL = {}
@@ -759,12 +724,6 @@ def make_resources():
    icnsArm = '../img/armory_icon_fullres.icns'
    icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile(icnsArm, icnsRes)
-   
-################################################################################
-#def unzip_swig():
-#   '''Unzip the SWIG binary.'''
-#   logprint('Unzipping the SWIG binary.')
-#   swigDir = unpack(tarfilesToDL['swig'])
 
 ################################################################################
 def cleanup_app():
