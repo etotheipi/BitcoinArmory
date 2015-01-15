@@ -3987,6 +3987,7 @@ class ArmoryMainWindow(QMainWindow):
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
+         loading.reject()
          reply = QMessageBox.information(self, 'No Wallets!', \
             'You have not created any wallets which means there is nowhere to '
             'store you bitcoins!  Would you like to create a wallet now?', \
