@@ -848,7 +848,31 @@ class ArmoryMainWindow(QMainWindow):
             # center in Qt5.1. Something to experiment with later....
             self.notifCtr = self.macNotifHdlr.hasGrowl()
 
-
+      # Now that construction of the UI is done
+      # Check for warnings to be displayed
+      
+     # This is true if and only if the command line has a data dir that doesn't exist
+      # and can't be created.
+      if not CLI_OPTIONS.datadir in [ARMORY_HOME_DIR, DEFAULT]:
+         QMessageBox.warning(self, tr('Default Data Directory'), tr("""
+            Armory is using the default data directory because
+            the data directory specified in the command line, could
+            not be found and could not be created."""), QMessageBox.Ok)
+      # This is true if and only if the command line has a database dir that doesn't exist
+      # and can't be created.
+      elif not CLI_OPTIONS.armoryDBDir in [ARMORY_DB_DIR, DEFAULT]:
+         QMessageBox.warning(self, tr('Default Database Directory'), tr("""
+            Armory is using the default database directory because
+            the database directory specified in the command line, could
+            not be found and could not be created."""), QMessageBox.Ok)
+      
+      # This is true if and only if the command line has a bitcoin dir that doesn't exist
+      if not CLI_OPTIONS.satoshiHome in [BTC_HOME_DIR, DEFAULT]:
+         QMessageBox.warning(self, tr('Bitcoin Directory'), tr("""
+            Armory is using the default Bitcoin directory because
+            the Bitcoin director specified in the command line, could
+            not be found."""), QMessageBox.Ok)
+         
    ####################################################
    def getWatchingOnlyWallets(self):
       result = []
@@ -2354,7 +2378,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.satoshiHomePath = BTC_HOME_DIR
       if self.settings.hasSetting('SatoshiDatadir') and \
-         CLI_OPTIONS.satoshiHome=='DEFAULT':
+         CLI_OPTIONS.satoshiHome==DEFAULT:
          # Setting override BTC_HOME_DIR only if it wasn't explicitly
          # set as the command line.
          self.satoshiHomePath = self.settings.get('SatoshiDatadir')

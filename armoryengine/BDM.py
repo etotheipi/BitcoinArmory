@@ -163,7 +163,7 @@ class BlockDataManager(object):
       self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
       
-      self.ldbdir = ""
+      self.armoryDBDir = ""
 
       #dbType
       self.dbType = Cpp.ARMORY_DB_BARE
@@ -183,7 +183,7 @@ class BlockDataManager(object):
       else: self.bdmState = BDM_UNINITIALIZED
 
       self.btcdir = BTC_HOME_DIR
-      self.ldbdir = LEVELDB_DIR
+      self.armoryDBDir = ARMORY_DB_DIR
       self.lastPctLoad = 0
       
       self.topBlockHeight = 0
@@ -246,7 +246,7 @@ class BlockDataManager(object):
    
    #############################################################################
    @ActLikeASingletonBDM
-   def goOnline(self, satoshiDir=None, levelDBDir=None, armoryHomeDir=None):
+   def goOnline(self, satoshiDir=None, armoryDBDir=None, armoryHomeDir=None):
 
       self.bdmThread.setConfig(self.bdmConfig())
       
@@ -285,11 +285,11 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
-   def setLevelDBDir(self, ldbdir):
-      if not os.path.exists(ldbdir):
-         os.makedirs(ldbdir)
+   def setArmoryDBDir(self, armoryDBDir):
+      if not os.path.exists(armoryDBDir):
+         os.makedirs(armoryDBDir)
 
-      self.ldbdir = ldbdir
+      self.armoryDBDir = armoryDBDir
    
    #############################################################################   
    @ActLikeASingletonBDM
@@ -325,19 +325,19 @@ class BlockDataManager(object):
             raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
       blockdir = blkdir
-      leveldbdir = self.ldbdir
+      armoryDBDir = self.armoryDBDir
       
       if OS_WINDOWS:
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
-         if isinstance(self.ldbdir, unicode):
-            leveldbdir = self.ldbdir.encode('utf8')
+         if isinstance(self.armoryDBDir, unicode):
+            armoryDBDir = self.armoryDBDir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
       bdmConfig.armoryDbType = self.dbType
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.blkFileLocation = blockdir
-      bdmConfig.levelDBLocation = leveldbdir
+      bdmConfig.levelDBLocation = armoryDBDir
       bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
       bdmConfig.setGenesisTxHash(GENESIS_TX_HASH)
       bdmConfig.setMagicBytes(MAGIC_BYTES)
