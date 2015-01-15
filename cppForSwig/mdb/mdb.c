@@ -519,7 +519,7 @@ typedef uint16_t	 indx_t;
 	 *	This is certainly too small for any actual applications. Apps should always set
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
-#define DEFAULT_MAPSIZE	10 * 1024 * 1024LL
+#define DEFAULT_MAPSIZE	8 * 1024LL
 #define MAX_MAPSIZE_INCEREMENT	32*1024*1024
 
 /**	@defgroup readers	Reader Lock Table
@@ -1361,7 +1361,7 @@ mdb_strerror(int err)
 /** assert(3) variant in cursor context */
 #define mdb_cassert(mc, expr)	mdb_assert0((mc)->mc_txn->mt_env, expr, #expr)
 /** assert(3) variant in transaction context */
-#define mdb_tassert(txn, expr)	mdb_assert0((txn)->mt_env, expr, #expr)
+#define mdb_tassert(mc, expr)	mdb_assert0((txn)->mt_env, expr, #expr)
 /** assert(3) variant in environment context */
 #define mdb_eassert(env, expr)	mdb_assert0(env, expr, #expr)
 
@@ -3438,10 +3438,6 @@ mdb_txn_commit(MDB_txn *txn)
 
       txn->mt_flags &= 0xFFFFFFFD;
    }
-
-	rc = mdb_freelist_save(txn);
-	if (rc)
-		goto fail;
 
 	mdb_midl_free(env->me_pghead);
 	env->me_pghead = NULL;
