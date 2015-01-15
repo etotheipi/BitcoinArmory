@@ -4465,7 +4465,7 @@ class DlgSetComment(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, currcomment='', ctype='', cwhat='Comment',
-                                                               maxChars=144):
+                                                               maxChars=MAX_COMMENT_LENGTH):
       super(DlgSetComment, self).__init__(parent, main)
 
 

@@ -170,6 +170,8 @@ PETABYTE = 1024*TERABYTE
 LB_MAXM = 7
 LB_MAXN = 7
 
+MAX_COMMENT_LENGTH = 144
+
 # Set the default-default
 DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
 FORMAT_SYMBOLS = [ \

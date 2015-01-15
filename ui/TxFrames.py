@@ -19,6 +19,7 @@ from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
    isP2SHLockbox
+from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH
  
 
 
@@ -1008,6 +1009,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r]['QLE_COMM'] = QLineEdit()
          self.widgetTable[r]['QLE_COMM'].setFont(GETFONT('var', 9))
          self.widgetTable[r]['QLE_COMM'].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r]['QLE_COMM'].setMaxLength(MAX_COMMENT_LENGTH)
 
          if r < nRecip and r < prevNRecip:
             self.widgetTable[r]['QLE_ADDR'].setText(inputs[r][0])
