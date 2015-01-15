@@ -511,7 +511,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    {
       thread committhread = commit();
       if (committhread.joinable())
-         committhread.detach();
+         committhread.join();
    }
 }
 
@@ -576,8 +576,8 @@ bool BlockWriteBatcher::parseTxIns(
       BinaryData stxoKey = stxoPtr->getDBKey(false);
 
       // Need to modify existing UTXOs, so that we can delete or mark as spent
-      stxoPtr->spentness_ = TXOUT_SPENT;
       stxoPtr->spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
+      stxoPtr->spentness_ = TXOUT_SPENT;
 
       ////// Now update the SSH to show this TxIOPair was spent
       // Same story as stxToModify above, except this will actually create a new
@@ -917,76 +917,105 @@ void BlockWriteBatcher::clearTransactions(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void* BlockWriteBatcher::grabBlocksFromDB(void *in)
+void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
 {
    /***
-   Grab blocks from the DB, put them in the tempBlockVec
+   Grab blocks from the DB, put each block in the current block's nextBlock_
    ***/
 
    //TIMER_START("grabBlocksFromDB");
-   //mon
-   BlockWriteBatcher* const dis = static_cast<BlockWriteBatcher*>(in);
 
-   //read only db txn
-   LMDBEnv::Transaction tx(&dis->iface_->dbEnv_, LMDB::ReadOnly);
+   uint32_t hgt = blockData->topLoadedBlock_;
 
-   vector<PulledBlock> pbVec;
-   uint32_t hgt = dis->tempBlockData_->topLoadedBlock_;
-   uint32_t memoryLoad = 0; 
+   //find last block
+   shared_ptr<PulledBlock> *lastBlock = &blockData->block_;
+   while (*lastBlock != nullptr)
+      lastBlock = &(*lastBlock)->nextBlock_;
 
-   unique_lock<mutex> uniqLock(dis->grabThreadLock_, defer_lock);
+   unique_lock<mutex> lock(blockData->mu_);
 
-   while (memoryLoad + dis->tempBlockData_->bufferLoad_
-      < UPDATE_BYTES_THRESH / 2)
+   while (1)
    {
-      if (hgt > dis->tempBlockData_->endBlock_)
-         break;
+      //create read only db txn within main loop, so that it is rewed
+      //after each sleep period
+      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+      LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
-      uint8_t dupID = dis->iface_->getValidDupIDForHeight(hgt);
-      if (dupID == UINT8_MAX)
+      uint8_t dupID = iface_->getValidDupIDForHeight(hgt);
+      if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
       {
-         dis->tempBlockData_->endBlock_ = hgt - 1;
-         LOGERR << "No block in DB at height " << hgt;
-         break;
-      }
-      
-      PulledBlock pb;
-      if (!dis->pullBlockFromDB(pb, hgt, dupID))
-      {
-         dis->tempBlockData_->endBlock_ = hgt - 1;
-         LOGERR << "No block in DB at height " << hgt;
-         break;
+         *lastBlock = blockData->interruptBlock_;
+         LOGERR << "Header heigh&dup is not in BLKDATA DB";
+         LOGERR << "(" << hgt << ", " << dupID << ")";
+         return;
       }
 
-      memoryLoad += pb.numBytes_;
-      pbVec.push_back(move(pb));
+      while (blockData->bufferLoad_.load(memory_order_acquire)
+         < UPDATE_BYTES_THRESH * 5)
+      {
+         if (hgt > blockData->endBlock_)
+            return;
 
-      ++hgt;
+         uint8_t dupID = iface_->getValidDupIDForHeight(hgt);
+         if (dupID == UINT8_MAX)
+         {
+            *lastBlock = blockData->interruptBlock_;
+            LOGERR << "No block in DB at height " << hgt;
+            return;
+         }
+
+         //make sure iterator is at the right position
+         auto expected = DBUtils::heightAndDupToHgtx(hgt, dupID);
+         auto key = ldbIter.getKeyRef().getSliceRef(1, 4);
+         if (key != expected)
+         {
+            //in case the iterator is not at the right key, set it
+            if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
+            {
+               *lastBlock = blockData->interruptBlock_;
+               LOGERR << "Header heigh&dup is not in BLKDATA DB";
+               LOGERR << "(" << hgt << ", " << dupID << ")";
+               return;
+            }
+         }
+
+         shared_ptr<PulledBlock> pb(new PulledBlock());
+         if (!pullBlockAtIter(*pb, ldbIter))
+         {
+            *lastBlock = blockData->interruptBlock_;
+            LOGERR << "No block in DB at height " << hgt;
+            return;
+         }
+
+         //increment bufferLoad
+         blockData->bufferLoad_.fetch_add(
+            pb->numBytes_, memory_order_release);
+
+         //assign newly grabbed block to shared_ptr
+         *lastBlock = pb;
+
+         //set shared_ptr to next empty block
+         lastBlock = &(*lastBlock)->nextBlock_;
+
+         blockData->topLoadedBlock_ = hgt;
+         ++hgt;
+      }
+
+      if (hgt > blockData->endBlock_)
+         return;
+
+      //sleep 10sec or until process thread signals block buffer is low
+      blockData->cv_.wait_for(lock, chrono::seconds(10));
    }
 
-   //lock tempBlockData_
-   while (dis->tempBlockData_->lock_.fetch_or(1, memory_order_acquire));
-
-   dis->tempBlockData_->pbVec_.insert(dis->tempBlockData_->pbVec_.end(),
-      pbVec.begin(), pbVec.end());
-
-   dis->tempBlockData_->bufferLoad_ += memoryLoad;
-   dis->tempBlockData_->fetching_ = false;
-   dis->tempBlockData_->topLoadedBlock_ = hgt;
-
-   //release lock
-   dis->tempBlockData_->lock_.store(0, memory_order_release);
-   
-   dis->grabThreadCondVar_.notify_all();
-
    //TIMER_STOP("grabBlocksFromDB");
-   return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
+BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
+   shared_ptr<LoadedBlockData> blockData)
 {
-   if (tempBlockData_->endBlock_ == 0)
+   if (blockData->endBlock_ == 0)
    {
       LOGERR << "Top block is 0, nothing to scan";
       throw std::range_error("Top block is 0, nothing to scan");
@@ -995,19 +1024,20 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
    BinaryData lastScannedBlockHash;
    resetTransactions();
 
-   thread grabThread;
    try
    {
-      unique_lock<mutex> uniqLock(grabThreadLock_);
+      shared_ptr<PulledBlock> block;
+      auto grabLambda = [&, this](void)->void
+      { this->grabBlocksFromDB(blockData); };
+      thread grabThread = thread(grabLambda);
+      grabThread.detach();
 
       uint64_t totalBlockDataProcessed=0;
 
-      for (uint32_t i = tempBlockData_->startBlock_;
-         i <= tempBlockData_->endBlock_;
+      for (uint32_t i = blockData->startBlock_;
+         i <= blockData->endBlock_;
          i++)
       {
-         uint32_t vectorIndex;
-         
          if (resetTxn_ != 0)
          {
             uint32_t id = resetTxn_;
@@ -1015,97 +1045,68 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress)
             clearSubSshMap(id);
          }
 
-         if (!tempBlockData_->fetching_)
-         if (tempBlockData_->topLoadedBlock_ <=
-            tempBlockData_->endBlock_ &&
-            tempBlockData_->bufferLoad_ < UPDATE_BYTES_THRESH / 3)
-         {
-            //block buffer is below half load, refill it in a side thread
-            tempBlockData_->fetching_ = true;
-
-            //this is a single entrant block, so there's only ever one 
-            //grabBlocksFromDB thread running. Preemptively detach tID, so that
-            //the current grabThread is joinable (for the clean up process)
-            if(grabThread.joinable())
-               grabThread.detach();
-            grabThread = thread(grabBlocksFromDB, this);
-         }
-
-         //make sure there's enough data to grab from the block buffer
-         grabThreadCondVar_.wait(uniqLock, 
-               [&, this]{return (i < this->tempBlockData_->topLoadedBlock_ ||
-                                 i > this->tempBlockData_->endBlock_); });
-         
-         if (i > tempBlockData_->endBlock_)
+         if (i > blockData->endBlock_)
             break;
+         
+         //wait until the shared_ptr has been assigned some data
+         while (!(block = blockData->block_));
 
-         //grab lock
-         while (tempBlockData_->lock_.fetch_or(1, memory_order_relaxed));
-         vectorIndex = i - tempBlockData_->blockOffset_;
+         //grab it and check if its valid
+         if (blockData->block_ == blockData->interruptBlock_)
+            throw;
 
-         PulledBlock pb = move(tempBlockData_->pbVec_[vectorIndex]);
+         uint32_t blockSize = blockData->block_->numBytes_;
 
-         //clean up used vector indexes
-         uint32_t nParsedBlocks = i - tempBlockData_->startBlock_;
-         if (nParsedBlocks > 0 && (nParsedBlocks % 10000) == 0)
-         {
-            tempBlockData_->pbVec_.erase(
-               tempBlockData_->pbVec_.begin(),
-               tempBlockData_->pbVec_.begin() + 10000);
-
-            tempBlockData_->blockOffset_ += 10000;
-         }
-
-         //release lock
-         tempBlockData_->lock_.store(0, memory_order_relaxed);
-
-         uint32_t blockSize = pb.numBytes_;
+         //decrement bufferload
+         blockData->bufferLoad_.fetch_sub(
+            blockSize, memory_order_release);
 
          //scan block
          lastScannedBlockHash = 
-            applyBlockToDB(pb, tempBlockData_->scrAddrFilter_);
- 
-         //decrement bufferload
-         if (tempBlockData_->bufferLoad_ < blockSize)
-         {
-            LOGWARN << "bufferlLoad_ < blockSize!";
-            throw;
-         }
-         tempBlockData_->bufferLoad_ -= blockSize;
+            applyBlockToDB(*blockData->block_, blockData->scrAddrFilter_);
 
+         if (i == blockData->endBlock_)
+            break;
+
+         if (blockData->bufferLoad_.load(memory_order_consume)
+            < UPDATE_BYTES_THRESH * 2)
+         {
+            /***
+            Buffer is running low. Try to take ownership of the blockData
+            mutex. If that succeeds, then the grab thread is sleeping, so 
+            signal it to wake. Otherwise the grab thread is already running 
+            and is lagging behind the processing thread (very unlikely)
+            ***/
+            unique_lock<mutex> lock(blockData->mu_, defer_lock);
+            if(lock.try_lock())
+               blockData->cv_.notify_all();
+         }
+
+         //wait until next block is available
+         while (!(block = blockData->block_->nextBlock_));
+
+         //check if next block is valid
+         if (blockData->block_->nextBlock_ == blockData->interruptBlock_)
+            throw;
+
+         //assign next block to current
+         blockData->block_ = blockData->block_->nextBlock_;
+ 
          if (i % 2500 == 2499)
             LOGWARN << "Finished applying blocks up to " << (i + 1);
-         
+
          totalBlockDataProcessed += blockSize;
          progress.advance(totalBlockDataProcessed);
       }
       
-      if (grabThread.joinable())
-         grabThread.join();
-
-      //join on grabThread before deleting the container shared with the thread
-      delete tempBlockData_;
-      tempBlockData_ = nullptr;
-
       clearTransactions();
    }
    catch (...)
    {
       clearTransactions();
-      
-      if (grabThread.joinable())
-         grabThread.join();
-      
-      //join on grabThread before deleting the container shared with the thread
-      delete tempBlockData_;
-      tempBlockData_ = nullptr;
-      
       throw;
    }
    
-   if (grabThread.joinable())
-      grabThread.join();
-
    return lastScannedBlockHash;
 }
 
@@ -1128,18 +1129,32 @@ BinaryData BlockWriteBatcher::scanBlocks(
    
    prepareSshToModify(scf);
 
-   tempBlockData_ = new LoadedBlockData(startBlock, endBlock, scf);
-   grabBlocksFromDB(this);
+   shared_ptr<LoadedBlockData> tempBlockData = 
+      make_shared<LoadedBlockData>(startBlock, endBlock, scf);
 
-   return applyBlocksToDB(prog);
+   return applyBlocksToDB(prog, tempBlockData);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockWriteBatcher::pullBlockFromDB(PulledBlock& pb, 
-                                        uint32_t height, 
-                                        uint8_t dup)
+bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter)
+{
+
+   // Now we read the whole block, not just the header
+   if (iface_->readStoredBlockAtIter(iter, pb))
+   {
+      pb.preprocessStxo(config_.armoryDbType);
+      return true;
+   }
+
+   return false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockWriteBatcher::pullBlockFromDB(
+   PulledBlock& pb, uint32_t height, uint8_t dup)
 {
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
+
    if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(height, dup)))
    {
       LOGERR << "Header heigh&dup is not in BLKDATA DB";
@@ -1147,12 +1162,7 @@ bool BlockWriteBatcher::pullBlockFromDB(PulledBlock& pb,
       return false;
    }
 
-   // Now we read the whole block, not just the header
-   bool success = iface_->readStoredBlockAtIter(ldbIter, pb);
-   
-   pb.preprocessStxo(config_.armoryDbType);
-
-   return success;
+   return pullBlockAtIter(pb, ldbIter);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

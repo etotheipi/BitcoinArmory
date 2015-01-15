@@ -47,6 +47,31 @@ static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
    return false;
 }
 
+static uint64_t scanFor(const uint8_t *in, const uint64_t inLen,
+   const uint8_t * bytes, const uint64_t len)
+{
+   uint64_t offset = 0; // the index mod len which we're in ahead
+
+   do
+   {
+      bool found = true;
+      for (uint64_t i = 0; i < len; i++)
+      {
+         if (in[i] != bytes[i])
+         {
+            found = false;
+            break;
+         }
+      }
+      if (found)
+         return offset;
+
+      in++;
+      offset++;
+
+   } while (offset + len< inLen);
+   return UINT64_MAX;
+}
 
 class BlockDataManager_LevelDB::BitcoinQtBlockFiles
 {
@@ -309,6 +334,50 @@ public:
    }
 
 private:
+
+   uint8_t* getMapOfFile(string path)
+   {
+      #ifdef WIN32
+         LARGE_INTEGER li;
+         int fd = _open(path.c_str(), _O_RDONLY | _O_BINARY);
+         if (fd == -1)
+            throw std::runtime_error("failed to open file");
+         
+         HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
+         GetFileSizeEx(fdHandle, &li);
+         uint64_t fileSize = (uint64_t)li.QuadPart;
+         uint32_t sizelo = fileSize & 0xffffffff;
+         uint32_t sizehi = fileSize >> 16 >> 16;
+
+
+         HANDLE mh = CreateFileMapping(fdHandle, NULL, 
+                              PAGE_READONLY | SEC_COMMIT,
+                              sizehi, sizelo, NULL);
+         if (mh == NULL)
+            throw std::runtime_error("failed to map file");
+
+         uint8_t* filemap = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
+                             0, 0, fileSize);
+         if(filemap == NULL)
+            throw std::runtime_error("failed to map file");
+
+         CloseHandle(mh);
+         _close(fd);
+      #else
+            throw std::runtime_error("need to implement mmap process for *nix");
+      #endif
+
+      return filemap;
+   }
+
+   void unmapFile(uint8_t* filemap)
+   {
+      #ifdef WIN32
+      if (!UnmapViewOfFile(filemap))
+         throw std::runtime_error("failed to unmap file");
+      #else
+      #endif
+   }
    // read blocks from f, starting at offset blockFileOffset,
    // returning the offset we finished at
    uint64_t readRawBlocksFromFile(
@@ -321,12 +390,12 @@ private:
    )
    {
       // short circuit
-      if (blockFileOffset == stopBefore)
+      if (blockFileOffset >= stopBefore)
          return blockFileOffset;
-         
-      ifstream is(f.path, ios::binary);
+      
+      uint8_t* filemap = getMapOfFile(f.path);
       BinaryData fileMagic(4);
-      is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
+      memcpy(fileMagic.getPtr(), filemap, 4);
       if( fileMagic != magicBytes_ )
       {
          LOGERR << "Block file '" << f.path << "' is the wrong network! File: "
@@ -334,36 +403,42 @@ private:
             << ", expecting " << magicBytes_.toHexStr();
       }
       // Seek to the supplied offset
-      is.seekg(blockFileOffset, ios::beg);
+      uint64_t pos = blockFileOffset;
       
       {
-         BinaryData magic(4), szstr(4), rawBlk;
+         BinaryDataRef magic, szstr, rawBlk;
          // read the file, we can't go past what we think is the end,
          // because we haven't gone past that in Headers
-         while(!is.eof() && uint64_t(is.tellg()) < (std::min)(f.filesize, stopBefore))
+         while(pos < (std::min)(f.filesize, stopBefore))
          {
-            is.read((char*)magic.getPtr(), 4);
-            if (is.eof())
+            magic = BinaryDataRef(filemap + pos, 4);
+            pos += 4;
+            if (pos >= f.filesize)
                break;
                
             if(magic != magicBytes_)
             {
-               // I have to start scanning for MagicBytes
-               if (!scanFor(is, magicBytes_.getPtr(), magicBytes_.getSize()))
+               // start scanning for MagicBytes
+               uint64_t offset = scanFor(filemap + pos, f.filesize,
+                  magicBytes_.getPtr(), magicBytes_.getSize());
+               if (offset == UINT64_MAX)
                {
                   LOGERR << "No more blocks found in file " << f.path;
                   break;
                }
                
-               LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
+               pos += offset +4;
+               LOGERR << "Next block header found at offset " << pos-4;
             }
             
-            is.read(reinterpret_cast<char*>(szstr.getPtr()), 4);
+            szstr = BinaryDataRef(filemap + pos, 4);
+            pos += 4;
             uint32_t blkSize = READ_UINT32_LE(szstr.getPtr());
-            if(is.eof()) break;
+            if(pos >= f.filesize) 
+               break;
 
-            rawBlk.resize(blkSize);
-            is.read(reinterpret_cast<char*>(rawBlk.getPtr()), blkSize);
+            rawBlk = BinaryDataRef(filemap +pos, blkSize);
+            pos += blkSize;
             
             try
             {
@@ -377,13 +452,14 @@ private:
                   << blockFileOffset << " file "
                   << f.path << ", blocksize " << blkSize << ")";
             }
-            blockFileOffset += blkSize+8;
+            blockFileOffset = pos;
          }
       }
       
       LOGINFO << "Reading raw blocks finished at file "
          << f.fnum << " offset " << blockFileOffset;
       
+      unmapFile(filemap);
       return blockFileOffset;
    }
    
@@ -933,33 +1009,6 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 */
 
 
-static size_t scanFor(const uint8_t *in, const size_t inLen, 
-                      const uint8_t * bytes, const size_t len)
-{
-   unsigned offset = 0; // the index mod len which we're in ahead
-
-   do
-   {
-      bool found = true;
-      for (unsigned i = 0; i < len; i++)
-      {
-         if (in[i] != bytes[i])
-         {
-            found = false;
-            break;
-         }
-      }
-      if (found)
-         return offset;
-
-      in++;
-      offset++;
-
-   } while (offset + len< inLen);
-   return MAXSIZE_T;
-}
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume that all the addresses we care about have been registered with
@@ -1033,6 +1082,31 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
    deleteHistories();
    scrAddrData_->clear();
    loadDiskState(progress);
+}
+
+void BlockDataManager_LevelDB::grablock(uint32_t n)
+{
+   TIMER_START("testRead");
+   {
+      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+      StoredHeader sbh;
+      uint32_t startBlock = 200000 + n * 10000;
+      uint8_t dup = iface_->getValidDupIDForHeight(startBlock);
+      LDBIter ldbIter = iface_->getIterator(BLKDATA);
+      ldbIter.seekToExact(DBUtils::getBlkDataKey(startBlock, dup));
+
+      for (int i = startBlock; i < startBlock +10000; i++)
+      {
+         if (!(i % 2500))
+         {
+            LOGWARN << "passed block # " << i;
+         }
+
+         // Now we read the whole block, not just the header
+         bool success = iface_->readStoredBlockAtIter(ldbIter, sbh);
+      }
+   }
+
 }
 
 
@@ -1163,10 +1237,29 @@ void BlockDataManager_LevelDB::loadDiskState(
    // start reading blocks right after the last block applied, and up
    // to where we finished reading headers
    {
+      TIMER_START("writeBlocksToDB");
       ProgressWithPhase prog(BDMPhase_BlockData, progress);
       loadBlockData(prog, readHeadersUpTo, true);
+      TIMER_STOP("writeBlocksToDB");
+      double timeElapsed = TIMER_READ_SEC("writeBlocksToDB");
+      LOGINFO << "Wrote blocks to DB in " << timeElapsed << "s";
    }
    
+   /*auto grabthread = [this](uint32_t n)->void
+   { this->grablock(n); };
+   thread grabs[4];
+   TIMER_START("testRead");
+   for (uint32_t i = 0; i < 4; i++)
+      grabs[i] = move(thread(grabthread, i));
+
+   for (uint32_t i = 0; i < 4; i++)
+      if(grabs[i].joinable())
+         grabs[i].join();
+
+   TIMER_STOP("testRead");
+   double timeElapsed = TIMER_READ_SEC("testRead");
+   LOGWARN << "Pulled blocks in " << timeElapsed << "s";*/
+
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
 
@@ -1196,7 +1289,7 @@ void BlockDataManager_LevelDB::loadDiskState(
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
       CLEANUP_ALL_TIMERS();
-      LOGINFO << "Applied Block range to DB in " << timeElapsed << "s";
+      LOGINFO << "Scanned Block range in " << timeElapsed << "s";
    }
    
    LOGINFO << "Finished loading at file " << blkDataPosition_.first

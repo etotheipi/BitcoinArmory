@@ -16,6 +16,7 @@
 
 #include <thread>
 #include <condition_variable>
+#include <chrono>
 
 class StoredUndoData;
 class StoredScriptHistory;
@@ -71,6 +72,7 @@ struct PulledTx : public DBTx
 struct PulledBlock : public DBBlock
 {
    map<uint16_t, PulledTx> stxMap_;
+   shared_ptr<PulledBlock> nextBlock_ = nullptr;
 
    ////
    PulledBlock(void) : DBBlock() {}
@@ -209,28 +211,30 @@ private:
 
    struct LoadedBlockData
    {
-      vector<PulledBlock> pbVec_;
+      shared_ptr<PulledBlock> block_ = nullptr;
+      shared_ptr<PulledBlock> interruptBlock_ = nullptr;
 
       uint32_t startBlock_ = 0;
       uint32_t endBlock_   = 0;
-      uint32_t bufferLoad_ = 0;
+      volatile atomic<uint32_t> bufferLoad_;
       
       uint32_t topLoadedBlock_ = 0;
-      uint32_t currentBlock_   = 0;
-      uint32_t blockOffset_    = 0;
       
-      bool fetching_        = false;
-      atomic<int32_t> lock_;
-
       ScrAddrFilter& scrAddrFilter_;
 
+      mutex mu_;
+      condition_variable cv_;
+
+      ////
       LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf) :
          startBlock_(start), endBlock_(end), scrAddrFilter_(scf)
       {
-	      lock_ = 0;
          topLoadedBlock_ = start;
-         currentBlock_   = start;
-         blockOffset_    = start;
+
+         interruptBlock_ = make_shared<PulledBlock>();
+         interruptBlock_->nextBlock_ = interruptBlock_;
+
+         bufferLoad_.store(0, memory_order_relaxed);
       }
    };
 
@@ -257,11 +261,13 @@ private:
    void resetTransactions(void);
    void clearTransactions(void);
    
-   static void* grabBlocksFromDB(void *in);
-   BinaryData applyBlocksToDB(ProgressFilter &prog);
+   void grabBlocksFromDB(shared_ptr<LoadedBlockData>);
+   BinaryData applyBlocksToDB(ProgressFilter &progress,
+      shared_ptr<LoadedBlockData> blockData);
    void clearSubSshMap(uint32_t id);
 
    bool pullBlockFromDB(PulledBlock& pb, uint32_t height, uint8_t dup);
+   bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter);
 
    StoredTxOut* makeSureSTXOInMap(
       LMDBBlockDatabase* iface,
@@ -338,8 +344,6 @@ private:
 
    shared_ptr<BlockWriteBatcher> commitingObject_;
 
-   LoadedBlockData*   tempBlockData_ = nullptr;
-
    LMDBEnv::Transaction txn_;
 
    //for managing SSH in supernode
@@ -349,10 +353,6 @@ private:
    //to sync commits 
    mutex writeLock_;
    bool updateSDBI_ = true;
-
-   //to sync the block reading thread with the scanning thread
-   mutex              grabThreadLock_;
-   condition_variable grabThreadCondVar_; 
 
    //
    bool haveFullUTXOList_ = true;

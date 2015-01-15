@@ -89,6 +89,8 @@ typedef std::pair<size_t, uint64_t> BlockFilePosition;
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
+   void grablock(uint32_t n);
+
 
 private:
    BlockDataManagerConfig config_;

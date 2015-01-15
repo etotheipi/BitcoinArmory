@@ -1772,8 +1772,6 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh) 
                                                    tempHgt, 
                                                    tempDup,
                                                    currIdx);
-
-      (void)bdtype;
       
       if(currIdx >= sbh.numTx_)
       {
@@ -1788,7 +1786,7 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh) 
                          sbh.blockHeight_, 
                          sbh.duplicateID_, 
                          thisTx);
-   } 
+   }
    return true;
 } 
 
