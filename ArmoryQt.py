@@ -5196,7 +5196,7 @@ class ArmoryMainWindow(QMainWindow):
       if state == 'NewUserInfo':
          return tr("""
          For more information about Armory, and even Bitcoin itself, you should
-         visit the <a href="https://bitcoinarmory.com/faqs/">frequently
+         visit the <a href="https://bitcoinarmory.com/faq/">frequently
          asked questions page</a>.  If
          you are experiencing problems using this software, please visit the
          <a href="https://bitcoinarmory.com/troubleshooting/">Armory

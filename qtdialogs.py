@@ -412,7 +412,7 @@ class DlgBugReport(ArmoryDialog):
       super(DlgBugReport, self).__init__(parent, main)
 
       tsPage = 'https://bitcoinarmory.com/troubleshooting'
-      faqPage = 'https://bitcoinarmory.com/faqs'
+      faqPage = 'https://bitcoinarmory.com/faq'
 
       lblDescr = QRichLabel(tr("""
          <b><u>Send a bug report to the Armory team</u></b>
@@ -4188,7 +4188,7 @@ class DlgIntroMessage(ArmoryDialog):
          'for loss of bitcoins resulting from the use of this software!'
          '<br><br>'
          'For more info about Armory, and Bitcoin itself, see '
-         '<a href="https://bitcoinarmory.com/faqs">frequently '
+         '<a href="https://bitcoinarmory.com/faq">frequently '
          'asked questions</a>.')
       lblDescr.setOpenExternalLinks(True)
 
