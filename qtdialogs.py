@@ -9881,7 +9881,7 @@ class DlgExportTxHistory(ArmoryDialog):
                if row[COL.WltID] in self.main.walletMap:
                   vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
                else:
-                  vals.append(self.main.allLockboxes[self.main.lockboxIDMap[wltID]].shortName.replace(',', ';'))                  
+                  vals.append(self.main.allLockboxes[self.main.lockboxIDMap[row[COL.WltID]]].shortName.replace(',', ';'))                  
    
                wltEffect = row[COL.Amount]
                txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
