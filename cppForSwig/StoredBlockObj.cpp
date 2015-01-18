@@ -242,6 +242,9 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       }
    }
 
+   uint32_t height = blockHeight_;
+   uint8_t  dupid  = duplicateID_;
+
    vector<BinaryData> allTxHashes;
    BlockHeader bh(brr); 
    uint32_t nTx = (uint32_t)brr.get_var_int();
@@ -249,6 +252,9 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
    createFromBlockHeader(bh);
    numTx_ = nTx;
    
+   blockHeight_ = height;
+   duplicateID_ = dupid;
+
    numBytes_ = HEADER_SIZE + BtcUtils::calcVarIntSize(numTx_);
    if(dataCopy_.getSize() != HEADER_SIZE)
    {
@@ -286,7 +292,6 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       stx.version_       = thisTx.getVersion();
       stx.txIndex_       = tx;
 
-
       // Regardless of whether the tx is fragged, we still need the STXO map
       // to be updated and consistent
       brr.resetPosition();
@@ -299,10 +304,11 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
          stxo.unserialize(brr);
          stxo.txVersion_      = thisTx.getVersion();
          stxo.blockHeight_    = UINT32_MAX;
-         stxo.duplicateID_     = UINT8_MAX;
+         stxo.duplicateID_    = UINT8_MAX;
          stxo.txIndex_        = tx;
          stxo.txOutIndex_     = txo;
          stxo.isCoinbase_     = thisTx.getTxInCopy(0).isCoinbase();
+         stxo.parentHash_     = stx.thisHash_;
       }
 
       // Sitting at the nLockTime, 4 bytes before the end
@@ -975,7 +981,6 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
       spentByTxInKey_ = brr.get_BinaryData(8); 
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,

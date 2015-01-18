@@ -2964,7 +2964,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setDashboardDetails()
       self.memPoolInit = True
 
-      self.createCombinedLedger()
+      #self.createCombinedLedger()
       self.ledgerSize = len(self.combinedLedger)
       self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
       if self.netMode==NETWORKMODE.Full:

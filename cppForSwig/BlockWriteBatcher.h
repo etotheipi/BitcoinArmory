@@ -107,10 +107,11 @@ struct PulledBlock : public DBBlock
       return stxMap_[index];
    }
 
-   void preprocessStxo(ARMORY_DB_TYPE dbType)
+   void preprocessTx(ARMORY_DB_TYPE dbType)
    {
       for (auto& stx : stxMap_)
       {
+         stx.second.computeTxInIndexes();
          for (auto& stxo : stx.second.stxoMap_)
          {
             stxo.second->getScrAddress();
@@ -130,6 +131,101 @@ struct PulledBlock : public DBBlock
                txio.setUTXO(true);
             }
          }
+      }
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void unserializeFullBlock(BinaryRefReader brr,
+      bool doFrag,
+      bool withPrefix)
+   {
+      if (withPrefix)
+      {
+         BinaryData magic = brr.get_BinaryData(4);
+         uint32_t   nBytes = brr.get_uint32_t();
+
+         if (brr.getSizeRemaining() < nBytes)
+         {
+            LOGERR << "Not enough bytes remaining in BRR to read block";
+            return;
+         }
+      }
+
+      vector<BinaryData> allTxHashes;
+      BlockHeader bh(brr);
+      uint32_t nTx = (uint32_t)brr.get_var_int();
+      uint32_t hgt = blockHeight_;
+      uint8_t dupid = duplicateID_;
+
+      createFromBlockHeader(bh);
+      numTx_ = nTx;
+      blockHeight_ = hgt;
+      duplicateID_ = dupid;
+
+      numBytes_ = HEADER_SIZE + BtcUtils::calcVarIntSize(numTx_);
+      if (dataCopy_.getSize() != HEADER_SIZE)
+      {
+         LOGERR << "Unserializing header did not produce 80-byte object!";
+         return;
+      }
+
+      if (numBytes_ > brr.getSize())
+      {
+         LOGERR << "Anticipated size of block header is more than what we have";
+         throw BlockDeserializingException();
+      }
+
+      BtcUtils::getHash256(dataCopy_, thisHash_);
+
+      for (uint32_t tx = 0; tx<nTx; tx++)
+      {
+         // We're going to have to come back to the beginning of the tx, later
+         uint32_t txStart = brr.getPosition();
+
+         // Read a regular tx and then convert it
+         Tx thisTx(brr);
+         numBytes_ += thisTx.getSize();
+
+         //save the hash for merkle computation
+         allTxHashes.push_back(thisTx.getThisHash());
+
+         // Now add it to the map
+         PulledTx & stx = stxMap_[tx];
+
+         // Now copy the appropriate data from the vanilla Tx object
+         //stx.createFromTx(thisTx, doFrag, true);
+         stx.dataCopy_ = BinaryData(thisTx.getPtr(), thisTx.getSize());
+         stx.thisHash_ = thisTx.getThisHash();
+         stx.numTxOut_ = thisTx.getNumTxOut();
+         stx.lockTime_ = thisTx.getLockTime();
+
+         stx.blockHeight_ = blockHeight_;
+         stx.duplicateID_ = duplicateID_;
+
+         stx.isFragged_ = doFrag;
+         stx.version_ = thisTx.getVersion();
+         stx.txIndex_ = tx;
+
+
+         // Regardless of whether the tx is fragged, we still need the STXO map
+         // to be updated and consistent
+         brr.resetPosition();
+         brr.advance(txStart + thisTx.getTxOutOffset(0));
+         for (uint32_t txo = 0; txo < thisTx.getNumTxOut(); txo++)
+         {
+            StoredTxOut & stxo = stx.initAndGetStxoByIndex(txo);
+
+            stxo.unserialize(brr);
+            stxo.txVersion_ = thisTx.getVersion();
+            stxo.blockHeight_ = blockHeight_;
+            stxo.duplicateID_ = duplicateID_;
+            stxo.txIndex_ = tx;
+            stxo.txOutIndex_ = txo;
+            stxo.isCoinbase_ = thisTx.getTxInCopy(0).isCoinbase();
+         }
+
+         // Sitting at the nLockTime, 4 bytes before the end
+         brr.advance(4);
       }
    }
 };
@@ -152,6 +248,7 @@ struct DataToCommit
    map<BinaryData, BinaryWriter> serializedSshToModify_;
    map<BinaryData, BinaryWriter> serializedStxOutToModify_;
    map<BinaryData, BinaryWriter> serializedSbhToUpdate_;
+   map<BinaryData, BinaryWriter> serializedTxOutCountToAdd_;
    set<BinaryData>               keysToDelete_;
 
    uint32_t mostRecentBlockApplied_;
@@ -160,10 +257,15 @@ struct DataToCommit
    bool isSerialized_ = false;
    bool sshReady_ = false;
 
+   ARMORY_DB_TYPE dbType_;
+
    mutex lock_;
-   condition_variable condVar_;
 
    ////
+   DataToCommit(ARMORY_DB_TYPE dbType) :
+      dbType_(dbType)
+   {}
+
    void serializeData(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
    set<BinaryData> serializeSSH(BlockWriteBatcher& bwb,
@@ -244,7 +346,7 @@ private:
    
    void prepareSshToModify(const ScrAddrFilter& sasd);
    BinaryData applyBlockToDB(PulledBlock& pb, ScrAddrFilter& scrAddrData);
-   bool applyTxToBatchWriteData(
+   void applyTxToBatchWriteData(
                            PulledTx& thisSTX,
                            StoredUndoData * sud,
                            ScrAddrFilter& scrAddrMap);
@@ -322,8 +424,13 @@ private:
    map<BinaryData, map<BinaryData, StoredSubHistory> >   subSshMapToWrite_;
    map<BinaryData, map<BinaryData, StoredSubHistory> >   subSshMap_;
    shared_ptr<map<BinaryData, StoredScriptHistory> >     sshToModify_;
+   
+   //Supernode only
    vector<PulledBlock>                                   sbhToUpdate_;
-
+   
+   //Fullnode only
+   map<BinaryData, uint32_t>                             txOutCountToAdd_;
+   
    DataToCommit                                          dataToCommit_;
    // incremented for each
    // applyBlockToDB and decremented for each
@@ -356,7 +463,9 @@ private:
 
    //
    bool haveFullUTXOList_ = true;
-   uint32_t utxoFromHeight_ = 0;
+   //uint32_t utxoFromHeight_ = 0;
+
+   DB_SELECT historyDB_;
 };
 
 

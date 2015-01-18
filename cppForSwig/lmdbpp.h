@@ -266,6 +266,8 @@ public:
       Transaction(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
       // commit a transaction if it exists
       ~Transaction();
+
+      Transaction& operator=(Transaction&& mv);
       
       // commit the current transaction, create a new one, and begin it
       void open(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);

@@ -350,6 +350,20 @@ LMDBEnv::Transaction::Transaction(LMDBEnv *env, LMDB::Mode mode)
    begin();
 }
 
+LMDBEnv::Transaction& LMDBEnv::Transaction::operator=(Transaction&& mv)
+{
+   if (this == &mv)
+      return *this;
+
+   this->env = mv.env;
+   this->mode_ = mv.mode_;
+   this->began = mv.began;
+
+   mv.began = false;
+
+   return *this;
+}
+
 LMDBEnv::Transaction::~Transaction()
 {
    commit();

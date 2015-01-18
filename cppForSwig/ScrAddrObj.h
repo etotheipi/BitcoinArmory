@@ -91,8 +91,6 @@ private:
       uint32_t fetchMoreUTXO(uint32_t start, uint32_t end,
          function<bool(const BinaryData&)> spentByZC)
       {
-         LMDBEnv::Transaction tx(&scrAddrObj_->db_->dbEnv_, LMDB::ReadOnly);
-
          uint32_t nutxo = 0;
          uint64_t val = 0;
 

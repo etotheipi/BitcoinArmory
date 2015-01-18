@@ -33,6 +33,7 @@ class TxOut;
 class BlockHeader
 {
    friend class Blockchain;
+   friend class testBlockHeader;
 
 public:
 

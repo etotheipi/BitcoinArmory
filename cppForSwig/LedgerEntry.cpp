@@ -269,18 +269,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          //if some of the txins AND some of the txouts are ours, this could be an STS
          //pull the txn and compare the txin and txout counts
 
-         LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadOnly);
-
-         StoredTx stx;
-         if (!txioVec.first.startsWith(ZCheader_))
-         {
-            uint8_t dupId = DBUtils::hgtxToDupID(txioVec.first.getSliceRef(0, 4));
-            db->getStoredTx(stx, blockNum, dupId, txIndex, false);
-         }
-         else
-            db->getStoredZcTx(stx, txioVec.first);
-
-         if (stx.numTxOut_ == nTxOutAreOurs)
+         uint32_t nTxOutInTx = db->getStxoCountForTx(txioVec.first.getSliceRef(0, 6));
+         if (nTxOutInTx == nTxOutAreOurs)
          {
             value = valIn;
             isSentToSelf = true;

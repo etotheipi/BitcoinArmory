@@ -1088,14 +1088,15 @@ void BlockDataManager_LevelDB::grablock(uint32_t n)
 {
    TIMER_START("testRead");
    {
-      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+      LMDBEnv::Transaction tx;
+      iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadOnly);
       StoredHeader sbh;
-      uint32_t startBlock = 200000 + n * 10000;
+      uint32_t startBlock = 250000 + n * 10000;
       uint8_t dup = iface_->getValidDupIDForHeight(startBlock);
       LDBIter ldbIter = iface_->getIterator(BLKDATA);
       ldbIter.seekToExact(DBUtils::getBlkDataKey(startBlock, dup));
 
-      for (int i = startBlock; i < startBlock +10000; i++)
+      for (int i = startBlock; i < startBlock +40000; i++)
       {
          if (!(i % 2500))
          {
@@ -1103,10 +1104,11 @@ void BlockDataManager_LevelDB::grablock(uint32_t n)
          }
 
          // Now we read the whole block, not just the header
-         bool success = iface_->readStoredBlockAtIter(ldbIter, sbh);
+         //bool success = iface_->readStoredBlockAtIter(ldbIter, sbh);
+         BinaryData block = ldbIter.getValue();
+         ldbIter.advanceAndRead();
       }
    }
-
 }
 
 
@@ -1245,20 +1247,26 @@ void BlockDataManager_LevelDB::loadDiskState(
       LOGINFO << "Wrote blocks to DB in " << timeElapsed << "s";
    }
    
-   /*auto grabthread = [this](uint32_t n)->void
+ /*  auto grabthread = [this](uint32_t n)->void
    { this->grablock(n); };
-   thread grabs[4];
+   const int nth = 1;
+   thread grabs[nth];
    TIMER_START("testRead");
-   for (uint32_t i = 0; i < 4; i++)
+   for (uint32_t i = 0; i < nth; i++)
       grabs[i] = move(thread(grabthread, i));
 
-   for (uint32_t i = 0; i < 4; i++)
+   for (uint32_t i = 0; i < nth; i++)
       if(grabs[i].joinable())
          grabs[i].join();
 
    TIMER_STOP("testRead");
    double timeElapsed = TIMER_READ_SEC("testRead");
-   LOGWARN << "Pulled blocks in " << timeElapsed << "s";*/
+   LOGWARN << "Pulled blocks in " << timeElapsed << "s";
+
+   mutex mu;
+   unique_lock<mutex> lock(mu);
+   condition_variable cv;
+   cv.wait(lock);*/
 
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
@@ -1315,7 +1323,8 @@ void BlockDataManager_LevelDB::loadBlockData(
    const auto blockCallback
       = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
       {
-         LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
+         LMDBEnv::Transaction tx;
+         iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
 
          BinaryRefReader brr(blockdata);
          addRawBlockToDB(brr, updateDupID);
@@ -1363,13 +1372,12 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    
    try
    {
-      
       const Blockchain::ReorganizationState state = blockchain_.organize();
-      
       const bool updateDupID = state.prevTopBlockStillValid;
       
       {
-         LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
+         LMDBEnv::Transaction tx;
+         iface_->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
       
          for (BlockHeader *bh : loadedBlockHeaders)
          {
@@ -1495,15 +1503,15 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
    //LOGINFO << "Clearing all SSH";
-
-   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx;
+   iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(BLKDATA, sdbi);
+   iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
 
    sdbi.appliedToHgt_ = 0;
    sdbi.topScannedBlkHash_ = BinaryData(0);
-   iface_->putStoredDBInfo(BLKDATA, sdbi);
+   iface_->putStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
    //////////
 
    bool done = false;
@@ -1516,7 +1524,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       bool recycle = false;
 
       {
-         LDBIter ldbIter(iface_->getIterator(BLKDATA));
+         LDBIter ldbIter(iface_->getIterator(iface_->getDbSelect(HISTORY)));
 
          try
          {
@@ -1561,7 +1569,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       }
 
       for (auto& keytodel : keysToDelete)
-         iface_->deleteValue(BLKDATA, keytodel);
+         iface_->deleteValue(iface_->getDbSelect(HISTORY), keytodel);
 
       keysToDelete.clear();
 
@@ -1575,7 +1583,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    }
 
    for (auto& keytodel : keysToDelete)
-      iface_->deleteValue(BLKDATA, keytodel);
+      iface_->deleteValue(iface_->getDbSelect(HISTORY), keytodel);
 
    if (i)
       LOGINFO << "Deleted " << i << " SSH and subSSH entries";
@@ -1621,21 +1629,21 @@ bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
    
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
-void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr, 
-                                               bool updateDupID)
+void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
+   bool updateDupID)
 {
    SCOPED_TIMER("addRawBlockToDB");
-   
+
    //if(sbh.stxMap_.size() == 0)
    //{
-      //LOGERR << "Cannot add raw block to DB without any transactions";
-      //return false;
+   //LOGERR << "Cannot add raw block to DB without any transactions";
+   //return false;
    //}
 
    BinaryDataRef first4 = brr.get_BinaryDataRef(4);
-   
+
    // Skip magic bytes and block sz if exist, put ptr at beginning of header
-   if(first4 == config_.magicBytes)
+   if (first4 == config_.magicBytes)
       brr.advance(4);
    else
       brr.rewind(4);
@@ -1643,58 +1651,68 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    // Again, we rely on the assumption that the header has already been
    // added to the headerMap and the DB, and we have its correct height 
    // and dupID
-   StoredHeader sbh;
-   try
+   if (config().armoryDbType == ARMORY_DB_SUPER)
    {
-      sbh.unserializeFullBlock(brr, true, false);
-   }
-   catch (BlockDeserializingException &)
-   {
-      if (sbh.hasBlockHeader_)
+      StoredHeader sbh;
+      try
       {
-         // we still add this block to the chain in this case,
-         // if we miss a few transactions it's better than
-         // missing the entire block
-         const BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
-         sbh.blockHeight_  = bh.getBlockHeight();
-         sbh.duplicateID_  = bh.getDuplicateID();
-         sbh.isMainBranch_ = bh.isMainBranch();
-         sbh.numBytes_ = bh.getBlockSize();
-         sbh.blockAppliedToDB_ = false;
+         sbh.unserializeFullBlock(brr, true, false);
+      }
+      catch (BlockDeserializingException &)
+      {
+         if (sbh.hasBlockHeader_)
+         {
+            // we still add this block to the chain in this case,
+            // if we miss a few transactions it's better than
+            // missing the entire block
+            const BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
+            sbh.blockHeight_ = bh.getBlockHeight();
+            sbh.duplicateID_ = bh.getDuplicateID();
+            sbh.isMainBranch_ = bh.isMainBranch();
+            sbh.numBytes_ = bh.getBlockSize();
+            sbh.blockAppliedToDB_ = false;
 
-         // Don't put it into the DB if it's not proper!
-         if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
-            throw BlockDeserializingException(
+            // Don't put it into the DB if it's not proper!
+            if (sbh.blockHeight_ == UINT32_MAX || sbh.duplicateID_ == UINT8_MAX)
+               throw BlockDeserializingException(
                "Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup (hash="
-                  + bh.getThisHash().copySwapEndian().toHexStr() + ")"
+               + bh.getThisHash().copySwapEndian().toHexStr() + ")"
                );
 
-         iface_->putStoredHeader(sbh, true);
-         missingBlockHashes_.push_back( sbh.thisHash_ );
-         throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid (hash="
-            + bh.getThisHash().copySwapEndian().toHexStr() + ")"
-         );
+            iface_->putStoredHeader(sbh, true);
+            missingBlockHashes_.push_back(sbh.thisHash_);
+            throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid (hash="
+               + bh.getThisHash().copySwapEndian().toHexStr() + ")"
+               );
+         }
+         else
+         {
+            throw BlockDeserializingException("Error parsing block (corrupt?) and block header invalid");
+         }
       }
-      else
-      {
-         throw BlockDeserializingException("Error parsing block (corrupt?) and block header invalid");
-      }
-   }
-   BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
-   sbh.blockHeight_  = bh.getBlockHeight();
-   sbh.duplicateID_  = bh.getDuplicateID();
-   sbh.isMainBranch_ = bh.isMainBranch();
-   sbh.blockAppliedToDB_ = false;
-   sbh.numBytes_ = bh.getBlockSize();
+      BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
+      sbh.blockHeight_ = bh.getBlockHeight();
+      sbh.duplicateID_ = bh.getDuplicateID();
+      sbh.isMainBranch_ = bh.isMainBranch();
+      sbh.blockAppliedToDB_ = false;
+      sbh.numBytes_ = bh.getBlockSize();
 
-   // Don't put it into the DB if it's not proper!
-   if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
-   {
-      throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup (hash="
-         + bh.getThisHash().copySwapEndian().toHexStr() + ")"
-      );
+      // Don't put it into the DB if it's not proper!
+      if (sbh.blockHeight_ == UINT32_MAX || sbh.duplicateID_ == UINT8_MAX)
+      {
+         throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup (hash="
+            + bh.getThisHash().copySwapEndian().toHexStr() + ")"
+            );
+      }
+      iface_->putStoredHeader(sbh, true, updateDupID);
    }
-   iface_->putStoredHeader(sbh, true, updateDupID);
+   else
+   {
+      auto getBH = [this](const BinaryData& hash)->const BlockHeader&
+      { return this->blockchain_.getHeaderByHash(hash); };
+      
+      iface_->putRawBlockData(brr, getBH);
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1714,13 +1732,14 @@ bool BlockDataManager_LevelDB::startSideScan(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
 {
-   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx;
+   iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
    vector<BinaryData> keysToDelete;
 
    for (const auto& scrAddr : saVec)
    {
-      LDBIter ldbIter = iface_->getIterator(BLKDATA);
+      LDBIter ldbIter = iface_->getIterator(iface_->getDbSelect(HISTORY));
 
       if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, scrAddr))
          continue;
@@ -1742,7 +1761,7 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
       } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
 
       for (const auto& keyToDel : keysToDelete)
-         iface_->deleteValue(BLKDATA, keyToDel);
+         iface_->deleteValue(iface_->getDbSelect(HISTORY), keyToDel);
    }
 }
 
@@ -1760,8 +1779,9 @@ uint32_t BlockDataManager_LevelDB::findFirstBlockToScan(void)
 
    {
       //pull last scanned blockhash from sdbi
-      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
-      iface_->getStoredDBInfo(BLKDATA, sdbi);
+      LMDBEnv::Transaction tx;
+      iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
       lastTopBlockHash = sdbi.topScannedBlkHash_;
    }
 
@@ -1834,10 +1854,11 @@ uint32_t BlockDataManager_LevelDB::findFirstBlockToScan(void)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::findFirstBlockToApply(void)
 {
-   LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(BLKDATA, sdbi);
+   iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
    BinaryData lastTopBlockHash = sdbi.topBlkHash_;
 
    if (blockchain_.hasHeaderWithHash(lastTopBlockHash))

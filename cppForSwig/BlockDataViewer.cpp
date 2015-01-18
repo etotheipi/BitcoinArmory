@@ -229,16 +229,27 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 {
    checkBDMisReady();
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   if (config().armoryDbType == ARMORY_DB_SUPER)
+   {
+      LMDBEnv::Transaction tx(&db_->dbEnv_[BLKDATA], LMDB::ReadOnly);
 
-   TxRef txrefobj = db_->getTxRef(txhash);
+      TxRef txrefobj = db_->getTxRef(txhash);
 
-   if (!txrefobj.isNull())
-      return txrefobj.attached(db_).getTxCopy();
+      if (!txrefobj.isNull())
+         return txrefobj.attached(db_).getTxCopy();
+      else
+      {
+         // It's not in the blockchain, but maybe in the zero-conf tx list
+         return zeroConfCont_.getTxByHash(txhash);
+      }
+   }
    else
    {
-      // It's not in the blockchain, but maybe in the zero-conf tx list
-      return zeroConfCont_.getTxByHash(txhash);
+      StoredTx stx;
+      if (db_->getStoredTx_byHash(txhash, &stx))
+         return stx.getTxCopy();
+      else
+         return zeroConfCont_.getTxByHash(txhash);
    }
 }
 
@@ -751,13 +762,11 @@ const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
             uint32_t startBlock, uint32_t endBlock)->void
          { wlt->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
-         map<BinaryData, LedgerEntry> leMap;
-         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
-
-         //this should be locked to a single thread
-
          if (!wlt->uiFilter_)
             continue;
+
+         map<BinaryData, LedgerEntry> leMap;
+         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
 
          for (const LedgerEntry& le : values(leMap))
             globalLedger_.push_back(le);
