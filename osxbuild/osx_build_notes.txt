@@ -9,8 +9,8 @@ are executed from a terminal (aka command line) window.
 (2) Run Xcode and install the command-line utilities.
     "Xcode" --> "Preferences" --> "Downloads"
 
-(3) You may also have to run "xcode-select --install" from the terminal. If so,
-    you will have to click through an EULA and a few other dialogs.
+(3) Open a terminal and run "xcode-select --install". You will have to click
+    through an EULA and possibly other dialogs.
 
 (4) As seen in Red Emerald's preparation steps for compiling Armory on Mac
     (https://gist.github.com/WyseNynja/4200620), execute the following steps to
@@ -37,3 +37,8 @@ are executed from a terminal (aka command line) window.
     when attempting to run builds on other machines/VMs, make sure $PYTHONPATH
     is empty. In addition, try not to have any "brew"ed Python or Qt modules
     installed. Any of the above could lead to unpredictable behavior.
+
+(9) If running a beta version of Xcode, the build tools will need to point to
+    the beta. Open a terminal and run "sudo xcode-select --switch
+    /Applications/Xcode-Beta.app". Command line tools should be updated
+    automatically. If not, follow instructions given when running "clang".
