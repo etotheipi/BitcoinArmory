@@ -658,7 +658,7 @@ private:
 public:
 
    mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
-   mutable map<DB_SELECT, LMDB> dbs_;
+   mutable LMDB dbs_[COUNT];
 
 private:
    //leveldb::FilterPolicy* dbFilterPolicy_[2];

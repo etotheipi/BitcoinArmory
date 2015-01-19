@@ -366,11 +366,11 @@ private:
          CloseHandle(mh);
          _close(fd);
       #else
-         int fd = open(path.c_str(), _O_RDONLY);
+         int fd = open(path.c_str(), O_RDONLY);
          if (fd == -1)
             throw std::runtime_error("failed to open file");
 
-         uint8_t* filemap = mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
+         uint8_t* filemap = (uint8_t*)mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
          if(filemap == NULL)
             throw std::runtime_error("failed to map file");
          close(fd);
