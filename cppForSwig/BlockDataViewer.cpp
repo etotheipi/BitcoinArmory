@@ -231,7 +231,7 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 
    if (config().armoryDbType == ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction tx(&db_->dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(db_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
       TxRef txrefobj = db_->getTxRef(txhash);
 

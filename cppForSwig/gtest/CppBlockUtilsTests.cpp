@@ -4937,7 +4937,7 @@ protected:
          config_.armoryDbType,
          config_.pruneType);
 
-      LMDBEnv::Transaction tx(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("03100000");
@@ -5077,8 +5077,8 @@ TEST_F(LMDBTest, PutGetDelete)
 
    ASSERT_TRUE(iface_->databasesAreOpen());
    
-   LMDBEnv::Transaction txh(&iface_->dbEnv_[HEADERS], LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+   LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
@@ -5128,8 +5128,8 @@ TEST_F(LMDBTest, STxOutPutGet)
    BinaryData stxoKey = TXP + READHEX("01e078""0f""0007""0001");
    
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction txh(&iface_->dbEnv_[HEADERS], LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+   LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    StoredTxOut stxo0;
    stxo0.txVersion_   = 1;
@@ -5210,8 +5210,8 @@ TEST_F(LMDBTest, PutFullBlockNoTx)
    BinaryData sbh_HG_val = hhl.serializeDBValue();
    
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction txh(&iface_->dbEnv_[HEADERS], LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+   LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    addOutPairH( sbh_HH_key, sbh_HH_val);
    addOutPairH( sbh_HG_key, sbh_HG_val);
@@ -5247,8 +5247,8 @@ TEST_F(LMDBTest, PutGetBareHeader)
    BinaryData header0 = sbh.thisHash_;
 
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction txh(&iface_->dbEnv_[HEADERS], LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+   LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    uint8_t sdup = iface_->putBareHeader(sbh);
    EXPECT_EQ(sdup, 0);
@@ -5502,7 +5502,7 @@ TEST_F(LMDBTest, DISABLED_GetFullBlock)
 TEST_F(LMDBTest, PutGetStoredTxHints)
 {
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction tx(&iface_->dbEnv_[TXHINTS], LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
 
    BinaryData prefix = READHEX("aabbccdd");
 
@@ -5557,7 +5557,7 @@ TEST_F(LMDBTest, PutGetStoredTxHints)
 TEST_F(LMDBTest, PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction tx(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    ///////////////////////////////////////////////////////////////////////////
    // A whole bunch of setup stuff we need for SSH operations to work right
@@ -6077,7 +6077,7 @@ protected:
          config_.armoryDbType,
          config_.pruneType);
 
-      dbTx = new LMDBEnv::Transaction(&iface_->dbEnv_[BLKDATA], LMDB::ReadWrite);
+      dbTx = new LMDBEnv::Transaction(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("04100000");
@@ -6284,7 +6284,7 @@ TEST_F(LMDBTest_Super, PutGetDelete)
       config_.pruneType);
 
    ASSERT_TRUE(iface_->databasesAreOpen());
-   LMDBEnv::Transaction tx(&iface_->dbEnv_[BLKDATA], LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
@@ -8096,7 +8096,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    //pull ZC from DB, verify it's carrying the proper data
    LMDBEnv::Transaction *dbtx = 
-      new LMDBEnv::Transaction(&iface_->dbEnv_[HISTORY], LMDB::ReadOnly);
+      new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
    StoredTx zcStx;
    BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
    zcKey.append(WRITE_UINT32_LE(0));
@@ -8157,7 +8157,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    //The BDM was recycled, but the ZC is still live, and the mempool should 
    //have reloaded it. Pull from DB and verify
-   dbtx = new LMDBEnv::Transaction(&iface_->dbEnv_[HISTORY], LMDB::ReadOnly);
+   dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
    StoredTx zcStx2;
 
    EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
@@ -8193,7 +8193,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(spendableBalance, 40 * COIN);
    EXPECT_EQ(unconfirmedBalance, 120 * COIN);
 
-   dbtx = new LMDBEnv::Transaction(&iface_->dbEnv_[HISTORY], LMDB::ReadOnly);
+   dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
    StoredTx zcStx3;
 
    EXPECT_EQ(iface_->getStoredZcTx(zcStx3, zcKey), true);
@@ -8235,7 +8235,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(le.getBlockNum(), 5);
 
    //Tx is now in a block, ZC should be gone from DB
-   dbtx = new LMDBEnv::Transaction(&iface_->dbEnv_[HISTORY], LMDB::ReadWrite);
+   dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
    StoredTx zcStx4;
 
    EXPECT_EQ(iface_->getStoredZcTx(zcStx4, zcKey), false);

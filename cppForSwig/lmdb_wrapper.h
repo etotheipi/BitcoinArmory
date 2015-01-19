@@ -262,9 +262,9 @@ public:
       DB_SELECT db, LMDB::Mode mode) const
    {
       if (armoryDbType_ == ARMORY_DB_SUPER)
-         *tx = move(LMDBEnv::Transaction(&dbEnv_[BLKDATA], mode));
+         *tx = move(LMDBEnv::Transaction(dbEnv_[BLKDATA].get(), mode));
       else
-         *tx = move(LMDBEnv::Transaction(&dbEnv_[db], mode));
+         *tx = move(LMDBEnv::Transaction(dbEnv_[db].get(), mode));
    }
 
    ARMORY_DB_TYPE getDbType(void) const { return armoryDbType_; }
@@ -657,7 +657,7 @@ private:
 
 public:
 
-   mutable map<DB_SELECT, LMDBEnv> dbEnv_;
+   mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
    mutable map<DB_SELECT, LMDB> dbs_;
 
 private:

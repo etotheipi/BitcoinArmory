@@ -200,9 +200,10 @@ public:
          bhIter->second.setBlockFileOffset(pos.second);
       };
       
+      uint64_t returnedOffset = UINT64_MAX;
       try
       {
-         readHeadersFromFile(
+         returnedOffset = readHeadersFromFile(
             blkFiles_[index],
             0,
             stopIfBlkHeaderRecognized
@@ -219,6 +220,9 @@ public:
       // we need to load it
       if (foundAtPosition.first == 0 && foundAtPosition.second==293)
          return { 0, 0 };
+      if (returnedOffset != UINT64_MAX)
+         foundAtPosition.second = returnedOffset;
+
       return foundAtPosition;
    }
 
@@ -1088,34 +1092,6 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
    scrAddrData_->clear();
    loadDiskState(progress);
 }
-
-void BlockDataManager_LevelDB::grablock(uint32_t n)
-{
-   TIMER_START("testRead");
-   {
-      LMDBEnv::Transaction tx;
-      iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadOnly);
-      StoredHeader sbh;
-      uint32_t startBlock = 250000 + n * 10000;
-      uint8_t dup = iface_->getValidDupIDForHeight(startBlock);
-      LDBIter ldbIter = iface_->getIterator(BLKDATA);
-      ldbIter.seekToExact(DBUtils::getBlkDataKey(startBlock, dup));
-
-      for (int i = startBlock; i < startBlock +40000; i++)
-      {
-         if (!(i % 2500))
-         {
-            LOGWARN << "passed block # " << i;
-         }
-
-         // Now we read the whole block, not just the header
-         //bool success = iface_->readStoredBlockAtIter(ldbIter, sbh);
-         BinaryData block = ldbIter.getValue();
-         ldbIter.advanceAndRead();
-      }
-   }
-}
-
 
 void BlockDataManager_LevelDB::loadDiskState(
    const ProgressCallback &progress,

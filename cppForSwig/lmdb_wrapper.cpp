@@ -455,10 +455,13 @@ void LMDBBlockDatabase::openDatabases(
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
 
-   dbEnv_[HEADERS].open(dbHeadersFilename());
-   dbEnv_[HISTORY].open(dbHistoryFilename());
-   dbEnv_[BLKDATA].open(dbBlkdataFilename());
-   dbEnv_[TXHINTS].open(dbTxhintsFilename());
+   for (int i = 0; i < COUNT; i++)
+      dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
+
+   dbEnv_[HEADERS]->open(dbHeadersFilename());
+   dbEnv_[HISTORY]->open(dbHistoryFilename());
+   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
+   dbEnv_[TXHINTS]->open(dbTxhintsFilename());
 
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS] = "headers";
@@ -471,9 +474,9 @@ void LMDBBlockDatabase::openDatabases(
       for (auto& db : DB_NAMES)
       {
          DB_SELECT CURRDB = db.first;
-         LMDBEnv::Transaction tx(&dbEnv_[CURRDB], LMDB::ReadWrite);
+         LMDBEnv::Transaction tx(dbEnv_[CURRDB].get(), LMDB::ReadWrite);
 
-         dbs_[CURRDB].open(&dbEnv_[CURRDB], db.second);
+         dbs_[CURRDB].open(dbEnv_[CURRDB].get(), db.second);
 
          //only HEADERS and HISTORY get a sdbi in Fullnode
          if (CURRDB != HEADERS && CURRDB != HISTORY)
@@ -570,7 +573,8 @@ void LMDBBlockDatabase::openDatabasesSupernode(
    // Just in case this isn't the first time we tried to open it.
    closeDatabasesSupernode();
    
-   dbEnv_[BLKDATA].open(dbBlkdataFilename());
+   dbEnv_[BLKDATA].reset(new LMDBEnv());
+   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
    
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS] = "headers";
@@ -581,9 +585,9 @@ void LMDBBlockDatabase::openDatabasesSupernode(
       for(auto& db : DB_NAMES)
       {
          DB_SELECT CURRDB = db.first;
-         LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadWrite);
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
-         dbs_[CURRDB].open(&dbEnv_[BLKDATA], db.second);
+         dbs_[CURRDB].open(dbEnv_[BLKDATA].get(), db.second);
 
          StoredDBInfo sdbi;
          getStoredDBInfo(CURRDB, sdbi, false); 
@@ -690,7 +694,8 @@ void LMDBBlockDatabase::closeDatabases(void)
    for(uint32_t db=0; db<COUNT; db++)
    {
       dbs_[(DB_SELECT)db].close();
-      dbEnv_[(DB_SELECT)db].close();
+      if (dbEnv_[(DB_SELECT)db] != nullptr)
+         dbEnv_[(DB_SELECT)db]->close();
    }
    dbIsOpen_ = false;
 }
@@ -701,7 +706,8 @@ void LMDBBlockDatabase::closeDatabasesSupernode(void)
 {
    dbs_[BLKDATA].close();
    dbs_[HEADERS].close();
-   dbEnv_[BLKDATA].close();
+   if (dbEnv_[BLKDATA] != nullptr)
+      dbEnv_[BLKDATA]->close();
    dbIsOpen_ = false;
 }
 
@@ -1556,7 +1562,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
    if(!withBlkData)
       return newDup;
 
-   LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
    BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryWriter bwBlkData;
@@ -1763,7 +1769,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       if (!withTx)
       {
          //////
@@ -1801,7 +1807,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
    }
    else
    {
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       BinaryData blkKey = DBUtils::getBlkDataKey(blockHgt, blockDup);
       BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
 
@@ -2245,7 +2251,7 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
    
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
       LDBIter ldbIter = getIterator(BLKDATA);
       if (!ldbIter.seekToStartsWith(DB_PREFIX_TXDATA, ldbKey6B))
@@ -2399,7 +2405,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
    SCOPED_TIMER("getTxHashForLdbKey");
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       BinaryRefReader stxVal;
 
       if (!ldbKey6B.startsWith(ZCprefix_))
@@ -2420,7 +2426,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
    else
    {
       //Fullnode, pull the full block then grab the txhash
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
       StoredHeader sbh;
       uint32_t height = DBUtils::hgtxToHeight(ldbKey6B.getSliceRef(0, 4));
@@ -2610,8 +2616,8 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
 
    BinaryData hash4(txHash.getSliceRef(0,4));
    
-   LMDBEnv::Transaction txHints(&dbEnv_[TXHINTS], LMDB::ReadOnly);
-   LMDBEnv::Transaction txBlkData(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+   LMDBEnv::Transaction txHints(dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
+   LMDBEnv::Transaction txBlkData(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
    BinaryRefReader brrHints = getValueRef(TXHINTS, DB_PREFIX_TXHINTS, hash4);
 
@@ -2688,7 +2694,7 @@ bool LMDBBlockDatabase::getStoredTx_byHashSuper(BinaryDataRef txHash,
 
    BinaryData hash4(txHash.getSliceRef(0, 4));
 
-   LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+   LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
    BinaryRefReader brrHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, hash4);
 
@@ -2851,7 +2857,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
       BinaryData key = WRITE_UINT8_BE(DB_PREFIX_TXDATA);
       key.append(DBkey);
 
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       BinaryRefReader brr = getValueReader(BLKDATA, key);
       if (brr.getSize() == 0)
       {
@@ -2875,7 +2881,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
          //so there is a high chance we wont need to pull the stxo from the raw
          //block, since fullnode keeps track of all relevant stxos in the 
          //history db
-         LMDBEnv::Transaction tx(&dbEnv_[HISTORY], LMDB::ReadOnly);
+         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
          BinaryRefReader brr = getValueReader(HISTORY, DB_PREFIX_TXDATA, DBkey);
 
          if (brr.getSize() > 0)
@@ -2890,7 +2896,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
          }
       }
 
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
       //again, in Fullnode, need to pull the entire block, unserialize then
       //return the one stxo
@@ -3513,17 +3519,6 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    brr.resetPosition();
    StoredHeader sbh;
 
-   /*try
-   {
-      sbh.unserializeFullBlock(brr, false, false);
-   }
-   catch (BlockDeserializingException &)
-   {
-      throw BlockDeserializingException("Error parsing block (corrupt?)");
-   }*/
-
-   brr.resetPosition();
-
    BlockHeader bhUnser(brr);
    const BlockHeader & bh = getBH(bhUnser.getThisHash());
    sbh.blockHeight_ = bh.getBlockHeight();
@@ -3534,52 +3529,14 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
 
    //put raw block with header data
    {
-      LMDBEnv::Transaction tx(&dbEnv_[BLKDATA], LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
       BinaryData dbKey(sbh.getDBKey(true));
       putValue(BLKDATA, BinaryDataRef(dbKey), brr.getRawRef());
    }
 
-   //compute and put hints
-   /*{
-      LMDBEnv::Transaction tx(&dbEnv_[TXHINTS], LMDB::ReadWrite);
-      for (auto& stx : sbh.stxMap_)
-      {
-         stx.second.blockHeight_ = sbh.blockHeight_;
-         stx.second.duplicateID_ = sbh.duplicateID_;
-
-         BinaryData ldbKey = stx.second.getDBKey(false);
-         StoredTxHints sths;
-         getStoredTxHints(sths, stx.second.thisHash_);
-
-         // Check whether the hint already exists in the DB
-         bool needToAddTxToHints = true;
-         bool needToUpdateHints = false;
-         for (uint32_t i = 0; i < sths.dbKeyList_.size(); i++)
-         {
-            if (sths.dbKeyList_[i] == ldbKey)
-            {
-               needToAddTxToHints = false;
-               needToUpdateHints = (sths.preferredDBKey_ != ldbKey);
-               sths.preferredDBKey_ = ldbKey;
-               break;
-            }
-         }
-
-         // Add it to the hint list if needed
-         if (needToAddTxToHints)
-         {
-            sths.dbKeyList_.push_back(ldbKey);
-            sths.preferredDBKey_ = ldbKey;
-         }
-
-         if (needToAddTxToHints || needToUpdateHints)
-            putValue(TXHINTS, sths.getDBKey(), sths.serializeDBValue());
-      }
-   }*/
-
    //update SDBI in HISTORY DB
    {
-      LMDBEnv::Transaction tx(&dbEnv_[HISTORY], LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadWrite);
       if (sbh.isMainBranch_)
       {
          StoredDBInfo sdbiB;

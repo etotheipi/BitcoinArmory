@@ -329,7 +329,7 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
 
    PulledBlock pb;
    {
-      LMDBEnv::Transaction blockTx(&iface_->dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction blockTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       pullBlockFromDB(pb, hgt, dup);
    }
 
@@ -361,7 +361,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 
    PulledBlock pb;
    {
-      LMDBEnv::Transaction blkdataTx(&iface_->dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction blkdataTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       pullBlockFromDB(pb, sud.blockHeight_, sud.duplicateID_);
    }
    
@@ -882,7 +882,7 @@ void BlockWriteBatcher::resetTransactions(void)
    resetTxn_ = 0;
    
    txn_.commit();
-   txn_.open(&iface_->dbEnv_[historyDB_], LMDB::ReadOnly);
+   txn_.open(iface_->dbEnv_[historyDB_].get(), LMDB::ReadOnly);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -913,7 +913,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
    {
       //create read only db txn within main loop, so that it is rewed
       //after each sleep period
-      LMDBEnv::Transaction tx(&iface_->dbEnv_[BLKDATA], LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
       uint8_t dupID = iface_->getValidDupIDForHeight(hgt);
@@ -1304,7 +1304,7 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
    //txOutCount
    if (dbType != ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction txHints(&bwb.iface_->dbEnv_[TXHINTS], LMDB::ReadOnly);
+      LMDBEnv::Transaction txHints(bwb.iface_->dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
       for (auto& txData : bwb.txCountAndHint_)
       {
          BinaryWriter& bw = serializedTxCountAndHash_[txData.first];
@@ -1419,7 +1419,7 @@ void DataToCommit::putSTX(LMDBBlockDatabase* db)
    for (auto& txCount : serializedTxCountAndHash_)
       db->putValue(dbs, txCount.first, txCount.second.getData());
 
-   LMDBEnv::Transaction txHints(&db->dbEnv_[TXHINTS], LMDB::ReadWrite);
+   LMDBEnv::Transaction txHints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
       for (auto& txHints : serializedTxHints_)
       db->putValue(TXHINTS, txHints.first, txHints.second.getData());
 }
