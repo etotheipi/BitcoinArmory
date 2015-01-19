@@ -95,7 +95,9 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
    {
       stxoToUpdate_.push_back(utxoIter->second);
 
-      return utxoIter->second.get();
+      if (config_.armoryDbType != ARMORY_DB_SUPER)
+         utxoMap_.erase(utxoIter);
+      return stxoToUpdate_.back().get();
    }
 
    utxoIter = utxoMapBackup_.find(txHash);
@@ -103,7 +105,9 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
    {
       stxoToUpdate_.push_back(utxoIter->second);
 
-      return utxoIter->second.get();
+      if (config_.armoryDbType != ARMORY_DB_SUPER)
+         utxoMap_.erase(utxoIter);
+      return stxoToUpdate_.back().get();
    }
 
    if (config_.armoryDbType == ARMORY_DB_SUPER)
@@ -539,32 +543,7 @@ bool BlockWriteBatcher::parseTxIns(
       if (config_.armoryDbType != ARMORY_DB_SUPER)
       {
          if (stxoPtr == nullptr)
-         {
-            //if we have a list of all relevant UTXO and we couldnt find this
-            //one in there, then it isnt a relevant UTXO and we can skip it
-            //if (haveFullUTXOList_)
-            {
-               //if (thisSTX.blockHeight_ > utxoFromHeight_)
-                  continue;
-            }
-
-            //otherwise we need to grab it and check it against our scrAddr
-            //list. UTXO are consumed only once so we do not need to keep
-            //this one in RAM if it turns out it isn't relevant
-            shared_ptr<StoredTxOut> stxoToSpend(new StoredTxOut);
-            BinaryData dbKey;
-            iface_->getStoredTx_byHash(opTxHashAndId.getSliceRef(0, 32), nullptr, &dbKey);
-            dbKey.append(WRITE_UINT16_BE(opTxoIdx));
-            iface_->getStoredTxOut(*stxoToSpend, dbKey);
-
-            if (!scrAddrData.hasScrAddress(stxoToSpend->getScrAddress()))
-               continue;
-           
-            dbUpdateSize_ += sizeof(StoredTxOut)+stxoToSpend->dataCopy_.getSize();
-
-            stxoToUpdate_.push_back(stxoToSpend);
-            stxoPtr = stxoToSpend.get();
-         }
+             continue;
       }
       
       const BinaryData& uniqKey = stxoPtr->getScrAddress();
