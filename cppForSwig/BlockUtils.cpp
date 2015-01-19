@@ -335,7 +335,7 @@ public:
 
 private:
 
-   uint8_t* getMapOfFile(string path)
+   uint8_t* getMapOfFile(string path, size_t fileSize)
    {
       #ifdef WIN32
          LARGE_INTEGER li;
@@ -344,8 +344,6 @@ private:
             throw std::runtime_error("failed to open file");
          
          HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
-         GetFileSizeEx(fdHandle, &li);
-         uint64_t fileSize = (uint64_t)li.QuadPart;
          uint32_t sizelo = fileSize & 0xffffffff;
          uint32_t sizehi = fileSize >> 16 >> 16;
 
@@ -364,7 +362,14 @@ private:
          CloseHandle(mh);
          _close(fd);
       #else
-            throw std::runtime_error("need to implement mmap process for *nix");
+         int fd = open(path.c_str(), _O_RDONLY);
+         if (fd == -1)
+            throw std::runtime_error("failed to open file");
+
+         uint8_t* filemap = mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
+         if(filemap == NULL)
+            throw std::runtime_error("failed to map file");
+         close(fd);
       #endif
 
       return filemap;
@@ -393,7 +398,7 @@ private:
       if (blockFileOffset >= stopBefore)
          return blockFileOffset;
       
-      uint8_t* filemap = getMapOfFile(f.path);
+      uint8_t* filemap = getMapOfFile(f.path, f.filesize);
       BinaryData fileMagic(4);
       memcpy(fileMagic.getPtr(), filemap, 4);
       if( fileMagic != magicBytes_ )

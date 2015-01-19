@@ -851,8 +851,6 @@ void BlockWriteBatcher::writeToDB(void)
 {
    unique_lock<mutex> lock(parent_->writeLock_);
 
-   LOGWARN << "COMMITING!";
-
    dataToCommit_.serializeData(*this, parent_->subSshMapToWrite_);
 
    {
@@ -1070,11 +1068,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
             blockData->block_ = blockData->block_->nextBlock_;
  
          if (i % 2500 == 2499)
-         {
             LOGWARN << "Finished applying blocks up to " << (i + 1);
-            LOGWARN << "totalBlockDataProcess: " << totalBlockDataProcessed;
-            LOGWARN << "dbUpdateSize: " << dbUpdateSize_;
-         }
 
          totalBlockDataProcessed += blockSize;
          progress.advance(totalBlockDataProcessed);
