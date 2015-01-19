@@ -2632,8 +2632,9 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
    for(uint32_t i=0; i<numHints; i++)
    {
       BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
+      BinaryRefReader brrHint(hint);
       BLKDATA_TYPE bdtype = DBUtils::readBlkDataKeyNoPrefix(
-         BinaryRefReader(hint), height, dup, txIdx);
+         brrHint, height, dup, txIdx);
 
       if (dup != getValidDupIDForHeight(height) && numHints > 1)
          continue;
