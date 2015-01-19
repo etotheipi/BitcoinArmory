@@ -18,7 +18,8 @@
 
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
-   LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
@@ -41,7 +42,8 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -161,7 +163,8 @@ void ScrAddrFilter::scanScrAddrThread()
 
    BinaryData topScannedBlockHash;
    {
-      LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadOnly);
+      LMDBEnv::Transaction tx;
+      lmdb_->beginDBTransaction(&tx, HEADERS, LMDB::ReadOnly);
       StoredHeader sbh;
       lmdb_->getBareHeader(sbh, endBlock);
       topScannedBlockHash = sbh.thisHash_;
@@ -474,7 +477,8 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    keyToSpentScrAddr_.clear();
    txOutsSpentByZC_.clear();
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -624,7 +628,8 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    while (1)
    {
@@ -961,7 +966,12 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
    const vector<BinaryData>& keysToDelete)
 {
    //should run in its own thread to make sure we can get a write tx
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadWrite);
+   DB_SELECT dbs = BLKDATA;
+   if (db_->getDbType() != ARMORY_DB_SUPER)
+      dbs = HISTORY;
+
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, dbs, LMDB::ReadWrite);
 
    for (auto& key : keysToWrite)
    {
@@ -983,7 +993,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       else
          keyWithPrefix = key;
 
-      LDBIter dbIter(db_->getIterator(BLKDATA));
+      LDBIter dbIter(db_->getIterator(dbs));
 
       if (!dbIter.seekTo(keyWithPrefix))
          continue;
@@ -1001,7 +1011,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
 
       for (auto Key : ktd)
-         db_->deleteValue(BLKDATA, Key);
+         db_->deleteValue(dbs, Key);
    }
 }
 
@@ -1012,9 +1022,12 @@ void ZeroConfContainer::loadZeroConfMempool(
 {
    //run this in its own scope so the iter and tx are closed in order to open
    //RW tx afterwards
-   { 
-      LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
-      LDBIter dbIter(db_->getIterator(BLKDATA));
+   {
+      auto dbs = db_->getDbSelect(HISTORY);
+
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, dbs, LMDB::ReadOnly);
+      LDBIter dbIter(db_->getIterator(dbs));
 
       if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))
       {

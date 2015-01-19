@@ -401,17 +401,36 @@ void LMDBBlockDatabase::openDatabases(
    In Supernode, TxOut entries are in the BLKDATA DB. 
    In Fullnode, they are in the HISTORY DB, only for TxOuts relevant to the 
    tracked set of addresses. Fullnode also carries the amount of txouts per 
-   relevant Tx saved as :
-            TxDBKey6 | uint32_t 
+   relevant Tx + txHash saved as :
+            TxDBKey6 | uint32_t | txHash
    This prevents pulling each Tx from full blocks in order to identity STS
-   transactions.
+   transactions and getting the hash, keeping ledger computation speed on 
+   par with Supernode
 
    In Supernode, BLKDATA sdbi sits in the BLKDATA DB.
    In Fullnode, BLDDATA sdbi goes in the HISTORY DB instead, while BLKDATA DB 
    has no sdbi
 
    In Supernode, txHints go in the BLKDATA DB.
-   In Fullnode, they go to their dedicated DB, TXHINTS
+   In Fullnode, only hints for relevant transactions are saved, in the 
+   dedicated TXHINTS DB. So while Supernode compiles and commits txhints
+   in the building phase, Fullnode processes the few relevant ones during
+   scans. 
+
+   There are a couple reasons to this: while Supernode may be used to track
+   all ZC (which requires hints for all transactions), Fullnode will only ever
+   need txhints for those transactions relevant to its set of tracked addresses
+
+   Besides the obvious space gain (~7% smaller), txhints aren't sequential by 
+   nature, and as this DB grows it will slow down DB building. The processing 
+   cost over doubles the build time from scratch. Even then the hints will be 
+   mostly remain in RAM through OS mapped file management, so writes won't 
+   impact buidling much.
+
+   However, a cold start with new blocks to commit will grind HDDs to a halt, 
+   taking around 10 minutes to catch up on 12h worth of new blocks. So keeping 
+   track of all txhints in Fullnode is not only unecessary, it is detrimental
+   to overall DB speed.
    ***/
 
    SCOPED_TIMER("openDatabases");
@@ -3493,14 +3512,14 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    brr.resetPosition();
    StoredHeader sbh;
 
-   try
+   /*try
    {
       sbh.unserializeFullBlock(brr, false, false);
    }
    catch (BlockDeserializingException &)
    {
       throw BlockDeserializingException("Error parsing block (corrupt?)");
-   }
+   }*/
 
    brr.resetPosition();
 
@@ -3520,7 +3539,7 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    }
 
    //compute and put hints
-   {
+   /*{
       LMDBEnv::Transaction tx(&dbEnv_[TXHINTS], LMDB::ReadWrite);
       for (auto& stx : sbh.stxMap_)
       {
@@ -3555,7 +3574,7 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
          if (needToAddTxToHints || needToUpdateHints)
             putValue(TXHINTS, sths.getDBKey(), sths.serializeDBValue());
       }
-   }
+   }*/
 
    //update SDBI in HISTORY DB
    {
@@ -3567,7 +3586,7 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
          if (sbh.blockHeight_ > sdbiB.topBlkHgt_)
          {
             sdbiB.topBlkHgt_ = sbh.blockHeight_;
-            sdbiB.topBlkHash_ = sbh.thisHash_;
+            sdbiB.topBlkHash_ = bh.getThisHash();
             putStoredDBInfo(HISTORY, sdbiB);
          }
       }

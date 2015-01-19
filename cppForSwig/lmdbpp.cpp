@@ -584,7 +584,7 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
    
    auto txnIter = env->txForThreads_.find(tID);
    if (txnIter == env->txForThreads_.end())
-      throw std::runtime_error("Iterator must be created within Transaction");
+      throw std::runtime_error("Need transaction to get data");
    
    lock.unlock();
 

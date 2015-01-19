@@ -248,8 +248,11 @@ struct DataToCommit
    map<BinaryData, BinaryWriter> serializedSshToModify_;
    map<BinaryData, BinaryWriter> serializedStxOutToModify_;
    map<BinaryData, BinaryWriter> serializedSbhToUpdate_;
-   map<BinaryData, BinaryWriter> serializedTxOutCountToAdd_;
    set<BinaryData>               keysToDelete_;
+   
+   //Fullnode only
+   map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
+   map<BinaryData, BinaryWriter> serializedTxHints_;
 
    uint32_t mostRecentBlockApplied_;
    BinaryData topBlockHash_;
@@ -338,6 +341,12 @@ private:
 
          bufferLoad_.store(0, memory_order_relaxed);
       }
+   };
+
+   struct CountAndHint
+   {
+      uint32_t count_ = 0;
+      BinaryData hash_;
    };
 
    // We have accumulated enough data, actually write it to the db
@@ -429,7 +438,7 @@ private:
    vector<PulledBlock>                                   sbhToUpdate_;
    
    //Fullnode only
-   map<BinaryData, uint32_t>                             txOutCountToAdd_;
+   map<BinaryData, CountAndHint>                         txCountAndHint_;
    
    DataToCommit                                          dataToCommit_;
    // incremented for each

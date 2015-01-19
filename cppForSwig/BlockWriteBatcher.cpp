@@ -439,7 +439,6 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
       }
    }
 
-
    // The OutPoint list is every new, unspent TxOut created by this block.
    // When they were added, we updated all the StoredScriptHistory objects
    // to include references to them.  We need to remove them now.
@@ -543,7 +542,7 @@ bool BlockWriteBatcher::parseTxIns(
          {
             //if we have a list of all relevant UTXO and we couldnt find this
             //one in there, then it isnt a relevant UTXO and we can skip it
-            if (haveFullUTXOList_)
+            //if (haveFullUTXOList_)
             {
                //if (thisSTX.blockHeight_ > utxoFromHeight_)
                   continue;
@@ -700,7 +699,11 @@ void BlockWriteBatcher::applyTxToBatchWriteData(
    txIsMine |= parseTxIns( thisSTX, sud, scrAddrData);
 
    if (config_.armoryDbType != ARMORY_DB_SUPER && txIsMine)
-      txOutCountToAdd_[thisSTX.getDBKey(true)] = thisSTX.numTxOut_;
+   {
+      auto& countAndHint = txCountAndHint_[thisSTX.getDBKey(true)];
+      countAndHint.count_ = thisSTX.numTxOut_;
+      countAndHint.hash_ = thisSTX.thisHash_;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -737,13 +740,14 @@ thread BlockWriteBatcher::commit(bool finalCommit)
 
    bwbWriteObj->sbhToUpdate_ = std::move(sbhToUpdate_);
    bwbWriteObj->stxoToUpdate_ = std::move(stxoToUpdate_);
-   bwbWriteObj->txOutCountToAdd_ = std::move(txOutCountToAdd_);
+   bwbWriteObj->txCountAndHint_ = std::move(txCountAndHint_);
    
    bwbWriteObj->mostRecentBlockApplied_ = mostRecentBlockApplied_;
    bwbWriteObj->parent_ = this;
 
 
-   if (utxoMap_.size() > UTXO_THRESHOLD)
+   if (config_.armoryDbType == ARMORY_DB_SUPER && 
+       utxoMap_.size() > UTXO_THRESHOLD)
    {
       utxoMapBackup_.clear();
       utxoMapBackup_ = std::move(utxoMap_);
@@ -834,34 +838,31 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
                subssh.unserializeDBValue(dbIter.getValueReader());
 
                //load all UTXOs listed
-               for (auto txio : subssh.txioMap_)
+               //if (utxoCount < UTXO_THRESHOLD)
                {
-                  if (txio.second.isUTXO())
+                  for (auto txio : subssh.txioMap_)
                   {
-                     BinaryData dbKey = txio.second.getDBKeyOfOutput();
-                     shared_ptr<StoredTxOut> stxo(new StoredTxOut);
-                     iface_->getStoredTxOut(*stxo, dbKey);
-                     
-                     BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
+                     if (txio.second.isUTXO())
+                     {
+                        BinaryData dbKey = txio.second.getDBKeyOfOutput();
+                        shared_ptr<StoredTxOut> stxo(new StoredTxOut);
+                        iface_->getStoredTxOut(*stxo, dbKey);
 
-                     BinaryWriter bwUtxoKey(34);
-                     bwUtxoKey.put_BinaryData(txHash);
-                     bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
-                     
-                     utxoMap_[bwUtxoKey.getDataRef()] = stxo;
-                     utxoCount++;
+                        BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
+
+                        BinaryWriter bwUtxoKey(34);
+                        bwUtxoKey.put_BinaryData(txHash);
+                        bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
+
+                        utxoMap_[bwUtxoKey.getDataRef()] = stxo;
+                        utxoCount++;
+                     }
                   }
                }
             }
                
             dbIter.advanceAndRead(DB_PREFIX_SCRIPT);
          }
-      }
-     
-      if (utxoCount >= UTXO_THRESHOLD)
-      {
-         haveFullUTXOList_ = false;
-         return;
       }
    }
 }
@@ -1325,11 +1326,49 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
       }
    }
 
+
+
    //txOutCount
-   for (auto& txCount : bwb.txOutCountToAdd_)
+   if (dbType != ARMORY_DB_SUPER)
    {
-      BinaryWriter& bw = serializedTxOutCountToAdd_[txCount.first];
-      bw.put_uint32_t(txCount.second);
+      LMDBEnv::Transaction txHints(&bwb.iface_->dbEnv_[TXHINTS], LMDB::ReadOnly);
+      for (auto& txData : bwb.txCountAndHint_)
+      {
+         BinaryWriter& bw = serializedTxCountAndHash_[txData.first];
+         bw.put_uint32_t(txData.second.count_);
+         bw.put_BinaryData(txData.second.hash_);
+
+         BinaryDataRef ldbKey = txData.first.getSliceRef(1, 6);
+         StoredTxHints sths;
+         bwb.iface_->getStoredTxHints(sths, txData.second.hash_);
+
+         // Check whether the hint already exists in the DB
+         bool needToAddTxToHints = true;
+         bool needToUpdateHints = false;
+         for (uint32_t i = 0; i < sths.dbKeyList_.size(); i++)
+         {
+            if (sths.dbKeyList_[i] == ldbKey)
+            {
+               needToAddTxToHints = false;
+               needToUpdateHints = (sths.preferredDBKey_ != ldbKey);
+               sths.preferredDBKey_ = ldbKey;
+               break;
+            }
+         }
+
+         // Add it to the hint list if needed
+         if (needToAddTxToHints)
+         {
+            sths.dbKeyList_.push_back(ldbKey);
+            sths.preferredDBKey_ = ldbKey;
+         }
+
+         if (needToAddTxToHints || needToUpdateHints)
+         {
+            BinaryWriter& bwHints = serializedTxHints_[sths.getDBKey()];
+            sths.serializeDBValue(bwHints);
+         }
+      }
    }
 
    //sdbi
@@ -1401,8 +1440,15 @@ void DataToCommit::putSTX(LMDBBlockDatabase* db)
    for (auto& stxoPair : serializedStxOutToModify_)
       db->putValue(dbs, stxoPair.first, stxoPair.second.getData());
 
-   for (auto& txCount : serializedTxOutCountToAdd_)
+   if (dbType_ == ARMORY_DB_SUPER)
+      return;
+
+   for (auto& txCount : serializedTxCountAndHash_)
       db->putValue(dbs, txCount.first, txCount.second.getData());
+
+   LMDBEnv::Transaction txHints(&db->dbEnv_[TXHINTS], LMDB::ReadWrite);
+      for (auto& txHints : serializedTxHints_)
+      db->putValue(TXHINTS, txHints.first, txHints.second.getData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1822,7 +1822,7 @@ uint32_t BlockDataManager_LevelDB::findFirstBlockToScan(void)
                their own.
 
                The simplest approach here is to wipe all SSH history and scan
-               from 0. The other solution is to unod the original set of
+               from scratch. The other solution is to undo the original set of
                scrAddr to the reorg point, and scan the fresh addresses
                independantly up to the reorg point, which is way too convoluted
                for such a rare case.
