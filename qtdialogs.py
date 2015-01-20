@@ -4596,28 +4596,17 @@ class DlgRemoveWallet(ArmoryDialog):
          if hasWarningRow:
             lbls.append(lbl)
             layout.addWidget(lbl, 4, 0, 1, 3)
-
-      self.radioExclude = QRadioButton('Add this wallet to the "ignore list"')
-      self.radioExclude.setEnabled(False)
+            
       self.radioDelete = QRadioButton('Permanently delete this wallet')
       self.radioWatch = QRadioButton('Delete private keys only, make watching-only')
 
       # Make sure that there can only be one selection
       btngrp = QButtonGroup(self)
-      btngrp.addButton(self.radioExclude)
       btngrp.addButton(self.radioDelete)
       if not self.main.usermode == USERMODE.Standard:
          btngrp.addButton(self.radioWatch)
       btngrp.setExclusive(True)
 
-      ttipExclude = self.main.createToolTipWidget(\
-         '[DISABLED] This will not delete any files, but will add this '
-         'wallet to the "ignore list."  This means that Armory '
-         'will no longer show this wallet in the main screen '
-         'and none of its funds will be added to your balance.  '
-         'You can re-include this wallet in Armory at a later '
-         'time by selecting the "Excluded Wallets..." option '
-         'in the "Wallets" menu.')
       ttipDelete = self.main.createToolTipWidget(\
          'This will delete the wallet file, removing '
          'all its private keys from your settings directory.  '
@@ -4656,8 +4645,7 @@ class DlgRemoveWallet(ArmoryDialog):
       rdoLayout = QGridLayout()
 
       startRow = 0
-      for rdo, ttip in [(self.radioExclude, ttipExclude), \
-                       (self.radioDelete, ttipDelete), \
+      for rdo, ttip in [(self.radioDelete, ttipDelete), \
                        (self.radioWatch, ttipWatch)]:
          self.frm.append(QFrame())
          # self.frm[-1].setFrameStyle(STYLE_SUNKEN)
@@ -4732,75 +4720,56 @@ class DlgRemoveWallet(ArmoryDialog):
       # in the settings directory but will be ignored by Armory
 
       wltID = wlt.uniqueIDB58
-      if self.radioExclude.isChecked():
-         reply = QMessageBox.warning(self, tr('Verify Intentions'), tr("""
-           Are you sure you want to remove this wallet from your Armory
-           dashboard?  The wallet file will not be deleted, but you will
-           no longer have access to the wallet or its funds unless you
-           re-enable it through the "Wallets"->"Excluded Wallets" menu."""), \
-           QMessageBox.Yes | QMessageBox.Cancel)
+      if wlt.watchingOnly:
+         reply = QMessageBox.warning(self, 'Confirm Delete', \
+         'You are about to delete a watching-only wallet.  Are you sure '
+         'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
+      elif self.radioDelete.isChecked():
+         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+         'Are you absolutely sure you want to permanently delete '
+         'this wallet?  Unless this wallet is saved on another device '
+         'you will permanently lose access to all the addresses in this '
+         'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+      elif self.radioWatch.isChecked():
+         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+         '<i>This will permanently delete the information you need to spend '
+         'funds from this wallet!</i>  You will only be able to receive '
+         'coins, but not spend them.  Only do this if you have another copy '
+         'of this wallet elsewhere, such as a paper backup or on an offline '
+         'computer with the full wallet. ', QMessageBox.Yes | QMessageBox.Cancel)
 
-         if reply == QMessageBox.Yes:
-            self.main.removeWalletFromApplication(wltID)
-            self.main.settings.extend('Excluded_Wallets', wlt.walletPath)
+      if reply == QMessageBox.Yes:
+
+         thepath = wlt.getWalletPath()
+         thepathBackup = wlt.getWalletPath('backup')
+
+         if self.radioWatch.isChecked():
+            LOGINFO('***Converting to watching-only wallet')
+            newWltPath = wlt.getWalletPath('WatchOnly')
+            wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
+            newWlt = PyBtcWallet().readWalletFile(newWltPath)
+            newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+            # Removed this line of code because it's part of the old BDM paradigm. 
+            # Leaving this comment here in case it needs to be replaced by anything
+            # newWlt.syncWithBlockchainLite()
+
+            os.remove(thepath)
+            os.remove(thepathBackup)
+            self.main.walletMap[wltID] = newWlt
             self.main.statusBar().showMessage(\
-                     'Wallet ' + wltID + ' was added to the ignore list.', 20000)
-            self.main.accept()
-            self.accept()
-         else:
-            self.reject()
-      else:
-
-         if wlt.watchingOnly:
-            reply = QMessageBox.warning(self, 'Confirm Delete', \
-            'You are about to delete a watching-only wallet.  Are you sure '
-            'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
+                  'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
          elif self.radioDelete.isChecked():
-            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
-            'Are you absolutely sure you want to permanently delete '
-            'this wallet?  Unless this wallet is saved on another device '
-            'you will permanently lose access to all the addresses in this '
-            'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
-         elif self.radioWatch.isChecked():
-            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
-            '<i>This will permanently delete the information you need to spend '
-            'funds from this wallet!</i>  You will only be able to receive '
-            'coins, but not spend them.  Only do this if you have another copy '
-            'of this wallet elsewhere, such as a paper backup or on an offline '
-            'computer with the full wallet. ', QMessageBox.Yes | QMessageBox.Cancel)
+            LOGINFO('***Completely deleting wallet')
+            os.remove(thepath)
+            os.remove(thepathBackup)
+            self.main.removeWalletFromApplication(wltID)
+            self.main.statusBar().showMessage(\
+                  'Wallet ' + wltID + ' was deleted!', 10000)
 
-         if reply == QMessageBox.Yes:
-
-            thepath = wlt.getWalletPath()
-            thepathBackup = wlt.getWalletPath('backup')
-
-            if self.radioWatch.isChecked():
-               LOGINFO('***Converting to watching-only wallet')
-               newWltPath = wlt.getWalletPath('WatchOnly')
-               wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
-               newWlt = PyBtcWallet().readWalletFile(newWltPath)
-               newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-               # Removed this line of code because it's part of the old BDM paradigm. 
-               # Leaving this comment here in case it needs to be replaced by anything
-               # newWlt.syncWithBlockchainLite()
-
-               os.remove(thepath)
-               os.remove(thepathBackup)
-               self.main.walletMap[wltID] = newWlt
-               self.main.statusBar().showMessage(\
-                     'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
-            elif self.radioDelete.isChecked():
-               LOGINFO('***Completely deleting wallet')
-               os.remove(thepath)
-               os.remove(thepathBackup)
-               self.main.removeWalletFromApplication(wltID)
-               self.main.statusBar().showMessage(\
-                     'Wallet ' + wltID + ' was deleted!', 10000)
-
-            self.parent.accept()
-            self.accept()
-         else:
-            self.reject()
+         self.parent.accept()
+         self.accept()
+      else:
+         self.reject()
 
 
 ################################################################################
