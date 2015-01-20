@@ -1463,6 +1463,12 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
    //LOGINFO << "Clearing all SSH";
+   if (config_.armoryDbType != ARMORY_DB_SUPER)
+   {
+      wipeHistoryAndHintDB();
+      return;
+   }
+
    LMDBEnv::Transaction tx;
    iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
@@ -1547,6 +1553,28 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    if (i)
       LOGINFO << "Deleted " << i << " SSH and subSSH entries";
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::wipeHistoryAndHintDB()
+{
+   { 
+      LMDBEnv::Transaction tx;
+      iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+
+      StoredDBInfo sdbi;
+      iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
+
+      sdbi.appliedToHgt_ = 0;
+      sdbi.topScannedBlkHash_ = BinaryData(0);
+
+      iface_->dbs_[HISTORY].drop();
+      iface_->putStoredDBInfo(HISTORY, sdbi);
+   }
+
+   LMDBEnv::Transaction tx;
+   iface_->beginDBTransaction(&tx, TXHINTS, LMDB::ReadWrite);
+   iface_->dbs_[TXHINTS].drop();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

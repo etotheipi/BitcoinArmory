@@ -602,4 +602,19 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
    return ref;
 }
 
+void LMDB::drop(void)
+{
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+
+   auto txnIter = env->txForThreads_.find(tID);
+   if (txnIter == env->txForThreads_.end())
+      throw std::runtime_error("Need transaction to get data");
+
+   lock.unlock();
+
+   if (mdb_drop(txnIter->second.txn_, dbi, 0) != MDB_SUCCESS)
+      throw std::runtime_error("Failed to drop DB!");
+}
+
 // kate: indent-width 3; replace-tabs on;

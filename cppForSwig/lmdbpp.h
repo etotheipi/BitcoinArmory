@@ -174,6 +174,8 @@ public:
    void open(LMDBEnv *env, const std::string &name=std::string());
    
    void close();
+   
+   void drop();
       
    // insert a value into the database, replacing
    // the one with a matching key if it is already there
