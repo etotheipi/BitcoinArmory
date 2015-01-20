@@ -90,7 +90,7 @@ parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', ty
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
 parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default='DEFAULT',type="str",         help="RPC port Bitcoin-Qt instances operating on a non-standard port")
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
-parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
+parser.add_option("--dbdir",           dest="lmdbDir",     default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
@@ -394,13 +394,13 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 # Same for the directory that holds the LevelDB databases
 LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
 
-if not CLI_OPTIONS.leveldbDir.lower()=='default':
-   if not os.path.exists(CLI_OPTIONS.leveldbDir):
+if not CLI_OPTIONS.lmdbDir.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.lmdbDir):
       print 'Directory "%s" does not exist!  Using default!' % \
-                                                CLI_OPTIONS.leveldbDir
-      os.makedirs(CLI_OPTIONS.leveldbDir)
+                                                CLI_OPTIONS.lmdbDir
+      os.makedirs(CLI_OPTIONS.lmdbDir)
    else:
-      LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
+      LEVELDB_DIR  = CLI_OPTIONS.lmdbDir
 
 
 # Change the log file to use
