@@ -267,27 +267,27 @@ BlockWriteBatcher::~BlockWriteBatcher()
    clearTransactions();
 }
 
-BinaryData BlockWriteBatcher::applyBlockToDB(PulledBlock& pb,
+BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock> pb,
    ScrAddrFilter& scrAddrData)
 {
    //TIMER_START("applyBlockToDBinternal");
-   if(iface_->getValidDupIDForHeight(pb.blockHeight_) != pb.duplicateID_)
+   if(iface_->getValidDupIDForHeight(pb->blockHeight_) != pb->duplicateID_)
    {
       LOGERR << "Dup requested is not the main branch for the given height!";
       return BinaryData();
    }
    else
-      pb.isMainBranch_ = true;
+      pb->isMainBranch_ = true;
    
-   mostRecentBlockApplied_ = pb.blockHeight_;
+   mostRecentBlockApplied_ = pb->blockHeight_;
 
    // We will accumulate undoData as we apply the tx
    StoredUndoData sud;
-   sud.blockHash_   = pb.thisHash_;
-   sud.blockHeight_ = pb.blockHeight_;
-   sud.duplicateID_ = pb.duplicateID_;
+   sud.blockHash_   = pb->thisHash_;
+   sud.blockHeight_ = pb->blockHeight_;
+   sud.duplicateID_ = pb->duplicateID_;
    
-   sbhToUpdate_.push_back(move(pb));
+   sbhToUpdate_.push_back(move(*pb));
 
    auto& block = sbhToUpdate_.back();
    // Apply all the tx to the update data
@@ -295,7 +295,7 @@ BinaryData BlockWriteBatcher::applyBlockToDB(PulledBlock& pb,
    {
       if (stx.second.dataCopy_.getSize() == 0)
       {
-         LOGERR << "bad STX data in applyBlockToDB at height " << pb.blockHeight_;
+         LOGERR << "bad STX data in applyBlockToDB at height " << block.blockHeight_;
          throw std::range_error("bad STX data while applying blocks");
       }
 
@@ -327,13 +327,13 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
 
    prepareSshToModify(scrAddrData);
 
-   PulledBlock pb;
+   shared_ptr<PulledBlock> pb(new PulledBlock());
    {
       LMDBEnv::Transaction blockTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      pullBlockFromDB(pb, hgt, dup);
+      pullBlockFromDB(*pb, hgt, dup);
    }
 
-   if (pb.blockHeight_ == UINT32_MAX)
+   if (pb->blockHeight_ == UINT32_MAX)
    {
       LOGERR << "Failed to load block " << hgt << "," << dup;
       return;
@@ -1012,6 +1012,21 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 
       uint64_t totalBlockDataProcessed=0;
 
+      //wait until the shared_ptr has been assigned some data
+      while (1)
+      {
+         unique_lock<mutex> mu(grabLock_);
+         block = blockData->block_;
+         if (block != nullptr)
+            break;
+      }
+
+      if (block == blockData->interruptBlock_)
+      {
+         LOGERR << "Grab thread halted unexpectedly";
+         return lastScannedBlockHash;
+      }
+
       for (uint32_t i = blockData->startBlock_;
          i <= blockData->endBlock_;
          i++)
@@ -1026,20 +1041,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          if (i > blockData->endBlock_)
             break;
          
-         //wait until the shared_ptr has been assigned some data
-         while (1)
-         {
-            unique_lock<mutex> mu(grabLock_);
-            block = blockData->block_;
-            if (block != nullptr)
-               break;
-         }
-
-         //grab it and check if its valid
-         if (blockData->block_ == blockData->interruptBlock_)
-            throw;
-
-         uint32_t blockSize = blockData->block_->numBytes_;
+         uint32_t blockSize = block->numBytes_;
 
          //decrement bufferload
          blockData->bufferLoad_.fetch_sub(
@@ -1047,7 +1049,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 
          //scan block
          lastScannedBlockHash = 
-            applyBlockToDB(*blockData->block_, blockData->scrAddrFilter_);
+            applyBlockToDB(block, blockData->scrAddrFilter_);
 
          if (i == blockData->endBlock_)
             break;
@@ -1076,11 +1078,14 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          }
 
          //check if next block is valid
-         if (blockData->block_->nextBlock_ == blockData->interruptBlock_)
-            throw;
+         if (block == blockData->interruptBlock_)
+         {
+            LOGERR << "Grab thread halted unexpectedly";
+            return lastScannedBlockHash;
+         }
 
          //assign next block to current
-            blockData->block_ = blockData->block_->nextBlock_;
+         blockData->block_ = block;
  
          if (i % 2500 == 2499)
             LOGWARN << "Finished applying blocks up to " << (i + 1);

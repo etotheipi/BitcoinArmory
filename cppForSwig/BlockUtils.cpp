@@ -1228,27 +1228,6 @@ void BlockDataManager_LevelDB::loadDiskState(
       LOGINFO << "Wrote blocks to DB in " << timeElapsed << "s";
    }
    
- /*  auto grabthread = [this](uint32_t n)->void
-   { this->grablock(n); };
-   const int nth = 1;
-   thread grabs[nth];
-   TIMER_START("testRead");
-   for (uint32_t i = 0; i < nth; i++)
-      grabs[i] = move(thread(grabthread, i));
-
-   for (uint32_t i = 0; i < nth; i++)
-      if(grabs[i].joinable())
-         grabs[i].join();
-
-   TIMER_STOP("testRead");
-   double timeElapsed = TIMER_READ_SEC("testRead");
-   LOGWARN << "Pulled blocks in " << timeElapsed << "s";
-
-   mutex mu;
-   unique_lock<mutex> lock(mu);
-   condition_variable cv;
-   cv.wait(lock);*/
-
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
 
