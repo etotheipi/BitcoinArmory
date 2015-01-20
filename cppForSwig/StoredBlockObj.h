@@ -465,7 +465,7 @@ public:
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
    uint32_t       numTx_=UINT32_MAX;
-   uint32_t       numBytes_=UINT32_MAX;
+   size_t         numBytes_=UINT32_MAX;
    uint32_t       blockHeight_=UINT32_MAX;
    uint8_t        duplicateID_=UINT8_MAX;
    BinaryData     merkle_;

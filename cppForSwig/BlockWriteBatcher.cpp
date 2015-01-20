@@ -967,7 +967,10 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
             pb->numBytes_, memory_order_release);
 
          //assign newly grabbed block to shared_ptr
-         *lastBlock = pb;
+         {
+            unique_lock<mutex> mu(grabLock_);
+            *lastBlock = pb;
+         }
 
          //set shared_ptr to next empty block
          lastBlock = &pb->nextBlock_;
@@ -1024,7 +1027,13 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
             break;
          
          //wait until the shared_ptr has been assigned some data
-         while (!(block = blockData->block_));
+         while (1)
+         {
+            unique_lock<mutex> mu(grabLock_);
+            block = blockData->block_;
+            if (block != nullptr)
+               break;
+         }
 
          //grab it and check if its valid
          if (blockData->block_ == blockData->interruptBlock_)
@@ -1058,7 +1067,13 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          }
 
          //wait until next block is available
-         while (!(block = blockData->block_->nextBlock_));
+         while (1)
+         {
+            unique_lock<mutex> mu(grabLock_);
+            block = blockData->block_->nextBlock_;
+            if (block != nullptr)
+               break;
+         }
 
          //check if next block is valid
          if (blockData->block_->nextBlock_ == blockData->interruptBlock_)
