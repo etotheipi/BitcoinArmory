@@ -2631,7 +2631,11 @@ class ArmoryMainWindow(QMainWindow):
       wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
-      ratioPerWallet = 100 / float(len(wltPaths))
+      
+      ratioPerWallet = 0
+      if len(wltPaths) > 0:
+         ratioPerWallet = 100 / float(len(wltPaths))
+         
       i = 0
       for fpath in wltPaths:
          currentProgress = float(i) * ratioPerWallet
