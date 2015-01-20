@@ -2282,15 +2282,30 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
       uint32_t height = DBUtils::hgtxToHeight(ldbKey6B.getSliceRef(0, 4));
       uint8_t dupID = DBUtils::hgtxToDupID(ldbKey6B.getSliceRef(0, 4));
       uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
-      getStoredHeader(sbh, height, dupID, true);
+      
+      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+      BinaryRefReader brr = getValueReader(
+         BLKDATA, DB_PREFIX_TXDATA, ldbKey6B.getSliceRef(0, 4));
 
-      if (txid >= sbh.stxMap_.size())
+      brr.advance(HEADER_SIZE);
+      uint32_t nTx = (uint32_t)brr.get_var_int();
+
+      if (txid >= nTx)
       {
          LOGERR << "Requested full Tx but not all TxOut available";
          return Tx();
       }
 
-      return sbh.stxMap_[txid].getTxCopy();
+      uint32_t i = 0;
+      while (i < txid)
+      {
+         uint32_t nBytes = BtcUtils::TxCalcLength(
+            brr.getCurrPtr(), brr.getSizeRemaining(), nullptr, nullptr);
+         brr.advance(nBytes);
+         ++i;
+      }
+
+      return Tx(brr);
    }
 }
 
@@ -2354,45 +2369,54 @@ TxIn LMDBBlockDatabase::getTxInCopy(
    BinaryData ldbKey6B, uint16_t txInIdx) const
 {
    SCOPED_TIMER("getTxInCopy");
-   TxIn txiOut;
-   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
-   if(brr.getSize()==0) 
-   {
-      LOGERR << "TxOut key does not exist in BLKDATA DB";
-      return TxIn();
-   }
 
-   BitUnpacker<uint16_t> bitunpack(brr); // flags
-   uint16_t dbVer   = bitunpack.getBits(4);
-   (void)dbVer;
-   uint16_t txVer   = bitunpack.getBits(2);
-   (void)txVer;
-   uint16_t txSer   = bitunpack.getBits(4);
-   
-   brr.advance(32);
-
-   
-   if(txSer != TX_SER_FULL && txSer != TX_SER_FRAGGED)
+   if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      LOGERR << "Tx not available to retrieve TxIn";
-      return TxIn();
+      TxIn txiOut;
+      BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+      if (brr.getSize() == 0)
+      {
+         LOGERR << "TxOut key does not exist in BLKDATA DB";
+         return TxIn();
+      }
+
+      BitUnpacker<uint16_t> bitunpack(brr); // flags
+      uint16_t dbVer = bitunpack.getBits(4);
+      (void)dbVer;
+      uint16_t txVer = bitunpack.getBits(2);
+      (void)txVer;
+      uint16_t txSer = bitunpack.getBits(4);
+
+      brr.advance(32);
+
+
+      if (txSer != TX_SER_FULL && txSer != TX_SER_FRAGGED)
+      {
+         LOGERR << "Tx not available to retrieve TxIn";
+         return TxIn();
+      }
+      else
+      {
+         bool isFragged = txSer == TX_SER_FRAGGED;
+         vector<size_t> offsetsIn;
+         BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
+         if ((uint32_t)(offsetsIn.size() - 1) < (uint32_t)(txInIdx + 1))
+         {
+            LOGERR << "Requested TxIn with index greater than numTxIn";
+            return TxIn();
+         }
+         TxRef parent(ldbKey6B);
+         uint8_t const * txInStart = brr.exposeDataPtr() + 34 + offsetsIn[txInIdx];
+         uint32_t txInLength = offsetsIn[txInIdx + 1] - offsetsIn[txInIdx];
+         TxIn txin;
+         txin.unserialize_checked(txInStart, brr.getSize() - 34 - offsetsIn[txInIdx], txInLength, parent, txInIdx);
+         return txin;
+      }
    }
    else
    {
-      bool isFragged = txSer==TX_SER_FRAGGED;
-      vector<size_t> offsetsIn;
-      BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
-      if((uint32_t)(offsetsIn.size()-1) < (uint32_t)(txInIdx+1))
-      {
-         LOGERR << "Requested TxIn with index greater than numTxIn";
-         return TxIn();
-      }
-      TxRef parent(ldbKey6B);
-      uint8_t const * txInStart = brr.exposeDataPtr() + 34 + offsetsIn[txInIdx];
-      uint32_t txInLength = offsetsIn[txInIdx+1] - offsetsIn[txInIdx];
-      TxIn txin;
-      txin.unserialize_checked(txInStart, brr.getSize() - 34 - offsetsIn[txInIdx], txInLength, parent, txInIdx);
-      return txin;
+      Tx thisTx = getFullTxCopy(ldbKey6B);
+      return thisTx.getTxInCopy(txInIdx);
    }
 }
 
@@ -2449,14 +2473,9 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
          uint32_t dupID = DBUtils::hgtxToDupID(ldbKey6B.getSliceRef(0, 4));
          uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
          
-         getStoredHeader(sbh, height, dupID, true);
-         if (txid >= sbh.stxMap_.size())
-         {
-            LOGERR << "TxRef key does not exist in BLKDATA DB";
-            return BinaryData(0);
-         }
+         auto thisTx = getFullTxCopy(ldbKey6B);
 
-         return sbh.stxMap_[txid].thisHash_;
+         return thisTx.getThisHash();
       }
    }
 }
@@ -2920,22 +2939,11 @@ bool LMDBBlockDatabase::getStoredTxOut(
       uint32_t height = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
       uint8_t dupID = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
 
-      StoredHeader sbh;
-      if(!getStoredHeader(sbh, height, dupID, true))
-      {
-         LOGERR << "BLKDATA DB does not have the requested TxOut";
-         return false;
-      }
-
-      uint16_t txId = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
+      StoredTx stx;
+      Tx thisTx = getFullTxCopy(DBkey.getSliceRef(0, 6));
+      stx.createFromTx(thisTx, false, true);
+      
       uint16_t txOutId = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
-      if (txId >= sbh.stxMap_.size())
-      {
-         LOGERR << "BLKDATA DB does not have the requested TxOut";
-         return false;
-      }
-
-      auto& stx = sbh.stxMap_[txId];
       if (txOutId >= stx.stxoMap_.size())
       {
          LOGERR << "BLKDATA DB does not have the requested TxOut";
