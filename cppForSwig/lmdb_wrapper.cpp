@@ -2330,9 +2330,9 @@ TxOut LMDBBlockDatabase::getTxOutCopy(
 
    BinaryRefReader brr;
    if (!ldbKey6B.startsWith(ZCprefix_))
-      brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
+      brr = getValueReader(getDbSelect(HISTORY), DB_PREFIX_TXDATA, ldbKey8);
    else
-      brr = getValueReader(BLKDATA, DB_PREFIX_ZCDATA, ldbKey8);
+      brr = getValueReader(getDbSelect(HISTORY), DB_PREFIX_ZCDATA, ldbKey8);
 
    if(brr.getSize()==0) 
    {
@@ -2425,22 +2425,39 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
    }
    else
    {
-      //Fullnode, pull the full block then grab the txhash
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-
-      StoredHeader sbh;
-      uint32_t height = DBUtils::hgtxToHeight(ldbKey6B.getSliceRef(0, 4));
-      uint32_t dupID = DBUtils::hgtxToDupID(ldbKey6B.getSliceRef(0, 4));
-      uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
-      getStoredHeader(sbh, height, dupID, true);
-
-      if (txid >= sbh.stxMap_.size())
+      //Fullnode, check the HISTORY DB for the txhash
       {
-         LOGERR << "TxRef key does not exist in BLKDATA DB";
-         return BinaryData(0);
+         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+
+         BinaryData keyFull(ldbKey6B.getSize() + 1);
+         keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
+         ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
+
+         BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
+
+         if (txData.getSize() >= 36)
+         {
+            return txData.getSliceRef(4, 32);
+         }
       }
 
-      return sbh.stxMap_[txid].thisHash_;
+      //else pull the full block then grab the txhash
+      { 
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+         StoredHeader sbh;
+         uint32_t height = DBUtils::hgtxToHeight(ldbKey6B.getSliceRef(0, 4));
+         uint32_t dupID = DBUtils::hgtxToDupID(ldbKey6B.getSliceRef(0, 4));
+         uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
+         
+         getStoredHeader(sbh, height, dupID, true);
+         if (txid >= sbh.stxMap_.size())
+         {
+            LOGERR << "TxRef key does not exist in BLKDATA DB";
+            return BinaryData(0);
+         }
+
+         return sbh.stxMap_[txid].thisHash_;
+      }
    }
 }
 

@@ -560,6 +560,9 @@ void BtcWallet::pprintLedger() const
 //
 // TODO:  should spend the time to pass out a tx list with it the addrs so
 //        that I don't have to re-search for them later...
+//
+// TODO: make this scalable!
+//
 vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
 {
    SCOPED_TIMER("createAddressBook");

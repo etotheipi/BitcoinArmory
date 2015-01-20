@@ -1319,8 +1319,6 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
       }
    }
 
-
-
    //txOutCount
    if (dbType != ARMORY_DB_SUPER)
    {
