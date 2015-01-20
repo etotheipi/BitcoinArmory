@@ -241,6 +241,16 @@ class ArmoryMainWindow(QMainWindow):
             self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
 
 
+      # This is a list of alerts that the user has chosen to no longer
+      # be notified about
+      alert_str = str(self.getSettingOrSetDefault('IgnoreAlerts', ""))
+      if alert_str == "":
+         alerts = []
+      else:
+         alerts = alert_str.split(",")
+      self.ignoreAlerts = {int(s):True for s in alerts}
+
+
       # If we're going into online mode, start loading blockchain
       if self.doAutoBitcoind:
          self.startBitcoindIfNecessary()
@@ -251,6 +261,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setupSystemTray()
       self.setupUriRegistration()
 
+      self.heartbeatCount = 0
 
       self.extraHeartbeatSpecial  = []
       self.extraHeartbeatAlways   = []
@@ -1855,6 +1866,38 @@ class ArmoryMainWindow(QMainWindow):
             func(fileText)
 
 
+
+
+   #############################################################################
+   def processAlerts(self):
+      # display to the user any alerts that came in through the bitcoin
+      # network
+      LOGWARN("processing alerts")
+      factory = self.getSingletonConnectedNetworkingFactory()
+      armoryClient = factory.proto
+      alerts = factory.proto.alerts
+      peerInfo = self.NetworkingFactory.proto.peerInfo
+
+      my_version = self.satoshiVersions[0]
+      for id, alert in alerts.items():
+         if self.ignoreAlerts.get(id):
+            continue
+         if time.time() > alert.expiration:
+            continue
+         if peerInfo["version"] < alert.minVersion \
+            or peerInfo["version"] > alert.maxVersion:
+            continue
+         if peerInfo["subver"] not in alert.subVerSet:
+            continue
+         title = "Bitcoin alert %s" % alert.uniqueID
+         alert_str = "%s<br>%s<br>%s<br>" % (alert.statusBar, alert.comment, alert.reserved)
+         msg = "This alert has been received from the bitcoin network:<p>" + \
+               alert_str + \
+               "</p>Please visit <a href='http://www.bitcoin.org/en/alerts'>http://www.bitcoin.org/en/alerts</a> for more information.<br>"
+         reply, self.ignoreAlerts[id] = MsgBoxWithDNAA(
+            self, self, MSGBOX.Warning, title, msg,
+            'Do not show me this notification again', yesStr='OK')
+         self.writeSetting('IgnoreAlerts', ",".join([str(i) for i in self.ignoreAlerts.keys()]))
 
 
    #############################################################################
@@ -6234,9 +6277,10 @@ class ArmoryMainWindow(QMainWindow):
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getState()
 
-      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
-      # TODO - lower the frequency to 1 per minute
-      self.processAnnounceData()
+      self.heartbeatCount += 1
+      if self.heartbeatCount % 60 == 20:
+         self.processAnnounceData()
+         self.processAlerts()
 
       try:
          for func in self.extraHeartbeatAlways:
