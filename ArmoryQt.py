@@ -3274,9 +3274,7 @@ class ArmoryMainWindow(QMainWindow):
    def walletListChanged(self):
       self.walletModel.reset()
       self.populateLedgerComboBox()
-      if not TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
-         self.createCombinedLedger()
-
+      self.changeWltFilter()
 
    #############################################################################
 

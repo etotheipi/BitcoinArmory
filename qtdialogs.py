@@ -4747,15 +4747,16 @@ class DlgRemoveWallet(ArmoryDialog):
             LOGINFO('***Converting to watching-only wallet')
             newWltPath = wlt.getWalletPath('WatchOnly')
             wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
+            self.main.removeWalletFromApplication(wltID)
+            
             newWlt = PyBtcWallet().readWalletFile(newWltPath)
-            newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+            self.main.addWalletToApplication(newWlt)
             # Removed this line of code because it's part of the old BDM paradigm. 
             # Leaving this comment here in case it needs to be replaced by anything
             # newWlt.syncWithBlockchainLite()
 
             os.remove(thepath)
             os.remove(thepathBackup)
-            self.main.walletMap[wltID] = newWlt
             self.main.statusBar().showMessage(\
                   'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
          elif self.radioDelete.isChecked():
