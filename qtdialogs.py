@@ -2478,6 +2478,7 @@ class DlgWalletDetails(ArmoryDialog):
             self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.labelValues[WLTFIELDS.Secure].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+         self.main.changeWltFilter()
 
 
    class dlgChangeOwner(ArmoryDialog):
