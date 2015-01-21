@@ -412,7 +412,7 @@ class DlgBugReport(ArmoryDialog):
       super(DlgBugReport, self).__init__(parent, main)
 
       tsPage = 'https://bitcoinarmory.com/troubleshooting'
-      faqPage = 'https://bitcoinarmory.com/faqs'
+      faqPage = 'https://bitcoinarmory.com/faq'
 
       lblDescr = QRichLabel(tr("""
          <b><u>Send a bug report to the Armory team</u></b>
@@ -735,7 +735,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       self.chkIncludeReg = QCheckBox(tr("""Include all log files"""))
       self.chkIncludeWOW = QCheckBox(tr("""Include watch-only 
-         @{wallet|wallets}@""", pluralList=len(walletList)))
+         wallet""", "Include watch-only wallets", len(walletList)))
       self.chkIncludeWOW.setChecked(False)
       self.chkIncludeReg.setChecked(True)
 
@@ -2139,16 +2139,6 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execImportAddress(self):
-      # if TheBDM.getState()==BDM_SCANNING:
-         # QMessageBox.warning(self, 'Armory Not Ready',
-            # 'Armory is currently in the process of scanning the blockchain '
-            # 'for your existing wallets.  This operation must finish before '
-            # 'you can import or sweep private keys.  '
-            # '<br><br>'
-            # 'Try again after your balances and transaction history appear '
-            # 'in the main window.', QMessageBox.Ok)
-         # return
-
       if not self.main.getSettingOrSetDefault('DNAA_ImportWarning', False):
          result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, \
             tr("""Imported Address Warning"""), tr("""
@@ -3293,39 +3283,6 @@ class DlgImportAddress(ArmoryDialog):
          self.main.statusBar().showMessage('Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
-         #######################################################################
-         if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-            nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            if nblk < 2016:
-                  # Removed this line of code because it's part of the old BDM paradigm. 
-                  # Leaving this comment here in case it needs to be replaced by anything
-                  # self.wlt.syncWithBlockchainLite(0)
-                  QMessageBox.information(self, 'Import Successful', \
-                  'The address was imported into your wallet successfully, and '
-                  'all the information needed to acquire its balance was already '
-                  'available without rescanning the global transaction history. '
-                  'The address will appear in the address list of this wallet.', \
-                  QMessageBox.Ok)
-
-            else:
-               self.main.setDashboardDetails()
-
-         #######################################################################
-         elif TheBDM.getState() == BDM_SCANNING:
-            warnMsg = (\
-               'The address was imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory is currently in the '
-               'middle of a blockchain scan, but it will start another scan as '
-               'soon as this one is complete.  Wallet and address balances will '
-               'not be available until these operations are completed.', \
-               QMessageBox.Ok)
-            self.main.setDashboardDetails()
-
-
-         self.main.walletListChanged()
-
-
       try:
          self.parent.wltAddrModel.reset()
       except:
@@ -3448,11 +3405,12 @@ class DlgImportAddress(ArmoryDialog):
          nImport = 0
          nAlready = 0
          nError = 0
+         privKeyToImport = []
          for addr160, addrStr, sbdKey in privKeyList:
             nTotal += 1
             try:
                if not self.main.getWalletForAddr160(addr160) == thisWltID:
-                  self.wlt.importExternalAddressData(privKey=sbdKey)
+                  privKeyToImport.append([sbdKey, addr160])
                   nImport += 1
                else:
                   nAlready += 1
@@ -3463,7 +3421,8 @@ class DlgImportAddress(ArmoryDialog):
                LOGERROR('Problem importing: %s: %s', addrStr, msg)
                raise
 
-
+            self.wlt.importExternalAddressBatch(privKeyToImport)
+            
          if nAlready == nTotal:
             MsgBoxCustom(MSGBOX.Warning, 'Nothing Imported!', 'All addresses '
                'chosen to be imported are already part of this wallet. '
@@ -3494,42 +3453,6 @@ class DlgImportAddress(ArmoryDialog):
                   'or log file for more information).  It is safe to try this '
                   'operation again: all addresses previously imported will be '
                   'skipped.' % (nImport, nError))
-
-
-         #######################################################################
-         if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-            nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            if nblk < 2016:
-               # Removed this line of code because it's part of the old BDM paradigm. 
-               # Leaving this comment here in case it needs to be replaced by anything
-               # self.wlt.syncWithBlockchainLite(0)
-               QMessageBox.information(self, 'Import Successful', \
-                  'The addresses were imported into your wallet successfully, and '
-                  'all the information needed to acquire their balances were already '
-                  'available without executing a rescan.  '
-                  'The address will appear in the address list of this wallet.', \
-                  QMessageBox.Ok)
-
-            else:
-               self.main.setDashboardDetails()
-
-         #######################################################################
-         elif TheBDM.getState() == BDM_SCANNING:
-            warnMsg = tr(\
-               'The addresses were imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory is currently in the '
-               'middle of a blockchain scan, but it will start another scan as '
-               'soon as this one is complete.  Wallet and address balances will '
-               'not be available until these operations are completed.', \
-               QMessageBox.Ok)
-            self.main.setDashboardDetails()
-
-
-      try:
-         self.main.walletListChanged()
-      except:
-         pass
 
       try:
          self.parent.wltAddrModel.reset()
@@ -3772,6 +3695,8 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append(QRichLabel('<b>Index:</b>'))
       if self.addr.chainIndex > -1:
          lbls[-1].append(QLabel(str(self.addr.chainIndex+1)))
+      else:
+         lbls[-1].append(QLabel("Imported"))
 
 
       # Current Balance of address
@@ -3794,6 +3719,8 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append(QRichLabel('<b>Comment:</b>'))
       if self.addr.chainIndex > -1:
          lbls[-1].append(QLabel(str(wlt.commentsMap[addr160]) if addr160 in wlt.commentsMap else ''))
+      else:
+         lbls[-1].append(QLabel(''))
          
       # Number of transactions
       txHashes = set()
@@ -4188,7 +4115,7 @@ class DlgIntroMessage(ArmoryDialog):
          'for loss of bitcoins resulting from the use of this software!'
          '<br><br>'
          'For more info about Armory, and Bitcoin itself, see '
-         '<a href="https://bitcoinarmory.com/faqs">frequently '
+         '<a href="https://bitcoinarmory.com/faq">frequently '
          'asked questions</a>.')
       lblDescr.setOpenExternalLinks(True)
 
@@ -4465,7 +4392,7 @@ class DlgSetComment(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, currcomment='', ctype='', cwhat='Comment',
-                                                               maxChars=144):
+                                                               maxChars=MAX_COMMENT_LENGTH):
       super(DlgSetComment, self).__init__(parent, main)
 
 
@@ -4596,28 +4523,17 @@ class DlgRemoveWallet(ArmoryDialog):
          if hasWarningRow:
             lbls.append(lbl)
             layout.addWidget(lbl, 4, 0, 1, 3)
-
-      self.radioExclude = QRadioButton('Add this wallet to the "ignore list"')
-      self.radioExclude.setEnabled(False)
+            
       self.radioDelete = QRadioButton('Permanently delete this wallet')
       self.radioWatch = QRadioButton('Delete private keys only, make watching-only')
 
       # Make sure that there can only be one selection
       btngrp = QButtonGroup(self)
-      btngrp.addButton(self.radioExclude)
       btngrp.addButton(self.radioDelete)
       if not self.main.usermode == USERMODE.Standard:
          btngrp.addButton(self.radioWatch)
       btngrp.setExclusive(True)
 
-      ttipExclude = self.main.createToolTipWidget(\
-         '[DISABLED] This will not delete any files, but will add this '
-         'wallet to the "ignore list."  This means that Armory '
-         'will no longer show this wallet in the main screen '
-         'and none of its funds will be added to your balance.  '
-         'You can re-include this wallet in Armory at a later '
-         'time by selecting the "Excluded Wallets..." option '
-         'in the "Wallets" menu.')
       ttipDelete = self.main.createToolTipWidget(\
          'This will delete the wallet file, removing '
          'all its private keys from your settings directory.  '
@@ -4656,8 +4572,7 @@ class DlgRemoveWallet(ArmoryDialog):
       rdoLayout = QGridLayout()
 
       startRow = 0
-      for rdo, ttip in [(self.radioExclude, ttipExclude), \
-                       (self.radioDelete, ttipDelete), \
+      for rdo, ttip in [(self.radioDelete, ttipDelete), \
                        (self.radioWatch, ttipWatch)]:
          self.frm.append(QFrame())
          # self.frm[-1].setFrameStyle(STYLE_SUNKEN)
@@ -4732,75 +4647,57 @@ class DlgRemoveWallet(ArmoryDialog):
       # in the settings directory but will be ignored by Armory
 
       wltID = wlt.uniqueIDB58
-      if self.radioExclude.isChecked():
-         reply = QMessageBox.warning(self, tr('Verify Intentions'), tr("""
-           Are you sure you want to remove this wallet from your Armory
-           dashboard?  The wallet file will not be deleted, but you will
-           no longer have access to the wallet or its funds unless you
-           re-enable it through the "Wallets"->"Excluded Wallets" menu."""), \
-           QMessageBox.Yes | QMessageBox.Cancel)
+      if wlt.watchingOnly:
+         reply = QMessageBox.warning(self, 'Confirm Delete', \
+         'You are about to delete a watching-only wallet.  Are you sure '
+         'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
+      elif self.radioDelete.isChecked():
+         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+         'Are you absolutely sure you want to permanently delete '
+         'this wallet?  Unless this wallet is saved on another device '
+         'you will permanently lose access to all the addresses in this '
+         'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+      elif self.radioWatch.isChecked():
+         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+         '<i>This will permanently delete the information you need to spend '
+         'funds from this wallet!</i>  You will only be able to receive '
+         'coins, but not spend them.  Only do this if you have another copy '
+         'of this wallet elsewhere, such as a paper backup or on an offline '
+         'computer with the full wallet. ', QMessageBox.Yes | QMessageBox.Cancel)
 
-         if reply == QMessageBox.Yes:
+      if reply == QMessageBox.Yes:
+
+         thepath = wlt.getWalletPath()
+         thepathBackup = wlt.getWalletPath('backup')
+
+         if self.radioWatch.isChecked():
+            LOGINFO('***Converting to watching-only wallet')
+            newWltPath = wlt.getWalletPath('WatchOnly')
+            wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
             self.main.removeWalletFromApplication(wltID)
-            self.main.settings.extend('Excluded_Wallets', wlt.walletPath)
+            
+            newWlt = PyBtcWallet().readWalletFile(newWltPath)
+            self.main.addWalletToApplication(newWlt)
+            # Removed this line of code because it's part of the old BDM paradigm. 
+            # Leaving this comment here in case it needs to be replaced by anything
+            # newWlt.syncWithBlockchainLite()
+
+            os.remove(thepath)
+            os.remove(thepathBackup)
             self.main.statusBar().showMessage(\
-                     'Wallet ' + wltID + ' was added to the ignore list.', 20000)
-            self.main.accept()
-            self.accept()
-         else:
-            self.reject()
-      else:
-
-         if wlt.watchingOnly:
-            reply = QMessageBox.warning(self, 'Confirm Delete', \
-            'You are about to delete a watching-only wallet.  Are you sure '
-            'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
+                  'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
          elif self.radioDelete.isChecked():
-            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
-            'Are you absolutely sure you want to permanently delete '
-            'this wallet?  Unless this wallet is saved on another device '
-            'you will permanently lose access to all the addresses in this '
-            'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
-         elif self.radioWatch.isChecked():
-            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
-            '<i>This will permanently delete the information you need to spend '
-            'funds from this wallet!</i>  You will only be able to receive '
-            'coins, but not spend them.  Only do this if you have another copy '
-            'of this wallet elsewhere, such as a paper backup or on an offline '
-            'computer with the full wallet. ', QMessageBox.Yes | QMessageBox.Cancel)
+            LOGINFO('***Completely deleting wallet')
+            os.remove(thepath)
+            os.remove(thepathBackup)
+            self.main.removeWalletFromApplication(wltID)
+            self.main.statusBar().showMessage(\
+                  'Wallet ' + wltID + ' was deleted!', 10000)
 
-         if reply == QMessageBox.Yes:
-
-            thepath = wlt.getWalletPath()
-            thepathBackup = wlt.getWalletPath('backup')
-
-            if self.radioWatch.isChecked():
-               LOGINFO('***Converting to watching-only wallet')
-               newWltPath = wlt.getWalletPath('WatchOnly')
-               wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
-               newWlt = PyBtcWallet().readWalletFile(newWltPath)
-               newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-               # Removed this line of code because it's part of the old BDM paradigm. 
-               # Leaving this comment here in case it needs to be replaced by anything
-               # newWlt.syncWithBlockchainLite()
-
-               os.remove(thepath)
-               os.remove(thepathBackup)
-               self.main.walletMap[wltID] = newWlt
-               self.main.statusBar().showMessage(\
-                     'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
-            elif self.radioDelete.isChecked():
-               LOGINFO('***Completely deleting wallet')
-               os.remove(thepath)
-               os.remove(thepathBackup)
-               self.main.removeWalletFromApplication(wltID)
-               self.main.statusBar().showMessage(\
-                     'Wallet ' + wltID + ' was deleted!', 10000)
-
-            self.parent.accept()
-            self.accept()
-         else:
-            self.reject()
+         self.parent.accept()
+         self.accept()
+      else:
+         self.reject()
 
 
 ################################################################################
@@ -6081,8 +5978,8 @@ class DlgDispTxInfo(ArmoryDialog):
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '
-                     'this transaction entered the blockchain.  A transaciton '
-                     'with 6 more confirmations is nearly impossible to reverse.'))
+                     'this transaction entered the blockchain.  A transaction '
+                     'with 6 or more confirmations is nearly impossible to reverse.'))
                lbls[-1].append(QLabel('Confirmations:'))
                lbls[-1].append(QRichLabel(str(nConf)))
 
@@ -9881,7 +9778,7 @@ class DlgExportTxHistory(ArmoryDialog):
                if row[COL.WltID] in self.main.walletMap:
                   vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
                else:
-                  vals.append(self.main.allLockboxes[self.main.lockboxIDMap[wltID]].shortName.replace(',', ';'))                  
+                  vals.append(self.main.allLockboxes[self.main.lockboxIDMap[row[COL.WltID]]].shortName.replace(',', ';'))                  
    
                wltEffect = row[COL.Amount]
                txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
@@ -14857,7 +14754,7 @@ class DlgFactoryReset(ArmoryDialog):
       self.lblBitcoinDB = QRichLabel(tr("""
          This will delete settings, network data, Armory's databases,
          <b>and</b> the Bitcoin software databases.  Bitcoin-Qt/bitcoind will
-         have to download the 15+ GB blockchain again.  Only use this if you
+         have to download the blockchain again.  Only use this if you
          suspect blockchain corruption, such as receiving StdOut/StdErr errors
          on the dashboard (8-72 hours depending on your connection)"""))
 
@@ -14954,7 +14851,7 @@ class DlgFactoryReset(ArmoryDialog):
             msg = tr("""
                You are about to delete <b>all</b>
                blockchain databases on your system.  The Bitcoin software will
-               have to redownload 15+ GB of blockchain data over the peer-to-peer
+               have to redownload of blockchain data over the peer-to-peer
                network again which can take from 8 to 72 hours depending on
                your system speed and connection.  <br><br><b>Are you absolutely
                sure you want to do this?</b>""")
@@ -14962,7 +14859,7 @@ class DlgFactoryReset(ArmoryDialog):
             msg = tr("""
                You are about to delete your settings and delete <b>all</b>
                blockchain databases on your system.  The Bitcoin software will
-               have to redownload 15+ GB of blockchain data over the peer-to-peer
+               have to redownload of blockchain data over the peer-to-peer
                network again which can take from 8 to 72 hours depending on
                your system speed and connection.  <br><br><b>Are you absolutely
                sure you want to do this?</b>""")

@@ -2461,7 +2461,7 @@ class PyBtcWallet(object):
                                        addr20=None,  addrChk=None, \
                                        firstTime=UINT32_MAX, \
                                        firstBlk=UINT32_MAX, lastTime=0, \
-                                       lastBlk=0):
+                                       lastBlk=0, doReg=True):
       """
       This wallet fully supports importing external keys, even though it is
       a deterministic wallet: determinism only adds keys to the pool based
@@ -2478,11 +2478,6 @@ class PyBtcWallet(object):
 
       DO NOT CALL FROM A BDM THREAD FUNCTION.  IT MAY DEADLOCK.
       """
-
-      if self.calledFromBDM:
-         LOGERROR('Called importExternalAddressData() from BDM method!')
-         LOGERROR('Don\'t do this!')
-         return None
 
       if not privKey and not self.watchingOnly:
          LOGERROR('')
@@ -2573,13 +2568,23 @@ class PyBtcWallet(object):
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
 
-      if self.isRegistered():
+      if self.isRegistered() and doReg==True:
          self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(newAddr160), \
                                    firstTime, firstBlk, lastTime, lastBlk)
 
       # The following line MAY deadlock if this method is called from the BDM
       # thread.  Do not write any BDM methods that calls this method!
 
+   #############################################################################  
+   def importExternalAddressBatch(self, privKeyList):
+      
+      addr160List = []
+      
+      for key, a160 in privKeyList:
+         self.importExternalAddressData(key, doReg=False)
+         addr160List.append(Hash160ToScrAddr(a160))
+         
+      self.cppWallet.addAddressBulk(addr160List, False)
 
    #############################################################################
    def bulkImportAddresses(self, textBlock, privKeyEndian=BIGENDIAN, \
@@ -3178,6 +3183,7 @@ class PyBtcWallet(object):
    @CheckWalletRegistration
    def disableWalletUI(self):
       self.isEnabled = False   
+
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

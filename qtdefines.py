@@ -110,8 +110,12 @@ def tr(txt, y=None, z=None):
 
    txt = TRANSLATE(txt)
 
-   return formatWithPlurals(txt, None, None)
-
+   if z == None:
+      return txt
+   elif z == 1:
+      return txt
+   else:
+      return y
 
 ################################################################################
 def HLINE(style=QFrame.Plain):
@@ -738,7 +742,7 @@ class ArmoryDialog(QDialog):
    #connect to close themselves if the parent is closed first   
 
       
-   def __init__(self, parent, main):
+   def __init__(self, parent=None, main=None):
       super(ArmoryDialog, self).__init__(parent)
 
       self.closeSignal = str(random.random())       
@@ -857,7 +861,7 @@ class QRCodeWidget(QWidget):
 # Create a very simple dialog and execute it
 class DlgInflatedQR(ArmoryDialog):
    def __init__(self, parent, dataToQR):
-      super(DlgInflatedQR, self).__init__(parent)
+      super(DlgInflatedQR, self).__init__(parent, parent.main)
 
       sz = QApplication.desktop().size()
       w,h = sz.width(), sz.height()
