@@ -2571,9 +2571,9 @@ class ArmoryMainWindow(QMainWindow):
             warnMsg += ('Please check the source of the link and enter the '
                         'transaction manually.')
          else:
-            warnMsg += 'The raw URI string is:<br><br>' + uriStr
+            warnMsg += 'The raw URI string is:\n\n' + uriStr
          QMessageBox.warning(self, 'Invalid URI', warnMsg, QMessageBox.Ok)
-         LOGERROR(warnMsg)
+         LOGERROR(warnMsg.replace('\n', ' '))
          return {}
 
       if not uriDict.has_key('address'):
