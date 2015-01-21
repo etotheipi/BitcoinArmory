@@ -3146,10 +3146,13 @@ class PyBtcWallet(object):
    @CheckWalletRegistration
    def doAfterScan(self):
       
-      for calls in self.actionsToTakeAfterScan:
+      actionsList = self.actionsToTakeAfterScan
+      self.actionsToTakeAfterScan = []      
+      
+      for calls in actionsList:
          calls[0](*calls[1])
          
-      self.actionsToTakeAfterScan = []
+
       
    ###############################################################################
    @CheckWalletRegistration
