@@ -2139,16 +2139,6 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execImportAddress(self):
-      # if TheBDM.getState()==BDM_SCANNING:
-         # QMessageBox.warning(self, 'Armory Not Ready',
-            # 'Armory is currently in the process of scanning the blockchain '
-            # 'for your existing wallets.  This operation must finish before '
-            # 'you can import or sweep private keys.  '
-            # '<br><br>'
-            # 'Try again after your balances and transaction history appear '
-            # 'in the main window.', QMessageBox.Ok)
-         # return
-
       if not self.main.getSettingOrSetDefault('DNAA_ImportWarning', False):
          result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, \
             tr("""Imported Address Warning"""), tr("""
@@ -3293,39 +3283,6 @@ class DlgImportAddress(ArmoryDialog):
          self.main.statusBar().showMessage('Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
-         #######################################################################
-         if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-            nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            if nblk < 2016:
-                  # Removed this line of code because it's part of the old BDM paradigm. 
-                  # Leaving this comment here in case it needs to be replaced by anything
-                  # self.wlt.syncWithBlockchainLite(0)
-                  QMessageBox.information(self, 'Import Successful', \
-                  'The address was imported into your wallet successfully, and '
-                  'all the information needed to acquire its balance was already '
-                  'available without rescanning the global transaction history. '
-                  'The address will appear in the address list of this wallet.', \
-                  QMessageBox.Ok)
-
-            else:
-               self.main.setDashboardDetails()
-
-         #######################################################################
-         elif TheBDM.getState() == BDM_SCANNING:
-            warnMsg = (\
-               'The address was imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory is currently in the '
-               'middle of a blockchain scan, but it will start another scan as '
-               'soon as this one is complete.  Wallet and address balances will '
-               'not be available until these operations are completed.', \
-               QMessageBox.Ok)
-            self.main.setDashboardDetails()
-
-
-         self.main.walletListChanged()
-
-
       try:
          self.parent.wltAddrModel.reset()
       except:
@@ -3448,11 +3405,12 @@ class DlgImportAddress(ArmoryDialog):
          nImport = 0
          nAlready = 0
          nError = 0
+         privKeyToImport = []
          for addr160, addrStr, sbdKey in privKeyList:
             nTotal += 1
             try:
                if not self.main.getWalletForAddr160(addr160) == thisWltID:
-                  self.wlt.importExternalAddressData(privKey=sbdKey)
+                  privKeyToImport.append([sbdKey, addr160])
                   nImport += 1
                else:
                   nAlready += 1
@@ -3463,7 +3421,8 @@ class DlgImportAddress(ArmoryDialog):
                LOGERROR('Problem importing: %s: %s', addrStr, msg)
                raise
 
-
+            self.wlt.importExternalAddressBatch(privKeyToImport)
+            
          if nAlready == nTotal:
             MsgBoxCustom(MSGBOX.Warning, 'Nothing Imported!', 'All addresses '
                'chosen to be imported are already part of this wallet. '
@@ -3494,42 +3453,6 @@ class DlgImportAddress(ArmoryDialog):
                   'or log file for more information).  It is safe to try this '
                   'operation again: all addresses previously imported will be '
                   'skipped.' % (nImport, nError))
-
-
-         #######################################################################
-         if TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-            nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            if nblk < 2016:
-               # Removed this line of code because it's part of the old BDM paradigm. 
-               # Leaving this comment here in case it needs to be replaced by anything
-               # self.wlt.syncWithBlockchainLite(0)
-               QMessageBox.information(self, 'Import Successful', \
-                  'The addresses were imported into your wallet successfully, and '
-                  'all the information needed to acquire their balances were already '
-                  'available without executing a rescan.  '
-                  'The address will appear in the address list of this wallet.', \
-                  QMessageBox.Ok)
-
-            else:
-               self.main.setDashboardDetails()
-
-         #######################################################################
-         elif TheBDM.getState() == BDM_SCANNING:
-            warnMsg = tr(\
-               'The addresses were imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory is currently in the '
-               'middle of a blockchain scan, but it will start another scan as '
-               'soon as this one is complete.  Wallet and address balances will '
-               'not be available until these operations are completed.', \
-               QMessageBox.Ok)
-            self.main.setDashboardDetails()
-
-
-      try:
-         self.main.walletListChanged()
-      except:
-         pass
 
       try:
          self.parent.wltAddrModel.reset()
@@ -3772,6 +3695,8 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append(QRichLabel('<b>Index:</b>'))
       if self.addr.chainIndex > -1:
          lbls[-1].append(QLabel(str(self.addr.chainIndex+1)))
+      else:
+         lbls[-1].append(QLabel("Imported"))
 
 
       # Current Balance of address
@@ -3794,6 +3719,8 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append(QRichLabel('<b>Comment:</b>'))
       if self.addr.chainIndex > -1:
          lbls[-1].append(QLabel(str(wlt.commentsMap[addr160]) if addr160 in wlt.commentsMap else ''))
+      else:
+         lbls[-1].append(QLabel(''))
          
       # Number of transactions
       txHashes = set()
