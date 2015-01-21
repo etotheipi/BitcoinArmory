@@ -1872,13 +1872,11 @@ class ArmoryMainWindow(QMainWindow):
    def processAlerts(self):
       # display to the user any alerts that came in through the bitcoin
       # network
-      LOGWARN("processing alerts")
       factory = self.getSingletonConnectedNetworkingFactory()
       armoryClient = factory.proto
       alerts = factory.proto.alerts
       peerInfo = self.NetworkingFactory.proto.peerInfo
 
-      my_version = self.satoshiVersions[0]
       for id, alert in alerts.items():
          if self.ignoreAlerts.get(id):
             continue

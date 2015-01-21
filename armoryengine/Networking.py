@@ -991,8 +991,8 @@ class PayloadAlert(object):
    def __init__(self):
       self.nonSigLength = 0
       self.version = 1
-      self.expiration = 0
       self.relayUntil = 0
+      self.expiration = 0
       self.uniqueID   = 0
       self.cancelVal  = 0
       self.cancelSet  = []
@@ -1010,8 +1010,8 @@ class PayloadAlert(object):
       alertData = BinaryUnpacker( toUnpack )
       self.nonSigLength = alertData.get(INT8)
       self.version = alertData.get(UINT32)
-      self.expiration = alertData.get(UINT64)
       self.relayUntil = alertData.get(UINT64)
+      self.expiration = alertData.get(UINT64)
       self.uniqueID = alertData.get(UINT32)
       self.cancelVal = alertData.get(UINT32)
       numCancel = alertData.get(INT8)
