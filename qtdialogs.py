@@ -3706,14 +3706,18 @@ class DlgAddressInfo(ArmoryDialog):
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
-      balCoin = self.cppAddr.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
-      balStr = coin2str(balCoin, maxZeros=1)
-      if balCoin > 0:
-         goodColor = htmlColor('MoneyPos')
-         lbls[-1].append(QRichLabel(\
-            '<font color=' + goodColor + '>' + balStr.strip() + '</font> BTC'))
-      else:
-         lbls[-1].append(QRichLabel(balStr.strip() + ' BTC'))
+      try:
+         balCoin = self.cppAddr.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+         balStr = coin2str(balCoin, maxZeros=1)
+         if balCoin > 0:
+            goodColor = htmlColor('MoneyPos')
+            lbls[-1].append(QRichLabel(\
+               '<font color=' + goodColor + '>' + balStr.strip() + '</font> BTC'))
+         else:
+            lbls[-1].append(QRichLabel(balStr.strip() + ' BTC'))
+      except:
+         lbls[-1].append(QRichLabel("N/A"))
+         
 
       lbls.append([])
       lbls[-1].append(QLabel(''))
@@ -3724,16 +3728,20 @@ class DlgAddressInfo(ArmoryDialog):
          lbls[-1].append(QLabel(''))
          
       # Number of transactions
-      txHashes = set()
-      for le in self.addrLedger:
-         txHashes.add(le.getTxHash())
+      #txHashes = set()
+      #for le in self.addrLedger:
+       #  txHashes.add(le.getTxHash())
 
       lbls.append([])
       lbls[-1].append(self.main.createToolTipWidget(
             'The total number of transactions in which this address was involved'))
       lbls[-1].append(QRichLabel('<b>Transaction Count:</b>'))
-      lbls[-1].append(QLabel(str(len(txHashes))))
-
+      #lbls[-1].append(QLabel(str(len(txHashes))))
+      try:
+         txnCount = self.cppAddr.getTxioCountFromSSH()
+         lbls[-1].append(QLabel(str(txnCount)))
+      except:
+         lbls[-1].append(QLabel("N/A"))
 
 
       for i in range(len(lbls)):

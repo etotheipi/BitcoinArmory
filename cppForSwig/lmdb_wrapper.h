@@ -231,7 +231,7 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(void);
+   LMDBBlockDatabase(function<bool(void)> isDBReady);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -641,6 +641,8 @@ public:
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
+   bool isReady(void) { return isDBReady_(); }
+
 private:
    string               baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
@@ -680,6 +682,8 @@ private:
    map<BinaryData, StoredScriptHistory>   registeredSSHs_;
 
    const BinaryData ZCprefix_ = WRITE_UINT16_LE(0xFFFF);
+
+   function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
 };
 
 #endif

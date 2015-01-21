@@ -338,7 +338,8 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-LMDBBlockDatabase::LMDBBlockDatabase() 
+LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady) :
+   isDBReady_(isDBReady)
 {
 }
 

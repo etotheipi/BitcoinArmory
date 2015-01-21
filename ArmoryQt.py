@@ -827,8 +827,8 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
-#      if DO_WALLET_CHECK: 
- #        self.checkWallets()
+      if DO_WALLET_CHECK: 
+         self.checkWallets()
 
       self.blkReceived = RightNow()
 

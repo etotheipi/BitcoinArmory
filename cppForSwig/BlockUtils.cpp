@@ -754,9 +754,11 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
-   , iface_(new LMDBBlockDatabase)
    , blockchain_(config_.genesisBlockHash)
 {
+   auto isready = [this](void)->bool { return this->isReady(); };
+   iface_ = new LMDBBlockDatabase(isready);
+
    scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    setConfig(bdmConfig);
 }
