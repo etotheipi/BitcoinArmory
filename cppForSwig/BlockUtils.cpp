@@ -339,8 +339,16 @@ public:
 
 private:
 
-   uint8_t* getMapOfFile(string path, size_t fileSize)
+   struct MapAndSize
    {
+      uint8_t* filemap_;
+      uint64_t size_;
+   };
+
+   MapAndSize getMapOfFile(string path, size_t fileSize)
+   {
+      MapAndSize mas;
+
       #ifdef WIN32
          LARGE_INTEGER li;
          int fd = _open(path.c_str(), _O_RDONLY | _O_BINARY);
@@ -358,9 +366,11 @@ private:
          if (mh == NULL)
             throw std::runtime_error("failed to map file");
 
-         uint8_t* filemap = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
+         mas.filemap_ = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
                              0, 0, fileSize);
-         if(filemap == NULL)
+         mas.size_ = fileSize;
+
+         if(mas.filemap_ == NULL)
             throw std::runtime_error("failed to map file");
 
          CloseHandle(mh);
@@ -370,21 +380,25 @@ private:
          if (fd == -1)
             throw std::runtime_error("failed to open file");
 
-         uint8_t* filemap = (uint8_t*)mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
-         if(filemap == NULL)
+         mas.filemap_ = (uint8_t*)mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
+         mas.size_ = fileSize;
+
+         if(mas.filemap_ == NULL)
             throw std::runtime_error("failed to map file");
          close(fd);
       #endif
 
-      return filemap;
+      return mas;
    }
 
-   void unmapFile(uint8_t* filemap)
+   void unmapFile(MapAndSize& mas)
    {
       #ifdef WIN32
-      if (!UnmapViewOfFile(filemap))
+      if (!UnmapViewOfFile(mas.filemap_))
          throw std::runtime_error("failed to unmap file");
       #else
+      if(munmap(mas.filemap_, mas.size_))
+         throw std::runtime_error("failed to unmap file");
       #endif
    }
    // read blocks from f, starting at offset blockFileOffset,
@@ -402,9 +416,9 @@ private:
       if (blockFileOffset >= stopBefore)
          return blockFileOffset;
       
-      uint8_t* filemap = getMapOfFile(f.path, f.filesize);
+      MapAndSize mas = getMapOfFile(f.path, f.filesize);
       BinaryData fileMagic(4);
-      memcpy(fileMagic.getPtr(), filemap, 4);
+      memcpy(fileMagic.getPtr(), mas.filemap_, 4);
       if( fileMagic != magicBytes_ )
       {
          LOGERR << "Block file '" << f.path << "' is the wrong network! File: "
@@ -420,7 +434,7 @@ private:
          // because we haven't gone past that in Headers
          while(pos < (std::min)(f.filesize, stopBefore))
          {
-            magic = BinaryDataRef(filemap + pos, 4);
+            magic = BinaryDataRef(mas.filemap_ + pos, 4);
             pos += 4;
             if (pos >= f.filesize)
                break;
@@ -428,7 +442,7 @@ private:
             if(magic != magicBytes_)
             {
                // start scanning for MagicBytes
-               uint64_t offset = scanFor(filemap + pos, f.filesize,
+               uint64_t offset = scanFor(mas.filemap_ + pos, f.filesize,
                   magicBytes_.getPtr(), magicBytes_.getSize());
                if (offset == UINT64_MAX)
                {
@@ -440,13 +454,13 @@ private:
                LOGERR << "Next block header found at offset " << pos-4;
             }
             
-            szstr = BinaryDataRef(filemap + pos, 4);
+            szstr = BinaryDataRef(mas.filemap_ + pos, 4);
             pos += 4;
             uint32_t blkSize = READ_UINT32_LE(szstr.getPtr());
             if(pos >= f.filesize) 
                break;
 
-            rawBlk = BinaryDataRef(filemap +pos, blkSize);
+            rawBlk = BinaryDataRef(mas.filemap_ +pos, blkSize);
             pos += blkSize;
             
             try
@@ -468,7 +482,7 @@ private:
       LOGINFO << "Reading raw blocks finished at file "
          << f.fnum << " offset " << blockFileOffset;
       
-      unmapFile(filemap);
+      unmapFile(mas);
       return blockFileOffset;
    }
    
