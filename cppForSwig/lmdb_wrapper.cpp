@@ -579,7 +579,7 @@ void LMDBBlockDatabase::openDatabasesSupernode(
    
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS] = "headers";
-   DB_NAMES[BLKDATA] = "blocks";
+   DB_NAMES[BLKDATA] = "blkdata";
 
    try
    {

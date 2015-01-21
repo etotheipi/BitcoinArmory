@@ -1225,6 +1225,8 @@ void BlockDataManager_LevelDB::loadDiskState(
    //blockchain_.putBareHeadersByReadOrder(iface_, 0, headerCountFromDB);
 
    findFirstBlockToApply();
+
+   LOGINFO << "Looking for first unrecognized block";
    uint32_t scanFrom = findFirstBlockToScan();
 
    //Now we can put the new headers found in blk files.
