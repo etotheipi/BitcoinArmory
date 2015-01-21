@@ -1404,7 +1404,8 @@ class DlgLockboxManager(ArmoryDialog):
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
       if True:  actionRemoveLB    = menu.addAction("Delete Lockbox")
-      if True:  actionRescanLB    = menu.addAction("Rescan Lockbox")
+      if ENABLE_SUPERNODE is False:  
+         actionRescanLB    = menu.addAction("Rescan Lockbox")
 
       selectedIndexes = self.lboxView.selectedIndexes()
 
@@ -1502,8 +1503,7 @@ class DlgLockboxManager(ArmoryDialog):
                <font color="%s">%s</font> """) % (htmlColor('TextBlue'), 
                dispInfo['String']), QMessageBox.Yes | QMessageBox.No) 
 
-            if reply==QMessageBox.Yes:
-               self.main.setWalletIsScanning(lbox)            
+            if reply==QMessageBox.Yes:    
                lwlt = self.main.cppLockboxWltMap[lbox.uniqueIDB58]  
                lwlt.forceScan()          
                self.lboxModel.reset()

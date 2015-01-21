@@ -6230,7 +6230,7 @@ class ArmoryMainWindow(QMainWindow):
             else:
                lbID = self.lockboxIDMap[wltID]                
                self.allLockboxes[lbID].isEnabled = False
-               self.allLockboxes[lbID].disableLockBoxUI()
+               #self.allLockboxes[lbID].disableLockBoxUI()
                if self.lbDialogModel != None:
                   self.lbDialogModel.reset()       
                  
