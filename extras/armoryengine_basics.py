@@ -54,7 +54,7 @@ print 32, '   OS Variant            :', OS_VARIANT
 print 33, '   User home-directory   :', USER_HOME_DIR
 print 34, '   Satoshi BTC directory :', BTC_HOME_DIR
 print 35, '   Armory home dir       :', ARMORY_HOME_DIR
-print 36, '   LevelDB directory     :', LEVELDB_DIR
+print 36, '   LevelDB directory     :', ARMORY_DB_DIR
 print 37, '   Armory settings file  :', SETTINGS_PATH
 print 38, '   Armory log file       :', ARMORY_LOG_FILE
 

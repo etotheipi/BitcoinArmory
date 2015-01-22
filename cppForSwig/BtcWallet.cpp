@@ -521,7 +521,8 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    LMDBBlockDatabase *db = bdvPtr_->getDB();
 
    //start a RO txn to grab the txouts from DB
-   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    vector<UnspentTxOut> utxoList;
    uint32_t blk = bdvPtr_->getTopBlockHeight();
@@ -559,6 +560,9 @@ void BtcWallet::pprintLedger() const
 //
 // TODO:  should spend the time to pass out a tx list with it the addrs so
 //        that I don't have to re-search for them later...
+//
+// TODO: make this scalable!
+//
 vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
 {
    SCOPED_TIMER("createAddressBook");
@@ -728,7 +732,8 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       if (reorg)
          updateAfterReorg(startBlock);
          
-      LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
+      LMDBEnv::Transaction tx;
+      bdvPtr_->getDB()->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf(reorg);
@@ -955,7 +960,8 @@ map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
 
    map<uint32_t, preHistory> preHistSummary;
 
-   LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   bdvPtr_->getDB()->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
    for (auto& scrAddrPair : scrAddrMap_)
    {
       scrAddrPair.second.mapHistory();

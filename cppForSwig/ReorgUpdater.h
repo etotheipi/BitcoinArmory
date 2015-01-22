@@ -36,10 +36,8 @@ static void createUndoDataFromBlock(
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
-   LMDBEnv::Transaction tx(&iface->dbEnv_, LMDB::ReadOnly);
-   StoredHeader sbh;
-
    // Fetch the full, stored block
+   StoredHeader sbh;
    iface->getStoredHeader(sbh, hgt, dup, true);
    if (!sbh.haveFullBlock())
       throw runtime_error("Cannot get undo data for block because not full!");
@@ -214,7 +212,8 @@ private:
    void updateBlockDupIDs(void)
    {
       //create a readwrite tx to update the dupIDs
-      LMDBEnv::Transaction tx(&iface_->dbEnv_, LMDB::ReadWrite);
+      LMDBEnv::Transaction tx;
+      iface_->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
 
       BlockHeader* thisHeaderPtr = branchPtr_;
 

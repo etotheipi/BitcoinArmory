@@ -350,6 +350,20 @@ LMDBEnv::Transaction::Transaction(LMDBEnv *env, LMDB::Mode mode)
    begin();
 }
 
+LMDBEnv::Transaction& LMDBEnv::Transaction::operator=(Transaction&& mv)
+{
+   if (this == &mv)
+      return *this;
+
+   this->env = mv.env;
+   this->mode_ = mv.mode_;
+   this->began = mv.began;
+
+   mv.began = false;
+
+   return *this;
+}
+
 LMDBEnv::Transaction::~Transaction()
 {
    commit();
@@ -570,7 +584,7 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
    
    auto txnIter = env->txForThreads_.find(tID);
    if (txnIter == env->txForThreads_.end())
-      throw std::runtime_error("Iterator must be created within Transaction");
+      throw std::runtime_error("Need transaction to get data");
    
    lock.unlock();
 
@@ -586,6 +600,21 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
       static_cast<uint8_t*>(mdata.mv_data)
    );
    return ref;
+}
+
+void LMDB::drop(void)
+{
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+
+   auto txnIter = env->txForThreads_.find(tID);
+   if (txnIter == env->txForThreads_.end())
+      throw std::runtime_error("Need transaction to get data");
+
+   lock.unlock();
+
+   if (mdb_drop(txnIter->second.txn_, dbi, 0) != MDB_SUCCESS)
+      throw std::runtime_error("Failed to drop DB!");
 }
 
 // kate: indent-width 3; replace-tabs on;

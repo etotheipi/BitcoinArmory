@@ -115,8 +115,7 @@ class changelogParser(object):
             else:
                curr = self.changelog[-1][2][-1][-1]
                self.changelog[-1][2][-1][-1] += ('' if len(curr)==0 else ' ') + line
-   
-            return self.getChangelog()
+         return self.getChangelog()
       except:
          LOGEXCEPT('Failed to parse changelog')
          return None

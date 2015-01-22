@@ -229,16 +229,27 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 {
    checkBDMisReady();
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   if (config().armoryDbType == ARMORY_DB_SUPER)
+   {
+      LMDBEnv::Transaction tx(db_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
-   TxRef txrefobj = db_->getTxRef(txhash);
+      TxRef txrefobj = db_->getTxRef(txhash);
 
-   if (!txrefobj.isNull())
-      return txrefobj.attached(db_).getTxCopy();
+      if (!txrefobj.isNull())
+         return txrefobj.attached(db_).getTxCopy();
+      else
+      {
+         // It's not in the blockchain, but maybe in the zero-conf tx list
+         return zeroConfCont_.getTxByHash(txhash);
+      }
+   }
    else
    {
-      // It's not in the blockchain, but maybe in the zero-conf tx list
-      return zeroConfCont_.getTxByHash(txhash);
+      StoredTx stx;
+      if (db_->getStoredTx_byHash(txhash, &stx))
+         return stx.getTxCopy();
+      else
+         return zeroConfCont_.getTxByHash(txhash);
    }
 }
 
@@ -726,6 +737,8 @@ uint32_t WalletGroup::pageHistory(bool forcePaging)
 const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
+   unique_lock<mutex> mu(globalLedgerLock_);
+
    if (order_ == order_ascending)
       pageId = hist_.getPageCount() - pageId - 1;
 
@@ -751,13 +764,11 @@ const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
             uint32_t startBlock, uint32_t endBlock)->void
          { wlt->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
-         map<BinaryData, LedgerEntry> leMap;
-         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
-
-         //this should be locked to a single thread
-
          if (!wlt->uiFilter_)
             continue;
+
+         map<BinaryData, LedgerEntry> leMap;
+         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
 
          for (const LedgerEntry& le : values(leMap))
             globalLedger_.push_back(le);
@@ -815,12 +826,15 @@ void WalletGroup::updateGlobalLedgerFirstPage(uint32_t startBlock,
 
    ReadWriteLock::ReadLock rl(lock_);
 
+
    if (forceRefresh == BDV_refreshSkipRescan)
       getHistoryPage(0, true, false);
    else if (forceRefresh == BDV_refreshAndRescan)
       getHistoryPage(0, true, true);
    else if (hist_.getCurrentPage() == 0)
    {
+      unique_lock<mutex> mu(globalLedgerLock_);
+
       LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
 
       for (auto& wlt : values(wallets_))

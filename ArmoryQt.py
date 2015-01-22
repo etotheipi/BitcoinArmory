@@ -241,6 +241,16 @@ class ArmoryMainWindow(QMainWindow):
             self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
 
 
+      # This is a list of alerts that the user has chosen to no longer
+      # be notified about
+      alert_str = str(self.getSettingOrSetDefault('IgnoreAlerts', ""))
+      if alert_str == "":
+         alerts = []
+      else:
+         alerts = alert_str.split(",")
+      self.ignoreAlerts = {int(s):True for s in alerts}
+
+
       # If we're going into online mode, start loading blockchain
       if self.doAutoBitcoind:
          self.startBitcoindIfNecessary()
@@ -251,6 +261,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setupSystemTray()
       self.setupUriRegistration()
 
+      self.heartbeatCount = 0
 
       self.extraHeartbeatSpecial  = []
       self.extraHeartbeatAlways   = []
@@ -848,7 +859,31 @@ class ArmoryMainWindow(QMainWindow):
             # center in Qt5.1. Something to experiment with later....
             self.notifCtr = self.macNotifHdlr.hasGrowl()
 
-
+      # Now that construction of the UI is done
+      # Check for warnings to be displayed
+      
+     # This is true if and only if the command line has a data dir that doesn't exist
+      # and can't be created.
+      if not CLI_OPTIONS.datadir in [ARMORY_HOME_DIR, DEFAULT]:
+         QMessageBox.warning(self, tr('Default Data Directory'), tr("""
+            Armory is using the default data directory because
+            the data directory specified in the command line, could
+            not be found and could not be created."""), QMessageBox.Ok)
+      # This is true if and only if the command line has a database dir that doesn't exist
+      # and can't be created.
+      elif not CLI_OPTIONS.armoryDBDir in [ARMORY_DB_DIR, DEFAULT]:
+         QMessageBox.warning(self, tr('Default Database Directory'), tr("""
+            Armory is using the default database directory because
+            the database directory specified in the command line, could
+            not be found and could not be created."""), QMessageBox.Ok)
+      
+      # This is true if and only if the command line has a bitcoin dir that doesn't exist
+      if not CLI_OPTIONS.satoshiHome in [BTC_HOME_DIR, DEFAULT]:
+         QMessageBox.warning(self, tr('Bitcoin Directory'), tr("""
+            Armory is using the default Bitcoin directory because
+            the Bitcoin director specified in the command line, could
+            not be found."""), QMessageBox.Ok)
+         
    ####################################################
    def getWatchingOnlyWallets(self):
       result = []
@@ -915,7 +950,9 @@ class ArmoryMainWindow(QMainWindow):
       wltIDList = []
       for i,vis in enumerate(self.walletVisibleList):
          if vis:
-            wltIDList.append(self.walletIDList[i])
+            wltid = self.walletIDList[i]
+            if self.walletMap[wltid].isEnabled:
+               wltIDList.append(wltid)
 
       TheBDM.bdv().updateWalletsLedgerFilter(wltIDList)      
 
@@ -1834,6 +1871,38 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def processAlerts(self):
+      # display to the user any alerts that came in through the bitcoin
+      # network
+      factory = self.getSingletonConnectedNetworkingFactory()
+      armoryClient = factory.proto
+      if armoryClient is None:
+         return
+      alerts = factory.proto.alerts
+      peerInfo = self.NetworkingFactory.proto.peerInfo
+
+      for id, alert in alerts.items():
+         if self.ignoreAlerts.get(id):
+            continue
+         if time.time() > alert.expiration:
+            continue
+         if peerInfo["version"] < alert.minVersion \
+            or peerInfo["version"] > alert.maxVersion:
+            continue
+         if peerInfo["subver"] not in alert.subVerSet:
+            continue
+         title = "Bitcoin alert %s" % alert.uniqueID
+         alert_str = "%s<br>%s<br>%s<br>" % (alert.statusBar, alert.comment, alert.reserved)
+         msg = "This alert has been received from the bitcoin network:<p>" + \
+               alert_str + \
+               "</p>Please visit <a href='http://www.bitcoin.org/en/alerts'>http://www.bitcoin.org/en/alerts</a> for more information.<br>"
+         reply, self.ignoreAlerts[id] = MsgBoxWithDNAA(
+            self, self, MSGBOX.Warning, title, msg,
+            'Do not show me this notification again', yesStr='OK')
+         self.writeSetting('IgnoreAlerts', ",".join([str(i) for i in self.ignoreAlerts.keys()]))
+
+
+   #############################################################################
    def processChangelog(self, txt):
       try:
          clp = changelogParser()
@@ -2354,7 +2423,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.satoshiHomePath = BTC_HOME_DIR
       if self.settings.hasSetting('SatoshiDatadir') and \
-         CLI_OPTIONS.satoshiHome=='DEFAULT':
+         CLI_OPTIONS.satoshiHome==DEFAULT:
          # Setting override BTC_HOME_DIR only if it wasn't explicitly
          # set as the command line.
          self.satoshiHomePath = self.settings.get('SatoshiDatadir')
@@ -2506,9 +2575,9 @@ class ArmoryMainWindow(QMainWindow):
             warnMsg += ('Please check the source of the link and enter the '
                         'transaction manually.')
          else:
-            warnMsg += 'The raw URI string is:<br><br>' + uriStr
+            warnMsg += 'The raw URI string is:\n\n' + uriStr
          QMessageBox.warning(self, 'Invalid URI', warnMsg, QMessageBox.Ok)
-         LOGERROR(warnMsg)
+         LOGERROR(warnMsg.replace('\n', ' '))
          return {}
 
       if not uriDict.has_key('address'):
@@ -2721,15 +2790,9 @@ class ArmoryMainWindow(QMainWindow):
       types.append('All files (*)')
       typesStr = ';; '.join(types)
 
-      # Found a bug with Swig+Threading+PyQt+OSX -- save/load file dialogs freeze
-      # User picobit discovered this is avoided if you use the Qt dialogs, instead
-      # of the native OS dialogs.  Use native for all except OSX...
-      if not OS_MACOSX:
-         fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath, typesStr))
-      else:
-         fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath, typesStr,
-                                             options=QFileDialog.DontUseNativeDialog))
-
+      # Open the native file save dialog and grab the saved file/path.
+      fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath,
+                                                     typesStr))
 
       fdir,fname = os.path.split(fullPath)
       if fdir:
@@ -2753,14 +2816,10 @@ class ArmoryMainWindow(QMainWindow):
       types = list(ffilter)
       types.append(tr('All files (*)'))
       typesStr = ';; '.join(types)
-      # Found a bug with Swig+Threading+PyQt+OSX -- save/load file dialogs freeze
-      # User picobit discovered this is avoided if you use the Qt dialogs, instead
-      # of the native OS dialogs.  Use native for all except OSX...
-      if not OS_MACOSX:
-         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir, typesStr))
-      else:
-         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir, typesStr, \
-                                             options=QFileDialog.DontUseNativeDialog))
+
+      # Open the native file load dialog and grab the loaded file/path.
+      fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
+                                                     typesStr))
 
       self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
       return fullPath
@@ -3035,30 +3094,28 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
 
-   def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
+   def createCombinedLedger(self):
       """
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
       bdmState = TheBDM.getState()
-      
-      if wltIDList==None:
-         currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         wltIDList = []
-         for i,vis in enumerate(self.walletVisibleList):
-            if vis:
-               wltIDList.append(self.walletIDList[i])
-         self.writeSetting('LastFilterState', currIdx)
 
-
-      if wltIDList==None:
-         return
 
       self.combinedLedger = []
       self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
+      
+      
+      wltIDDict = {}  
+      for le in self.combinedLedger:
+         wltID =  str(le.getWalletID())
+         if len(wltID) > 0:
+            wltIDDict[wltID] = 1
+         
+      wltIDList = list(wltIDDict.keys())
 
       if bdmState == BDM_BLOCKCHAIN_READY:
          for wltID in wltIDList:
@@ -3219,9 +3276,7 @@ class ArmoryMainWindow(QMainWindow):
    def walletListChanged(self):
       self.walletModel.reset()
       self.populateLedgerComboBox()
-      if not TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
-         self.createCombinedLedger()
-
+      self.changeWltFilter()
 
    #############################################################################
 
@@ -3973,6 +4028,7 @@ class ArmoryMainWindow(QMainWindow):
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
+         loading.reject()
          reply = QMessageBox.information(self, 'No Wallets!', \
             'You have not created any wallets which means there is nowhere to '
             'store you bitcoins!  Would you like to create a wallet now?', \
@@ -4696,8 +4752,9 @@ class ArmoryMainWindow(QMainWindow):
             dispIcon = QPixmap(iconArmory).scaled(24,24)
             self.icoArmorySWVersion.setPixmap(dispIcon)
             self.btnSecureDLArmory.setVisible(False)
-            self.lblArmorySWVersion.setText(tr("""
-               You are using the latest version of Armory"""))
+            self.lblArmorySWVersion.setText(tr(
+               "You are using the latest version of Armory (%s)"
+               % self.armoryVersions[0]))
          else:
             dispIcon = QPixmap(iconWarnFile).scaled(24,24)
             self.icoArmorySWVersion.setPixmap(dispIcon)
@@ -5180,7 +5237,7 @@ class ArmoryMainWindow(QMainWindow):
       if state == 'NewUserInfo':
          return tr("""
          For more information about Armory, and even Bitcoin itself, you should
-         visit the <a href="https://bitcoinarmory.com/faqs/">frequently
+         visit the <a href="https://bitcoinarmory.com/faq/">frequently
          asked questions page</a>.  If
          you are experiencing problems using this software, please visit the
          <a href="https://bitcoinarmory.com/troubleshooting/">Armory
@@ -5307,7 +5364,7 @@ class ArmoryMainWindow(QMainWindow):
             'webpage for more information.  Start at '
             '<a href="https://bitcoinarmory.com/armory-and-bitcoin-qt">'
             'Why Armory needs Bitcoin-Qt</a> or go straight to our <a '
-            'href="https://bitcoinarmory.com/faqs/">'
+            'href="https://bitcoinarmory.com/faq/">'
             'frequently asked questions</a> page for more general information.  '
             'If you already know what you\'re doing and simply need '
             'to fetch the latest version of Bitcoin-Qt, you can download it from '
@@ -6120,13 +6177,18 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
+         if len(args) == 0:
+            self.createCombinedLedger()
+            return
+         
          for wltID in args:
             if len(wltID) > 0:
                if wltID in self.walletMap:
                   wlt = self.walletMap[wltID]                  
                   wlt.isEnabled = True
                   self.walletModel.reset()                  
-                  wlt.doAfterScan()                  
+                  wlt.doAfterScan()    
+                  self.changeWltFilter()              
 
                else:
                   lbID = self.lockboxIDMap[wltID]                
@@ -6136,8 +6198,8 @@ class ArmoryMainWindow(QMainWindow):
                      
                if self.walletSideScanProgress.has_key(wltID):
                   del self.walletSideScanProgress[wltID]
-               
-         self.createCombinedLedger()
+            
+  
 
          
       elif action == 'progress':
@@ -6170,10 +6232,12 @@ class ArmoryMainWindow(QMainWindow):
                if wltID in self.walletDialogDict:
                   self.walletDialogDict[wltID].reject()
                   del self.walletDialogDict[wltID]
+               self.changeWltFilter()
+               
             else:
                lbID = self.lockboxIDMap[wltID]                
                self.allLockboxes[lbID].isEnabled = False
-               self.allLockboxes[lbID].disableLockBoxUI()
+               #self.allLockboxes[lbID].disableLockBoxUI()
                if self.lbDialogModel != None:
                   self.lbDialogModel.reset()       
                  
@@ -6218,9 +6282,10 @@ class ArmoryMainWindow(QMainWindow):
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getState()
 
-      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
-      # TODO - lower the frequency to 1 per minute
-      self.processAnnounceData()
+      self.heartbeatCount += 1
+      if self.heartbeatCount % 60 == 20:
+         self.processAnnounceData()
+         self.processAlerts()
 
       try:
          for func in self.extraHeartbeatAlways:

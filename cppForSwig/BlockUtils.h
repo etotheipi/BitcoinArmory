@@ -89,6 +89,8 @@ typedef std::pair<size_t, uint64_t> BlockFilePosition;
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
+   void grablock(uint32_t n);
+
 
 private:
    BlockDataManagerConfig config_;
@@ -211,7 +213,10 @@ private:
          ProgressReporter &prog,
          const BlockFilePosition &fileAndOffset
       );
+   
    void deleteHistories(void);
+   void wipeHistoryAndHintDB(void);
+
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
    uint32_t findFirstBlockToScan(void);
    void findFirstBlockToApply(void);

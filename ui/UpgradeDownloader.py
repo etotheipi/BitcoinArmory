@@ -374,57 +374,45 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       layout.setRowStretch(0, 1)
       layout.setColumnStretch(1, 1)
 
-
       self.cascadeOs()
       self.selectMyOs()
-      self.useSelectedPackage()
-      self.cascadeOs()
-      # I have no clue why we have to call these things so many times!
-      self.selectMyOs()
-      self.cascadeOs()
-
 
       # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
-      #trueBits = '64' if SystemSpecs.IsX64 else '32'
-      #selectBits = self.itemData(self.osarch)[:2]
-      #if showPackage and not trueBits==selectBits:
-         #QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
-            #You appear to be on a %s-bit architecture, but the only
-            #available download is for %s-bit systems.  It is unlikely
-            #that this download will work on this operating system.
-            #<br><br>
-            #Please make sure that the correct operating system is
-            #selected before attempting to download and install any
-            #packages.""") % (trueBits, selectBits), QMessageBox.Ok)
-         #self.bitsColor = htmlColor('TextRed')
-
+      trueBits = '64' if SystemSpecs.IsX64 else '32'
+      selectBits = self.itemData(self.osarch)[:2]
+      if showPackage and not trueBits==selectBits:
+         QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
+            You appear to be on a %s-bit architecture, but the only
+            available download is for %s-bit systems.  It is unlikely
+            that this download will work on this operating system.
+            <br><br>
+            Please make sure that the correct operating system is
+            selected before attempting to download and install any
+            packages.""") % (trueBits, selectBits), QMessageBox.Ok)
+         self.bitsColor = htmlColor('TextRed')
 
       if showPackage == 'Armory':
          expectVer = self.main.armoryVersions[1]
       elif showPackage == 'Satoshi':
          expectVer = self.main.satoshiVersions[1]
 
-      # This is currently broken... will have to fix later
-      #if showPackage:
-         #for n in range(0, packages.topLevelItemCount()):
-            #row = packages.topLevelItem(n)
-            #if str(row.data(0, 32).toString())==showPackage:
-               #packages.setCurrentItem(row)
-               #if not expectVer or str(row.data(1, 32).toString())==expectVer:
-                  #break
-            #self.useSelectedPackage()
-         #else:
-            #foundPackage = False
-
-      self.stackedDisplay.setCurrentIndex(1)
-      QMessageBox.warning(self, tr("Not Found"), tr(
-         "Armory could not determine an appropriate download for "
-         "your operating system.  You will have to manually select "
-         "the correct download on the next window."), QMessageBox.Ok)
-      #else:
-         #self.stackedDisplay.setCurrentIndex(1)
-
+      if showPackage:
+         for n in range(0, packages.topLevelItemCount()):
+            row = packages.topLevelItem(n)
+            if str(row.data(0, 32).toString()).startswith(showPackage):
+               packages.setCurrentItem(row)
+               if not expectVer or str(row.data(1, 32).toString())==expectVer:
+                  break
+            self.useSelectedPackage(limit=True)
+         else:
+            QMessageBox.warning(self, tr("Not Found"), tr(
+               "Armory could not determine an appropriate download for "
+               "your operating system.  You will have to manually select "
+               "the correct download on the next window."), QMessageBox.Ok)
+            self.stackedDisplay.setCurrentIndex(1)
+      else:
+         self.stackedDisplay.setCurrentIndex(1)
 
       self.setLayout(layout)
       self.setMinimumWidth(600)
@@ -438,7 +426,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.stackedDisplay.setCurrentIndex(1)
 
 
-   def findCmbData(self, cmb, findStr, last=False):
+   def findCmbData(self, cmb, findStr, last=False, nonenotfound=False):
       """
       So I ran into some issues with finding python strings in comboboxes
       full of QStrings.  I confirmed that
@@ -454,7 +442,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          if cmb.itemText(i)==findStr:
             return i
 
-      return 0 if not last else cmb.count()-1
+      if nonenotfound:
+         return None
+
+      return cmb.count()-1 if last else 0
 
 
    def selectMyOs(self):
@@ -466,40 +457,43 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       if OS_WINDOWS:
          osIndex = self.findCmbData(self.os, tr("Windows"))
       elif OS_LINUX:
-         if osVar.lower() in ['debian', 'linuxmint']:
-            d1 = self.findCmbData(self.os, tr('Debian'))
-            d2 = self.findCmbData(self.os, tr('Ubuntu'))
-            osIndex = max(d1,d2)
-         elif osVar.lower() == "ubuntu":
-            osIndex = self.findCmbData(self.os, tr('Ubuntu'))
+         if osVar.lower() in ('debian', 'linuxmint', 'ubuntu'):
+            osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
          else:
-            osIndex = self.findCmbData(self.os, tr('Ubuntu'))
+            osIndex = self.findCmbData(self.os, tr('Linux'))
       elif OS_MACOSX:
-         osIndex = self.findCmbData(self.osver, tr('MacOSX'))
+         osIndex = self.findCmbData(self.os, tr('MacOSX'))
 
       self.os.setCurrentIndex(osIndex)
       self.cascadeOsVer() # signals don't go through for some reason
 
       osverIndex = 0
       if OS_WINDOWS:
-         osverIndex = self.findCmbData(self.osver, platform.win32_ver(), True)
+         win_ver = platform.win32_ver()[0]
+         osverIndex = self.findCmbData(self.osver, win_ver, True)
       elif OS_LINUX:
          osverIndex = self.findCmbData(self.osver, OS_VARIANT[1], True)
       elif OS_MACOSX:
-         osverIndex = self.findCmbData(self.osver, platform.mac_ver()[0], True)
+         mac_ver = platform.mac_ver()[0]
+         osverIndex = self.findCmbData(self.osver, mac_ver, nonenotfound=True)
+         if osverIndex is None:
+            mac_ver = mac_ver[:mac_ver.rfind(".")]
+            osverIndex = self.findCmbData(self.osver, mac_ver, True)
       self.osver.setCurrentIndex(osverIndex)
       self.cascadeOsArch()
 
       archIndex = 0
-      if platform.machine() == "x86_64":
-         archIndex = self.findCmbData(self.osarch, tr('64'))
+      if platform.machine() in ("x86_64", "AMD64"):
+         archIndex = self.findCmbData(self.osarch, tr('64-bit'))
       else:
-         archIndex = self.findCmbData(self.osarch, tr('32'))
-
+         archIndex = self.findCmbData(self.osarch, tr('32-bit'))
       self.osarch.setCurrentIndex(archIndex)
+      self.cascadeOsArch()
 
 
-   def useSelectedPackage(self):
+
+   def useSelectedPackage(self, *args, **kwargs):
+      limit = kwargs.get("limit")
       if self.packages.currentItem() is None:
          self.changelogView.setHtml("<html>" + tr("""
             There is no version information to be shown here.""") +"</html>")
@@ -525,18 +519,15 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                   break
 
             stopIndex = len(self.changelog)
-            if len(self.main.armoryVersions[0])>0:
+            if limit and len(self.main.armoryVersions[0])>0:
                for i,triplet in enumerate(self.changelog):
                   currVer = getVersionInt(readVersionString(self.main.armoryVersions[0]))
                   thisVer = getVersionInt(readVersionString(triplet[0]))
                   if thisVer <= currVer:
-                     stopIndex = i
+                     stopIndex = i + 1
                      break
 
-
-
          if startIndex > -1:
-
             logHtml = "<html><body>"
             if startIndex >= stopIndex:
                logHtml = tr("Release notes are not available for this package")
@@ -553,11 +544,11 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                   logHtml += "</ul>\n\n"
          else:
             if packagename == "Satoshi":
-               logHtml = tr("""
-                  No version information is available here for any of the
-                  core Bitcoin software downloads. You can find the
-                  information at:
-                  <a href='https://bitcoin.org/en/version-history'>https://bitcoin.org/en/version-history</a>""")
+               logHtml = tr(
+                  "No version information is available here for any of the "
+                  "core Bitcoin software downloads. You can find the "
+                  "information at: "
+                  "<a href='https://bitcoin.org/en/version-history'>https://bitcoin.org/en/version-history</a>")
             else:
                logHtml = tr("Release notes are not available for this package")
 
@@ -719,7 +710,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Bitcoin Core version %s""") % \
                   self.main.satoshiVersions[0])
-         elif pkgName=='Armory':
+         elif pkgName.startswith('Armory'):
             if self.main.armoryVersions[0]:
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Armory version %s""") % \
