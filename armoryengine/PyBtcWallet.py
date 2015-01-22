@@ -2452,8 +2452,13 @@ class PyBtcWallet(object):
       #             if we just "forget" the current wallet state and re-read
       #             the wallet from file
       wltPath = self.walletPath
+      
+      passCppWallet = self.cppWallet
+      if self.isRegistered():
+         self.cppWallet.removeAddressBulk([Hash160ToScrAddr(addr160)])
+         
       self.readWalletFile(wltPath, doScanNow=True)
-
+      self.cppWallet = passCppWallet
 
    #############################################################################
    def importExternalAddressData(self, privKey=None, privChk=None, \
