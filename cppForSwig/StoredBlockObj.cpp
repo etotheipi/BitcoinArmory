@@ -1162,6 +1162,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.txIndex_        = tx.getBlockTxIndex();
          stxo.txOutIndex_     = txo;
          stxo.isCoinbase_     = tx.getTxInCopy(0).isCoinbase();
+         stxo.parentHash_     = thisHash_;
       }
    }
 

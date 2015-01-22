@@ -2699,6 +2699,12 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
          stx->blockHeight_ = height;
          stx->duplicateID_ = dup;
          stx->txIndex_ = txIdx;
+
+         for (auto& stxo : stx->stxoMap_)
+         {
+            stxo.second.blockHeight_ = height;
+            stxo.second.duplicateID_ = dup;
+         }
       }
       else
          DBkey->copyFrom(hint);
