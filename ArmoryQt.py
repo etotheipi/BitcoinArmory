@@ -950,7 +950,9 @@ class ArmoryMainWindow(QMainWindow):
       wltIDList = []
       for i,vis in enumerate(self.walletVisibleList):
          if vis:
-            wltIDList.append(self.walletIDList[i])
+            wltid = self.walletIDList[i]
+            if self.walletMap[wltid].isEnabled:
+               wltIDList.append(wltid)
 
       TheBDM.bdv().updateWalletsLedgerFilter(wltIDList)      
 
@@ -3092,30 +3094,28 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
 
-   def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
+   def createCombinedLedger(self):
       """
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
       bdmState = TheBDM.getState()
-      
-      if wltIDList==None:
-         currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         wltIDList = []
-         for i,vis in enumerate(self.walletVisibleList):
-            if vis:
-               wltIDList.append(self.walletIDList[i])
-         self.writeSetting('LastFilterState', currIdx)
 
-
-      if wltIDList==None:
-         return
 
       self.combinedLedger = []
       self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
+      
+      
+      wltIDDict = {}  
+      for le in self.combinedLedger:
+         wltID =  str(le.getWalletID())
+         if len(wltID) > 0:
+            wltIDDict[wltID] = 1
+         
+      wltIDList = list(wltIDDict.keys())
 
       if bdmState == BDM_BLOCKCHAIN_READY:
          for wltID in wltIDList:
@@ -6177,13 +6177,18 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
+         if len(args) == 0:
+            self.createCombinedLedger()
+            return
+         
          for wltID in args:
             if len(wltID) > 0:
                if wltID in self.walletMap:
                   wlt = self.walletMap[wltID]                  
                   wlt.isEnabled = True
                   self.walletModel.reset()                  
-                  wlt.doAfterScan()                  
+                  wlt.doAfterScan()    
+                  self.changeWltFilter()              
 
                else:
                   lbID = self.lockboxIDMap[wltID]                
@@ -6193,8 +6198,8 @@ class ArmoryMainWindow(QMainWindow):
                      
                if self.walletSideScanProgress.has_key(wltID):
                   del self.walletSideScanProgress[wltID]
-               
-         self.createCombinedLedger()
+            
+  
 
          
       elif action == 'progress':
@@ -6227,6 +6232,8 @@ class ArmoryMainWindow(QMainWindow):
                if wltID in self.walletDialogDict:
                   self.walletDialogDict[wltID].reject()
                   del self.walletDialogDict[wltID]
+               self.changeWltFilter()
+               
             else:
                lbID = self.lockboxIDMap[wltID]                
                self.allLockboxes[lbID].isEnabled = False
