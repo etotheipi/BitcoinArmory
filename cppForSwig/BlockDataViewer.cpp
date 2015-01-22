@@ -737,6 +737,8 @@ uint32_t WalletGroup::pageHistory(bool forcePaging)
 const vector<LedgerEntry>& WalletGroup::getHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
+   unique_lock<mutex> mu(globalLedgerLock_);
+
    if (order_ == order_ascending)
       pageId = hist_.getPageCount() - pageId - 1;
 
@@ -824,12 +826,15 @@ void WalletGroup::updateGlobalLedgerFirstPage(uint32_t startBlock,
 
    ReadWriteLock::ReadLock rl(lock_);
 
+
    if (forceRefresh == BDV_refreshSkipRescan)
       getHistoryPage(0, true, false);
    else if (forceRefresh == BDV_refreshAndRescan)
       getHistoryPage(0, true, true);
    else if (hist_.getCurrentPage() == 0)
    {
+      unique_lock<mutex> mu(globalLedgerLock_);
+
       LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
 
       for (auto& wlt : values(wallets_))

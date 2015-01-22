@@ -9666,8 +9666,8 @@ static void mdb_enlarge_map(MDB_env *env, size_t extraDataSize, int forceExtraSi
    while (v - info.me_mapsize < extraDataSize)
       v += extraDataSize;
 
-   /*npages = 1 + v / env->me_psize;
-   v = npages * env->me_psize;*/
+   npages = 1 + v / env->me_psize;
+   v = npages * env->me_psize;
 
    rc = mdb_env_set_mapsize(env, v);
 

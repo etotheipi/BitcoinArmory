@@ -293,6 +293,10 @@ private:
 
    BlockDataViewer* bdvPtr_;
    ScrAddrFilter*   saf_;
+
+   //the global ledger may be modified concurently by the maintenance thread
+   //and user actions, so it needs a synchronization primitive.
+   std::mutex globalLedgerLock_;
 };
 
 #endif
