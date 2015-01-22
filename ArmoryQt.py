@@ -4020,15 +4020,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickReceiveCoins(self):
-      LOGDEBUG('Clicked "Receive Bitcoins Button"')
-      loading = LoadingDisp(self, self)
-      loading.show()
-      LOGDEBUG('Displaying loading bar')
+      loading = None
       QAPP.processEvents()
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
-         loading.reject()
          reply = QMessageBox.information(self, 'No Wallets!', \
             'You have not created any wallets which means there is nowhere to '
             'store you bitcoins!  Would you like to create a wallet now?', \
@@ -4037,6 +4033,8 @@ class ArmoryMainWindow(QMainWindow):
             self.startWalletWizard()
          return
       elif len(self.walletMap)==1:
+         loading = LoadingDisp(self, self)
+         loading.show()
          wltID = self.walletMap.keys()[0]
       else:
          wltSelect = self.walletsView.selectedIndexes()
@@ -4046,6 +4044,8 @@ class ArmoryMainWindow(QMainWindow):
          dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', '', \
                                        firstSelect=wltID, onlyMyWallets=False)
          if dlg.exec_():
+            loading = LoadingDisp(self, self)
+            loading.show()
             wltID = dlg.selectedID
          else:
             selectionMade = False
