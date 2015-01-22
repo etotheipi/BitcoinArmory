@@ -380,6 +380,11 @@ class BlockDataManager(object):
    def runBDM(self, fn):
       return self.inject.runCommand(fn)
    
+   #############################################################################
+   @ActLikeASingletonBDM
+   def forceSupernode(self):
+      self.dbType = Cpp.ARMORY_DB_SUPER 
+   
 ################################################################################
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
 # running 

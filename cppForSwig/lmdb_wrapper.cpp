@@ -2682,39 +2682,28 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       if (dup != getValidDupIDForHeight(height) && numHints > 1)
          continue;
 
-      if(!ldbIter.seekToExact(DB_PREFIX_TXDATA, hint.getSliceRef(0, 4)))
+      Tx thisTx = getFullTxCopy(hint);
+      if (!thisTx.isInitialized())
       {
          LOGERR << "Hinted tx does not exist in DB";
          LOGERR << "TxHash: " << hint.toHexStr().c_str();
          continue;
       }
 
-      StoredHeader sbh;
-      try
-      {
-         sbh.unserializeFullBlock(ldbIter.getValueReader(), true, false);
-      }
-      catch (BlockDeserializingException &)
-      {
-         LOGERR << "Failed to deserialized block: " << height << ", dup: " << dup;
-         return false;
-      }
+      if (thisTx.getThisHash() != txHash)
+         continue;
 
-      if (txIdx >= sbh.stxMap_.size())
+      if (stx != nullptr)
       {
-         LOGERR << "Block does not have " << txIdx << " transactions";
-         return false;
+         stx->createFromTx(thisTx);
+         stx->blockHeight_ = height;
+         stx->duplicateID_ = dup;
+         stx->txIndex_ = txIdx;
       }
-
-      if (sbh.stxMap_[txIdx].thisHash_ == txHash)
-      {
-         if (stx != nullptr)
-            *stx = sbh.stxMap_[txIdx];
-         else
-            DBkey->copyFrom(hint);
+      else
+         DBkey->copyFrom(hint);
             
-         return true;
-      }
+      return true;
    }
 
    return false;

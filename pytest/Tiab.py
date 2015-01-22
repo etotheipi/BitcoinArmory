@@ -147,6 +147,7 @@ class TiabTest(unittest.TestCase):
       newTheBDM()
       self.armoryHomeDir = os.path.join(self.tiab.tiabDirectory,'tiab','armory')
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
+      TheBDM.forceSupernode()
       TheBDM.setArmoryDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.goOnline(armoryDBDir=self.armoryHomeDir)
       
