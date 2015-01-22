@@ -2920,7 +2920,7 @@ def uriReservedToPercent(theStr):
    Convert from a regular string to a percent-encoded string
    """
    #Must replace '%' first, to avoid recursive (and incorrect) replacement!
-   reserved = "%!*'();:@&=+$,/?#[] "
+   reserved = "%!*'();:@&=+$,/?#[]\" "
 
    for c in reserved:
       theStr = theStr.replace(c, '%%%s' % int_to_hex(ord(c)))
