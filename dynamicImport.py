@@ -78,7 +78,7 @@ def signZipFile(zipFilePath, propertiesDictionary=None):
    dataToSignSBD = SecureBinaryData(dataToSign)
    # get the privKeySBD
    privKeySBD = None
-   signature = CryptoECDSA().SignData(dataToSignSBD, privKeySBD, True)
+   signature = CryptoECDSA().SignData(dataToSignSBD, privKeySBD, ENABLE_DETSIGN)
    # Write the Signature to signature.txt
    # rename the source Zip file to inner.zip
    # Create a new Zip File with the original name of the source zip file
