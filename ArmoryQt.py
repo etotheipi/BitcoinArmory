@@ -1874,6 +1874,8 @@ class ArmoryMainWindow(QMainWindow):
       # network
       factory = self.getSingletonConnectedNetworkingFactory()
       armoryClient = factory.proto
+      if armoryClient is None:
+         return
       alerts = factory.proto.alerts
       peerInfo = self.NetworkingFactory.proto.peerInfo
 
