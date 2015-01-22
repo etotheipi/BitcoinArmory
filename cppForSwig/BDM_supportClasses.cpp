@@ -59,7 +59,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 
 ///////////////////////////////////////////////////////////////////////////////
 bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec, 
-   shared_ptr<BtcWallet> wltPtr, int32_t doScan)
+   shared_ptr<BtcWallet> wltPtr, bool areNew)
 {
    /***
    Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
@@ -107,21 +107,10 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
 
       sca->setRoot(this);
         
-      if (doScan == 0)
-      {
-         //scan on top of existing history
-         for (const auto& scrAddr : saVec)
-         {
-            //TODO: determine how much of the SSH should be cleared if
-            //it has some existing history
-            lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
-            sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_);
-         }
-      }
-      else if (doScan == -1)
+      if (!areNew)
       {
          //mark existing history for wipe and rescan from block 0
-         sca->doScan_ = -1;
+         sca->doScan_ = true;
 
          for (const auto& scrAddr : saVec)
             sca->regScrAddrForScan(scrAddr, 0);
@@ -129,7 +118,7 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       else
       {
          //mark addresses as fresh to skip DB scan
-         sca->doScan_ = 0;
+         sca->doScan_ = false;
          for (const auto& scrAddr : saVec)
             sca->regScrAddrForScan(scrAddr, 0);
       }
@@ -158,7 +147,6 @@ void ScrAddrFilter::scanScrAddrThread()
    shared_ptr<BtcWallet> wltPtr = scrAddrDataForSideScan_.wltPtr_;
    BinaryData wltID = wltPtr->walletID();
          
-   uint32_t startBlock = scanFrom();
    uint32_t endBlock = currentTopBlockHeight();
 
    BinaryData topScannedBlockHash;
@@ -170,13 +158,7 @@ void ScrAddrFilter::scanScrAddrThread()
       topScannedBlockHash = sbh.thisHash_;
    }
 
-   if (doScan_ == 1)
-   {
-      //scan on top of existing history
-      topScannedBlockHash = 
-         applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
-   }
-   else if (doScan_ == 0)
+   if(doScan_ == false)
    {
       //new addresses, set their last seen block in the SSH entries
       setSSHLastScanned(currentTopBlockHeight() + 1);
@@ -192,7 +174,7 @@ void ScrAddrFilter::scanScrAddrThread()
 
       //scan from 0
       topScannedBlockHash =
-         applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
+         applyBlockRangeToDB(0, endBlock, wltPtr.get());
    }
 
    if (wltPtr->hasBdvPtr())
@@ -362,7 +344,7 @@ bool ScrAddrFilter::startSideScan(
       sca->scanThreadProgressCallback_ = progress;
       sca->scanScrAddrMapInNewThread();
 
-      if (sca->doScan_ != 0)
+      if (sca->doScan_ != false)
          return true;
    }
 

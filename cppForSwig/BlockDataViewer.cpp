@@ -178,7 +178,7 @@ bool BlockDataViewer::parseNewZeroConfTx()
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
-   BinaryData walletID, int32_t doScan)
+   BinaryData walletID, bool areNew)
 {
    if (saVec.empty())
       return false;
@@ -186,7 +186,7 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    for (auto& group : groups_)
    {
       if (group.hasID(walletID))
-         return group.registerAddresses(saVec, walletID, doScan);
+         return group.registerAddresses(saVec, walletID, areNew);
    }
 
    return false;
@@ -633,7 +633,7 @@ void WalletGroup::unregisterWallet(const string& IDstr)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
-   BinaryData walletID, int32_t doScan)
+   BinaryData walletID, bool areNew)
 {
    if (saVec.empty())
       return false;
@@ -644,7 +644,7 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
    if (wltIter == wallets_.end())
       return false;
 
-   return saf_->registerAddresses(saVec, wltIter->second, doScan);
+   return saf_->registerAddresses(saVec, wltIter->second, areNew);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
