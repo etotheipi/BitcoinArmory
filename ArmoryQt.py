@@ -6973,10 +6973,17 @@ def checkForAlreadyOpenError():
    aexe = os.path.basename(sys.argv[0])
    bexe = 'bitcoind.exe' if OS_WINDOWS else 'bitcoind'
    for proc in psutil.process_iter():
-      if aexe in proc.name:
+      if hasattr(proc, '_name'):
+         pname = str(proc._name)
+      elif hasattr(proc, 'name'):
+         pname = str(proc.name)
+      else:
+         raise 'psutil.process has no known name field!'
+         
+      if aexe in pname:
          LOGINFO('Found armory PID: %d', proc.pid)
          armoryExists.append(proc.pid)
-      if bexe in proc.name:
+      if bexe in pname:
          LOGINFO('Found bitcoind PID: %d', proc.pid)
          if ('testnet' in proc.name) == USE_TESTNET:
             bitcoindExists.append(proc.pid)

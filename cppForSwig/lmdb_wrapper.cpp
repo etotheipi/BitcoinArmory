@@ -2468,12 +2468,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
 
       //else pull the full block then grab the txhash
       { 
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-         StoredHeader sbh;
-         uint32_t height = DBUtils::hgtxToHeight(ldbKey6B.getSliceRef(0, 4));
-         uint32_t dupID = DBUtils::hgtxToDupID(ldbKey6B.getSliceRef(0, 4));
-         uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
-         
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);         
          auto thisTx = getFullTxCopy(ldbKey6B);
 
          return thisTx.getThisHash();
