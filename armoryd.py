@@ -1277,8 +1277,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             if not cppTx.isInitialized():
                LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
-            cppHead = TheBDM.bdv().getHeaderPtrForTx(cppTx)
-            if not cppHead.isInitialized():
+            try:
+               cppHead = TheBDM.bdv().getHeaderPtrForTx(cppTx)
+            except:
+               cppHead = None
+
+            if cppHead is None or not cppHead.isInitialized():
                LOGERROR('Header pointer is not available!')
                headHashBin = ''
                headHashHex = ''
@@ -1900,6 +1904,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:
          fee = wantfee
 
+      if totalSend + fee <= 0:
+         raise InvalidTransaction, "You are not spending any coins. Not a valid transaction"
+
       lbox = None
       if spendFromLboxID is None:
          spendBal = self.curWlt.getBalance('Spendable')
@@ -1911,8 +1918,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
          utxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
 
-      if spendBal < totalSend:
-         raise NotEnoughCoinsError, "You have %s satoshis which is not enough to send %s satoshis." % (spendBal, totalSend)
+      if spendBal < totalSend + fee:
+         raise NotEnoughCoinsError, "You have %s satoshis which is not enough to send %s satoshis with a fee of %s." % (spendBal, totalSend, fee)
 
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
