@@ -908,7 +908,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
    while (*lastBlock != nullptr)
       lastBlock = &(*lastBlock)->nextBlock_;
 
-   unique_lock<mutex> lock(blockData->mu_);
+   unique_lock<mutex> grabLock(blockData->grabLock_);
 
    while (1)
    {
@@ -969,8 +969,10 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
          //assign newly grabbed block to shared_ptr
          {
-            unique_lock<mutex> mu(blockData->grabLock_);
             *lastBlock = pb;
+            unique_lock<mutex> mu(blockData->scanLock_, defer_lock);
+            if (mu.try_lock())
+               blockData->scanCV_.notify_all();
          }
 
          //set shared_ptr to next empty block
@@ -984,7 +986,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          return;
 
       //sleep 10sec or until process thread signals block buffer is low
-      blockData->cv_.wait_for(lock, chrono::seconds(10));
+      blockData->grabCV_.wait_for(grabLock, chrono::seconds(10));
    }
 
    //TIMER_STOP("grabBlocksFromDB");
@@ -1010,6 +1012,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       grabThread.detach();
 
       uint64_t totalBlockDataProcessed=0;
+      unique_lock<mutex> scanLock(blockData->scanLock_);
 
       //wait until the shared_ptr has been assigned some data
       while (1)
@@ -1064,18 +1067,20 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
             signal it to wake. Otherwise the grab thread is already running 
             and is lagging behind the processing thread (very unlikely)
             ***/
-            unique_lock<mutex> lock(blockData->mu_, defer_lock);
+            unique_lock<mutex> lock(blockData->grabLock_, defer_lock);
             if(lock.try_lock())
-               blockData->cv_.notify_all();
+               blockData->grabCV_.notify_all();
          }
 
          //wait until next block is available
          while (1)
          {
-            unique_lock<mutex> mu(blockData->grabLock_);
             block = blockData->block_->nextBlock_;
             if (block != nullptr)
                break;
+            
+            //wait for grabThread signal
+            blockData->scanCV_.wait_for(scanLock, chrono::seconds(2));
          }
 
          //check if next block is valid

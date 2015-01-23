@@ -298,7 +298,7 @@ public:
    static const uint64_t UPDATE_BYTES_THRESH = 300;
    static const uint32_t UTXO_THRESHOLD = 5;
 #else
-   static const uint64_t UPDATE_BYTES_THRESH = 50 * 1024 * 1024;
+   static const uint64_t UPDATE_BYTES_THRESH = 300; // 50 * 1024 * 1024;
    static const uint32_t UTXO_THRESHOLD = 100000;
 #endif
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
@@ -327,8 +327,8 @@ private:
       
       ScrAddrFilter& scrAddrFilter_;
 
-      mutex mu_, grabLock_;
-      condition_variable cv_;
+      mutex scanLock_, grabLock_;
+      condition_variable scanCV_, grabCV_;
 
       ////
       LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf) :
