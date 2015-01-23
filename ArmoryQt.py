@@ -292,7 +292,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
-      #self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
       self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
@@ -912,48 +912,47 @@ class ArmoryMainWindow(QMainWindow):
 
       if currText.lower().startswith('custom filter'):
          self.walletsView.showColumn(0)
+         #self.walletsView.resizeColumnToContents(0)
       else:
          self.walletsView.hideColumn(0)
 
 
       # If "custom" is selected, do nothing...
-      if currIdx==4:
-         return
-
-      for i in range(len(self.walletVisibleList)):
-         self.walletVisibleList[i] = False
-         self.setWltSetting(self.walletIDList[i], 'LedgerShow', False)
-
-      # If a specific wallet is selected, just set that and you're done
-      if currIdx >= 4:
-         self.walletVisibleList[currIdx-7] = True
-         self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
-      else:
-         # Else we walk through the wallets and flag the particular ones
-         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
-                                                   for wid in self.walletIDList]
-
-         for i,winfo in enumerate(typelist):
-            wid,wtype = winfo[:]
-            if currIdx==0:
-               # My wallets
-               doShow = wtype in [WLTTYPES.Offline,WLTTYPES.Crypt,WLTTYPES.Plain]
-               self.walletVisibleList[i] = doShow
-               self.setWltSetting(wid, 'LedgerShow', doShow)
-            elif currIdx==1:
-               # Offline wallets
-               doShow = winfo[1] in [WLTTYPES.Offline]
-               self.walletVisibleList[i] = doShow
-               self.setWltSetting(wid, 'LedgerShow', doShow)
-            elif currIdx==2:
-               # Others' Wallets
-               doShow = winfo[1] in [WLTTYPES.WatchOnly]
-               self.walletVisibleList[i] = doShow
-               self.setWltSetting(wid, 'LedgerShow', doShow)
-            elif currIdx==3:
-               # All Wallets
-               self.walletVisibleList[i] = True
-               self.setWltSetting(wid, 'LedgerShow', True)
+      if currIdx != 4:
+         for i in range(len(self.walletVisibleList)):
+            self.walletVisibleList[i] = False
+            self.setWltSetting(self.walletIDList[i], 'LedgerShow', False)
+   
+         # If a specific wallet is selected, just set that and you're done
+         if currIdx >= 4:
+            self.walletVisibleList[currIdx-7] = True
+            self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
+         else:
+            # Else we walk through the wallets and flag the particular ones
+            typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
+                                                      for wid in self.walletIDList]
+   
+            for i,winfo in enumerate(typelist):
+               wid,wtype = winfo[:]
+               if currIdx==0:
+                  # My wallets
+                  doShow = wtype in [WLTTYPES.Offline,WLTTYPES.Crypt,WLTTYPES.Plain]
+                  self.walletVisibleList[i] = doShow
+                  self.setWltSetting(wid, 'LedgerShow', doShow)
+               elif currIdx==1:
+                  # Offline wallets
+                  doShow = winfo[1] in [WLTTYPES.Offline]
+                  self.walletVisibleList[i] = doShow
+                  self.setWltSetting(wid, 'LedgerShow', doShow)
+               elif currIdx==2:
+                  # Others' Wallets
+                  doShow = winfo[1] in [WLTTYPES.WatchOnly]
+                  self.walletVisibleList[i] = doShow
+                  self.setWltSetting(wid, 'LedgerShow', doShow)
+               elif currIdx==3:
+                  # All Wallets
+                  self.walletVisibleList[i] = True
+                  self.setWltSetting(wid, 'LedgerShow', True)
       
       self.mainLedgerCurrentPage = 1
       self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
@@ -3350,12 +3349,13 @@ class ArmoryMainWindow(QMainWindow):
       self.setWltSetting(wltID, 'LedgerShow', not currEye)
       
       # Set it to "Custom Filter"
-      self.comboWltSelect.setCurrentIndex(4)
+      #self.comboWltSelect.setCurrentIndex(4)
       
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         self.createCombinedLedger()
-         self.ledgerModel.reset()
-         self.walletModel.reset()
+         #self.createCombinedLedger()
+         #self.ledgerModel.reset()
+         #self.walletModel.reset()
+         self.changeWltFilter()
 
 
    #############################################################################

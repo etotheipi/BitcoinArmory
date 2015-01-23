@@ -1023,7 +1023,9 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 
       if (block == blockData->interruptBlock_)
       {
-         LOGERR << "Grab thread halted unexpectedly";
+         // got rid of this LOGERR cause it jumbles up the one from the
+         // grab thread
+         //LOGERR << "Grab thread halted unexpectedly";
          return lastScannedBlockHash;
       }
 
@@ -1080,7 +1082,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          //check if next block is valid
          if (block == blockData->interruptBlock_)
          {
-            LOGERR << "Grab thread halted unexpectedly";
+            //LOGERR << "Grab thread halted unexpectedly";
             return lastScannedBlockHash;
          }
 

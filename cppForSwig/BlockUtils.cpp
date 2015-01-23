@@ -1254,8 +1254,14 @@ void BlockDataManager_LevelDB::loadDiskState(
       TIMER_START("applyBlockRangeToDB");
       if (config_.armoryDbType == ARMORY_DB_SUPER)
       {
-         applyBlockRangeToDB(progPhase, scanFrom,
-            blockchain_.top().getBlockHeight(), *scrAddrData_);
+         uint32_t topBlock = blockchain_.top().getBlockHeight();
+
+         //no point rescanning the last known block
+         if (scanFrom < topBlock)
+         {
+            applyBlockRangeToDB(progPhase, scanFrom,
+               topBlock, *scrAddrData_);
+         }
       }
       else
       {
