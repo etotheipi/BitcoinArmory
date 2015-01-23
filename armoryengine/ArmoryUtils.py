@@ -62,7 +62,8 @@ except:
    BTCARMORY_BUILD = None
 
 DEFAULT = 'DEFAULT'
-
+LEVELDB_BLKDATA = 'leveldb_blkdata'
+LEVELDB_HEADERS = 'leveldb_headers'
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 92, 99, 3)  # (Major, Minor, Bugfix, AutoIncrement) 

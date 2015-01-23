@@ -884,6 +884,17 @@ class ArmoryMainWindow(QMainWindow):
             the Bitcoin director specified in the command line, could
             not be found."""), QMessageBox.Ok)
          
+      if not self.getSettingOrSetDefault('DNAA_DeleteLevelDB', False) and \
+            os.path.exists(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA)):
+               reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, 'Delete Old DB Directory', \
+                  'Armory detected an older version Database. '
+                  'Do you want to delete the old database? Choose yes if '
+                  'do not think that you will revert to an older version of Armory.', 'Do not ask this question again')
+               if reply[0]==True:
+                  os.rmdir(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA))
+                  os.rmdir(os.path.join(ARMORY_DB_DIR, LEVELDB_HEADERS))
+               if reply[1]==True:
+                  self.writeSetting('DNAA_DeleteLevelDB', True)   
    ####################################################
    def getWatchingOnlyWallets(self):
       result = []
