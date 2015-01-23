@@ -1057,7 +1057,7 @@ void BtcWallet::mapPages()
    ledgerAllAddr_ = &histPages_.getPageLedgerMap(getTxio, computeLedgers, 0);
 
    TIMER_STOP("mapPages");
-   double mapPagesTimer = TIMER_READ_SEC("mapPages");
+   //double mapPagesTimer = TIMER_READ_SEC("mapPages");
    //LOGINFO << "mapPages done in " << mapPagesTimer << " secs";
 }
 

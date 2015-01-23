@@ -7,7 +7,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>ArmoryQt.py --dbdir="D:\ArmoryDB-Fullnode" --satoshi-datadir="C:\Bitcoin" --interport="25617"</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ArmoryQt.py --satoshi-datadir="C:\Bitcoin" --dbdir="C:\ArmoryDB-Supernode" --supernode --datadir="D:\bad_wallets"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>../../</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
