@@ -891,8 +891,8 @@ class ArmoryMainWindow(QMainWindow):
                   'Do you want to delete the old database? Choose yes if '
                   'do not think that you will revert to an older version of Armory.', 'Do not ask this question again')
                if reply[0]==True:
-                  os.rmdir(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA))
-                  os.rmdir(os.path.join(ARMORY_DB_DIR, LEVELDB_HEADERS))
+                  shutil.rmtree(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA))
+                  shutil.rmtree(os.path.join(ARMORY_DB_DIR, LEVELDB_HEADERS))
                if reply[1]==True:
                   self.writeSetting('DNAA_DeleteLevelDB', True)   
    ####################################################
