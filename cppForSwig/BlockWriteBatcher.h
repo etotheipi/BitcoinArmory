@@ -351,7 +351,7 @@ private:
 
    // We have accumulated enough data, actually write it to the db
    thread commit(bool force = false);
-   void writeToDB(void);
+   static void writeToDB(shared_ptr<BlockWriteBatcher>);
    
    void prepareSshToModify(const ScrAddrFilter& sasd);
    BinaryData applyBlockToDB(shared_ptr<PulledBlock> pb, ScrAddrFilter& scrAddrData);

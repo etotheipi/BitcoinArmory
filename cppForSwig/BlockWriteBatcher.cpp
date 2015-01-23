@@ -749,9 +749,6 @@ thread BlockWriteBatcher::commit(bool finalCommit)
       
    dbUpdateSize_ = 0;
 
-   auto write = [](shared_ptr<BlockWriteBatcher> obj)->void
-   { obj->writeToDB(); };
-
    l.lock();
    subSshMapToWrite_ = std::move(subSshMap_);
    commitingObject_ = bwbWriteObj;
@@ -759,7 +756,7 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    if (isCommiting)
       resetTransactions();
 
-   thread committhread(write, bwbWriteObj);
+   thread committhread(writeToDB, bwbWriteObj);
 
    return committhread;
 }
@@ -847,30 +844,31 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::writeToDB(void)
+void BlockWriteBatcher::writeToDB(shared_ptr<BlockWriteBatcher> bwb)
 {
-   unique_lock<mutex> lock(parent_->writeLock_);
+   unique_lock<mutex> lock(bwb->parent_->writeLock_);
+   LMDBBlockDatabase *db = bwb->iface_;
 
-   dataToCommit_.serializeData(*this, parent_->subSshMapToWrite_);
+   bwb->dataToCommit_.serializeData(*bwb, bwb->parent_->subSshMapToWrite_);
 
    {
-      dataToCommit_.putSSH(iface_);
-      dataToCommit_.putSTX(iface_);
-      dataToCommit_.putSBH(iface_);
-      dataToCommit_.deleteEmptyKeys(iface_);
+      bwb->dataToCommit_.putSSH(db);
+      bwb->dataToCommit_.putSTX(db);
+      bwb->dataToCommit_.putSBH(db);
+      bwb->dataToCommit_.deleteEmptyKeys(db);
 
 
-      if (mostRecentBlockApplied_ != 0 && updateSDBI_ == true)
-         dataToCommit_.updateSDBI(iface_);
+      if (bwb->mostRecentBlockApplied_ != 0 && bwb->updateSDBI_ == true)
+         bwb->dataToCommit_.updateSDBI(db);
 
       //final commit
-      parent_->commitingObject_.reset();
+      bwb->parent_->commitingObject_.reset();
    }
 
-   BlockWriteBatcher* bwbParent = parent_;
+   BlockWriteBatcher* bwbParent = bwb->parent_;
 
    //signal the readonly transaction to reset
-   bwbParent->resetTxn_ = deleteId_;
+   bwbParent->resetTxn_ = bwb->deleteId_;
 
    //signal DB is ready for new commit
    lock.unlock();
@@ -1173,7 +1171,7 @@ map<BinaryData, StoredScriptHistory>& BlockWriteBatcher::getSSHMap(
 {
    {
       shared_ptr<BlockWriteBatcher> commitingObj = parent_->commitingObject_;
-      if (commitingObj)
+      if (commitingObj != nullptr)
       {
          if (&commitingObj->dataToCommit_ != &dataToCommit_)
          {
@@ -1186,8 +1184,9 @@ map<BinaryData, StoredScriptHistory>& BlockWriteBatcher::getSSHMap(
       else parent_->resetTransactions();
    }
 
-   if (parent_->sshToModify_ && parent_->sshToModify_->size() != 0)
-      return *parent_->sshToModify_;
+   auto ssh = parent_->sshToModify_;
+   if (ssh != nullptr && ssh->size() != 0)
+      return *ssh;
 
    if (!sshToModify_)
       sshToModify_ = shared_ptr<map<BinaryData, StoredScriptHistory>>(
