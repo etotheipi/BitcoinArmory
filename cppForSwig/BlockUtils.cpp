@@ -350,7 +350,6 @@ private:
       MapAndSize mas;
 
       #ifdef WIN32
-         LARGE_INTEGER li;
          int fd = _open(path.c_str(), _O_RDONLY | _O_BINARY);
          if (fd == -1)
             throw std::runtime_error("failed to open file");

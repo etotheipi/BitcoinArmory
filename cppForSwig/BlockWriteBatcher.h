@@ -327,7 +327,7 @@ private:
       
       ScrAddrFilter& scrAddrFilter_;
 
-      mutex mu_;
+      mutex mu_, grabLock_;
       condition_variable cv_;
 
       ////
@@ -372,13 +372,15 @@ private:
    void resetTransactions(void);
    void clearTransactions(void);
    
-   void grabBlocksFromDB(shared_ptr<LoadedBlockData>);
+   static void grabBlocksFromDB(shared_ptr<LoadedBlockData>, 
+      LMDBBlockDatabase* db);
    BinaryData applyBlocksToDB(ProgressFilter &progress,
       shared_ptr<LoadedBlockData> blockData);
    void clearSubSshMap(uint32_t id);
 
    bool pullBlockFromDB(PulledBlock& pb, uint32_t height, uint8_t dup);
-   bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter);
+   static bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
+      LMDBBlockDatabase* db);
 
    StoredTxOut* makeSureSTXOInMap(
       LMDBBlockDatabase* iface,
@@ -475,8 +477,6 @@ private:
    //uint32_t utxoFromHeight_ = 0;
 
    DB_SELECT historyDB_;
-
-   mutex grabLock_;
 };
 
 

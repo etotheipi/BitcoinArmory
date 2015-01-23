@@ -642,6 +642,7 @@ public:
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
    bool isReady(void) { return isDBReady_(); }
+   ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
 
 private:
    string               baseDir_;

@@ -892,7 +892,8 @@ void BlockWriteBatcher::clearTransactions(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
+void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
+   LMDBBlockDatabase* db)
 {
    /***
    Grab blocks from the DB, put each block in the current block's nextBlock_
@@ -913,10 +914,10 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
    {
       //create read only db txn within main loop, so that it is rewed
       //after each sleep period
-      LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      LDBIter ldbIter = iface_->getIterator(BLKDATA);
+      LMDBEnv::Transaction tx(db->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+      LDBIter ldbIter = db->getIterator(BLKDATA);
 
-      uint8_t dupID = iface_->getValidDupIDForHeight(hgt);
+      uint8_t dupID = db->getValidDupIDForHeight(hgt);
       if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
       {
          *lastBlock = blockData->interruptBlock_;
@@ -931,7 +932,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
          if (hgt > blockData->endBlock_)
             return;
 
-         uint8_t dupID = iface_->getValidDupIDForHeight(hgt);
+         uint8_t dupID = db->getValidDupIDForHeight(hgt);
          if (dupID == UINT8_MAX)
          {
             *lastBlock = blockData->interruptBlock_;
@@ -955,7 +956,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
          }
 
          shared_ptr<PulledBlock> pb(new PulledBlock());
-         if (!pullBlockAtIter(*pb, ldbIter))
+         if (!pullBlockAtIter(*pb, ldbIter, db))
          {
             *lastBlock = blockData->interruptBlock_;
             LOGERR << "No block in DB at height " << hgt;
@@ -968,7 +969,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData)
 
          //assign newly grabbed block to shared_ptr
          {
-            unique_lock<mutex> mu(grabLock_);
+            unique_lock<mutex> mu(blockData->grabLock_);
             *lastBlock = pb;
          }
 
@@ -1005,9 +1006,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
    try
    {
       shared_ptr<PulledBlock> block;
-      auto grabLambda = [&, this](void)->void
-      { this->grabBlocksFromDB(blockData); };
-      thread grabThread = thread(grabLambda);
+      thread grabThread(grabBlocksFromDB, blockData, iface_);
       grabThread.detach();
 
       uint64_t totalBlockDataProcessed=0;
@@ -1015,7 +1014,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       //wait until the shared_ptr has been assigned some data
       while (1)
       {
-         unique_lock<mutex> mu(grabLock_);
+         unique_lock<mutex> mu(blockData->grabLock_);
          block = blockData->block_;
          if (block != nullptr)
             break;
@@ -1073,7 +1072,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          //wait until next block is available
          while (1)
          {
-            unique_lock<mutex> mu(grabLock_);
+            unique_lock<mutex> mu(blockData->grabLock_);
             block = blockData->block_->nextBlock_;
             if (block != nullptr)
                break;
@@ -1133,13 +1132,14 @@ BinaryData BlockWriteBatcher::scanBlocks(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter)
+bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
+   LMDBBlockDatabase* db)
 {
 
    // Now we read the whole block, not just the header
-   if (iface_->readStoredBlockAtIter(iter, pb))
+   if (db->readStoredBlockAtIter(iter, pb))
    {
-      pb.preprocessTx(config_.armoryDbType);
+      pb.preprocessTx(db->armoryDbType());
       return true;
    }
 
@@ -1159,7 +1159,7 @@ bool BlockWriteBatcher::pullBlockFromDB(
       return false;
    }
 
-   return pullBlockAtIter(pb, ldbIter);
+   return pullBlockAtIter(pb, ldbIter, iface_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
