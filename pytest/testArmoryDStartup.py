@@ -1,7 +1,6 @@
 import sys
 sys.path.append('..')
 from pytest.Tiab import *
-from twisted.trial._synctest import SkipTest
 from armoryengine.BDM import BDM_BLOCKCHAIN_READY
 import json
 import time

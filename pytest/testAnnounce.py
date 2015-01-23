@@ -1,5 +1,5 @@
 import sys
-from twisted.trial._synctest import SkipTest
+from unittest.case import SkipTest
 sys.path.append('..')
 from pytest.Tiab import TiabTest
 from armoryengine.ALL import *

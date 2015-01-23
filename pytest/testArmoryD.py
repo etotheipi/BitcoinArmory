@@ -4,7 +4,7 @@ Created on Oct 8, 2013
 @author: Andy
 '''
 import sys
-from twisted.trial._synctest import SkipTest
+from unittest.case import SkipTest
 sys.path.append('..')
 import os
 import time
