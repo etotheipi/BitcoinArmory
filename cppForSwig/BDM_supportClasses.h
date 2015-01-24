@@ -90,11 +90,21 @@ public:
          startScanFrom_(height),
          wltPtr_(wltPtr) {}
    };
+   
+   struct hashBinData
+   {
+      std::size_t operator()(const BinaryData& bd) const
+      {
+         return *((std::size_t*)bd.getPtr());
+      }
+   };
 
 private:
    //map of scrAddr and their respective last scanned block
    //this is used only for the inital load currently
-   map<BinaryData, uint32_t>   scrAddrMap_;
+
+
+   unordered_map<BinaryData, uint32_t, hashBinData>   scrAddrMap_;
 
    LMDBBlockDatabase *const       lmdb_;
 
@@ -140,7 +150,7 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const map<BinaryData, uint32_t>& getScrAddrMap(void) const
+   const unordered_map<BinaryData, uint32_t, hashBinData>& getScrAddrMap(void) const
    { return scrAddrMap_; }
 
    size_t numScrAddr(void) const

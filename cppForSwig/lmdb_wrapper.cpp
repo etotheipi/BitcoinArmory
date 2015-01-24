@@ -2279,9 +2279,6 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
    else
    {
       //Fullnode, pull full block, deserialize then return Tx
-      StoredHeader sbh;
-      uint32_t height = DBUtils::hgtxToHeight(ldbKey6B.getSliceRef(0, 4));
-      uint8_t dupID = DBUtils::hgtxToDupID(ldbKey6B.getSliceRef(0, 4));
       uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
       
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);

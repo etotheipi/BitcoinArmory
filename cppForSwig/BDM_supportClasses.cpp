@@ -267,7 +267,8 @@ void ScrAddrFilter::checkForMerge()
 
       //create SAF to scan the addresses to merge
       std::shared_ptr<ScrAddrFilter> sca(copy());
-      sca->scrAddrMap_ = scrAddrDataForSideScan_.scrAddrsToMerge_;
+      for (auto& scraddr : scrAddrDataForSideScan_.scrAddrsToMerge_)
+         sca->scrAddrMap_.insert(scraddr);
 
       if (config().armoryDbType != ARMORY_DB_SUPER)
       {
