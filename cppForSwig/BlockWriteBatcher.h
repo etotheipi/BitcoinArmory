@@ -327,7 +327,7 @@ private:
       
       ScrAddrFilter& scrAddrFilter_;
 
-      mutex scanLock_, grabLock_;
+      mutex scanLock_, grabLock_, assignLock_;
       condition_variable scanCV_, grabCV_;
 
       ////

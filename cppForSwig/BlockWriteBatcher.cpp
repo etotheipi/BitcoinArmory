@@ -903,9 +903,6 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
    //find last block
    shared_ptr<PulledBlock> *lastBlock = &blockData->block_;
-   while (*lastBlock != nullptr)
-      lastBlock = &(*lastBlock)->nextBlock_;
-
    unique_lock<mutex> grabLock(blockData->grabLock_);
 
    while (1)
@@ -918,6 +915,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
       uint8_t dupID = db->getValidDupIDForHeight(hgt);
       if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
       {
+         unique_lock<mutex> assignLock(blockData->assignLock_);
          *lastBlock = blockData->interruptBlock_;
          LOGERR << "Header heigh&dup is not in BLKDATA DB";
          LOGERR << "(" << hgt << ", " << dupID << ")";
@@ -933,6 +931,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          uint8_t dupID = db->getValidDupIDForHeight(hgt);
          if (dupID == UINT8_MAX)
          {
+            unique_lock<mutex> assignLock(blockData->assignLock_);
             *lastBlock = blockData->interruptBlock_;
             LOGERR << "No block in DB at height " << hgt;
             return;
@@ -946,6 +945,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
             //in case the iterator is not at the right key, set it
             if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
             {
+               unique_lock<mutex> assignLock(blockData->assignLock_);
                *lastBlock = blockData->interruptBlock_;
                LOGERR << "Header heigh&dup is not in BLKDATA DB";
                LOGERR << "(" << hgt << ", " << dupID << ")";
@@ -956,6 +956,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          shared_ptr<PulledBlock> pb(new PulledBlock());
          if (!pullBlockAtIter(*pb, ldbIter, db))
          {
+            unique_lock<mutex> assignLock(blockData->assignLock_);
             *lastBlock = blockData->interruptBlock_;
             LOGERR << "No block in DB at height " << hgt;
             return;
@@ -967,7 +968,10 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
          //assign newly grabbed block to shared_ptr
          {
-            atomic_store(lastBlock, pb);
+            unique_lock<mutex> assignLock(blockData->assignLock_);
+            *lastBlock = pb;
+
+            //let's try to wake up the scan thread
             unique_lock<mutex> mu(blockData->scanLock_, defer_lock);
             if (mu.try_lock())
                blockData->scanCV_.notify_all();
@@ -1015,8 +1019,8 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       //wait until the shared_ptr has been assigned some data
       while (1)
       {
-         unique_lock<mutex> mu(blockData->grabLock_);
-         block = atomic_load(&blockData->block_);
+         unique_lock<mutex> assignLock(blockData->assignLock_);
+         block = blockData->block_;
          if (block != nullptr)
             break;
       }
@@ -1073,7 +1077,11 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          //wait until next block is available
          while (1)
          {
-            block = atomic_load(&blockData->block_->nextBlock_);
+            {
+               unique_lock<mutex> assignLock(blockData->assignLock_);
+               block = blockData->block_->nextBlock_;
+            }
+
             if (block != nullptr)
                break;
             
