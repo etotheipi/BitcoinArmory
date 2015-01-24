@@ -967,7 +967,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
          //assign newly grabbed block to shared_ptr
          {
-            *lastBlock = pb;
+            atomic_store(lastBlock, pb);
             unique_lock<mutex> mu(blockData->scanLock_, defer_lock);
             if (mu.try_lock())
                blockData->scanCV_.notify_all();
@@ -1016,7 +1016,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       while (1)
       {
          unique_lock<mutex> mu(blockData->grabLock_);
-         block = blockData->block_;
+         block = atomic_load(&blockData->block_);
          if (block != nullptr)
             break;
       }
@@ -1073,7 +1073,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          //wait until next block is available
          while (1)
          {
-            block = blockData->block_->nextBlock_;
+            block = atomic_load(&blockData->block_->nextBlock_);
             if (block != nullptr)
                break;
             

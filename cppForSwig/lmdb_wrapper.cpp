@@ -2924,9 +2924,6 @@ bool LMDBBlockDatabase::getStoredTxOut(
 
       //again, in Fullnode, need to pull the entire block, unserialize then
       //return the one stxo
-      uint32_t height = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
-      uint8_t dupID = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
-
       StoredTx stx;
       Tx thisTx = getFullTxCopy(DBkey.getSliceRef(0, 6));
       stx.createFromTx(thisTx, false, true);
