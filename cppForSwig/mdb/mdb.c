@@ -8438,11 +8438,11 @@ mdb_put(MDB_txn *txn, MDB_dbi dbi,
 	if ((flags & (MDB_NOOVERWRITE|MDB_NODUPDATA|MDB_RESERVE|MDB_APPEND|MDB_APPENDDUP)) != flags)
 		return EINVAL;
 
-	mdb_cursor_init(&mc, txn, dbi, &mx);
+	/*mdb_cursor_init(&mc, txn, dbi, &mx);
 	rt = mdb_cursor_put(&mc, key, data, flags);
 
    if (rt != MDB_MAP_FULL)
-      return rt;
+      return rt;*/
 
    while (1)
    {
