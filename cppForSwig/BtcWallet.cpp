@@ -1150,7 +1150,7 @@ void BtcWallet::forceScan(void)
    for (const auto& sa : scrAddrMap_)
       saVec.push_back(sa.first);
 
-   bdvPtr_->registerAddresses(saVec, walletID_, true);
+   bdvPtr_->registerAddresses(saVec, walletID_, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
