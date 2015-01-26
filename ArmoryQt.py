@@ -292,7 +292,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
-      #self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
       self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
@@ -827,8 +827,8 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
-      if DO_WALLET_CHECK: 
-         self.checkWallets()
+#      if DO_WALLET_CHECK: 
+#         self.checkWallets()
 
       self.blkReceived = RightNow()
 
@@ -957,14 +957,17 @@ class ArmoryMainWindow(QMainWindow):
       self.mainLedgerCurrentPage = 1
       self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
       
-      wltIDList = []
+      self.wltIDList = []
       for i,vis in enumerate(self.walletVisibleList):
          if vis:
             wltid = self.walletIDList[i]
             if self.walletMap[wltid].isEnabled:
-               wltIDList.append(wltid)
+               self.wltIDList.append(wltid)
 
-      TheBDM.bdv().updateWalletsLedgerFilter(wltIDList)      
+      try:
+         TheBDM.bdv().updateWalletsLedgerFilter(self.wltIDList)      
+      except:
+         pass
 
 
    ############################################################################
@@ -2710,6 +2713,7 @@ class ArmoryMainWindow(QMainWindow):
       # I need some linear lists for accessing by index
       self.walletIDList = []
       self.walletVisibleList = []
+      self.wltIDList = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
@@ -3121,18 +3125,9 @@ class ArmoryMainWindow(QMainWindow):
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0
-      
-      
-      wltIDDict = {}  
-      for le in self.combinedLedger:
-         wltID =  str(le.getWalletID())
-         if len(wltID) > 0:
-            wltIDDict[wltID] = 1
-         
-      wltIDList = list(wltIDDict.keys())
 
       if bdmState == BDM_BLOCKCHAIN_READY:
-         for wltID in wltIDList:
+         for wltID in self.wltIDList:
             wlt = self.walletMap[wltID]
             totalFunds += wlt.getBalance('Total')
             spendFunds += wlt.getBalance('Spendable')
@@ -3348,13 +3343,8 @@ class ArmoryMainWindow(QMainWindow):
       self.walletVisibleList[row] = not currEye 
       self.setWltSetting(wltID, 'LedgerShow', not currEye)
       
-      # Set it to "Custom Filter"
-      #self.comboWltSelect.setCurrentIndex(4)
-      
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         #self.createCombinedLedger()
-         #self.ledgerModel.reset()
-         #self.walletModel.reset()
+
          self.changeWltFilter()
 
 

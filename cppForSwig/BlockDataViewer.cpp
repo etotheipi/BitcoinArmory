@@ -75,12 +75,20 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    for (auto& group : groups_)
       group.merge();
 
+   vector<uint32_t> startBlocks;
+   for (auto& group : groups_)
+      startBlocks.push_back(startBlock);
+
+
+   auto sbIter = startBlocks.begin();
    if (!initialized_)
    {
       //out of date history, page all wallets' history
-      startBlock = UINT32_MAX;
       for (auto& group : groups_)
-         startBlock = min(startBlock, group.pageHistory());
+      {
+         *sbIter = group.pageHistory();
+         sbIter++;
+      }
 
       initialized_ = true;
    }
@@ -92,16 +100,19 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
          [this](const BinaryData& sa)->bool 
          { return saf_->hasScrAddress(sa); });
    }
-
    const bool reorg = (lastScanned_ > startBlock);
 
+   sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
-      group.scanWallets(startBlock, endBlock, reorg,
-         invalidatedZCKeys);
 
-      group.updateGlobalLedgerFirstPage(startBlock, endBlock,
+      group.scanWallets(*sbIter, endBlock, 
+         reorg, invalidatedZCKeys);
+
+      group.updateGlobalLedgerFirstPage(*sbIter, endBlock,
          forceRefresh);
+
+      sbIter++;
    }
 
    zeroConfCont_.resetNewZC();
