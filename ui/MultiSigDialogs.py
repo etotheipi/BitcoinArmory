@@ -802,6 +802,7 @@ class DlgLockboxManager(ArmoryDialog):
       if len(ledggeom) > 0:
          restoreTableView(self.ledgerView, ledggeom)
 
+      self.changeLBFilter()
 
    #############################################################################
    def createLockboxDashboardTab(self):
@@ -1557,6 +1558,11 @@ class DlgLockboxManager(ArmoryDialog):
       if lbID:
          return self.main.getLockboxByID(lbID)
       return None
+   
+   #############################################################################
+   def resetLBSelection(self):
+      self.lboxView.clearSelection()
+      self.singleClickLockbox(None, [])
 
    #############################################################################
    def getDisplayRichText(self, lb, tr=None, dateFmt=None):
@@ -1839,6 +1845,15 @@ class DlgLockboxManager(ArmoryDialog):
       self.main.lbDialogModel = None      
       super(DlgLockboxManager, self).reject(*args)
       
+   #############################################################################
+   def changeLBFilter(self):
+      lbIDList = []
+      for lb in self.main.allLockboxes:
+         if lb.isEnabled:
+            lbIDList.append(lb.uniqueIDB58)
+            
+      self.main.currentLBPage = 0      
+      TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
 
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):

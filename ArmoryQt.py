@@ -352,6 +352,7 @@ class ArmoryMainWindow(QMainWindow):
       
 
       # Another table and model, for lockboxes
+      self.currentLBPage = 0
       self.lockboxLedgTable = []
       self.lockboxLedgModel = LedgerDispModelSimple(self.lockboxLedgTable, 
                                                     self, self, isLboxModel=True)
@@ -562,6 +563,7 @@ class ArmoryMainWindow(QMainWindow):
       #      self.loadArmoryModules()   
       ##########################################################################
 
+      self.lbDialog = None
 
       btnSendBtc   = QPushButton(tr("Send Bitcoins"))
       btnRecvBtc   = QPushButton(tr("Receive Bitcoins"))
@@ -832,8 +834,8 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
-#      if DO_WALLET_CHECK: 
-#         self.checkWallets()
+      if DO_WALLET_CHECK: 
+         self.checkWallets()
 
       self.blkReceived = RightNow()
 
@@ -3018,9 +3020,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def browseLockboxes(self):
-      DlgLockboxManager(self,self).exec_()
-
-
+      self.lbDialog = DlgLockboxManager(self, self)
+      self.lbDialog.exec_()
+      self.lblDialog = None
 
    #############################################################################
    def getContribStr(self, binScript, contribID='', contribLabel=''):
@@ -3251,7 +3253,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # In expert mode, we're updating the lockbox info, too
       try:
-         lockboxTable = TheBDM.bdv().getLockboxesHistoryPage(0)
+         lockboxTable = TheBDM.bdv().getLockboxesHistoryPage(self.currentLBPage)
 
 
          self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
@@ -6272,15 +6274,17 @@ class ArmoryMainWindow(QMainWindow):
                else:
                   lbID = self.lockboxIDMap[wltID]                
                   self.allLockboxes[lbID].isEnabled = True
+                  
                   if self.lbDialogModel != None:
                      self.lbDialogModel.reset()
+                     
+                  if self.lbDialog != None:
+                     self.lbDialog.changeLBFilter()   
                      
                if self.walletSideScanProgress.has_key(wltID):
                   del self.walletSideScanProgress[wltID]
             
   
-
-         
       elif action == 'progress':
          #Received progress data for a wallet side scan
          wltID = args[0]
@@ -6316,9 +6320,12 @@ class ArmoryMainWindow(QMainWindow):
             else:
                lbID = self.lockboxIDMap[wltID]                
                self.allLockboxes[lbID].isEnabled = False
-               #self.allLockboxes[lbID].disableLockBoxUI()
                if self.lbDialogModel != None:
-                  self.lbDialogModel.reset()       
+                  self.lbDialogModel.reset()   
+                  
+               if self.lbDialog != None:
+                  self.lbDialog.resetLBSelection()   
+                  self.lbDialog.changeLBFilter()     
                  
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
