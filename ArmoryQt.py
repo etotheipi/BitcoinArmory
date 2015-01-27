@@ -58,7 +58,7 @@ from ui.Wizards import WalletWizard, TxWizard
 from ui.toolsDialogs import MessageSigningVerificationDialog
 from dynamicImport import MODULE_PATH_KEY, ZIP_EXTENSION, getModuleList, importModule,\
    verifyZipSignature, MODULE_ZIP_STATUS, INNER_ZIP_FILENAME,\
-   MODULE_ZIP_STATUS_KEY
+   MODULE_ZIP_STATUS_KEY, getModuleListNoZip, dynamicImportNoZip
 import tempfile
 
 
@@ -553,8 +553,13 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabAnnounce,  tr('Announcements'))
 
       ##########################################################################
-      if USE_TESTNET and not CLI_OPTIONS.disableModules:
-         self.loadArmoryModules()   
+      if not CLI_OPTIONS.disableModules:
+         if USE_TESTNET:
+            self.loadArmoryModulesNoZip()
+      # Armory Modules are diabled on main net. If enabled it uses zip files to 
+      # contain the modules     
+      #   else:
+      #      self.loadArmoryModules()   
       ##########################################################################
 
 
@@ -969,7 +974,76 @@ class ArmoryMainWindow(QMainWindow):
       except:
          pass
 
+   ############################################################################
+   def loadArmoryModulesNoZip(self):
+      """
+      This method checks for any .py files in the exec directory
+      """ 
+      moduleDir = os.path.join(GetExecDir(), MODULES_ZIP_DIR_NAME)
+      if not moduleDir or not os.path.exists(moduleDir):
+         return
 
+      LOGWARN('Attempting to load modules from: %s' % MODULES_ZIP_DIR_NAME)
+
+      # This call does not eval any code in the modules.  It simply
+      # loads the python files as raw chunks of text so we can
+      # check hashes and signatures
+      modMap = getModuleListNoZip(moduleDir)
+      for moduleName,infoMap in modMap.iteritems():
+         module = dynamicImportNoZip(moduleDir, moduleName, globals())
+         plugObj = module.PluginObject(self)
+
+         if not hasattr(plugObj,'getTabToDisplay') or \
+            not hasattr(plugObj,'tabName'):
+            LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
+            QMessageBox.critmoduleName(self, tr("Bad Module"), tr("""
+               The module you attempted to load (%s) is malformed.  It is 
+               missing attributes that are needed for Armory to load it.  
+               It will be skipped.""") % moduleName, QMessageBox.Ok)
+            continue
+               
+         verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
+         verArmoryInt = getVersionInt(BTCARMORY_VERSION)
+         if verArmoryInt >verPluginInt:
+            reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
+               Module "%s" is only specified to work up to Armory version %s.
+               You are using Armory version %s.  Please remove the module if
+               you experience any problems with it, or contact the maintainer
+               for a new version.
+               <br><br>
+               Do you want to continue loading the module?"""), 
+               QMessageBox.Yes | QMessageBox.No)
+
+            if not reply==QMessageBox.Yes:
+               continue
+
+         # All plugins should have "tabToDisplay" and "tabName" attributes
+         LOGWARN('Adding module to tab list: "' + plugObj.tabName + '"')
+         self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
+
+         # Also inject any extra methods that will be 
+         injectFuncList = [ \
+               ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
+               ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
+               ['injectGoOnlineFunc',        'extraGoOnlineFunctions'], 
+               ['injectNewTxFunc',           'extraNewTxFunctions'], 
+               ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
+               ['injectShutdownFunc',        'extraShutdownFunctions'] ]
+
+         # Add any methods
+         for plugFuncName,funcListName in injectFuncList:
+            if not hasattr(plugObj, plugFuncName):
+               continue
+      
+            if not hasattr(self, funcListName):
+               LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
+               continue
+
+            LOGINFO('Found module function: %s' % plugFuncName)
+            funcList = getattr(self, funcListName)
+            plugFunc = getattr(plugObj, plugFuncName)
+            funcList.append(plugFunc)
+                                    
    ############################################################################
    def loadArmoryModules(self):
       """
