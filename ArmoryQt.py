@@ -2884,9 +2884,18 @@ class ArmoryMainWindow(QMainWindow):
       types.append('All files (*)')
       typesStr = ';; '.join(types)
 
-      # Open the native file save dialog and grab the saved file/path.
-      fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath,
-                                                     typesStr))
+      # Open the native file save dialog and grab the saved file/path unless
+      # we're in OS X, where native dialogs sometimes freeze. Looks like a Qt
+      # issue of some sort. Some experimental code under ArmoryMac that directly
+      # calls a dialog produces better results but still freezes under some
+      # circumstances.
+      if not OS_MACOSX:
+         fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath,
+                                                        typesStr))
+      else:
+         fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath,
+                                                        typesStr,
+                                       options=QFileDialog.DontUseNativeDialog))
 
       fdir,fname = os.path.split(fullPath)
       if fdir:
@@ -2911,9 +2920,18 @@ class ArmoryMainWindow(QMainWindow):
       types.append(tr('All files (*)'))
       typesStr = ';; '.join(types)
 
-      # Open the native file load dialog and grab the loaded file/path.
-      fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
-                                                     typesStr))
+      # Open the native file load dialog and grab the loaded file/path unless
+      # we're in OS X, where native dialogs sometimes freeze. Looks like a Qt
+      # issue of some sort. Some experimental code under ArmoryMac that directly
+      # calls a dialog produces better results but still freezes under some
+      # circumstances.
+      if not OS_MACOSX:
+         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
+                                                        typesStr))
+      else:
+         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
+                                                        typesStr,
+                                       options=QFileDialog.DontUseNativeDialog))
 
       self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
       return fullPath
@@ -7108,5 +7126,3 @@ if 1:
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    os._exit(QAPP.exec_())
-
-# kate: indent-width 3; replace-tabs on;
