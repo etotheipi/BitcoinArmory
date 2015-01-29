@@ -311,6 +311,7 @@ public:
    BinaryData scanBlocks(ProgressFilter &prog, 
       uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
    void setUpdateSDBI(bool set) { updateSDBI_ = set; }
+   void setCriticalErrorLambda(function<void(string)> lbd) { criticalError_ = lbd; }
 
 private:
 
@@ -477,6 +478,9 @@ private:
    //uint32_t utxoFromHeight_ = 0;
 
    DB_SELECT historyDB_;
+
+   //to report back fatal errors to the main thread
+   function<void(string)> criticalError_ = [](string)->void{};
 };
 
 

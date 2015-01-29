@@ -330,14 +330,14 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
    shared_ptr<PulledBlock> pb(new PulledBlock());
    {
       LMDBEnv::Transaction blockTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      pullBlockFromDB(*pb, hgt, dup);
+      if (!pullBlockFromDB(*pb, hgt, dup))
+      {
+         //Should notify UI before returning
+         LOGERR << "Failed to load block " << hgt << "," << dup;
+         return;
+      }
    }
 
-   if (pb->blockHeight_ == UINT32_MAX)
-   {
-      LOGERR << "Failed to load block " << hgt << "," << dup;
-      return;
-   }
    applyBlockToDB(pb, scrAddrData);
 
    thread writeThread = commit(true);
@@ -1027,9 +1027,13 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 
       if (block == blockData->interruptBlock_)
       {
-         // got rid of this LOGERR cause it jumbles up the one from the
-         // grab thread
-         //LOGERR << "Grab thread halted unexpectedly";
+         string errorMessage("The scanning process "
+            "interrupted unexpectedly, Armory will now shutdown. "
+            "You will have to proceed to \"Help -> Rebuild and Rescan\" "
+            "on the next start. If the error persists, contact support. "
+            "Refer to your log file for more details on the error.");
+
+         criticalError_(errorMessage);
          return lastScannedBlockHash;
       }
 
@@ -1092,7 +1096,14 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          //check if next block is valid
          if (block == blockData->interruptBlock_)
          {
-            //LOGERR << "Grab thread halted unexpectedly";
+            string errorMessage("The scanning process "
+               "interrupted unexpectedly, Armory will now shutdown. "
+               "You will have to proceed to \"Help -> Rebuild and Rescan\" "
+               "on the next start. If the error persists, contact support. "
+               "Refer to your log file for more details on the error.");
+
+            criticalError_(errorMessage);
+
             return lastScannedBlockHash;
          }
 

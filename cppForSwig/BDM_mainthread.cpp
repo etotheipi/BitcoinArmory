@@ -305,6 +305,7 @@ try
                "recommended you re-download the blockchain using: "
                "<i>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
             callback->run(BDMAction_ErrorMsg, &errorMsg, bdm->missingBlockHashes().size());
+            throw;
          }
 
          bdv->enableZeroConf(clearZc);
@@ -356,6 +357,12 @@ try
             string wltID(bdWltID.getCharPtr(), bdWltID.getSize());
             callback->run(BDMAction_StartedWalletScan, &wltID);
          }
+      }
+
+      if (bdm->criticalError_.size())
+      {
+         callback->run(BDMAction_ErrorMsg, &bdm->criticalError_);
+         throw runtime_error("BDM encountered a critical error");
       }
 
       if(bdv->rescanZC_)

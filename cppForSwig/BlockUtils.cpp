@@ -960,8 +960,12 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    BlockWriteBatcher blockWrites(config_, iface_);
    blockWrites.setUpdateSDBI(updateSDBI);
 
-   LOGWARN << "Scanning from " << blk0 << " to " << blk1;
+   auto errorLambda = [this](string str)->void
+   {  criticalError_ = str;
+      this->notifyMainThread(); };
+   blockWrites.setCriticalErrorLambda(errorLambda);
    
+   LOGWARN << "Scanning from " << blk0 << " to " << blk1;
    return blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
 }
 
@@ -1396,10 +1400,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
          
          LOGINFO << prevTopBlk - state.reorgBranchPoint->getBlockHeight() << " blocks long reorg!";
          prevTopBlk = state.reorgBranchPoint->getBlockHeight();
-         
-         //const BlockHeader & bh = blockchain_.top();
-         //uint32_t hgt = bh.getBlockHeight();
-         //applyBlockRangeToDB(prog, prevTopBlk, hgt, *scrAddrData_.get());
       }
       else if(state.hasNewTop)
       {

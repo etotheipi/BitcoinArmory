@@ -6321,7 +6321,10 @@ class ArmoryMainWindow(QMainWindow):
          #it to the user
          QMessageBox.critical(self, tr('BlockDataManager Warning'), \
                               tr(args[0]), \
-                              QMessageBox.Ok) 
+                              QMessageBox.Ok)
+         #this is a critical error reporting channel, should kill the app right
+         #after
+         os._exit(0) 
       
       elif action == SCAN_ACTION:
          wltID = args[0]

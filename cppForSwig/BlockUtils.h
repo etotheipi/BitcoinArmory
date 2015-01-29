@@ -136,6 +136,7 @@ private:
 
    BDM_state BDMstate_ = BDM_offline;
 
+
 public:
    bool                               sideScanFlag_ = false;
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;
@@ -146,6 +147,8 @@ public:
       virtual ~Notifier() { }
       virtual void notify()=0;
    };
+   
+   string criticalError_;
 
 private:
    Notifier* notifier_ = nullptr;
