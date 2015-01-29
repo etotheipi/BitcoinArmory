@@ -918,7 +918,7 @@ class ArmoryMainWindow(QMainWindow):
          self.walletsView.hideColumn(0)
 
       # If a specific wallet is selected, just set that and you're done
-      if currIdx >= 4:
+      if currIdx > 4:
          self.walletVisibleList[currIdx-7] = True
          self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
       else:
