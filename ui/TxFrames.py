@@ -19,6 +19,7 @@ from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
    isP2SHLockbox
+from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH
  
 
 
@@ -446,10 +447,9 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
-         QMessageBox.critical(self, tr('Invalid Address'), tr("""
-           You have entered %d invalid @{address|addresses}@.  
-           The @{error has|errors have}@ been highlighted on the 
-           entry screen.""", numChkFail, numChkFail), QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Invalid Address'),
+               tr("You have entered an invalid address. The error has been highlighted on the entrry screen.",
+               "You have entered %d invalid addresses. The errors have been highlighted on the entry screen", numChkFail), QMessageBox.Ok)
 
          for row in range(len(self.widgetTable)):
             try:
@@ -1009,6 +1009,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r]['QLE_COMM'] = QLineEdit()
          self.widgetTable[r]['QLE_COMM'].setFont(GETFONT('var', 9))
          self.widgetTable[r]['QLE_COMM'].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r]['QLE_COMM'].setMaxLength(MAX_COMMENT_LENGTH)
 
          if r < nRecip and r < prevNRecip:
             self.widgetTable[r]['QLE_ADDR'].setText(inputs[r][0])

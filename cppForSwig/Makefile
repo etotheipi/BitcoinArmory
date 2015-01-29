@@ -79,9 +79,9 @@ libcryptopp.a: Makefile
 	mv cryptopp/libcryptopp.a .
 
 mdb.o: mdb/mdb.c mdb/lmdb.h mdb/midl.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c mdb/mdb.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c mdb/mdb.c
 midl.o: mdb/midl.c mdb/lmdb.h mdb/midl.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c mdb/midl.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c mdb/midl.c
 
 %.o: %.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<

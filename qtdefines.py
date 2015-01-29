@@ -19,16 +19,6 @@ from armoryengine.MultiSigUtils import *
 
 import gettext
 
-translation = gettext.translation('armory', os.getenv("ARMORY_LC_PATH"), fallback=True)
-def tr(x, y=None, z=None):
-   if x is not unicode:
-      x = x.decode('UTF-8')
-   if not y and not z:
-      return translation.ugettext(x)
-   else:
-      return translation.ungettext(x,y,z)
-
-
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
 SATOSHIMODE     = enum('Auto', 'User')
@@ -69,6 +59,63 @@ def AddToRunningDialogsList(func):
       runningDialogsList.remove(args[0])
       return result
    return wrapper
+
+################################################################################
+def tr(txt, y=None, z=None):
+   """
+   This is a common convention for implementing translations, where all 
+   translatable strings are put int the _(...) function, and that method 
+   does some fancy stuff to present the translation if needed. 
+
+   This is being implemented here, to not only do translations in the 
+   future, but also to clean up the typical text fields I use.  I've 
+   ended up with a program full of stuff like this:
+
+      myLabel = QRichLabel( \
+         'This text is split across mulitple lines '
+         'with a space after each one, and single '
+         'quotes on either side.')
+   
+   Instead it should really look like: 
+      
+      myLabel = QRichLabel( tr('''
+         This text is split across mulitple lines 
+         and it will acquire a space after each line 
+         as well as include newlines because it's HTML
+         and uses <br>. ''' ))
+
+   Added easy plural handling:
+
+      Just add an extra argument to specify a variable on which plurality
+      should be chosen, and then decorate your text with 
+
+         @{singular|plural}@
+   
+   For instance:
+
+      tr('The @{cat|cats}@ danced.  @{It was|They were}@ happy.', nCat)
+      tr('The @{cat|%d cats}@ danced.  @{It was|They were}@ happy.'%nCat, nCat)
+      tr('The @{cat|cats}@ attacked the @{dog|dogs}@', nCat, nDog)
+
+   This should work well for 
+   """
+
+   txt = toUnicode(txt)
+   lines = [l.strip() for l in txt.split('\n')]
+   txt = (' '.join(lines)).strip()
+
+   # Eventually we do something cool with this transalate function.
+   # It will be defined elsewhere, but for now stubbed with identity fn
+   TRANSLATE = lambda x: x
+
+   txt = TRANSLATE(txt)
+
+   if z == None:
+      return txt
+   elif z == 1:
+      return txt
+   else:
+      return y
 
 ################################################################################
 def HLINE(style=QFrame.Plain):
@@ -695,7 +742,7 @@ class ArmoryDialog(QDialog):
    #connect to close themselves if the parent is closed first   
 
       
-   def __init__(self, parent, main):
+   def __init__(self, parent=None, main=None):
       super(ArmoryDialog, self).__init__(parent)
 
       self.closeSignal = str(random.random())       
@@ -814,7 +861,7 @@ class QRCodeWidget(QWidget):
 # Create a very simple dialog and execute it
 class DlgInflatedQR(ArmoryDialog):
    def __init__(self, parent, dataToQR):
-      super(DlgInflatedQR, self).__init__(parent)
+      super(DlgInflatedQR, self).__init__(parent, parent.main)
 
       sz = QApplication.desktop().size()
       w,h = sz.width(), sz.height()

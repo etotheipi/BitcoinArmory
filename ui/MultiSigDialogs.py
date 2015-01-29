@@ -802,6 +802,7 @@ class DlgLockboxManager(ArmoryDialog):
       if len(ledggeom) > 0:
          restoreTableView(self.ledgerView, ledggeom)
 
+      self.changeLBFilter()
 
    #############################################################################
    def createLockboxDashboardTab(self):
@@ -1404,7 +1405,8 @@ class DlgLockboxManager(ArmoryDialog):
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
       if True:  actionRemoveLB    = menu.addAction("Delete Lockbox")
-      if True:  actionRescanLB    = menu.addAction("Rescan Lockbox")
+      if ENABLE_SUPERNODE is False:  
+         actionRescanLB    = menu.addAction("Rescan Lockbox")
 
       selectedIndexes = self.lboxView.selectedIndexes()
 
@@ -1502,8 +1504,7 @@ class DlgLockboxManager(ArmoryDialog):
                <font color="%s">%s</font> """) % (htmlColor('TextBlue'), 
                dispInfo['String']), QMessageBox.Yes | QMessageBox.No) 
 
-            if reply==QMessageBox.Yes:
-               self.main.setWalletIsScanning(lbox)            
+            if reply==QMessageBox.Yes:    
                lwlt = self.main.cppLockboxWltMap[lbox.uniqueIDB58]  
                lwlt.forceScan()          
                self.lboxModel.reset()
@@ -1557,6 +1558,11 @@ class DlgLockboxManager(ArmoryDialog):
       if lbID:
          return self.main.getLockboxByID(lbID)
       return None
+   
+   #############################################################################
+   def resetLBSelection(self):
+      self.lboxView.clearSelection()
+      self.singleClickLockbox(None, [])
 
    #############################################################################
    def getDisplayRichText(self, lb, tr=None, dateFmt=None):
@@ -1839,6 +1845,15 @@ class DlgLockboxManager(ArmoryDialog):
       self.main.lbDialogModel = None      
       super(DlgLockboxManager, self).reject(*args)
       
+   #############################################################################
+   def changeLBFilter(self):
+      lbIDList = []
+      for lb in self.main.allLockboxes:
+         if lb.isEnabled:
+            lbIDList.append(lb.uniqueIDB58)
+            
+      self.main.currentLBPage = 0      
+      TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
 
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):

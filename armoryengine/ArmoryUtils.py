@@ -61,10 +61,12 @@ try:
 except:
    BTCARMORY_BUILD = None
 
-
+DEFAULT = 'DEFAULT'
+LEVELDB_BLKDATA = 'leveldb_blkdata'
+LEVELDB_HEADERS = 'leveldb_headers'
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 92, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 92, 99, 4)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -84,14 +86,14 @@ indent = ' '*3
 haveGUI = [False, None]
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
-parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
-parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
-parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
-parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
-parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default='DEFAULT',type="str",         help="RPC port Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--settings",        dest="settingsPath",default=DEFAULT, type="str",          help="load Armory with a specific settings file")
+parser.add_option("--datadir",         dest="datadir",     default=DEFAULT, type="str",          help="Change the directory that Armory calls home")
+parser.add_option("--satoshi-datadir", dest="satoshiHome", default=DEFAULT, type='str',          help="The Bitcoin-Qt/bitcoind home directory")
+parser.add_option("--satoshi-port",    dest="satoshiPort", default=DEFAULT, type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default=DEFAULT,type="str",         help="RPC port Bitcoin-Qt instances operating on a non-standard port")
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
-parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
-parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
+parser.add_option("--dbdir",           dest="armoryDBDir",  default=DEFAULT, type='str',          help="Location to store blocks database (defaults to --datadir)")
+parser.add_option("--rpcport",         dest="rpcport",     default=DEFAULT, type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
 parser.add_option("--nettimeout",      dest="nettimeout",  default=2,         type="int",          help="Timeout for detecting internet connection at startup")
@@ -99,7 +101,7 @@ parser.add_option("--interport",       dest="interport",   default=-1,        ty
 parser.add_option("--debug",           dest="doDebug",     default=False,     action="store_true", help="Increase amount of debugging output")
 parser.add_option("--nologging",       dest="logDisable",  default=False,     action="store_true", help="Disable all logging")
 parser.add_option("--netlog",          dest="netlog",      default=False,     action="store_true", help="Log networking messages sent and received by Armory")
-parser.add_option("--logfile",         dest="logFile",     default='DEFAULT', type='str',          help="Specify a non-default location to send logging information")
+parser.add_option("--logfile",         dest="logFile",     default=DEFAULT, type='str',          help="Specify a non-default location to send logging information")
 parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check",dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-stats-report", dest="skipStatsReport", default=False, action="store_true", help="Does announcement checking without any OS/version reporting (for ATI statistics)")
@@ -112,10 +114,11 @@ parser.add_option("--rescan",          dest="rescan",      default=False,     ac
 parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
-parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', type='str',          help="File to store information about multi-signature transactions")
+parser.add_option("--multisigfile",  dest="multisigFile",  default=DEFAULT, type='str',          help="File to store information about multi-signature transactions")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
 parser.add_option("--disable-modules", dest="disableModules", default=False, action="store_true", help="Disable looking for modules in the execution directory")
 parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
+parser.add_option("--detsign",         dest="enableDetSign", default=False,   action="store_true", help="Enable Transaction Deterministic Signing (RFC 6979)")
 parser.add_option("--supernode", dest="enableSupernode", default=False, action="store_true", help="Enabled Exhaustive Blockchain Tracking")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
@@ -168,6 +171,8 @@ PETABYTE = 1024*TERABYTE
 
 LB_MAXM = 7
 LB_MAXN = 7
+
+MAX_COMMENT_LENGTH = 144
 
 # Set the default-default
 DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
@@ -268,13 +273,16 @@ IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 #supernode
 ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
 
+# Is deterministic signing enabled?
+ENABLE_DETSIGN = CLI_OPTIONS.enableDetSign
+
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
 OS_VARIANT       = ''
 USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
-LEVELDB_DIR      = ''
+ARMORY_DB_DIR      = ''
 SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
@@ -366,7 +374,7 @@ def readVersionInt(verInt):
    return tuple(verList[::-1])
 
 # Allow user to override default bitcoin-qt/bitcoind home directory
-if not CLI_OPTIONS.satoshiHome.lower()=='default':
+if not CLI_OPTIONS.satoshiHome==DEFAULT:
    success = True
    if USE_TESTNET:
       testnetTry = os.path.join(CLI_OPTIONS.satoshiHome, 'testnet3')
@@ -379,28 +387,34 @@ if not CLI_OPTIONS.satoshiHome.lower()=='default':
    else:
       BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
 
-
-
-
-
 # Allow user to override default Armory home directory
-if not CLI_OPTIONS.datadir.lower()=='default':
-   if not os.path.exists(CLI_OPTIONS.datadir):
-      print 'Directory "%s" does not exist!  Using default!' % \
-                                                CLI_OPTIONS.datadir
-   else:
+if not CLI_OPTIONS.datadir==DEFAULT:
+   try:
+      if not os.path.exists(CLI_OPTIONS.datadir):
+         os.makedirs(CLI_OPTIONS.datadir)
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
-
+   except:
+      # If user has no permission to create the directory
+      # pass so that the default value remains
+      # This condition will be checked after the main
+      # constructor completes so that a warning dialog 
+      # can be displayed
+      pass
 # Same for the directory that holds the LevelDB databases
-LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+ARMORY_DB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
 
-if not CLI_OPTIONS.leveldbDir.lower()=='default':
-   if not os.path.exists(CLI_OPTIONS.leveldbDir):
-      print 'Directory "%s" does not exist!  Using default!' % \
-                                                CLI_OPTIONS.leveldbDir
-      os.makedirs(CLI_OPTIONS.leveldbDir)
-   else:
-      LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
+if not CLI_OPTIONS.armoryDBDir==DEFAULT:
+   try:
+      if not os.path.exists(CLI_OPTIONS.armoryDBDir):
+         os.makedirs(CLI_OPTIONS.armoryDBDir)
+      ARMORY_DB_DIR = CLI_OPTIONS.armoryDBDir
+   except:
+      # If user has no permission to create the directory
+      # pass so that the default value remains
+      # This condition will be checked after the main
+      # constructor completes so that a warning dialog 
+      # can be displayed
+      pass
 
 
 # Change the log file to use
@@ -412,11 +426,11 @@ if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
 
 
 # Change the settings file to use
-if CLI_OPTIONS.settingsPath.lower()=='default':
+if CLI_OPTIONS.settingsPath==DEFAULT:
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
 # Change the log file to use
-if CLI_OPTIONS.logFile.lower()=='default':
+if CLI_OPTIONS.logFile==DEFAULT:
    if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
       CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
    else:
@@ -430,7 +444,7 @@ MULTISIG_FILE_NAME   = 'multisigs.txt'
 MULTISIG_FILE   = os.path.join(ARMORY_HOME_DIR, MULTISIG_FILE_NAME)
 
 
-if not CLI_OPTIONS.multisigFile.lower()=='default':
+if not CLI_OPTIONS.multisigFile==DEFAULT:
    if not os.path.exists(CLI_OPTIONS.multisigFile):
       print 'Multisig file "%s" does not exist!' % CLI_OPTIONS.multisigFile
    else:
@@ -443,8 +457,8 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
    os.makedirs(ARMORY_HOME_DIR)
 
 
-if not os.path.exists(LEVELDB_DIR):
-   os.makedirs(LEVELDB_DIR)
+if not os.path.exists(ARMORY_DB_DIR):
+   os.makedirs(ARMORY_DB_DIR)
 
 
 
@@ -539,21 +553,21 @@ CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
 
 ################################################################################
-if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
+if not CLI_OPTIONS.satoshiPort == DEFAULT:
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
    except:
       raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
 ################################################################################
-if not CLI_OPTIONS.satoshiRpcport == 'DEFAULT':
+if not CLI_OPTIONS.satoshiRpcport == DEFAULT:
    try:
       BITCOIN_RPC_PORT = int(CLI_OPTIONS.satoshiRpcport)
    except:
       raise TypeError('Invalid rpc port for Bitcoin-Qt, using ' + str(BITCOIN_RPC_PORT))
 
 ################################################################################
-if not CLI_OPTIONS.rpcport == 'DEFAULT':
+if not CLI_OPTIONS.rpcport == DEFAULT:
    try:
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
@@ -572,7 +586,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   User home-directory   :', USER_HOME_DIR
    print '   Satoshi BTC directory :', BTC_HOME_DIR
    print '   Armory home dir       :', ARMORY_HOME_DIR
-   print '   LevelDB directory     :', LEVELDB_DIR
+   print '   ArmoryDB directory     :', ARMORY_DB_DIR
    print '   Armory settings file  :', SETTINGS_PATH
    print '   Armory log file       :', ARMORY_LOG_FILE
    print '   Do wallet checking    :', DO_WALLET_CHECK
@@ -984,10 +998,10 @@ if CLI_OPTIONS.redownload:
 
 
 #####
-if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
+if CLI_OPTIONS.rebuild and os.path.exists(ARMORY_DB_DIR):
    LOGINFO('Found existing databases dir; removing before rebuild')
-   shutil.rmtree(LEVELDB_DIR)
-   os.mkdir(LEVELDB_DIR)
+   shutil.rmtree(ARMORY_DB_DIR)
+   os.mkdir(ARMORY_DB_DIR)
 
 
 ####
@@ -1131,7 +1145,10 @@ def GetSystemDetails():
       raise OSError("Can't get system specs in: %s" % platform.system())
 
    out.NumCores = multiprocessing.cpu_count()
-   out.IsX64 = platform.machine().lower() == 'x86_64'
+   if OS_WINDOWS:
+      out.IsX64 = platform.machine().lower() == 'amd64'
+   else:
+      out.IsX64 = platform.machine().lower() == 'x86_64'
    out.Memory = out.Memory / (1024*1024.)
 
    def getHddSize(adir):
@@ -2904,7 +2921,7 @@ def uriReservedToPercent(theStr):
    Convert from a regular string to a percent-encoded string
    """
    #Must replace '%' first, to avoid recursive (and incorrect) replacement!
-   reserved = "%!*'();:@&=+$,/?#[] "
+   reserved = "%!*'();:@&=+$,/?#[]\" "
 
    for c in reserved:
       theStr = theStr.replace(c, '%%%s' % int_to_hex(ord(c)))

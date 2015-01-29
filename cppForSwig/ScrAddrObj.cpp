@@ -59,6 +59,8 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ) const
 {
    /***may need some help with the paging system in place***/
+   if (!db_->isReady())
+      throw runtime_error("DB isnt ready");
 
    uint64_t balance = 0;
    for (auto txio : relevantTxIO_)
@@ -72,6 +74,9 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getFullBalance() const
 {
+   if (!db_->isReady())
+      throw runtime_error("DB isnt ready");
+
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr_);
    uint64_t balance = ssh.getScriptBalance(false);
@@ -235,6 +240,9 @@ void ScrAddrObj::updateLedgers(map<BinaryData, LedgerEntry>& leMap,
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getTxioCountFromSSH(void) const
 {
+   if (!db_->isReady())
+      throw runtime_error("DB isnt ready");
+
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr_);
 
@@ -344,10 +352,8 @@ void ScrAddrObj::getHistoryForScrAddr(
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> ScrAddrObj::getHistoryPageById(uint32_t id)
 {
-   if (id < 0)
-   {
-      return vector<LedgerEntry>();
-   }
+   if (id < 0 || id > hist_.getPageCount())
+      throw std::range_error("pageId out of range");
 
    auto getTxio = [this](uint32_t start, 
                          uint32_t end, 
@@ -538,4 +544,18 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
    }
 
    return utxoVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrObj::getBlockInVicinity(uint32_t blk) const
+{
+   //expect history has been computed, it will throw otherwise
+   return hist_.getBlockInVicinity(blk);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrObj::getPageIdForBlockHeight(uint32_t blk) const
+{
+   //same as above
+   return hist_.getPageIdForBlockHeight(blk);
 }

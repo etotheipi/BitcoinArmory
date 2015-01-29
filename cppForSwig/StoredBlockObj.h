@@ -59,9 +59,11 @@ enum DB_TX_AVAIL
 
 enum DB_SELECT
 {
-  HEADERS,
-  BLKDATA,
-  DB_COUNT
+   HEADERS,
+   BLKDATA,
+   HISTORY,
+   TXHINTS,
+   COUNT
 };
 
 
@@ -455,12 +457,15 @@ public:
    void pprintOneLine(uint32_t indent=3);
 
    virtual DBTx& getTxByIndex(uint16_t index) = 0;
+   virtual void unserializeFullBlock(BinaryRefReader brr,
+      bool doFrag = true,
+      bool withPrefix8 = false) = 0;
    ////
    
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
    uint32_t       numTx_=UINT32_MAX;
-   uint32_t       numBytes_=UINT32_MAX;
+   size_t         numBytes_=UINT32_MAX;
    uint32_t       blockHeight_=UINT32_MAX;
    uint8_t        duplicateID_=UINT8_MAX;
    BinaryData     merkle_;
@@ -499,7 +504,7 @@ public:
       bool doFrag = true,
       bool withPrefix8 = false);
 
-   void unserializeFullBlock(BinaryRefReader brr,
+   virtual void unserializeFullBlock(BinaryRefReader brr,
       bool doFrag = true,
       bool withPrefix8 = false);
 

@@ -477,7 +477,10 @@ class LedgerDispModelSimple(QAbstractTableModel):
          #figure out the bottom of the previous view in 
          #relation with the new one
          pageCount = prevPageCount + len(self.bottomPage.table)
-         ratio = float(prevPageCount) / float(pageCount)
+         if pageCount == 0:
+            ratio = 0
+         else:
+            ratio = float(prevPageCount) / float(pageCount)
 
       else:
          try:
@@ -797,6 +800,13 @@ class ArmoryBlockAndDateSelector():
    def goToTop(self):
       self.parent.emit(SIGNAL('goToTop'))
       
+   def hide(self):
+      self.lblPlaceHolder.setVisible(False)
+      
+   def show(self):
+      self.lblPlaceHolder.setVisible(True)   
+   
+      
 ################################################################################
 class ArmoryTableView(QTableView):
    def __init__(self, parent, main):
@@ -885,6 +895,12 @@ class ArmoryTableView(QTableView):
       
    def updateBlockAndDateLabel(self): 
       try:
+         sbMax = self.verticalScrollBar().maximum()
+         if sbMax == 0:
+            self.BlockAndDateSelector.hide()
+         else:
+            self.BlockAndDateSelector.show()
+         
          ratio = float(self.verticalScrollBar().value()) \
               / float(self.verticalScrollBar().maximum())
               

@@ -1217,7 +1217,8 @@ class UnsignedTxInput(AsciiSerializable):
 
 
    #############################################################################
-   def createTxSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
+   def createTxSignature(self, pytx, sbdPrivKey, hashcode=1,
+                         DetSign=ENABLE_DETSIGN):
       """
       This might be a little confusing ... remember this is an input for a
       transaction which may not have been fully defined at the time this
@@ -1228,7 +1229,6 @@ class UnsignedTxInput(AsciiSerializable):
       This returns a DER-encoded signature string with the 1-byte hashcode
       appended to the end
       """
-
       # Make sure the supplied privateKey is relevant to this USTXI
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
       if not computedPub in self.pubKeys:
@@ -1272,7 +1272,6 @@ class UnsignedTxInput(AsciiSerializable):
 
    #############################################################################
    def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
-
       derSig = self.createTxSignature(pytx, sbdPrivKey, hashcode, DetSign)
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
 
@@ -2480,7 +2479,7 @@ class UnsignedTransaction(AsciiSerializable):
 
    #############################################################################
    def createAndInsertSignatureForInput(self, txInIndex, sbdPrivKey, hashcode=1,
-                                        DetSign=True):
+                                        DetSign=ENABLE_DETSIGN):
       if txInIndex >= len(self.ustxInputs):
          raise SignatureError('TxIn index is out of range for this USTX')
 

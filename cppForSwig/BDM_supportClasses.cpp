@@ -18,7 +18,8 @@
 
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
-   LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
@@ -41,7 +42,8 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -57,7 +59,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 
 ///////////////////////////////////////////////////////////////////////////////
 bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec, 
-   shared_ptr<BtcWallet> wltPtr, int32_t doScan)
+   shared_ptr<BtcWallet> wltPtr, bool areNew)
 {
    /***
    Gets a scrAddr ready for loading. Returns false if the BDM is initialized,
@@ -105,21 +107,10 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
 
       sca->setRoot(this);
         
-      if (doScan == 0)
-      {
-         //scan on top of existing history
-         for (const auto& scrAddr : saVec)
-         {
-            //TODO: determine how much of the SSH should be cleared if
-            //it has some existing history
-            lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
-            sca->regScrAddrForScan(scrAddr, ssh.alreadyScannedUpToBlk_);
-         }
-      }
-      else if (doScan == -1)
+      if (!areNew)
       {
          //mark existing history for wipe and rescan from block 0
-         sca->doScan_ = -1;
+         sca->doScan_ = true;
 
          for (const auto& scrAddr : saVec)
             sca->regScrAddrForScan(scrAddr, 0);
@@ -127,7 +118,7 @@ bool ScrAddrFilter::registerAddresses(const vector<BinaryData>& saVec,
       else
       {
          //mark addresses as fresh to skip DB scan
-         sca->doScan_ = 0;
+         sca->doScan_ = false;
          for (const auto& scrAddr : saVec)
             sca->regScrAddrForScan(scrAddr, 0);
       }
@@ -156,24 +147,18 @@ void ScrAddrFilter::scanScrAddrThread()
    shared_ptr<BtcWallet> wltPtr = scrAddrDataForSideScan_.wltPtr_;
    BinaryData wltID = wltPtr->walletID();
          
-   uint32_t startBlock = scanFrom();
    uint32_t endBlock = currentTopBlockHeight();
 
    BinaryData topScannedBlockHash;
    {
-      LMDBEnv::Transaction tx(&lmdb_->dbEnv_, LMDB::ReadOnly);
+      LMDBEnv::Transaction tx;
+      lmdb_->beginDBTransaction(&tx, HEADERS, LMDB::ReadOnly);
       StoredHeader sbh;
       lmdb_->getBareHeader(sbh, endBlock);
       topScannedBlockHash = sbh.thisHash_;
    }
 
-   if (doScan_ == 1)
-   {
-      //scan on top of existing history
-      topScannedBlockHash = 
-         applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
-   }
-   else if (doScan_ == 0)
+   if(doScan_ == false)
    {
       //new addresses, set their last seen block in the SSH entries
       setSSHLastScanned(currentTopBlockHeight() + 1);
@@ -189,7 +174,7 @@ void ScrAddrFilter::scanScrAddrThread()
 
       //scan from 0
       topScannedBlockHash =
-         applyBlockRangeToDB(startBlock, endBlock, wltPtr.get());
+         applyBlockRangeToDB(0, endBlock, wltPtr.get());
    }
 
    if (wltPtr->hasBdvPtr())
@@ -282,7 +267,8 @@ void ScrAddrFilter::checkForMerge()
 
       //create SAF to scan the addresses to merge
       std::shared_ptr<ScrAddrFilter> sca(copy());
-      sca->scrAddrMap_ = scrAddrDataForSideScan_.scrAddrsToMerge_;
+      for (auto& scraddr : scrAddrDataForSideScan_.scrAddrsToMerge_)
+         sca->scrAddrMap_.insert(scraddr);
 
       if (config().armoryDbType != ARMORY_DB_SUPER)
       {
@@ -359,7 +345,7 @@ bool ScrAddrFilter::startSideScan(
       sca->scanThreadProgressCallback_ = progress;
       sca->scanScrAddrMapInNewThread();
 
-      if (sca->doScan_ != 0)
+      if (sca->doScan_ != false)
          return true;
    }
 
@@ -474,7 +460,8 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    keyToSpentScrAddr_.clear();
    txOutsSpentByZC_.clear();
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -624,7 +611,8 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
    //release lock
    lock_.store(0, memory_order_release);
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    while (1)
    {
@@ -961,7 +949,12 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
    const vector<BinaryData>& keysToDelete)
 {
    //should run in its own thread to make sure we can get a write tx
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadWrite);
+   DB_SELECT dbs = BLKDATA;
+   if (db_->getDbType() != ARMORY_DB_SUPER)
+      dbs = HISTORY;
+
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, dbs, LMDB::ReadWrite);
 
    for (auto& key : keysToWrite)
    {
@@ -983,7 +976,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       else
          keyWithPrefix = key;
 
-      LDBIter dbIter(db_->getIterator(BLKDATA));
+      LDBIter dbIter(db_->getIterator(dbs));
 
       if (!dbIter.seekTo(keyWithPrefix))
          continue;
@@ -1001,7 +994,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
 
       for (auto Key : ktd)
-         db_->deleteValue(BLKDATA, Key);
+         db_->deleteValue(dbs, Key);
    }
 }
 
@@ -1012,9 +1005,12 @@ void ZeroConfContainer::loadZeroConfMempool(
 {
    //run this in its own scope so the iter and tx are closed in order to open
    //RW tx afterwards
-   { 
-      LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
-      LDBIter dbIter(db_->getIterator(BLKDATA));
+   {
+      auto dbs = db_->getDbSelect(HISTORY);
+
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, dbs, LMDB::ReadOnly);
+      LDBIter dbIter(db_->getIterator(dbs));
 
       if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))
       {

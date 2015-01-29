@@ -22,12 +22,12 @@ class BinaryPacker(object):
 
    """
    Class for helping load binary data into a stream.  Typical usage is
-      >> binpack = BinaryPacker()
-      >> bup.put(UINT32, 12)
-      >> bup.put(VAR_INT, 78)
-      >> bup.put(BINARY_CHUNK, '\x9f'*10)
+      >> bp = BinaryPacker()
+      >> bp.put(UINT32, 12)
+      >> bp.put(VAR_INT, 78)
+      >> bp.put(BINARY_CHUNK, '\x9f'*10)
       >> ...etc...
-      >> result = bup.getBinaryString()
+      >> result = bp.getBinaryString()
    """
    def __init__(self):
       self.binaryConcat = []

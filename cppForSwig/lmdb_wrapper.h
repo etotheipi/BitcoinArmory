@@ -231,7 +231,7 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(void);
+   LMDBBlockDatabase(function<bool(void)> isDBReady);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -242,11 +242,43 @@ public:
       ARMORY_DB_TYPE     dbtype,
       DB_PRUNE_TYPE      pruneType);
 
+   void openDatabasesSupernode(
+      const string& basedir,
+      BinaryData const & genesisBlkHash,
+      BinaryData const & genesisTxHash,
+      BinaryData const & magic,
+      ARMORY_DB_TYPE     dbtype,
+      DB_PRUNE_TYPE      pruneType);
+
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void closeDatabases(void);
+   void closeDatabases();
+   void closeDatabasesSupernode(void);
+
+   /////////////////////////////////////////////////////////////////////////////
+   void beginDBTransaction(LMDBEnv::Transaction* tx, 
+      DB_SELECT db, LMDB::Mode mode) const
+   {
+      if (armoryDbType_ == ARMORY_DB_SUPER)
+         *tx = move(LMDBEnv::Transaction(dbEnv_[BLKDATA].get(), mode));
+      else
+         *tx = move(LMDBEnv::Transaction(dbEnv_[db].get(), mode));
+   }
+
+   ARMORY_DB_TYPE getDbType(void) const { return armoryDbType_; }
+
+   DB_SELECT getDbSelect(DB_SELECT dbs) const
+   {
+      if (dbs == HEADERS)
+         return HEADERS;
+
+      if (armoryDbType_ == ARMORY_DB_SUPER)
+         return BLKDATA;
+
+      return dbs;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    // Sometimes, we just need to nuke everything and start over
@@ -259,7 +291,7 @@ public:
    // Get latest block info
    BinaryData getTopBlockHash(DB_SELECT db);
    uint32_t   getTopBlockHeight(DB_SELECT db);
-
+   
    /////////////////////////////////////////////////////////////////////////////
    LDBIter getIterator(DB_SELECT db) const
    {
@@ -272,7 +304,7 @@ public:
    // BinaryData key(string(theStr));
    BinaryData getValue(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
    BinaryDataRef getValueNoCopy(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
-
+   
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
@@ -291,7 +323,6 @@ public:
    BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key) const;
 
-
    BinaryData getHashForDBKey(BinaryData dbkey);
    BinaryData getHashForDBKey(uint32_t hgt,
       uint8_t  dup,
@@ -303,11 +334,12 @@ public:
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
    void putValue(DB_SELECT db, BinaryData const & key, BinaryData const & value);
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
+
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
    void deleteValue(DB_SELECT db, BinaryDataRef key);
    void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
-
+   
    // Move the iterator in DB to the lowest entry with key >= inputKey
    bool seekTo(DB_SELECT db,
       BinaryDataRef key);
@@ -370,6 +402,7 @@ public:
    map<uint32_t, uint32_t> getSSHSummary(BinaryDataRef scrAddrStr,
       uint32_t endBlock);
 
+   uint32_t getStxoCountForTx(const BinaryData & dbKey6) const;
 
 public:
 
@@ -400,10 +433,17 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredHeader accessors
+   //For Supernode
    uint8_t putStoredHeader(StoredHeader & sbh,
       bool withBlkData = true,
       bool updateDupID = true);
 
+   //for Fullnode
+   uint8_t putRawBlockData(BinaryRefReader& brr, 
+      function<const BlockHeader& (const BinaryData&)>);
+
+   //getStoredHeader detects the dbType and update the passed StoredHeader
+   //accordingly
    bool getStoredHeader(StoredHeader & sbh,
       uint32_t blockHgt,
       uint8_t blockDup = UINT8_MAX,
@@ -438,6 +478,9 @@ public:
    bool getStoredTx_byHash(BinaryDataRef txHash,
       StoredTx* stx = nullptr,
       BinaryData* DBkey = nullptr) const;
+   bool getStoredTx_byHashSuper(BinaryDataRef txHash,
+      StoredTx* stx = nullptr,
+      BinaryData* DBkey = nullptr) const;
 
    bool getStoredTx(StoredTx & st,
       uint32_t blkHgt,
@@ -469,8 +512,6 @@ public:
 
    bool getStoredTxOut(StoredTxOut & stxo,
       const BinaryData& DBkey) const;
-
-
 
    void putStoredScriptHistory(StoredScriptHistory & ssh);
    void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
@@ -600,9 +641,15 @@ public:
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
+   bool isReady(void) { return isDBReady_(); }
+   ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
+
 private:
    string               baseDir_;
-   string dbFilename() const { return baseDir_ + "/blocks"; }
+   string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
+   string dbHeadersFilename() const { return baseDir_ + "/headers"; }
+   string dbHistoryFilename() const { return baseDir_ + "/history"; }
+   string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
 
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;
@@ -612,8 +659,10 @@ private:
    DB_PRUNE_TYPE dbPruneType_;
 
 public:
-   mutable LMDBEnv     dbEnv_;
-   LMDB                dbs_[2];
+
+   mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
+   mutable LMDB dbs_[COUNT];
+
 private:
    //leveldb::FilterPolicy* dbFilterPolicy_[2];
 
@@ -634,6 +683,8 @@ private:
    map<BinaryData, StoredScriptHistory>   registeredSSHs_;
 
    const BinaryData ZCprefix_ = WRITE_UINT16_LE(0xFFFF);
+
+   function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
 };
 
 #endif

@@ -176,7 +176,8 @@ public:
 
    size_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
 
-   const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const;
+   const ScrAddrObj* getScrAddrObjByKey(const BinaryData& key) const;
+   ScrAddrObj& getScrAddrObjRef(const BinaryData& key);
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
    void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 

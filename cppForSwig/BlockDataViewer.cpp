@@ -75,12 +75,20 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    for (auto& group : groups_)
       group.merge();
 
+   vector<uint32_t> startBlocks;
+   for (auto& group : groups_)
+      startBlocks.push_back(startBlock);
+
+
+   auto sbIter = startBlocks.begin();
    if (!initialized_)
    {
       //out of date history, page all wallets' history
-      startBlock = UINT32_MAX;
       for (auto& group : groups_)
-         startBlock = min(startBlock, group.pageHistory());
+      {
+         *sbIter = group.pageHistory();
+         sbIter++;
+      }
 
       initialized_ = true;
    }
@@ -92,16 +100,19 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
          [this](const BinaryData& sa)->bool 
          { return saf_->hasScrAddress(sa); });
    }
-
    const bool reorg = (lastScanned_ > startBlock);
 
+   sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
-      group.scanWallets(startBlock, endBlock, reorg,
-         invalidatedZCKeys);
 
-      group.updateGlobalLedgerFirstPage(startBlock, endBlock,
+      group.scanWallets(*sbIter, endBlock, 
+         reorg, invalidatedZCKeys);
+
+      group.updateGlobalLedgerFirstPage(*sbIter, endBlock,
          forceRefresh);
+
+      sbIter++;
    }
 
    zeroConfCont_.resetNewZC();
@@ -178,7 +189,7 @@ bool BlockDataViewer::parseNewZeroConfTx()
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
-   BinaryData walletID, int32_t doScan)
+   BinaryData walletID, bool areNew)
 {
    if (saVec.empty())
       return false;
@@ -186,7 +197,7 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    for (auto& group : groups_)
    {
       if (group.hasID(walletID))
-         return group.registerAddresses(saVec, walletID, doScan);
+         return group.registerAddresses(saVec, walletID, areNew);
    }
 
    return false;
@@ -229,7 +240,9 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 {
    checkBDMisReady();
 
-   LMDBEnv::Transaction tx(&db_->dbEnv_, LMDB::ReadOnly);
+   if (config().armoryDbType == ARMORY_DB_SUPER)
+   {
+      LMDBEnv::Transaction tx(db_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
    TxRef txrefobj = db_->getTxRef(txhash);
 
@@ -239,6 +252,15 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
       return zeroConfCont_.getTxByHash(txhash);
+   }
+}
+   else
+   {
+      StoredTx stx;
+      if (db_->getStoredTx_byHash(txhash, &stx))
+         return stx.getTxCopy();
+      else
+         return zeroConfCont_.getTxByHash(txhash);
    }
 }
 
@@ -584,6 +606,41 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForLockboxes()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+LedgerDelegate BlockDataViewer::getLedgerDelegateForScrAddr(
+   const BinaryData& wltID, const BinaryData& scrAddr)
+{
+   BtcWallet* wlt = nullptr;
+   for (auto& group : groups_)
+   {
+      ReadWriteLock::WriteLock wl(group.lock_);
+
+      auto wltIter = group.wallets_.find(wltID);
+      if (wltIter != group.wallets_.end())
+      {
+         wlt = wltIter->second.get();
+         break;
+      }
+   }
+
+   if (wlt == nullptr)
+      throw runtime_error("Unregistered wallet ID");
+
+   ScrAddrObj& sca = wlt->getScrAddrObjRef(scrAddr);
+
+   auto getHist = [&](uint32_t pageID)->vector<LedgerEntry>
+   { return sca.getHistoryPageById(pageID); };
+
+   auto getBlock = [&](uint32_t block)->uint32_t
+   { return sca.getBlockInVicinity(block); };
+
+   auto getPageId = [&](uint32_t block)->uint32_t
+   { return sca.getPageIdForBlockHeight(block); };
+
+   return LedgerDelegate(getHist, getBlock, getPageId);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
 {
    //get timestamp of genesis block
@@ -703,7 +760,7 @@ void WalletGroup::unregisterWallet(const string& IDstr)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
-   BinaryData walletID, int32_t doScan)
+   BinaryData walletID, bool areNew)
 {
    if (saVec.empty())
       return false;
@@ -714,7 +771,7 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
    if (wltIter == wallets_.end())
       return false;
 
-   return saf_->registerAddresses(saVec, wltIter->second, doScan);
+   return saf_->registerAddresses(saVec, wltIter->second, areNew);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -807,6 +864,8 @@ uint32_t WalletGroup::pageHistory(bool forcePaging)
 vector<LedgerEntry> WalletGroup::getHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
+   unique_lock<mutex> mu(globalLedgerLock_);
+
    if (pageId >= hist_.getPageCount())
       throw std::range_error("pageId out of range");
 
@@ -837,13 +896,11 @@ vector<LedgerEntry> WalletGroup::getHistoryPage(uint32_t pageId,
             uint32_t startBlock, uint32_t endBlock)->void
          { wlt->updateWalletLedgersFromTxio(le, txioMap, startBlock, endBlock); };
 
-         map<BinaryData, LedgerEntry> leMap;
-         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
-
-         //this should be locked to a single thread
-
          if (!wlt->uiFilter_)
             continue;
+
+         map<BinaryData, LedgerEntry> leMap;
+         hist_.getPageLedgerMap(getTxio, buildLedgers, pageId, leMap);
 
          for (const LedgerEntry& le : values(leMap))
             vle.push_back(le);
@@ -901,12 +958,15 @@ void WalletGroup::updateGlobalLedgerFirstPage(uint32_t startBlock,
 
    ReadWriteLock::ReadLock rl(lock_);
 
+
    if (forceRefresh == BDV_refreshSkipRescan)
       getHistoryPage(0, true, false);
    else if (forceRefresh == BDV_refreshAndRescan)
       getHistoryPage(0, true, true);
    else if (hist_.getCurrentPage() == 0)
    {
+      unique_lock<mutex> mu(globalLedgerLock_);
+
       LedgerEntry::purgeLedgerVectorFromHeight(globalLedger_, startBlock);
 
       for (auto& wlt : values(wallets_))

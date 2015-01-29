@@ -396,8 +396,6 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
    consider the next dup to be the first unknown block in DB until a new
    block file is created by Core.
    ***/
-   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadWrite);
-
    for (auto& block : headerMap_)
    {
       StoredHeader sbh;
@@ -410,8 +408,6 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
 /////////////////////////////////////////////////////////////////////////////
 void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
-   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadWrite);
-
    for (auto& block : newlyParsedBlocks_)
    {
       StoredHeader sbh;

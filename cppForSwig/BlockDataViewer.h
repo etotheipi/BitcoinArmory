@@ -107,7 +107,7 @@ public:
    bool hasWallet(const BinaryData& ID) const;
 
    bool registerAddresses(const vector<BinaryData>& saVec, 
-                           BinaryData walletID, int32_t doScan);
+                           BinaryData walletID, bool areNew);
 
    map<BinaryData, map<BinaryData, TxIOPair> >
       getNewZeroConfTxIOMap() const
@@ -226,6 +226,8 @@ public:
    
    LedgerDelegate getLedgerDelegateForWallets();
    LedgerDelegate getLedgerDelegateForLockboxes();
+   LedgerDelegate getLedgerDelegateForScrAddr(
+      const BinaryData& wltID, const BinaryData& scrAddr);
 
 public:
    bool rescanZC_    = false;
@@ -286,7 +288,7 @@ public:
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    void unregisterWallet(const string& IDstr);
    bool registerAddresses(const vector<BinaryData>& saVec,
-      BinaryData walletID, int32_t doScan);
+      BinaryData walletID, bool areNew);
 
    bool hasID(const BinaryData& ID) const;
    void pprintRegisteredWallets(void) const;
@@ -334,6 +336,10 @@ private:
 
    BlockDataViewer* bdvPtr_;
    ScrAddrFilter*   saf_;
+
+   //the global ledger may be modified concurently by the maintenance thread
+   //and user actions, so it needs a synchronization primitive.
+   std::mutex globalLedgerLock_;
 };
 
 #endif

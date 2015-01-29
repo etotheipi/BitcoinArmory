@@ -1,5 +1,5 @@
 /**	@file midl.h
- *	@brief mdb ID List header file.
+ *	@brief LMDB ID List header file.
  *
  *	This file was originally part of back-bdb but has been
  *	modified for use in libmdb. Most of the macros defined
@@ -11,7 +11,7 @@
 /* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2013 The OpenLDAP Foundation.
+ * Copyright 2000-2014 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-/** @defgroup internal	MDB Internals
+/** @defgroup internal	LMDB Internals
  *	@{
  */
 
@@ -67,6 +67,9 @@ typedef MDB_ID *MDB_IDL;
 #define MDB_IDL_CPY( dst, src ) (memcpy( dst, src, MDB_IDL_SIZEOF( src ) ))
 #define MDB_IDL_FIRST( ids )	( (ids)[1] )
 #define MDB_IDL_LAST( ids )		( (ids)[(ids)[0]] )
+
+	/** Current max length of an #mdb_midl_alloc()ed IDL */
+#define MDB_IDL_ALLOCLEN( ids )	( (ids)[-1] )
 
 	/** Append ID to IDL. The IDL must be big enough. */
 #define mdb_midl_xappend(idl, id) do { \
@@ -127,6 +130,12 @@ int mdb_midl_append_list( MDB_IDL *idp, MDB_IDL app );
 	 * @return	0 on success, ENOMEM if the IDL is too large.
 	 */
 int mdb_midl_append_range( MDB_IDL *idp, MDB_ID id, unsigned n );
+
+	/** Merge an IDL onto an IDL. The destination IDL must be big enough.
+	 * @param[in] idl	The IDL to merge into.
+	 * @param[in] merge	The IDL to merge.
+	 */
+void mdb_midl_xmerge( MDB_IDL idl, MDB_IDL merge );
 
 	/** Sort an IDL.
 	 * @param[in,out] ids	The IDL to sort.
