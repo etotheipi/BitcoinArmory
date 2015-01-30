@@ -36,6 +36,7 @@ TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
 TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script', 'AddrStr')
 PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
+PAGE_LOAD_OFFSET = 10
 
 class AllWalletsDispModel(QAbstractTableModel):
    
@@ -544,7 +545,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             self.bottomPage.table = toTable 
          except:
             pass
-         
+      
       self.ledger = []
       self.ledger.extend(self.topPage.table)
       self.ledger.extend(self.currentPage.table)
@@ -828,13 +829,13 @@ class ArmoryTableView(QTableView):
    
    def verticalScrollbarValueChanged(self, dx):
 
-      if dx == self.verticalScrollBar().maximum():
+      if dx > self.verticalScrollBar().maximum() - PAGE_LOAD_OFFSET:
          #at the bottom of the scroll area
          ratio = self.ledgerModel.getMoreData(True)
          if ratio != 0:
             self.vBarRatio = ratio
 
-      elif dx == 0:
+      elif dx < PAGE_LOAD_OFFSET:
          #at the top of the scroll area
          ratio = self.ledgerModel.getMoreData(False)
          if ratio != 0:
