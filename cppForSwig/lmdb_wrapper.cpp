@@ -339,8 +339,12 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 ////////////////////////////////////////////////////////////////////////////////
 LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady) :
-   isDBReady_(isDBReady)
+isDBReady_(isDBReady)
 {
+   //for some reason the WRITE_UINT16 macros create 4 byte long BinaryData 
+   //instead of 2, so I'm doing this the hard way instead
+   uint8_t* ptr = const_cast<uint8_t*>(ZCprefix_.getPtr());
+   memset(ptr, 0xFF, 2);
 }
 
 
@@ -2451,18 +2455,35 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
       {
          LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
 
-         BinaryData keyFull(ldbKey6B.getSize() + 1);
-         keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
-         ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
-
-         BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
-
-         if (txData.getSize() >= 36)
+         if (!ldbKey6B.startsWith(ZCprefix_))
          {
-            return txData.getSliceRef(4, 32);
+            BinaryData keyFull(ldbKey6B.getSize() + 1);
+            keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
+            ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
+
+            BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
+
+            if (txData.getSize() >= 36)
+            {
+               return txData.getSliceRef(4, 32);
+            }
+         }
+         else
+         {            
+            BinaryRefReader stxVal = 
+               getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
+
+            if (stxVal.getSize() == 0)
+            {
+               LOGERR << "TxRef key does not exist in BLKDATA DB";
+               return BinaryData(0);
+            }
+
+            // We can't get here unless we found the precise Tx entry we were looking for
+            stxVal.advance(2);
+            return stxVal.get_BinaryData(32);
          }
       }
-
       //else pull the full block then grab the txhash
       { 
          LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);         
@@ -3504,14 +3525,28 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
    }
    else
    {
-      BinaryRefReader brr = getValueRef(getDbSelect(HISTORY), DB_PREFIX_TXDATA, dbKey6);
-      if (brr.getSize() == 0)
+      if (!dbKey6.startsWith(ZCprefix_))
       {
-         LOGERR << "no Tx data at key";
-         return UINT32_MAX;
-      }
+         BinaryRefReader brr = getValueRef(getDbSelect(HISTORY), DB_PREFIX_TXDATA, dbKey6);
+         if (brr.getSize() == 0)
+         {
+            LOGERR << "no Tx data at key";
+            return UINT32_MAX;
+         }
 
-      return brr.get_uint32_t();
+         return brr.get_uint32_t();
+      }
+      else
+      {
+         StoredTx stx;
+         if (!getStoredZcTx(stx, dbKey6))
+         {
+            LOGERR << "no Tx data at key";
+            return UINT32_MAX;
+         }
+
+         return stx.stxoMap_.size();
+      }
    }
 
    return UINT32_MAX;

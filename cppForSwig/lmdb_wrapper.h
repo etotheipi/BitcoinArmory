@@ -682,7 +682,7 @@ private:
    // of addresses including pubkey-only, P2SH, 
    map<BinaryData, StoredScriptHistory>   registeredSSHs_;
 
-   const BinaryData ZCprefix_ = WRITE_UINT16_LE(0xFFFF);
+   const BinaryData ZCprefix_ = BinaryData(2);
 
    function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
 };

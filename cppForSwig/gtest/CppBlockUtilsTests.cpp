@@ -8110,6 +8110,9 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(zcStx.numTxOut_, 2);
    EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
 
+   //check ZChash in DB
+   EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
+
    delete dbtx;
 
    //restart bdm
@@ -10644,6 +10647,11 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    EXPECT_EQ(le.getTxTime(), 1300000000);
    EXPECT_EQ(le.isSentToSelf(), false);
    EXPECT_EQ(le.getValue(), 30*COIN);
+
+   //check ZChash in DB
+   BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
+   zcKey.append(WRITE_UINT32_LE(0));
+   EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
 }
 
 // This was really just to time the logging to determine how much impact it 
