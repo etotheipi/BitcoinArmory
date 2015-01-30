@@ -161,7 +161,7 @@ void ScrAddrFilter::scanScrAddrThread()
    if(doScan_ == false)
    {
       //new addresses, set their last seen block in the SSH entries
-      setSSHLastScanned(currentTopBlockHeight() + 1);
+      setSSHLastScanned(currentTopBlockHeight());
    }
    else
    {
@@ -316,10 +316,21 @@ void ScrAddrFilter::checkForMerge()
 ///////////////////////////////////////////////////////////////////////////////
 uint32_t ScrAddrFilter::scanFrom() const
 {
-   uint32_t lowestBlock = UINT32_MAX;
+   uint32_t lowestBlock = 0;
 
-   for (auto scrAddr : scrAddrMap_)
-      lowestBlock = min(lowestBlock, scrAddr.second);
+   if (scrAddrMap_.size())
+   {
+      lowestBlock = scrAddrMap_.begin()->second;
+
+      for (auto scrAddr : scrAddrMap_)
+      {
+         if (lowestBlock != scrAddr.second)
+         {
+            lowestBlock = 0;
+            break;
+         }
+      }
+   }
 
    return lowestBlock;
 }
