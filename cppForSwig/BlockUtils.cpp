@@ -964,6 +964,9 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    {  criticalError_ = str;
       this->notifyMainThread(); };
    blockWrites.setCriticalErrorLambda(errorLambda);
+
+   if (blk1 > blockchain_.top().getBlockHeight())
+      blk1 = blockchain_.top().getBlockHeight();
    
    LOGWARN << "Scanning from " << blk0 << " to " << blk1;
    return blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
