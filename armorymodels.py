@@ -805,23 +805,29 @@ class ArmoryBlockAndDateSelector():
          self.dateChanged()
          
    def blkEditingFinished(self):
-      blk = int(self.edtBlock.text())
-      self.Blk = self.ledgerDelegate.getBlockInVicinity(blk)
-      self.Date = TheBDM.bdv().getBlockTimeByHeight(self.Blk)
+      try:
+         blk = int(self.edtBlock.text())         
+         self.Block = self.ledgerDelegate.getBlockInVicinity(blk)
+         self.Date = TheBDM.bdv().getBlockTimeByHeight(self.Block)
+      except:
+         pass
       
       self.editBlockHeight()
-      self.updateLabel(self.Blk)
+      self.updateLabel(self.Block)
       
-      self.parent.emit(SIGNAL('centerView'), self.Blk)
+      self.parent.emit(SIGNAL('centerView'), self.Block)
       
    def dateChanged(self):
-      ddate = self.calendarDlg.calendarWidget.selectedDate().toPyDate()
-      self.Date = int(time.mktime(ddate.timetuple()))
+      try:
+         ddate = self.calendarDlg.calendarWidget.selectedDate().toPyDate()
+         self.Date = int(time.mktime(ddate.timetuple()))
+         
+         self.Block = TheBDM.bdv().getClosestBlockHeightForTime(self.Date)
+      except:         
+         pass
       
-      self.Blk = TheBDM.bdv().getClosestBlockHeightForTime(self.Date)
-      self.updateLabel(self.Blk) 
-      
-      self.parent.emit(SIGNAL('centerView'), self.Blk)
+      self.updateLabel(self.Block)       
+      self.parent.emit(SIGNAL('centerView'), self.Block)
       
    def goToTop(self):
       if self.isEditingBlockHeight == True:
