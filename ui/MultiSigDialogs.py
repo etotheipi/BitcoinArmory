@@ -11,7 +11,7 @@ from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
                       DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-                      DlgDispTxInfo
+                      DlgDispTxInfo, STRETCH
 from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
@@ -714,7 +714,8 @@ class DlgLockboxManager(ArmoryDialog):
       #self.ledgerProxy = LedgerDispSortProxy(self)
       #self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
 
-      self.ledgerView  = ArmoryTableView(self.parent, self.main)
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView  = ArmoryTableView(self.parent, self.main, self.frmLedgUpDown)
       self.ledgerView.setModel(self.main.lockboxLedgModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
@@ -756,8 +757,10 @@ class DlgLockboxManager(ArmoryDialog):
 
       # Setup the ledger tab
       self.tabLedger = QWidget()
-      layoutLedger = QHBoxLayout()
+      layoutLedger = QVBoxLayout()
       layoutLedger.addWidget(self.ledgerView)
+      bottomRow = makeHorizFrame([STRETCH, self.frmLedgUpDown, STRETCH], condenseMargins=True)
+      layoutLedger.addWidget(bottomRow)
       self.tabLedger.setLayout(layoutLedger)
 
       # Creates self.stkDashboard

@@ -3770,7 +3770,8 @@ class DlgAddressInfo(ArmoryDialog):
       
       self.ledgerModel.setConvertLedgerMethod(ledgerToTableScrAddr)      
       
-      self.ledgerView = ArmoryTableView(self, self.main)
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView = ArmoryTableView(self, self.main, self.frmLedgUpDown)
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
 
@@ -3802,7 +3803,8 @@ class DlgAddressInfo(ArmoryDialog):
       lblLedger = QLabel('All Address Activity:')
 
       lblstrip = makeLayoutFrame(HORIZONTAL, [lblLedger, ttipLedger, STRETCH])
-      frmLedger = makeLayoutFrame(VERTICAL, [lblstrip, self.ledgerView])
+      bottomRow = makeHorizFrame([STRETCH, self.frmLedgUpDown, STRETCH], condenseMargins=True)
+      frmLedger = makeLayoutFrame(VERTICAL, [lblstrip, self.ledgerView, bottomRow])
       dlgLayout.addWidget(frmLedger, 1, 0, 1, 1)
 
 

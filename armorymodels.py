@@ -595,7 +595,7 @@ class CalendarDialog(ArmoryDialog):
            
 ################################################################################
 class ArmoryBlockAndDateSelector():
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, controlFrame):
       self.parent = parent
       self.main = main
       
@@ -647,20 +647,12 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockLayout.addWidget(self.lblTop, 0, 2)   
       self.frmBlock.setLayout(self.frmBlockLayout)   
       self.frmBlock.adjustSize()
-
-      #self.frmDate = QFrame()
-      #self.frmDateLayout = QGridLayout()
-      #self.frmDateLayout.addWidget(self.lblDate, 0, 0)
-      #self.frmDateLayout.addWidget(self.lblDateValue, 0, 1) 
-      #self.frmDate.setLayout(self.frmDateLayout)   
-      #self.frmDate.adjustSize()     
+      
       self.frmBlockAndDateLayout.addWidget(self.lblBlock, 0, 0)
       self.frmBlockAndDateLayout.addWidget(self.lblBlockValue, 0, 1)
       self.frmBlockAndDateLayout.addWidget(self.edtBlock, 0, 1)
       self.frmBlockAndDateLayout.addWidget(self.lblTop, 0, 2)
-      #self.frmBlockAndDateLayout.addWidget(self.frmBlock, 0, 0)
-      #self.frmBlockAndDateLayout.addWidget(self.frmDate, 1, 0)
-      
+
       self.frmBlockAndDateLayout.addWidget(self.lblDate, 1, 0)
       self.frmBlockAndDateLayout.addWidget(self.lblDateValue, 1, 1)
       
@@ -673,52 +665,21 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDate.leaveEvent = self.triggerHideBlockAndDate
       self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
                                                     
-      self.lblPlaceHolder = QLabel('<--->')
-      self.lblPlaceHolder.setBackgroundRole(QPalette.Window)
-      self.lblPlaceHolder.setAutoFillBackground(True)
-      self.lblPlaceHolder.setFrameStyle(QFrame.Panel | QFrame.Raised);
-      self.lblPlaceHolder.setStyleSheet("QLabel { font-size : 10px;}")
-      
-      self.lblPlaceHolder.adjustSize()
-      
-      self.lblPlaceHolder.setMouseTracking(True)
-      self.lblPlaceHolder.mouseMoveEvent = self.moveOverPlaceHolder     
+      self.dateBlockSelectButton = QPushButton('Goto')
+      self.dateBlockSelectButton.setMaximumSize(44, 16)
+      self.main.connect(self.dateBlockSelectButton,  SIGNAL('clicked()'), self.showBlockDateController)
+
                                  
       self.frmLayout = QGridLayout()
-      self.frmLayout.addWidget(self.lblPlaceHolder)       
+      self.frmLayout.addWidget(self.dateBlockSelectButton)       
       self.frmLayout.addWidget(self.frmBlockAndDate)
-      self.frmLayout.setEnabled(True)
-      
-      
-      #bottom center align
-      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignBottom)
-      
-      
-      '''
-      #bottom left align
-      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)      
-      '''
-      
-      '''
-      #top left corner, no margin
-      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-      #self.frmLayout.setMargin(0)
-      
-      #2px margin
-      self.frmLayout.setMargin(2)
-      '''
-      
-      '''
-      #top center align, 2px margin
-      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignTop)
-      self.frmLayout.setMargin(2)
-      '''
-            
       self.frmLayout.connect(self.frmLayout, SIGNAL('hideIt'), self.hideBlockAndDate)
+      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+      self.frmLayout.setMargin(0)
+      
+      self.dateBlockSelectButton.setVisible(True)
 
-      self.lblPlaceHolder.setVisible(True)
-
-      self.parent.setLayout(self.frmLayout)
+      controlFrame.setLayout(self.frmLayout)
             
    def linkClicked(self, link):
       if link == 'edtBlock':
@@ -746,7 +707,7 @@ class ArmoryBlockAndDateSelector():
       if self.isExpanded == True:
          fontRect = self.frmBlockAndDate.geometry()
       else:
-         fontRect = self.lblPlaceHolder.geometry()
+         fontRect = self.dateBlockSelectButton.geometry()
 
       self.Width = fontRect.width()
       self.Height = fontRect.height()
@@ -758,9 +719,9 @@ class ArmoryBlockAndDateSelector():
       if mEvent.button() == Qt.LeftButton:
          self.lblClicked()
         
-   def moveOverPlaceHolder(self, mEvent):
+   def showBlockDateController(self):
       self.isExpanded = True
-      self.lblPlaceHolder.setVisible(False)
+      self.dateBlockSelectButton.setVisible(False)
       self.frmBlockAndDate.setVisible(True)
       
       self.updateLabel(self.Block)
@@ -778,7 +739,7 @@ class ArmoryBlockAndDateSelector():
    def hideBlockAndDate(self):
       if self.isExpanded == True and self.doHide == True:
          self.frmBlockAndDate.setVisible(False)
-         self.lblPlaceHolder.setVisible(True)   
+         self.dateBlockSelectButton.setVisible(True)   
          self.isExpanded = False     
                    
          self.updateLabel(self.Block)  
@@ -837,22 +798,22 @@ class ArmoryBlockAndDateSelector():
       self.parent.emit(SIGNAL('goToTop'))
       
    def hide(self):
-      self.lblPlaceHolder.setVisible(False)
+      self.dateBlockSelectButton.setVisible(False)
       
    def show(self):
       if self.isExpanded == False:
-         self.lblPlaceHolder.setVisible(True)   
+         self.dateBlockSelectButton.setVisible(True)   
    
       
 ################################################################################
 class ArmoryTableView(QTableView):
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, controlFrame):
       super(ArmoryTableView, self).__init__()
       
       self.parent = parent
       self.main = main
       
-      self.BlockAndDateSelector = ArmoryBlockAndDateSelector(self, self.main)
+      self.BlockAndDateSelector = ArmoryBlockAndDateSelector(self, self.main, controlFrame)
       self.verticalScrollBar().rangeChanged.connect(self.scrollBarRangeChanged)
       self.vBarRatio = 0
       # self.verticalScrollBar().setVisible(False)
