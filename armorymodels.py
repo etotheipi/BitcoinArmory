@@ -673,11 +673,11 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDate.leaveEvent = self.triggerHideBlockAndDate
       self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
                                                     
-      self.lblPlaceHolder = QLabel('#')
+      self.lblPlaceHolder = QLabel('<--->')
       self.lblPlaceHolder.setBackgroundRole(QPalette.Window)
       self.lblPlaceHolder.setAutoFillBackground(True)
       self.lblPlaceHolder.setFrameStyle(QFrame.Panel | QFrame.Raised);
-      self.lblPlaceHolder.setStyleSheet("QLabel { font-size : 15px;}")
+      self.lblPlaceHolder.setStyleSheet("QLabel { font-size : 10px;}")
       
       self.lblPlaceHolder.adjustSize()
       
@@ -689,21 +689,23 @@ class ArmoryBlockAndDateSelector():
       self.frmLayout.addWidget(self.frmBlockAndDate)
       self.frmLayout.setEnabled(True)
       
-      '''
+      
       #bottom center align
       self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignBottom)
-      '''
       
+      
+      '''
       #bottom left align
       self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)      
+      '''
       
       '''
       #top left corner, no margin
       self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-      self.frmLayout.setMargin(0)
+      #self.frmLayout.setMargin(0)
       
-      2px margin
-      #self.frmLayout.setMargin(2)
+      #2px margin
+      self.frmLayout.setMargin(2)
       '''
       
       '''
