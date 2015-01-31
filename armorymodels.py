@@ -688,8 +688,30 @@ class ArmoryBlockAndDateSelector():
       self.frmLayout.addWidget(self.lblPlaceHolder)       
       self.frmLayout.addWidget(self.frmBlockAndDate)
       self.frmLayout.setEnabled(True)
-      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
       
+      '''
+      #bottom center align
+      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignBottom)
+      '''
+      
+      #bottom left align
+      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)      
+      
+      '''
+      #top left corner, no margin
+      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.frmLayout.setMargin(0)
+      
+      2px margin
+      #self.frmLayout.setMargin(2)
+      '''
+      
+      '''
+      #top center align, 2px margin
+      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+      self.frmLayout.setMargin(2)
+      '''
+            
       self.frmLayout.connect(self.frmLayout, SIGNAL('hideIt'), self.hideBlockAndDate)
 
       self.lblPlaceHolder.setVisible(True)
