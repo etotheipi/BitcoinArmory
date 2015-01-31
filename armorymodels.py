@@ -827,7 +827,8 @@ class ArmoryBlockAndDateSelector():
       self.lblPlaceHolder.setVisible(False)
       
    def show(self):
-      self.lblPlaceHolder.setVisible(True)   
+      if self.isExpanded == False:
+         self.lblPlaceHolder.setVisible(True)   
    
       
 ################################################################################
