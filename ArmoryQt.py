@@ -917,6 +917,10 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.walletsView.hideColumn(0)
 
+      if currIdx != 4: 
+         for i in range(0, len(self.walletVisibleList)):         
+            self.walletVisibleList[i] = False
+            
       # If a specific wallet is selected, just set that and you're done
       if currIdx > 4:
          self.walletVisibleList[currIdx-7] = True
