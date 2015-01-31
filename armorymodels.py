@@ -798,6 +798,9 @@ class ArmoryBlockAndDateSelector():
          self.frmBlockAndDate.adjustSize()
          
    def editDate(self):
+      if self.isEditingBlockHeight == True:
+         self.editBlockHeight()
+               
       if self.calendarDlg.exec_() == True:
          self.dateChanged()
          
@@ -821,6 +824,8 @@ class ArmoryBlockAndDateSelector():
       self.parent.emit(SIGNAL('centerView'), self.Blk)
       
    def goToTop(self):
+      if self.isEditingBlockHeight == True:
+         self.editBlockHeight()
       self.parent.emit(SIGNAL('goToTop'))
       
    def hide(self):
