@@ -220,7 +220,8 @@ private:
    void deleteHistories(void);
    void wipeHistoryAndHintDB(void);
 
-   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
+   void addRawBlockToDB(BinaryRefReader & brr, 
+      uint16_t fnum, uint64_t offset, bool updateDupID = true);
    uint32_t findFirstBlockToScan(void);
    void findFirstBlockToApply(void);
 

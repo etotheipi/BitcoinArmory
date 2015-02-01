@@ -314,6 +314,148 @@ public:
    void setCriticalErrorLambda(function<void(string)> lbd) { criticalError_ = lbd; }
 
 private:
+   
+   struct FileMap
+   {
+      uint8_t* filemap_ = nullptr;
+      uint64_t mapsize_ = 0;
+      uint64_t lastSeenCumulated_ = 0;
+
+      FileMap(BlkFile& blk)
+      {
+#ifdef WIN32
+         int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
+         if (fd == -1)
+            throw std::runtime_error("failed to open file");
+
+         HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
+         uint32_t sizelo = blk.filesize & 0xffffffff;
+         uint32_t sizehi = blk.filesize >> 16 >> 16;
+
+
+         HANDLE mh = CreateFileMapping(fdHandle, NULL,
+            PAGE_READONLY | SEC_COMMIT,
+            sizehi, sizelo, NULL);
+         if (mh == NULL)
+            throw std::runtime_error("failed to map file");
+
+         uint8_t* data = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
+            0, 0, blk.filesize);
+         mapsize_ = blk.filesize;
+
+         if (data == NULL)
+            throw std::runtime_error("failed to map file");
+
+         filemap_ = (uint8_t*)malloc(mapsize_);
+         memcpy(filemap_, data, mapsize_);
+         CloseHandle(mh);
+         _close(fd);
+
+         if (!UnmapViewOfFile(data))
+            throw std::runtime_error("failed to unmap file");
+#else
+         int fd = open(blk.path.c_str(), O_RDONLY);
+         if (fd == -1)
+            throw std::runtime_error("failed to open file");
+
+         uint8_t* data = (uint8_t*)mmap(
+            NULL, blk.filesize, PROT_READ, MAP_SHARED, fd, 0);
+         mapsize_ = blk.filesize;
+
+         if (data == NULL)
+            throw std::runtime_error("failed to map file");
+
+         filemap_ = (uint8_t*)malloc(mapsize_);
+         memcpy(filemap_, data, mapsize_);
+
+         close(fd);
+         munmap(data, mapsize_);
+#endif
+      }
+
+      ~FileMap()
+      {
+         if (filemap_ != nullptr)
+            free(filemap_);
+      }
+
+      FileMap(FileMap&& fm)
+      {
+         this->filemap_ = fm.filemap_;
+         this->mapsize_ = fm.mapsize_;
+         this->lastSeenCumulated_ = fm.lastSeenCumulated_;
+
+         fm.filemap_ = nullptr;
+      }
+
+      void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
+         uint64_t& lastSeenCumulative)
+      {
+         bdr.setRef(filemap_ + offset, size);
+
+         lastSeenCumulated_ = lastSeenCumulative += size;
+      }
+   };
+
+   struct BlockFileAccessor
+   {
+      /***
+      This struct is for Fullnode only. It is meant to grab blocks in bulk.
+
+      The lmdb_wrapper accessor opens and closes a file descriptor per block,
+      which crawls on HDDs. This accessor provides maps of each block file for
+      reading quick reading.
+
+      Since Core 0.10, blocks are not guaranteed to be commited to file in
+      order, so cleaning up the filemap once the last block has been read (by
+      offset) is not acceptable.
+
+      This struct manages the maps on its own and guarantees filemaps will
+      always be accessible
+      ***/
+
+      shared_ptr<vector<BlkFile>> blkFiles_;
+      map<uint16_t, FileMap> blkMaps_;
+      uint64_t lastSeenCumulative_ = 0;
+
+      static const uint64_t threshold_ = 50 * 1024 * 1024LL;
+      uint64_t nextThreshold_ = threshold_;
+
+      ///////
+      BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
+         : blkFiles_(blkfiles)
+      {}
+
+      void getRawBlock(BinaryDataRef& bdr, uint16_t fnum, uint64_t offset, uint32_t size)
+      {
+         auto mapIter = blkMaps_.find(fnum);
+         if (mapIter == blkMaps_.end())
+         {
+            auto result = blkMaps_.insert(make_pair(fnum, 
+               move(FileMap((*blkFiles_)[fnum]))));
+            mapIter = result.first;
+         }
+
+         mapIter->second.getRawBlock(bdr, offset, size, lastSeenCumulative_);
+
+         //clean up maps that haven't been used for a while
+         if (lastSeenCumulative_ >= nextThreshold_)
+         {
+            mapIter = blkMaps_.begin();
+
+            while (mapIter != blkMaps_.end())
+            {
+               if (mapIter->second.lastSeenCumulated_ + threshold_ <
+                  lastSeenCumulative_)
+                  blkMaps_.erase(mapIter++);
+               else
+                  ++mapIter;
+            }
+
+            nextThreshold_ = lastSeenCumulative_ + threshold_;
+         }
+      }
+   };
 
    struct LoadedBlockData
    {
@@ -331,9 +473,12 @@ private:
       mutex scanLock_, grabLock_, assignLock_;
       condition_variable scanCV_, grabCV_;
 
+      BlockFileAccessor BFA_;
+
       ////
       LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf) :
-         startBlock_(start), endBlock_(end), scrAddrFilter_(scf)
+         startBlock_(start), endBlock_(end), scrAddrFilter_(scf),
+         BFA_(scf.getDb()->getBlkFiles())
       {
          topLoadedBlock_ = start;
 
@@ -381,7 +526,7 @@ private:
 
    bool pullBlockFromDB(PulledBlock& pb, uint32_t height, uint8_t dup);
    static bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
-      LMDBBlockDatabase* db);
+      LMDBBlockDatabase* db, BlockFileAccessor* bfa = nullptr);
 
    StoredTxOut* makeSureSTXOInMap(
       LMDBBlockDatabase* iface,
@@ -481,6 +626,8 @@ private:
 
    //to report back fatal errors to the main thread
    function<void(string)> criticalError_ = [](string)->void{};
+
+   //for fullnode block data accessing only
 };
 
 

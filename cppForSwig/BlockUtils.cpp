@@ -76,33 +76,32 @@ static uint64_t scanFor(const uint8_t *in, const uint64_t inLen,
 class BlockDataManager_LevelDB::BitcoinQtBlockFiles
 {
    const string blkFileLocation_;
-   struct BlkFile
-   {
-      size_t fnum;
-      string path;
-      uint64_t filesize;
-      uint64_t filesizeCumul;
-   };
    
-   vector<BlkFile> blkFiles_;
+   shared_ptr<vector<BlkFile>> blkFiles_;
    uint64_t totalBlockchainBytes_=0;
    
    const BinaryData magicBytes_;
    
 public:
    BitcoinQtBlockFiles(const string& blkFileLocation, const BinaryData &magicBytes)
-      : blkFileLocation_(blkFileLocation), magicBytes_(magicBytes)
+      : blkFileLocation_(blkFileLocation), magicBytes_(magicBytes),
+      blkFiles_(new vector<BlkFile>())
    {
+   }
+
+   shared_ptr<vector<BlkFile>> getBlkFiles(void) const
+   {
+      return blkFiles_;
    }
    
    void detectAllBlkFiles()
    {
       unsigned numBlkFiles=0;
-      if (blkFiles_.size() > 0)
+      if (blkFiles_->size() > 0)
       {
-         numBlkFiles = blkFiles_.size()-1;
-         totalBlockchainBytes_ -= blkFiles_.back().filesize;
-         blkFiles_.pop_back();
+         numBlkFiles = blkFiles_->size()-1;
+         totalBlockchainBytes_ -= blkFiles_->back().filesize;
+         blkFiles_->pop_back();
       }
       while(numBlkFiles < UINT16_MAX)
       {
@@ -117,7 +116,7 @@ public:
          f.path = path;
          f.filesize = filesize;
          f.filesizeCumul = totalBlockchainBytes_;
-         blkFiles_.push_back(f);
+         blkFiles_->push_back(f);
          
          totalBlockchainBytes_ += filesize;
          
@@ -131,14 +130,14 @@ public:
    }
    
    uint64_t totalBlockchainBytes() const { return totalBlockchainBytes_; }
-   unsigned numBlockFiles() const { return blkFiles_.size(); }
+   unsigned numBlockFiles() const { return blkFiles_->size(); }
    
    uint64_t offsetAtStartOfFile(size_t fnum) const
    {
       if (fnum==0) return 0;
-      if (fnum >= blkFiles_.size())
+      if (fnum >= blkFiles_->size())
          throw std::range_error("block file out of range");
-      return blkFiles_[fnum].filesizeCumul;
+      return (*blkFiles_)[fnum].filesizeCumul;
    }
    
    // find the location of the first block that is not in @p bc
@@ -150,9 +149,9 @@ public:
       
       size_t index=0;
       
-      for (; index < blkFiles_.size(); index++)
+      for (; index < blkFiles_->size(); index++)
       {
-         const BinaryData hash = getFirstHash(blkFiles_[index]);
+         const BinaryData hash = getFirstHash((*blkFiles_)[index]);
 
          if (allHeaders.find(hash) == allHeaders.end())
          { // not found in this file
@@ -204,7 +203,7 @@ public:
       try
       {
          returnedOffset = readHeadersFromFile(
-            blkFiles_[index],
+            (*blkFiles_)[index],
             0,
             stopIfBlkHeaderRecognized
          );
@@ -235,16 +234,16 @@ public:
       )> &blockDataCallback
    ) const
    {
-      if (startAt.first == blkFiles_.size())
+      if (startAt.first == blkFiles_->size())
          return startAt;
-      if (startAt.first > blkFiles_.size())
+      if (startAt.first > blkFiles_->size())
          throw std::runtime_error("blkFile out of range");
          
       uint64_t finishOffset=startAt.second;
 
-      while (startAt.first < blkFiles_.size())
+      while (startAt.first < blkFiles_->size())
       {
-         const BlkFile &f = blkFiles_[startAt.first];
+         const BlkFile &f = (*blkFiles_)[startAt.first];
          finishOffset = readHeadersFromFile(
             f, startAt.second, blockDataCallback
          );
@@ -264,17 +263,17 @@ public:
       )> &blockDataCallback
    )
    {
-      if (startAt.first == blkFiles_.size())
+      if (startAt.first == blkFiles_->size())
          return startAt;
-      if (startAt.first > blkFiles_.size())
+      if (startAt.first > blkFiles_->size())
          throw std::runtime_error("blkFile out of range");
 
-      stopAt.first = (std::min)(stopAt.first, blkFiles_.size());
+      stopAt.first = (std::min)(stopAt.first, blkFiles_->size());
          
       uint64_t finishLocation=stopAt.second;
       while (startAt.first <= stopAt.first)
       {
-         const BlkFile &f = blkFiles_[startAt.first];
+         const BlkFile &f = (*blkFiles_)[startAt.first];
          const uint64_t stopAtOffset
             = startAt.first < stopAt.first ? f.filesize : stopAt.second;
          finishLocation = readRawBlocksFromFile(
@@ -319,10 +318,10 @@ public:
       try
       {
          //at this point, the last blkFile has been scanned for block, so skip it
-         for (int32_t i = blkFiles_.size() - 2; i > -1; i--)
+         for (int32_t i = blkFiles_->size() - 2; i > -1; i--)
          {
             readHeadersFromFile(
-               blkFiles_[i],
+               (*blkFiles_)[i],
                0,
                stopIfBlkHeaderRecognized
                );
@@ -464,7 +463,7 @@ private:
             
             try
             {
-               blockDataCallback(rawBlk, { f.fnum, blockFileOffset }, blkSize);
+               blockDataCallback(rawBlk, { f.fnum, pos - blkSize }, blkSize);
             }
             catch (std::exception &e)
             {
@@ -755,11 +754,12 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    : config_(bdmConfig)
    , blockchain_(config_.genesisBlockHash)
 {
-   auto isready = [this](void)->bool { return this->isReady(); };
-   iface_ = new LMDBBlockDatabase(isready);
-
-   scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    setConfig(bdmConfig);
+   
+   auto isready = [this](void)->bool { return this->isReady(); };
+   iface_ = new LMDBBlockDatabase(isready, readBlockHeaders_->getBlkFiles());
+   
+   scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1145,6 +1145,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    BDMstate_ = BDM_initializing;
    
    readBlockHeaders_->detectAllBlkFiles();
+   iface_->setBlkFiles(readBlockHeaders_->getBlkFiles());
    if (readBlockHeaders_->numBlockFiles()==0)
    {
       throw runtime_error("No blockfiles could be found!");
@@ -1317,7 +1318,7 @@ void BlockDataManager_LevelDB::loadBlockData(
          iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
 
          BinaryRefReader brr(blockdata);
-         addRawBlockToDB(brr, updateDupID);
+         addRawBlockToDB(brr, pos.first, pos.second, updateDupID);
          
          totalOffset += blksize;
          progfilter.advance(
@@ -1644,7 +1645,7 @@ bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
 void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
-   bool updateDupID)
+   uint16_t fnum, uint64_t offset, bool updateDupID)
 {
    SCOPED_TIMER("addRawBlockToDB");
 
@@ -1725,7 +1726,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
       auto getBH = [this](const BinaryData& hash)->const BlockHeader&
       { return this->blockchain_.getHeaderByHash(hash); };
       
-      iface_->putRawBlockData(brr, getBH);
+      iface_->putRawBlockData(brr, fnum, offset, getBH);
    }
 }
 

@@ -954,7 +954,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          }
 
          shared_ptr<PulledBlock> pb(new PulledBlock());
-         if (!pullBlockAtIter(*pb, ldbIter, db))
+         if (!pullBlockAtIter(*pb, ldbIter, db, &blockData->BFA_))
          {
             unique_lock<mutex> assignLock(blockData->assignLock_);
             *lastBlock = blockData->interruptBlock_;
@@ -1155,14 +1155,44 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
-   LMDBBlockDatabase* db)
+   LMDBBlockDatabase* db, BlockFileAccessor* bfa)
 {
 
    // Now we read the whole block, not just the header
-   if (db->readStoredBlockAtIter(iter, pb))
+   if (db->armoryDbType() == ARMORY_DB_SUPER || bfa == nullptr)
    {
-      pb.preprocessTx(db->armoryDbType());
-      return true;
+      if (db->readStoredBlockAtIter(iter, pb))
+      {
+         pb.preprocessTx(db->armoryDbType());
+         return true;
+      }
+   }
+   else
+   {
+      BinaryRefReader brr(iter.getValueReader());
+      if (brr.getSize() != 14)
+         return false;
+
+      uint16_t fnum = brr.get_uint16_t();
+      uint64_t offset = brr.get_uint64_t();
+      uint32_t size = brr.get_uint32_t();
+
+      try
+      {
+         BinaryDataRef bdr;
+         bfa->getRawBlock(bdr, fnum, offset, size);
+         
+         pb.blockHeight_ = DBUtils::hgtxToHeight(iter.getKey().getSliceRef(1, 4));
+         pb.duplicateID_ = DBUtils::hgtxToDupID(iter.getKey().getSliceRef(1, 4));
+
+         pb.unserializeFullBlock(bdr, true, false);
+         pb.preprocessTx(db->armoryDbType());
+         return true;
+      }
+      catch (...)
+      {
+         return false;
+      }
    }
 
    return false;

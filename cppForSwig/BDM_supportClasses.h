@@ -195,6 +195,7 @@ public:
       function<void(const BinaryData&, double prog, unsigned time)> progress);
 
    const BinaryData getNextWalletIDToScan(void);
+   LMDBBlockDatabase* getDb(void) const { return lmdb_; }
  
 public:
    virtual ScrAddrFilter* copy()=0;

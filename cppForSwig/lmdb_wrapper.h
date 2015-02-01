@@ -19,6 +19,13 @@
 
 #include "lmdbpp.h"
 
+#ifdef _MSC_VER
+   #include "leveldb_windows_port\win32_posix\win32_posix.h"
+#else
+   #include <fcntl.h>
+#endif
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Create & manage a bunch of different databases
@@ -231,7 +238,8 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(function<bool(void)> isDBReady);
+   LMDBBlockDatabase(function<bool(void)> isDBReady, 
+                     shared_ptr<vector<BlkFile>> blkfiles);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -440,7 +448,20 @@ public:
 
    //for Fullnode
    uint8_t putRawBlockData(BinaryRefReader& brr, 
+      uint16_t filenum, uint64_t offset,
       function<const BlockHeader& (const BinaryData&)>);
+
+   //blk file accessor for fullnode
+   bool readRawBlockInFile(BinaryData& bd,
+      uint16_t fnum, uint64_t offset, uint32_t blocksize) const;
+
+   bool getRawBlockFromFiles(BinaryData& bd,
+      uint32_t blockHgt, uint8_t blockDup) const;
+   bool getRawBlockFromFiles(BinaryData& bd,
+      const BinaryData& dbKey) const;
+   bool getRawBlockFromFiles(BinaryData& bd,
+      LDBIter& ldbIter) const;
+
 
    //getStoredHeader detects the dbType and update the passed StoredHeader
    //accordingly
@@ -644,6 +665,12 @@ public:
    bool isReady(void) { return isDBReady_(); }
    ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
 
+   void setBlkFiles(shared_ptr<vector<BlkFile>> blkFiles)
+   { blkFiles_ = blkFiles; }
+
+   shared_ptr<vector<BlkFile>> getBlkFiles(void) const
+   { return blkFiles_; }
+
 private:
    string               baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
@@ -685,6 +712,9 @@ private:
    const BinaryData ZCprefix_ = BinaryData(2);
 
    function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
+
+   //for fullnode accessor
+   shared_ptr<vector<BlkFile>> blkFiles_;
 };
 
 #endif

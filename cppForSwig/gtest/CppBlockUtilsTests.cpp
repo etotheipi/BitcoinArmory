@@ -4609,7 +4609,8 @@ protected:
       #endif
 
       auto isready = [](void)->bool { return true; };
-      iface_ = new LMDBBlockDatabase(isready);
+      shared_ptr<vector<BlkFile>> blkFiles_(new vector<BlkFile>());
+      iface_ = new LMDBBlockDatabase(isready, blkFiles_);
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -5225,12 +5226,12 @@ TEST_F(LMDBTest, PutFullBlockNoTx)
 
    auto getBH = [&](const BinaryData& hash)->const BlockHeader&
    { return bh; };
-   uint8_t sdup = iface_->putRawBlockData(brr, getBH);
+   uint8_t sdup = iface_->putRawBlockData(brr, 0, 0, getBH);
    EXPECT_TRUE(compareKVListRange(0,1, 0,1));
    EXPECT_EQ(sdup, 0);
 
    // Try adding it again and see if get the correct dup again, and no touch DB
-   sdup = iface_->putRawBlockData(brr, getBH);
+   sdup = iface_->putRawBlockData(brr, 0, 0, getBH);
    EXPECT_TRUE(compareKVListRange(0,1, 0, 1));
    EXPECT_EQ(sdup, 0);
 }
@@ -5749,7 +5750,9 @@ protected:
 #endif
 
       auto isready = [](void)->bool { return true; };
-      iface_ = new LMDBBlockDatabase(isready);
+      shared_ptr<vector<BlkFile>> blkFiles_(new vector<BlkFile>());
+
+      iface_ = new LMDBBlockDatabase(isready, blkFiles_);
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
