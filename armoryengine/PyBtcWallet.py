@@ -1064,8 +1064,11 @@ class PyBtcWallet(object):
       if doRegister and self.isRegistered():
          #isEnabled will be flagged back to True by the callback once it notifies
          #that the wallet has properly loaded the new scrAddr and scanned it
-         self.cppWallet.isEnabled = False 
-         self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
+         
+         wltNAddr = {}
+         wltNAddr[self.uniqueIDB58] = newAddrList
+         TheBDM.bdv().registerAddressBatch(wltNAddr, isActuallyNew)
+
          
       self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
                                           [lastComputedIndex, True]])

@@ -1631,6 +1631,12 @@ public:
       return *str;
    }
 
+   static const vector<string>& cast_to_string_vec(void *in)
+   {
+      vector<string>* strvec = (vector<string>*)in;
+      return *strvec;
+   }
+
    static vector<BinaryData> cast_to_BinaryDataVector(void *in)
    {
       vector<BinaryData>* vbd = (vector<BinaryData>*)in;

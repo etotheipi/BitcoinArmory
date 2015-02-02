@@ -3151,13 +3151,6 @@ class ArmoryMainWindow(QMainWindow):
             '<font color=%s>Connected (%s blocks)</font> ' %
             (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
-         # We still need to put together various bits of info.
-         if self.netMode==NETWORKMODE.Full:
-            LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
-            self.lblArmoryStatus.setText(\
-               '<font color=%s>Connected (%s blocks)</font> ' %
-               (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
-
       currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
       self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
@@ -6307,16 +6300,27 @@ class ArmoryMainWindow(QMainWindow):
 
       elif action == 'progress':
          #Received progress data for a wallet side scan
-         wltID = args[0]
+         wltIDList = args[0]
          prog = args[1]
-         self.walletSideScanProgress[wltID] = prog*100
          
-         if wltID in self.walletMap:
-            self.walletModel.reset()
-         else:
+         hasWallet = False
+         hasLockbox = False
+         for wltID in wltIDList:
+            self.walletSideScanProgress[wltID] = prog*100
+            
+            if wltID in self.walletMap:
+               hasWallet = True
+            else:
+               hasLockbox = True
+
+                
+         if hasWallet:
+            self.walletModel.reset()   
+         
+         if hasLockbox:
             self.lockboxLedgModel.reset()
             if self.lbDialogModel != None:
-               self.lbDialogModel.reset()
+               self.lbDialogModel.reset()                     
                
       elif action == WARNING_ACTION:
          #something went wrong on the C++ side, create a message box to report
@@ -6329,26 +6333,38 @@ class ArmoryMainWindow(QMainWindow):
          os._exit(0) 
       
       elif action == SCAN_ACTION:
-         wltID = args[0]
-         self.walletSideScanProgress[wltID] = 0    
-         if len(wltID) > 0:
-            if wltID in self.walletMap:
-               wlt = self.walletMap[wltID]                
-               wlt.disableWalletUI()
-               if wltID in self.walletDialogDict:
-                  self.walletDialogDict[wltID].reject()
-                  del self.walletDialogDict[wltID]
-               self.changeWltFilter()
-               
-            else:
-               lbID = self.lockboxIDMap[wltID]                
-               self.allLockboxes[lbID].isEnabled = False
-               if self.lbDialogModel != None:
-                  self.lbDialogModel.reset()       
-                 
-               if self.lbDialog != None:
-                  self.lbDialog.resetLBSelection()   
-                  self.lbDialog.changeLBFilter()     
+         wltIDList = args[0]
+         
+         hasWallet = False
+         hasLockbox = False
+         
+         for wltID in wltIDList:
+            self.walletSideScanProgress[wltID] = 0    
+            if len(wltID) > 0:
+               if wltID in self.walletMap:
+                  wlt = self.walletMap[wltID]                
+                  wlt.disableWalletUI()
+                  if wltID in self.walletDialogDict:
+                     self.walletDialogDict[wltID].reject()
+                     del self.walletDialogDict[wltID]
+                  
+                  hasWallet = True
+                  
+               else:
+                  lbID = self.lockboxIDMap[wltID]                
+                  self.allLockboxes[lbID].isEnabled = False
+                  hasLockbox = True
+         
+         if hasWallet:
+            self.changeWltFilter()  
+            
+         if hasLockbox:
+            if self.lbDialogModel != None:
+               self.lbDialogModel.reset()       
+                    
+            if self.lbDialog != None:
+               self.lbDialog.resetLBSelection()   
+               self.lbDialog.changeLBFilter()                           
                  
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -6926,7 +6942,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(runningList):
             if listchanged:
                canFix.append(tr("""
-                  <b>The following windows need closed before you can 
+                  <b>The following dialogs need closed before you can 
                   run the wallet analysis tool:</b>"""))
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)

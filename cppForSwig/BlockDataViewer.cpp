@@ -204,6 +204,32 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::registerAddressBatch(
+   const map < BinaryData, vector<BinaryData>>& wltNAddrMap, 
+   bool areNew)
+{
+   //if called from python, feed it a dict such as:
+   //{wltID1:[addrList1], wltID2:[addrList2]}
+
+   map<shared_ptr<BtcWallet>, vector<BinaryData>> wlt_addr;
+
+   for (auto& batch : wltNAddrMap)
+   {
+      for (auto& group : groups_)
+      {
+         auto wlt = group.getWalletByID(batch.first);
+         if (wlt != nullptr)
+         {
+            wlt_addr.insert(make_pair(wlt, batch.second));
+            break;
+         }
+      }
+   }
+
+   saf_->registerAddressBatch(wlt_addr, areNew);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 const LedgerEntry& BlockDataViewer::getTxLedgerByHash_FromWallets(
    const BinaryData& txHash) const
 {
@@ -366,7 +392,7 @@ void BlockDataViewer::scanScrAddrVector(
       saf->regScrAddrForScan(scrAddrPair.first, startBlock);
 
    //scan addresses
-   saf->applyBlockRangeToDB(startBlock, endBlock, nullptr);
+   saf->applyBlockRangeToDB(startBlock, endBlock, vector<string>());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -995,10 +1021,20 @@ void WalletGroup::updateGlobalLedgerFirstPage(uint32_t startBlock,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-map<BinaryData, shared_ptr<BtcWallet> > WalletGroup::getWalletMap(void)
+map<BinaryData, shared_ptr<BtcWallet> > WalletGroup::getWalletMap(void) const
 {
    ReadWriteLock::ReadLock rl(lock_);
    return wallets_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<BtcWallet> WalletGroup::getWalletByID(const BinaryData& ID) const
+{
+   auto iter = wallets_.find(ID);
+   if (iter != wallets_.end())
+      return iter->second;
+
+   return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

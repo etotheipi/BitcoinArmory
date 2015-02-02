@@ -8846,7 +8846,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(TheBDM.sideScanFlag_, true);
 
    //fire side scan manually since there is no maintenance thread with unit tests
-   theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
+   theBDM->startSideScan([](const vector<string>&, double prog, unsigned time){});
 
    //wait on the address scan
    while (wlt->getMergeFlag() == false)
@@ -8943,7 +8943,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(TheBDM.sideScanFlag_, true);
 
    //fire side scan manually since there is no maintenance thread with unit tests
-   theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
+   theBDM->startSideScan([](const vector<string>&, double prog, unsigned time){});
 
    //wait on the address scan
    while (wlt->getMergeFlag() == false)
