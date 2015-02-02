@@ -673,11 +673,11 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDate.leaveEvent = self.triggerHideBlockAndDate
       self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
                                                     
-      self.lblPlaceHolder = QLabel('#')
+      self.lblPlaceHolder = QLabel('<--->')
       self.lblPlaceHolder.setBackgroundRole(QPalette.Window)
       self.lblPlaceHolder.setAutoFillBackground(True)
       self.lblPlaceHolder.setFrameStyle(QFrame.Panel | QFrame.Raised);
-      self.lblPlaceHolder.setStyleSheet("QLabel { font-size : 15px;}")
+      self.lblPlaceHolder.setStyleSheet("QLabel { font-size : 10px;}")
       
       self.lblPlaceHolder.adjustSize()
       
@@ -688,8 +688,32 @@ class ArmoryBlockAndDateSelector():
       self.frmLayout.addWidget(self.lblPlaceHolder)       
       self.frmLayout.addWidget(self.frmBlockAndDate)
       self.frmLayout.setEnabled(True)
-      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
       
+      
+      #bottom center align
+      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignBottom)
+      
+      
+      '''
+      #bottom left align
+      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)      
+      '''
+      
+      '''
+      #top left corner, no margin
+      self.frmLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      #self.frmLayout.setMargin(0)
+      
+      #2px margin
+      self.frmLayout.setMargin(2)
+      '''
+      
+      '''
+      #top center align, 2px margin
+      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+      self.frmLayout.setMargin(2)
+      '''
+            
       self.frmLayout.connect(self.frmLayout, SIGNAL('hideIt'), self.hideBlockAndDate)
 
       self.lblPlaceHolder.setVisible(True)
@@ -776,36 +800,48 @@ class ArmoryBlockAndDateSelector():
          self.frmBlockAndDate.adjustSize()
          
    def editDate(self):
+      if self.isEditingBlockHeight == True:
+         self.editBlockHeight()
+               
       if self.calendarDlg.exec_() == True:
          self.dateChanged()
          
    def blkEditingFinished(self):
-      blk = int(self.edtBlock.text())
-      self.Blk = self.ledgerDelegate.getBlockInVicinity(blk)
-      self.Date = TheBDM.bdv().getBlockTimeByHeight(self.Blk)
+      try:
+         blk = int(self.edtBlock.text())         
+         self.Block = self.ledgerDelegate.getBlockInVicinity(blk)
+         self.Date = TheBDM.bdv().getBlockTimeByHeight(self.Block)
+      except:
+         pass
       
       self.editBlockHeight()
-      self.updateLabel(self.Blk)
+      self.updateLabel(self.Block)
       
-      self.parent.emit(SIGNAL('centerView'), self.Blk)
+      self.parent.emit(SIGNAL('centerView'), self.Block)
       
    def dateChanged(self):
-      ddate = self.calendarDlg.calendarWidget.selectedDate().toPyDate()
-      self.Date = int(time.mktime(ddate.timetuple()))
+      try:
+         ddate = self.calendarDlg.calendarWidget.selectedDate().toPyDate()
+         self.Date = int(time.mktime(ddate.timetuple()))
+         
+         self.Block = TheBDM.bdv().getClosestBlockHeightForTime(self.Date)
+      except:         
+         pass
       
-      self.Blk = TheBDM.bdv().getClosestBlockHeightForTime(self.Date)
-      self.updateLabel(self.Blk) 
-      
-      self.parent.emit(SIGNAL('centerView'), self.Blk)
+      self.updateLabel(self.Block)       
+      self.parent.emit(SIGNAL('centerView'), self.Block)
       
    def goToTop(self):
+      if self.isEditingBlockHeight == True:
+         self.editBlockHeight()
       self.parent.emit(SIGNAL('goToTop'))
       
    def hide(self):
       self.lblPlaceHolder.setVisible(False)
       
    def show(self):
-      self.lblPlaceHolder.setVisible(True)   
+      if self.isExpanded == False:
+         self.lblPlaceHolder.setVisible(True)   
    
       
 ################################################################################

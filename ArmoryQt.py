@@ -2940,10 +2940,6 @@ class ArmoryMainWindow(QMainWindow):
                                                         typesStr,
                                        options=QFileDialog.DontUseNativeDialog))
 
-      # Open the native file load dialog and grab the loaded file/path.
-      fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
-                                                     typesStr))
-
       self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
       return fullPath
 
