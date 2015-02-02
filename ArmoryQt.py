@@ -3492,10 +3492,10 @@ class ArmoryMainWindow(QMainWindow):
       return self.walletMap[wltID].getCommentForLE(le)
             
    #############################################################################
-   def addWalletToApplication(self, newWallet, walletIsNew=True):
+   def addWalletToApplication(self, newWallet, walletIsNew=False):
       LOGINFO('addWalletToApplication')
       
-      newWallet.registerWallet()
+      newWallet.registerWallet(walletIsNew)
 
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
