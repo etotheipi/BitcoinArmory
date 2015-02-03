@@ -12920,7 +12920,7 @@ class DlgRestoreFragged(ArmoryDialog):
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
 
-      doItText = tr('Test Backup' if thisIsATest else tR('Restore from Fragments'))
+      doItText = tr('Test Backup') if thisIsATest else tr('Restore from Fragments')
 
       btnExit = QPushButton(tr('Cancel'))
       self.btnRestore = QPushButton(doItText)
