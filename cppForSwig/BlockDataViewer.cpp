@@ -309,6 +309,9 @@ TxOut BlockDataViewer::getPrevTxOut(TxIn & txin) const
 
    OutPoint op = txin.getOutPoint();
    Tx theTx = getTxByHash(op.getTxHash());
+   if (!theTx.isInitialized())
+      throw runtime_error("couldn't find prev tx");
+
    uint32_t idx = op.getTxOutIndex();
    return theTx.getTxOutCopy(idx);
 }
