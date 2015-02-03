@@ -333,7 +333,9 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerModel.setLedgerDelegate(TheBDM.bdv().getLedgerDelegateForWallets())
       self.ledgerModel.setConvertLedgerMethod(self.convertLedgerToTable)
 
-      self.ledgerView  = ArmoryTableView(self, self)
+
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView  = ArmoryTableView(self, self, self.frmLedgUpDown)
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
@@ -503,19 +505,6 @@ class ArmoryMainWindow(QMainWindow):
 
       frmFilter = makeVertFrame([QLabel(tr('Filter:')), self.comboWltSelect, 'Stretch'])
 
-      self.frmLedgUpDown = QFrame()
-      layoutUpDown = QGridLayout()
-      layoutUpDown.addWidget(self.lblLedgShowing,0,0)
-      layoutUpDown.addWidget(self.lblLedgRange,  1,0)
-      layoutUpDown.addWidget(self.lblLedgTotal,  2,0)
-      layoutUpDown.addWidget(self.btnLedgUp,     0,1)
-      layoutUpDown.addWidget(self.comboNumShow,  1,1)
-      layoutUpDown.addWidget(self.btnLedgDn,     2,1)
-      layoutUpDown.setVerticalSpacing(2)
-      self.frmLedgUpDown.setLayout(layoutUpDown)
-      self.frmLedgUpDown.setFrameStyle(STYLE_SUNKEN)
-
-
       frmLower = makeHorizFrame([ frmFilter, \
                                  'Stretch', \
                                  self.frmLedgUpDown, \
@@ -523,15 +512,12 @@ class ArmoryMainWindow(QMainWindow):
                                  frmTotals])
 
       # Now add the ledger to the bottom of the window
-      ledgFrame = QFrame()
-      ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
       ledgLayout.addWidget(self.ledgerView,           1,0)
       ledgLayout.addWidget(frmLower,                  2,0)
       ledgLayout.setRowStretch(0, 0)
       ledgLayout.setRowStretch(1, 1)
       ledgLayout.setRowStretch(2, 0)
-      ledgFrame.setLayout(ledgLayout)
 
       self.tabActivity = QWidget()
       self.tabActivity.setLayout(ledgLayout)
@@ -3151,13 +3137,6 @@ class ArmoryMainWindow(QMainWindow):
             '<font color=%s>Connected (%s blocks)</font> ' %
             (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
-         # We still need to put together various bits of info.
-         if self.netMode==NETWORKMODE.Full:
-            LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
-            self.lblArmoryStatus.setText(\
-               '<font color=%s>Connected (%s blocks)</font> ' %
-               (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
-
       currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
       self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
@@ -3236,9 +3215,6 @@ class ArmoryMainWindow(QMainWindow):
 
             
       self.ledgerSize = len(self.combinedLedger)
-
-      # Hide the ledger slicer, we dont use it anymore. Should get rid of it entirely at some point.
-      self.frmLedgUpDown.setVisible(False)
 
       # Many MainWindow objects haven't been created yet...
       # let's try to update them and fail silently if they don't exist
@@ -3499,10 +3475,10 @@ class ArmoryMainWindow(QMainWindow):
       return self.walletMap[wltID].getCommentForLE(le)
             
    #############################################################################
-   def addWalletToApplication(self, newWallet, walletIsNew=True):
+   def addWalletToApplication(self, newWallet, walletIsNew=False):
       LOGINFO('addWalletToApplication')
       
-      newWallet.registerWallet()
+      newWallet.registerWallet(walletIsNew)
 
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
@@ -6307,16 +6283,27 @@ class ArmoryMainWindow(QMainWindow):
 
       elif action == 'progress':
          #Received progress data for a wallet side scan
-         wltID = args[0]
+         wltIDList = args[0]
          prog = args[1]
-         self.walletSideScanProgress[wltID] = prog*100
          
-         if wltID in self.walletMap:
-            self.walletModel.reset()
-         else:
+         hasWallet = False
+         hasLockbox = False
+         for wltID in wltIDList:
+            self.walletSideScanProgress[wltID] = prog*100
+            
+            if wltID in self.walletMap:
+               hasWallet = True
+            else:
+               hasLockbox = True
+
+                
+         if hasWallet:
+            self.walletModel.reset()   
+         
+         if hasLockbox:
             self.lockboxLedgModel.reset()
             if self.lbDialogModel != None:
-               self.lbDialogModel.reset()
+               self.lbDialogModel.reset()                     
                
       elif action == WARNING_ACTION:
          #something went wrong on the C++ side, create a message box to report
@@ -6329,26 +6316,38 @@ class ArmoryMainWindow(QMainWindow):
          os._exit(0) 
       
       elif action == SCAN_ACTION:
-         wltID = args[0]
-         self.walletSideScanProgress[wltID] = 0    
-         if len(wltID) > 0:
-            if wltID in self.walletMap:
-               wlt = self.walletMap[wltID]                
-               wlt.disableWalletUI()
-               if wltID in self.walletDialogDict:
-                  self.walletDialogDict[wltID].reject()
-                  del self.walletDialogDict[wltID]
-               self.changeWltFilter()
-               
-            else:
-               lbID = self.lockboxIDMap[wltID]                
-               self.allLockboxes[lbID].isEnabled = False
-               if self.lbDialogModel != None:
-                  self.lbDialogModel.reset()       
-                 
-               if self.lbDialog != None:
-                  self.lbDialog.resetLBSelection()   
-                  self.lbDialog.changeLBFilter()     
+         wltIDList = args[0]
+         
+         hasWallet = False
+         hasLockbox = False
+         
+         for wltID in wltIDList:
+            self.walletSideScanProgress[wltID] = 0    
+            if len(wltID) > 0:
+               if wltID in self.walletMap:
+                  wlt = self.walletMap[wltID]                
+                  wlt.disableWalletUI()
+                  if wltID in self.walletDialogDict:
+                     self.walletDialogDict[wltID].reject()
+                     del self.walletDialogDict[wltID]
+                  
+                  hasWallet = True
+                  
+               else:
+                  lbID = self.lockboxIDMap[wltID]                
+                  self.allLockboxes[lbID].isEnabled = False
+                  hasLockbox = True
+         
+         if hasWallet:
+            self.changeWltFilter()  
+            
+         if hasLockbox:
+            if self.lbDialogModel != None:
+               self.lbDialogModel.reset()       
+                    
+            if self.lbDialog != None:
+               self.lbDialog.resetLBSelection()   
+               self.lbDialog.changeLBFilter()                           
                  
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -6926,7 +6925,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(runningList):
             if listchanged:
                canFix.append(tr("""
-                  <b>The following windows need closed before you can 
+                  <b>The following dialogs need closed before you can 
                   run the wallet analysis tool:</b>"""))
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)

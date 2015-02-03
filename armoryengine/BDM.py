@@ -78,7 +78,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             arglist.append(argstr)
          elif action == Cpp.BDMAction_StartedWalletScan:
             act = SCAN_ACTION
-            argstr = Cpp.BtcUtils_cast_to_string(arg)
+            argstr = Cpp.BtcUtils_cast_to_string_vec(arg)
             arglist.append(argstr)
             
          listenerList = TheBDM.getListenerList()
@@ -89,16 +89,16 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          print sys.exc_info()
          raise
 
-   def progress(self, phase, walletId, prog, seconds, progressNumeric):
+   def progress(self, phase, walletVec, prog, seconds, progressNumeric):
       try:
-         walletIdString = str(walletId)
-         if len(walletIdString) == 0:
+         #walletIdString = str(walletId)
+         if len(walletVec) == 0:
             self.bdm.progressPhase = phase
             self.bdm.progressComplete = prog
             self.bdm.secondsRemaining = seconds
             self.bdm.progressNumeric = progressNumeric
          else:
-            progInfo = [walletIdString, prog]
+            progInfo = [walletVec, prog]
             for cppNotificationListener in TheBDM.getListenerList():
                cppNotificationListener('progress', progInfo)
                

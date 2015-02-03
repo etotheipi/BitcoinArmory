@@ -109,6 +109,10 @@ public:
    bool registerAddresses(const vector<BinaryData>& saVec, 
                            BinaryData walletID, bool areNew);
 
+   void BlockDataViewer::registerAddressBatch(
+      const map <BinaryData, vector<BinaryData>>& wltNAddrMap,
+      bool areNew);
+
    map<BinaryData, map<BinaryData, TxIOPair> >
       getNewZeroConfTxIOMap() const
    { return zeroConfCont_.getNewTxioMap(); }
@@ -316,7 +320,9 @@ private:
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 
-   map<BinaryData, shared_ptr<BtcWallet> > getWalletMap(void);
+   map<BinaryData, shared_ptr<BtcWallet> > getWalletMap(void) const;
+   shared_ptr<BtcWallet> getWalletByID(const BinaryData& ID) const;
+
    uint32_t getBlockInVicinity(uint32_t) const;
    uint32_t getPageIdForBlockHeight(uint32_t) const;
 

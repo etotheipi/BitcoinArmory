@@ -3770,7 +3770,8 @@ class DlgAddressInfo(ArmoryDialog):
       
       self.ledgerModel.setConvertLedgerMethod(ledgerToTableScrAddr)      
       
-      self.ledgerView = ArmoryTableView(self, self.main)
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView = ArmoryTableView(self, self.main, self.frmLedgUpDown)
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
 
@@ -3802,7 +3803,8 @@ class DlgAddressInfo(ArmoryDialog):
       lblLedger = QLabel('All Address Activity:')
 
       lblstrip = makeLayoutFrame(HORIZONTAL, [lblLedger, ttipLedger, STRETCH])
-      frmLedger = makeLayoutFrame(VERTICAL, [lblstrip, self.ledgerView])
+      bottomRow = makeHorizFrame([STRETCH, self.frmLedgUpDown, STRETCH], condenseMargins=True)
+      frmLedger = makeLayoutFrame(VERTICAL, [lblstrip, self.ledgerView, bottomRow])
       dlgLayout.addWidget(frmLedger, 1, 0, 1, 1)
 
 
@@ -9720,7 +9722,7 @@ class DlgExportTxHistory(ArmoryDialog):
          for page in range(0, nPages):
             # Each value in COL.Amount will be exactly how much the wallet balance
             # increased or decreased as a result of this transaction.
-            combinedLedger = walletGroup.getHistoryPage(page)
+            combinedLedger = walletGroup.getHistoryPage(page, False, False)
             ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
                                                          showSentToSelfAmt=True)
       
@@ -12918,7 +12920,7 @@ class DlgRestoreFragged(ArmoryDialog):
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
 
-      doItText = tr('Test Backup' if thisIsATest else tR('Restore from Fragments'))
+      doItText = tr('Test Backup') if thisIsATest else tr('Restore from Fragments')
 
       btnExit = QPushButton(tr('Cancel'))
       self.btnRestore = QPushButton(doItText)

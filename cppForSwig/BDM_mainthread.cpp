@@ -266,7 +266,7 @@ try
          lastvalues = currentvalues;
          
          //pass empty walletID for main build&scan calls
-         callback->progress(phase, string(), prog, time, numericProgress);
+         callback->progress(phase, vector<string>(), prog, time, numericProgress);
 
          if (!pimpl->run)
          {
@@ -323,7 +323,7 @@ try
    unsigned lasttime=0;
    
    const auto rescanProgress
-      = [&] (const BinaryData &wltId, double prog,unsigned time)
+      = [&] (const vector<string>& wltIdVec, double prog,unsigned time)
    {
       if (prog == lastprog && time==lasttime)
          return; // don't go to python if nothing's changed
@@ -333,7 +333,7 @@ try
       
       callback->progress(
          BDMPhase_Rescan,
-         string(wltId.getCharPtr(), wltId.getSize()),
+         wltIdVec,
          lastprog, lasttime, 0
       );
    };   
@@ -351,11 +351,10 @@ try
 
          bool doScan = bdm->startSideScan(rescanProgress);
          
-         BinaryData bdWltID = bdm->getNextWalletIDToScan();
-         if (bdWltID.getSize() && doScan)
+         vector<string> wltIDs = bdm->getNextWalletIDToScan();
+         if (wltIDs.size() && doScan)
          {
-            string wltID(bdWltID.getCharPtr(), bdWltID.getSize());
-            callback->run(BDMAction_StartedWalletScan, &wltID);
+            callback->run(BDMAction_StartedWalletScan, &wltIDs);
          }
       }
 

@@ -265,7 +265,7 @@ public:
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
    bool startSideScan(
-      const function<void(const BinaryData&, double prog,unsigned time)> &cb
+      const function<void(const vector<string>&, double prog,unsigned time)> &cb
    );
 
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
@@ -273,7 +273,7 @@ public:
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
    bool isReady(void) const   { return BDMstate_ == BDM_ready; }
 
-   BinaryData getNextWalletIDToScan(void);
+   vector<string> getNextWalletIDToScan(void);
 };
 
 
