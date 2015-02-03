@@ -9722,7 +9722,7 @@ class DlgExportTxHistory(ArmoryDialog):
          for page in range(0, nPages):
             # Each value in COL.Amount will be exactly how much the wallet balance
             # increased or decreased as a result of this transaction.
-            combinedLedger = walletGroup.getHistoryPage(page)
+            combinedLedger = walletGroup.getHistoryPage(page, False, False)
             ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
                                                          showSentToSelfAmt=True)
       

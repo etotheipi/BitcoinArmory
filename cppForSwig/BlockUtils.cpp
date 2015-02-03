@@ -687,31 +687,30 @@ protected:
    }
    
    virtual BinaryData applyBlockRangeToDB(
-      uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
+      uint32_t startBlock, uint32_t endBlock, 
+      const vector<string>& wltIDs
    )
    {
       class WalletIdProgressReporter : public ProgressReporter
       {
-         BtcWallet *const wltPtr;
-         const function<void(const BinaryData&, double prog,unsigned time)> &cb;
+         const vector<string>& wIDs_;
+         const function<void(const vector<string>&, double prog,unsigned time)> &cb;
       public:
          WalletIdProgressReporter(
-            BtcWallet *wltPtr,
-            const function<void(const BinaryData&, double prog,unsigned time)> &cb
+            const vector<string>& wIDs,
+            const function<void(const vector<string>&, double prog,unsigned time)> &cb
          )
-            : wltPtr(wltPtr), cb(cb) {}
+            : wIDs_(wIDs), cb(cb) {}
          
          virtual void progress(
             double progress, unsigned secondsRemaining
          )
          {
-            const BinaryData empty;
-            const BinaryData &wltId = wltPtr ? wltPtr->walletID() : empty;
-            cb(wltId, progress, secondsRemaining);
+            cb(wIDs_, progress, secondsRemaining);
          }
       };
    
-      WalletIdProgressReporter progress(wltPtr, scanThreadProgressCallback_);
+      WalletIdProgressReporter progress(wltIDs, scanThreadProgressCallback_);
       
       //pass to false to skip SDBI top block updates
       return bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this, false);
@@ -1737,7 +1736,7 @@ ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::startSideScan(
-   const function<void(const BinaryData&, double prog,unsigned time)> &cb
+   const function<void(const vector<string>&, double prog,unsigned time)> &cb
 )
 {
    return scrAddrData_->startSideScan(cb);
@@ -1780,7 +1779,7 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockDataManager_LevelDB::getNextWalletIDToScan(void)
+vector<string> BlockDataManager_LevelDB::getNextWalletIDToScan(void)
 {
    return scrAddrData_->getNextWalletIDToScan();
 }
