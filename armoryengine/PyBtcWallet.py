@@ -231,12 +231,6 @@ class PyBtcWallet(object):
       self.pybtcaddrSize = len(PyBtcAddress().serialize())
 
 
-      # All BDM calls by default go on the multi-thread-queue.  But if the BDM
-      # is the one calling the PyBtcWallet methods, it will deadlock if it uses
-      # the queue.  Therefore, the BDM will set this flag before making any 
-      # calls, which will tell PyBtcWallet to use __direct methods.
-      self.calledFromBDM = False
-
       # Finally, a bunch of offsets that tell us where data is stored in the
       # file: this can be generated automatically on unpacking (meaning it
       # doesn't require manually updating offsets if I change the format), and
@@ -709,12 +703,6 @@ class PyBtcWallet(object):
       This method will create a new wallet based on a root public key, chain
       code and wallet ID.
       """
-
-      # Is this needed? Just in case....
-      if self.calledFromBDM:
-         LOGERROR('Called createNewWallet() from BDM method!')
-         LOGERROR('Don\'t do this!')
-         return None
 
       LOGINFO('***Creating watching-only wallet from a public key & chain code')
 
@@ -2715,12 +2703,7 @@ class PyBtcWallet(object):
       Returns true is we have to go back to disk/mmap and rescan more than two
       weeks worth of blocks
 
-      DO NOT CALL FROM A BDM METHOD.  Instead, call directly:
-         self.bdm.numBlocksToRescan(pywlt.cppWallet) > 2016
       """
-      if self.calledFromBDM:
-         LOGERROR('Called checkIfRescanRequired() from BDM method!')
-         LOGERROR('Don\'t do this!')
 
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
