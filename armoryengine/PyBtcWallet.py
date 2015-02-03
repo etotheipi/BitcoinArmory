@@ -826,12 +826,6 @@ class PyBtcWallet(object):
       DO NOT CALL THIS FROM BDM METHOD.  IT MAY DEADLOCK.
       """
 
-      
-      if self.calledFromBDM:
-         LOGERROR('Called createNewWallet() from BDM method!')
-         LOGERROR('Don\'t do this!')
-         return None
-
       if securePassphrase:
          securePassphrase = SecureBinaryData(securePassphrase)
       if plainRootKey:
@@ -1068,9 +1062,7 @@ class PyBtcWallet(object):
          wltNAddr = {}
          wltNAddr[self.uniqueIDB58] = newAddrList
          TheBDM.bdv().registerAddressBatch(wltNAddr, isActuallyNew)
-
-         
-      self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
+         self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
                                           [lastComputedIndex, True]])
          
       return self.lastComputedChainIndex
