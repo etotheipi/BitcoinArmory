@@ -78,6 +78,13 @@ public:
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
       : bdvPtr_(bdv), walletID_(ID)
    {}
+
+   BtcWallet(const BtcWallet& wlt) :
+      bdvPtr_(wlt.bdvPtr_), walletID_(wlt.walletID_)
+   {
+      scrAddrMap_ = wlt.scrAddrMap_;
+      balance_ = wlt.balance_;
+   }
    
    ~BtcWallet(void);
 
@@ -262,7 +269,7 @@ private:
                                  
    bool                          isRegistered_=false;
 
-   BtcWallet(const BtcWallet&); // no copies
+   //BtcWallet(const BtcWallet&); // no copies
 
    //for post init importing of new addresses
    mutex                         mergeLock_;

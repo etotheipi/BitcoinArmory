@@ -582,16 +582,25 @@ WalletGroup BlockDataViewer::getStandAloneWalletGroup(
    {
       auto wltIter = wallets.find(wltid);
       if (wltIter != wallets.end())
-         wg.wallets_[wltid] = wltIter->second;
+      {
+         shared_ptr<BtcWallet> wltCopy(
+            new BtcWallet(*(wltIter->second.get())));
+         wg.wallets_[wltid] = wltCopy;
+      }
+
       else
       {
          auto lbIter = lockboxes.find(wltid);
          if (lbIter != lockboxes.end())
-            wg.wallets_[wltid] = lbIter->second;
+         {
+            shared_ptr<BtcWallet> lbCopy(
+               new BtcWallet(*(lbIter->second.get())));
+            wg.wallets_[wltid] = lbCopy;
+         }
       }
    }
 
-   wg.pageHistory(false);
+   wg.pageHistory(true);
 
    return wg;
 }
