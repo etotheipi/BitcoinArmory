@@ -34,11 +34,15 @@ struct PulledTx : public DBTx
    map<uint16_t, TxIOPair> preprocessedUTXO_;
    vector<size_t> txInIndexes_;
 
+   //trying to avoid as many copies as possible, for speed and RAM
+   BinaryDataRef dataCopy_;
+   BinaryData bdDataCopy_;
+
    ////
    virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index)
    {
       auto& thisStxo = stxoMap_[index];
-      thisStxo.reset(new StoredTxOut);
+      thisStxo.reset(new StoredTxOut());
       thisStxo->txVersion_ = version_;
       return *thisStxo;
    }
@@ -56,23 +60,65 @@ struct PulledTx : public DBTx
 
    virtual void unserialize(BinaryRefReader & brr, bool isFragged = false)
    {
-      DBTx::unserialize(brr, isFragged);
+      vector<size_t> offsetsOut;
+      uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
+         isFragged,
+         &txInIndexes_,
+         &offsetsOut);
+      if (brr.getSizeRemaining() < nbytes)
+      {
+         LOGERR << "Not enough bytes in BRR to unserialize StoredTx";
+         return;
+      }
 
-      computeTxInIndexes();
+      brr.get_BinaryData(bdDataCopy_, nbytes);
+      dataCopy_.setRef(bdDataCopy_);
+
+      isFragged_ = isFragged;
+      numTxOut_ = offsetsOut.size() - 1;
+      version_ = READ_UINT32_LE(bdDataCopy_.getPtr());
+      lockTime_ = READ_UINT32_LE(bdDataCopy_.getPtr() + nbytes - 4);
+
+      if (isFragged_)
+      {
+         fragBytes_ = nbytes;
+         numBytes_ = UINT32_MAX;
+      }
+      else
+      {
+         numBytes_ = nbytes;
+         uint32_t span = offsetsOut[numTxOut_] - offsetsOut[0];
+         fragBytes_ = numBytes_ - span;
+         BtcUtils::getHash256(bdDataCopy_, thisHash_);
+      }
+   }
+
+   virtual const BinaryDataRef getDataCopyRef(void) const
+   {
+      return dataCopy_;
+   }
+
+   virtual BinaryData& getDataCopy(void)
+   {
+      throw runtime_error("non const getDataCopy not implemented for PulledTx");
    }
    
    ////
    void computeTxInIndexes()
    {
-      BtcUtils::TxInCalcLength(dataCopy_.getPtr(), dataCopy_.getSize(),
-         &txInIndexes_);
+      if (txInIndexes_.size() == 0)
+         BtcUtils::TxInCalcLength(dataCopy_.getPtr(), dataCopy_.getSize(),
+            &txInIndexes_);
    }
 };
+
+struct FileMap;
 
 struct PulledBlock : public DBBlock
 {
    map<uint16_t, PulledTx> stxMap_;
    shared_ptr<PulledBlock> nextBlock_ = nullptr;
+   shared_ptr<FileMap> fileMapPtr_;
 
    ////
    PulledBlock(void) : DBBlock() {}
@@ -86,6 +132,8 @@ struct PulledBlock : public DBBlock
       thisHash_ = move(pb.thisHash_);
       merkle_ = move(pb.merkle_);
       stxMap_ = move(pb.stxMap_);
+
+      fileMapPtr_ = pb.fileMapPtr_;
 
       numTx_ = pb.numTx_;
       numBytes_ = pb.numBytes_;
@@ -151,7 +199,6 @@ struct PulledBlock : public DBBlock
          }
       }
 
-      vector<BinaryData> allTxHashes;
       BlockHeader bh(brr);
       uint32_t nTx = (uint32_t)brr.get_var_int();
       uint32_t hgt = blockHeight_;
@@ -175,53 +222,73 @@ struct PulledBlock : public DBBlock
          throw BlockDeserializingException();
       }
 
-      BtcUtils::getHash256(dataCopy_, thisHash_);
+      thisHash_ = bh.getThisHash();
 
       for (uint32_t tx = 0; tx<nTx; tx++)
       {
+         PulledTx & stx = stxMap_[tx];
+         
          // We're going to have to come back to the beginning of the tx, later
          uint32_t txStart = brr.getPosition();
 
          // Read a regular tx and then convert it
-         Tx thisTx(brr);
-         numBytes_ += thisTx.getSize();
+         const uint8_t* ptr = brr.getCurrPtr();
+         vector<size_t> txOutIndexes;
+         size_t txSize = BtcUtils::TxCalcLength(ptr, brr.getSizeRemaining(), 
+                                                &stx.txInIndexes_, &txOutIndexes);
+         numBytes_ += txSize;
+         BtcUtils::getHash256(ptr, txSize, stx.thisHash_);
 
-         //save the hash for merkle computation
-         allTxHashes.push_back(thisTx.getThisHash());
 
-         // Now add it to the map
-         PulledTx & stx = stxMap_[tx];
+         //if fileMapPtr_ is poiting to something, we go this block from a
+         //FileMap object, let's avoid copies and just point the data through a
+         //bdref. If it's NULL, we got this the block data through the regular
+         //DB accessor and it will die when pullBlockAtIter scopes out. In this 
+         //case, we can't avoid the copy it.
+         if (fileMapPtr_ != nullptr)
+            stx.dataCopy_ = BinaryDataRef(ptr, txSize);
+         else
+         {
+            stx.bdDataCopy_ = BinaryData(ptr, txSize);
+            stx.dataCopy_.setRef(stx.bdDataCopy_);
+         }
 
-         // Now copy the appropriate data from the vanilla Tx object
-         //stx.createFromTx(thisTx, doFrag, true);
-         stx.dataCopy_ = BinaryData(thisTx.getPtr(), thisTx.getSize());
-         stx.thisHash_ = thisTx.getThisHash();
-         stx.numTxOut_ = thisTx.getNumTxOut();
-         stx.lockTime_ = thisTx.getLockTime();
+         stx.numTxOut_ = txOutIndexes.size() -1;
 
          stx.blockHeight_ = blockHeight_;
          stx.duplicateID_ = duplicateID_;
 
          stx.isFragged_ = doFrag;
-         stx.version_ = thisTx.getVersion();
+         stx.version_ = READ_UINT32_LE(ptr);
          stx.txIndex_ = tx;
 
-
-         // Regardless of whether the tx is fragged, we still need the STXO map
-         // to be updated and consistent
+         //figure out if this Tx is a coinbase
+         bool isCoinbase = false;
          brr.resetPosition();
-         brr.advance(txStart + thisTx.getTxOutOffset(0));
-         for (uint32_t txo = 0; txo < thisTx.getNumTxOut(); txo++)
+         brr.advance(txStart + stx.txInIndexes_[0]);
+         BinaryDataRef bdr = brr.get_BinaryDataRef(32);
+         if (bdr == BtcUtils::EmptyHash_)
+            isCoinbase = true;
+
+         //get the stxo map
+         brr.resetPosition();
+         brr.advance(txStart + txOutIndexes[0]);
+
+         for (uint32_t txo = 0; txo < stx.numTxOut_; txo++)
          {
             StoredTxOut & stxo = stx.initAndGetStxoByIndex(txo);
 
-            stxo.unserialize(brr);
-            stxo.txVersion_ = thisTx.getVersion();
+            size_t numBytes = txOutIndexes[txo + 1] - txOutIndexes[txo];
+            stxo.dataCopy_ = BinaryData(brr.getCurrPtr(), numBytes);
+
+            stxo.txVersion_ = stx.version_;
             stxo.blockHeight_ = blockHeight_;
             stxo.duplicateID_ = duplicateID_;
             stxo.txIndex_ = tx;
             stxo.txOutIndex_ = txo;
-            stxo.isCoinbase_ = thisTx.getTxInCopy(0).isCoinbase();
+            stxo.isCoinbase_ = isCoinbase;
+
+            brr.advance(numBytes);
          }
 
          // Sitting at the nLockTime, 4 bytes before the end
@@ -287,6 +354,91 @@ struct DataToCommit
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
 };
 
+struct FileMap
+{
+   uint8_t* filemap_ = nullptr;
+   uint64_t mapsize_ = 0;
+   uint64_t lastSeenCumulated_ = 0;
+
+   FileMap(BlkFile& blk)
+   {
+#ifdef WIN32
+      int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
+      if (fd == -1)
+         throw std::runtime_error("failed to open file");
+
+      HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
+      uint32_t sizelo = blk.filesize & 0xffffffff;
+      uint32_t sizehi = blk.filesize >> 16 >> 16;
+
+
+      HANDLE mh = CreateFileMapping(fdHandle, NULL,
+         PAGE_READONLY | SEC_COMMIT,
+         sizehi, sizelo, NULL);
+      if (mh == NULL)
+         throw std::runtime_error("failed to map file");
+
+      uint8_t* data = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
+         0, 0, blk.filesize);
+      mapsize_ = blk.filesize;
+
+      if (data == NULL)
+         throw std::runtime_error("failed to map file");
+
+      filemap_ = (uint8_t*)malloc(mapsize_);
+      memcpy(filemap_, data, mapsize_);
+      CloseHandle(mh);
+      _close(fd);
+
+      if (!UnmapViewOfFile(data))
+         throw std::runtime_error("failed to unmap file");
+#else
+      int fd = open(blk.path.c_str(), O_RDONLY);
+      if (fd == -1)
+         throw std::runtime_error("failed to open file");
+
+      uint8_t* data = (uint8_t*)mmap(
+         NULL, blk.filesize, PROT_READ, MAP_SHARED, fd, 0);
+      mapsize_ = blk.filesize;
+
+      if (data == NULL)
+         throw std::runtime_error("failed to map file");
+
+      filemap_ = (uint8_t*)malloc(mapsize_);
+      memcpy(filemap_, data, mapsize_);
+
+      close(fd);
+      munmap(data, mapsize_);
+#endif
+   }
+
+   ~FileMap()
+   {
+      if (filemap_ != nullptr)
+         free(filemap_);
+
+      filemap_ = nullptr;
+   }
+
+   FileMap(FileMap&& fm)
+   {
+      this->filemap_ = fm.filemap_;
+      this->mapsize_ = fm.mapsize_;
+      this->lastSeenCumulated_ = fm.lastSeenCumulated_;
+
+      fm.filemap_ = nullptr;
+   }
+
+   void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
+      uint64_t& lastSeenCumulative)
+   {
+      bdr.setRef(filemap_ + offset, size);
+
+      lastSeenCumulated_ = lastSeenCumulative += size;
+   }
+};
+
+
 class BlockWriteBatcher
 {
    friend struct DataToCommit;
@@ -314,88 +466,6 @@ public:
    void setCriticalErrorLambda(function<void(string)> lbd) { criticalError_ = lbd; }
 
 private:
-   
-   struct FileMap
-   {
-      uint8_t* filemap_ = nullptr;
-      uint64_t mapsize_ = 0;
-      uint64_t lastSeenCumulated_ = 0;
-
-      FileMap(BlkFile& blk)
-      {
-#ifdef WIN32
-         int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
-         if (fd == -1)
-            throw std::runtime_error("failed to open file");
-
-         HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
-         uint32_t sizelo = blk.filesize & 0xffffffff;
-         uint32_t sizehi = blk.filesize >> 16 >> 16;
-
-
-         HANDLE mh = CreateFileMapping(fdHandle, NULL,
-            PAGE_READONLY | SEC_COMMIT,
-            sizehi, sizelo, NULL);
-         if (mh == NULL)
-            throw std::runtime_error("failed to map file");
-
-         uint8_t* data = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
-            0, 0, blk.filesize);
-         mapsize_ = blk.filesize;
-
-         if (data == NULL)
-            throw std::runtime_error("failed to map file");
-
-         filemap_ = (uint8_t*)malloc(mapsize_);
-         memcpy(filemap_, data, mapsize_);
-         CloseHandle(mh);
-         _close(fd);
-
-         if (!UnmapViewOfFile(data))
-            throw std::runtime_error("failed to unmap file");
-#else
-         int fd = open(blk.path.c_str(), O_RDONLY);
-         if (fd == -1)
-            throw std::runtime_error("failed to open file");
-
-         uint8_t* data = (uint8_t*)mmap(
-            NULL, blk.filesize, PROT_READ, MAP_SHARED, fd, 0);
-         mapsize_ = blk.filesize;
-
-         if (data == NULL)
-            throw std::runtime_error("failed to map file");
-
-         filemap_ = (uint8_t*)malloc(mapsize_);
-         memcpy(filemap_, data, mapsize_);
-
-         close(fd);
-         munmap(data, mapsize_);
-#endif
-      }
-
-      ~FileMap()
-      {
-         if (filemap_ != nullptr)
-            free(filemap_);
-      }
-
-      FileMap(FileMap&& fm)
-      {
-         this->filemap_ = fm.filemap_;
-         this->mapsize_ = fm.mapsize_;
-         this->lastSeenCumulated_ = fm.lastSeenCumulated_;
-
-         fm.filemap_ = nullptr;
-      }
-
-      void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
-         uint64_t& lastSeenCumulative)
-      {
-         bdr.setRef(filemap_ + offset, size);
-
-         lastSeenCumulated_ = lastSeenCumulative += size;
-      }
-   };
 
    struct BlockFileAccessor
    {
@@ -415,7 +485,7 @@ private:
       ***/
 
       shared_ptr<vector<BlkFile>> blkFiles_;
-      map<uint16_t, FileMap> blkMaps_;
+      map<uint16_t, shared_ptr<FileMap> > blkMaps_;
       uint64_t lastSeenCumulative_ = 0;
 
       static const uint64_t threshold_ = 50 * 1024 * 1024LL;
@@ -426,17 +496,19 @@ private:
          : blkFiles_(blkfiles)
       {}
 
-      void getRawBlock(BinaryDataRef& bdr, uint16_t fnum, uint64_t offset, uint32_t size)
+      void getRawBlock(BinaryDataRef& bdr, uint16_t fnum, uint64_t offset, 
+         uint32_t size, PulledBlock& pb)
       {
          auto mapIter = blkMaps_.find(fnum);
          if (mapIter == blkMaps_.end())
          {
-            auto result = blkMaps_.insert(make_pair(fnum, 
-               move(FileMap((*blkFiles_)[fnum]))));
+            shared_ptr<FileMap> fm(new FileMap((*blkFiles_)[fnum]));
+            auto result = blkMaps_.insert(make_pair(fnum, fm));
             mapIter = result.first;
          }
 
-         mapIter->second.getRawBlock(bdr, offset, size, lastSeenCumulative_);
+         mapIter->second->getRawBlock(bdr, offset, size, lastSeenCumulative_);
+         pb.fileMapPtr_ = mapIter->second;
 
          //clean up maps that haven't been used for a while
          if (lastSeenCumulative_ >= nextThreshold_)
@@ -445,7 +517,7 @@ private:
 
             while (mapIter != blkMaps_.end())
             {
-               if (mapIter->second.lastSeenCumulated_ + threshold_ <
+               if (mapIter->second->lastSeenCumulated_ + threshold_ <
                   lastSeenCumulative_)
                   blkMaps_.erase(mapIter++);
                else

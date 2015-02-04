@@ -2293,7 +2293,7 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
       {
          // Get everything else from the iter value
          stx.unserializeDBValue(ldbIter.getValueRef());
-         nbytes += stx.dataCopy_.getSize();
+         nbytes += stx.getDataCopyRef().getSize();
       }
       else if(bdtype == BLKDATA_TXOUT)
       {

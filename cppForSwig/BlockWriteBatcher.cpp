@@ -70,7 +70,7 @@ StoredTxOut* BlockWriteBatcher::makeSureSTXOInMap(
    dbKey.append(WRITE_UINT16_BE(txoId));
    iface->getStoredTxOut(*stxo, dbKey);
 
-   dbUpdateSize_ += sizeof(StoredTxOut) + stxo->dataCopy_.getSize();
+   dbUpdateSize_ += sizeof(StoredTxOut) + stxo->getSize();
    stxoToUpdate_.push_back(move(stxo));
 
    return stxoToUpdate_.back().get();
@@ -81,7 +81,7 @@ void BlockWriteBatcher::moveStxoToUTXOMap(
    const shared_ptr<StoredTxOut>& thisTxOut)
 {
    stxoToUpdate_.push_back(thisTxOut);
-   dbUpdateSize_ += sizeof(StoredTxOut)+thisTxOut->dataCopy_.getSize();
+   dbUpdateSize_ += sizeof(StoredTxOut) + thisTxOut->getSize();
 
    utxoMap_[thisTxOut->hashAndId_] = thisTxOut; 
 }
@@ -118,7 +118,7 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
       dbKey.append(WRITE_UINT16_BE(txoId));
       iface_->getStoredTxOut(*stxo, dbKey);
 
-      dbUpdateSize_ += sizeof(StoredTxOut)+stxo->dataCopy_.getSize();
+      dbUpdateSize_ += sizeof(StoredTxOut)+stxo->getSize();
       stxoToUpdate_.push_back(stxo);
 
       return stxoToUpdate_.back().get();
@@ -968,8 +968,10 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
          //assign newly grabbed block to shared_ptr
          {
-            unique_lock<mutex> assignLock(blockData->assignLock_);
-            *lastBlock = pb;
+            {
+               unique_lock<mutex> assignLock(blockData->assignLock_);
+               *lastBlock = pb;
+            }
 
             //let's try to wake up the scan thread
             unique_lock<mutex> mu(blockData->scanLock_, defer_lock);
@@ -987,11 +989,11 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
       if (hgt > blockData->endBlock_)
          return;
 
+      TIMER_START("grabThreadSleep");
       //sleep 10sec or until process thread signals block buffer is low
       blockData->grabCV_.wait_for(grabLock, chrono::seconds(10));
+      TIMER_STOP("grabThreadSleep");
    }
-
-   //TIMER_STOP("grabBlocksFromDB");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1019,10 +1021,15 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       //wait until the shared_ptr has been assigned some data
       while (1)
       {
-         unique_lock<mutex> assignLock(blockData->assignLock_);
-         block = blockData->block_;
+         {
+            unique_lock<mutex> assignLock(blockData->assignLock_);
+            block = blockData->block_;
+         }
+
          if (block != nullptr)
             break;
+         
+         blockData->scanCV_.wait_for(scanLock, chrono::seconds(2));
       }
 
       if (block == blockData->interruptBlock_)
@@ -1090,7 +1097,9 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
                break;
             
             //wait for grabThread signal
+            TIMER_START("scanThreadSleep");
             blockData->scanCV_.wait_for(scanLock, chrono::seconds(2));
+            TIMER_STOP("scanThreadSleep");
          }
 
          //check if next block is valid
@@ -1124,6 +1133,12 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       clearTransactions();
       throw;
    }
+
+   double timeElapsed = TIMER_READ_SEC("grabThreadSleep");
+   LOGINFO << "grabThreadSleep: " << timeElapsed << "s";
+
+   timeElapsed = TIMER_READ_SEC("scanThreadSleep");
+   LOGINFO << "scanThreadSleep: " << timeElapsed << "s";
    
    return lastScannedBlockHash;
 }
@@ -1180,7 +1195,7 @@ bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
       try
       {
          BinaryDataRef bdr;
-         bfa->getRawBlock(bdr, fnum, offset, size);
+         bfa->getRawBlock(bdr, fnum, offset, size, pb);
          
          pb.blockHeight_ = DBUtils::hgtxToHeight(iter.getKey().getSliceRef(1, 4));
          pb.duplicateID_ = DBUtils::hgtxToDupID(iter.getKey().getSliceRef(1, 4));

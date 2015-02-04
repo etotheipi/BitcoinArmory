@@ -265,14 +265,14 @@ public:
       spentByTxInKey_(0)
    {}
 
-   bool isInitialized(void) const { return dataCopy_.getSize() > 0; }
+   bool isInitialized(void) const { return getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
    void unserialize(BinaryData const & data);
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
 
    void       unserializeDBValue(BinaryRefReader &  brr);
-   void       serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
+   void serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
       DB_PRUNE_TYPE pruneType,
       bool forceSaveSpent = false) const;
    void       unserializeDBValue(BinaryData const & bd);
@@ -293,19 +293,11 @@ public:
 
    bool matchesDBKey(BinaryDataRef dbkey) const;
 
-   uint64_t getValue(void)
-   {
-      if (dataCopy_.getSize() >= 8)
-         return READ_UINT64_LE(dataCopy_.getPtr());
-      else
-         return UINT64_MAX;
-   }
-
-
    bool isSpent(void) { return spentness_ == TXOUT_SPENT; }
-
-
    void pprintOneLine(uint32_t indent = 3);
+
+   size_t getSize(void) const
+   { return dataCopy_.getSize(); }
 
    uint32_t          txVersion_;
    BinaryData        dataCopy_;
@@ -333,7 +325,7 @@ public:
 class DBTx
 {
 public:
-   bool       isInitialized(void) const { return dataCopy_.getSize() > 0; }
+   bool       isInitialized(void) const { return getDataCopyRef().getSize() > 0; }
    bool       isNull(void) { return !isInitialized(); }
 
    BinaryData getSerializedTxFragged(void) const;
@@ -359,13 +351,15 @@ public:
 
    virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index) = 0;
    virtual bool haveAllTxOut(void) const = 0;
+   
+   virtual const BinaryDataRef getDataCopyRef(void) const = 0;
+   virtual BinaryData& getDataCopy(void) = 0;
    /////
 
    BinaryData           thisHash_;
    uint32_t             lockTime_ = 0;
    uint32_t             unixTime_ = 0;
 
-   BinaryData           dataCopy_;
    bool                 isFragged_ = false;
    uint32_t             version_ = 0;
    uint32_t             blockHeight_ = UINT32_MAX;
@@ -409,6 +403,7 @@ public:
 
    void pprintFullTx(uint32_t indent = 3);
 
+   /////
    virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index)
    {
       auto& stxo = stxoMap_[index];
@@ -419,7 +414,15 @@ public:
 
    virtual bool haveAllTxOut(void) const;
 
+   virtual const BinaryDataRef getDataCopyRef(void) const
+   { return dataCopy_.getRef(); }
+
+   virtual BinaryData& getDataCopy(void)
+   { return dataCopy_; }
+
+
    ////
+   BinaryData           dataCopy_;
    map<uint16_t, StoredTxOut> stxoMap_;
 };
 

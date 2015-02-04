@@ -676,12 +676,12 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
       return;
    }
 
-   brr.get_BinaryData(dataCopy_, nbytes);
+   brr.get_BinaryData(getDataCopy(), nbytes);
 
    isFragged_ = fragged;
    numTxOut_  = offsetsOut.size()-1;
-   version_   = READ_UINT32_LE(dataCopy_.getPtr());
-   lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + nbytes - 4);
+   version_   = READ_UINT32_LE(getDataCopy().getPtr());
+   lockTime_ = READ_UINT32_LE(getDataCopy().getPtr() + nbytes - 4);
 
    if(isFragged_)
    {
@@ -693,7 +693,7 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
       numBytes_ = nbytes;
       uint32_t span = offsetsOut[numTxOut_] - offsetsOut[0];
       fragBytes_ = numBytes_ - span;
-      BtcUtils::getHash256(dataCopy_, thisHash_);
+      BtcUtils::getHash256(getDataCopy(), thisHash_);
    }
 }
 
@@ -854,7 +854,7 @@ BinaryData DBTx::getSerializedTxFragged(void) const
       return BinaryData(0); 
 
    if(isFragged_)
-      return dataCopy_;
+      return BinaryData(getDataCopyRef());
 
    if(numBytes_ == UINT32_MAX)
    {
@@ -864,14 +864,14 @@ BinaryData DBTx::getSerializedTxFragged(void) const
 
    BinaryWriter bw;
    vector<size_t> outOffsets;
-   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), false, NULL, &outOffsets);
+   BtcUtils::StoredTxCalcLength(getDataCopyRef().getPtr(), false, NULL, &outOffsets);
    uint32_t firstOut  = outOffsets[0];
    uint32_t afterLast = outOffsets[outOffsets.size()-1];
    uint32_t span = afterLast - firstOut;
 
-   BinaryData output(dataCopy_.getSize() - span);
-   dataCopy_.getSliceRef(0,  firstOut).copyTo(output.getPtr());
-   dataCopy_.getSliceRef(afterLast, 4).copyTo(output.getPtr()+firstOut);
+   BinaryData output(getDataCopyRef().getSize() - span);
+   getDataCopyRef().getSliceRef(0, firstOut).copyTo(output.getPtr());
+   getDataCopyRef().getSliceRef(afterLast, 4).copyTo(output.getPtr() + firstOut);
    return output;
 }
 
