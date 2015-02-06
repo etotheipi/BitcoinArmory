@@ -359,11 +359,12 @@ struct FileMap
 {
    uint8_t* filemap_ = nullptr;
    uint64_t mapsize_ = 0;
-   atomic<uint64_t> lastSeenCumulated_ = 0;
+   atomic<uint64_t> lastSeenCumulated_;
    uint16_t fnum_;
 
    FileMap(BlkFile& blk)
    {
+      lastSeenCumulated_.store(0, memory_order_relaxed);
       fnum_ = blk.fnum;
 #ifdef WIN32
       int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
@@ -399,9 +400,7 @@ struct FileMap
    {
       this->filemap_ = fm.filemap_;
       this->mapsize_ = fm.mapsize_;
-      this->lastSeenCumulated_.store(
-         fm.lastSeenCumulated_.load(memory_order_relaxed), 
-         memory_order_relaxed);
+      lastSeenCumulated_.store(0, memory_order_relaxed);
 
       fnum_ = fm.fnum_;
       fm.filemap_ = nullptr;
@@ -466,7 +465,7 @@ private:
 
       shared_ptr<vector<BlkFile>> blkFiles_;
       map<uint16_t, shared_ptr<FileMap> > blkMaps_;
-      atomic<uint64_t> lastSeenCumulative_ = 0;
+      atomic<uint64_t> lastSeenCumulative_;
 
       static const uint64_t threshold_ = 50 * 1024 * 1024LL;
       uint64_t nextThreshold_ = threshold_;
@@ -476,7 +475,9 @@ private:
       ///////
       BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
          : blkFiles_(blkfiles)
-      {}
+      {
+         lastSeenCumulative_.store(0, memory_order_relaxed);
+      }
 
       void getRawBlock(BinaryDataRef& bdr, uint16_t fnum, uint64_t offset, 
          uint32_t size, PulledBlock& pb)
