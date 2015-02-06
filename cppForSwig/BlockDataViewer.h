@@ -109,8 +109,8 @@ public:
    bool registerAddresses(const vector<BinaryData>& saVec, 
                            BinaryData walletID, bool areNew);
 
-   void BlockDataViewer::registerAddressBatch(
-      const map <BinaryData, vector<BinaryData>>& wltNAddrMap,
+   void registerAddressBatch(
+      const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
       bool areNew);
 
    map<BinaryData, map<BinaryData, TxIOPair> >
