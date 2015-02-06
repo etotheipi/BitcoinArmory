@@ -491,6 +491,8 @@ private:
       static const uint64_t threshold_ = 50 * 1024 * 1024LL;
       uint64_t nextThreshold_ = threshold_;
 
+      mutex mu_;
+
       ///////
       BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
          : blkFiles_(blkfiles)
@@ -499,6 +501,8 @@ private:
       void getRawBlock(BinaryDataRef& bdr, uint16_t fnum, uint64_t offset, 
          uint32_t size, PulledBlock& pb)
       {
+         unique_lock<mutex> lock(mu_);
+
          auto mapIter = blkMaps_.find(fnum);
          if (mapIter == blkMaps_.end())
          {
@@ -519,7 +523,10 @@ private:
             {
                if (mapIter->second->lastSeenCumulated_ + threshold_ <
                   lastSeenCumulative_)
+               {
+                  LOGWARN << "cleaning up map " << mapIter->first;
                   blkMaps_.erase(mapIter++);
+               }
                else
                   ++mapIter;
             }
@@ -529,35 +536,143 @@ private:
       }
    };
 
+   struct GrabThreadData
+   {
+      GrabThreadData(void) { bufferLoad_ = 0; }
+      GrabThreadData(const GrabThreadData&) = delete;
+      
+      GrabThreadData(GrabThreadData&& gtd)
+      { 
+         bufferLoad_ = 0;
+         block_ = gtd.block_; 
+      }
+
+      //////
+      shared_ptr<PulledBlock> block_ = nullptr;
+      volatile atomic<uint32_t> bufferLoad_;
+
+      mutex assignLock_, grabLock_;
+      condition_variable grabCV_;
+   };
+
    struct LoadedBlockData
    {
-      shared_ptr<PulledBlock> block_ = nullptr;
       shared_ptr<PulledBlock> interruptBlock_ = nullptr;
 
       uint32_t startBlock_ = 0;
       uint32_t endBlock_   = 0;
-      volatile atomic<uint32_t> bufferLoad_;
       
       uint32_t topLoadedBlock_ = 0;
+      const uint32_t nThreads_;
       
       ScrAddrFilter& scrAddrFilter_;
 
-      mutex scanLock_, grabLock_, assignLock_;
-      condition_variable scanCV_, grabCV_;
+      mutex scanLock_;
+      condition_variable scanCV_;
 
       BlockFileAccessor BFA_;
+      vector<GrabThreadData> GTD_;
 
       ////
-      LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf) :
+      LoadedBlockData(const LoadedBlockData&) = delete;
+
+      LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf,
+         uint32_t nthreads) :
          startBlock_(start), endBlock_(end), scrAddrFilter_(scf),
-         BFA_(scf.getDb()->getBlkFiles())
+         BFA_(scf.getDb()->getBlkFiles()), nThreads_(nthreads)
       {
          topLoadedBlock_ = start;
 
          interruptBlock_ = make_shared<PulledBlock>();
          interruptBlock_->nextBlock_ = interruptBlock_;
 
-         bufferLoad_.store(0, memory_order_relaxed);
+         for (uint32_t i = 0; i < nThreads_; i++)
+            GTD_.push_back(move(GrabThreadData()));
+      }
+
+      shared_ptr<PulledBlock> getNextBlock(uint32_t i, unique_lock<mutex>* mu)
+      {
+         if (i>endBlock_)
+            return nullptr;
+
+         shared_ptr<PulledBlock> blk;
+         GrabThreadData& currGTD = GTD_[i % nThreads_];
+
+         while (1)
+         {
+            {
+               unique_lock<mutex> assignLock(currGTD.assignLock_);
+               blk = currGTD.block_->nextBlock_;
+            }
+
+            if (blk != nullptr)
+               break;
+
+            //wait for grabThread signal
+            TIMER_START("scanThreadSleep");
+            scanCV_.wait_for(*mu, chrono::seconds(2));
+            TIMER_STOP("scanThreadSleep");
+         }
+
+         currGTD.block_ = blk;
+            
+         //decrement bufferload
+         currGTD.bufferLoad_.fetch_sub(
+            blk->numBytes_, memory_order_release);
+
+         return blk;
+      }
+
+      shared_ptr<PulledBlock> startGrabThreads(
+         LMDBBlockDatabase* db, 
+         shared_ptr<LoadedBlockData>& lbd,
+         unique_lock<mutex>* mu)
+      {
+         for (uint32_t i = 0; i < nThreads_; i++)
+         {
+            thread grabThread(grabBlocksFromDB, lbd, db, i);
+            grabThread.detach();
+         }
+
+         //wait until the first block is available before returning
+         shared_ptr<PulledBlock> blk;
+         GrabThreadData& currGTD = GTD_[startBlock_ % nThreads_];
+
+         while (1)
+         {
+            {
+               unique_lock<mutex> assignLock(currGTD.assignLock_);
+               blk = currGTD.block_;
+            }
+
+            if (blk != nullptr)
+               break;
+
+            scanCV_.wait_for(*mu, chrono::seconds(2));
+         }
+
+         return blk;
+      }
+
+      void wakeGrabThreadsIfNecessary()
+      {
+         for (uint32_t i=0; i < nThreads_; i++)
+         {
+            if (GTD_[i].bufferLoad_.load(memory_order_consume) <
+               UPDATE_BYTES_THRESH / 2)
+            {
+               /***
+               Buffer is running low. Try to take ownership of the blockData
+               mutex. If that succeeds, the grab thread is sleeping, so
+               signal it to wake. Otherwise the grab thread is already running
+               and is lagging behind the processing thread (very unlikely)
+               ***/
+
+               unique_lock<mutex> lock(GTD_[i].grabLock_, defer_lock);
+               if (lock.try_lock())
+                  GTD_[i].grabCV_.notify_all();
+            }
+         }
       }
    };
 
@@ -591,7 +706,7 @@ private:
    void clearTransactions(void);
    
    static void grabBlocksFromDB(shared_ptr<LoadedBlockData>, 
-      LMDBBlockDatabase* db);
+      LMDBBlockDatabase* db, uint32_t threadId);
    BinaryData applyBlocksToDB(ProgressFilter &progress,
       shared_ptr<LoadedBlockData> blockData);
    void clearSubSshMap(uint32_t id);

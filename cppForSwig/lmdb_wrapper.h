@@ -691,12 +691,6 @@ public:
    mutable LMDB dbs_[COUNT];
 
 private:
-   //leveldb::FilterPolicy* dbFilterPolicy_[2];
-
-   //BinaryRefReader      currReadKey_;
-   //BinaryRefReader      currReadValue_;;
-   //mutable BinaryData           lastGetValue_;
-
    bool                 dbIsOpen_;
    uint32_t             ldbBlockSize_;
 

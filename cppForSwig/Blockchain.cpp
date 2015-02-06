@@ -33,6 +33,9 @@ void Blockchain::clear()
    headerMap_.clear();
    topBlockPtr_ = genesisBlockBlockPtr_ =
       &headerMap_[genesisHash_];
+
+   //set genesis block height to 0 for pre initialized blockchain operations
+   topBlockPtr_->blockHeight_ = 0;
 }
 
 BlockHeader& Blockchain::addBlock(
