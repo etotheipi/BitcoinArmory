@@ -119,6 +119,7 @@ struct PulledBlock : public DBBlock
    map<uint16_t, PulledTx> stxMap_;
    shared_ptr<PulledBlock> nextBlock_ = nullptr;
    shared_ptr<FileMap> fileMapPtr_;
+   shared_ptr<FileMap>* prevMapPtr_ = nullptr;
 
    ////
    PulledBlock(void) : DBBlock() {}
@@ -358,57 +359,31 @@ struct FileMap
 {
    uint8_t* filemap_ = nullptr;
    uint64_t mapsize_ = 0;
-   uint64_t lastSeenCumulated_ = 0;
+   atomic<uint64_t> lastSeenCumulated_ = 0;
+   uint16_t fnum_;
 
    FileMap(BlkFile& blk)
    {
+      fnum_ = blk.fnum;
 #ifdef WIN32
       int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
       if (fd == -1)
          throw std::runtime_error("failed to open file");
 
-      HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
-      uint32_t sizelo = blk.filesize & 0xffffffff;
-      uint32_t sizehi = blk.filesize >> 16 >> 16;
-
-
-      HANDLE mh = CreateFileMapping(fdHandle, NULL,
-         PAGE_READONLY | SEC_COMMIT,
-         sizehi, sizelo, NULL);
-      if (mh == NULL)
-         throw std::runtime_error("failed to map file");
-
-      uint8_t* data = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
-         0, 0, blk.filesize);
       mapsize_ = blk.filesize;
-
-      if (data == NULL)
-         throw std::runtime_error("failed to map file");
-
       filemap_ = (uint8_t*)malloc(mapsize_);
-      memcpy(filemap_, data, mapsize_);
-      CloseHandle(mh);
+      _read(fd, filemap_, mapsize_);
       _close(fd);
-
-      if (!UnmapViewOfFile(data))
-         throw std::runtime_error("failed to unmap file");
 #else
       int fd = open(blk.path.c_str(), O_RDONLY);
       if (fd == -1)
          throw std::runtime_error("failed to open file");
 
-      uint8_t* data = (uint8_t*)mmap(
-         NULL, blk.filesize, PROT_READ, MAP_SHARED, fd, 0);
       mapsize_ = blk.filesize;
-
-      if (data == NULL)
-         throw std::runtime_error("failed to map file");
-
       filemap_ = (uint8_t*)malloc(mapsize_);
-      memcpy(filemap_, data, mapsize_);
+      read(fd, filemap_, mapsize_);
 
       close(fd);
-      munmap(data, mapsize_);
 #endif
    }
 
@@ -424,17 +399,22 @@ struct FileMap
    {
       this->filemap_ = fm.filemap_;
       this->mapsize_ = fm.mapsize_;
-      this->lastSeenCumulated_ = fm.lastSeenCumulated_;
+      this->lastSeenCumulated_.store(
+         fm.lastSeenCumulated_.load(memory_order_relaxed), 
+         memory_order_relaxed);
 
+      fnum_ = fm.fnum_;
       fm.filemap_ = nullptr;
    }
 
    void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
-      uint64_t& lastSeenCumulative)
+      atomic<uint64_t>& lastSeenCumulative)
    {
       bdr.setRef(filemap_ + offset, size);
 
-      lastSeenCumulated_ = lastSeenCumulative += size;
+      lastSeenCumulated_.store(
+         lastSeenCumulative.fetch_add(size, memory_order_relaxed) + size, 
+         memory_order_relaxed);
    }
 };
 
@@ -486,7 +466,7 @@ private:
 
       shared_ptr<vector<BlkFile>> blkFiles_;
       map<uint16_t, shared_ptr<FileMap> > blkMaps_;
-      uint64_t lastSeenCumulative_ = 0;
+      atomic<uint64_t> lastSeenCumulative_ = 0;
 
       static const uint64_t threshold_ = 50 * 1024 * 1024LL;
       uint64_t nextThreshold_ = threshold_;
@@ -501,37 +481,51 @@ private:
       void getRawBlock(BinaryDataRef& bdr, uint16_t fnum, uint64_t offset, 
          uint32_t size, PulledBlock& pb)
       {
-         unique_lock<mutex> lock(mu_);
-
-         auto mapIter = blkMaps_.find(fnum);
-         if (mapIter == blkMaps_.end())
+         shared_ptr<FileMap>* fmptr;
+         if (pb.prevMapPtr_ != nullptr && (*pb.prevMapPtr_)->fnum_ == fnum)
+            fmptr = pb.prevMapPtr_;
+         else
          {
-            shared_ptr<FileMap> fm(new FileMap((*blkFiles_)[fnum]));
-            auto result = blkMaps_.insert(make_pair(fnum, fm));
-            mapIter = result.first;
+            unique_lock<mutex> lock(mu_);
+
+            auto mapIter = blkMaps_.find(fnum);
+            if (mapIter == blkMaps_.end())
+            {
+               shared_ptr<FileMap> fm(new FileMap((*blkFiles_)[fnum]));
+               auto result = blkMaps_.insert(make_pair(fnum, fm));
+               mapIter = result.first;
+            }
+
+            fmptr = &mapIter->second;
          }
 
-         mapIter->second->getRawBlock(bdr, offset, size, lastSeenCumulative_);
-         pb.fileMapPtr_ = mapIter->second;
+         (*fmptr)->getRawBlock(bdr, offset, size, lastSeenCumulative_);
+         pb.fileMapPtr_ = *fmptr;
 
          //clean up maps that haven't been used for a while
-         if (lastSeenCumulative_ >= nextThreshold_)
+         if (lastSeenCumulative_.load(memory_order_relaxed) >= nextThreshold_)
          {
-            mapIter = blkMaps_.begin();
+            unique_lock<mutex> lock(mu_);
+            auto mapIter = blkMaps_.begin();
 
             while (mapIter != blkMaps_.end())
             {
                if (mapIter->second->lastSeenCumulated_ + threshold_ <
-                  lastSeenCumulative_)
+                  lastSeenCumulative_.load(memory_order_relaxed))
                {
-                  LOGWARN << "cleaning up map " << mapIter->first;
-                  blkMaps_.erase(mapIter++);
+                  if (mapIter->second.use_count() == 1)
+                  {
+                     LOGWARN << "cleaning up map " << mapIter->first;
+                     blkMaps_.erase(mapIter++);
+                     continue;
+                  }
                }
-               else
-                  ++mapIter;
+
+               ++mapIter;
             }
 
-            nextThreshold_ = lastSeenCumulative_ + threshold_;
+            nextThreshold_ = 
+               lastSeenCumulative_.load(memory_order_relaxed) + threshold_;
          }
       }
    };
@@ -648,6 +642,7 @@ private:
             if (blk != nullptr)
                break;
 
+            wakeGrabThreadsIfNecessary();
             scanCV_.wait_for(*mu, chrono::seconds(2));
          }
 
@@ -659,7 +654,7 @@ private:
          for (uint32_t i=0; i < nThreads_; i++)
          {
             if (GTD_[i].bufferLoad_.load(memory_order_consume) <
-               UPDATE_BYTES_THRESH / 2)
+               UPDATE_BYTES_THRESH / (nThreads_ * 2))
             {
                /***
                Buffer is running low. Try to take ownership of the blockData

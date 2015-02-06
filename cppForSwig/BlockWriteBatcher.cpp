@@ -908,6 +908,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
    //find last block
    GrabThreadData& GTD = blockData->GTD_[threadId];
    shared_ptr<PulledBlock> *lastBlock = &GTD.block_;
+   shared_ptr<FileMap> *prevFileMap = nullptr;
 
    if (hgt != blockData->topLoadedBlock_)
    {
@@ -935,7 +936,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
       }
 
       while (GTD.bufferLoad_.load(memory_order_acquire)
-         < UPDATE_BYTES_THRESH || 
+         < UPDATE_BYTES_THRESH / blockData->nThreads_ || 
          (GTD.block_ != nullptr && GTD.block_->nextBlock_ == nullptr))
       {
          if (hgt > blockData->endBlock_)
@@ -967,6 +968,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          }
 
          shared_ptr<PulledBlock> pb(new PulledBlock());
+         pb->prevMapPtr_ = prevFileMap;
          if (!pullBlockAtIter(*pb, ldbIter, db, &blockData->BFA_))
          {
             unique_lock<mutex> assignLock(GTD.assignLock_);
@@ -974,6 +976,8 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
             LOGERR << "No block in DB at height " << hgt;
             return;
          }
+
+         prevFileMap = &pb->fileMapPtr_;
 
          //increment bufferLoad
          GTD.bufferLoad_.fetch_add(
@@ -1058,8 +1062,6 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
             break;
          
          uint32_t blockSize = block->numBytes_;
-
-
 
          //scan block
          lastScannedBlockHash = 
