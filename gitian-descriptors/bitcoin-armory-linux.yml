@@ -1,0 +1,31 @@
+---
+name: "bitcoin-armory-linux"
+suites:
+- "precise"
+architectures:
+- "i386"
+- "amd64"
+packages:
+- "libcrypto++-dev"
+- "libleveldb-dev"
+- "pyqt4-dev-tools"
+- "python-dev"
+- "python-psutil"
+- "python-qt4"
+- "python-twisted"
+- "rsync"
+- "swig"
+- "zip"
+reference_datetime: "2013-06-01 00:00:00"
+remotes:
+- "url": "https://github.com/namecoin/BitcoinArmory.git"
+  "dir": "BitcoinArmory"
+files: []
+script: |
+    export LD_PRELOAD=/usr/lib/faketime/libfaketime.so.1
+    export FAKETIME=$REFERENCE_DATETIME
+    export TZ=UTC
+    
+    cd BitcoinArmory
+    make
+    cd .. && find BitcoinArmory -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian.zip
