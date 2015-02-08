@@ -550,7 +550,7 @@ public:
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
-   uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
+   //uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
 
    //void pprintOneLine(uint32_t indent=3);
    //void pprintFullSSH(uint32_t indent=3);

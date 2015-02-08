@@ -1440,13 +1440,27 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptHistory::haveFullHistoryLoaded(void) const
 {
+   //Shouldn't be using this call outside of C++ unit tests. It is supported to
+   //accomodate for unit tests degree of data review, but it is painfully slow
+   //and should be avoided in all speed critical operations. The method already
+   //assumes we function in an environment with full history in ram, which
+   //doesn't with the new backend anymore.
+
    if(!isInitialized())
       return false;
 
    uint64_t numTxio = 0;
    map<BinaryData, StoredSubHistory>::const_iterator iter;
-   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
-      numTxio += iter->second.getTxioCount();
+   for (iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+   {
+      for (const auto& txioPair : iter->second.txioMap_)
+      {
+         if (txioPair.second.isUTXO())
+            numTxio++;
+         else if (txioPair.second.hasTxIn())
+            numTxio += 2;
+      }
+   }
 
    if(numTxio > totalTxioCount_)
       LOGERR << "Somehow stored total is less than counted total...?";
@@ -1911,7 +1925,7 @@ uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
    {
       if (iter->second.isUTXO() && (!iter->second.isMultisig() || withMultisig))
          bal += iter->second.getValue();
-      if (iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
+      else if (iter->second.hasTxIn())
          bal += iter->second.getValue();
    }
    return bal;
