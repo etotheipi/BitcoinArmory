@@ -5467,7 +5467,7 @@ class ArmoryMainWindow(QMainWindow):
             'Armory was previously online, but the connection to Bitcoin-Qt/'
             'bitcoind was interrupted.  You will not be able to send bitcoins '
             'or confirm receipt of bitcoins until the connection is '
-            'reestablished.  br><br>Please check that Bitcoin-Qt is open '
+            'reestablished.  <br><br>Please check that Bitcoin-Qt is open '
             'and synchronized with the network.  Armory will <i>try to '
             'reconnect</i> automatically when the connection is available '
             'again.  If Bitcoin-Qt is available again, and reconnection does '

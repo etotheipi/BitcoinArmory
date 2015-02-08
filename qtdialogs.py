@@ -4658,7 +4658,7 @@ class DlgRemoveWallet(ArmoryDialog):
             self.main.removeWalletFromApplication(wltID)
             
             newWlt = PyBtcWallet().readWalletFile(newWltPath)
-            self.main.addWalletToApplication(newWlt)
+            self.main.addWalletToApplication(newWlt, True)
             # Removed this line of code because it's part of the old BDM paradigm. 
             # Leaving this comment here in case it needs to be replaced by anything
             # newWlt.syncWithBlockchainLite()
@@ -14678,7 +14678,7 @@ class DlgCorruptWallet(DlgProgress):
    def LFW(self, wallets):
       for wlt in wallets:
          newWallet = PyBtcWallet().readWalletFile(wlt)
-         self.main.addWalletToApplication(newWallet, walletIsNew=True)
+         self.main.addWalletToApplication(newWallet, False)
             
       self.main.emit(SIGNAL('checkForkedImport'))
 

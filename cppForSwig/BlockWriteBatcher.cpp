@@ -1270,6 +1270,7 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
          for (auto& subsshPair : subsshIter->second)
          {
             auto& subssh = subsshPair.second;
+            uint32_t extraTxioCount = 0;
             uint32_t subsshHeight = DBUtils::hgtxToHeight(subsshPair.first);
             if (subsshHeight > ssh.alreadyScannedUpToBlk_ ||
                !ssh.alreadyScannedUpToBlk_ ||
@@ -1278,16 +1279,22 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
                for (const auto& txioPair : subssh.txioMap_)
                {
                   auto& txio = txioPair.second;
-                  if (!txio.isMultisig())
+                     
+                  if (!txio.hasTxIn())
                   {
-                     if (!txio.hasTxIn())
+                     if (!txio.isMultisig())
                         ssh.totalUnspent_ += txio.getValue();
-                     else if (!txio.flagged)
+                  }
+                  else
+                  {
+                     if (!txio.flagged)
                         ssh.totalUnspent_ -= txio.getValue();
+                     else
+                        extraTxioCount++;
                   }
                }
 
-               ssh.totalTxioCount_ += subssh.txioMap_.size();
+               ssh.totalTxioCount_ += subssh.txioMap_.size() + extraTxioCount;
             }
          }
 

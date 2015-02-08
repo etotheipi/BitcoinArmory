@@ -1655,21 +1655,7 @@ class DlgLockboxManager(ArmoryDialog):
       dlg = DlgImportLockbox(self, self.main)
       if dlg.exec_():
          if dlg.importedLockbox is not None:
-            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
-            if not self.main.getSettingOrSetDefault('DNAA_LockboxImport', False):
-               reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Info, tr("Import Successful"), tr("""
-                  The lockbox was imported successfully.  If this is a new 
-                  lockbox that has never been used before, then you
-                  can start using it right away.  
-                  <br><br>
-                  If the lockbox is not new and has been used before,
-                  Armory will not know about its history until you rescan
-                  the databases.  You can manually initiate a rescan by
-                  selecting the lockbox and clicking rescan"""), \
-                  tr("Do not show this message again"))
-
-               if reply[1]:
-                  self.main.writeSetting('DNAA_LockboxImport', True)
+            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=False)
                
          self.lboxModel.reset()
          self.singleClickLockbox()

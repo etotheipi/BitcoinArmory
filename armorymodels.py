@@ -666,8 +666,11 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
                                                     
       self.dateBlockSelectButton = QPushButton('Goto')
-      self.dateBlockSelectButton.setMaximumSize(44, 16)
-      self.main.connect(self.dateBlockSelectButton,  SIGNAL('clicked()'), self.showBlockDateController)
+      self.dateBlockSelectButton.setStyleSheet(\
+            'QPushButton { font-size : 10px }')
+      self.dateBlockSelectButton.setMaximumSize(44, 16)  
+      self.main.connect(self.dateBlockSelectButton, \
+                        SIGNAL('clicked()'), self.showBlockDateController)
 
                                  
       self.frmLayout = QGridLayout()
@@ -680,7 +683,7 @@ class ArmoryBlockAndDateSelector():
       self.dateBlockSelectButton.setVisible(True)
 
       controlFrame.setLayout(self.frmLayout)
-            
+                
    def linkClicked(self, link):
       if link == 'edtBlock':
          self.editBlockHeight()
