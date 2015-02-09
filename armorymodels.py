@@ -1130,7 +1130,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedgerSize()>0
+         hasTx = self.wlt.cppWallet.getAddrTotalTxnCount(Hash160ToScrAddr(addr160))>0
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 

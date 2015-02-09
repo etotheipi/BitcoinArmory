@@ -545,6 +545,8 @@ bool BlockWriteBatcher::parseTxIns(
          if (stxoPtr == nullptr)
              continue;
       }
+
+      txIsMine = true;
       
       const BinaryData& uniqKey = stxoPtr->getScrAddress();
       BinaryData stxoKey = stxoPtr->getDBKey(false);
