@@ -352,10 +352,8 @@ void ScrAddrObj::getHistoryForScrAddr(
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> ScrAddrObj::getHistoryPageById(uint32_t id)
 {
-   if (id < 0)
-   {
-      return vector<LedgerEntry>();
-   }
+   if (id < 0 || id > hist_.getPageCount())
+      throw std::range_error("pageId out of range");
 
    auto getTxio = [this](uint32_t start, 
                          uint32_t end, 
@@ -546,4 +544,18 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
    }
 
    return utxoVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrObj::getBlockInVicinity(uint32_t blk) const
+{
+   //expect history has been computed, it will throw otherwise
+   return hist_.getBlockInVicinity(blk);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrObj::getPageIdForBlockHeight(uint32_t blk) const
+{
+   //same as above
+   return hist_.getPageIdForBlockHeight(blk);
 }

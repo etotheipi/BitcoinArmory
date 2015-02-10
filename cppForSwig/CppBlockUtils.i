@@ -65,12 +65,11 @@ namespace std
    %template(vector_string) std::vector<string>;
    //%template(vector_BinaryData) std::vector<BinaryData>;
    %template(vector_LedgerEntry) std::vector<LedgerEntry>;
-   %template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
+   //%template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
    %template(vector_TxRefPtr) std::vector<TxRef*>;
    %template(vector_Tx) std::vector<Tx>;
    %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
    %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
-   %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
    %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
@@ -196,6 +195,32 @@ namespace std
 
 	$result = thisList;
 }
+
+// Convert Python(dict{str:list[str]}) to C++(map<BinaryData, vector<BinaryData>) 
+%typemap(in) const std::map<BinaryData, std::vector<BinaryData> >& (std::map<BinaryData, std::vector<BinaryData> > map_bd_vec_bd)
+{
+	PyObject *key, *value;
+	Py_ssize_t pos = 0;
+
+	while(PyDict_Next($input, &pos, &key, &value))
+	{
+		BinaryData wltIDStr((uint8_t*)PyString_AsString(key), PyString_Size(key));
+		std::vector<BinaryData> bdObjVec;
+
+		for(int i=0; i<PyList_Size(value); i++)
+		{
+			PyObject* strobj = PyList_GetItem(value, i);
+		
+			BinaryData bdStr((uint8_t*)PyString_AsString(strobj), PyString_Size(strobj));
+
+			bdObjVec.push_back(bdStr);
+		}
+
+		map_bd_vec_bd.insert(std::make_pair(wltIDStr, std::move(bdObjVec)));
+	}
+	$1 = &map_bd_vec_bd;
+}
+
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"

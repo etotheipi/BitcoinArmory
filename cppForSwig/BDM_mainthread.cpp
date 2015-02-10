@@ -266,7 +266,7 @@ try
          lastvalues = currentvalues;
          
          //pass empty walletID for main build&scan calls
-         callback->progress(phase, string(), prog, time, numericProgress);
+         callback->progress(phase, vector<string>(), prog, time, numericProgress);
 
          if (!pimpl->run)
          {
@@ -286,9 +286,9 @@ try
          unsigned mode = pimpl->mode & 0x00000003;
          bool clearZc = pimpl->mode & 0x00000004;
 
-         if(mode==0) bdm->doInitialSyncOnLoad(loadProgress);
-         else if(mode==1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
-         else if(mode==2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
+         if (mode == 0) bdm->doInitialSyncOnLoad(loadProgress);
+         else if (mode == 1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
+         else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
 
          if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
          {
@@ -305,6 +305,7 @@ try
                "recommended you re-download the blockchain using: "
                "<i>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
             callback->run(BDMAction_ErrorMsg, &errorMsg, bdm->missingBlockHashes().size());
+            throw;
          }
 
          bdv->enableZeroConf(clearZc);
@@ -322,7 +323,7 @@ try
    unsigned lasttime=0;
    
    const auto rescanProgress
-      = [&] (const BinaryData &wltId, double prog,unsigned time)
+      = [&] (const vector<string>& wltIdVec, double prog,unsigned time)
    {
       if (prog == lastprog && time==lasttime)
          return; // don't go to python if nothing's changed
@@ -332,7 +333,7 @@ try
       
       callback->progress(
          BDMPhase_Rescan,
-         string(wltId.getCharPtr(), wltId.getSize()),
+         wltIdVec,
          lastprog, lasttime, 0
       );
    };   
@@ -350,12 +351,17 @@ try
 
          bool doScan = bdm->startSideScan(rescanProgress);
          
-         BinaryData bdWltID = bdm->getNextWalletIDToScan();
-         if (bdWltID.getSize() && doScan)
+         vector<string> wltIDs = bdm->getNextWalletIDToScan();
+         if (wltIDs.size() && doScan)
          {
-            string wltID(bdWltID.getCharPtr(), bdWltID.getSize());
-            callback->run(BDMAction_StartedWalletScan, &wltID);
+            callback->run(BDMAction_StartedWalletScan, &wltIDs);
          }
+      }
+
+      if (bdm->criticalError_.size())
+      {
+         callback->run(BDMAction_ErrorMsg, &bdm->criticalError_);
+         throw runtime_error("BDM encountered a critical error");
       }
 
       if(bdv->rescanZC_)
@@ -420,6 +426,8 @@ try
 catch (std::exception &e)
 {
    LOGERR << "BDM thread failed: " << e.what();
+   string errstr(e.what());
+   pimpl->callback->run(BDMAction_ErrorMsg, &errstr);
    pimpl->inject->setFailureFlag();
    pimpl->inject->notify();
 }

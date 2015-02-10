@@ -11,7 +11,7 @@ from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
                       DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-                      DlgDispTxInfo
+                      DlgDispTxInfo, STRETCH
 from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
@@ -711,11 +711,12 @@ class DlgLockboxManager(ArmoryDialog):
          self.lboxView.hideColumn(i)
       self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
 
-      self.ledgerProxy = LedgerDispSortProxy(self)
-      self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
+      #self.ledgerProxy = LedgerDispSortProxy(self)
+      #self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
 
-      self.ledgerView  = QTableView()
-      self.ledgerView.setModel(self.ledgerProxy)
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView  = ArmoryTableView(self.parent, self.main, self.frmLedgUpDown)
+      self.ledgerView.setModel(self.main.lockboxLedgModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -756,8 +757,10 @@ class DlgLockboxManager(ArmoryDialog):
 
       # Setup the ledger tab
       self.tabLedger = QWidget()
-      layoutLedger = QHBoxLayout()
+      layoutLedger = QVBoxLayout()
       layoutLedger.addWidget(self.ledgerView)
+      bottomRow = makeHorizFrame([STRETCH, self.frmLedgUpDown, STRETCH], condenseMargins=True)
+      layoutLedger.addWidget(bottomRow)
       self.tabLedger.setLayout(layoutLedger)
 
       # Creates self.stkDashboard
@@ -802,6 +805,7 @@ class DlgLockboxManager(ArmoryDialog):
       if len(ledggeom) > 0:
          restoreTableView(self.ledgerView, ledggeom)
 
+      self.changeLBFilter()
 
    #############################################################################
    def createLockboxDashboardTab(self):
@@ -1320,9 +1324,9 @@ class DlgLockboxManager(ArmoryDialog):
             pytx = PyTx().unserialize(cppTx.serialize())
 
       if pytx==None:
-         QMessageBox.critical(self, 'Invalid Tx:',
+         QMessageBox.critical(self, 'Invalid Tx',
          'The transaction you requested be displayed does not exist in '
-         'in Armory\'s database.  This is unusual...', QMessageBox.Ok)
+         'Armory\'s database.  This is unusual...', QMessageBox.Ok)
          return
 
       lboxId  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
@@ -1557,6 +1561,11 @@ class DlgLockboxManager(ArmoryDialog):
       if lbID:
          return self.main.getLockboxByID(lbID)
       return None
+   
+   #############################################################################
+   def resetLBSelection(self):
+      self.lboxView.clearSelection()
+      self.singleClickLockbox(None, [])
 
    #############################################################################
    def getDisplayRichText(self, lb, tr=None, dateFmt=None):
@@ -1646,21 +1655,7 @@ class DlgLockboxManager(ArmoryDialog):
       dlg = DlgImportLockbox(self, self.main)
       if dlg.exec_():
          if dlg.importedLockbox is not None:
-            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
-            if not self.main.getSettingOrSetDefault('DNAA_LockboxImport', False):
-               reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Info, tr("Import Successful"), tr("""
-                  The lockbox was imported successfully.  If this is a new 
-                  lockbox that has never been used before, then you
-                  can start using it right away.  
-                  <br><br>
-                  If the lockbox is not new and has been used before,
-                  Armory will not know about its history until you rescan
-                  the databases.  You can manually initiate a rescan by
-                  selecting the lockbox and clicking rescan"""), \
-                  tr("Do not show this message again"))
-
-               if reply[1]:
-                  self.main.writeSetting('DNAA_LockboxImport', True)
+            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=False)
                
          self.lboxModel.reset()
          self.singleClickLockbox()
@@ -1839,6 +1834,15 @@ class DlgLockboxManager(ArmoryDialog):
       self.main.lbDialogModel = None      
       super(DlgLockboxManager, self).reject(*args)
       
+   #############################################################################
+   def changeLBFilter(self):
+      lbIDList = []
+      for lb in self.main.allLockboxes:
+         if lb.isEnabled:
+            lbIDList.append(lb.uniqueIDB58)
+            
+      self.main.currentLBPage = 0      
+      TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
 
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):

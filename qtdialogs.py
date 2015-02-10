@@ -3422,7 +3422,7 @@ class DlgImportAddress(ArmoryDialog):
                LOGERROR('Problem importing: %s: %s', addrStr, msg)
                raise
 
-            self.wlt.importExternalAddressBatch(privKeyToImport)
+         self.wlt.importExternalAddressBatch(privKeyToImport)
             
          if nAlready == nTotal:
             MsgBoxCustom(MSGBOX.Warning, 'Nothing Imported!', 'All addresses '
@@ -3616,12 +3616,10 @@ class DlgAddressInfo(ArmoryDialog):
       self.wlt = wlt
       self.cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(\
                                        Hash160ToScrAddr(addr160))      
+      
       self.addr = self.wlt.getAddrByHash160(addr160)
-
-      self.addrLedger = self.cppAddr.getHistoryPageById(0)
-      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger, \
-                                                        wltIDIn = self.wlt.uniqueIDB58)
-      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
+      
+      self.ledgerTable = []
 
       self.mode = mode
       if mode == None:
@@ -3633,9 +3631,6 @@ class DlgAddressInfo(ArmoryDialog):
 
       dlgLayout = QGridLayout()
       addrStr = self.addr.getAddrStr()
-
-      self.nPages = self.cppAddr.getPageCount()
-      self.currentPage = 0
 
       lblDescr = QLabel('Information for address:  ' + addrStr)
 
@@ -3765,7 +3760,18 @@ class DlgAddressInfo(ArmoryDialog):
 
       # ## Set up the address ledger
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
-      self.ledgerView = QTableView()
+      self.ledgerModel.setLedgerDelegate(\
+         TheBDM.bdv().getLedgerDelegateForScrAddr(self.wlt.uniqueIDB58, \
+                                                  Hash160ToScrAddr(addr160)))
+      
+      def ledgerToTableScrAddr(ledger):
+         return self.main.convertLedgerToTable(ledger, \
+                                               wltIDIn=self.wlt.uniqueIDB58)
+      
+      self.ledgerModel.setConvertLedgerMethod(ledgerToTableScrAddr)      
+      
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView = ArmoryTableView(self, self.main, self.frmLedgUpDown)
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
 
@@ -3784,6 +3790,7 @@ class DlgAddressInfo(ArmoryDialog):
       self.ledgerView.verticalHeader().setDefaultSectionSize(20)
       self.ledgerView.verticalHeader().hide()
       self.ledgerView.setMinimumWidth(650)
+      
       dateWidth = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0, 0.45, 0.3])
 
@@ -3796,7 +3803,8 @@ class DlgAddressInfo(ArmoryDialog):
       lblLedger = QLabel('All Address Activity:')
 
       lblstrip = makeLayoutFrame(HORIZONTAL, [lblLedger, ttipLedger, STRETCH])
-      frmLedger = makeLayoutFrame(VERTICAL, [lblstrip, self.ledgerView])
+      bottomRow = makeHorizFrame([STRETCH, self.frmLedgUpDown, STRETCH], condenseMargins=True)
+      frmLedger = makeLayoutFrame(VERTICAL, [lblstrip, self.ledgerView, bottomRow])
       dlgLayout.addWidget(frmLedger, 1, 0, 1, 1)
 
 
@@ -3846,19 +3854,11 @@ class DlgAddressInfo(ArmoryDialog):
 
       btnGoBack = QPushButton('<<< Go Back')
       self.connect(btnGoBack, SIGNAL(CLICKED), self.reject)
-      
-      lblPageTitle = QLabel("Page: ")
-      self.edtPage = QLineEdit("0")
-      lblPageCount = QLabel(" out of %d" % self.nPages)
-      self.connect(self.edtPage, SIGNAL('editingFinished()'), self.changePageId)
-      
-      bottomStrip = makeLayoutFrame(HORIZONTAL, [btnGoBack, lblPageTitle, \
-                                    self.edtPage, lblPageCount, STRETCH])
-      dlgLayout.addWidget(bottomStrip, 2, 0, 1, 2)
 
       self.setLayout(dlgLayout)
       self.setWindowTitle('Address Information')
 
+      self.ledgerModel.reset()
 
    def copyAddr(self):
       clipb = QApplication.clipboard()
@@ -3885,34 +3885,6 @@ class DlgAddressInfo(ArmoryDialog):
    def deleteAddr(self):
       pass
 
-   def loadPage(self, pageId):
-      self.addrLedger = self.cppAddr.getHistoryPageById(pageId)
-      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger, \
-                                                        wltID = self.wlt.uniqueIDB58)
-      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
-      
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
-      self.ledgerView.setModel(self.ledgerModel)
-      self.ledgerView.reset()
-      
-   def changePageId(self):
-      pageInt = int(self.edtPage.text())
-      
-      if pageInt == self.currentPage:
-         return      
-      
-      if pageInt < 0 or pageInt > self.nPages:
-         self.edtPage.setText(str(self.currentPage))
-         return
-      
-      oldCurrent = self.currentPage
-      try:
-         self.currentPage = pageInt   
-         self.loadPage(pageInt)
-      except:
-         self.currentPage = oldCurrent
-         self.edtPage.setText(str(self.currentPage))
-         
 #############################################################################
 class DlgShowKeys(ArmoryDialog):
 
@@ -4686,7 +4658,7 @@ class DlgRemoveWallet(ArmoryDialog):
             self.main.removeWalletFromApplication(wltID)
             
             newWlt = PyBtcWallet().readWalletFile(newWltPath)
-            self.main.addWalletToApplication(newWlt)
+            self.main.addWalletToApplication(newWlt, True)
             # Removed this line of code because it's part of the old BDM paradigm. 
             # Leaving this comment here in case it needs to be replaced by anything
             # newWlt.syncWithBlockchainLite()
@@ -9750,7 +9722,7 @@ class DlgExportTxHistory(ArmoryDialog):
          for page in range(0, nPages):
             # Each value in COL.Amount will be exactly how much the wallet balance
             # increased or decreased as a result of this transaction.
-            combinedLedger = walletGroup.getHistoryPage(page)
+            combinedLedger = walletGroup.getHistoryPage(page, False, False)
             ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
                                                          showSentToSelfAmt=True)
       
@@ -12948,7 +12920,7 @@ class DlgRestoreFragged(ArmoryDialog):
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
 
-      doItText = tr('Test Backup' if thisIsATest else tR('Restore from Fragments'))
+      doItText = tr('Test Backup') if thisIsATest else tr('Restore from Fragments')
 
       btnExit = QPushButton(tr('Cancel'))
       self.btnRestore = QPushButton(doItText)
@@ -14706,7 +14678,7 @@ class DlgCorruptWallet(DlgProgress):
    def LFW(self, wallets):
       for wlt in wallets:
          newWallet = PyBtcWallet().readWalletFile(wlt)
-         self.main.addWalletToApplication(newWallet, walletIsNew=True)
+         self.main.addWalletToApplication(newWallet, False)
             
       self.main.emit(SIGNAL('checkForkedImport'))
 
@@ -15219,7 +15191,28 @@ class DlgPrivacyPolicy(ArmoryDialog):
       self.setWindowTitle(tr("Privacy Policy"))
          
 
+#################################################################################
+class ArmorySplashScreen(QSplashScreen):
+   def __init__(self, pixLogo):
+      super(ArmorySplashScreen, self).__init__(pixLogo)
 
+      css = """
+            QProgressBar{ text-align: center; font-size: 8px; }
+            """
+      self.setStyleSheet(css)   
+      
+      self.progressBar = QProgressBar(self)
+      self.progressBar.setMaximum(100)
+      self.progressBar.setMinimum(0)
+      self.progressBar.setValue(0)
+      self.progressBar.setMinimumWidth(self.width())
+      self.progressBar.setMaximumHeight(10)
+      self.progressBar.setFormat(tr(\
+         "%(title)s: %(pct)s%%") % { 'title' : "Loading", 'pct' : "%p" })
+                       
+   def updateProgress(self, val):
+      self.progressBar.setValue(val)
+      
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
    AdvancedOptionsFrame

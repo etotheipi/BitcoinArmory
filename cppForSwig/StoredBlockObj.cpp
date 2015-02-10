@@ -676,12 +676,12 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
       return;
    }
 
-   brr.get_BinaryData(dataCopy_, nbytes);
+   brr.get_BinaryData(getDataCopy(), nbytes);
 
    isFragged_ = fragged;
    numTxOut_  = offsetsOut.size()-1;
-   version_   = READ_UINT32_LE(dataCopy_.getPtr());
-   lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + nbytes - 4);
+   version_   = READ_UINT32_LE(getDataCopy().getPtr());
+   lockTime_ = READ_UINT32_LE(getDataCopy().getPtr() + nbytes - 4);
 
    if(isFragged_)
    {
@@ -693,7 +693,7 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
       numBytes_ = nbytes;
       uint32_t span = offsetsOut[numTxOut_] - offsetsOut[0];
       fragBytes_ = numBytes_ - span;
-      BtcUtils::getHash256(dataCopy_, thisHash_);
+      BtcUtils::getHash256(getDataCopy(), thisHash_);
    }
 }
 
@@ -854,7 +854,7 @@ BinaryData DBTx::getSerializedTxFragged(void) const
       return BinaryData(0); 
 
    if(isFragged_)
-      return dataCopy_;
+      return BinaryData(getDataCopyRef());
 
    if(numBytes_ == UINT32_MAX)
    {
@@ -864,14 +864,14 @@ BinaryData DBTx::getSerializedTxFragged(void) const
 
    BinaryWriter bw;
    vector<size_t> outOffsets;
-   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), false, NULL, &outOffsets);
+   BtcUtils::StoredTxCalcLength(getDataCopyRef().getPtr(), false, NULL, &outOffsets);
    uint32_t firstOut  = outOffsets[0];
    uint32_t afterLast = outOffsets[outOffsets.size()-1];
    uint32_t span = afterLast - firstOut;
 
-   BinaryData output(dataCopy_.getSize() - span);
-   dataCopy_.getSliceRef(0,  firstOut).copyTo(output.getPtr());
-   dataCopy_.getSliceRef(afterLast, 4).copyTo(output.getPtr()+firstOut);
+   BinaryData output(getDataCopyRef().getSize() - span);
+   getDataCopyRef().getSliceRef(0, firstOut).copyTo(output.getPtr());
+   getDataCopyRef().getSliceRef(afterLast, 4).copyTo(output.getPtr() + firstOut);
    return output;
 }
 
@@ -1440,13 +1440,27 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptHistory::haveFullHistoryLoaded(void) const
 {
+   //Shouldn't be using this call outside of C++ unit tests. It is supported to
+   //accomodate for unit tests degree of data review, but it is painfully slow
+   //and should be avoided in all speed critical operations. The method already
+   //assumes we function in an environment with full history in ram, which
+   //doesn't with the new backend anymore.
+
    if(!isInitialized())
       return false;
 
    uint64_t numTxio = 0;
    map<BinaryData, StoredSubHistory>::const_iterator iter;
-   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
-      numTxio += iter->second.getTxioCount();
+   for (iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+   {
+      for (const auto& txioPair : iter->second.txioMap_)
+      {
+         if (txioPair.second.isUTXO())
+            numTxio++;
+         else if (txioPair.second.hasTxIn())
+            numTxio += 2;
+      }
+   }
 
    if(numTxio > totalTxioCount_)
       LOGERR << "Somehow stored total is less than counted total...?";
@@ -1911,7 +1925,7 @@ uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
    {
       if (iter->second.isUTXO() && (!iter->second.isMultisig() || withMultisig))
          bal += iter->second.getValue();
-      if (iter->second.hasTxIn() && (!iter->second.isMultisig() || withMultisig))
+      else if (iter->second.hasTxIn())
          bal += iter->second.getValue();
    }
    return bal;

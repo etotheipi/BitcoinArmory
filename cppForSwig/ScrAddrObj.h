@@ -303,6 +303,9 @@ public:
       function<bool(const BinaryData&)> isFromWallet)
    { utxos_.addZcUTXOs(txioMap, isFromWallet); }
 
+   uint32_t getBlockInVicinity(uint32_t blk) const;
+   uint32_t getPageIdForBlockHeight(uint32_t blk) const;
+
 private:
    LMDBBlockDatabase *db_;
    Blockchain        *bc_;

@@ -78,6 +78,13 @@ public:
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
       : bdvPtr_(bdv), walletID_(ID)
    {}
+
+   BtcWallet(const BtcWallet& wlt) :
+      bdvPtr_(wlt.bdvPtr_), walletID_(wlt.walletID_)
+   {
+      scrAddrMap_ = wlt.scrAddrMap_;
+      balance_ = wlt.balance_;
+   }
    
    ~BtcWallet(void);
 
@@ -153,9 +160,9 @@ public:
    vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX,
       bool ignoreZC = true);
 
-   vector<const LedgerEntry*>
+   vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const;
-   vector<const LedgerEntry*>
+   vector<LedgerEntry>
       getTxLedger(void) const;
 
    void pprintLedger() const;
@@ -176,7 +183,8 @@ public:
 
    size_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
 
-   const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const;
+   const ScrAddrObj* getScrAddrObjByKey(const BinaryData& key) const;
+   ScrAddrObj& getScrAddrObjRef(const BinaryData& key);
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
    void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 
@@ -261,7 +269,7 @@ private:
                                  
    bool                          isRegistered_=false;
 
-   BtcWallet(const BtcWallet&); // no copies
+   //BtcWallet(const BtcWallet&); // no copies
 
    //for post init importing of new addresses
    mutex                         mergeLock_;

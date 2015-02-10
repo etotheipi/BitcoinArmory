@@ -136,6 +136,7 @@ private:
 
    BDM_state BDMstate_ = BDM_offline;
 
+
 public:
    bool                               sideScanFlag_ = false;
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;
@@ -146,6 +147,8 @@ public:
       virtual ~Notifier() { }
       virtual void notify()=0;
    };
+   
+   string criticalError_;
 
 private:
    Notifier* notifier_ = nullptr;
@@ -217,7 +220,8 @@ private:
    void deleteHistories(void);
    void wipeHistoryAndHintDB(void);
 
-   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
+   void addRawBlockToDB(BinaryRefReader & brr, 
+      uint16_t fnum, uint64_t offset, bool updateDupID = true);
    uint32_t findFirstBlockToScan(void);
    void findFirstBlockToApply(void);
 
@@ -261,7 +265,7 @@ public:
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
    bool startSideScan(
-      const function<void(const BinaryData&, double prog,unsigned time)> &cb
+      const function<void(const vector<string>&, double prog,unsigned time)> &cb
    );
 
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
@@ -269,7 +273,7 @@ public:
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
    bool isReady(void) const   { return BDMstate_ == BDM_ready; }
 
-   BinaryData getNextWalletIDToScan(void);
+   vector<string> getNextWalletIDToScan(void);
 };
 
 

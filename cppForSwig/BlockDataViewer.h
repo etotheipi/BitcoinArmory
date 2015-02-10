@@ -22,7 +22,8 @@ typedef enum
 {
    BDV_dontRefresh,
    BDV_refreshSkipRescan,
-   BDV_refreshAndRescan
+   BDV_refreshAndRescan,
+   BDV_filterChanged
 }BDV_refresh;
 
 typedef enum
@@ -46,6 +47,38 @@ class BDMnotReady : public exception
    {
       return "BDM is not ready!";
    }
+};
+
+class LedgerDelegate
+{
+   //keeping the lambdas and ctor private so that
+   //SWIG doesn't complain
+   friend class BlockDataViewer;
+
+public:
+   vector<LedgerEntry> getHistoryPage(uint32_t id)
+   { return getHistoryPage_(id); }
+
+   uint32_t getBlockInVicinity(uint32_t blk)
+   { return getBlockInVicinity_(blk); }
+
+   uint32_t getPageIdForBlockHeight(uint32_t blk)
+   { return getPageIdForBlockHeight_(blk); }
+
+private:
+   LedgerDelegate(
+      function<vector<LedgerEntry>(uint32_t)> getHist,
+      function<uint32_t(uint32_t)> getBlock,
+      function<uint32_t(uint32_t)> getPageId):
+      getHistoryPage_(getHist), 
+      getBlockInVicinity_(getBlock),
+      getPageIdForBlockHeight_(getPageId)
+   {}
+
+private:
+   const function<vector<LedgerEntry>(uint32_t)> getHistoryPage_;
+   const function<uint32_t(uint32_t)>            getBlockInVicinity_;
+   const function<uint32_t(uint32_t)>            getPageIdForBlockHeight_;
 };
 
 class BlockDataViewer
@@ -75,6 +108,10 @@ public:
 
    bool registerAddresses(const vector<BinaryData>& saVec, 
                            BinaryData walletID, bool areNew);
+
+   void registerAddressBatch(
+      const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
+      bool areNew);
 
    map<BinaryData, map<BinaryData, TxIOPair> >
       getNewZeroConfTxIOMap() const
@@ -123,19 +160,19 @@ public:
    void reset();
 
    size_t getWalletsPageCount(void) const;
-   const vector<LedgerEntry>& getWalletsHistoryPage(uint32_t, 
-                                             bool rebuildLedger = false, 
-                                             bool remapWallets = false);
+   vector<LedgerEntry> getWalletsHistoryPage(uint32_t, 
+                                             bool rebuildLedger, 
+                                             bool remapWallets);
 
    size_t getLockboxesPageCount(void) const;
-   const vector<LedgerEntry>& getLockboxesHistoryPage(uint32_t,
-      bool rebuildLedger = false,
-      bool remapWallets = false);
+   vector<LedgerEntry> getLockboxesHistoryPage(uint32_t,
+      bool rebuildLedger,
+      bool remapWallets);
 
    void scanScrAddrVector(const map<BinaryData, ScrAddrObj>& scrAddrMap, 
                            uint32_t startBlock, uint32_t endBlock) const;
 
-   void flagRefresh(bool withRemap, const BinaryData& refreshId);
+   void flagRefresh(BDV_refresh refresh, const BinaryData& refreshId);
    void notifyMainThread(void) const { bdmPtr_->notifyMainThread(); }
 
    StoredHeader getMainBlockFromDB(uint32_t height) const;
@@ -187,6 +224,14 @@ public:
 
    void updateWalletsLedgerFilter(const vector<BinaryData>& walletsList);
    void updateLockboxesLedgerFilter(const vector<BinaryData>& walletsList);
+
+   uint32_t getBlockTimeByHeight(uint32_t) const;
+   uint32_t getClosestBlockHeightForTime(uint32_t);
+   
+   LedgerDelegate getLedgerDelegateForWallets();
+   LedgerDelegate getLedgerDelegateForLockboxes();
+   LedgerDelegate getLedgerDelegateForScrAddr(
+      const BinaryData& wltID, const BinaryData& scrAddr);
 
 public:
    bool rescanZC_    = false;
@@ -260,8 +305,8 @@ public:
    void reset();
    
    size_t getPageCount(void) const { return hist_.getPageCount(); }
-   const vector<LedgerEntry>& getHistoryPage(uint32_t pageId,
-      bool rebuildLedger = false, bool remapWallets = false);
+   vector<LedgerEntry> getHistoryPage(uint32_t pageId,
+      bool rebuildLedger, bool remapWallets);
 
 private:   
    map<uint32_t, uint32_t> computeWalletsSSHSummary(
@@ -275,7 +320,11 @@ private:
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 
-   map<BinaryData, shared_ptr<BtcWallet> > getWalletMap(void);
+   map<BinaryData, shared_ptr<BtcWallet> > getWalletMap(void) const;
+   shared_ptr<BtcWallet> getWalletByID(const BinaryData& ID) const;
+
+   uint32_t getBlockInVicinity(uint32_t) const;
+   uint32_t getPageIdForBlockHeight(uint32_t) const;
 
 private:
    map<BinaryData, shared_ptr<BtcWallet> > wallets_;

@@ -513,7 +513,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    Grabs at least 100 UTXOs with enough spendable balance to cover 2x val (if 
    available of course), otherwise returns the full UTXO list for the wallet.
 
-   val defaults to UINT64_MAX, so passing not passing val will result in 
+   val defaults to UINT64_MAX, so not passing val will result in 
    grabbing all UTXOs in the wallet
    ***/
 
@@ -624,32 +624,30 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<const LedgerEntry*> BtcWallet::getTxLedger(
+vector<LedgerEntry> BtcWallet::getTxLedger(
    HashString const & scraddr)
    const
 {
-   vector<const LedgerEntry*> leVec;
-   SCOPED_TIMER("BtcWallet::getTxLedger");
+   vector<LedgerEntry> leVec;
 
    auto saIter = scrAddrMap_.find(scraddr);
    if (ITER_IN_MAP(saIter, scrAddrMap_))
    {
       const auto& leMap = saIter->second.getTxLedger();
       for (const auto& lePair : leMap)
-         leVec.push_back(&lePair.second);
+         leVec.push_back(lePair.second);
    }
-   else
-      leVec.push_back(&LedgerEntry::EmptyLedger_);
+
    return leVec;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<const LedgerEntry*> BtcWallet::getTxLedger() const
+vector<LedgerEntry> BtcWallet::getTxLedger() const
 {
-   vector<const LedgerEntry*> leVec;
+   vector<LedgerEntry> leVec;
 
    for (const auto& lePair : *ledgerAllAddr_)
-      leVec.push_back(&lePair.second);
+      leVec.push_back(lePair.second);
 
    return leVec;
 }
@@ -912,14 +910,6 @@ void BtcWallet::merge()
             if (bottomBlock < topBlock)
                bdvPtr_->scanScrAddrVector(scrAddrMapToMerge, bottomBlock, topBlock);
          }
-         /*else if (mergeData_->mergeAction_ == MergeAction::NoRescan)
-         {
-            LMDBEnv::Transaction tx(&bdvPtr_->getDB()->dbEnv_, LMDB::ReadOnly);
-
-            //fresh addresses, just have to run mapHistory to initialize the ScrAddrObj
-            for (auto& scrAddrPair : scrAddrMapToMerge)
-               scrAddrPair.second.mapHistory();
-         }*/
 
          //merge scrAddrMap
          if (mergeData_->mergeAction_ != MergeAction::DeleteAddresses)
@@ -1081,7 +1071,7 @@ void BtcWallet::updateWalletLedgersFromTxio(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
+const ScrAddrObj* BtcWallet::getScrAddrObjByKey(const BinaryData& key) const
 {
    auto saIter = scrAddrMap_.find(key);
    if (saIter != scrAddrMap_.end())
@@ -1090,7 +1080,24 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(BinaryData key) const
    }
   
    std::ostringstream ss;
-   ss << "no ScrAddr matches key " << key.toBinStr() << " in Wallet " << walletID_.toBinStr(); 
+   ss << "no ScrAddr matches key " << key.toBinStr() << 
+      " in Wallet " << walletID_.toBinStr(); 
+   LOGERR << ss.str();
+   throw std::runtime_error(ss.str());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+ScrAddrObj& BtcWallet::getScrAddrObjRef(const BinaryData& key)
+{
+   auto saIter = scrAddrMap_.find(key);
+   if (saIter != scrAddrMap_.end())
+   {
+      return saIter->second;
+   }
+
+   std::ostringstream ss;
+   ss << "no ScrAddr matches key " << key.toBinStr() << 
+      " in Wallet " << walletID_.toBinStr();
    LOGERR << ss.str();
    throw std::runtime_error(ss.str());
 }
@@ -1138,7 +1145,7 @@ vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
-   bdvPtr_->flagRefresh(true, walletID_); 
+   bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1150,7 +1157,7 @@ void BtcWallet::forceScan(void)
    for (const auto& sa : scrAddrMap_)
       saVec.push_back(sa.first);
 
-   bdvPtr_->registerAddresses(saVec, walletID_, true);
+   bdvPtr_->registerAddresses(saVec, walletID_, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

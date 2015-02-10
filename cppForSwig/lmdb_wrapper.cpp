@@ -338,9 +338,14 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady) :
-   isDBReady_(isDBReady)
+LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady,
+   shared_ptr<vector<BlkFile>> blkfiles) :
+   isDBReady_(isDBReady), blkFiles_(blkfiles)
 {
+   //for some reason the WRITE_UINT16 macros create 4 byte long BinaryData 
+   //instead of 2, so I'm doing this the hard way instead
+   uint8_t* ptr = const_cast<uint8_t*>(ZCprefix_.getPtr());
+   memset(ptr, 0xFF, 2);
 }
 
 
@@ -368,6 +373,9 @@ void LMDBBlockDatabase::openDatabases(
    DB_PRUNE_TYPE      pruneType
    )
 {
+      return;
+   }
+
    /***
    Supernode and Fullnode use different DB. 
    
@@ -430,8 +438,6 @@ void LMDBBlockDatabase::openDatabases(
    SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
-   baseDir_ = basedir;
-
    magicBytes_ = magic;
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
@@ -452,9 +458,38 @@ void LMDBBlockDatabase::openDatabases(
    for (int i = 0; i < COUNT; i++)
       dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
 
+   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
+
+   //make sure it's a fullnode DB
+   {
+      LMDB checkDBType;
+      const char* dataPtr = nullptr;
+
+      {
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+         checkDBType.open(dbEnv_[BLKDATA].get(), "blkdata");
+         auto dbKey = StoredDBInfo::getDBKey();
+         CharacterArrayRef data = checkDBType.get_NoCopy(CharacterArrayRef(
+            dbKey.getSize(), (char*)dbKey.getPtr()));
+
+         dataPtr = data.data;
+      }
+
+      checkDBType.close();
+
+      if (dataPtr != nullptr)
+      {
+         LOGERR << "Mismatch in DB type";
+         LOGERR << "Requested fullnode";
+         LOGERR << "Current DB is supernode";
+         throw runtime_error("Mismatch in DB type");
+      }
+   }
+
+
+
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
-   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
 
    map<DB_SELECT, string> DB_NAMES;
@@ -472,8 +507,8 @@ void LMDBBlockDatabase::openDatabases(
 
          dbs_[CURRDB].open(dbEnv_[CURRDB].get(), db.second);
 
-         //only HEADERS and HISTORY get a sdbi in Fullnode
-         if (CURRDB != HEADERS && CURRDB != HISTORY)
+         //no SDBI in TXHINTS
+         if (CURRDB == TXHINTS)
             continue;
 
          StoredDBInfo sdbi;
@@ -1552,6 +1587,111 @@ bool LMDBBlockDatabase::getBareHeader(StoredHeader & sbh, BinaryDataRef headHash
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::readRawBlockInFile(BinaryData& bd,
+   uint16_t fnum, uint64_t offset, uint32_t blocksize) const
+{
+   bd.resize(blocksize);
+
+#ifdef WIN32
+   int fd = _open((*blkFiles_)[fnum].path.c_str(), _O_RDONLY | _O_BINARY);
+   if (fd == -1)
+   {
+      LOGERR << "Header height&dup is not in blk files";
+      return false;
+   }
+
+   if (_lseeki64(fd, offset, SEEK_SET) == -1LL)
+   {
+      LOGERR << "Header height&dup is not in blk files";
+      return false;
+   }
+
+   if (_read(fd, bd.getPtr(), blocksize) == -1)
+   {
+      LOGERR << "Header height&dup is not in blk files";
+      return false;
+   }
+
+   _close(fd);
+#else
+   int fd = open((*blkFiles_)[fnum].path.c_str(), O_RDONLY);
+   if (fd == -1)
+   {
+      LOGERR << "Header height&dup is not in blk files";
+      return false;
+   }
+
+   if (lseek(fd, offset, SEEK_SET) == -1)
+   {
+      LOGERR << "Header height&dup is not in blk files";
+      return false;
+   }
+
+   if (read(fd, bd.getPtr(), blocksize) == -1)
+   {
+      LOGERR << "Header height&dup is not in blk files";
+      return false;
+   }
+
+   close(fd);
+#endif
+
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
+   const BinaryData& dbKey) const
+{
+   BinaryRefReader brr;
+   if (dbKey.getSize() == 4)
+      brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, dbKey);
+   else
+      brr = getValueReader(BLKDATA, dbKey);
+
+
+   if (brr.getSize() == 0)
+   {
+      LOGERR << "Header height&dup is not in BLKDATA";
+      return false;
+   }
+
+   uint16_t fnum = brr.get_uint16_t();
+   uint64_t offset = brr.get_uint64_t();
+   uint32_t blocksize = brr.get_uint32_t();
+
+   return readRawBlockInFile(bd, fnum, offset, blocksize);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
+   uint32_t blockHgt, uint8_t blockDup) const
+{
+   BinaryData blkKey = DBUtils::getBlkDataKey(blockHgt, blockDup);
+
+   return getRawBlockFromFiles(bd, blkKey);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
+   LDBIter& ldbIter) const
+{
+   BinaryRefReader brr = ldbIter.getValueRef();
+   if (brr.getSize() != 14)
+   {
+      LOGERR << "Header height&dup is not in BLKDATA";
+      return false;
+   }
+
+   uint16_t fnum = brr.get_uint16_t();
+   uint64_t offset = brr.get_uint64_t();
+   uint32_t blocksize = brr.get_uint32_t();
+
+   return readRawBlockInFile(bd, fnum, offset, blocksize);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
                                       uint32_t blockHgt,
                                       uint8_t blockDup,
@@ -1600,27 +1740,27 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
    else
    {
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      BinaryData blkKey = DBUtils::getBlkDataKey(blockHgt, blockDup);
-      BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
 
-      if (brr.getSize() == 0)
+      BinaryData bd;
+      if(!getRawBlockFromFiles(bd, blockHgt, blockDup))
       {
          LOGERR << "Header height&dup is not in BLKDATA";
          return false;
       }
+
       sbh.blockHeight_ = blockHgt;
       sbh.duplicateID_ = blockDup;
       
       if (!withTx)
       {
-         sbh.unserializeDBValue(BLKDATA, brr, false);
+         sbh.unserializeDBValue(BLKDATA, bd, false);
       }
       else
       {
          //Fullnode, need to unserialize txn too
          try
          {
-            sbh.unserializeFullBlock(brr, true, false);
+            sbh.unserializeFullBlock(BinaryRefReader(bd), true, false);
          }
          catch(BlockDeserializingException &)
          {
@@ -1848,7 +1988,9 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh) 
          sbh.blockHeight_ = DBUtils::hgtxToHeight(ldbIter.getKey().getSliceRef(1, 4));
          sbh.duplicateID_ = DBUtils::hgtxToDupID(ldbIter.getKey().getSliceRef(1, 4));
       
-         sbh.unserializeFullBlock(ldbIter.getValueReader(), true, false);
+         BinaryData bd;
+         getRawBlockFromFiles(bd, ldbIter);
+         sbh.unserializeFullBlock(bd.getRef(), true, false);
          //ldbIter.advanceAndRead();
       }
       catch (BlockDeserializingException &)
@@ -1966,7 +2108,7 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
       {
          // Get everything else from the iter value
          stx.unserializeDBValue(ldbIter.getValueRef());
-         nbytes += stx.dataCopy_.getSize();
+         nbytes += stx.getDataCopyRef().getSize();
       }
       else if(bdtype == BLKDATA_TXOUT)
       {
@@ -2067,8 +2209,12 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
       uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
       
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      BinaryRefReader brr = getValueReader(
-         BLKDATA, DB_PREFIX_TXDATA, ldbKey6B.getSliceRef(0, 4));
+
+      BinaryData bd;
+      if (!getRawBlockFromFiles(bd, ldbKey6B.getSliceRef(0, 4)))
+         return Tx();
+
+      BinaryRefReader brr(bd);
 
       brr.advance(HEADER_SIZE);
       uint32_t nTx = (uint32_t)brr.get_var_int();
@@ -2247,6 +2393,8 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
       {
          LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
 
+         if (!ldbKey6B.startsWith(ZCprefix_))
+         {
          BinaryData keyFull(ldbKey6B.getSize() + 1);
          keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
          ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
@@ -2258,7 +2406,22 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
             return txData.getSliceRef(4, 32);
          }
       }
+         else
+         {            
+            BinaryRefReader stxVal = 
+               getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
 
+            if (stxVal.getSize() == 0)
+            {
+               LOGERR << "TxRef key does not exist in BLKDATA DB";
+               return BinaryData(0);
+            }
+
+            // We can't get here unless we found the precise Tx entry we were looking for
+            stxVal.advance(2);
+            return stxVal.get_BinaryData(32);
+         }
+      }
       //else pull the full block then grab the txhash
       { 
          LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);         
@@ -3299,11 +3462,24 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
 
       return brr.get_uint32_t();
    }
+      else
+      {
+         StoredTx stx;
+         if (!getStoredZcTx(stx, dbKey6))
+         {
+            LOGERR << "no Tx data at key";
+            return UINT32_MAX;
+         }
+
+         return stx.stxoMap_.size();
+      }
+   }
 
    return UINT32_MAX;
 }
 
 uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr, 
+   uint16_t filenum, uint64_t offset,
    function<const BlockHeader& (const BinaryData&)> getBH)
 {
    if (armoryDbType_ == ARMORY_DB_SUPER)
@@ -3327,7 +3503,13 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    {
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
       BinaryData dbKey(sbh.getDBKey(true));
-      putValue(BLKDATA, BinaryDataRef(dbKey), brr.getRawRef());
+      //putValue(BLKDATA, BinaryDataRef(dbKey), brr.getRawRef());
+
+      BinaryWriter bw;
+      bw.put_uint16_t(filenum);
+      bw.put_uint64_t(offset);
+      bw.put_uint32_t(sbh.numBytes_);
+      putValue(BLKDATA, BinaryDataRef(dbKey), bw.getDataRef());
    }
 
    //update SDBI in HISTORY DB

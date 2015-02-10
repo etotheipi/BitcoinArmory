@@ -51,7 +51,8 @@ class ArmoryDSession:
             '--datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory'),
             '--satoshi-datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', '1'),
             '--satoshi-port=' + str(TIAB_SATOSHI_PORT),
-            '--skip-online-check']
+            '--skip-online-check',
+            '--supernode']
             # if this is process is in debug mode, make the subrocess debug too
       if CLI_OPTIONS.doDebug:
          armoryDArgs.append('--debug')

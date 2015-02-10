@@ -166,9 +166,6 @@ public:
          throw *errorProcessing_;
    }
 
-   //const list<StoredTx>& removedTxes() const { return removedTxes_; }
-   //const list<StoredTx>& addedTxes() const { return addedTxes_; }
-
 private:
    shared_ptr<std::exception> errorProcessing_;
 

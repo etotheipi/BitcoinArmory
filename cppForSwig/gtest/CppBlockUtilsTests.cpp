@@ -4609,7 +4609,8 @@ protected:
       #endif
 
       auto isready = [](void)->bool { return true; };
-      iface_ = new LMDBBlockDatabase(isready);
+      shared_ptr<vector<BlkFile>> blkFiles_(new vector<BlkFile>());
+      iface_ = new LMDBBlockDatabase(isready, blkFiles_);
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -5225,12 +5226,12 @@ TEST_F(LMDBTest, PutFullBlockNoTx)
 
    auto getBH = [&](const BinaryData& hash)->const BlockHeader&
    { return bh; };
-   uint8_t sdup = iface_->putRawBlockData(brr, getBH);
+   uint8_t sdup = iface_->putRawBlockData(brr, 0, 0, getBH);
    EXPECT_TRUE(compareKVListRange(0,1, 0,1));
    EXPECT_EQ(sdup, 0);
 
    // Try adding it again and see if get the correct dup again, and no touch DB
-   sdup = iface_->putRawBlockData(brr, getBH);
+   sdup = iface_->putRawBlockData(brr, 0, 0, getBH);
    EXPECT_TRUE(compareKVListRange(0,1, 0, 1));
    EXPECT_EQ(sdup, 0);
 }
@@ -5749,7 +5750,9 @@ protected:
 #endif
 
       auto isready = [](void)->bool { return true; };
-      iface_ = new LMDBBlockDatabase(isready);
+      shared_ptr<vector<BlkFile>> blkFiles_(new vector<BlkFile>());
+
+      iface_ = new LMDBBlockDatabase(isready, blkFiles_);
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7321,7 +7324,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp()
    {
-      
+
       LOGDISABLESTDOUT();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
@@ -7332,9 +7335,13 @@ protected:
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
+      rmdir(blkdir_);
+      rmdir(homedir_);
+      rmdir(ldbdir_);
 
       mkdir(blkdir_);
       mkdir(homedir_);
+      mkdir(ldbdir_);
 
       // Put the first 5 blocks into the blkdir
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
@@ -8157,6 +8164,9 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(zcStx.numTxOut_, 2);
    EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
 
+   //check ZChash in DB
+   EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
+
    delete dbtx;
 
    //restart bdm
@@ -8890,7 +8900,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(TheBDM.sideScanFlag_, true);
 
    //fire side scan manually since there is no maintenance thread with unit tests
-   theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
+   theBDM->startSideScan([](const vector<string>&, double prog, unsigned time){});
 
    //wait on the address scan
    while (wlt->getMergeFlag() == false)
@@ -8987,7 +8997,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(TheBDM.sideScanFlag_, true);
 
    //fire side scan manually since there is no maintenance thread with unit tests
-   theBDM->startSideScan([](const BinaryData&, double prog, unsigned time){});
+   theBDM->startSideScan([](const vector<string>&, double prog, unsigned time){});
 
    //wait on the address scan
    while (wlt->getMergeFlag() == false)
@@ -9636,7 +9646,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(),   70*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 230*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,      13);
+   EXPECT_EQ(ssh.totalTxioCount_,      14);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(),   20*COIN);
@@ -9656,7 +9666,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 45*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,      6);
+   EXPECT_EQ(ssh.totalTxioCount_,      7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
@@ -9694,7 +9704,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 13);
+   EXPECT_EQ(ssh.totalTxioCount_, 14);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
@@ -9714,7 +9724,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 6);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
@@ -9752,7 +9762,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 13);
+   EXPECT_EQ(ssh.totalTxioCount_, 14);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
@@ -9772,7 +9782,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 6);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
@@ -9858,7 +9868,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(),   30*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 160*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,      10);
+   EXPECT_EQ(ssh.totalTxioCount_,      11);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(),   55*COIN);
@@ -9878,7 +9888,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(),  60*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 95*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,      6);
+   EXPECT_EQ(ssh.totalTxioCount_,      7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
@@ -9927,7 +9937,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM_Reorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 160 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 10);
+   EXPECT_EQ(ssh.totalTxioCount_, 11);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 55 * COIN);
@@ -9947,7 +9957,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM_Reorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 95 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 6);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
@@ -9991,7 +10001,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_DoubleReorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 13);
+   EXPECT_EQ(ssh.totalTxioCount_, 14);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
@@ -10011,7 +10021,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_DoubleReorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 6);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
@@ -10045,7 +10055,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_DoubleReorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 160 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 10);
+   EXPECT_EQ(ssh.totalTxioCount_, 11);
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 55 * COIN);
@@ -10065,7 +10075,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_DoubleReorg)
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 95 * COIN);
-   EXPECT_EQ(ssh.totalTxioCount_, 6);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
@@ -10691,6 +10701,11 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    EXPECT_EQ(le.getTxTime(), 1300000000);
    EXPECT_EQ(le.isSentToSelf(), false);
    EXPECT_EQ(le.getValue(), 30*COIN);
+
+   //check ZChash in DB
+   BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
+   zcKey.append(WRITE_UINT32_LE(0));
+   EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
 }
 
 // This was really just to time the logging to determine how much impact it 

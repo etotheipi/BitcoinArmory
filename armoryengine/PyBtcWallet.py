@@ -231,12 +231,6 @@ class PyBtcWallet(object):
       self.pybtcaddrSize = len(PyBtcAddress().serialize())
 
 
-      # All BDM calls by default go on the multi-thread-queue.  But if the BDM
-      # is the one calling the PyBtcWallet methods, it will deadlock if it uses
-      # the queue.  Therefore, the BDM will set this flag before making any 
-      # calls, which will tell PyBtcWallet to use __direct methods.
-      self.calledFromBDM = False
-
       # Finally, a bunch of offsets that tell us where data is stored in the
       # file: this can be generated automatically on unpacking (meaning it
       # doesn't require manually updating offsets if I change the format), and
@@ -414,31 +408,6 @@ class PyBtcWallet(object):
       ledg = []
       ledg.extend(ledgBlkChain)
       return ledg
-
-
-   ############################################################################
-   @CheckWalletRegistration
-   def getAddrTxLedger(self, addr160, ledgType='Full'):
-      """ 
-      Gets the ledger entries for the entire wallet, from C++/SWIG data structs
-      """
-      if not self.hasAddr(addr160):
-         return []
-      else:
-         scrAddr = Hash160ToScrAddr(addr160)
-         obj = self.cppWallet.getScrAddrObjByKey(scrAddr)
-         if obj is None:
-            raise RuntimeError("addr %s is not in the c++ wallet" % scrAddr)
-         ledgBlkChain = obj.getHistoryPageById(0)
-         if ledgType.lower() in ('full','all','ultimate'):
-            ledg = []
-            ledg.extend(ledgBlkChain)
-            return ledg
-         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
-            return ledgBlkChain
-         else:
-            raise TypeError('Unknown ledger type! "' + ledgType + '"')
-
 
    #############################################################################
    @CheckWalletRegistration
@@ -710,12 +679,6 @@ class PyBtcWallet(object):
       code and wallet ID.
       """
 
-      # Is this needed? Just in case....
-      if self.calledFromBDM:
-         LOGERROR('Called createNewWallet() from BDM method!')
-         LOGERROR('Don\'t do this!')
-         return None
-
       LOGINFO('***Creating watching-only wallet from a public key & chain code')
 
       # Prep for C++ usage, then create the root address object and first public
@@ -825,12 +788,6 @@ class PyBtcWallet(object):
 
       DO NOT CALL THIS FROM BDM METHOD.  IT MAY DEADLOCK.
       """
-
-      
-      if self.calledFromBDM:
-         LOGERROR('Called createNewWallet() from BDM method!')
-         LOGERROR('Don\'t do this!')
-         return None
 
       if securePassphrase:
          securePassphrase = SecureBinaryData(securePassphrase)
@@ -1064,10 +1021,11 @@ class PyBtcWallet(object):
       if doRegister and self.isRegistered():
          #isEnabled will be flagged back to True by the callback once it notifies
          #that the wallet has properly loaded the new scrAddr and scanned it
-         self.cppWallet.isEnabled = False 
-         self.cppWallet.addAddressBulk(newAddrList, isActuallyNew)
          
-      self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
+         wltNAddr = {}
+         wltNAddr[self.uniqueIDB58] = newAddrList
+         TheBDM.bdv().registerAddressBatch(wltNAddr, isActuallyNew)
+         self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
                                           [lastComputedIndex, True]])
          
       return self.lastComputedChainIndex
@@ -2094,7 +2052,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    @TimeThisFunction
-   def readWalletFile(self, wltpath, verifyIntegrity=True, doScanNow=False):
+   def readWalletFile(self, wltpath, verifyIntegrity=True, reportProgress=None):
       if not os.path.exists(wltpath):
          raise FileExistsError("No wallet file:"+wltpath)
 
@@ -2117,8 +2075,14 @@ class PyBtcWallet(object):
 
       self.lastComputedChainIndex = -UINT32_MAX
       self.lastComputedChainAddr160  = None
+      i=0
       while wltdata.getRemainingSize()>0:
          byteLocation = wltdata.getPosition()
+         i += 1
+         if i%10 == 0 and reportProgress is not None:
+            progress = float(byteLocation) / float(wltdata.getSize())
+            reportProgress(progress)
+            
          dtype, hashVal, rawData = self.unpackNextEntry(wltdata)
          if dtype==WLT_DATATYPE_KEYDATA:
             newAddr = PyBtcAddress()
@@ -2457,7 +2421,7 @@ class PyBtcWallet(object):
       if self.isRegistered():
          self.cppWallet.removeAddressBulk([Hash160ToScrAddr(addr160)])
          
-      self.readWalletFile(wltPath, doScanNow=True)
+      self.readWalletFile(wltPath)
       self.cppWallet = passCppWallet
 
    #############################################################################
@@ -2582,7 +2546,7 @@ class PyBtcWallet(object):
 
    #############################################################################  
    def importExternalAddressBatch(self, privKeyList):
-      
+
       addr160List = []
       
       for key, a160 in privKeyList:
@@ -2714,12 +2678,7 @@ class PyBtcWallet(object):
       Returns true is we have to go back to disk/mmap and rescan more than two
       weeks worth of blocks
 
-      DO NOT CALL FROM A BDM METHOD.  Instead, call directly:
-         self.bdm.numBlocksToRescan(pywlt.cppWallet) > 2016
       """
-      if self.calledFromBDM:
-         LOGERROR('Called checkIfRescanRequired() from BDM method!')
-         LOGERROR('Don\'t do this!')
 
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
@@ -3157,7 +3116,7 @@ class PyBtcWallet(object):
       for calls in actionsList:
          calls[0](*calls[1])
          
-
+      
       
    ###############################################################################
    @CheckWalletRegistration

@@ -32,7 +32,7 @@ public:
    virtual void run(BDMAction action, void* ptr, int block=0)=0;
    virtual void progress(
       BDMPhase phase,
-      const string &walletId,
+      const vector<string> &walletIdVec,
       float progress, unsigned secondsRem,
       unsigned progressNumeric
    )=0;

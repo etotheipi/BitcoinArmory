@@ -54,7 +54,7 @@ class LockboxDisplayModel(QAbstractTableModel):
 
       nTx, bal = 0, 0
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         nTx = len(lwlt.getTxLedger())
+         nTx = lwlt.getWltTotalTxnCount()
          bal = lwlt.getFullBalance()
 
       if role==Qt.DisplayRole:

@@ -70,7 +70,7 @@ StoredTxOut* BlockWriteBatcher::makeSureSTXOInMap(
    dbKey.append(WRITE_UINT16_BE(txoId));
    iface->getStoredTxOut(*stxo, dbKey);
 
-   dbUpdateSize_ += sizeof(StoredTxOut) + stxo->dataCopy_.getSize();
+   dbUpdateSize_ += sizeof(StoredTxOut) + stxo->getSize();
    stxoToUpdate_.push_back(move(stxo));
 
    return stxoToUpdate_.back().get();
@@ -81,7 +81,7 @@ void BlockWriteBatcher::moveStxoToUTXOMap(
    const shared_ptr<StoredTxOut>& thisTxOut)
 {
    stxoToUpdate_.push_back(thisTxOut);
-   dbUpdateSize_ += sizeof(StoredTxOut)+thisTxOut->dataCopy_.getSize();
+   dbUpdateSize_ += sizeof(StoredTxOut) + thisTxOut->getSize();
 
    utxoMap_[thisTxOut->hashAndId_] = thisTxOut; 
 }
@@ -123,7 +123,7 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
       dbKey.append(WRITE_UINT16_BE(txoId));
       iface_->getStoredTxOut(*stxo, dbKey);
 
-      dbUpdateSize_ += sizeof(StoredTxOut)+stxo->dataCopy_.getSize();
+      dbUpdateSize_ += sizeof(StoredTxOut)+stxo->getSize();
       stxoToUpdate_.push_back(stxo);
 
       return stxoToUpdate_.back().get();
@@ -330,14 +330,14 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
    shared_ptr<PulledBlock> pb(new PulledBlock());
    {
       LMDBEnv::Transaction blockTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      pullBlockFromDB(*pb, hgt, dup);
+      if (!pullBlockFromDB(*pb, hgt, dup))
+      {
+         //Should notify UI before returning
+         LOGERR << "Failed to load block " << hgt << "," << dup;
+         return;
+      }
    }
 
-   if (pb->blockHeight_ == UINT32_MAX)
-   {
-      LOGERR << "Failed to load block " << hgt << "," << dup;
-      return;
-   }
    applyBlockToDB(pb, scrAddrData);
 
    thread writeThread = commit(true);
@@ -545,6 +545,8 @@ bool BlockWriteBatcher::parseTxIns(
          if (stxoPtr == nullptr)
              continue;
       }
+
+      txIsMine = true;
       
       const BinaryData& uniqKey = stxoPtr->getScrAddress();
       BinaryData stxoKey = stxoPtr->getDBKey(false);
@@ -769,8 +771,6 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
    //that will get any traffic, and in order to update all alreadyScannedUpToBlk_
    //members each commit
 
-   //pass a 0 size BinaryData to avoid loading any subSSH
-
    if (sshToModify_)
       return;
 
@@ -891,7 +891,7 @@ void BlockWriteBatcher::clearTransactions(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
-   LMDBBlockDatabase* db)
+   LMDBBlockDatabase* db, uint32_t threadId)
 {
    /***
    Grab blocks from the DB, put each block in the current block's nextBlock_
@@ -899,11 +899,26 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
    //TIMER_START("grabBlocksFromDB");
 
-   uint32_t hgt = blockData->topLoadedBlock_;
+   uint32_t offsetHgt = blockData->topLoadedBlock_ / blockData->nThreads_;
+   uint32_t hgt = offsetHgt * blockData->nThreads_ + threadId;
+   if (hgt < blockData->topLoadedBlock_)
+      hgt = (offsetHgt +1) * blockData->nThreads_ + threadId;
+
+   if (hgt > blockData->endBlock_)
+      return;
 
    //find last block
-   shared_ptr<PulledBlock> *lastBlock = &blockData->block_;
-   unique_lock<mutex> grabLock(blockData->grabLock_);
+   GrabThreadData& GTD = blockData->GTD_[threadId];
+   shared_ptr<PulledBlock> *lastBlock = &GTD.block_;
+   shared_ptr<FileMap> *prevFileMap = nullptr;
+
+   if (hgt != blockData->topLoadedBlock_)
+   {
+      GTD.block_ = shared_ptr<PulledBlock>(new PulledBlock());
+      lastBlock = &GTD.block_->nextBlock_;
+   }
+
+   unique_lock<mutex> grabLock(GTD.grabLock_);
 
    while (1)
    {
@@ -915,15 +930,16 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
       uint8_t dupID = db->getValidDupIDForHeight(hgt);
       if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
       {
-         unique_lock<mutex> assignLock(blockData->assignLock_);
+         unique_lock<mutex> assignLock(GTD.assignLock_);
          *lastBlock = blockData->interruptBlock_;
          LOGERR << "Header heigh&dup is not in BLKDATA DB";
          LOGERR << "(" << hgt << ", " << dupID << ")";
          return;
       }
 
-      while (blockData->bufferLoad_.load(memory_order_acquire)
-         < UPDATE_BYTES_THRESH)
+      while (GTD.bufferLoad_.load(memory_order_acquire)
+         < UPDATE_BYTES_THRESH / blockData->nThreads_ || 
+         (GTD.block_ != nullptr && GTD.block_->nextBlock_ == nullptr))
       {
          if (hgt > blockData->endBlock_)
             return;
@@ -931,7 +947,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          uint8_t dupID = db->getValidDupIDForHeight(hgt);
          if (dupID == UINT8_MAX)
          {
-            unique_lock<mutex> assignLock(blockData->assignLock_);
+            unique_lock<mutex> assignLock(GTD.assignLock_);
             *lastBlock = blockData->interruptBlock_;
             LOGERR << "No block in DB at height " << hgt;
             return;
@@ -945,7 +961,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
             //in case the iterator is not at the right key, set it
             if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
             {
-               unique_lock<mutex> assignLock(blockData->assignLock_);
+               unique_lock<mutex> assignLock(GTD.assignLock_);
                *lastBlock = blockData->interruptBlock_;
                LOGERR << "Header heigh&dup is not in BLKDATA DB";
                LOGERR << "(" << hgt << ", " << dupID << ")";
@@ -954,22 +970,27 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          }
 
          shared_ptr<PulledBlock> pb(new PulledBlock());
-         if (!pullBlockAtIter(*pb, ldbIter, db))
+         pb->prevMapPtr_ = prevFileMap;
+         if (!pullBlockAtIter(*pb, ldbIter, db, &blockData->BFA_))
          {
-            unique_lock<mutex> assignLock(blockData->assignLock_);
+            unique_lock<mutex> assignLock(GTD.assignLock_);
             *lastBlock = blockData->interruptBlock_;
             LOGERR << "No block in DB at height " << hgt;
             return;
          }
 
+         prevFileMap = &pb->fileMapPtr_;
+
          //increment bufferLoad
-         blockData->bufferLoad_.fetch_add(
+         GTD.bufferLoad_.fetch_add(
             pb->numBytes_, memory_order_release);
 
          //assign newly grabbed block to shared_ptr
          {
-            unique_lock<mutex> assignLock(blockData->assignLock_);
-            *lastBlock = pb;
+            {
+               unique_lock<mutex> assignLock(GTD.assignLock_);
+               *lastBlock = pb;
+            }
 
             //let's try to wake up the scan thread
             unique_lock<mutex> mu(blockData->scanLock_, defer_lock);
@@ -981,17 +1002,17 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          lastBlock = &pb->nextBlock_;
 
          blockData->topLoadedBlock_ = hgt;
-         ++hgt;
+         hgt += blockData->nThreads_;
       }
 
       if (hgt > blockData->endBlock_)
          return;
 
-      //sleep 10sec or until process thread signals block buffer is low
-      blockData->grabCV_.wait_for(grabLock, chrono::seconds(10));
+      TIMER_START("grabThreadSleep");
+      //sleep 10sec or until scan thread signals block buffer is low
+      GTD.grabCV_.wait_for(grabLock, chrono::seconds(10));
+      TIMER_STOP("grabThreadSleep");
    }
-
-   //TIMER_STOP("grabBlocksFromDB");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1009,27 +1030,22 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 
    try
    {
+      unique_lock<mutex> scanLock(blockData->scanLock_);
+      
       shared_ptr<PulledBlock> block;
-      thread grabThread(grabBlocksFromDB, blockData, iface_);
-      grabThread.detach();
+      block = blockData->startGrabThreads(iface_, blockData, &scanLock);
 
       uint64_t totalBlockDataProcessed=0;
-      unique_lock<mutex> scanLock(blockData->scanLock_);
-
-      //wait until the shared_ptr has been assigned some data
-      while (1)
-      {
-         unique_lock<mutex> assignLock(blockData->assignLock_);
-         block = blockData->block_;
-         if (block != nullptr)
-            break;
-      }
 
       if (block == blockData->interruptBlock_)
       {
-         // got rid of this LOGERR cause it jumbles up the one from the
-         // grab thread
-         //LOGERR << "Grab thread halted unexpectedly";
+         string errorMessage("The scanning process "
+            "interrupted unexpectedly, Armory will now shutdown. "
+            "You will have to proceed to \"Help -> Rebuild and Rescan\" "
+            "on the next start. If the error persists, contact support. "
+            "Refer to your log file for more details on the error.");
+
+         criticalError_(errorMessage);
          return lastScannedBlockHash;
       }
 
@@ -1049,10 +1065,6 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          
          uint32_t blockSize = block->numBytes_;
 
-         //decrement bufferload
-         blockData->bufferLoad_.fetch_sub(
-            blockSize, memory_order_release);
-
          //scan block
          lastScannedBlockHash = 
             applyBlockToDB(block, blockData->scrAddrFilter_);
@@ -1060,44 +1072,22 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          if (i == blockData->endBlock_)
             break;
 
-         if (blockData->bufferLoad_.load(memory_order_consume)
-            < UPDATE_BYTES_THRESH / 2)
-         {
-            /***
-            Buffer is running low. Try to take ownership of the blockData
-            mutex. If that succeeds, the grab thread is sleeping, so 
-            signal it to wake. Otherwise the grab thread is already running 
-            and is lagging behind the processing thread (very unlikely)
-            ***/
-            unique_lock<mutex> lock(blockData->grabLock_, defer_lock);
-            if(lock.try_lock())
-               blockData->grabCV_.notify_all();
-         }
-
-         //wait until next block is available
-         while (1)
-         {
-            {
-               unique_lock<mutex> assignLock(blockData->assignLock_);
-               block = blockData->block_->nextBlock_;
-            }
-
-            if (block != nullptr)
-               break;
-            
-            //wait for grabThread signal
-            blockData->scanCV_.wait_for(scanLock, chrono::seconds(2));
-         }
+         blockData->wakeGrabThreadsIfNecessary();
+         block = blockData->getNextBlock(i+1, &scanLock);
 
          //check if next block is valid
          if (block == blockData->interruptBlock_)
          {
-            //LOGERR << "Grab thread halted unexpectedly";
+            string errorMessage("The scanning process "
+               "interrupted unexpectedly, Armory will now shutdown. "
+               "You will have to proceed to \"Help -> Rebuild and Rescan\" "
+               "on the next start. If the error persists, contact support. "
+               "Refer to your log file for more details on the error.");
+
+            criticalError_(errorMessage);
+
             return lastScannedBlockHash;
          }
-
-         //assign next block to current
-         blockData->block_ = block;
  
          if (i % 2500 == 2499)
             LOGWARN << "Finished applying blocks up to " << (i + 1);
@@ -1113,6 +1103,12 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       clearTransactions();
       throw;
    }
+
+   double timeElapsed = TIMER_READ_SEC("grabThreadSleep");
+   LOGINFO << "grabThreadSleep: " << timeElapsed << "s";
+
+   timeElapsed = TIMER_READ_SEC("scanThreadSleep");
+   LOGINFO << "scanThreadSleep: " << timeElapsed << "s";
    
    return lastScannedBlockHash;
 }
@@ -1133,25 +1129,63 @@ BinaryData BlockWriteBatcher::scanBlocks(
 )
 {
    //TIMER_START("applyBlockRangeToDBIter");
+   uint32_t nThreads = 1;
+   if (scf.armoryDbType_ != ARMORY_DB_SUPER)
+   {
+      if (int(endBlock - startBlock) > 100)
+         nThreads = 2;
+   }
    
+   LOGINFO << "running with " << nThreads << " threads";
+
    prepareSshToModify(scf);
 
    shared_ptr<LoadedBlockData> tempBlockData = 
-      make_shared<LoadedBlockData>(startBlock, endBlock, scf);
+      make_shared<LoadedBlockData>(startBlock, endBlock, scf, nThreads);
 
    return applyBlocksToDB(prog, tempBlockData);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
-   LMDBBlockDatabase* db)
+   LMDBBlockDatabase* db, BlockFileAccessor* bfa)
 {
 
    // Now we read the whole block, not just the header
-   if (db->readStoredBlockAtIter(iter, pb))
+   if (db->armoryDbType() == ARMORY_DB_SUPER || bfa == nullptr)
    {
-      pb.preprocessTx(db->armoryDbType());
-      return true;
+      if (db->readStoredBlockAtIter(iter, pb))
+      {
+         pb.preprocessTx(db->armoryDbType());
+         return true;
+      }
+   }
+   else
+   {
+      BinaryRefReader brr(iter.getValueReader());
+      if (brr.getSize() != 14)
+         return false;
+
+      uint16_t fnum = brr.get_uint16_t();
+      uint64_t offset = brr.get_uint64_t();
+      uint32_t size = brr.get_uint32_t();
+
+      try
+      {
+         BinaryDataRef bdr;
+         bfa->getRawBlock(bdr, fnum, offset, size, pb);
+         
+         pb.blockHeight_ = DBUtils::hgtxToHeight(iter.getKey().getSliceRef(1, 4));
+         pb.duplicateID_ = DBUtils::hgtxToDupID(iter.getKey().getSliceRef(1, 4));
+
+         pb.unserializeFullBlock(bdr, true, false);
+         pb.preprocessTx(db->armoryDbType());
+         return true;
+      }
+      catch (...)
+      {
+         return false;
+      }
    }
 
    return false;
@@ -1238,6 +1272,7 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
          for (auto& subsshPair : subsshIter->second)
          {
             auto& subssh = subsshPair.second;
+            uint32_t extraTxioCount = 0;
             uint32_t subsshHeight = DBUtils::hgtxToHeight(subsshPair.first);
             if (subsshHeight > ssh.alreadyScannedUpToBlk_ ||
                !ssh.alreadyScannedUpToBlk_ ||
@@ -1246,16 +1281,22 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
                for (const auto& txioPair : subssh.txioMap_)
                {
                   auto& txio = txioPair.second;
-                  if (!txio.isMultisig())
+                     
+                  if (!txio.hasTxIn())
                   {
-                     if (!txio.hasTxIn())
+                     if (!txio.isMultisig())
                         ssh.totalUnspent_ += txio.getValue();
-                     else if (!txio.flagged)
+                  }
+                  else
+                  {
+                     if (!txio.flagged)
                         ssh.totalUnspent_ -= txio.getValue();
+                     else
+                        extraTxioCount++;
                   }
                }
 
-               ssh.totalTxioCount_ += subssh.txioMap_.size();
+               ssh.totalTxioCount_ += subssh.txioMap_.size() + extraTxioCount;
             }
          }
 
@@ -1411,6 +1452,7 @@ void DataToCommit::serializeData(BlockWriteBatcher& bwb,
 
    isSerialized_ = true;
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::putSSH(LMDBBlockDatabase* db)
 {

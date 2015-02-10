@@ -41,6 +41,7 @@ private:
       }
    };
 
+   bool isInitialized_ = false;
    vector<Page> pages_;
    map<uint32_t, uint32_t> SSHsummary_;
 
@@ -68,7 +69,10 @@ public:
 
    map<BinaryData, LedgerEntry>& getPageLedgerMap(uint32_t pageId);
 
-   void reset(void) { pages_.clear(); }
+   void reset(void) { 
+      pages_.clear(); 
+      isInitialized_ = false;
+   }
 
    void addPage(uint32_t count, uint32_t bottom, uint32_t top);
    void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
@@ -86,6 +90,8 @@ public:
    void setCurrentPage(uint32_t pageId) { currentPage_ = pageId; }
    
    uint32_t getRangeForHeightAndCount(uint32_t height, uint32_t count) const;
+   uint32_t getBlockInVicinity(uint32_t blk) const;
+   uint32_t getPageIdForBlockHeight(uint32_t) const;
 };
 
 #endif
