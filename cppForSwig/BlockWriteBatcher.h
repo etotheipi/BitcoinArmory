@@ -603,6 +603,9 @@ private:
             if (blk != nullptr)
                break;
 
+            //wakeGrabThreads in case they are sleeping
+            wakeGrabThreadsIfNecessary();
+
             //wait for grabThread signal
             TIMER_START("scanThreadSleep");
             scanCV_.wait_for(*mu, chrono::seconds(2));
@@ -643,9 +646,11 @@ private:
             if (blk != nullptr)
                break;
 
-            wakeGrabThreadsIfNecessary();
             scanCV_.wait_for(*mu, chrono::seconds(2));
          }
+
+         currGTD.bufferLoad_.fetch_sub(
+            blk->numBytes_, memory_order_release);
 
          return blk;
       }

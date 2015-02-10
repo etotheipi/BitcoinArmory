@@ -1010,7 +1010,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
       TIMER_START("grabThreadSleep");
       //sleep 10sec or until scan thread signals block buffer is low
-      GTD.grabCV_.wait_for(grabLock, chrono::seconds(10));
+      GTD.grabCV_.wait_for(grabLock, chrono::seconds(2));
       TIMER_STOP("grabThreadSleep");
    }
 }

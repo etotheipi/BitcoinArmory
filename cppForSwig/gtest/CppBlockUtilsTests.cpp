@@ -6404,7 +6404,6 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
    iface_->putStoredTxOut(stxo0);
 
    // Construct expected output
-   expectOutB_.clear();
    addOutPairB(stxoKey, stxoVal);
    ASSERT_TRUE(compareKVListRangeBlkData(0, 1, 0, 1));
 
@@ -6459,7 +6458,6 @@ TEST_F(LMDBTest_Super, PutFullTxNoOuts)
    BinaryData stxVal = READHEX("0440") + stx.thisHash_ + rawTxFragged_;
 
    iface_->putStoredTx(stx, false);
-   expectOutB_.clear();
    addOutPairB(stxKey, stxVal);
    EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 1));
 }
@@ -6480,8 +6478,6 @@ TEST_F(LMDBTest_Super, PutFullTx)
    ASSERT_TRUE(standardOpenDBs());
    LMDBEnv::Transaction txheaders(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
    LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
-
-   expectOutB_.clear();
 
    StoredTx stx;
    stx.createFromTx(rawTxUnfrag_);
@@ -6616,7 +6612,6 @@ TEST_F(LMDBTest_Super, PutGetBareHeader)
 TEST_F(LMDBTest_Super, PutFullBlock)
 {
    ASSERT_TRUE(standardOpenDBs());
-   expectOutB_.clear();
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);

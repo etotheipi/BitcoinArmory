@@ -373,9 +373,6 @@ void LMDBBlockDatabase::openDatabases(
    DB_PRUNE_TYPE      pruneType
    )
 {
-      return;
-   }
-
    /***
    Supernode and Fullnode use different DB. 
    
@@ -438,6 +435,7 @@ void LMDBBlockDatabase::openDatabases(
    SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
+   baseDir_ = basedir;
    magicBytes_ = magic;
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
@@ -459,35 +457,6 @@ void LMDBBlockDatabase::openDatabases(
       dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
 
    dbEnv_[BLKDATA]->open(dbBlkdataFilename());
-
-   //make sure it's a fullnode DB
-   {
-      LMDB checkDBType;
-      const char* dataPtr = nullptr;
-
-      {
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-         checkDBType.open(dbEnv_[BLKDATA].get(), "blkdata");
-         auto dbKey = StoredDBInfo::getDBKey();
-         CharacterArrayRef data = checkDBType.get_NoCopy(CharacterArrayRef(
-            dbKey.getSize(), (char*)dbKey.getPtr()));
-
-         dataPtr = data.data;
-      }
-
-      checkDBType.close();
-
-      if (dataPtr != nullptr)
-      {
-         LOGERR << "Mismatch in DB type";
-         LOGERR << "Requested fullnode";
-         LOGERR << "Current DB is supernode";
-         throw runtime_error("Mismatch in DB type");
-      }
-   }
-
-
-
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
@@ -2369,13 +2338,17 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
    SCOPED_TIMER("getTxHashForLdbKey");
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       BinaryRefReader stxVal;
-
       if (!ldbKey6B.startsWith(ZCprefix_))
+      {
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
          stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+      }
       else
-         stxVal = getValueReader(BLKDATA, DB_PREFIX_ZCDATA, ldbKey6B);
+      {
+         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+         stxVal = getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
+      }
 
       if (stxVal.getSize() == 0)
       {
@@ -2395,17 +2368,17 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
 
          if (!ldbKey6B.startsWith(ZCprefix_))
          {
-         BinaryData keyFull(ldbKey6B.getSize() + 1);
-         keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
-         ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
+            BinaryData keyFull(ldbKey6B.getSize() + 1);
+            keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
+            ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
 
-         BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
+            BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
 
-         if (txData.getSize() >= 36)
-         {
-            return txData.getSliceRef(4, 32);
+            if (txData.getSize() >= 36)
+            {
+               return txData.getSliceRef(4, 32);
+            }
          }
-      }
          else
          {            
             BinaryRefReader stxVal = 
@@ -3454,14 +3427,8 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
    {
       beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
       BinaryRefReader brr = getValueRef(HISTORY, DB_PREFIX_TXDATA, dbKey6);
-      if (brr.getSize() == 0)
-      {
-         LOGERR << "no Tx data at key";
-         return UINT32_MAX;
-      }
-
-      return brr.get_uint32_t();
-   }
+      if (brr.getSize() > 0)
+         return brr.get_uint32_t();
       else
       {
          StoredTx stx;
