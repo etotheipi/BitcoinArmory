@@ -668,7 +668,7 @@ class ArmoryBlockAndDateSelector():
       self.dateBlockSelectButton = QPushButton('Goto')
       self.dateBlockSelectButton.setStyleSheet(\
             'QPushButton { font-size : 10px }')
-      self.dateBlockSelectButton.setMaximumSize(44, 16)  
+      self.dateBlockSelectButton.setMaximumSize(60, 20)  
       self.main.connect(self.dateBlockSelectButton, \
                         SIGNAL('clicked()'), self.showBlockDateController)
 
