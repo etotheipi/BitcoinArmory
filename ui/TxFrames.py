@@ -111,8 +111,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          ' and/or broadcast later.')
       self.unsignedCheckbox = QCheckBox('Create Unsigned')
       self.btnSend = QPushButton('Send!')
-
-
+      self.btnCancel = QPushButton('Cancel')
+      self.connect(self.btnCancel, SIGNAL(CLICKED), parent.reject)
 
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
@@ -139,6 +139,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          componentList.append(self.unsignedCheckbox)
          componentList.append(self.ttipUnsigned)
       
+      componentList.append(self.btnCancel)
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
