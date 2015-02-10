@@ -42,7 +42,7 @@ endif
 
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -classic -threads
+SWIG_OPTS    += -c++ -python -threads
 
 SWIG_INC     += 
 
