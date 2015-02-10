@@ -409,31 +409,6 @@ class PyBtcWallet(object):
       ledg.extend(ledgBlkChain)
       return ledg
 
-
-   ############################################################################
-   @CheckWalletRegistration
-   def getAddrTxLedger(self, addr160, ledgType='Full'):
-      """ 
-      Gets the ledger entries for the entire wallet, from C++/SWIG data structs
-      """
-      if not self.hasAddr(addr160):
-         return []
-      else:
-         scrAddr = Hash160ToScrAddr(addr160)
-         obj = self.cppWallet.getScrAddrObjByKey(scrAddr)
-         if obj is None:
-            raise RuntimeError("addr %s is not in the c++ wallet" % scrAddr)
-         ledgBlkChain = obj.getHistoryPageById(0)
-         if ledgType.lower() in ('full','all','ultimate'):
-            ledg = []
-            ledg.extend(ledgBlkChain)
-            return ledg
-         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
-            return ledgBlkChain
-         else:
-            raise TypeError('Unknown ledger type! "' + ledgType + '"')
-
-
    #############################################################################
    @CheckWalletRegistration
    def getUTXOListForSpendVal(self, valToSpend):

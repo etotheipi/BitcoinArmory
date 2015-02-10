@@ -111,8 +111,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          ' and/or broadcast later.')
       self.unsignedCheckbox = QCheckBox('Create Unsigned')
       self.btnSend = QPushButton('Send!')
-
-
+      self.btnCancel = QPushButton('Cancel')
+      self.connect(self.btnCancel, SIGNAL(CLICKED), parent.reject)
 
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
@@ -133,20 +133,21 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
-      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, 'Stretch']
+      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, STRETCH]
       if self.createUnsignedTxCallback:
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
          componentList.append(self.unsignedCheckbox)
          componentList.append(self.ttipUnsigned)
-      
+      buttonList = [STRETCH]
+      buttonList.append(self.btnCancel)
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
-         componentList.append(self.btnSend)
+         buttonList.append(self.btnSend)
          
       txFrm = makeHorizFrame(componentList, condenseMargins=True)
-
+      buttonFrame = makeHorizFrame(buttonList, condenseMargins=True)
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
       ttipEnterURI = self.main.createToolTipWidget( tr("""
          Armory does not always succeed at registering itself to handle 
@@ -228,7 +229,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
       leftFrame = makeVertFrame([lblSend, frmBottomLeft], condenseMargins=True)
-      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], condenseMargins=True)
+      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm, buttonFrame], condenseMargins=True)
       layout = QHBoxLayout()
       layout.addWidget(leftFrame, 0)
       layout.addWidget(rightFrame, 1)
@@ -1854,6 +1855,6 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 from qtdialogs import CLICKED, DlgConfirmSend, DlgUriCopyAndPaste, \
-         DlgUnlockWallet, extractTxInfo, DlgDispTxInfo, NO_CHANGE
+         DlgUnlockWallet, extractTxInfo, DlgDispTxInfo, NO_CHANGE, STRETCH
 
 

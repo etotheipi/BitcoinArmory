@@ -782,13 +782,36 @@ void BlockDataManager_LevelDB::openDatabase()
       throw runtime_error("ERROR: Genesis Block Hash not set!");
    }
 
-   iface_->openDatabases(
-      config_.levelDBLocation,
-      config_.genesisBlockHash,
-      config_.genesisTxHash,
-      config_.magicBytes,
-      config_.armoryDbType,
-      config_.pruneType);
+   try
+   {
+      iface_->openDatabases(
+         config_.levelDBLocation,
+         config_.genesisBlockHash,
+         config_.genesisTxHash,
+         config_.magicBytes,
+         config_.armoryDbType,
+         config_.pruneType);
+   }
+   catch (runtime_error &e)
+   {
+      stringstream ss;
+      ss << "DB failed to open, reporting the following error: " << e.what();
+      throw runtime_error(ss.str());
+   }
+   catch (LMDBException &e)
+   {
+      stringstream ss;
+      ss << "DB failed to open, reporting the following error: " << e.what();
+      throw runtime_error(ss.str());
+   }
+   catch (...)
+   {
+      stringstream ss;
+      ss << "DB failed to open, unknown error";
+      ss >> criticalError_;
+      throw runtime_error(ss.str());
+   }
+
 }
 
 /////////////////////////////////////////////////////////////////////////////

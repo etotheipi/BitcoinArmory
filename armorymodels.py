@@ -668,7 +668,7 @@ class ArmoryBlockAndDateSelector():
       self.dateBlockSelectButton = QPushButton('Goto')
       self.dateBlockSelectButton.setStyleSheet(\
             'QPushButton { font-size : 10px }')
-      self.dateBlockSelectButton.setMaximumSize(44, 16)  
+      self.dateBlockSelectButton.setMaximumSize(60, 20)  
       self.main.connect(self.dateBlockSelectButton, \
                         SIGNAL('clicked()'), self.showBlockDateController)
 
@@ -1130,7 +1130,11 @@ class WalletAddrDispModel(QAbstractTableModel):
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedgerSize()>0
+         try:
+            hasTx = self.wlt.cppWallet.getAddrTotalTxnCount(Hash160ToScrAddr(addr160))>0
+         except:
+            hasTx = False
+            
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 

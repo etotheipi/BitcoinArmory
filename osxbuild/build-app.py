@@ -26,6 +26,7 @@ psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
 libpngVer    = '1.6.15'
+qtVerDate    = '2015-02-02-3'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
 sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -352,11 +353,11 @@ distfiles.append( [ 'libpng', \
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
                     #"qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    "qt-everywhere-opensource-src-%s-2015-01-12-2.tar.gz" % qtVer, \
+                    "qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
                     #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    "http://download.qt.io/snapshots/qt/4.8/%s/2015-01-12-2/qt-everywhere-opensource-src-%s-2015-01-12-2.tar.gz" % (qtVer, qtVer), \
+                    "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
                     #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
-                    "7b30101413567eea3dda7f251a212d53ebe38620" ] )
+                    "954fb98f69b88705ee553b371c53726af5969547" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
@@ -464,10 +465,10 @@ def compile_qt():
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
    #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-2015-01-12-2' % qtVer)
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-%s' % (qtVer, qtVerDate))
    qtInstDir  = path.join(INSTALLDIR, 'qt')
    #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-2015-01-12-2.tar.gz' % qtVer)
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-%s.tar.gz' % (qtVer, qtVerDate))
    #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 

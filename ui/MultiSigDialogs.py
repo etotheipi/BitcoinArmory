@@ -1324,9 +1324,9 @@ class DlgLockboxManager(ArmoryDialog):
             pytx = PyTx().unserialize(cppTx.serialize())
 
       if pytx==None:
-         QMessageBox.critical(self, 'Invalid Tx:',
+         QMessageBox.critical(self, 'Invalid Tx',
          'The transaction you requested be displayed does not exist in '
-         'in Armory\'s database.  This is unusual...', QMessageBox.Ok)
+         'Armory\'s database.  This is unusual...', QMessageBox.Ok)
          return
 
       lboxId  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())

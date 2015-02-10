@@ -3422,7 +3422,7 @@ class DlgImportAddress(ArmoryDialog):
                LOGERROR('Problem importing: %s: %s', addrStr, msg)
                raise
 
-            self.wlt.importExternalAddressBatch(privKeyToImport)
+         self.wlt.importExternalAddressBatch(privKeyToImport)
             
          if nAlready == nTotal:
             MsgBoxCustom(MSGBOX.Warning, 'Nothing Imported!', 'All addresses '

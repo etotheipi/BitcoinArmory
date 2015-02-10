@@ -7277,7 +7277,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp()
    {
-      
+
       LOGDISABLESTDOUT();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
@@ -7288,9 +7288,13 @@ protected:
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
+      rmdir(blkdir_);
+      rmdir(homedir_);
+      rmdir(ldbdir_);
 
       mkdir(blkdir_);
       mkdir(homedir_);
+      mkdir(ldbdir_);
 
       // Put the first 5 blocks into the blkdir
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);

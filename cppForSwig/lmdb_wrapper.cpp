@@ -373,11 +373,47 @@ void LMDBBlockDatabase::openDatabases(
    DB_PRUNE_TYPE      pruneType
    )
 {
+   baseDir_ = basedir;
+
    if (dbtype == ARMORY_DB_SUPER)
    {
-      return openDatabasesSupernode(basedir,
-         genesisBlkHash, genesisTxHash,
-         magic, dbtype, pruneType);
+      //make sure it is a supernode DB
+#ifdef WIN32
+      if (access(dbHeadersFilename().c_str(), 0) == 0)
+#else
+      if (access(dbHeadersFilename().c_str(), F_OK) == 0)
+#endif
+      {
+         LOGERR << "Mismatch in DB type";
+         LOGERR << "Requested supernode";
+         LOGERR << "Current DB is fullnode";
+         throw runtime_error("Mismatch in DB type");
+      }
+
+      try
+      {
+         openDatabasesSupernode(basedir,
+            genesisBlkHash, genesisTxHash,
+            magic, dbtype, pruneType);
+      }
+      catch (runtime_error &e)
+      {
+         throw e;
+      }
+      catch (LMDBException &e)
+      {
+         LOGERR << "Exception thrown while opening database";
+         LOGERR << e.what();
+         throw e;
+      }
+      catch (...)
+      {
+         LOGERR << "Exception thrown while opening database";
+         closeDatabases();
+         throw;
+      }
+
+      return;
    }
 
    /***
@@ -442,8 +478,6 @@ void LMDBBlockDatabase::openDatabases(
    SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
-   baseDir_ = basedir;
-
    magicBytes_ = magic;
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
@@ -464,9 +498,38 @@ void LMDBBlockDatabase::openDatabases(
    for (int i = 0; i < COUNT; i++)
       dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
 
+   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
+
+   //make sure it's a fullnode DB
+   {
+      LMDB checkDBType;
+      const char* dataPtr = nullptr;
+
+      {
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+         checkDBType.open(dbEnv_[BLKDATA].get(), "blkdata");
+         auto dbKey = StoredDBInfo::getDBKey();
+         CharacterArrayRef data = checkDBType.get_NoCopy(CharacterArrayRef(
+            dbKey.getSize(), (char*)dbKey.getPtr()));
+
+         dataPtr = data.data;
+      }
+
+      checkDBType.close();
+
+      if (dataPtr != nullptr)
+      {
+         LOGERR << "Mismatch in DB type";
+         LOGERR << "Requested fullnode";
+         LOGERR << "Current DB is supernode";
+         throw runtime_error("Mismatch in DB type");
+      }
+   }
+
+
+
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
-   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
 
    map<DB_SELECT, string> DB_NAMES;
@@ -484,8 +547,8 @@ void LMDBBlockDatabase::openDatabases(
 
          dbs_[CURRDB].open(dbEnv_[CURRDB].get(), db.second);
 
-         //only HEADERS and HISTORY get a sdbi in Fullnode
-         if (CURRDB != HEADERS && CURRDB != HISTORY)
+         //no SDBI in TXHINTS
+         if (CURRDB == TXHINTS)
             continue;
 
          StoredDBInfo sdbi;
