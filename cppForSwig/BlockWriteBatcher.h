@@ -474,9 +474,6 @@ private:
 
    //
    bool haveFullUTXOList_ = true;
-   //uint32_t utxoFromHeight_ = 0;
-
-   DB_SELECT historyDB_;
 };
 
 

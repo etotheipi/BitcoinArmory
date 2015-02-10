@@ -949,12 +949,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
    const vector<BinaryData>& keysToDelete)
 {
    //should run in its own thread to make sure we can get a write tx
-   DB_SELECT dbs = BLKDATA;
-   if (db_->getDbType() != ARMORY_DB_SUPER)
-      dbs = HISTORY;
-
-   LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, dbs, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(db_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    for (auto& key : keysToWrite)
    {
@@ -976,7 +971,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       else
          keyWithPrefix = key;
 
-      LDBIter dbIter(db_->getIterator(dbs));
+      LDBIter dbIter(db_->getIterator(HISTORY));
 
       if (!dbIter.seekTo(keyWithPrefix))
          continue;
@@ -994,7 +989,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
 
       for (auto Key : ktd)
-         db_->deleteValue(dbs, Key);
+         db_->deleteValue(HISTORY, Key);
    }
 }
 
@@ -1006,11 +1001,9 @@ void ZeroConfContainer::loadZeroConfMempool(
    //run this in its own scope so the iter and tx are closed in order to open
    //RW tx afterwards
    {
-      auto dbs = db_->getDbSelect(HISTORY);
-
       LMDBEnv::Transaction tx;
-      db_->beginDBTransaction(&tx, dbs, LMDB::ReadOnly);
-      LDBIter dbIter(db_->getIterator(dbs));
+      db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      LDBIter dbIter(db_->getIterator(HISTORY));
 
       if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))
       {

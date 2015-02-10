@@ -816,7 +816,7 @@ pair<BlockFilePosition, vector<BlockHeader*>>
       readBlockHeaders_->totalBlockchainBytes()
    );
    uint64_t totalOffset=0;
-   
+
    auto blockHeaderCallback
       = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
       {
@@ -830,8 +830,7 @@ pair<BlockFilePosition, vector<BlockHeader*>>
          BlockHeader& addedBlock = blockchain().addNewBlock(blockhash, block);
 
          blockHeadersAdded.push_back(&addedBlock);
-         //LOGINFO << "Added block header with hash " << addedBlock.getThisHash().copySwapEndian().toHexStr()
-         //   << " from " << fnum << " offset " << offset;
+         
          
          // is there any reason I can't just do this to "block"?
          addedBlock.setBlockFileNum(pos.first);
@@ -1136,7 +1135,7 @@ void BlockDataManager_LevelDB::loadDiskState(
   
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
    BDMstate_ = BDM_initializing;
-   
+
    readBlockHeaders_->detectAllBlkFiles();
    if (readBlockHeaders_->numBlockFiles()==0)
    {
@@ -1162,7 +1161,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    }
 
    blockchain_.setDuplicateIDinRAM(iface_, true);
-   
+
    if (forceRescan)
    {
       deleteHistories();
@@ -1496,11 +1495,11 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
+   iface_->getStoredDBInfo(HISTORY, sdbi);
 
    sdbi.appliedToHgt_ = 0;
    sdbi.topScannedBlkHash_ = BinaryData(0);
-   iface_->putStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
+   iface_->putStoredDBInfo(HISTORY, sdbi);
    //////////
 
    bool done = false;
@@ -1513,7 +1512,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       bool recycle = false;
 
       {
-         LDBIter ldbIter(iface_->getIterator(iface_->getDbSelect(HISTORY)));
+         LDBIter ldbIter(iface_->getIterator(HISTORY));
 
          try
          {
@@ -1558,7 +1557,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       }
 
       for (auto& keytodel : keysToDelete)
-         iface_->deleteValue(iface_->getDbSelect(HISTORY), keytodel);
+         iface_->deleteValue(HISTORY, keytodel);
 
       keysToDelete.clear();
 
@@ -1572,7 +1571,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
    }
 
    for (auto& keytodel : keysToDelete)
-      iface_->deleteValue(iface_->getDbSelect(HISTORY), keytodel);
+      iface_->deleteValue(HISTORY, keytodel);
 
    if (i)
       LOGINFO << "Deleted " << i << " SSH and subSSH entries";
@@ -1586,7 +1585,7 @@ void BlockDataManager_LevelDB::wipeHistoryAndHintDB()
       iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
       StoredDBInfo sdbi;
-      iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
+      iface_->getStoredDBInfo(HISTORY, sdbi);
 
       sdbi.appliedToHgt_ = 0;
       sdbi.topScannedBlkHash_ = BinaryData(0);
@@ -1750,7 +1749,7 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
 
    for (const auto& scrAddr : saVec)
    {
-      LDBIter ldbIter = iface_->getIterator(iface_->getDbSelect(HISTORY));
+      LDBIter ldbIter = iface_->getIterator(HISTORY);
 
       if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, scrAddr))
          continue;
@@ -1772,7 +1771,7 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
       } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
 
       for (const auto& keyToDel : keysToDelete)
-         iface_->deleteValue(iface_->getDbSelect(HISTORY), keyToDel);
+         iface_->deleteValue(HISTORY, keyToDel);
    }
 }
 
@@ -1792,7 +1791,7 @@ uint32_t BlockDataManager_LevelDB::findFirstBlockToScan(void)
       //pull last scanned blockhash from sdbi
       LMDBEnv::Transaction tx;
       iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
-      iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
+      iface_->getStoredDBInfo(HISTORY, sdbi);
       lastTopBlockHash = sdbi.topScannedBlkHash_;
    }
 
@@ -1869,7 +1868,7 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
    iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
+   iface_->getStoredDBInfo(HISTORY, sdbi);
    BinaryData lastTopBlockHash = sdbi.topBlkHash_;
 
    if (blockchain_.hasHeaderWithHash(lastTopBlockHash))

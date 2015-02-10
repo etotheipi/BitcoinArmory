@@ -242,43 +242,20 @@ public:
       ARMORY_DB_TYPE     dbtype,
       DB_PRUNE_TYPE      pruneType);
 
-   void openDatabasesSupernode(
-      const string& basedir,
-      BinaryData const & genesisBlkHash,
-      BinaryData const & genesisTxHash,
-      BinaryData const & magic,
-      ARMORY_DB_TYPE     dbtype,
-      DB_PRUNE_TYPE      pruneType);
-
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void closeDatabases();
-   void closeDatabasesSupernode(void);
+   void closeDatabases(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void beginDBTransaction(LMDBEnv::Transaction* tx, 
       DB_SELECT db, LMDB::Mode mode) const
    {
-      if (armoryDbType_ == ARMORY_DB_SUPER)
-         *tx = move(LMDBEnv::Transaction(dbEnv_[BLKDATA].get(), mode));
-      else
-         *tx = move(LMDBEnv::Transaction(dbEnv_[db].get(), mode));
+      *tx = move(LMDBEnv::Transaction(dbEnv_[db].get(), mode));
    }
 
    ARMORY_DB_TYPE getDbType(void) const { return armoryDbType_; }
-
-   DB_SELECT getDbSelect(DB_SELECT dbs) const
-   {
-      if (dbs == HEADERS)
-         return HEADERS;
-
-      if (armoryDbType_ == ARMORY_DB_SUPER)
-         return BLKDATA;
-
-      return dbs;
-   }
 
    /////////////////////////////////////////////////////////////////////////////
    // Sometimes, we just need to nuke everything and start over
@@ -302,13 +279,12 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
-   BinaryData getValue(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
-   BinaryDataRef getValueNoCopy(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
-   
-   /////////////////////////////////////////////////////////////////////////////
-   // Get value using BinaryData object.  If you have a string, you can use
-   // BinaryData key(string(theStr));
-   BinaryData getValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key) const;
+   //BinaryData getValue(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
+   BinaryDataRef getValueNoCopy(DB_SELECT db, 
+                                 BinaryDataRef keyWithPrefix) const;
+   BinaryDataRef getValueNoCopy(DB_SELECT db, DB_PREFIX pref, 
+                                 BinaryDataRef key) const;
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryDataRef object.  The data from the get* call is 
@@ -346,9 +322,6 @@ public:
    bool seekTo(DB_SELECT db,
       DB_PREFIX pref,
       BinaryDataRef key);
-
-   // Move the iterator to the first entry >= txHash
-   bool seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash) const;
 
 
    /////////////////////////////////////////////////////////////////////////////

@@ -368,13 +368,6 @@ void LMDBBlockDatabase::openDatabases(
    DB_PRUNE_TYPE      pruneType
    )
 {
-   if (dbtype == ARMORY_DB_SUPER)
-   {
-      return openDatabasesSupernode(basedir,
-         genesisBlkHash, genesisTxHash,
-         magic, dbtype, pruneType);
-   }
-
    /***
    Supernode and Fullnode use different DB. 
    
@@ -543,114 +536,6 @@ void LMDBBlockDatabase::openDatabases(
    dbIsOpen_ = true;
 }
 
-void LMDBBlockDatabase::openDatabasesSupernode(
-   const string& basedir,
-   BinaryData const & genesisBlkHash,
-   BinaryData const & genesisTxHash,
-   BinaryData const & magic,
-   ARMORY_DB_TYPE     dbtype,
-   DB_PRUNE_TYPE      pruneType
-)
-{
-   SCOPED_TIMER("openDatabases");
-   LOGINFO << "Opening databases...";
-
-   baseDir_ = basedir;
-
-   magicBytes_ = magic;
-   genesisTxHash_ = genesisTxHash;
-   genesisBlkHash_ = genesisBlkHash;
-   
-   armoryDbType_ = dbtype;
-   dbPruneType_ = pruneType;
-
-   if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
-   {
-      LOGERR << " must set magic bytes and genesis block";
-      LOGERR << "           before opening databases.";
-      throw runtime_error("magic bytes not set");
-   }
-
-   // Just in case this isn't the first time we tried to open it.
-   closeDatabasesSupernode();
-   
-   dbEnv_[BLKDATA].reset(new LMDBEnv());
-   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
-   
-   map<DB_SELECT, string> DB_NAMES;
-   DB_NAMES[HEADERS] = "headers";
-   DB_NAMES[BLKDATA] = "blkdata";
-
-   try
-   {
-      for(auto& db : DB_NAMES)
-      {
-         DB_SELECT CURRDB = db.first;
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-
-         dbs_[CURRDB].open(dbEnv_[BLKDATA].get(), db.second);
-
-         StoredDBInfo sdbi;
-         getStoredDBInfo(CURRDB, sdbi, false); 
-         if(!sdbi.isInitialized())
-         {
-            // If DB didn't exist yet (dbinfo key is empty), seed it
-            // A new database has the maximum flag settings
-            // Flags can only be reduced.  Increasing requires redownloading
-            StoredDBInfo sdbi;
-            sdbi.magic_      = magicBytes_;
-            sdbi.topBlkHgt_  = 0;
-            sdbi.topBlkHash_ = genesisBlkHash_;
-            sdbi.armoryType_ = armoryDbType_;
-            sdbi.pruneType_ = dbPruneType_;
-            putStoredDBInfo(CURRDB, sdbi);
-         }
-         else
-         {
-            // Check that the magic bytes are correct
-            if(magicBytes_ != sdbi.magic_)
-            {
-               throw runtime_error("Magic bytes mismatch!  Different blkchain?");
-            }
-      
-            else if(armoryDbType_ != sdbi.armoryType_)
-            {
-               LOGERR << "Mismatch in DB type";
-               LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
-               LOGERR << "Expecting mode: " << sdbi.armoryType_;
-               throw runtime_error("Mismatch in DB type");
-            }
-
-            if(dbPruneType_ != sdbi.pruneType_)
-            {
-               throw runtime_error("Mismatch in DB type");
-            }
-         }
-      }
-   }
-   catch (LMDBException &e)
-   {
-      LOGERR << "Exception thrown while opening database";
-      LOGERR << e.what();
-      throw e;
-   }
-   catch (runtime_error &e)
-   {
-      LOGERR << "Exception thrown while opening database";
-      LOGERR << e.what();
-      throw e;
-   }
-   catch(...)
-   {
-      LOGERR << "Exception thrown while opening database";
-      closeDatabases();
-      throw;
-   }
-   
-   dbIsOpen_ = true;
-}
-
-
 /////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::nukeHeadersDB(void)
 {
@@ -686,32 +571,14 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
 // DBs don't really need to be closed.  Just delete them
 void LMDBBlockDatabase::closeDatabases(void)
 {
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-   {
-      closeDatabasesSupernode();
-      return;
-   }
-
    for(uint32_t db=0; db<COUNT; db++)
    {
       dbs_[(DB_SELECT)db].close();
       if (dbEnv_[(DB_SELECT)db] != nullptr)
-         dbEnv_[(DB_SELECT)db]->close();
+         dbEnv_[(DB_SELECT)db].reset();
    }
    dbIsOpen_ = false;
 }
-
-/////////////////////////////////////////////////////////////////////////////
-// DBs don't really need to be closed.  Just delete them
-void LMDBBlockDatabase::closeDatabasesSupernode(void)
-{
-   dbs_[BLKDATA].close();
-   dbs_[HEADERS].close();
-   if (dbEnv_[BLKDATA] != nullptr)
-      dbEnv_[BLKDATA]->close();
-   dbIsOpen_ = false;
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::destroyAndResetDatabases(void)
@@ -720,19 +587,11 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
 
    // We want to make sure the database is restarted with the same parameters
    // it was called with originally
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-   {
-      closeDatabasesSupernode();
-      remove(dbBlkdataFilename().c_str());
-   }
-   else
-   {
-      closeDatabases();
-      remove(dbHeadersFilename().c_str());
-      remove(dbHistoryFilename().c_str());
-      remove(dbBlkdataFilename().c_str());
-      remove(dbTxhintsFilename().c_str());
-   }
+   closeDatabases();
+   remove(dbHeadersFilename().c_str());
+   remove(dbHistoryFilename().c_str());
+   remove(dbBlkdataFilename().c_str());
+   remove(dbTxhintsFilename().c_str());
    
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
@@ -764,20 +623,12 @@ uint32_t LMDBBlockDatabase::getTopBlockHeight(DB_SELECT db)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Get value using pre-created slice
-BinaryData LMDBBlockDatabase::getValue(DB_SELECT db, BinaryDataRef key) const
-{
-   return dbs_[db].value( CharacterArrayRef(
-      key.getSize(), (char*)key.getPtr() ) );
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // Get value without resorting to a DB iterator
 BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db, 
-   BinaryDataRef key) const
+   BinaryDataRef keyWithPrefix) const
 {
    CharacterArrayRef data = dbs_[db].get_NoCopy(CharacterArrayRef(
-      key.getSize(), (char*)key.getPtr()));
+      keyWithPrefix.getSize(), (char*)keyWithPrefix.getPtr()));
    if (data.data)
       return BinaryDataRef((uint8_t*)data.data, data.len);
    else
@@ -785,23 +636,19 @@ BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Get value using BinaryData object.  If you have a string, you can use
-// BinaryData key(string(theStr));
-BinaryData LMDBBlockDatabase::getValue(DB_SELECT db, 
-                                       DB_PREFIX prefix,
-                                       BinaryDataRef key) const
+BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db, 
+   DB_PREFIX prefix, BinaryDataRef key) const
 {
-   BinaryData keyFull(key.getSize()+1);
+   BinaryData keyFull(key.getSize() + 1);
    keyFull[0] = (uint8_t)prefix;
-   key.copyTo(keyFull.getPtr()+1, key.getSize());
-   try
-   {
-      return getValue(db, keyFull.getRef());
-   }
-   catch (...)
-   {
-      return BinaryData(0);
-   }
+   key.copyTo(keyFull.getPtr() + 1, key.getSize());
+
+   CharacterArrayRef data = dbs_[db].get_NoCopy(CharacterArrayRef(
+      keyFull.getSize(), (char*)keyFull.getPtr()));
+   if (data.data)
+      return BinaryDataRef((uint8_t*)data.data, data.len);
+   else
+      return BinaryDataRef();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1009,45 +856,6 @@ bool LMDBBlockDatabase::advanceToNextBlock(LDBIter & ldbIter, bool skip) const
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-// We frequently have a Tx hash and need to determine the Hgt/Dup/Index of it.
-// And frequently when we do, we plan to read the tx right afterwards, so we
-// should leave the itereator there.
-bool LMDBBlockDatabase::seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash) const
-{
-   SCOPED_TIMER("seekToTxByHash");
-   StoredTxHints sths = getHintsForTxHash(txHash);
-
-   for(uint32_t i=0; i<sths.getNumHints(); i++)
-   {
-      BinaryDataRef hint = sths.getHint(i);
-      ldbIter.seekTo(DB_PREFIX_TXDATA, hint);
-      {
-         BinaryWriter bw(hint.getSize() + 1);
-         bw.put_uint8_t((uint8_t)DB_PREFIX_TXDATA);
-         bw.put_BinaryData(hint);
-      }
-      // We don't actually know for sure whether the seekTo() found a Tx or TxOut
-      if(hint != ldbIter.getKeyRef().getSliceRef(1,6))
-      {
-         //LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
-         continue;
-      }
-
-      ldbIter.getValueReader().advance(2);  // skip flags
-      if(ldbIter.getValueReader().get_BinaryDataRef(32) == txHash)
-      {
-         ldbIter.resetReaders();
-         return true;
-      }
-   }
-
-   //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
-   ldbIter.resetReaders();
-   return false;
-}
-
-
 /////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
                                                    StoredScriptHistory & ssh,
@@ -1121,14 +929,9 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
       LOGERR << "Trying to put uninitialized SSH into DB";
       return;
    }
-
-   DB_SELECT db;
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      db = BLKDATA;
-   else
-      db = HISTORY;
       
-   putValue(db, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
+   putValue(HISTORY, ssh.getDBKey(), 
+      serializeDBValue(ssh, armoryDbType_, dbPruneType_));
 
    map<BinaryData, StoredSubHistory>::iterator iter;
    for (iter = ssh.subHistMap_.begin();
@@ -1137,8 +940,8 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
    {
       StoredSubHistory & subssh = iter->second;
       if (subssh.txioMap_.size() > 0)
-         putValue(db, subssh.getDBKey(),
-         serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
+         putValue(HISTORY, subssh.getDBKey(),
+            serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
          );
    }
 }
@@ -1153,24 +956,16 @@ void LMDBBlockDatabase::putStoredScriptHistorySummary(StoredScriptHistory & ssh)
       return;
    }
 
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
-   else
-      putValue(HISTORY, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
+   putValue(HISTORY, ssh.getDBKey(), 
+      serializeDBValue(ssh, armoryDbType_, dbPruneType_));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::putStoredSubHistory(StoredSubHistory & subssh)
 
 {
-   DB_SELECT db;
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      db = BLKDATA;
-   else
-      db = HISTORY;
-
    if (subssh.txioMap_.size() > 0)
-      putValue(db, subssh.getDBKey(),
+      putValue(HISTORY, subssh.getDBKey(),
          serializeDBValue(subssh, this, armoryDbType_, dbPruneType_));
 }
 
@@ -1181,13 +976,7 @@ void LMDBBlockDatabase::getStoredScriptHistorySummary( StoredScriptHistory & ssh
    LMDBEnv::Transaction tx;
    beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
-   DB_SELECT db;
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      db = BLKDATA;
-   else
-      db = HISTORY;
-
-   LDBIter ldbIter = getIterator(db);
+   LDBIter ldbIter = getIterator(HISTORY);
    ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
 
    if(!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
@@ -1208,7 +997,7 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
 {
    LMDBEnv::Transaction tx;
    beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
-   LDBIter ldbIter = getIterator(getDbSelect(HISTORY));
+   LDBIter ldbIter = getIterator(HISTORY);
 
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
    {
@@ -1229,7 +1018,7 @@ bool LMDBBlockDatabase::getStoredSubHistoryAtHgtX(StoredSubHistory& subssh,
 
    LMDBEnv::Transaction tx;
    beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
-   LDBIter ldbIter = getIterator(getDbSelect(HISTORY));
+   LDBIter ldbIter = getIterator(HISTORY);
 
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, bw.getDataRef()))
       return false;
@@ -1563,7 +1352,9 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
    if(!withBlkData)
       return newDup;
 
-   LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txBlocks(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txHints(dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txHist(dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryWriter bwBlkData;
@@ -1594,12 +1385,12 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
    if(sbh.isMainBranch_ && withBlkData)
    {
       StoredDBInfo sdbiB;
-      getStoredDBInfo(BLKDATA, sdbiB);
+      getStoredDBInfo(HISTORY, sdbiB);
       if(sbh.blockHeight_ > sdbiB.topBlkHgt_)
       {
          sdbiB.topBlkHgt_  = sbh.blockHeight_;
          sdbiB.topBlkHash_ = sbh.thisHash_;
-         putStoredDBInfo(BLKDATA, sdbiB);
+         putStoredDBInfo(HISTORY, sdbiB);
       }
    }
 
@@ -1849,7 +1640,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
 {
    SCOPED_TIMER("getStoredHeader(hashlookup)");
 
-   BinaryData headEntry = getValue(HEADERS, DB_PREFIX_HEADHASH, headHash); 
+   BinaryDataRef headEntry = getValueNoCopy(HEADERS, DB_PREFIX_HEADHASH, headHash);
    if(headEntry.getSize() == 0)
    {
       LOGERR << "Requested header that is not in DB";
@@ -1972,16 +1763,11 @@ void LMDBBlockDatabase::putStoredZC(StoredTx & stx, const BinaryData& zcKey)
 {
    SCOPED_TIMER("putStoredTx");
 
-   DB_SELECT dbs = BLKDATA;
-   if (armoryDbType_ != ARMORY_DB_SUPER)
-      dbs = HISTORY;
-
    // Now add the base Tx entry in the BLKDATA DB.
    BinaryWriter bw;
    stx.serializeDBValue(bw, armoryDbType_, dbPruneType_);
    bw.put_uint32_t(stx.unixTime_);
-   putValue(dbs, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
-
+   putValue(HISTORY, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
 
    // Add the individual TxOut entries
    {
@@ -2063,6 +1849,7 @@ bool LMDBBlockDatabase::readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh) 
          sbh.duplicateID_ = DBUtils::hgtxToDupID(ldbIter.getKey().getSliceRef(1, 4));
       
          sbh.unserializeFullBlock(ldbIter.getValueReader(), true, false);
+         //ldbIter.advanceAndRead();
       }
       catch (BlockDeserializingException &)
       {
@@ -2161,8 +1948,6 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
    ldbIter.resetReaders();
    do
    {
-
-
       // Stop if key doesn't start with [PREFIX | HGT | DUP | TXIDX]
       if(!ldbIter.checkKeyStartsWith(txPrefix))
          break;
@@ -2342,10 +2127,21 @@ TxOut LMDBBlockDatabase::getTxOutCopy(
    TxOut txoOut;
 
    BinaryRefReader brr;
-   if (!ldbKey6B.startsWith(ZCprefix_))
-      brr = getValueReader(getDbSelect(HISTORY), DB_PREFIX_TXDATA, ldbKey8);
+   
+   if (armoryDbType_ == ARMORY_DB_SUPER)
+   {
+      if (!ldbKey6B.startsWith(ZCprefix_))
+         brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
+      else
+         brr = getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey8);
+   }
    else
-      brr = getValueReader(getDbSelect(HISTORY), DB_PREFIX_ZCDATA, ldbKey8);
+   {
+      if (!ldbKey6B.startsWith(ZCprefix_))
+         brr = getValueReader(HISTORY, DB_PREFIX_TXDATA, ldbKey8);
+      else
+         brr = getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey8);
+   }
 
    if(brr.getSize()==0) 
    {
@@ -2561,9 +2357,7 @@ bool LMDBBlockDatabase::getStoredTx_byDBKey( StoredTx & stx,
 bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
    BinaryDataRef zcKey) const
 {
-   auto dbs = getDbSelect(HISTORY);
-   
-   //only by zcKey
+    //only by zcKey
    BinaryData zcDbKey;
 
    if (zcKey.getSize() == 6)
@@ -2576,7 +2370,7 @@ bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
    else
       zcDbKey = zcKey;
 
-   LDBIter ldbIter = getIterator(dbs);
+   LDBIter ldbIter = getIterator(HISTORY);
    if (!ldbIter.seekToExact(zcDbKey))
    {
       LOGERR << "BLKDATA DB does not have the requested ZC tx";
@@ -2717,19 +2511,19 @@ bool LMDBBlockDatabase::getStoredTx_byHashSuper(BinaryDataRef txHash,
       return false;
 
    BinaryData hash4(txHash.getSliceRef(0, 4));
+   BinaryRefReader brrHints;
 
-   LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-
-   BinaryRefReader brrHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, hash4);
-
-   uint32_t valSize = brrHints.getSize();
-
-   if (valSize < 2)
    {
-      //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
-      return false;
+      LMDBEnv::Transaction tx(dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
+
+      brrHints = getValueRef(TXHINTS, DB_PREFIX_TXHINTS, hash4);
+      uint32_t valSize = brrHints.getSize();
+
+      if (valSize < 2)
+         return false;
    }
 
+   LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
    LDBIter ldbIter = getIterator(BLKDATA);
 
    uint32_t numHints = (uint32_t)brrHints.get_var_int();
@@ -2852,16 +2646,21 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
 
    BinaryData ldbKey = stxo.getDBKey(false);
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
-   putValue(getDbSelect(HISTORY), DB_PREFIX_TXDATA, ldbKey, bw);
+   
+   if (armoryDbType_ == ARMORY_DB_SUPER)
+      putValue(BLKDATA, DB_PREFIX_TXDATA, ldbKey, bw);
+   else
+      putValue(HISTORY, DB_PREFIX_TXDATA, ldbKey, bw);
 }
 
-void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo, 
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
    const BinaryData& zcKey)
 {
    SCOPED_TIMER("putStoredTx");
 
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
-   putValue(getDbSelect(HISTORY), DB_PREFIX_ZCDATA, zcKey, bw);
+   putValue(HISTORY, DB_PREFIX_ZCDATA, zcKey, bw);
 }
 
 
@@ -3034,7 +2833,7 @@ bool LMDBBlockDatabase::putStoredTxHints(StoredTxHints const & sths)
       return false;
    }
 
-   putValue(getDbSelect(TXHINTS), sths.getDBKey(), sths.serializeDBValue());
+   putValue(TXHINTS, sths.getDBKey(), sths.serializeDBValue());
 
    return true;
 }
@@ -3052,7 +2851,7 @@ bool LMDBBlockDatabase::getStoredTxHints(StoredTxHints & sths,
    sths.txHashPrefix_ = prefix4.copy();
 
    BinaryDataRef bdr;
-   bdr = getValueRef(getDbSelect(TXHINTS), DB_PREFIX_TXHINTS, prefix4);
+   bdr = getValueRef(TXHINTS, DB_PREFIX_TXHINTS, prefix4);
 
    if(bdr.getSize() > 0)
    {
@@ -3079,7 +2878,7 @@ bool LMDBBlockDatabase::putStoredHeadHgtList(StoredHeadHgtList const & hhl)
       return false;
    }
 
-   putValue(getDbSelect(HEADERS), hhl.getDBKey(), hhl.serializeDBValue());
+   putValue(HEADERS, hhl.getDBKey(), hhl.serializeDBValue());
    return true;
 }
 
@@ -3087,7 +2886,7 @@ bool LMDBBlockDatabase::putStoredHeadHgtList(StoredHeadHgtList const & hhl)
 bool LMDBBlockDatabase::getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height)
 {
    BinaryData ldbKey = WRITE_UINT32_BE(height);
-   BinaryDataRef bdr = getValueRef(getDbSelect(HEADERS), DB_PREFIX_HEADHGT, ldbKey);
+   BinaryDataRef bdr = getValueRef(HEADERS, DB_PREFIX_HEADHGT, ldbKey);
 
    hhl.height_ = height;
    if(bdr.getSize() > 0)
@@ -3109,23 +2908,9 @@ bool LMDBBlockDatabase::getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t h
 ////////////////////////////////////////////////////////////////////////////////
 TxRef LMDBBlockDatabase::getTxRef( BinaryDataRef txHash )
 {
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-   {
-      LDBIter ldbIter = getIterator(getDbSelect(BLKDATA));
-      if (seekToTxByHash(ldbIter, txHash))
-      {
-         ldbIter.getKeyReader().advance(1);
-         return TxRef(ldbIter.getKeyReader().get_BinaryDataRef(6));
-      }
-   }
-   else
-   {
-      BinaryData key;
-      getStoredTx_byHash(txHash, nullptr, &key);
-      return TxRef(key);
-   }
-      
-   return TxRef();
+   BinaryData key;
+   getStoredTx_byHash(txHash, nullptr, &key);
+   return TxRef(key);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3412,7 +3197,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
 
    map<uint32_t, uint32_t> SSHsummary;
 
-   LDBIter ldbIter = getIterator(getDbSelect(HISTORY));
+   LDBIter ldbIter = getIterator(HISTORY);
 
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
       return SSHsummary;
@@ -3468,10 +3253,10 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
    }
 
    LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, getDbSelect(HISTORY), LMDB::ReadOnly);
 
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
+      beginDBTransaction(&tx, BLKDATA, LMDB::ReadOnly);
       if (!dbKey6.startsWith(ZCprefix_))
       {
          StoredTx stx;
@@ -3504,7 +3289,8 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
    }
    else
    {
-      BinaryRefReader brr = getValueRef(getDbSelect(HISTORY), DB_PREFIX_TXDATA, dbKey6);
+      beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      BinaryRefReader brr = getValueRef(HISTORY, DB_PREFIX_TXDATA, dbKey6);
       if (brr.getSize() == 0)
       {
          LOGERR << "no Tx data at key";

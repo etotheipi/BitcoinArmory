@@ -5104,9 +5104,9 @@ TEST_F(LMDBTest, PutGetDelete)
    ASSERT_TRUE( compareKVListRange(0,1, 0,3));
 
    // Now test a bunch of get* methods
-   ASSERT_EQ(iface_->getValue(      HISTORY, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValue(      HISTORY, DB_PREFIX_DBINFO, nothing), val0);
-   ASSERT_EQ(iface_->getValue(      HISTORY, DBINFO), val0);
+   ASSERT_EQ(iface_->getValueNoCopy(      HISTORY, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DB_PREFIX_DBINFO, nothing), val0);
+   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DBINFO), val0);
    ASSERT_EQ(iface_->getValueRef(   HISTORY, PREFIX + keyAB), commonValue);
    ASSERT_EQ(iface_->getValueRef(   HISTORY, TXDATA, keyAB), commonValue);
    ASSERT_EQ(iface_->getValueReader(HISTORY, PREFIX + keyAB).getRawRef(), commonValue);
@@ -5964,7 +5964,6 @@ protected:
    {
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
       delete dbTx;
-      iface_->closeDatabases();
       delete iface_;
       iface_ = NULL;
 
@@ -6041,7 +6040,7 @@ protected:
          return false;
       }
 
-      fromDB = iface_->getAllDatabaseEntries(BLKDATA);
+      fromDB = iface_->getAllDatabaseEntries(HISTORY);
       if (fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
       {
          LOGERR << "BLKDATA DB not the correct size";
@@ -6067,6 +6066,59 @@ protected:
       return true;
    }
 
+   /////
+   bool compareKVListRangeBlkData(uint32_t startH, uint32_t endplus1H,
+      uint32_t startB, uint32_t endplus1B)
+   {
+      KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
+
+      if (fromDB.size() < endplus1H || expectOutH_.size() < endplus1H)
+      {
+         LOGERR << "Headers DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutH_.size();
+         return false;
+      }
+
+      for (uint32_t i = startH; i<endplus1H; i++)
+      if (fromDB[i].first != expectOutH_[i].first ||
+         fromDB[i].second != expectOutH_[i].second)
+      {
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].second.toHexStr();
+         return false;
+      }
+
+      fromDB = iface_->getAllDatabaseEntries(BLKDATA);
+      if (fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
+      {
+         LOGERR << "BLKDATA DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutB_.size();
+         return false;
+      }
+
+      for (uint32_t i = startB; i<endplus1B; i++)
+      if (fromDB[i].first != expectOutB_[i].first ||
+         fromDB[i].second != expectOutB_[i].second)
+      {
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].second.toHexStr();
+         return false;
+      }
+
+      return true;
+   }
 
    /////
    bool standardOpenDBs(void)
@@ -6137,7 +6189,7 @@ TEST_F(LMDBTest_Super, OpenClose)
    EXPECT_EQ(READHEX(MAINNET_GENESIS_HASH_HEX), iface_->getTopBlockHash(HEADERS));
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
+   KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
 
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
@@ -6188,7 +6240,7 @@ TEST_F(LMDBTest_Super, OpenCloseOpenNominal)
    ASSERT_TRUE(iface_->databasesAreOpen());
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
+   KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
 
    for (uint32_t i = 0; i<HList.size(); i++)
    {
@@ -6286,7 +6338,7 @@ TEST_F(LMDBTest_Super, PutGetDelete)
       config_.pruneType);
 
    ASSERT_TRUE(iface_->databasesAreOpen());
-   LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
@@ -6304,28 +6356,28 @@ TEST_F(LMDBTest_Super, PutGetDelete)
 
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 1));
 
-   iface_->putValue(BLKDATA, keyAB, commonValue);
+   iface_->putValue(HISTORY, keyAB, commonValue);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 2));
 
-   iface_->putValue(BLKDATA, DB_PREFIX_TXDATA, keyAB, commonValue);
+   iface_->putValue(HISTORY, DB_PREFIX_TXDATA, keyAB, commonValue);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 3));
 
    // Now test a bunch of get* methods
-   ASSERT_EQ(iface_->getValue(BLKDATA, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValue(BLKDATA, DB_PREFIX_DBINFO, nothing), val0);
-   ASSERT_EQ(iface_->getValue(BLKDATA, DBINFO), val0);
-   ASSERT_EQ(iface_->getValueRef(BLKDATA, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueRef(BLKDATA, TXDATA, keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueReader(BLKDATA, PREFIX + keyAB).getRawRef(), commonValue);
-   ASSERT_EQ(iface_->getValueReader(BLKDATA, TXDATA, keyAB).getRawRef(), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DB_PREFIX_DBINFO, nothing), val0);
+   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DBINFO), val0);
+   ASSERT_EQ(iface_->getValueRef(HISTORY, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueRef(HISTORY, TXDATA, keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueReader(HISTORY, PREFIX + keyAB).getRawRef(), commonValue);
+   ASSERT_EQ(iface_->getValueReader(HISTORY, TXDATA, keyAB).getRawRef(), commonValue);
 
-   iface_->deleteValue(BLKDATA, DB_PREFIX_TXDATA, keyAB);
+   iface_->deleteValue(HISTORY, DB_PREFIX_TXDATA, keyAB);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 2));
 
-   iface_->deleteValue(BLKDATA, PREFIX + keyAB);
+   iface_->deleteValue(HISTORY, PREFIX + keyAB);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 1));
 
-   iface_->deleteValue(BLKDATA, PREFIX + keyAB);
+   iface_->deleteValue(HISTORY, PREFIX + keyAB);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6336,6 +6388,7 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
    BinaryData stxoKey = TXP + READHEX("01e078""0f""0007""0001");
 
    ASSERT_TRUE(standardOpenDBs());
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[HEADERS].get(), LMDB::ReadOnly);
 
    StoredTxOut stxo0;
    stxo0.txVersion_ = 1;
@@ -6348,8 +6401,9 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
    iface_->putStoredTxOut(stxo0);
 
    // Construct expected output
+   expectOutB_.clear();
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRange(0, 1, 0, 2));
+   ASSERT_TRUE(compareKVListRangeBlkData(0, 1, 0, 1));
 
    StoredTxOut stxoGet;
    iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
@@ -6357,10 +6411,6 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
       serializeDBValue(stxoGet, ARMORY_DB_FULL, DB_PRUNE_NONE),
       serializeDBValue(stxo0, ARMORY_DB_FULL, DB_PRUNE_NONE)
       );
-
-   //iface_->validDupByHeight_[123000] = 15;
-   //iface_->getStoredTxOut(stxoGet, 123000, 7, 1);
-   //EXPECT_EQ(serializeDBValue(stxoGet), serializeDBValue(stxo0));
 
    StoredTxOut stxo1;
    stxo1.txVersion_ = 1;
@@ -6386,17 +6436,16 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
       );
 
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRange(0, 1, 0, 3));
+   ASSERT_TRUE(compareKVListRangeBlkData(0, 1, 0, 2));
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LMDBTest_Super, PutFullTxNoOuts)
 {
-   //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-   //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
    ASSERT_TRUE(standardOpenDBs());
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
 
    StoredTx stx;
    stx.createFromTx(rawTxUnfrag_);
@@ -6407,16 +6456,14 @@ TEST_F(LMDBTest_Super, PutFullTxNoOuts)
    BinaryData stxVal = READHEX("0440") + stx.thisHash_ + rawTxFragged_;
 
    iface_->putStoredTx(stx, false);
+   expectOutB_.clear();
    addOutPairB(stxKey, stxVal);
-   EXPECT_TRUE(compareKVListRange(0, 1, 0, 2));
+   EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LMDBTest_Super, PutFullTx)
 {
-   //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-   //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
    BinaryData TXP = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
    BinaryData stxoVal = READHEX("0400") + rawTxOut0_;
    BinaryData stxKey = TXP + READHEX("01e078""0f""0007");
@@ -6428,6 +6475,10 @@ TEST_F(LMDBTest_Super, PutFullTx)
       "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac");
 
    ASSERT_TRUE(standardOpenDBs());
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+
+   expectOutB_.clear();
 
    StoredTx stx;
    stx.createFromTx(rawTxUnfrag_);
@@ -6454,16 +6505,13 @@ TEST_F(LMDBTest_Super, PutFullTx)
    addOutPairB(stxKey, stxVal);
    addOutPairB(stxo0Key, stxo0Val);
    addOutPairB(stxo1Key, stxo1Val);
-   EXPECT_TRUE(compareKVListRange(0, 1, 0, 4));
+   EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 3));
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LMDBTest_Super, PutFullBlockNoTx)
 {
-   //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-   //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
    sbh.unserializeFullBlock(brr);
@@ -6501,9 +6549,6 @@ TEST_F(LMDBTest_Super, PutFullBlockNoTx)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LMDBTest_Super, PutGetBareHeader)
 {
-   //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-   //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
    sbh.unserializeFullBlock(brr);
@@ -6511,6 +6556,7 @@ TEST_F(LMDBTest_Super, PutGetBareHeader)
    BinaryData header0 = sbh.thisHash_;
 
    ASSERT_TRUE(standardOpenDBs());
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
 
    uint8_t sdup = iface_->putBareHeader(sbh);
    EXPECT_EQ(sdup, 0);
@@ -6566,9 +6612,8 @@ TEST_F(LMDBTest_Super, PutGetBareHeader)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LMDBTest_Super, PutFullBlock)
 {
-   //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-   //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    ASSERT_TRUE(standardOpenDBs());
+   expectOutB_.clear();
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
@@ -6664,7 +6709,7 @@ TEST_F(LMDBTest_Super, PutFullBlock)
 
    iface_->putStoredHeader(sbh);
 
-   ASSERT_TRUE(compareKVListRange(0, 3, 0, 9));
+   ASSERT_TRUE(compareKVListRangeBlkData(0, 3, 0, 8));
 }
 
 
@@ -6676,8 +6721,6 @@ TEST_F(LMDBTest_Super, PutFullBlock)
 // DB to the repo.
 TEST_F(LMDBTest_Super, GetFullBlock)
 {
-   //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-   //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    ASSERT_TRUE(standardOpenDBs());
 
    StoredHeader sbh;
@@ -6709,6 +6752,8 @@ TEST_F(LMDBTest_Super, GetFullBlock)
 
    ////////////////////
    // Now test the get methods
+
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[HEADERS].get(), LMDB::ReadOnly);
 
    for (uint32_t i = 0; i<4; i++)
    {
@@ -6764,6 +6809,7 @@ TEST_F(LMDBTest_Super, GetFullBlock)
 TEST_F(LMDBTest_Super, PutGetStoredTxHints)
 {
    ASSERT_TRUE(standardOpenDBs());
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
 
    BinaryData prefix = READHEX("aabbccdd");
 
@@ -6818,6 +6864,7 @@ TEST_F(LMDBTest_Super, PutGetStoredTxHints)
 TEST_F(LMDBTest_Super, PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
    ///////////////////////////////////////////////////////////////////////////
    // A whole bunch of setup stuff we need for SSH operations to work right
@@ -6845,10 +6892,10 @@ TEST_F(LMDBTest_Super, PutGetStoredScriptHistory)
       "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
       "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
       "0000");
-   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey0, RAWTX);
-   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey1, RAWTX);
-   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey2, RAWTX);
-   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey3, RAWTX);
+   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey0, RAWTX);
+   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey1, RAWTX);
+   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey2, RAWTX);
+   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey3, RAWTX);
 
    TxIOPair txio0(dbkey0, val0);
    TxIOPair txio1(dbkey1, val1);

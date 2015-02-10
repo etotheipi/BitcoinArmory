@@ -114,7 +114,12 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
    {
       shared_ptr<StoredTxOut> stxo(new StoredTxOut);
       BinaryData dbKey;
-      iface_->getStoredTx_byHash(txHash.getSliceRef(0, 32), nullptr, &dbKey);
+      if (!iface_->getStoredTx_byHash(txHash.getSliceRef(0, 32), nullptr, &dbKey))
+      {
+         LOGERR << "missing txhint in supenode";
+         throw runtime_error("missing txhint in supernode");
+      }
+
       dbKey.append(WRITE_UINT16_BE(txoId));
       iface_->getStoredTxOut(*stxo, dbKey);
 
@@ -162,7 +167,7 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
       BinaryData key(uniqKey);
       key.append(hgtX);
 
-      BinaryRefReader brr = iface_->getValueReader(historyDB_, DB_PREFIX_SCRIPT, key);
+      BinaryRefReader brr = iface_->getValueReader(HISTORY, DB_PREFIX_SCRIPT, key);
       if (brr.getSize() > 0)
          subssh.unserializeDBValue(brr);
       
@@ -192,7 +197,7 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap_IgnoreDB(
          key.append(hgtX);
 
          BinaryRefReader brr = iface_->getValueReader(
-            historyDB_, DB_PREFIX_SCRIPT, key);
+            HISTORY, DB_PREFIX_SCRIPT, key);
          if (brr.getSize() > 0)
             subssh.unserializeDBValue(brr);
       }
@@ -241,11 +246,6 @@ BlockWriteBatcher::BlockWriteBatcher(
    mostRecentBlockApplied_(0), isForCommit_(forCommit),
    dataToCommit_(config.armoryDbType)
 {
-   if (config.armoryDbType == ARMORY_DB_SUPER)
-      historyDB_ = BLKDATA;
-   else
-      historyDB_ = HISTORY;
-
    parent_ = this;
 }
 
@@ -880,7 +880,7 @@ void BlockWriteBatcher::resetTransactions(void)
    resetTxn_ = 0;
    
    txn_.commit();
-   txn_.open(iface_->dbEnv_[historyDB_].get(), LMDB::ReadOnly);
+   txn_.open(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1416,44 +1416,39 @@ void DataToCommit::putSSH(LMDBBlockDatabase* db)
 {
    LMDBEnv::Transaction tx;
    db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
-   
-   DB_SELECT dbs;
-   if (dbType_ == ARMORY_DB_SUPER)
-      dbs = BLKDATA;
-   else
-      dbs = HISTORY;
-      
+         
    for (auto& sshPair : serializedSshToModify_)
-      db->putValue(dbs, sshPair.first, sshPair.second.getData());
+      db->putValue(HISTORY, sshPair.first, sshPair.second.getData());
 
    for (auto subSshPair : serializedSubSshToApply_)
-      db->putValue(dbs, subSshPair.first, subSshPair.second.getData());
+      db->putValue(HISTORY, subSshPair.first, subSshPair.second.getData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::putSTX(LMDBBlockDatabase* db)
 {
-   LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
-
-   DB_SELECT dbs;
    if (dbType_ == ARMORY_DB_SUPER)
-      dbs = BLKDATA;
+   {
+      LMDBEnv::Transaction tx(db->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+
+      for (auto& stxoPair : serializedStxOutToModify_)
+         db->putValue(BLKDATA, stxoPair.first, stxoPair.second.getData());
+   }
    else
-      dbs = HISTORY;
+   {
+      LMDBEnv::Transaction tx(db->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
-   for (auto& stxoPair : serializedStxOutToModify_)
-      db->putValue(dbs, stxoPair.first, stxoPair.second.getData());
+      for (auto& stxoPair : serializedStxOutToModify_)
+         db->putValue(HISTORY, stxoPair.first, stxoPair.second.getData());
 
-   if (dbType_ == ARMORY_DB_SUPER)
-      return;
+      for (auto& txCount : serializedTxCountAndHash_)
+         db->putValue(HISTORY, txCount.first, txCount.second.getData());
 
-   for (auto& txCount : serializedTxCountAndHash_)
-      db->putValue(dbs, txCount.first, txCount.second.getData());
-
-   LMDBEnv::Transaction txHints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
-      for (auto& txHints : serializedTxHints_)
-      db->putValue(TXHINTS, txHints.first, txHints.second.getData());
+      ////
+      LMDBEnv::Transaction txHints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+         for (auto& txHints : serializedTxHints_)
+         db->putValue(TXHINTS, txHints.first, txHints.second.getData());
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1462,7 +1457,7 @@ void DataToCommit::putSBH(LMDBBlockDatabase* db)
    if (dbType_ == ARMORY_DB_SUPER)
    {
       LMDBEnv::Transaction tx;
-      db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+      db->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
 
       for (auto sbh : serializedSbhToUpdate_)
          db->putValue(BLKDATA, sbh.first, sbh.second.getData());
@@ -1475,16 +1470,8 @@ void DataToCommit::deleteEmptyKeys(LMDBBlockDatabase* db)
    LMDBEnv::Transaction tx;
    db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
-   if (dbType_ == ARMORY_DB_SUPER)
-   {
-      for (auto& toDel : keysToDelete_)
-         db->deleteValue(BLKDATA, toDel);
-   }
-   else
-   {
-      for (auto& toDel : keysToDelete_)
-         db->deleteValue(HISTORY, toDel);
-   }
+   for (auto& toDel : keysToDelete_)
+      db->deleteValue(HISTORY, toDel);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1493,14 +1480,8 @@ void DataToCommit::updateSDBI(LMDBBlockDatabase* db)
    LMDBEnv::Transaction tx;
    db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
-   DB_SELECT dbs;
-   if (dbType_ == ARMORY_DB_SUPER)
-      dbs = BLKDATA;
-   else
-      dbs = HISTORY;
-
    StoredDBInfo sdbi;
-   db->getStoredDBInfo(dbs, sdbi);
+   db->getStoredDBInfo(HISTORY, sdbi);
    if (!sdbi.isInitialized())
       LOGERR << "How do we have invalid SDBI in applyMods?";
    else
@@ -1512,6 +1493,6 @@ void DataToCommit::updateSDBI(LMDBBlockDatabase* db)
       if (topBlockHash_ != BtcUtils::EmptyHash_)
          sdbi.topScannedBlkHash_ = topBlockHash_;
 
-      db->putStoredDBInfo(dbs, sdbi);
+      db->putStoredDBInfo(HISTORY, sdbi);
    }
 }
