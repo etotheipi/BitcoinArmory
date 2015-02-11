@@ -522,7 +522,10 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
    //start a RO txn to grab the txouts from DB
    LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   if (db->armoryDbType() == ARMORY_DB_SUPER)
+      db->beginDBTransaction(&tx, BLKDATA, LMDB::ReadOnly);
+   else
+      db->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    vector<UnspentTxOut> utxoList;
    uint32_t blk = bdvPtr_->getTopBlockHeight();
