@@ -147,8 +147,11 @@ class ArmoryDTiabTest(TiabTest):
       self.numberOfWalletsScanned = 0
       
       self.wltA.registerWallet()
+      time.sleep(0.5)
       self.wltB.registerWallet()
+      time.sleep(0.5)
       self.wltC.registerWallet()
+      time.sleep(0.5)
       #wait on scan for 20sec then raise if the scan hasn't finished yet
       i = 0
       while self.numberOfWalletsScanned < 3:
