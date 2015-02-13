@@ -3151,6 +3151,10 @@ class PyBtcWallet(object):
    def disableWalletUI(self):
       self.isEnabled = False   
 
+   ###############################################################################
+   @CheckWalletRegistration
+   def getCppAddr(self, scrAddr):
+      return self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(scrAddr))
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):
