@@ -6308,7 +6308,13 @@ class ArmoryMainWindow(QMainWindow):
       elif action == WARNING_ACTION:
          #something went wrong on the C++ side, create a message box to report
          #it to the user
-         QMessageBox.critical(self, tr('BlockDataManager Warning'), \
+         if 'rescan' in args[0].lower() or 'rebuild' in args[0].lower():
+            result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
+                                    "Rebuild and rescan on next start", dnaaStartChk=True)
+            if result[1] == True:
+               touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
+         else:   
+            QMessageBox.critical(self, tr('BlockDataManager Warning'), \
                               tr(args[0]), \
                               QMessageBox.Ok) 
          #this is a critical error reporting channel, should kill the app right

@@ -360,8 +360,7 @@ try
 
       if (bdm->criticalError_.size())
       {
-         callback->run(BDMAction_ErrorMsg, &bdm->criticalError_);
-         throw runtime_error("BDM encountered a critical error");
+         throw runtime_error(bdm->criticalError_.c_str());
       }
 
       if(bdv->rescanZC_)
