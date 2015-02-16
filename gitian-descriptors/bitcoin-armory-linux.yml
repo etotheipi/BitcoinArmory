@@ -44,4 +44,4 @@ script: |
     
     cd BitcoinArmory
     make
-    cd .. && find BitcoinArmory -path "*/.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian.zip
+    cd .. && find BitcoinArmory -path "*/.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
