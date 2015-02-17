@@ -7014,18 +7014,13 @@ class ArmoryMainWindow(QMainWindow):
          self.mainLedgerCurrentPage = previousPage
          self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
 
+
    #############################################################################
-   # System tray notifications require specific code for OS X. We'll handle
-   # messages here to hide the ugliness.
+   # System tray notifications used to require specific code for OS X. Qt 4.8.7
+   # removes the need for specific code. More cleanup needed later.
    def showTrayMsg(self, dispTitle, dispText, dispIconType, dispTime):
-      if not OS_MACOSX:
-         self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
-      else:
-         if self.notifCtr == ArmoryMac.MacNotificationHandler.BuiltIn:
-            self.macNotifHdlr.showNotification(dispTitle, dispText)
-         elif (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl12) or \
-              (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl13):
-            self.macNotifHdlr.notifyGrowl(dispTitle, dispText, QIcon(self.iconfile))
+      self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
+
             
    #############################################################################
    def method_signal(self, method):
