@@ -60,7 +60,7 @@ QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.7
 # 4.8.7 upgrade
 #QMAKE_OBJECTIVE_CFLAGS += -std=c++11 -stdlib=libc++
 QMAKE_OBJECTIVE_CFLAGS += -Xarch_x86_64 -mmacosx-version-min=$${QMAKE_MACOSX_DEPLOYMENT_TARGET} -O2 -arch x86_64 -mssse3 -Wall -W -fPIC
-OBJECTIVE_SOURCES += macdockiconhandler.mm macnotificationhandler.mm macutils.mm
+OBJECTIVE_SOURCES += macdockiconhandler.mm macutils.mm
 HEADERS += ./ArmoryMac.h
 LIBS += -framework Foundation
 
@@ -73,7 +73,7 @@ LIBS += -framework Foundation
 # Source: QtCore/QtCore.pro for PyQt
 ARMORYNAME = ArmoryMac
 DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/lib/armory
-SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacNotificationHandler.cpp ./sip$${ARMORYNAME}MacUtils.cpp ./sip$${ARMORYNAME}cmodule.cpp
+SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacUtils.cpp ./sip$${ARMORYNAME}cmodule.cpp
 LIBS += -L$$QT_UNPACK_BASE/lib -framework QtCore -framework QtGui -L$$QT_UNPACK_BASE/lib -framework Carbon -lz -framework AppKit -framework Python
 QMAKE_CXXFLAGS += $$QMAKE_OBJECTIVE_CFLAGS
 DEFINES += QT_SHARED QT_BUILD_GUI_LIB QT_NO_USING_NAMESPACE QT_NO_CAST_TO_ASCII QT_ASCII_CAST_WARNINGS QT_MOC_COMPAT QT_USE_QSTRINGBUILDER QT_USE_BUNDLED_LIBPNG PNG_NO_ASSEMBLER_CODE QT_NO_CUPS QT_NO_LPR QT_NO_OPENTYPE QT_NO_STYLE_WINDOWSVISTA QT_NO_STYLE_WINDOWSXP QT_NO_STYLE_GTK QT_NO_STYLE_WINDOWSCE QT_NO_STYLE_WINDOWSMOBILE QT_NO_STYLE_S60 Q_INTERNAL_QAPP_SRC QT_NO_DEBUG QT_CORE_LIB QT_HAVE_MMX QT_HAVE_SSE QT_HAVE_MMXEXT QT_HAVE_SSE2 QT_HAVE_SSE3 QT_HAVE_SSSE3 _LARGEFILE64_SOURCE _LARGEFILE_SOURCE

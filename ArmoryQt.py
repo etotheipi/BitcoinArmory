@@ -120,7 +120,6 @@ class ArmoryMainWindow(QMainWindow):
       if not OS_MACOSX:
          self.setWindowIcon(QIcon(self.iconfile))
       else:
-         self.notifCtr = ArmoryMac.MacNotificationHandler.None
          if USE_TESTNET:
             self.iconfile = ':/armory_icon_green_fullres.png'
             ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
@@ -831,20 +830,6 @@ class ArmoryMainWindow(QMainWindow):
 
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
-
-      if OS_MACOSX:
-         self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
-         if self.macNotifHdlr.hasUserNotificationCenterSupport():
-            self.notifCtr = ArmoryMac.MacNotificationHandler.BuiltIn
-         else:
-            # In theory, Qt can support notifications via Growl on pre-10.8
-            # machines. It's shaky as hell, though, so we'll rely on alternate
-            # code for now. In the future, according to
-            # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
-            # be accurate, as the official documentation is contradictory),
-            # showMessage() may have direct support for the OS X notification
-            # center in Qt5.1. Something to experiment with later....
-            self.notifCtr = self.macNotifHdlr.hasGrowl()
 
       # Now that construction of the UI is done
       # Check for warnings to be displayed
@@ -2557,11 +2542,11 @@ class ArmoryMainWindow(QMainWindow):
                return
 
             try:
-               self.showTrayMsg('Disconnected', 'Connection to Bitcoin-Qt ' \
-			                    'client lost!  Armory cannot send nor ' \
-								'receive bitcoins until connection is ' \
-								're-established.', QSystemTrayIcon.Critical, \
-								10000)
+               self.sysTray.showMessage('Disconnected', 'Connection to Bitcoin-Qt ' \
+                                        'client lost!  Armory cannot send nor ' \
+                                        'receive bitcoins until connection is ' \
+                                        're-established.', QSystemTrayIcon.Critical, \
+                                        10000)
             except:
                LOGEXCEPT('Failed to show disconnect notification')
 
@@ -2578,9 +2563,9 @@ class ArmoryMainWindow(QMainWindow):
 
             try:
                if self.connectCount>0:
-                  self.showTrayMsg('Connected', 'Connection to Bitcoin-Qt ' \
-                                   're-established', \
-								   QSystemTrayIcon.Information, 10000)
+                  self.sysTray.showMessage('Connected', 'Connection to Bitcoin-Qt ' \
+                                           're-established', \
+                                           QSystemTrayIcon.Information, 10000)
                self.connectCount += 1
             except:
                LOGEXCEPT('Failed to show reconnect notification')
@@ -6539,8 +6524,8 @@ class ArmoryMainWindow(QMainWindow):
          dispLines.append(tr('Amount:  %(tot)s BTC') % { 'tot' : totalStr })
          dispLines.append(tr('Sender:  %(disp)s') % { 'disp' : dispName })
 
-      self.showTrayMsg(title, '\n'.join(dispLines), \
-                       QSystemTrayIcon.Information, 10000)
+      self.sysTray.showMessage(title, '\n'.join(dispLines), \
+                               QSystemTrayIcon.Information, 10000)
       LOGINFO(title)
 
 
@@ -6605,12 +6590,12 @@ class ArmoryMainWindow(QMainWindow):
             # only operates on python wallets.  Oh well, the user can double-
             # click on the tx in their ledger if they want to see what's in it.
             # amt = determineSentToSelfAmt(le, cppWlt)[0]
-            # self.showTrayMsg('Your bitcoins just did a lap!', \
-            #             'Wallet "%s" (%s) just sent %s BTC to itself!' % \
-            #         (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
-            self.showTrayMsg(tr('Your bitcoins just did a lap!'), \
-                             tr('%(wltName)s just sent some BTC to itself!') % { 'wltName' : wltName }, \
-                             QSystemTrayIcon.Information, 10000)
+            # self.sysTray.showMessage('Your bitcoins just did a lap!', \
+            #                          'Wallet "%s" (%s) just sent %s BTC to itself!' % \
+            #                          (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
+            self.sysTray.showMessage(tr('Your bitcoins just did a lap!'), \
+                                     tr('%(wltName)s just sent some BTC to itself!') % { 'wltName' : wltName }, \
+                                     QSystemTrayIcon.Information, 10000)
             return
 
          # If coins were either received or sent from the loaded wlt/lbox         
@@ -6639,8 +6624,8 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append(tr('From:    %(wlt)s') % { 'wlt' : wltName })
             dispLines.append(tr('To:      %(recp)s') % { 'recp' : recipStr })
    
-         self.showTrayMsg(title, '\n'.join(dispLines), \
-                          QSystemTrayIcon.Information, 10000)
+         self.sysTray.showMessage(title, '\n'.join(dispLines), \
+                                  QSystemTrayIcon.Information, 10000)
          LOGINFO(title + '\n' + '\n'.join(dispLines))
 
          # Wait for 5 seconds before processing the next queue object.
@@ -7015,13 +7000,6 @@ class ArmoryMainWindow(QMainWindow):
          self.PageLineEdit.setText(str(self.mainLedgerCurrentPage))
 
 
-   #############################################################################
-   # System tray notifications used to require specific code for OS X. Qt 4.8.7
-   # removes the need for specific code. More cleanup needed later.
-   def showTrayMsg(self, dispTitle, dispText, dispIconType, dispTime):
-      self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
-
-            
    #############################################################################
    def method_signal(self, method):
       method()   
