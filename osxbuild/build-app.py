@@ -26,7 +26,7 @@ psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
 libpngVer    = '1.6.15'
-qtVerDate    = '2015-02-02-3'
+qtVerDate    = '2015-02-16-4'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
 sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -357,7 +357,7 @@ distfiles.append( [ "Qt", \
                     #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
                     #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
-                    "954fb98f69b88705ee553b371c53726af5969547" ] )
+                    "9c1e2f3135bc4a36c5d24c1a3c3c640637041c92" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
