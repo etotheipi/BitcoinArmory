@@ -341,6 +341,7 @@ struct DataToCommit
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
    set<BinaryData> serializeSSH(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
+   void serializeStxo(BlockWriteBatcher& bwb);
    void serializeDataToCommit(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
 
@@ -428,9 +429,11 @@ public:
    //unit tests in debug builds
    static const uint64_t UPDATE_BYTES_THRESH = 300;
    static const uint32_t UTXO_THRESHOLD = 5;
+   static const uint32_t STXO_THRESHOLD = 3;
 #else
    static const uint64_t UPDATE_BYTES_THRESH = 50 * 1024 * 1024;
    static const uint32_t UTXO_THRESHOLD = 100000;
+   static const uint32_t STXO_THRESHOLD = 1000;
 #endif
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
                      LMDBBlockDatabase* iface, 
@@ -516,7 +519,7 @@ private:
                {
                   if (mapIter->second.use_count() == 1)
                   {
-                     LOGWARN << "cleaning up map " << mapIter->first;
+                     //LOGWARN << "cleaning up map " << mapIter->first;
                      blkMaps_.erase(mapIter++);
                      continue;
                   }
@@ -685,15 +688,17 @@ private:
 
    // We have accumulated enough data, actually write it to the db
    thread commit(bool force = false);
+   thread commitStxo(void);
+
    static void writeToDB(shared_ptr<BlockWriteBatcher>);
-   
+   static void writeStxoToDB(BlockWriteBatcher*);
+
    void prepareSshToModify(const ScrAddrFilter& sasd);
    BinaryData applyBlockToDB(shared_ptr<PulledBlock> pb, ScrAddrFilter& scrAddrData);
    void applyTxToBatchWriteData(
                            PulledTx& thisSTX,
                            StoredUndoData * sud,
                            ScrAddrFilter& scrAddrMap);
-
    bool parseTxIns(
       PulledTx& thisSTX,
       StoredUndoData * sud,
@@ -771,7 +776,7 @@ private:
    shared_ptr<map<BinaryData, StoredScriptHistory> >     sshToModify_;
    
    //Supernode only
-   vector<PulledBlock>                                   sbhToUpdate_;
+   //vector<PulledBlock>                                   sbhToUpdate_;
    
    //Fullnode only
    map<BinaryData, CountAndHint>                         txCountAndHint_;
@@ -812,7 +817,7 @@ private:
    //to report back fatal errors to the main thread
    function<void(string)> criticalError_ = [](string)->void{};
 
-   //for fullnode block data accessing only
+   BinaryData topScannedBlockHash_ = BtcUtils::EmptyHash_;
 };
 
 

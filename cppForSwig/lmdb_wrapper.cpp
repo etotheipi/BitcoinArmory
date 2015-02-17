@@ -460,12 +460,16 @@ void LMDBBlockDatabase::openDatabases(
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
+   dbEnv_[STXO]->open(dbStxoFilename());
+   dbEnv_[ZEROCONF]->open(dbZeroconfFilename());
 
    map<DB_SELECT, string> DB_NAMES;
-   DB_NAMES[HEADERS] = "headers";
-   DB_NAMES[HISTORY] = "history";
-   DB_NAMES[BLKDATA] = "blocks";
-   DB_NAMES[TXHINTS] = "txhints";
+   DB_NAMES[HEADERS]    = "headers";
+   DB_NAMES[HISTORY]    = "history";
+   DB_NAMES[BLKDATA]    = "blocks";
+   DB_NAMES[TXHINTS]    = "txhints";
+   DB_NAMES[STXO]       = "stxo";
+   DB_NAMES[ZEROCONF]   = "zeroconf";
 
    try
    {
@@ -476,8 +480,8 @@ void LMDBBlockDatabase::openDatabases(
 
          dbs_[CURRDB].open(dbEnv_[CURRDB].get(), db.second);
 
-         //no SDBI in TXHINTS
-         if (CURRDB == TXHINTS)
+         //no SDBI in TXHINTS, STXO and ZEROCONF
+         if (CURRDB == TXHINTS || CURRDB == STXO || CURRDB == ZEROCONF)
             continue;
 
          StoredDBInfo sdbi;
@@ -596,7 +600,9 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    remove(dbHistoryFilename().c_str());
    remove(dbBlkdataFilename().c_str());
    remove(dbTxhintsFilename().c_str());
-   
+   remove(dbStxoFilename().c_str());
+   remove(dbZeroconfFilename().c_str());
+
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, 
@@ -1851,6 +1857,8 @@ void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
    // Add the individual TxOut entries if requested
    if(withTxOut)
    {
+      LMDBEnv::Transaction txstxo(dbEnv_[STXO].get(), LMDB::ReadWrite);
+
       map<uint16_t, StoredTxOut>::iterator iter;
       for(iter  = stx.stxoMap_.begin();
           iter != stx.stxoMap_.end();
@@ -1876,7 +1884,7 @@ void LMDBBlockDatabase::putStoredZC(StoredTx & stx, const BinaryData& zcKey)
    BinaryWriter bw;
    stx.serializeDBValue(bw, armoryDbType_, dbPruneType_);
    bw.put_uint32_t(stx.unixTime_);
-   putValue(HISTORY, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
+   putValue(ZEROCONF, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
 
    // Add the individual TxOut entries
    {
@@ -2025,10 +2033,9 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
 
    // Make sure that we are still within the desired block (but beyond header)
    ldbIter.resetReaders();
-   BinaryDataRef key = ldbIter.getKeyRef();
+   BinaryData key = ldbIter.getKey();
    if(!key.startsWith(blkPrefix) || key.getSize() < 7)
       return false;
-
 
    // Check that we are at a tx with the correct height & dup
    uint32_t storedHgt;
@@ -2039,7 +2046,6 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
    if(storedHgt != height || storedDup != dupID)
       return false;
 
-
    // Make sure the stx has correct height/dup/idx
    stx.blockHeight_ = storedHgt;
    stx.duplicateID_ = storedDup;
@@ -2049,13 +2055,8 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
    // stx.unserializeDBValue() call will reset numBytes to UINT32_MAX.
    // Assign it at the end, if we're confident we have the correct value.
    size_t nbytes  = 0;
-
    BinaryData txPrefix = DBUtils::getBlkDataKey(height, dupID, stx.txIndex_);
 
-   
-   // Reset the key again, and then cycle through entries until no longer
-   // on an entry with the correct prefix.  Use do-while because we've 
-   // already verified the iterator is at a valid tx entry
    ldbIter.resetReaders();
    do
    {
@@ -2093,6 +2094,40 @@ bool LMDBBlockDatabase::readStoredTxAtIter( LDBIter & ldbIter,
 
    } while(ldbIter.advanceAndRead(DB_PREFIX_TXDATA));
 
+   //create STXO iter
+   LMDBEnv::Transaction stxotx(dbEnv_[STXO].get(), LMDB::ReadOnly);
+   LDBIter stxoDbIter = getIterator(STXO);
+
+   stxoDbIter.seekTo(key);
+   do
+   {
+      // Stop if key doesn't start with [PREFIX | HGT | DUP | TXIDX]
+      if (!stxoDbIter.checkKeyStartsWith(txPrefix))
+         break;
+
+
+      // Read the prefix, height and dup 
+      uint16_t txOutIdx;
+      BLKDATA_TYPE bdtype = DBUtils::readBlkDataKey(stxoDbIter.getKeyReader(),
+         stx.blockHeight_,
+         stx.duplicateID_,
+         stx.txIndex_,
+         txOutIdx);
+
+      // Now actually process the iter value
+      if (bdtype == BLKDATA_TXOUT)
+      {
+         StoredTxOut & stxo = stx.initAndGetStxoByIndex(txOutIdx);
+         readStoredTxOutAtIter(stxoDbIter, height, dupID, stx.txIndex_, stxo);
+         nbytes += stxo.dataCopy_.getSize();
+      }
+      else
+      {
+         LOGERR << "Unexpected BLKDATA entry while iterating";
+         return false;
+      }
+
+   } while (stxoDbIter.advanceAndRead(DB_PREFIX_TXDATA));
 
    // If have the correct size, save it, otherwise ignore the computation
    stx.numBytes_ = stx.haveAllTxOut() ? nbytes : UINT32_MAX;
@@ -2243,20 +2278,10 @@ TxOut LMDBBlockDatabase::getTxOutCopy(
 
    BinaryRefReader brr;
    
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-   {
-      if (!ldbKey6B.startsWith(ZCprefix_))
-         brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
-      else
-         brr = getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey8);
-   }
+   if (!ldbKey6B.startsWith(ZCprefix_))
+      brr = getValueReader(STXO, DB_PREFIX_TXDATA, ldbKey8);
    else
-   {
-      if (!ldbKey6B.startsWith(ZCprefix_))
-         brr = getValueReader(HISTORY, DB_PREFIX_TXDATA, ldbKey8);
-      else
-         brr = getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey8);
-   }
+      brr = getValueReader(ZEROCONF, DB_PREFIX_ZCDATA, ldbKey8);
 
    if(brr.getSize()==0) 
    {
@@ -2336,19 +2361,55 @@ TxIn LMDBBlockDatabase::getTxInCopy(
 BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
 {
    SCOPED_TIMER("getTxHashForLdbKey");
-   if (armoryDbType_ == ARMORY_DB_SUPER)
+   BinaryRefReader stxVal;
+   
+   if (!ldbKey6B.startsWith(ZCprefix_))
    {
-      BinaryRefReader stxVal;
-      if (!ldbKey6B.startsWith(ZCprefix_))
+      if (armoryDbType_ == ARMORY_DB_SUPER)
       {
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-         stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+         {
+            LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+            stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+         }
+
+         if (stxVal.getSize() == 0)
+         {
+            LOGERR << "TxRef key does not exist in BLKDATA DB";
+            return BinaryData(0);
+         }
+
+         // We can't get here unless we found the precise Tx entry we were looking for
+         stxVal.advance(2);
+         return stxVal.get_BinaryData(32);
       }
       else
       {
-         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-         stxVal = getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
+         //Fullnode, check the HISTORY DB for the txhash
+         {
+            LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+
+            BinaryData keyFull(ldbKey6B.getSize() + 1);
+            keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
+            ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
+
+            BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
+
+            if (txData.getSize() >= 36)
+               return txData.getSliceRef(4, 32);
+         }
+         //else pull the full block then grab the txhash
+         {
+            LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+            auto thisTx = getFullTxCopy(ldbKey6B);
+
+            return thisTx.getThisHash();
+         }
       }
+   }
+   else
+   {
+      LMDBEnv::Transaction tx(dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
+      stxVal = getValueReader(ZEROCONF, DB_PREFIX_ZCDATA, ldbKey6B);
 
       if (stxVal.getSize() == 0)
       {
@@ -2359,49 +2420,6 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
       // We can't get here unless we found the precise Tx entry we were looking for
       stxVal.advance(2);
       return stxVal.get_BinaryData(32);
-   }
-   else
-   {
-      //Fullnode, check the HISTORY DB for the txhash
-      {
-         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-
-         if (!ldbKey6B.startsWith(ZCprefix_))
-         {
-            BinaryData keyFull(ldbKey6B.getSize() + 1);
-            keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
-            ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
-
-            BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
-
-            if (txData.getSize() >= 36)
-            {
-               return txData.getSliceRef(4, 32);
-            }
-         }
-         else
-         {            
-            BinaryRefReader stxVal = 
-               getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
-
-            if (stxVal.getSize() == 0)
-            {
-               LOGERR << "TxRef key does not exist in BLKDATA DB";
-               return BinaryData(0);
-            }
-
-            // We can't get here unless we found the precise Tx entry we were looking for
-            stxVal.advance(2);
-            return stxVal.get_BinaryData(32);
-         }
-      }
-      //else pull the full block then grab the txhash
-      { 
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);         
-         auto thisTx = getFullTxCopy(ldbKey6B);
-
-         return thisTx.getThisHash();
-      }
    }
 }
 
@@ -2506,7 +2524,7 @@ bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
    else
       zcDbKey = zcKey;
 
-   LDBIter ldbIter = getIterator(HISTORY);
+   LDBIter ldbIter = getIterator(ZEROCONF);
    if (!ldbIter.seekToExact(zcDbKey))
    {
       LOGERR << "BLKDATA DB does not have the requested ZC tx";
@@ -2567,9 +2585,6 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
                                            BinaryData *DBkey) const
 {
    SCOPED_TIMER("getStoredTx");
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      return getStoredTx_byHashSuper(txHash, stx, DBkey);
-
    if (stx == nullptr && DBkey == nullptr)
       return false;
 
@@ -2604,19 +2619,14 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       if (dup != getValidDupIDForHeight(height) && numHints > 1)
          continue;
 
-      Tx thisTx = getFullTxCopy(hint);
-      if (!thisTx.isInitialized())
-      {
-         LOGERR << "Hinted tx does not exist in DB";
-         LOGERR << "TxHash: " << hint.toHexStr().c_str();
-         continue;
-      }
+      BinaryData& gettxhash = getTxHashForLdbKey(hint);
 
-      if (thisTx.getThisHash() != txHash)
+      if (gettxhash != txHash)
          continue;
 
       if (stx != nullptr)
       {
+         Tx thisTx = getFullTxCopy(hint);
          stx->createFromTx(thisTx);
          stx->blockHeight_ = height;
          stx->duplicateID_ = dup;
@@ -2783,10 +2793,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
    BinaryData ldbKey = stxo.getDBKey(false);
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
    
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      putValue(BLKDATA, DB_PREFIX_TXDATA, ldbKey, bw);
-   else
-      putValue(HISTORY, DB_PREFIX_TXDATA, ldbKey, bw);
+   putValue(STXO, DB_PREFIX_TXDATA, ldbKey, bw);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2796,7 +2803,7 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
    SCOPED_TIMER("putStoredTx");
 
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
-   putValue(HISTORY, DB_PREFIX_ZCDATA, zcKey, bw);
+   putValue(ZEROCONF, DB_PREFIX_ZCDATA, zcKey, bw);
 }
 
 
@@ -2811,71 +2818,47 @@ bool LMDBBlockDatabase::getStoredTxOut(
       return false;
    }
 
-   if (armoryDbType_ == ARMORY_DB_SUPER)
+   //Let's look in history db first. Stxos are fetched mostly to spend coins,
+   //so there is a high chance we wont need to pull the stxo from the raw
+   //block, since fullnode keeps track of all relevant stxos in the 
+   //history db
+   LMDBEnv::Transaction txstxo(dbEnv_[STXO].get(), LMDB::ReadOnly);
+   BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
+
+   if (brr.getSize() > 0)
    {
-      BinaryData key = WRITE_UINT8_BE(DB_PREFIX_TXDATA);
-      key.append(DBkey);
-
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      BinaryRefReader brr = getValueReader(BLKDATA, key);
-      if (brr.getSize() == 0)
-      {
-         LOGERR << "BLKDATA DB does not have the requested TxOut";
-         return false;
-      }
-
       stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
       stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
       stxo.txIndex_ = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
       stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
 
       stxo.unserializeDBValue(brr);
-
       return true;
    }
-   else
+
+   if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      {
-         //Let's look in history db first. Stxos are fetched mostly to spend coins,
-         //so there is a high chance we wont need to pull the stxo from the raw
-         //block, since fullnode keeps track of all relevant stxos in the 
-         //history db
-         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-         BinaryRefReader brr = getValueReader(HISTORY, DB_PREFIX_TXDATA, DBkey);
-
-         if (brr.getSize() > 0)
-         {
-            stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
-            stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
-            stxo.txIndex_ = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
-            stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
-
-            stxo.unserializeDBValue(brr);
-            return true;
-         }
-      }
-
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-
-      //again, in Fullnode, need to pull the entire block, unserialize then
-      //return the one stxo
-      StoredTx stx;
-      Tx thisTx = getFullTxCopy(DBkey.getSliceRef(0, 6));
-      stx.createFromTx(thisTx, false, true);
-      
-      uint16_t txOutId = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
-      if (txOutId >= stx.stxoMap_.size())
-      {
-         LOGERR << "BLKDATA DB does not have the requested TxOut";
-         return false;
-      }
-
-      stxo = stx.stxoMap_[txOutId];
-
-      return true;
+      LOGERR << "STXO DB does not have the requested TxOut";
+      return false;
    }
 
-   return false;
+   //again, in Fullnode, need to pull the entire block, unserialize then
+   //return the one stxo
+   LMDBEnv::Transaction txblkdata(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+      
+   StoredTx stx;
+   Tx thisTx = getFullTxCopy(DBkey.getSliceRef(0, 6));
+   stx.createFromTx(thisTx, false, true);
+      
+   uint16_t txOutId = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
+   if (txOutId >= stx.stxoMap_.size())
+   {
+      LOGERR << "BLKDATA DB does not have the requested TxOut";
+      return false;
+   }
+
+   stxo = stx.stxoMap_[txOutId];
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3413,6 +3396,7 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
       }
       else
       {
+         LMDBEnv::Transaction dbEnv(dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
          StoredTx stx;
          if (!getStoredZcTx(stx, dbKey6))
          {
@@ -3431,6 +3415,7 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
          return brr.get_uint32_t();
       else
       {
+         LMDBEnv::Transaction dbEnv(dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
          StoredTx stx;
          if (!getStoredZcTx(stx, dbKey6))
          {

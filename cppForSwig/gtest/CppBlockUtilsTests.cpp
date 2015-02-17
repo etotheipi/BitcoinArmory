@@ -4927,6 +4927,59 @@ protected:
       return true;
    }
 
+   bool compareKVListRangeSTXO(uint32_t startH, uint32_t endplus1H,
+      uint32_t startB, uint32_t endplus1B)
+   {
+      KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
+
+      if (fromDB.size() < endplus1H || expectOutH_.size() < endplus1H)
+      {
+         LOGERR << "Headers DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutH_.size();
+         return false;
+      }
+
+      for (uint32_t i = startH; i<endplus1H; i++)
+      if (fromDB[i].first != expectOutH_[i].first ||
+         fromDB[i].second != expectOutH_[i].second)
+      {
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].second.toHexStr();
+         return false;
+      }
+
+      fromDB = iface_->getAllDatabaseEntries(STXO);
+      if (fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
+      {
+         LOGERR << "BLKDATA DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutB_.size();
+         return false;
+      }
+
+      for (uint32_t i = startB; i<endplus1B; i++)
+      if (fromDB[i].first != expectOutB_[i].first ||
+         fromDB[i].second != expectOutB_[i].second)
+      {
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].second.toHexStr();
+         return false;
+      }
+
+      return true;
+   }
+
 
    /////
    bool standardOpenDBs(void) 
@@ -5091,7 +5144,6 @@ TEST_F(LMDBTest, PutGetDelete)
    BinaryData nothing = BinaryData(0);
 
    addOutPairH(DBINFO,         val0);
-
    addOutPairB(DBINFO,         val0);
    addOutPairB(         keyAB, commonValue);
    addOutPairB(PREFIX + keyAB, commonValue);
@@ -5131,7 +5183,7 @@ TEST_F(LMDBTest, STxOutPutGet)
    
    ASSERT_TRUE(standardOpenDBs());
    LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
 
    StoredTxOut stxo0;
    stxo0.txVersion_   = 1;
@@ -5144,8 +5196,9 @@ TEST_F(LMDBTest, STxOutPutGet)
    iface_->putStoredTxOut(stxo0);
 
    // Construct expected output
+   expectOutB_.clear();
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRange(0,1, 0,2));
+   ASSERT_TRUE(compareKVListRangeSTXO(0,1, 0,1));
 
    StoredTxOut stxoGet;
    iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
@@ -5182,7 +5235,7 @@ TEST_F(LMDBTest, STxOutPutGet)
    );
 
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRange(0,1, 0,3));
+   ASSERT_TRUE(compareKVListRangeSTXO(0,1, 0,2));
 
 }
 
@@ -6124,6 +6177,60 @@ protected:
    }
 
    /////
+   bool compareKVListRangeStxo(uint32_t startH, uint32_t endplus1H,
+      uint32_t startB, uint32_t endplus1B)
+   {
+      KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
+
+      if (fromDB.size() < endplus1H || expectOutH_.size() < endplus1H)
+      {
+         LOGERR << "Headers DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutH_.size();
+         return false;
+      }
+
+      for (uint32_t i = startH; i<endplus1H; i++)
+      if (fromDB[i].first != expectOutH_[i].first ||
+         fromDB[i].second != expectOutH_[i].second)
+      {
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].second.toHexStr();
+         return false;
+      }
+
+      fromDB = iface_->getAllDatabaseEntries(STXO);
+      if (fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
+      {
+         LOGERR << "BLKDATA DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutB_.size();
+         return false;
+      }
+
+      for (uint32_t i = startB; i<endplus1B; i++)
+      if (fromDB[i].first != expectOutB_[i].first ||
+         fromDB[i].second != expectOutB_[i].second)
+      {
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].second.toHexStr();
+         return false;
+      }
+
+      return true;
+   }
+
+   /////
    bool standardOpenDBs(void)
    {
       iface_->openDatabases(
@@ -6391,6 +6498,8 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
    BinaryData stxoKey = TXP + READHEX("01e078""0f""0007""0001");
 
    ASSERT_TRUE(standardOpenDBs());
+   expectOutB_.clear();
+
    LMDBEnv::Transaction txheaders(iface_->dbEnv_[HEADERS].get(), LMDB::ReadOnly);
 
    StoredTxOut stxo0;
@@ -6401,14 +6510,22 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
    stxo0.txIndex_ = 7;
    stxo0.txOutIndex_ = 1;
    stxo0.unserialize(rawTxOut0_);
-   iface_->putStoredTxOut(stxo0);
-
-   // Construct expected output
-   addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRangeBlkData(0, 1, 0, 1));
+   {
+      LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
+      iface_->putStoredTxOut(stxo0);
+   }
 
    StoredTxOut stxoGet;
-   iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
+
+   // Construct expected output
+   {
+      LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadOnly);
+      addOutPairB(stxoKey, stxoVal);
+      ASSERT_TRUE(compareKVListRangeStxo(0, 1, 0, 1));
+
+      iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
+   }
+
    EXPECT_EQ(
       serializeDBValue(stxoGet, ARMORY_DB_FULL, DB_PRUNE_NONE),
       serializeDBValue(stxo0, ARMORY_DB_FULL, DB_PRUNE_NONE)
@@ -6424,8 +6541,12 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
    stxo1.unserialize(rawTxOut1_);
    stxoVal = READHEX("0400") + rawTxOut1_;
    stxoKey = TXP + READHEX("030e8d""03""00070001");
-   iface_->putStoredTxOut(stxo1);
+   {
+      LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
+      iface_->putStoredTxOut(stxo1);
+   }
 
+   LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadOnly);
    iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
    EXPECT_EQ(
       serializeDBValue(stxoGet, ARMORY_DB_FULL, DB_PRUNE_NONE),
@@ -6438,7 +6559,7 @@ TEST_F(LMDBTest_Super, STxOutPutGet)
       );
 
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRangeBlkData(0, 1, 0, 2));
+   ASSERT_TRUE(compareKVListRangeStxo(0, 1, 0, 2));
 
 }
 
@@ -6502,9 +6623,12 @@ TEST_F(LMDBTest_Super, PutFullTx)
 
    iface_->putStoredTx(stx);
    addOutPairB(stxKey, stxVal);
+   EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 2));
+   
+   expectOutB_.clear();
    addOutPairB(stxo0Key, stxo0Val);
    addOutPairB(stxo1Key, stxo1Val);
-   EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 3));
+   EXPECT_TRUE(compareKVListRangeStxo(0, 1, 0, 2));
 }
 
 
@@ -6668,23 +6792,6 @@ TEST_F(LMDBTest_Super, PutFullBlock)
    BinaryData ntx = READHEX("03000000");
    BinaryData nbyte = READHEX("46040000");
 
-   // Add header to BLKDATA
-   addOutPairB(sbhKey, hflags + rawHeader + ntx + nbyte);
-
-   // Add Tx0 to BLKDATA
-   addOutPairB(stx0Key, READHEX("0440") + stx0.thisHash_ + stx0.getSerializedTxFragged());
-   addOutPairB(stxo00Key, READHEX("0480") + stxo00Raw); // is coinbase
-
-   // Add Tx1 to BLKDATA
-   addOutPairB(stx1Key, READHEX("0440") + stx1.thisHash_ + stx1.getSerializedTxFragged());
-   addOutPairB(stxo10Key, READHEX("0400") + stxo10Raw);
-   addOutPairB(stxo11Key, READHEX("0400") + stxo11Raw);
-
-   // Add Tx2 to BLKDATA
-   addOutPairB(stx2Key, READHEX("0440") + stx2.thisHash_ + stx2.getSerializedTxFragged());
-   addOutPairB(stxo20Key, READHEX("0400") + stxo20Raw);
-   addOutPairB(stxo21Key, READHEX("0400") + stxo21Raw);
-
    // DuplicateID values get set when we putStoredHeader since we don't know
    // what dupIDs have been taken until we try to put it in the database.
    ASSERT_EQ(sbh.stxMap_.size(), 3);
@@ -6707,7 +6814,35 @@ TEST_F(LMDBTest_Super, PutFullBlock)
 
    iface_->putStoredHeader(sbh);
 
-   ASSERT_TRUE(compareKVListRangeBlkData(0, 3, 0, 8));
+   // Add header to BLKDATA
+   addOutPairB(sbhKey, hflags + rawHeader + ntx + nbyte);
+
+   // Add Tx0 to BLKDATA
+   addOutPairB(stx0Key, READHEX("0440") + stx0.thisHash_ + stx0.getSerializedTxFragged());
+
+   // Add Tx1 to BLKDATA
+   addOutPairB(stx1Key, READHEX("0440") + stx1.thisHash_ + stx1.getSerializedTxFragged());
+
+   // Add Tx2 to BLKDATA
+   addOutPairB(stx2Key, READHEX("0440") + stx2.thisHash_ + stx2.getSerializedTxFragged());
+
+   ASSERT_TRUE(compareKVListRangeBlkData(0, 3, 0, 5));
+
+   //Now the STXO DB
+   expectOutB_.clear();
+
+   // Add Tx0 to STXO
+   addOutPairB(stxo00Key, READHEX("0480") + stxo00Raw); // is coinbase
+   
+   // Add Tx1 to STXO
+   addOutPairB(stxo10Key, READHEX("0400") + stxo10Raw);
+   addOutPairB(stxo11Key, READHEX("0400") + stxo11Raw);
+
+   // Add Tx2 to STXO
+   addOutPairB(stxo20Key, READHEX("0400") + stxo20Raw);
+   addOutPairB(stxo21Key, READHEX("0400") + stxo21Raw);
+
+   ASSERT_TRUE(compareKVListRangeStxo(0, 3, 0, 5));
 }
 
 
@@ -8145,24 +8280,24 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(le.getValue(),  3000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
 
-   //pull ZC from DB, verify it's carrying the proper data
-   LMDBEnv::Transaction *dbtx = 
-      new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-   StoredTx zcStx;
    BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
    zcKey.append(WRITE_UINT32_LE(0));
 
-   EXPECT_EQ(iface_->getStoredZcTx(zcStx, zcKey), true);
-   EXPECT_EQ(zcStx.thisHash_, ZChash);
-   EXPECT_EQ(zcStx.numBytes_ , TestChain::zcTxSize);
-   EXPECT_EQ(zcStx.fragBytes_, 190);
-   EXPECT_EQ(zcStx.numTxOut_, 2);
-   EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
+   {
+      //pull ZC from DB, verify it's carrying the proper data
+      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
+      StoredTx zcStx;
 
-   //check ZChash in DB
-   EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
+      EXPECT_EQ(iface_->getStoredZcTx(zcStx, zcKey), true);
+      EXPECT_EQ(zcStx.thisHash_, ZChash);
+      EXPECT_EQ(zcStx.numBytes_, TestChain::zcTxSize);
+      EXPECT_EQ(zcStx.fragBytes_, 190);
+      EXPECT_EQ(zcStx.numTxOut_, 2);
+      EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
 
-   delete dbtx;
+      //check ZChash in DB
+      EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
+   }
 
    //restart bdm
    theBDV->unregisterWallet("wallet1");
@@ -8211,18 +8346,18 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    //The BDM was recycled, but the ZC is still live, and the mempool should 
    //have reloaded it. Pull from DB and verify
-   dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-   StoredTx zcStx2;
+   {
+      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
+      StoredTx zcStx2;
 
-   EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
-   EXPECT_EQ(zcStx2.thisHash_, ZChash);
-   EXPECT_EQ(zcStx2.numBytes_, TestChain::zcTxSize);
-   EXPECT_EQ(zcStx2.fragBytes_, 190);
-   EXPECT_EQ(zcStx2.numTxOut_, 2);
-   EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 10 * COIN);
-
-   delete dbtx;
-
+      EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
+      EXPECT_EQ(zcStx2.thisHash_, ZChash);
+      EXPECT_EQ(zcStx2.numBytes_, TestChain::zcTxSize);
+      EXPECT_EQ(zcStx2.fragBytes_, 190);
+      EXPECT_EQ(zcStx2.numTxOut_, 2);
+      EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 10 * COIN);
+   }
+   
    //add 5th block
    setBlocks({ "0", "1", "2", "3", "4" }, blk0dat_);
 
@@ -8247,17 +8382,17 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(spendableBalance, 40 * COIN);
    EXPECT_EQ(unconfirmedBalance, 120 * COIN);
 
-   dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-   StoredTx zcStx3;
+   {
+      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
+      StoredTx zcStx3;
 
-   EXPECT_EQ(iface_->getStoredZcTx(zcStx3, zcKey), true);
-   EXPECT_EQ(zcStx3.thisHash_, ZChash);
-   EXPECT_EQ(zcStx3.numBytes_, TestChain::zcTxSize);
-   EXPECT_EQ(zcStx3.fragBytes_, 190); // Not sure how Python can get this value
-   EXPECT_EQ(zcStx3.numTxOut_, 2);
-   EXPECT_EQ(zcStx3.stxoMap_.begin()->second.getValue(), 10 * COIN);
-
-   delete dbtx;
+      EXPECT_EQ(iface_->getStoredZcTx(zcStx3, zcKey), true);
+      EXPECT_EQ(zcStx3.thisHash_, ZChash);
+      EXPECT_EQ(zcStx3.numBytes_, TestChain::zcTxSize);
+      EXPECT_EQ(zcStx3.fragBytes_, 190); // Not sure how Python can get this value
+      EXPECT_EQ(zcStx3.numTxOut_, 2);
+      EXPECT_EQ(zcStx3.stxoMap_.begin()->second.getValue(), 10 * COIN);
+   }
 
    //add 6th block
    setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
@@ -8289,12 +8424,12 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(le.getBlockNum(), 5);
 
    //Tx is now in a block, ZC should be gone from DB
-   dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-   StoredTx zcStx4;
+   {
+      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadWrite);
+      StoredTx zcStx4;
 
-   EXPECT_EQ(iface_->getStoredZcTx(zcStx4, zcKey), false);
-
-   delete dbtx;
+      EXPECT_EQ(iface_->getStoredZcTx(zcStx4, zcKey), false);
+   }
 }
 
 

@@ -249,6 +249,7 @@ BlockWriteBatcher::BlockWriteBatcher(
    parent_ = this;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 BlockWriteBatcher::~BlockWriteBatcher()
 {
    //a BWB meant for commit doesn't need to run commit() on dtor
@@ -263,10 +264,13 @@ BlockWriteBatcher::~BlockWriteBatcher()
 
    //join on the thread, don't want the destuctor to return until the data has
    //been commited
-   committhread.join();
+   if (committhread.joinable())
+      committhread.join();
+
    clearTransactions();
 }
 
+////////////////////////////////////////////////////////////////////////////////
 BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock> pb,
    ScrAddrFilter& scrAddrData)
 {
@@ -287,26 +291,32 @@ BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock> pb,
    sud.blockHeight_ = pb->blockHeight_;
    sud.duplicateID_ = pb->duplicateID_;
    
-   sbhToUpdate_.push_back(move(*pb));
+   //sbhToUpdate_.push_back(move(*pb));
 
-   auto& block = sbhToUpdate_.back();
+   //auto& block = sbhToUpdate_.back();
    // Apply all the tx to the update data
-   for (auto& stx : block.stxMap_)
+   for (auto& stx : pb->stxMap_)
    {
       if (stx.second.dataCopy_.getSize() == 0)
       {
-         LOGERR << "bad STX data in applyBlockToDB at height " << block.blockHeight_;
+         LOGERR << "bad STX data in applyBlockToDB at height " << pb->blockHeight_;
          throw std::range_error("bad STX data while applying blocks");
       }
 
       applyTxToBatchWriteData(stx.second, &sud, scrAddrData);
    }
 
-   // At this point we should have a list of STX and SSH with all the correct
-   // modifications (or creations) to represent this block.  Let's apply it.
-   BinaryData scannedBlockHash = block.thisHash_;
-   block.blockAppliedToDB_ = true;
-   dbUpdateSize_ += block.numBytes_;
+   topScannedBlockHash_ = pb->thisHash_;
+   //block.blockAppliedToDB_ = true;
+   dbUpdateSize_ += pb->numBytes_;
+
+   if (stxoToUpdate_.size() > STXO_THRESHOLD &&
+      iface_->armoryDbType() == ARMORY_DB_SUPER)
+   {
+      thread commitSTXOthread = commitStxo();
+      if (commitSTXOthread.joinable())
+         commitSTXOthread.detach();
+   }
 
    if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
    {
@@ -315,7 +325,7 @@ BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock> pb,
          committhread.detach();
    }
 
-   return scannedBlockHash;
+   return topScannedBlockHash_;
 }
 
 void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup, 
@@ -500,7 +510,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
 
    // Finally, mark this block as UNapplied.
    pb.blockAppliedToDB_ = false;
-   sbhToUpdate_.push_back(move(pb));
+   //sbhToUpdate_.push_back(move(pb));
    
    clearTransactions();
    
@@ -538,7 +548,9 @@ bool BlockWriteBatcher::parseTxIns(
 
       //leveraging the stxo in RAM
       StoredTxOut* stxoPtr = nullptr;
+      TIMER_START("lookforutxo");
       stxoPtr = lookForUTXOInMap(opTxHashAndId, opTxoIdx);
+      TIMER_STOP("lookforutxo");
 
       if (config_.armoryDbType != ARMORY_DB_SUPER)
       {
@@ -676,8 +688,12 @@ void BlockWriteBatcher::applyTxToBatchWriteData(
                         StoredUndoData * sud,
                         ScrAddrFilter& scrAddrData)
 {
+   TIMER_START("parseTxOuts");
    bool txIsMine = parseTxOuts(thisSTX, sud, scrAddrData);
-   txIsMine |= parseTxIns( thisSTX, sud, scrAddrData);
+   TIMER_STOP("parseTxOuts");
+   TIMER_START("parseTxIns");
+   txIsMine |= parseTxIns(thisSTX, sud, scrAddrData);
+   TIMER_STOP("parseTxIns");
 
    if (config_.armoryDbType != ARMORY_DB_SUPER && txIsMine)
    {
@@ -690,6 +706,18 @@ void BlockWriteBatcher::applyTxToBatchWriteData(
 ////////////////////////////////////////////////////////////////////////////////
 thread BlockWriteBatcher::commit(bool finalCommit)
 {
+   /*if (iface_->armoryDbType() == ARMORY_DB_SUPER)
+   {
+      thread commitStxoThread = commitStxo();
+      if (commitStxoThread.joinable())
+      {
+         if (!finalCommit)
+            commitStxoThread.detach();
+         else
+            commitStxoThread.join();
+      }
+   }*/
+
    bool isCommiting = false;
    unique_lock<mutex> l(writeLock_, try_to_lock);
    if (!l.owns_lock())
@@ -719,13 +747,14 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    
    bwbWriteObj->commitId_ = commitId_++;
 
-   bwbWriteObj->sbhToUpdate_ = std::move(sbhToUpdate_);
-   bwbWriteObj->stxoToUpdate_ = std::move(stxoToUpdate_);
+   //bwbWriteObj->sbhToUpdate_ = std::move(sbhToUpdate_);
+   //if (iface_->armoryDbType() != ARMORY_DB_SUPER)
+      bwbWriteObj->stxoToUpdate_ = std::move(stxoToUpdate_);
    bwbWriteObj->txCountAndHint_ = std::move(txCountAndHint_);
    
    bwbWriteObj->mostRecentBlockApplied_ = mostRecentBlockApplied_;
    bwbWriteObj->parent_ = this;
-
+   bwbWriteObj->topScannedBlockHash_ = topScannedBlockHash_;
 
    if (config_.armoryDbType == ARMORY_DB_SUPER && 
        utxoMap_.size() > UTXO_THRESHOLD)
@@ -751,7 +780,10 @@ thread BlockWriteBatcher::commit(bool finalCommit)
       
    dbUpdateSize_ = 0;
 
+   TIMER_START("waitingOnWriteThread");
    l.lock();
+   TIMER_STOP("waitingOnWriteThread");
+
    subSshMapToWrite_ = std::move(subSshMap_);
    commitingObject_ = bwbWriteObj;
 
@@ -759,6 +791,22 @@ thread BlockWriteBatcher::commit(bool finalCommit)
       resetTransactions();
 
    thread committhread(writeToDB, bwbWriteObj);
+
+   return committhread;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+thread BlockWriteBatcher::commitStxo()
+{
+   //create a BWB for commit (pass true to the constructor)
+   BlockWriteBatcher* bwbWriteObj =
+      new BlockWriteBatcher(config_, iface_, true);
+
+   bwbWriteObj->stxoToUpdate_ = std::move(stxoToUpdate_);
+   /*auto lbd = [&](void)->void
+   { writeStxoToDB(move(bwbWriteObj)); };*/
+   thread committhread(writeStxoToDB, bwbWriteObj);
+   //thread committhread(lbd);
 
    return committhread;
 }
@@ -786,10 +834,6 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
    LMDBEnv::Transaction tx;
    iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
-   /*StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(HISTORY, sdbi);
-   utxoFromHeight_ = sdbi.topBlkHgt_;*/
-
    for (auto saPair : sasd.getScrAddrMap())
    {
       auto& ssh = (*sshToModify_)[saPair.first];
@@ -814,25 +858,22 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
                subssh.unserializeDBValue(dbIter.getValueReader());
 
                //load all UTXOs listed
-               //if (utxoCount < UTXO_THRESHOLD)
+               for (auto txio : subssh.txioMap_)
                {
-                  for (auto txio : subssh.txioMap_)
+                  if (txio.second.isUTXO())
                   {
-                     if (txio.second.isUTXO())
-                     {
-                        BinaryData dbKey = txio.second.getDBKeyOfOutput();
-                        shared_ptr<StoredTxOut> stxo(new StoredTxOut);
-                        iface_->getStoredTxOut(*stxo, dbKey);
+                     BinaryData dbKey = txio.second.getDBKeyOfOutput();
+                     shared_ptr<StoredTxOut> stxo(new StoredTxOut);
+                     iface_->getStoredTxOut(*stxo, dbKey);
 
-                        BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
+                     BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
 
-                        BinaryWriter bwUtxoKey(34);
-                        bwUtxoKey.put_BinaryData(txHash);
-                        bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
+                     BinaryWriter bwUtxoKey(34);
+                     bwUtxoKey.put_BinaryData(txHash);
+                     bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
 
-                        utxoMap_[bwUtxoKey.getDataRef()] = stxo;
-                        utxoCount++;
-                     }
+                     utxoMap_[bwUtxoKey.getDataRef()] = stxo;
+                     utxoCount++;
                   }
                }
             }
@@ -853,15 +894,15 @@ void BlockWriteBatcher::writeToDB(shared_ptr<BlockWriteBatcher> bwb)
 
    {
       bwb->dataToCommit_.putSSH(db);
-      bwb->dataToCommit_.putSTX(db);
-      bwb->dataToCommit_.putSBH(db);
+      //if (db->armoryDbType() != ARMORY_DB_SUPER)
+         bwb->dataToCommit_.putSTX(db);
+      //bwb->dataToCommit_.putSBH(db);
       bwb->dataToCommit_.deleteEmptyKeys(db);
 
 
       if (bwb->mostRecentBlockApplied_ != 0 && bwb->updateSDBI_ == true)
          bwb->dataToCommit_.updateSDBI(db);
 
-      //final commit
       bwb->parent_->commitingObject_.reset();
    }
 
@@ -873,6 +914,19 @@ void BlockWriteBatcher::writeToDB(shared_ptr<BlockWriteBatcher> bwb)
    //signal DB is ready for new commit
    lock.unlock();
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::writeStxoToDB(BlockWriteBatcher* bwb)
+{
+   LMDBBlockDatabase *db = bwb->iface_;
+   bwb->dataToCommit_.serializeStxo(*bwb);
+
+   if (db->armoryDbType() == ARMORY_DB_SUPER)
+      bwb->dataToCommit_.putSTX(db);
+
+   delete bwb;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::resetTransactions(void)
@@ -1085,7 +1139,6 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
                "Refer to your log file for more details on the error.");
 
             criticalError_(errorMessage);
-
             return lastScannedBlockHash;
          }
  
@@ -1101,7 +1154,9 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
    catch (...)
    {
       clearTransactions();
-      throw;
+      
+      string errorMessage("Scan thread encountered an unkonwn error");
+      criticalError_(errorMessage);
    }
 
    double timeElapsed = TIMER_READ_SEC("grabThreadSleep");
@@ -1128,6 +1183,7 @@ BinaryData BlockWriteBatcher::scanBlocks(
    ScrAddrFilter& scf
 )
 {
+   //endBlock = 200000;
    //TIMER_START("applyBlockRangeToDBIter");
    uint32_t nThreads = 1;
    if (scf.armoryDbType_ != ARMORY_DB_SUPER)
@@ -1143,7 +1199,22 @@ BinaryData BlockWriteBatcher::scanBlocks(
    shared_ptr<LoadedBlockData> tempBlockData = 
       make_shared<LoadedBlockData>(startBlock, endBlock, scf, nThreads);
 
-   return applyBlocksToDB(prog, tempBlockData);
+   BinaryData bd = applyBlocksToDB(prog, tempBlockData);
+
+   double timeElapsed = TIMER_READ_SEC("parseTxOuts");
+   LOGWARN << "--- parseTxOuts: " << timeElapsed << " s";
+
+   timeElapsed = TIMER_READ_SEC("parseTxIns");
+   LOGWARN << "--- parseTxIns: " << timeElapsed << " s";
+   
+   timeElapsed = TIMER_READ_SEC("lookforutxo");
+   LOGWARN << "--- lookforutxo: " << timeElapsed << " s";
+   
+   timeElapsed = TIMER_READ_SEC("waitingOnWriteThread");
+   LOGWARN << "--- waitingOnWriteThread: " << timeElapsed << " s";
+
+   
+   return bd;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1325,6 +1396,20 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
 
    return keysToDelete;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void DataToCommit::serializeStxo(BlockWriteBatcher& bwb)
+{
+   auto dbType = bwb.config_.armoryDbType;
+   auto pruneType = bwb.config_.pruneType;
+
+   for (auto& spentStxo : bwb.stxoToUpdate_)
+   {
+      BinaryWriter& bw = serializedStxOutToModify_[spentStxo->getDBKey()];
+      spentStxo->serializeDBValue(bw, dbType, pruneType);
+   }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
    const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
@@ -1357,22 +1442,7 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
    }
    
    //stxout
-   for (auto& spentStxo : bwb.stxoToUpdate_)
-   {
-      BinaryWriter& bw = serializedStxOutToModify_[spentStxo->getDBKey()];
-      spentStxo->serializeDBValue(bw, dbType, pruneType);
-   }
-
-   //sbh
-   if (dbType_ == ARMORY_DB_SUPER)
-   {
-      for (auto& sbh : bwb.sbhToUpdate_)
-      {
-         BinaryWriter& bw = serializedSbhToUpdate_[sbh.getDBKey()];
-         if (bw.getSize() == 0)
-            sbh.serializeDBValue(bw, BLKDATA, dbType, pruneType);
-      }
-   }
+   serializeStxo(bwb);
 
    //txOutCount
    if (dbType != ARMORY_DB_SUPER)
@@ -1417,14 +1487,7 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
       }
    }
 
-   //sdbi
-   if (bwb.sbhToUpdate_.size())
-   {
-      auto iterLast = bwb.sbhToUpdate_.rbegin();
-      topBlockHash_ = iterLast->thisHash_;
-   }
-   else topBlockHash_ = BtcUtils::EmptyHash_;
-
+   topBlockHash_ = bwb.topScannedBlockHash_;
    mostRecentBlockApplied_ = bwb.mostRecentBlockApplied_ +1;
 }
 
@@ -1469,19 +1532,18 @@ void DataToCommit::putSSH(LMDBBlockDatabase* db)
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::putSTX(LMDBBlockDatabase* db)
 {
-   if (dbType_ == ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction tx(db->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(db->dbEnv_[STXO].get(), LMDB::ReadWrite);
 
       for (auto& stxoPair : serializedStxOutToModify_)
-         db->putValue(BLKDATA, stxoPair.first, stxoPair.second.getData());
+         db->putValue(STXO, stxoPair.first, stxoPair.second.getData());
    }
-   else
+   
+   if (dbType_ == ARMORY_DB_SUPER)
+      return;
+   
    {
       LMDBEnv::Transaction tx(db->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-
-      for (auto& stxoPair : serializedStxOutToModify_)
-         db->putValue(HISTORY, stxoPair.first, stxoPair.second.getData());
 
       for (auto& txCount : serializedTxCountAndHash_)
          db->putValue(HISTORY, txCount.first, txCount.second.getData());

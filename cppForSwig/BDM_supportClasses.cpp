@@ -461,12 +461,9 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
    zcTx.setTxTime(txtime);
 
    //grab container lock
-   while (lock_.fetch_or(1, memory_order_acquire));
+   unique_lock<mutex> lock(mu_);
 
    newZCMap_[ZCkey] = zcTx;
-
-   //release lock
-   lock_.store(0, memory_order_release);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -640,18 +637,18 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
    uint32_t nProcessed = 0;
 
    bool zcIsOurs = false;
+   map<BinaryData, Tx> zcMap;
 
-   //grab ZC container lock
-   while (lock_.fetch_or(1, memory_order_acquire));
+   {
+      //grab ZC container lock
+      unique_lock<mutex> lock(mu_);
 
-   //copy new ZC map
-   map<BinaryData, Tx> zcMap = newZCMap_;
-
-   //release lock
-   lock_.store(0, memory_order_release);
+      //copy new ZC map
+      zcMap = newZCMap_;
+   }
 
    LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   db_->beginDBTransaction(&tx, ZEROCONF, LMDB::ReadOnly);
 
    while (1)
    {
@@ -664,8 +661,6 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
          const BinaryData& txHash = newZCPair.second.getThisHash();
          if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
             continue; //already have this ZC
-
-         //LOGWARN << "new ZC transcation: " << txHash.toHexStr();
 
          {
             map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
@@ -708,14 +703,13 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
       }
 
       //grab ZC container lock
-      while (lock_.fetch_or(1, memory_order_acquire));
-
+      unique_lock<mutex> lock(mu_);
+         
       //check if newZCMap_ doesnt have new Txn
       if (nProcessed >= newZCMap_.size())
       {
          //clear map and release lock
          newZCMap_.clear();
-         lock_.store(0, memory_order_release);
 
          //break out of the loop
          break;
@@ -734,8 +728,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
 
       zcMap = newZCMap_;
 
-      //reset counter and release lock
-      lock_.store(0, memory_order_release);
+      //reset counter
       nProcessed = 0;
    }
 
@@ -946,8 +939,6 @@ void ZeroConfContainer::clear()
    txioMap_.clear();
    newZCMap_.clear();
    newTxioMap_.clear();
-
-   lock_.store(0, memory_order_release);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -988,7 +979,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
    const vector<BinaryData>& keysToDelete)
 {
    //should run in its own thread to make sure we can get a write tx
-   LMDBEnv::Transaction tx(db_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(db_->dbEnv_[ZEROCONF].get(), LMDB::ReadWrite);
 
    for (auto& key : keysToWrite)
    {
@@ -1010,7 +1001,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       else
          keyWithPrefix = key;
 
-      LDBIter dbIter(db_->getIterator(HISTORY));
+      LDBIter dbIter(db_->getIterator(ZEROCONF));
 
       if (!dbIter.seekTo(keyWithPrefix))
          continue;
@@ -1028,7 +1019,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
       while (dbIter.advanceAndRead(DB_PREFIX_ZCDATA));
 
       for (auto Key : ktd)
-         db_->deleteValue(HISTORY, Key);
+         db_->deleteValue(ZEROCONF, Key);
    }
 }
 
@@ -1041,8 +1032,8 @@ void ZeroConfContainer::loadZeroConfMempool(
    //RW tx afterwards
    {
       LMDBEnv::Transaction tx;
-      db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
-      LDBIter dbIter(db_->getIterator(HISTORY));
+      db_->beginDBTransaction(&tx, ZEROCONF, LMDB::ReadOnly);
+      LDBIter dbIter(db_->getIterator(ZEROCONF));
 
       if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))
       {

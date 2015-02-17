@@ -269,8 +269,8 @@ private:
    set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
 
 
-   std::atomic<uint32_t>       topId_;
-   atomic<uint32_t>            lock_;
+   std::atomic<uint32_t> topId_;
+   mutex                 mu_;
 
    //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
    //The code has a thread pushing new ZC, and set the BDM thread flag
@@ -302,7 +302,7 @@ private:
 
 public:
    ZeroConfContainer(LMDBBlockDatabase* db) :
-      topId_(0), lock_(0), db_(db) {}
+      topId_(0), db_(db) {}
 
    void addRawTx(const BinaryData& rawTx, uint32_t txtime);
 

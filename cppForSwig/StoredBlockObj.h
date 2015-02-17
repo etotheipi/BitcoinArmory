@@ -62,7 +62,9 @@ enum DB_SELECT
    HEADERS,
    BLKDATA,
    HISTORY,
+   STXO,
    TXHINTS,
+   ZEROCONF,
    COUNT
 };
 
