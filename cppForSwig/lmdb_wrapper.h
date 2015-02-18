@@ -416,8 +416,10 @@ public:
    // StoredHeader accessors
    //For Supernode
    uint8_t putStoredHeader(StoredHeader & sbh,
-      bool withBlkData = true,
-      bool updateDupID = true);
+      int32_t fnum, size_t offset,
+      bool withBlkData,
+      bool updateDupID,
+      bool withStxo);
 
    //for Fullnode
    uint8_t putRawBlockData(BinaryRefReader& brr, 

@@ -1344,7 +1344,8 @@ bool LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db,
 // NOTE:  If you want this header to be marked valid/invalid, make sure the 
 //        isMainBranch_ property of the SBH is set appropriate before calling.
 uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh, 
-   bool withBlkData, bool updateDupID)
+   int32_t fnum, size_t offset,
+   bool withBlkData, bool updateDupID, bool withStxo)
 {
    SCOPED_TIMER("putStoredHeader");
 
@@ -1365,9 +1366,22 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
    LMDBEnv::Transaction txBlocks(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
    LMDBEnv::Transaction txHints(dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
    LMDBEnv::Transaction txHist(dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-
    BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
+
+   {
+      BinaryData metaKey = DBUtils::getBlkMetaKey(sbh.blockHeight_, sbh.duplicateID_);
+
+      BinaryWriter bw;
+      bw.put_uint32_t(fnum);
+      bw.put_uint64_t(offset);
+      bw.put_uint32_t(sbh.numBytes_);
+      putValue(BLKDATA, BinaryDataRef(metaKey), bw.getDataRef());
+   }
+
+
    BinaryWriter bwBlkData;
+   BinaryData dbKey(sbh.getDBKey(true));
+
    sbh.serializeDBValue(bwBlkData, BLKDATA, armoryDbType_, dbPruneType_);
    putValue(BLKDATA, BinaryDataRef(key), bwBlkData.getDataRef());
    
@@ -1387,7 +1401,7 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
          // level*, that we want to put the Txs but not the TxOuts.  
          // In other contexts, it may be desired to put/update a Tx 
          // without updating the TxOuts.
-         putStoredTx(txIter->second, true);
+         putStoredTx(txIter->second, withStxo);
       }
    }
 
@@ -1620,7 +1634,7 @@ bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
 {
    BinaryRefReader brr;
    if (dbKey.getSize() == 4)
-      brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, dbKey);
+      brr = getValueReader(BLKDATA, DB_PREFIX_BLKMETA, dbKey);
    else
       brr = getValueReader(BLKDATA, dbKey);
 
@@ -1631,7 +1645,7 @@ bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
       return false;
    }
 
-   uint16_t fnum = brr.get_uint16_t();
+   uint16_t fnum = brr.get_uint32_t();
    uint64_t offset = brr.get_uint64_t();
    uint32_t blocksize = brr.get_uint32_t();
 
@@ -1642,7 +1656,7 @@ bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
 bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
    uint32_t blockHgt, uint8_t blockDup) const
 {
-   BinaryData blkKey = DBUtils::getBlkDataKey(blockHgt, blockDup);
+   BinaryData blkKey = DBUtils::getBlkMetaKey(blockHgt, blockDup);
 
    return getRawBlockFromFiles(bd, blkKey);
 }
@@ -3454,11 +3468,10 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    //put raw block with header data
    {
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-      BinaryData dbKey(sbh.getDBKey(true));
-      //putValue(BLKDATA, BinaryDataRef(dbKey), brr.getRawRef());
+      BinaryData dbKey = DBUtils::getBlkMetaKey(sbh.blockHeight_, sbh.duplicateID_);
 
       BinaryWriter bw;
-      bw.put_uint16_t(filenum);
+      bw.put_uint32_t(filenum);
       bw.put_uint64_t(offset);
       bw.put_uint32_t(sbh.numBytes_);
       putValue(BLKDATA, BinaryDataRef(dbKey), bw.getDataRef());

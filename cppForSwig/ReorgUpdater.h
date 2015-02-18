@@ -175,6 +175,7 @@ private:
       // Mark transactions as invalid
 
       BlockWriteBatcher blockWrites(config_, iface_);
+      BlockFileAccessor bfa(scrAddrData_->getDb()->getBlkFiles());
 
       BlockHeader* thisHeaderPtr = oldTopPtr_;
       LOGINFO << "Invalidating old-chain transactions...";
@@ -190,7 +191,7 @@ private:
             // we also need to undo the blocks in the DB
             StoredUndoData sud;
             createUndoDataFromBlock(iface_, hgt, dup, sud);
-            blockWrites.undoBlockFromDB(sud, *scrAddrData_);
+            blockWrites.undoBlockFromDB(sud, *scrAddrData_, bfa);
          }
 
          try
@@ -234,6 +235,7 @@ private:
       //       from the branch point and walk up
 
       BlockWriteBatcher blockWrites(config_, iface_);
+      BlockFileAccessor bfa(scrAddrData_->getDb()->getBlkFiles());
 
       BlockHeader* thisHeaderPtr = branchPtr_;
 
@@ -245,7 +247,7 @@ private:
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
 
-         blockWrites.reorgApplyBlock(hgt, dup, *scrAddrData_);
+         blockWrites.reorgApplyBlock(hgt, dup, *scrAddrData_, bfa);
       }
    }
 

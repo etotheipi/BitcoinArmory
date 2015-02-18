@@ -121,7 +121,11 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
       }
 
       dbKey.append(WRITE_UINT16_BE(txoId));
-      iface_->getStoredTxOut(*stxo, dbKey);
+      if (!iface_->getStoredTxOut(*stxo, dbKey))
+      {
+         LOGERR << "missing txout in supernode";
+         throw runtime_error("missing txout in supernode");
+      }
 
       dbUpdateSize_ += sizeof(StoredTxOut)+stxo->getSize();
       stxoToUpdate_.push_back(stxo);
@@ -329,7 +333,7 @@ BinaryData BlockWriteBatcher::applyBlockToDB(shared_ptr<PulledBlock> pb,
 }
 
 void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup, 
-   ScrAddrFilter& scrAddrData)
+   ScrAddrFilter& scrAddrData, BlockFileAccessor& bfa)
 {
    forceUpdateSsh_ = true;
 
@@ -340,7 +344,7 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
    shared_ptr<PulledBlock> pb(new PulledBlock());
    {
       LMDBEnv::Transaction blockTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      if (!pullBlockFromDB(*pb, hgt, dup))
+      if (!pullBlockFromDB(*pb, hgt, dup, bfa))
       {
          //Should notify UI before returning
          LOGERR << "Failed to load block " << hgt << "," << dup;
@@ -360,7 +364,7 @@ void BlockWriteBatcher::reorgApplyBlock(uint32_t hgt, uint8_t dup,
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud, 
-                                        ScrAddrFilter& scrAddrData)
+   ScrAddrFilter& scrAddrData, BlockFileAccessor& bfa)
 {
    if (resetTxn_ > 0)
       clearSubSshMap(resetTxn_);
@@ -372,7 +376,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    PulledBlock pb;
    {
       LMDBEnv::Transaction blkdataTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      pullBlockFromDB(pb, sud.blockHeight_, sud.duplicateID_);
+      pullBlockFromDB(pb, sud.blockHeight_, sud.duplicateID_, bfa);
    }
    
    mostRecentBlockApplied_ = sud.blockHeight_ -1;
@@ -982,7 +986,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
       LDBIter ldbIter = db->getIterator(BLKDATA);
 
       uint8_t dupID = db->getValidDupIDForHeight(hgt);
-      if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
+      if (!ldbIter.seekToExact(DBUtils::getBlkMetaKey(hgt, dupID)))
       {
          unique_lock<mutex> assignLock(GTD.assignLock_);
          *lastBlock = blockData->interruptBlock_;
@@ -1013,7 +1017,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
          if (key != expected)
          {
             //in case the iterator is not at the right key, set it
-            if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(hgt, dupID)))
+            if (!ldbIter.seekToExact(DBUtils::getBlkMetaKey(hgt, dupID)))
             {
                unique_lock<mutex> assignLock(GTD.assignLock_);
                *lastBlock = blockData->interruptBlock_;
@@ -1025,7 +1029,7 @@ void BlockWriteBatcher::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 
          shared_ptr<PulledBlock> pb(new PulledBlock());
          pb->prevMapPtr_ = prevFileMap;
-         if (!pullBlockAtIter(*pb, ldbIter, db, &blockData->BFA_))
+         if (!pullBlockAtIter(*pb, ldbIter, db, blockData->BFA_))
          {
             unique_lock<mutex> assignLock(GTD.assignLock_);
             *lastBlock = blockData->interruptBlock_;
@@ -1219,44 +1223,33 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
-   LMDBBlockDatabase* db, BlockFileAccessor* bfa)
+   LMDBBlockDatabase* db, BlockFileAccessor& bfa)
 {
 
    // Now we read the whole block, not just the header
-   if (db->armoryDbType() == ARMORY_DB_SUPER || bfa == nullptr)
+   BinaryRefReader brr(iter.getValueReader());
+   if (brr.getSize() != 16)
+      return false;
+
+   uint16_t fnum = brr.get_uint32_t();
+   uint64_t offset = brr.get_uint64_t();
+   uint32_t size = brr.get_uint32_t();
+
+   try
    {
-      if (db->readStoredBlockAtIter(iter, pb))
-      {
-         pb.preprocessTx(db->armoryDbType());
-         return true;
-      }
+      BinaryDataRef bdr;
+      bfa.getRawBlock(bdr, fnum, offset, size, &pb.prevMapPtr_);
+
+      pb.blockHeight_ = DBUtils::hgtxToHeight(iter.getKey().getSliceRef(1, 4));
+      pb.duplicateID_ = DBUtils::hgtxToDupID(iter.getKey().getSliceRef(1, 4));
+
+      pb.unserializeFullBlock(bdr, true, false);
+      pb.preprocessTx(db->armoryDbType());
+      return true;
    }
-   else
+   catch (...)
    {
-      BinaryRefReader brr(iter.getValueReader());
-      if (brr.getSize() != 14)
-         return false;
-
-      uint16_t fnum = brr.get_uint16_t();
-      uint64_t offset = brr.get_uint64_t();
-      uint32_t size = brr.get_uint32_t();
-
-      try
-      {
-         BinaryDataRef bdr;
-         bfa->getRawBlock(bdr, fnum, offset, size, pb);
-         
-         pb.blockHeight_ = DBUtils::hgtxToHeight(iter.getKey().getSliceRef(1, 4));
-         pb.duplicateID_ = DBUtils::hgtxToDupID(iter.getKey().getSliceRef(1, 4));
-
-         pb.unserializeFullBlock(bdr, true, false);
-         pb.preprocessTx(db->armoryDbType());
-         return true;
-      }
-      catch (...)
-      {
-         return false;
-      }
+      return false;
    }
 
    return false;
@@ -1264,18 +1257,19 @@ bool BlockWriteBatcher::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockWriteBatcher::pullBlockFromDB(
-   PulledBlock& pb, uint32_t height, uint8_t dup)
+   PulledBlock& pb, uint32_t height, uint8_t dup,
+   BlockFileAccessor& bfa)
 {
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
-   if (!ldbIter.seekToExact(DBUtils::getBlkDataKey(height, dup)))
+   if (!ldbIter.seekToExact(DBUtils::getBlkMetaKey(height, dup)))
    {
       LOGERR << "Header heigh&dup is not in BLKDATA DB";
       LOGERR << "(" << height << ", " << dup << ")";
       return false;
    }
 
-   return pullBlockAtIter(pb, ldbIter, iface_);
+   return pullBlockAtIter(pb, ldbIter, iface_, bfa);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

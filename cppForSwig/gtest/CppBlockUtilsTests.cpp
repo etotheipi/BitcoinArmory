@@ -5455,7 +5455,7 @@ TEST_F(LMDBTest, DISABLED_PutFullBlock)
       }
    }
 
-   iface_->putStoredHeader(sbh);
+   iface_->putStoredHeader(sbh, 0, 0, true, true, true);
 
    ASSERT_TRUE(compareKVListRange(0,3, 0,9));
 }
@@ -5485,7 +5485,7 @@ TEST_F(LMDBTest, DISABLED_GetFullBlock)
    EXPECT_EQ(sdbi.topBlkHgt_,  0);
    EXPECT_EQ(sdbi.topBlkHash_, iface_->getGenesisBlockHash());
 
-   iface_->putStoredHeader(sbh);
+   iface_->putStoredHeader(sbh, 0, 0, true, true, true);
 
    // Since we marked this block main-branch, it should have non-MAX validDup
    EXPECT_EQ(iface_->getValidDupIDForHeight(123000), 0);
@@ -6659,12 +6659,12 @@ TEST_F(LMDBTest_Super, PutFullBlockNoTx)
    addOutPairH(sbh_HH_key, sbh_HH_val);
    addOutPairH(sbh_HG_key, sbh_HG_val);
 
-   uint8_t sdup = iface_->putStoredHeader(sbh, false);
+   uint8_t sdup = iface_->putStoredHeader(sbh, 0, 0, false, true, true);
    EXPECT_TRUE(compareKVListRange(0, 3, 0, 1));
    EXPECT_EQ(sdup, 0);
 
    // Try adding it again and see if get the correct dup again, and no touch DB
-   sdup = iface_->putStoredHeader(sbh, false);
+   sdup = iface_->putStoredHeader(sbh, 0, 0, false, true, true);
    EXPECT_TRUE(compareKVListRange(0, 3, 0, 1));
    EXPECT_EQ(sdup, 0);
 }
@@ -6812,7 +6812,7 @@ TEST_F(LMDBTest_Super, PutFullBlock)
       }
    }
 
-   iface_->putStoredHeader(sbh);
+   iface_->putStoredHeader(sbh, 0, 0, true, true, true);
 
    // Add header to BLKDATA
    addOutPairB(sbhKey, hflags + rawHeader + ntx + nbyte);
@@ -6868,7 +6868,7 @@ TEST_F(LMDBTest_Super, GetFullBlock)
    EXPECT_EQ(sdbi.topBlkHgt_, 0);
    EXPECT_EQ(sdbi.topBlkHash_, iface_->getGenesisBlockHash());
 
-   iface_->putStoredHeader(sbh);
+   iface_->putStoredHeader(sbh, 0, 0, true, true, true);
 
    // Since we marked this block main-branch, it should have non-MAX validDup
    EXPECT_EQ(iface_->getValidDupIDForHeight(123000), 0);

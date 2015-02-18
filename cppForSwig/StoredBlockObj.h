@@ -45,7 +45,8 @@ enum DB_PREFIX
   DB_PREFIX_UNDODATA,
   DB_PREFIX_TRIENODES,
   DB_PREFIX_COUNT,
-  DB_PREFIX_ZCDATA
+  DB_PREFIX_ZCDATA,
+  DB_PREFIX_BLKMETA
 };
 
 // In ARMORY_DB_PARTIAL and LITE, we may not store full tx, but we will know 
@@ -136,6 +137,10 @@ public:
    static uint32_t   hgtxToHeight(const BinaryData& hgtx);
    static uint8_t    hgtxToDupID(const BinaryData& hgtx);
    static BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkMetaKey(uint32_t height,
+      uint8_t  dup);
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getBlkDataKey(uint32_t height, 

@@ -2509,6 +2509,16 @@ BinaryData DBUtils::getBlkDataKey( uint32_t height,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkMetaKey( uint32_t height, 
+                                             uint8_t  dup)
+{
+   BinaryWriter bw(5);
+   bw.put_uint8_t(    DB_PREFIX_BLKMETA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
 BinaryData DBUtils::getBlkDataKey( uint32_t height, 
                                              uint8_t  dup,
                                              uint16_t txIdx)

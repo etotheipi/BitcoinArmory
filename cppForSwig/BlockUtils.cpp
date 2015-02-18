@@ -177,7 +177,7 @@ public:
       
       const auto stopIfBlkHeaderRecognized =
       [&allHeaders, &foundAtPosition] (
-         const BinaryData &blockheader,
+         const BinaryDataRef &blockheader,
          const BlockFilePosition &pos,
          uint32_t blksize
       )
@@ -199,11 +199,13 @@ public:
          bhIter->second.setBlockFileOffset(pos.second);
       };
       
+      BlockFileAccessor bfa(blkFiles_);
       uint64_t returnedOffset = UINT64_MAX;
       try
       {
          returnedOffset = readHeadersFromFile(
-            (*blkFiles_)[index],
+            bfa,
+            index,
             0,
             stopIfBlkHeaderRecognized
          );
@@ -228,7 +230,7 @@ public:
    BlockFilePosition readHeaders(
       BlockFilePosition startAt,
       const function<void(
-         const BinaryData &,
+         const BinaryDataRef &,
          const BlockFilePosition &pos,
          uint32_t blksize
       )> &blockDataCallback
@@ -240,12 +242,12 @@ public:
          throw std::runtime_error("blkFile out of range");
          
       uint64_t finishOffset=startAt.second;
-
+      BlockFileAccessor bfa(blkFiles_);
+      
       while (startAt.first < blkFiles_->size())
       {
-         const BlkFile &f = (*blkFiles_)[startAt.first];
-         finishOffset = readHeadersFromFile(
-            f, startAt.second, blockDataCallback
+         finishOffset = readHeadersFromFile(bfa,
+            startAt.first, startAt.second, blockDataCallback
          );
          startAt.second = 0;
          startAt.first++;
@@ -269,15 +271,17 @@ public:
          throw std::runtime_error("blkFile out of range");
 
       stopAt.first = (std::min)(stopAt.first, blkFiles_->size());
-         
+      
+      BlockFileAccessor bfa(blkFiles_);
+
       uint64_t finishLocation=stopAt.second;
       while (startAt.first <= stopAt.first)
       {
-         const BlkFile &f = (*blkFiles_)[startAt.first];
+         auto& f = (*blkFiles_)[startAt.first];
          const uint64_t stopAtOffset
             = startAt.first < stopAt.first ? f.filesize : stopAt.second;
-         finishLocation = readRawBlocksFromFile(
-            f, startAt.second, stopAtOffset, blockDataCallback
+         finishLocation = readRawBlocksFromFile(bfa,
+            startAt.first, startAt.second, stopAtOffset, blockDataCallback
          );
          startAt.second = 0;
          startAt.first++;
@@ -317,11 +321,14 @@ public:
 
       try
       {
+         BlockFileAccessor bfa(blkFiles_);
+
          //at this point, the last blkFile has been scanned for block, so skip it
          for (int32_t i = blkFiles_->size() - 2; i > -1; i--)
          {
             readHeadersFromFile(
-               (*blkFiles_)[i],
+               bfa,
+               i,
                0,
                stopIfBlkHeaderRecognized
                );
@@ -338,71 +345,10 @@ public:
 
 private:
 
-   struct MapAndSize
-   {
-      uint8_t* filemap_;
-      uint64_t size_;
-   };
-
-   MapAndSize getMapOfFile(string path, size_t fileSize)
-   {
-      MapAndSize mas;
-
-      #ifdef WIN32
-         int fd = _open(path.c_str(), _O_RDONLY | _O_BINARY);
-         if (fd == -1)
-            throw std::runtime_error("failed to open file");
-         
-         HANDLE fdHandle = (HANDLE)_get_osfhandle(fd);
-         uint32_t sizelo = fileSize & 0xffffffff;
-         uint32_t sizehi = fileSize >> 16 >> 16;
-
-
-         HANDLE mh = CreateFileMapping(fdHandle, NULL, 
-                              PAGE_READONLY | SEC_COMMIT,
-                              sizehi, sizelo, NULL);
-         if (mh == NULL)
-            throw std::runtime_error("failed to map file");
-
-         mas.filemap_ = (uint8_t*)MapViewOfFile(mh, FILE_MAP_READ,
-                             0, 0, fileSize);
-         mas.size_ = fileSize;
-
-         if(mas.filemap_ == NULL)
-            throw std::runtime_error("failed to map file");
-
-         CloseHandle(mh);
-         _close(fd);
-      #else
-         int fd = open(path.c_str(), O_RDONLY);
-         if (fd == -1)
-            throw std::runtime_error("failed to open file");
-
-         mas.filemap_ = (uint8_t*)mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
-         mas.size_ = fileSize;
-
-         if(mas.filemap_ == NULL)
-            throw std::runtime_error("failed to map file");
-         close(fd);
-      #endif
-
-      return mas;
-   }
-
-   void unmapFile(MapAndSize& mas)
-   {
-      #ifdef WIN32
-      if (!UnmapViewOfFile(mas.filemap_))
-         throw std::runtime_error("failed to unmap file");
-      #else
-      if(munmap(mas.filemap_, mas.size_))
-         throw std::runtime_error("failed to unmap file");
-      #endif
-   }
    // read blocks from f, starting at offset blockFileOffset,
    // returning the offset we finished at
-   uint64_t readRawBlocksFromFile(
-      const BlkFile &f, uint64_t blockFileOffset, uint64_t stopBefore,
+   uint64_t readRawBlocksFromFile(BlockFileAccessor& bfa,
+      const uint32_t &f, uint64_t blockFileOffset, uint64_t stopBefore,
       const function<void(
          const BinaryData &,
          const BlockFilePosition &pos,
@@ -414,12 +360,15 @@ private:
       if (blockFileOffset >= stopBefore)
          return blockFileOffset;
       
-      MapAndSize mas = getMapOfFile(f.path, f.filesize);
+      shared_ptr<FileMap> fmPtr = bfa.getFileMap(f);
+      auto& blkFile = (*blkFiles_)[f];
+
+      FileMap& fm = *fmPtr;
       BinaryData fileMagic(4);
-      memcpy(fileMagic.getPtr(), mas.filemap_, 4);
+      memcpy(fileMagic.getPtr(), fm.filemap_, 4);
       if( fileMagic != magicBytes_ )
       {
-         LOGERR << "Block file '" << f.path << "' is the wrong network! File: "
+         LOGERR << "Block file '" << blkFile.path << "' is the wrong network! File: "
             << fileMagic.toHexStr()
             << ", expecting " << magicBytes_.toHexStr();
       }
@@ -430,21 +379,21 @@ private:
          BinaryDataRef magic, szstr, rawBlk;
          // read the file, we can't go past what we think is the end,
          // because we haven't gone past that in Headers
-         while(pos < (std::min)(f.filesize, stopBefore))
+         while(pos < (std::min)(fm.mapsize_, stopBefore))
          {
-            magic = BinaryDataRef(mas.filemap_ + pos, 4);
+            magic = BinaryDataRef(fm.filemap_ + pos, 4);
             pos += 4;
-            if (pos >= f.filesize)
+            if (pos >= fm.mapsize_)
                break;
                
             if(magic != magicBytes_)
             {
                // start scanning for MagicBytes
-               uint64_t offset = scanFor(mas.filemap_ + pos, f.filesize,
+               uint64_t offset = scanFor(fm.filemap_ + pos, fm.mapsize_,
                   magicBytes_.getPtr(), magicBytes_.getSize());
                if (offset == UINT64_MAX)
                {
-                  LOGERR << "No more blocks found in file " << f.path;
+                  LOGERR << "No more blocks found in file " << blkFile.path;
                   break;
                }
                
@@ -452,18 +401,18 @@ private:
                LOGERR << "Next block header found at offset " << pos-4;
             }
             
-            szstr = BinaryDataRef(mas.filemap_ + pos, 4);
+            szstr = BinaryDataRef(fm.filemap_ + pos, 4);
             pos += 4;
             uint32_t blkSize = READ_UINT32_LE(szstr.getPtr());
-            if(pos >= f.filesize) 
+            if (pos >= fm.mapsize_)
                break;
 
-            rawBlk = BinaryDataRef(mas.filemap_ +pos, blkSize);
+            rawBlk = BinaryDataRef(fm.filemap_ + pos, blkSize);
             pos += blkSize;
             
             try
             {
-               blockDataCallback(rawBlk, { f.fnum, pos - blkSize }, blkSize);
+               blockDataCallback(rawBlk, { f, pos - blkSize }, blkSize);
             }
             catch (std::exception &e)
             {
@@ -471,77 +420,85 @@ private:
                // blkdata past where we loaded headers. This isn't a problem
                LOGERR << e.what() << " (error encountered processing block at byte "
                   << blockFileOffset << " file "
-                  << f.path << ", blocksize " << blkSize << ")";
+                  << blkFile.path << ", blocksize " << blkSize << ")";
             }
             blockFileOffset = pos;
          }
       }
       
       LOGINFO << "Reading raw blocks finished at file "
-         << f.fnum << " offset " << blockFileOffset;
+         << f << " offset " << blockFileOffset;
       
-      unmapFile(mas);
+      bfa.dropFileMap(f);
       return blockFileOffset;
    }
    
    uint64_t readHeadersFromFile(
-      const BlkFile &f,
+      BlockFileAccessor &bfa,
+      uint32_t fnum,
       uint64_t blockFileOffset,
       const function<void(
-         const BinaryData &,
+         const BinaryDataRef &,
          const BlockFilePosition &pos,
          uint32_t blksize
       )> &blockDataCallback
    ) const
    {
-      ifstream is(f.path, ios::binary);
-      {
-         BinaryData fileMagic(4);
-         is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
+      shared_ptr<FileMap> fmPtr = bfa.getFileMap(fnum);
+      FileMap& fm = *fmPtr;
+      BlkFile& blkFile = (*blkFiles_)[fnum];
 
+      uint64_t pos = blockFileOffset;
+
+      {
+         BinaryDataRef fileMagic(fm.filemap_, 4);
          if( fileMagic != magicBytes_)
          {
             std::ostringstream ss;
-            ss << "Block file '" << f.path << "' is the wrong network! File: "
+            ss << "Block file '" << blkFile.path << "' is the wrong network! File: "
                << fileMagic.toHexStr()
                << ", expecting " << magicBytes_.toHexStr();
             throw runtime_error(ss.str());
          }
       }
-      is.seekg(blockFileOffset, ios::beg);
       
       {
          const uint32_t HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
-         BinaryData magic(4), szstr(4), rawHead(HEAD_AND_NTX_SZ);
-         while(!is.eof())
+         BinaryDataRef magic, szstr, rawHead; // (HEAD_AND_NTX_SZ);
+         while(!pos < fm.mapsize_)
          {
-            is.read((char*)magic.getPtr(), 4);
-            if (is.eof())
+            magic = BinaryDataRef(fm.filemap_ + pos, 4);
+            pos += 4;
+            if (pos >= fm.mapsize_)
                break;
                
             if(magic != magicBytes_)
             {
                // I have to start scanning for MagicBytes
-               if (!scanFor(is, magicBytes_.getPtr(), magicBytes_.getSize()))
-               {
+               auto offset = scanFor(fm.filemap_ + pos, fm.mapsize_ - pos,
+                  magicBytes_.getPtr(), magicBytes_.getSize());
+               if (offset == UINT64_MAX)
                   break;
-               }
                
-               LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
+               pos += offset + 4;
+               LOGERR << "Next block header found at offset " << uint64_t(pos)-4;
             }
             
-            is.read(reinterpret_cast<char*>(szstr.getPtr()), 4);
+            szstr = BinaryDataRef(fm.filemap_ + pos, 4);
+            pos += 4;
             uint32_t nextBlkSize = READ_UINT32_LE(szstr.getPtr());
-            if(is.eof()) break;
+            if(pos >= fm.mapsize_) 
+               break;
 
-            is.read(reinterpret_cast<char*>(rawHead.getPtr()), HEAD_AND_NTX_SZ); // plus #tx var_int
-            blockDataCallback(rawHead, { f.fnum, blockFileOffset }, nextBlkSize);
+            rawHead = BinaryDataRef(fm.filemap_ + pos, HEAD_AND_NTX_SZ); // plus #tx var_int
+            blockDataCallback(rawHead, { fnum, blockFileOffset }, nextBlkSize);
             
             blockFileOffset += nextBlkSize+8;
-            is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
+            pos = blockFileOffset;
          }
       }
       
+      bfa.dropFileMap(fnum);
       return blockFileOffset;
    }
       
@@ -1335,8 +1292,7 @@ void BlockDataManager_LevelDB::loadBlockData(
    const auto blockCallback
       = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
       {
-         LMDBEnv::Transaction tx;
-         iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
+         LMDBEnv::Transaction (iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
          BinaryRefReader brr(blockdata);
          addRawBlockToDB(brr, pos.first, pos.second, updateDupID);
@@ -1510,119 +1466,25 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 // Deletes all SSH entries in the database
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
-   //LOGINFO << "Clearing all SSH";
-   if (config_.armoryDbType != ARMORY_DB_SUPER)
-   {
-      wipeHistoryAndHintDB();
-      return;
-   }
+   LOGWARN << "Clearing history";
 
-   LMDBEnv::Transaction tx;
-   iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   LMDBEnv::Transaction txhist(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(HISTORY, sdbi);
 
    sdbi.appliedToHgt_ = 0;
    sdbi.topScannedBlkHash_ = BinaryData(0);
+
+   iface_->dbs_[HISTORY].drop();
    iface_->putStoredDBInfo(HISTORY, sdbi);
-   //////////
 
-   bool done = false;
-   uint32_t i=0;
-   //can't iterate and delete at the same time with LMDB
-   vector<BinaryData> keysToDelete;
+   if (config_.armoryDbType != ARMORY_DB_SUPER)
+      iface_->dbs_[TXHINTS].drop();
 
-   while (!done)
-   {
-      bool recycle = false;
-
-      {
-         LDBIter ldbIter(iface_->getIterator(HISTORY));
-
-         try
-         {
-            if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
-            {
-               done = true;
-               break;
-            }
-         }
-         catch (exception &e)
-         {
-            LOGERR << "iter recycling snafu";
-            LOGERR << e.what();
-            done = true;
-            break;
-         }
-
-         do
-         {
-            if ((++i % 10000) == 0)
-            {
-               recycle = true;
-               break;
-            }
-
-            BinaryData key = ldbIter.getKey();
-
-            if (key.getSize() == 0)
-            {
-               done = true;
-               break;
-            }
-
-            if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
-            {
-               done = true;
-               break;
-            }
-
-            keysToDelete.push_back(key);
-         } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
-      }
-
-      for (auto& keytodel : keysToDelete)
-         iface_->deleteValue(HISTORY, keytodel);
-
-      keysToDelete.clear();
-
-      if (!recycle)
-      {
-         break;
-      }
-
-      tx.commit();
-      tx.begin();
-   }
-
-   for (auto& keytodel : keysToDelete)
-      iface_->deleteValue(HISTORY, keytodel);
-
-   if (i)
-      LOGINFO << "Deleted " << i << " SSH and subSSH entries";
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::wipeHistoryAndHintDB()
-{
-   { 
-      LMDBEnv::Transaction tx;
-      iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
-
-      StoredDBInfo sdbi;
-      iface_->getStoredDBInfo(HISTORY, sdbi);
-
-      sdbi.appliedToHgt_ = 0;
-      sdbi.topScannedBlkHash_ = BinaryData(0);
-
-      iface_->dbs_[HISTORY].drop();
-      iface_->putStoredDBInfo(HISTORY, sdbi);
-   }
-
-   LMDBEnv::Transaction tx;
-   iface_->beginDBTransaction(&tx, TXHINTS, LMDB::ReadWrite);
-   iface_->dbs_[TXHINTS].drop();
+   iface_->dbs_[STXO].drop();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1689,6 +1551,8 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    // and dupID
    if (config().armoryDbType == ARMORY_DB_SUPER)
    {
+      LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
+
       StoredHeader sbh;
       try
       {
@@ -1715,7 +1579,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
                + bh.getThisHash().copySwapEndian().toHexStr() + ")"
                );
 
-            iface_->putStoredHeader(sbh, true);
+            iface_->putStoredHeader(sbh, fnum, offset, true, updateDupID, true);
             missingBlockHashes_.push_back(sbh.thisHash_);
             throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid (hash="
                + bh.getThisHash().copySwapEndian().toHexStr() + ")"
@@ -1740,7 +1604,8 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
             + bh.getThisHash().copySwapEndian().toHexStr() + ")"
             );
       }
-      iface_->putStoredHeader(sbh, true, updateDupID);
+
+      iface_->putStoredHeader(sbh, fnum, offset, true, updateDupID, true);
    }
    else
    {
@@ -1930,4 +1795,143 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
       blkDataPosition_ = { 0, 0 };
    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+///
+/// FileMap
+///
+////////////////////////////////////////////////////////////////////////////////
+FileMap::FileMap(BlkFile& blk)
+{
+   lastSeenCumulated_.store(0, memory_order_relaxed);
+   fnum_ = blk.fnum;
+#ifdef WIN32
+   int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
+   if (fd == -1)
+      throw std::runtime_error("failed to open file");
+
+   mapsize_ = blk.filesize;
+   filemap_ = (uint8_t*)malloc(mapsize_);
+   _read(fd, filemap_, mapsize_);
+   _close(fd);
+#else
+   int fd = open(blk.path.c_str(), O_RDONLY);
+   if (fd == -1)
+      throw std::runtime_error("failed to open file");
+
+   mapsize_ = blk.filesize;
+   filemap_ = (uint8_t*)malloc(mapsize_);
+   read(fd, filemap_, mapsize_);
+
+   close(fd);
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+FileMap::FileMap(FileMap&& fm)
+{
+   this->filemap_ = fm.filemap_;
+   this->mapsize_ = fm.mapsize_;
+   lastSeenCumulated_.store(0, memory_order_relaxed);
+
+   fnum_ = fm.fnum_;
+   fm.filemap_ = nullptr;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+FileMap::~FileMap()
+{
+   if (filemap_ != nullptr)
+      free(filemap_);
+
+   filemap_ = nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void FileMap::getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
+   atomic<uint64_t>& lastSeenCumulative)
+{
+   bdr.setRef(filemap_ + offset, size);
+
+   lastSeenCumulated_.store(
+      lastSeenCumulative.fetch_add(size, memory_order_relaxed) + size,
+      memory_order_relaxed);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+///
+/// BlockFileAccessor
+///
+////////////////////////////////////////////////////////////////////////////////
+BlockFileAccessor::BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
+: blkFiles_(blkfiles)
+{
+   lastSeenCumulative_.store(0, memory_order_relaxed);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockFileAccessor::getRawBlock(BinaryDataRef& bdr, uint32_t fnum, 
+   uint64_t offset, uint32_t size, shared_ptr<FileMap>** fmPtr)
+{
+   shared_ptr<FileMap>* fmptr;
+   if (fmPtr != nullptr && *fmPtr != nullptr && **fmPtr != nullptr)
+      fmptr = *fmPtr;
+   else
+      fmptr = &getFileMap(fnum);
+
+   (*fmptr)->getRawBlock(bdr, offset, size, lastSeenCumulative_);
+   *fmPtr = fmptr;
+
+   //clean up maps that haven't been used for a while
+   if (lastSeenCumulative_.load(memory_order_relaxed) >= nextThreshold_)
+   {
+      unique_lock<mutex> lock(mu_);
+      auto mapIter = blkMaps_.begin();
+
+      while (mapIter != blkMaps_.end())
+      {
+         if (mapIter->second->lastSeenCumulated_ + threshold_ <
+            lastSeenCumulative_.load(memory_order_relaxed))
+         {
+            if (mapIter->second.use_count() == 1)
+            {
+               blkMaps_.erase(mapIter++);
+               continue;
+            }
+         }
+
+         ++mapIter;
+      }
+
+      nextThreshold_ =
+         lastSeenCumulative_.load(memory_order_relaxed) + threshold_;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<FileMap>& BlockFileAccessor::getFileMap(uint32_t fnum)
+{
+   unique_lock<mutex> lock(mu_);
+
+   auto mapIter = blkMaps_.find(fnum);
+   if (mapIter == blkMaps_.end())
+   {
+      shared_ptr<FileMap> fm(new FileMap((*blkFiles_)[fnum]));
+      auto result = blkMaps_.insert(make_pair(fnum, fm));
+      mapIter = result.first;
+   }
+
+   return mapIter->second;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockFileAccessor::dropFileMap(uint32_t fnum)
+{
+   unique_lock<mutex> lock(mu_);
+   blkMaps_.erase(fnum);
+}
+
+
+
 // kate: indent-width 3; replace-tabs on;
