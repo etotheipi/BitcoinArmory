@@ -831,7 +831,8 @@ class SendBitcoinsFrame(ArmoryFrame):
             utxoList = []
             for a160 in self.sourceAddrList:
                # Trying to avoid a swig bug involving iteration over vector<> types
-               utxos = self.wlt.getAddrTxOutList(a160)
+               cppAddr = self.wlt.getCppAddr(a160)
+               utxos = cppAddr.getSpendableTxOutList(IGNOREZC)
                for i in range(len(utxos)):
                   utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
             return utxoList

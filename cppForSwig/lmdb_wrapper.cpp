@@ -1117,44 +1117,35 @@ bool LMDBBlockDatabase::getFullUTXOMapForSSH(
       return false;
 
    LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, BLKDATA, LMDB::ReadOnly);
+   beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
-   if (armoryDbType_ == ARMORY_DB_SUPER)
    {
-      map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
-      map<BinaryData, TxIOPair>::iterator iterTxio;
-      for (iterSubSSH = ssh.subHistMap_.begin();
-         iterSubSSH != ssh.subHistMap_.end();
-         iterSubSSH++)
+      for (const auto& ssPair : ssh.subHistMap_)
       {
-         StoredSubHistory & subSSH = iterSubSSH->second;
-         for (iterTxio = subSSH.txioMap_.begin();
-            iterTxio != subSSH.txioMap_.end();
-            iterTxio++)
+         const StoredSubHistory & subSSH = ssPair.second;
+         for (const auto& txioPair : subSSH.txioMap_)
          {
-            TxIOPair & txio = iterTxio->second;
-            StoredTx stx;
-            BinaryData txoKey = txio.getDBKeyOfOutput();
-            BinaryData txKey = txio.getTxRefOfOutput().getDBKey();
-            uint16_t txoIdx = txio.getIndexOfOutput();
-            getStoredTx(stx, txKey);
+            const TxIOPair & txio = txioPair.second;
+            if (txio.isUTXO())
+            {
+               BinaryData txoKey = txio.getDBKeyOfOutput();
+               BinaryData txKey = txio.getTxRefOfOutput().getDBKey();
+               uint16_t txoIdx = txio.getIndexOfOutput();
 
-            StoredTxOut & stxo = stx.stxoMap_[txoIdx];
-            if (stxo.isSpent())
-               continue;
 
-            mapToFill[txoKey] = UnspentTxOut(
-               stx.thisHash_,
-               txoIdx,
-               stx.blockHeight_,
-               txio.getValue(),
-               stx.stxoMap_[txoIdx].getScriptRef());
+               StoredTxOut stxo;
+               getStoredTxOut(stxo, txoKey);
+               BinaryData txHash = getTxHashForLdbKey(txKey);
+
+               mapToFill[txoKey] = UnspentTxOut(
+                  txHash,
+                  txoIdx,
+                  stxo.blockHeight_,
+                  txio.getValue(),
+                  stxo.getScriptRef());
+            }
          }
       }
-   }
-   else
-   {
-      //fullnode version
    }
 
    return true;
