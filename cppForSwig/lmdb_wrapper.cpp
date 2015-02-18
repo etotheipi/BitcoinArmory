@@ -1117,7 +1117,7 @@ bool LMDBBlockDatabase::getFullUTXOMapForSSH(
       return false;
 
    LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
 
    {
       for (const auto& ssPair : ssh.subHistMap_)
