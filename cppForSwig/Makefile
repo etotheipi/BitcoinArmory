@@ -42,7 +42,7 @@ endif
 
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -classic -threads
+SWIG_OPTS    += -c++ -python -py3 -threads
 
 SWIG_INC     += 
 
@@ -70,7 +70,7 @@ all: ../_CppBlockUtils.so ../qrc_img_resources.py
 	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
-	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
+	pyrcc5 -o ../qrc_img_resources.py ../imgList.xml
 
 
 #**************************************************************************

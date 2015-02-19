@@ -194,7 +194,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.lblCoinCtrl = QRichLabel('Source: All addresses', doWrap=False)
          frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
          self.btnCoinCtrl = QPushButton('Coin Control')
-         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
+         self.connect(self.btnCoinCtrl, SIGNAL(clicked()), self.doCoinCtrl)
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
       frmLayout.setColumnStretch(0, 1)
       frmLayout.setColumnStretch(1, 1)
@@ -638,13 +638,13 @@ class WalletBackupFrame(ArmoryFrame):
       btngrpDig.addButton(self.optDigitalBackupCrypt)
       btngrpDig.setExclusive(True)
 
-      self.connect(self.optPaperBackupTop, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optPaperBackupOne, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optPaperBackupFrag, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optDigitalBackupTop, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optDigitalBackupPlain, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optDigitalBackupCrypt, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optIndivKeyListTop, SIGNAL(CLICKED), self.optionClicked)
+      self.connect(self.optPaperBackupTop, SIGNAL(clicked()), self.optionClicked)
+      self.connect(self.optPaperBackupOne, SIGNAL(clicked()), self.optionClicked)
+      self.connect(self.optPaperBackupFrag, SIGNAL(clicked()), self.optionClicked)
+      self.connect(self.optDigitalBackupTop, SIGNAL(clicked()), self.optionClicked)
+      self.connect(self.optDigitalBackupPlain, SIGNAL(clicked()), self.optionClicked)
+      self.connect(self.optDigitalBackupCrypt, SIGNAL(clicked()), self.optionClicked)
+      self.connect(self.optIndivKeyListTop, SIGNAL(clicked()), self.optionClicked)
 
 
       spacer = lambda: QSpacerItem(20, 1, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -750,7 +750,7 @@ class WalletBackupFrame(ArmoryFrame):
       self.lblDescrSelected.setMinimumHeight(tightSizeNChar(self, 10)[1] * 8)
 
       self.btnDoIt = QPushButton('Create Backup')
-      self.connect(self.btnDoIt, SIGNAL(CLICKED), self.clickedDoIt)
+      self.connect(self.btnDoIt, SIGNAL(clicked()), self.clickedDoIt)
 
       layout = QGridLayout()
       layout.addWidget(self.lblTitle, 0, 0, 1, 2)
@@ -1019,7 +1019,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
                Use the "<i>Import or Restore Wallet</i>" button in the
                upper-right corner"""))
       lbtnForkWlt = QPushButton('Create Watching-Only Copy')
-      self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
+      self.connect(lbtnForkWlt, SIGNAL(clicked()), self.forkOnlineWallet)
       layout = QVBoxLayout()
       layout.addWidget(summaryText)
       layout.addWidget(lbtnForkWlt)
@@ -1041,6 +1041,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
    def setWallet(self, wlt):
       self.wlt = wlt
       
-# Need to put circular imports at the end of the script to avoid an import deadlock
-from qtdialogs import CLICKED, DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
+# Need to put circular imports at the end of the script to avoid an import
+# deadlock
+from qtdialogs import DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
    QRadioButtonBackupCtr, OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList

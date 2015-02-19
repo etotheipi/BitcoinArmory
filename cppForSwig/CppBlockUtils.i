@@ -93,20 +93,20 @@ namespace std
 /* Convert Python(str) to C++(BinaryData) */
 %typemap(in) BinaryData
 {
-   if(!PyString_Check($input))
+   if(!PyBytes_Check($input))
    {
       PyErr_SetString(PyExc_ValueError, "Expected string argument!");
       return NULL;
    }
    
-   $1 = BinaryData((uint8_t*)PyString_AsString($input), PyString_Size($input));
+   $1 = BinaryData((uint8_t*)PyBytes_AsString($input), PyBytes_Size($input));
 }
 
 /******************************************************************************/
 /* Convert C++(BinaryData) to Python(str) */
 %typemap(out) BinaryData
 {
-   $result = PyString_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
+   $result = PyBytes_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
 }
 
 /* Convert C++(const BinaryDataRef) to Python(str) */
@@ -123,12 +123,12 @@ namespace std
 */
 %typemap(in) BinaryData const & (BinaryData bdObj)
 {
-   if(!PyString_Check($input))
+   if(!PyBytes_Check($input))
    {
       PyErr_SetString(PyExc_ValueError, "Expected string argument!");
       return NULL;
    }
-   bdObj.copyFrom((uint8_t*)PyString_AsString($input), PyString_Size($input));
+   bdObj.copyFrom((uint8_t*)PyBytes_AsString($input), PyBytes_Size($input));
    $1 = &bdObj;
 }
 
@@ -136,7 +136,7 @@ namespace std
 /* Convert C++(BinaryData const &) to Python(str) */
 %typemap(out) BinaryData const & 
 {
-   $result = PyString_FromStringAndSize((char*)($1->getPtr()), $1->getSize());
+   $result = PyBytes_FromStringAndSize((char*)($1->getPtr()), $1->getSize());
 }
 
 /******************************************************************************/
@@ -147,7 +147,7 @@ namespace std
 	{
 		PyObject* strobj = PyList_GetItem($input, i);
 		
-		BinaryData bdStr((uint8_t*)PyString_AsString(strobj), PyString_Size(strobj));
+		BinaryData bdStr((uint8_t*)PyBytes_AsString(strobj), PyBytes_Size(strobj));
 
 		bdObjVec.push_back(bdStr);
 	}
@@ -167,7 +167,7 @@ namespace std
 	{
 		BinaryData & bdobj = (*bdIter);
 		
-		PyObject* thisPyObj = PyString_FromStringAndSize((char*)(bdobj.getPtr()), bdobj.getSize());
+		PyObject* thisPyObj = PyBytes_FromStringAndSize((char*)(bdobj.getPtr()), bdobj.getSize());
 
 		PyList_SET_ITEM(thisList, i, thisPyObj);
 
@@ -190,7 +190,7 @@ namespace std
 	{
 		auto& bdobj = (*bdIter);
 		
-		PyObject* thisPyObj = PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+		PyObject* thisPyObj = PyBytes_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
 
 		PyList_SET_ITEM(thisList, i, thisPyObj);
 
@@ -209,14 +209,14 @@ namespace std
 
 	while(PyDict_Next($input, &pos, &key, &value))
 	{
-		BinaryData wltIDStr((uint8_t*)PyString_AsString(key), PyString_Size(key));
+		BinaryData wltIDStr((uint8_t*)PyBytes_AsString(key), PyBytes_Size(key));
 		std::vector<BinaryData> bdObjVec;
 
 		for(int i=0; i<PyList_Size(value); i++)
 		{
 			PyObject* strobj = PyList_GetItem(value, i);
 		
-			BinaryData bdStr((uint8_t*)PyString_AsString(strobj), PyString_Size(strobj));
+			BinaryData bdStr((uint8_t*)PyBytes_AsString(strobj), PyBytes_Size(strobj));
 
 			bdObjVec.push_back(bdStr);
 		}
