@@ -441,7 +441,7 @@ private:
             if(magic != magicBytes_)
             {
                // start scanning for MagicBytes
-               uint64_t offset = scanFor(mas.filemap_ + pos, f.filesize,
+               uint64_t offset = scanFor(mas.filemap_ + pos, f.filesize - pos,
                   magicBytes_.getPtr(), magicBytes_.getSize());
                if (offset == UINT64_MAX)
                {
