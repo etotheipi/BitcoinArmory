@@ -8996,7 +8996,7 @@ class DlgSettings(ArmoryDialog):
       if OS_MACOSX:
          osxMinorVer = OS_VARIANT[0].split(".")[1]
 
-      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
+      lblNotify = QRichLabel('<b>Enable notifications from the system-tray:</b>')
       self.chkBtcIn = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
       self.chkDiscon = QCheckBox('Bitcoin-Qt/bitcoind disconnected')
