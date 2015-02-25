@@ -35,9 +35,12 @@ void BlockWriteBatcher::getSshHeader(
    StoredScriptHistory& ssh, const BinaryData& uniqKey) const
 {
    iface_->getStoredScriptHistorySummary(ssh, uniqKey);
-
-   ssh.getSubKey(iface_);
-   
+   if (ssh.dbPrefix_.getSize() == 0)
+   {
+      auto func = [this](BinaryDataRef uniqKey)->BinaryData
+      { return this->iface_->getSubSSHKey(uniqKey); };
+      ssh.getSubKeyFromDB(func);
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -3594,51 +3594,90 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey) const
+BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey)
 {
    //no prefix yet, build it
 
-   uint32_t prefixLength = 1;
+   uint32_t keyLength = 5;
    StoredSubHistory subssh;
 
    while (1)
    {
-      uint64_t maxVal = 256 ^ prefixLength - 1;
-      BinaryData key(prefixLength);
+      if (uniqKey.getSize() < keyLength - 1)
+         throw runtime_error("key is too short");
+
+      BinaryData key(keyLength);
       BinaryData lastKey;
 
-      size_t keyLength = prefixLength + 4;
-
       memset(key.getPtr(), 0, key.getSize());
-      key.append(uniqKey);
+      memcpy(key.getPtr() + 1, uniqKey.getPtr(), keyLength - 1);
+         
+      LMDBEnv::Transaction tx;
+      getSubSSHDBTransaction(tx, keyLength, LMDB::ReadOnly);
 
-      LDBIter ldbIter = getIterator(prefixLength);
-      ldbIter.seekTo(key);
+      LDBIter ldbIter = getSubSSHIterator(keyLength);
+      if (!ldbIter.seekToExact(key))
+         return key;
+
+      //check if there is no 0xFF entry?
 
       do
       {
-         if (ldbIter.getKeyRef().getSize() != prefixLength + 4)
+         if (ldbIter.getKeyRef().getSize() != keyLength)
             continue;
 
          BinaryDataRef keyRef = ldbIter.getKeyRef();
-         if (keyRef.getSliceCopy(prefixLength, 4) != uniqKey)
+         if (keyRef.getSliceCopy(1, keyLength -1) != uniqKey)
          {
             if (lastKey.getSize())
                return key;
 
-            BinaryDataRef bdr(key.getSliceRef(0, prefixLength);
-            if (!bdr.incrementBE())
+            uint8_t prefix = uint8_t(keyRef.getPtr()[0]);
+            if (prefix == 0xFF)
                break;
 
+            prefix++;
+            key.getPtr()[0] = prefix;
             return key;
          }
 
+         //check if subssh header carries our full uniqKey?
          lastKey = keyRef;
-      } while (!ldbIter.advance());
+      } 
+      while (ldbIter.advance());
 
-      prefixLength++;
+      keyLength++;
    }
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::getSubSSHDBTransaction(
+   LMDBEnv::Transaction& tx, uint32_t prefixLength,
+   LMDB::Mode mode)
+{
+   if (prefixLength >= SUBSSHDB_PREFIX_COUNT)
+      throw runtime_error("bad subsshdb descriptor");
+
+   if (!subSSHDBEnv_[prefixLength].isOpen())
+   {
+      subSSHDBEnv_[prefixLength].open(getSubSSHDBFile(prefixLength));
+
+      LMDBEnv::Transaction tx(&subSSHDBEnv_[prefixLength], LMDB::ReadWrite);
+      stringstream ss;
+      ss << "subssh" << prefixLength;
+      subSSHDBs_[prefixLength].open(&subSSHDBEnv_[prefixLength], ss.str());
+   }
+
+   tx = move(LMDBEnv::Transaction(&subSSHDBEnv_[prefixLength], mode));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string LMDBBlockDatabase::getSubSSHDBFile(uint32_t prefixLength) const
+{
+   stringstream ss;
+   ss << baseDir_ << "subssh" << prefixLength;
+   return ss.str();
 }
 
 /*

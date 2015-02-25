@@ -71,6 +71,8 @@ enum DB_SELECT
    COUNT
 };
 
+#define SUBSSHDB_PREFIX_COUNT 16
+
 
 enum TX_SERIALIZE_TYPE
 {
@@ -650,7 +652,8 @@ public:
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
-   BinaryData    getSubKey(function<BinaryData(BinaryDataRef)> getSubKey);
+   BinaryData    getSubKey() const;
+   BinaryData    getSubKeyFromDB(function<BinaryData(BinaryDataRef)> getSubKey);
    SCRIPT_PREFIX getScriptType(void) const;
 
    void pprintOneLine(uint32_t indent=3);
@@ -677,8 +680,9 @@ public:
    uint32_t       alreadyScannedUpToBlk_;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
-   BinaryData     dbPrefix_;
-
+   
+   uint8_t        dbPrefix_ = 0;
+   uint8_t        keyLength_ = 0;
 
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.

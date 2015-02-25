@@ -1305,7 +1305,8 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
 
-   dbPrefix_ = brr.get_BinaryData(brr.getSizeRemaining());
+   dbPrefix_ = brr.get_uint8_t();
+   keyLength_ = brr.get_uint8_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1326,7 +1327,8 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bw.put_uint64_t(totalUnspent_);
 
    //
-   bw.put_BinaryData(dbPrefix_);
+   bw.put_uint8_t(dbPrefix_);
+   bw.put_uint8_t(keyLength_);
 }
 
 
@@ -1356,17 +1358,36 @@ BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredScriptHistory::getSubKey(
-   function<BinaryData(BinaryDataRef)> getSubKey)
+BinaryData StoredScriptHistory::getSubKey() const
 {
-   if (dbPrefix_.getSize() == 0)
-      dbPrefix_ = getSubKey(uniqueKey_.getSliceRef(1, 4));
+   if (keyLength_ == 0 || keyLength_ > uniqueKey_.getSize())
+      return BinaryData();
 
-   BinaryData key(dbPrefix_);
-   key.append(uniqueKey_.getSliceRef(1, 4));
+   BinaryData key(keyLength_ +1);
+   key.getPtr()[0] = dbPrefix_;
+   memcpy(key.getPtr() + 1, uniqueKey_.getPtr(), keyLength_);
 
    return key;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredScriptHistory::getSubKeyFromDB(
+   function<BinaryData(BinaryDataRef)> getSubKey)
+{
+   if (keyLength_ == 0)
+   {
+      BinaryData key = getSubKey(uniqueKey_);
+      dbPrefix_ = key.getPtr()[0];
+      return key;
+   }
+
+   BinaryData key(keyLength_ + 1);
+   key.getPtr()[0] = dbPrefix_;
+   memcpy(key.getPtr() + 1, uniqueKey_.getPtr(), keyLength_);
+
+   return key;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 SCRIPT_PREFIX StoredScriptHistory::getScriptType(void) const

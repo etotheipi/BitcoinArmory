@@ -245,11 +245,11 @@ public:
    class Transaction;
 
 private:
-   MDB_env *dbenv=nullptr;
+   MDB_env *dbenv = nullptr;
 
    std::mutex threadTxMutex_;
    std::unordered_map<pthread_t, LMDBThreadTxInfo> txForThreads_;
-   
+
    friend class LMDB;
 
 public:
@@ -257,12 +257,12 @@ public:
    {
       friend class LMDB;
 
-      LMDBEnv *env=nullptr;
-      bool began=false;
+      LMDBEnv *env = nullptr;
+      bool began = false;
       LMDB::Mode mode_;
-      
+
    public:
-      
+
       Transaction() { }
       // begin a transaction
       Transaction(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
@@ -270,10 +270,10 @@ public:
       ~Transaction();
 
       Transaction& operator=(Transaction&& mv);
-      
+
       // commit the current transaction, create a new one, and begin it
       void open(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
-      
+
       // commit a transaction, if it exists, doing nothing otherwise.
       // after this function completes, no transaction exists
       void commit();
@@ -290,9 +290,10 @@ public:
 
    LMDBEnv() { }
    ~LMDBEnv();
-   
+
    // open a database by filename
    void open(const char *filename);
+   bool isOpen() { return (dbenv != nullptr); }
    void open(const std::string &filename)
       { open(filename.c_str()); }
 

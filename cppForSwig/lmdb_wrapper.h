@@ -284,6 +284,11 @@ public:
       return dbs_[db].begin();
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   LDBIter getSubSSHIterator(uint32_t db) const
+   {
+      return subSSHDBs_[db].begin();
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
@@ -650,7 +655,8 @@ public:
    shared_ptr<vector<BlkFile>> getBlkFiles(void) const
    { return blkFiles_; }
 
-   BinaryData getSubSSHKey(BinaryDataRef uniqKey) const;
+   BinaryData getSubSSHKey(BinaryDataRef uniqKey);
+   void getSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode);
 
 private:
    string               baseDir_;
@@ -663,6 +669,8 @@ private:
    string dbZeroconfFilename() const { return baseDir_ + "/zeroconf"; }
    string dbSpentnessFilename() const { return baseDir_ + "/spentness"; }
 
+   string getSubSSHDBFile(uint32_t prefixLength) const;
+
    BinaryData genesisBlkHash_;
    BinaryData genesisTxHash_;
    BinaryData magicBytes_;
@@ -674,6 +682,9 @@ public:
 
    mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
    mutable LMDB dbs_[COUNT];
+
+   mutable LMDBEnv subSSHDBEnv_[16];
+   mutable LMDB subSSHDBs_[16];
 
 private:
    bool                 dbIsOpen_;
