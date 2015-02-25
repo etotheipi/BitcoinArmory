@@ -628,8 +628,10 @@ class ArmoryMainWindow(QMainWindow):
 
       actExportTx    = self.createAction('&Export Transactions...', exportTx)
       actSettings    = self.createAction('&Settings...', self.openSettings)
-      actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
-      actExportLog   = self.createAction('Export &Log File...', self.exportLogFile)
+      actMinimApp    = self.createAction('&Minimize to System Tray',
+                                         self.minimizeArmory)
+      actExportLog   = self.createAction('Export &Log File...',
+                                         self.exportLogFile)
       actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
