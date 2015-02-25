@@ -798,12 +798,6 @@ void BlockDataManager_LevelDB::openDatabase()
       ss << "DB failed to open, reporting the following error: " << e.what();
       throw runtime_error(ss.str());
    }
-   catch (LMDBException &e)
-   {
-      stringstream ss;
-      ss << "DB failed to open, reporting the following error: " << e.what();
-      throw runtime_error(ss.str());
-   }
    catch (...)
    {
       stringstream ss;

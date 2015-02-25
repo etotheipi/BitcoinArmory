@@ -395,14 +395,14 @@ void LMDBBlockDatabase::openDatabases(
             genesisBlkHash, genesisTxHash,
             magic, dbtype, pruneType);
       }
-      catch (runtime_error &e)
-      {
-         throw e;
-      }
       catch (LMDBException &e)
       {
          LOGERR << "Exception thrown while opening database";
          LOGERR << e.what();
+         throw e;
+      }
+      catch (runtime_error &e)
+      {
          throw e;
       }
       catch (...)
