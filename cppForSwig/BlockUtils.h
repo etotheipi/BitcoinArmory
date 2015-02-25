@@ -109,6 +109,12 @@ public:
       atomic<uint64_t>& lastSeenCumulative);
 };
 
+struct FileMapContainer
+{
+   shared_ptr<FileMap> current_;
+   shared_ptr<FileMap>* prev_ = nullptr;
+};
+
 class BlockFileAccessor
 {
 private:
@@ -126,7 +132,7 @@ public:
    BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles);
 
    void getRawBlock(BinaryDataRef& bdr, uint32_t fnum, uint64_t offset,
-      uint32_t size, shared_ptr<FileMap>** fmPtr);
+      uint32_t size, FileMapContainer* fmpPtr = nullptr);
 
    shared_ptr<FileMap>& getFileMap(uint32_t fnum);
    void dropFileMap(uint32_t fnum);

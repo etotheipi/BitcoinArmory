@@ -38,6 +38,10 @@ struct PulledTx : public DBTx
    BinaryDataRef dataCopy_;
    BinaryData bdDataCopy_;
 
+   //32bytes for the hash and another 2 for the txout id
+   vector<BinaryData> txHash34_;
+
+   bool isCoinbase_ = false;
    ////
    virtual StoredTxOut& initAndGetStxoByIndex(uint16_t index)
    {
@@ -73,6 +77,18 @@ struct PulledTx : public DBTx
 
       brr.get_BinaryData(bdDataCopy_, nbytes);
       dataCopy_.setRef(bdDataCopy_);
+      
+      for (uint32_t i = 0; i < txInIndexes_.size() - 1; i++)
+      {
+         BinaryData opTxHashAndId = 
+            dataCopy_.getSliceCopy(txInIndexes_[i], 32);
+
+         const uint32_t opTxoIdx =
+            READ_UINT32_LE(dataCopy_.getPtr() + txInIndexes_[i] + 32);
+         opTxHashAndId.append(WRITE_UINT16_BE(opTxoIdx));
+
+         txHash34_.push_back(move(opTxHashAndId));
+      }
 
       isFragged_ = isFragged;
       numTxOut_ = (uint16_t)offsetsOut.size() - 1;
@@ -83,7 +99,7 @@ struct PulledTx : public DBTx
       {
          fragBytes_ = nbytes;
          numBytes_ = UINT32_MAX;
-   }
+      }
       else
       {
          numBytes_ = nbytes;
@@ -116,8 +132,7 @@ struct PulledBlock : public DBBlock
 {
    map<uint16_t, PulledTx> stxMap_;
    shared_ptr<PulledBlock> nextBlock_ = nullptr;
-   shared_ptr<FileMap> fileMapPtr_;
-   shared_ptr<FileMap>* prevMapPtr_ = nullptr;
+   FileMapContainer fmp_;
 
    ////
    PulledBlock(void) : DBBlock() {}
@@ -132,7 +147,7 @@ struct PulledBlock : public DBBlock
       merkle_ = move(pb.merkle_);
       stxMap_ = move(pb.stxMap_);
 
-      fileMapPtr_ = pb.fileMapPtr_;
+      fmp_ = pb.fmp_;
 
       numTx_ = pb.numTx_;
       numBytes_ = pb.numBytes_;
@@ -244,7 +259,7 @@ struct PulledBlock : public DBBlock
          //bdref. If it's NULL, we got this the block data through the regular
          //DB accessor and it will die when pullBlockAtIter scopes out. In this 
          //case, we can't avoid the copy it.
-         if (fileMapPtr_ != nullptr)
+         if (fmp_.current_ != nullptr)
             stx.dataCopy_ = BinaryDataRef(ptr, txSize);
          else
          {
@@ -261,13 +276,20 @@ struct PulledBlock : public DBBlock
          stx.version_ = READ_UINT32_LE(ptr);
          stx.txIndex_ = tx;
 
-         //figure out if this Tx is a coinbase
-         bool isCoinbase = false;
-         brr.resetPosition();
-         brr.advance(txStart + stx.txInIndexes_[0]);
-         BinaryDataRef bdr = brr.get_BinaryDataRef(32);
-         if (bdr == BtcUtils::EmptyHash_)
-            isCoinbase = true;
+         for (uint32_t i = 0; i < stx.txInIndexes_.size() - 1; i++)
+         {
+            BinaryData opTxHashAndId =
+               stx.dataCopy_.getSliceCopy(stx.txInIndexes_[i], 32);
+
+            const uint32_t opTxoIdx =
+               READ_UINT32_LE(stx.dataCopy_.getPtr() + stx.txInIndexes_[i] + 32);
+            opTxHashAndId.append(WRITE_UINT16_BE(opTxoIdx));
+
+            stx.txHash34_.push_back(move(opTxHashAndId));
+         }
+
+         if (stx.txHash34_[0].startsWith(BtcUtils::EmptyHash_))
+            stx.isCoinbase_ = true;
 
          //get the stxo map
          brr.resetPosition();
@@ -285,7 +307,7 @@ struct PulledBlock : public DBBlock
             stxo.duplicateID_ = duplicateID_;
             stxo.txIndex_ = tx;
             stxo.txOutIndex_ = txo;
-            stxo.isCoinbase_ = isCoinbase;
+            stxo.isCoinbase_ = stx.isCoinbase_;
 
             brr.advance(numBytes);
          }
@@ -308,13 +330,17 @@ struct keyHasher
    }
 };
 
+struct STXOS;
+
 struct DataToCommit
 {
    map<BinaryData, BinaryWriter> serializedSubSshToApply_;
    map<BinaryData, BinaryWriter> serializedSshToModify_;
    map<BinaryData, BinaryWriter> serializedStxOutToModify_;
+   map<BinaryData, BinaryWriter> serializedSpentness_;
    map<BinaryData, BinaryWriter> serializedSbhToUpdate_;
    set<BinaryData>               keysToDelete_;
+   set<BinaryData>               spentnessToDelete_;
    
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
@@ -326,7 +352,7 @@ struct DataToCommit
    bool isSerialized_ = false;
    bool sshReady_ = false;
 
-   ARMORY_DB_TYPE dbType_;
+   const ARMORY_DB_TYPE dbType_;
 
    mutex lock_;
 
@@ -335,11 +361,14 @@ struct DataToCommit
       dbType_(dbType)
    {}
 
+   DataToCommit(DataToCommit&&);
+
+   ////
    void serializeData(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
    set<BinaryData> serializeSSH(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
-   void serializeStxo(BlockWriteBatcher& bwb);
+   void serializeStxo(STXOS& stxos);
    void serializeDataToCommit(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
 
@@ -354,26 +383,113 @@ struct DataToCommit
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
 };
 
+struct STXOS
+{
+#if defined(_DEBUG) || defined(DEBUG )
+   //use a tiny update thresholds to trigger multiple commit threads for 
+   //unit tests in debug builds
+   static const uint32_t UTXO_THRESHOLD = 2;
+   static const uint32_t STXO_THRESHOLD = 2;
+#else
+   static const uint32_t UTXO_THRESHOLD = 200000;
+   static const uint32_t STXO_THRESHOLD = 300000;
+#endif
+
+   ///data containers
+   map<BinaryData, shared_ptr<StoredTxOut>> utxoMap_;
+   map<BinaryData, shared_ptr<StoredTxOut>> utxoMapBackup_;
+   vector<shared_ptr<StoredTxOut>>          stxoToUpdate_;
+
+   ///
+   const ARMORY_DB_TYPE dbType_;
+   LMDBBlockDatabase* iface_ = nullptr;
+
+   ///write members
+   DataToCommit dataToCommit_;
+   shared_ptr<mutex> writeMutex_;
+
+   ///transaction syncing and recycling members
+   mutex signalMutex_;
+   condition_variable signalCV_;
+
+   shared_ptr<STXOS> nextStxo_;
+   atomic<bool> resetTxn_;
+   atomic<bool> cleanup_;
+
+   bool waitOnCleanup_ = false;
+
+   LMDBEnv::Transaction dbTxn_;
+
+   ///
+   STXOS(LMDBBlockDatabase* db)
+      : iface_(db), dbType_(db->getDbType()),
+      dataToCommit_(dbType_)
+   {
+      writeMutex_.reset(new mutex());
+   }
+
+   STXOS(const STXOS& parent) :
+      iface_(parent.iface_), dbType_(parent.dbType_),
+      dataToCommit_(dbType_)
+   {
+      writeMutex_ = parent.writeMutex_;
+      
+      resetTxn_.store(false);
+      cleanup_.store(false);
+   }
+
+   ~STXOS(void)
+   {
+      if (waitOnCleanup_)
+         return;
+
+      dbTxn_.commit();
+
+      //signal all left over write threads to cleanup
+      shared_ptr<STXOS> next = nextStxo_;
+      while (next != nullptr)
+      {
+         next->cleanup_.store(true, memory_order_release);
+         next->signalCV_.notify_all();
+
+         next = next->nextStxo_;         
+      }
+   }
+   
+   ///
+   StoredTxOut* lookForUTXOInMap(const BinaryData& txHash);
+   StoredTxOut* makeSureSTXOInMap(LMDBBlockDatabase* iface, BinaryDataRef txHash,
+      uint16_t txoId);
+   
+   void moveStxoToUTXOMap(const shared_ptr<StoredTxOut>& thisTxOut);
+
+   void commit(void);
+   thread commitStxo(bool waitOnCleanup);
+   static void writeStxoToDB(shared_ptr<STXOS>);
+
+   ///
+   void resetTransactions(void);
+   void recycleTxn(void);
+};
+
 class BlockWriteBatcher
 {
    friend struct DataToCommit;
 
 public:
 #if defined(_DEBUG) || defined(DEBUG )
-   //use a tiny update threshold to trigger multiple commit threads for 
+   //use a tiny update thresholds to trigger multiple commit threads for 
    //unit tests in debug builds
    static const uint64_t UPDATE_BYTES_THRESH = 300;
-   static const uint32_t UTXO_THRESHOLD = 5;
-   static const uint32_t STXO_THRESHOLD = 3;
 #else
    static const uint64_t UPDATE_BYTES_THRESH = 50 * 1024 * 1024;
-   static const uint32_t UTXO_THRESHOLD = 100000;
-   static const uint32_t STXO_THRESHOLD = 1000;
 #endif
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
                      LMDBBlockDatabase* iface, 
                      bool forCommit = false);
    ~BlockWriteBatcher();
+
+   BlockWriteBatcher(BlockWriteBatcher&& bwb);
    
    void reorgApplyBlock(uint32_t hgt, uint8_t dup, 
       ScrAddrFilter& scrAddrData, BlockFileAccessor& bfa);
@@ -540,10 +656,8 @@ private:
 
    // We have accumulated enough data, actually write it to the db
    thread commit(bool force = false);
-   thread commitStxo(void);
 
    static void writeToDB(shared_ptr<BlockWriteBatcher>);
-   static void writeStxoToDB(BlockWriteBatcher*);
 
    void prepareSshToModify(const ScrAddrFilter& sasd);
    BinaryData applyBlockToDB(shared_ptr<PulledBlock> pb, ScrAddrFilter& scrAddrData);
@@ -567,22 +681,12 @@ private:
       LMDBBlockDatabase* db, uint32_t threadId);
    BinaryData applyBlocksToDB(ProgressFilter &progress,
       shared_ptr<LoadedBlockData> blockData);
-   void clearSubSshMap(uint32_t id);
 
    bool pullBlockFromDB(PulledBlock& pb,
       uint32_t height, uint8_t dup,
       BlockFileAccessor& bfa);
    static bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
       LMDBBlockDatabase* db, BlockFileAccessor& bfa);
-
-   StoredTxOut* makeSureSTXOInMap(
-      LMDBBlockDatabase* iface,
-      BinaryDataRef txHash,
-      uint16_t txoId);
-
-   StoredTxOut* lookForUTXOInMap(const BinaryData& txHash, const uint16_t& txoId);
-
-   void moveStxoToUTXOMap(const shared_ptr<StoredTxOut>& thisTxOut);
 
    void serializeData(
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap) 
@@ -613,6 +717,8 @@ private:
 
    void getSshHeader(StoredScriptHistory& ssh, const BinaryData& uniqKey) const;
 
+   void resetHistoryTransaction(void);
+
 private:
 
    const BlockDataManagerConfig &config_;
@@ -621,17 +727,12 @@ private:
    // turn off batches by setting this to 0
    uint64_t dbUpdateSize_ = 0;
 
-   map<BinaryData, shared_ptr<StoredTxOut>>  utxoMap_;
-   map<BinaryData, shared_ptr<StoredTxOut>>  utxoMapBackup_;
-   vector<shared_ptr<StoredTxOut> >          stxoToUpdate_;
-
-   map<BinaryData, map<BinaryData, StoredSubHistory> >   subSshMapToWrite_;
+   map<BinaryData, map<BinaryData, StoredSubHistory> > subSshMapToWrite_ ;
    map<BinaryData, map<BinaryData, StoredSubHistory> >   subSshMap_;
    shared_ptr<map<BinaryData, StoredScriptHistory> >     sshToModify_;
    
-   //Supernode only
-   //vector<PulledBlock>                                   sbhToUpdate_;
-   
+   STXOS stxos_;
+
    //Fullnode only
    map<BinaryData, CountAndHint>                         txCountAndHint_;
    
@@ -642,13 +743,13 @@ private:
    uint32_t mostRecentBlockApplied_;
    
    //for the commit thread
-   bool isForCommit_;
+   const bool isForCommit_;
   
    //in reorgs, for reapplying blocks after an undo
    bool forceUpdateSsh_ = false;
 
    //flag db transactions for reset
-   uint32_t resetTxn_ = 0;
+   atomic<shared_ptr<BlockWriteBatcher>*> resetWriterPtr_ = nullptr;
 
    //BWB to flag txn reset on
    BlockWriteBatcher* parent_ = nullptr;
@@ -657,13 +758,12 @@ private:
 
    LMDBEnv::Transaction txn_;
 
-   //for managing SSH in supernode
-   uint32_t commitId_ = 0;
-   uint32_t deleteId_ = 0;
-
    //to sync commits 
    mutex writeLock_;
    bool updateSDBI_ = true;
+
+   atomic<bool> cleanupFlag_ = false;
+   condition_variable signalCleanup_;
 
    //
    bool haveFullUTXOList_ = true;

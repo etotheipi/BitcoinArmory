@@ -929,6 +929,22 @@ public:
       return string((char const *)(&(outStr[0])), 2*nBytes_);
    }
 
+   bool incrementBE(void)
+   {
+      uint8_t* ptr;
+
+      for (size_t i = 0; i < nBytes_; i++)
+      {
+         ptr = const_cast<uint8_t*>(ptr_ + i);
+         if (*ptr == 0xFF)
+            continue;
+
+         *ptr++;
+         return true;
+      }
+
+      return false;
+   }
 
 
 /*

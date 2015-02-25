@@ -256,6 +256,7 @@ public:
    }
    
    BlockFilePosition readRawBlocks(
+      LMDBBlockDatabase* db,
       BlockFilePosition startAt,
       BlockFilePosition stopAt,
       const function<void(
@@ -277,6 +278,11 @@ public:
       uint64_t finishLocation=stopAt.second;
       while (startAt.first <= stopAt.first)
       {
+         LMDBEnv::Transaction txblk(db->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+         LMDBEnv::Transaction txhints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+         LMDBEnv::Transaction txstxo(db->dbEnv_[STXO].get(), LMDB::ReadWrite);
+         LMDBEnv::Transaction txhistory(db->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+
          auto& f = (*blkFiles_)[startAt.first];
          const uint64_t stopAtOffset
             = startAt.first < stopAt.first ? f.filesize : stopAt.second;
@@ -1265,9 +1271,16 @@ void BlockDataManager_LevelDB::loadDiskState(
       
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
+      double bwbdtor = TIMER_READ_SEC("bwbDtor");
       CLEANUP_ALL_TIMERS();
+      LOGINFO << "--- bwbDtor: " << bwbdtor << "s";
       LOGINFO << "Scanned Block range in " << timeElapsed << "s";
    }
+
+   mutex mu;
+   unique_lock<mutex> lock(mu);
+   condition_variable cv;
+   cv.wait(lock);
    
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;
@@ -1305,7 +1318,7 @@ void BlockDataManager_LevelDB::loadBlockData(
    
    LOGINFO << "Loading block data... file "
       << blkDataPosition_.first << " offset " << blkDataPosition_.second;
-   blkDataPosition_ = readBlockHeaders_->readRawBlocks(
+   blkDataPosition_ = readBlockHeaders_->readRawBlocks(iface_,
       blkDataPosition_, stopAt, blockCallback
    );
 }
@@ -1466,25 +1479,7 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 // Deletes all SSH entries in the database
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
-   LOGWARN << "Clearing history";
-
-   LMDBEnv::Transaction txhist(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
-
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(HISTORY, sdbi);
-
-   sdbi.appliedToHgt_ = 0;
-   sdbi.topScannedBlkHash_ = BinaryData(0);
-
-   iface_->dbs_[HISTORY].drop();
-   iface_->putStoredDBInfo(HISTORY, sdbi);
-
-   if (config_.armoryDbType != ARMORY_DB_SUPER)
-      iface_->dbs_[TXHINTS].drop();
-
-   iface_->dbs_[STXO].drop();
+   iface_->cleanUpHistoryInDB();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1872,16 +1867,24 @@ BlockFileAccessor::BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockFileAccessor::getRawBlock(BinaryDataRef& bdr, uint32_t fnum, 
-   uint64_t offset, uint32_t size, shared_ptr<FileMap>** fmPtr)
+   uint64_t offset, uint32_t size, FileMapContainer* fmpPtr)
 {
-   shared_ptr<FileMap>* fmptr;
-   if (fmPtr != nullptr && *fmPtr != nullptr && **fmPtr != nullptr)
-      fmptr = *fmPtr;
-   else
+   shared_ptr<FileMap>* fmptr = nullptr;
+   if (fmpPtr != nullptr &&
+      fmpPtr->prev_ != nullptr &&
+      *fmpPtr->prev_ != nullptr)
+   {
+      if ((*(fmpPtr->prev_))->fnum_ == fnum)
+         fmptr = fmpPtr->prev_;
+   }
+
+   if (fmptr == nullptr)
       fmptr = &getFileMap(fnum);
 
    (*fmptr)->getRawBlock(bdr, offset, size, lastSeenCumulative_);
-   *fmPtr = fmptr;
+   
+   if (fmpPtr!= nullptr)
+      fmpPtr->current_ = *fmptr;
 
    //clean up maps that haven't been used for a while
    if (lastSeenCumulative_.load(memory_order_relaxed) >= nextThreshold_)

@@ -63,7 +63,9 @@ enum DB_SELECT
    HEADERS,
    BLKDATA,
    HISTORY,
+   SUBSSH,
    STXO,
+   SPENTNESS,
    TXHINTS,
    ZEROCONF,
    COUNT
@@ -267,7 +269,7 @@ public:
       txIndex_(UINT16_MAX),
       txOutIndex_(UINT16_MAX),
       parentHash_(0),
-      spentness_(TXOUT_SPENTUNK),
+      spentness_(TXOUT_UNSPENT),
       isCoinbase_(false),
       spentByTxInKey_(0)
    {}
@@ -278,7 +280,7 @@ public:
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
 
-   void       unserializeDBValue(BinaryRefReader &  brr);
+   void unserializeDBValue(BinaryRefReader &  brr);
    void serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
       DB_PRUNE_TYPE pruneType,
       bool forceSaveSpent = false) const;
@@ -568,10 +570,6 @@ public:
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
-   //uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
-
-   //void pprintOneLine(uint32_t indent=3);
-   //void pprintFullSSH(uint32_t indent=3);
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, 
@@ -652,6 +650,7 @@ public:
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
+   BinaryData    getSubKey(function<BinaryData(BinaryDataRef)> getSubKey);
    SCRIPT_PREFIX getScriptType(void) const;
 
    void pprintOneLine(uint32_t indent=3);
@@ -671,11 +670,15 @@ public:
    void insertTxio(const TxIOPair& txio);
    void eraseTxio(const TxIOPair& txio);
 
+
+   /////
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
+   BinaryData     dbPrefix_;
+
 
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.

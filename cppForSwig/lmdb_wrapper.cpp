@@ -459,16 +459,20 @@ void LMDBBlockDatabase::openDatabases(
    dbEnv_[BLKDATA]->open(dbBlkdataFilename());
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
+   dbEnv_[SUBSSH]->open(dbSubsshFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
    dbEnv_[STXO]->open(dbStxoFilename());
+   dbEnv_[SPENTNESS]->open(dbSpentnessFilename());
    dbEnv_[ZEROCONF]->open(dbZeroconfFilename());
 
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS]    = "headers";
    DB_NAMES[HISTORY]    = "history";
+   DB_NAMES[SUBSSH]     = "subssh";
    DB_NAMES[BLKDATA]    = "blocks";
    DB_NAMES[TXHINTS]    = "txhints";
    DB_NAMES[STXO]       = "stxo";
+   DB_NAMES[SPENTNESS]  = "spentness";
    DB_NAMES[ZEROCONF]   = "zeroconf";
 
    try
@@ -480,8 +484,8 @@ void LMDBBlockDatabase::openDatabases(
 
          dbs_[CURRDB].open(dbEnv_[CURRDB].get(), db.second);
 
-         //no SDBI in TXHINTS, STXO and ZEROCONF
-         if (CURRDB == TXHINTS || CURRDB == STXO || CURRDB == ZEROCONF)
+         //no SDBI in TXHINTS, STXO, ZEROCONF and SPENTNESS
+         if (CURRDB != HEADERS && CURRDB != BLKDATA && CURRDB != HISTORY)
             continue;
 
          StoredDBInfo sdbi;
@@ -598,10 +602,12 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    closeDatabases();
    remove(dbHeadersFilename().c_str());
    remove(dbHistoryFilename().c_str());
+   remove(dbSubsshFilename().c_str());
    remove(dbBlkdataFilename().c_str());
    remove(dbTxhintsFilename().c_str());
    remove(dbStxoFilename().c_str());
    remove(dbZeroconfFilename().c_str());
+   remove(dbSpentnessFilename().c_str());
 
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
@@ -609,6 +615,55 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
       magicBytes_, armoryDbType_, dbPruneType_);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::cleanUpHistoryInDB()
+{
+   LOGWARN << "Clearing history";
+
+
+   {
+      StoredDBInfo sdbi;
+      getStoredDBInfo(HISTORY, sdbi);
+
+      sdbi.appliedToHgt_ = 0;
+      sdbi.topScannedBlkHash_ = BinaryData(0);
+
+      dbs_[HISTORY].close();
+      dbEnv_[HISTORY]->close();
+      _unlink(dbHistoryFilename().c_str());
+      
+      dbEnv_[HISTORY]->open(dbHistoryFilename());
+      LMDBEnv::Transaction txhist(dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+      dbs_[HISTORY].open(dbEnv_[HISTORY].get(), "history");
+      putStoredDBInfo(HISTORY, sdbi);
+   }
+
+   {
+      dbs_[SUBSSH].close();
+      dbEnv_[SUBSSH]->close();
+      _unlink(dbSubsshFilename().c_str());
+
+      dbEnv_[SUBSSH]->open(dbSubsshFilename());
+      LMDBEnv::Transaction txhist(dbEnv_[SUBSSH].get(), LMDB::ReadWrite);
+      dbs_[SUBSSH].open(dbEnv_[SUBSSH].get(), "subssh");
+   }
+
+   if (armoryDbType_ != ARMORY_DB_SUPER)
+   {
+      LMDBEnv::Transaction txhints(dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+      dbs_[TXHINTS].drop();
+   }
+
+   {
+      dbs_[SPENTNESS].close();
+      dbEnv_[SPENTNESS]->close();
+      _unlink(dbSpentnessFilename().c_str());
+
+      dbEnv_[SPENTNESS]->open(dbSpentnessFilename());
+      LMDBEnv::Transaction txspentess(dbEnv_[SPENTNESS].get(), LMDB::ReadWrite);
+      dbs_[SPENTNESS].open(dbEnv_[SPENTNESS].get(), "spentness");
+   }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
@@ -875,21 +930,14 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
 
    ldbIter.resetReaders();
-   ldbIter.verifyPrefix(DB_PREFIX_SCRIPT, false);
-
-   BinaryDataRef sshKey = ldbIter.getKeyRef();
-   ssh.unserializeDBKey(sshKey, true);
-   ssh.unserializeDBValue(ldbIter.getValueReader());
+   BinaryDataRef subSshKey = ldbIter.getKeyRef();
+   size_t ksz = subSshKey.getSize();
       
-   size_t sz = sshKey.getSize();
-   BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
-   size_t scrAddrSize = scrAddr.getSize();
-   (void)scrAddrSize;
-
    if (startBlock != 0)
    {
-      BinaryData dbkey_withHgtX(sshKey);
-      dbkey_withHgtX.append(DBUtils::heightAndDupToHgtx(startBlock, 0));
+      BinaryData dbkey_withHgtX(subSshKey);
+      uint8_t dupid = getValidDupIDForHeight(startBlock);
+      dbkey_withHgtX.append(DBUtils::heightAndDupToHgtx(startBlock, dupid));
       
       if (!ldbIter.seekTo(dbkey_withHgtX))
          return false;
@@ -897,11 +945,8 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    else
    {
       // If for some reason we hit the end of the DB without any tx, bail
-      if( !ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
-      {
-         //LOGERR << "No sub-SSH entries after the SSH";
+      if( !ldbIter.advanceAndRead())
          return false;
-      }
    }
 
    // Now start iterating over the sub histories
@@ -909,23 +954,41 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    size_t numTxioRead = 0;
    do
    {
-      size_t sz = ldbIter.getKeyRef().getSize();
-      BinaryDataRef keyNoPrefix= ldbIter.getKeyRef().getSliceRef(1,sz-1);
-      if(!keyNoPrefix.startsWith(ssh.uniqueKey_))
+      BinaryDataRef iterKey = ldbIter.getKeyRef();
+      size_t sz = iterKey.getSize();
+      if(!iterKey.startsWith(subSshKey))
          break;
 
-      pair<BinaryData, StoredSubHistory> keyValPair;
-      keyValPair.first = keyNoPrefix.getSliceCopy(sz-5, 4);
-      keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+      if (sz == ksz + 4)
+      {
+         //subssh
+         pair<BinaryData, StoredSubHistory> keyValPair;
+         keyValPair.first = iterKey.getSliceCopy(sz, 4);
+         keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
 
-      //iter is at the right ssh, make sure hgtX <= endBlock
-      if (keyValPair.second.height_ > endBlock)
+         //iter is at the right ssh, make sure hgtX <= endBlock
+         if (keyValPair.second.height_ > endBlock)
+            break;
+         
+         keyValPair.second.unserializeDBValue(ldbIter.getValueReader());
+         ssh.subHistMap_.insert(keyValPair);
+      }
+      else if (sz == ksz + 7)
+      {
+         //txio
+         TxIOPair txio;
+         txio.unserialize(ldbIter.getKeyRef(), ldbIter.getValueRef());
+         BinaryData txioKey = txio.getDBKeyOfOutput();
+         auto& subssh = ssh.subHistMap_[txioKey.getSliceRef(0, 4)];
+         subssh.txioMap_[txioKey] = txio;
+      }
+      else
+      {
+         //no more data for this ssh
          break;
-
-      keyValPair.second.unserializeDBValue(ldbIter.getValueReader());
-      iter = ssh.subHistMap_.insert(keyValPair).first;
-      numTxioRead += iter->second.txioMap_.size(); 
-   } while( ldbIter.advanceAndRead(DB_PREFIX_SCRIPT) );
+      }
+   } 
+   while(ldbIter.advanceAndRead());
 
    return true;
 }
@@ -1005,17 +1068,36 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
                                                uint32_t startBlock,
                                                uint32_t endBlock) const
 {
-   LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
-   LDBIter ldbIter = getIterator(HISTORY);
+   BinaryDataRef subsshkey;
+   {
+      LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+      LDBIter ldbIter = getIterator(HISTORY);
 
-   if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
+      if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
+      {
+         ssh.uniqueKey_.resize(0);
+         return false;
+      }
+
+      ssh.unserializeDBKey(ldbIter.getKeyRef(), true);
+      ssh.unserializeDBValue(ldbIter.getValueRef());
+
+      subsshkey = ssh.getSubKey(
+         [this](BinaryDataRef bdr)->BinaryData
+            { this->getSubSSHKey(bdr); }
+         );
+   }
+
+   LMDBEnv::Transaction tx(dbEnv_[SUBSSH].get(), LMDB::ReadOnly);
+   LDBIter subIter = getIterator(SUBSSH);
+
+   if (!subIter.seekToExact(subsshkey))
    {
       ssh.uniqueKey_.resize(0);
       return false;
    }
 
-   return readStoredScriptHistoryAtIter(ldbIter, ssh, startBlock, endBlock);
+   return readStoredScriptHistoryAtIter(subIter, ssh, startBlock, endBlock);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2799,6 +2881,8 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
    
    putValue(STXO, DB_PREFIX_TXDATA, ldbKey, bw);
+   if (stxo.spentByTxInKey_.getSize() > 0)
+      putValue(SPENTNESS, ldbKey, stxo.spentByTxInKey_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2811,9 +2895,27 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
    putValue(ZEROCONF, DB_PREFIX_ZCDATA, zcKey, bw);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTxOut(
+   StoredTxOut & stxo, const BinaryData& DBkey) const
+{
+   if (getUnspentTxOut(stxo, DBkey) == false)
+      return false;
+
+   LMDBEnv::Transaction txspentness(dbEnv_[SPENTNESS].get(), LMDB::ReadOnly);
+   BinaryDataRef bdrSpentness = getValueRef(SPENTNESS, DBkey);
+
+   if (bdrSpentness.getSize() == 8)
+   {
+      stxo.spentness_ = TXOUT_SPENT;
+      stxo.spentByTxInKey_ = bdrSpentness;
+   }
+
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getUnspentTxOut(
    StoredTxOut & stxo, const BinaryData& DBkey) const
 {
    if (DBkey.getSize() != 8)
@@ -2827,6 +2929,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
    //so there is a high chance we wont need to pull the stxo from the raw
    //block, since fullnode keeps track of all relevant stxos in the 
    //history db
+
    LMDBEnv::Transaction txstxo(dbEnv_[STXO].get(), LMDB::ReadOnly);
    BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
 
@@ -2838,6 +2941,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
       stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
 
       stxo.unserializeDBValue(brr);
+      
       return true;
    }
 
@@ -3368,6 +3472,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    return SSHsummary;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
 {
    if (dbKey6.getSize() != 6)
@@ -3435,7 +3540,8 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
    return UINT32_MAX;
 }
 
-uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr, 
+////////////////////////////////////////////////////////////////////////////////
+uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    uint16_t filenum, uint64_t offset,
    function<const BlockHeader& (const BinaryData&)> getBH)
 {
@@ -3485,6 +3591,54 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    }
 
    return sbh.duplicateID_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey) const
+{
+   //no prefix yet, build it
+
+   uint32_t prefixLength = 1;
+   StoredSubHistory subssh;
+
+   while (1)
+   {
+      uint64_t maxVal = 256 ^ prefixLength - 1;
+      BinaryData key(prefixLength);
+      BinaryData lastKey;
+
+      size_t keyLength = prefixLength + 4;
+
+      memset(key.getPtr(), 0, key.getSize());
+      key.append(uniqKey);
+
+      LDBIter ldbIter = getIterator(prefixLength);
+      ldbIter.seekTo(key);
+
+      do
+      {
+         if (ldbIter.getKeyRef().getSize() != prefixLength + 4)
+            continue;
+
+         BinaryDataRef keyRef = ldbIter.getKeyRef();
+         if (keyRef.getSliceCopy(prefixLength, 4) != uniqKey)
+         {
+            if (lastKey.getSize())
+               return key;
+
+            BinaryDataRef bdr(key.getSliceRef(0, prefixLength);
+            if (!bdr.incrementBE())
+               break;
+
+            return key;
+         }
+
+         lastKey = keyRef;
+      } while (!ldbIter.advance());
+
+      prefixLength++;
+   }
+
 }
 
 /*

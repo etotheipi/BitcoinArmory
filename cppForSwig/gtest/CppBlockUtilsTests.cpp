@@ -3746,11 +3746,8 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
    
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
+TEST_F(StoredBlockObjTest, DISABLED_STxOutSerDBValue_2)
 {
-//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
    StoredTxOut stxo0;
    stxo0.unserialize(rawTxOut0_);
    stxo0.txVersion_ = 1;
@@ -4255,7 +4252,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    /////////////////////////////////////////////////////////////////////////////
    // Empty SSH (shouldn't be written in supernode, should be in full node)
    BinaryData expect, expSub1, expSub2;
-   expect = READHEX("0400""ffff0000""00""0000000000000000");
+   expect = READHEX("0400""ffff0000""00""0000000000000000""04");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -4266,14 +4263,14 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    txio0.setMultisig(false);
    ssh.insertTxio(txio0);
 
-   expect = READHEX("0400""ffff0000""01""0100000000000000");
+   expect = READHEX("0400""ffff0000""01""0100000000000000""04");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
    // Added a second one, different subSSH
    TxIOPair txio1(READHEX("00010000""0002""0002"), READ_UINT64_HEX_LE("0002000000000000"));
    ssh.insertTxio(txio1);
-   expect  = READHEX("0400""ffff0000""02""0102000000000000");
+   expect  = READHEX("0400""ffff0000""02""0102000000000000""04");
    expSub1 = READHEX("01""00""0100000000000000""0001""0001");
    expSub2 = READHEX("01""00""0002000000000000""0002""0002");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
@@ -4284,7 +4281,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Added another TxIO to the second subSSH
    TxIOPair txio2(READHEX("00010000""0004""0004"), READ_UINT64_HEX_LE("0000030000000000"));
    ssh.insertTxio(txio2);
-   expect  = READHEX("0400""ffff0000""03""0102030000000000");
+   expect  = READHEX("0400""ffff0000""03""0102030000000000""04");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("02"
@@ -4299,7 +4296,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // equivalent to marking it spent, but we are DB-mode-agnostic here, testing
    // just the base insert/erase operations)
    ssh.eraseTxio(txio1);
-   expect  = READHEX("0400""ffff0000""02""0100030000000000");
+   expect  = READHEX("0400""ffff0000""02""0100030000000000""04");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
@@ -4314,7 +4311,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    TxIOPair txio3(READHEX("00010000""0006""0006"), READ_UINT64_HEX_LE("0000000400000000"));
    txio3.setMultisig(true);
    ssh.insertTxio(txio3);
-   expect  = READHEX("0400""ffff0000""03""0100030000000000");
+   expect  = READHEX("0400""ffff0000""03""0100030000000000""04");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("02"
@@ -4327,7 +4324,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    /////////////////////////////////////////////////////////////////////////////
    // Remove the multisig
    ssh.eraseTxio(txio3);
-   expect  = READHEX("0400""ffff0000""02""0100030000000000");
+   expect  = READHEX("0400""ffff0000""02""0100030000000000""04");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
@@ -4340,7 +4337,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Remove a full subSSH (it shouldn't be deleted, though, that will be done
    // by BlockUtils in a post-processing step
    ssh.eraseTxio(txio0);
-   expect  = READHEX("0400""ffff0000""01""0000030000000000");
+   expect  = READHEX("0400""ffff0000""01""0000030000000000""04");
    expSub1 = READHEX("00");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
@@ -6926,7 +6923,7 @@ TEST_F(LMDBTest_Super, GetFullBlock)
          EXPECT_EQ(sbhGet.stxMap_[1].numTxOut_, 2);
          EXPECT_EQ(sbhGet.stxMap_[1].numBytes_, 621);
          EXPECT_EQ(sbhGet.stxMap_[0].stxoMap_[0].isCoinbase_, true);
-         EXPECT_EQ(sbhGet.stxMap_[0].stxoMap_[0].spentness_, TXOUT_SPENTUNK);
+         EXPECT_EQ(sbhGet.stxMap_[0].stxoMap_[0].spentness_, TXOUT_UNSPENT);
          EXPECT_EQ(sbhGet.stxMap_[1].stxoMap_[0].isCoinbase_, false);
          EXPECT_EQ(sbhGet.stxMap_[1].stxoMap_[0].blockHeight_, 123000);
          EXPECT_EQ(sbhGet.stxMap_[1].stxoMap_[0].duplicateID_, 0);

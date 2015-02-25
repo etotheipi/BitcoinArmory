@@ -983,10 +983,10 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-                                   bool forceSaveSpentness) const
+void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, 
+   DB_PRUNE_TYPE pruneType, bool forceSaveSpentness) const
 {
-   TXOUT_SPENTNESS writeSpent = spentness_;
+   TXOUT_SPENTNESS writeSpent = TXOUT_UNSPENT;
    
    if(!forceSaveSpentness)
    { 
@@ -1304,6 +1304,8 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    
    subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
+
+   dbPrefix_ = brr.get_BinaryData(brr.getSizeRemaining());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1322,6 +1324,9 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
    bw.put_uint64_t(totalUnspent_);
+
+   //
+   bw.put_BinaryData(dbPrefix_);
 }
 
 
@@ -1350,6 +1355,18 @@ BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
    return bw.getData();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredScriptHistory::getSubKey(
+   function<BinaryData(BinaryDataRef)> getSubKey)
+{
+   if (dbPrefix_.getSize() == 0)
+      dbPrefix_ = getSubKey(uniqueKey_.getSliceRef(1, 4));
+
+   BinaryData key(dbPrefix_);
+   key.append(uniqueKey_.getSliceRef(1, 4));
+
+   return key;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 SCRIPT_PREFIX StoredScriptHistory::getScriptType(void) const
@@ -1606,11 +1623,11 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       return;
    }
 
-   BinaryData fullTxKey(8);
-   hgtX_.copyTo(fullTxKey.getPtr());
+   /*BinaryData fullTxKey(8);
+   hgtX_.copyTo(fullTxKey.getPtr());*/
 
    txioCount_ = (uint32_t)(brr.get_var_int());
-   for (uint32_t i = 0; i<txioCount_; i++)
+   /*for (uint32_t i = 0; i<txioCount_; i++)
    {
       BitUnpacker<uint8_t> bitunpack(brr);
       bool isFromSelf      = bitunpack.getBit();
@@ -1647,7 +1664,7 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       txio.setMultisig(isMulti);
 
       insertTxio(txio);
-   }
+   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1674,7 +1691,8 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
                                         DB_PRUNE_TYPE pruneType) const
 {
    bw.put_var_int(txioMap_.size());
-   for(const auto& txioPair : txioMap_)
+   bw.put_BinaryData(uniqueKey_);
+/*   for(const auto& txioPair : txioMap_)
    {
       TxIOPair const & txio = txioPair.second;
       bool isSpent = txio.hasTxInInMain(db);
@@ -1725,7 +1743,7 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
          //Spent subssh are saved by TxIn hgtX, only write the last 4 bytes
          bw.put_BinaryData(key8B.getSliceCopy(4, 4));
       }
-   }
+   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1747,16 +1765,8 @@ void StoredSubHistory::unserializeDBKey(BinaryDataRef key, bool withPrefix)
 {
    uint32_t sz = key.getSize();
    BinaryRefReader brr(key);
-   
-   // Assume prefix
-   if(withPrefix)
-   {
-      DBUtils::checkPrefixByte(brr, DB_PREFIX_SCRIPT);
-      sz -= 1;
-   }
 
-   brr.get_BinaryData(uniqueKey_, sz-4);
-   brr.get_BinaryData(hgtX_, 4);
+   hgtX_ = key.getSliceRef(sz - 4, 4);
 
    uint8_t* hgtXptr = (uint8_t*)hgtX_.getPtr();
    height_ = 0;

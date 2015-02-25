@@ -268,6 +268,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Sometimes, we just need to nuke everything and start over
    void destroyAndResetDatabases(void);
+   void cleanUpHistoryInDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
    bool databasesAreOpen(void) { return dbIsOpen_; }
@@ -508,6 +509,9 @@ public:
 
    bool getStoredTxOut(StoredTxOut & stxo,
       const BinaryData& DBkey) const;
+   bool getUnspentTxOut(StoredTxOut & stxo,
+      const BinaryData& DBkey) const;
+
 
    void putStoredScriptHistory(StoredScriptHistory & ssh);
    void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
@@ -646,18 +650,22 @@ public:
    shared_ptr<vector<BlkFile>> getBlkFiles(void) const
    { return blkFiles_; }
 
+   BinaryData getSubSSHKey(BinaryDataRef uniqKey) const;
+
 private:
    string               baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
    string dbHeadersFilename() const { return baseDir_ + "/headers"; }
    string dbHistoryFilename() const { return baseDir_ + "/history"; }
+   string dbSubsshFilename() const { return baseDir_ + "/subssh"; }
    string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
    string dbStxoFilename() const { return baseDir_ + "/stxo"; }
    string dbZeroconfFilename() const { return baseDir_ + "/zeroconf"; }
+   string dbSpentnessFilename() const { return baseDir_ + "/spentness"; }
 
-   BinaryData           genesisBlkHash_;
-   BinaryData           genesisTxHash_;
-   BinaryData           magicBytes_;
+   BinaryData genesisBlkHash_;
+   BinaryData genesisTxHash_;
+   BinaryData magicBytes_;
 
    ARMORY_DB_TYPE armoryDbType_;
    DB_PRUNE_TYPE dbPruneType_;
