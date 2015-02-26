@@ -992,7 +992,7 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
          txio.unserialize(ldbIter.getKeyRef().getSliceRef(ksz, 8), 
             ldbIter.getValueRef());
          BinaryData txioKey = txio.getDBKeyOfOutput();
-         auto& subssh = ssh.subHistMap_[txioKey.getSliceRef(0, 4)];
+         auto& subssh = ssh.subHistMap_[ldbIter.getKeyRef().getSliceRef(ksz, 4)];
          subssh.txioMap_[txioKey] = txio;
       }
       else
@@ -3687,7 +3687,7 @@ void LMDBBlockDatabase::getSubSSHDBTransaction(
 string LMDBBlockDatabase::getSubSSHDBFile(uint32_t prefixLength) const
 {
    stringstream ss;
-   ss << baseDir_ << "subssh" << prefixLength;
+   ss << baseDir_ << "/subssh" << prefixLength;
    return ss.str();
 }
 

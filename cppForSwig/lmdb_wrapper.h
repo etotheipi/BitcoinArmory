@@ -660,7 +660,7 @@ public:
    void getSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
 
 private:
-   string               baseDir_;
+   string baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
    string dbHeadersFilename() const { return baseDir_ + "/headers"; }
    string dbHistoryFilename() const { return baseDir_ + "/history"; }

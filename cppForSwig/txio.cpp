@@ -375,7 +375,7 @@ void TxIOPair::unserialize(const BinaryDataRef& key, const BinaryDataRef& val)
    else
    {
       //spent subssh, txout key      
-      setTxOut(val);
+      setTxOut(val.getSliceRef(9, 8));
 
       //when keyed by txins, the top bit in the tx index is always flipped
       BinaryData txinKey(key);

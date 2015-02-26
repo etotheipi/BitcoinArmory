@@ -745,14 +745,38 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
 
       if (ssh.totalTxioCount_ != 0)
       {
-         BinaryWriter bwKey(saPair.first.getSize() + 1);
-         bwKey.put_uint8_t((uint8_t)DB_PREFIX_SCRIPT);
-         bwKey.put_BinaryData(saPair.first);
+         StoredScriptHistory tempSSH = ssh;
+         BinaryData subKey = ssh.getSubKey();
+         LMDBEnv::Transaction subtx;
+         iface_->getSubSSHDBTransaction(subtx, ssh.keyLength_, LMDB::ReadOnly);
 
-         LDBIter dbIter = iface_->getIterator(HISTORY);
+         LDBIter dbIter = iface_->getSubSSHIterator(ssh.keyLength_);
+         dbIter.seekTo(subKey);
 
-         dbIter.seekToExact(bwKey.getDataRef());
-         while (dbIter.getKeyRef().startsWith(bwKey.getDataRef()))
+         iface_->readStoredScriptHistoryAtIter(dbIter, tempSSH, 0, UINT32_MAX);
+
+         for (auto& subssh : tempSSH.subHistMap_)
+         {
+            for (auto& txio : subssh.second.txioMap_)
+            {
+               if (txio.second.isUTXO())
+               {
+                  BinaryData dbKey = txio.second.getDBKeyOfOutput();
+                  shared_ptr<StoredTxOut> stxo(new StoredTxOut);
+                  iface_->getUnspentTxOut(*stxo, dbKey);
+
+                  BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
+
+                  BinaryWriter bwUtxoKey(34);
+                  bwUtxoKey.put_BinaryData(txHash);
+                  bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
+
+                  stxos_.utxoMap_[bwUtxoKey.getDataRef()] = stxo;
+                  utxoCount++;
+               }
+            }
+         }
+         /*while (dbIter.getKeyRef().startsWith(bwKey.getDataRef()))
          {
             if (dbIter.getKeyRef().getSize()==bwKey.getSize() +4)
             {
@@ -783,7 +807,7 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
             }
                
             dbIter.advanceAndRead(DB_PREFIX_SCRIPT);
-         }
+         }*/
       }
    }
 }
