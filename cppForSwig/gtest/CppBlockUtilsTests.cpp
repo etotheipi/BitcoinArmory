@@ -4248,11 +4248,12 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    ssh.uniqueKey_ = READHEX("00""1234abcde1234abcde1234abcdefff1234abcdef");
    ssh.version_ = 1;
    ssh.alreadyScannedUpToBlk_ = 65535;
+   ssh.keyLength_ = 4;
 
    /////////////////////////////////////////////////////////////////////////////
    // Empty SSH (shouldn't be written in supernode, should be in full node)
    BinaryData expect, expSub1, expSub2;
-   expect = READHEX("0400""ffff0000""00""0000000000000000""04");
+   expect = READHEX("0400""ffff0000""00""0000000000000000""0004");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -4263,14 +4264,14 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    txio0.setMultisig(false);
    ssh.insertTxio(txio0);
 
-   expect = READHEX("0400""ffff0000""01""0100000000000000""04");
+   expect = READHEX("0400""ffff0000""01""0100000000000000""0004");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
    // Added a second one, different subSSH
    TxIOPair txio1(READHEX("00010000""0002""0002"), READ_UINT64_HEX_LE("0002000000000000"));
    ssh.insertTxio(txio1);
-   expect  = READHEX("0400""ffff0000""02""0102000000000000""04");
+   expect  = READHEX("0400""ffff0000""02""0102000000000000""0004");
    expSub1 = READHEX("01""00""0100000000000000""0001""0001");
    expSub2 = READHEX("01""00""0002000000000000""0002""0002");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
@@ -4281,7 +4282,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Added another TxIO to the second subSSH
    TxIOPair txio2(READHEX("00010000""0004""0004"), READ_UINT64_HEX_LE("0000030000000000"));
    ssh.insertTxio(txio2);
-   expect  = READHEX("0400""ffff0000""03""0102030000000000""04");
+   expect  = READHEX("0400""ffff0000""03""0102030000000000""0004");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("02"
@@ -4296,7 +4297,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // equivalent to marking it spent, but we are DB-mode-agnostic here, testing
    // just the base insert/erase operations)
    ssh.eraseTxio(txio1);
-   expect  = READHEX("0400""ffff0000""02""0100030000000000""04");
+   expect  = READHEX("0400""ffff0000""02""0100030000000000""0004");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
@@ -4311,7 +4312,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    TxIOPair txio3(READHEX("00010000""0006""0006"), READ_UINT64_HEX_LE("0000000400000000"));
    txio3.setMultisig(true);
    ssh.insertTxio(txio3);
-   expect  = READHEX("0400""ffff0000""03""0100030000000000""04");
+   expect  = READHEX("0400""ffff0000""03""0100030000000000""0004");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("02"
@@ -4324,7 +4325,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    /////////////////////////////////////////////////////////////////////////////
    // Remove the multisig
    ssh.eraseTxio(txio3);
-   expect  = READHEX("0400""ffff0000""02""0100030000000000""04");
+   expect  = READHEX("0400""ffff0000""02""0100030000000000""0004");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
@@ -4337,7 +4338,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Remove a full subSSH (it shouldn't be deleted, though, that will be done
    // by BlockUtils in a post-processing step
    ssh.eraseTxio(txio0);
-   expect  = READHEX("0400""ffff0000""01""0000030000000000""04");
+   expect  = READHEX("0400""ffff0000""01""0000030000000000""0004");
    expSub1 = READHEX("00");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
@@ -5660,6 +5661,7 @@ TEST_F(LMDBTest, PutGetStoredScriptHistory)
    uint32_t blk = READ_UINT32_HEX_LE("ffff0000");
    sshorig.alreadyScannedUpToBlk_ = blk;
    sshorig.version_  = 1;
+   sshorig.keyLength_ = 4;
 
    /////////////////////////////////////////////////////////////////////////////
    // Haven't actually done anything yet...
@@ -7045,6 +7047,7 @@ TEST_F(LMDBTest_Super, PutGetStoredScriptHistory)
    uint32_t blk = READ_UINT32_HEX_LE("ffff0000");
    sshorig.alreadyScannedUpToBlk_ = blk;
    sshorig.version_ = 1;
+   sshorig.keyLength_ = 4;
 
    /////////////////////////////////////////////////////////////////////////////
    // Haven't actually done anything yet...

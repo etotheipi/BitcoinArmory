@@ -459,7 +459,6 @@ void LMDBBlockDatabase::openDatabases(
    dbEnv_[BLKDATA]->open(dbBlkdataFilename());
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
-   dbEnv_[SUBSSH]->open(dbSubsshFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
    dbEnv_[STXO]->open(dbStxoFilename());
    dbEnv_[SPENTNESS]->open(dbSpentnessFilename());
@@ -468,7 +467,6 @@ void LMDBBlockDatabase::openDatabases(
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS]    = "headers";
    DB_NAMES[HISTORY]    = "history";
-   DB_NAMES[SUBSSH]     = "subssh";
    DB_NAMES[BLKDATA]    = "blocks";
    DB_NAMES[TXHINTS]    = "txhints";
    DB_NAMES[STXO]       = "stxo";
@@ -589,6 +587,13 @@ void LMDBBlockDatabase::closeDatabases(void)
       if (dbEnv_[(DB_SELECT)db] != nullptr)
          dbEnv_[(DB_SELECT)db].reset();
    }
+
+   for (uint32_t db = 0; db < SUBSSHDB_PREFIX_COUNT; db++)
+   {
+      subSSHDBs_[db].close();
+      subSSHDBEnv_[db].close();
+   }
+
    dbIsOpen_ = false;
 }
 
@@ -608,6 +613,9 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    remove(dbStxoFilename().c_str());
    remove(dbZeroconfFilename().c_str());
    remove(dbSpentnessFilename().c_str());
+
+   for (uint32_t db = 0; db < SUBSSHDB_PREFIX_COUNT; db++)
+      remove(getSubSSHDBFile(db).c_str());
 
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
@@ -639,13 +647,12 @@ void LMDBBlockDatabase::cleanUpHistoryInDB()
    }
 
    {
-      dbs_[SUBSSH].close();
-      dbEnv_[SUBSSH]->close();
-      _unlink(dbSubsshFilename().c_str());
-
-      dbEnv_[SUBSSH]->open(dbSubsshFilename());
-      LMDBEnv::Transaction txhist(dbEnv_[SUBSSH].get(), LMDB::ReadWrite);
-      dbs_[SUBSSH].open(dbEnv_[SUBSSH].get(), "subssh");
+      for (uint32_t db=0; db < SUBSSHDB_PREFIX_COUNT; db++)
+      {
+         subSSHDBs_[db].close();
+         subSSHDBEnv_[db].close();
+         _unlink(getSubSSHDBFile(db).c_str());
+      }
    }
 
    if (armoryDbType_ != ARMORY_DB_SUPER)
@@ -834,6 +841,17 @@ void LMDBBlockDatabase::putValue(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::putValue(uint32_t subsshdb,
+   BinaryDataRef key,
+   BinaryDataRef value)
+{
+   subSSHDBs_[subsshdb].insert(
+      CharacterArrayRef(key.getSize(), key.getPtr()),
+      CharacterArrayRef(value.getSize(), value.getPtr())
+      );
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::putValue(DB_SELECT db, 
                               BinaryData const & key, 
                               BinaryData const & value)
@@ -930,8 +948,8 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
 
    ldbIter.resetReaders();
-   BinaryDataRef subSshKey = ldbIter.getKeyRef();
-   size_t ksz = subSshKey.getSize();
+   BinaryData subSshKey(ldbIter.getKeyRef().getSliceRef(0, ssh.keyLength_));
+   size_t ksz = ssh.keyLength_;
       
    if (startBlock != 0)
    {
@@ -940,12 +958,6 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       dbkey_withHgtX.append(DBUtils::heightAndDupToHgtx(startBlock, dupid));
       
       if (!ldbIter.seekTo(dbkey_withHgtX))
-         return false;
-   }
-   else
-   {
-      // If for some reason we hit the end of the DB without any tx, bail
-      if( !ldbIter.advanceAndRead())
          return false;
    }
 
@@ -963,8 +975,8 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       {
          //subssh
          pair<BinaryData, StoredSubHistory> keyValPair;
-         keyValPair.first = iterKey.getSliceCopy(sz, 4);
          keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+         keyValPair.first = keyValPair.second.hgtX_;
 
          //iter is at the right ssh, make sure hgtX <= endBlock
          if (keyValPair.second.height_ > endBlock)
@@ -973,11 +985,12 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
          keyValPair.second.unserializeDBValue(ldbIter.getValueReader());
          ssh.subHistMap_.insert(keyValPair);
       }
-      else if (sz == ksz + 7)
+      else if (sz == ksz + 8)
       {
          //txio
          TxIOPair txio;
-         txio.unserialize(ldbIter.getKeyRef(), ldbIter.getValueRef());
+         txio.unserialize(ldbIter.getKeyRef().getSliceRef(ksz, 8), 
+            ldbIter.getValueRef());
          BinaryData txioKey = txio.getDBKeyOfOutput();
          auto& subssh = ssh.subHistMap_[txioKey.getSliceRef(0, 4)];
          subssh.txioMap_[txioKey] = txio;
@@ -1068,7 +1081,8 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
                                                uint32_t startBlock,
                                                uint32_t endBlock) const
 {
-   BinaryDataRef subsshkey;
+   BinaryData subsshkey;
+   
    {
       LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
       LDBIter ldbIter = getIterator(HISTORY);
@@ -1082,20 +1096,17 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
       ssh.unserializeDBKey(ldbIter.getKeyRef(), true);
       ssh.unserializeDBValue(ldbIter.getValueRef());
 
-      subsshkey = ssh.getSubKey(
-         [this](BinaryDataRef bdr)->BinaryData
-            { this->getSubSSHKey(bdr); }
-         );
+      subsshkey = ssh.getSubKey();
+      if (subsshkey.getSize() == 0)
+         throw runtime_error("bad ssh prefix");
    }
 
-   LMDBEnv::Transaction tx(dbEnv_[SUBSSH].get(), LMDB::ReadOnly);
-   LDBIter subIter = getIterator(SUBSSH);
+   LMDBEnv::Transaction tx;
+   getSubSSHDBTransaction(tx, subsshkey.getSize(), LMDB::ReadOnly);
+   LDBIter subIter = getSubSSHIterator(subsshkey.getSize());
 
-   if (!subIter.seekToExact(subsshkey))
-   {
-      ssh.uniqueKey_.resize(0);
-      return false;
-   }
+   if (!subIter.seekTo(subsshkey))
+      return true;
 
    return readStoredScriptHistoryAtIter(subIter, ssh, startBlock, endBlock);
 }
@@ -3603,14 +3614,14 @@ BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey)
 
    while (1)
    {
-      if (uniqKey.getSize() < keyLength - 1)
+      if (uniqKey.getSize() < keyLength)
          throw runtime_error("key is too short");
 
       BinaryData key(keyLength);
       BinaryData lastKey;
 
       memset(key.getPtr(), 0, key.getSize());
-      memcpy(key.getPtr() + 1, uniqKey.getPtr(), keyLength - 1);
+      memcpy(key.getPtr() + 1, uniqKey.getPtr() +1, keyLength - 1);
          
       LMDBEnv::Transaction tx;
       getSubSSHDBTransaction(tx, keyLength, LMDB::ReadOnly);
@@ -3654,7 +3665,7 @@ BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey)
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::getSubSSHDBTransaction(
    LMDBEnv::Transaction& tx, uint32_t prefixLength,
-   LMDB::Mode mode)
+   LMDB::Mode mode) const
 {
    if (prefixLength >= SUBSSHDB_PREFIX_COUNT)
       throw runtime_error("bad subsshdb descriptor");

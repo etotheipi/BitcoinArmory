@@ -334,13 +334,15 @@ struct STXOS;
 
 struct DataToCommit
 {
-   map<BinaryData, BinaryWriter> serializedSubSshToApply_;
+   map<uint32_t, map<BinaryData, BinaryWriter>> serializedSubSshToApply_;
+   map<BinaryData, map<BinaryData, BinaryWriter>> intermidiarrySubSshToApply_;
+
    map<BinaryData, BinaryWriter> serializedSshToModify_;
    map<BinaryData, BinaryWriter> serializedStxOutToModify_;
    map<BinaryData, BinaryWriter> serializedSpentness_;
-   map<BinaryData, BinaryWriter> serializedSbhToUpdate_;
    set<BinaryData>               keysToDelete_;
    set<BinaryData>               spentnessToDelete_;
+   map<BinaryData, BinaryData>   sshPrefixes_;
    
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
@@ -350,7 +352,6 @@ struct DataToCommit
    BinaryData topBlockHash_;
 
    bool isSerialized_ = false;
-   bool sshReady_ = false;
 
    const ARMORY_DB_TYPE dbType_;
 

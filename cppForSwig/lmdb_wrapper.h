@@ -322,6 +322,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
+   void putValue(uint32_t subsshdb, BinaryDataRef key, BinaryDataRef value);
    void putValue(DB_SELECT db, BinaryData const & key, BinaryData const & value);
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
 
@@ -656,7 +657,7 @@ public:
    { return blkFiles_; }
 
    BinaryData getSubSSHKey(BinaryDataRef uniqKey);
-   void getSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode);
+   void getSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
 
 private:
    string               baseDir_;
@@ -683,8 +684,8 @@ public:
    mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
    mutable LMDB dbs_[COUNT];
 
-   mutable LMDBEnv subSSHDBEnv_[16];
-   mutable LMDB subSSHDBs_[16];
+   mutable LMDBEnv subSSHDBEnv_[SUBSSHDB_PREFIX_COUNT];
+   mutable LMDB subSSHDBs_[SUBSSHDB_PREFIX_COUNT];
 
 private:
    bool                 dbIsOpen_;

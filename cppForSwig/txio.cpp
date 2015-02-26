@@ -371,35 +371,28 @@ void TxIOPair::unserialize(const BinaryDataRef& key, const BinaryDataRef& val)
 
    //the key always carries the full txout ref
    if (!isSpent)
-   {
-      txRefOfOutput_.setDBKey(key.getSliceRef(-7, 6));
-      indexOfOutput_ = READ_UINT8_LE(key.getSliceRef(-1, 1));
-   }
+      setTxOut(key);
    else
    {
-      //spent subssh, val has txout hgtx | txid | txinid
-      BinaryData txoutKey = brr.get_BinaryDataRef(4);
-      txoutKey.append(key.getSliceRef(-3, 2));
-      txRefOfOutput_.setDBKey(txoutKey);
-      indexOfOutput_ = READ_UINT8_LE(key.getSliceRef(-1, 1));
+      //spent subssh, txout key      
+      setTxOut(val);
+
+      //when keyed by txins, the top bit in the tx index is always flipped
+      BinaryData txinKey(key);
+      txinKey.getPtr()[4] &= 0x7F;
       
-      //key's top bit (BE) is inverted
-      BinaryData invkey(key.getSliceRef(-7, 4));
-      invkey.getPtr()[0] &= 0x7F;
-      invkey.append(brr.get_BinaryDataRef(4));
-      
-      //val last 8 bytes carry the txout key
-      setTxIn(invkey);
+      //last 8 bytes carry the txin key
+      setTxIn(txinKey);
    }
 }
 
 BinaryData TxIOPair::serializeDbKey(void) const
 {
-   BinaryData bd = txRefOfOutput_.getDBKey();
-   bd.append(WRITE_UINT8_LE(uint8_t(indexOfOutput_)));
+   if (!hasTxIn())
+      return getDBKeyOfOutput();
    
-   if (hasTxIn())
-      bd.getPtr()[0] |= 0x80;
+   BinaryData bd(getDBKeyOfInput());
+   bd.getPtr()[4] |= 0x80;
 
    return bd;
 }
@@ -408,6 +401,7 @@ void TxIOPair::serializeDbValue(BinaryWriter& bw) const
 {
    BitPacker<uint8_t> bitpacker;
 
+   bitpacker.putBit(isTxOutFromSelf_);
    bitpacker.putBit(isFromCoinbase_);
    bitpacker.putBit(hasTxIn());
    bitpacker.putBit(isMultisig_);
@@ -415,10 +409,10 @@ void TxIOPair::serializeDbValue(BinaryWriter& bw) const
 
    bw.put_BitPacker(bitpacker);
    bw.put_uint64_t(amount_);
-   
+
    if (hasTxIn())
    {
-      bw.put_BinaryData(txRefOfOutput_.getDBKey().getSliceRef(0, 4));
-      bw.put_BinaryData(getDBKeyOfInput().getSliceRef(4, 4));
+      //has a txin, val will be the txout full key
+      bw.put_BinaryData(getDBKeyOfOutput());
    }
 }

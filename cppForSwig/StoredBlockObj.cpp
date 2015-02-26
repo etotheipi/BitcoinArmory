@@ -1295,6 +1295,9 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
    (void)txoListType;
 
+   dbPrefix_ = brr.get_uint8_t();
+   keyLength_ = brr.get_uint8_t();
+   
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    totalTxioCount_ = brr.get_var_int();
 
@@ -1305,8 +1308,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
 
-   dbPrefix_ = brr.get_uint8_t();
-   keyLength_ = brr.get_uint8_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1321,14 +1322,14 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
+   //
+   bw.put_uint8_t(dbPrefix_);
+   bw.put_uint8_t(keyLength_);
+   
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
    bw.put_uint64_t(totalUnspent_);
-
-   //
-   bw.put_uint8_t(dbPrefix_);
-   bw.put_uint8_t(keyLength_);
 }
 
 
@@ -1363,9 +1364,9 @@ BinaryData StoredScriptHistory::getSubKey() const
    if (keyLength_ == 0 || keyLength_ > uniqueKey_.getSize())
       return BinaryData();
 
-   BinaryData key(keyLength_ +1);
+   BinaryData key(keyLength_);
    key.getPtr()[0] = dbPrefix_;
-   memcpy(key.getPtr() + 1, uniqueKey_.getPtr(), keyLength_);
+   memcpy(key.getPtr() + 1, uniqueKey_.getPtr() +1, keyLength_ -1);
 
    return key;
 }
@@ -1378,12 +1379,13 @@ BinaryData StoredScriptHistory::getSubKeyFromDB(
    {
       BinaryData key = getSubKey(uniqueKey_);
       dbPrefix_ = key.getPtr()[0];
+      keyLength_ = key.getSize();
       return key;
    }
 
    BinaryData key(keyLength_ + 1);
    key.getPtr()[0] = dbPrefix_;
-   memcpy(key.getPtr() + 1, uniqueKey_.getPtr(), keyLength_);
+   memcpy(key.getPtr() + 1, uniqueKey_.getPtr() +1, keyLength_ -1);
 
    return key;
 }
@@ -1886,19 +1888,19 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const TxIOPair& StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
+void StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
 {
-   TxIOPair * txioptr = findTxio(txOutKey8B);
-   if(txioptr==NULL)
+   TxIOPair& txio = txioMap_[txOutKey8B];
+   /*if(txioptr==NULL)
    {
       LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
       throw runtime_error("missing txio!");
-   }
+   }*/
 
-   txioptr->setUTXO(false);
-   txioptr->flagged = true;
+   txio.setUTXO(false);
+   txio.flagged = true;
 
-   return *txioptr;
+   //return txio;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

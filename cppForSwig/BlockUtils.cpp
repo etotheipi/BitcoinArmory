@@ -1277,10 +1277,10 @@ void BlockDataManager_LevelDB::loadDiskState(
       LOGINFO << "Scanned Block range in " << timeElapsed << "s";
    }
 
-   mutex mu;
+   /*mutex mu;
    unique_lock<mutex> lock(mu);
    condition_variable cv;
-   cv.wait(lock);
+   cv.wait(lock);*/
    
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;
