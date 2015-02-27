@@ -242,6 +242,8 @@ public:
    StoredHeader getMainBlockFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup) const;
 
+   void repairBlockDataDB(set<BinaryData>& missingBlocksByHash);
+
 public:
 
 // These things should probably be private, but they also need to be test-able,

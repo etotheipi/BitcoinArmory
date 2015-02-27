@@ -6313,6 +6313,13 @@ class ArmoryMainWindow(QMainWindow):
                                     "Rebuild and rescan on next start", dnaaStartChk=True)
             if result[1] == True:
                touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
+         
+         elif 'factory reset' in args[0].lower():
+            result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
+                                    "Factory reset on next start", dnaaStartChk=True)
+            if result[1] == True:
+               DlgFactoryReset().exec_(self, self)           
+         
          else:   
             QMessageBox.critical(self, tr('BlockDataManager Warning'), \
                               tr(args[0]), \

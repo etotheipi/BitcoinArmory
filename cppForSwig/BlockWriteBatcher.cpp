@@ -1145,8 +1145,6 @@ BinaryData BlockWriteBatcher::scanBlocks(
    ScrAddrFilter& scf
 )
 {
-   //TIMER_START("applyBlockRangeToDBIter");
-   
    prepareSshToModify(scf);
 
    shared_ptr<LoadedBlockData> tempBlockData = 

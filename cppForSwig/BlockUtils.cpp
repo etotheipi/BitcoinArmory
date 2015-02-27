@@ -176,8 +176,11 @@ public:
       {
       };
       
+      bool foundTopBlock = false;
+      auto topBlockHash = bc.top().getThisHash();
+
       const auto stopIfBlkHeaderRecognized =
-      [&allHeaders, &foundAtPosition] (
+      [&allHeaders, &foundAtPosition, &foundTopBlock, &topBlockHash] (
          const BinaryData &blockheader,
          const BlockFilePosition &pos,
          uint32_t blksize
@@ -195,6 +198,9 @@ public:
          
          if(bhIter == allHeaders.end())
             throw StopReading();
+
+         if (bhIter->second.getThisHash() == topBlockHash)
+            foundTopBlock = true;
 
          bhIter->second.setBlockFileNum(pos.first);
          bhIter->second.setBlockFileOffset(pos.second);
@@ -222,6 +228,64 @@ public:
          return { 0, 0 };
       if (returnedOffset != UINT64_MAX)
          foundAtPosition.second = returnedOffset;
+
+
+      if (!foundTopBlock)
+      {
+         LOGWARN << "Couldn't find top block hash in last seen blk file."
+            " Searching for it further down the chain";
+
+         //Couldn't find the top header in the last seen blk file. Since Core
+         //0.10, this can be an indicator of missing hashes. Let's find the
+         //the top block header in file.
+         BlockFilePosition topBlockPos(0, 0);
+         auto checkBlkHash = [&topBlockHash, &topBlockPos]
+            (const BinaryData &rawBlock,
+            const BlockFilePosition &pos,
+            uint32_t blksize)->void
+         {
+            BlockHeader bhUnser(rawBlock);
+            if (bhUnser.getThisHash() == topBlockHash)
+            {
+               topBlockPos = pos;
+               throw StopReading();
+            }
+         };
+
+         int32_t fnum = foundAtPosition.first;
+         if (fnum > 0)
+            fnum--;
+         try
+         {
+            for (; fnum > -1; fnum--)
+               readHeadersFromFile(blkFiles_[fnum], 0, 
+                                   checkBlkHash);
+         }
+         catch (StopReading&)
+         {
+            // we're fine
+         }
+
+         if (topBlockPos.second == 0 && topBlockPos.first == 0)
+            throw runtime_error("Failed to find last known top block hash in"
+               "blk files. Blockchain is corrupt, time for a factory reset!");
+
+         //Check this file to see if we are missing any block hashes in there
+         auto& f = blkFiles_[foundAtPosition.first];
+         try
+         {
+            readHeadersFromFile(f, 0, stopIfBlkHeaderRecognized);
+         }
+         catch (StopReading&)
+         {
+            //so we are indeed missing some block headers. Let's just scan the 
+            //blocks folder for headers
+            foundAtPosition.first = 0;
+            foundAtPosition.second = 0;
+
+            LOGWARN << "Inconsistent headers DB, attempting repairs";
+         }
+      }
 
       return foundAtPosition;
    }
@@ -286,6 +350,23 @@ public:
       
       return { startAt.first-1, finishLocation };
    }
+
+   void readRawBlocksFromTop(
+      uint32_t fnum,
+      const function<void(
+      const BinaryData &,
+      const BlockFilePosition &pos,
+      uint32_t blksize
+      )> &blockDataCallback
+      )
+   {
+      for (int32_t i = fnum; i > -1; i--)
+      {
+         const BlkFile &f = blkFiles_[i];
+         readRawBlocksFromFile(f, 0, f.filesize, blockDataCallback);
+      }
+   }
+
 
    void getFileAndPosForBlockHash(BlockHeader& blk)
    {
@@ -832,6 +913,9 @@ pair<BlockFilePosition, vector<BlockHeader*>>
       readBlockHeaders_->totalBlockchainBytes()
    );
    uint64_t totalOffset=0;
+   bool suppressOutput = false;
+   if (fileAndOffset.first == 0 && fileAndOffset.second == 0)
+      suppressOutput = true;
    
    auto blockHeaderCallback
       = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
@@ -843,7 +927,8 @@ pair<BlockFilePosition, vector<BlockHeader*>>
          const HashString blockhash = block.getThisHash();
          
          const uint32_t nTx = brr.get_var_int();
-         BlockHeader& addedBlock = blockchain().addNewBlock(blockhash, block);
+         BlockHeader& addedBlock = blockchain().addNewBlock(
+            blockhash, block, suppressOutput);
 
          blockHeadersAdded.push_back(&addedBlock);
          //LOGINFO << "Added block header with hash " << addedBlock.getThisHash().copySwapEndian().toHexStr()
@@ -1185,6 +1270,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    }
 
    blockchain_.setDuplicateIDinRAM(iface_, true);
+   uint32_t lastTop = blockchain_.top().getBlockHeight();
    
    if (forceRescan)
    {
@@ -1267,6 +1353,62 @@ void BlockDataManager_LevelDB::loadDiskState(
       double timeElapsed = TIMER_READ_SEC("writeBlocksToDB");
       LOGINFO << "Wrote blocks to DB in " << timeElapsed << "s";
    }
+
+   {
+      /***Core 0.10 specific change:
+      Let's be consistent across different blocks folders by checking if the
+      newly added range of blocks is continuous
+      ***/
+
+      set<uint32_t> missingHeadersHeight;
+      set<uint32_t> missingBlocks;
+
+      uint32_t checkFrom = min(lastTop, scanFrom);
+      if (checkFrom > 0)
+         checkFrom--;
+
+      {
+         uint8_t dupId;
+         uint32_t currentTop = blockchain_.top().getBlockHeight();
+         LMDBEnv::Transaction blktx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+         for (uint32_t i = checkFrom; i <= currentTop; i++)
+         {
+            dupId = iface_->getValidDupIDForHeight(i);
+            if (dupId == UINT8_MAX)
+            {
+               missingHeadersHeight.insert(i);
+               missingBlocks.insert(i);
+               continue;
+            }
+
+            auto blockKey = DBUtils::getBlkDataKey(i, dupId);
+            auto blockData = iface_->getValueNoCopy(BLKDATA, blockKey);
+            if (blockData.getSize() == 0)
+               missingBlocks.insert(i);
+         }
+      }
+
+      if (missingHeadersHeight.size() > 0)
+      {
+         LOGERR << "missing " << missingHeadersHeight.size() << " block headers";
+         throw runtime_error("Missing headers! This blockchain copy is corrupt"
+            "beyond repair, time for a factory reset!");
+      }
+
+      if (missingBlocks.size() > 0)
+      {
+         LOGERR << "Missing block data, attempting to repair the DB";
+         set<BinaryData> missingBlocksByHash;
+         for (auto id : missingBlocks)
+         {
+            auto& bh = blockchain_.getHeaderByHeight(id);
+            missingBlocksByHash.insert(bh.getThisHash());
+         }
+
+         repairBlockDataDB(missingBlocksByHash);
+      }
+   }
+
    
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
@@ -1924,4 +2066,50 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
       blkDataPosition_ = { 0, 0 };
    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::repairBlockDataDB(
+   set<BinaryData>& missingBlocksByHash)
+{
+   class FoundAllBlocksException : public std::exception {};
+
+   const auto blockCallback
+      = [&](const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
+   {
+      BlockHeader bhUnser(blockdata);
+      auto hashIter = missingBlocksByHash.find(bhUnser.getThisHash());
+
+      if (hashIter != missingBlocksByHash.end())
+      {
+         LMDBEnv::Transaction tx;
+         iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
+
+         BinaryRefReader brr(blockdata);
+         addRawBlockToDB(brr, true);
+
+         missingBlocksByHash.erase(hashIter);
+
+         if (missingBlocksByHash.size() == 0)
+            throw FoundAllBlocksException();
+      }
+   };
+
+   try
+   {
+      readBlockHeaders_->readRawBlocksFromTop( 
+         readBlockHeaders_->numBlockFiles()-1,
+         blockCallback);
+   }
+   catch (FoundAllBlocksException&)
+   {
+      //graceful throw, move on
+   }
+
+   if (missingBlocksByHash.size() > 0)
+      throw runtime_error("Failed to repair BLKDATA DB, time for a factory reset!");
+
+   LOGINFO << "BLKDATA DB was repaired successfully";
+
+}
+
 // kate: indent-width 3; replace-tabs on;
