@@ -1945,7 +1945,12 @@ class ArmoryMainWindow(QMainWindow):
       if armoryClient is None:
          return
       alerts = factory.proto.alerts
-      peerInfo = self.NetworkingFactory.proto.peerInfo
+      
+      try:
+         peerInfo = self.NetworkingFactory.proto.peerInfo
+      except: 
+         LOGERROR("failed to process alerts from bitcoind")
+         return
 
       for id, alert in alerts.items():
          if self.ignoreAlerts.get(id):
@@ -6318,7 +6323,7 @@ class ArmoryMainWindow(QMainWindow):
             result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
                                     "Factory reset on next start", dnaaStartChk=True)
             if result[1] == True:
-               DlgFactoryReset().exec_(self, self)           
+               DlgFactoryReset(self, self).exec_()           
          
          else:   
             QMessageBox.critical(self, tr('BlockDataManager Warning'), \

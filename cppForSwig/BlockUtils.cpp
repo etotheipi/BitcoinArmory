@@ -252,7 +252,8 @@ public:
             }
          };
 
-         int32_t fnum = foundAtPosition.first;
+         bool foundTopBlock = false;
+         int32_t fnum = blkFiles_.size();
          if (fnum > 0)
             fnum--;
          try
@@ -263,10 +264,11 @@ public:
          }
          catch (StopReading&)
          {
+            foundTopBlock = true;
             // we're fine
          }
 
-         if (topBlockPos.second == 0 && topBlockPos.first == 0)
+         if (!foundTopBlock)
             throw runtime_error("Failed to find last known top block hash in"
                "blk files. Blockchain is corrupt, time for a factory reset!");
 
