@@ -58,7 +58,7 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
 
    if (subssh.hgtX_.getSize() == 0)
    {
-      /*if (subSshMapToWrite_.size() > 0)
+      if (subSshMapToWrite_.size() > 0)
       {
          auto sshIter = subSshMapToWrite_.find(uniqKey);
          if (sshIter != subSshMapToWrite_.end())
@@ -70,16 +70,13 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
                return subssh;
             }
          }
-      }*/
+      }
 
       subssh.hgtX_ = hgtX;
 
-      /*BinaryData key(uniqKey);
+      BinaryData key(uniqKey);
       key.append(hgtX);
-
-      BinaryRefReader brr = iface_->getValueReader(HISTORY, DB_PREFIX_SCRIPT, key);
-      if (brr.getSize() > 0)
-         subssh.unserializeDBValue(brr);*/
+      iface_->getStoredSubHistoryAtHgtX(subssh, uniqKey, hgtX);
       
       dbUpdateSize_ += UPDATE_BYTES_SUBSSH;
    }
@@ -138,9 +135,7 @@ void BlockWriteBatcher::insertSpentTxio(
    const BinaryData& txOutKey, 
    const BinaryData& txInKey)
 {
-   BinaryData txOutKeyAtSpend = txInKey;
-   txOutKeyAtSpend.getPtr()[4] |= 0x80;
-   auto& mirrorTxio = inHgtSubSsh.txioMap_[txOutKeyAtSpend];
+   auto& mirrorTxio = inHgtSubSsh.txioMap_[txOutKey];
 
    mirrorTxio = txio;
    mirrorTxio.setTxIn(txInKey);
@@ -433,7 +428,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
                StoredSubHistory& sshms = 
                   makeSureSubSSHInMap(uniqKey, hgtX);
                sshms.eraseTxio(stxoKey);
-               
+
                auto& ssh = makeSureSSHInMap(uniqKey);
                ssh.totalTxioCount_--;
             }
@@ -498,7 +493,7 @@ bool BlockWriteBatcher::parseTxIns(
       // SSH if it doesn't exist in the map or the DB
       BinaryData& hgtX = stxoPtr->getHgtX();
 
-      StoredSubHistory& subssh = makeSureSubSSHInMap(uniqKey, hgtX);
+      StoredSubHistory& subssh = makeSureSubSSHInMap_IgnoreDB(uniqKey, hgtX, 0);
       
       StoredSubHistory& mirrorsubssh = 
          makeSureSubSSHInMap_IgnoreDB(
@@ -748,7 +743,7 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
          StoredScriptHistory tempSSH = ssh;
          BinaryData subKey = ssh.getSubKey();
          LMDBEnv::Transaction subtx;
-         iface_->getSubSSHDBTransaction(subtx, ssh.keyLength_, LMDB::ReadOnly);
+         iface_->beginSubSSHDBTransaction(subtx, ssh.keyLength_, LMDB::ReadOnly);
 
          LDBIter dbIter = iface_->getSubSSHIterator(ssh.keyLength_);
          dbIter.seekTo(subKey);
@@ -1276,11 +1271,9 @@ map<BinaryData, StoredScriptHistory>& BlockWriteBatcher::getSSHMap(
 ////////////////////////////////////////////////////////////////////////////////
 /// DataToCommit
 ////////////////////////////////////////////////////////////////////////////////
-set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
+void DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
    const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
 {
-   set<BinaryData> keysToDelete;
-
    auto dbType = bwb.config_.armoryDbType;
    auto pruneType = bwb.config_.pruneType;
 
@@ -1337,7 +1330,7 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
                ssh.serializeDBValue(bw, dbType, pruneType);
             }
             else
-               keysToDelete.insert(sshKey);
+               sshKeysToDelete_.insert(sshKey);
          }
       }
 
@@ -1351,8 +1344,6 @@ set<BinaryData> DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
 
    for (auto& ssh : sshMap)
       sshPrefixes_[ssh.first] = ssh.second.getSubKey();
-
-   return keysToDelete;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1378,7 +1369,7 @@ void DataToCommit::serializeStxo(STXOS& stxos)
          bw.put_BinaryData(Stxo->spentByTxInKey_);
       }
       else
-         keysToDelete_.insert(Stxo->getDBKey(false));
+         spentnessToDelete_.insert(Stxo->getDBKey(false));
    }
 }
 
@@ -1407,7 +1398,8 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
             {
                for (auto& txioPair : subssh.txioMap_)
                {
-                  BinaryWriter& bw = submap[txioPair.first];
+                  BinaryData txioKey = txioPair.second.serializeDbKey();
+                  BinaryWriter& bw = submap[txioKey];
                   txioPair.second.serializeDbValue(bw);
                }
 
@@ -1418,8 +1410,17 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
             }
             else
             {
-               memcpy(subkey.getPtr() + keysize, subssh.hgtX_.getPtr(), 4);
-               keysToDelete_.insert(subkey.getSliceRef(0, keysize + 4));
+               auto& sshdelset = 
+                  intermediarrySubSshKeysToDelete_[sshPair.first];
+               sshdelset.insert(subssh.hgtX_);
+            }
+
+            if (subssh.keysToDelete_.size() > 0)
+            {
+               auto& sshdelset = 
+                  intermediarrySubSshKeysToDelete_[sshPair.first];
+               for (auto& ktd : subssh.keysToDelete_)
+                  sshdelset.insert(ktd);
             }
          }
       }
@@ -1489,7 +1490,7 @@ void DataToCommit::serializeData(BlockWriteBatcher& bwb,
 
    thread serThread = thread(serialize);
 
-   const auto& keysToDelete = serializeSSH(bwb, subsshMap);
+   serializeSSH(bwb, subsshMap);
    lock.unlock();
 
    if (serThread.joinable())
@@ -1518,9 +1519,33 @@ void DataToCommit::serializeData(BlockWriteBatcher& bwb,
             submap.insert(make_pair(key, move(txio.second)));
          }
       }
-   }
 
-   keysToDelete_.insert(keysToDelete.begin(), keysToDelete.end());
+   }
+      
+   for (auto& ktdSet : intermediarrySubSshKeysToDelete_)
+   {
+      auto& sshkey = sshPrefixes_[ktdSet.first];
+      size_t keySize = sshkey.getSize();
+
+      auto& subset = subSshKeysToDelete_[keySize];
+      BinaryData subKey(keySize + 8);
+      memcpy(subKey.getPtr(), sshkey.getPtr(), keySize);
+
+      for (auto& ktd : ktdSet.second)
+      {
+         if (ktd.getSize() == 8)
+         {
+            memcpy(subKey.getPtr() + keySize, ktd.getPtr(), 8);
+            subset.insert(subKey);
+         }
+         else
+         {
+            BinaryData ktdbd(sshkey);
+            ktdbd.append(ktd);
+            subset.insert(ktdbd);
+         }
+      }
+   }
 
    isSerialized_ = true;
 }
@@ -1541,7 +1566,7 @@ void DataToCommit::putSSH(LMDBBlockDatabase* db)
       for (auto& submap : serializedSubSshToApply_)
       {
          currentKeyLength = submap.first;
-         db->getSubSSHDBTransaction(subsshtx, 
+         db->beginSubSSHDBTransaction(subsshtx, 
                                     currentKeyLength, LMDB::ReadWrite);
 
          for (auto& subsshentry : submap.second)
@@ -1591,11 +1616,24 @@ void DataToCommit::putSTX(LMDBBlockDatabase* db)
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::deleteEmptyKeys(LMDBBlockDatabase* db)
 {
-   LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   {
+      LMDBEnv::Transaction tx;
+      db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
-   for (auto& toDel : keysToDelete_)
-      db->deleteValue(HISTORY, toDel);
+      for (auto& toDel : sshKeysToDelete_)
+         db->deleteValue(HISTORY, toDel.getRef());
+   }
+
+   for (auto& subset : subSshKeysToDelete_)
+   {
+      uint32_t keySize = subset.first;
+
+      LMDBEnv::Transaction subtx;
+      db->beginSubSSHDBTransaction(subtx, keySize, LMDB::ReadWrite);
+
+      for (auto& ktd : subset.second)
+         db->deleteValue(keySize, ktd.getRef());
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1625,15 +1663,17 @@ void DataToCommit::updateSDBI(LMDBBlockDatabase* db)
 DataToCommit::DataToCommit(DataToCommit&& dtc) :
    dbType_(dtc.dbType_)
 {
-   serializedSubSshToApply_    = move(dtc.serializedSubSshToApply_);
-   serializedSshToModify_      = move(dtc.serializedSshToModify_);
-   serializedStxOutToModify_   = move(dtc.serializedStxOutToModify_);
-   keysToDelete_               = move(dtc.keysToDelete_);
-   serializedSpentness_        = move(dtc.serializedSpentness_);
-   spentnessToDelete_          = move(dtc.spentnessToDelete_);
-   intermidiarrySubSshToApply_ = move(dtc.intermidiarrySubSshToApply_);
-   sshPrefixes_                = move(dtc.sshPrefixes_);
-   
+   serializedSubSshToApply_         = move(dtc.serializedSubSshToApply_);
+   serializedSshToModify_           = move(dtc.serializedSshToModify_);
+   serializedStxOutToModify_        = move(dtc.serializedStxOutToModify_);
+   sshKeysToDelete_                 = move(dtc.sshKeysToDelete_);
+   subSshKeysToDelete_              = move(dtc.subSshKeysToDelete_);
+   serializedSpentness_             = move(dtc.serializedSpentness_);
+   spentnessToDelete_               = move(dtc.spentnessToDelete_);
+   sshPrefixes_                     = move(dtc.sshPrefixes_);
+   intermidiarrySubSshToApply_      = move(dtc.intermidiarrySubSshToApply_);
+   intermediarrySubSshKeysToDelete_ = move(dtc.intermediarrySubSshKeysToDelete_);
+
    
    //Fullnode only
    serializedTxCountAndHash_ = move(dtc.serializedTxCountAndHash_);

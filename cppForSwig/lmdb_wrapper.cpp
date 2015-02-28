@@ -881,6 +881,15 @@ void LMDBBlockDatabase::deleteValue(DB_SELECT db,
    dbs_[db].erase( CharacterArrayRef(key.getSize(), key.getPtr() ) );
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Delete value based on BinaryData key.  If batch writing, pass in the batch
+void LMDBBlockDatabase::deleteValue(uint32_t db,
+   BinaryDataRef key)
+
+{
+   subSSHDBs_[db].erase(CharacterArrayRef(key.getSize(), key.getPtr()));
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 // Delete Put value based on BinaryData key.  If batch writing, pass in the batch
@@ -1102,7 +1111,7 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
    }
 
    LMDBEnv::Transaction tx;
-   getSubSSHDBTransaction(tx, subsshkey.getSize(), LMDB::ReadOnly);
+   beginSubSSHDBTransaction(tx, subsshkey.getSize(), LMDB::ReadOnly);
    LDBIter subIter = getSubSSHIterator(subsshkey.getSize());
 
    if (!subIter.seekTo(subsshkey))
@@ -1115,19 +1124,39 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
 bool LMDBBlockDatabase::getStoredSubHistoryAtHgtX(StoredSubHistory& subssh,
    const BinaryData& scrAddrStr, const BinaryData& hgtX) const
 {
-   BinaryWriter bw(scrAddrStr.getSize() + hgtX.getSize());
-   bw.put_BinaryData(scrAddrStr);
-   bw.put_BinaryData(hgtX);
+   StoredScriptHistory ssh;
+   getStoredScriptHistorySummary(ssh, scrAddrStr);
 
-   LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
-   LDBIter ldbIter = getIterator(HISTORY);
-
-   if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, bw.getDataRef()))
+   if (ssh.keyLength_ == 0)
       return false;
 
+   auto subKey = ssh.getSubKey();
+   subKey.append(hgtX);
    subssh.hgtX_ = hgtX;
-   subssh.unserializeDBValue(ldbIter.getValueReader());
+
+   LMDBEnv::Transaction tx;
+   beginSubSSHDBTransaction(tx, ssh.keyLength_, LMDB::ReadOnly);
+   LDBIter dbIter = getSubSSHIterator(ssh.keyLength_);
+
+   if (!dbIter.seekToExact(subKey))
+      return false;
+
+   while (dbIter.advanceAndRead())
+   {
+      if (!dbIter.getKeyRef().startsWith(subKey))
+         break;
+
+      if (dbIter.getKeyRef().getSize() != ssh.keyLength_ + 8)
+         break;
+
+      TxIOPair txio;
+      txio.unserialize(
+         dbIter.getKeyRef().getSliceRef(ssh.keyLength_, 8), 
+         dbIter.getValueRef());
+
+      subssh.txioMap_[txio.getDBKeyOfOutput()] = txio;
+   } 
+
    return true;
 }
 
@@ -3624,7 +3653,7 @@ BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey)
       memcpy(key.getPtr() + 1, uniqKey.getPtr() +1, keyLength - 1);
          
       LMDBEnv::Transaction tx;
-      getSubSSHDBTransaction(tx, keyLength, LMDB::ReadOnly);
+      beginSubSSHDBTransaction(tx, keyLength, LMDB::ReadOnly);
 
       LDBIter ldbIter = getSubSSHIterator(keyLength);
       if (!ldbIter.seekToExact(key))
@@ -3663,7 +3692,7 @@ BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void LMDBBlockDatabase::getSubSSHDBTransaction(
+void LMDBBlockDatabase::beginSubSSHDBTransaction(
    LMDBEnv::Transaction& tx, uint32_t prefixLength,
    LMDB::Mode mode) const
 {

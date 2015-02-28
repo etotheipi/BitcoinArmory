@@ -329,6 +329,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
    void deleteValue(DB_SELECT db, BinaryDataRef key);
+   void deleteValue(uint32_t db, BinaryDataRef key);
    void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
    
    // Move the iterator in DB to the lowest entry with key >= inputKey
@@ -657,7 +658,7 @@ public:
    { return blkFiles_; }
 
    BinaryData getSubSSHKey(BinaryDataRef uniqKey);
-   void getSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
+   void beginSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
 
 private:
    string baseDir_;

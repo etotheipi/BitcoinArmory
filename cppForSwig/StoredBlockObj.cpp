@@ -1917,7 +1917,19 @@ bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
       return false;
    }
 
+   BinaryData txioKey;
+   if (!txioIter->second.hasTxIn())
+      txioKey = txioIter->second.getDBKeyOfOutput();
+   else
+   {
+      txioKey = txioIter->second.getDBKeyOfInput();
+      txioKey.getPtr()[4] |= 0x80;
+   }
+
    txioMap_.erase(txioIter);
+   keysToDelete_.push_back(txioKey);
+
+   txioCount_--;
    return true;
 }
 

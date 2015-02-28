@@ -336,13 +336,15 @@ struct DataToCommit
 {
    map<uint32_t, map<BinaryData, BinaryWriter>> serializedSubSshToApply_;
    map<BinaryData, map<BinaryData, BinaryWriter>> intermidiarrySubSshToApply_;
+   map<BinaryData, set<BinaryData>> intermediarrySubSshKeysToDelete_;
 
-   map<BinaryData, BinaryWriter> serializedSshToModify_;
-   map<BinaryData, BinaryWriter> serializedStxOutToModify_;
-   map<BinaryData, BinaryWriter> serializedSpentness_;
-   set<BinaryData>               keysToDelete_;
-   set<BinaryData>               spentnessToDelete_;
-   map<BinaryData, BinaryData>   sshPrefixes_;
+   map<BinaryData, BinaryWriter>    serializedSshToModify_;
+   map<BinaryData, BinaryWriter>    serializedStxOutToModify_;
+   map<BinaryData, BinaryWriter>    serializedSpentness_;
+   set<BinaryData>                  sshKeysToDelete_;
+   map<uint32_t, set<BinaryData>>   subSshKeysToDelete_;
+   set<BinaryData>                  spentnessToDelete_;
+   map<BinaryData, BinaryData>      sshPrefixes_;
    
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
@@ -367,7 +369,7 @@ struct DataToCommit
    ////
    void serializeData(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
-   set<BinaryData> serializeSSH(BlockWriteBatcher& bwb,
+   void serializeSSH(BlockWriteBatcher& bwb,
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
    void serializeStxo(STXOS& stxos);
    void serializeDataToCommit(BlockWriteBatcher& bwb,

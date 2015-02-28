@@ -551,6 +551,8 @@ public:
 // transactions in the previous few blocks before it.  
 class StoredSubHistory
 {
+   friend class BlockWriteBatcher;
+   friend class DataToCommit;
 public:
 
    StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
@@ -623,6 +625,10 @@ public:
    uint32_t height_;
    uint8_t  dupID_;
    uint32_t txioCount_;
+
+private:
+   //BWB members, ignore outside of scans
+   vector<BinaryData> keysToDelete_;
 };
 
 
