@@ -85,6 +85,7 @@ typedef enum
 class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
+class FoundAllBlocksException {};
 
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB

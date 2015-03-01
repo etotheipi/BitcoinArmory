@@ -549,6 +549,10 @@ private:
             {
                blockDataCallback(rawBlk, { f.fnum, blockFileOffset }, blkSize);
             }
+            catch (FoundAllBlocksException& e)
+            {
+               throw e;
+            }
             catch (std::exception &e)
             {
                // this might very well just mean that we tried to load
@@ -2073,8 +2077,6 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
 void BlockDataManager_LevelDB::repairBlockDataDB(
    set<BinaryData>& missingBlocksByHash)
 {
-   class FoundAllBlocksException : public std::exception {};
-
    const auto blockCallback
       = [&](const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
    {
