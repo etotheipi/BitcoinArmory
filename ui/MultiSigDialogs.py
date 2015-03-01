@@ -2864,6 +2864,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       self.lblFinalChk    = QLabel()
       self.btnFinalBroad  = QPushButton(tr('Broadcast'))
       self.btnFinalExport = QPushButton(tr('Export'))
+      self.doneButton = QPushButton(tr('Done'))
       self.lblFinalChk.setMinimumSize(CHKW,CHKH)
       layoutBtns = QHBoxLayout()
       layoutBtns.addWidget(self.btnLoadImport)
@@ -2872,12 +2873,14 @@ class DlgMultiSpendReview(ArmoryDialog):
       layoutBtns.addWidget(self.lblFinalChk)
       layoutBtns.addWidget(self.btnFinalBroad)
       layoutBtns.addWidget(self.btnFinalExport)
+      layoutBtns.addWidget(self.doneButton)
       frmButtons = QFrame()
       frmButtons.setLayout(layoutBtns)
 
       self.connect(self.btnLoadImport,  SIGNAL('clicked()'), self.doImport)
       self.connect(self.btnFinalBroad,  SIGNAL('clicked()'), self.doBroadcast)
       self.connect(self.btnFinalExport, SIGNAL('clicked()'), self.doExport)
+      self.connect(self.doneButton, SIGNAL('clicked()'), self.accept)
 
       frmMain = makeVertFrame([lblDescr, 
                                HLINE(),
@@ -2898,6 +2901,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       layoutMain.addWidget(frmMain)
       self.setLayout(layoutMain)
 
+      self.setWindowTitle('Reveiw and Sign Promissory Note')
       self.setMinimumWidth(750)
       
       # Evaluate SigningStatus returns per-wallet details if a wlt is given
