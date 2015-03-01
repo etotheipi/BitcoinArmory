@@ -2901,7 +2901,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       layoutMain.addWidget(frmMain)
       self.setLayout(layoutMain)
 
-      self.setWindowTitle('Reveiw and Sign Promissory Note')
+      self.setWindowTitle('Reveiw and Sign')
       self.setMinimumWidth(750)
       
       # Evaluate SigningStatus returns per-wallet details if a wlt is given
