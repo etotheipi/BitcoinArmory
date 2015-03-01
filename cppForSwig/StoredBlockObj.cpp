@@ -1646,48 +1646,7 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       return;
    }
 
-   /*BinaryData fullTxKey(8);
-   hgtX_.copyTo(fullTxKey.getPtr());*/
-
    txioCount_ = (uint32_t)(brr.get_var_int());
-   /*for (uint32_t i = 0; i<txioCount_; i++)
-   {
-      BitUnpacker<uint8_t> bitunpack(brr);
-      bool isFromSelf      = bitunpack.getBit();
-      bool isCoinbase      = bitunpack.getBit();
-      bool isSpent         = bitunpack.getBit();
-      bool isMulti         = bitunpack.getBit();
-      bool isUTXO          = bitunpack.getBit();
-
-      // We always include the 8-byte value
-      uint64_t txoValue  = brr.get_uint64_t();
-      TxIOPair txio;
-      txio.setValue(txoValue);
-      txio.setUTXO(isUTXO);
-
-      if (!isSpent)
-      {
-         // First 4 bytes is same for all TxIOs, and was copied outside the loop.
-         // So we grab the last four bytes and copy it to the end.
-         brr.get_BinaryData(fullTxKey.getPtr() + 4, 4);
-         txio.setTxOut(fullTxKey);
-      }
-      else
-      {
-         //spent subssh, TxOut will always carry a full DBkey
-         txio.setTxOut(brr.get_BinaryDataRef(8));
-
-         //4 bytes entry
-         brr.get_BinaryData(fullTxKey.getPtr() + 4, 4);
-         txio.setTxIn(fullTxKey);
-      }
-
-      txio.setTxOutFromSelf(isFromSelf);
-      txio.setFromCoinbase(isCoinbase);
-      txio.setMultisig(isMulti);
-
-      insertTxio(txio);
-   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
