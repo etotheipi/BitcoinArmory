@@ -549,10 +549,6 @@ private:
             {
                blockDataCallback(rawBlk, { f.fnum, blockFileOffset }, blkSize);
             }
-            catch (FoundAllBlocksException& e)
-            {
-               throw e;
-            }
             catch (std::exception &e)
             {
                // this might very well just mean that we tried to load
