@@ -3,7 +3,6 @@ name: "bitcoin-armory-linux"
 suites:
 - "precise"
 architectures:
-- "i386"
 - "amd64"
 packages:
 - "faketime"

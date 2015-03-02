@@ -84,7 +84,7 @@ CXXFLAGS += -pipe
 endif
 
 ifeq ($(UNAME),Linux)
-CXXFLAGS += -std=c++11
+CXXFLAGS += -std=c++0x
 LDFLAGS += -pthread
 ifneq ($(shell uname -i | $(EGREP) -c "(_64|d64)"),0)
 M32OR64 = -m64
