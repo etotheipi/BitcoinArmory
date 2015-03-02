@@ -957,7 +957,8 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
 
    ldbIter.resetReaders();
-   BinaryData subSshKey(ldbIter.getKeyRef().getSliceRef(0, ssh.keyLength_));
+
+   BinaryData subSshKey(ssh.getSubKey());
    size_t ksz = ssh.keyLength_;
       
    if (startBlock != 0)
@@ -3475,15 +3476,16 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    ssh.unserializeDBKey(sshKey, true);
    ssh.unserializeDBValue(ldbIter.getValueReader());
 
-   if (ssh.totalTxioCount_ == 0)
+   if (ssh.totalTxioCount_ == 0 || ssh.keyLength_ == 0)
       return SSHsummary;
 
-   uint32_t sz = sshKey.getSize();
-   BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
-   uint32_t scrAddrSize = scrAddr.getSize();
-   (void)scrAddrSize;
+   BinaryData subkey = ssh.getSubKey();
+   LMDBEnv::Transaction subtx;
+   beginSubSSHDBTransaction(subtx, ssh.keyLength_, LMDB::ReadOnly);
+   LDBIter subIter = getSubSSHIterator(ssh.keyLength_);
 
-   if (!ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
+
+   if (!subIter.seekTo(subkey))
    {
       LOGERR << "No sub-SSH entries after the SSH";
       return SSHsummary;
@@ -3492,22 +3494,25 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    // Now start iterating over the sub histories
    do
    {
-      uint32_t sz = ldbIter.getKeyRef().getSize();
-      BinaryDataRef keyNoPrefix = ldbIter.getKeyRef().getSliceRef(1, sz - 1);
-      if (!keyNoPrefix.startsWith(ssh.uniqueKey_))
+      BinaryDataRef keyRef = subIter.getKeyRef();
+      size_t keysz = keyRef.getSize();
+      if (!keyRef.startsWith(subkey))
          break;
 
-      pair<BinaryData, StoredSubHistory> keyValPair;
-      keyValPair.first = keyNoPrefix.getSliceCopy(sz - 5, 4);
-      keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+      if (keysz != ssh.keyLength_ + 4)
+         continue;
+
+      StoredSubHistory subssh;
+      subssh.unserializeDBKey(keyRef, false);
 
       //iter is at the right ssh, make sure hgtX <= endBlock
-      if (keyValPair.second.height_ > endBlock)
+      if (subssh.height_ > endBlock)
          break;
 
-      keyValPair.second.getSummary(ldbIter.getValueReader());
-      SSHsummary[keyValPair.second.height_] = keyValPair.second.txioCount_;
-   } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+      subssh.unserializeDBValue(subIter.getValueRef());
+      
+      SSHsummary[subssh.height_] = subssh.txioCount_;
+   } while (subIter.advanceAndRead());
 
    return SSHsummary;
 }
