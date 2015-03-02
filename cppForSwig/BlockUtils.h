@@ -100,19 +100,21 @@ public:
    uint16_t fnum_;
 
    FileMap(BlkFile& blk);
-   FileMap(FileMap&& fm);
+   //FileMap(FileMap&& fm);
 
    ~FileMap(void);
 
 
    void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
       atomic<uint64_t>& lastSeenCumulative);
+private:
+   FileMap(const FileMap&); // not defined
 };
 
 class BlockFileAccessor
 {
 private:
-   shared_ptr<vector<BlkFile>> blkFiles_;
+   shared_ptr<vector<BlkFile> > blkFiles_;
    map<uint16_t, shared_ptr<FileMap> > blkMaps_;
    atomic<uint64_t> lastSeenCumulative_;
 
@@ -123,7 +125,7 @@ private:
 
 public:
    ///////
-   BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles);
+   BlockFileAccessor(shared_ptr<vector<BlkFile> > blkfiles);
 
    void getRawBlock(BinaryDataRef& bdr, uint32_t fnum, uint64_t offset,
       uint32_t size, shared_ptr<FileMap>** fmPtr);

@@ -1827,6 +1827,7 @@ FileMap::FileMap(BlkFile& blk)
 #endif
 }
 
+#if 0
 ////////////////////////////////////////////////////////////////////////////////
 FileMap::FileMap(FileMap&& fm)
 {
@@ -1837,7 +1838,7 @@ FileMap::FileMap(FileMap&& fm)
    fnum_ = fm.fnum_;
    fm.filemap_ = nullptr;
 }
-
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 FileMap::~FileMap()
