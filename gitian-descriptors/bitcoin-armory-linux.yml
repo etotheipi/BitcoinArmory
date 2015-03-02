@@ -1,0 +1,47 @@
+---
+name: "bitcoin-armory-linux"
+suites:
+- "precise"
+architectures:
+- "i386"
+- "amd64"
+packages:
+- "faketime"
+- "libcrypto++-dev"
+- "libleveldb-dev"
+- "pyqt4-dev-tools"
+- "python-dev"
+- "python-psutil"
+- "python-qt4"
+- "python-twisted"
+- "rsync"
+- "swig"
+- "zip"
+reference_datetime: "2013-06-01 00:00:00"
+remotes:
+- "url": "https://github.com/etotheipi/BitcoinArmory.git"
+  "dir": "BitcoinArmory"
+files: []
+script: |
+    export LD_PRELOAD=/usr/lib/faketime/libfaketime.so.1
+    export FAKETIME=$REFERENCE_DATETIME
+    export TZ=UTC
+
+    WRAP_DIR=$HOME/wrapped
+    FAKETIME_PROGS="date ar ranlib nm strip pyrcc4"
+    mkdir -p ${WRAP_DIR}
+
+    # Create global faketime wrappers
+    for prog in ${FAKETIME_PROGS}; do
+      echo '#!/bin/bash' > ${WRAP_DIR}/${prog}
+      echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
+      echo 'export LD_PRELOAD=/usr/lib/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+      echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/${prog}
+      echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+      chmod +x ${WRAP_DIR}/${prog}
+    done
+    export PATH=${WRAP_DIR}:${PATH}
+    
+    cd BitcoinArmory
+    make
+    cd .. && find BitcoinArmory -path "*/.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
