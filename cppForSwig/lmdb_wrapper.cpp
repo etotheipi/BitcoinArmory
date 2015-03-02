@@ -2624,7 +2624,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       if (dup != getValidDupIDForHeight(height) && numHints > 1)
          continue;
 
-      BinaryData& gettxhash = getTxHashForLdbKey(hint);
+      BinaryData gettxhash = getTxHashForLdbKey(hint);
 
       if (gettxhash != txHash)
          continue;
