@@ -141,6 +141,9 @@ void BlockWriteBatcher::insertSpentTxio(
    mirrorTxio.setTxIn(txInKey);
 
    dbUpdateSize_ += UPDATE_BYTES_KEY;
+   
+   if (!txOutKey.startsWith(inHgtSubSsh.hgtX_))
+      inHgtSubSsh.txioCount_++;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -340,7 +343,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
             dbUpdateSize_,
             stxoPtr->getValue(),
             stxoPtr->isCoinbase_,
-            false
+            false, false
          );
          
          auto& ssh = makeSureSSHInMap(uniqKey);
@@ -505,7 +508,7 @@ bool BlockWriteBatcher::parseTxIns(
       auto& txio = subssh.txioMap_[stxoKey];
       if (txio.getValue() == 0)
          subssh.markTxOutUnspent(stxoKey, dbUpdateSize_, stxoPtr->getValue(),
-            stxoPtr->isCoinbase_, false);
+            stxoPtr->isCoinbase_, false, false);
       subssh.markTxOutSpent(stxoKey);
          
       //Mirror the spent txio at txin height
@@ -553,6 +556,7 @@ bool BlockWriteBatcher::parseTxOuts(
       {
          auto& txio = thisSTX.preprocessedUTXO_[stxoPair.first];
          subssh.txioMap_[txio.getDBKeyOfOutput()] = txio;
+         subssh.txioCount_++;
          dbUpdateSize_ += sizeof(TxIOPair)+8;
       }
       else
@@ -562,7 +566,7 @@ bool BlockWriteBatcher::parseTxOuts(
             dbUpdateSize_,
             stxoToAdd.getValue(),
             stxoToAdd.isCoinbase_,
-            false);
+            false, true);
       }
 
       // If this was a multisig address, add a ref to each individual scraddr
@@ -593,7 +597,7 @@ bool BlockWriteBatcher::parseTxOuts(
                dbUpdateSize_,
                stxoToAdd.getValue(),
                stxoToAdd.isCoinbase_,
-               true);
+               true, true);
          }
       }
 
@@ -771,38 +775,6 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
                }
             }
          }
-         /*while (dbIter.getKeyRef().startsWith(bwKey.getDataRef()))
-         {
-            if (dbIter.getKeyRef().getSize()==bwKey.getSize() +4)
-            {
-               //grab subssh
-               StoredSubHistory subssh;
-               subssh.hgtX_ = dbIter.getKeyRef().getSliceRef(-4, 4);
-               subssh.unserializeDBValue(dbIter.getValueReader());
-
-               //load all UTXOs listed
-               for (auto txio : subssh.txioMap_)
-               {
-                  if (txio.second.isUTXO())
-                  {
-                     BinaryData dbKey = txio.second.getDBKeyOfOutput();
-                     shared_ptr<StoredTxOut> stxo(new StoredTxOut);
-                     iface_->getUnspentTxOut(*stxo, dbKey);
-
-                     BinaryData txHash = iface_->getTxHashForLdbKey(dbKey.getSliceRef(0, 6));
-
-                     BinaryWriter bwUtxoKey(34);
-                     bwUtxoKey.put_BinaryData(txHash);
-                     bwUtxoKey.put_uint16_t(stxo->txOutIndex_, BE);
-
-                     stxos_.utxoMap_[bwUtxoKey.getDataRef()] = stxo;
-                     utxoCount++;
-                  }
-               }
-            }
-               
-            dbIter.advanceAndRead(DB_PREFIX_SCRIPT);
-         }*/
       }
    }
 }
@@ -1403,10 +1375,11 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
                   txioPair.second.serializeDbValue(bw);
                }
 
-               //take care of proper subssh txio count tallying later,
-               //using subssh.txioCount_
-               BinaryWriter &bw = submap[subsshPair.first];
-               bw.put_var_int(subssh.txioMap_.size());
+               if (subssh.txioCount_ > 0)
+               {
+                  BinaryWriter &bw = submap[subsshPair.first];
+                  bw.put_var_int(subssh.txioCount_);
+               }
             }
             else
             {

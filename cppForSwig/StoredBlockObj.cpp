@@ -1850,11 +1850,6 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 void StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
 {
    TxIOPair& txio = txioMap_[txOutKey8B];
-   /*if(txioptr==NULL)
-   {
-      LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
-      throw runtime_error("missing txio!");
-   }*/
 
    txio.setUTXO(false);
    txio.flagged = true;
@@ -1974,7 +1969,8 @@ void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B,
                                         uint64_t&  additionalSize,
                                         const uint64_t&  value,
                                         bool       isCoinbase,
-                                        bool       isMultisigRef)
+                                        bool       isMultisigRef,
+                                        bool       increment)
 {
    TxIOPair& txio = txioMap_[txOutKey8B];
    if(!txio.hasTxOut())
@@ -1993,6 +1989,9 @@ void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B,
       txio.setTxIn(TxRef(), UINT32_MAX);
       txio.setUTXO(true);
    }
+
+   if (increment)
+      txioCount_++;
 }
 
 /* Meh, no demand for this functionality yet ... finish it later

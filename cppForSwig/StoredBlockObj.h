@@ -587,7 +587,8 @@ public:
                              uint64_t&  additionalSize,
                              const uint64_t&  value,
                              bool       isCoinbase,
-                             bool       isMultisigRef);
+                             bool       isMultisigRef,
+                             bool       increment);
 
    uint64_t getSubHistoryBalance(bool withMultisig=false);
    uint64_t getSubHistoryReceived(bool withMultisig=false);

@@ -9772,51 +9772,71 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
    EXPECT_EQ(ssh.getScriptBalance(),  50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 50*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      1);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(),   70*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 230*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      14);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(),   20*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  75*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       8);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
    EXPECT_EQ(ssh.getScriptBalance(),  65*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 65*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
    EXPECT_EQ(ssh.getScriptBalance(),  30*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 30*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      5);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 45*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(),  25*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 40*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(),  30*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 40*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(),   0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  5*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -9994,51 +10014,71 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
    EXPECT_EQ(ssh.getScriptBalance(),  50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 50*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      1);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(),   30*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 160*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      11);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(),   55*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  55*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
    EXPECT_EQ(ssh.getScriptBalance(),  60*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 60*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      5);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
    EXPECT_EQ(ssh.getScriptBalance(),  30*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 30*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(),  60*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 95*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(),   5*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(),   0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(),  10*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 20*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(),   0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  5*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,      2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -10063,51 +10103,71 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM_Reorg)
    EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 1);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 160 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 11);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 55 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 55 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
    EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 60 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 5);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 95 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 10 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 20 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -10127,51 +10187,71 @@ TEST_F(BlockUtilsSuper, Load5Blocks_DoubleReorg)
    EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 1);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 14);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 75 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 8);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
    EXPECT_EQ(ssh.getScriptBalance(), 65 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 65 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 5);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(), 25 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    //second reorg: up to 5A
    setBlocks({ "0", "1", "2", "3", "4A", "4", "5", "5A" }, blk0dat_);
@@ -10181,51 +10261,71 @@ TEST_F(BlockUtilsSuper, Load5Blocks_DoubleReorg)
    EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 1);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 160 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 11);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
    EXPECT_EQ(ssh.getScriptBalance(), 55 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 55 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
    EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 60 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 5);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
    EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 4);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
    EXPECT_EQ(ssh.getScriptBalance(), 60 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 95 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 7);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
    EXPECT_EQ(ssh.getScriptBalance(), 10 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 20 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 3);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 
    iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
    EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
+   for (auto subssh : ssh.subHistMap_)
+      EXPECT_EQ(subssh.second.txioCount_, subssh.second.txioMap_.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
