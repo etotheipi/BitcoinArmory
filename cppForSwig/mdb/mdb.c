@@ -4759,9 +4759,12 @@ mdb_env_close0(MDB_env *env, int excl)
 #endif
 	}
 
-   if (env->me_maps[env->me_currentmap].me_map) {
-      munmap(env->me_maps[env->me_currentmap].me_map, 
-         env->me_maps[env->me_currentmap].me_mapsize);
+   for (i = 0; i < DEFAULT_READERS; i++)
+   {
+      if (env->me_maps[i].me_map) {
+         munmap(env->me_maps[i].me_map,
+            env->me_maps[i].me_mapsize);
+      }
    }
 
 	if (env->me_mfd != env->me_fd && env->me_mfd != INVALID_HANDLE_VALUE)
@@ -4815,6 +4818,8 @@ mdb_env_close0(MDB_env *env, int excl)
 	}
 
 	env->me_flags &= ~(MDB_ENV_ACTIVE|MDB_ENV_TXKEY);
+
+   free(env->me_maps);
 }
 
 

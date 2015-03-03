@@ -545,6 +545,12 @@ private:
       ////
       LoadedBlockData(const LoadedBlockData&) = delete;
 
+      ~LoadedBlockData(void)
+      {
+         interruptBlock_->nextBlock_.reset();
+         interruptBlock_.reset();
+      }
+
       LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf,
          uint32_t nthreads) :
          startBlock_(start), endBlock_(end), scrAddrFilter_(scf),
