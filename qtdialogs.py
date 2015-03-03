@@ -8674,18 +8674,18 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWltID=None, actionStr="Select",
+def createAddrBookButton(parent, main, targWidget, defaultWltID=None, actionStr="Select",
                          selectExistingOnly=False, selectMineOnly=False, getPubKey=False,
                          showLockboxes=True):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
    def execAddrBook():
-      if len(parent.main.walletMap) == 0:
+      if len(main.walletMap) == 0:
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWltID, 
+      dlg = DlgAddressBook(parent, main, targWidget, defaultWltID, 
                     actionStr, selectExistingOnly, selectMineOnly, getPubKey,
                            showLockboxes)
       dlg.exec_()

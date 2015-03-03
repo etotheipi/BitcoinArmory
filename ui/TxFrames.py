@@ -76,10 +76,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.radioSpecify = QRadioButton('Specify a change address')
       self.lblChangeAddr = QRichLabel('Change:')
 
-      # Replaced with createAddressEntryWidgets
-      #self.edtChangeAddr = QLineEdit()
-      #self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
-                                       #None, 'Send change to')
       addrWidgets = self.main.createAddressEntryWidgets(self, maxDetectLen=36, 
                                                       defaultWltID=self.wltID)
       self.edtChangeAddr  = addrWidgets['QLE_ADDR']

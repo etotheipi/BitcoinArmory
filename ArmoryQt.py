@@ -6097,7 +6097,7 @@ class ArmoryMainWindow(QMainWindow):
       "cabbKWArgs" is "create address book button kwargs"
       Here's the signature of that function... you can pass any named args
       to this function and they will be passed along to createAddrBookButton
-         def createAddrBookButton(parent, targWidget, defaultWltID=None, 
+         def createAddrBookButton(parent, main, targWidget, defaultWltID=None, 
                                   actionStr="Select", selectExistingOnly=False, 
                                   selectMineOnly=False, getPubKey=False,
                                   showLockboxes=True)
@@ -6110,7 +6110,7 @@ class ArmoryMainWindow(QMainWindow):
       addrEntryObjs = {}
       addrEntryObjs['QLE_ADDR'] = QLineEdit()
       addrEntryObjs['QLE_ADDR'].setText(initString)
-      addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, 
+      addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, self,
                                                         addrEntryObjs['QLE_ADDR'], 
                                                         **cabbKWArgs)
       addrEntryObjs['LBL_DETECT'] = QRichLabel('')
