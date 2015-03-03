@@ -46,7 +46,7 @@ SWIG_OPTS    += -c++ -python -threads
 
 SWIG_INC     += 
 
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++0x
+CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
 # OS X requires a little extra elbow grease to support C++11.
 ifneq ($(OS),Windows_NT)
