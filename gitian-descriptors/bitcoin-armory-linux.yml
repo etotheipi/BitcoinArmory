@@ -5,6 +5,7 @@ suites:
 architectures:
 - "amd64"
 packages:
+- "clang-3.4"
 - "faketime"
 - "libcrypto++-dev"
 - "libleveldb-dev"
@@ -42,5 +43,5 @@ script: |
     export PATH=${WRAP_DIR}:${PATH}
     
     cd BitcoinArmory
-    make
+    make CC=clang CXX=clang++
     cd .. && find BitcoinArmory -path "*/.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
