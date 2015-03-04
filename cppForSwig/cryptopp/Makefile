@@ -107,6 +107,12 @@ CXXFLAGS += -std=c++11 -stdlib=libc++
 LDFLAGS += -lc++
 endif
 
+# ARMORY - If using clang outside OS X for some reason, disable ASM.
+# http://llvm.org/bugs/show_bug.cgi?id=18916
+ifeq ($(CXX),clang++)
+CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
+endif
+
 ifeq ($(UNAME),SunOS)
 LDLIBS += -lnsl -lsocket
 M32OR64 = -m$(shell isainfo -b)
