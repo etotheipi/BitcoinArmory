@@ -21,7 +21,7 @@ def execAndWait(cli_str, timeout=0, usepipes=True, cwd=None):
    """
    if isinstance(cli_str, (list, tuple)):
       cli_str = ' '.join(cli_str)
-   print 'Executing:', '"' + cli_str + '"'
+   print('Executing:', '"' + cli_str + '"')
    if usepipes:
       process = Popen(cli_str, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
    else:
@@ -32,7 +32,7 @@ def execAndWait(cli_str, timeout=0, usepipes=True, cwd=None):
    while process.poll() == None:
       time.sleep(0.1)
       if timeout>0 and (time.time() - start)>timeout:
-         print 'Process exceeded timeout, killing it'
+         print('Process exceeded timeout, killing it')
          killProcess(pid)
    out,err = process.communicate()
    return [out,err]
@@ -125,9 +125,9 @@ def getAllHashes(fnlist):
 def checkExists(fullPath, onDNE='exit'):
    fullPath = os.path.expanduser(fullPath)
    if os.path.exists(fullPath):
-      print 'Found file: %s' % fullPath 
+      print('Found file: %s' % fullPath )
    else:
-      print 'Path does not exist: %s' % fullPath
+      print('Path does not exist: %s' % fullPath)
       if onDNE=='skip':
          return None
       elif onDNE=='exit':

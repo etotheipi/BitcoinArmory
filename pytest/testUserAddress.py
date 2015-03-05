@@ -1,6 +1,8 @@
 import sys
 sys.path.append('..')
 import unittest
+import binascii
+
 from pytest.Tiab import TiabTest
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
@@ -50,21 +52,21 @@ class ScriptToDispStrTest(TiabTest):
    Once this method is settled down, we can make it a real unit test
    """
    def setUp(self):
-      self.pubKeyList    = [self.makePubKey(a) for a in ['\xbb','\xaa','\xcc']]
+      self.pubKeyList    = [self.makePubKey(a) for a in ['bb','aa','cc']]
       self.binScriptMS   = pubkeylist_to_multisig_script(self.pubKeyList, 2) 
       self.binScriptP2PK = pubkey_to_p2pk_script(self.pubKeyList[0])
       self.p2pkHash160   = hash160(self.pubKeyList[0])
       self.binScriptP2PKH = hash160_to_p2pkhash_script(self.p2pkHash160)
       self.binScriptP2SH_MS = script_to_p2sh_script(self.binScriptMS)
-      self.binScriptNonStd = '\x01'*25
+      self.binScriptNonStd = b'\x01'*25
 
 
       # Create two wallets, one will be used, one won't (both in map)
-      self.wlt = MockWallet('AbCd1234z', 'Primary Long-Term Savings Wallet',
+      self.wlt = MockWallet(b'AbCd1234z', 'Primary Long-Term Savings Wallet',
                                      script_to_scrAddr(self.binScriptP2PKH))
 
-      self.wltNull = MockWallet('YyBb7788b', 'This wallet is not used',
-                                                script_to_scrAddr('\x00'))
+      self.wltNull = MockWallet(b'YyBb7788b', 'This wallet is not used',
+                                                script_to_scrAddr(b'\x00'))
 
       # Create two lockboxes, one will be used, one won't (both in map)
       self.lboxID = calcLockboxID(self.binScriptMS)
@@ -72,31 +74,33 @@ class ScriptToDispStrTest(TiabTest):
                                        self.binScriptP2SH_MS, 2, 3)
 
       # Create some other public keys to create a lockbox that won't be used
-      self.pubKeyListOther  = [self.makePubKey(a) for a in ['\x32','\x19','\xfc']]
+      self.pubKeyListOther  = [self.makePubKey(a) for a in ['32','19','fc']]
       self.binScriptMSOther = pubkeylist_to_multisig_script(self.pubKeyListOther, 2) 
-      self.lboxNull = MockLockbox('ZzCc8899a', 'This lockbox is not used',
+      self.lboxNull = MockLockbox(b'ZzCc8899a', 'This lockbox is not used',
                                                    self.binScriptMSOther, 3, 5)
 
       self.binScriptTestList = [ \
-               [self.binScriptP2PKH,    'mfi7ZGQSEUSudTFeXrSnZUpo9u1dAtTBon'],
-               [self.binScriptP2PK,     'mfi7ZGQSEUSudTFeXrSnZUpo9u1dAtTBon'],
-               [self.binScriptMS,       '2N8pebcLPhfPhJpre5v1biNNTXxd9Qt3rcx'],
-               [self.binScriptP2SH_MS,  '2N8pebcLPhfPhJpre5v1biNNTXxd9Qt3rcx'], 
-               [self.binScriptNonStd,   '2NEF6nBRNhSDcsZu8UB877nnqwCWdKXbZXq']]
+               [self.binScriptP2PKH,    b'mfi7ZGQSEUSudTFeXrSnZUpo9u1dAtTBon'],
+               [self.binScriptP2PK,     b'mfi7ZGQSEUSudTFeXrSnZUpo9u1dAtTBon'],
+               [self.binScriptMS,       b'2N8pebcLPhfPhJpre5v1biNNTXxd9Qt3rcx'],
+               [self.binScriptP2SH_MS,  b'2N8pebcLPhfPhJpre5v1biNNTXxd9Qt3rcx'], 
+               [self.binScriptNonStd,   b'2NEF6nBRNhSDcsZu8UB877nnqwCWdKXbZXq']]
 
       
       self.maxLengthTestList = [256, 60, 58, 54, 45, 32]
 
    #############################################################################
-   def makePubKey(self, byte):
+   def makePubKey(self, h):
       """
       The input byte will be repeated 32 times, then treated as the x-value of 
       a compressed pubkey.  Uncompress it to get a real pubkey.  We do this so
       that we have a valid public key for our tests, in which the validity of
       our 65-byte keys are checked
       """
-      sbd33 = SecureBinaryData('\x02' + byte*32)
-      return CryptoECDSA().UncompressPoint(sbd33).toBinStr()
+      b = '02' + h*32
+      sbd33 = SecureBinaryData()
+      sbd33.createFromHex(b)
+      return hex_to_binary(CryptoECDSA().UncompressPoint(sbd33).toHexStr().encode())
 
 
    ##########################################################################
@@ -106,26 +110,26 @@ class ScriptToDispStrTest(TiabTest):
       different inputs.  
       """
       def myTestFunc():
-         print ''
-         print '*'*80
-         print descr
-         print '*'*80
+         print('')
+         print('*'*80)
+         print(descr)
+         print('*'*80)
 
          wltMap = {}
          for wlt in wltList:
             wltMap[wlt.uniqueIDB58] = wlt
 
          for scr,addrStr in binScrList:
-            print '\nAddrStr:', addrStr
+            print('\nAddrStr:', addrStr.decode())
             for pref in [True, False]:
-               print '   PrefID:', str(pref)
+               print('   PrefID:', str(pref))
                for lenMax in lenList:
-                  outInfo = getDisplayStringForScript(scr, wltMap, lboxList, 
-                                                      lenMax, prefIDOverAddr=pref)
+                  outInfo = getDisplayStringForScript(
+                     scr, wltMap, lboxList, lenMax, prefIDOverAddr=pref)
                   outStr = outInfo['String']
                   lenStr = str(len(outStr)).rjust(3)
-                  print '      ', lenStr,outStr
-                  self.assertTrue(isinstance(outStr, basestring))
+                  print('      ', lenStr,outStr)
+                  self.assertTrue(isinstance(outStr, str))
                   self.assertTrue(len(outStr) <= lenMax)
 
       return myTestFunc
@@ -182,16 +186,16 @@ class UserAddressToScript(TiabTest):
    loaded/available
    """
    def setUp(self):
-      self.pubKeyList    = [self.makePubKey(a) for a in ['\xaa','\x33','\x44']]
+      self.pubKeyList    = [self.makePubKey(a) for a in ['aa','33','44']]
       self.binScriptMS   = pubkeylist_to_multisig_script(self.pubKeyList, 2) 
       self.binScriptP2PK = pubkey_to_p2pk_script(self.pubKeyList[0])
       self.p2pkHash160   = hash160(self.pubKeyList[0])
       self.binScriptP2PKH = hash160_to_p2pkhash_script(self.p2pkHash160)
       self.binScriptP2SH_MS = script_to_p2sh_script(self.binScriptMS)
-      self.binScriptNonStd = '\x01'*25
+      self.binScriptNonStd = b'\x01'*25
 
 
-      pubKeyCompr = '\x02' + '\xaa'*32
+      pubKeyCompr = b'\x02' + b'\xaa'*32
       self.binScriptP2PKCompr = pubkey_to_p2pk_script(pubKeyCompr)
       self.binScriptP2PKHCompr = hash160_to_p2pkhash_script(hash160(pubKeyCompr))
 
@@ -201,14 +205,14 @@ class UserAddressToScript(TiabTest):
       self.wlt2 = MockWallet('BcDe2345y', 'Another long-term savings wallet',
                                   script_to_scrAddr(self.binScriptP2PKCompr))
       self.wltNull = MockWallet('YyBb7788b', 'This wallet is not used',
-                                                script_to_scrAddr('\x00'))
+                                                script_to_scrAddr(b'\x00'))
 
       self.lboxID = calcLockboxID(self.binScriptMS)
       self.lbox = MockLockbox(self.lboxID, 'My Ultra-Secure Savings Lockbox',
                                self.binScriptMS, 2, 3)
 
       # Create some other public keys to create a lockbox that won't be used
-      self.pubKeyListOther  = [self.makePubKey(a) for a in ['\x32','\x19','\xfc']]
+      self.pubKeyListOther  = [self.makePubKey(a) for a in ['32','19','fc']]
       self.binScriptMSOther = pubkeylist_to_multisig_script(self.pubKeyListOther, 2) 
       lboxIDOther = calcLockboxID(self.binScriptMSOther)
       self.lboxNull = MockLockbox(lboxIDOther, 'This lockbox is not used',
@@ -218,10 +222,10 @@ class UserAddressToScript(TiabTest):
 
       # When all wallets and lockboxes are avail, these will all be recognized
       self.validInputStrings = [ \
-         'n4TMVYp9BX4yDtjqPgJHrnRPu7zdZ2aLGj',
-         '2N1j5GnC97dXRprEzbQVJJAYXMqCsffdX29',
-         'Lockbox[%s]' % self.lboxID,
-         'Lockbox[Bare:%s]' % self.lboxID,
+         b'n4TMVYp9BX4yDtjqPgJHrnRPu7zdZ2aLGj',
+         b'2N1j5GnC97dXRprEzbQVJJAYXMqCsffdX29',
+         b'Lockbox[' + self.lboxID + b']',
+         b'Lockbox[Bare:' + self.lboxID + b']',
          binary_to_hex(self.pubKeyList[0]),
          binary_to_hex(pubKeyCompr)]   # a compressed key
          
@@ -236,15 +240,19 @@ class UserAddressToScript(TiabTest):
 
 
    #############################################################################
-   def makePubKey(self, byte):
+   def makePubKey(self, h):
       """
       The input byte will be repeated 32 times, then treated as the x-value of 
       a compressed pubkey.  Uncompress it to get a real pubkey.  We do this so
       that we have a valid public key for our tests, in which the validity of
       our 65-byte keys are checked
       """
-      sbd33 = SecureBinaryData('\x02' + byte*32)
-      return CryptoECDSA().UncompressPoint(sbd33).toBinStr()
+      assert(isinstance(h, str))
+      assert(len(h) == 2)
+      b = '02' + h*32
+      sbd33 = SecureBinaryData()
+      sbd33.createFromHex(b)
+      return hex_to_binary(CryptoECDSA().UncompressPoint(sbd33).toHexStr().encode())
 
    #############################################################################
    def testReadP2PKH(self):
@@ -359,7 +367,6 @@ class UserAddressToScript(TiabTest):
       lboxList = [self.lbox]
 
       scrInfo = getScriptForUserString(self.validInputStrings[3], wltMap, lboxList) 
-
       self.assertEqual(scrInfo['Script'], self.binScriptMS)
       self.assertEqual(scrInfo['WltID'],  None)
       self.assertEqual(scrInfo['LboxID'], self.lboxID)
@@ -380,7 +387,6 @@ class UserAddressToScript(TiabTest):
       lboxList = []
 
       scrInfo = getScriptForUserString(self.validInputStrings[4], wltMap, lboxList) 
-
       self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
       self.assertEqual(scrInfo['WltID'], None)
       self.assertEqual(scrInfo['LboxID'], None)

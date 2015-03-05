@@ -2,11 +2,7 @@
 # see LICENSE.txt for license information
 
 from threading import Event
-try:
-    True
-except:
-    True = 1
-    False = 0
+
 
 class Statistics_Response:
     pass    # empty class
@@ -37,13 +33,13 @@ class Statistics:
         self.placesopen = 0
         self.filelistupdated = Event()
         self.filelistupdated.set()
-        frange = xrange(len(files))
+        frange = range(len(files))
         self.filepieces = [[] for x in frange]
         self.filepieces2 = [[] for x in frange]
         self.fileamtdone = [0.0 for x in frange]
         self.filecomplete = [False for x in frange]
         self.fileinplace = [False for x in frange]
-        start = 0L
+        start = 0
         for i in frange:
             l = files[i][1]
             if l == 0:
@@ -113,8 +109,8 @@ class Statistics:
         s.storage_numflunked = self.storage.stat_numflunked
         s.storage_isendgame = self.downloader.endgamemode
 
-        s.peers_kicked = self.downloader.kicked.items()
-        s.peers_banned = self.downloader.banned.items()
+        s.peers_kicked = list(self.downloader.kicked.items())
+        s.peers_banned = list(self.downloader.banned.items())
 
         try:
             s.upRate = int(self.ratelimiter.upload_rate/1000)
@@ -133,7 +129,7 @@ class Statistics:
             self.fdatactive = False
 
         if self.piecescomplete != self.picker.numgot:
-            for i in xrange(len(self.filecomplete)):
+            for i in range(len(self.filecomplete)):
                 if self.filecomplete[i]:
                     continue
                 oldlist = self.filepieces[i]
@@ -153,7 +149,7 @@ class Statistics:
 
         if ( self.filelistupdated.isSet()
                  or self.placesopen != len(self.storage.places) ):
-            for i in xrange(len(self.filecomplete)):
+            for i in range(len(self.filecomplete)):
                 if not self.filecomplete[i] or self.fileinplace[i]:
                     continue
                 while self.filepieces2[i]:

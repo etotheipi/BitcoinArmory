@@ -10,8 +10,8 @@ import platform
 import sys
 from armoryengine.ALL import *
 from qtdefines import *
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 
 
 LOCKBOXCOLS = enum('ID', 'MSType', 'CreateDate', 'LBName', \
@@ -22,7 +22,7 @@ LOCKBOXCOLS = enum('ID', 'MSType', 'CreateDate', 'LBName', \
 class LockboxDisplayModel(QAbstractTableModel):
 
    def __init__(self, main, allLockboxes, dateFormat=DEFAULT_DATE_FORMAT):
-      super(LockboxDisplayModel, self).__init__()
+      super().__init__()
       self.boxList = allLockboxes
       self.dateFmt = dateFormat
       self.main = main
@@ -59,9 +59,9 @@ class LockboxDisplayModel(QAbstractTableModel):
 
       if role==Qt.DisplayRole:
          if col==LOCKBOXCOLS.ID: 
-            return QVariant(lbID)
+            return QVariant(lbID.decode())
          elif col==LOCKBOXCOLS.CreateDate: 
-            return QVariant(unixTimeToFormatStr(lbox.createDate, self.dateFmt))
+            return QVariant(unixTimeToFormatStr(lbox.createDate, self.dateFmt).decode())
          elif col==LOCKBOXCOLS.MSType: 
             return QVariant('%d-of-%d' % (lbox.M, lbox.N))
          elif col==LOCKBOXCOLS.LBName: 
@@ -138,6 +138,10 @@ class LockboxDisplayModel(QAbstractTableModel):
             
          return rowFlag      
 
+   def reset(self):
+      self.beginResetModel()
+      self.endResetModel()
+
 
 class LockboxDisplayProxy(QSortFilterProxyModel):
    """
@@ -183,7 +187,7 @@ class LockboxDisplayProxy(QSortFilterProxyModel):
             btcRight = getDouble(idxRight, COL.Balance)
             return (abs(btcLeft) < abs(btcRight))
 
-      return super(LockboxDisplayProxy, self).lessThan(idxLeft, idxRight)
+      return super().lessThan(idxLeft, idxRight)
 
 
 

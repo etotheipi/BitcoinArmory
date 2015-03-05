@@ -97,6 +97,9 @@ class JasvetTester(unittest.TestCase):
       self.assertEqual(x,x2)
       secret = b'secretsecretsecretsecretsecretse'
       message = b'hello there'
+      data1 = sign_message(secret, message, False, 1)
+      expected = b'79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798bed694a1cb7cf01d76b6448a6b2f2e9038495869dc6eeac4495c7a99767f0ef1'
+      self.assertEqual(binary_to_hex(data1[0].ser()), expected)
       data2 = sign_message_Bitcoin(secret, message)
       sign, msg = data2['b64-signature'], data2['message']
       self.assertTrue(verify_message_Bitcoin(sign, msg))

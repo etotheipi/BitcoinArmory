@@ -6,7 +6,7 @@
 #                                                                              #
 ################################################################################
 
-from ArmoryUtils import makeAsciiBlock, readAsciiBlock
+from .ArmoryUtils import makeAsciiBlock, readAsciiBlock
 from armoryengine.ArmoryUtils import LOGERROR, UnserializeError
 
 class AsciiSerializable(object):
@@ -63,7 +63,7 @@ class AsciiSerializable(object):
 
    #############################################################################
    def serializeAscii(self):
-      headStr = '%s-%s' % (self.BLKSTRING, self.asciiID)
+      headStr = self.BLKSTRING + b"-" + self.asciiID
       return makeAsciiBlock(self.serialize(), headStr)
 
 
@@ -74,7 +74,7 @@ class AsciiSerializable(object):
          LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
          raise UnserializeError('Unexpected BLKSTRING')
 
-      expectID = headStr.split('-')[-1]
+      expectID = headStr.split(b'-')[-1]
       return self.unserialize(rawData, expectID, skipMagicCheck)
    
 
@@ -126,7 +126,7 @@ class AsciiSerializable(object):
                LOGERROR('Map size compare failed for %s' % attr)
                return False
    
-            for key,val in selfMap.iteritems():
+            for key,val in list(selfMap.items()):
                if not key in otherMap:
                   LOGERROR('First map has key not in second map: "%s"' % key)
                   return False

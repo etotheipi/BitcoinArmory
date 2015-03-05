@@ -11,16 +11,16 @@ sys.path.append('..')
 from armoryengine import *
 
 
-print '*'*80
-print '* WARNING:  THIS SCRIPT IS VERY DANGEROUS!  '
-print '*           IT DIRECTLY MODIFIES ARMORY WALLETS AT THE BINARY LEVEL.'
-print '*           DO NOT USE WHILE ARMORY IS RUNNING! '
-print '*           MAKE A BACKUP OF YOUR WALLET BEFORE RUNNING THIS SCRIPT!'
-print '*           '
-print '*           THIS SCRIPT IS A TOY, NOT GUARNATEED TO BE FIT FOR ANY'
-print '*           PURPOSE.  NO WARRANTIES, NO EXPECTATIONS.  NO COMPLAINTS.'
-print '*           Please.'
-print '*'*80
+print('*'*80)
+print('* WARNING:  THIS SCRIPT IS VERY DANGEROUS!  ')
+print('*           IT DIRECTLY MODIFIES ARMORY WALLETS AT THE BINARY LEVEL.')
+print('*           DO NOT USE WHILE ARMORY IS RUNNING! ')
+print('*           MAKE A BACKUP OF YOUR WALLET BEFORE RUNNING THIS SCRIPT!')
+print('*           ')
+print('*           THIS SCRIPT IS A TOY, NOT GUARNATEED TO BE FIT FOR ANY')
+print('*           PURPOSE.  NO WARRANTIES, NO EXPECTATIONS.  NO COMPLAINTS.')
+print('*           Please.')
+print('*'*80)
 ans = raw_input('Yeah yeah, I get it... right? [y/N]: ')
 if not ans.lower().startswith('y'):
    exit(0)
@@ -38,7 +38,7 @@ def extractPrivateKeyFromLine(line):
    # Sipa format is:  
    #   encodedKey = '\x80' + rawPrivKey32 + hash256('\x80'+rawPrivKey32)[:4]
    #   len(encodedKey)==37
-   pcs = line.strip().split(':')
+   pcs = line.strip().split(b':')
    return base58_to_binary(pcs[1])[1:-4]
    
 
@@ -47,11 +47,11 @@ wltfilebak = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % wltID)
 
 
 if not os.path.exists(wltfile):
-   print 'ERROR: Wallet does not exist:', wltfile
+   print('ERROR: Wallet does not exist:', wltfile)
    exit(1)
 
 if not os.path.exists(keyfile):
-   print 'ERROR: Keyfile does not exist:', keyfile
+   print('ERROR: Keyfile does not exist:', keyfile)
    exit(1)
 
 # Remove the backup if it exists
@@ -75,7 +75,7 @@ exampleEntry = hex_to_binary( \
   '69b182f6 6631727c 7072ffff ffff0000 00000000 00000000 0000ffff ffff0000 '
   '0000 '.replace(' ',''))
 
-print 'Showing the last 258 bytes:'
+print('Showing the last 258 bytes:')
 pprintHex(binary_to_hex(exampleEntry))
 
 
@@ -98,7 +98,9 @@ for i in xrange(NLINESTOREAD):
       break
 
    privBin = extractPrivateKeyFromLine(line)
-   pubBin  = CryptoECDSA().ComputePublicKey(SecureBinaryData(privBin)).toBinStr()
+   securePrivBin = SecureBinaryData()
+   securePrivBin.createFromHex(binary_to_hex(privBin).decode())
+   pubBin  = hex_to_binary(CryptoECDSA().ComputePublicKey(securePrivBin).toHexStr())
    addr20  = hash160(pubBin)
 
    # Pre-PyBtcAddr Entry Header
@@ -122,7 +124,7 @@ for i in xrange(NLINESTOREAD):
    #pprintHex( binary_to_hex( ''.join(addrDataToWrite) ))
 
    if i%1000==0 and not i==0:
-      print 'Appended %d keys...' % i
+      print('Appended %d keys...' % i)
       wltOut.write(''.join(addrDataToWrite))
       addrDataToWrite = []
       

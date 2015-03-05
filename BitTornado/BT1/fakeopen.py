@@ -40,7 +40,7 @@ class FakeHandle:
 class FakeOpen:
     def __init__(self, initial = {}):
         self.files = {}
-        for key, value in initial.items():
+        for key, value in list(initial.items()):
             self.files[key] = list(value)
     
     def open(self, filename, mode):
@@ -49,7 +49,7 @@ class FakeOpen:
         return FakeHandle(filename, self)
 
     def exists(self, file):
-        return self.files.has_key(file)
+        return file in self.files
 
     def getsize(self, file):
         return len(self.files[file])

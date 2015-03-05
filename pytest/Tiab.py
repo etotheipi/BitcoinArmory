@@ -6,7 +6,7 @@ from twisted.python import filepath
 sys.argv.append('--testnet')
 # Uncomment when debugging
 sys.argv.append('--debug')
-sys.argv.append('--supernode')
+#sys.argv.append('--supernode')
 # sys.argv.append('--nologging')
 
 import os
@@ -20,8 +20,8 @@ from zipfile import ZipFile
 from armoryengine.BDM import TheBDM, BlockDataManager, newTheBDM,\
    BDM_BLOCKCHAIN_READY, STOPPED_ACTION
 
-TOP_TIAB_BLOCK = 247
 
+TOP_TIAB_BLOCK = 247
 
 doneShuttingDownBDM = False
       

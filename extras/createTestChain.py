@@ -18,8 +18,8 @@ from time import time, sleep
 ### NOTE: THIS MUST BE RUN FROM THE ARMORY ROOT DIRECTORY, OTHERWISE IT'LL FAIL!
 
 if not os.path.isdir('cppForSwig/reorgTest'):
-   print "This program must be run from the armory source root dir. Copy this " \
-      "file to the root directory and run it from there."
+   print("This program must be run from the armory source root dir. Copy this " \
+      "file to the root directory and run it from there.")
    sys.exit(1);
 
 # Real blocks have to be properly mined, which takes hours. If messing with this
@@ -34,9 +34,9 @@ blkfile.seek(8,0)
 genBlock = PyBlock().unserialize(blkfile.read(80 + 1 + 285))
 blkfile.close()
 
-print 'Genesis block header:'
+print('Genesis block header:')
 genBlock.blockHeader.pprint()
-print 'Genesis block tx:'
+print('Genesis block tx:')
 genBlock.blockData.txList[0].pprint()
 
 # Receiver of the genesis block.
@@ -45,36 +45,36 @@ satoshiPubKey = hex_to_binary('04678afdb0fe5548271967f1a67130b7105cd6a828e03909a
 ################################################################################
 def printHashEnds(theHash):
    intList = [ord(c) for c in theHash]
-   print 'First 4 LE bytes: [%03d,%03d,%03d,%03d]' % tuple(intList[:4]),
-   print 'First 4 BE bytes: [%03d,%03d,%03d,%03d]' % tuple(intList[::-1][:4])
+   print('First 4 LE bytes: [%03d,%03d,%03d,%03d]' % tuple(intList[:4]),)
+   print('First 4 BE bytes: [%03d,%03d,%03d,%03d]' % tuple(intList[::-1][:4]))
 
 
 def printBlkInfo(blk, suffix):
-   print 'BLOCK (', suffix ,')'
-   print '   Head  :', binary_to_hex(blk.blockHeader.getHash())
+   print('BLOCK (', suffix ,')')
+   print('   Head  :', binary_to_hex(blk.blockHeader.getHash()))
    for i,tx in enumerate(blk.blockData.txList):
-      print '      Tx :', binary_to_hex(tx.getHash())
+      print('      Tx :', binary_to_hex(tx.getHash()))
 
-   print '\n'
-   print '   ',
+   print('\n')
+   print('   ',)
    printHashEnds(blk.blockHeader.getHash())
    for i,tx in enumerate(blk.blockData.txList):
-      print '   ',
+      print('   ',)
       printHashEnds(tx.getHash())
-   print '\n'
+   print('\n')
 
-   print '   RawHeader  :', binary_to_hex(blk.blockHeader.getHash())
+   print('   RawHeader  :', binary_to_hex(blk.blockHeader.getHash()))
    pprintHex(binary_to_hex(blk.blockHeader.serialize()), indent=' '*12, withAddr=False)
    for i,tx in enumerate(blk.blockData.txList):
-      print '       RawTx  :', binary_to_hex(tx.getHash())
-      print '       PrevOut: %s' % binary_to_hex(tx.inputs[0].outpoint.serialize())
+      print('       RawTx  :', binary_to_hex(tx.getHash()))
+      print('       PrevOut: %s' % binary_to_hex(tx.inputs[0].outpoint.serialize()))
       pprintHex(binary_to_hex(tx.serialize()), indent=' '*12, withAddr=False)
 
-   print '\n'
+   print('\n')
 
 ################################################################################
 def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
-   print 'Creating block (%d tx):  Computing nonce...' % len(txlist)
+   print('Creating block (%d tx):  Computing nonce...' % len(txlist))
    extraNonce = random.randrange(2**32)
    txlist[0].inputs[0].binScript = int_to_binary(extraNonce, widthBytes=4)
    aGoodNonce = False
@@ -111,7 +111,7 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
 
    blk.blockHeader.nonce = nonceVal
    blk.blockHeader.timestamp = newbh.getTimestamp()
-   print 'Done!'
+   print('Done!')
    return blk
 
 
@@ -122,10 +122,10 @@ AddrC  = PyBtcAddress().createFromPrivateKey(hex_to_int('cc'*32))
 AddrD  = PyBtcAddress().createFromPrivateKey(hex_to_int('dd'*32))
 AddrE  = PyBtcAddress().createFromPrivateKey(hex_to_int('ee'*32))
 AddrF  = PyBtcAddress().createFromPrivateKey(hex_to_int('ef'*32))
-print 'Addr A: %s' % AddrA.getAddrStr(), ' (Satoshi)'
+print('Addr A: %s' % AddrA.getAddrStr(), ' (Satoshi)')
 for a,s in ([AddrB, 'B'], [AddrC, 'C'], [AddrD, 'D'], [AddrE, 'E'], [AddrF, 'F']):
-   print 'Addr %s: %s (PrivKey:%s)' % (s, a.getAddrStr(),
-                                       binary_to_hex(a.serializePlainPrivateKey()))
+   print('Addr %s: %s (PrivKey:%s)' % (s, a.getAddrStr(),
+                                       binary_to_hex(a.serializePlainPrivateKey())))
 
 # Lists of who signs off on lockbox transactions.
 signList1A = []
@@ -144,8 +144,8 @@ name = 'LB 1'
 descr = 'Lockbox 1 has B & C (1-of-2)'
 m = 1
 n = 2
-key1 = DecoratedPublicKey(AddrB.getPubKey().toBinStr())
-key2 = DecoratedPublicKey(AddrC.getPubKey().toBinStr())
+key1 = DecoratedPublicKey(hex_to_binary(AddrB.getPubKey().toHexStr()))
+key2 = DecoratedPublicKey(hex_to_binary(AddrC.getPubKey().toHexStr()))
 keyList1 = []
 keyList1.append(key1)
 keyList1.append(key2)
@@ -154,20 +154,20 @@ name = 'LB 2'
 descr = 'Lockbox 2 has D & E (2-of-2)'
 m = 2
 n = 2
-key3 = DecoratedPublicKey(AddrD.getPubKey().toBinStr())
-key4 = DecoratedPublicKey(AddrE.getPubKey().toBinStr())
+key3 = DecoratedPublicKey(hex_to_binary(AddrD.getPubKey().toHexStr()))
+key4 = DecoratedPublicKey(hex_to_binary(AddrE.getPubKey().toHexStr()))
 keyList2 = []
 keyList2.append(key3)
 keyList2.append(key4)
 LB2 = MultiSigLockbox(name, descr, m, n, keyList2)
 
 # Get the data needed for the C++ unit tests
-print 'LB1 B58 ID: %s' % LB1.uniqueIDB58
-print 'LB1 scrAddr: %s' % binary_to_hex(LB1.scrAddr)
-print 'LB1 scrAddr (P2SH): %s' % binary_to_hex(LB1.p2shScrAddr)
-print 'LB2 B58 ID: %s' % LB2.uniqueIDB58
-print 'LB2 scrAddr: %s' % binary_to_hex(LB2.scrAddr)
-print 'LB2 scrAddr (P2SH): %s' % binary_to_hex(LB2.p2shScrAddr)
+print('LB1 B58 ID: %s' % LB1.uniqueIDB58)
+print('LB1 scrAddr: %s' % binary_to_hex(LB1.scrAddr))
+print('LB1 scrAddr (P2SH): %s' % binary_to_hex(LB1.p2shScrAddr))
+print('LB2 B58 ID: %s' % LB2.uniqueIDB58)
+print('LB2 scrAddr: %s' % binary_to_hex(LB2.scrAddr))
+print('LB2 scrAddr (P2SH): %s' % binary_to_hex(LB2.p2shScrAddr))
 
 btcValue = lambda btc: btc*(10**8)
 COINBASE = -1

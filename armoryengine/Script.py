@@ -24,14 +24,14 @@ def convertScriptToOpStrings(binScript):
    sz = len(binScript)
    error = False;
    while i < sz:
-      nextOp = ord(binScript[i]);
+      nextOp = binScript[i]
       if nextOp == 0:
          opList.append("0")
          i+=1
       elif nextOp < 76:
          opList.append('PUSHDATA(%s)' % str(nextOp))
          binObj = binScript[i+1:i+1+nextOp]
-         opList.append('['+binary_to_hex(binObj)+']')
+         opList.append('['+binary_to_hex(binObj).decode()+']')
          i += nextOp+1
       elif nextOp == 76:
          nb = binary_to_int(binScript[i+1:i+2])
@@ -40,7 +40,7 @@ def convertScriptToOpStrings(binScript):
             break
          binObj = binScript[i+2:i+2+nb]
          opList.append('OP_PUSHDATA1(%s)' % str(nb))
-         opList.append('['+binary_to_hex(binObj)+']')
+         opList.append('['+binary_to_hex(binObj).decode()+']')
          i += nb+2
       elif nextOp == 77:
          nb = binary_to_int(binScript[i+1:i+3]);
@@ -50,7 +50,7 @@ def convertScriptToOpStrings(binScript):
          nbprint = min(nb,256)
          binObj = binScript[i+3:i+3+nbprint]
          opList.append('OP_PUSHDATA2(%s)' % str(nb))
-         opList.append('['+binary_to_hex(binObj)[:512] + '...]')
+         opList.append('['+binary_to_hex(binObj)[:512].decode() + '...]')
          i += nb+3
       elif nextOp == 78:
          nb = binScript[i+1:i+5];
@@ -60,7 +60,7 @@ def convertScriptToOpStrings(binScript):
          nbprint = min(nb,256)
          binObj = binScript[i+5,i+5+nbprint]
          opList.append('[OP_PUSHDATA4(%s)]' % str(nb))
-         opList.append('['+binary_to_hex(binObj)[:512] + '...]')
+         opList.append('['+binary_to_hex(binObj)[:512].decode() + '...]')
          i += nb+5
       else:
          opList.append(opnames[nextOp]);
@@ -74,22 +74,23 @@ def convertScriptToOpStrings(binScript):
 
 def pprintScript(binScript, nIndent=0):
    indstr = indent*nIndent
-   print indstr + 'Script:'
+   print(indstr + 'Script:')
    opList = convertScriptToOpStrings(binScript)
    for op in opList:
-      print indstr + indent + op
+      print(indstr + indent + op)
 
 def scriptPushData(binObj):
+   assert(isinstance(binObj, bytes))
    sz = len(binObj) 
    if sz <= 76:
-      lenByte = int_to_binary(sz, widthBytes=1)
+      lenByte = bytes([sz])
       return lenByte+binObj
    elif sz <= 256:
       lenByte = int_to_binary(sz, widthBytes=1)
-      return '\x4c' + lenByte + binObj
+      return b'\x4c' + lenByte + binObj
    elif sz <= 65536:
       lenBytes = int_to_binary(sz, widthBytes=2)
-      return '\x4d' + lenBytes + binObj
+      return b'\x4d' + lenBytes + binObj
    else:
       InvalidScriptError('Cannot use PUSHDATA for len(obj)>65536')
 
@@ -159,7 +160,7 @@ class PyScriptProcessor(object):
       TxOut instead of just the script itself.
       """
       self.txNew = PyTx().unserialize(txNew.serialize())
-      self.script1 = str(txNew.inputs[txInIndex].binScript) # copy
+      self.script1 = txNew.inputs[txInIndex].binScript # copy
       self.txInIndex  = txInIndex
       self.txOutIndex = txNew.inputs[txInIndex].outpoint.txOutIndex
       self.txHash  = txNew.inputs[txInIndex].outpoint.txHash
@@ -167,11 +168,11 @@ class PyScriptProcessor(object):
       if isinstance(txOldData, PyTx):
          if not self.txHash == hash256(txOldData.serialize()):
             LOGERROR('*** Supplied incorrect pair of transactions!')
-         self.script2 = str(txOldData.outputs[self.txOutIndex].binScript)
+         self.script2 = txOldData.outputs[self.txOutIndex].binScript
       elif isinstance(txOldData, PyTxOut):
-         self.script2 = str(txOldData.binScript)
+         self.script2 = txOldData.binScript
       elif isinstance(txOldData, str):
-         self.script2 = str(txOldData)
+         self.script2 = txOldData
 
    @TimeThisFunction
    def verifyTransactionValid(self, txOldData=None, txNew=None, txInIndex=-1):
@@ -183,19 +184,19 @@ class PyScriptProcessor(object):
          txInIndex = self.txInIndex
 
       if self.script1==None or self.txNew==None:
-         raise VerifyScriptError, 'Cannot verify transactions, without setTxObjects call first!'
+         raise VerifyScriptError('Cannot verify transactions, without setTxObjects call first!')
 
       # Execute TxIn script first
       self.stack = []
       exitCode1 = self.executeScript(self.script1, self.stack)
 
       if not exitCode1 == SCRIPT_NO_ERROR:
-         raise VerifyScriptError, ('First script failed!  Exit Code: ' + str(exitCode1))
+         raise VerifyScriptError('First script failed!  Exit Code: ' + str(exitCode1))
 
       exitCode2 = self.executeScript(self.script2, self.stack)
 
       if not exitCode2 == SCRIPT_NO_ERROR:
-         raise VerifyScriptError, ('Second script failed!  Exit Code: ' + str(exitCode2))
+         raise VerifyScriptError('Second script failed!  Exit Code: ' + str(exitCode2))
 
       return self.stack[-1]==1
 
@@ -230,7 +231,7 @@ class PyScriptProcessor(object):
          binData = int_to_binary(binData)
 
       for i,byte in enumerate(binData):
-         if not ord(byte) == 0:
+         if not byte == 0:
             # This looks like it's assuming LE encoding (?)
             if (i == len(binData)-1) and (byte==0x80):
                return False
@@ -254,10 +255,10 @@ class PyScriptProcessor(object):
       # 3. Signature is deleted from subscript
       #    I'm not sure why this line is necessary - maybe for non-standard scripts?
       lengthInBinary = int_to_binary(len(binSig))
-      subscript = subscript.replace( lengthInBinary + binSig, "")
+      subscript = subscript.replace( lengthInBinary + binSig, b"")
 
       # 4. Hashtype is popped and stored
-      hashtype = binary_to_int(binSig[-1])
+      hashtype = binSig[-1]
       justSig = binSig[:-1]
 
       if not hashtype == 1:
@@ -268,7 +269,7 @@ class PyScriptProcessor(object):
       txCopy = PyTx().unserialize( txInTx.serialize() )
 
       # 6. Remove all OP_CODESEPARATORs
-      subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
+      subscript.replace( int_to_binary(OP_CODESEPARATOR), b'')
 
       # 7. All the TxIn scripts in the copy are blanked (set to empty string)
       for txin in txCopy.inputs:
@@ -590,7 +591,7 @@ class PyScriptProcessor(object):
       elif opcode == OP_HASH160:
          bits = stack.pop()
          if isinstance(bits, int):
-            bits = ''
+            bits = b''
          stack.append( hash160(bits) )
       elif opcode == OP_HASH256:
          bits = stack.pop()

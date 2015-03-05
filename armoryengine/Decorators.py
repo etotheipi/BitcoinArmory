@@ -49,7 +49,7 @@ def RemoveRepeatingExtensions(func):
       segs = rv.split('.')
       isDupExt = lambda s, n : s[-n*2:-n] == s[-n:]
       # Try the maximum amount of repeating extensions first.
-      for i in range(1, len(segs)/2 + 1)[::-1]:
+      for i in range(1, len(segs)//2 + 1)[::-1]:
          if isDupExt(segs, i):
             while isDupExt(segs, i):
                segs = segs[:-i]

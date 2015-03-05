@@ -5,25 +5,24 @@ from BitTornado.parseargs import parseargs, formatDefinitions
 from BitTornado.RawServer import RawServer, autodetect_ipv6, autodetect_socket_style
 from BitTornado.HTTPHandler import HTTPHandler, months, weekdays
 from BitTornado.parsedir import parsedir
-from NatCheck import NatCheck
-from T2T import T2TList
+from .NatCheck import NatCheck
+from .T2T import T2TList
 from BitTornado.subnetparse import IP_List, ipv6_to_ipv4, to_ipv4, is_valid_ip, is_ipv4
 from BitTornado.iprangeparse import IP_List as IP_Range_List
 from BitTornado.torrentlistparse import parsetorrentlist
 from threading import Event, Thread
 from BitTornado.bencode import bencode, bdecode, Bencached
 from BitTornado.zurllib import urlopen, quote, unquote
-from Filter import Filter
-from urlparse import urlparse
+from .Filter import Filter
+from urllib.parse import urlparse
 from os import rename, getpid
 from os.path import exists, isfile
-from cStringIO import StringIO
+from io import StringIO
 from traceback import print_exc
 from time import time, gmtime, strftime, localtime
 from BitTornado.clock import clock
 from random import shuffle, seed, randrange
-from sha import sha
-from types import StringType, IntType, LongType, ListType, DictType
+from hashlib import sha1 as sha
 from binascii import b2a_hex, a2b_hex, a2b_base64
 from string import lower
 import sys, os
@@ -31,11 +30,7 @@ import signal
 import re
 import BitTornado.__init__
 from BitTornado.__init__ import version, createPeerID
-try:
-    True
-except:
-    True = 1
-    False = 0
+
 
 defaults = [
     ('port', 80, "Port to listen on."),
@@ -94,50 +89,50 @@ defaults = [
   ]
 
 def statefiletemplate(x):
-    if type(x) != DictType:
+    if type(x) != dict:
         raise ValueError
-    for cname, cinfo in x.items():
+    for cname, cinfo in list(x.items()):
         if cname == 'peers':
-            for y in cinfo.values():      # The 'peers' key is a dictionary of SHA hashes (torrent ids)
-                 if type(y) != DictType:   # ... for the active torrents, and each is a dictionary
+            for y in list(cinfo.values()):      # The 'peers' key is a dictionary of SHA hashes (torrent ids)
+                 if type(y) != dict:   # ... for the active torrents, and each is a dictionary
                      raise ValueError
-                 for id, info in y.items(): # ... of client ids interested in that torrent
+                 for id, info in list(y.items()): # ... of client ids interested in that torrent
                      if (len(id) != 20):
                          raise ValueError
-                     if type(info) != DictType:  # ... each of which is also a dictionary
+                     if type(info) != dict:  # ... each of which is also a dictionary
                          raise ValueError # ... which has an IP, a Port, and a Bytes Left count for that client for that torrent
-                     if type(info.get('ip', '')) != StringType:
+                     if type(info.get('ip', '')) != str:
                          raise ValueError
                      port = info.get('port')
-                     if type(port) not in (IntType,LongType) or port < 0:
+                     if type(port) != int or port < 0:
                          raise ValueError
                      left = info.get('left')
-                     if type(left) not in (IntType,LongType) or left < 0:
+                     if type(left) != int or left < 0:
                          raise ValueError
         elif cname == 'completed':
-            if (type(cinfo) != DictType): # The 'completed' key is a dictionary of SHA hashes (torrent ids)
+            if (type(cinfo) != dict): # The 'completed' key is a dictionary of SHA hashes (torrent ids)
                 raise ValueError          # ... for keeping track of the total completions per torrent
-            for y in cinfo.values():      # ... each torrent has an integer value
-                if type(y) not in (IntType,LongType):
+            for y in list(cinfo.values()):      # ... each torrent has an integer value
+                if type(y) != int:
                     raise ValueError      # ... for the number of reported completions for that torrent
         elif cname == 'allowed':
-            if (type(cinfo) != DictType): # a list of info_hashes and included data
+            if (type(cinfo) != dict): # a list of info_hashes and included data
                 raise ValueError
-            if x.has_key('allowed_dir_files'):
-                adlist = [z[1] for z in x['allowed_dir_files'].values()]
-                for y in cinfo.keys():        # and each should have a corresponding key here
+            if 'allowed_dir_files' in x:
+                adlist = [z[1] for z in list(x['allowed_dir_files'].values())]
+                for y in list(cinfo.keys()):        # and each should have a corresponding key here
                     if not y in adlist:
                         raise ValueError
         elif cname == 'allowed_dir_files':
-            if (type(cinfo) != DictType): # a list of files, their attributes and info hashes
+            if (type(cinfo) != dict): # a list of files, their attributes and info hashes
                 raise ValueError
             dirkeys = {}
-            for y in cinfo.values():      # each entry should have a corresponding info_hash
+            for y in list(cinfo.values()):      # each entry should have a corresponding info_hash
                 if not y[1]:
                     continue
-                if not x['allowed'].has_key(y[1]):
+                if y[1] not in x['allowed']:
                     raise ValueError
-                if dirkeys.has_key(y[1]): # and each should have a unique info_hash
+                if y[1] in dirkeys: # and each should have a unique info_hash
                     raise ValueError
                 dirkeys[y[1]] = 1
             
@@ -212,7 +207,7 @@ class Tracker:
                 self.favicon = h.read()
                 h.close()
             except:
-                print "**warning** specified favicon file -- %s -- does not exist." % favicon
+                print("**warning** specified favicon file -- %s -- does not exist." % favicon)
         self.rawserver = rawserver
         self.cached = {}    # format: infohash: [[time1, l1, s1], [time2, l2, s2], [time3, l3, s3]]
         self.cached_t = {}  # format: infohash: [time, cache]
@@ -237,19 +232,19 @@ class Tracker:
                 ds = h.read()
                 h.close()
                 tempstate = bdecode(ds)
-                if not tempstate.has_key('peers'):
+                if 'peers' not in tempstate:
                     tempstate = {'peers': tempstate}
                 statefiletemplate(tempstate)
                 self.state = tempstate
             except:
-                print '**warning** statefile '+self.dfile+' corrupt; resetting'
+                print('**warning** statefile '+self.dfile+' corrupt; resetting')
         self.downloads = self.state.setdefault('peers', {})
         self.completed = self.state.setdefault('completed', {})
 
         self.becache = {}   # format: infohash: [[l1, s1], [l2, s2], [l3, s3]]
-        for infohash, ds in self.downloads.items():
+        for infohash, ds in list(self.downloads.items()):
             self.seedcount[infohash] = 0
-            for x,y in ds.items():
+            for x,y in list(ds.items()):
                 ip = y['ip']
                 if ( (self.allowed_IPs and not self.allowed_IPs.includes(ip))
                      or (self.banned_IPs and self.banned_IPs.includes(ip)) ):
@@ -265,9 +260,9 @@ class Tracker:
                     ip = gip
                 self.natcheckOK(infohash,x,ip,y['port'],y['left'])
             
-        for x in self.downloads.keys():
+        for x in list(self.downloads.keys()):
             self.times[x] = {}
-            for y in self.downloads[x].keys():
+            for y in list(self.downloads[x].keys()):
                 self.times[x][y] = 0
 
         self.trackerid = createPeerID('-T-')
@@ -287,9 +282,9 @@ class Tracker:
                 self.logfile = config['logfile']
                 self.log = open(self.logfile,'a')
                 sys.stdout = self.log
-                print "# Log Started: ", isotime()
+                print("# Log Started: ", isotime())
             except:
-                print "**warning** could not redirect stdout to log file: ", sys.exc_info()[0]
+                print("**warning** could not redirect stdout to log file: ", sys.exc_info()[0])
 
         if config['hupmonitor']:
             def huphandler(signum, frame, self = self):
@@ -297,9 +292,9 @@ class Tracker:
                     self.log.close ()
                     self.log = open(self.logfile,'a')
                     sys.stdout = self.log
-                    print "# Log reopened: ", isotime()
+                    print("# Log reopened: ", isotime())
                 except:
-                    print "**warning** could not reopen logfile"
+                    print("**warning** could not reopen logfile")
              
             signal.signal(signal.SIGHUP, huphandler)            
                 
@@ -312,8 +307,8 @@ class Tracker:
 
         if config['allowed_list']:
             if config['allowed_dir']:
-                print '**warning** allowed_dir and allowed_list options cannot be used together'
-                print '**warning** disregarding allowed_dir'
+                print('**warning** allowed_dir and allowed_list options cannot be used together')
+                print('**warning** disregarding allowed_dir')
                 config['allowed_dir'] = ''
             self.allowed = self.state.setdefault('allowed_list',{})
             self.allowed_list_mtime = 0
@@ -413,12 +408,12 @@ class Tracker:
             if self.config['allowed_dir']:
                 if self.show_names:
                     names = [ (self.allowed[hash]['name'],hash)
-                              for hash in self.allowed.keys() ]
+                              for hash in list(self.allowed.keys()) ]
                 else:
                     names = [ (None,hash)
-                              for hash in self.allowed.keys() ]
+                              for hash in list(self.allowed.keys()) ]
             else:
-                names = [ (None,hash) for hash in self.downloads.keys() ]
+                names = [ (None,hash) for hash in list(self.downloads.keys()) ]
             if not names:
                 s.write('<p>not tracking any files yet...</p>\n')
             else:
@@ -444,7 +439,7 @@ class Tracker:
                     d = len(l) - c
                     td = td + d
                     if self.config['allowed_dir'] and self.show_names:
-                        if self.allowed.has_key(hash):
+                        if hash in self.allowed:
                             nf = nf + 1
                             sz = self.allowed[hash]['length']  # size
                             ts = ts + sz
@@ -460,7 +455,7 @@ class Tracker:
                         s.write('<tr><td><code>%s</code></td><td align="right"><code>%i</code></td><td align="right"><code>%i</code></td><td align="right"><code>%i</code></td></tr>\n' \
                             % (b2a_hex(hash), c, d, n))
                 ttn = 0
-                for i in self.completed.values():
+                for i in list(self.completed.values()):
                     ttn = ttn + i
                 if self.config['allowed_dir'] and self.show_names:
                     s.write('<tr><td align="right" colspan="2">%i files</td><td align="right">%s</td><td align="right">%i</td><td align="right">%i</td><td align="right">%i/%i</td><td align="right">%s</td></tr>\n'
@@ -497,17 +492,17 @@ class Tracker:
 
     def get_scrape(self, paramslist):
         fs = {}
-        if paramslist.has_key('info_hash'):
+        if 'info_hash' in paramslist:
             if self.config['scrape_allowed'] not in ['specific', 'full']:
                 return (400, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                     bencode({'failure reason':
                     'specific scrape function is not available with this tracker.'}))
             for hash in paramslist['info_hash']:
                 if self.allowed is not None:
-                    if self.allowed.has_key(hash):
+                    if hash in self.allowed:
                         fs[hash] = self.scrapedata(hash)
                 else:
-                    if self.downloads.has_key(hash):
+                    if hash in self.downloads:
                         fs[hash] = self.scrapedata(hash)
         else:
             if self.config['scrape_allowed'] != 'full':
@@ -515,9 +510,9 @@ class Tracker:
                     bencode({'failure reason':
                     'full scrape function is not available with this tracker.'}))
             if self.allowed is not None:
-                keys = self.allowed.keys()
+                keys = list(self.allowed.keys())
             else:
-                keys = self.downloads.keys()
+                keys = list(self.downloads.keys())
             for hash in keys:
                 fs[hash] = self.scrapedata(hash)
 
@@ -528,7 +523,7 @@ class Tracker:
          if not self.allow_get:
              return (400, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                  'get function is not available with this tracker.')
-         if not self.allowed.has_key(hash):
+         if hash not in self.allowed:
              return (404, 'Not Found', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'}, alas)
          fname = self.allowed[hash]['file']
          fpath = self.allowed[hash]['path']
@@ -539,30 +534,30 @@ class Tracker:
 
     def check_allowed(self, infohash, paramslist):
         if ( self.aggregator_key is not None
-                and not ( paramslist.has_key('password')
+                and not ( 'password' in paramslist
                         and paramslist['password'][0] == self.aggregator_key ) ):
             return (200, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                 bencode({'failure reason':
                 'Requested download is not authorized for use with this tracker.'}))
 
         if self.allowed is not None:
-            if not self.allowed.has_key(infohash):
+            if infohash not in self.allowed:
                 return (200, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                     bencode({'failure reason':
                     'Requested download is not authorized for use with this tracker.'}))
             if self.config['allowed_controls']:
-                if self.allowed[infohash].has_key('failure reason'):
+                if 'failure reason' in self.allowed[infohash]:
                     return (200, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                         bencode({'failure reason': self.allowed[infohash]['failure reason']}))
 
-        if paramslist.has_key('tracker'):
+        if 'tracker' in paramslist:
             if ( self.config['multitracker_allowed'] == 'none' or       # turned off
                           paramslist['peer_id'][0] == self.trackerid ): # oops! contacted myself
                 return (200, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                     bencode({'failure reason': 'disallowed'}))
             
             if ( self.config['multitracker_allowed'] == 'autodetect'
-                        and not self.allowed[infohash].has_key('announce-list') ):
+                        and 'announce-list' not in self.allowed[infohash] ):
                 return (200, 'Not Authorized', {'Content-Type': 'text/plain', 'Pragma': 'no-cache'},
                     bencode({'failure reason':
                     'Requested download is not authorized for multitracker use.'}))
@@ -577,23 +572,23 @@ class Tracker:
         self.seedcount.setdefault(infohash, 0)
 
         def params(key, default = None, l = paramslist):
-            if l.has_key(key):
+            if key in l:
                 return l[key][0]
             return default
         
         myid = params('peer_id','')
         if len(myid) != 20:
-            raise ValueError, 'id not of length 20'
+            raise ValueError('id not of length 20')
         if event not in ['started', 'completed', 'stopped', 'snooped', None]:
-            raise ValueError, 'invalid event'
-        port = long(params('port',''))
+            raise ValueError('invalid event')
+        port = int(params('port',''))
         if port < 0 or port > 65535:
-            raise ValueError, 'invalid port'
-        left = long(params('left',''))
+            raise ValueError('invalid port')
+        left = int(params('left',''))
         if left < 0:
-            raise ValueError, 'invalid amount left'
-        uploaded = long(params('uploaded',''))
-        downloaded = long(params('downloaded',''))
+            raise ValueError('invalid amount left')
+        uploaded = int(params('uploaded',''))
+        downloaded = int(params('downloaded',''))
 
         peer = peers.get(myid)
         islocal = local_IPs.includes(ip)
@@ -668,7 +663,7 @@ class Tracker:
                 if gip != peer.get('given ip'):
                     if gip:
                         peer['given ip'] = gip
-                    elif peer.has_key('given ip'):
+                    elif 'given ip' in peer:
                         del peer['given ip']
                     recheck = True
 
@@ -701,7 +696,7 @@ class Tracker:
         data['incomplete'] = len(self.downloads[infohash]) - seeds
         
         if ( self.config['allowed_controls']
-                and self.allowed[infohash].has_key('warning message') ):
+                and 'warning message' in self.allowed[infohash] ):
             data['warning message'] = self.allowed[infohash]['warning message']
 
         if tracker:
@@ -712,7 +707,7 @@ class Tracker:
             if ( not cache or len(cache[1]) < rsize
                  or cache[0] + self.config['min_time_between_cache_refreshes'] < clock() ):
                 bc = self.becache.setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
-                cache = [ clock(), bc[0][0].values() + bc[0][1].values() ]
+                cache = [ clock(), list(bc[0][0].values()) + list(bc[0][1].values()) ]
                 self.cached_t[infohash] = cache
                 shuffle(cache[1])
                 cache = cache[1]
@@ -743,17 +738,17 @@ class Tracker:
             peers = self.downloads[infohash]
             vv = [[],[],[]]
             for key, ip, port in self.t2tlist.harvest(infohash):   # empty if disabled
-                if not peers.has_key(key):
+                if key not in peers:
                     vv[0].append({'ip': ip, 'port': port, 'peer id': key})
                     vv[1].append({'ip': ip, 'port': port})
                     vv[2].append(compact_peer_info(ip, port))
             cache = [ self.cachetime,
-                      bc[return_type][0].values()+vv[return_type],
-                      bc[return_type][1].values() ]
+                      list(bc[return_type][0].values())+vv[return_type],
+                      list(bc[return_type][1].values()) ]
             shuffle(cache[1])
             shuffle(cache[2])
             self.cached[infohash][return_type] = cache
-            for rr in xrange(len(self.cached[infohash])):
+            for rr in range(len(self.cached[infohash])):
                 if rr != return_type:
                     try:
                         self.cached[infohash][rr][1].extend(vv[rr])
@@ -810,7 +805,7 @@ class Tracker:
 
         paramslist = {}
         def params(key, default = None, l = paramslist):
-            if l.has_key(key):
+            if key in l:
                 return l[key][0]
             return default
 
@@ -851,7 +846,7 @@ class Tracker:
             
             infohash = params('info_hash')
             if not infohash:
-                raise ValueError, 'no info hash'
+                raise ValueError('no info hash')
 
             notallowed = self.check_allowed(infohash, paramslist)
             if notallowed:
@@ -861,11 +856,11 @@ class Tracker:
 
             rsize = self.add_data(infohash, event, ip, paramslist)
 
-        except ValueError, e:
+        except ValueError as e:
             return (400, 'Bad Request', {'Content-Type': 'text/plain'}, 
                 'you sent me garbage - ' + str(e))
 
-        if self.aggregate_forward and not paramslist.has_key('tracker'):
+        if self.aggregate_forward and 'tracker' not in paramslist:
             self.aggregate_senddata(query)
 
         if self.is_aggregator:      # don't return peer data here
@@ -883,7 +878,7 @@ class Tracker:
                              params('tracker'), not params('left'),
                              return_type, rsize)
 
-        if paramslist.has_key('scrape'):    # deprecated
+        if 'scrape' in paramslist:    # deprecated
             data['scrape'] = self.scrapedata(infohash, False)
 
         if self.dedicated_seed_id:
@@ -905,9 +900,9 @@ class Tracker:
 
     def natchecklog(self, peerid, ip, port, result):
         year, month, day, hour, minute, second, a, b, c = localtime(time())
-        print '%s - %s [%02d/%3s/%04d:%02d:%02d:%02d] "!natcheck-%s:%i" %i 0 - -' % (
+        print('%s - %s [%02d/%3s/%04d:%02d:%02d:%02d] "!natcheck-%s:%i" %i 0 - -' % (
             ip, quote(peerid), day, months[month], year, hour, minute, second,
-            ip, port, result)
+            ip, port, result))
 
     def connectback_result(self, result, downloadid, peerid, ip, port):
         record = self.downloads.get(downloadid, {}).get(peerid)
@@ -923,7 +918,7 @@ class Tracker:
             else:
                 x = 503
             self.natchecklog(peerid, ip, port, x)
-        if not record.has_key('nat'):
+        if 'nat' not in record:
             record['nat'] = int(not result)
             if result:
                 self.natcheckOK(downloadid,peerid,ip,port,record['left'])
@@ -972,11 +967,11 @@ class Tracker:
                 (self.allowed, added, garbage2) = r
                 self.state['allowed_list'] = self.allowed
             except (IOError, OSError):
-                print '**warning** unable to read allowed torrent list'
+                print('**warning** unable to read allowed torrent list')
                 return
             self.allowed_list_mtime = os.path.getmtime(f)
 
-        for infohash in added.keys():
+        for infohash in list(added.keys()):
             self.downloads.setdefault(infohash, {})
             self.completed.setdefault(infohash, 0)
             self.seedcount.setdefault(infohash, 0)
@@ -992,7 +987,7 @@ class Tracker:
                 self.allowed_IPs.read_fieldlist(f)
                 self.allowed_ip_mtime = os.path.getmtime(f)
             except (IOError, OSError):
-                print '**warning** unable to read allowed_IP list'
+                print('**warning** unable to read allowed_IP list')
                 
         f = self.config['banned_ips']
         if f and self.banned_ip_mtime != os.path.getmtime(f):
@@ -1001,7 +996,7 @@ class Tracker:
                 self.banned_IPs.read_rangelist(f)
                 self.banned_ip_mtime = os.path.getmtime(f)
             except (IOError, OSError):
-                print '**warning** unable to read banned_IP list'
+                print('**warning** unable to read banned_IP list')
                 
 
     def delete_peer(self, infohash, peerid):
@@ -1018,15 +1013,15 @@ class Tracker:
         del dls[peerid]
 
     def expire_downloaders(self):
-        for x in self.times.keys():
-            for myid, t in self.times[x].items():
+        for x in list(self.times.keys()):
+            for myid, t in list(self.times[x].items()):
                 if t < self.prevtime:
                     self.delete_peer(x,myid)
         self.prevtime = clock()
         if (self.keep_dead != 1):
-            for key, value in self.downloads.items():
+            for key, value in list(self.downloads.items()):
                 if len(value) == 0 and (
-                        self.allowed is None or not self.allowed.has_key(key) ):
+                        self.allowed is None or key not in self.allowed ):
                     del self.times[key]
                     del self.downloads[key]
                     del self.seedcount[key]
@@ -1035,13 +1030,13 @@ class Tracker:
 
 def track(args):
     if len(args) == 0:
-        print formatDefinitions(defaults, 80)
+        print(formatDefinitions(defaults, 80))
         return
     try:
         config, files = parseargs(args, defaults, 0, 0)
-    except ValueError, e:
-        print 'error: ' + str(e)
-        print 'run with no arguments for parameter explanations'
+    except ValueError as e:
+        print('error: ' + str(e))
+        print('run with no arguments for parameter explanations')
         return
     r = RawServer(Event(), config['timeout_check_interval'],
                   config['socket_timeout'], ipv6_enable = config['ipv6_enabled'])
@@ -1050,16 +1045,16 @@ def track(args):
            reuse = True, ipv6_socket_style = config['ipv6_binds_v4'])
     r.listen_forever(HTTPHandler(t.get, config['min_time_between_log_flushes']))
     t.save_state()
-    print '# Shutting down: ' + isotime()
+    print('# Shutting down: ' + isotime())
 
 def size_format(s):
     if (s < 1024):
         r = str(s) + 'B'
     elif (s < 1048576):
         r = str(int(s/1024)) + 'KiB'
-    elif (s < 1073741824L):
+    elif (s < 1073741824):
         r = str(int(s/1048576)) + 'MiB'
-    elif (s < 1099511627776L):
+    elif (s < 1099511627776):
         r = str(int((s/1073741824.0)*100.0)/100.0) + 'GiB'
     else:
         r = str(int((s/1099511627776.0)*100.0)/100.0) + 'TiB'

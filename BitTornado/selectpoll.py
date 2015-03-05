@@ -3,8 +3,9 @@
 
 from select import select, error
 from time import sleep
-from types import IntType
 from bisect import bisect
+
+
 POLLIN = 1
 POLLOUT = 2
 POLLERR = 8
@@ -16,7 +17,7 @@ class poll:
         self.wlist = []
         
     def register(self, f, t):
-        if type(f) != IntType:
+        if type(f) != int:
             f = f.fileno()
         if (t & POLLIN):
             insert(self.rlist, f)
@@ -28,7 +29,7 @@ class poll:
             remove(self.wlist, f)
 
     def unregister(self, f):
-        if type(f) != IntType:
+        if type(f) != int:
             f = f.fileno()
         remove(self.rlist, f)
         remove(self.wlist, f)

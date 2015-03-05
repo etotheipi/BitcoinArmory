@@ -5,11 +5,6 @@ from BitTornado.CurrentRateMeasure import Measure
 from BitTornado.bitfield import Bitfield
 from random import shuffle
 from BitTornado.clock import clock
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 EXPIRE_TIME = 60 * 60
 
@@ -80,7 +75,7 @@ class SingleDownload:
         if self.have.complete():
             self.downloader.picker.lost_seed()
         else:
-            for i in xrange(len(self.have)):
+            for i in range(len(self.have)):
                 if self.have[i]:
                     self.downloader.picker.lost_have(i)
         if self.have.complete() and self.downloader.storage.is_endgame():
@@ -89,7 +84,7 @@ class SingleDownload:
         self.guard.download = None
 
     def _letgo(self):
-        if self.downloader.queued_out.has_key(self):
+        if self in self.downloader.queued_out:
             del self.downloader.queued_out[self]
         if not self.active_requests:
             return
@@ -100,7 +95,7 @@ class SingleDownload:
         for index, begin, length in self.active_requests:
             self.downloader.storage.request_lost(index, begin, length)
             lost[index] = 1
-        lost = lost.keys()
+        lost = list(lost.keys())
         self.active_requests = []
         if self.downloader.paused:
             return
@@ -288,7 +283,7 @@ class SingleDownload:
     def _check_interests(self):
         if self.interested or self.downloader.paused:
             return
-        for i in xrange(len(self.have)):
+        for i in range(len(self.have)):
             if ( self.have[i] and not self.downloader.picker.is_blocked(i)
                  and ( self.downloader.endgamemode
                        or self.downloader.storage.do_I_have_requests(i) ) ):
@@ -306,7 +301,7 @@ class SingleDownload:
         if have.complete():
             self.downloader.picker.got_seed()
         else:
-            for i in xrange(len(have)):
+            for i in range(len(have)):
                 if have[i]:
                     self.downloader.picker.got_have(i)
         if self.downloader.endgamemode and not self.downloader.paused:
@@ -357,7 +352,7 @@ class Downloader:
         self.endgamemode = False
         self.endgame_queued_pieces = []
         self.all_requests = []
-        self.discarded = 0L
+        self.discarded = 0
 #        self.download_rate = 25000  # 25K/s test rate
         self.download_rate = 0
         self.bytes_requested = 0
@@ -378,7 +373,7 @@ class Downloader:
         self.last_time = t
         if not self.requeueing and self.queued_out and self.bytes_requested < 0:
             self.requeueing = True
-            q = self.queued_out.keys()
+            q = list(self.queued_out.keys())
             shuffle(q)
             self.queued_out = {}
             for d in q:
@@ -395,7 +390,7 @@ class Downloader:
 
     def make_download(self, connection):
         ip = connection.get_ip()
-        if self.perip.has_key(ip):
+        if ip in self.perip:
             perip = self.perip[ip]
         else:
             perip = self.perip.setdefault(ip, PerIPStats(ip))
@@ -457,7 +452,7 @@ class Downloader:
     def num_disconnected_seeds(self):
         # first expire old ones
         expired = []
-        for id,t in self.disconnectedseeds.items():
+        for id,t in list(self.disconnectedseeds.items()):
             if clock() - t > EXPIRE_TIME:     #Expire old seeds after so long
                 expired.append(id)
         for id in expired:
@@ -486,7 +481,7 @@ class Downloader:
         if self._check_kicks_ok():
             self.banfunc(ip)
             self.banned[ip] = self.perip[ip].peerid
-            if self.kicked.has_key(ip):
+            if ip in self.kicked:
                 del self.kicked[ip]
 
     def set_super_seed(self):

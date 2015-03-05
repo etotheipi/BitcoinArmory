@@ -11,11 +11,12 @@ from jasvet import verifySignature, readSigBlock
 import os
 import sys
 import time
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 
 DEFAULT_FETCH_INTERVAL = 30*MINUTE
 DEFAULT_MIN_PRIORITY = 2048
+
 
 if not CLI_OPTIONS.testAnnounceCode:
    # Signed with the Bitcoin offline announce key (see top of ArmoryUtils.py)
@@ -79,8 +80,6 @@ class AnnounceDataFetcher(object):
       # If we are on testnet, we may require matching a mainnnet addr
       a160 = hash160(hex_to_binary(ANNOUNCE_SIGN_PUBKEY))
       self.validAddrStr = hash160_to_addrStr(a160)
-
-      
       
       # Make sure the fetch directory exists (where we put downloaded files)
       self.fetchDir = fetchDir 
@@ -101,7 +100,7 @@ class AnnounceDataFetcher(object):
          fid = fname[:-5]
          with open(fpath, 'rb') as f:
             self.fileHashMap[fid] = binary_to_hex(sha256(f.read()))
-            LOGINFO('   %s : %s', fid.ljust(16), self.fileHashMap[fid])
+            LOGINFO('   %s : %s', fid.ljust(16), self.fileHashMap[fid].decode())
          
 
    #############################################################################
@@ -251,7 +250,7 @@ class AnnounceDataFetcher(object):
    
          argsMap['id'] = self.uniqueID
 
-      return url + '?' + urllib.urlencode(argsMap)
+      return url + '?' + urllib.parse.urlencode(argsMap)
 
 
 
@@ -270,16 +269,15 @@ class AnnounceDataFetcher(object):
    def __fetchFile(self, url, backupURL=None):
       LOGINFO('Fetching: %s', url)
       try:
-         import urllib2
          import socket
          LOGDEBUG('Downloading URL: %s' % url)
          socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
-         urlobj = urllib2.urlopen(url, timeout=CLI_OPTIONS.nettimeout)
+         urlobj = urllib.request.urlopen(url, timeout=CLI_OPTIONS.nettimeout)
          return urlobj.read()
       except ImportError:
          LOGERROR('No module urllib2 -- cannot download anything')
          return ''
-      except (urllib2.URLError, urllib2.HTTPError):
+      except (urllib.error.URLError, urllib.error.HTTPError):
          LOGERROR('Specified URL was inaccessible')
          LOGERROR('Tried: %s', url)
          return self.__fetchFile(backupURL) if backupURL else ''
@@ -303,38 +301,39 @@ class AnnounceDataFetcher(object):
       try:
          sig, msg = readSigBlock(digestData)
          signAddress = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
-         if not signAddress == self.validAddrStr:
+         if signAddress != self.validAddrStr:
             LOGERROR('Announce info carried invalid signature!')
-            LOGERROR('Signature addr: %s' % signAddress)
-            LOGERROR('Expected  address: %s', self.validAddrStr)
+            LOGERROR('Signature addr: %s' % signAddress.decode())
+            LOGERROR('Expected  addr: %s', self.validAddrStr.decode())
             return 
       except:
          LOGEXCEPT('Could not verify data in signed message block')
          return
 
       # Always rewrite file; it's small and will use mtime for info
-      with open(os.path.join(self.fetchDir, 'announce.file'), 'w') as f:
+      with open(os.path.join(self.fetchDir, 'announce.file'), 'wb') as f:
          f.write(digestData)
 
 
       ##### We have a valid digest, now parse it
       justDownloadedMap = {}
-      for row in [line.split() for line in msg.strip().split('\n')]:
+      for row in [line.split() for line in msg.strip().split(b'\n')]:
          if len(row)==3:
             justDownloadedMap[row[0]] = [row[1], row[2]]
          else:
-            LOGERROR('Malformed announce matrix: %s' % str(row))
+            LOGERROR('Malformed announce matrix: %s' % row.decode())
             return
       
       ##### Check whether any of the hashes have changed
-      for key,val in justDownloadedMap.iteritems():
+      for key,val in list(justDownloadedMap.items()):
          jdURL,jdHash = val[0],val[1]
          
          if not (key in self.fileHashMap and self.fileHashMap[key]==jdHash):
-            LOGINFO('Changed [ "%s" ] == [%s, %s]', key, jdURL, jdHash)
-            newData = self.__fetchFile(jdURL)
+            LOGINFO('Changed [ "%s" ] == [%s, %s]',
+                    key.decode(), jdURL.decode(), jdHash.decode())
+            newData = self.__fetchFile(jdURL.decode())
             if len(newData) == 0:
-               LOGERROR('Failed downloading announce file : %s', key)
+               LOGERROR('Failed downloading announce file : %s', key.decode())
                return
             newHash = binary_to_hex(sha256(newData))
             if not newHash == jdHash:
@@ -342,7 +341,7 @@ class AnnounceDataFetcher(object):
                LOGERROR('Hash of downloaded data: %s', newHash)
                return
 
-            filename = os.path.join(self.fetchDir, key+'.file')
+            filename = os.path.join(self.fetchDir, key.decode()+'.file')
             with open(filename, 'wb') as f:
                f.write(newData)
             self.lastChange = RightNow()

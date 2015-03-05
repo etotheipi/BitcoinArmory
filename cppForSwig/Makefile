@@ -33,6 +33,7 @@ OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	libcryptopp.a mdb.o midl.o txio.o
 
 #if python is specified, use it
+PYVER=python3
 ifndef PYVER
 PYVER=python
 PYTHON_INCLUDES=$(shell python-config --includes )

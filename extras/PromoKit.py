@@ -16,7 +16,7 @@ promoKitArgList = sys.argv
 sys.argv = sys.argv[:1]
 import time
 
-from PyQt4.QtGui import *
+from PyQt5.QtGui import *
 from pywin.scintilla import view
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
@@ -104,7 +104,7 @@ def createPrintScene(wallet, amountString, expiresString):
    # Finally, draw the backup information.
    bottomOfSceneHeader = scene.cursorPos.y()
 
-   code12 = wallet.addrMap['ROOT'].binPrivKey32_Plain.toBinStr()
+   code12 = hex_to_binary(wallet.addrMap['ROOT'].binPrivKey32_Plain.toHexStr())
    Lines = []
    Prefix = [] 
    Prefix.append('Root Key:')
@@ -176,7 +176,9 @@ def printWalletList(walletList, amountString, expiresString):
 # imported addresses in this wallet. It is assumed that all of this wallet's imported 
 # addresses are about to be imported in this function
 def importAddrsToMasterWallet(masterWallet, walletList, addrsPerWallet, masterWalletName):
-   masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
+   securePass = SecureBinaryData()
+   securePass.createFromHex(binary_to_hex(getpass('Enter your secret string:').encode()).decode())
+   masterWallet.unlock(securePassphrase = securePass)
    for wallet in walletList:
       for i in range(addrsPerWallet):
          addr = wallet.getNextUnusedAddress()
@@ -212,7 +214,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
 
       # Make sure there are funds to cover the transaction.
       if totalChange < 0:
-         print '***ERROR: you are trying to spend more than your balance!'
+         print('***ERROR: you are trying to spend more than your balance!')
          raise NegativeValueError
       recipValuePairs.append((masterWallet.getNextUnusedAddress().getAddr160(), totalChange ))
 
@@ -229,17 +231,19 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
             a160 = scrAddr_to_hash160(scrAddr)[1]
             addrObj = masterWallet.getAddrByHash160(a160)
             if addrObj:
-               pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+               pubKeyMap[scrAddr] = hex_to_binary(addrObj.binPublicKey65.toHexStr())
 
       ustx = UnsignedTransaction().createFromTxOutSelection(selectedUtxoList, scrPairs, pubKeyMap)
       
-      masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
+      secureBinPass = SecureBinaryData()
+      secureBinPass.createFromHex(binary_to_hex(getpass('Enter your secret string:').encode()).decode())
+      masterWallet.unlock(securePassphrase = secureBinPass)
       # Sign and prepare the final transaction for broadcast
       masterWallet.signUnsignedTx(ustx)
       pytx = ustx.getPyTxSignedIfPossible()
    
-      print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
-      print ustx.serializeAscii()
+      print('\nSigned transaction to be broadcast using Armory "offline transactions"...')
+      print(ustx.serializeAscii())
    finally:
       TheBDM.beginCleanShutdown()
    return pytx
@@ -270,7 +274,7 @@ def sweepImportedAddrs(masterWallet):
    fee = calcMinSuggestedFees(utxoList, totalAvailable, MIN_RELAY_TX_FEE, 1)[1]
    totalSpend = totalAvailable - fee
    if totalSpend<0:
-      print '***ERROR: The fees are greater than the funds being swept!'
+      print('***ERROR: The fees are greater than the funds being swept!')
       raise NegativeValueError
    recipValuePairs.append((masterWallet.getNextUnusedAddress().getAddr160(), totalSpend ))
 
@@ -280,13 +284,15 @@ def sweepImportedAddrs(masterWallet):
    scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
    ustx = UnsignedTransaction().createFromTxOutSelection(utxoList, scrPairs)
    
-   masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
+   secureBinPass = SecureBinaryData()
+   secureBinPass.createFromHex(binary_to_hex(getpass('Enter your secret string:').encode()).decode())
+   masterWallet.unlock(securePassphrase = secureBinPass)
    # Sign and prepare the final transaction for broadcast
    masterWallet.signTxDistProposal(ustx)
    pytx = ustx.getPyTxSignedIfPossible()
 
-   print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
-   print ustx.serializeAscii()
+   print('\nSigned transaction to be broadcast using Armory "offline transactions"...')
+   print(ustx.serializeAscii())
    return pytx
 
 
@@ -308,14 +314,14 @@ pytx = distributeBtc(masterWallet, 10000, masterWallet.getLinearAddrList(withImp
 
 # Show help whenever the args are not correct
 def printHelp():
-   print 'USAGE: %s --create <master wallet file path> <number of promo wallets> <addrs per promo wallet> <promo wallet label>' % sys.argv[0]
-   print '   or: %s --distribute <master wallet file path> <satoshis per addr>' % sys.argv[0]
-   print '   or: %s --sweep <master wallet file path>' % sys.argv[0]
+   print('USAGE: %s --create <master wallet file path> <number of promo wallets> <addrs per promo wallet> <promo wallet label>' % sys.argv[0])
+   print('   or: %s --distribute <master wallet file path> <satoshis per addr>' % sys.argv[0])
+   print('   or: %s --sweep <master wallet file path>' % sys.argv[0])
    exit(0)
    
 # Main execution path
 # Do not ever access the same wallet file from two different processes at the same time
-print '\n'
+print('\n')
 raw_input('PLEASE CLOSE ARMORY BEFORE RUNNING THIS SCRIPT!  (press enter to continue)\n')
 
 if len(promoKitArgList)<3:
@@ -324,7 +330,7 @@ if len(promoKitArgList)<3:
 operation = promoKitArgList[1]
 walletFile = promoKitArgList[2]
 if not os.path.exists(walletFile):
-   print 'Wallet file was not found: %s' % walletFile
+   print('Wallet file was not found: %s' % walletFile)
 masterWallet = PyBtcWallet().readWalletFile(walletFile, False)
 if operation == '--create':
    if len(promoKitArgList)<6:

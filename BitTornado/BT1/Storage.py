@@ -7,23 +7,15 @@ from time import time, strftime, localtime
 import os
 from os.path import exists, getsize, getmtime, basename
 from traceback import print_exc
-try:
-    from os import fsync
-except ImportError:
-    fsync = lambda x: None
+from os import fsync
 from bisect import bisect
-    
-try:
-    True
-except:
-    True = 1
-    False = 0
 
+    
 DEBUG = False
 
 MAXREADSIZE = 32768
-MAXLOCKSIZE = 1000000000L
-MAXLOCKRANGE = 3999999999L   # only lock first 4 gig of file
+MAXLOCKSIZE = 1000000000
+MAXLOCKRANGE = 3999999999   # only lock first 4 gig of file
 
 _pool = BufferPool()
 PieceBuffer = _pool.new
@@ -43,8 +35,8 @@ class Storage:
         self.disabled_ranges = []
         self.working_ranges = []
         numfiles = 0
-        total = 0l
-        so_far = 0l
+        total = 0
+        so_far = 0
         self.handles = {}
         self.whandles = {}
         self.tops = {}
@@ -60,7 +52,7 @@ class Storage:
         if not disabled_files:
             disabled_files = [False] * len(files)
 
-        for i in xrange(len(files)):
+        for i in range(len(files)):
             file, length = files[i]
             if doneflag.isSet():    # bail out if doneflag is set
                 return
@@ -150,7 +142,7 @@ class Storage:
 
     def sync(self):
         # may raise IOError or OSError
-        for file in self.whandles.keys():
+        for file in list(self.whandles.keys()):
             self._sync(file)
 
 
@@ -159,7 +151,7 @@ class Storage:
             self.sync()
             return
         file = self.files[f][0]
-        if self.whandles.has_key(file):
+        if file in self.whandles:
             self._sync(file)
             
 
@@ -168,7 +160,7 @@ class Storage:
 
 
     def _open(self, file, mode):
-        if self.mtimes.has_key(file):
+        if file in self.mtimes:
             try:
               if self.handlebuffer is not None:
                 assert getsize(file) == self.tops[file]
@@ -178,9 +170,9 @@ class Storage:
                 assert newmtime >= oldmtime-1
             except:
                 if DEBUG:
-                    print ( file+' modified: '
+                    print(( file+' modified: '
                             +strftime('(%x %X)',localtime(self.mtimes[file]))
-                            +strftime(' != (%x %X) ?',localtime(getmtime(file))) )
+                            +strftime(' != (%x %X) ?',localtime(getmtime(file))) ))
                 raise IOError('modified during download')
         try:
             return open(file, mode)
@@ -193,7 +185,7 @@ class Storage:
     def _close(self, file):
         f = self.handles[file]
         del self.handles[file]
-        if self.whandles.has_key(file):
+        if file in self.whandles:
             del self.whandles[file]
             f.flush()
             self.unlock_file(file, f)
@@ -207,7 +199,7 @@ class Storage:
 
 
     def _close_file(self, file):
-        if not self.handles.has_key(file):
+        if file not in self.handles:
             return
         self._close(file)
         if self.handlebuffer:
@@ -215,15 +207,15 @@ class Storage:
         
 
     def _get_file_handle(self, file, for_write):
-        if self.handles.has_key(file):
-            if for_write and not self.whandles.has_key(file):
+        if file in self.handles:
+            if for_write and file not in self.whandles:
                 self._close(file)
                 try:
                     f = self._open(file, 'rb+')
                     self.handles[file] = f
                     self.whandles[file] = 1
                     self.lock_file(file, f)
-                except (IOError, OSError), e:
+                except (IOError, OSError)(e):
                     if DEBUG:
                         print_exc()
                     raise IOError('unable to reopen '+file+': '+str(e))
@@ -246,7 +238,7 @@ class Storage:
                     self.handles[file] = f
                     if self.lock_while_reading:
                         self.lock_file(file, f)
-            except (IOError, OSError), e:
+            except (IOError, OSError)(e):
                 if DEBUG:
                     print_exc()
                 raise IOError('unable to open '+file+': '+str(e))
@@ -284,10 +276,10 @@ class Storage:
         r = PieceBuffer()
         for file, pos, end in self._intervals(pos, amount):
             if DEBUG:
-                print 'reading '+file+' from '+str(pos)+' to '+str(end)
+                print('reading '+file+' from '+str(pos)+' to '+str(end))
             self.lock.acquire()
             h = self._get_file_handle(file, False)
-            if flush_first and self.whandles.has_key(file):
+            if flush_first and file in self.whandles:
                 h.flush()
                 fsync(h)
             h.seek(pos)
@@ -306,7 +298,7 @@ class Storage:
         total = 0
         for file, begin, end in self._intervals(pos, len(s)):
             if DEBUG:
-                print 'writing '+file+' from '+str(pos)+' to '+str(end)
+                print('writing '+file+' from '+str(pos)+' to '+str(end))
             self.lock.acquire()
             h = self._get_file_handle(file, True)
             h.seek(begin)
@@ -326,13 +318,13 @@ class Storage:
 
     def flush(self):
         # may raise IOError or OSError
-        for file in self.whandles.keys():
+        for file in list(self.whandles.keys()):
             self.lock.acquire()
             self.handles[file].flush()
             self.lock.release()
 
     def close(self):
-        for file, f in self.handles.items():
+        for file, f in list(self.handles.items()):
             try:
                 self.unlock_file(file, f)
             except:
@@ -354,11 +346,11 @@ class Storage:
             return r
         start, end, offset, file = self.file_ranges[f]
         if DEBUG:
-            print 'calculating disabled range for '+self.files[f][0]
-            print 'bytes: '+str(start)+'-'+str(end)
-            print 'file spans pieces '+str(int(start/self.piece_length))+'-'+str(int((end-1)/self.piece_length)+1)
-        pieces = range( int(start/self.piece_length),
-                        int((end-1)/self.piece_length)+1 )
+            print('calculating disabled range for '+self.files[f][0])
+            print('bytes: '+str(start)+'-'+str(end))
+            print('file spans pieces '+str(int(start/self.piece_length))+'-'+str(int((end-1)/self.piece_length)+1))
+        pieces = list(range( int(start/self.piece_length),
+                        int((end-1)/self.piece_length)+1))
         offset = 0
         disabled_files = []
         if len(pieces) == 1:
@@ -410,8 +402,8 @@ class Storage:
             working_range = working_range_b + working_range_m + working_range_e
 
         if DEBUG:            
-            print str(working_range)
-            print str(update_pieces)
+            print(str(working_range))
+            print(str(update_pieces))
         r = (tuple(working_range), tuple(update_pieces), tuple(disabled_files))
         self.disabled_ranges[f] = r
         return r
@@ -432,9 +424,9 @@ class Storage:
             h = open(file, 'wb+')
             h.flush()
             h.close()
-        if not self.tops.has_key(file):
+        if file not in self.tops:
             self.tops[file] = getsize(file)
-        if not self.mtimes.has_key(file):
+        if file not in self.mtimes:
             self.mtimes[file] = getmtime(file)
         self.working_ranges[f] = [r]
 
@@ -452,9 +444,9 @@ class Storage:
                 h = open(file, 'wb+')
                 h.flush()
                 h.close()
-            if not self.tops.has_key(file):
+            if file not in self.tops:
                 self.tops[file] = getsize(file)
-            if not self.mtimes.has_key(file):
+            if file not in self.mtimes:
                 self.mtimes[file] = getmtime(file)
         self.working_ranges[f] = r[0]
 
@@ -493,7 +485,7 @@ class Storage:
     def pickle(self):
         files = []
         pfiles = []
-        for i in xrange(len(self.files)):
+        for i in range(len(self.files)):
             if not self.files[i][1]:    # length == 0
                 continue
             if self.disabled[i]:
@@ -512,17 +504,17 @@ class Storage:
             pfiles = {}
             l = data['files']
             assert len(l) % 3 == 0
-            l = [l[x:x+3] for x in xrange(0,len(l),3)]
+            l = [l[x:x+3] for x in range(0,len(l),3)]
             for f, size, mtime in l:
                 files[f] = (size, mtime)
             l = data.get('partial files',[])
             assert len(l) % 3 == 0
-            l = [l[x:x+3] for x in xrange(0,len(l),3)]
+            l = [l[x:x+3] for x in range(0,len(l),3)]
             for file, size, mtime in l:
                 pfiles[file] = (size, mtime)
 
             valid_pieces = {}
-            for i in xrange(len(self.files)):
+            for i in range(len(self.files)):
                 if self.disabled[i]:
                     continue
                 r = self.file_ranges[i]
@@ -530,13 +522,13 @@ class Storage:
                     continue
                 start, end, offset, file =r
                 if DEBUG:
-                    print 'adding '+file
-                for p in xrange( int(start/self.piece_length),
+                    print('adding '+file)
+                for p in range( int(start/self.piece_length),
                                  int((end-1)/self.piece_length)+1 ):
                     valid_pieces[p] = 1
 
             if DEBUG:
-                print valid_pieces.keys()
+                print(list(valid_pieces.keys()))
             
             def test(old, size, mtime):
                 oldsize, oldmtime = old
@@ -548,30 +540,30 @@ class Storage:
                     return False
                 return True
 
-            for i in xrange(len(self.files)):
+            for i in range(len(self.files)):
                 if self.disabled[i]:
                     for file, start, end in self._get_disabled_ranges(i)[2]:
                         f1 = basename(file)
-                        if ( not pfiles.has_key(f1)
+                        if ( f1 not in pfiles
                              or not test(pfiles[f1],getsize(file),getmtime(file)) ):
                             if DEBUG:
-                                print 'removing '+file
-                            for p in xrange( int(start/self.piece_length),
+                                print('removing '+file)
+                            for p in range( int(start/self.piece_length),
                                              int((end-1)/self.piece_length)+1 ):
-                                if valid_pieces.has_key(p):
+                                if p in valid_pieces:
                                     del valid_pieces[p]
                     continue
                 file, size = self.files[i]
                 if not size:
                     continue
-                if ( not files.has_key(i)
+                if ( i not in files
                      or not test(files[i],getsize(file),getmtime(file)) ):
                     start, end, offset, file = self.file_ranges[i]
                     if DEBUG:
-                        print 'removing '+file
-                    for p in xrange( int(start/self.piece_length),
+                        print('removing '+file)
+                    for p in range( int(start/self.piece_length),
                                      int((end-1)/self.piece_length)+1 ):
-                        if valid_pieces.has_key(p):
+                        if p in valid_pieces:
                             del valid_pieces[p]
         except:
             if DEBUG:
@@ -579,6 +571,6 @@ class Storage:
             return []
 
         if DEBUG:
-            print valid_pieces.keys()                        
-        return valid_pieces.keys()
+            print(list(valid_pieces.keys()))                        
+        return list(valid_pieces.keys())
 

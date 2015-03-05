@@ -5,7 +5,7 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-import Queue
+import queue
 import os.path
 import random
 import threading
@@ -86,7 +86,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             cppNotificationListener(act, arglist)
       except:
          LOGEXCEPT('Error in running callback')
-         print sys.exc_info()
+         print(sys.exc_info())
          raise
 
    def progress(self, phase, walletVec, prog, seconds, progressNumeric):
@@ -104,7 +104,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
                
       except:
          LOGEXCEPT('Error in running progress callback')
-         print sys.exc_info()
+         print(sys.exc_info())
 
 class BDM_Inject(Cpp.BDM_Inject):
    def __init__(self):
@@ -122,7 +122,7 @@ class BDM_Inject(Cpp.BDM_Inject):
             self.hasResponse = True
       except:
          LOGEXCEPT('Error in running thread callback')
-         print sys.exc_info()
+         print(sys.exc_info())
 
    def runCommand(self, fn):
       self.hasResponse = False
@@ -136,7 +136,7 @@ class BDM_Inject(Cpp.BDM_Inject):
       return res
       
 def getCurrTimeAndBlock():
-   time0 = long(RightNowUTC())
+   time0 = int(RightNowUTC())
    return (time0, TheBDM.getTopBlockHeight())
 
 # Make TheBDM act like it's a singleton. Always use the global singleton TheBDM
@@ -264,7 +264,7 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def unregisterWallet(self, uniqueIDB58):
-      self.bdv().unregisterWallet(uniqueIDB58)
+      self.bdv().unregisterWallet(uniqueIDB58.decode())
 
    #############################################################################
    @ActLikeASingletonBDM
@@ -314,7 +314,7 @@ class BlockDataManager(object):
       if forInit == False:
       # Check for the existence of the Bitcoin-Qt directory         
          if not os.path.exists(self.btcdir):
-            raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
+            raise FileExistsError('Directory does not exist: %s' % self.btcdir)
    
          blkdir = os.path.join(self.btcdir, 'blocks')
          blk1st = os.path.join(blkdir, 'blk00000.dat')
@@ -322,15 +322,15 @@ class BlockDataManager(object):
          # ... and its blk000X.dat files
          if not os.path.exists(blk1st):
             LOGERROR('Blockchain data not available: %s', blk1st)
-            raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
+            raise FileExistsError('Blockchain data not available: %s' % blk1st)
 
       blockdir = blkdir
       armoryDBDir = self.armoryDBDir
       
       if OS_WINDOWS:
-         if isinstance(blkdir, unicode):
+         if isinstance(blkdir, str):
             blockdir = blkdir.encode('utf8')
-         if isinstance(self.armoryDBDir, unicode):
+         if isinstance(self.armoryDBDir, str):
             armoryDBDir = self.armoryDBDir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
@@ -424,7 +424,7 @@ else:
 
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
    cpplf = cppLogFile
-   if OS_WINDOWS and isinstance(cppLogFile, unicode):
+   if OS_WINDOWS and isinstance(cppLogFile, str):
       cpplf = cppLogFile.encode('utf8')
    Cpp.StartCppLogging(cpplf, 4)
    Cpp.EnableCppLogStdOut()    

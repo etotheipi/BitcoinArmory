@@ -5,7 +5,7 @@ class Filter:
     def check(self, ip, paramslist, headers):
 
         def params(key, default = None, l = paramslist):
-            if l.has_key(key):
+            if key in l:
                 return l[key][0]
             return default
 

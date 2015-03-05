@@ -160,6 +160,7 @@ public:
    uint8_t       *   getPtr(void)        { return BinaryData::getPtr();  }
    size_t            getSize(void) const { return BinaryData::getSize(); }
    SecureBinaryData  copy(void)    const { return SecureBinaryData(getPtr(), getSize());}
+   void   createFromHex(string const & str) { BinaryData::createFromHex(str); }
    
    string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE);}
    string toBinStr(void) const          { return BinaryData::toBinStr();  }

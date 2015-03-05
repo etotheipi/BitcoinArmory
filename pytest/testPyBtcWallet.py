@@ -22,27 +22,31 @@ from armoryengine.BDM import TheBDM
 sys.argv.append('--nologging')
 
 
-WALLET_ROOT_ADDR = '5da74ed60a43a7ff11f0ba56cb0192b03518cc56'
-NEW_UNUSED_ADDR = 'fb80e6fd042fa24178b897a6a70e1ae7eb56a20a'
+WALLET_ROOT_ADDR = b'5da74ed60a43a7ff11f0ba56cb0192b03518cc56'
+NEW_UNUSED_ADDR = b'fb80e6fd042fa24178b897a6a70e1ae7eb56a20a'
 
 class PyBtcWalletTest(TiabTest):
 
    def setUp(self):
       self.shortlabel = 'TestWallet1'
-      self.wltID ='3VB8XSoY'
+      self.wltID = b'3VB8XSoY'
       
-      self.fileA    = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet' % self.wltID)
-      self.fileB    = os.path.join(self.armoryHomeDir, 'armory_%s_backup.wallet' % self.wltID)
-      self.fileAupd = os.path.join(self.armoryHomeDir, 'armory_%s_backup_unsuccessful.wallet' % self.wltID)
-      self.fileBupd = os.path.join(self.armoryHomeDir, 'armory_%s_update_unsuccessful.wallet' % self.wltID)
+      self.fileA    = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet' % self.wltID.decode())
+      self.fileB    = os.path.join(self.armoryHomeDir, 'armory_%s_backup.wallet' % self.wltID.decode())
+      self.fileAupd = os.path.join(self.armoryHomeDir, 'armory_%s_backup_unsuccessful.wallet' % self.wltID.decode())
+      self.fileBupd = os.path.join(self.armoryHomeDir, 'armory_%s_update_unsuccessful.wallet' % self.wltID.decode())
 
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
       # We need a controlled test, so we script the all the normally-random stuff
-      self.privKey   = SecureBinaryData('\xaa'*32)
-      self.privKey2  = SecureBinaryData('\x33'*32)
-      self.chainstr  = SecureBinaryData('\xee'*32)
-      theIV     = SecureBinaryData(hex_to_binary('77'*16))
+      self.privKey   = SecureBinaryData()
+      self.privKey.createFromHex('aa'*32)
+      self.privKey2  = SecureBinaryData()
+      self.privKey2.createFromHex('33'*32)
+      self.chainstr  = SecureBinaryData()
+      self.chainstr.createFromHex('ee'*32)
+      theIV     = SecureBinaryData()
+      theIV.createFromHex('77'*16)
       self.passphrase  = SecureBinaryData('A self.passphrase')
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
       
@@ -85,6 +89,7 @@ class PyBtcWalletTest(TiabTest):
       
       lboxWltAFile   = os.path.join(self.armoryHomeDir,'armory_%s_.wallet' % FIRST_WLT_NAME)
       lboxWltA = PyBtcWallet().readWalletFile(lboxWltAFile)
+      
       self.assertTrue(lboxWltA.isWltSigningAnyLockbox(lockboxList))
       
       lboxWltBFile   = os.path.join(self.armoryHomeDir,'armory_%s_.wallet' % SECOND_WLT_NAME)
@@ -106,7 +111,7 @@ class PyBtcWalletTest(TiabTest):
       newAddr = self.wlt.getNextUnusedAddress()
       self.wlt.pprint(indent=' '*5)
       self.assertEqual(binary_to_hex(newAddr.addrStr20), NEW_UNUSED_ADDR)
-   
+
       # (1) Re-reading wallet from file, compare the two wallets
       wlt2 = PyBtcWallet().readWalletFile(self.wlt.walletPath)
       self.assertTrue(self.wlt.isEqualTo(wlt2))
@@ -140,10 +145,14 @@ class PyBtcWalletTest(TiabTest):
       
    
       # (2b)Testing ENCRYPTED wallet import-address
-      privKey3  = SecureBinaryData('\xbb'*32)
-      privKey4  = SecureBinaryData('\x44'*32)
-      self.chainstr2  = SecureBinaryData('\xdd'*32)
-      theIV2     = SecureBinaryData(hex_to_binary('66'*16))
+      privKey3  = SecureBinaryData()
+      privKey3.createFromHex('bb'*32)
+      privKey4  = SecureBinaryData()
+      privKey4.createFromHex('44'*32)
+      self.chainstr2  = SecureBinaryData()
+      self.chainstr2.createFromHex('dd'*32)
+      theIV2     = SecureBinaryData()
+      theIV2.createFromHex('66'*16)
       self.passphrase2= SecureBinaryData('hello')
       wltE = PyBtcWallet().createNewWallet(withEncrypt=True, \
                                           plainRootKey=privKey3, \
@@ -155,8 +164,6 @@ class PyBtcWalletTest(TiabTest):
       
       #  We should have thrown an error about importing into a  locked wallet...
       self.assertRaises(WalletLockError, wltE.importExternalAddressData, privKey=self.privKey2)
-
-
    
       wltE.unlock(securePassphrase=self.passphrase2)
       wltE.importExternalAddressData(privKey=self.privKey2)
@@ -164,7 +171,9 @@ class PyBtcWalletTest(TiabTest):
       # (2b) Re-reading wallet from file, compare the two wallets
       wlt2 = PyBtcWallet().readWalletFile(wltE.walletPath)
       self.assertTrue(wltE.isEqualTo(wlt2))
-   
+
+      print("use enc: %s" % wltE.useEncryption)
+      print("use enc: %s" % wlt2.useEncryption)
       # (2b) Unlocking wlt2 after re-reading locked-import-wallet
       wlt2.unlock(securePassphrase=self.passphrase2)
       self.assertFalse(wlt2.isLocked)
@@ -221,11 +230,11 @@ class PyBtcWalletTest(TiabTest):
    
       MEMORY_REQT_BYTES = 1024
       NUM_ITER = 999
-      SALT_ALL_0 ='00'*32
+      SALT_ALL_0 = b'00'*32
       self.wlt.changeKdfParams(MEMORY_REQT_BYTES, NUM_ITER, hex_to_binary(SALT_ALL_0), self.passphrase2)
       self.assertEqual(self.wlt.kdf.getMemoryReqtBytes(), MEMORY_REQT_BYTES)
       self.assertEqual(self.wlt.kdf.getNumIterations(), NUM_ITER)
-      self.assertEqual(self.wlt.kdf.getSalt().toHexStr(),  SALT_ALL_0)
+      self.assertEqual(self.wlt.kdf.getSalt().toHexStr().encode(),  SALT_ALL_0)
    
       self.wlt.changeWalletEncryption( securePassphrase=self.passphrase2 )
       # I don't know why this shouldn't be ''
@@ -282,9 +291,10 @@ class PyBtcWalletTest(TiabTest):
       # *********************************************************************'
       # (8)Doing interrupt tests to test wallet-file-update recovery'
       def hashfile(fn):
-         f = open(fn,'r')
-         d = hash256(f.read())
+         f = open(fn,'rb')
+         x = f.read()
          f.close()
+         d = hash256(x)
          return binary_to_hex(d[:8])
 
       def verifyFileStatus(fileAExists = True, fileBExists = True, \
@@ -351,7 +361,7 @@ class PyBtcWalletTest(TiabTest):
       # (9a)Open primary wallet, change second byte in KDF'
       wltfile = open(self.wlt.walletPath,'r+b')
       wltfile.seek(326)
-      wltfile.write('\xff')
+      wltfile.write(b'\xff')
       wltfile.close()
       # (9a)Byte changed, file hashes:'
       verifyFileStatus(True, True, False, False)
@@ -365,11 +375,11 @@ class PyBtcWalletTest(TiabTest):
       # *********************************************************************'
       # (9b)Change a byte in each checksummed field in root addr'
       wltfile = open(self.wlt.walletPath,'r+b')
-      wltfile.seek(838);  wltfile.write('\xff')
-      wltfile.seek(885);  wltfile.write('\xff')
-      wltfile.seek(929);  wltfile.write('\xff')
-      wltfile.seek(954);  wltfile.write('\xff')
-      wltfile.seek(1000);  wltfile.write('\xff')
+      wltfile.seek(838);  wltfile.write(b'\xff')
+      wltfile.seek(885);  wltfile.write(b'\xff')
+      wltfile.seek(929);  wltfile.write(b'\xff')
+      wltfile.seek(954);  wltfile.write(b'\xff')
+      wltfile.seek(1000);  wltfile.write(b'\xff')
       wltfile.close()
       # (9b) New file hashes...'
       verifyFileStatus(True, True, False, False)
@@ -383,11 +393,11 @@ class PyBtcWalletTest(TiabTest):
       # *********************************************************************'
       # (9c)Change a byte in each checksummed field, of first non-root addr'
       wltfile = open(self.wlt.walletPath,'r+b')
-      wltfile.seek(1261+21+838);  wltfile.write('\xff')
-      wltfile.seek(1261+21+885);  wltfile.write('\xff')
-      wltfile.seek(1261+21+929);  wltfile.write('\xff')
-      wltfile.seek(1261+21+954);  wltfile.write('\xff')
-      wltfile.seek(1261+21+1000);  wltfile.write('\xff')
+      wltfile.seek(1261+21+838);  wltfile.write(b'\xff')
+      wltfile.seek(1261+21+885);  wltfile.write(b'\xff')
+      wltfile.seek(1261+21+929);  wltfile.write(b'\xff')
+      wltfile.seek(1261+21+954);  wltfile.write(b'\xff')
+      wltfile.seek(1261+21+1000);  wltfile.write(b'\xff')
       wltfile.close()
       # (9c) New file hashes...'
       verifyFileStatus(True, True, False, False)
@@ -401,7 +411,7 @@ class PyBtcWalletTest(TiabTest):
       # *********************************************************************'
       # (9d)Now butcher the CHECKSUM, see if correction works'
       wltfile = open(self.wlt.walletPath,'r+b')
-      wltfile.seek(977); wltfile.write('\xff')
+      wltfile.seek(977); wltfile.write(b'\xff')
       wltfile.close()
       # (9d) New file hashes...'
       verifyFileStatus(True, True, False, False)
@@ -417,8 +427,8 @@ class PyBtcWalletTest(TiabTest):
       comment1 = 'This is my normal unit-testing address.'
       comment2 = 'This is fake tx... no tx has this hash.'
       comment3 = comment1 + '  Corrected!'
-      hash1 = '\x1f'*20  # address160
-      hash2 = '\x2f'*32  # tx hash
+      hash1 = b'\x1f'*20  # address160
+      hash2 = b'\x2f'*32  # tx hash
       self.wlt.setComment(hash1, comment1)
       self.wlt.setComment(hash2, comment2)
       self.wlt.setComment(hash1, comment3)

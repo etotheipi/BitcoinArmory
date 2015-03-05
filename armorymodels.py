@@ -11,8 +11,8 @@ import os
 import platform
 import sys
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 
 from CppBlockUtils import *
 from armoryengine.ALL import *
@@ -43,7 +43,7 @@ class AllWalletsDispModel(QAbstractTableModel):
    # The columns enumeration
 
    def __init__(self, mainWindow):
-      super(AllWalletsDispModel, self).__init__()
+      super().__init__()
       self.main = mainWindow
 
    def rowCount(self, index=QModelIndex()):
@@ -63,7 +63,7 @@ class AllWalletsDispModel(QAbstractTableModel):
          if col==COL.Visible:
             return self.main.walletVisibleList[row]
          elif col==COL.ID: 
-            return QVariant(wltID)
+            return QVariant(wltID.decode())
          elif col==COL.Name: 
             return QVariant(wlt.labelName.ljust(32))
          elif col==COL.Secure: 
@@ -168,7 +168,7 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
    Taken from http://stackoverflow.com/a/3366899/1610471
    """
    def __init__(self, parent=None):
-      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
+      super().__init__(parent)   
 
 
    def createEditor(self, parent, option, index):
@@ -248,11 +248,11 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
       check_box_rect = QApplication.style().subElementRect( \
             QStyle.SE_CheckBoxIndicator, check_box_style_option, None)
       check_box_point = QPoint( option.rect.x() +
-                                option.rect.width() / 2 -
-                                check_box_rect.width() / 2,
+                                option.rect.width() // 2 -
+                                check_box_rect.width() // 2,
                                 option.rect.y() +
-                                option.rect.height() / 2 -
-                                check_box_rect.height() / 2)
+                                option.rect.height() // 2 -
+                                check_box_rect.height() // 2)
       return QRect(check_box_point, check_box_rect.size())
 
    def sizeHint(self, option, index):
@@ -269,7 +269,7 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
    EYESIZE = 20
 
    def __init__(self, parent=None):
-      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
+      super().__init__(parent)   
 
    #############################################################################
    def paint(self, painter, option, index):
@@ -304,7 +304,7 @@ class TableEntry():
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx10 table of pre-formatted/processed ledger entries """
    def __init__(self, ledgerTable, parent=None, main=None, isLboxModel=False):
-      super(LedgerDispModelSimple, self).__init__()
+      super().__init__()
       self.parent = parent
       self.main   = main
       self.ledger = ledgerTable
@@ -329,6 +329,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       rowData = self.ledger[row]
       nConf = rowData[LEDGERCOLS.NumConf]
       wltID = rowData[LEDGERCOLS.WltID]
+
       wlt = self.main.walletMap.get(wltID)
       
       if wlt:
@@ -366,7 +367,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             return QVariant(Colors.TextSomeConfirm)
          
          if col==COL.Amount:
-            #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
+            #toSelf = self.index(index.row(), COL.toSelf).data()
             toSelf = rowData[COL.toSelf]
             if toSelf:
                return QVariant(Colors.Mid)
@@ -403,12 +404,12 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                  'trusting that the transaction is valid.')
                return QVariant(tooltipStr)
          if col==COL.TxDir:
-            #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
+            #toSelf = self.index(index.row(), COL.toSelf).data()
             toSelf = rowData[COL.toSelf]
             if toSelf:
                return QVariant('Bitcoins sent and received by the same wallet')
             else:
-               #txdir = str(index.model().data(index).toString()).strip()
+               #txdir = index.model().data(index).strip()
                txdir = rowData[COL.TxDir]
                if rowData[COL.isCoinbase]:
                   return QVariant('You mined these Bitcoins!')
@@ -536,7 +537,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             toTable = self.convertLedger(newLedger)
             self.currentPage.table = toTable 
          except:
-            pass
+            LOGEXCEPT("")
                
       if len(self.bottomPage.table) == 0:
          try:
@@ -551,8 +552,9 @@ class LedgerDispModelSimple(QAbstractTableModel):
       self.ledger.extend(self.currentPage.table)
       self.ledger.extend(self.bottomPage.table)
       
-      #call the parent reset() which will update the view
-      super(QAbstractTableModel, self).reset()
+      #call the parent begin/end reset() which will update the view
+      super().beginResetModel()
+      super().endResetModel()
     
    def centerAtHeight(self, blk):
       #return the index for that block height in the new ledger
@@ -562,7 +564,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
       self.currentPage = TableEntry(centerId, [])
       self.topPage = TableEntry(centerId -1, [])
       
-      self.reset()
+      self.beginResetModel()
+      self.endResetModel()
       
       blockDiff = 2**32
       blockReturn = 0
@@ -579,7 +582,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
 ################################################################################
 class CalendarDialog(ArmoryDialog):   
    def __init__(self, parent, main):
-      super(CalendarDialog, self).__init__(parent, main)
+      super().__init__(parent, main)
            
       self.parent = parent
       self.main = main
@@ -593,6 +596,11 @@ class CalendarDialog(ArmoryDialog):
       
       self.calendarWidget.selectionChanged.connect(self.accept)
            
+
+
+class hideableGridLayout(QGridLayout):
+   hideSignal = pyqtSignal(name="hideIt")
+
 ################################################################################
 class ArmoryBlockAndDateSelector():
    def __init__(self, parent, main, controlFrame):
@@ -669,16 +677,15 @@ class ArmoryBlockAndDateSelector():
       self.dateBlockSelectButton.setStyleSheet(\
             'QPushButton { font-size : 10px }')
       self.dateBlockSelectButton.setMaximumSize(60, 20)  
-      self.main.connect(self.dateBlockSelectButton, \
-                        SIGNAL('clicked()'), self.showBlockDateController)
+      self.dateBlockSelectButton.clicked.connect(self.showBlockDateController)
 
                                  
-      self.frmLayout = QGridLayout()
+      self.frmLayout = hideableGridLayout()
       self.frmLayout.addWidget(self.dateBlockSelectButton)       
       self.frmLayout.addWidget(self.frmBlockAndDate)
-      self.frmLayout.connect(self.frmLayout, SIGNAL('hideIt'), self.hideBlockAndDate)
+      self.frmLayout.hideSignal.connect(self.hideBlockAndDate)
       self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignTop)
-      self.frmLayout.setMargin(0)
+#      self.frmLayout.setMargin(0)
       
       self.dateBlockSelectButton.setVisible(True)
 
@@ -702,7 +709,7 @@ class ArmoryBlockAndDateSelector():
          
       self.lblBlockValue.setText(str(block)  )
       self.lblBlockValue.adjustSize()
-      self.lblDateValue.setText(dateStr)
+      self.lblDateValue.setText(dateStr.decode())
       self.lblDateValue.adjustSize()
       
       self.frmBlockAndDate.adjustSize()
@@ -733,7 +740,7 @@ class ArmoryBlockAndDateSelector():
       self.doHide = True   
       time.sleep(1)
       
-      self.frmLayout.emit(SIGNAL('hideIt'))
+      self.frmLayout.hideSignal.emit()
       
    def triggerHideBlockAndDate(self, mEvent):
       hideThread = PyBackgroundThread(self.prepareToHideThread)
@@ -781,7 +788,7 @@ class ArmoryBlockAndDateSelector():
       self.editBlockHeight()
       self.updateLabel(self.Block)
       
-      self.parent.emit(SIGNAL('centerView'), self.Block)
+      self.parent.centerViewSignal.emit(self.Block)
       
    def dateChanged(self):
       try:
@@ -793,12 +800,12 @@ class ArmoryBlockAndDateSelector():
          pass
       
       self.updateLabel(self.Block)       
-      self.parent.emit(SIGNAL('centerView'), self.Block)
+      self.parent.centerViewSignal.emit(self.Block)
       
    def goToTop(self):
       if self.isEditingBlockHeight == True:
          self.editBlockHeight()
-      self.parent.emit(SIGNAL('goToTop'))
+      self.parent.goToTopSignal.emit()
       
    def hide(self):
       self.dateBlockSelectButton.setVisible(False)
@@ -810,8 +817,12 @@ class ArmoryBlockAndDateSelector():
       
 ################################################################################
 class ArmoryTableView(QTableView):
+
+   centerViewSignal = pyqtSignal(object, name="centerView")
+   goToTopSignal = pyqtSignal(name="goToTop")
+
    def __init__(self, parent, main, controlFrame):
-      super(ArmoryTableView, self).__init__()
+      super().__init__()
       
       self.parent = parent
       self.main = main
@@ -824,8 +835,8 @@ class ArmoryTableView(QTableView):
       
       self.prevIndex = -1
       
-      self.connect(self, SIGNAL('centerView'), self.centerViewAtBlock)
-      self.connect(self, SIGNAL('goToTop'), self.goToTop)
+      self.centerViewSignal.connect(self.centerViewAtBlock)
+      self.goToTopSignal.connect(self.goToTop)
    
    def verticalScrollbarValueChanged(self, dx):
 
@@ -863,7 +874,7 @@ class ArmoryTableView(QTableView):
          if ratio != 0:
             self.vBarRatio = ratio    
 
-      super(ArmoryTableView, self).selectionChanged(itemSelected, itemDeselected)
+      super().selectionChanged(itemSelected, itemDeselected)
       self.updateBlockAndDateLabel()  
        
    def moveCursor(self, action, modifier):
@@ -880,7 +891,7 @@ class ArmoryTableView(QTableView):
    
    def reset(self):
       #save the previous selection
-      super(ArmoryTableView, self).reset()
+      super().reset()
       
       if self.prevIndex != -1:
          self.setCurrentIndex(\
@@ -952,7 +963,7 @@ class LedgerDispSortProxy(QSortFilterProxyModel):
          btcRight = getDouble(idxRight, COL.Amount)
          return (abs(btcLeft) < abs(btcRight))
       else:
-         return super(LedgerDispSortProxy, self).lessThan(idxLeft, idxRight)
+         return super().lessThan(idxLeft, idxRight)
 
 
 ################################################################################
@@ -961,7 +972,7 @@ class LedgerDispDelegate(QStyledItemDelegate):
    COL = LEDGERCOLS
 
    def __init__(self, parent=None):
-      super(LedgerDispDelegate, self).__init__(parent)   
+      super().__init__(parent)   
 
 
    def paint(self, painter, option, index):
@@ -974,8 +985,8 @@ class LedgerDispDelegate(QStyledItemDelegate):
          #bgcolor = Colors.Highlight
 
       if index.column() == self.COL.NumConf:
-         nConf = index.model().data(index).toInt()[0]
-         isCoinbase = index.model().index(index.row(), self.COL.isCoinbase).data().toBool()
+         nConf = index.model().data(index).value()
+         isCoinbase = index.model().index(index.row(), self.COL.isCoinbase).data()
          image=None
          if isCoinbase:
             if nConf<120:
@@ -995,8 +1006,8 @@ class LedgerDispDelegate(QStyledItemDelegate):
       elif index.column() == self.COL.TxDir:
          # This is frustrating... QVariant doesn't support 64-bit ints
          # So I have to pass the amt as string, then convert here to long
-         toSelf     = index.model().index(index.row(), self.COL.toSelf).data().toBool()
-         isCoinbase = index.model().index(index.row(), self.COL.isCoinbase).data().toBool()
+         toSelf     = index.model().index(index.row(), self.COL.toSelf).data()
+         isCoinbase = index.model().index(index.row(), self.COL.isCoinbase).data()
          image = QImage()
 
          # isCoinbase still needs to be flagged in the C++ utils
@@ -1005,7 +1016,7 @@ class LedgerDispDelegate(QStyledItemDelegate):
          elif toSelf:
             image = QImage(':/moneySelf.png')
          else:
-            txdir = str(index.model().data(index).toString()).strip()
+            txdir = index.model().data(index).value().strip()
             if txdir[0].startswith('-'):
                image = QImage(':/moneyOut.png')
             else:
@@ -1030,7 +1041,7 @@ class LedgerDispDelegate(QStyledItemDelegate):
 class WalletAddrDispModel(QAbstractTableModel):
    
    def __init__(self, wlt, mainWindow):
-      super(WalletAddrDispModel, self).__init__()
+      super().__init__()
       self.main = mainWindow
       self.wlt = wlt
 
@@ -1053,15 +1064,15 @@ class WalletAddrDispModel(QAbstractTableModel):
 
       if self.notEmpty and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          hasBalance = lambda a: (self.wlt.getAddrBalance(a.getAddr160(), 'Full')>0)
-         addrList = filter(hasBalance, addrList)
+         addrList = list(filter(hasBalance, addrList))
 
       if self.noChange:
          notChange = lambda a: (self.wlt.getCommentForAddress(a.getAddr160()) != CHANGE_ADDR_DESCR_STRING)
-         addrList = filter(notChange, addrList)
+         addrList = list(filter(notChange, addrList))
 
       if self.usedOnly and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
          isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(Hash160ToScrAddr(a.getAddr160())))
-         addrList = filter(isUsed, addrList)
+         addrList = list(filter(isUsed, addrList))
          
       self.addr160List = [a.getAddr160() for a in addrList]
 
@@ -1069,7 +1080,8 @@ class WalletAddrDispModel(QAbstractTableModel):
    @TimeThisFunction
    def reset(self):
       self.filterAddrList()
-      super(WalletAddrDispModel, self).reset()
+      super().beginResetModel()
+      super().endResetModel()
       
          
 
@@ -1090,7 +1102,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       chainIdx = addr.chainIndex+1  # user must get 1-indexed
       if role==Qt.DisplayRole:
          if col==COL.Address: 
-            return QVariant( addrB58 )
+            return QVariant( addrB58.decode() )
          if col==COL.Comment: 
             if addr160 in self.wlt.commentsMap:
                return QVariant( self.wlt.commentsMap[addr160] )
@@ -1135,7 +1147,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          except:
             hasTx = False
             
-         cmt = str(self.index(index.row(),COL.Comment).data().toString())
+         cmt = self.index(index.row(),COL.Comment).data()
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 
          if col==COL.Balance:
@@ -1148,7 +1160,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             return GETFONT('Var',bold=doBold, italic=doItalic)
       elif role==Qt.ToolTipRole:
          if col==COL.ChainIdx:
-            cmt = str(self.index(index.row(),COL.ChainIdx).data().toString())
+            cmt = self.index(index.row(),COL.ChainIdx).data()
             if cmt.strip().lower().startswith('imp'):
                return QVariant('<u></u>This is an imported address. Imported '
                                'addresses are not protected by regular paper '
@@ -1157,7 +1169,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant('<u></u>The order that this address was '
                                'generated in this wallet')
-         cmt = str(self.index(index.row(),COL.Comment).data().toString())
+         cmt = self.index(index.row(),COL.Comment).data()
          if cmt==CHANGE_ADDR_DESCR_STRING:
             return QVariant('This address was created by Armory to '
                             'receive change-back-to-self from an oversized '
@@ -1204,8 +1216,8 @@ class WalletAddrSortProxy(QSortFilterProxyModel):
    def lessThan(self, idxLeft, idxRight):
       COL = ADDRESSCOLS
       thisCol  = self.sortColumn()
-      strLeft  = str(self.sourceModel().data(idxLeft).toString())
-      strRight = str(self.sourceModel().data(idxRight).toString())
+      strLeft  = self.sourceModel().data(idxLeft).value()
+      strRight = self.sourceModel().data(idxRight).value()
       if thisCol==COL.Address:
          return (strLeft.lower() < strRight.lower())
       elif thisCol==COL.Comment:
@@ -1217,13 +1229,13 @@ class WalletAddrSortProxy(QSortFilterProxyModel):
          rght = -2 if strRight=='Imported' else int(strRight)
          return (left<rght)
       else:
-         return super(WalletAddrSortProxy, self).lessThan(idxLeft, idxRight)
+         return super().lessThan(idxLeft, idxRight)
          
 
 ################################################################################
 class TxInDispModel(QAbstractTableModel):
    def __init__(self,  pytx, txinListFromBDM=None, main=None):
-      super(TxInDispModel, self).__init__()
+      super().__init__()
       self.main = main
       self.txInList = txinListFromBDM[:]
       self.dispTable = []
@@ -1303,7 +1315,11 @@ class TxInDispModel(QAbstractTableModel):
 
       wltID = self.dispTable[row][COLS.WltID]
       if role==Qt.DisplayRole:
-         return QVariant(self.dispTable[row][col])
+         if isinstance(self.dispTable[row][col], bytes):
+            s = self.dispTable[row][col].decode()
+         else:
+            s = self.dispTable[row][col]
+         return QVariant(s)
       elif role==Qt.TextAlignmentRole:
          if col in (COLS.WltID, COLS.Sender, COLS.OutPt):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1355,7 +1371,7 @@ class TxInDispModel(QAbstractTableModel):
 ################################################################################
 class TxOutDispModel(QAbstractTableModel):
    def __init__(self,  pytx, main=None, idxGray=[]):
-      super(TxOutDispModel, self).__init__()
+      super().__init__()
       self.tx = pytx.copy()
    
       self.main = main
@@ -1377,7 +1393,7 @@ class TxOutDispModel(QAbstractTableModel):
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
       dispInfo = self.main.getDisplayStringForScript(txout.binScript, 60)
-      wltID = ''
+      wltID = b''
       if dispInfo['WltID']:
          wltID = dispInfo['WltID']
       elif dispInfo['LboxID']:
@@ -1391,7 +1407,7 @@ class TxOutDispModel(QAbstractTableModel):
          stypeStr = 'MultiSig[%d-of-%d]' % (M,N)
 
       if role==Qt.DisplayRole:
-         if col==COLS.WltID:   return QVariant(wltID)
+         if col==COLS.WltID:   return QVariant(wltID.decode())
          if col==COLS.ScrType: return QVariant(stypeStr)
          if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
          if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
@@ -1442,8 +1458,9 @@ class TxOutDispModel(QAbstractTableModel):
 ################################################################################
 class SentToAddrBookModel(QAbstractTableModel):
    def __init__(self, wltID, main):
-      super(SentToAddrBookModel, self).__init__()
+      super().__init__()
 
+      assert(isinstance(wltID, bytes))
       self.wltID = wltID
       self.main  = main
       self.wlt   = self.main.walletMap[wltID]
@@ -1485,21 +1502,23 @@ class SentToAddrBookModel(QAbstractTableModel):
       COL = ADDRBOOKCOLS
       row,col  = index.row(), index.column()
       scrAddr  = self.addrBook[row][0]
-      if scrAddr[0] in [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE]:
+
+      if scrAddr[0:1] in [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE]:
          addrB58 = scrAddr_to_addrStr(scrAddr)
          addr160 = scrAddr[1:]
       else:
-         addrB58 = ''
-         addr160 = ''
+         addrB58 = b''
+         addr160 = b''
       wltID    = self.main.getWalletForAddr160(addr160)
       txList   = self.addrBook[row][1]
       numSent  = len(txList)
       comment  = self.wlt.getCommentForTxList(addr160, txList)
       
+
       #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
       if role==Qt.DisplayRole:
          if col==COL.Address: 
-            return QVariant( addrB58 )
+            return QVariant( addrB58.decode() )
          if col==COL.NumSent: 
             return QVariant( numSent ) 
          if col==COL.Comment: 
@@ -1539,8 +1558,8 @@ class SentAddrSortProxy(QSortFilterProxyModel):
    def lessThan(self, idxLeft, idxRight):
       COL = ADDRBOOKCOLS
       thisCol  = self.sortColumn()
-      strLeft  = str(self.sourceModel().data(idxLeft).toString())
-      strRight = str(self.sourceModel().data(idxRight).toString())
+      strLeft  = str(self.sourceModel().data(idxLeft))
+      strRight = str(self.sourceModel().data(idxRight))
 
 
       #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
@@ -1548,7 +1567,7 @@ class SentAddrSortProxy(QSortFilterProxyModel):
       if thisCol==COL.Address:
          return (strLeft.lower() < strRight.lower())
       else:
-         return super(SentAddrSortProxy, self).lessThan(idxLeft, idxRight)
+         return super().lessThan(idxLeft, idxRight)
 
 
 ################################################################################
@@ -1557,7 +1576,7 @@ class PromissoryCollectModel(QAbstractTableModel):
    # The columns enumeration
 
    def __init__(self, main, promNoteList):
-      super(PromissoryCollectModel, self).__init__()
+      super().__init__()
       self.main = main
       self.promNoteList = promNoteList
 
@@ -1578,9 +1597,12 @@ class PromissoryCollectModel(QAbstractTableModel):
 
       if role==Qt.DisplayRole:
          if col==COL.PromID:
-            return QVariant(prom.promID)
+            return QVariant(prom.promID.decode())
          elif col==COL.Label: 
-            return QVariant(prom.promLabel)
+            if isinstance(prom.promLabel, bytes):
+               return QVariant(prom.promLabel.decode())
+            else:
+               return QVariant(prom.promLabel)
          elif col==COL.PayAmt: 
             return QVariant(coin2str(prom.dtxoTarget.value, maxZeros=2))
          elif col==COL.FeeAmt: 
@@ -1614,3 +1636,6 @@ class PromissoryCollectModel(QAbstractTableModel):
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
 
+   def reset(self):
+      self.beginResetModel()
+      self.endResetModel()

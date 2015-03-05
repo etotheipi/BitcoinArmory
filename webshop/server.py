@@ -232,7 +232,7 @@ def ws_connect():
 
 @socketio.on('disconnect', namespace='/ws')
 def ws_disconnect():
-    print 'Client disconnected'
+    print('Client disconnected')
 
 @socketio.on('listen', namespace='/ws')
 def ws_listen(message):
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     if options.lockbox:
         lockboxes = options.lockbox.split(",")
         if len(lockboxes) < options.m:
-            print "There are only %s lockboxes when you need at least %s" % (len(lockboxes), options.m)
+            print("There are only %s lockboxes when you need at least %s" % (len(lockboxes), options.m))
             sys.exit()
         lockbox_args = [options.m, len(lockboxes)]
         # make sure the wallets in the lockbox list are valid
@@ -269,7 +269,7 @@ if __name__ == "__main__":
         wallet_lookup = { v:True for v in wallets.values() }
         for lockbox in lockboxes:
             if not wallet_lookup.get(lockbox):
-                print "%s is not a valid wallet to create a lockbox" % lockbox
+                print("%s is not a valid wallet to create a lockbox" % lockbox)
                 sys.exit()
             lockbox_args.append(lockbox)
 

@@ -5,9 +5,9 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from PyQt4.Qt import *
-from PyQt4.QtGui import *
-from PyQt4.QtNetwork import *
+from PyQt5.Qt import *
+from PyQt5.QtGui import *
+from PyQt5.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
                       DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
@@ -22,7 +22,7 @@ from ui.MultiSigModels import \
 import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
-import cStringIO
+from io import StringIO
 import textwrap
 
 #############################################################################
@@ -30,7 +30,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, maxM=LB_MAXM, maxN=LB_MAXN, loadBox=None):
-      super(DlgLockboxEditor, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
          <b><u><font size=5 color="%s">Create Multi-signature Lockbox</font></u>  
@@ -68,11 +68,10 @@ class DlgLockboxEditor(ArmoryDialog):
             
 
       lblDescr3.setOpenExternalLinks(False)
-      self.connect(lblDescr3, SIGNAL('linkActivated(const QString &)'), \
-                                                               openMoreInfo)
+      lblDescr3.linkActivated.connect(openMoreInfo)
 
 
-      self.createDate = long(RightNow())
+      self.createDate = int(RightNow())
       self.loadedID = None
       self.comboM = QComboBox()
       self.comboN = QComboBox()
@@ -80,10 +79,8 @@ class DlgLockboxEditor(ArmoryDialog):
       self.maxN = maxN
       self.minM = 1
       self.minN = 2
-      self.connect(self.comboM, SIGNAL('activated(int)'), \
-                                             self.updateWidgetTable_M)
-      self.connect(self.comboN, SIGNAL('activated(int)'), \
-                                             self.updateWidgetTable_N)
+      self.comboM.activated.connect(self.updateWidgetTable_M)
+      self.comboN.activated.connect(self.updateWidgetTable_N)
       self.comboM.setFont(GETFONT('Var', 14, bold=True))
       self.comboN.setFont(GETFONT('Var', 14, bold=True))
       self.lblMasterIcon = QLabel()
@@ -149,10 +146,8 @@ class DlgLockboxEditor(ArmoryDialog):
                self.clickImportButton(i)
             return importClick
 
-         self.connect(self.widgetMap[i]['BTN_NAME'], SIGNAL('clicked()'), \
-                                                            createCallback(i))
-         self.connect(self.widgetMap[i]['BTN_IMPORT'], SIGNAL('clicked()'), \
-                                                       createImportCallback(i))
+         self.widgetMap[i]['BTN_NAME'].clicked.connect(createCallback(i))
+         self.widgetMap[i]['BTN_IMPORT'].clicked.connect(createImportCallback(i))
          
          self.prevPubKeyStr[i] = ''
          
@@ -164,8 +159,8 @@ class DlgLockboxEditor(ArmoryDialog):
       self.btnCancel   = QPushButton(tr('Exit'))
       self.btnContinue = QPushButton(tr('Save Lockbox'))
       #self.btnContinue.setEnabled(False)
-      self.connect(self.btnContinue, SIGNAL('clicked()'), self.doContinue)
-      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      self.btnContinue.clicked.connect(self.doContinue)
+      self.btnCancel.clicked.connect(self.reject)
       self.lblFinal = QRichLabel('')
 
 
@@ -175,8 +170,8 @@ class DlgLockboxEditor(ArmoryDialog):
       self.edtBoxName.setMaxLength(64)
 
       self.btnLongDescr = QLabelButton(tr("Set extended info"))
-      self.longDescr = u''
-      self.connect(self.btnLongDescr, SIGNAL('clicked()'), self.setLongDescr)
+      self.longDescr = ''
+      self.btnLongDescr.clicked.connect(self.setLongDescr)
 
       frmName = makeHorizFrame(['Stretch', 
                                 QLabel('Lockbox Name:'),
@@ -246,7 +241,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       btnClear  = QPushButton(tr('Clear All'))
 
-      self.connect(btnClear,  SIGNAL('clicked()'), self.clearAll)
+      btnClear.clicked.connect(self.clearAll)
 
 
       layoutMNSelect = QGridLayout()
@@ -289,7 +284,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
    def clickNameButton(self, i):
-      currName = unicode(self.widgetMap[i]['LBL_NAME'].text())
+      currName = str(self.widgetMap[i]['LBL_NAME'].text())
       dlgComm = DlgSetComment(self, self.main, currName, \
                               'public key', 'ID or contact info')
       if dlgComm.exec_():
@@ -321,7 +316,7 @@ class DlgLockboxEditor(ArmoryDialog):
          authMeth= dlgImport.returnObj.authMethod
          authData= dlgImport.returnObj.authData
 
-         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPub))
+         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPub).decode())
          self.widgetMap[i]['LBL_NAME'].setText(keyComm)
          self.widgetMap[i]['METADATA'][binPub] = [wltLoc, authMeth, authData]
 
@@ -331,7 +326,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       class DlgSetLongDescr(ArmoryDialog):
          def __init__(self, parent, currDescr=''):
-            super(DlgSetLongDescr, self).__init__(parent, None)
+            super().__init__(parent, None)
             lbl = QRichLabel(tr("""
                <b><u>Set Extended Lockbox Details</u></b>
                <br><br>
@@ -345,7 +340,7 @@ class DlgLockboxEditor(ArmoryDialog):
             self.descr = QPlainTextEdit()
             self.descr.setPlainText(currDescr)
             btn = QPushButton(tr("Done"))
-            self.connect(btn, SIGNAL('clicked()'), self.accept)
+            btn.clicked.connect(self.accept)
 
             layout = QVBoxLayout()
             layout.addWidget(lbl)
@@ -357,7 +352,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       dlg = DlgSetLongDescr(self, self.longDescr)
       if dlg.exec_():
-         self.longDescr = unicode(dlg.descr.toPlainText())
+         self.longDescr = str(dlg.descr.toPlainText())
    
       
 
@@ -366,9 +361,9 @@ class DlgLockboxEditor(ArmoryDialog):
       # Don't check for valid pub keys in 65-byte fields; it would be slow
       # (this will be run after every key press)
       if len(pkstr) == 33*2:
-         return pkstr[:2] in ['02','03']
+         return pkstr[:2] in [b'02',b'03']
       elif len(pkstr) == 65*2:
-         return pkstr[:2] == '04'
+         return pkstr[:2] == b'04'
       else:
          return False
 
@@ -445,8 +440,8 @@ class DlgLockboxEditor(ArmoryDialog):
    def clearAll(self):
       self.edtBoxName.clear()
       self.longDescr = ''
-      for index,widMap in self.widgetMap.iteritems():
-         for key,widget in widMap.iteritems():
+      for index,widMap in self.widgetMap.items():
+         for key,widget in widMap.items():
             if key in ['QLE_PUBK', 'LBL_NAME']:
                widget.clear()
 
@@ -461,7 +456,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       for i in range(lboxObj.N):
          binPub = lboxObj.dPubKeys[i].binPubKey
-         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPub))
+         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPub).decode())
          self.widgetMap[i]['LBL_NAME'].setText(lboxObj.dPubKeys[i].keyComment)
 
       def setCombo(cmb, val):
@@ -494,7 +489,7 @@ class DlgLockboxEditor(ArmoryDialog):
       pubKeyList = []
       acceptedBlankComment = False
       for i in range(currN):
-         pkHex = str(self.widgetMap[i]['QLE_PUBK'].text()).strip()
+         pkHex = str(self.widgetMap[i]['QLE_PUBK'].text()).strip().encode()
 
          if len(pkHex)==0:
             QMessageBox.critical(self, tr('Not Enough Keys'), tr(""" 
@@ -508,7 +503,9 @@ class DlgLockboxEditor(ArmoryDialog):
             pkBin = hex_to_binary(pkHex)
             isValid = self.isPotentiallyValidHexPubKey(pkHex)
             if len(pkBin) == 65:
-               if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(pkBin)):
+               pkSecure = SecureBinaryData()
+               pkSecure.createFromHex(binary_to_hex(pkBin).decode())
+               if not CryptoECDSA().VerifyPublicKeyValid(pkSecure):
                   isValid = False
             
          if not isValid: 
@@ -518,7 +515,7 @@ class DlgLockboxEditor(ArmoryDialog):
                QMessageBox.Ok)
             return
 
-         keyComment = unicode(self.widgetMap[i]['LBL_NAME'].text())
+         keyComment = str(self.widgetMap[i]['LBL_NAME'].text())
          #self.widgetMap[i]['METADATA'][binPub] = [wltLoc, authMeth, authData]
          extras = [None, None, None]
          if pkBin in self.widgetMap[i]['METADATA']:
@@ -570,7 +567,7 @@ class DlgLockboxEditor(ArmoryDialog):
             if not reply==QMessageBox.Ok:
                return
             else:
-               self.createDate = long(RightNow())
+               self.createDate = int(RightNow())
       
       if not USE_TESTNET and isMofNNonStandardToSpend(currM, currN):
          reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
@@ -587,10 +584,10 @@ class DlgLockboxEditor(ArmoryDialog):
             return
 
       LOGINFO('Got a valid TxOut script:')
-      LOGINFO('ScrAddrStr: ' + binary_to_hex(scraddr))
-      LOGINFO('Raw script: ' + binary_to_hex(txOutScript))
+      LOGINFO('ScrAddrStr: ' + binary_to_hex(scraddr).decode())
+      LOGINFO('Raw script: ' + binary_to_hex(txOutScript).decode())
       LOGINFO('HR Script: \n   ' + '\n   '.join(opCodeList))
-      LOGINFO('Lockbox ID: ' + lockboxID)
+      LOGINFO('Lockbox ID: ' + lockboxID.decode())
 
       self.lockbox = MultiSigLockbox( toUnicode(self.edtBoxName.text()),
                                       toUnicode(self.longDescr),
@@ -634,7 +631,7 @@ def doExportLockbox(parent, main, lockbox):
 ################################################################################
 class DlgLockboxManager(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgLockboxManager, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       #if not USE_TESTNET:
          #QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
@@ -677,15 +674,8 @@ class DlgLockboxManager(ArmoryDialog):
       self.lboxView.horizontalHeader().setStretchLastSection(True)
       self.lboxView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.lboxView.customContextMenuRequested.connect(self.showLboxContextMenu)
-
-      self.connect( \
-            self.lboxView, 
-            SIGNAL('clicked(QModelIndex)'), 
-            self.singleClickLockbox)
-      self.connect( \
-            self.lboxView, 
-            SIGNAL('doubleClicked(QModelIndex)'), 
-            self.dblClickLockbox)
+      self.lboxView.clicked.connect(self.singleClickLockbox)
+      self.lboxView.doubleClicked.connect(self.dblClickLockbox)
 
       self.txtLockboxInfo = QTextEdit()
       self.txtLockboxInfo.acceptRichText()
@@ -703,7 +693,7 @@ class DlgLockboxManager(ArmoryDialog):
 
       btnDone = QPushButton(tr('Done'))
       frmDone = makeHorizFrame([lblLinkToMSWebpage, 'Stretch', btnDone])
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      btnDone.clicked.connect(self.accept)
 
 
       #maxKeys = max([lb.N for lb in self.main.allLockboxes])
@@ -723,8 +713,8 @@ class DlgLockboxManager(ArmoryDialog):
       self.ledgerView.setSelectionMode(QTableView.SingleSelection)
       self.ledgerView.verticalHeader().setDefaultSectionSize(20)
       self.ledgerView.verticalHeader().hide()
-      self.ledgerView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
-      self.ledgerView.horizontalHeader().setResizeMode(3, QHeaderView.Fixed)
+      self.ledgerView.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+      self.ledgerView.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
 
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
       self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
@@ -741,8 +731,7 @@ class DlgLockboxManager(ArmoryDialog):
       initialColResize(self.ledgerView, [cWidth, 0, dateWidth, tWidth, \
                                                             0.30, 0.40, 0.3])
       
-      self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), \
-                   self.dblClickLedger)
+      self.ledgerView.doubleClicked.connect(self.dblClickLedger)
 
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
@@ -1009,8 +998,8 @@ class DlgLockboxManager(ArmoryDialog):
       
          self.chkSimulfundB.setChecked(self.chkSimulfundA.isChecked())
 
-      self.connect(self.chkSimulfundA, SIGNAL('clicked()'), clickSimulA)
-      self.connect(self.chkSimulfundB, SIGNAL('clicked()'), clickSimulB)
+      self.chkSimulfundA.clicked.connect(clickSimulA)
+      self.chkSimulfundB.clicked.connect(clickSimulB)
 
 
       cellWidth = 150
@@ -1059,7 +1048,7 @@ class DlgLockboxManager(ArmoryDialog):
             layout.addWidget(btnMap['LBL'],   1,0)
             layout.setColumnStretch(0,1)
             layout.setColumnStretch(1,0)
-            self.connect(btnMap['BTN'], SIGNAL('clicked()'), btnMap['callbk'])
+            btnMap['BTN'].clicked.connect(btnMap['callbk'])
 
             slayout = QHBoxLayout()
             slayout.addStretch()
@@ -1147,7 +1136,7 @@ class DlgLockboxManager(ArmoryDialog):
          self.btnCopyClip.setText('Copied!')
          clipb = QApplication.clipboard()
          clipb.clear()
-         clipb.setText(scrAddr_to_addrStr(lbox.p2shScrAddr))
+         clipb.setText(scrAddr_to_addrStr(lbox.p2shScrAddr).decode())
          from twisted.internet import reactor
          reactor.callLater(1, lambda: self.btnCopyClip.setText('Copy Address'))
 
@@ -1164,13 +1153,14 @@ class DlgLockboxManager(ArmoryDialog):
             return
          p2shAddr = scrAddr_to_addrStr(lbox.p2shScrAddr)
          lboxDisp = 'Lockbox %d-of-%d: "%s" (%s)' % (lbox.M, lbox.N, 
-                           lbox.shortName, lbox.uniqueIDB58)
+                                                     lbox.shortName,
+                                                     lbox.uniqueIDB58.decode())
          DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, lboxDisp).exec_()
 
-      self.connect(self.btnCopyClip,    SIGNAL('clicked()'), funcCopyClip)
-      self.connect(self.btnQRCodeDisp,  SIGNAL('clicked()'), funcQRCode)
-      self.connect(self.btnFundRequest, SIGNAL('clicked()'), funcReqPayment)
-      self.connect(self.btnFundRegular, SIGNAL('clicked()'), self.doFundIt)
+      self.btnCopyClip.clicked.connect(funcCopyClip)
+      self.btnQRCodeDisp.clicked.connect(funcQRCode)
+      self.btnFundRequest.clicked.connect(funcReqPayment)
+      self.btnFundRegular.clicked.connect(self.doFundIt)
 
       def updateRegFundCell(hasSelect, isOnline):
          lbox = self.getSelectedLockbox()
@@ -1191,7 +1181,7 @@ class DlgLockboxManager(ArmoryDialog):
             self.lblDispAddr.setEnabled(True)
             self.lblDispAddr.setText(tr("""
                Anyone can send funds to this lockbox using this
-               Bitcoin address: <br><b>%s</b>""") % p2shAddr)
+               Bitcoin address: <br><b>%s</b>""") % p2shAddr.decode())
 
       self.updateDashFuncs.append(updateRegFundCell)
 
@@ -1290,12 +1280,12 @@ class DlgLockboxManager(ArmoryDialog):
    def updateTxCommentFromView(self, view):
       index = view.selectedIndexes()[0]
       row, col = index.row(), index.column()
-      currComment = str(view.model().index(row, LEDGERCOLS.Comment).data().toString())
+      currComment = view.model().index(row, LEDGERCOLS.Comment).data()
       dialog = DlgSetComment(self, self.main, currComment, 'Transaction')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
-         lboxId = str(view.model().index(row, LEDGERCOLS.WltID).data().toString())
-         txHash = str(view.model().index(row, LEDGERCOLS.TxHash).data().toString())
+         lboxId = view.model().index(row, LEDGERCOLS.WltID).data()
+         txHash = view.model().index(row, LEDGERCOLS.TxHash).data()
          lbox = self.main.allLockboxes[self.main.lockboxIDMap[lboxId]]
          for a160 in lbox.a160List:
             wltID = self.main.getWalletForAddr160(a160)
@@ -1313,8 +1303,8 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def showLedgerTx(self):
       row = self.ledgerView.selectedIndexes()[0].row()
-      txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
-      txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+      txHash = self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data()
+      txtime = self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data()
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
@@ -1329,7 +1319,7 @@ class DlgLockboxManager(ArmoryDialog):
          'Armory\'s database.  This is unusual...', QMessageBox.Ok)
          return
 
-      lboxId  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+      lboxId  = self.ledgerView.model().index(row, LEDGERCOLS.WltID).data()
       lbox = self.main.allLockboxes[self.main.lockboxIDMap[lboxId]]
       wltID = None
       wlt = None
@@ -1350,16 +1340,16 @@ class DlgLockboxManager(ArmoryDialog):
 
       row = self.ledgerView.selectedIndexes()[0].row()
 
-      txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+      txHash = self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data()
       txHash = hex_switchEndian(txHash)
-      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+      wltID  = self.ledgerView.model().index(row, LEDGERCOLS.WltID).data()
 
       if USE_TESTNET:
          blkExploreTitle = 'View on blockexplorer.com'
-         blkExploreURL   = 'http://blockexplorer.com/testnet/tx/%s' % txHash
+         blkExploreURL   = 'http://blockexplorer.com/testnet/tx/%s' % txHash.decode()
       else:
          blkExploreTitle = 'View on blockchain.info'
-         blkExploreURL   = 'https://blockchain.info/tx/%s' % txHash
+         blkExploreURL   = 'https://blockchain.info/tx/%s' % txHash.decode()
 
 
       actViewTx     = menu.addAction("View Details")
@@ -1421,7 +1411,7 @@ class DlgLockboxManager(ArmoryDialog):
          # Get data on a given row, easily
          def getModelStr(col):
             model = self.lboxView.model()
-            qstr = model.index(idx.row(), col).data().toString()
+            qstr = model.index(idx.row(), col).data()
             return str(qstr).strip()
    
    
@@ -1553,7 +1543,7 @@ class DlgLockboxManager(ArmoryDialog):
          return None
       row = selection[0].row()
       idCol = LOCKBOXCOLS.ID
-      return str(self.lboxView.model().index(row, idCol).data().toString())
+      return self.lboxView.model().index(row, idCol).data().encode()
 
    #############################################################################
    def getSelectedLockbox(self):
@@ -1574,13 +1564,13 @@ class DlgLockboxManager(ArmoryDialog):
          dateFmt = DEFAULT_DATE_FORMAT
 
       if tr is None:
-         tr = lambda x: unicode(x)
+         tr = lambda x: str(x)
 
-      EMPTYLINE = u''
+      EMPTYLINE = ''
 
       shortName = toUnicode(lb.shortName)
       if len(shortName.strip())==0:
-         shortName = u'<No Lockbox Name'
+         shortName = '<No Lockbox Name'
 
       longDescr = toUnicode(lb.longDescr)
       if len(longDescr.strip())==0:
@@ -1593,19 +1583,19 @@ class DlgLockboxManager(ArmoryDialog):
       
       lines = []
       lines.append(tr("""<font color="%s" size=4><center><u>Lockbox Information for 
-         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), lb.uniqueIDB58))
+         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), lb.uniqueIDB58.decode()))
       lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (lb.M, lb.N))
-      lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % lb.uniqueIDB58)
-      lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(lb.binScript))
+      lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % lb.uniqueIDB58.decode())
+      lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(lb.binScript).decode())
       lines.append(tr('<b>Lockbox Name:</b>&nbsp;&nbsp;%s') % lb.shortName)
-      lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
+      lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate.decode()) 
       lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
       lines.append(tr('<b>Stored Key Details</b>'))
 
       for i in range(len(lb.dPubKeys)):
          comm = lb.dPubKeys[i].keyComment
-         addr = hash160_to_addrStr(lb.a160List[i])
-         pubk = binary_to_hex(lb.dPubKeys[i].binPubKey)[:40] + '...'
+         addr = hash160_to_addrStr(lb.a160List[i]).decode()
+         pubk = binary_to_hex(lb.dPubKeys[i].binPubKey)[:40].decode() + '...'
 
          if len(comm.strip())==0:
             comm = '<No Info>'
@@ -1820,19 +1810,19 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def closeEvent(self, event):
       self.saveGeometrySettings()
-      super(DlgLockboxManager, self).closeEvent(event)
+      super().closeEvent(event)
 
    #############################################################################
    def accept(self, *args):
       self.saveGeometrySettings()
       self.main.lbDialogModel = None
-      super(DlgLockboxManager, self).accept(*args)
+      super().accept()
 
    #############################################################################
    def reject(self, *args):
       self.saveGeometrySettings()
       self.main.lbDialogModel = None      
-      super(DlgLockboxManager, self).reject(*args)
+      super().reject()
       
    #############################################################################
    def changeLBFilter(self):
@@ -1847,7 +1837,7 @@ class DlgLockboxManager(ArmoryDialog):
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgFundLockbox, self).__init__(parent, main)
+      super().__init__(parent, main)
    
       self.selection = None
 
@@ -1869,9 +1859,9 @@ class DlgFundLockbox(ArmoryDialog):
       btnReview = QPushButton(tr("Review and Sign"))
       btnCancel = QPushButton(tr("Cancel"))
 
-      self.connect(btnCreate, SIGNAL('clicked()'), self.doCreate)
-      self.connect(btnReview, SIGNAL('clicked()'), self.doReview)
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      btnCreate.clicked.connect(self.doCreate)
+      btnReview.clicked.connect(self.doReview)
+      btnCancel.clicked.connect(self.reject)
 
       frmTop = makeHorizFrame([lblDescr], STYLE_STYLED)
 
@@ -1911,7 +1901,7 @@ class DlgFundLockbox(ArmoryDialog):
 ################################################################################
 class DlgSpendFromLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgSpendFromLockbox, self).__init__(parent, main)
+      super().__init__(parent, main)
    
       self.selection = None
 
@@ -1939,9 +1929,9 @@ class DlgSpendFromLockbox(ArmoryDialog):
          to review and sign it."""))
 
 
-      self.connect(btnCreate, SIGNAL('clicked()'), self.doCreate)
-      self.connect(btnReview, SIGNAL('clicked()'), self.doReview)
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      btnCreate.clicked.connect(self.doCreate)
+      btnReview.clicked.connect(self.doReview)
+      btnCancel.clicked.connect(self.reject)
 
       frmTop = makeHorizFrame([lblDescr], STYLE_STYLED)
 
@@ -1981,7 +1971,7 @@ class DlgSpendFromLockbox(ArmoryDialog):
 ################################################################################
 class DlgSimulfundSelect(ArmoryDialog):
    def __init__(self, parent, main, lbID):
-      super(DlgSimulfundSelect, self).__init__(parent, main)
+      super().__init__(parent, main)
    
       self.selection = None
 
@@ -2036,10 +2026,10 @@ class DlgSimulfundSelect(ArmoryDialog):
          Review and signed a simulfunding transaction (after all promissory
          notes have been collected)"""))
 
-      self.connect(btnCreate,  SIGNAL('clicked()'), self.doCreate)
-      self.connect(btnCollect, SIGNAL('clicked()'), self.doCollect)
-      self.connect(btnReview,  SIGNAL('clicked()'), self.doReview)
-      self.connect(btnCancel,  SIGNAL('clicked()'), self.reject)
+      btnCreate.clicked.connect(self.doCreate)
+      btnCollect.clicked.connect(self.doCollect)
+      btnReview.clicked.connect(self.doReview)
+      btnCancel.clicked.connect(self.reject)
 
       frmTop = makeVertFrame([lblTitle, lblDescr], STYLE_STYLED)
 
@@ -2086,7 +2076,7 @@ class DlgSimulfundSelect(ArmoryDialog):
 ################################################################################
 class DlgImportAsciiBlock(ArmoryDialog):
    def __init__(self, parent, main, titleStr, descrStr, fileTypes, importType):
-      super(DlgImportAsciiBlock, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.main = main
       self.fileTypes = fileTypes
       self.importType = importType
@@ -2103,9 +2093,9 @@ class DlgImportAsciiBlock(ArmoryDialog):
       btnCancel = QPushButton(tr("Cancel"))
 
                               
-      self.connect(btnLoad,   SIGNAL('clicked()'), self.loadfile)
-      self.connect(btnDone,   SIGNAL('clicked()'), self.clickedDone)
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      btnLoad.clicked.connect(self.loadfile)
+      btnDone.clicked.connect(self.clickedDone)
+      btnCancel.clicked.connect(self.reject)
 
       frmLoadButton = makeHorizFrame(['Stretch', btnLoad])
       frmBottomRow  = makeHorizFrame([btnCancel, 'Stretch', btnDone])
@@ -2133,7 +2123,7 @@ class DlgImportAsciiBlock(ArmoryDialog):
    #############################################################################
    def clickedDone(self):
       try:
-         txt = str(self.txtAscii.toPlainText()).strip()
+         txt = str(self.txtAscii.toPlainText()).strip().encode()
          self.returnObj = self.importType().unserializeAscii(txt)
       except:
          LOGEXCEPT('Error reading ASCII block')
@@ -2150,7 +2140,7 @@ class DlgImportAsciiBlock(ArmoryDialog):
 ################################################################################
 class DlgSelectPublicKey(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgSelectPublicKey, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
          <center><font size=4><b><u>Select Public Key for Lockbox 
@@ -2205,7 +2195,7 @@ class DlgSelectPublicKey(ArmoryDialog):
       self.lblDetect.setVisible(True)
 
       #btnExportKey = QPushButton(tr('Send to Organizer'))
-      #self.connect(btnExportKey, SIGNAL('clicked()'), self.doExportKey)
+      #btnExportKey.clicked.connect(self.doExportKey)
       #frmButtons = makeHorizFrame([QRichLabel(tr('When finished:')),
                                    #btnExportKey, 
                                    #'Stretch'])
@@ -2228,8 +2218,8 @@ class DlgSelectPublicKey(ArmoryDialog):
 
       btnDone = QPushButton(tr('Continue'))
       btnCancel = QPushButton(tr('Cancel'))
-      self.connect(btnDone,   SIGNAL('clicked()'), self.doDone)
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      btnDone.clicked.connect(self.doDone)
+      btnCancel.clicked.connect(self.reject)
       frmDone = makeHorizFrame([btnCancel, 'Stretch', btnDone])
       
 
@@ -2249,10 +2239,12 @@ class DlgSelectPublicKey(ArmoryDialog):
    def collectKeyData(self):
       try:
          binPub = hex_to_binary(str(self.edtPubKey.text()).strip())
-         if binPub[0] in ['\x02', '\x03'] and len(binPub)==33:
+         if binPub[0] in [2,3] and len(binPub)==33:
             pass  # valid key
-         elif binPub[0]=='\x04' and len(binPub)==65:
-            if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(binPub)):
+         elif binPub[0]==4 and len(binPub)==65:
+            securePub = SecureBinaryData()
+            securePub.createFromHex(binary_to_hex(binPub).encode())
+            if not CryptoECDSA().VerifyPublicKeyValid(securePub):
                raise BadAddressError('Public key starting with 0x04 is invalid')
          else:
             raise BadAddressError('Invalid pub key entered, or not a pub key')
@@ -2266,7 +2258,7 @@ class DlgSelectPublicKey(ArmoryDialog):
             "02", "03" or "04"."""), QMessageBox.Ok)
          return None
 
-      comm = unicode(self.edtContact.text()).strip() 
+      comm = str(self.edtContact.text()).strip() 
       dPubKey = DecoratedPublicKey(binPub, comm)
       return dPubKey.serializeAscii()
       
@@ -2307,7 +2299,7 @@ class DlgSelectPublicKey(ArmoryDialog):
 ################################################################################
 class DlgExportAsciiBlock(ArmoryDialog):
    def __init__(self, parent, main, exportObj, title, descr, ftypes, defaultFN):
-      super(DlgExportAsciiBlock, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       lblDescr = QRichLabel(descr)
       self.exportObj  = exportObj
@@ -2321,7 +2313,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
       w,h = relaxedSizeNChar(txt, 80)
       txt.setMinimumWidth(w)
       txt.setMinimumHeight(h*9)
-      txt.setPlainText(self.asciiBlock)
+      txt.setPlainText(self.asciiBlock.decode())
       txt.setReadOnly(True)
 
       self.lblCopyMail = QRichLabel('')
@@ -2330,10 +2322,10 @@ class DlgExportAsciiBlock(ArmoryDialog):
       btnMail = QPushButton(tr("Send Email"))
       btnDone = QPushButton(tr("Done"))
 
-      self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
-      self.connect(btnSave, SIGNAL('clicked()'), self.savefile)
-      self.connect(btnMail, SIGNAL('clicked()'), self.mailLB)
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      btnCopy.clicked.connect(self.clipcopy)
+      btnSave.clicked.connect(self.savefile)
+      btnMail.clicked.connect(self.mailLB)
+      btnDone.clicked.connect(self.accept)
 
       frmCopy = makeHorizFrame([btnSave, btnCopy, btnMail, self.lblCopyMail, \
                                 'Stretch'])
@@ -2353,15 +2345,15 @@ class DlgExportAsciiBlock(ArmoryDialog):
       fn = self.main.getFileSave(tr('Export ASCII Block'), self.fileTypes,
                                                             self.defaultFN)
       if fn:
-         with open(fn,'w') as f:
-            f.write(self.asciiBlock + '\n')
+         with open(fn,'wb') as f:
+            f.write(self.asciiBlock + b'\n')
          self.accept()
 
 
    def clipcopy(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(self.asciiBlock)
+      clipb.setText(self.asciiBlock.decode())
       self.lblCopyMail.setText('<i>Copied!</i>')
 
 
@@ -2369,7 +2361,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
       # Iterate over the text block and get the public key ID.
       # WARNING: For now, the code assumes there will be only one ID returned.
       # If this changes in the future, the code must be adjusted as necessary.
-      blockIO = cStringIO.StringIO(self.asciiBlock)
+      blockIO = StringIO.StringIO(self.asciiBlock)
       pkID = getBlockID(blockIO, self.exportObj.BLKSTRING+'-')[0]
 
       # Prepare to send an email with the public key. For now, the email text
@@ -2398,7 +2390,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 ################################################################################
 class DlgImportLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgImportLockbox, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.main = main
       self.importedLockbox = None
       lbl = QRichLabel(tr("""
@@ -2417,9 +2409,9 @@ class DlgImportLockbox(ArmoryDialog):
       btnCancel = QPushButton(tr("Cancel"))
 
                               
-      self.connect(btnLoad,   SIGNAL('clicked()'), self.loadfile)
-      self.connect(btnDone,   SIGNAL('clicked()'), self.clickedDone)
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      btnLoad.clicked.connect(self.loadfile)
+      btnDone.clicked.connect(self.clickedDone)
+      btnCancel.clicked.connect(self.reject)
 
       frmLoadButton = makeHorizFrame(['Stretch', btnLoad])
       frmBottomRow  = makeHorizFrame([btnCancel, 'Stretch', btnDone])
@@ -2482,7 +2474,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, ustx):
-      super(DlgMultiSpendReview, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       LOGDEBUG('Debugging information for multi-spend USTX')
       #ustx.pprint()
@@ -2521,7 +2513,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       # Some simple container classes
       class InputBundle(object):
          def __init__(self):
-            self.binScript = ''
+            self.binScript = b''
             self.sendAmt = 0
             self.dispStr = ''
             self.ustxiList = []
@@ -2562,7 +2554,8 @@ class DlgMultiSpendReview(ArmoryDialog):
          iBundle.dispStr = hrStr
 
          if idStr[:2] in ['LB']:
-            iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
+            lbid = idStr.split(':')[-1].encode()
+            iBundle.lockbox = self.main.getLockboxByID(lbid)
             canPotentiallySignAny = True
 
             # Check whether we have the capability to sign this lockbox
@@ -2594,7 +2587,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             if idStr[:3] in ['WLT']:
                canPotentiallySignAny = True
                iBundle.keyholePixmap[0] = QLabel()
-               wltID = idStr.split(':')[-1]
+               wltID = idStr.split(':')[-1].encode()
                wlt = self.main.walletMap[wltID]
                wltType = determineWalletType(wlt, self.main)[0]
                a160 = CheckHash160(script_to_scrAddr(ustxi.txoScript))
@@ -2670,8 +2663,10 @@ class DlgMultiSpendReview(ArmoryDialog):
          contribID = ''
          contribLabel = ''
          if len(iBundle.ustxiList) > 0:
-            contribID    = iBundle.ustxiList[0].contribID.strip()
+            contribID    = iBundle.ustxiList[0].contribID.strip().decode()
             contribLabel = iBundle.ustxiList[0].contribLabel.strip()
+            if isinstance(contribLabel, bytes):
+               contribLabel = contribLabel.decode()
 
          # The header line lists the name and value and any multisig pies
          if not contribLabel:
@@ -2725,8 +2720,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             layoutInputs.addWidget(iWidgMap['KeyImg' ][i], row,2)
             layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,3)
 
-            self.connect(iWidgMap['SignBtn'][i], SIGNAL('clicked()'), \
-                                           createSignCallback(idStr, i))
+            iWidgMap['SignBtn'][i].clicked.connect(createSignCallback(idStr, i))
 
             lbox = iBundle.lockbox
             M = lbox.M if lbox else 1
@@ -2745,7 +2739,7 @@ class DlgMultiSpendReview(ArmoryDialog):
                else:
                   comm = None
 
-               wltID = ''
+               wltID = b''
                if iBundle.wltOfflineSign[i]:
                   wltID = iBundle.wltOfflineSign[i][0]
                elif iBundle.wltSignRightNow[i]:
@@ -2780,7 +2774,7 @@ class DlgMultiSpendReview(ArmoryDialog):
    
             
 
-         for widgetName,widgetList in iWidgMap.iteritems():
+         for widgetName,widgetList in iWidgMap.items():
             if widgetName in ['HeadLbl', 'Amount']:
                continue
 
@@ -2877,10 +2871,10 @@ class DlgMultiSpendReview(ArmoryDialog):
       frmButtons = QFrame()
       frmButtons.setLayout(layoutBtns)
 
-      self.connect(self.btnLoadImport,  SIGNAL('clicked()'), self.doImport)
-      self.connect(self.btnFinalBroad,  SIGNAL('clicked()'), self.doBroadcast)
-      self.connect(self.btnFinalExport, SIGNAL('clicked()'), self.doExport)
-      self.connect(self.doneButton, SIGNAL('clicked()'), self.accept)
+      self.btnLoadImport.clicked.connect(self.doImport)
+      self.btnFinalBroad.clicked.connect(self.doBroadcast)
+      self.btnFinalExport.clicked.connect(self.doExport)
+      self.doneButton.clicked.connect(self.accept)
 
       frmMain = makeVertFrame([lblDescr, 
                                HLINE(),
@@ -2948,7 +2942,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       self.alreadySigned = {}
 
       # Not sure if we really need this...
-      for wltID,pyWlt in self.main.walletMap.iteritems():
+      for wltID,pyWlt in self.main.walletMap.items():
          txss = self.ustx.evaluateSigningStatus(pyWlt.cppWallet)
          self.relevancyMap[wltID]  = txss.wltIsRelevant
          self.canSignMap[wltID]    = txss.wltCanSign
@@ -2958,7 +2952,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       # This is complex, for sure.  
       #    The outermost loop goes over all inputs and outputs
       #    Then goes over all N public keys
-      for idStr,ib in self.inputBundles.iteritems():
+      for idStr,ib in self.inputBundles.items():
          iWidgMap = self.iWidgets[idStr]
 
          # Since we are calling this without a wlt, each key state can only
@@ -3122,7 +3116,7 @@ class DlgCreatePromNote(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, defaultIDorAddr=None, skipExport=False):
-      super(DlgCreatePromNote, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       self.finalPromNote = None
       self.skipExport = skipExport
@@ -3175,7 +3169,7 @@ class DlgCreatePromNote(ArmoryDialog):
       startStr = ''
       if defaultIDorAddr:
          if checkAddrStrValid(defaultIDorAddr):
-            startStr = defaultIDorAddr
+            startStr = defaultIDorAddr.decode()
          else:
             startStr = createLockboxEntryStr(defaultIDorAddr)
 
@@ -3243,8 +3237,8 @@ class DlgCreatePromNote(ArmoryDialog):
 
       btnExit = QPushButton(tr('Cancel'))
       btnDone = QPushButton(tr('Continue'))
-      self.connect(btnExit, SIGNAL('clicked()'), self.reject)
-      self.connect(btnDone, SIGNAL('clicked()'), self.doContinue)
+      btnExit.clicked.connect(self.reject)
+      btnDone.clicked.connect(self.doContinue)
       frmButtons = makeHorizFrame([btnExit, 'Stretch', btnDone])
 
       mainLayout = QVBoxLayout()
@@ -3333,7 +3327,7 @@ class DlgCreatePromNote(ArmoryDialog):
 
       # Read the user-supplied BTC value to contribute
       try:
-         valueStr = str(self.edtAmountBTC.text())
+         valueStr = self.edtAmountBTC.text().encode()
          valueAmt = str2coin(valueStr)
          if valueAmt == 0:
             QMessageBox.critical(self, tr('Zero Amount'), tr("""
@@ -3364,7 +3358,7 @@ class DlgCreatePromNote(ArmoryDialog):
       
       # Read the fee string
       try:
-         feeStr = str(self.edtFeeBTC.text())
+         feeStr = self.edtFeeBTC.text().encode()
          feeAmt = str2coin(feeStr)
       except NegativeValueError:
          QMessageBox.critical(self, tr('Negative Fee'), tr("""
@@ -3444,7 +3438,7 @@ class DlgCreatePromNote(ArmoryDialog):
          rawTx = cppTx.serialize()
          utxoScrAddr = utxo.getRecipientScrAddr()
          aobj = wlt.getAddrByHash160(CheckHash160(utxoScrAddr))
-         pubKeys = {utxoScrAddr: aobj.binPublicKey65.toBinStr()}
+         pubKeys = {utxoScrAddr: hex_to_binary(aobj.binPublicKey65.toHexStr())}
          ustxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKeys))
          
 
@@ -3468,7 +3462,7 @@ class DlgCreatePromNote(ArmoryDialog):
          
          ftypes = ['Promissory Notes (*.promnote)']
          defaultFN = 'Contrib_%s_%sBTC.promnote' % \
-               (self.finalPromNote.promID, coin2strNZS(valueAmt))
+               (self.finalPromNote.promID.decode(), coin2strNZS(valueAmt))
             
    
          if not DlgExportAsciiBlock(self, self.main, self.finalPromNote, title, 
@@ -3486,7 +3480,7 @@ class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, lboxID=None):
-      super(DlgMergePromNotes, self).__init__(parent, main)
+      super().__init__(parent, main)
 
 
       self.cumulPay = 0
@@ -3586,8 +3580,8 @@ class DlgMergePromNotes(ArmoryDialog):
 
       btnImport = QPushButton(tr('Import Promissory Note'))
       btnCreate = QPushButton(tr('Create && Add Promissory Note'))
-      self.connect(btnImport, SIGNAL('clicked()'), self.importNote)
-      self.connect(btnCreate, SIGNAL('clicked()'), self.createPromAdd)
+      btnImport.clicked.connect(self.importNote)
+      btnCreate.clicked.connect(self.createPromAdd)
       frmImport = makeHorizFrame(['Stretch', btnImport, btnCreate, 'Stretch'])
 
       btnCancel = QPushButton(tr('Cancel'))
@@ -3599,8 +3593,8 @@ class DlgMergePromNotes(ArmoryDialog):
                          This is only needed for very specific use cases, 
                          and otherwise creates blockchain bloat."""))
       btnFinish = QPushButton(tr('Continue'))
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
-      self.connect(btnFinish, SIGNAL('clicked()'), self.mergeNotesCreateUSTX)
+      btnCancel.clicked.connect(self.reject)
+      btnFinish.clicked.connect(self.mergeNotesCreateUSTX)
       frmButtons = makeHorizFrame([btnCancel, 
                                    'Stretch', 
                                    self.chkBareMS, 
@@ -3712,7 +3706,7 @@ class DlgMergePromNotes(ArmoryDialog):
          # desriable in certain contexts).
          self.chkBareMS.setVisible(False)
          self.ttipBareMS.setVisible(False)
-         for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
+         for lbID,cppWlt in self.main.cppLockboxWltMap.items():
             if cppWlt.hasScrAddress(promTarget):
                LOGINFO('Have lockbox for the funding target: %s' % lbID)
                lb = self.main.getLockboxByID(lbID) 
@@ -3845,7 +3839,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main):
-      super(DlgSelectMultiSigOption, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       self.btnCreate = QPushButton(tr('Create/Manage lockboxes'))
       #self.btnImport = QPushButton(tr('Import multi-sig lockbox'))
@@ -3889,9 +3883,9 @@ class DlgSelectMultiSigOption(ArmoryDialog):
          a multi-sig lockbox"""))
 
 
-      self.connect(self.btnCreate,  SIGNAL('clicked()'), self.openCreate)
-      self.connect(self.btnFund,    SIGNAL('clicked()'), self.openFund)
-      self.connect(self.btnSpend,   SIGNAL('clicked()'), self.openSpend)
+      self.btnCreate.clicked.connect(self.openCreate)
+      self.btnFund.clicked.connect(self.openFund)
+      self.btnSpend.clicked.connect(self.openSpend)
 
       layoutTop = QVBoxLayout()
       layoutTop.addWidget(lblDescr)
@@ -3938,7 +3932,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
 
       btnDone = QPushButton(tr("Done"))
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      btnDone.clicked.connect(self.accept)
       frmDone = makeHorizFrame(['Stretch', btnDone])
 
       layoutMaster = QVBoxLayout()

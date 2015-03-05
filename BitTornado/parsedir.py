@@ -1,21 +1,16 @@
 # Written by John Hoffman and Uoti Urpala
 # see LICENSE.txt for license information
-from bencode import bencode, bdecode
-from BT1.btformats import check_info
+from .bencode import bencode, bdecode
+from .BT1.btformats import check_info
 from os.path import exists, isfile
-from sha import sha
+from hashlib import sha1 as sha
 import sys, os
 
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 NOISY = False
 
 def _errfunc(x):
-    print ":: "+x
+    print(":: "+x)
 
 def parsedir(directory, parsed, files, blocked,
              exts = ['.torrent'], return_metainfo = False, errfunc = _errfunc):
@@ -51,7 +46,7 @@ def parsedir(directory, parsed, files, blocked,
     removed = {}
     # files[path] = [(modification_time, size), hash], hash is 0 if the file
     # has not been successfully parsed
-    for p,v in new_files.items():   # re-add old items and check for changes
+    for p,v in list(new_files.items()):   # re-add old items and check for changes
         oldval = files.get(p)
         if not oldval:          # new file
             to_add.append(p)
@@ -59,7 +54,7 @@ def parsedir(directory, parsed, files, blocked,
         h = oldval[1]
         if oldval[0] == v[0]:   # file is unchanged from last parse
             if h:
-                if blocked.has_key(p):  # parseable + blocked means duplicate
+                if p in blocked:  # parseable + blocked means duplicate
                     to_add.append(p)    # other duplicate may have gone away
                 else:
                     new_parsed[h] = parsed[h]
@@ -67,7 +62,7 @@ def parsedir(directory, parsed, files, blocked,
             else:
                 new_blocked[p] = 1  # same broken unparseable file
             continue
-        if parsed.has_key(h) and not blocked.has_key(p):
+        if h in parsed and p not in blocked:
             if NOISY:
                 errfunc('removing '+p+' (will re-add)')
             removed[h] = parsed[h]
@@ -77,8 +72,8 @@ def parsedir(directory, parsed, files, blocked,
     for p in to_add:                # then, parse new and changed torrents
         new_file = new_files[p]
         v,h = new_file
-        if new_parsed.has_key(h): # duplicate
-            if not blocked.has_key(p) or files[p][0] != v:
+        if h in new_parsed: # duplicate
+            if p not in blocked or files[p][0] != v:
                 errfunc('**warning** '+
                     p +' is a duplicate torrent for '+new_parsed[h]['path'])
             new_blocked[p] = 1
@@ -92,7 +87,7 @@ def parsedir(directory, parsed, files, blocked,
             check_info(d['info'])
             h = sha(bencode(d['info'])).digest()
             new_file[1] = h
-            if new_parsed.has_key(h):
+            if h in new_parsed:
                 errfunc('**warning** '+
                     p +' is a duplicate torrent for '+new_parsed[h]['path'])
                 new_blocked[p] = 1
@@ -106,19 +101,19 @@ def parsedir(directory, parsed, files, blocked,
             i = d['info']
             l = 0
             nf = 0
-            if i.has_key('length'):
+            if 'length' in i:
                 l = i.get('length',0)
                 nf = 1
-            elif i.has_key('files'):
+            elif 'files' in i:
                 for li in i['files']:
                     nf += 1
-                    if li.has_key('length'):
+                    if 'length' in li:
                         l += li['length']
             a['numfiles'] = nf
             a['length'] = l
             a['name'] = i.get('name', f)
             def setkey(k, d = d, a = a):
-                if d.has_key(k):
+                if k in d:
                     a[k] = d[k]
             setkey('failure reason')
             setkey('warning message')
@@ -138,8 +133,8 @@ def parsedir(directory, parsed, files, blocked,
         new_parsed[h] = a
         added[h] = a
 
-    for p,v in files.items():       # and finally, mark removed torrents
-        if not new_files.has_key(p) and not blocked.has_key(p):
+    for p,v in list(files.items()):       # and finally, mark removed torrents
+        if p not in new_files and p not in blocked:
             if NOISY:
                 errfunc('removing '+p)
             removed[v[1]] = parsed[v[1]]

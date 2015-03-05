@@ -23,10 +23,10 @@ import unittest
 
 TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
-TEST_WALLET_ID = '3VB8XSoY'
+TEST_WALLET_ID = b'3VB8XSoY'
 
-RAW_TX1    = '0100000001b5dbdcea08ae1ff5a547755aaab7f468a6091a573ae76c6fa5a3fcf5ec65b804010000008b4830450220081341a4e803c7c8e64c3a3fd285dca34c9f7c71c4dfc2b576d761c5783ce735022100eea66ba382d00e628d86fc5bc1928a93765e26fd8252c4d01efe22147c12b91a01410458fec9d580b0c6842cae00aecd96e89af3ff56f5be49dae425046e64057e0f499acc35ec10e1b544e0f01072296c6fa60a68ea515e59d24ff794cf8923cd30f4ffffffff0200943577000000001976a91462d978319c7d7ac6cceed722c3d08aa81b37101288acf02c41d1160000001976a91409097379782fadfbd72e5a818219cf2eb56249d288ac00000000'
-TX_ID1      = 'db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4'
+RAW_TX1    = b'0100000001b5dbdcea08ae1ff5a547755aaab7f468a6091a573ae76c6fa5a3fcf5ec65b804010000008b4830450220081341a4e803c7c8e64c3a3fd285dca34c9f7c71c4dfc2b576d761c5783ce735022100eea66ba382d00e628d86fc5bc1928a93765e26fd8252c4d01efe22147c12b91a01410458fec9d580b0c6842cae00aecd96e89af3ff56f5be49dae425046e64057e0f499acc35ec10e1b544e0f01072296c6fa60a68ea515e59d24ff794cf8923cd30f4ffffffff0200943577000000001976a91462d978319c7d7ac6cceed722c3d08aa81b37101288acf02c41d1160000001976a91409097379782fadfbd72e5a818219cf2eb56249d288ac00000000'
+TX_ID1      = b'db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4'
 
 TX_ID1_OUTPUT0_VALUE = 20.0
 TX_ID1_OUTPUT1_VALUE = 979.9999
@@ -56,10 +56,14 @@ class ArmoryDTest(TiabTest):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
       # We need a controlled test, so we script the all the normally-random stuff
-      self.privKey   = SecureBinaryData('\xaa'*32)
-      self.privKey2  = SecureBinaryData('\x33'*32)
-      self.chainstr  = SecureBinaryData('\xee'*32)
-      theIV     = SecureBinaryData(hex_to_binary('77'*16))
+      self.privKey   = SecureBinaryData()
+      self.privKey.createFromHex('aa'*32)
+      self.privKey2  = SecureBinaryData()
+      self.privKey2.createFromHex('33'*32)
+      self.chainstr  = SecureBinaryData()
+      self.chainstr.createFromHex('ee'*32)
+      theIV     = SecureBinaryData()
+      theIV.createFromHex('77'*16)
       self.passphrase  = SecureBinaryData('A self.passphrase')
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
       
@@ -103,7 +107,7 @@ class ArmoryDTest(TiabTest):
    #    self.assertEqual(actualResult, [])
    def testImportprivkey(self):
       originalLength = len(self.wallet.linearAddr160List)
-      self.jsonServer.jsonrpc_importprivkey(binary_to_hex(self.privKey2.toBinStr()))
+      self.jsonServer.jsonrpc_importprivkey(self.privKey2.toHexStr().encode())
       self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
 
    def testGettxout(self):
@@ -113,7 +117,7 @@ class ArmoryDTest(TiabTest):
       self.assertEquals(txOut['value'],TX_ID1_OUTPUT1_VALUE)
          
    def testGetreceivedbyaddress(self):
-      a160 = hash160(self.wallet.getNextUnusedAddress().binPublicKey65.toBinStr())
+      a160 = hash160(hex_to_binary(self.wallet.getNextUnusedAddress().binPublicKey65.toHexStr()))
       testAddr = hash160_to_addrStr(a160)
       result = self.jsonServer.jsonrpc_getreceivedbyaddress(testAddr)
       self.assertEqual(result, 0)
@@ -142,7 +146,7 @@ class ArmoryDTest(TiabTest):
       self.assertEqual(actualDD['locktime'], 0)
       self.assertEqual(actualDD['version'], 1)
       self.assertEqual(len(actualDD['vin']), 1)
-      self.assertEqual(actualDD['vin'][0]['sequence'], 4294967295L)
+      self.assertEqual(actualDD['vin'][0]['sequence'], 4294967295)
       self.assertEqual(actualDD['vin'][0]['scriptSig']['hex'], '4830450220081341a4e803c7c8e64c3a3fd285dca34c9f7c71c4dfc2b576d761c5783ce735022100eea66ba382d00e628d86fc5bc1928a93765e26fd8252c4d01efe22147c12b91a01410458fec9d580b0c6842cae00aecd96e89af3ff56f5be49dae425046e64057e0f499acc35ec10e1b544e0f01072296c6fa60a68ea515e59d24ff794cf8923cd30f4')
       self.assertEqual(actualDD['vin'][0]['vout'], 1)
       self.assertEqual(actualDD['vin'][0]['txid'], '04b865ecf5fca3a56f6ce73a571a09a668f4b7aa5a7547a5f51fae08eadcdbb5')
@@ -157,7 +161,7 @@ class ArmoryDTest(TiabTest):
       self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'Standard (PKH)')
 
    def testDumpprivkey(self):
-      testPrivKey = self.privKey.toBinStr()
+      testPrivKey = hex_to_binary(self.privKey.toHexStr())
       hash160 = convertKeyDataToAddress(testPrivKey)
       addr58 = hash160_to_addrStr(hash160)
       
@@ -198,7 +202,7 @@ class ArmoryDTest(TiabTest):
       # Verify that a locked wallet Raises WalletUnlockNeeded Exception
       # self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_encryptwallet, PASSPHRASE1)
       result = self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
-      print result
+      print(result)
       
    def testUnlockwallet(self):
       kdfParams = self.wallet.computeSystemSpecificKdfParams(0.1)

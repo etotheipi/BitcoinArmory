@@ -5,9 +5,9 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from PyQt4 import Qt, QtCore
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5 import Qt, QtCore
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 
 from armorycolors import htmlColor
 from jasvet import ASv0, ASv1B64, ASv1CS, verifySignature, readSigBlock
@@ -41,8 +41,7 @@ class MessageSigningVerificationDialog(ArmoryDialog):
       layout.addWidget(actionButtonBox)
 
       self.setLayout(layout)
-      self.connect(self.goBackButton, SIGNAL('clicked()'), \
-                   self,           SLOT('reject()'))
+      self.goBackButton.clicked.connect(self.reject)
       
    def clearFields(self):
       self.addressLineEdit.setText('')
@@ -104,19 +103,14 @@ class MessageSigningWidget(QWidget):
       signMessageLayout.addWidget(buttonFrame, 4, 1, 1, 3)
 
       self.setLayout(signMessageLayout)
-      self.connect(self.bareSigButton, SIGNAL('clicked()'), \
-                   self.bareSignMessage)
-      self.connect(self.base64SigButton, SIGNAL('clicked()'), \
-                    self.base64SignMessage)
-      self.connect(self.clearSigButton, SIGNAL('clicked()'), \
-                    self.clearSignMessage)
-      self.connect(self.copySignatureButton, SIGNAL('clicked()'), \
-                   self.copySignature)
-      self.connect(self.clearFieldsButton, SIGNAL('clicked()'), \
-                   self.clearFields)
+      self.bareSigButton.clicked.connect(self.bareSignMessage)
+      self.base64SigButton.clicked.connect(self.base64SignMessage)
+      self.clearSigButton.clicked.connect(self.clearSignMessage)
+      self.copySignatureButton.clicked.connect(self.copySignature)
+      self.clearFieldsButton.clicked.connect(self.clearFields)
       
    def getPrivateKeyFromAddrInput(self):
-      atype, addr160 = addrStr_to_hash160(str(self.addressLineEdit.text()))
+      atype, addr160 = addrStr_to_hash160(self.addressLineEdit.text().encode())
       if atype==P2SHBYTE:
          LOGWARN('P2SH address requested')
       walletId = self.main.getWalletForAddr160(addr160)
@@ -129,55 +123,46 @@ class MessageSigningWidget(QWidget):
                'Cannot import private keys without unlocking wallet!', \
                QMessageBox.Ok)
             return
-      return wallet.addrMap[addr160].binPrivKey32_Plain.toBinStr()
+      return hex_to_binary(wallet.addrMap[addr160].binPrivKey32_Plain.toHexStr())
 
    def bareSignMessage(self):
-      messageText = str(self.messageTextEdit.toPlainText())
-      if not isASCII(messageText):
-         QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
-      else:
-         try:
-            privateKey = self.getPrivateKeyFromAddrInput()
-            if privateKey:
-               signature = ASv0(privateKey, messageText)
-               self.signatureDisplay.setPlainText(signature['b64-signature'])
-            else:
-               QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)         
-         except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
-            raise
+      messageText = self.messageTextEdit.toPlainText().encode()
+      try:
+         privateKey = self.getPrivateKeyFromAddrInput()
+         if privateKey:
+            signature = ASv0(privateKey, messageText)
+            self.signatureDisplay.setPlainText(signature['b64-signature'].decode())
+         else:
+            QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)         
+      except:
+         QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+         raise
    
    def base64SignMessage(self):
-      messageText = str(self.messageTextEdit.toPlainText())
-      if not isASCII(messageText):
-         QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
-      else:
-         try:
-            privateKey = self.getPrivateKeyFromAddrInput()
-            if privateKey:
-               signature = ASv1B64(self.getPrivateKeyFromAddrInput(), messageText)
-               self.signatureDisplay.setPlainText(signature)    
-            else:
-               QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
-         except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
-            raise
+      messageText = self.messageTextEdit.toPlainText().encode()
+      try:
+         privateKey = self.getPrivateKeyFromAddrInput()
+         if privateKey:
+            signature = ASv1B64(self.getPrivateKeyFromAddrInput(), messageText)
+            self.signatureDisplay.setPlainText(signature.decode())
+         else:
+            QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
+      except:
+         QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+         raise
    
    def clearSignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
-      if not isASCII(messageText):
-         QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
+      try:
+         privateKey = self.getPrivateKeyFromAddrInput()
+      except:
+         QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+         raise
+      if privateKey:
+         signature = ASv1CS(privateKey, messageText.encode())
+         self.signatureDisplay.setPlainText(signature.decode())
       else:
-         try:
-            privateKey = self.getPrivateKeyFromAddrInput()
-         except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
-            raise
-         if privateKey:
-            signature = ASv1CS(privateKey, messageText)
-            self.signatureDisplay.setPlainText(signature)
-         else:
-            QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
+         QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
 
    def copySignature(self):
       clipb = QApplication.clipboard()
@@ -207,10 +192,8 @@ class SignatureVerificationWidget(QWidget):
       self.signMessageLayout.addWidget(buttonFrame, 3, 1, 1, 2)
 
       self.setLayout(self.signMessageLayout)
-      self.connect(self.verifySignatureButton, SIGNAL('clicked()'), \
-                   self.verifySignature)
-      self.connect(self.clearFieldsButton, SIGNAL('clicked()'), \
-                   self.clearFields)
+      self.verifySignatureButton.clicked.connect(self.verifySignature)
+      self.clearFieldsButton.clicked.connect(self.clearFields)
 
    # To be implemented by child classes
    def verifySignature(self):
@@ -244,7 +227,7 @@ class SignatureVerificationWidget(QWidget):
          <br>
          ... has produced a <b><u>valid</u></b> signature for 
          the following message:<br>
-         """) % addrB58
+         """) % addrB58.decode()
          
       if addrB58:
          msg = messageString.replace('\r\n','\n')
@@ -262,7 +245,7 @@ class SignatureVerificationWidget(QWidget):
             <b>Please</b> make sure that the address above (%s...) matches the 
             exact address you were expecting.  A valid signature is meaningless 
             unless it is made
-            from a recognized address!""") % (ownerStr, msg, addrB58[:10]))
+            from a recognized address!""") % (ownerStr, msg, addrB58[:10].decode()))
          self.lblSigResult.setText(\
             '<font color="green">Valid Signature by %s</font>' % addrDisp)
       else:
@@ -303,9 +286,9 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
    def verifySignature(self):
       messageString = str(self.messageTextEdit.toPlainText())
       try:
-         addrB58 = verifySignature(str(self.signatureTextEdit.toPlainText()), \
-                         messageString, 'v0', ord(ADDRBYTE))
-         if addrB58 == str(self.addressLineEdit.text()):
+         addrB58 = verifySignature(self.signatureTextEdit.toPlainText().encode(), \
+                         messageString.encode(), 'v0', ord(ADDRBYTE))
+         if addrB58 == self.addressLineEdit.text().encode():
             self.displayVerifiedBox(addrB58, messageString)
          else:
             self.displayInvalidSignatureMessage()
@@ -344,10 +327,10 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       
    def verifySignature(self):
       try:
-         sig, msg = readSigBlock(str(self.signedMessageBlockTextEdit.toPlainText()))
+         sig, msg = readSigBlock(self.signedMessageBlockTextEdit.toPlainText().encode())
          addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE) )
-         self.displayVerifiedBox(addrB58, msg)
-         self.messageTextEdit.setPlainText(msg)
+         self.displayVerifiedBox(addrB58, msg.decode())
+         self.messageTextEdit.setPlainText(msg.decode())
       except:   
          self.displayInvalidSignatureMessage()
          raise

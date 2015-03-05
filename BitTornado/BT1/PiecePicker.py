@@ -3,11 +3,6 @@
 
 from random import randrange, shuffle
 from BitTornado.clock import clock
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 class PiecePicker:
     def __init__(self, numpieces,
@@ -36,12 +31,12 @@ class PiecePicker:
         self._init_interests()
 
     def _init_interests(self):
-        self.interests = [[] for x in xrange(self.priority_step)]
+        self.interests = [[] for x in range(self.priority_step)]
         self.level_in_interests = [self.priority_step] * self.numpieces
-        interests = range(self.numpieces)
+        interests = list(range(self.numpieces))
         shuffle(interests)
         self.pos_in_interests = [0] * self.numpieces
-        for i in xrange(self.numpieces):
+        for i in range(self.numpieces):
             self.pos_in_interests[interests[i]] = i
         self.interests.append(interests)
 
@@ -189,7 +184,7 @@ class PiecePicker:
         else:
             r = [ (0, min(bestnum,len(self.interests))) ]
         for lo,hi in r:
-            for i in xrange(lo,hi):
+            for i in range(lo,hi):
                 for j in self.interests[i]:
                     if haves[j] and wantfunc(j):
                         return j
@@ -245,7 +240,7 @@ class PiecePicker:
                 l2.append(old)
                 l2[newp] = piece
                 parray[piece] = newp
-            if self.removed_partials.has_key(piece):
+            if piece in self.removed_partials:
                 del self.removed_partials[piece]
                 self.started.append(piece)
             # now go to downloader and try requesting more

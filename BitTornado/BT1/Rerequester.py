@@ -3,29 +3,20 @@
 # see LICENSE.txt for license information
 
 from BitTornado.zurllib import urlopen, quote
-from urlparse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 from socket import gethostbyname
-from btformats import check_peers
+from .btformats import check_peers
 from BitTornado.bencode import bdecode
 from threading import Thread, Lock
-from cStringIO import StringIO
+from io import StringIO
 from traceback import print_exc
 from socket import error, gethostbyname
 from random import shuffle
-from sha import sha
+from hashlib import sha1 as sha
 from time import time
-try:
-    from os import getpid
-except ImportError:
-    def getpid():
-        return 1
-    
-try:
-    True
-except:
-    True = 1
-    False = 0
+from os import getpid
 
+    
 mapbase64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.-'
 keys = {}
 basekeydata = str(getpid()) + repr(time()) + 'tracker'
@@ -226,7 +217,7 @@ class Rerequester:
         if ( (self.upratefunc() < 100 and self.downratefunc() < 100)
              or not self.amount_left() ):
             for f in ['rejected', 'bad_data', 'troublecode']:
-                if self.errorcodes.has_key(f):
+                if f in self.errorcodes:
                     r = self.errorcodes[f]
                     break
             else:
@@ -278,7 +269,7 @@ class Rerequester:
                 h = urlopen(t+s)
                 closer[0] = h.close
                 data = h.read()
-            except (IOError, error), e:
+            except (IOError, error) as e:
                 err = 'Problem connecting to tracker - ' + str(e)
             except:
                 err = 'Problem connecting to tracker'
@@ -301,13 +292,13 @@ class Rerequester:
             try:
                 r = bdecode(data, sloppy=1)
                 check_peers(r)
-            except ValueError, e:
+            except ValueError as e:
                 if self.lock.trip(l):
                     self.errorcodes['bad_data'] = 'bad data from tracker - ' + str(e)
                     self.lock.unwait(l)
                 return
             
-            if r.has_key('failure reason'):
+            if 'failure reason' in r:
                 if self.lock.trip(l):
                     self.errorcodes['rejected'] = self.rejectedmessage + r['failure reason']
                     self.lock.unwait(l)
@@ -327,7 +318,7 @@ class Rerequester:
 
 
     def postrequest(self, r, callback):
-        if r.has_key('warning message'):
+        if 'warning message' in r:
                 self.errorfunc('warning from tracker - ' + r['warning message'])
         self.announce_interval = r.get('interval', self.announce_interval)
         self.interval = r.get('min interval', self.interval)
@@ -337,7 +328,7 @@ class Rerequester:
         p = r['peers']
         peers = []
         if type(p) == type(''):
-            for x in xrange(0, len(p), 6):
+            for x in range(0, len(p), 6):
                 ip = '.'.join([str(ord(i)) for i in p[x:x+4]])
                 port = (ord(p[x+4]) << 8) | ord(p[x+5])
                 peers.append(((ip, port), 0))
@@ -366,7 +357,7 @@ class Rerequester:
             if self.excfunc:
                 self.excfunc(s)
             else:
-                print s
+                print(s)
             callback()
         self.externalsched(r)
 
@@ -375,7 +366,7 @@ class SuccessLock:
     def __init__(self):
         self.lock = Lock()
         self.pause = Lock()
-        self.code = 0L
+        self.code = 0
         self.success = False
         self.finished = True
 
@@ -388,7 +379,7 @@ class SuccessLock:
         if not self.pause.locked():
             self.pause.acquire()
         self.first = True
-        self.code += 1L
+        self.code += 1
         self.lock.release()
         return self.code
 

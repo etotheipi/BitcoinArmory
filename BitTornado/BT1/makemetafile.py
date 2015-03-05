@@ -4,20 +4,18 @@
 
 from os.path import getsize, split, join, abspath, isdir
 from os import listdir
-from sha import sha
+from hashlib import sha1 as sha
 from copy import copy
 from string import strip
 from BitTornado.bencode import bencode
-from btformats import check_info
+from .btformats import check_info
 from threading import Event
 from time import time
 from traceback import print_exc
-try:
-    from sys import getfilesystemencoding
-    ENCODING = getfilesystemencoding()
-except:
-    from sys import getdefaultencoding
-    ENCODING = getdefaultencoding()
+from sys import getfilesystemencoding
+
+
+ENCODING = getfilesystemencoding()
 
 defaults = [
     ('announce_list', '',
@@ -60,11 +58,11 @@ def print_announcelist_details():
     
 def make_meta_file(file, url, params = {}, flag = Event(),
                    progress = lambda x: None, progress_percent = 1):
-    if params.has_key('piece_size_pow2'):
+    if 'piece_size_pow2' in params:
         piece_len_exp = params['piece_size_pow2']
     else:
         piece_len_exp = default_piece_len_exp
-    if params.has_key('target') and params['target'] != '':
+    if 'target' in params and params['target'] != '':
         f = params['target']
     else:
         a, b = split(file)
@@ -75,7 +73,7 @@ def make_meta_file(file, url, params = {}, flag = Event(),
             
     if piece_len_exp == 0:  # automatic
         size = calcsize(file)
-        if   size > 8L*1024*1024*1024:   # > 8 gig =
+        if   size > 8*1024*1024*1024:   # > 8 gig =
             piece_len_exp = 21          #   2 meg pieces
         elif size > 2*1024*1024*1024:   # > 2 gig =
             piece_len_exp = 20          #   1 meg pieces
@@ -92,7 +90,7 @@ def make_meta_file(file, url, params = {}, flag = Event(),
     piece_length = 2 ** piece_len_exp
 
     encoding = None
-    if params.has_key('filesystem_encoding'):
+    if 'filesystem_encoding' in params:
         encoding = params['filesystem_encoding']
     if not encoding:
         encoding = ENCODING
@@ -104,22 +102,22 @@ def make_meta_file(file, url, params = {}, flag = Event(),
         return
     check_info(info)
     h = open(f, 'wb')
-    data = {'info': info, 'announce': strip(url), 'creation date': long(time())}
+    data = {'info': info, 'announce': strip(url), 'creation date': int(time())}
     
-    if params.has_key('comment') and params['comment']:
+    if 'comment' in params and params['comment']:
         data['comment'] = params['comment']
         
-    if params.has_key('real_announce_list'):    # shortcut for progs calling in from outside
+    if 'real_announce_list' in params:    # shortcut for progs calling in from outside
         data['announce-list'] = params['real_announce_list']
-    elif params.has_key('announce_list') and params['announce_list']:
+    elif 'announce_list' in params and params['announce_list']:
         l = []
         for tier in params['announce_list'].split('|'):
             l.append(tier.split(','))
         data['announce-list'] = l
         
-    if params.has_key('real_httpseeds'):    # shortcut for progs calling in from outside
+    if 'real_httpseeds' in params:    # shortcut for progs calling in from outside
         data['httpseeds'] = params['real_httpseeds']
-    elif params.has_key('httpseeds') and params['httpseeds']:
+    elif 'httpseeds' in params and params['httpseeds']:
         data['httpseeds'] = params['httpseeds'].split('|')
         
     h.write(bencode(data))
@@ -128,7 +126,7 @@ def make_meta_file(file, url, params = {}, flag = Event(),
 def calcsize(file):
     if not isdir(file):
         return getsize(file)
-    total = 0L
+    total = 0
     for s in subfiles(abspath(file)):
         total += getsize(s[1])
     return total
@@ -145,7 +143,7 @@ def uniconvertl(l, e):
 
 def uniconvert(s, e):
     try:
-        s = unicode(s,e)
+        s = str(s,e)
     except UnicodeError:
         raise UnicodeError('bad filename: '+s)
     return s.encode('utf-8')
@@ -157,15 +155,15 @@ def makeinfo(file, piece_length, encoding, flag, progress, progress_percent=1):
         subs.sort()
         pieces = []
         sh = sha()
-        done = 0L
+        done = 0
         fs = []
         totalsize = 0.0
-        totalhashed = 0L
+        totalhashed = 0
         for p, f in subs:
             totalsize += getsize(f)
 
         for p, f in subs:
-            pos = 0L
+            pos = 0
             size = getsize(f)
             fs.append({'length': size, 'path': uniconvertl(p, encoding)})
             h = open(f, 'rb')
@@ -195,7 +193,7 @@ def makeinfo(file, piece_length, encoding, flag, progress, progress_percent=1):
     else:
         size = getsize(file)
         pieces = []
-        p = 0L
+        p = 0
         h = open(file, 'rb')
         while p < size:
             x = h.read(min(piece_length, size - p))
@@ -233,7 +231,7 @@ def completedir(dir, url, params = {}, flag = Event(),
     files = listdir(dir)
     files.sort()
     ext = '.torrent'
-    if params.has_key('target'):
+    if 'target' in params:
         target = params['target']
     else:
         target = ''

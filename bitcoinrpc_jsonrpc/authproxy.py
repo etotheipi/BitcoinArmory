@@ -66,14 +66,12 @@ class AuthServiceProxy(object):
             port = self.__url.port
         self.__idcnt = 0
         authpair = "%s:%s" % (self.__url.username, self.__url.password)
-        authpair = unicode(authpair, 'utf-8').encode('utf-8')
-        self.__authhdr = "Basic ".encode('utf8') + base64.b64encode(authpair)
+        authpair = authpair.encode('utf-8')
+        self.__authhdr = "Basic " + base64.b64encode(authpair).decode()
         if self.__url.scheme == 'https':
-            self.__conn = httplib.HTTPSConnection(self.__url.hostname, port, None, None,False,
-                                             HTTP_TIMEOUT)
+            self.__conn = httplib.HTTPSConnection(self.__url.hostname, port, timeout=HTTP_TIMEOUT)
         else:
-            self.__conn = httplib.HTTPConnection(self.__url.hostname, port, False,
-                                             HTTP_TIMEOUT)
+            self.__conn = httplib.HTTPConnection(self.__url.hostname, port, timeout=HTTP_TIMEOUT)
 
     def __getattr__(self, name):
         if self.__serviceName != None:
@@ -98,7 +96,8 @@ class AuthServiceProxy(object):
          if httpresp is None:
              raise JSONRPCException({
                      'code' : -342, 'message' : 'missing HTTP response from server'})
-
+         if httpresp.status != 200:
+             raise RuntimeError("Something wrong with the connection: %s" % httpresp.read())
          resp = httpresp.read()
          resp = resp.decode('utf8')
          resp = json.loads(resp, parse_float=decimal.Decimal)

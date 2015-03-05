@@ -52,9 +52,9 @@ install : all
 	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
 	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
+	sed "s:python /usr:python3 $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
+	sed "s:python /usr:python3 $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
+	sed "s:python /usr:python3 $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 	#$(MAKE) -C po install DESTDIR=$(DESTDIR) PREFIX=$(PREFIX)
 
 all-test-tools: all
@@ -64,7 +64,7 @@ gtest: all-test-tools
 	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
 
 pytest: all
-	python -m unittest discover
+	python3 -m unittest discover
 
 test: gtest pytest
 

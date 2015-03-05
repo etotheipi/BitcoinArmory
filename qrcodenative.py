@@ -22,6 +22,7 @@ import math
 class QR8bitByte:
 
    def __init__(self, data):
+      assert(isinstance(data, bytes))
       self.mode = QRMode.MODE_8BIT_BYTE
       self.data = data
 
@@ -31,7 +32,7 @@ class QR8bitByte:
    def write(self, buffer):
       for i in range(len(self.data)):
          #// not JIS ...
-         buffer.put(ord(self.data[i]), 8)
+         buffer.put(self.data[i], 8)
    def __repr__(self):
       return self.data
 
@@ -928,7 +929,7 @@ class QRRSBlock:
       if rsBlock == None:
          raise Exception("bad rs block @ typeNumber:" + typeNumber + "/errorCorrectLevel:" + errorCorrectLevel)
 
-      length = len(rsBlock) / 3
+      length = len(rsBlock) // 3
 
       list = []
 
@@ -965,7 +966,7 @@ class QRBitBuffer:
    def get(self, index):
       bufIndex = math.floor(index / 8)
       val = ( (self.buffer[bufIndex] >> (7 - index % 8) ) & 1) == 1
-      print "get ", val
+      print("get ", val)
       return ( (self.buffer[bufIndex] >> (7 - index % 8) ) & 1) == 1
    def put(self, num, length):
       for i in range(length):

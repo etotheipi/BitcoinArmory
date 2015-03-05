@@ -26,16 +26,16 @@ TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
 
 # Values related primarily to createlockbox().
-TWO_OF_THREE_LB_NAME = 'VoKwnY2t'
-TWO_OF_TWO_LB_NAME = '8Rw6Eg9e'
-GOOD_PK_UNCOMP_1 = '04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0'
-GOOD_PK_COMP_1 = '02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29'
-GOOD_PK_UNCOMP_2 = '0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281'
-GOOD_PK_COMP_2 = '0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2'
-BAD_WLT_NAME = 'keKoEXp1'
-BAD_PK = '04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d2927'
-BAD_PK_UNCOMP_1 = '04000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
-BAD_PK_COMP_1 = '02000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
+TWO_OF_THREE_LB_NAME = b'VoKwnY2t'
+TWO_OF_TWO_LB_NAME = b'8Rw6Eg9e'
+GOOD_PK_UNCOMP_1 = b'04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0'
+GOOD_PK_COMP_1 = b'02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29'
+GOOD_PK_UNCOMP_2 = b'0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281'
+GOOD_PK_COMP_2 = b'0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2'
+BAD_WLT_NAME = b'keKoEXp1'
+BAD_PK = b'04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d2927'
+BAD_PK_UNCOMP_1 = b'04000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
+BAD_PK_COMP_1 = b'02000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f'
 ERRSTR09 = 'The user requires more keys or wallets to unlock a lockbox (%d) ' \
            'than are required to create a lockbox (%d).' % (3, 2)
 ERRSTR10 = 'The number of signatures required to unlock a lockbox (%d) ' \
@@ -52,60 +52,60 @@ ERRSTR14 = 'The number of supplied keys or wallets (%d) is less than the ' \
 PASSPHRASE1 = 'abcde'
 UNLOCK_TIMEOUT = 5
 TIAB_DIR = 'tiab'
-TEST_TIAB_DIR = os.path.join('test','tiab')
+TEST_TIAB_DIR = os.path.join(b'test',b'tiab')
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
-EXPECTED_TIAB_NEXT_ADDR  = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
+EXPECTED_TIAB_NEXT_ADDR  = b'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
 EXPECTED_UNSPENT_TX1_BAL  = 20.0
 EXPECTED_UNSPENT_TX1_CONF = 3
-EXPECTED_UNSPENT_TX1_HEX  = '8257d5a894cb3545830fa997402ff460c55abca7816ad520af8931b2eab33444'
+EXPECTED_UNSPENT_TX1_HEX  = b'8257d5a894cb3545830fa997402ff460c55abca7816ad520af8931b2eab33444'
 EXPECTED_UNSPENT_TX1_PRI  = 60.0
 EXPECTED_UNSPENT_TX5_BAL  = 938.8997
 EXPECTED_UNSPENT_TX5_CONF = 8
-EXPECTED_UNSPENT_TX5_HEX  = '111842cb336995ac460f302f9f611e94e5b27222368d79cfd7db4c7cbc071572'
+EXPECTED_UNSPENT_TX5_HEX  = b'111842cb336995ac460f302f9f611e94e5b27222368d79cfd7db4c7cbc071572'
 EXPECTED_UNSPENT_TX5_PRI  = 7511.1976
 EXPECTED_UNSPENT_TX_TOT   = 964.8997
 EXPECTED_RECEIVED_FROM_TIAB_WLT_1_ADDR_2 = 979.9999
 
-TIAB_WLT_1_ADDR_1 = 'muxkzd4sitPbMz4BXmkEJKT6ccshxDFsrn'
-TIAB_WLT_1_PK_1 = '92vsXfvjpbTj1sN75VSV2M7DWyqoVx5nayp3dE7ZaG9rRVRYU4P'
+TIAB_WLT_1_ADDR_1 = b'muxkzd4sitPbMz4BXmkEJKT6ccshxDFsrn'
+TIAB_WLT_1_PK_1 = b'92vsXfvjpbTj1sN75VSV2M7DWyqoVx5nayp3dE7ZaG9rRVRYU4P'
 
-TIAB_WLT_1_ADDR_2 = 'mtZ2d1jFZ9YNp3Ku5Fb2u8Tfu3RgimBHAD'
-TIAB_WLT_1_PK_2 = '934MLhycJEAWL4kMbFt6JRSkNcgEtQXN3ha6Wh8WZyD85cZZZ4N'
+TIAB_WLT_1_ADDR_2 = b'mtZ2d1jFZ9YNp3Ku5Fb2u8Tfu3RgimBHAD'
+TIAB_WLT_1_PK_2 = b'934MLhycJEAWL4kMbFt6JRSkNcgEtQXN3ha6Wh8WZyD85cZZZ4N'
 
-TIAB_WLT_1_ADDR_3 = 'mhrpYhQLgYgAvYs1A4E8Z4Dv4ZoZPyLbLS'
-TIAB_WLT_1_PK_3 = '91rTQa47dLQhNGDenejW9qxcMTL73GRG347zKfa3qVvzun7ZcNe'
+TIAB_WLT_1_ADDR_3 = b'mhrpYhQLgYgAvYs1A4E8Z4Dv4ZoZPyLbLS'
+TIAB_WLT_1_PK_3 = b'91rTQa47dLQhNGDenejW9qxcMTL73GRG347zKfa3qVvzun7ZcNe'
 TIAB_WLT_1_PK_UTXO_BAL_3  = 3.0
-TIAB_WLT_1_PK_UTXO_HEX_3  = '507b01123e9416eb6de996f64686b7c8290eacd13b9607438a8bab4a78d3afd503000000'
+TIAB_WLT_1_PK_UTXO_HEX_3  = b'507b01123e9416eb6de996f64686b7c8290eacd13b9607438a8bab4a78d3afd503000000'
 
 # Has 938.8997 BTC
-TIAB_WLT_1_ADDR_8 = 'mikxgMUqkk6Tts1D39Hhx6wKEeQbBH3ons'
-TIAB_WLT_1_PK_8 = '92fXG1foeHfn8DYEwTXggCPrFEEY6KpokqoJkp9EhpJw5boc3GY'
+TIAB_WLT_1_ADDR_8 = b'mikxgMUqkk6Tts1D39Hhx6wKEeQbBH3ons'
+TIAB_WLT_1_PK_8 = b'92fXG1foeHfn8DYEwTXggCPrFEEY6KpokqoJkp9EhpJw5boc3GY'
 TIAB_WLT_1_PK_UTXO_BAL_8  = 938.8997
-TIAB_WLT_1_PK_UTXO_HEX_8  = '721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
+TIAB_WLT_1_PK_UTXO_HEX_8  = b'721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
 
-TIAB_WLT_2_ADDR_1 = 'mzkKrXNPU6nfBpZCKLmwueb9MvSFaKPDMD'
-TIAB_WLT_2_PK_1 = '91jZJ2BnJbk4B6zpqzJqVfbtaq4RMaPPvP7USr9rtWXusSAYrq7'
+TIAB_WLT_2_ADDR_1 = b'mzkKrXNPU6nfBpZCKLmwueb9MvSFaKPDMD'
+TIAB_WLT_2_PK_1 = b'91jZJ2BnJbk4B6zpqzJqVfbtaq4RMaPPvP7USr9rtWXusSAYrq7'
 
-TIAB_WLT_2_ADDR_2 = 'n2DLXxVZSNBfzXsAm4HewpsfAGBpgTW6DH'
-TIAB_WLT_2_PK_2 = '93LLsm4n19Dwbp6zbnmuvHmMjEJFR23h4xstnDnEBYMWSkXaFMT'
+TIAB_WLT_2_ADDR_2 = b'n2DLXxVZSNBfzXsAm4HewpsfAGBpgTW6DH'
+TIAB_WLT_2_PK_2 = b'93LLsm4n19Dwbp6zbnmuvHmMjEJFR23h4xstnDnEBYMWSkXaFMT'
 
-TIAB_WLT_2_ADDR_3 = 'mhbmvVedo4i67maX6pfw9trcBWQQ3yXgkB'
-TIAB_WLT_2_PK_3 = '92aUXStPSfHDXydGh9MsBnnyacNzJwgWBC4G8W5BiTFkTJpeHEH'
+TIAB_WLT_2_ADDR_3 = b'mhbmvVedo4i67maX6pfw9trcBWQQ3yXgkB'
+TIAB_WLT_2_PK_3 = b'92aUXStPSfHDXydGh9MsBnnyacNzJwgWBC4G8W5BiTFkTJpeHEH'
 
 # Has 28.9 BTC
-TIAB_WLT_2_ADDR_4 = 'mk7pAQ7YdmnwWaGFCgwiKiEbaGjyEsSVUE'
-TIAB_WLT_2_PK_4 = '92gYPs8i6qvSmc8moBAaWLB7M16kX5MBpbGoUygUmQTdrxkNnwR'
+TIAB_WLT_2_ADDR_4 = b'mk7pAQ7YdmnwWaGFCgwiKiEbaGjyEsSVUE'
+TIAB_WLT_2_PK_4 = b'92gYPs8i6qvSmc8moBAaWLB7M16kX5MBpbGoUygUmQTdrxkNnwR'
 
-TIAB_WLT_3_ADDR_1 = 'mnHywMYRuMyYeamyGhUPJLFSsoWbNAnsNz'
-TIAB_WLT_3_PK_1 = '9295sDHkX1xDMzSxit3Bvi8GdLUQq1JFktBQFB8Ca45aLaw8neN'
+TIAB_WLT_3_ADDR_1 = b'mnHywMYRuMyYeamyGhUPJLFSsoWbNAnsNz'
+TIAB_WLT_3_PK_1 = b'9295sDHkX1xDMzSxit3Bvi8GdLUQq1JFktBQFB8Ca45aLaw8neN'
 
-TIAB_WLT_3_ADDR_2 = 'mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'
-TIAB_WLT_3_PK_2 = '92Mic29J44mKLn4qKXm31mMv45BtEnywBnJh36jn1Rk2RT9PTsK'
+TIAB_WLT_3_ADDR_2 = b'mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'
+TIAB_WLT_3_PK_2 = b'92Mic29J44mKLn4qKXm31mMv45BtEnywBnJh36jn1Rk2RT9PTsK'
 
 # has 18.90 BTC
-TIAB_WLT_3_ADDR_3 = 'mmfN9oj2wtMTCACKJz7fUcDeAczz4kucvV'
-TIAB_WLT_3_PK_3 = '92ymyLuiEUJJz5madzhPtBTa3of46vLXDSuFPNMAA6DMLSeKA8S'
+TIAB_WLT_3_ADDR_3 = b'mmfN9oj2wtMTCACKJz7fUcDeAczz4kucvV'
+TIAB_WLT_3_PK_3 = b'92ymyLuiEUJJz5madzhPtBTa3of46vLXDSuFPNMAA6DMLSeKA8S'
 
 BTC_TO_SEND = 1
 
@@ -117,7 +117,7 @@ class ArmoryDTiabTest(TiabTest):
    def armoryDTiabTestCallback(self, action, args):
       if action == REFRESH_ACTION:
          for wltID in args:
-            print wltID
+            print(wltID)
             if wltID in self.wltIDs:
                self.numberOfWalletsScanned += 1
          
@@ -198,10 +198,10 @@ class ArmoryDTiabTest(TiabTest):
 
    def testListloadedwallets(self):
       result = self.jsonServer.jsonrpc_listloadedwallets()
-      self.assertEqual(len(result.keys()), 3)
-      self.assertTrue(FIRST_WLT_NAME in result.values())
-      self.assertTrue(SECOND_WLT_NAME in result.values())
-      self.assertTrue(THIRD_WLT_NAME in result.values())
+      self.assertEqual(len(list(result.keys())), 3)
+      self.assertTrue(FIRST_WLT_NAME in list(result.values()))
+      self.assertTrue(SECOND_WLT_NAME in list(result.values()))
+      self.assertTrue(THIRD_WLT_NAME in list(result.values()))
 
 
 
@@ -210,7 +210,7 @@ class ArmoryDTiabTest(TiabTest):
       if self.wltA.isLocked:
          self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                                tempKeyLifetime=1000000)
-      return self.wltA.addrMap[hash160].binPrivKey32_Plain.toBinStr()
+      return hex_to_binary(self.wltA.addrMap[hash160].binPrivKey32_Plain.toHexStr())
 
 
    # Test Create lockbox and list loaded lockbox at the same time.
@@ -227,7 +227,7 @@ class ArmoryDTiabTest(TiabTest):
                                                             addrFromFirstWlt, \
                                                             SECOND_WLT_NAME, \
                                                             THIRD_WLT_NAME)
-      self.assertTrue(TWO_OF_THREE_LB_NAME in actualResult1.values())
+      self.assertTrue(TWO_OF_THREE_LB_NAME in list(actualResult1.values()))
 
       # This test should fail because the first createlockbox() used the 2nd &
       # 3rd addresses.
@@ -243,8 +243,8 @@ class ArmoryDTiabTest(TiabTest):
                                                             addrFromThirdWlt)
       self.assertEqual(TWO_OF_TWO_LB_NAME, actualResult3['id'])
       listResult3 = self.jsonServer.jsonrpc_listloadedlockboxes()
-      self.assertEqual(len(listResult3.keys()), 2)
-      self.assertTrue(TWO_OF_TWO_LB_NAME in listResult3.values())
+      self.assertEqual(len(list(listResult3.keys())), 2)
+      self.assertTrue(TWO_OF_TWO_LB_NAME in list(listResult3.values()))
 
       # This test should fail because of a bad wallet name.
       actualResult4 = self.jsonServer.jsonrpc_createlockbox(2, 2, \
@@ -549,7 +549,7 @@ class ArmoryDTiabTest(TiabTest):
                   'ultimate'  :  FIRST_WLT_BALANCE, \
                   'unspent' :  FIRST_WLT_BALANCE, \
                   'full' :  FIRST_WLT_BALANCE}
-      for balanceType in balances.keys():
+      for balanceType in list(balances.keys()):
          result = self.jsonServer.jsonrpc_getbalance(balanceType)
          self.assertEqual(result,
                           AmountToJSON(self.wltA.getBalance(balanceType)))

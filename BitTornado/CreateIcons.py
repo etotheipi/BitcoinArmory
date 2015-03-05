@@ -89,7 +89,7 @@ icons = {
 }
 
 def GetIcons():
-    return icons.keys()
+    return list(icons.keys())
 
 def CreateIcon(icon, savedir):
     try:

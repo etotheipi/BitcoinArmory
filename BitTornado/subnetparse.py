@@ -3,12 +3,6 @@
 
 from bisect import bisect, insort
 
-try:
-    True
-except:
-    True = 1
-    False = 0
-    bool = lambda x: not not x
 
 hexbinmap = {
     '0': '0000',
@@ -31,10 +25,10 @@ hexbinmap = {
 }
 
 chrbinmap = {}
-for n in xrange(256):
+for n in range(256):
     b = []
     nn = n
-    for i in xrange(8):
+    for i in range(8):
         if nn & 0x80:
             b.append('1')
         else:
@@ -46,7 +40,7 @@ for n in xrange(256):
 def to_bitfield_ipv4(ip):
     ip = ip.split('.')
     if len(ip) != 4:
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     b = []
     for i in ip:
         b.append(chrbinmap[int(i)])
@@ -57,21 +51,21 @@ def to_bitfield_ipv6(ip):
     doublecolon = False
 
     if ip == '':
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     if ip == '::':      # boundary handling
         ip = ''
     elif ip[:2] == '::':
         ip = ip[1:]
     elif ip[0] == ':':
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     elif ip[-2:] == '::':
         ip = ip[:-1]
     elif ip[-1] == ':':
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     for n in ip.split(':'):
         if n == '':     # double-colon
             if doublecolon:
-                raise ValueError, "bad address"
+                raise ValueError("bad address")
             doublecolon = True
             b += ':'
             continue
@@ -86,7 +80,7 @@ def to_bitfield_ipv6(ip):
         pos = b.find(':')
         b = b[:pos]+('0'*(129-len(b)))+b[pos+1:]
     if len(b) != 128:   # always check size
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     return b
 
 ipv4addrmask = to_bitfield_ipv6('::ffff:0:0')[:96]
@@ -96,7 +90,7 @@ class IP_List:
         self.ipv4list = []
         self.ipv6list = []
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.ipv4list or self.ipv6list)
 
 
@@ -159,7 +153,7 @@ class IP_List:
                     depth = int(depth)
                 self.append(ip,depth)
             except:
-                print '*** WARNING *** could not parse IP range: '+line
+                print('*** WARNING *** could not parse IP range: '+line)
         f.close()
 
 
@@ -179,7 +173,7 @@ class IP_List:
 def ipv6_to_ipv4(ip):
     ip = to_bitfield_ipv6(ip)
     if not ip.startswith(ipv4addrmask):
-        raise ValueError, "not convertible to IPv4"
+        raise ValueError("not convertible to IPv4")
     ip = ip[-32:]
     x = ''
     for i in range(4):

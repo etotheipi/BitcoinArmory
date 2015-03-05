@@ -2,20 +2,15 @@
 # see LICENSE.txt for license information
 
 from bisect import insort
-from SocketHandler import SocketHandler, UPnP_ERROR
+from .SocketHandler import SocketHandler, UPnP_ERROR
 import socket
-from cStringIO import StringIO
+from io import StringIO
 from traceback import print_exc
 from select import error
 from threading import Thread, Event
 from time import sleep
-from clock import clock
+from .clock import clock
 import sys
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 
 def autodetect_ipv6():
@@ -129,7 +124,7 @@ class RawServer:
                         try:
 #                            print func.func_name
                             func()
-                        except (SystemError, MemoryError), e:
+                        except (SystemError, MemoryError) as e:
                             self.failfunc(str(e))
                             return
                         except KeyboardInterrupt:
@@ -143,7 +138,7 @@ class RawServer:
                     if self.doneflag.isSet():
                         return
                     self.sockethandler.close_dead()
-                except (SystemError, MemoryError), e:
+                except (SystemError, MemoryError) as e:
                     self.failfunc(str(e))
                     return
                 except error:

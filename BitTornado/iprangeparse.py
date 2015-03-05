@@ -3,19 +3,12 @@
 
 from bisect import bisect, insort
 
-try:
-    True
-except:
-    True = 1
-    False = 0
-    bool = lambda x: not not x
-
 
 def to_long_ipv4(ip):
     ip = ip.split('.')
     if len(ip) != 4:
-        raise ValueError, "bad address"
-    b = 0L
+        raise ValueError("bad address")
+    b = 0
     for n in ip:
         b *= 256
         b += int(n)
@@ -24,48 +17,48 @@ def to_long_ipv4(ip):
 
 def to_long_ipv6(ip):
     if ip == '':
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     if ip == '::':      # boundary handling
         ip = ''
     elif ip[:2] == '::':
         ip = ip[1:]
     elif ip[0] == ':':
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
     elif ip[-2:] == '::':
         ip = ip[:-1]
     elif ip[-1] == ':':
-        raise ValueError, "bad address"
+        raise ValueError("bad address")
 
     b = []
     doublecolon = False
     for n in ip.split(':'):
         if n == '':     # double-colon
             if doublecolon:
-                raise ValueError, "bad address"
+                raise ValueError("bad address")
             doublecolon = True
             b.append(None)
             continue
         if n.find('.') >= 0: # IPv4
             n = n.split('.')
             if len(n) != 4:
-                raise ValueError, "bad address"
+                raise ValueError("bad address")
             for i in n:
                 b.append(int(i))
             continue
         n = ('0'*(4-len(n))) + n
         b.append(int(n[:2],16))
         b.append(int(n[2:],16))
-    bb = 0L
+    bb = 0
     for n in b:
         if n is None:
-            for i in xrange(17-len(b)):
+            for i in range(17-len(b)):
                 bb *= 256
             continue
         bb *= 256
         bb += n
     return bb
 
-ipv4addrmask = 65535L*256*256*256*256
+ipv4addrmask = 65535*256*256*256*256
 
 class IP_List:
     def __init__(self):
@@ -74,7 +67,7 @@ class IP_List:
         self.ipv6list = []  # "
         self.ipv6dict = {}  # "
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.ipv4list or self.ipv6list)
 
 
@@ -174,7 +167,7 @@ class IP_List:
             try:
                 self.append(ip1.strip(),ip2.strip())
             except:
-                print '*** WARNING *** could not parse IP range: '+line
+                print('*** WARNING *** could not parse IP range: '+line)
         f.close()
 
 def is_ipv4(ip):

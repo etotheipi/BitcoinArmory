@@ -493,6 +493,10 @@ class PyBtcWalletRecovery(object):
             if isinstance(Passphrase, str):
                SecurePassphrase = SecureBinaryData(Passphrase)
                Passphrase = ''
+            elif isinstance(Passphrase, bytes):
+               SecurePassphrase = SecureBinaryData()
+               SecurePassphrase.createFromHex(binary_to_hex(Passphrase))
+               Passphrase = b''
             elif isinstance(Passphrase, SecureBinaryData):
                   SecurePassphrase = Passphrase.copy()
             elif hasattr(Passphrase, '__call__'):
@@ -695,9 +699,8 @@ class PyBtcWalletRecovery(object):
 
       #verify the root address is derived from the root key
       if not self.WO:
-         testroot = PyBtcAddress().createFromPlainKeyData( \
-                                   rootAddr.binPrivKey32_Plain, None, None, \
-                                   generateIVIfNecessary=True)
+         testroot = PyBtcAddress().createFromPlainKeyData( 
+            rootAddr.binPrivKey32_Plain, None, None, generateIVIfNecessary=True)
          if rootAddr.addrStr20 != testroot.addrStr20:
             self.rawError.append( \
                            '   root address was not derived from the root key')
@@ -1172,8 +1175,8 @@ class PyBtcWalletRecovery(object):
                #save imported addresses
                if rootAddr.isLocked:
                   rootAddr.unlock(toRecover.kdfKey)
-               invQ = self.getInvModOfHMAC(rootAddr.binPrivKey32_Plain.toBinStr())
-               regQ = self.getValidKeyHMAC(rootAddr.binPrivKey32_Plain.toBinStr())
+               invQ = self.getInvModOfHMAC(hex_to_binary(rootAddr.binPrivKey32_Plain.toHexStr().encode()))
+               regQ = self.getValidKeyHMAC(hex_to_binary(rootAddr.binPrivKey32_Plain.toHexStr().encode()))
                rootAddr.lock()
                
                for i in range(0, self.nImports):
@@ -1193,15 +1196,15 @@ class PyBtcWalletRecovery(object):
                      newAddr.unlock(toRecover.kdfKey)
                     
                   if newAddr.chainIndex < -2:
-                     privMultiplier = CryptoECDSA().ECMultiplyScalars( \
-                                           newAddr.binPrivKey32_Plain.toBinStr(),
-                                           invQ.toBinStr())
+                     tmp1 = hex_to_binary(newAddr.binPrivKey32_Plain.toHexStr().encode())
+                     tmp2 = hex_to_binary(invQ.toHexStr().encode())
+                     privMultiplier = CryptoECDSA().ECMultiplyScalars(tmp1, tmp2)
                      self.privKeyMultipliers.append(binary_to_hex(privMultiplier))
 
                      # Sanity check that the multipliers are correct
-                     recov = CryptoECDSA().ECMultiplyScalars(privMultiplier,
-                                                             regQ.toBinStr())
-                     if not recov==newAddr.binPrivKey32_Plain.toBinStr():
+                     tmp3 = hex_to_binary(regQ.toHexStr().encode())
+                     recov = CryptoECDSA().ECMultiplyScalars(privMultiplier,tmp3)
+                     if not recov==tmp1:
                         # Unfortunately I'm not sure what to do here if it doesn't match
                         # We know no ther way to handle it...
                         LOGERROR('Logging a multiplier that does not match!?')
@@ -1264,7 +1267,7 @@ class PyBtcWalletRecovery(object):
                              Progress, returnError):
       self.newwalletPath = os.path.join(os.path.dirname(toRecover.walletPath), 
                            'armory_%s_RECOVERED%s.wallet' % \
-                           (toRecover.uniqueIDB58, '.watchonly' \
+                           (toRecover.uniqueIDB58.decode(), '.watchonly' \
                             if self.WO else ''))
       
       if os.path.exists(self.newwalletPath):
@@ -1511,8 +1514,9 @@ class PyBtcWalletRecovery(object):
       retAddr.createPrivKeyNextUnlock_ChainDepth = depth
 
       # Correct errors, convert to secure container
-      retAddr.chaincode = SecureBinaryData(verifyChecksum(retAddr.chaincode, \
-                                                          chkChaincode))
+      retAddr.chaincode = SecureBinaryData()
+      retAddr.chaincode.createFromHex(binary_to_hex(
+         verifyChecksum(retAddr.chaincode, chkChaincode)).decode())
       if retAddr.chaincode.getSize == 0:
          chksumError |= 128
 
@@ -1523,8 +1527,10 @@ class PyBtcWalletRecovery(object):
       chkIv   =         serializedData.get(BINARY_CHUNK,  4)
       privKey = chkzero(serializedData.get(BINARY_CHUNK, 32))
       chkPriv =         serializedData.get(BINARY_CHUNK,  4)
-      iv      = SecureBinaryData(verifyChecksum(iv, chkIv))
-      privKey = SecureBinaryData(verifyChecksum(privKey, chkPriv))
+      iv      = SecureBinaryData()
+      iv.createFromHex(binary_to_hex(verifyChecksum(iv, chkIv)).decode())
+      privKey = SecureBinaryData()
+      privKey.createFromHex(binary_to_hex(verifyChecksum(privKey, chkPriv)).decode())
 
 
       # If this is SUPPOSED to contain a private key...
@@ -1559,7 +1565,8 @@ class PyBtcWalletRecovery(object):
 
       pubKey = chkzero(serializedData.get(BINARY_CHUNK, 65))
       chkPub =         serializedData.get(BINARY_CHUNK, 4)
-      pubKey = SecureBinaryData(verifyChecksum(pubKey, chkPub))
+      pubKey = SecureBinaryData()
+      pubKey.createFromHex(binary_to_hex(verifyChecksum(pubKey, chkPub)).decode())
 
       if containsPubKey:
          if not pubKey.getSize()==65:
@@ -1647,17 +1654,20 @@ class PyBtcWalletRecovery(object):
    def getValidKeyHMAC(self, Q):
       nonce = 0
       while True:
-         hmacQ = HMAC256(Q, 'LogMult%d' % nonce)
+         hmacQ = HMAC256(Q, b'LogMult' + str(nonce).encode())
          if binary_to_int(hmacQ, BIGENDIAN) >= SECP256K1_ORDER:
             nonce += 1
             continue
 
-         return SecureBinaryData(hmacQ)
+         tmp = SecureBinaryData()
+         tmp.createFromHex(binary_to_hex(hmacQ).decode())
+         return tmp
 
    ############################################################################
    def getInvModOfHMAC(self, Q):
       hmacQ = self.getValidKeyHMAC(Q)
-      return CryptoECDSA().InvMod(SecureBinaryData(hmacQ))
+      tmp = SecureBinaryData(hmacQ)
+      return CryptoECDSA().InvMod(tmp)
 
 
 ###############################################################################

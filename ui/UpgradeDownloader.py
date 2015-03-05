@@ -5,9 +5,9 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from PyQt4.Qt import *
-from PyQt4.QtGui import *
-from PyQt4.QtNetwork import *
+from PyQt5.Qt import *
+from PyQt5.QtGui import *
+from PyQt5.QtNetwork import *
 from qtdefines import *
 from armoryengine.parseAnnounce import *
 
@@ -61,8 +61,7 @@ class UpgradeDownloader:
       bottomRowLayout.addWidget(self.progressBar, +1)
 
       self.downloadButton = QPushButton(tr("Download"), self.frame)
-      self.frame.connect(self.downloadButton, SIGNAL('clicked()'), \
-                                                      self.startOrStopDownload)
+      self.downloadButton.clicked.connect(self.startOrStopDownload)
       bottomRowLayout.addWidget(self.downloadButton)
 
       return self.frame
@@ -79,8 +78,8 @@ class UpgradeDownloader:
       req = QNetworkRequest(QUrl.fromEncoded(self.url))
       self.receivedData = ""
       self.downloadFile = self.networkAccess.get(req)
-      QObject.connect(self.downloadFile, SIGNAL('readyRead()'), self.readMoreDownloadData)
-      QObject.connect(self.downloadFile, SIGNAL('finished()'), self.downloadFinished)
+      self.downloadFile.readyRead.connect(self.readMoreDownloadData)
+      self.downloadFile.finished.connect(self.downloadFinished)
 
       if not self.downloadButton is None:
          self.downloadButton.setText(tr("Cancel"))
@@ -239,7 +238,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
    # downloadText: the text *WITH SIGNATURE* of the downloaded text data
    # changeLog: the text of the downloaded changelogs
    def __init__(self, parent, main, showPackage, downloadText, changeLog):
-      super(UpgradeDownloaderDialog, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       self.downloader = UpgradeDownloader(parent, main)
       self.bitsColor = htmlColor('Foreground')
@@ -294,27 +293,25 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       headerItem.setText(1,tr("Version"))
       packages.setHeaderItem(headerItem)
       packages.setMaximumHeight(int(7*tightSizeStr(packages, "Abcdefg")[1]))
-      packages.header().setResizeMode(0, QHeaderView.Stretch)
-      packages.header().setResizeMode(1, QHeaderView.Stretch)
+      packages.header().setSectionResizeMode(0, QHeaderView.Stretch)
+      packages.header().setSectionResizeMode(1, QHeaderView.Stretch)
 
-      self.connect(self.os, SIGNAL("activated(int)"), self.cascadeOsVer)
-      self.connect(self.osver, SIGNAL("activated(int)"), self.cascadeOsArch)
-      self.connect(self.osarch, SIGNAL("activated(int)"), self.displayPackages)
+      self.os.activated.connect(self.cascadeOsVer)
+      self.osver.activated.connect(self.cascadeOsArch)
+      self.osarch.activated.connect(self.displayPackages)
 
-      self.connect(packages, \
-         SIGNAL('currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)'), \
-         self.useSelectedPackage)
+      packages.currentItemChanged.connect(self.useSelectedPackage)
 
       self.changelogView = QTextBrowser(self)
       self.changelogView.setOpenExternalLinks(True)
 
       self.saveAsOfflinePackage = QCheckBox(tr("Save with offline-verifiable signature"))
       self.closeButton = QPushButton(tr("Close"), self)
-      self.connect(self.closeButton, SIGNAL('clicked()'), self.accept)
+      self.closeButton.clicked.connect(self.accept)
 
       self.btnDLInfo = QLabelButton('Download Info')
       self.btnDLInfo.setVisible(False)
-      self.connect(self.btnDLInfo, SIGNAL('clicked()'), self.popupPackageInfo)
+      self.btnDLInfo.clicked.connect(self.popupPackageInfo)
 
 
       self.lblSelectedSimple = QRichLabel(tr('No download selected'),
@@ -328,7 +325,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
 
       self.btnShowComplex = QLabelButton(tr('Show all downloads for all OS'))
-      self.connect(self.btnShowComplex, SIGNAL('clicked()'), self.showComplex)
+      self.btnShowComplex.clicked.connect(self.showComplex)
 
       frmDisp = makeHorizFrame(['Stretch', self.lblSelectedSimpleMore, 'Stretch'])
       frmBtnShowComplex = makeHorizFrame(['Stretch', self.btnShowComplex])
@@ -381,7 +378,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       # architecture actually matches our system.  If not, warn
       trueBits = '64' if SystemSpecs.IsX64 else '32'
       selectBits = self.itemData(self.osarch)[:2]
-      if showPackage and not trueBits==selectBits:
+      if showPackage and not trueBits==selectBits.decode():
          QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
             You appear to be on a %s-bit architecture, but the only
             available download is for %s-bit systems.  It is unlikely
@@ -392,17 +389,17 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             packages.""") % (trueBits, selectBits), QMessageBox.Ok)
          self.bitsColor = htmlColor('TextRed')
 
-      if showPackage == 'Armory':
+      if showPackage == b'Armory':
          expectVer = self.main.armoryVersions[1]
-      elif showPackage == 'Satoshi':
+      elif showPackage == b'Satoshi':
          expectVer = self.main.satoshiVersions[1]
 
       if showPackage:
          for n in range(0, packages.topLevelItemCount()):
             row = packages.topLevelItem(n)
-            if str(row.data(0, 32).toString()).startswith(showPackage):
+            if row.data(0, 32).startswith(showPackage):
                packages.setCurrentItem(row)
-               if not expectVer or str(row.data(1, 32).toString())==expectVer:
+               if not expectVer or row.data(1, 32)==expectVer:
                   break
             self.useSelectedPackage(limit=True)
          else:
@@ -499,10 +496,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             There is no version information to be shown here.""") +"</html>")
          self.downloader.setFile(None, None)
       else:
-         packagename = str(self.packages.currentItem().data(0, 32).toString())
-         packagever  = str(self.packages.currentItem().data(1, 32).toString())
-         packageurl  = str(self.packages.currentItem().data(2, 32).toString())
-         packagehash = str(self.packages.currentItem().data(3, 32).toString())
+         packagename = self.packages.currentItem().data(0, 32)
+         packagever  = self.packages.currentItem().data(1, 32)
+         packageurl  = self.packages.currentItem().data(2, 32)
+         packagehash = self.packages.currentItem().data(3, 32)
 
          self.downloader.setFile(packageurl, packagehash)
          self.selectedDLInfo = [packagename,packagever,packageurl,packagehash]
@@ -534,16 +531,16 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             else:
                for i in range(startIndex, stopIndex):
                   block = self.changelog[i]
-                  logHtml += "<h2>" + tr("Version {0}").format(block[0]) + "</h2>\n"
-                  logHtml += "<em>" + tr("Released on {0}").format(block[1]) + "</em>\n"
+                  logHtml += "<h2>" + tr("Version {0}").format(block[0].decode()) + "</h2>\n"
+                  logHtml += "<em>" + tr("Released on {0}").format(block[1].decode()) + "</em>\n"
    
                   features = block[2]
                   logHtml += "<ul>"
                   for f in features:
-                     logHtml += "<li>" + tr("<b>{0}</b>: {1}").format(f[0], f[1]) + "</li>\n"
+                     logHtml += "<li>" + tr("<b>{0}</b>: {1}").format(f[0].decode(), f[1].decode()) + "</li>\n"
                   logHtml += "</ul>\n\n"
          else:
-            if packagename == "Satoshi":
+            if packagename == b"Satoshi":
                logHtml = tr(
                   "No version information is available here for any of the "
                   "core Bitcoin software downloads. You can find the "
@@ -622,23 +619,23 @@ class UpgradeDownloaderDialog(ArmoryDialog):
    # to look into
    def cascadeOs(self):
       allOSes = set()
-      for pack in self.nestedDownloadMap.itervalues():
-         for packver in pack.itervalues():
-            for os in packver.iterkeys():
+      for pack in self.nestedDownloadMap.values():
+         for packver in pack.values():
+            for os in packver.keys():
                allOSes.add(os)
       self.cascade(self.os, allOSes, self.cascadeOsVer)
 
 
    def cascadeOsVer(self):
-      chosenos = str(self.os.itemData(self.os.currentIndex()).toString())
+      chosenos = self.os.itemData(self.os.currentIndex())
       if len(chosenos)==0:
          return
 
       allVers = set()
-      for pack in self.nestedDownloadMap.itervalues():
-         for packver in pack.itervalues():
+      for pack in self.nestedDownloadMap.values():
+         for packver in pack.values():
             if chosenos in packver:
-               for osver in packver[chosenos].iterkeys():
+               for osver in packver[chosenos].keys():
                   allVers.add(osver)
 
       # We use a list here because we need to sort the subvers
@@ -646,30 +643,30 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.cascade(self.osver, allVers, self.cascadeOsArch)
 
    def cascadeOsArch(self):
-      chosenos = str(self.os.itemData(self.os.currentIndex()).toString())
-      chosenosver = str(self.osver.itemData(self.osver.currentIndex()).toString())
+      chosenos = self.os.itemData(self.os.currentIndex())
+      chosenosver = self.osver.itemData(self.osver.currentIndex())
       if len(chosenosver)==0:
          return
 
       allArchs = set()
-      for pack in self.nestedDownloadMap.itervalues():
-         for packver in pack.itervalues():
+      for pack in self.nestedDownloadMap.values():
+         for packver in pack.values():
             if chosenos in packver and chosenosver in packver[chosenos]:
-               for osarch in packver[chosenos][chosenosver].iterkeys():
+               for osarch in packver[chosenos][chosenosver].keys():
                   allArchs.add(osarch)
       self.cascade(self.osarch, allArchs, self.displayPackages)
 
    def displayPackages(self):
       packages = self.packages
       packages.clear()
-      chosenos = str(self.os.itemData(self.os.currentIndex()).toString())
-      chosenosver = str(self.osver.itemData(self.osver.currentIndex()).toString())
-      chosenosarch = str(self.osarch.itemData(self.osarch.currentIndex()).toString())
+      chosenos = self.os.itemData(self.os.currentIndex())
+      chosenosver = self.osver.itemData(self.osver.currentIndex())
+      chosenosarch = self.osarch.itemData(self.osarch.currentIndex())
       if len(chosenosarch)==0:
          return
 
-      for packname,pack in self.nestedDownloadMap.iteritems():
-         for packvername,packver in pack.iteritems():
+      for packname,pack in self.nestedDownloadMap.items():
+         for packvername,packver in pack.items():
             if chosenos in packver \
                and chosenosver in packver[chosenos] \
                and chosenosarch in packver[chosenos][chosenosver]:
@@ -701,16 +698,16 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             format(tr(pkgName), tr(pkgVer), tr(osName), tr(osVer), tr(osArch)))
 
          self.lblSelectedSimple.setText(tr(""" <font size=4><b>Securely
-            download latest version of <u>%s</u></b></font>""") % pkgName)
+            download latest version of <u>%s</u></b></font>""") % pkgName.decode())
 
          self.lblCurrentVersion.setText('')
-         currVerStr = ''
-         if pkgName=='Satoshi':
+         currVerStr = b''
+         if pkgName==b'Satoshi':
             if self.main.satoshiVersions[0]:
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Bitcoin Core version %s""") % \
                   self.main.satoshiVersions[0])
-         elif pkgName.startswith('Armory'):
+         elif pkgName.startswith(b'Armory'):
             if self.main.armoryVersions[0]:
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Armory version %s""") % \
@@ -720,17 +717,18 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             <b>Software Download:</b>  %s version %s<br>
             <b>Operating System:</b>  %s %s <br>
             <b>System Architecture:</b> <font color="%s">%s</font> """) % \
-            (tr(pkgName), tr(pkgVer), tr(osName), tr(osVer), self.bitsColor, tr(osArch)))
+                                            (tr(pkgName.decode()), tr(pkgVer.decode()), tr(osName.decode()), tr(osVer.decode()), self.bitsColor, tr(osArch.decode())))
 
    # get the untranslated name from the combobox specified
    def itemData(self, combobox):
-      return str(combobox.itemData(combobox.currentIndex()).toString())
+      return combobox.itemData(combobox.currentIndex())
 
    def localized(self, v):
-      if v in self.localizedData:
-         return str(self.localizedData[v])
+      s = v.decode()
+      if s in self.localizedData:
+         return str(self.localizedData[s])
       else:
-         return str(v)
+         return str(s)
 
 
 # kate: indent-width 3; replace-tabs on;

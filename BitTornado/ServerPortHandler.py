@@ -1,15 +1,10 @@
 # Written by John Hoffman
 # see LICENSE.txt for license information
 
-from cStringIO import StringIO
+from io import StringIO
 #from RawServer import RawServer
-try:
-    True
-except:
-    True = 1
-    False = 0
 
-from BT1.Encrypter import protocol_name
+from .BT1.Encrypter import protocol_name
 
 default_task_id = []
 
@@ -115,7 +110,7 @@ class NewSocketHandler:     # hand a new socket off where it belongs
         return 20, self.read_download_id
 
     def read_download_id(self, s):
-        if self.multihandler.singlerawservers.has_key(s):
+        if s in self.multihandler.singlerawservers:
             if self.multihandler.singlerawservers[s].protocol == self.protocol:
                 return True
         return None
@@ -176,7 +171,7 @@ class MultiHandler:
 
     def listen_forever(self):
         self.rawserver.listen_forever(self)
-        for srs in self.singlerawservers.values():
+        for srs in list(self.singlerawservers.values()):
             srs.finished = True
             srs.running = False
             srs.doneflag.set()

@@ -51,10 +51,10 @@ for i,trip in enumerate(fout):
       f.write('\x00'*(1000-sz))
    f.close()
 
-print 'Blocks written out:'
+print('Blocks written out:')
 for start,end,fn in fout:
    if end-start==0:
-      print '\t%d    in file: %s' % (end,fn)
+      print('\t%d    in file: %s' % (end,fn))
    else:
-      print '\t%d-%d in file: %s' % (start,end,fn)
+      print('\t%d-%d in file: %s' % (start,end,fn))
 

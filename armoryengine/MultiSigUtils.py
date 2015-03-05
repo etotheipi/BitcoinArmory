@@ -5,9 +5,9 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from armoryengine.ArmoryUtils import *
-from armoryengine.Transaction import *
-from armoryengine.Script import *
+from .ArmoryUtils import *
+from .Transaction import *
+from .Script import *
 
 MULTISIG_VERSION = 1
 
@@ -62,8 +62,8 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 
 LOCKBOXIDSIZE = 8
 PROMIDSIZE = 4
-LBPREFIX, LBSUFFIX = 'Lockbox[Bare:', ']'
-LBP2SHPREFIX = 'Lockbox['
+LBPREFIX, LBSUFFIX = b'Lockbox[Bare:', b']'
+LBP2SHPREFIX = b'Lockbox['
 
 #############################################################################
 def getRecipStr(decoratedTxOut):
@@ -102,22 +102,25 @@ def calcLockboxID(script=None, scraddr=None):
 
 ################################################################################
 def createLockboxEntryStr(lbID, isBareMultiSig=False):
-   return '%s%s%s' % (LBPREFIX if isBareMultiSig else LBP2SHPREFIX,
-                       lbID, LBSUFFIX)
+   return '%s%s%s' % (LBPREFIX.decode() if isBareMultiSig else LBP2SHPREFIX.decode(),
+                       lbID.decode(), LBSUFFIX.decode())
 
 ################################################################################
 def readLockboxEntryStr(addrtext):
+   assert(isinstance(addrtext, bytes))
    result = None
    if isBareLockbox(addrtext) or isP2SHLockbox(addrtext):
       len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX)
-      idStr = addrtext[len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX):
-                       addrtext.find(LBSUFFIX)]
+      start = len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX)
+      end = addrtext.find(LBSUFFIX)
+      idStr = addrtext[start:end]
       if len(idStr)==LOCKBOXIDSIZE:
          result = idStr
    return result
 
 ################################################################################
 def isBareLockbox(addrtext):
+   assert(isinstance(addrtext, bytes))
    return addrtext.startswith(LBPREFIX)
 
 def scrAddr_to_displayStr(scrAddr, wltMap, lbMap):
@@ -134,6 +137,7 @@ def scrAddr_to_displayStr(scrAddr, wltMap, lbMap):
 
 ################################################################################
 def isP2SHLockbox(addrtext):
+   assert(isinstance(addrtext, bytes))
    # Bugfix:  Bare prefix includes P2SH prefix, whoops.  Return false if Bare
    return addrtext.startswith(LBP2SHPREFIX) and not isBareLockbox(addrtext)
 
@@ -142,10 +146,10 @@ def getWltFromB58ID(inB58ID, inWltMap, inLBMap, inLBWltMap):
    retWlt = None
    retWltIsCPP = True
 
-   if inB58ID in inWltMap.keys():
+   if inB58ID in list(inWltMap.keys()):
       retWlt = inWltMap[inB58ID]
       retWltIsCPP = False
-   elif inB58ID in inLBMap.keys():
+   elif inB58ID in list(inLBMap.keys()):
       retWlt = inLBWltMap[inB58ID]
    else:
       LOGERROR('Base58 ID %s does not represent a valid wallet or lockbox.' % \
@@ -163,7 +167,7 @@ def writeLockboxesFile(inLockboxes, lbFilePath, append=False):
 
    # Do all the serializing and bail-on-error before opening the file 
    # for writing, or we might delete it all by accident
-   textOut = '\n\n'.join([lb.serializeAscii() for lb in inLockboxes]) + '\n'
+   textOut = '\n\n'.join([lb.serializeAscii().decode() for lb in inLockboxes]) + '\n'
    with open(lbFilePath, writeMode) as f:
       f.write(textOut)
       f.flush()
@@ -176,11 +180,11 @@ def readLockboxesFile(lbFilePath):
    retLBList = []
 
    # Read in the lockbox file.
-   with open(lbFilePath, 'r') as lbFileData:
+   with open(lbFilePath, 'rb') as lbFileData:
       allData = lbFileData.read()
 
    # Find the lockbox starting point.
-   startMark = '=====LOCKBOX'
+   startMark = b'=====LOCKBOX'
    if startMark in allData:
       try:
          # Find the point where the start mark begins and collect either all the
@@ -200,7 +204,7 @@ def readLockboxesFile(lbFilePath):
             pos = allData.find(startMark, pos+1)
       except:
          LOGEXCEPT('Error reading lockboxes file')
-         shutil.copy(lbFilePath, lbFilePath+'.%d.bak'% long(RightNow()))
+         shutil.copy(lbFilePath, lbFilePath+'.%d.bak'% int(RightNow()))
 
    return retLBList
 
@@ -240,7 +244,7 @@ def isMofNNonStandardToSpend(m, n):
 class MultiSigLockbox(AsciiSerializable):
 
    OBJNAME   = 'Lockbox'
-   BLKSTRING = 'LOCKBOX'
+   BLKSTRING = b'LOCKBOX'
    EMAILSUBJ = 'Armory Lockbox Definition - %s'
    EMAILBODY = """
                The chunk of text below is a complete lockbox definition 
@@ -258,7 +262,7 @@ class MultiSigLockbox(AsciiSerializable):
       self.version     = MULTISIG_VERSION
       self.shortName   = toUnicode(name)
       self.longDescr   = toUnicode(descr)
-      self.createDate  = long(RightNow()) if createDate is None else createDate
+      self.createDate  = int(RightNow()) if createDate is None else createDate
       self.magicBytes  = MAGIC_BYTES
       self.uniqueIDB58 = None
       self.asciiID     = None
@@ -271,7 +275,7 @@ class MultiSigLockbox(AsciiSerializable):
 
    #############################################################################
    def registerLockbox(self, addressList, isNew=False):
-      return TheBDM.registerLockbox(self.uniqueIDB58, addressList, isNew)
+      return TheBDM.registerLockbox(self.uniqueIDB58.decode(), addressList, isNew)
       
       
    #############################################################################
@@ -489,29 +493,29 @@ class MultiSigLockbox(AsciiSerializable):
 
    #############################################################################
    def pprint(self):
-      print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
-      print '   Unique ID:  ', self.uniqueIDB58
-      print '   Created:    ', unixTimeToFormatStr(self.createDate)
-      print '   LBox Name:  ', self.shortName
-      print '   P2SHAddr:   ', scrAddr_to_addrStr(self.p2shScrAddr)
-      print '   Box Desc:   '
-      print '     ', self.longDescr[:70]
-      print '   Key List:   '
-      print '   Script Ops: '
+      print('Multi-signature %d-of-%d lockbox:' % (self.M, self.N))
+      print('   Unique ID:  ', self.uniqueIDB58)
+      print('   Created:    ', unixTimeToFormatStr(self.createDate))
+      print('   LBox Name:  ', self.shortName)
+      print('   P2SHAddr:   ', scrAddr_to_addrStr(self.p2shScrAddr))
+      print('   Box Desc:   ')
+      print('     ', self.longDescr[:70])
+      print('   Key List:   ')
+      print('   Script Ops: ')
       for opStr in self.opStrList:
-         print '       ', opStr
-      print''
-      print '   Key Info:   '
+         print('       ', opStr)
+      print('')
+      print('   Key Info:   ')
       for i in range(len(self.dPubKeys)):
-         print '            Key %d' % i
-         print '           ', binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...'
-         print '           ', hash160_to_addrStr(self.a160List[i])
-         print ''
+         print('            Key %d' % i)
+         print('           ', binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...')
+         print('           ', hash160_to_addrStr(self.a160List[i]))
+         print('')
 
    #############################################################################
    def pprintOneLine(self):
-      print 'LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58, 
-         self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName)
+      print('LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58, 
+         self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName))
 
 
    ################################################################################
@@ -616,7 +620,7 @@ class MultiSigLockbox(AsciiSerializable):
 class DecoratedPublicKey(AsciiSerializable):
 
    OBJNAME   = 'PublicKey'
-   BLKSTRING = 'PUBLICKEY'
+   BLKSTRING = b'PUBLICKEY'
    EMAILSUBJ = 'Armory Public Key for Lockbox Creation - %s'
    EMAILBODY = """
                The chunk of text below is a public key that can be imported
@@ -781,7 +785,7 @@ class DecoratedPublicKey(AsciiSerializable):
 
    #############################################################################
    def pprint(self):
-      print 'pprint of DecoratedPublicKey is not implemented'
+      print('pprint of DecoratedPublicKey is not implemented')
       
 
 
@@ -805,8 +809,8 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
    outptList = sorted([ustxi.outpoint.serialize() for ustxi in ustxiList])
    targStr  = dtxoTarget.binScript 
    targStr += int_to_binary(dtxoTarget.value, widthBytes=8)
-   targStr += dtxoChange.binScript if dtxoChange else ''
-   return binary_to_base58(hash256(''.join(outptList) + targStr))[:8]
+   targStr += dtxoChange.binScript if dtxoChange else b''
+   return binary_to_base58(hash256(b''.join(outptList) + targStr))[:8]
    
 
 
@@ -815,7 +819,7 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
 class MultiSigPromissoryNote(AsciiSerializable):
 
    OBJNAME   = 'PromNote'
-   BLKSTRING = 'PROMISSORY'
+   BLKSTRING = b'PROMISSORY'
    EMAILSUBJ = 'Armory Promissory Note for Simulfunding - %s'
    EMAILBODY = """
                The chunk of text below describes how this wallet will 
@@ -906,12 +910,14 @@ class MultiSigPromissoryNote(AsciiSerializable):
    #############################################################################
    def setLockboxKey(self, binPubKey):
       keyPair = [binPubKey[0], len(binPubKey)] 
-      if not keyPair in [['\x02', 33], ['\x03', 33], ['\x04', 65]]:
+      if not keyPair in [[b'\x02', 33], [b'\x03', 33], [b'\x04', 65]]:
          LOGERROR('Invalid public key supplied')
          return False
       
-      if keyPair[0] == '\x04':
-         if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(binPubKey)):
+      if keyPair[0] == b'\x04':
+         b = SecureBinaryData()
+         b.createFromHex(binary_to_hex(binPubKey).decode())
+         if not CryptoECDSA().VerifyPublicKeyValid(b):
             LOGERROR('Invalid public key supplied')
             return False
 
@@ -968,7 +974,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR), skipMagicCheck=skipMagicCheck) )
 
-      promLabel   = toUnicode(bu.get(VAR_STR))
+      promLabel   = bu.get(VAR_STR)
       lockboxKey  = bu.get(VAR_STR)
 
       if not version==MULTISIG_VERSION:
@@ -1080,17 +1086,17 @@ class MultiSigPromissoryNote(AsciiSerializable):
    #############################################################################
    def pprint(self):
 
-      print 'Promissory Note:'
-      print '   Version     :', self.version
-      print '   Unique ID   :', self.promID
-      print '   Num Inputs  :', len(self.ustxInputs)
-      print '   Target Addr :', self.dtxoTarget.getRecipStr()
-      print '   Pay Amount  :', self.dtxoTarget.value
-      print '   Fee Amount  :', self.feeAmt
+      print('Promissory Note:')
+      print('   Version     :', self.version)
+      print('   Unique ID   :', self.promID)
+      print('   Num Inputs  :', len(self.ustxInputs))
+      print('   Target Addr :', self.dtxoTarget.getRecipStr())
+      print('   Pay Amount  :', self.dtxoTarget.value)
+      print('   Fee Amount  :', self.feeAmt)
       if self.dtxoChange is not None:
-         print '   ChangeAddr  :', self.dtxoChange.getRecipStr()
-      print '   LB Key      :', self.lockboxKey
-      print '   LB Key Info :', self.promLabel
+         print('   ChangeAddr  :', self.dtxoChange.getRecipStr())
+      print('   LB Key      :', self.lockboxKey)
+      print('   LB Key Info :', self.promLabel)
 
 
 # Resolve circular dependencies here.

@@ -1,16 +1,7 @@
 # Written by Petru Paler, Uoti Urpala, Ross Cohen and John Hoffman
 # see LICENSE.txt for license information
 
-from types import IntType, LongType, StringType, ListType, TupleType, DictType
-try:
-    from types import BooleanType
-except ImportError:
-    BooleanType = None
-try:
-    from types import UnicodeType
-except ImportError:
-    UnicodeType = None
-from cStringIO import StringIO
+from io import StringIO
 
 def decode_int(x, f):
     f += 1
@@ -18,7 +9,7 @@ def decode_int(x, f):
     try:
         n = int(x[f:newf])
     except:
-        n = long(x[f:newf])
+        n = int(x[f:newf])
     if x[f] == '-':
         if x[f + 1] == '0':
             raise ValueError
@@ -31,7 +22,7 @@ def decode_string(x, f):
     try:
         n = int(x[f:colon])
     except (OverflowError, ValueError):
-        n = long(x[f:colon])
+        n = int(x[f:colon])
     if x[f] == '0' and colon != f+1:
         raise ValueError
     colon += 1
@@ -80,9 +71,9 @@ def bdecode(x, sloppy = 0):
         r, l = decode_func[x[0]](x, 0)
 #    except (IndexError, KeyError):
     except (IndexError, KeyError, ValueError):
-        raise ValueError, "bad bencoded data"
+        raise ValueError("bad bencoded data")
     if not sloppy and l != len(x):
-        raise ValueError, "bad bencoded data"
+        raise ValueError("bad bencoded data")
     return r
 
 def test_bdecode():
@@ -101,10 +92,10 @@ def test_bdecode():
         assert 0
     except ValueError:
         pass
-    assert bdecode('i4e') == 4L
-    assert bdecode('i0e') == 0L
-    assert bdecode('i123456789e') == 123456789L
-    assert bdecode('i-10e') == -10L
+    assert bdecode('i4e') == 4
+    assert bdecode('i0e') == 0
+    assert bdecode('i123456789e') == 123456789
+    assert bdecode('i-10e') == -10
     try:
         bdecode('i-0e')
         assert 0
@@ -261,7 +252,7 @@ def encode_list(x,r):
 
 def encode_dict(x,r):
     r.append('d')
-    ilist = x.items()
+    ilist = list(x.items())
     ilist.sort()
     for k,v in ilist:
         r.extend((str(len(k)),':',k))
@@ -270,23 +261,19 @@ def encode_dict(x,r):
 
 encode_func = {}
 encode_func[BencachedType] = encode_bencached
-encode_func[IntType] = encode_int
-encode_func[LongType] = encode_int
-encode_func[StringType] = encode_string
-encode_func[ListType] = encode_list
-encode_func[TupleType] = encode_list
-encode_func[DictType] = encode_dict
-if BooleanType:
-    encode_func[BooleanType] = encode_bool
-if UnicodeType:
-    encode_func[UnicodeType] = encode_unicode
+encode_func[int] = encode_int
+encode_func[str] = encode_string
+encode_func[list] = encode_list
+encode_func[tuple] = encode_list
+encode_func[dict] = encode_dict
+encode_func[bool] = encode_bool
     
 def bencode(x):
     r = []
     try:
         encode_func[type(x)](x, r)
     except:
-        print "*** error *** could not encode type %s (value: %s)" % (type(x), x)
+        print("*** error *** could not encode type %s (value: %s)" % (type(x), x))
         assert 0
     return ''.join(r)
 
@@ -294,7 +281,7 @@ def test_bencode():
     assert bencode(4) == 'i4e'
     assert bencode(0) == 'i0e'
     assert bencode(-10) == 'i-10e'
-    assert bencode(12345678901234567890L) == 'i12345678901234567890e'
+    assert bencode(12345678901234567890) == 'i12345678901234567890e'
     assert bencode('') == '0:'
     assert bencode('abc') == '3:abc'
     assert bencode('1234567890') == '10:1234567890'

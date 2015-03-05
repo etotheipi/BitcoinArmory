@@ -26,7 +26,7 @@ from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ReconnectingClientFactory
 
 from armoryengine.ArmoryUtils import LOGINFO, LOGWARN, RightNow, getVersionString, \
-   BTCARMORY_VERSION, NetworkIDError, LOGERROR, BLOCKCHAINS, CLI_OPTIONS, LOGDEBUG, \
+   BTCARMORY_VERSION, NetworkIDError, LOGERROR, BLOCKCHAINS, CLI_OPTIONS, LOGEXCEPT, LOGDEBUG, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
    MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
    bitset_to_int, unixTimeToFormatStr, UnknownNetworkPayload
@@ -49,7 +49,7 @@ class ArmoryClient(Protocol):
 
    ############################################################
    def __init__(self):
-      self.recvData = ''
+      self.recvData = b''
       self.gotVerack = False
       self.sentVerack = False
       self.sentHeadersReq = True
@@ -63,18 +63,18 @@ class ArmoryClient(Protocol):
       Everything else will be handled by dataReceived.
       """
       LOGINFO('Connection initiated.  Start handshake')
-      addrTo   = str_to_quad(self.transport.getPeer().host)
+      addrTo   = str_to_quad(self.transport.getPeer().host.encode())
       portTo   =             self.transport.getPeer().port
-      addrFrom = str_to_quad(self.transport.getHost().host)
+      addrFrom = str_to_quad(self.transport.getHost().host.encode())
       portFrom =             self.transport.getHost().port
 
       self.peer = [addrTo, portTo]
 
-      services = '0'*16
+      services = bytes([0] * 16)
       msgVersion = PayloadVersion()
       msgVersion.version  = 40000   # TODO: this is what my Satoshi client says
       msgVersion.services = services
-      msgVersion.time     = long(RightNow())
+      msgVersion.time     = int(RightNow())
       msgVersion.addrRecv = PyNetAddress(0, services, addrTo,   portTo  )
       msgVersion.addrFrom = PyNetAddress(0, services, addrFrom, portFrom)
       msgVersion.nonce    = random.randint(2**60, 2**64-1)
@@ -107,11 +107,12 @@ class ArmoryClient(Protocol):
             # messages to strings to guarantee that copies were being 
             # made!  (yes, hacky...)
             thisMsg = PyMessage().unserialize(buf)
+         
             messages.append( thisMsg.serialize() )
             self.recvData = buf.getRemainingString()
          except NetworkIDError:
             LOGERROR('Message for a different network!' )
-            if BLOCKCHAINS.has_key(self.recvData[:4]):
+            if self.recvData[:4] in BLOCKCHAINS:
                LOGERROR( '(for network: %s)', BLOCKCHAINS[self.recvData[:4]])
             # Before raising the error, we should've finished reading the msg
             # So pop it off the front of the buffer
@@ -136,18 +137,18 @@ class ArmoryClient(Protocol):
          # Log the message if netlog option
          if CLI_OPTIONS.netlog:
             LOGDEBUG( 'DataReceived: %s', msg.payload.command)
-            if msg.payload.command == 'tx':
-               LOGDEBUG('\t' + binary_to_hex(msg.payload.tx.thisHash))
-            elif msg.payload.command == 'block':
-               LOGDEBUG('\t' + msg.payload.header.getHashHex())
-            elif msg.payload.command == 'inv':
+            if msg.payload.command == b'tx':
+               LOGDEBUG('\t%s' % binary_to_hex(msg.payload.tx.thisHash).decode())
+            elif msg.payload.command == b'block':
+               LOGDEBUG('\t%s' % msg.payload.header.getHashHex())
+            elif msg.payload.command == b'inv':
                for inv in msg.payload.invList:
                   LOGDEBUG(('\tBLOCK: ' if inv[0]==2 else '\tTX   : ') + \
-                                                      binary_to_hex(inv[1]))
+                                                      binary_to_hex(inv[1]).decode())
 
 
-         # We process version and verackk only if we haven't yet
-         if cmd=='version' and not self.sentVerack:
+         # We process version and verack only if we haven't yet
+         if cmd==b'version' and not self.sentVerack:
             self.peerInfo = {}
             self.peerInfo['version'] = msg.payload.version
             self.peerInfo['subver']  = msg.payload.subver
@@ -155,12 +156,12 @@ class ArmoryClient(Protocol):
             self.peerInfo['height']  = msg.payload.height0
             LOGINFO('Received version message from peer:')
             LOGINFO('   Version:     %s', str(self.peerInfo['version']))
-            LOGINFO('   SubVersion:  %s', str(self.peerInfo['subver']))
+            LOGINFO('   SubVersion:  %s', self.peerInfo['subver'].decode())
             LOGINFO('   TimeStamp:   %s', str(self.peerInfo['time']))
             LOGINFO('   StartHeight: %s', str(self.peerInfo['height']))
             self.sentVerack = True
             self.sendMessage( PayloadVerack() )
-         elif cmd=='verack':
+         elif cmd==b'verack':
             self.gotVerack = True
             self.factory.handshakeFinished(self)
             #self.startHeaderDL()
@@ -185,9 +186,9 @@ class ArmoryClient(Protocol):
       #        I'll consider chaining/setting callbacks from the calling
       #        application.  For now, it's pretty static.
       #msg.payload.pprint(nIndent=2)
-      if msg.cmd=='inv':
+      if msg.cmd==b'inv':
          invobj = msg.payload
-         getdataMsg = PyMessage('getdata')
+         getdataMsg = PyMessage(b'getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
                if self.factory.bdm and (self.factory.bdm.getState()==BDM_SCANNING or \
@@ -203,18 +204,18 @@ class ArmoryClient(Protocol):
          if self.factory.bdm and not self.factory.bdm.getState()==BDM_SCANNING:
             self.sendMessage(getdataMsg)
 
-      if msg.cmd=='tx':
+      if msg.cmd==b'tx':
          pytx = msg.payload.tx
          self.factory.func_newTx(pytx)
-      elif msg.cmd=='inv':
+      elif msg.cmd==b'inv':
          invList = msg.payload.invList
          self.factory.func_inv(invList)
-      elif msg.cmd=='block':
+      elif msg.cmd==b'block':
          pyHeader = msg.payload.header
          pyTxList = msg.payload.txList
-         LOGINFO('Received new block.  %s', binary_to_hex(pyHeader.getHash(), BIGENDIAN))
+         LOGINFO('Received new block.  %s', binary_to_hex(pyHeader.getHash(), BIGENDIAN).decode())
          self.factory.func_newBlock(pyHeader, pyTxList)
-      elif msg.cmd=='alert':
+      elif msg.cmd==b'alert':
          # store the alert in our map
          id = msg.payload.uniqueID
          if not self.alerts.get(id):
@@ -225,13 +226,13 @@ class ArmoryClient(Protocol):
    ############################################################
    def startHeaderDL(self):
       numList = self.createBlockLocatorNumList(self.topBlk)
-      msg = PyMessage('getheaders')
+      msg = PyMessage(b'getheaders')
       msg.payload.version  = 1
       if self.factory.bdm:
          msg.payload.hashList = [self.factory.bdm.bdm.getHeaderByHeight(i).getHash() for i in numList]
       else:
          msg.payload.hashList = []
-      msg.payload.hashStop = '\x00'*32
+      msg.payload.hashStop = b'\x00'*32
    
       self.sentHeadersReq = True
 
@@ -240,13 +241,13 @@ class ArmoryClient(Protocol):
    ############################################################
    def startBlockDL(self):
       numList = self.createBlockLocatorNumList(self.topBlk)
-      msg = PyMessage('getblocks')
+      msg = PyMessage(b'getblocks')
       msg.payload.version  = 1
       if self.factory.bdm:
          msg.payload.hashList = [self.factory.bdm.bdm.getHeaderByHeight(i).getHash() for i in numList]
       else:
          msg.payload.hashList = []
-      msg.payload.hashStop = '\x00'*32
+      msg.payload.hashStop = b'\x00'*32
 
 
    ############################################################
@@ -348,7 +349,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
    #############################################################################
    def addTxToMemoryPool(self, pytx):
       if self.bdm and not self.bdm.getState()==BDM_OFFLINE:
-         self.bdm.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
+         self.bdm.addNewZeroConfTx(pytx.serialize(), int(RightNow()), True)    
       
 
 
@@ -363,7 +364,8 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def clientConnectionLost(self, connector, reason):
-      LOGERROR('***Connection to Satoshi client LOST!  Attempting to reconnect...')
+      LOGERROR(reason.getTraceback())
+      LOGERROR('***Connection to Satoshi client LOST!  Attempting to reconnect... because %s %s' % (reason,connector))
       self.func_loseConnect()
       ReconnectingClientFactory.clientConnectionLost(self,connector,reason)
 
@@ -379,7 +381,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       if self.proto:
          self.proto.sendTx(pytxObj)
       else:
-         raise ConnectionError, 'Connection to localhost DNE.'
+         raise ConnectionError('Connection to localhost DNE.')
 
 
    #############################################################################
@@ -387,7 +389,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       if self.proto:
          self.proto.sendMessage(msgObj)
       else:
-         raise ConnectionError, 'Connection to localhost DNE.'
+         raise ConnectionError('Connection to localhost DNE.')
 
 
 
@@ -402,18 +404,21 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 def quad_to_str( addrQuad):
    return '.'.join([str(a) for a in addrQuad])
 
-def quad_to_binary( addrQuad):
-   return ''.join([chr(a) for a in addrQuad])
+def quad_to_binary(addrQuad):
+   return bytes(addrQuad)
 
 def binary_to_quad(addrBin):
-   return [ord(a) for a in addrBin]
+   assert(isinstance(addrBin,bytes))
+   return [a for a in addrBin]
 
 def str_to_quad(addrBin):
-   return [int(a) for a in addrBin.split('.')]
+   assert(isinstance(addrBin,bytes))
+   return [int(a) for a in addrBin.split(b'.')]
 
 def str_to_binary(addrBin):
    """ I should come up with a better name for this -- it's net-addr only """
-   return ''.join([chr(int(a)) for a in addrBin.split('.')])
+   assert(isinstance(addrBin,bytes))
+   return b''.join([chr(a) for a in addrBin.split(b'.')])
 
 def parseNetAddress(addrObj):
    if isinstance(addrObj, str):
@@ -437,10 +442,12 @@ class PyMessage(object):
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
    """
-   def __init__(self, cmd='', payload=None):
+   def __init__(self, cmd=b'', payload=None):
       """
       Can create a message by the command name, or the payload (or neither)
       """
+      assert(not isinstance(payload,str))
+      assert(not isinstance(cmd,str))
       self.magic   = MAGIC_BYTES
       self.cmd     = cmd
       self.payload = payload
@@ -455,7 +462,7 @@ class PyMessage(object):
    def serialize(self):
       bp = BinaryPacker()
       bp.put(BINARY_CHUNK, self.magic,                    width= 4)
-      bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
+      bp.put(BINARY_CHUNK, self.cmd.ljust(12, b'\x00'),    width=12)
       payloadBin = self.payload.serialize()
       bp.put(UINT32, len(payloadBin))
       bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
@@ -470,7 +477,7 @@ class PyMessage(object):
 
 
       self.magic = msgData.get(BINARY_CHUNK, 4)
-      self.cmd   = msgData.get(BINARY_CHUNK, 12).strip('\x00')
+      self.cmd   = msgData.get(BINARY_CHUNK, 12).strip(b'\x00')
       length     = msgData.get(UINT32)
       chksum     = msgData.get(BINARY_CHUNK, 4)
       payload    = msgData.get(BINARY_CHUNK, length)
@@ -482,17 +489,17 @@ class PyMessage(object):
          raise UnknownNetworkPayload
 
       if self.magic != MAGIC_BYTES:
-         raise NetworkIDError, 'Message has wrong network bytes!'
+         raise NetworkIDError('Message has wrong network bytes!')
       return self
 
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Bitcoin-Network-Message -- ' + self.cmd.upper()
-      print indstr + indent + 'Magic:   ' + binary_to_hex(self.magic)
-      print indstr + indent + 'Command: ' + self.cmd
-      print indstr + indent + 'Payload: ' + str(len(self.payload.serialize())) + ' bytes'
+      print('')
+      print(indstr + 'Bitcoin-Network-Message -- ' + self.cmd.decode().upper())
+      print(indstr + indent + 'Magic:   ' + binary_to_hex(self.magic))
+      print(indstr + indent + 'Command: ' + self.cmd.decode())
+      print(indstr + indent + 'Payload: ' + str(len(self.payload.serialize())) + ' bytes')
       self.payload.pprint(nIndent+1)
 
 
@@ -535,27 +542,27 @@ class PyNetAddress(object):
       if withTimeField:
          bp.put(UINT32,       self.time)
       bp.put(UINT64,       bitset_to_int(self.services))
-      bp.put(BINARY_CHUNK, quad_to_binary(self.addrQuad).rjust(16,'\x00'))
+      bp.put(BINARY_CHUNK, quad_to_binary(self.addrQuad).rjust(16,b'\x00'))
       bp.put(UINT16,       self.port, endianness=NETWORKENDIAN)
       return bp.getBinaryString()
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Network-Address:',
-      print indstr + indent + 'Time:  ' + unixTimeToFormatStr(self.time)
-      print indstr + indent + 'Svcs:  ' + self.services
-      print indstr + indent + 'IPv4:  ' + quad_to_str(self.addrQuad)
-      print indstr + indent + 'Port:  ' + self.port
+      print('')
+      print(indstr + 'Network-Address:')
+      print(indstr + indent + 'Time:  ' + unixTimeToFormatStr(self.time))
+      print(indstr + indent + 'Svcs:  ' + self.services)
+      print(indstr + indent + 'IPv4:  ' + quad_to_str(self.addrQuad))
+      print(indstr + indent + 'Port:  ' + self.port)
 
    def pprintShort(self):
-      print quad_to_str(self.addrQuad) + ':' + str(self.port)
+      print(quad_to_str(self.addrQuad) + ':' + str(self.port))
 
 ################################################################################
 ################################################################################
 class PayloadAddr(object):
 
-   command = 'addr'
+   command = b'addr'
    
    def __init__(self, addrList=[]):
       self.addrList   = addrList  # PyNetAddress objs
@@ -581,14 +588,14 @@ class PayloadAddr(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(addr):',
+      print('')
+      print(indstr + 'Message(addr):')
       for a in self.addrList:
          a.pprintShort()
 
    def pprintShort(self):
       for a in self.addrList:
-         print '[' + quad_to_str(a.pprintShort()) + '], '
+         print('[' + quad_to_str(a.pprintShort()) + '], ')
 
 ################################################################################
 ################################################################################
@@ -597,7 +604,7 @@ class PayloadPing(object):
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
    """
-   command = 'ping'
+   command = b'ping'
 
    def __init__(self):
       pass
@@ -606,20 +613,20 @@ class PayloadPing(object):
       return self
  
    def serialize(self):
-      return ''
+      return b''
 
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(ping)'
+      print('')
+      print(indstr + 'Message(ping)')
 
       
 ################################################################################
 ################################################################################
 class PayloadVersion(object):
 
-   command = 'version'
+   command = b'version'
 
    def __init__(self, version=0, svcs='0'*16, tstamp=-1, addrRcv=PyNetAddress(), \
                       addrFrm=PyNetAddress(), nonce=-1, sub=-1, height=-1):
@@ -662,16 +669,16 @@ class PayloadVersion(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(version):'
-      print indstr + indent + 'Version:  ' + str(self.version)
-      print indstr + indent + 'Services: ' + self.services
-      print indstr + indent + 'Time:     ' + unixTimeToFormatStr(self.time)
-      print indstr + indent + 'AddrTo:  ',;  self.addrRecv.pprintShort()
-      print indstr + indent + 'AddrFrom:',;  self.addrFrom.pprintShort()
-      print indstr + indent + 'Nonce:    ' + str(self.nonce)
-      print indstr + indent + 'SubVer:  ',   self.subver
-      print indstr + indent + 'StartHgt: ' + str(self.height0)
+      print('')
+      print(indstr + 'Message(version):')
+      print(indstr + indent + 'Version:  ' + str(self.version))
+      print(indstr + indent + 'Services: ' + self.services)
+      print(indstr + indent + 'Time:     ' + unixTimeToFormatStr(self.time))
+      print(indstr + indent + 'AddrTo:  ');  self.addrRecv.pprintShort()
+      print(indstr + indent + 'AddrFrom:');  self.addrFrom.pprintShort()
+      print(indstr + indent + 'Nonce:    ' + str(self.nonce))
+      print(indstr + indent + 'SubVer:  ',   self.subver)
+      print(indstr + indent + 'StartHgt: ' + str(self.height0))
 
 ################################################################################
 class PayloadVerack(object):
@@ -680,7 +687,7 @@ class PayloadVerack(object):
    easy to attach to PyMessage objects
    """
 
-   command = 'verack'
+   command = b'verack'
 
    def __init__(self):
       pass
@@ -689,12 +696,12 @@ class PayloadVerack(object):
       return self
 
    def serialize(self):
-      return ''
+      return b''
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(verack)'
+      print('')
+      print(indstr + 'Message(verack)')
 
 
 
@@ -706,7 +713,7 @@ class PayloadInv(object):
    easy to attach to PyMessage objects
    """
 
-   command = 'inv'
+   command = b'inv'
 
    def __init__(self):
       self.invList = []  # list of (type, hash) pairs
@@ -735,11 +742,11 @@ class PayloadInv(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(inv):'
+      print('')
+      print(indstr + 'Message(inv):')
       for inv in self.invList:
-         print indstr + indent + ('BLOCK: ' if inv[0]==2 else 'TX   : ') + \
-                                 binary_to_hex(inv[1])
+         print(indstr + indent + ('BLOCK: ' if inv[0]==2 else 'TX   : ') + \
+                                 binary_to_hex(inv[1]))
 
 
 
@@ -751,7 +758,7 @@ class PayloadGetData(object):
    easy to attach to PyMessage objects
    """
 
-   command = 'getdata'
+   command = b'getdata'
 
    def __init__(self, invList=[]):
       if invList:
@@ -784,17 +791,17 @@ class PayloadGetData(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(getdata):'
+      print('')
+      print(indstr + 'Message(getdata):')
       for inv in self.invList:
-         print indstr + indent + ('BLOCK: ' if inv[0]==2 else 'TX   : ') + \
-                                 binary_to_hex(inv[1])
+         print(indstr + indent + ('BLOCK: ' if inv[0]==2 else 'TX   : ') + \
+                                 binary_to_hex(inv[1]))
       
 
 ################################################################################
 ################################################################################
 class PayloadGetHeaders(object):
-   command = 'getheaders'
+   command = b'getheaders'
 
    def __init__(self, hashStartList=[], hashStop=''):
       self.version    = 1
@@ -827,19 +834,19 @@ class PayloadGetHeaders(object):
    
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(getheaders):'
-      print indstr + indent + 'HashList(s) :' + binary_to_hex(self.hashList[0])
+      print('')
+      print(indstr + 'Message(getheaders):')
+      print(indstr + indent + 'HashList(s) :' + binary_to_hex(self.hashList[0]))
       for i in range(1,len(self.hashList)):
-         print indstr + indent + '             :' + binary_to_hex(self.hashList[i])
-      print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
+         print(indstr + indent + '             :' + binary_to_hex(self.hashList[i]))
+      print(indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop))
          
 
 
 ################################################################################
 ################################################################################
 class PayloadGetBlocks(object):
-   command = 'getblocks'
+   command = b'getblocks'
 
    def __init__(self, version=1, startCt=-1, hashStartList=[], hashStop=''):
       self.version    = 1
@@ -872,19 +879,19 @@ class PayloadGetBlocks(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(getheaders):'
-      print indstr + indent + 'Version      :' + str(self.version)
-      print indstr + indent + 'HashList(s) :' + binary_to_hex(self.hashList[0])
+      print('')
+      print(indstr + 'Message(getheaders):')
+      print(indstr + indent + 'Version      :' + str(self.version))
+      print(indstr + indent + 'HashList(s) :' + binary_to_hex(self.hashList[0]))
       for i in range(1,len(self.hashList)):
-         print indstr + indent + '             :' + binary_to_hex(self.hashList[i])
-      print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
+         print(indstr + indent + '             :' + binary_to_hex(self.hashList[i]))
+      print(indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop))
 
 
 ################################################################################
 ################################################################################
 class PayloadTx(object):
-   command = 'tx'
+   command = b'tx'
 
    def __init__(self, tx=PyTx()):
       self.tx = tx
@@ -898,15 +905,15 @@ class PayloadTx(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(tx):'
+      print('')
+      print(indstr + 'Message(tx):')
       self.tx.pprint(nIndent+1)
 
 
 ################################################################################
 ################################################################################
 class PayloadHeaders(object):
-   command = 'headers'
+   command = b'headers'
 
    def __init__(self, header=PyBlockHeader(), headerlist=[]):
       self.header = header
@@ -938,17 +945,17 @@ class PayloadHeaders(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(headers):'
+      print('')
+      print(indstr + 'Message(headers):')
       self.header.pprint(nIndent+1)
       for header in self.headerList:
-         print indstr + indent + 'Header:', header.getHash()
+         print(indstr + indent + 'Header:', header.getHash())
 
 
 ################################################################################
 ################################################################################
 class PayloadBlock(object):
-   command = 'block'
+   command = b'block'
 
    def __init__(self, header=PyBlockHeader(), txlist=[]):
       self.header = header
@@ -978,16 +985,16 @@ class PayloadBlock(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print ''
-      print indstr + 'Message(block):'
+      print('')
+      print(indstr + 'Message(block):')
       self.header.pprint(nIndent+1)
       for tx in self.txList:
-         print indstr + indent + 'Tx:', tx.getHashHex()
+         print(indstr + indent + 'Tx:', tx.getHashHex())
 
 
 ################################################################################
 class PayloadAlert(object):
-   command = 'alert'
+   command = b'alert'
 
    def __init__(self):
       self.nonSigLength = 0
@@ -1057,11 +1064,11 @@ class PayloadAlert(object):
 
 
    def pprint(self, nIndent=0):
-      print nIndent*'\t' + "ALERT:" + "\n" + \
+      print(nIndent*'\t' + "ALERT:" + "\n" + \
          nIndent*'\t' + ("version:%s" % self.version) + "\n" + \
          nIndent*'\t' + ("comment:%s" % self.comment) + "\n" + \
          nIndent*'\t' + ("statusBar:%s" % self.statusBar) + "\n" + \
-         nIndent*'\t' + ("reserved:%s" % self.reserved) + "\n"
+         nIndent*'\t' + ("reserved:%s" % self.reserved) + "\n")
 
 
 REJECT_MALFORMED_CODE = 0x01
@@ -1075,7 +1082,7 @@ REJECT_CHECKPOINT_CODE = 0x43
 
 ################################################################################
 class PayloadReject(object):
-   command = 'reject'
+   command = b'reject'
 
    def __init__(self):
       self.messageType = ''
@@ -1097,24 +1104,26 @@ class PayloadReject(object):
       return self.serializedData
 
    def pprint(self, nIndent=0):
-      print nIndent*'\t' + 'REJECT - Tx: ' + self.message
+      print(nIndent*'\t' + 'REJECT - Tx: ' + self.message)
       
 ################################################################################
 # Use this map to figure out which object to serialize/unserialize from a cmd
 PayloadMap = {
-   'ping':        PayloadPing,
-   'tx':          PayloadTx,
-   'inv':         PayloadInv,
-   'version':     PayloadVersion,
-   'verack':      PayloadVerack,
-   'addr':        PayloadAddr,
-   'getdata':     PayloadGetData,
-   'getheaders':  PayloadGetHeaders,
-   'getblocks':   PayloadGetBlocks,
-   'block':       PayloadBlock,
-   'headers':     PayloadHeaders,
-   'alert':       PayloadAlert,
-   'reject':      PayloadReject }
+   b'ping':        PayloadPing,
+   b'tx':          PayloadTx,
+   b'inv':         PayloadInv,
+   b'version':     PayloadVersion,
+   b'verack':      PayloadVerack,
+   b'addr':        PayloadAddr,
+   b'getdata':     PayloadGetData,
+   b'getheaders':  PayloadGetHeaders,
+   b'getblocks':   PayloadGetBlocks,
+   b'block':       PayloadBlock,
+   b'headers':     PayloadHeaders,
+   b'alert':       PayloadAlert,
+   b'reject':      PayloadReject,
+   b'notfound':     PayloadGetData,
+}
 
 
 class FakeClientFactory(ReconnectingClientFactory):

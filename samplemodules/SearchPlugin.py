@@ -1,4 +1,4 @@
-from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget,\
+from PyQt5.Qt import QPushButton, QTextEdit, QScrollArea, QTabWidget,\
    QLineEdit
 
 from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
@@ -48,7 +48,7 @@ class PluginObject(object):
       lblHeader = QRichLabel(tr("""<b>Search Armory: </b>"""), doWrap=False)
       self.searchButton = QPushButton("Search")
       self.searchEntry = QLineEdit()
-      self.main.connect(self.searchButton, SIGNAL('clicked()'), searchItem)
+      self.searchButton.clicked.connect(searchItem)
       topRow =  makeHorizFrame([lblHeader, self.searchEntry, self.searchButton, 'stretch'])
 
 

@@ -52,9 +52,12 @@ def verifyZipSignature(outerZipFilePath):
          The key-value lines may contain properties such as signature 
          validity times/expiration, contact info of author, etc.
          """
-         dataToSignSBD = SecureBinaryData(dataToSign)
-         sigSBD = SecureBinaryData(hex_to_binary(signature.strip()))
-         publicKeySBD = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
+         dataToSignSBD = SecureBinaryData()
+         dataToSignSBD.createFromHex(binary_to_hex(dataToSign).decode())
+         sigSBD = SecureBinaryData()
+         sigSBD.createFromHex(signature.strip())
+         publicKeySBD = SecureBinaryData()
+         publicKeySBD.createFromHex(ARMORY_INFO_SIGN_PUBLICKEY.decode())
          result = MODULE_ZIP_STATUS.Valid if CryptoECDSA().VerifyData(dataToSignSBD, sigSBD, publicKeySBD) else \
                   MODULE_ZIP_STATUS.Unsigned
    except:
@@ -75,7 +78,8 @@ def signZipFile(zipFilePath, propertiesDictionary=None):
    zipFileData = None
    propertiesFileData = None
    dataToSign = sha256(sha256(zipFileData) + sha256(propertiesFileData))
-   dataToSignSBD = SecureBinaryData(dataToSign)
+   dataToSignSBD = SecureBinaryData()
+   dataToSignSBD.createFromHex(binary_to_hex(dataToSign).decode())
    # get the privKeySBD
    privKeySBD = None
    signature = CryptoECDSA().SignData(dataToSignSBD, privKeySBD, ENABLE_DETSIGN)
@@ -137,8 +141,8 @@ def importModule(modulesDir, moduleName, injectLocals=None):
    sys.path = sys.path[:-1]
    currSysPath = '\x00'.join(sys.path)
    if not currSysPath==prevSysPath:
-      print '***ERROR: Dynamically imported module messed with sys.path!'
-      print '        : Make sure your module does not modify sys.path'
+      print('***ERROR: Dynamically imported module messed with sys.path!')
+      print('        : Make sure your module does not modify sys.path')
       exit(1)
    
    return modTemp
@@ -209,8 +213,8 @@ def dynamicImportNoZip(inDir, moduleName, injectLocals=None):
    sys.path = sys.path[:-1]
    currSysPath = '\x00'.join(sys.path)
    if not currSysPath==prevSysPath:
-      print '***ERROR: Dynamically imported module messed with sys.path!'
-      print '        : Make sure your module does not modify sys.path'
+      print('***ERROR: Dynamically imported module messed with sys.path!')
+      print('        : Make sure your module does not modify sys.path')
       exit(1)
    
    return modTemp

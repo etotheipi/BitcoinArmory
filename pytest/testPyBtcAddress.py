@@ -27,7 +27,8 @@ TEST_ADDR1_PRIV_KEY_ENCR4 = '5db1314a20ae9fc978477ab3fe16ab17b246d813a541ecdd414
 TEST_PUB_KEY1 = '046c35e36776e997883ad4269dcc0696b10d68f6864ae73b8ad6ad03e879e43062a0139095ece3bd653b809fa7e8c7d78ffe6fac75a84c8283d8a000890bfc879d'
 
 # Create an address to use for all subsequent tests
-PRIVATE_KEY = SecureBinaryData(hex_to_binary('aa'*32))
+PRIVATE_KEY = SecureBinaryData()
+PRIVATE_KEY.createFromHex('aa'*32)
 PRIVATE_CHECKSUM = PRIVATE_KEY.getHash256()[:4]
 PUBLIC_KEY  = CryptoECDSA().ComputePublicKey(PRIVATE_KEY)
 ADDRESS_20  = PUBLIC_KEY.getHash160()
@@ -35,8 +36,10 @@ ADDRESS_20  = PUBLIC_KEY.getHash160()
 TEST_BLOCK_NUM = 100
 
 # We pretend that we plugged some passphrases through a KDF
-FAKE_KDF_OUTPUT1 = SecureBinaryData( hex_to_binary('11'*32) )
-FAKE_KDF_OUTPUT2 = SecureBinaryData( hex_to_binary('22'*32) )
+FAKE_KDF_OUTPUT1 = SecureBinaryData()
+FAKE_KDF_OUTPUT1.createFromHex('11'*32) 
+FAKE_KDF_OUTPUT2 = SecureBinaryData()
+FAKE_KDF_OUTPUT2.createFromHex('22'*32)
 
 class PyBtcAddressTest(TiabTest):
    # TODO: This test needs more verification of the results.
@@ -49,7 +52,7 @@ class PyBtcAddressTest(TiabTest):
       # Unserialize should throw an UnserializeError caused by checksum mismatch
       emptyBtcAddr = PyBtcAddress()
       emptyBtcAddrSerialized = emptyBtcAddr.serialize()
-      self.assertEqual(emptyBtcAddrSerialized[:20], hex_to_binary('00'*20))
+      self.assertEqual(emptyBtcAddrSerialized[:20], hex_to_binary(b'00'*20))
       self.assertRaises(UnserializeError, PyBtcAddress().unserialize, emptyBtcAddrSerialized)
 
       # Test non-crashing
@@ -68,7 +71,8 @@ class PyBtcAddressTest(TiabTest):
       serializedRetest1 = retestAddr.serialize()
       self.assertEqual(serializedAddr1, serializedRetest1)
       
-      theIV = SecureBinaryData(hex_to_binary(INIT_VECTOR))
+      theIV = SecureBinaryData()
+      theIV.createFromHex(INIT_VECTOR)
       testAddr.enableKeyEncryption(theIV)
       testAddr.lock(FAKE_KDF_OUTPUT1)
       self.assertTrue(testAddr.useEncryption)
@@ -141,7 +145,7 @@ class PyBtcAddressTest(TiabTest):
       self.assertEqual(testAddr.binPrivKey32_Encr.toHexStr(), '')
       
       # Encryption Key Tests: 
-      self.assertEqual(testAddr.serializePlainPrivateKey(), PRIVATE_KEY.toBinStr())
+      self.assertEqual(testAddr.serializePlainPrivateKey(), hex_to_binary(PRIVATE_KEY.toHexStr().encode()))
    
       # Test loading pre-encrypted key data
       testAddr = PyBtcAddress().createFromEncryptedKeyData(addr20_1, encryptedKey1, encryptionIV1)
@@ -182,7 +186,8 @@ class PyBtcAddressTest(TiabTest):
       # Now testing chained-key (deterministic) address generation
       # Test chained priv key generation
       # Starting with plain key data
-      chaincode = SecureBinaryData(hex_to_binary('ee'*32))
+      chaincode = SecureBinaryData()
+      chaincode.createFromHex('ee'*32)
       addr0 = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20)
       addr0.markAsRootAddr(chaincode)
       pub0  = addr0.binPublicKey65
@@ -330,15 +335,16 @@ class PyBtcAddressTest(TiabTest):
    def testTouch(self):
       self.verifyBlockHeight()
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
-      theIV = SecureBinaryData(hex_to_binary(INIT_VECTOR))
+      theIV = SecureBinaryData()
+      theIV.createFromHex(INIT_VECTOR)
       testAddr.enableKeyEncryption(theIV)
       rightNow = RightNow()
       testAddr.touch(rightNow)
-      self.assertEqual(testAddr.timeRange[0], long(rightNow))
-      self.assertEqual(testAddr.timeRange[1], long(rightNow))
+      self.assertEqual(testAddr.timeRange[0], int(rightNow))
+      self.assertEqual(testAddr.timeRange[1], int(rightNow))
       testAddr.touch(0)
-      self.assertEqual(testAddr.timeRange[0], long(0))
-      self.assertEqual(testAddr.timeRange[1], long(rightNow))
+      self.assertEqual(testAddr.timeRange[0], int(0))
+      self.assertEqual(testAddr.timeRange[1], int(rightNow))
       testAddr.touch(blkNum=TEST_BLOCK_NUM)
       self.assertEqual(testAddr.blkRange[0], TEST_BLOCK_NUM)
       self.assertEqual(testAddr.blkRange[1], TOP_TIAB_BLOCK)
@@ -369,7 +375,8 @@ class PyBtcAddressTest(TiabTest):
    
    def testVerifyEncryptionKey(self):
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
-      theIV = SecureBinaryData(hex_to_binary(INIT_VECTOR))
+      theIV = SecureBinaryData()
+      theIV.createFromHex(INIT_VECTOR)
       testAddr.enableKeyEncryption(theIV)
       self.assertFalse(testAddr.verifyEncryptionKey(FAKE_KDF_OUTPUT1))
       testAddr.lock(FAKE_KDF_OUTPUT1)
@@ -379,13 +386,13 @@ class PyBtcAddressTest(TiabTest):
    
    def testSimpleAddress(self):
       # Execute the tests with Satoshi's public key from the Bitcoin specification page
-      satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
-      addrPiece1Hex = '65a4358f4691660849d9f235eb05f11fabbd69fa'
+      satoshiPubKeyHex = b'04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
+      addrPiece1Hex = b'65a4358f4691660849d9f235eb05f11fabbd69fa'
       addrPiece1Bin = hex_to_binary(addrPiece1Hex)
       satoshiAddrStr = hash160_to_addrStr(addrPiece1Bin)
 
       saddr = PyBtcAddress().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
-      print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
+      print('\tAddr calc from pubkey: ', saddr.calculateAddrStr())
       self.assertTrue(checkAddrStrValid(satoshiAddrStr))
    
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)

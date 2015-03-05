@@ -14,11 +14,11 @@ HASHCODE_TX     = 3
 ################################################################################
 def figureOutMysteryHex(hexStr, hashDict={}):
    binStr = hex_to_binary(hexStr)
-   print '\n' + '-'*80
-   print '\nStarting hex data:', len(binStr), 'bytes'
+   print('\n' + '-'*80)
+   print('\nStarting hex data:', len(binStr), 'bytes')
    hexStr.replace(' ','')
    pprintHex(hexStr, '   ')
-   print '\n' + '-'*80
+   print('\n' + '-'*80)
    
 
    # These search terms only give us hints about where things are.  We have more
@@ -190,28 +190,28 @@ def figureOutMysteryHex(hexStr, hashDict={}):
    # Done searching for stuff.  Print results
    ############################################################################
    for ids in idListExcl:
-      print ''
-      print '#'*100
+      print('')
+      print('#'*100)
       idx0,idx1 = ids[1], ids[2]
 
       # If this is a Tx or BH, need to pprint the last arg
       hexToPrint = ['-'] * 2*len(binStr) 
       if ids[0] == 'Transaction' or ids[0] == 'BlockHeader':
          hexToPrint[2*ids[1]:2*ids[2]] = ids[3]
-         print 'Found: ', ids[0]
-         print 'Size:', idx1-idx0, 'bytes'
-         print 'Bytes: %d to %d  (0x%s to 0x%s)' % (idx0, idx1, \
+         print('Found: ', ids[0])
+         print('Size:', idx1-idx0, 'bytes')
+         print('Bytes: %d to %d  (0x%s to 0x%s)' % (idx0, idx1, \
                                                     int_to_hex(idx0, 4, BIGENDIAN), \
-                                                    int_to_hex(idx1, 4, BIGENDIAN))
+                                                    int_to_hex(idx1, 4, BIGENDIAN)))
          pprintHex( ''.join(hexToPrint), '   ')
-         print ''
+         print('')
          ids[4].pprint(1)
-      print ''
-      print '#'*100
+      print('')
+      print('#'*100)
 
 
    # Print all the simple stuff onto a single bytemap
-   print 'Other assorted things:'
+   print('Other assorted things:')
    idListSimple.sort(key=lambda x: x[1])
    hexToPrint = ['-'] * 2*len(binStr) 
    ReprList = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
@@ -225,11 +225,11 @@ def figureOutMysteryHex(hexStr, hashDict={}):
    hexToPrint = ''.join(hexToPrint)
    pprintHex(hexToPrint, '   ')
 
-   print ''
+   print('')
    for j,ids in enumerate(idListSimple):
-      print '  ', ReprList[j] + ':', ids[0].ljust(16,' '), ':', ids[3]
+      print('  ', ReprList[j] + ':', ids[0].ljust(16,' '), ':', ids[3])
       
-   print '\n\nUnidentified bytes'
+   print('\n\nUnidentified bytes')
    maskedBytes = ['--' if maskAll[i] == 1 else hexStr[2*i:2*i+2] for i in range(len(binStr))]
    
    pprintHex(''.join(maskedBytes));
@@ -240,11 +240,11 @@ def figureOutMysteryHex(hexStr, hashDict={}):
 ################################################################################
 def updateHashList(hashfile, blkfile, rescan=False):
 
-   print ''
-   print '\t.Updating hashlist from the blockchain file in your bitcoin directory'
-   print '\t.This will take 1-5 min the first time you run this script (and on rescan)'
-   print '\t\t.Hashfile: ', hashfile
-   print '\t\t.BlockFile:', blkfile
+   print('')
+   print('\t.Updating hashlist from the blockchain file in your bitcoin directory')
+   print('\t.This will take 1-5 min the first time you run this script (and on rescan)')
+   print('\t\t.Hashfile: ', hashfile)
+   print('\t\t.BlockFile:', blkfile)
    if not path.exists(hashfile) or rescan:
       hf = open('knownHashes.bin','wb')
       hf.write('\x00'*8)
@@ -284,16 +284,16 @@ def updateHashList(hashfile, blkfile, rescan=False):
       newHashes += 2 + len(thisData.txList)
 
       if newBlocksRead==0:
-         print '\n\t\tReading blocks...',
+         print('\n\t\tReading blocks...',)
       newBlocksRead += 1
       if(newBlocksRead%1000==0):
          if(newBlocksRead%10000==0):
-            print '\n\t\tRead', newBlocksRead, 'blocks',
-         print '.',
+            print('\n\t\tRead', newBlocksRead, 'blocks',)
+         print('.',)
          sys.stdout.flush()
 
    
-   print '\n\t.Updated hashfile with %d bytes / %d hashes / %d blocks from blkfile' % \
+   print('\n\t.Updated hashfile with %d bytes / %d hashes / %d blocks from blkfile' % \)
                   (blkfileSize-startBlkByte, newHashes, newBlocksRead)
    hf.close()
 
@@ -301,7 +301,7 @@ def updateHashList(hashfile, blkfile, rescan=False):
 
 
 if __name__ == '__main__':
-   print '\nTry to identify Bitcoin-related strings in a block of data'
+   print('\nTry to identify Bitcoin-related strings in a block of data')
 
    parser = OptionParser(usage='USAGE: %prog [--binary|-b] -f FILE \n   or: %prog unidentifiedHex')
    parser.add_option('-f', '--file',   dest='filename', \
@@ -353,14 +353,14 @@ if __name__ == '__main__':
    if fn == None and not isHex:
       parser.error('Cannot read binary data from command line.  Please put it in a file and use -f option')
    if not path.exists(blkfile) and opts.useHashes and opts.updateHashes:
-      print 'Cannot find blockdata file', blkfile, '... proceeding without updating hashes'
+      print('Cannot find blockdata file', blkfile, '... proceeding without updating hashes')
       opts.updateHashes = False
 
    if not opts.useHashes:
-      print '\t(use the -s option to enable search for header/tx hashes from blk0001.dat)'
+      print('\t(use the -s option to enable search for header/tx hashes from blk0001.dat)')
 
    byteStart,byteStop = 0,0
-   print opts.byterange
+   print(opts.byterange)
    if not opts.byterange=='all':
       byteStart,byteStop = [int(i) for i in opts.byterange.split(',')]
 
@@ -375,16 +375,16 @@ if __name__ == '__main__':
       skip = hfile.read(8)
       binaryHashes = hfile.read()
       hfile.close()
-      print '\t.Reading %s (%0.1f MB)' % (hashfile, len(binaryHashes)/float(1024**2))
+      print('\t.Reading %s (%0.1f MB)' % (hashfile, len(binaryHashes)/float(1024**2)))
       if not opts.updateHashes:
-         print '\t (remove -u flag to update hashlist with recent blocks from blk0001.dat'
+         print('\t (remove -u flag to update hashlist with recent blocks from blk0001.dat')
       nHash = len(binaryHashes) / 33
       for i in range(nHash):
          loc = i*33
          hash32 = binaryHashes[loc:loc+32]
          code   = binaryHashes[loc+32]
          hashDict[hash32] = binary_to_int(code)
-      print '\t.Hash dictionary populated with %d hashes from %s' % (len(hashDict),hashfile)
+      print('\t.Hash dictionary populated with %d hashes from %s' % (len(hashDict),hashfile))
 
    binaryToSearch = []
    if not fn == None:
@@ -408,7 +408,7 @@ if __name__ == '__main__':
          try:
             binaryToSearch = hex_to_binary(hexToSearch)
          except:
-            print 'Error processing %s.  If this is a binary file, please use the -b flag' % (fn,)
+            print('Error processing %s.  If this is a binary file, please use the -b flag' % (fn,))
             exit(0)
    else:
       # pull data from the remaining arguments (which must be hex)

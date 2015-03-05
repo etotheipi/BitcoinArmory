@@ -6,8 +6,8 @@
 #                                                                              #
 ################################################################################
 
-from PyQt4.Qt import * #@UnusedWildImport
-from PyQt4.QtGui import * #@UnusedWildImport
+from PyQt5.Qt import * #@UnusedWildImport
+from PyQt5.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import * #@UnusedWildImport
@@ -29,7 +29,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                  selectWltCallback = None, onlyOfflineWallets=False,
                  sendCallback = None, createUnsignedTxCallback = None,
                  spendFromLockboxID=None):
-      super(SendBitcoinsFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1] + 8
       self.sourceAddrList = None
       self.altBalance = None
@@ -112,7 +112,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.unsignedCheckbox = QCheckBox('Create Unsigned')
       self.btnSend = QPushButton('Send!')
       self.btnCancel = QPushButton('Cancel')
-      self.connect(self.btnCancel, SIGNAL(clicked()), parent.reject)
+      self.btnCancel.clicked.connect(parent.reject)
 
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
@@ -135,7 +135,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Otherwise the containing dialog or wizard will provide the offlien tx button
       componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, STRETCH]
       if self.createUnsignedTxCallback:
-         self.connect(self.unsignedCheckbox, SIGNAL(clicked()), self.unsignedCheckBoxUpdate)
+         self.unsignedCheckbox.clicked.connect(self.unsignedCheckBoxUpdate)
          componentList.append(self.unsignedCheckbox)
          componentList.append(self.ttipUnsigned)
       buttonList = [STRETCH]
@@ -143,7 +143,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
-         self.connect(self.btnSend, SIGNAL(clicked()), self.createTxAndBroadcast)
+         self.btnSend.clicked.connect(self.createTxAndBroadcast)
          buttonList.append(self.btnSend)
          
       txFrm = makeHorizFrame(componentList, condenseMargins=True)
@@ -153,7 +153,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          Armory does not always succeed at registering itself to handle 
          URL links from webpages and email.  
          Click this button to copy a "bitcoin:" link directly into Armory."""))
-      self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
+      btnEnterURI.clicked.connect(self.clickEnterURI)
       fromFrameList = [self.frmSelectedWlt]
       if not USE_TESTNET:
          btnDonate = QPushButton("Donate to Armory Developers!")
@@ -162,7 +162,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             'by adding a small donation to go to the Armory developers.  '
             'You will have the ability to change the donation amount '
             'before finalizing the transaction.')
-         self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
+         btnDonate.clicked.connect(self.addDonation)
          frmDonate = makeHorizFrame([btnDonate, ttipDonate], condenseMargins=True)
          fromFrameList.append(frmDonate)
 
@@ -190,8 +190,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          btngrp.addButton(self.radioFeedback)
          btngrp.addButton(self.radioSpecify)
          btngrp.setExclusive(True)
-         self.connect(self.chkDefaultChangeAddr, SIGNAL('toggled(bool)'), self.toggleChngAddr)
-         self.connect(self.radioSpecify, SIGNAL('toggled(bool)'), self.toggleSpecify)
+         self.chkDefaultChangeAddr.toggled.connect(self.toggleChngAddr)
+         self.radioSpecify.toggled.connect(self.toggleSpecify)
          frmChngLayout = QGridLayout()
          i = 0;
          frmChngLayout.addWidget(self.chkDefaultChangeAddr, i, 0, 1, 6)
@@ -457,7 +457,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                atype, a160 = addrStr_to_hash160(addrList[row]) 
                if atype == -1 or not atype in [ADDRBYTE,P2SHBYTE]:
                   net = 'Unknown Network'
-                  if NETWORKS.has_key(addrList[row][0]):
+                  if addrList[row][0] in NETWORKS:
                      net = NETWORKS[addrList[row][0]]
                   QMessageBox.warning(self, tr('Wrong Network!'), tr("""
                      Address %d is for the wrong network!  You are on the <b>%s</b>
@@ -475,7 +475,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          try:
             recipStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
             valueStr = str(self.widgetTable[row]['QLE_AMT'].text()).strip()
-            value = str2coin(valueStr, negAllowed=False)
+            value = str2coin(valueStr.encode(), negAllowed=False)
             if value == 0:
                QMessageBox.critical(self, 'Zero Amount', \
                   'You cannot send 0 BTC to any recipients.  <br>Please enter '
@@ -517,7 +517,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          # This is not necessarily so for P2SH. Must warn the user or else they
          # may get some bitcoins stuck in a lockbox until they upgrade to bitcoin
          # 0.10.0
-         if isP2SHLockbox(recipStr):
+         recipBytes = recipStr.encode()
+         if isP2SHLockbox(recipBytes):
             lbox = self.main.getLockboxByID(readLockboxEntryStr(recipStr))
             if isMofNNonStandardToSpend(lbox.M, lbox.N):
                reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
@@ -543,7 +544,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
 
       try:
-         feeStr = str(self.edtFeeAmt.text())
+         feeStr = self.edtFeeAmt.text().encode()
          fee = str2coin(feeStr, negAllowed=False)
       except NegativeValueError:
          QMessageBox.critical(self, tr('Negative Value'), tr("""
@@ -651,7 +652,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if reply == QMessageBox.No:
             pass
          elif reply == QMessageBox.Yes:
-            fee = long(minFee)
+            fee = int(minFee)
 
 
       # Warn user of excessive fee specified
@@ -732,7 +733,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                a160 = scrAddr_to_hash160(scrAddr)[1]
                addrObj = self.wlt.getAddrByHash160(a160)
                if addrObj:
-                  pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+                  pubKeyMap[scrAddr] = hex_to_binary(addrObj.binPublicKey65.toHexStr())
 
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection( \
@@ -815,7 +816,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          lbID = self.lbox.uniqueIDB58
          cppWlt = self.main.cppLockboxWltMap.get(lbID)
          if cppWlt is None:
-            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
+            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID.decode())
 
          return cppWlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
          
@@ -834,18 +835,18 @@ class SendBitcoinsFrame(ArmoryFrame):
                cppAddr = self.wlt.getCppAddr(a160)
                utxos = cppAddr.getSpendableTxOutList(IGNOREZC)
                for i in range(len(utxos)):
-                  utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+                  utxoList.append(PyUnspentTxOut.createFromCppUtxo(utxos[i]))
             return utxoList
       else:
          lbID = self.lbox.uniqueIDB58
          cppWlt = self.main.cppLockboxWltMap.get(lbID)
          if cppWlt is None:
-            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
+            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID.decode())
 
          txoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
          pyUtxoList = []
          for i in range(len(txoList)):
-            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i])
+            pyUtxo = PyUnspentTxOut.createFromCppUtxo(txoList[i])
             pyUtxoList.append(pyUtxo)
          return pyUtxoList
 
@@ -948,7 +949,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                          'the amounts specified for other recipients '
                          'and the transaction fee ')
       funcSetMax = lambda:  self.setMaximum(targWidget)
-      self.connect(newBtn, SIGNAL(clicked()), funcSetMax)
+      newBtn.clicked.connect(funcSetMax)
       return newBtn
 
 
@@ -988,8 +989,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r]['QLE_ADDR'].setMaximumHeight(self.maxHeight)
          self.widgetTable[r]['QLE_ADDR'].setFont(GETFONT('var', 9))
 
-         self.connect(self.widgetTable[r]['QLE_ADDR'], SIGNAL('textChanged(QString)'), 
-                                                        revertColorCallback(r))
+         self.widgetTable[r]['QLE_ADDR'].textChanged.connect(revertColorCallback(r))
 
          self.widgetTable[r]['BTN_BOOK'] = addrEntryWidgets['BTN_BOOK']
          self.widgetTable[r]['LBL_DETECT'] = addrEntryWidgets['LBL_DETECT']
@@ -1049,8 +1049,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       lbtnAddRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lbtnRmRecip = QLabelButton('- Recipient')
       lbtnRmRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      self.connect(lbtnAddRecip, SIGNAL(clicked()), lambda: self.makeRecipFrame(nRecip + 1))
-      self.connect(lbtnRmRecip, SIGNAL(clicked()), lambda: self.makeRecipFrame(nRecip - 1))
+      lbtnAddRecip.clicked.connect(lambda: self.makeRecipFrame(nRecip + 1))
+      lbtnRmRecip.clicked.connect(lambda: self.makeRecipFrame(nRecip - 1))
       btnLayout.addStretch()
       btnLayout.addWidget(lbtnAddRecip)
       btnLayout.addWidget(lbtnRmRecip)
@@ -1094,13 +1094,13 @@ class SendBitcoinsFrame(ArmoryFrame):
             self.makeRecipFrame(len(self.widgetTable) + 1)
 
          self.widgetTable[-1]['QLE_ADDR'].setText(dlg.uriDict['address'])
-         if dlg.uriDict.has_key('amount'):
+         if 'amount' in dlg.uriDict:
             amtStr = coin2str(dlg.uriDict['amount'], maxZeros=1).strip()
             self.widgetTable[-1]['QLE_AMT'].setText(amtStr)
 
 
-         haveLbl = dlg.uriDict.has_key('label')
-         haveMsg = dlg.uriDict.has_key('message')
+         haveLbl = 'label' in dlg.uriDict
+         haveMsg = 'message' in dlg.uriDict
 
          dispComment = ''
          if haveLbl and haveMsg:
@@ -1145,7 +1145,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 class ReviewOfflineTxFrame(ArmoryDialog):
    def __init__(self, parent=None, main=None, initLabel=''):
-      super(ReviewOfflineTxFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       self.ustx = None
       self.wlt = None
@@ -1157,13 +1157,13 @@ class ReviewOfflineTxFrame(ArmoryDialog):
          'email message, or save it to a borrowed USB key.')
 
       btnSave = QPushButton('Save as file...')
-      self.connect(btnSave, SIGNAL(clicked()), self.doSaveFile)
+      btnSave.clicked.connect(self.doSaveFile)
       ttipSave = self.main.createToolTipWidget(\
          'Save this data to a USB key or other device, to be transferred to '
          'a computer that contains the private keys for this wallet.')
 
       btnCopy = QPushButton('Copy to clipboard')
-      self.connect(btnCopy, SIGNAL(clicked()), self.copyAsciiUSTX)
+      btnCopy.clicked.connect(self.copyAsciiUSTX)
       self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -1229,7 +1229,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
    
    def setUSTX(self, ustx):
       self.ustx = ustx
-      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueIDB58)
+      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueIDB58.decode())
       self.txtUSTX.setText(ustx.serializeAscii())
    
    def setWallet(self, wlt):
@@ -1271,7 +1271,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
 
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
-      dpid = self.ustx.uniqueIDB58
+      dpid = self.ustx.uniqueIDB58.decode()
       suffix = ('' if OS_WINDOWS else '.unsigned.tx')
       toSave = self.main.getFileSave(\
                       'Save Unsigned Transaction', \
@@ -1295,7 +1295,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    may not be specified
    """
    def __init__(self, parent=None, main=None, initLabel=''):
-      super(SignBroadcastOfflineTxFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       self.wlt = None
       self.sentToSelfWarn = False
@@ -1328,15 +1328,15 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.btnSign.setEnabled(False)
       self.btnBroadcast.setEnabled(False)
 
-      self.connect(self.txtUSTX, SIGNAL('textChanged()'), self.processUSTX)
+      self.txtUSTX.textChanged.connect(self.processUSTX)
 
 
-      self.connect(self.btnSign, SIGNAL(clicked()), self.signTx)
-      self.connect(self.btnBroadcast, SIGNAL(clicked()), self.broadTx)
-      self.connect(self.btnSave, SIGNAL(clicked()), self.saveTx)
-      self.connect(self.btnLoad, SIGNAL(clicked()), self.loadTx)
-      self.connect(self.btnCopy, SIGNAL(clicked()), self.copyTx)
-      self.connect(self.btnCopyHex, SIGNAL(clicked()), self.copyTxHex)
+      self.btnSign.clicked.connect(self.signTx)
+      self.btnBroadcast.clicked.connect(self.broadTx)
+      self.btnSave.clicked.connect(self.saveTx)
+      self.btnLoad.clicked.connect(self.loadTx)
+      self.btnCopy.clicked.connect(self.copyTx)
+      self.btnCopyHex.clicked.connect(self.copyTxHex)
 
       self.lblStatus = QRichLabel('')
       self.lblStatus.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -1380,7 +1380,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.infoLbls[-1].append(QRichLabel(''))
 
       self.moreInfo = QLabelButton('Click here for more<br> information about <br>this transaction')
-      self.connect(self.moreInfo, SIGNAL(clicked()), self.execMoreTxInfo)
+      self.moreInfo.clicked.connect(self.execMoreTxInfo)
       frmMoreInfo = makeLayoutFrame(HORIZONTAL, [self.moreInfo], STYLE_SUNKEN)
       frmMoreInfo.setMinimumHeight(tightSizeStr(self.moreInfo, 'Any String')[1] * 5)
 
@@ -1590,14 +1590,14 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
          ##### 1
          if self.wlt:
-            self.infoLbls[0][2].setText(self.wlt.uniqueIDB58)
+            self.infoLbls[0][2].setText(self.wlt.uniqueIDB58.decode())
             self.infoLbls[1][2].setText(self.wlt.labelName)
          else:
             self.infoLbls[0][2].setText('[[ Unrelated ]]')
             self.infoLbls[1][2].setText('')
 
          ##### 2
-         self.infoLbls[2][2].setText(self.ustxObj.uniqueIDB58)
+         self.infoLbls[2][2].setText(self.ustxObj.uniqueIDB58.decode())
 
          ##### 3
          if self.leValue:
@@ -1812,11 +1812,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       if not self.ustxObj == None:
          if self.enoughSigs and self.sigsValid:
             suffix = '' if OS_WINDOWS else '.signed.tx'
-            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58.decode(), suffix)
             ffilt = 'Transactions (*.signed.tx *.unsigned.tx)'
          else:
             suffix = '' if OS_WINDOWS else '.unsigned.tx'
-            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58.decode(), suffix)
             ffilt = 'Transactions (*.unsigned.tx *.signed.tx)'
       filename = self.main.getFileSave('Save Transaction', \
                              [ffilt], \
@@ -1850,7 +1850,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def copyTxHex(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(binary_to_hex(self.ustxObj.getSignedPyTx().serialize()))
+      clipb.setText(binary_to_hex(self.ustxObj.getSignedPyTx().serialize()).decode())
       self.lblCopied.setText('<i>Copied!</i>')
          
 

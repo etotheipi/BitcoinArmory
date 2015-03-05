@@ -19,12 +19,12 @@ from jasvet import ASv1CS, readSigBlock, verifySignature
 def signAnnounceFiles(wltPath):
    
    if len(CLI_ARGS)<1:
-      print 'Must specify a wallet file containing the signing key'
+      print('Must specify a wallet file containing the signing key')
       exit(1)
    
    wltPath = CLI_ARGS[0]
    if not os.path.exists(wltPath):
-      print 'Wallet file was not found (%s)' % wltPath
+      print('Wallet file was not found (%s)' % wltPath)
       exit(1)
    
    
@@ -41,7 +41,7 @@ def signAnnounceFiles(wltPath):
    if doComputeDLLinks:
       instDir = CLI_ARGS[1]
       if not os.path.exists(instDir):
-         print 'Installers dir does not exist!'
+         print('Installers dir does not exist!')
          exit(1)
    
       instFileInfo = {}
@@ -63,11 +63,11 @@ def signAnnounceFiles(wltPath):
          for fn in os.listdir(instDir):
             fullpath = os.path.join(instDir, fn)
             if not fn in instFileInfo:
-               print 'File in installer directory does not match any in info map'
-               print '   File:', fullpath
-               print '   InfoMap:'
+               print('File in installer directory does not match any in info map')
+               print('   File:', fullpath)
+               print('   InfoMap:')
                for filename in instFileInfo:
-                  print '      ', filename
+                  print('      ', filename)
                exit(1)
                
             fdata = open(fullpath, 'rb').read()
@@ -102,16 +102,17 @@ def signAnnounceFiles(wltPath):
    ###
    wlt = PyBtcWallet().readWalletFile(wltPath)
    if not wlt.hasAddr(signAddress):
-      print 'Supplied wallet does not have the correct signing key'
+      print('Supplied wallet does not have the correct signing key')
       exit(1)
    
    
    
-   print 'Must unlock wallet to sign the announce file...'
+   print('Must unlock wallet to sign the announce file...')
    while True:
-      passwd = SecureBinaryData(getpass.getpass('Wallet passphrase: '))
+      passwd = SecureBinaryData()
+      passwd.createFromHex(binary_to_hex(getpass.getpass('Wallet passphrase: ').encode()).decode())
       if not wlt.verifyPassphrase(passwd):
-         print 'Invalid passphrase!'
+         print('Invalid passphrase!')
          continue
       break
    
@@ -121,7 +122,7 @@ def signAnnounceFiles(wltPath):
    
    def doSignFile(inFile, outFile):
       with open(inFile, 'rb') as f:
-         sigBlock = ASv1CS(addrObj.binPrivKey32_Plain.toBinStr(), f.read())
+         sigBlock = ASv1CS(hex_to_binary(addrObj.binPrivKey32_Plain.toHexStr()), f.read())
    
       with open(outFile, 'wb') as f:
          f.write(sigBlock)
@@ -131,26 +132,26 @@ def signAnnounceFiles(wltPath):
    fileMappings = {}
    longestID  = 0
    longestURL = 0
-   print 'Reading file mapping...'
+   print('Reading file mapping...')
    with open('announcemap.txt','r') as f:
       for line in f.readlines():
          fname, fid = line.strip().split()
          inputPath = os.path.join(inDir, fname)
          if not os.path.exists(inputPath):
-            print 'ERROR:  Could not find %s-file (%s)' % (fid, inputPath)
+            print('ERROR:  Could not find %s-file (%s)' % (fid, inputPath))
             exit(1)
-         print '   Map: %s --> %s' % (fname, fid)
+         print('   Map: %s --> %s' % (fname, fid))
          
    
    
    if os.path.exists(outDir):
-      print 'Wiping old, announced files...'
+      print('Wiping old, announced files...')
       shutil.rmtree(outDir)
    os.mkdir(outDir)
    
    
    
-   print 'Signing and copying files to %s directory...' % outDir
+   print('Signing and copying files to %s directory...' % outDir)
    with open('announcemap.txt','r') as f:
       for line in f.readlines():
          fname, fid = line.strip().split()
@@ -178,7 +179,7 @@ def signAnnounceFiles(wltPath):
    
          
    
-   print 'Creating digest file...'
+   print('Creating digest file...')
    digestFile = open(announcePath, 'w')
    
    ###
@@ -190,14 +191,14 @@ def signAnnounceFiles(wltPath):
    digestFile.close()
    
    
-   print ''
-   print '------'
+   print('')
+   print('------')
    with open(announcePath, 'r') as f:
       dfile = f.read()
-      print dfile
-   print '------'
+      print(dfile)
+   print('------')
    
-   print 'Please verify the above data to your satisfaction:'
+   print('Please verify the above data to your satisfaction:')
    raw_input('Hit <enter> when ready: ')
       
    
@@ -206,24 +207,24 @@ def signAnnounceFiles(wltPath):
    doSignFile(announcePath, os.path.join(outDir, announceName))
    
    
-   print '*'*80
-   print open(announcePath, 'r').read()
-   print '*'*80
+   print('*'*80)
+   print(open(announcePath, 'r').read())
+   print('*'*80)
    
    
-   print ''
-   print 'Verifying files'
+   print('')
+   print('Verifying files')
    for fname,vals in fileMappings.iteritems():
       if 'bootstrap' in fname:
          continue
       with open(os.path.join(outDir, fname), 'rb') as f:
          sig,msg = readSigBlock(f.read())
          addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
-         print 'Sign addr for:', vals[0].ljust(longestID+3), addrB58
+         print('Sign addr for:', vals[0].ljust(longestID+3), addrB58)
       
    
    
-   print 'Done!'
+   print('Done!')
    
    
    

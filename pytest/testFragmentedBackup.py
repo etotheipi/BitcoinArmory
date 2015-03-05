@@ -14,14 +14,14 @@ import itertools
 import unittest
 
 
-SECRET = '\x00\x01\x02\x03\x04\x05\x06\x07'
+SECRET = b'\x00\x01\x02\x03\x04\x05\x06\x07'
 
-BAD_SECRET = '\xff\xff\xff\xff\xff\xff\xff\xff'
+BAD_SECRET = b'\xff\xff\xff\xff\xff\xff\xff\xff'
 
 # Fragment combination to String abreviated name for debugging purposes
 def c2s(combinationMap):
    return '\n'.join([' '.join([str(k), binary_to_hex(v[0]), binary_to_hex(v[1])]) \
-                      for k,v in combinationMap.iteritems()])
+                      for k,v in combinationMap.items()])
    
 def splitSecretToFragmentMap(splitSecret):
    fragMap = {}
@@ -39,7 +39,7 @@ class Test(TiabTest):
       pass
 
    def getNextCombination(self, fragmentMap, m):
-      combinationIterator = itertools.combinations(fragmentMap.iterkeys(), m)
+      combinationIterator = itertools.combinations(iter(fragmentMap.keys()), m)
       for keyList in combinationIterator:
          combinationMap = {}
          for key in keyList:
@@ -50,7 +50,7 @@ class Test(TiabTest):
    def subtestAllFragmentedBackups(self, secret, m, n):
       fragmentMap = splitSecretToFragmentMap(SplitSecret(secret, m, n))
       for combinationMap in self.getNextCombination(fragmentMap, m):
-         fragmentList = [value for value in combinationMap.itervalues()]
+         fragmentList = [value for value in combinationMap.values()]
          reconSecret = ReconstructSecret(fragmentList, m, len(secret))
          self.assertEqual(reconSecret, secret)
          

@@ -20,9 +20,9 @@ if os.path.exists('.git') \
     f.write("BTCARMORY_BUILD = '%s'\n" % build)
     f.close()
 
-    print "Build number has been updated to %s" % build
+    print("Build number has been updated to %s" % build)
 
 else:
-    print "Please run this script from the root Armory source directory" \
-        " along with the .git directory"
+    print("Please run this script from the root Armory source directory" \
+        " along with the .git directory")
 

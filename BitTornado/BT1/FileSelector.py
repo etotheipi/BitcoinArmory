@@ -3,11 +3,6 @@
 
 from random import shuffle
 from traceback import print_exc
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 
 class FileSelector:
@@ -28,13 +23,13 @@ class FileSelector:
         self.new_priority = None
         self.new_partials = None
         self.filepieces = []
-        total = 0L
+        total = 0
         for file, length in files:
             if not length:
                 self.filepieces.append(())
             else:
-                pieces = range( int(total/piece_length),
-                                int((total+length-1)/piece_length)+1 )
+                pieces = list(range( int(total/piece_length),
+                                int((total+length-1)/piece_length)+1))
                 self.filepieces.append(tuple(pieces))
                 total += length
         self.numpieces = int((total+piece_length-1)/piece_length)
@@ -46,7 +41,7 @@ class FileSelector:
         try:
             assert len(new_priority) == self.numfiles
             for v in new_priority:
-                assert type(v) in (type(0),type(0L))
+                assert type(v) in (type(0),type(0))
                 assert v >= -1
                 assert v <= 2
         except:
@@ -54,14 +49,14 @@ class FileSelector:
             return False
         try:
             files_updated = False
-            for f in xrange(self.numfiles):
+            for f in range(self.numfiles):
                 if new_priority[f] < 0:
                     self.storage.disable_file(f)
                     files_updated = True
             if files_updated:
                 self.storage.reset_file_status()
             self.new_priority = new_priority
-        except (IOError, OSError), e:
+        except (IOError, OSError) as e:
             self.failfunc("can't open partial file for "
                           + self.files[f][0] + ': ' + str(e))
             return False
@@ -75,7 +70,7 @@ class FileSelector:
     Also see Storage.pickle and StorageWrapper.pickle for additional keys.
     '''
     def unpickle(self, d):
-        if d.has_key('priority'):
+        if 'priority' in d:
             if not self.init_priority(d['priority']):
                 return
         pieces = self.storage.unpickle(d)
@@ -108,7 +103,7 @@ class FileSelector:
         old_disabled = [p == -1 for p in old_priority]
         new_disabled = [p == -1 for p in new_priority]
         data_to_update = []
-        for f in xrange(self.numfiles):
+        for f in range(self.numfiles):
             if new_disabled[f] != old_disabled[f]:
                 data_to_update.extend(self.storage.get_piece_update_list(f))
         buffer = []
@@ -121,14 +116,14 @@ class FileSelector:
 
         files_updated = False        
         try:
-            for f in xrange(self.numfiles):
+            for f in range(self.numfiles):
                 if new_disabled[f] and not old_disabled[f]:
                     self.storage.disable_file(f)
                     files_updated = True
                 if old_disabled[f] and not new_disabled[f]:
                     self.storage.enable_file(f)
                     files_updated = True
-        except (IOError, OSError), e:
+        except (IOError, OSError) as e:
             if new_disabled[f]:
                 msg = "can't open partial file for "
             else:
@@ -152,7 +147,7 @@ class FileSelector:
 
     def _get_piece_priority_list(self, file_priority_list):
         l = [-1] * self.numpieces
-        for f in xrange(self.numfiles):
+        for f in range(self.numfiles):
             if file_priority_list[f] == -1:
                 continue
             for i in self.filepieces[f]:
@@ -166,7 +161,7 @@ class FileSelector:
     def _set_piece_priority(self, new_priority):
         was_complete = self.storagewrapper.am_I_complete()
         new_piece_priority = self._get_piece_priority_list(new_priority)
-        pieces = range(self.numpieces)
+        pieces = list(range(self.numpieces))
         shuffle(pieces)
         new_blocked = []
         new_unblocked = []
@@ -227,7 +222,7 @@ class FileSelector:
 
 
     def finish(self):
-        for f in xrange(self.numfiles):
+        for f in range(self.numfiles):
             if self.priority[f] == -1:
                 self.storage.delete_file(f)
 
@@ -236,9 +231,9 @@ class FileSelector:
         try:
             s = self.storage.pickle()
             sw = self.storagewrapper.pickle()
-            for k in s.keys():
+            for k in list(s.keys()):
                 d[k] = s[k]
-            for k in sw.keys():
+            for k in list(sw.keys()):
                 d[k] = sw[k]
         except (IOError, OSError):
             pass

@@ -21,13 +21,13 @@ from release_settings import getReleaseParams, getMasterPackageList
 
 if len(argv)<2:
    import textwrap
-   print textwrap.dedent("""
+   print(textwrap.dedent("""
       Script Arguments (* is optional)
             argv[0]   "python %s"
             argv[1]   inputDir       (from Step2)
             argv[2]*  isDryRun       (default ~ 0)
             argv[3]*  useTestParams  (default ~ 0)
-      """) % argv[0]
+      """) % argv[0])
    exit(1)
    
 
@@ -54,7 +54,7 @@ btcWltID       = RELEASE['BTCWltID']
 #uploadlog = open('step3_log_%d.txt' % long(time.time()), 'w')
 uploadlog = open('step3_log.txt', 'w')
 def logprint(s):
-   print s
+   print(s)
    uploadlog.write(s + '\n')
 
 srcGitRepo  = checkExists(os.path.join(inDir, 'BitcoinArmory'))
@@ -145,20 +145,20 @@ jsonOut['VersionStr'] = topVerStr + topVerType
 jsonOut['ReleaseDate'] = datetime.fromtimestamp(time.time()).strftime("%B %d, %Y")
 jsonOut['Downloads'] = uploads
 
-print json.dumps(jsonOut, indent=4)
+print(json.dumps(jsonOut, indent=4))
 
 for upl in uploads:
-   print 'Going to upload:'
+   print('Going to upload:')
    for key,val in upl.iteritems():
-      print '   ', key.ljust(10), ':', val
-   print ''
+      print('   ', key.ljust(10), ':', val)
+   print('')
 
 
 
 for pkgDict in uploads:
 
    #osStr, subOS, bits, vi, vs = fivevals
-   #print fullfn, fn, isbundle, ishash, osStr, subOS, bits, vi, vs
+   #print(fullfn, fn, isbundle, ishash, osStr, subOS, bits, vi, vs)
    verFullStr = topVerStr + topVerType
 
    humanText = 'Armory %s' % verFullStr

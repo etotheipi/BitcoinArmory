@@ -11,7 +11,6 @@ from random import shuffle
 import time
 import unittest
 
-
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
@@ -21,9 +20,10 @@ from armoryengine import ArmoryUtils
 
 #sys.argv.append('--nologging')
 
-UNICODE_STRING = u'unicode string'
+UNICODE_STRING = 'unicode string'
 NON_ASCII_STRING = '\xff\x00 Non-ASCII string \xff\x00'
 ASCII_STRING = 'ascii string'
+ASCII_BYTES = b'ascii string'
 LONG_TEST_NUMBER = 98753178900
 
 
@@ -40,15 +40,15 @@ class ArmoryEngineTest(unittest.TestCase):
    #############################################################################
    def testToBytes(self):
       self.assertEqual(toBytes(UNICODE_STRING), UNICODE_STRING.encode('utf-8'))
-      self.assertEqual(toBytes(ASCII_STRING), ASCII_STRING)
-      self.assertEqual(toBytes(NON_ASCII_STRING), NON_ASCII_STRING)
+      self.assertEqual(toBytes(ASCII_STRING), ASCII_BYTES)
+      self.assertEqual(toBytes(NON_ASCII_STRING), NON_ASCII_STRING.encode('utf-8'))
       self.assertEqual(toBytes(5), None)
 
    #############################################################################
    def testToUnicode(self):
-      self.assertEqual(toUnicode(ASCII_STRING), unicode(ASCII_STRING, 'utf-8'))
+      self.assertEqual(toUnicode(ASCII_STRING), ASCII_BYTES.decode('utf-8'))
       self.assertEqual(toUnicode(UNICODE_STRING), UNICODE_STRING)
-      self.assertEqual(toUnicode(5),unicode(5))
+      self.assertEqual(toUnicode(5),str(5))
 
    #############################################################################
    def testToPreferred(self):
@@ -62,21 +62,21 @@ class ArmoryEngineTest(unittest.TestCase):
    def testBasicUtils(self):
       addr = '1Ncui8YjT7JJD91tkf42dijPnqywbupf7w'  # Sam Rushing's BTC address
       i    =  4093
-      hstr = 'fd0f'
-      bstr = '\xfd\x0f'
+      hstr = b'fd0f'
+      bstr = b'\xfd\x0f'
 
       self.callTestFunction('int_to_hex',    hstr, i   )
-      self.callTestFunction('int_to_hex',    hstr, long(i))
-      self.callTestFunction('int_to_hex',    hstr + "00", i, 3)
+      self.callTestFunction('int_to_hex',    hstr, int(i))
+      self.callTestFunction('int_to_hex',    hstr + b"00", i, 3)
       self.callTestFunction('hex_to_int',    i,    hstr)
       self.callTestFunction('int_to_binary', bstr, i   )
       self.callTestFunction('binary_to_int', i,    bstr)
       self.callTestFunction('hex_to_binary', bstr, hstr)
       self.callTestFunction('binary_to_hex', hstr, bstr)
-      self.callTestFunction('hex_switchEndian', '67452301', '01234567')
+      self.callTestFunction('hex_switchEndian', b'67452301', b'01234567')
 
-      hstr = '0ffd'
-      bstr = '\x0f\xfd'
+      hstr = b'0ffd'
+      bstr = b'\x0f\xfd'
 
       self.callTestFunction('int_to_hex',    hstr, i   , 2, BIGENDIAN)
       self.callTestFunction('hex_to_int',    i,    hstr, BIGENDIAN)
@@ -90,36 +90,37 @@ class ArmoryEngineTest(unittest.TestCase):
 
       blockhead = '010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081d8c8c84db3936a1a334b035b'
       blockhash   = '1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000'
-      blockhashBE = '000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511'
-      blockhashBEDifficulty = 3.6349e-48
+      blockhashBE = b'000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511'
+      blockhashBEDifficulty = 3.634904757294615e-48
       allF        = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
       self.callTestFunction('ubtc_to_floatStr', '12.05600000', 1205600000)
       self.callTestFunction('floatStr_to_ubtc', 1205600000, '12.056')
       self.callTestFunction('float_to_btc', 1205600000, 12.056)
 
-      self.callTestFunction('packVarInt', ['A',1], 65)
-      self.callTestFunction('packVarInt', ['\xfd\xff\x00', 3], 255)
-      self.callTestFunction('packVarInt', ['\xfe\x00\x00\x01\x00', 5], 65536)
-      self.callTestFunction('packVarInt', ['\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00', 9], 10**12)
+      self.callTestFunction('packVarInt', [b'A',1], 65)
+      self.callTestFunction('packVarInt', [b'\xfd\xff\x00', 3], 255)
+      self.callTestFunction('packVarInt', [b'\xfe\x00\x00\x01\x00', 5], 65536)
+      self.callTestFunction('packVarInt', [b'\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00', 9], 10**12)
 
-      self.callTestFunction('unpackVarInt', [65,1], 'A')
-      self.callTestFunction('unpackVarInt', [255, 3], '\xfd\xff\x00')
-      self.callTestFunction('unpackVarInt', [65536, 5], '\xfe\x00\x00\x01\x00')
-      self.callTestFunction('unpackVarInt', [10**12, 9], '\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00')
+      self.callTestFunction('unpackVarInt', [65,1], b'A')
+      self.callTestFunction('unpackVarInt', [255, 3], b'\xfd\xff\x00')
+      self.callTestFunction('unpackVarInt', [65536, 5], b'\xfe\x00\x00\x01\x00')
+      self.callTestFunction('unpackVarInt', [10**12, 9], b'\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00')
 
 
-      data   = hex_to_binary('11' + 'aa'*31)
-      dataBE = hex_to_binary('11' + 'aa'*31, endIn=LITTLEENDIAN, endOut=BIGENDIAN)
-      dataE1 = hex_to_binary('11' + 'aa'*30 + 'ab')
-      dataE2 = hex_to_binary('11' + 'aa'*29 + 'abab')
+      data   = hex_to_binary(b'11' + b'aa'*31)
+      dataBE = hex_to_binary(b'11' + b'aa'*31, endIn=LITTLEENDIAN, endOut=BIGENDIAN)
+      dataE1 = hex_to_binary(b'11' + b'aa'*30 + b'ab')
+      dataE2 = hex_to_binary(b'11' + b'aa'*29 + b'abab')
+
       dchk = hash256(data)[:4]
       self.callTestFunction('verifyChecksum', data, data, dchk)
       self.callTestFunction('verifyChecksum', data, dataBE, dchk, beQuiet=True)
-      self.callTestFunction('verifyChecksum', '',   dataE1, dchk, hash256, False, True)  # don't fix
-      self.callTestFunction('verifyChecksum', data, dataE1, dchk, hash256,  True, True)  # try fix
-      self.callTestFunction('verifyChecksum', '',   dataE2, dchk, hash256, False, True)  # don't fix
-      self.callTestFunction('verifyChecksum', '',   dataE2, dchk, hash256,  True, True)  # try fix
+      self.callTestFunction('verifyChecksum', b'',  dataE1, dchk, hash256, False, True)  # don't fix
+      self.callTestFunction('verifyChecksum', data, dataE1, dchk, hash256, True, True)  # try fix
+      self.callTestFunction('verifyChecksum', b'',  dataE2, dchk, hash256, False, True)  # don't fix
+      self.callTestFunction('verifyChecksum', b'',  dataE2, dchk, hash256, True, True)  # try fix
 
 
       verTuple = (0,50,0,0)
@@ -146,8 +147,8 @@ class ArmoryEngineTest(unittest.TestCase):
       self.callTestFunction('readVersionString',  verTuple, verStr)
       self.callTestFunction('readVersionInt',     verTuple, verInt)
 
-      miniKey  = 'S4b3N3oGqDqR5jNuxEvDwf'
-      miniPriv = hex_to_binary('0c28fca386c7a227600b2fe50b7cae11ec86d3bf1fbe471be89827e19d72aa1d')
+      miniKey  = b'S4b3N3oGqDqR5jNuxEvDwf'
+      miniPriv = hex_to_binary(b'0c28fca386c7a227600b2fe50b7cae11ec86d3bf1fbe471be89827e19d72aa1d')
       self.callTestFunction('decodeMiniPrivateKey', miniPriv, miniKey)
 
       self.callTestFunction('coin2str','            0.0000', 0, 4)
@@ -159,17 +160,17 @@ class ArmoryEngineTest(unittest.TestCase):
       self.callTestFunction('coin2strNZS','987.531789', LONG_TEST_NUMBER)
       self.callTestFunction('coin2str_approx','      988       ', LONG_TEST_NUMBER)
       self.callTestFunction('coin2str_approx','     -988       ', LONG_TEST_NUMBER * -1)
-      self.callTestFunction('str2coin', LONG_TEST_NUMBER, '987.53178900')
-      self.assertRaises(ValueError, str2coin, '    ')
-      self.assertRaises(NegativeValueError, str2coin, '-1', False)
-      self.callTestFunction('str2coin', -100000000, '-1', True)
-      self.assertRaises(NegativeValueError, str2coin, '-1.1', False)
-      self.assertRaises(TooMuchPrecisionError, str2coin, '.1111', True, 2, False)
-      self.callTestFunction('str2coin', 11110000, '.1111', True, 8, True)
+      self.callTestFunction('str2coin', LONG_TEST_NUMBER, b'987.53178900')
+      self.assertRaises(ValueError, str2coin, b'    ')
+      self.assertRaises(NegativeValueError, str2coin, b'-1', False)
+      self.callTestFunction('str2coin', -100000000, b'-1', True)
+      self.assertRaises(NegativeValueError, str2coin, b'-1.1', False)
+      self.assertRaises(TooMuchPrecisionError, str2coin, b'.1111', True, 2, False)
+      self.callTestFunction('str2coin', 11110000, b'.1111', True, 8, True)
       self.callTestFunction('sha1', hashlib.new('sha1', bstr).digest(), bstr)
       self.callTestFunction('sha512', hashlib.new('sha512', bstr).digest(), bstr)
-      self.callTestFunction('ripemd160', hex_to_binary('13988143ae67128f883765a4a4b19d77c1ea1ee9'), bstr)
-      self.callTestFunction('hash160', hex_to_binary('d418dd224e11e1d3b37b5f46b072ccf4e4e26203'), bstr)
+      self.callTestFunction('ripemd160', hex_to_binary(b'13988143ae67128f883765a4a4b19d77c1ea1ee9'), bstr)
+      self.callTestFunction('hash160', hex_to_binary(b'd418dd224e11e1d3b37b5f46b072ccf4e4e26203'), bstr)
       self.callTestFunction('binaryBits_to_difficulty', blockhashBEDifficulty, blockhashBE)
 
    #############################################################################
@@ -180,9 +181,11 @@ class ArmoryEngineTest(unittest.TestCase):
       """
       fn = getattr(ArmoryUtils, fnName)
       actualOutput = fn(*args,**kwargs)
-      self.assertAlmostEqual(expectedOutput, actualOutput, 4, \
-         '\n\t' + '___Inputs___:' + str(args) + '\n\t' + '___ExpOut___:' + \
-         str(expectedOutput) + '\n\t' + '___ActOut___:' + str(actualOutput))
+      self.assertEqual(type(expectedOutput), type(actualOutput))
+      self.assertEqual(expectedOutput, actualOutput)
+#, 4, \
+#         '\n\t' + '___Inputs___:' + str(args) + '\n\t' + '___ExpOut___:' + \
+#         str(expectedOutput) + '\n\t' + '___ActOut___:' + str(actualOutput))
 
 
    #############################################################################
@@ -256,53 +259,53 @@ class ArmoryEngineTest(unittest.TestCase):
    #############################################################################
    def testBitcoinUriParser(self):
       ##### Test BIP 0021 parser functions.
-      uri1 = "bitcoin:1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW?amount=0.1&label=Foo%20bar&r=https://example.com/foo/bar/"
-      uri2 = "bitcoin:mq7se9wy2egettFxPbmn99cK8v5AFq55Lx?amount=0.11&r=https://merchant.com/pay.php?h%3D2a8628fc2fbe"
-      uri3 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W"
-      uri4 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr"
-      uri5 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr"
-      uri6 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz"
-      uri7 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999"
-      uri8 = "bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?somethingyoudontunderstand=50&somethingelseyoudontget=999"
+      uri1 = b"bitcoin:1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW?amount=0.1&label=Foo%20bar&r=https://example.com/foo/bar/"
+      uri2 = b"bitcoin:mq7se9wy2egettFxPbmn99cK8v5AFq55Lx?amount=0.11&r=https://merchant.com/pay.php?h%3D2a8628fc2fbe"
+      uri3 = b"bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W"
+      uri4 = b"bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr"
+      uri5 = b"bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr"
+      uri6 = b"bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz"
+      uri7 = b"bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999"
+      uri8 = b"bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?somethingyoudontunderstand=50&somethingelseyoudontget=999"
 
       expectedOut1 = {
-         "address": "1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW",
+         "address": b"1BTCorgHwCg6u2YSAWKgS17qUad6kHmtQW",
          "amount": 10000000,
-         "label": "Foo bar",
-         "r": "https://example.com/foo/bar/"
+         "label": b"Foo bar",
+         "r": b"https://example.com/foo/bar/"
       }
       expectedOut2 = {
-         "address": "mq7se9wy2egettFxPbmn99cK8v5AFq55Lx",
+         "address": b"mq7se9wy2egettFxPbmn99cK8v5AFq55Lx",
          "amount": 11000000,
-         "r": "https://merchant.com/pay.php?h=2a8628fc2fbe"
+         "r": b"https://merchant.com/pay.php?h=2a8628fc2fbe"
       }
       expectedOut3 = {
-         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W"
+         "address": b"175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W"
       }
       expectedOut4 = {
-         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
-         "label": "Luke-Jr"
+         "address": b"175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "label": b"Luke-Jr"
       }
       expectedOut5 = {
-         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "address": b"175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
          "amount": 2030000000,
-         "label": "Luke-Jr"
+         "label": b"Luke-Jr"
       }
       expectedOut6 = {
-         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "address": b"175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
          "amount": 5000000000,
-         "label": "Luke-Jr",
-         "message": "Donation for project xyz"
+         "label": b"Luke-Jr",
+         "message": b"Donation for project xyz"
       }
       expectedOut7 = {
-         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
-         "req-somethingyoudontunderstand": "50",
-         "req-somethingelseyoudontget": "999"
+         "address": b"175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "req-somethingyoudontunderstand": b"50",
+         "req-somethingelseyoudontget": b"999"
       }
       expectedOut8 = {
-         "address": "175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
-         "somethingyoudontunderstand": "50",
-         "somethingelseyoudontget": "999"
+         "address": b"175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W",
+         "somethingyoudontunderstand": b"50",
+         "somethingelseyoudontget": b"999"
       }
 
       parseOut1 = parseBitcoinURI(uri1)
@@ -328,16 +331,16 @@ class ArmoryEngineTest(unittest.TestCase):
 
       # This will be used for testing
       def doLongOperation(throwError=False):
-         j = '\xab'*32
+         j = b'\xab'*32
          n = 20000
-         for i in xrange(n):
+         for i in range(n):
             j = hash160(j)
             if i==n/2 and throwError:
                raise ValueError('This is a forced error')
          return j
 
       # On completion, the following should be the output
-      ans = '\\\xea\xef\xc6:\xd4\xd7\xed\xee_YM\xf1\xa1aV\x81\x03Y\xc1'
+      ans = b'\\\xea\xef\xc6:\xd4\xd7\xed\xee_YM\xf1\xa1aV\x81\x03Y\xc1'
 
       # Test proper thread execution
       thr = PyBackgroundThread(doLongOperation, False)
@@ -367,11 +370,11 @@ class ArmoryEngineTest(unittest.TestCase):
 
    #############################################################################
    def test_read_address(self):
-      hashVal = hex_to_binary('c3a9eb6753c449c88ac193e9ddf7ab3a0be8c5ad')
+      hashVal = hex_to_binary(b'c3a9eb6753c449c88ac193e9ddf7ab3a0be8c5ad')
       addrStr00  = hash160_to_addrStr(hashVal)
       addrStr05  = hash160_to_p2shAddrStr(hashVal)
-      addrStrA3  = '28tvtpKmqbKUVaGHshsVKWTaRHJ5yG36xvv'
-      addrStrBad = '1JqaKdBsruwgGcZkiVCNU2DBh56DHBsEb1'
+      addrStrA3  = b'28tvtpKmqbKUVaGHshsVKWTaRHJ5yG36xvvx'
+      addrStrBad = b'1JqaKdBsruwgGcZkiVCNU2DBh56DHBsEb1'
 
       prefix, a160 = addrStr_to_hash160(addrStr00)
       self.assertEqual(prefix, ADDRBYTE)
@@ -390,33 +393,33 @@ class ArmoryEngineTest(unittest.TestCase):
 
    #############################################################################
    def test_p2pkhash_script(self):
-      pkh = '\xab'*20
+      pkh = b'\xab'*20
       computed = hash160_to_p2pkhash_script(pkh)
-      expected = '\x76\xa9\x14' + pkh + '\x88\xac'
+      expected = b'\x76\xa9\x14' + pkh + b'\x88\xac'
       self.assertEqual(computed, expected)
 
       # Make sure it raises an error on non-20-byte inputs
-      self.assertRaises(InvalidHashError, hash160_to_p2pkhash_script, '\xab'*21)
+      self.assertRaises(InvalidHashError, hash160_to_p2pkhash_script, b'\xab'*21)
 
 
    #############################################################################
    def test_p2sh_script(self):
-      scriptHash = '\xab'*20
+      scriptHash = b'\xab'*20
       computed = hash160_to_p2sh_script(scriptHash)
-      expected = '\xa9\x14' + scriptHash + '\x87'
+      expected = b'\xa9\x14' + scriptHash + b'\x87'
       self.assertEqual(computed, expected)
    
       # Make sure it raises an error on non-20-byte inputs
-      self.assertRaises(InvalidHashError, hash160_to_p2sh_script, '\xab'*21)
+      self.assertRaises(InvalidHashError, hash160_to_p2sh_script, b'\xab'*21)
 
 
    #############################################################################
    def test_p2pk_script(self):
-      pubkey   = ['\x3a'*33, \
-                  '\x3a'*65]
+      pubkey   = [b'\x3a'*33, \
+                  b'\x3a'*65]
 
-      expected = ['\x21' + '\x3a'*33 + '\xac', \
-                  '\x41' + '\x3a'*65 + '\xac']
+      expected = [b'\x21' + b'\x3a'*33 + b'\xac', \
+                  b'\x41' + b'\x3a'*65 + b'\xac']
 
       for i in range(2):
          pk = pubkey[i]
@@ -430,9 +433,9 @@ class ArmoryEngineTest(unittest.TestCase):
 
    #############################################################################
    def test_script_to_p2sh(self):
-      script = '\xab'*10
-      scriptHash = hex_to_binary('fc7eb079a69ac4a98e49ea373c91f62b8b9cebe2')
-      expected = '\xa9\x14' + scriptHash + '\x87'
+      script = b'\xab'*10
+      scriptHash = hex_to_binary(b'fc7eb079a69ac4a98e49ea373c91f62b8b9cebe2')
+      expected = b'\xa9\x14' + scriptHash + b'\x87'
       self.assertEqual( script_to_p2sh_script(script), expected)
 
    #############################################################################
@@ -456,9 +459,14 @@ class ArmoryEngineTest(unittest.TestCase):
    def testCppScrAddr(self):
 
       ##### Pay to hash(pubkey)
-      script  = hex_to_binary("76a914a134408afa258a50ed7a1d9817f26b63cc9002cc88ac")
-      a160    = hex_to_binary(      "a134408afa258a50ed7a1d9817f26b63cc9002cc")
-      scraddr = hex_to_binary(    "00a134408afa258a50ed7a1d9817f26b63cc9002cc")
+      script  = hex_to_binary(b"76a914a134408afa258a50ed7a1d9817f26b63cc9002cc88ac")
+      a160    = hex_to_binary(      b"a134408afa258a50ed7a1d9817f26b63cc9002cc")
+      scraddr = hex_to_binary(    b"00a134408afa258a50ed7a1d9817f26b63cc9002cc")
+
+      self.assertEqual(script, b'v\xa9\x14\xa14@\x8a\xfa%\x8aP\xedz\x1d\x98\x17\xf2kc\xcc\x90\x02\xcc\x88\xac')
+      self.assertEqual(binary_to_hex(script), b"76a914a134408afa258a50ed7a1d9817f26b63cc9002cc88ac")
+      self.assertEqual(a160, b'\xa14@\x8a\xfa%\x8aP\xedz\x1d\x98\x17\xf2kc\xcc\x90\x02\xcc')
+      self.assertEqual(scraddr, b'\x00\xa14@\x8a\xfa%\x8aP\xedz\x1d\x98\x17\xf2kc\xcc\x90\x02\xcc')
 
       self.assertEqual(script,  scrAddr_to_script(scraddr))
       self.assertEqual(scraddr, script_to_scrAddr(script))  # this uses C++
@@ -467,23 +475,23 @@ class ArmoryEngineTest(unittest.TestCase):
       
 
       ##### Pay to PubKey65
-      script = hex_to_binary( "4104"
-                              "b0bd634234abbb1ba1e986e884185c61"
-                              "cf43e001f9137f23c2c409273eb16e65"
-                              "37a576782eba668a7ef8bd3b3cfb1edb"
-                              "7117ab65129b8a2e681f3c1e0908ef7b""ac")
-      a160    = hex_to_binary(  "e24b86bff5112623ba67c63b6380636cbdf1a66d")
-      scraddr = hex_to_binary("00e24b86bff5112623ba67c63b6380636cbdf1a66d")
+      script = hex_to_binary( b"4104" +
+                              b"b0bd634234abbb1ba1e986e884185c61" +
+                              b"cf43e001f9137f23c2c409273eb16e65" +
+                              b"37a576782eba668a7ef8bd3b3cfb1edb" +
+                              b"7117ab65129b8a2e681f3c1e0908ef7bac")
+      a160    = hex_to_binary(  b"e24b86bff5112623ba67c63b6380636cbdf1a66d")
+      scraddr = hex_to_binary(b"00e24b86bff5112623ba67c63b6380636cbdf1a66d")
       self.assertEqual(scraddr, script_to_scrAddr(script))
       self.assertEqual(scraddr, addrStr_to_scrAddr(scrAddr_to_addrStr(scraddr)))
 
 
       ##### Pay to PubKey33
-      script = hex_to_binary( "2102"
-                              "4005c945d86ac6b01fb04258345abea7"
-                              "a845bd25689edb723d5ad4068ddd3036""ac")
-      a160    = hex_to_binary(  "0c1b83d01d0ffb2bccae606963376cca3863a7ce")
-      scraddr = hex_to_binary("000c1b83d01d0ffb2bccae606963376cca3863a7ce")
+      script = hex_to_binary( b"2102" +
+                              b"4005c945d86ac6b01fb04258345abea7" +
+                              b"a845bd25689edb723d5ad4068ddd3036ac")
+      a160    = hex_to_binary(  b"0c1b83d01d0ffb2bccae606963376cca3863a7ce")
+      scraddr = hex_to_binary(b"000c1b83d01d0ffb2bccae606963376cca3863a7ce")
 
       self.assertEqual(scraddr, script_to_scrAddr(script))
       self.assertEqual(scraddr, addrStr_to_scrAddr(scrAddr_to_addrStr(scraddr)))
@@ -491,16 +499,16 @@ class ArmoryEngineTest(unittest.TestCase):
       ##### Non-standard script
       # This was from block 150951 which was erroneously produced by MagicalTux
       # This is not only non-standard, it's non-spendable
-      script  = hex_to_binary("76a90088ac")
-      scraddr = hex_to_binary("ff") + hash160(hex_to_binary("76a90088ac"))
+      script  = hex_to_binary(b"76a90088ac")
+      scraddr = hex_to_binary(b"ff") + hash160(hex_to_binary(b"76a90088ac"))
 
       self.assertEqual(scraddr, script_to_scrAddr(script))
 
       
       ##### P2SH
-      script  = hex_to_binary("a914d0c15a7d41500976056b3345f542d8c944077c8a87")
-      a160    = hex_to_binary(  "d0c15a7d41500976056b3345f542d8c944077c8a")
-      scraddr = hex_to_binary("05d0c15a7d41500976056b3345f542d8c944077c8a")
+      script  = hex_to_binary(b"a914d0c15a7d41500976056b3345f542d8c944077c8a87")
+      a160    = hex_to_binary(  b"d0c15a7d41500976056b3345f542d8c944077c8a")
+      scraddr = hex_to_binary(b"05d0c15a7d41500976056b3345f542d8c944077c8a")
 
       self.assertEqual(script,  scrAddr_to_script(scraddr))
       self.assertEqual(scraddr, script_to_scrAddr(script))  # this uses C++
@@ -513,7 +521,7 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
 
    #############################################################################
    def testBinaryUnpacker(self):
-      ts = '\xff\xff\xff'
+      ts = b'\xff\xff\xff'
       bu = BinaryUnpacker(ts)
       self.assertEqual(bu.getSize(), len(ts))
       bu.advance(1)
@@ -538,9 +546,9 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
       TEST_UINT = 0xff
       TEST_INT = -1
       TEST_VARINT = 78
-      TEST_STR = 'abc'
-      TEST_BINARY_PACKER_STR = hex_to_binary('ffff00ff000000ff00000000000000ffffffffffffffffffffffffffffff4e0361626352069e3fffffffffffff00')
-      FS_FOR_3_BYTES = '\xff\xff\xff'
+      TEST_STR = b'abc'
+      TEST_BINARY_PACKER_STR = hex_to_binary(b'ffff00ff000000ff00000000000000ffffffffffffffffffffffffffffff4e0361626352069e3fffffffffffff00')
+      FS_FOR_3_BYTES = b'\xff\xff\xff'
       bp = BinaryPacker()
       bp.put(UINT8, TEST_UINT)
       bp.put(UINT16, TEST_UINT)
@@ -573,7 +581,7 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
       self.assertEqual(bu.get(VAR_STR), TEST_STR)
       self.assertAlmostEqual(bu.get(FLOAT), TEST_FLOAT, 2)
       self.assertEqual(bu.get(BINARY_CHUNK, 3), FS_FOR_3_BYTES)
-      self.assertEqual(bu.get(BINARY_CHUNK, 4), FS_FOR_3_BYTES+"\x00")
+      self.assertEqual(bu.get(BINARY_CHUNK, 4), FS_FOR_3_BYTES+b"\x00")
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)
       self.assertRaises(UnpackerError, bu.get, UNKNOWN_TYPE)
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)

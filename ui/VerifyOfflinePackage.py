@@ -5,8 +5,8 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from PyQt4.Qt import * #@UnusedWildImport
-from PyQt4.QtGui import * #@UnusedWildImport
+from PyQt5.Qt import * #@UnusedWildImport
+from PyQt5.QtGui import * #@UnusedWildImport
 from qtdefines import tr, QRichLabel, ArmoryDialog
 from armoryengine.parseAnnounce import *
 from armorycolors import htmlColor
@@ -14,7 +14,7 @@ from armorycolors import htmlColor
 
 class VerifyOfflinePackageDialog(ArmoryDialog):
    def __init__(self, parent, main):
-      super(VerifyOfflinePackageDialog, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.main = main
 
       layout = QVBoxLayout(self)
@@ -26,7 +26,7 @@ class VerifyOfflinePackageDialog(ArmoryDialog):
       load.setLayout(layoutload)
       self.loadFileButton = QPushButton(tr("Select file to verify..."), load);
       layoutload.addWidget(self.loadFileButton)
-      self.connect(self.loadFileButton, SIGNAL('clicked()'), self.load)
+      self.loadFileButton.clicked.connect(self.load)
 
       self.lblVerified = QRichLabel('', hAlign=Qt.AlignHCenter, doWrap=False)
       layout.addWidget(self.lblVerified)
@@ -40,7 +40,7 @@ class VerifyOfflinePackageDialog(ArmoryDialog):
       self.saveFileButton = QPushButton(tr("Select file to save to..."), load);
       self.saveFileButton.setEnabled(False)
       layoutsave.addWidget(self.saveFileButton)
-      self.connect(self.saveFileButton, SIGNAL('clicked()'), self.save)
+      self.saveFileButton.clicked.connect(self.save)
       self.setWindowTitle('Verify Signed Package')
 
       
@@ -68,7 +68,7 @@ class VerifyOfflinePackageDialog(ArmoryDialog):
       signatureData = allfile[len(magicstart):end]
       fileData = allfile[end+len(magicend):]
       
-      print "All:",end, end+len(magicend), len(fileData), len(allfile)
+      print("All:",end, end+len(magicend), len(fileData), len(allfile))
       
       allsigs = downloadLinkParser(filetext=signatureData).downloadMap
       
@@ -76,14 +76,14 @@ class VerifyOfflinePackageDialog(ArmoryDialog):
       
       good=False
       url=None
-      print "Hash of package file: ", res
+      print("Hash of package file: ", res)
       
       # simply check if any of the hashes match
-      for pack in allsigs.itervalues():
-         for packver in pack.itervalues():
-            for packos in packver.itervalues():
-               for packosver in packos.itervalues():
-                  for packosarch in packosver.itervalues():
+      for pack in allsigs.values():
+         for packver in pack.values():
+            for packos in packver.values():
+               for packosver in packos.values():
+                  for packosarch in packosver.values():
                      okhash = packosarch[1]
                      if okhash == res:
                         url = packosarch[0]

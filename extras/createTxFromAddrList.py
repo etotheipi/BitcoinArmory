@@ -34,7 +34,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    
    if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       # Only executed on the first call if blockchain not loaded yet.
-      print '\nLoading blockchain...'
+      print('\nLoading blockchain...')
       BDM_LoadBlockchainFile()  # can add optional arg for blk0001.dat location
 
 
@@ -45,13 +45,13 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
          raise WalletAddressError, 'Address is not in wallet! [%s]' % addr
    
 
-   print '\nUpdating wallet from blockchain'
+   print('\nUpdating wallet from blockchain')
    walletObj.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
    # Out of date code: walletObj.syncWithBlockchainLite()
-   print 'Total Wallet Balance:',coin2str(walletObj.getBalance('Spendable'))
+   print('Total Wallet Balance:',coin2str(walletObj.getBalance('Spendable')))
    
 
-   print '\nCollecting Unspent TXOut List...'
+   print('\nCollecting Unspent TXOut List...')
    # getAddrTxOutList() returns a C++ vector<UnspentTxOut> object, which must 
    # be converted to a python object using the [:] notation:  it's a weird 
    # consequence of mixing C++ code with python via SWIG...
@@ -67,8 +67,8 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    # Display what we found
    totalUtxo = sumTxOutList(utxoList)
    totalSpend   = sum([pair[1] for pair in recipList])
-   print 'Available:  %d unspent outputs from %d addresses: %s BTC' % \
-                  (len(utxoList), len(addrList), coin2str(totalUtxo, ndec=2))
+   print('Available:  %d unspent outputs from %d addresses: %s BTC' % \
+                  (len(utxoList), len(addrList), coin2str(totalUtxo, ndec=2)))
 
    # Print more detailed information
    pprintUnspentTxOutList(utxoList, 'Available outputs: ')
@@ -83,19 +83,19 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    #############################################################################
 
    # PySelectCoins() assumes that the remaining will be sent to a change addr
-   print 'Selecting coins based on unspent outputs, recipients, fee...'
+   print('Selecting coins based on unspent outputs, recipients, fee...')
    selectedUtxoList = PySelectCoins(utxoList, totalSpend, fee)
 
-   print 'Checking that minimum required fee is satisfied for this tx...'
+   print('Checking that minimum required fee is satisfied for this tx...')
    minValidFee = calcMinSuggestedFees(selectedUtxoList, totalSpend, fee, len(recipList))[1]
 
    if minValidFee>fee:
-      print '***WARNING:'
-      print 'This transaction requires a fee of at least %s BTC' % coin2str(minValidFee)
-      print 'Sending of this transaction *will fail*.  Will you increase the fee?'
+      print('***WARNING:')
+      print('This transaction requires a fee of at least %s BTC' % coin2str(minValidFee))
+      print('Sending of this transaction *will fail*.  Will you increase the fee?')
       confirm = raw_input('Increase Fee [Y/n]:')
       if 'n' in confirm.lower():
-         print 'ABORTING'
+         print('ABORTING')
          return None
       fee = minValidFee
       selectedUtxoList = PySelectCoins(utxoList, totalSpend, fee)
@@ -111,7 +111,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    totalSelect = sumTxOutList(selectedUtxoList) 
    totalChange = totalSelect - (totalSpend + fee)
    if totalChange < 0:
-      print '***ERROR: you are trying to spend more than your balance!'
+      print('***ERROR: you are trying to spend more than your balance!')
       return None
    elif totalChange!=0:
       # Need to add a change output, get from wallet if necessary
@@ -119,8 +119,8 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
          changeAddr = walletObj.getNextUnusedAddress().getAddrStr()
       recip160List.append( (extractHash160(changeAddr), totalChange) )
 
-   print 'Creating Distribution Proposal (just an unsigned transaction)...'
-   print [(hash160_to_addrStr(r),coin2str(v)) for r,v in recip160List]
+   print('Creating Distribution Proposal (just an unsigned transaction)...')
+   print([(hash160_to_addrStr(r),coin2str(v)) for r,v in recip160List])
 
    
    # ACR:  To support P2SH in general, had to change createFromTxOutSelection
@@ -155,32 +155,33 @@ if __name__ == '__main__':
    sendChangeTo = None
    
    # Remember, must specify amounts in SATOSHIs
-   print 'Creating Unsigned Transaction...'
+   print('Creating Unsigned Transaction...')
    txdp = createTxFromAddrList(wlt, addrList, recipList, 50000, sendChangeTo)
    txdp.pprint()
    
-   print 'Transaction created, now sign it...'
+   print('Transaction created, now sign it...')
    if wlt.useEncryption and wlt.isLocked:
-      passphrase = SecureBinaryData(getpass('Passphrase to unlock wallet: '))
+      passphrase = SecureBinaryData()
+      passphrase.createFromHex(binary_to_hex(getpass('Passphrase to unlock wallet: ').encode()).decode())
       wlt.unlock(securePassphrase=passphrase)
       passphrase.destroy()
 
 
-   print 'Signing transaction with wallet...'
+   print('Signing transaction with wallet...')
    wlt.signTxDistProposal(txdp)
    
-   print 'Transaction is fully signed?', 
-   print txdp.checkTxHasEnoughSignatures(alsoVerify=True)
+   print('Transaction is fully signed?', )
+   print(txdp.checkTxHasEnoughSignatures(alsoVerify=True))
    
-   print 'Preparing final transaction...'
+   print('Preparing final transaction...')
    pytx = txdp.getPyTxSignedIfPossible()
 
-   print '\nRaw transaction (pretty):'
+   print('\nRaw transaction (pretty):')
    pprintHex(binary_to_hex(pytx.serialize()))
    
-   print '\nRaw transaction (raw hex, copy into http://bitsend.rowit.co.uk):'
-   print binary_to_hex(pytx.serialize())
+   print('\nRaw transaction (raw hex, copy into http://bitsend.rowit.co.uk):')
+   print(binary_to_hex(pytx.serialize()))
    
-   print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
-   print txdp.serializeAscii()
+   print('\nSigned transaction to be broadcast using Armory "offline transactions"...')
+   print(txdp.serializeAscii())
    

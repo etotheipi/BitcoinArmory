@@ -6,8 +6,8 @@
 #                                                                              #
 ################################################################################
 
-from PyQt4.Qt import * #@UnusedWildImport
-from PyQt4.QtGui import * #@UnusedWildImport
+from PyQt5.Qt import * #@UnusedWildImport
+from PyQt5.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import * #@UnusedWildImport
@@ -17,7 +17,7 @@ WALLET_DATA_ENTRY_FIELD_WIDTH = 60
 
 class LockboxSelectFrame(ArmoryFrame):
    def __init__(self, parent, main, layoutDir=VERTICAL, spendFromLBID=None):
-      super(LockboxSelectFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
 
       self.lbox = self.main.getLockboxByID(spendFromLBID)
       self.cppWlt = self.main.cppLockboxWltMap[spendFromLBID]
@@ -31,7 +31,7 @@ class LockboxSelectFrame(ArmoryFrame):
 
       lblSpendFromLB = QRichLabel(tr(""" <font color="%s" size=4><b><u>Lockbox   
          %s (%d-of-%d)</u></b></font>""") % (htmlColor('TextBlue'), \
-         self.lbox.uniqueIDB58, self.lbox.M, self.lbox.N))
+         self.lbox.uniqueIDB58.decode(), self.lbox.M, self.lbox.N))
       lblSpendFromLB.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lbls = []
@@ -47,7 +47,7 @@ class LockboxSelectFrame(ArmoryFrame):
          layoutDetails.addWidget(lbl, i+1, 0)
          
       # LockboxID
-      self.dispID = QRichLabel(spendFromLBID)
+      self.dispID = QRichLabel(spendFromLBID.decode())
 
       # Lockbox Short Description/Name
       self.dispName = QRichLabel(self.lbox.shortName)
@@ -99,7 +99,7 @@ class SelectWalletFrame(ArmoryFrame):
                                     coinControlCallback=None,
                                     onlyOfflineWallets=False):
 
-      super(SelectWalletFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.coinControlCallback = coinControlCallback
 
       self.walletComboBox = QComboBox()
@@ -146,8 +146,8 @@ class SelectWalletFrame(ArmoryFrame):
             self.walletListBox.setCurrentRow(selectedWltIndex)
 
 
-      self.connect(self.walletComboBox, SIGNAL('currentIndexChanged(int)'), self.updateOnWalletChange)
-      self.connect(self.walletListBox,  SIGNAL('currentRowChanged(int)'),   self.updateOnWalletChange)
+      self.walletComboBox.currentIndexChanged.connect(self.updateOnWalletChange)
+      self.walletListBox.currentRowChanged.connect(self.updateOnWalletChange)
 
       # Start the layout
       layout =  QVBoxLayout() 
@@ -194,7 +194,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.lblCoinCtrl = QRichLabel('Source: All addresses', doWrap=False)
          frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
          self.btnCoinCtrl = QPushButton('Coin Control')
-         self.connect(self.btnCoinCtrl, SIGNAL(clicked()), self.doCoinCtrl)
+         self.btnCoinCtrl.clicked.connect(self.doCoinCtrl)
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
       frmLayout.setColumnStretch(0, 1)
       frmLayout.setColumnStretch(1, 1)
@@ -265,7 +265,7 @@ class SelectWalletFrame(ArmoryFrame):
       if len(wltID) > 0:
          wlt = self.main.walletMap[wltID]
                
-         self.dispID.setText(wltID)
+         self.dispID.setText(wltID.decode())
          self.dispName.setText(wlt.labelName)
          self.dispDescr.setText(wlt.labelDescr)
          self.selectedID = wltID
@@ -298,7 +298,7 @@ class SelectWalletFrame(ArmoryFrame):
       wlt = self.main.walletMap[self.getSelectedWltID()]
       fullBal = wlt.getBalance('Spendable')
       if useAllAddr:
-         self.dispID.setText(wlt.uniqueIDB58)
+         self.dispID.setText(wlt.uniqueIDB58.decode())
          self.dispName.setText(wlt.labelName)
          self.dispDescr.setText(wlt.labelDescr)
          if fullBal == 0:
@@ -306,7 +306,7 @@ class SelectWalletFrame(ArmoryFrame):
          else:
             self.dispBal.setValueText(fullBal, wBold=True)
       else:
-         self.dispID.setText(wlt.uniqueIDB58 + '*')
+         self.dispID.setText(wlt.uniqueIDB58.decode() + '*')
          self.dispName.setText(wlt.labelName + '*')
          self.dispDescr.setText('*Coin Control Subset*', color='TextBlue', bold=True)
          self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextBlue')
@@ -332,7 +332,7 @@ class SelectWalletFrame(ArmoryFrame):
 class NewWalletFrame(ArmoryFrame):
 
    def __init__(self, parent, main, initLabel=''):
-      super(NewWalletFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.editName = QLineEdit()
       self.editName.setMinimumWidth(tightSizeNChar(self.editName,\
                                  WALLET_DATA_ENTRY_FIELD_WIDTH)[0])
@@ -385,7 +385,7 @@ class NewWalletFrame(ArmoryFrame):
 
 class AdvancedOptionsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel=''):
-      super(AdvancedOptionsFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       lblComputeDescription = QRichLabel( \
                   'Armory will test your system\'s speed to determine the most '
                   'challenging encryption settings that can be performed '
@@ -467,7 +467,7 @@ class AdvancedOptionsFrame(ArmoryFrame):
       
 class SetPassphraseFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='', passphraseCallback=None):
-      super(SetPassphraseFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       self.passphraseCallback = passphraseCallback
       layout = QGridLayout()
       lblDlgDescr = QLabel('Please enter a passphrase for wallet encryption.\n\n'
@@ -494,10 +494,8 @@ class SetPassphraseFrame(ArmoryFrame):
       self.lblMatches.setTextFormat(Qt.RichText)
       layout.addWidget(self.lblMatches, 3, 1)
       self.setLayout(layout)
-      self.connect(self.editPasswd1, SIGNAL('textChanged(QString)'), \
-                   self.checkPassphrase)
-      self.connect(self.editPasswd2, SIGNAL('textChanged(QString)'), \
-                   self.checkPassphrase)
+      self.editPasswd1.textChanged.connect(self.checkPassphrase)
+      self.editPasswd2.textChanged.connect(self.checkPassphrase)
 
 
       # These help us collect entropy as the user goes through the wizard
@@ -512,8 +510,8 @@ class SetPassphraseFrame(ArmoryFrame):
       p2 = self.editPasswd2.text()
       goodColor = htmlColor('TextGreen')
       badColor = htmlColor('TextRed')
-      if not isASCII(unicode(p1)) or \
-         not isASCII(unicode(p2)):
+      if not isASCII(str(p1)) or \
+         not isASCII(str(p2)):
          if sideEffects:
             self.lblMatches.setText('<font color=%s><b>Passphrase is non-ASCII!</b></font>' % badColor)
          result = False
@@ -537,7 +535,7 @@ class SetPassphraseFrame(ArmoryFrame):
    
 class VerifyPassphraseFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel=''):
-      super(VerifyPassphraseFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       lblWarnImgL = QLabel()
       lblWarnImgL.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImgL.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -582,7 +580,7 @@ class WalletBackupFrame(ArmoryFrame):
                    'Visual', 'Physical', 'Count')
    OPTIONS = enum('Paper1', 'PaperN', 'DigPlain', 'DigCrypt', 'Export', 'Count')
    def __init__(self, parent, main, initLabel=''):
-      super(WalletBackupFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
       # Don't have a wallet yet so assume false.
       self.hasImportedAddr = False
       self.isBackupCreated = False
@@ -638,13 +636,13 @@ class WalletBackupFrame(ArmoryFrame):
       btngrpDig.addButton(self.optDigitalBackupCrypt)
       btngrpDig.setExclusive(True)
 
-      self.connect(self.optPaperBackupTop, SIGNAL(clicked()), self.optionClicked)
-      self.connect(self.optPaperBackupOne, SIGNAL(clicked()), self.optionClicked)
-      self.connect(self.optPaperBackupFrag, SIGNAL(clicked()), self.optionClicked)
-      self.connect(self.optDigitalBackupTop, SIGNAL(clicked()), self.optionClicked)
-      self.connect(self.optDigitalBackupPlain, SIGNAL(clicked()), self.optionClicked)
-      self.connect(self.optDigitalBackupCrypt, SIGNAL(clicked()), self.optionClicked)
-      self.connect(self.optIndivKeyListTop, SIGNAL(clicked()), self.optionClicked)
+      self.optPaperBackupTop.clicked.connect(self.optionClicked)
+      self.optPaperBackupOne.clicked.connect(self.optionClicked)
+      self.optPaperBackupFrag.clicked.connect(self.optionClicked)
+      self.optDigitalBackupTop.clicked.connect(self.optionClicked)
+      self.optDigitalBackupPlain.clicked.connect(self.optionClicked)
+      self.optDigitalBackupCrypt.clicked.connect(self.optionClicked)
+      self.optIndivKeyListTop.clicked.connect(self.optionClicked)
 
 
       spacer = lambda: QSpacerItem(20, 1, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -750,7 +748,7 @@ class WalletBackupFrame(ArmoryFrame):
       self.lblDescrSelected.setMinimumHeight(tightSizeNChar(self, 10)[1] * 8)
 
       self.btnDoIt = QPushButton('Create Backup')
-      self.connect(self.btnDoIt, SIGNAL(clicked()), self.clickedDoIt)
+      self.btnDoIt.clicked.connect(self.clickedDoIt)
 
       layout = QGridLayout()
       layout.addWidget(self.lblTitle, 0, 0, 1, 2)
@@ -793,7 +791,7 @@ class WalletBackupFrame(ArmoryFrame):
 
          
       self.lblTitle.setText(tr("""
-         <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
+         <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID.decode())))
 
    #############################################################################
    def setDispFrame(self, index):
@@ -996,7 +994,7 @@ class WalletBackupFrame(ArmoryFrame):
 class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 
    def __init__(self, parent, main, initLabel='', backupCreatedCallback=None):
-      super(WizardCreateWatchingOnlyWalletFrame, self).__init__(parent, main)
+      super().__init__(parent, main)
 
 
       summaryText = QRichLabel(tr("""
@@ -1019,7 +1017,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
                Use the "<i>Import or Restore Wallet</i>" button in the
                upper-right corner"""))
       lbtnForkWlt = QPushButton('Create Watching-Only Copy')
-      self.connect(lbtnForkWlt, SIGNAL(clicked()), self.forkOnlineWallet)
+      lbtnForkWlt.clicked.connect(self.forkOnlineWallet)
       layout = QVBoxLayout()
       layout.addWidget(summaryText)
       layout.addWidget(lbtnForkWlt)

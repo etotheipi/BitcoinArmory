@@ -6,7 +6,7 @@ import unittest
 from armoryengine.parseAnnounce import *
 from armoryengine.ArmoryUtils import *
 
-changelogTestText = """
+changelogTestText = b"""
 # This is a comment
 
        # Nothing to see here
@@ -85,7 +85,7 @@ fullFeatureLists = \
     
 
 
-downloadTestText = """
+downloadTestText = b"""
 -----BEGIN BITCOIN SIGNED MESSAGE-----
 
 # Armory for Windows
@@ -123,7 +123,7 @@ U0zy72vLLx9mpKJQdDmV7k0=
 
 
 
-notifyTestText = """
+notifyTestText = b"""
 -----BEGIN BITCOIN SIGNED MESSAGE-----
 Comment: Signed by Bitcoin Armory v0.90.99
 
@@ -242,21 +242,21 @@ class parseDownloadTest(TiabTest):
 
    def testParseDL(self):
 
-      dllink = self.dl.getDownloadLink('Armory','0.91','Windows','XP','32')
-      self.assertEqual(dllink, ['http://url/armory_0.91_xp32.exe', '3afb9881c32'])
+      dllink = self.dl.getDownloadLink(b'Armory',b'0.91',b'Windows',b'XP',b'32')
+      self.assertEqual(dllink, [b'http://url/armory_0.91_xp32.exe', b'3afb9881c32'])
 
-      dllink = self.dl.getDownloadLink('Armory','0.91','Windows','Vista','32')
-      self.assertEqual(dllink, ['http://url/armory_0.91.exe', '7f3b9964aa3'])
+      dllink = self.dl.getDownloadLink(b'Armory',b'0.91',b'Windows',b'Vista',b'32')
+      self.assertEqual(dllink, [b'http://url/armory_0.91.exe', b'7f3b9964aa3'])
 
       # This is a real file with a real hash, for testing DL in Armory
-      dllink = self.dl.getDownloadLink('Satoshi','0.9.0','Windows','7','64')
-      self.assertEqual(dllink, ['http://btc.org/win0.9.0.exe',
-            '837f6cb4981314b323350353e1ffed736badb1c8c0db083da4e5dfc0dd47cdf1'])
+      dllink = self.dl.getDownloadLink(b'Satoshi',b'0.9.0',b'Windows',b'7',b'64')
+      self.assertEqual(dllink, [b'http://btc.org/win0.9.0.exe',
+            b'837f6cb4981314b323350353e1ffed736badb1c8c0db083da4e5dfc0dd47cdf1'])
 
-      dllink = self.dl.getDownloadLink('ArmoryOffline','0.88','Ubuntu','10.04','32')
-      self.assertEqual(dllink, ['http://url/offbundle-32-88.tar.gz', '641382c93b9'])
+      dllink = self.dl.getDownloadLink(b'ArmoryOffline',b'0.88',b'Ubuntu',b'10.04',b'32')
+      self.assertEqual(dllink, [b'http://url/offbundle-32-88.tar.gz', b'641382c93b9'])
 
-      dllink = self.dl.getDownloadLink('Armory','1.01','WIndows','10.04','32')
+      dllink = self.dl.getDownloadLink(b'Armory',b'1.01',b'WIndows',b'10.04',b'32')
       self.assertEqual(dllink, None)
 
 
@@ -274,17 +274,16 @@ class parseNotifyTest(TiabTest):
 
       notifyMap = self.notify.getNotificationMap()
 
+      self.assertEqual(notifyMap[b'873fbc11'][b'VERSION'], b'0')
+      self.assertEqual(notifyMap[b'873fbc11'][b'CANCELID'], b'[]')
+      self.assertEqual(notifyMap[b'873fbc11'][b'MAXVERSION'], b'0.88.1')
+      self.assertEqual(notifyMap[b'873fbc11'][b'LONGDESCR'].strip()[:14], b'THIS IS A FAKE')
 
-      self.assertEqual(notifyMap['873fbc11']['VERSION'], '0')
-      self.assertEqual(notifyMap['873fbc11']['CANCELID'], '[]')
-      self.assertEqual(notifyMap['873fbc11']['MAXVERSION'], '0.88.1')
-      self.assertTrue(notifyMap['873fbc11']['LONGDESCR'].strip().startswith('THIS IS A FAKE'))
-
-      self.assertEqual(notifyMap['113c948a']['VERSION'], '0')
-      self.assertEqual(notifyMap['113c948a']['CANCELID'], '[]')
+      self.assertEqual(notifyMap[b'113c948a'][b'VERSION'], b'0')
+      self.assertEqual(notifyMap[b'113c948a'][b'CANCELID'], b'[]')
       # This is a bogus assertion that must fail unless updated on every release:
       # self.assertEqual(notifyMap['113c948a']['MAXVERSION'], '0.91.99.7')
-      self.assertTrue(notifyMap['113c948a']['LONGDESCR'].strip().startswith('The new version'))
+      self.assertEqual(notifyMap[b'113c948a'][b'LONGDESCR'].strip()[:15], b'The new version')
 
 # Running tests with "python <module name>" will NOT work for any Armory tests
 # You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"

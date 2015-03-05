@@ -1,12 +1,7 @@
 # Written by Bram Cohen
 # see LICENSE.txt for license information
 
-from clock import clock
-try:
-    True
-except:
-    True = 1
-    False = 0
+from .clock import clock
 
 FACTOR = 0.999
 
@@ -62,7 +57,7 @@ class RateMeasure:
         t = clock()
         t1 = int(t)
         l1 = int(self.last)
-        for i in xrange(l1,t1):
+        for i in range(l1,t1):
             self.time *= FACTOR
             self.got *= FACTOR
         self.got += amount

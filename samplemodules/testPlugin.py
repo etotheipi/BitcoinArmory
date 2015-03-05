@@ -7,7 +7,7 @@
 import ast
 import urllib2
 
-from PyQt4.Qt import QPushButton, SIGNAL, Qt, QLineEdit, QTableWidget, \
+from PyQt5.Qt import QPushButton, Qt, QLineEdit, QTableWidget, \
    QGridLayout, QSpacerItem, QWidget, QScrollArea, QTableWidgetItem
 
 from armorycolors import htmlColor
@@ -51,7 +51,7 @@ class PluginObject(object):
       self.lastBuyStr = ''
 
       self.btnUpdate = QPushButton(tr('Check Now'))
-      self.main.connect(self.btnUpdate, SIGNAL('clicked()'), self.checkUpdatePrice)
+      self.btnUpdate.clicked.connect(self.checkUpdatePrice)
 
       ##########################################################################
       ##### A calculator for converting prices between USD and BTC
@@ -64,14 +64,14 @@ class PluginObject(object):
       self.lblEnterBTC = QRichLabel('BTC')
       btnClear = QPushButton('Clear')
 
-      self.main.connect(self.edtEnterUSD, SIGNAL('textEdited(QString)'), self.updateCalcBTC)
-      self.main.connect(self.edtEnterBTC, SIGNAL('textEdited(QString)'), self.updateCalcUSD)
+      self.edtEnterUSD.textEdited.connect(self.updateCalcBTC)
+      self.edtEnterBTC.textEdited.connect(self.updateCalcUSD)
 
       def clearCalc():
          self.edtEnterUSD.setText('')
          self.edtEnterBTC.setText('')
 
-      self.main.connect(btnClear, SIGNAL('clicked()'), clearCalc)
+      btnClear.clicked.connect(clearCalc)
 
       frmCalcMid = makeHorizFrame( [self.lblEnterUSD1,
                                     self.edtEnterUSD,

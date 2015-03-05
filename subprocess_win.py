@@ -460,7 +460,7 @@ _active = []
 
 def _cleanup():
     for inst in _active[:]:
-        res = inst._internal_poll(_deadstate=sys.maxint)
+        res = inst._internal_poll(_deadstate=sys.maxsize)
         if mswindows:
            if inst._handle is not None:
              ctypes.windll.kernel32.CloseHandle(inst._handle)
@@ -508,7 +508,7 @@ def _args_from_interpreter_flags():
         'py3k_warning': '3',
     }
     args = []
-    for flag, opt in flag_opt_map.items():
+    for flag, opt in list(flag_opt_map.items()):
         v = getattr(sys.flags, flag)
         if v > 0:
             args.append('-' + opt * v)
@@ -695,7 +695,7 @@ class Popen(object):
         _cleanup()
 
         self._child_created = False
-        if not isinstance(bufsize, (int, long)):
+        if not isinstance(bufsize, int):
             raise TypeError("bufsize must be an integer")
 
         if mswindows:
@@ -767,7 +767,7 @@ class Popen(object):
                 except EnvironmentError:
                     pass
 
-            raise exc_type, exc_value, exc_trace
+            raise exc_type(exc_value).with_traceback(exc_trace)
 
         if mswindows:
             if p2cwrite is not None:
@@ -797,7 +797,7 @@ class Popen(object):
         return data
 
 
-    def __del__(self, _maxint=sys.maxint, _active=_active):
+    def __del__(self, _maxint=sys.maxsize, _active=_active):
         # If __init__ hasn't had a chance to execute (e.g. if it
         # was passed an undeclared keyword argument), we don't
         # have a _child_created attribute at all.
@@ -947,7 +947,7 @@ class Popen(object):
                            errread, errwrite):
             """Execute program (MS Windows version)"""
 
-            if not isinstance(args, types.StringTypes):
+            if not isinstance(args, str):
                 args = list2cmdline(args)
 
             # Process startup details
@@ -972,10 +972,10 @@ class Popen(object):
 
             p_i = PROCESS_INFORMATION()
             try:
-               args_u16 = unicode(args)
+               args_u16 = str(args)
                if executable == None:
                   executable = ""
-               exec_u16 = unicode(executable)
+               exec_u16 = str(executable)
                
                ctypes.windll.kernel32.CreateProcessW(None, args_u16,
                                          None, None,
@@ -985,7 +985,7 @@ class Popen(object):
                                          cwd,
                                          ctypes.byref(startup_info),
                                          ctypes.byref(p_i))
-            except pywintypes.error, e:
+            except pywintypes.error as e:
                 # Translate pywintypes.error to WindowsError, which is
                 # a subclass of OSError.  FIXME: We should really
                 # translate errno using _sys_errlist (or similar), but
@@ -1203,7 +1203,7 @@ class Popen(object):
                 os.closerange(3, but)
                 os.closerange(but + 1, MAXFD)
             else:
-                for i in xrange(3, MAXFD):
+                for i in range(3, MAXFD):
                     if i == but:
                         continue
                     try:
@@ -1220,7 +1220,7 @@ class Popen(object):
                            errread, errwrite):
             """Execute program (POSIX version)"""
 
-            if isinstance(args, types.StringTypes):
+            if isinstance(args, str):
                 args = [args]
             else:
                 args = list(args)
@@ -1480,7 +1480,7 @@ class Popen(object):
             while fd2file:
                 try:
                     ready = poller.poll()
-                except select.error, e:
+                except select.error as e:
                     if e.args[0] == errno.EINTR:
                         continue
                     raise
@@ -1529,7 +1529,7 @@ class Popen(object):
             while read_set or write_set:
                 try:
                     rlist, wlist, xlist = select.select(read_set, write_set, [])
-                except select.error, e:
+                except select.error as e:
                     if e.args[0] == errno.EINTR:
                         continue
                     raise
@@ -1588,8 +1588,8 @@ def _demo_posix():
     # Example 1: Simple redirection: Get process list
     #
     plist = Popen(["ps"], stdout=PIPE).communicate()[0]
-    print "Process list:"
-    print plist
+    print("Process list:")
+    print(plist)
 
     #
     # Example 2: Change uid before executing child
@@ -1601,42 +1601,42 @@ def _demo_posix():
     #
     # Example 3: Connecting several subprocesses
     #
-    print "Looking for 'hda'..."
+    print("Looking for 'hda'...")
     p1 = Popen(["dmesg"], stdout=PIPE)
     p2 = Popen(["grep", "hda"], stdin=p1.stdout, stdout=PIPE)
-    print repr(p2.communicate()[0])
+    print(repr(p2.communicate()[0]))
 
     #
     # Example 4: Catch execution error
     #
-    print
-    print "Trying a weird file..."
+    print()
+    print("Trying a weird file...")
     try:
-        print Popen(["/this/path/does/not/exist"]).communicate()
-    except OSError, e:
+        print(Popen(["/this/path/does/not/exist"]).communicate())
+    except OSError as e:
         if e.errno == errno.ENOENT:
-            print "The file didn't exist.  I thought so..."
-            print "Child traceback:"
-            print e.child_traceback
+            print("The file didn't exist.  I thought so...")
+            print("Child traceback:")
+            print(e.child_traceback)
         else:
-            print "Error", e.errno
+            print("Error", e.errno)
     else:
-        print >>sys.stderr, "Gosh.  No error."
+        print("Gosh.  No error.", file=sys.stderr)
 
 
 def _demo_windows():
     #
     # Example 1: Connecting several subprocesses
     #
-    print "Looking for 'PROMPT' in set output..."
+    print("Looking for 'PROMPT' in set output...")
     p1 = Popen("set", stdout=PIPE, shell=True)
     p2 = Popen('find "PROMPT"', stdin=p1.stdout, stdout=PIPE)
-    print repr(p2.communicate()[0])
+    print(repr(p2.communicate()[0]))
 
     #
     # Example 2: Simple execution of program
     #
-    print "Executing calc..."
+    print("Executing calc...")
     p = Popen("calc")
     p.wait()
 

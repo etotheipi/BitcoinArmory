@@ -21,7 +21,7 @@ try:
    pid_armory   = int(sys.argv[1])
    pid_bitcoind = int(sys.argv[2])
 except:
-   print 'USAGE: %d armorypid bitcoindpid' % sys.argv[0]
+   print('USAGE: %d armorypid bitcoindpid' % sys.argv[0])
    exit(0)
 
 
@@ -50,7 +50,7 @@ def kill(pid):
       if not check_pid(pid):
          return
 
-      print 'Regular TERMINATE of bitcoind failed; issuing SIGKILL (hard)'
+      print('Regular TERMINATE of bitcoind failed; issuing SIGKILL (hard)')
       time.sleep(1)
       os.kill(pid, signal.SIGKILL)
 
@@ -77,15 +77,15 @@ proc_name_armory   = check_pid(pid_armory)
 proc_name_bitcoind = check_pid(pid_bitcoind)
 
 if proc_name_armory:
-   print 'ArmoryQt is running in pid=%d (%s)' % (pid_armory, proc_name_armory)
+   print('ArmoryQt is running in pid=%d (%s)' % (pid_armory, proc_name_armory))
 else:
-   print 'ArmoryQt IS NOT RUNNING!'
+   print('ArmoryQt IS NOT RUNNING!')
 
 
 if proc_name_bitcoind:
-   print 'bitcoind is running in pid=%d (%s)' % (pid_bitcoind, proc_name_bitcoind)
+   print('bitcoind is running in pid=%d (%s)' % (pid_bitcoind, proc_name_bitcoind))
 else:
-   print 'bitcoind IS NOT RUNNING!'
+   print('bitcoind IS NOT RUNNING!')
 
 
 while True:

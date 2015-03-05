@@ -84,7 +84,8 @@ class PyUnspentTxOut(object):
 
 
    #############################################################################
-   def createFromCppUtxo(self, cppUtxo):
+   @classmethod
+   def createFromCppUtxo(klass, cppUtxo):
       scrAddr= cppUtxo.getRecipientScrAddr()
       val    = cppUtxo.getValue()
       conf   = cppUtxo.getNumConfirm()
@@ -92,12 +93,17 @@ class PyUnspentTxOut(object):
       txoIdx = cppUtxo.getTxOutIndex()
       script = cppUtxo.getScript()
 
-      self.initialize(scrAddr, txHash, txoIdx, val, conf, script)
-      return self
+      return klass(scrAddr, txHash, txoIdx, val, conf, script)
 
    #############################################################################
    def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
                                               numConf=None, fullScript=None):
+      assert(isinstance(scrAddr, bytes))
+      assert(isinstance(txHash, bytes))
+      assert(isinstance(txoIdx, int))
+      assert(isinstance(val, int))
+      assert(isinstance(numConf, int))
+
       self.scrAddr    = scrAddr
       self.txHash     = txHash
       self.txOutIndex = txoIdx
@@ -107,6 +113,7 @@ class PyUnspentTxOut(object):
       if self.scrAddr and fullScript is None:
          self.binScript = scrAddr_to_script(self.scrAddr)
       else:
+         assert(isinstance(fullScript, bytes))
          self.binScript = fullScript
 
    def getTxHash(self):
@@ -138,7 +145,7 @@ class PyUnspentTxOut(object):
       return '  '.join(pstr)
 
    def pprint(self, indent=''):
-      print self.prettyStr(indent)
+      print(self.prettyStr(indent))
 
 
 ################################################################################
@@ -149,17 +156,17 @@ def sumTxOutList(txoutList):
 # This is really just for viewing a TxOut list -- usually for debugging
 def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
    totalSum = sum([u.getValue() for u in utxoList])
-   print headerLine, '(Total = %s BTC)' % coin2str(totalSum)
-   print '   ','Owner Address'.ljust(34),
-   print '   ','TxOutValue'.rjust(18),
-   print '   ','NumConf'.rjust(8),
-   print '   ','PriorityFactor'.rjust(16)
+   print(headerLine, '(Total = %s BTC)' % coin2str(totalSum))
+   print('   ','Owner Address'.ljust(34))
+   print('   ','TxOutValue'.rjust(18))
+   print('   ','NumConf'.rjust(8))
+   print('   ','PriorityFactor'.rjust(16))
    for utxo in utxoList:
       a160 = CheckHash160(utxo.getRecipientScrAddr())
-      print '   ',hash160_to_addrStr(a160).ljust(34),
-      print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
-      print '   ',str(utxo.getNumConfirm()).rjust(8),
-      print '   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(ONE_BTC*144.))).rjust(16)
+      print('   ',hash160_to_addrStr(a160).ljust(34))
+      print('   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18))
+      print('   ',str(utxo.getNumConfirm()).rjust(8))
+      print('   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(ONE_BTC*144.))).rjust(16))
 
 
 ################################################################################
@@ -207,18 +214,18 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
             else:
                addr = script_to_scrAddr(utxo.getScript())
 
-            if not addrMap.has_key(addr):
+            if addr not in addrMap:
                addrMap[addr] = [utxo]
             else:
                addrMap[addr].append(utxo)
 
       priorityUTXO = (lambda a: (a.getNumConfirm()*a.getValue()**0.333))
-      for addr,txoutList in addrMap.iteritems():
+      for addr,txoutList in list(addrMap.items()):
          txoutList.sort(key=priorityUTXO, reverse=True)
 
       priorityGrp = lambda a: max([priorityUTXO(utxo) for utxo in a])
       finalSortedList = []
-      for utxo in sorted(addrMap.values(), key=priorityGrp, reverse=True):
+      for utxo in sorted(list(addrMap.values()), key=priorityGrp, reverse=True):
          finalSortedList.extend(utxo)
 
       finalSortedList.extend(zeroConfirm)
@@ -238,13 +245,13 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    #        This should give us some high-fitness variation compared to sorting
    #        uniformly
    if sortMethod==8:
-      utxosNoZC = filter(lambda a: a.getNumConfirm()!=0, unspentTxOutInfo)
+      utxosNoZC = [a for a in unspentTxOutInfo if a.getNumConfirm()!=0]
       random.shuffle(utxosNoZC)
-      utxosNoZC.extend(filter(lambda a: a.getNumConfirm()==0, unspentTxOutInfo))
+      utxosNoZC.extend([a for a in unspentTxOutInfo if a.getNumConfirm()==0])
       return utxosNoZC
    if sortMethod==9:
       utxoSorted = PySortCoins(unspentTxOutInfo, 1)
-      sz = len(filter(lambda a: a.getNumConfirm()!=0, utxoSorted))
+      sz = len([a for a in utxoSorted if a.getNumConfirm()!=0])
       # swap 1/3 of the values at random
       topsz = int(min(max(round(sz/3), 5), sz))
       for i in range(topsz):
@@ -290,7 +297,6 @@ def PySelectCoins_SingleInput_SingleValue( \
       for utxo in unspentTxOutInfo:
          if target+CENT < utxo.getValue() < try2Val:
             try2Val = utxo.getValue()
-            try2Val = utxo
       if not try2Utxo==None:
          bestMatchUtxo = try2Utxo
 
@@ -339,9 +345,9 @@ def PySelectCoins_SingleInput_DoubleValue( \
    idealTarget    = 2*targetOutVal + minFee
 
    # check to make sure we're accumulating enough
-   minTarget   = long(0.75 * idealTarget)
+   minTarget   = int(0.75 * idealTarget)
    minTarget   = max(minTarget, targetOutVal+minFee)
-   maxTarget   = long(1.25 * idealTarget)
+   maxTarget   = int(1.25 * idealTarget)
 
    if sum([u.getValue() for u in unspentTxOutInfo]) < minTarget:
       return []
@@ -364,7 +370,7 @@ def PySelectCoins_MultiInput_DoubleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
 
    idealTarget = 2.0 * targetOutVal
-   minTarget   = long(0.80 * idealTarget)
+   minTarget   = int(0.80 * idealTarget)
    minTarget   = max(minTarget, targetOutVal+minFee)
    if sum([u.getValue() for u in unspentTxOutInfo]) < minTarget:
       return []
@@ -888,7 +894,7 @@ def calcMinSuggestedFeesNew(selectCoinsResult, scriptValPairs, preSelectedFee,
    # TODO: this should be updated to accommodate the non-constant 
    #       TxOut/TxIn size given that it now accepts P2SH and Multisig
 
-   targetOutVal = long( sum([rv[1] for rv in scriptValPairs]) )
+   targetOutVal = int( sum([rv[1] for rv in scriptValPairs]) )
    if len(selectCoinsResult)==0:
       return [-1,-1]
    paid = targetOutVal + preSelectedFee

@@ -1,7 +1,7 @@
 # Written by Bram Cohen
 # see LICENSE.txt for license information
 
-from clock import clock
+from .clock import clock
 
 class Measure:
     def __init__(self, max_rate_period, fudge = 1):
@@ -9,7 +9,7 @@ class Measure:
         self.ratesince = clock() - fudge
         self.last = self.ratesince
         self.rate = 0.0
-        self.total = 0l
+        self.total = 0
 
     def update_rate(self, amount):
         self.total += amount

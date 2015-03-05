@@ -31,96 +31,96 @@ def normalizeAddrStr(astr):
 
 # Unserialize an reserialize
 tx1raw = hex_to_binary( \
-   '01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d'
-   'd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e'
-   '3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6'
-   '264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4'
-   'a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068'
-   '9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000'
-   '00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008'
-   '000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
+  b'01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d'
+  b'd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e'
+  b'3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6'
+  b'264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4'
+  b'a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068'
+  b'9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000'
+  b'00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008'
+  b'000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
 tx2raw = hex_to_binary( \
-   '0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144'
-   'a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff'
-   '6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
-   '091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3'
-   'fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee'
-   '83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500'
-   '0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb'
-   '02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
+  b'0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144'
+  b'a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff'
+  b'6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
+  b'091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3'
+  b'fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee'
+  b'83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500'
+  b'0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb'
+  b'02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
 
 multiTx1raw = hex_to_binary( \
-   '0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
-   'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
-   'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
-   'c6848a22fee393152e901eaa61a9f18438b3ba05c6035000000008b4830450220796307d9787b892c8b1ada8511d99e855ea3099e1a76ce0f7aa783ed352a6e59'
-   '022100fc38d05d7dfbe51e28c36d854dd0dcc938d60a3e406573c3dc39253694d14a12014104630aaf9d5c8d757cb5759428d4075911a2b2ff13dd7208ad7ea1d'
-   '1682738a7138be93ee526c9d774e0dea03fa2a5fbb68043259ddfb942c0763f9b636b40c43fffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a'
-   '9f18438b3ba05c6035020000008c493046022100cb423b63197ef3cdbfaed69f61aac59755f0025bd6d7a9d3c78024d897ebcf94022100f3ad14804a3c8042387'
-   'eca9b9053abe99e12651a795cae7f546b08e1c08c6464014104649694df12dcd7fdb5a8c54c376b904bd7337891d865b8d306beb5d2e5d8fdf2a537d6f9df65ff'
-   '44eb0b6042ebfdf9e338bff7f4afacb359dd6c71aea7b9b92dffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c60350300000'
-   '08b483045022100fb9f4ddc68497a266362d489abf05184909a2b99aa64803061c88597b725877802207f39cf5a90a305aee45f365cf9e2d258e37cab4da6c123'
-   'aa287635cd1fd40dd001410438252055130f3dd242201684931550c4065efc1b87c48192f75868f747e2a9df9a700fed7e90068bd395c58680bd593780c8119e7'
-   '981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
-   '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
+  b'0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
+  b'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
+  b'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
+  b'c6848a22fee393152e901eaa61a9f18438b3ba05c6035000000008b4830450220796307d9787b892c8b1ada8511d99e855ea3099e1a76ce0f7aa783ed352a6e59'
+  b'022100fc38d05d7dfbe51e28c36d854dd0dcc938d60a3e406573c3dc39253694d14a12014104630aaf9d5c8d757cb5759428d4075911a2b2ff13dd7208ad7ea1d'
+  b'1682738a7138be93ee526c9d774e0dea03fa2a5fbb68043259ddfb942c0763f9b636b40c43fffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a'
+  b'9f18438b3ba05c6035020000008c493046022100cb423b63197ef3cdbfaed69f61aac59755f0025bd6d7a9d3c78024d897ebcf94022100f3ad14804a3c8042387'
+  b'eca9b9053abe99e12651a795cae7f546b08e1c08c6464014104649694df12dcd7fdb5a8c54c376b904bd7337891d865b8d306beb5d2e5d8fdf2a537d6f9df65ff'
+  b'44eb0b6042ebfdf9e338bff7f4afacb359dd6c71aea7b9b92dffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c60350300000'
+  b'08b483045022100fb9f4ddc68497a266362d489abf05184909a2b99aa64803061c88597b725877802207f39cf5a90a305aee45f365cf9e2d258e37cab4da6c123'
+  b'aa287635cd1fd40dd001410438252055130f3dd242201684931550c4065efc1b87c48192f75868f747e2a9df9a700fed7e90068bd395c58680bd593780c8119e7'
+  b'981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
+  b'18b646ea65ad148ee1e2f0360233617447e288ac00000000')
 
 multiTx2raw = hex_to_binary( \
-   '0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
-   'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
-   'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
-   'c6848a22fee393152e901eaa61a9f18438b3ba05c6035000000008b4830450220796307d9787b892c8b1ada8511d99e855ea3099e1a76ce0f7aa783ed352a6e59'
-   '022100fc38d05d7dfbe51e28c36d854dd0dcc938d60a3e406573c3dc39253694d14a12014104630aaf9d5c8d757cb5759428d4075911a2b2ff13dd7208ad7ea1d'
-   '1682738a7138be93ee526c9d774e0dea03fa2a5fbb68043259ddfb942c0763f9b636b40c43fffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a'
-   '9f18438b3ba05c6035020000008c493046022100cb423b63197ef3cdbfaed69f61aac59755f0025bd6d7a9d3c78024d897ebcf94022100f3ad14804a3c8042387'
-   'eca9b9053abe99e12651a795cae7f546b08e1c08c6464014104649694df12dcd7fdb5a8c54c376b904bd7337891d865b8d306beb5d2e5d8fdf2a537d6f9df65ff'
-   '44eb0b6042ebfdf9e338bff7f4afacb359dd6c71aea7b9b92dffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c60350300000'
-   '08c49304602220000fb9f4ddc68497a266362d489abf05184909a2b99aa64803061c88597b725877802207f39cf5a90a305aee45f365cf9e2d258e37cab4da6c123'
-   'aa287635cd1fd40dd001410438252055130f3dd242201684931550c4065efc1b87c48192f75868f747e2a9df9a700fed7e90068bd395c58680bd593780c8119e7'
-   '981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
-   '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
+  b'0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
+  b'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
+  b'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
+  b'c6848a22fee393152e901eaa61a9f18438b3ba05c6035000000008b4830450220796307d9787b892c8b1ada8511d99e855ea3099e1a76ce0f7aa783ed352a6e59'
+  b'022100fc38d05d7dfbe51e28c36d854dd0dcc938d60a3e406573c3dc39253694d14a12014104630aaf9d5c8d757cb5759428d4075911a2b2ff13dd7208ad7ea1d'
+  b'1682738a7138be93ee526c9d774e0dea03fa2a5fbb68043259ddfb942c0763f9b636b40c43fffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a'
+  b'9f18438b3ba05c6035020000008c493046022100cb423b63197ef3cdbfaed69f61aac59755f0025bd6d7a9d3c78024d897ebcf94022100f3ad14804a3c8042387'
+  b'eca9b9053abe99e12651a795cae7f546b08e1c08c6464014104649694df12dcd7fdb5a8c54c376b904bd7337891d865b8d306beb5d2e5d8fdf2a537d6f9df65ff'
+  b'44eb0b6042ebfdf9e338bff7f4afacb359dd6c71aea7b9b92dffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c60350300000'
+  b'08c49304602220000fb9f4ddc68497a266362d489abf05184909a2b99aa64803061c88597b725877802207f39cf5a90a305aee45f365cf9e2d258e37cab4da6c123'
+  b'aa287635cd1fd40dd001410438252055130f3dd242201684931550c4065efc1b87c48192f75868f747e2a9df9a700fed7e90068bd395c58680bd593780c8119e7'
+  b'981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
+  b'18b646ea65ad148ee1e2f0360233617447e288ac00000000')
 
    # Here's a full block, which we should be able to parse and process
 hexBlock = ( \
-    '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
-    '604d91b9b7541a4ecfbb0a1a64f1ade70301000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804cfbb0a1a'
-    '02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061'
-    'aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa12bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000'
-    '008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e9274e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f'
-    'cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb42441246c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9'
-    'f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa'
-    '3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a'
-    '014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8'
-    '6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529'
-    '281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97fde4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b'
-    '25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b2590d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f'
-    '00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac007d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88'
-    'ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf'
-    '23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3'
-    '9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66'
-    'ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c'
-    '88ac00000000')
+   b'01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
+   b'604d91b9b7541a4ecfbb0a1a64f1ade70301000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804cfbb0a1a'
+   b'02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061'
+   b'aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa12bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000'
+   b'008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e9274e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f'
+   b'cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb42441246c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9'
+   b'f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa'
+   b'3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a'
+   b'014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8'
+   b'6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529'
+   b'281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97fde4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b'
+   b'25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b2590d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f'
+   b'00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac007d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88'
+   b'ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf'
+   b'23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3'
+   b'9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66'
+   b'ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c'
+   b'88ac00000000')
 
 # I made these two tx in a fake blockchain... but they should still work
 tx1Fake = PyTx().unserialize(hex_to_binary( (
-   '01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207'
-   '4fdcb8ee d2000000 004a4930 46022100 cb02fb5a 910e7554 85e3578e 6e9be315'
-   'a161540a 73f84ee6 f5d68641 925c59ac 0221007e 530a1826 30b50e2c 12dd09cd'
-   'ebfd809f 038be982 bdc2c7e9 d4cbf634 9e088d01 ffffffff 0200ca9a 3b000000'
-   '001976a9 14cb2abd e8bccacc 32e893df 3a054b9e f7f227a4 ce88ac00 286bee00'
-   '00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000'
-   '00'                                                                     ).replace(' ','')))
+  b'01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207'
+  b'4fdcb8ee d2000000 004a4930 46022100 cb02fb5a 910e7554 85e3578e 6e9be315'
+  b'a161540a 73f84ee6 f5d68641 925c59ac 0221007e 530a1826 30b50e2c 12dd09cd'
+  b'ebfd809f 038be982 bdc2c7e9 d4cbf634 9e088d01 ffffffff 0200ca9a 3b000000'
+  b'001976a9 14cb2abd e8bccacc 32e893df 3a054b9e f7f227a4 ce88ac00 286bee00'
+  b'00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000'
+  b'00'                                                                     ).replace(b' ',b'')))
 
 tx2Fake = PyTx().unserialize(hex_to_binary( (
-   '01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6'
-   '972ee7a8 6e010000 008c4930 46022100 89e47100 d88d5f8c 8f62a796 dac3afb8'
-   'f090c6fc 2eb0c4af ac7b7567 3a364c01 0221002b f40e554d ae51264b 0a86df17'
-   '3e45756a 89bbd302 4f166cc4 2cfd1874 13636901 41046868 0737c76d abb801cb'
-   '2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 b5ac9e8b 4c9f49be'
-   '5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ffff ffff0100 286bee00'
-   '00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000'
-   '00'                                                                     ).replace(' ','')))
+  b'01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6'
+  b'972ee7a8 6e010000 008c4930 46022100 89e47100 d88d5f8c 8f62a796 dac3afb8'
+  b'f090c6fc 2eb0c4af ac7b7567 3a364c01 0221002b f40e554d ae51264b 0a86df17'
+  b'3e45756a 89bbd302 4f166cc4 2cfd1874 13636901 41046868 0737c76d abb801cb'
+  b'2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 b5ac9e8b 4c9f49be'
+  b'5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ffff ffff0100 286bee00'
+  b'00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000'
+  b'00'                                                                     ).replace(b' ',b'')))
 
-ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
+ALL_ZERO_OUTPOINT = hex_to_binary(b'00' * 36)
 
 class MSUtilsTest(unittest.TestCase):
 
@@ -129,23 +129,23 @@ class MSUtilsTest(unittest.TestCase):
       self.tx1 = PyTx().unserialize(tx1raw)
       self.tx2 = PyTx().unserialize(tx2raw)
       self.tx1hash = hex_to_binary( \
-         'aa739836a44451be555f74a02f088b50a867b1d3a2c917ee863d708ec2db58f6', BIGENDIAN)
+        b'aa739836a44451be555f74a02f088b50a867b1d3a2c917ee863d708ec2db58f6', BIGENDIAN)
       self.tx2hash = hex_to_binary( \
-         '9072559e9e2772cd6ac88683531a512cba6c2fee82b2476ed5e84c24abe5f526', BIGENDIAN)
+        b'9072559e9e2772cd6ac88683531a512cba6c2fee82b2476ed5e84c24abe5f526', BIGENDIAN)
    
       self.pubKey = hex_to_binary( \
-         '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
-           '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
+        b'048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
+          b'785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
       self.sigStr  = hex_to_binary( \
-         '304602210041e1186ca9a41fdfe1569d5d807ca7ff'
-         '6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
-         '091d12646bc0d1d662b7a65ead3ebe4ab8f6c4' + '01')
+        b'304602210041e1186ca9a41fdfe1569d5d807ca7ff'
+        b'6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
+        b'091d12646bc0d1d662b7a65ead3ebe4ab8f6c401')
 
 
       # Specify the target addresses as testnet addrStrs, but the "normalize"
       # method will convert it to the correct addrStr for mainnet or testnet
-      self.addrStr1 = normalizeAddrStr('mhyjJTq9RsDfhNdjTkga1CKhTiL5VFw85J')
-      self.addrStr2 = normalizeAddrStr('mgoCqfR25kZVApAGFK3Tx5CTNcCppmKwfb')
+      self.addrStr1 = normalizeAddrStr(b'mhyjJTq9RsDfhNdjTkga1CKhTiL5VFw85J')
+      self.addrStr2 = normalizeAddrStr(b'mgoCqfR25kZVApAGFK3Tx5CTNcCppmKwfb')
 
    
    def tearDown(self):
@@ -156,6 +156,7 @@ class MSUtilsTest(unittest.TestCase):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
 
       serUSTXI = ustxi.serialize()
+      self.assertTrue(serUSTXI is not None)
       ustxi2 = UnsignedTxInput().unserialize(serUSTXI)
       self.assertEqual(serUSTXI, ustxi2.serialize())
 
@@ -178,7 +179,7 @@ class MSUtilsTest(unittest.TestCase):
       self.assertTrue(ustxi.verifyAllSignatures(self.tx2))
 
       # Try a bad signature
-      badSig = self.sigStr[:16] + '\x00'*8 + self.sigStr[24:]
+      badSig = self.sigStr[:16] + b'\x00'*8 + self.sigStr[24:]
       self.assertFalse(ustxi.verifyTxSignature(self.tx2, badSig))
       
 
@@ -186,8 +187,8 @@ class MSUtilsTest(unittest.TestCase):
    def testDTXO(self):
       a160_1 = addrStr_to_hash160(self.addrStr1)[1]
       a160_2 = addrStr_to_hash160(self.addrStr2)[1]
-      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
-      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
+      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), int(1.00*ONE_BTC))
+      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), int(0.49*ONE_BTC))
 
       serDTXO1 = dtxo1.serialize()
       dtxo1_dup = DecoratedTxOut().unserialize(serDTXO1)
@@ -212,15 +213,15 @@ class MSUtilsTest(unittest.TestCase):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
       a160_1 = addrStr_to_hash160(self.addrStr1)[1]
       a160_2 = addrStr_to_hash160(self.addrStr2)[1]
-      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
-      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
+      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), int(1.00*ONE_BTC))
+      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), int(0.49*ONE_BTC))
 
       ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1,dtxo2])
 
       self.assertEqual(len(ustx.ustxInputs),  1)
       self.assertEqual(len(ustx.decorTxOuts), 2)
       self.assertEqual(ustx.lockTime, 0)
-      self.assertEqual(ustx.uniqueIDB58,  'J2mRenD7')
+      self.assertEqual(ustx.uniqueIDB58,  b'J2mRenD7')
 
       serUstx = ustx.serialize()
       ustx2 = UnsignedTransaction().unserialize(serUstx)
@@ -240,8 +241,8 @@ class MSUtilsTest(unittest.TestCase):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
       a160_1 = addrStr_to_hash160(self.addrStr1)[1]
       a160_2 = addrStr_to_hash160(self.addrStr2)[1]
-      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
-      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
+      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), int(1.00*ONE_BTC))
+      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), int(0.49*ONE_BTC))
 
       ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1,dtxo2])
 
@@ -251,7 +252,7 @@ class MSUtilsTest(unittest.TestCase):
       msIndex = ustx.insertSignatureForInput(0, self.sigStr)
       self.assertEqual(msIndex, 0)
 
-      badSig = self.sigStr[:16] + '\x00'*8 + self.sigStr[24:]
+      badSig = self.sigStr[:16] + b'\x00'*8 + self.sigStr[24:]
       msIndex = ustx.insertSignatureForInput(0, badSig)
       self.assertEqual(msIndex, -1)
 
@@ -306,31 +307,31 @@ class MSUtilsTest(unittest.TestCase):
       # For this manual construction to work, I had to save the signed funding
       # transaction
       signedFundMS = hex_to_binary( \
-         '0100000001fd7b2814a83024c559b2f897a6ff9a3ae9f80501d19be0aebecfd7'
-         'ecefc9de7f010000008a47304402205d768f8563d5285fe3d0640d6c15cdfd64'
-         '46062be0420f39b8114d53d0cf62a4022010dbc80e9e2bf6039a337810a4feba'
-         '561d3c360eaaa4ada1140d82c03ebf37350141049ea2efc5971e9eb2c214eea4'
-         '5a45ec0d15da3c1012313da563b5fbbc19a92f88339f43babd54b79382fb2532'
-         '7237851d076a7a69010c54fdef330225a966b57cffffffff02a07f8802000000'
-         '00c95241046a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e8'
-         '61bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc4936466e7d98f6c7c0ec7365'
-         '39f74691a6410468680737c76dabb801cb2204f57dbe4e4579e4f710cd67dc1b'
-         '4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d011e4c37f6b6d17ede'
-         '6b55faa23519e24104b95c249d84f417e3e395a127425428b540671cc15881eb'
-         '828c17b722a53fc599e21ca5e56c90f340988d3933acc76beb832fd64cab078d'
-         'df3ce732923031d1a853ae80045701000000001976a9146cee477908722f740a'
-         '6a7ce98c0e9d5dcab0fa3288ac00000000')
+        b'0100000001fd7b2814a83024c559b2f897a6ff9a3ae9f80501d19be0aebecfd7'
+        b'ecefc9de7f010000008a47304402205d768f8563d5285fe3d0640d6c15cdfd64'
+        b'46062be0420f39b8114d53d0cf62a4022010dbc80e9e2bf6039a337810a4feba'
+        b'561d3c360eaaa4ada1140d82c03ebf37350141049ea2efc5971e9eb2c214eea4'
+        b'5a45ec0d15da3c1012313da563b5fbbc19a92f88339f43babd54b79382fb2532'
+        b'7237851d076a7a69010c54fdef330225a966b57cffffffff02a07f8802000000'
+        b'00c95241046a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e8'
+        b'61bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc4936466e7d98f6c7c0ec7365'
+        b'39f74691a6410468680737c76dabb801cb2204f57dbe4e4579e4f710cd67dc1b'
+        b'4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d011e4c37f6b6d17ede'
+        b'6b55faa23519e24104b95c249d84f417e3e395a127425428b540671cc15881eb'
+        b'828c17b722a53fc599e21ca5e56c90f340988d3933acc76beb832fd64cab078d'
+        b'df3ce732923031d1a853ae80045701000000001976a9146cee477908722f740a'
+        b'6a7ce98c0e9d5dcab0fa3288ac00000000')
      
       #UnsignedTransaction().unserializeAscii(asc_nosig).evaluateSigningStatus().pprint()
       #UnsignedTransaction().unserializeAscii(asc_sig).evaluateSigningStatus().pprint()
 
    
-      privKeys = [SecureBinaryData(a*32) for a in ['\xaa','\xbb','\xcc']]
+      privKeys = [SecureBinaryData(), SecureBinaryData(), SecureBinaryData()]
+      for i, a in enumerate(['aa','bb','cc']):
+         privKeys[i].createFromHex(a*32)
       pubKeys  = [CryptoECDSA().ComputePublicKey(prv) for prv in privKeys]
-      pubStrs  = [pubk.toBinStr() for pubk in pubKeys]
+      pubStrs  = [hex_to_binary(pubk.toHexStr().encode()) for pubk in pubKeys]
 
-      #for i,prv in enumerate(privKeys):
-         #print 'PrivKey %d:', prv.toHexStr()
 
       msScript = pubkeylist_to_multisig_script(pubStrs, 2)
       msScriptReverse = pubkeylist_to_multisig_script(pubStrs[::-1], 2)
@@ -345,10 +346,10 @@ class MSUtilsTest(unittest.TestCase):
       ustxi = UnsignedTxInput(signedFundMS, 0)
       #ustxi.pprint()
 
-      refund1 = addrStr_to_scrAddr(normalizeAddrStr('mqSvihZRtKt1J3EBbwBJSHeAYVjdxUnpvf'))
-      refund2 = addrStr_to_scrAddr(normalizeAddrStr('mjAauu6jzmYaE7jrfFgKqLxtvpStmPxcb7'))
-      dtxo1 = DecoratedTxOut(scrAddr_to_script(refund1), long(0.223*ONE_BTC))
-      dtxo2 = DecoratedTxOut(scrAddr_to_script(refund2), long(0.200*ONE_BTC))
+      refund1 = addrStr_to_scrAddr(normalizeAddrStr(b'mqSvihZRtKt1J3EBbwBJSHeAYVjdxUnpvf'))
+      refund2 = addrStr_to_scrAddr(normalizeAddrStr(b'mjAauu6jzmYaE7jrfFgKqLxtvpStmPxcb7'))
+      dtxo1 = DecoratedTxOut(scrAddr_to_script(refund1), int(0.223*ONE_BTC))
+      dtxo2 = DecoratedTxOut(scrAddr_to_script(refund2), int(0.200*ONE_BTC))
 
       ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1, dtxo2])
       #ustx.pprint()
@@ -369,7 +370,7 @@ class MSUtilsTest(unittest.TestCase):
                if j>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[1])
                if k>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[2])
                sstat = ustxiCopy.evaluateSigningStatus()
-               #sstat.pprint()
+               # sstat.pprint()
                self.assertEqual(sstat.allSigned, (i+j+k)>1)
                self.assertEqual(sstat.statusM[0], NOSIG if i+j+k==0 else SIG)
                self.assertEqual(sstat.statusM[1], NOSIG if i+j+k<2  else SIG)
@@ -424,14 +425,14 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          AQAAAAsRCQdBBPXISLf5jl7LafjFYbMVfb+OqjzMD8XGVyBauZ1kNA/tMGoZn5lHdfZRVcNN8D9+9vG9
          GpvTn9PUWZ1uETTewPIAAAAA
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
       serMap['dpk']['wcomment'] = textwrap.dedent("""
          =====PUBLICKEY-mqjMCZC4BFRm=====================================================
          AQAAAAsRCQdBBCMhT2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2y
          Yw9HN6LxwO6+eQeBKQEcdGhpcyBpcyBhIHVzZWxlc3MgY29tbWVudCFAIQAAAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
       serMap['lockbox']['nocomments'] = textwrap.dedent("""
          =====LOCKBOX-7mtvkCTa===========================================================
@@ -441,7 +442,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          NIwDkroAAAAATgEAAAALEQkHQQTOFdjRK/2+hr00V4iRFlzDXMS0Ll3fT+qJ9YSH519IUTsIvhQenODR
          MReXXbfJmcCxUPg3N2TQvLX7iI2GRo2jAAAAAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
       serMap['lockbox']['nometadata'] = textwrap.dedent("""
          =====LOCKBOX-7mtvkCTa===========================================================
@@ -452,7 +453,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          XMNcxLQuXd9P6on1hIfnX0hROwi+FB6c4NExF5ddt8mZwLFQ+Dc3ZNC8tfuIjYZGjaMWS2V5IHdpdGgg
          dW5pY29kZSBkYXRhIQAAAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
 
 
@@ -499,7 +500,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          O22XmvHKWXTL3Yt+UaCYx0woedfoKo4phLQomWMFXRZoUPSAJx2dpSh2AAAfVGhpcyBpcyBhbm90aGVy
          IHRlc3RpbmcgY29tbWVudAA=
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
 
       serMap['promnote']['regular'] = textwrap.dedent("""
@@ -514,7 +515,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          4+5P1i6RbjURO9yt34sF0flB8XbiR/T/cUqkn66p/S/Ww3FKEwAAJkR1bXBpbmcgYWxsIG15IGNhc2gg
          aW50byB0aGlzIGRvbmF0aW9uAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
          
 
       # These will be used for all USTX, USTXI and DTXO
@@ -542,7 +543,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          AAAACxEJBxl2qRQWtJ1IcK7dFugwnF1pwaCGOsMI1oisgJaYAAAAAAAAAAROT05FAAAANAEAAAALEQkH
          GXapFFwtg57h8JGhIbsJLXk23+KqzOo9iKwQAhsAAAAAAAAABE5PTkUAAAA=
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
 
       serMap['ustx']['multispend_unsigned'] = textwrap.dedent("""
@@ -563,7 +564,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          AAAAAAAABE5PTkUAAAAyAQAAAAsRCQcXqRSUFt7Fp83rejuvC6FPeHUyzH6RQoeAlpgAAAAAAAAABE5P
          TkUAAAA=
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
       serMap['ustx']['multispend_partsign'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
@@ -584,7 +585,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          Ub1XICKIrHBvmAAAAAAAAAAETk9ORQAAADIBAAAACxEJBxepFJQW3sWnzet6O68LoU94dTLMfpFCh4CW
          mAAAAAAAAAAETk9ORQAAAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
       serMap['ustx']['multispend_enoughsign'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
@@ -606,7 +607,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          xFlUFSoyhCkgAA+CUb1XICKIrHBvmAAAAAAAAAAETk9ORQAAADIBAAAACxEJBxepFJQW3sWnzet6O68L
          oU94dTLMfpFCh4CWmAAAAAAAAAAETk9ORQAAAA==
          ================================================================================ 
-         """.strip())
+         """.strip()).encode("ascii")
       
       serMap['ustx']['multispend_oversign'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
@@ -629,7 +630,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          AAsRCQcZdqkUJ3xWxFlUFSoyhCkgAA+CUb1XICKIrHBvmAAAAAAAAAAETk9ORQAAADIBAAAACxEJBxep
          FJQW3sWnzet6O68LoU94dTLMfpFCh4CWmAAAAAAAAAAETk9ORQAAAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
       serMap['ustx']['ss2ms_unsigned'] = textwrap.dedent("""
          =====TXSIGCOLLECT-HJqTvsXR======================================================
@@ -643,7 +644,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          T3h1Msx+kUKHAAk9AAAAAAAAAAROT05FAAAANAEAAAALEQkHGXapFLJqoSyMxawfCdRd3e5nFzk56v3l
          iKwg9A4AAAAAAAAABE5PTkUAAAA=
          ================================================================================
-      """.strip())
+      """.strip()).encode("ascii")
 
       serMap['ustx']['ss2ms_signed'] = textwrap.dedent("""
          =====TXSIGCOLLECT-HJqTvsXR======================================================
@@ -658,7 +659,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
          Ft7Fp83rejuvC6FPeHUyzH6RQocACT0AAAAAAAAABE5PTkUAAAA0AQAAAAsRCQcZdqkUsmqhLIzFrB8J
          1F3d7mcXOTnq/eWIrCD0DgAAAAAAAAAETk9ORQAAAA==
          ================================================================================
-         """.strip())
+         """.strip()).encode("ascii")
 
    #############################################################################
    def doRoundTrip(self, classObj, serMethod, unserMethod):
@@ -691,14 +692,14 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
    ##### UnsignedTxInput
    #############################################################################
    def testUSTXI_serialize_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for ustxi in ustx.ustxInputs:
             self.doRoundTrip(ustxi, 'serialize', 'unserialize')
 
    #############################################################################
    def testUSTXI_JSON_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for ustxi in ustx.ustxInputs:
             self.doRoundTrip(ustxi, 'toJSONMap', 'fromJSONMap')
@@ -708,14 +709,14 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
    ##### DecoratedTxOut
    #############################################################################
    def testDTXO_serialize_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for dtxo in ustx.decorTxOuts:
             self.doRoundTrip(dtxo, 'serialize', 'unserialize')
 
    #############################################################################
    def testDTXO_JSON_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for dtxo in ustx.decorTxOuts:
             self.doRoundTrip(dtxo, 'toJSONMap', 'fromJSONMap')
@@ -725,19 +726,19 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
    ##### UnsignedTransaction
    #############################################################################
    def testUSTX_serialize_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          self.doRoundTrip(ustx, 'serialize', 'unserialize')
 
    #############################################################################
    def testUSTX_serializeAscii_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          self.doRoundTrip(ustx, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testUSTX_JSON_roundtrip(self):
-      for comment,asciiUstx in serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].items():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          self.doRoundTrip(ustx, 'toJSONMap', 'fromJSONMap')
 
@@ -747,7 +748,7 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
    ##### Lockbox
    #############################################################################
    def testLockbox_serialize_roundtrip(self):
-      for comment,asciiLockbox in serMap['lockbox'].iteritems():
+      for comment,asciiLockbox in serMap['lockbox'].items():
          lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True)
          # Cannot verify that pprint or pprintOneLine does the correct thing,
          # but at least this will verify that it doesn't crash
@@ -757,18 +758,18 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
 
    #############################################################################
    def testLockbox_serializeAscii_roundtrip(self):
-      for comment,asciiLockbox in serMap['lockbox'].iteritems():
+      for comment,asciiLockbox in serMap['lockbox'].items():
          lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
          self.doRoundTrip(lbox, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testLockbox_JSON_roundtrip(self):
-      for comment,asciiLockbox in serMap['lockbox'].iteritems():
+      for comment,asciiLockbox in serMap['lockbox'].items():
          lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
          self.doRoundTrip(lbox, 'toJSONMap', 'fromJSONMap')
 
    def testLockboxDisplayInformation(self):
-      lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
+      lbox = MultiSigLockbox().unserializeAscii(list(serMap['lockbox'].values())[0], skipMagicCheck=True)
       # Cannot verify that pprint or pprintOneLine does the correct thing,
       # but at least this will verify that it doesn't crash
       #lbox.pprintOneLine()
@@ -778,58 +779,58 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
    
    
    def testCreateDecoratedTxOut(self):
-      lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
+      lbox = MultiSigLockbox().unserializeAscii(list(serMap['lockbox'].values())[0], skipMagicCheck=True)
       expectedValue = 1000
       decoratedTxOutMultiSig = lbox.createDecoratedTxOut(expectedValue)
-      expectedBinScriptMultiSig = hex_to_binary('52410423214f61ebd268d190dbbe551f89151733af013e13e15bcdde65fd73421c90ba8bada58951154676acb616100a3885b2fdb2630f4737a2f1c0eebe79078129014104c594e7e0dff507907c8d22f9344d5e22269ce1b3a080325462a11296b6d2e37de6dede10dfa039a8a9a499866c5c507b0d02d4b4ea9549f80b8a1a348c0392ba4104ce15d8d12bfdbe86bd34578891165cc35cc4b42e5ddf4fea89f58487e75f48513b08be141e9ce0d13117975db7c999c0b150f8373764d0bcb5fb888d86468da353ae')
-      self.assertEquals(decoratedTxOutMultiSig.binScript, expectedBinScriptMultiSig)
-      self.assertEquals(decoratedTxOutMultiSig.value, expectedValue)
-      self.assertEquals(decoratedTxOutMultiSig.scriptType, CPP_TXOUT_MULTISIG)
+      expectedBinScriptMultiSig = hex_to_binary(b'52410423214f61ebd268d190dbbe551f89151733af013e13e15bcdde65fd73421c90ba8bada58951154676acb616100a3885b2fdb2630f4737a2f1c0eebe79078129014104c594e7e0dff507907c8d22f9344d5e22269ce1b3a080325462a11296b6d2e37de6dede10dfa039a8a9a499866c5c507b0d02d4b4ea9549f80b8a1a348c0392ba4104ce15d8d12bfdbe86bd34578891165cc35cc4b42e5ddf4fea89f58487e75f48513b08be141e9ce0d13117975db7c999c0b150f8373764d0bcb5fb888d86468da353ae')
+      self.assertEqual(decoratedTxOutMultiSig.binScript, expectedBinScriptMultiSig)
+      self.assertEqual(decoratedTxOutMultiSig.value, expectedValue)
+      self.assertEqual(decoratedTxOutMultiSig.scriptType, CPP_TXOUT_MULTISIG)
       
       decoratedTxOutP2SH = lbox.createDecoratedTxOut(expectedValue, asP2SH=True)
-      expectedBinScriptP2SH = hex_to_binary('a9149416dec5a7cdeb7a3baf0ba14f787532cc7e914287')
-      self.assertEquals(decoratedTxOutP2SH.binScript, expectedBinScriptP2SH)
-      self.assertEquals(decoratedTxOutP2SH.value, expectedValue)
+      expectedBinScriptP2SH = hex_to_binary(b'a9149416dec5a7cdeb7a3baf0ba14f787532cc7e914287')
+      self.assertEqual(decoratedTxOutP2SH.binScript, expectedBinScriptP2SH)
+      self.assertEqual(decoratedTxOutP2SH.value, expectedValue)
       # self.scriptType is the CPP_TXOUT_TYPE of the txoScript *UNLESS* that
       # script is P2SH -- then it will be the type of the P2SH subscript,
       # and that subscript will be stored in self.p2shScript
-      self.assertEquals(decoratedTxOutP2SH.scriptType, CPP_TXOUT_MULTISIG)
+      self.assertEqual(decoratedTxOutP2SH.scriptType, CPP_TXOUT_MULTISIG)
       
    #############################################################################
    ##### Promissory Note
    #############################################################################
    def testPromNote_serialize_roundtrip(self):
-      for comment,asciiPromNote in serMap['promnote'].iteritems():
+      for comment,asciiPromNote in serMap['promnote'].items():
          prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
          self.doRoundTrip(prom, 'serialize', 'unserialize')
 
    #############################################################################
    def testPromNote_serializeAscii_roundtrip(self):
-      for comment,asciiPromNote in serMap['promnote'].iteritems():
+      for comment,asciiPromNote in serMap['promnote'].items():
          prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
          self.doRoundTrip(prom, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testPromNote_JSON_roundtrip(self):
-      for comment,asciiPromNote in serMap['promnote'].iteritems():
+      for comment,asciiPromNote in serMap['promnote'].items():
          prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
          self.doRoundTrip(prom, 'toJSONMap', 'fromJSONMap')
 
    def testMakeFundingTxFromPromNotes(self):
       promNote = MultiSigPromissoryNote().unserializeAscii(
-            serMap['promnote'].values()[0], skipMagicCheck=True) 
-      lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
+            list(serMap['promnote'].values())[0], skipMagicCheck=True) 
+      lbox = MultiSigLockbox().unserializeAscii(list(serMap['lockbox'].values())[0], skipMagicCheck=True)
       result = lbox.makeFundingTxFromPromNotes([promNote])
       # 1 promisory note and no change means 1 input and 1 output
       self.assertEqual(len(result.ustxInputs), 1)
       self.assertEqual(len(result.decorTxOuts), 1)
-      self.assertEqual(result.uniqueIDB58, 'NaVk9y4Y')
+      self.assertEqual(result.uniqueIDB58, b'NaVk9y4Y')
 
 class PubKeyBlockTest(unittest.TestCase):
    def setUp(self):
       self.binPubKey = hex_to_binary( \
-         '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
-           '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
+        b'048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
+          b'785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
       self.comment = 'This is a sample comment!'
    
    def tearDown(self):
@@ -838,8 +839,8 @@ class PubKeyBlockTest(unittest.TestCase):
 
    #############################################################################
    def testPubKey_serialize_roundtrip(self):
-      wltLoc     = 'Armory3cx8J2n#223'  
-      authMethod = 'NullAuthMethod'
+      wltLoc     = b'Armory3cx8J2n#223'  
+      authMethod = b'NullAuthMethod'
       authData   = NullAuthData()
       dpk = DecoratedPublicKey(self.binPubKey, self.comment, wltLoc, authMethod, authData)
       self.assertEqual(self.binPubKey, dpk.binPubKey)
@@ -860,8 +861,8 @@ class PubKeyBlockTest(unittest.TestCase):
 
    #############################################################################
    def testPubKey_serializeAscii_roundtrip(self):
-      wltLoc     = 'Armory3cx8J2n#223'  
-      authMethod = 'NullAuthMethod'
+      wltLoc     = b'Armory3cx8J2n#223'  
+      authMethod = b'NullAuthMethod'
       authData   = NullAuthData()
       dpk = DecoratedPublicKey(self.binPubKey, self.comment, wltLoc, authMethod, authData)
       self.assertEqual(self.binPubKey, dpk.binPubKey)

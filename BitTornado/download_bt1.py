@@ -1,43 +1,37 @@
 # Written by Bram Cohen
 # see LICENSE.txt for license information
 
-from zurllib import urlopen
-from urlparse import urlparse
-from BT1.btformats import check_message
-from BT1.Choker import Choker
-from BT1.Storage import Storage
-from BT1.StorageWrapper import StorageWrapper
-from BT1.FileSelector import FileSelector
-from BT1.Uploader import Upload
-from BT1.Downloader import Downloader
-from BT1.HTTPDownloader import HTTPDownloader
-from BT1.Connecter import Connecter
-from RateLimiter import RateLimiter
-from BT1.Encrypter import Encoder
-from RawServer import RawServer, autodetect_ipv6, autodetect_socket_style
-from BT1.Rerequester import Rerequester
-from BT1.DownloaderFeedback import DownloaderFeedback
-from RateMeasure import RateMeasure
-from CurrentRateMeasure import Measure
-from BT1.PiecePicker import PiecePicker
-from BT1.Statistics import Statistics
-from ConfigDir import ConfigDir
-from bencode import bencode, bdecode
-from natpunch import UPnP_test
-from sha import sha
+from .zurllib import urlopen
+from urllib.parse import urlparse
+from .BT1.btformats import check_message
+from .BT1.Choker import Choker
+from .BT1.Storage import Storage
+from .BT1.StorageWrapper import StorageWrapper
+from .BT1.FileSelector import FileSelector
+from .BT1.Uploader import Upload
+from .BT1.Downloader import Downloader
+from .BT1.HTTPDownloader import HTTPDownloader
+from .BT1.Connecter import Connecter
+from .RateLimiter import RateLimiter
+from .BT1.Encrypter import Encoder
+from .RawServer import RawServer, autodetect_ipv6, autodetect_socket_style
+from .BT1.Rerequester import Rerequester
+from .BT1.DownloaderFeedback import DownloaderFeedback
+from .RateMeasure import RateMeasure
+from .CurrentRateMeasure import Measure
+from .BT1.PiecePicker import PiecePicker
+from .BT1.Statistics import Statistics
+from .ConfigDir import ConfigDir
+from .bencode import bencode, bdecode
+from .natpunch import UPnP_test
+from hashlib import sha1 as sha
 from os import path, makedirs, listdir
-from parseargs import parseargs, formatDefinitions, defaultargs
+from .parseargs import parseargs, formatDefinitions, defaultargs
 from socket import error as socketerror
 from random import seed
 from threading import Thread, Event
-from clock import clock
-from __init__ import createPeerID
-
-try:
-    True
-except:
-    True = 1
-    False = 0
+from .clock import clock
+from .__init__ import createPeerID
 
 defaults = [
     ('max_uploads', 0,
@@ -163,7 +157,7 @@ argslistheader = 'Arguments are:\n\n'
 
 
 def _failfunc(x):
-    print x
+    print(x)
 
 # old-style downloader
 def download(params, filefunc, statusfunc, finfunc, errorfunc, doneflag, cols,
@@ -172,7 +166,7 @@ def download(params, filefunc, statusfunc, finfunc, errorfunc, doneflag, cols,
 
     try:
         config = parse_params(params, presets)
-    except ValueError, e:
+    except ValueError as e:
         failed('error: ' + str(e) + '\nrun with no args for parameter explanations')
         return
     if not config:
@@ -191,7 +185,7 @@ def download(params, filefunc, statusfunc, finfunc, errorfunc, doneflag, cols,
         listen_port = rawserver.find_and_bind(config['minport'], config['maxport'],
                         config['bind'], ipv6_socket_style = config['ipv6_binds_v4'],
                         upnp = upnp_type, randomizer = config['random_port'])
-    except socketerror, e:
+    except socketerror as e:
         failed("Couldn't listen - " + str(e))
         return
 
@@ -240,17 +234,17 @@ def parse_params(params, presets = {}):
     config, args = parseargs(params, defaults, 0, 1, presets = presets)
     if args:
         if config['responsefile'] or config['url']:
-            raise ValueError,'must have responsefile or url as arg or parameter, not both'
+            raise ValueError('must have responsefile or url as arg or parameter, not both')
         if path.isfile(args[0]):
             config['responsefile'] = args[0]
         else:
             try:
                 urlparse(args[0])
             except:
-                raise ValueError, 'bad filename or url'
+                raise ValueError('bad filename or url')
             config['url'] = args[0]
     elif (config['responsefile'] == '') == (config['url'] == ''):
-        raise ValueError, 'need responsefile or url, must have one, cannot have both'
+        raise ValueError('need responsefile or url, must have one, cannot have both')
     return config
 
 
@@ -286,7 +280,7 @@ def get_response(file, url, errorfunc):
                 return None
         response = h.read()
     
-    except IOError, e:
+    except IOError as e:
         errorfunc('problem getting response info - ' + str(e))
         return None
     try:    
@@ -300,7 +294,7 @@ def get_response(file, url, errorfunc):
             errorfunc("warning: bad data in responsefile")
             response = bdecode(response, sloppy=1)
         check_message(response)
-    except ValueError, e:
+    except ValueError as e:
         errorfunc("got bad file info - " + str(e))
         return None
 
@@ -325,7 +319,7 @@ class BT1Download:
         
         self.info = self.response['info']
         self.pieces = [self.info['pieces'][x:x+20]
-                       for x in xrange(0, len(self.info['pieces']), 20)]
+                       for x in range(0, len(self.info['pieces']), 20)]
         self.len_pieces = len(self.pieces)
         self.argslistheader = argslistheader
         self.unpauseflag = Event()
@@ -362,7 +356,7 @@ class BT1Download:
 
 
     def checkSaveLocation(self, loc):
-        if self.info.has_key('length'):
+        if 'length' in self.info:
             return path.exists(loc)
         for x in self.info['files']:
             if path.exists(path.join(loc, x['path'][0])):
@@ -378,7 +372,7 @@ class BT1Download:
                 if f != '' and not path.exists(f):
                     makedirs(f)
 
-            if self.info.has_key('length'):
+            if 'length' in self.info:
                 file_length = self.info['length']
                 file = filefunc(self.info['name'], file_length,
                                 self.config['saveas'], False)
@@ -387,7 +381,7 @@ class BT1Download:
                 make(file)
                 files = [(file, file_length)]
             else:
-                file_length = 0L
+                file_length = 0
                 for x in self.info['files']:
                     file_length += x['length']
                 file = filefunc(self.info['name'], file_length,
@@ -427,7 +421,7 @@ class BT1Download:
                         n = path.join(n, i)
                     files.append((n, x['length']))
                     make(n)
-        except OSError, e:
+        except OSError as e:
             self.errorfunc("Couldn't allocate dir - " + str(e))
             return None
 
@@ -446,7 +440,7 @@ class BT1Download:
         self.finflag.set()
         try:
             self.storage.set_readonly()
-        except (IOError, OSError), e:
+        except (IOError, OSError) as e:
             self.errorfunc('trouble setting readonly at end - ' + str(e))
         if self.superseedflag.isSet():
             self._set_super_seed()
@@ -505,7 +499,7 @@ class BT1Download:
             try:
                 self.storage = Storage(self.files, self.info['piece length'],
                                        self.doneflag, self.config, disabled_files)
-            except IOError, e:
+            except IOError as e:
                 self.errorfunc('trouble accessing files - ' + str(e))
                 return None
             if self.doneflag.isSet():
@@ -517,9 +511,9 @@ class BT1Download:
                 self._data_flunked, self.rawserver.add_task,
                 self.config, self.unpauseflag)
             
-        except ValueError, e:
+        except ValueError as e:
             self._failed('bad data - ' + str(e))
-        except IOError, e:
+        except IOError as e:
             self._failed('IOError - ' + str(e))
         if self.doneflag.isSet():
             return None
@@ -587,7 +581,7 @@ class BT1Download:
 
         self.checking = False
 
-        for i in xrange(self.len_pieces):
+        for i in range(self.len_pieces):
             if self.storagewrapper.do_I_have(i):
                 self.picker.complete(i)
         self.upmeasure = Measure(self.config['max_rate_period'],
@@ -624,7 +618,7 @@ class BT1Download:
             self.rawserver, self.finflag, self.errorfunc, self.downloader,
             self.config['max_rate_period'], self.infohash, self._received_http_data,
             self.connecter.got_piece)
-        if self.response.has_key('httpseeds') and not self.finflag.isSet():
+        if 'httpseeds' in self.response and not self.finflag.isSet():
             for u in self.response['httpseeds']:
                 self.httpdownloader.make_download(u)
 
@@ -661,7 +655,7 @@ class BT1Download:
             self.rerequest.hit()
 
     def startRerequester(self, seededfunc = None, force_rapid_update = False):
-        if self.response.has_key('announce-list'):
+        if 'announce-list' in self.response:
             trackerlist = self.response['announce-list']
         else:
             trackerlist = [[self.response['announce']]]
@@ -684,7 +678,7 @@ class BT1Download:
         self.statistics = Statistics(self.upmeasure, self.downmeasure,
                     self.connecter, self.httpdownloader, self.ratelimiter,
                     self.rerequest_lastfailed, self.filedatflag)
-        if self.info.has_key('files'):
+        if 'files' in self.info:
             self.statistics.set_dirstats(self.files, self.info['piece length'])
         if self.config['spew']:
             self.spewflag.set()

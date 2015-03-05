@@ -5,14 +5,9 @@
 
 import socket
 from traceback import print_exc
-from subnetparse import IP_List
-from clock import clock
-from __init__ import createPeerID
-try:
-    True
-except:
-    True = 1
-    False = 0
+from .subnetparse import IP_List
+from .clock import clock
+from .__init__ import createPeerID
 
 DEBUG = False
 
@@ -59,11 +54,11 @@ class _UPnP1:   # derived from Myers Carpenter's code
         try:
             map.Add(p,'TCP',p,ip,True,ID)
             if DEBUG:
-                print 'port opened: '+ip+':'+str(p)
+                print('port opened: '+ip+':'+str(p))
             success = True
         except:
             if DEBUG:
-                print "COULDN'T OPEN "+str(p)
+                print("COULDN'T OPEN "+str(p))
                 print_exc()
             success = False
         return success
@@ -75,10 +70,10 @@ class _UPnP1:   # derived from Myers Carpenter's code
             map.Remove(p,'TCP')
             success = True
             if DEBUG:
-                print 'port closed: '+str(p)
+                print('port closed: '+str(p))
         except:
             if DEBUG:
-                print 'ERROR CLOSING '+str(p)
+                print('ERROR CLOSING '+str(p))
                 print_exc()
             success = False
         return success
@@ -90,7 +85,7 @@ class _UPnP1:   # derived from Myers Carpenter's code
         try:
             map = self._get_map()
             ports_in_use = []
-            for i in xrange(len(map)):
+            for i in range(len(map)):
                 try:
                     mapping = map[i]
                     port = mapping.ExternalPort
@@ -130,10 +125,10 @@ class _UPnP2:   # derived from Yejun Yang's code
                            "urn:schemas-upnp-org:service:WANPPPConnection:1" ):
                     try:
                         conns = f.FindByType(t,0)
-                        for c in xrange(len(conns)):
+                        for c in range(len(conns)):
                             try:
                                 svcs = conns[c].Services
-                                for s in xrange(len(svcs)):
+                                for s in range(len(svcs)):
                                     try:
                                         self.services.append(svcs[s])
                                     except:
@@ -166,7 +161,7 @@ class _UPnP2:   # derived from Yejun Yang's code
             except:
                 pass
         if DEBUG and not success:
-            print "COULDN'T OPEN "+str(p)
+            print("COULDN'T OPEN "+str(p))
             print_exc()
         return success
 
@@ -181,7 +176,7 @@ class _UPnP2:   # derived from Yejun Yang's code
             except:
                 pass
         if DEBUG and not success:
-            print "COULDN'T OPEN "+str(p)
+            print("COULDN'T OPEN "+str(p))
             print_exc()
         return success
 
@@ -206,32 +201,32 @@ class _UPnP:    # master holding class
                     if local_ips.includes(self.local_ip):
                         self.last_got_ip = clock()
                         if DEBUG:
-                            print 'Local IP found: '+self.local_ip
+                            print('Local IP found: '+self.local_ip)
                         break
                 else:
                     raise ValueError('couldn\'t find intranet IP')
             except:
                 self.local_ip = None
                 if DEBUG:
-                    print 'Error finding local IP'
+                    print('Error finding local IP')
                     print_exc()
         return self.local_ip
 
     def test(self, upnp_type):
         if DEBUG:
-            print 'testing UPnP type '+str(upnp_type)
+            print('testing UPnP type '+str(upnp_type))
         if not upnp_type or not _supported or self.get_ip() is None:
             if DEBUG:
-                print 'not supported'
+                print('not supported')
             return 0
         pythoncom.CoInitialize()                # leave initialized
         self.upnp = self.upnplist[upnp_type]    # cache this
         if self.upnp.test():
             if DEBUG:
-                print 'ok'
+                print('ok')
             return upnp_type
         if DEBUG:
-            print 'tested bad'
+            print('tested bad')
         return 0
 
     def open(self, p):

@@ -4,7 +4,7 @@ import os
 from sys import argv
 
 if len(argv)<3:
-   print 'Usage:  %s dirToDumpDpkgs <pkg1> <pkg2> ...' % argv[0]
+   print('Usage:  %s dirToDumpDpkgs <pkg1> <pkg2> ...' % argv[0])
    exit(1)
 
 outDir = argv[1]
@@ -26,13 +26,13 @@ try:
       try:
          subprocess.check_output(['wget', '-O', fil, dl]) 
       except Exception as e:
-         print '***Error downloading file:', dl
-         print '***Error: ', str(e)
+         print('***Error downloading file:', dl)
+         print('***Error: ', str(e))
          continue
 
       out = subprocess.check_output(['md5sum', fil]).split()[0]
       if not out==md5:
-         print '***ERROR: MD5sum does not match!' 
+         print('***ERROR: MD5sum does not match!' )
          raise
 except:
    for f in filename:

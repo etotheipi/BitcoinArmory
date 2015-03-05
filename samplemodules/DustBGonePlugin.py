@@ -5,7 +5,7 @@
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
 from socket import socket
 
-from PyQt4.Qt import QMessageBox, QPushButton, SIGNAL, QLabel, QLineEdit, Qt, \
+from PyQt5.Qt import QMessageBox, QPushButton, QLabel, QLineEdit, Qt, \
    QTableView, QScrollArea, QAbstractTableModel, QModelIndex, QVariant
 
 from armorycolors import Colors
@@ -58,7 +58,7 @@ class PluginObject(object):
                a160 = CheckHash160(utxo.getRecipientScrAddr())
                for pyAddr in self.dustTableModel.wlt.addrMap.values():
                   if a160 == pyAddr.getAddr160():
-                     pubKey = pyAddr.binPublicKey65.toBinStr()
+                     pubKey = hex_to_binary(pyAddr.binPublicKey65.toHexStr())
                      txoIdx = utxo.getTxOutIndex()
                      utxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
                      break
@@ -80,8 +80,8 @@ class PluginObject(object):
                   [],
                   privKeyMap, SIGHASH_NONE|SIGHASH_ANYONECANPAY )
             
-            print "-------------"
-            print binary_to_hex(signedTx.serialize())
+            print("-------------")
+            print("%s" % binary_to_hex(signedTx.serialize()).decode())
             
             # sock = socket.create_connection(('dust-b-gone.bitcoin.petertodd.org',80))
             # sock.send(signedTx.serialize())
@@ -113,7 +113,7 @@ class PluginObject(object):
       self.lblHeader    = QRichLabel(tr("""<b>Dust Outputs for Wallet: None Selected</b>"""), doWrap=False)
       self.beGoneDustButton = QPushButton("Remove Dust")
       self.beGoneDustButton.setEnabled(False)
-      self.main.connect(self.beGoneDustButton, SIGNAL('clicked()'), sendDust)
+      self.beGoneDustButton.clicked.connect(sendDust)
       topRow =  makeHorizFrame([self.lblHeader,'stretch'])
       secondRow =  makeHorizFrame([self.beGoneDustButton, 'stretch'])
       
@@ -124,7 +124,7 @@ class PluginObject(object):
       self.dustLimitText.setMaximumWidth(tightSizeNChar(self.dustLimitText, 12)[0])
       self.dustLimitText.setAlignment(Qt.AlignRight)
       self.dustLimitText.setText(coin2str(DEFAULT_DUST_LIMIT))
-      self.main.connect(self.dustLimitText, SIGNAL('textChanged(QString)'), updateDustLimit)
+      self.dustLimitText.textChanged.connect(updateDustLimit)
       
       
       limitPanel = makeHorizFrame([self.dustLimitLabel, self.dustLimitText, 'stretch'])
@@ -146,8 +146,7 @@ class PluginObject(object):
       self.lblTxioInfo = QRichLabel('')
       self.lblTxioInfo.setMinimumWidth(tightSizeNChar(self.lblTxioInfo, 30)[0])
       
-      self.main.connect(self.main.walletsView, SIGNAL('clicked(QModelIndex)'), 
-                   updateDustLimit)
+      self.main.walletsView.clicked.connect(updateDustLimit)
 
       self.dustBGoneFrame = makeVertFrame([topRow, secondRow, limitPanel, self.dustTableView, 'stretch'])
 

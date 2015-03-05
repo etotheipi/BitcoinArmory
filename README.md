@@ -33,27 +33,18 @@ See instructions [here][Armory Build Instructions]
  Windows: [Download][Windows SWIG Download]  
  MSVS: Copy swigwin-2.x directory next to cryptopp as `swigwin`  
   
-* Python 2.6/2.7  
- Linux:   Install package `python-dev`  
+* Python 3.4
+ Linux:   Install package `python3-dev` and `python3-pip`
  Windows: [Download][Windows Python Download]  
   
-* Python Twisted -- asynchronous networking  
- Linux:   Install package `python-twisted`  
- Windows: [Download][Windows Twisted Download]  
+* Python Packages
+ Linux:   Install python packages `pip3 install twisted psutil`
+ Windows: [Download Twisted][Windows Twisted Download]  [Download psutil][Windows psutil Download
   
-* PyQt 4 (for Python 2.X)  
- Linux:   Install packages `libqtcore4`, `libqt4-dev`, `python-qt4`, and `pyqt4-dev-tools`  
- Windows: [Download][Windows QT Download]  
-  
-* qt4reactor.py -- combined eventloop for PyQt and Twisted  
- All OS:  [Download][QT4 Reactor Download]  
+* Qt 5
+ Linux:   Install packages `libqt5designer5 libqt5gui5 libqt5help5 libqt5printsupport5 libqt5widgets5 python3-pyqt5 pyqt5-dev-tools`
+ Windows: [Download QT][Windows QT Download] [Download SIP][Windows SIP Download] [Download PyQT5][Windows PyQt Download]
 
-* pywin32  
- Windows Only:  qt4reactor relies on pywin32 (for win32event module). [Download][Windows PyWin Download]  
-  
-* py2exe  
- (OPTIONAL - if you want to make a standalone executable in Windows)  
- Windows: [Download][Windows Py2Exe Download]  
 
 ##Sample Code
 
@@ -78,9 +69,15 @@ Copyright (C) 2011-2015, Armory Technologies, Inc.
 [Windows SWIG Download]: http://www.swig.org/download.html
 [Windows Python Download]: http://www.python.org/getit/
 [Windows Twisted Download]: http://twistedmatrix.com/trac/wiki/Downloads
-[Windows QT Download]: http://www.riverbankcomputing.co.uk/software/pyqt/download
+[Windows QT Download]: http://www.qt.io/download-open-source/#section-5
+[Linux QT Download]: http://www.qt.io/download-open-source/#section-3
 [QT4 Reactor Download]: https://launchpad.net/qt4reactor
 [Windows PyWin Download]: http://sourceforge.net/projects/pywin32/files/pywin32/
 [Windows Py2Exe Download]:  http://www.py2exe.org/
 [License]: http://www.gnu.org/licenses/agpl.html
 [Donation Image]: https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=bitcoin:1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv?&label=Armory+Donation
+[Linux PyQt Download]: http://sourceforge.net/projects/pyqt/files/PyQt5/PyQt-5.4.1/PyQt-gpl-5.4.1.tar.gz
+[Windows PyQt Download]: http://sourceforge.net/projects/pyqt/files/PyQt5/PyQt-5.4.1/PyQt-gpl-5.4.1.zip
+[Linux SIP Download]: http://sourceforge.net/projects/pyqt/files/sip/sip-4.16.6/sip-4.16.6.tar.gz
+[Windows SIP Download]: http://sourceforge.net/projects/pyqt/files/sip/sip-4.16.6/sip-4.16.6.zip
+[Windows psutil Download]: https://pypi.python.org/pypi/psutil/

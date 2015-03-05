@@ -10,48 +10,48 @@
 # Licence: Public domain or CC0
 
 import base64
+import binascii
 import hashlib
 import random
 import time
 
 import CppBlockUtils
-from armoryengine.ArmoryUtils import getVersionString, BTCARMORY_VERSION, \
-   ChecksumError
+from armoryengine.ArmoryUtils import getVersionBytes, BTCARMORY_VERSION, \
+   ChecksumError, BIGENDIAN, LITTLEENDIAN, hex_to_binary, hex_to_int, \
+   binary_to_hex, binary_to_int, int_to_binary, int_to_hex
 
 
 FTVerbose=False
 
 version='0.1.0'
 
-_p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
-_r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
-_b = 0x0000000000000000000000000000000000000000000000000000000000000007L
-_a = 0x0000000000000000000000000000000000000000000000000000000000000000L
-_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
-_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+_p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+_r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+_b = 0x0000000000000000000000000000000000000000000000000000000000000007
+_a = 0x0000000000000000000000000000000000000000000000000000000000000000
+_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
 
-BEGIN_MARKER = '-----BEGIN '
-END_MARKER = '-----END '
-DASHX5 = '-----'
-RN = '\r\n'
-RNRN = '\r\n\r\n'
-CLEARSIGN_MSG_TYPE_MARKER = 'BITCOIN SIGNED MESSAGE'
-BITCOIN_SIG_TYPE_MARKER = 'BITCOIN SIGNATURE'
-BASE64_MSG_TYPE_MARKER = 'BITCOIN MESSAGE'
-BITCOIN_ARMORY_COMMENT = 'Comment: Signed by Bitcoin Armory v' +\
-   getVersionString(BTCARMORY_VERSION, 3)
+BEGIN_MARKER = b'-----BEGIN '
+END_MARKER = b'-----END '
+DASHX5 = b'-----'
+RN = b'\r\n'
+RNRN = b'\r\n\r\n'
+CLEARSIGN_MSG_TYPE_MARKER = b'BITCOIN SIGNED MESSAGE'
+BITCOIN_SIG_TYPE_MARKER = b'BITCOIN SIGNATURE'
+BASE64_MSG_TYPE_MARKER = b'BITCOIN MESSAGE'
+BITCOIN_ARMORY_COMMENT = b'Comment: Signed by Bitcoin Armory v' +\
+   getVersionBytes(BTCARMORY_VERSION, 3)
 class UnknownSigBlockType(Exception): pass
    
 def randomk():  
    # Using Crypto++ CSPRNG instead of python's
    sbdRandK = CppBlockUtils.SecureBinaryData().GenerateRandom(32)
-   hexRandK = sbdRandK.toBinStr().encode('hex_codec')
-   return int(hexRandK, 16)
-
+   return hex_to_int(sbdRandK.toHexStr())
 
 # Common constants/functions for Bitcoin
 def hash_160_to_bc_address(h160, addrtype=0):
-   vh160 = chr(addrtype) + h160
+   vh160 = bytes([addrtype]) + h160
    h = Hash(vh160)
    addr = vh160 + h[0:4]
    return b58encode(addr)
@@ -69,46 +69,48 @@ def sha256(data):
 def sha1(data):
    return hashlib.sha1(data).digest()
 
-__b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+__b58chars = b'123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 __b58base = len(__b58chars)
 
 def b58encode(v):
-   long_value = 0L
+   long_value = 0
    for (i, c) in enumerate(v[::-1]):
-      long_value += (256**i) * ord(c)
+      long_value += (256**i) * c
 
-   result = ''
+   result = b''
    while long_value >= __b58base:
       div, mod = divmod(long_value, __b58base)
-      result = __b58chars[mod] + result
+      result = __b58chars[mod:mod+1] + result
       long_value = div
-   result = __b58chars[long_value] + result
+   result = __b58chars[long_value:long_value+1] + result
 
    nPad = 0
    for c in v:
-      if c == '\0': nPad += 1
-      else: break
+      if c == 0:
+         nPad += 1
+      else:
+         break
 
-   return (__b58chars[0]*nPad) + result
+   return __b58chars[0:1]*nPad + result
 
 def b58decode(v, length):
-   long_value = 0L
+   long_value = 0
    for (i, c) in enumerate(v[::-1]):
       long_value += __b58chars.find(c) * (__b58base**i)
 
-   result = ''
+   result = b''
    while long_value >= 256:
       div, mod = divmod(long_value, 256)
-      result = chr(mod) + result
+      result = bytes([mod]) + result
       long_value = div
-   result = chr(long_value) + result
+   result = bytes([long_value]) + result
 
    nPad = 0
    for c in v:
       if c == __b58chars[0]: nPad += 1
       else: break
 
-   result = chr(0)*nPad + result
+   result = b'\x00'*nPad + result
    if length is not None and len(result) != length:
       return None
 
@@ -138,7 +140,7 @@ def regenerate_key(sec):
    if not b:
       return False
    b = b[0:32]
-   secret = int('0x' + b.encode('hex'), 16)
+   secret = binary_to_int(b)
    return EC_KEY(secret)
 
 def GetPubKey(pkey, compressed=False):
@@ -148,49 +150,36 @@ def GetPrivKey(pkey, compressed=False):
    return i2d_ECPrivateKey(pkey, compressed)
 
 def GetSecret(pkey):
-   return ('%064x' % pkey.secret).decode('hex')
+   return int_to_binary(pkey.secret, 32)
 
 
 def i2d_ECPrivateKey(pkey, compressed=False):#, crypted=True):
-   part3='a081a53081a2020101302c06072a8648ce3d0101022100'  # for uncompressed keys
    if compressed:
-      if True:#not crypted:  ## Bitcoin accepts both part3's for crypted wallets...
-         part3='a08185308182020101302c06072a8648ce3d0101022100'  # for compressed keys
-      key = '3081d30201010420' + \
-         '%064x' % pkey.secret + \
-         part3 + \
-         '%064x' % _p + \
-         '3006040100040107042102' + \
-         '%064x' % _Gx + \
-         '022100' + \
-         '%064x' % _r + \
-         '020101a124032200'
+      part3=b'a08185308182020101302c06072a8648ce3d0101022100'  # for compressed keys
+      key = b'3081d30201010420' + int_to_hex(pkey.secret, 32, BIGENDIAN) + \
+            part3 + int_to_hex(_p,32,BIGENDIAN) + b'3006040100040107042102' + \
+            int_to_hex(_Gx, 32, BIGENDIAN) + b'022100' + \
+            int_to_hex(_r, 32, BIGENDIAN) + b'020101a124032200'
    else:
-      key = '308201130201010420' + \
-         '%064x' % pkey.secret + \
-         part3 + \
-         '%064x' % _p + \
-         '3006040100040107044104' + \
-         '%064x' % _Gx + \
-         '%064x' % _Gy + \
-         '022100' + \
-         '%064x' % _r + \
-         '020101a144034200'
+      part3=b'a081a53081a2020101302c06072a8648ce3d0101022100'  # for uncompressed keys
+      key = b'308201130201010420' + int_to_hex(pkey.secret, 32, BIGENDIAN) + \
+            part3 + int_to_hex(_p,32,BIGENDIAN) + b'3006040100040107044104' + \
+            int_to_hex(_Gx, 32, BIGENDIAN) + int_to_hex(_Gy, 32, BIGENDIAN) + \
+            b'022100' + int_to_hex(_r, 32, BIGENDIAN) + b'020101a144034200'
          
-   return key.decode('hex') + i2o_ECPublicKey(pkey, compressed)
+   return hex_to_binary(key) + i2o_ECPublicKey(pkey, compressed)
 
 def i2o_ECPublicKey(pkey, compressed=False):
    if compressed:
       if pkey.pubkey.point.y() & 1:
-         key = '03' + '%064x' % pkey.pubkey.point.x()
+         key = b'03' + int_to_hex(pkey.pubkey.point.x(), 32, BIGENDIAN)
       else:
-         key = '02' + '%064x' % pkey.pubkey.point.x()
+         key = b'02' + int_to_hex(pkey.pubkey.point.x(), 32, BIGENDIAN)
    else:
-      key = '04' + \
-         '%064x' % pkey.pubkey.point.x() + \
-         '%064x' % pkey.pubkey.point.y()
+      key = b'04' + int_to_hex(pkey.pubkey.point.x(), 32, BIGENDIAN) + \
+            int_to_hex(pkey.pubkey.point.y(), 32, BIGENDIAN)
 
-   return key.decode('hex')
+   return hex_to_binary(key)
 
 def hash_160(public_key):
    md = hashlib.new('ripemd160')
@@ -259,9 +248,9 @@ class Point( object ):
    def __mul__( self, other ):
       def leftmost_bit( x ):
          assert x > 0
-         result = 1L
+         result = 1
          while result <= x: result = 2 * result
-         return result / 2
+         return result // 2
 
       e = other
       if self.__order: e = e % self.__order
@@ -270,13 +259,13 @@ class Point( object ):
       assert e > 0
       e3 = 3 * e
       negative_self = Point( self.__curve, self.__x, -self.__y, self.__order )
-      i = leftmost_bit( e3 ) / 2
+      i = leftmost_bit( e3 ) // 2
       result = self
       while i > 1:
          result = result.double()
          if ( e3 & i ) != 0 and ( e & i ) == 0: result = result + self
          if ( e3 & i ) == 0 and ( e & i ) != 0: result = result + negative_self
-         i = i / 2
+         i = i // 2
       return result
 
    def __rmul__( self, other ):
@@ -312,13 +301,6 @@ class Point( object ):
 
 INFINITY = Point( None, None, None )
 
-def str_to_long(b):
-   res = 0
-   pos = 1
-   for a in reversed(b):
-      res += ord(a) * pos
-      pos *= 256
-   return res
 
 class Public_key( object ):
    def __init__( self, generator, point, c ):
@@ -328,15 +310,17 @@ class Public_key( object ):
       self.compressed = c
       n = generator.order()
       if not n:
-         raise RuntimeError, "Generator point must have order."
+         raise RuntimeError("Generator point must have order.")
       if not n * point == INFINITY:
-         raise RuntimeError, "Generator point order is bad."
+         raise RuntimeError("Generator point order is bad.")
       if point.x() < 0 or n <= point.x() or point.y() < 0 or n <= point.y():
-         raise RuntimeError, "Generator point has x or y out of range."
+         raise RuntimeError("Generator point has x or y out of range.")
 
    def verify( self, hashValue, signature ):
-      if isinstance(hashValue, str):
-         hashValue=str_to_long(hashValue)
+      if isinstance(hashValue, bytes):
+         hashValue=binary_to_int(hashValue, BIGENDIAN)
+      elif isinstance(hashValue, str):
+         raise RuntimeError("hashValue should be int or bytes, not str")
       G = self.generator
       n = G.order()
       r = signature.r
@@ -353,15 +337,14 @@ class Public_key( object ):
    def ser(self):
       if self.compressed:
          if self.point.y() & 1:
-            key = '03' + '%064x' % self.point.x()
+            key = b'03' + int_to_hex(self.point.x(), 32, BIGENDIAN)
          else:
-            key = '02' + '%064x' % self.point.x()
+            key = b'02' + int_to_hex(self.point.x(), 32, BIGENDIAN)
       else:
-         key = '04' + \
-            '%064x' % self.point.x() + \
-            '%064x' % self.point.y()
+         key = b'04' + int_to_hex(self.point.x(), 32, BIGENDIAN) + \
+               int_to_hex(self.point.y(), 32, BIGENDIAN)
 
-      return key.decode('hex')
+      return hex_to_binary(key)
 
 
 class Signature( object ):
@@ -370,7 +353,7 @@ class Signature( object ):
       self.s = s
 
    def ser(self):
-      return ("%064x%064x"%(self.r,self.s)).decode('hex')
+      return int_to_binary(self.r,32, BIGENDIAN) + int_to_binary(self.s,32, BIGENDIAN)
 
 class Private_key( object ):
    def __init__( self, public_key, secret_multiplier ):
@@ -386,17 +369,19 @@ class Private_key( object ):
 #      return hex_der_key.decode('hex')
 
    def sign( self, hashValue, random_k ):
-      if isinstance(hashValue, str):
-         hashValue=str_to_long(hashValue)
+      if isinstance(hashValue, bytes):
+         hashValue=binary_to_int(hashValue, BIGENDIAN)
+      elif isinstance(hashValue, str):
+         raise RuntimeError("hashValue should be int or bytes, not str")
       G = self.public_key.generator
       n = G.order()
       k = random_k % n
       p1 = k * G
       r = p1.x()
-      if r == 0: raise RuntimeError, "amazingly unlucky random number r"
+      if r == 0: raise RuntimeError("amazingly unlucky random number r")
       s = ( inverse_mod( k, n ) * \
                ( hashValue + ( self.secret_multiplier * r ) % n ) ) % n
-      if s == 0: raise RuntimeError, "amazingly unlucky random number s"
+      if s == 0: raise RuntimeError("amazingly unlucky random number s")
       return Signature( r, s )
 
 class EC_KEY(object):
@@ -408,30 +393,31 @@ class EC_KEY(object):
       self.secret = secret
 
 def decbin(d, l=0, rev=False):
-   if l==0:
-      a="%x"%d
-      if len(a)%2: a='0'+a
-   else:
-      a=("%0"+str(2*l)+"x")%d
-   a=a.decode('hex')
-   if rev:
+   a = []
+   while d > 0:
+      d, c = divmod(d, 256)
+      a.append(c)
+   if l > len(a):
+      a += [0] * (l - len(a))
+   if not rev:
       a=a[::-1]
-   return a
+   return bytes(a)
 
 def decvi(d):
    if d<0xfd:
       return decbin(d)
    elif d<0xffff:
-      return '\xfd'+decbin(d,2,True)
+      return b'\xfd'+decbin(d,2,True)
    elif d<0xffffffff:
-      return '\xfe'+decbin(d,4,True)
-   return '\xff'+decbin(d,8,True)
+      return b'\xfe'+decbin(d,4,True)
+   return b'\xff'+decbin(d,8,True)
 
 def format_msg_to_sign(msg):
-   return "\x18Bitcoin Signed Message:\n"+decvi(len(msg))+msg
+   assert(isinstance(msg, bytes))
+   return b"\x18Bitcoin Signed Message:\n"+decvi(len(msg))+msg
 
 def sqrt_mod(a, p):
-   return pow(a, (p+1)/4, p)
+   return pow(a, ((p+1)//4), p)
 
 
 
@@ -456,8 +442,8 @@ def verify_message_Bitcoin(signature, message, pureECDSASigning=False, networkVe
    if len(sig) != 65:
       raise Exception("vmB","Bad signature")
 
-   hb = ord(sig[0])
-   r,s = map(str_to_long,[sig[1:33],sig[33:65]])
+   hb = sig[0]
+   r,s = binary_to_int(sig[1:33], BIGENDIAN), binary_to_int(sig[33:65], BIGENDIAN)
 
    if hb < 27 or hb >= 35:
       raise Exception("vmB","Bad first byte")
@@ -466,7 +452,7 @@ def verify_message_Bitcoin(signature, message, pureECDSASigning=False, networkVe
       hb -= 4
 
    recid = hb - 27
-   x = (r + (recid/2) * order) % _p
+   x = (r + (recid//2) * order) % _p
    y2 = ( pow(x,3,_p) + _a*x + _b ) % _p
    yomy = sqrt_mod(y2, _p)
    if (yomy - recid) % 2 == 0:
@@ -475,7 +461,7 @@ def verify_message_Bitcoin(signature, message, pureECDSASigning=False, networkVe
       y=_p - yomy
 
    R = Point(curve, x, y, order)
-   e = str_to_long(msg)
+   e = binary_to_int(msg, BIGENDIAN)
    minus_e = -e % order
    inv_r = inverse_mod(r,order)
    Q = inv_r * ( R*s + G*minus_e )
@@ -483,12 +469,14 @@ def verify_message_Bitcoin(signature, message, pureECDSASigning=False, networkVe
    addr = public_key_to_bc_address(public_key.ser(), networkVersionNumber)
    return addr
 
-def sign_message(secret, message, pureECDSASigning=False):
+def sign_message(secret, message, pureECDSASigning=False, rnd=randomk()):
+   assert(isinstance(secret, bytes))
+   assert(isinstance(message, bytes))
    if len(secret) == 32:
-      pkey = EC_KEY(str_to_long(secret))
+      pkey = EC_KEY(binary_to_int(secret, BIGENDIAN))
       compressed = False
    elif len(secret) == 33:
-      pkey = EC_KEY(str_to_long(secret[:-1]))
+      pkey = EC_KEY(binary_to_int(secret[:-1], BIGENDIAN))
       secret=secret[:-1]
       compressed = True
    else:
@@ -498,29 +486,30 @@ def sign_message(secret, message, pureECDSASigning=False):
    if not pureECDSASigning:
       msg=Hash(format_msg_to_sign(message))
 
-   eckey           = EC_KEY(str_to_long(secret), compressed)
+   eckey           = EC_KEY(binary_to_int(secret, BIGENDIAN), compressed)
    private_key     = eckey.privkey
    public_key      = eckey.pubkey
    addr            = public_key_to_bc_address(GetPubKey(eckey,eckey.pubkey.compressed))
 
-   sig = private_key.sign(msg, randomk())
+   sig = private_key.sign(msg, rnd)
    if not public_key.verify(msg, sig):
       raise Exception("sm","Problem signing message")
    return [sig,addr,compressed,public_key]
 
 
 def sign_message_Bitcoin(secret, msg, pureECDSASigning=False):
+   assert(isinstance(msg, bytes))
    sig,addr,compressed,public_key=sign_message(secret, msg, pureECDSASigning)
 
    for i in range(4):
       hb=27+i
       if compressed:
          hb+=4
-      sign=base64.b64encode(chr(hb)+sig.ser())
+      sign=base64.b64encode(bytes([hb])+sig.ser())
       try:
-         networkVersionNumber = str_to_long(b58decode(addr, None)) >> (8*24)
+         networkVersionNumber = binary_to_int(b58decode(addr, None), BIGENDIAN) >> (8*24)
          if addr == verify_message_Bitcoin(sign, msg, pureECDSASigning, networkVersionNumber):
-            return {'address':addr, 'b64-signature':sign, 'signature':chr(hb)+sig.ser(), 'message':msg}
+            return {'address':addr, 'b64-signature':sign, 'signature':bytes([hb])+sig.ser(), 'message':msg}
       except Exception as e:
 #         print e.args
          pass
@@ -528,26 +517,28 @@ def sign_message_Bitcoin(secret, msg, pureECDSASigning=False):
    raise Exception("smB","Unable to construct recoverable key")
 
 def FormatText(t, sigctx=False, verbose=False):   #sigctx: False=what is displayed, True=what is signed
-   r=''
-   te=t.split('\n')
+   assert(isinstance(t, bytes))
+   r=b''
+   te=t.split(b'\n')
    for l in te:
-      while len(l) and l[len(l)-1] in [' ', '\r', '\t', chr(9)]:
+      while len(l) and l[len(l)-1] in [32, 13, 9]: # 32 = space, 13 = \r, 9 = \t
          l=l[:-1]
-      if not len(l) or l[len(l)-1]!='\r':
-         l+='\r'
+      if not len(l) or l[len(l)-1]!=13: # 13 = \r
+         l+=b'\r'
       if not sigctx:
-         if len(l) and l[0]=='-':
-            l='- '+l
-      r+=l+'\n'
+         if len(l) and l[0]==45: # 45 = -
+            l=b'- '+l
+      r+=l+b'\n'
    r=r[:-2]
 
    global FTVerbose
+
    if FTVerbose:
-      print '  -- Sent:      '+t.encode('hex')
+      print('  -- Sent:      %s'%t)
       if sigctx:
-         print '  -- Signed:    '+r.encode('hex')
+         print('  -- Signed:    %s'%r)
       else:
-         print '  -- Displayed: '+r.encode('hex')
+         print('  -- Displayed: %s'%r)
 
    return r
 
@@ -556,17 +547,16 @@ def crc24(m):
    INIT = 0xB704CE
    POLY = 0x1864CFB
    crc = INIT
-   r = ''
+   r = []
    for o in m:
-      o=ord(o)
       crc ^= (o << 16)
-      for i in xrange(8):
+      for i in range(8):
          crc <<= 1
          if crc & 0x1000000:
             crc ^= POLY
    for i in range(3):
-      r += chr( ( crc & (0xff<<(8*i))) >> (8*i) )
-   return r
+      r.append( (crc & (0xff<<(8*i))) >> (8*i) )
+   return bytes(r)
 
 def chunks(t, n):
    return [t[i:i+n] for i in range(0, len(t), n)]
@@ -577,7 +567,7 @@ def ASCIIArmory(block, name, addComment=False):
    if addComment:
       r+= BITCOIN_ARMORY_COMMENT
    r+=RNRN
-   r+=RN.join(chunks(base64.b64encode(block), 64))+RN+'='
+   r+=RN.join(chunks(base64.b64encode(block), 64))+RN+b'='
    r+=base64.b64encode(crc24(block))+RN
 
    r+=END_MARKER+name+DASHX5
@@ -588,12 +578,13 @@ def readSigBlock(r):
    r = FormatText(r, True)
    name = r.split(BEGIN_MARKER)[1].split(DASHX5)[0]
    if name == BASE64_MSG_TYPE_MARKER:
-      encoded,crc = r.split(BEGIN_MARKER)[1].split(END_MARKER)[0].split(DASHX5)[1].strip().split('\n=')
+      encoded,crc = r.split(BEGIN_MARKER)[1].split(END_MARKER)[0].split(DASHX5)[1].strip().split(b'\n=')
       crc = crc.strip()
-      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      # Always starts with a blank line (\r\n\r\n) chop that off with the
+      # comment and process the rest
       encoded = encoded.split(RNRN)[1]
       # Combines 64 byte chunks that are separated by \r\n
-      encoded = ''.join(encoded.split(RN))
+      encoded = b''.join(encoded.split(RN))
       # decode the message.
       decoded = base64.b64decode(encoded)
       # Check sum of decoded messgae
@@ -614,9 +605,9 @@ def readSigBlock(r):
       msg = msg.split(RN+DASHX5)[0]
       # Only the signature is encoded, use the original r to pull out the encoded signature
       encoded =  r.split(BEGIN_MARKER)[2].split(DASHX5)[1].split(BITCOIN_SIG_TYPE_MARKER)[0]
-      encoded, crc = encoded.split('\n=')
-      encoded = ''.join(encoded.split('\n'))
-      signature = ''.join(encoded.split('\r'))
+      encoded, crc = encoded.split(b'\n=')
+      encoded = b''.join(encoded.split(b'\n'))
+      signature = b''.join(encoded.split(b'\r'))
       crc = crc.strip()
       if base64.b64decode(crc) != crc24(base64.b64decode(signature)):
          raise ChecksumError
@@ -633,6 +624,7 @@ def verifySignature(b64sig, msg, signVer='v0', networkVersionNumber=0):
    return verify_message_Bitcoin(b64sig, msg, networkVersionNumber = networkVersionNumber)
 
 def ASv0(privkey, msg):
+   assert(isinstance(msg, bytes))
    return sign_message_Bitcoin(privkey, msg)
 
 def ASv1CS(privkey, msg):
@@ -654,7 +646,7 @@ def ASv1B64(privkey, msg):
 #
 
 if __name__=='__main__':
-   pvk1='\x01'*32
+   pvk1=b'\x01'*32
    text0='Hello world!'
    text1='Hello world!\n'
    text2='Hello world!\n\t'
@@ -665,16 +657,16 @@ if __name__=='__main__':
    FTVerbose=True
 
    sv0=ASv0(pvk1, text1)
-   print sv0
-   print verifySignature(sv0['b64-signature'], sv0['message'], signVer='v0')
-   print ASv1B64(pvk1, text1)
-   print
-   print ASv1CS(pvk1, text1)
-   print
-   print ASv1CS(pvk1, text2)
-   print
-   print ASv1CS(pvk1, text3)
-   print
-   print ASv1CS(pvk1, text4)
-   print
-   print ASv1CS(pvk1, text5)
+   print(sv0)
+   print(verifySignature(sv0['b64-signature'], sv0['message'], signVer='v0'))
+   print(ASv1B64(pvk1, text1))
+   print()
+   print(ASv1CS(pvk1, text1))
+   print()
+   print(ASv1CS(pvk1, text2))
+   print()
+   print(ASv1CS(pvk1, text3))
+   print()
+   print(ASv1CS(pvk1, text4))
+   print()
+   print(ASv1CS(pvk1, text5))

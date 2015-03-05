@@ -11,7 +11,7 @@ from socket import timeout as SocketTimeout
 try: # Python 3
     from http.client import HTTPConnection as _HTTPConnection, HTTPException
 except ImportError:
-    from httplib import HTTPConnection as _HTTPConnection, HTTPException
+    from http.client import HTTPConnection as _HTTPConnection, HTTPException
 
 class DummyConnection(object):
     "Used to detect a failed ConnectionCls import."
@@ -27,7 +27,7 @@ try: # Compiled with SSL?
     try: # Python 3
         from http.client import HTTPSConnection as _HTTPSConnection
     except ImportError:
-        from httplib import HTTPSConnection as _HTTPSConnection
+        from http.client import HTTPSConnection as _HTTPSConnection
 
     import ssl
     BaseSSLError = ssl.SSLError
@@ -192,14 +192,14 @@ class VerifiedHTTPSConnection(HTTPSConnection):
                 #        function for all hosts.  But it does work for this
                 #        very isolated usecase, so I'm leaving it in here.
                 #        Can fix later if we need to 
-                print "***** FIXME *****"
-                print "   ** Had issues with bitcoinarmory.com validation;"
-                print "   ** SSLError: hostname 'scripts.bitcoinarmory.com'"
-                print "   ** doesn't match either of 'bitcoinarmory.com', "
-                print "   ** 'www.bitcoinarmory.com'.  I am hardcoding the"
-                print "   ** certname into the bundled requests/urllib3"
-                print "   ** which breaks compatibility using it with any "
-                print "   ** HTTPS hosts other than bitcoinarmory.com."
+                print("***** FIXME *****")
+                print("   ** Had issues with bitcoinarmory.com validation;")
+                print("   ** SSLError: hostname 'scripts.bitcoinarmory.com'")
+                print("   ** doesn't match either of 'bitcoinarmory.com', ")
+                print("   ** 'www.bitcoinarmory.com'.  I am hardcoding the")
+                print("   ** certname into the bundled requests/urllib3")
+                print("   ** which breaks compatibility using it with any ")
+                print("   ** HTTPS hosts other than bitcoinarmory.com.")
                 validDNS = ['bitcoinarmory.com', 'scripts.bitcoinarmory.com']
                 for key,val in self.sock.getpeercert().get('subjectAltName', []):
                     if key=='DNS' and val in validDNS:

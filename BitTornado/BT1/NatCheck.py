@@ -1,14 +1,10 @@
 # Written by Bram Cohen
 # see LICENSE.txt for license information
 
-from cStringIO import StringIO
+from io import StringIO
 from socket import error as socketerror
 from traceback import print_exc
-try:
-    True
-except:
-    True = 1
-    False = 0
+
 
 protocol_name = 'BitTorrent protocol'
 

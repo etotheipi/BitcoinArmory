@@ -13,11 +13,11 @@ def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
    will hash the same regardless of original format or ordering
    """
 
-   msgBegin = wholeFile.find('# -----BEGIN-SIGNED-DATA-')
-   msgBegin = wholeFile.find('\n', msgBegin+1) + 1
-   msgEnd   = wholeFile.find('# -----SIGNATURE---------')
-   sigBegin = wholeFile.find('\n', msgEnd+1) + 3
-   sigEnd   = wholeFile.find('# -----END-SIGNED-DATA---')
+   msgBegin = wholeFile.find(b'# -----BEGIN-SIGNED-DATA-')
+   msgBegin = wholeFile.find(b'\n', msgBegin+1) + 1
+   msgEnd   = wholeFile.find(b'# -----SIGNATURE---------')
+   sigBegin = wholeFile.find(b'\n', msgEnd+1) + 3
+   sigEnd   = wholeFile.find(b'# -----END-SIGNED-DATA---')
 
    MSGRAW = wholeFile[msgBegin:msgEnd]
    SIGHEX = wholeFile[sigBegin:sigEnd].strip()
@@ -26,23 +26,26 @@ def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
       LOGERROR('No signed data block found')
       return ''
 
-   print 'MESSAGE:  '
-   print MSGRAW
-   print 'SIGNATURE:'
-   print SIGHEX
+   print('MESSAGE:  ')
+   print(MSGRAW.decode())
+   print('SIGNATURE:')
+   print(SIGHEX.decode())
 
    
    if doVerify:
-      Pub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
-      Msg = SecureBinaryData(MSGRAW)
-      Sig = SecureBinaryData(hex_to_binary(SIGHEX))
+      Pub = SecureBinaryData()
+      Pub.createFromHex(ARMORY_INFO_SIGN_PUBLICKEY.decode())
+      Msg = SecureBinaryData()
+      Msg.createFromHex(binary_to_hex(MSGRAW).decode())
+      Sig = SecureBinaryData()
+      Sig.createFromHex(SIGHEX.decode())
       isVerified = CryptoECDSA().VerifyData(Msg, Sig, Pub)
    
       if not isVerified:
          LOGERROR('Signed data block failed verification!')
          return ''
       else:
-         print 'SIGNATURE IS GOOD!'
+         print('SIGNATURE IS GOOD!')
 
 
    return MSGRAW
@@ -74,10 +77,10 @@ def parseLinkList(theData):
 if __name__=='__main__':
    fn = 'versions.txt'
    if not os.path.exists(fn):
-      print 'File does not exist!'
+      print('File does not exist!')
       fn = '../versions.txt'
       if not os.path.exists(fn):
-         print 'Really does not exist. Aborting.' 
+         print('Really does not exist. Aborting.')
          exit(1)
 
    f = open(fn, 'r')
@@ -86,13 +89,13 @@ if __name__=='__main__':
    msgVerified = extractSignedDataFromVersionsDotTxt(allData, doVerify=False)
    DICT,VER = parseLinkList(msgVerified)
          
-   print DICT
+   print(DICT)
    for dl in DICT:
-      print dl.upper(), VER[dl]
+      print(dl.upper(), VER[dl])
       for theOS in DICT[dl]:
-         print '   ' + dl + '-' + theOS
-         print '      ', DICT[dl][theOS][0]
-         print '      ', DICT[dl][theOS][1]
+         print('   ' + dl + '-' + theOS)
+         print('      ', DICT[dl][theOS][0])
+         print('      ', DICT[dl][theOS][1])
 
    msgVerified = extractSignedDataFromVersionsDotTxt(allData)
       

@@ -114,7 +114,7 @@ def main():
 ################################################################################
 # Write the string to both console and log file
 def logprint(s):
-   print s
+   print(s)
    with open(LOGFILE,'a') as f:
       f.write(s if s.endswith('\n') else s+'\n')
 
@@ -623,9 +623,9 @@ def pip_install(package, lookfor):
    inside the app.  Strange.  Do not use!
    """
    if path.exists(path.join(PYSITEPKGS, lookfor)):
-      print package, "already installed"
+      print(package, "already installed")
    else: 
-      print "Installing %s using pip." % (package,)
+      print("Installing %s using pip." % (package,))
       execAndWait("pip install %s > pip-%s.log 2>&1" % (package, package))
 '''
 
@@ -730,11 +730,11 @@ def make_resources():
 def cleanup_app():
    "Try to remove as much unnecessary junk as possible."
    show_app_size()
-   print "Removing Python test-suite."
+   print("Removing Python test-suite.")
    testdir = path.join(PYPREFIX, "lib/python%s/test" % pyMajorVer)
    if path.exists(testdir):
       removetree(testdir)
-   print "Removing .pyo and unneeded .py files."
+   print("Removing .pyo and unneeded .py files.")
    remove_python_files(PYPREFIX)
    remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'), False)
    show_app_size()
@@ -751,7 +751,7 @@ def getVersionStr():
          if line.startswith('BTCARMORY_VERSION'):
             vstr = line[line.index('(')+1:line.index(')')]
             vquad = tuple([int(v) for v in vstr.replace(' ','').split(',')])
-            print vquad, len(vquad)
+            print(vquad, len(vquad))
             vstr = '%d.%02d' % vquad[:2]
             if (vquad[2] > 0 or vquad[3] > 0):
                vstr += '.%d' % vquad[2]

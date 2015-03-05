@@ -26,7 +26,7 @@ class Timer(object):
    timerMap = {}
    
    def startTimer(self, timerName):
-      if not self.timerMap.has_key(timerName):
+      if timerName not in self.timerMap:
          self.timerMap[timerName] = [0, 0, 0, False]
       timerEntry = self.timerMap[timerName]
       timerEntry[1] += 1
@@ -34,7 +34,7 @@ class Timer(object):
       timerEntry[3]  = True
    
    def stopTimer(self, timerName):
-      if not self.timerMap.has_key(timerName):
+      if timerName not in self.timerMap:
          LOGWARN('Requested stop timer that does not exist! (%s)' % timerName)
          return
       if not self.timerMap[timerName][3]:
@@ -46,31 +46,31 @@ class Timer(object):
       timerEntry[3]  = False
    
    def resetTimer(self, timerName):
-      if not self.timerMap.has_key(timerName):
+      if timerName not in self.timerMap:
          LOGERROR('Requested reset timer that does not exist! (%s)' % timerName)
       # Even if it didn't exist, it will be created now
       self.timerMap[timerName] = [0, 0, 0, False]
    
    def readTimer(self, timerName):
-      if not self.timerMap.has_key(timerName):
+      if timerName not in self.timerMap:
          LOGERROR('Requested read timer that does not exist! (%s)' % timerName)
          return
       timerEntry = self.timerMap[timerName]
       return timerEntry[0] + (RightNow() - timerEntry[2])
    
    def printTimings(self):
-      print 'Timings:  '.ljust(30), 
-      print 'nCall'.rjust(13),
-      print 'cumulTime'.rjust(13),
-      print 'avgTime'.rjust(13)
-      print '-'*70
-      for tname,quad in self.timerMap.iteritems():
-         print ('%s' % tname).ljust(30), 
-         print ('%d' % quad[1]).rjust(13),
-         print ('%0.6f' % quad[0]).rjust(13),
+      print('Timings:  '.ljust(30))
+      print('nCall'.rjust(13))
+      print('cumulTime'.rjust(13))
+      print('avgTime'.rjust(13))
+      print('-'*70)
+      for tname,quad in list(self.timerMap.items()):
+         print(('%s' % tname).ljust(30))
+         print(('%d' % quad[1]).rjust(13))
+         print(('%0.6f' % quad[0]).rjust(13))
          avg = quad[0]/quad[1]
-         print ('%0.6f' % avg).rjust(13)
-      print '-'*70
+         print(('%0.6f' % avg).rjust(13))
+      print('-'*70)
    
    def saveTimingsCSV(self, fname):
       f = open(fname, 'w')
@@ -78,7 +78,7 @@ class Timer(object):
       f.write( 'nCall,')
       f.write( 'cumulTime,')
       f.write( 'avgTime\n\n')
-      for tname,quad in self.timerMap.iteritems():
+      for tname,quad in list(self.timerMap.items()):
          f.write('%s,' % tname)
          f.write('%d,' % quad[1])
          f.write('%0.6f,' % quad[0])
@@ -86,7 +86,7 @@ class Timer(object):
          f.write('%0.6f\n' % avg)
       f.write('\n\nNote: timings may be incorrect if errors '
                          'were triggered in the timed functions')
-      print 'Saved timings to file: %s' % fname
+      print('Saved timings to file: %s' % fname)
 
    def __init__(selfparams):  # @NoSelf
       pass

@@ -60,4 +60,4 @@ def getLastBlockHash(blkFile):
             result = blockHash
    return result
 
-print binary_to_hex(getLastBlockHash(getLastBlockFile()), BIGENDIAN)
+print(binary_to_hex(getLastBlockHash(getLastBlockFile()), BIGENDIAN))

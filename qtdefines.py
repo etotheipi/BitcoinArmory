@@ -8,9 +8,11 @@
 import struct
 from tempfile import mkstemp
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-import urllib
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from six.moves import urllib
+#import urllib.request, urllib.parse, urllib.error
 
 from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
@@ -295,7 +297,7 @@ class QRichLabel(QLabel):
                            hAlign=Qt.AlignLeft, \
                            vAlign=Qt.AlignVCenter, \
                            **kwargs):
-      super(QRichLabel, self).__init__(txt)
+      super().__init__(txt)
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
@@ -306,7 +308,7 @@ class QRichLabel(QLabel):
       #self.setMinimumHeight(int(relaxedSizeStr(self, 'QWERTYqypgj')[1]))
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
-      text = unicode(text)
+      text = str(text)
       if color:
          text = '<font color="%s">%s</font>' % (htmlColor(color), text)
       if size:
@@ -319,7 +321,7 @@ class QRichLabel(QLabel):
       if italic:
          text = '<i>%s</i>' % text
 
-      super(QRichLabel, self).setText(text)
+      super().setText(text)
 
    def setBold(self):
       self.setText('<b>' + self.text() + '</b>')
@@ -411,6 +413,8 @@ def QDoneButton():
 class QLabelButton(QLabel):
    mousePressOn = set()
 
+   clicked = pyqtSignal(name="clicked")
+
    def __init__(self, txt):
       colorStr = htmlColor('LBtnNormalFG')
       QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
@@ -424,14 +428,14 @@ class QLabelButton(QLabel):
 
    def mousePressEvent(self, ev):  
       # Prevent click-bleed-through to dialogs being opened
-      txt = toBytes(unicode(self.text()))
+      txt = toBytes(str(self.text()))
       self.mousePressOn.add(txt)
 
    def mouseReleaseEvent(self, ev):  
-      txt = toBytes(unicode(self.text()))
+      txt = toBytes(str(self.text()))
       if txt in self.mousePressOn:
          self.mousePressOn.remove(txt)
-         self.emit(SIGNAL('clicked()'))  
+         self.clicked.emit() 
 
    def enterEvent(self, ev):  
       ssStr = "QLabel { background-color : %s }" % htmlColor('LBtnHoverBG')
@@ -452,7 +456,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
 
    class dlgWarn(ArmoryDialog):
       def __init__(self, dtype, dtitle, wmsg, withCancel=False, yesStr=None, noStr=None):
-         super(dlgWarn, self).__init__(None)
+         super().__init__(None)
          
          msgIcon = QLabel()
          fpix = ''
@@ -488,8 +492,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
             if not noStr:  noStr = tr('&No')
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
-            self.connect(btnYes, SIGNAL('clicked()'), self.accept)
-            self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
+            btnYes.clicked.connect(self.accept)
+            btnNo.clicked.connect(self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
@@ -497,8 +501,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
             yesStr    = tr('&OK') if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
             btnCancel = QPushButton(cancelStr)
-            self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
-            self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+            btnOk.clicked.connect(self.accept)
+            btnCancel.clicked.connect(self.reject)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
             if cancelStr:
                buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
@@ -537,7 +541,7 @@ def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
 
    class dlgWarn(ArmoryDialog):
       def __init__(self, parent, main, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
-         super(dlgWarn, self).__init__(parent, main)
+         super().__init__(parent, main)
          
          msgIcon = QLabel()
          fpix = ''
@@ -577,17 +581,17 @@ def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
          if dtype==MSGBOX.Question:
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
-            self.connect(btnYes, SIGNAL('clicked()'), self.accept)
-            self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
+            btnYes.clicked.connect(self.accept)
+            btnNo.clicked.connect(self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
             btnOk = QPushButton('Ok')
-            self.connect(btnOk, SIGNAL('clicked()'), self.accept)
+            btnOk.clicked.connect(self.accept)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
             if withCancel:
                btnOk = QPushButton('Cancel')
-               self.connect(btnOk, SIGNAL('clicked()'), self.reject)
+               btnOk.clicked.connect(self.reject)
                buttonbox.addButton(btnOk, QDialogButtonBox.RejectRole)
             
 
@@ -694,8 +698,8 @@ def restoreTableView(qtbl, hexBytes):
          
       for i,c in toRestore[:-1]:
          qtbl.setColumnWidth(i, c)
-   except Exception, e:
-      print 'ERROR!'
+   except Exception as e:
+      LOGEXCEPT("Couldn't load tables")
       pass
       # Don't want to crash the program just because couldn't load tbl data
 
@@ -710,8 +714,8 @@ def saveTableView(qtbl):
    # we want to guarantee that the settings file will interpret this
    # as hex data -- I once had an unlucky hex string written out with 
    # all digits and then intepretted as an integer on the next load :( 
-   first = int_to_hex(nCol)
-   rest  = [int_to_hex(s, widthBytes=2) for s in sz]
+   first = int_to_hex(nCol).decode()
+   rest  = [int_to_hex(s, widthBytes=2).decode() for s in sz]
    return 'ff' + first + ''.join(rest)
 
 
@@ -728,7 +732,7 @@ def saveTableView(qtbl):
 # in a dialog or as a component in a larger frame.
 class ArmoryFrame(QFrame):
    def __init__(self, parent, main):
-      super(ArmoryFrame, self).__init__(parent)
+      super().__init__(parent)
       self.main = main
 
       # Subclasses should implement a method that returns a boolean to control
@@ -741,17 +745,17 @@ class ArmoryDialog(QDialog):
    #create a signal with a random name that children to this dialog will 
    #connect to close themselves if the parent is closed first   
 
+   close = pyqtSignal(name=str(random.random()))
       
    def __init__(self, parent=None, main=None):
-      super(ArmoryDialog, self).__init__(parent)
+      super().__init__(parent)
 
-      self.closeSignal = str(random.random())       
       self.parent = parent
       self.main   = main
       
       #connect this dialog to the parent's close signal
       if self.parent is not None and hasattr(self.parent, 'closeSignal'):
-         self.connect(self.parent, SIGNAL(self.parent.closeSignal), self.reject)
+         self.parent.closeSignal.connect(self.reject)
          
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
@@ -765,18 +769,18 @@ class ArmoryDialog(QDialog):
    
    @AddToRunningDialogsList
    def exec_(self):
-      return super(ArmoryDialog, self).exec_()
+      return super().exec_()
    
    def reject(self):
-      self.emit(SIGNAL(self.closeSignal))
-      super(ArmoryDialog, self).reject()
+      self.close.emit()
+      super().reject()
       
 
 ################################################################################
 class QRCodeWidget(QWidget):
 
-   def __init__(self, asciiToEncode='', prefSize=160, errLevel='L', parent=None):
-      super(QRCodeWidget, self).__init__()
+   def __init__(self, asciiToEncode=b'', prefSize=160, errLevel='L', parent=None):
+      super().__init__()
 
       self.parent = parent
       self.qrmtrx = None
@@ -861,7 +865,7 @@ class QRCodeWidget(QWidget):
 # Create a very simple dialog and execute it
 class DlgInflatedQR(ArmoryDialog):
    def __init__(self, parent, dataToQR):
-      super(DlgInflatedQR, self).__init__(parent, parent.main)
+      super().__init__(parent, parent.main)
 
       sz = QApplication.desktop().size()
       w,h = sz.width(), sz.height()
@@ -1000,10 +1004,10 @@ def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
    types.append('All files (*)')
    typesStr = ';; '.join(types)
    if not OS_MACOSX:
-      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+      fullPath = str(QFileDialog.getOpenFileName(parent, \
          title, ARMORY_HOME_DIR, typesStr))
    else:
-      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+      fullPath = str(QFileDialog.getOpenFileName(parent, \
          title, ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog))
 
    if fullPath:
@@ -1012,15 +1016,15 @@ def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
 
 def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
    initPath = ARMORY_HOME_DIR
-   currText = unicode(qObj.text()).strip()
+   currText = str(qObj.text()).strip()
    if len(currText)>0:
       if os.path.exists(currText):
          initPath = currText
     
    if not OS_MACOSX:
-      fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath))
+      fullPath = str(QFileDialog.getExistingDirectory(par, title, initPath))
    else:
-      fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath, \
+      fullPath = str(QFileDialog.getExistingDirectory(par, title, initPath, \
                                        options=QFileDialog.DontUseNativeDialog))
    if fullPath:
       qObj.setText( fullPath)
@@ -1034,7 +1038,7 @@ def createDirectorySelectButton(parent, targetWidget, title="Select Directory"):
 
 
    fn = lambda: selectDirectoryForQLineEdit(parent, targetWidget, title)
-   parent.connect(btn, SIGNAL('clicked()'), fn)
+   btn.clicked.connect(fn)
    return btn
 
 

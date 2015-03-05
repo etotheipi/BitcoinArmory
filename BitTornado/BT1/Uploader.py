@@ -3,11 +3,6 @@
 
 from BitTornado.CurrentRateMeasure import Measure
 
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 class Upload:
     def __init__(self, connection, ratelimiter, totalup, choker, storage,

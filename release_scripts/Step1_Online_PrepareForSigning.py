@@ -23,7 +23,7 @@ CLONE_URL = 'https://github.com/etotheipi/BitcoinArmory.git'
 
 if len(argv)<3:
    import textwrap
-   print textwrap.dedent("""
+   print(textwrap.dedent("""
       Script Arguments (* is optional)
             argv[0]   "python %s"
             argv[1]   version string,  "0.91.1"
@@ -31,10 +31,10 @@ if len(argv)<3:
             argv[3]*  output directory      (default ~ ./exportToOffline)
             argv[4]*  unsigned announce dir (default ~ ./unsignedannounce)
             argv[5]*  Bitcoin Core SHA256SUMS.asc (default ~ "None")
-            """) % argv[0]
+            """) % argv[0])
    exit(1)
 
-print argv
+print(argv)
 
 verStr  = argv[1]
 verType = argv[2]
@@ -68,7 +68,7 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
    if cmd=='cp':
       assert(len(cmdArgs)==1) 
       copyFrom = checkExists(cmdArgs[0] % verStr)
-      print 'Copying: %s --> %s' % (copyFrom, copyTo)
+      print('Copying: %s --> %s' % (copyFrom, copyTo))
       shutil.copy(copyFrom, copyTo)
    if cmd=='scp':
       assert(len(cmdArgs)==4) 

@@ -1,24 +1,13 @@
 #written by John Hoffman
 
-from ConnChoice import *
+from .ConnChoice import *
 from wxPython.wx import *
-from types import IntType, FloatType, StringType
-from download_bt1 import defaults
-from ConfigDir import ConfigDir
+from .download_bt1 import defaults
+from .ConfigDir import ConfigDir
 import sys,os
 import socket
-from parseargs import defaultargs
+from .parseargs import defaultargs
 
-try:
-    True
-except:
-    True = 1
-    False = 0
-    
-try:
-    wxFULL_REPAINT_ON_RESIZE
-except:
-    wxFULL_REPAINT_ON_RESIZE = 0        # fix for wx pre-2.5
 
 if (sys.platform == 'win32'):
     _FONT = 9
@@ -39,7 +28,7 @@ def ColorToHex(c):
 
 ratesettingslist = []
 for x in connChoices:
-    if not x.has_key('super-seed'):
+    if 'super-seed' not in x:
         ratesettingslist.append(x['name'])
 
 
@@ -137,7 +126,7 @@ class configReader:
             oldconfig.DeleteAll()
             return False
         while cont:     # import old config data
-            if self.config.has_key(s):
+            if s in self.config:
                 t = oldconfig.GetEntryType(s)
                 try:
                     if t == 1:
@@ -158,7 +147,7 @@ class configReader:
 
 
     def resetConfigDefaults(self):
-        for p,v in self.defaults.items():
+        for p,v in list(self.defaults.items()):
             if not p in defaultsToIgnore:
                 self.config[p] = v
         self.configDir.saveConfig()
@@ -226,7 +215,7 @@ class configReader:
         if (self.configMenuBox is not None):
             try:
                 self.configMenuBox.Close()
-            except wxPyDeadObjectError, e:
+            except wxPyDeadObjectError as e:
                 self.configMenuBox = None
 
         self.configMenuBox = wxFrame(None, -1, 'BitTorrent Preferences', size = (1,1),
@@ -571,7 +560,7 @@ class configReader:
                 self.config['upnp_nat_access']=self.upnp_data.GetSelection()
 
             if self.advancedConfig:
-                for key,val in self.advancedConfig.items():
+                for key,val in list(self.advancedConfig.items()):
                     self.config[key] = val
 
             self.writeConfigFile()
@@ -640,7 +629,7 @@ class configReader:
         if self.configMenuBox is not None:
             try:
                 self.configMenuBox.Close ()
-            except wxPyDeadObjectError, e:
+            except wxPyDeadObjectError as e:
                 pass
             self.configMenuBox = None
 
@@ -656,7 +645,7 @@ class configReader:
         if (self.advancedMenuBox is not None):
             try:
                 self.advancedMenuBox.Close ()
-            except wxPyDeadObjectError, e:
+            except wxPyDeadObjectError as e:
                 self.advancedMenuBox = None
 
         self.advancedMenuBox = wxFrame(None, -1, 'BitTorrent Advanced Preferences', size = (1,1),
@@ -1063,6 +1052,6 @@ class configReader:
         if self.advancedMenuBox is not None:
             try:
                 self.advancedMenuBox.Close()
-            except wxPyDeadObjectError, e:
+            except wxPyDeadObjectError as e:
                 self.advancedMenuBox = None
 

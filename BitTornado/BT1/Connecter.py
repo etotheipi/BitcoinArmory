@@ -5,16 +5,11 @@ from BitTornado.bitfield import Bitfield
 from BitTornado.clock import clock
 from binascii import b2a_hex
 
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 DEBUG = False
 
 def toint(s):
-    return long(b2a_hex(s), 16)
+    return int(b2a_hex(s), 16)
 
 def tobinary(i):
     return (chr(i >> 24) + chr((i >> 16) & 0xFF) + 
@@ -58,7 +53,7 @@ class Connection:
 
     def close(self):
         if DEBUG:
-            print 'connection closed'
+            print('connection closed')
         self.connection.close()
 
     def is_locally_initiated(self):
@@ -82,7 +77,7 @@ class Connection:
         if self.send_choke_queued:
             self.send_choke_queued = False
             if DEBUG:
-                print 'CHOKE SUPPRESSED'
+                print('CHOKE SUPPRESSED')
         else:
             self._send_message(UNCHOKE)
             if ( self.partial_message or self.just_unchoked is None
@@ -95,13 +90,13 @@ class Connection:
         self._send_message(REQUEST + tobinary(index) + 
             tobinary(begin) + tobinary(length))
         if DEBUG:
-            print 'sent request: '+str(index)+': '+str(begin)+'-'+str(begin+length)
+            print('sent request: '+str(index)+': '+str(begin)+'-'+str(begin+length))
 
     def send_cancel(self, index, begin, length):
         self._send_message(CANCEL + tobinary(index) + 
             tobinary(begin) + tobinary(length))
         if DEBUG:
-            print 'sent cancel: '+str(index)+': '+str(begin)+'-'+str(begin+length)
+            print('sent cancel: '+str(index)+': '+str(begin)+'-'+str(begin+length))
 
     def send_bitfield(self, bitfield):
         self._send_message(BITFIELD + bitfield)
@@ -131,7 +126,7 @@ class Connection:
                             tobinary(len(piece) + 9), PIECE,
                             tobinary(index), tobinary(begin), piece.tostring() ))
             if DEBUG:
-                print 'sending chunk: '+str(index)+': '+str(begin)+'-'+str(begin+len(piece))
+                print('sending chunk: '+str(index)+': '+str(begin)+'-'+str(begin+len(piece)))
 
         if bytes < len(self.partial_message):
             self.connection.send_message_raw(self.partial_message[:bytes])
@@ -213,7 +208,7 @@ class Connecter:
             self.ratelimiter.queue(conn)
             
     def got_piece(self, i):
-        for co in self.connections.values():
+        for co in list(self.connections.values()):
             co.send_have(i)
 
     def got_message(self, connection, message):

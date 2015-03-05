@@ -7,11 +7,11 @@ import time
 from subprocess import Popen, PIPE
 
 def execAndWait(cli_str):
-   print '*** Executing:', cli_str[:60], '...'
+   print('*** Executing:', cli_str[:60], '...')
    process = Popen(cli_str, shell=True)
    while process.poll() == None:
       time.sleep(0.5)
-   print '*** Finished executing'
+   print('*** Finished executing')
    
 
 def dir(path='.'):
@@ -33,7 +33,7 @@ if pwd().split('/')[-1]=='dpkgfiles':
 
 if not os.path.exists('./armoryengine/ArmoryUtils.py') or \
    not os.path.exists('./ArmoryQt.py'):
-   print '***ERROR: Must run this script from the root Armory directory!'
+   print('***ERROR: Must run this script from the root Armory directory!')
    exit(1)
 
 # Must get current Armory version from armoryengine.py
@@ -44,7 +44,7 @@ with open('armoryengine/ArmoryUtils.py') as f:
       if line.startswith('BTCARMORY_VERSION'):
          vstr = line[line.index('(')+1:line.index(')')]
          vquad = tuple([int(v) for v in vstr.replace(' ','').split(',')])
-         print vquad, len(vquad)
+         print(vquad, len(vquad))
          vstr = '%d.%02d' % vquad[:2]
          if (vquad[2] > 0 or vquad[3] > 0):
             vstr += '.%d' % vquad[2]
@@ -57,8 +57,8 @@ pkgdir = 'armory-%s' % (vstr,)
 pkgdir_ = 'armory_%s' % (vstr,)
 
 if not vstr:
-   print '***ERROR: Could not deduce version from ArmoryUtils.py. '
-   print '          There is no good reason for this to happen.  Ever! :('
+   print('***ERROR: Could not deduce version from ArmoryUtils.py. ')
+   print('          There is no good reason for this to happen.  Ever! :(')
    exit(1)
 
 # Copy the correct control file (for 32-bit or 64-bit OS)

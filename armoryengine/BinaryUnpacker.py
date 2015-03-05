@@ -22,7 +22,7 @@
 ################################################################################
 ################################################################################
 from struct import pack, unpack
-from BinaryPacker import UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
+from .BinaryPacker import UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
 from armoryengine.ArmoryUtils import LITTLEENDIAN, unpackVarInt, LOGERROR
 
 class UnpackerError(Exception): pass
@@ -37,15 +37,17 @@ class BinaryUnpacker(object):
       >> bytes10 = bup.get(BINARY_CHUNK, 10)
       >> ...etc...
    """
-   def __init__(self, binaryStr):
-      self.binaryStr = binaryStr
+   def __init__(self, binaryBytes):
+      if not isinstance(binaryBytes, bytes):
+         raise RuntimeError("BinaryUnpacker only takes bytes, not %s" % type(binaryBytes))
+      self.binaryBytes = binaryBytes
       self.pos = 0
 
-   def getSize(self): return len(self.binaryStr)
-   def getRemainingSize(self): return len(self.binaryStr) - self.pos
-   def getBinaryString(self): return self.binaryStr
-   def getRemainingString(self): return self.binaryStr[self.pos:]
-   def append(self, binaryStr): self.binaryStr += binaryStr
+   def getSize(self): return len(self.binaryBytes)
+   def getRemainingSize(self): return len(self.binaryBytes) - self.pos
+   def getBinaryString(self): return self.binaryBytes
+   def getRemainingString(self): return self.binaryBytes[self.pos:]
+   def append(self, binaryBytes): self.binaryBytes += binaryBytes
    def advance(self, bytesToAdvance): self.pos += bytesToAdvance
    def rewind(self, bytesToRewind): self.pos -= bytesToRewind
    def resetPosition(self, toPos=0): self.pos = toPos
@@ -64,67 +66,67 @@ class BinaryUnpacker(object):
       pos = self.pos
       if varType == UINT32:
          sizeCheck(4)
-         value = unpack(E+'I', self.binaryStr[pos:pos+4])[0]
+         value = unpack(E+'I', self.binaryBytes[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == UINT64:
          sizeCheck(8)
-         value = unpack(E+'Q', self.binaryStr[pos:pos+8])[0]
+         value = unpack(E+'Q', self.binaryBytes[pos:pos+8])[0]
          self.advance(8)
          return value
       elif varType == UINT8:
          sizeCheck(1)
-         value = unpack(E+'B', self.binaryStr[pos:pos+1])[0]
+         value = unpack(E+'B', self.binaryBytes[pos:pos+1])[0]
          self.advance(1)
          return value
       elif varType == UINT16:
          sizeCheck(2)
-         value = unpack(E+'H', self.binaryStr[pos:pos+2])[0]
+         value = unpack(E+'H', self.binaryBytes[pos:pos+2])[0]
          self.advance(2)
          return value
       elif varType == INT32:
          sizeCheck(4)
-         value = unpack(E+'i', self.binaryStr[pos:pos+4])[0]
+         value = unpack(E+'i', self.binaryBytes[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == INT64:
          sizeCheck(8)
-         value = unpack(E+'q', self.binaryStr[pos:pos+8])[0]
+         value = unpack(E+'q', self.binaryBytes[pos:pos+8])[0]
          self.advance(8)
          return value
       elif varType == INT8:
          sizeCheck(1)
-         value = unpack(E+'b', self.binaryStr[pos:pos+1])[0]
+         value = unpack(E+'b', self.binaryBytes[pos:pos+1])[0]
          self.advance(1)
          return value
       elif varType == INT16:
          sizeCheck(2)
-         value = unpack(E+'h', self.binaryStr[pos:pos+2])[0]
+         value = unpack(E+'h', self.binaryBytes[pos:pos+2])[0]
          self.advance(2)
          return value
       elif varType == VAR_INT:
          sizeCheck(1)
-         [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
+         [value, nBytes] = unpackVarInt(self.binaryBytes[pos:pos+9])
          self.advance(nBytes)
          return value
       elif varType == VAR_STR:
          sizeCheck(1)
-         [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
-         binOut = self.binaryStr[pos+nBytes:pos+nBytes+value]
+         [value, nBytes] = unpackVarInt(self.binaryBytes[pos:pos+9])
+         binOut = self.binaryBytes[pos+nBytes:pos+nBytes+value]
          self.advance(nBytes+value)
          return binOut
       elif varType == FLOAT:
          sizeCheck(4)
-         value = unpack(E+'f', self.binaryStr[pos:pos+4])[0]
+         value = unpack(E+'f', self.binaryBytes[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == BINARY_CHUNK:
          sizeCheck(sz)
-         binOut = self.binaryStr[pos:pos+sz]
+         binOut = self.binaryBytes[pos:pos+sz]
          self.advance(sz)
          return binOut
 
       LOGERROR('Var Type not recognized!  VarType = %d', varType)
-      raise UnpackerError, "Var type not recognized!  VarType="+str(varType)
+      raise UnpackerError("Var type not recognized!  VarType="+str(varType))
 
 ################################################################################

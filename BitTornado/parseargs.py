@@ -1,8 +1,7 @@
 # Written by Bill Bumgarner and Bram Cohen
 # see LICENSE.txt for license information
 
-from types import *
-from cStringIO import StringIO
+from io import StringIO
 
 
 def splitLine(line, COLS=80, indent=10):
@@ -31,7 +30,7 @@ def formatDefinitions(options, COLS, presets = {}):
     for (longname, default, doc) in options:
         s.write('--' + longname + ' <arg>\n')
         default = presets.get(longname, default)
-        if type(default) in (IntType, LongType):
+        if type(default) == int:
             try:
                 default = int(default)
             except:
@@ -62,7 +61,7 @@ def parseargs(argv, options, minargs = None, maxargs = None, presets = {}):
         longname, default, doc = option
         longkeyed[longname] = option
         config[longname] = default
-    for longname in presets.keys():        # presets after defaults but before arguments
+    for longname in list(presets.keys()):        # presets after defaults but before arguments
         config[longname] = presets[longname]
     options = []
     args = []
@@ -78,25 +77,25 @@ def parseargs(argv, options, minargs = None, maxargs = None, presets = {}):
             key, value = argv[pos][2:], argv[pos+1]
             pos += 2
 
-            if not longkeyed.has_key(key):
+            if key not in longkeyed:
                 usage('unknown key --' + key)
 
             longname, default, doc = longkeyed[key]
 
             try:
                 t = type(config[longname])
-                if t is NoneType or t is StringType:
+                if t is type(None) or t is str:
                     config[longname] = value
-                elif t in (IntType, LongType):
-                    config[longname] = long(value)
-                elif t is FloatType:
+                elif t == int:
+                    config[longname] = int(value)
+                elif t is float:
                     config[longname] = float(value)
                 else:
                     assert 0
-            except ValueError, e:
+            except ValueError as e:
                 usage('wrong format of --%s - %s' % (key, str(e)))
 
-    for key, value in config.items():
+    for key, value in list(config.items()):
         if value is None:
             usage("Option --%s is required." % key)
 

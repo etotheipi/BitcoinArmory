@@ -193,10 +193,10 @@ def upload_find_auth(file_path, project_name, summary, labels=None,
          user_name = sys.stdin.readline().rstrip()
       if password is None:
          # Read password if not loaded from svn config, or on subsequent tries.
-         print 'Please enter your googlecode.com password.'
-         print '** Note that this is NOT your Gmail account password! **'
-         print 'It is the password you use to access Subversion repositories,'
-         print 'and can be found here: http://code.google.com/hosting/settings'
+         print('Please enter your googlecode.com password.')
+         print('** Note that this is NOT your Gmail account password! **')
+         print('It is the password you use to access Subversion repositories,')
+         print('and can be found here: http://code.google.com/hosting/settings')
          password = getpass.getpass()
 
       status, reason, url = upload(file_path, project_name, user_name, password,
@@ -239,9 +239,9 @@ def getVersionInt(vquad, numPieces=4):
    return vint
 
 def main():
-   print ''
-   print '-'*80
-   print 'Executing upload script for bitcoinarmory.googlecode.com...'
+   print('')
+   print('-'*80)
+   print('Executing upload script for bitcoinarmory.googlecode.com...')
    parser = optparse.OptionParser(usage='googlecode-upload.py [--dryrun] dirFilesToUpload')
    parser.add_option("--dryrun", dest="dryrun",  default=False, action="store_true", \
                      help="Detect and parse files to upload without actually executing the upload")
@@ -250,11 +250,11 @@ def main():
    options, args = parser.parse_args()
 
    if len(args)==0:
-      print 'ERROR: must supply directory containing new installers to upload'
+      print('ERROR: must supply directory containing new installers to upload')
       return
    
    if not os.path.exists(args[0]):
-      print 'ERROR: supplied path does not exist! %s' % args[0]
+      print('ERROR: supplied path does not exist! %s' % args[0])
       return 
 
    theDir = args[0]
@@ -269,7 +269,7 @@ def main():
                latestVersion = verInt
                latestVerStr  = getVersionString(verQuad)
          except:
-            print 'WARNING: Could not parse installer filename: %s' % fname
+            print('WARNING: Could not parse installer filename: %s' % fname)
             continue
 
 
@@ -277,9 +277,9 @@ def main():
    if options.testver:
       verstr = '%s-testing' % latestVerStr
 
-   print 'Latest version detected: ', verstr
-   print '-'*80
-   print ''
+   print('Latest version detected: ', verstr)
+   print('-'*80)
+   print('')
 
    prefix   = 'armory_'
    suffix = [['_amd64.deb',         'Version %s for Ubuntu/Debian 64-bit',   ['DebianPackage', 'OS-Linux64']], \
@@ -310,39 +310,39 @@ def main():
       summary = summ % verstr
 
       if not os.path.exists(fullpath):
-         print 'ERROR: Could not find installer to upload: %s', fullpath
+         print('ERROR: Could not find installer to upload: %s', fullpath)
          continue
 
       if not options.dryrun: 
          # Disabled for testing, just in case I forget --dryrun
          status, reason, url = upload_find_auth( fullpath, 'bitcoinarmory', summary, lbls, 'etotheipi', password)
          if url.startswith('http') and not url.startswith('https:'):
-            print 'Original URL:', url
+            print('Original URL:', url)
             url = 'https' + url[4:]
-            print 'New URL:     ', url
+            print('New URL:     ', url)
       else:
-         print 'Dryun requested, no actual upload performed'
+         print('Dryun requested, no actual upload performed')
          url = 'https://bitcoinarmory.googlecode.com/files/%s' % basename
 
       urlSummList.append([url, summary])
       if not url:
-         print 'An error occurred. Your file was not uploaded.'
-         print 'Google Code upload server said: %s (%s)' % (reason, status)
+         print('An error occurred. Your file was not uploaded.')
+         print('Google Code upload server said: %s (%s)' % (reason, status))
     
 
-   print ''
-   print '-'*80
-   print 'Printing forum-formatted links to uploaded installers'
+   print('')
+   print('-'*80)
+   print('Printing forum-formatted links to uploaded installers')
    for url,summary in urlSummList:
-      print '[url=%s]%s[/url]' % (url, summary)
+      print('[url=%s]%s[/url]' % (url, summary))
 
-   print ''
-   print '-'*80
-   print 'Printing html/href links to include on webpage:'
+   print('')
+   print('-'*80)
+   print('Printing html/href links to include on webpage:')
    for url,summary in urlSummList:
-      print '<a href="%s">%s</a>' % (url, summary)
+      print('<a href="%s">%s</a>' % (url, summary))
 
-   print '-'*80
+   print('-'*80)
 
 if __name__ == '__main__':
    sys.exit(main())

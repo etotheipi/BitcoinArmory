@@ -23,8 +23,8 @@ class PyBtcWalletRecoveryTest(TiabTest):
       os.unlink(self.corruptWallet)
       os.unlink(self.corruptWallet[:-7] + '_backup.wallet')
       
-      os.unlink('armory_%s_RECOVERED.wallet' % self.wltID)
-      os.unlink('armory_%s_RECOVERED_backup.wallet' % self.wltID)
+      os.unlink('armory_%s_RECOVERED.wallet' % self.wltID.decode())
+      os.unlink('armory_%s_RECOVERED_backup.wallet' % self.wltID.decode())
       
    def buildCorruptWallet(self, walletPath):
       crpWlt = PyBtcWallet()
@@ -36,8 +36,9 @@ class PyBtcWalletRecoveryTest(TiabTest):
       lastaddr = crpWlt.addrMap[crpWlt.lastComputedChainAddr160]
       
       #corrupt the pubkey
-      PubKey = hex_to_binary('0478d430274f8c5ec1321338151e9f27f4c676a008bdf8638d07c0b6be9ab35c71a1518063243acd4dfe96b66e3f2ec8013c8e072cd09b3834a19f81f659cc3455')
-      lastaddr.binPublicKey65 = SecureBinaryData(PubKey)
+      PubKey = '0478d430274f8c5ec1321338151e9f27f4c676a008bdf8638d07c0b6be9ab35c71a1518063243acd4dfe96b66e3f2ec8013c8e072cd09b3834a19f81f659cc3455'
+      lastaddr.binPublicKey65 = SecureBinaryData()
+      lastaddr.binPublicKey65.createFromHex(PubKey)
       crpWlt.addrMap[crpWlt.lastComputedChainAddr160] = lastaddr
       
       crpWlt.fillAddressPool(200)
@@ -46,8 +47,9 @@ class PyBtcWalletRecoveryTest(TiabTest):
       newAddr = PyBtcAddress()
       newAddr.chaincode = lastaddr.chaincode
       newAddr.chainIndex = 250
-      PrivKey = hex_to_binary('e3b0c44298fc1c149afbf4c8996fb92427ae41e5978fe51ca495991b7852b855')
-      newAddr.binPrivKey32_Plain = SecureBinaryData(PrivKey)
+      PrivKey = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e5978fe51ca495991b7852b855'
+      newAddr.binPrivKey32_Plain = SecureBinaryData()
+      newAddr.binPrivKey32_Plain.createFromHex(PrivKey)
       newAddr.binPublicKey65 = CryptoECDSA().ComputePublicKey( \
                                                 newAddr.binPrivKey32_Plain)
       newAddr.addrStr20 = newAddr.binPublicKey65.getHash160()
@@ -58,8 +60,9 @@ class PyBtcWalletRecoveryTest(TiabTest):
       crpWlt.fillAddressPool(250)
       
       lastAddr = crpWlt.addrMap[crpWlt.lastComputedChainAddr160]
-      PrivKey = hex_to_binary('e3b0c44298fc1c149afbf4c8996fb92427ae41e5978fe51ca495991b00000000')
-      lastAddr.binPrivKey32_Plain = SecureBinaryData(PrivKey)
+      PrivKey = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e5978fe51ca495991b00000000'
+      lastAddr.binPrivKey32_Plain = SecureBinaryData()
+      lastAddr.binPrivKey32_Plain.createFromHex(PrivKey)
       lastAddr.binPublicKey65 = CryptoECDSA().ComputePublicKey( \
                                                 lastAddr.binPrivKey32_Plain)      
       lastAddr.keyChanged = True
@@ -75,11 +78,12 @@ class PyBtcWalletRecoveryTest(TiabTest):
 
    def testWalletRecovery(self):
       #run recovery on broken wallet
-      recThread = PyBtcWalletRecovery().RecoverWallet(self.corruptWallet, \
-                                                      'testing', RECOVERMODE.Full, \
-                                                      returnError = 'Dict')
+      recThread = PyBtcWalletRecovery().RecoverWallet(
+         self.corruptWallet, 'testing', RECOVERMODE.Full, returnError = 'Dict')
       recThread.join()
       brkWltResult = recThread.output
+
+      self.assertTrue(brkWltResult)
       
       self.assertTrue(len(brkWltResult['sequenceGaps'])==1, \
                       "Sequence Gap Undetected")
@@ -105,27 +109,30 @@ class PyBtcWalletRecoveryTest(TiabTest):
       
       #HMAC Q
       rootAddr.unlock(secureKdfOutput)
-      Q = rootAddr.binPrivKey32_Plain.toBinStr()
+      Q = hex_to_binary(rootAddr.binPrivKey32_Plain.toHexStr().encode())
       
       nonce = 0
       while 1:
-         hmacQ = HMAC256(Q, 'LogMult%d' % nonce)
+         hmacQ = HMAC256(Q, b'LogMult' + str(nonce).encode())
          if binary_to_int(hmacQ, BIGENDIAN) < SECP256K1_ORDER:         
-            hmacQ = SecureBinaryData(hmacQ)
+            tmp = SecureBinaryData()
+            tmp.createFromHex(binary_to_hex(hmacQ).decode())
+            hmacQ = tmp
             break
          nonce = nonce +1
       
       #Bad Private Keys
       import operator
-      badKeys = [addrObj for addrObj in (sorted(badWlt.addrMap.values(), 
+      badKeys = [addrObj for addrObj in (sorted(list(badWlt.addrMap.values()), 
                              key=operator.attrgetter('chainIndex')))]
          
       #run through obdsPrivKey
+      hmacBin = hex_to_binary(hmacQ.toHexStr().encode())
       for i in range(0, len(brkWltResult['privMult'])):
-         obfsPKey = SecureBinaryData(
-                        hex_to_binary(brkWltResult['privMult'][i]))
-         pKey = CryptoECDSA().ECMultiplyScalars(obfsPKey.toBinStr(), \
-                                                hmacQ.toBinStr())
+         obfsPKey = SecureBinaryData()
+         obfsPKey.createFromHex(brkWltResult['privMult'][i].decode())
+         tmp1 = hex_to_binary(obfsPKey.toHexStr().encode())
+         pKey = CryptoECDSA().ECMultiplyScalars(tmp1, hmacBin)
          
          try:
             badKeys[i+201].unlock(secureKdfOutput)
@@ -133,17 +140,18 @@ class PyBtcWalletRecoveryTest(TiabTest):
             continue
          
          self.assertTrue(binary_to_hex(pKey) == \
-                         badKeys[i+201].binPrivKey32_Plain.toHexStr(), \
+                         badKeys[i+201].binPrivKey32_Plain.toHexStr().encode(), \
                          'key mult error')
       
       #run recovery on recovered wallet
+      path = 'armory_%s_RECOVERED.wallet' % self.wltID.decode()
       recThread = PyBtcWalletRecovery().RecoverWallet( \
-                                 'armory_%s_RECOVERED.wallet' % self.wltID, \
-                                 'testing', RECOVERMODE.Full, \
-                                 returnError = 'Dict')
+                                                       path, \
+                                                       'testing', RECOVERMODE.Full, \
+                                                       returnError = 'Dict')
       recThread.join()
       rcvWltResult = recThread.output
-      
+
       self.assertTrue(len(rcvWltResult['importedErr'])==50, \
                       "Unexpected Errors Found")         
       self.assertTrue(rcvWltResult['nErrors']==50, \

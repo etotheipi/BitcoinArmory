@@ -60,40 +60,41 @@ class SplitSecretTest(TiabTest):
       self.assertEqual(ff1.mtrxinv(TEST_MTRX), TEST_MULT_VECT_RESULT5)
 
    def testSplitSecret(self):
-      self.callSplitSecret('9f', 2,3)
-      self.callSplitSecret('9f', 3,5)
-      self.callSplitSecret('9f', 4,7)
-      self.callSplitSecret('9f', 5,9)
-      self.callSplitSecret('9f', 6,7)
-      self.callSplitSecret('9f'*16, 3,5, 16)
-      self.callSplitSecret('9f'*16, 7,10, 16)
-      self.assertRaises(FiniteFieldError, SplitSecret, '9f'*16, 3, 5, 8)
-      self.assertRaises(FiniteFieldError, SplitSecret, '9f', 5,4)
-      self.assertRaises(FiniteFieldError, SplitSecret, '9f', 1,1)
+      bit = b'9f'
+      self.callSplitSecret(bit, 2,3)
+      self.callSplitSecret(bit, 3,5)
+      self.callSplitSecret(bit, 4,7)
+      self.callSplitSecret(bit, 5,9)
+      self.callSplitSecret(bit, 6,7)
+      self.callSplitSecret(bit*16, 3,5, 16)
+      self.callSplitSecret(bit*16, 7,10, 16)
+      self.assertRaises(FiniteFieldError, SplitSecret, bit*16, 3, 5, 8)
+      self.assertRaises(FiniteFieldError, SplitSecret, bit, 5,4)
+      self.assertRaises(FiniteFieldError, SplitSecret, bit, 1,1)
 
    
    def callSplitSecret(self, secretHex, M, N, nbytes=1):
       secret = hex_to_binary(secretHex)
-      print '\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex)
+      print('\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex.decode()))
       tstart = RightNow() 
       out = SplitSecret(secret, M, N)
       tsplit = RightNow() - tstart
-      print 'Fragments:'
+      print('Fragments:')
       for i in range(len(out)):
          x = binary_to_hex(out[i][0])
          y = binary_to_hex(out[i][1])
-         print '   Fragment %d: [%s, %s]' % (i+1,x,y)
+         print('   Fragment %d: [%s, %s]' % (i+1,x.decode(),y.decode()))
       trecon = 0
-      print 'Reconstructing secret from various subsets of fragments...'
+      print('Reconstructing secret from various subsets of fragments...')
       for i in range(10):
          shuffle(out)
          tstart = RightNow()
          reconstruct = ReconstructSecret(out, M, nbytes)
          trecon += RightNow() - tstart
-         print '   The reconstructed secret is:', binary_to_hex(reconstruct)
+         print('   The reconstructed secret is:', binary_to_hex(reconstruct).decode())
          self.assertEqual(binary_to_hex(reconstruct), secretHex)
-      print 'Splitting secret took: %0.5f sec' % tsplit
-      print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
+      print('Splitting secret took: %0.5f sec' % tsplit)
+      print('Reconstructing takes:  %0.5f sec' % (trecon/10))
 
 # Running tests with "python <module name>" will NOT work for any Armory tests
 # You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"

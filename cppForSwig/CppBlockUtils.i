@@ -88,7 +88,6 @@ namespace std
 	}
 }
 
-
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */
 %typemap(in) BinaryData

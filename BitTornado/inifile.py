@@ -25,68 +25,58 @@ Booleans are written as integers.  Anything else aside from string/int/float
 may have unpredictable results.
 '''
 
-from cStringIO import StringIO
+from io import StringIO
 from traceback import print_exc
-from types import DictType, StringType
-try:
-    from types import BooleanType
-except ImportError:
-    BooleanType = None
 
-try:
-    True
-except:
-    True = 1
-    False = 0
 
 DEBUG = False
 
 def ini_write(f, d, comment=''):
     try:
         a = {'':{}}
-        for k,v in d.items():
-            assert type(k) == StringType
+        for k,v in list(d.items()):
+            assert(type(k) == str)
             k = k.lower()
-            if type(v) == DictType:
+            if type(v) == dict:
                 if DEBUG:
-                    print 'new section:' +k
+                    print('new section:' +k)
                 if k:
-                    assert not a.has_key(k)
+                    assert k not in a
                     a[k] = {}
                 aa = a[k]
                 for kk,vv in v:
-                    assert type(kk) == StringType
+                    assert type(kk) == str
                     kk = kk.lower()
-                    assert not aa.has_key(kk)
-                    if type(vv) == BooleanType:
+                    assert kk not in aa
+                    if type(vv) == bool:
                         vv = int(vv)
-                    if type(vv) == StringType:
+                    if type(vv) == str:
                         vv = '"'+vv+'"'
                     aa[kk] = str(vv)
                     if DEBUG:
-                        print 'a['+k+']['+kk+'] = '+str(vv)
+                        print('a['+k+']['+kk+'] = '+str(vv))
             else:
                 aa = a['']
-                assert not aa.has_key(k)
-                if type(v) == BooleanType:
+                assert k not in aa
+                if type(v) == bool:
                     v = int(v)
-                if type(v) == StringType:
+                if type(v) == str:
                     v = '"'+v+'"'
                 aa[k] = str(v)
                 if DEBUG:
-                    print 'a[\'\']['+k+'] = '+str(v)
+                    print('a[\'\']['+k+'] = '+str(v))
         r = open(f,'w')
         if comment:
             for c in comment.split('\n'):
                 r.write('# '+c+'\n')
             r.write('\n')
-        l = a.keys()
+        l = list(a.keys())
         l.sort()
         for k in l:
             if k:
                 r.write('\n['+k+']\n')
             aa = a[k]
-            ll = aa.keys()
+            ll = list(aa.keys())
             ll.sort()
             for kk in ll:
                 r.write(kk+' = '+aa[kk]+'\n')
@@ -104,7 +94,7 @@ def ini_write(f, d, comment=''):
 
 if DEBUG:
     def errfunc(lineno, line, err):
-        print '('+str(lineno)+') '+err+': '+line
+        print('('+str(lineno)+') '+err+': '+line)
 else:
     errfunc = lambda lineno, line, err: None
 
@@ -114,7 +104,7 @@ def ini_read(f, errfunc = errfunc):
         ll = r.readlines()
         d = {}
         dd = {'':d}
-        for i in xrange(len(ll)):
+        for i in range(len(ll)):
             l = ll[i]
             l = l.strip()
             if not l:
@@ -129,7 +119,7 @@ def ini_read(f, errfunc = errfunc):
                 if not l1:
                     errfunc(i,l,'syntax error')
                     continue
-                if dd.has_key(l1):
+                if l1 in dd:
                     errfunc(i,l,'duplicate section')
                     d = dd[l1]
                     continue
@@ -152,12 +142,12 @@ def ini_read(f, errfunc = errfunc):
             if not k:
                 errfunc(i,l,'syntax error')
                 continue
-            if d.has_key(k):
+            if k in d:
                 errfunc(i,l,'duplicate entry')
                 continue
             d[k] = v
         if DEBUG:
-            print dd
+            print(dd)
     except:
         if DEBUG:
             print_exc()

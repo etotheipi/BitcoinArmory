@@ -26,17 +26,17 @@ if run_WalletCreate:
    #     ALL ADDRESSES THROUGHOUT EVERYTHING ARE IN 20-BYTE BINARY FORM (hash160/addr20)
    #     Use hash160_to_addrStr() and addrStr_to_hash160() to convert...
    
-   print '\n\nCreating a new C++ wallet, add a few addresses...'
+   print('\n\nCreating a new C++ wallet, add a few addresses...')
    cppWallet = Cpp.BtcWallet()
    cppWallet.addAddress_1_( hex_to_binary('11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31') )  # hash160 (hex)
    cppWallet.addAddress_1_( addrStr_to_hash160('1EbAUHsitefy3rSECh8eK2fdAWTUbpVUDN')[1] )   # addrStr
    cppWallet.addAddress_1_('\x1b~\xa7*\x85\t\x12\xb7=\xd4G\xf3\xbd\xc1\x00\xf1\x00\x8b\xde\xb0') # hash160 (bin)
 
-   print 'Addresses in this wallet:'
+   print('Addresses in this wallet:')
    for i in range(cppWallet.getNumAddr()):
-      print '\t', hash160_to_addrStr(cppWallet.getAddrByIndex(i).getAddrStr20())
+      print('\t', hash160_to_addrStr(cppWallet.getAddrByIndex(i).getAddrStr20()))
 
-   print '\n\nRegistering the wallet with the BlockDataManager & loading...'
+   print('\n\nRegistering the wallet with the BlockDataManager & loading...')
    cppWallet.registerWallet()
 
 
@@ -55,15 +55,15 @@ if run_LoadBlockchain_Async:
    TheBDM.setBlocking(False)
    TheBDM.setOnlineMode(True)
    sleep(2)
-   print 'Waiting for blockchain loading to finish',
+   print('Waiting for blockchain loading to finish',)
    while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-      print '.',
+      print('.',)
       sys.stdout.flush()
       sleep(2)
-   print 'Loading blockchain took %0.1f sec' % (RightNow() - start)
+   print('Loading blockchain took %0.1f sec' % (RightNow() - start))
 
    topBlock = TheBDM.getTopBlockHeight()
-   print '\n\nCurrent Top Block is:', topBlock
+   print('\n\nCurrent Top Block is:', topBlock)
    TheBDM.blockchain().top().pprint()
 
 ################################################################################
@@ -72,26 +72,26 @@ if run_LoadBlockchain_Block:
    TheBDM.setBlocking(True)
    TheBDM.setOnlineMode(True)
    # The setOnlineMode should block until blockchain loading is complete
-   print 'Loading blockchain took %0.1f sec' % (RightNow() - start)
+   print('Loading blockchain took %0.1f sec' % (RightNow() - start))
 
    topBlock = TheBDM.getTopBlockHeight()
-   print '\n\nCurrent Top Block is:', topBlock
+   print('\n\nCurrent Top Block is:', topBlock)
    TheBDM.blockchain().top().pprint()
 
 
 ################################################################################
 if run_WalletRescan:
-   print 'Inducing a rescan by adding a new address and requesting...'
+   print('Inducing a rescan by adding a new address and requesting...')
    cppWallet.addAddress_1_( hex_to_binary('0cdcd0f388a31b11ff11b1d8d7a9f978b37bc7af') )
    TheBDM.scanBlockchainForTx(cppWallet)
 
-   print '\n\nBalance of this wallet:', coin2str(cppWallet.getSpendableBalance())
-   print 'Unspent outputs:'
+   print('\n\nBalance of this wallet:', coin2str(cppWallet.getSpendableBalance()))
+   print('Unspent outputs:')
    unspentTxOuts = cppWallet.getSpendableTxOutList() #IGNOREZC isnt defined in this script
    for utxo in unspentTxOuts:
       utxo.pprintOneLine(topBlock)
 
-   print '\n\nTransaction history of this wallet:'
+   print('\n\nTransaction history of this wallet:')
    ledger = cppWallet.getTxLedger()
    for le in ledger:
       le.pprintOneLine()
@@ -100,12 +100,12 @@ if run_WalletRescan:
 
 ################################################################################
 if run_DiffChangeList:
-   print '\n\n'
-   print '-'*80
-   print 'Now for something completely different...'
+   print('\n\n')
+   print('-'*80)
+   print('Now for something completely different...')
    start = RightNow()
-   print '\n\nCollect all difficulty changes...'
-   print 'Block'.rjust(10), 'Difficulty'.rjust(14), '\t', 'Date'
+   print('\n\nCollect all difficulty changes...')
+   print('Block'.rjust(10), 'Difficulty'.rjust(14), '\t', 'Date')
    prevDiff = 0
    maxDiff = hex_to_int('ff'*32)
    minDiff = maxDiff
@@ -121,20 +121,20 @@ if run_DiffChangeList:
          minDiffBlk = h
    
       if not prevDiff==currDiff:
-         print str(h).rjust(10),
-         print ('%0.1f'%currDiff).rjust(14),
-         print '\t', unixTimeToFormatStr(header.getTimestamp())
+         print(str(h).rjust(10),)
+         print(('%0.1f'%currDiff).rjust(14),)
+         print('\t', unixTimeToFormatStr(header.getTimestamp()))
       prevDiff = currDiff
 
    from math import log
-   print 'Took %0.1f seconds to collect difficulty list' % (RightNow()-start)
-   print '\nBlock with the lowest difficulty:'
-   print '   Block Num:      ', minDiffBlk
-   print '   Block Hash:     ', int_to_hex(minDiff, 32, BIGENDIAN)
-   print '   Equiv Difficult:', maxDiff/(minDiff * 2**32)
-   print '   Equiv Diff bits:', log(maxDiff/minDiff)/log(2)
-   print '   Block Header (hex): '
-   print '      ', binary_to_hex(TheBDM.blockchain().getHeaderByHeight(minDiffBlk).serialize())
+   print('Took %0.1f seconds to collect difficulty list' % (RightNow()-start))
+   print('\nBlock with the lowest difficulty:')
+   print('   Block Num:      ', minDiffBlk)
+   print('   Block Hash:     ', int_to_hex(minDiff, 32, BIGENDIAN))
+   print('   Equiv Difficult:', maxDiff/(minDiff * 2**32))
+   print('   Equiv Diff bits:', log(maxDiff/minDiff)/log(2))
+   print('   Block Header (hex): ')
+   print('      ', binary_to_hex(TheBDM.blockchain().getHeaderByHeight(minDiffBlk).serialize()))
 
 
 ################################################################################
@@ -143,7 +143,7 @@ if run_CumulativeSize:
    cumul = 0
    for h in xrange(0,topBlock+1):
       if h%10000 == 0:
-         print '\tAccumulated %d blocks' % h
+         print('\tAccumulated %d blocks' % h)
    
       header = TheBDM.blockchain().getHeaderByHeight(h)
       cumul += header.getBlockSize()
@@ -162,7 +162,7 @@ if run_UniqueAddresses:
    totalTxOutEver = 0
    for h in xrange(0,topBlock+1):
       if h%10000 == 0:
-         print '\tScanned %d blocks' % h
+         print('\tScanned %d blocks' % h)
    
       header = TheBDM.blockchain().getHeaderByHeight(h)
       txList = header.getTxRefPtrList()
@@ -175,9 +175,9 @@ if run_UniqueAddresses:
                totalTxOutEver += 1
    
    
-   print 'Took %0.1f seconds to count all addresses' % (RightNow()-start)
-   print 'There are %d unique addresses in the blockchain!' % len(allAddr)
-   print 'There are %d standard TxOuts in all blocks' % totalTxOutEver
+   print('Took %0.1f seconds to count all addresses' % (RightNow()-start))
+   print('There are %d unique addresses in the blockchain!' % len(allAddr))
+   print('There are %d standard TxOuts in all blocks' % totalTxOutEver)
 
 
 
@@ -189,7 +189,7 @@ if run_TrafficCamera:
 
 ################################################################################
 if run_SatoshiDice:
-   print '\n\nLet look at all the bets ever placed at SatoshiDice.com'
+   print('\n\nLet look at all the bets ever placed at SatoshiDice.com')
 
    # First, get the Satoshi dice page so we can extract the addresses and payouts
    import urllib
@@ -273,11 +273,11 @@ if run_SatoshiDice:
 
       avg = winPct*winAmt + losPct*losAmt
       var = (winPct*(winAmt-avg)**2) + (losPct*(losAmt-avg)**2)
-      #print amt, diceTargetMap[diceAddr], diceWinMultMap[diceAddr], diceLoseMultMap[diceAddr]
-      #print winAmt, winPct, losAmt, losPct
-      #print avg, var, sqrt(var)
-      #print coin2str(avg), coin2str(var), coin2str(sqrt(var))
-      #print '\n'
+      #print(amt, diceTargetMap[diceAddr], diceWinMultMap[diceAddr], diceLoseMultMap[diceAddr])
+      #print(winAmt, winPct, losAmt, losPct)
+      #print(avg, var, sqrt(var))
+      #print(coin2str(avg), coin2str(var), coin2str(sqrt(var)))
+      #print('\n')
       return [avg, var]
       
 
@@ -298,7 +298,7 @@ if run_SatoshiDice:
    try:
       for h in xrange(175000,topBlock+1):
          if h%10000 == 0:
-            print '\tSearched %d blocks' % h
+            print('\tSearched %d blocks' % h)
    
          header = TheBDM.blockchain().getHeaderByHeight(h)
          txList = header.getTxRefPtrList()
@@ -372,7 +372,7 @@ if run_SatoshiDice:
                         break
 
                   if returned==-1:
-                     print 'Did not find recip, failed...'
+                     print('Did not find recip, failed...')
                      continue
                   else:
                      if returned <= betLos*1.25:
@@ -389,7 +389,7 @@ if run_SatoshiDice:
    
 
    
-   print 'Unaccounted-for Bets:'
+   print('Unaccounted-for Bets:')
    i = 0
    unacctBTC = 0
    for key,val in betsIn.iteritems():
@@ -399,23 +399,23 @@ if run_SatoshiDice:
       sdAddr = val[3]
       recip1 = val[4]
 
-      #print i, hex_switchEndian(txid), '%03d'%outidx, coin2str(betAmt), 
-      #print hash160_to_addrStr(sdAddr)[:8], hash160_to_addrStr(recip1)[:8]
+      #print(i, hex_switchEndian(txid), '%03d'%outidx, coin2str(betAmt), )
+      #print(hash160_to_addrStr(sdAddr)[:8], hash160_to_addrStr(recip1)[:8])
       i += 1
       unacctBTC += betAmt
 
 
-   print 'Results:', unixTimeToFormatStr(RightNow())
-   print ''
-   print 'Address'.rjust(10),
-   print 'Target'.rjust(8),
-   print 'Should Win'.rjust(12), '|',
-   print '#Bets'.rjust(8), '|',
-   print 'Win'.center(16), '|',
-   print 'Lose'.center(16), '|',
-   print 'Refunds'.center(17), '|',
-   print 'Accounted-for'
-   print '-'*118
+   print('Results:', unixTimeToFormatStr(RightNow()))
+   print('')
+   print('Address'.rjust(10),)
+   print('Target'.rjust(8),)
+   print('Should Win'.rjust(12), '|',)
+   print('#Bets'.rjust(8), '|',)
+   print('Win'.center(16), '|',)
+   print('Lose'.center(16), '|',)
+   print('Refunds'.center(17), '|',)
+   print('Accounted-for')
+   print('-'*118)
    
    totalBets = 0
    diceAddrList = []
@@ -430,30 +430,30 @@ if run_SatoshiDice:
       losers  = diceBetsPaidOut[a160][LOSE]
       refunds = diceBetsPaidOut[a160][REFUND]
       total2  = winners+losers
-      print hash160_to_addrStr(a160)[:9].rjust(10),
-      print str(targ).rjust(8),
-      print ('%0.5f' % (targ/65536.)).rjust(12),
-      print '|', str(total).rjust(8),
+      print(hash160_to_addrStr(a160)[:9].rjust(10),)
+      print(str(targ).rjust(8),)
+      print(('%0.5f' % (targ/65536.)).rjust(12),)
+      print('|', str(total).rjust(8),)
    
-      print '|', str(winners).rjust(6), ('(%0.5f)'%(winners/float(total2))).rjust(8), 
-      print '|', str(losers).rjust(6),  ('(%0.5f)'%(losers/float(total2))).rjust(8), 
-      print '|', str(refunds).rjust(6), ('(%0.5f)'%(refunds/float(total2))).rjust(8), 
+      print('|', str(winners).rjust(6), ('(%0.5f)'%(winners/float(total2))).rjust(8), )
+      print('|', str(losers).rjust(6),  ('(%0.5f)'%(losers/float(total2))).rjust(8), )
+      print('|', str(refunds).rjust(6), ('(%0.5f)'%(refunds/float(total2))).rjust(8), )
 
-      print '|', '(%0.3f)'.rjust(10) % ((winners+losers+refunds)/float(total))
+      print('|', '(%0.3f)'.rjust(10) % ((winners+losers+refunds)/float(total)))
       totalBets += total
 
-   print '-'*118
-   print ' '*32, '|', str(totalBets).rjust(8), '|'
-   print ''
-   print '-'*118
-   print 'Total Bets Made:               ', totalBets
-   print 'Cumulative Wagers:         ', coin2str(sdRecvAmt), 'BTC'
-   print 'Cumulative Rewards:        ', coin2str(sdRtrnAmt), 'BTC'
-   print 'Cumulative Fees Paid:      ', coin2str(sdFeePaid), 'BTC'
-   print 'Cumulative Unreturned:     ', coin2str(unacctBTC), 'BTC'
-   print '----'
-   print 'SD Profit/Loss From Games: ', coin2str(sdRecvAmt - sdRtrnAmt), 'BTC'
-   print 'SD Profit/Loss With Fees:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid)), 'BTC'
+   print('-'*118)
+   print(' '*32, '|', str(totalBets).rjust(8), '|')
+   print('')
+   print('-'*118)
+   print('Total Bets Made:               ', totalBets)
+   print('Cumulative Wagers:         ', coin2str(sdRecvAmt), 'BTC')
+   print('Cumulative Rewards:        ', coin2str(sdRtrnAmt), 'BTC')
+   print('Cumulative Fees Paid:      ', coin2str(sdFeePaid), 'BTC')
+   print('Cumulative Unreturned:     ', coin2str(unacctBTC), 'BTC')
+   print('----')
+   print('SD Profit/Loss From Games: ', coin2str(sdRecvAmt - sdRtrnAmt), 'BTC')
+   print('SD Profit/Loss With Fees:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid)), 'BTC')
 
 
 
@@ -467,6 +467,6 @@ if run_SatoshiDice:
    #f.close()
 
    BtoMB = lambda x: float(x)/(1024*1024.)
-   print 'Since Satoshi Dice started, there have been:'
-   print 'Blockchain Tx:  %d  :  SatoshiDice Tx: %d  (%0.1f%%)' % (totalBCTx, totalSDTx, 100*float(totalSDTx)/totalBCTx)
-   print 'Blockchain MB:  %0.1f  :  SatoshiDice Tx: %0.1f  (%0.1f%%)' % (BtoMB(totalBCBytes), BtoMB(totalSDBytes), 100*float(totalSDBytes)/totalBCBytes)
+   print('Since Satoshi Dice started, there have been:')
+   print('Blockchain Tx:  %d  :  SatoshiDice Tx: %d  (%0.1f%%)' % (totalBCTx, totalSDTx, 100*float(totalSDTx)/totalBCTx))
+   print('Blockchain MB:  %0.1f  :  SatoshiDice Tx: %0.1f  (%0.1f%%)' % (BtoMB(totalBCBytes), BtoMB(totalSDBytes), 100*float(totalSDBytes)/totalBCBytes))

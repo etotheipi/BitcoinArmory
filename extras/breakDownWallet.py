@@ -71,8 +71,8 @@ def createNewWallet(wlt, rootEntry, newWalletFilePath, withEncrypt,
 
 ###############################################################################
 def breakDownWallet(walletPath, fragSize):
-   print 'breaking down wallet in packs of %d addresses' % fragSize
-   print 'reading wallet'
+   print('breaking down wallet in packs of %d addresses' % fragSize)
+   print('reading wallet')
    theWallet = PyBtcWallet().readWalletFile(walletPath)
    
    nAddresses = len(theWallet.addrMap)
@@ -94,7 +94,7 @@ def breakDownWallet(walletPath, fragSize):
    
    while nAddresses > 0 :
       
-      print 'breaking down wallet from address #%d to #%d' % (addrIndex, addrIndex +fragSize-1)
+      print('breaking down wallet from address #%d to #%d' % (addrIndex, addrIndex +fragSize-1))
       nAddresses -= fragSize
 
       
@@ -125,12 +125,12 @@ def breakDownWallet(walletPath, fragSize):
       walletFile.close()      
       
       addrIndex += i
-   print 'Done'
+   print('Done')
          
 ###############################################################################################
 
 if len(sys.argv) < 2:
-   print 'not enough arguments'
+   print('not enough arguments')
    sys.exit(0)
    
 walletPath = sys.argv[1]
@@ -141,7 +141,7 @@ else:
    fragSize   = int(sys.argv[2])
 
 if not os.path.exists(walletPath):
-   print 'invalid wallet path'
+   print('invalid wallet path')
    sys.exit(0)
    
 if not isinstance(fragSize, int) or fragSize == 0:

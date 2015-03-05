@@ -3,24 +3,16 @@
 
 import socket
 from errno import EWOULDBLOCK, ECONNREFUSED, EHOSTUNREACH
-try:
-    from select import poll, error, POLLIN, POLLOUT, POLLERR, POLLHUP
-    timemult = 1000
-except ImportError:
-    from selectpoll import poll, error, POLLIN, POLLOUT, POLLERR, POLLHUP
-    timemult = 1
+from select import poll, error, POLLIN, POLLOUT, POLLERR, POLLHUP
+timemult = 1000
 from time import sleep
-from clock import clock
+from .clock import clock
 import sys
 from random import shuffle, randrange
-from natpunch import UPnP_open_port, UPnP_close_port
+from .natpunch import UPnP_open_port, UPnP_close_port
 # from BT1.StreamCheck import StreamCheck
 # import inspect
-try:
-    True
-except:
-    True = 1
-    False = 0
+
 
 all = POLLIN | POLLOUT
 
@@ -101,7 +93,7 @@ class SingleSocket:
                         self.buffer[0] = buf[amount:]
                         break
                     del self.buffer[0]
-            except socket.error, e:
+            except socket.error as e:
                 try:
                     dead = e[0] != EWOULDBLOCK
                 except:
@@ -136,7 +128,7 @@ class SocketHandler:
     def scan_for_timeouts(self):
         t = clock() - self.timeout
         tokill = []
-        for s in self.single_sockets.values():
+        for s in list(self.single_sockets.values()):
             if s.last_hit < t:
                 tokill.append(s)
         for k in tokill:
@@ -180,8 +172,8 @@ class SocketHandler:
                     self.interfaces.append(server.getsockname()[0])
                 server.listen(64)
                 self.poll.register(server, POLLIN)
-            except socket.error, e:
-                for server in self.servers.values():
+            except socket.error as e:
+                for server in list(self.servers.values()):
                     try:
                         server.close()
                     except:
@@ -193,7 +185,7 @@ class SocketHandler:
             raise socket.error('unable to open server port')
         if upnp:
             if not UPnP_open_port(port):
-                for server in self.servers.values():
+                for server in list(self.servers.values()):
                     try:
                         server.close()
                     except:
@@ -208,7 +200,7 @@ class SocketHandler:
                       ipv6_socket_style = 1, upnp = 0, randomizer = False):
         e = 'maxport less than minport - no ports to check'
         if maxport-minport < 50 or not randomizer:
-            portrange = range(minport, maxport+1)
+            portrange = list(range(minport, maxport+1))
             if randomizer:
                 shuffle(portrange)
                 portrange = portrange[:20]  # check a maximum of 20 ports
@@ -223,7 +215,7 @@ class SocketHandler:
                 self.bind(listen_port, bind,
                                ipv6_socket_style = ipv6_socket_style, upnp = upnp)
                 return listen_port
-            except socket.error, e:
+            except socket.error as e:
                 pass
         raise socket.error(str(e))
 
@@ -241,7 +233,7 @@ class SocketHandler:
             sock.connect_ex(dns)
         except socket.error:
             raise
-        except Exception, e:
+        except Exception as e:
             raise socket.error(str(e))
         self.poll.register(sock, POLLIN)
         s = SingleSocket(self, sock, handler, dns[0])
@@ -262,9 +254,9 @@ class SocketHandler:
             try:
                 addrinfos = socket.getaddrinfo(dns[0], int(dns[1]),
                                                socktype, socket.SOCK_STREAM)
-            except socket.error, e:
+            except socket.error as e:
                 raise
-            except Exception, e:
+            except Exception as e:
                 raise socket.error(str(e))
             if randomize:
                 shuffle(addrinfos)
@@ -290,7 +282,7 @@ class SocketHandler:
                     self.poll.unregister(s)
                     s.close()
                     del self.servers[sock]
-                    print "lost server socket"
+                    print("lost server socket")
                 elif len(self.single_sockets) < self.max_connects:
                     try:
                         newsock, addr = s.accept()
@@ -317,7 +309,7 @@ class SocketHandler:
                             self._close_socket(s)
                         else:
                             s.handler.data_came_in(s, data)
-                    except socket.error, e:
+                    except socket.error as e:
                         code, msg = e
                         if code != EWOULDBLOCK:
                             self._close_socket(s)
@@ -345,7 +337,7 @@ class SocketHandler:
             connects = len(self.single_sockets)
             to_close = int(connects*0.05)+1 # close 5% of sockets
             self.max_connects = connects-to_close
-            closelist = self.single_sockets.values()
+            closelist = list(self.single_sockets.values())
             shuffle(closelist)
             closelist = closelist[:to_close]
             for sock in closelist:
@@ -360,12 +352,12 @@ class SocketHandler:
 
 
     def shutdown(self):
-        for ss in self.single_sockets.values():
+        for ss in list(self.single_sockets.values()):
             try:
                 ss.close()
             except:
                 pass
-        for server in self.servers.values():
+        for server in list(self.servers.values()):
             try:
                 server.close()
             except:
