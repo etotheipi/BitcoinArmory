@@ -67,3 +67,7 @@ class UtilsTester(unittest.TestCase):
       h4 = int_to_hex(i, 10, LITTLEENDIAN)
       self.assertEqual(hr + b'00'*7,h4)
 
+   def testSigningKey(self):
+      a160 = hash160(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
+      addr = hash160_to_addrStr(a160)
+      self.assertEqual(addr, b'1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei')
