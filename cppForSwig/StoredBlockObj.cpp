@@ -1372,26 +1372,6 @@ BinaryData StoredScriptHistory::getSubKey() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredScriptHistory::getSubKeyFromDB(
-   function<BinaryData(BinaryDataRef)> getSubKey)
-{
-   if (keyLength_ == 0)
-   {
-      BinaryData key = getSubKey(uniqueKey_);
-      dbPrefix_ = key.getPtr()[0];
-      keyLength_ = key.getSize();
-      return key;
-   }
-
-   BinaryData key(keyLength_ + 1);
-   key.getPtr()[0] = dbPrefix_;
-   memcpy(key.getPtr() + 1, uniqueKey_.getPtr() +1, keyLength_ -1);
-
-   return key;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
 SCRIPT_PREFIX StoredScriptHistory::getScriptType(void) const
 {
    if(uniqueKey_.getSize() == 0)

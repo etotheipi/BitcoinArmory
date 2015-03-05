@@ -659,7 +659,6 @@ public:
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    BinaryData    getSubKey() const;
-   BinaryData    getSubKeyFromDB(function<BinaryData(BinaryDataRef)> getSubKey);
    SCRIPT_PREFIX getScriptType(void) const;
 
    void pprintOneLine(uint32_t indent=3);

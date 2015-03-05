@@ -411,7 +411,8 @@ public:
    // Interface to translate Stored* objects to/from persistent DB storage
    /////////////////////////////////////////////////////////////////////////////
    void putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi);
-   bool getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn = true);
+   bool getStoredDBInfo(
+      DB_SELECT db, StoredDBInfo & sdbi, bool warn = true) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // BareHeaders are those int the HEADERS DB with no blockdta associated
@@ -649,7 +650,7 @@ public:
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
    bool isReady(void) { return isDBReady_(); }
-   ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
+   ARMORY_DB_TYPE armoryDbType(void) const { return armoryDbType_; }
 
    void setBlkFiles(shared_ptr<vector<BlkFile>> blkFiles)
    { blkFiles_ = blkFiles; }
@@ -657,7 +658,8 @@ public:
    shared_ptr<vector<BlkFile>> getBlkFiles(void) const
    { return blkFiles_; }
 
-   BinaryData getSubSSHKey(BinaryDataRef uniqKey);
+   BinaryData getSubSSHKey(BinaryDataRef uniqKey) const;
+
    void beginSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
 
 private:

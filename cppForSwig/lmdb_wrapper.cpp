@@ -1432,7 +1432,7 @@ void LMDBBlockDatabase::putStoredDBInfo(DB_SELECT db,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db, 
-   StoredDBInfo & sdbi, bool warn)
+   StoredDBInfo & sdbi, bool warn) const
 {
    SCOPED_TIMER("getStoredDBInfo");
    LMDBEnv::Transaction tx;
@@ -3639,7 +3639,7 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey)
+BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey) const
 {
    //no prefix yet, build it
 

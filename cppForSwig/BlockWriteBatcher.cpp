@@ -31,24 +31,6 @@ static void updateBlkDataHeader(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::getSshHeader(
-   StoredScriptHistory& ssh, const BinaryData& uniqKey) const
-{
-   iface_->getStoredScriptHistorySummary(ssh, uniqKey);
-   if (ssh.keyLength_ == 0)
-   {
-      ssh.uniqueKey_ = uniqKey;
-
-      auto func = [this](BinaryDataRef uniqKey)->BinaryData
-      { return this->iface_->getSubSSHKey(uniqKey); };
-
-      //make sure there are no conflicts with keys held locally that are yet 
-      //written in the DB
-      ssh.getSubKeyFromDB(func);
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
    const BinaryData& uniqKey,
    const BinaryData& hgtX)
@@ -58,7 +40,7 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
 
    if (subssh.hgtX_.getSize() == 0)
    {
-      if (subSshMapToWrite_.size() > 0)
+      /*if (subSshMapToWrite_.size() > 0)
       {
          auto sshIter = subSshMapToWrite_.find(uniqKey);
          if (sshIter != subSshMapToWrite_.end())
@@ -70,7 +52,7 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap(
                return subssh;
             }
          }
-      }
+      }*/
 
       subssh.hgtX_ = hgtX;
 
@@ -97,18 +79,6 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap_IgnoreDB(
    {
       subssh.hgtX_ = hgtX;
 
-      /*uint32_t fetchHeight = DBUtils::hgtxToHeight(hgtX);
-      if (fetchHeight < currentBlockHeight)
-      {
-         BinaryData key(uniqKey);
-         key.append(hgtX);
-
-         BinaryRefReader brr = iface_->getValueReader(
-            HISTORY, DB_PREFIX_SCRIPT, key);
-         if (brr.getSize() > 0)
-            subssh.unserializeDBValue(brr);
-      }*/
-
       dbUpdateSize_ += UPDATE_BYTES_SUBSSH;
    }
 
@@ -119,10 +89,14 @@ StoredSubHistory& BlockWriteBatcher::makeSureSubSSHInMap_IgnoreDB(
 StoredScriptHistory& BlockWriteBatcher::makeSureSSHInMap(
    const BinaryData& uniqKey)
 {  
-   auto& ssh = (*sshToModify_)[uniqKey];
+   //this call is only used by undoBlockFrom. sshHeaders will always be valid 
+   //and it will always ask for SSHs that are already present in the DB, thus 
+   //that have valid subssh keys.
+
+   auto& ssh = (*dataToCommit_.sshHeaders_->sshToModify_)[uniqKey];
    if (!ssh.isInitialized())
    {
-      getSshHeader(ssh, uniqKey);
+      iface_->getStoredScriptHistorySummary(ssh, uniqKey);
       ssh.uniqueKey_ = uniqKey;
    }
 
@@ -153,7 +127,7 @@ BlockWriteBatcher::BlockWriteBatcher(
    bool forCommit)
    : config_(config), iface_(iface),
    mostRecentBlockApplied_(0), isForCommit_(forCommit),
-   dataToCommit_(config.armoryDbType),
+   dataToCommit_(iface),
    stxos_(iface)
 {
    parent_ = this;
@@ -205,7 +179,7 @@ BlockWriteBatcher::BlockWriteBatcher(BlockWriteBatcher&& bwb) :
    //elsewhere
    
    txCountAndHint_ = move(bwb.txCountAndHint_);
-   subSshMapToWrite_ = move(bwb.subSshMapToWrite_);
+   //subSshMapToWrite_ = move(bwb.subSshMapToWrite_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -537,7 +511,10 @@ bool BlockWriteBatcher::parseTxOuts(
          if (!scrAddrData.hasScrAddress(uniqKey))
             continue;
 
-         auto height = (*sshToModify_)[uniqKey].alreadyScannedUpToBlk_;
+         auto height = 
+            (*dataToCommit_.sshHeaders_->
+               sshToModify_)[uniqKey].alreadyScannedUpToBlk_;
+
          if (height >= thisSTX.blockHeight_ && height != 0)
             continue;
 
@@ -679,7 +656,7 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    bwbWriteObj->parent_ = this;
    bwbWriteObj->topScannedBlockHash_ = topScannedBlockHash_;
 
-   if (isCommiting)
+   /*if (isCommiting)
    {
       //the write thread is already running and we cumulated enough data in the
       //read thread for the next write. Let's use that idle time to serialize
@@ -687,7 +664,7 @@ thread BlockWriteBatcher::commit(bool finalCommit)
       TIMER_START("serializeInCommitThread");
       bwbWriteObj->serializeData(subSshMap_);
       TIMER_STOP("serializeInCommitThread");
-   }
+   }*/
       
    bwbWriteObj->dbUpdateSize_ = dbUpdateSize_;
    bwbWriteObj->updateSDBI_ = updateSDBI_;
@@ -698,10 +675,7 @@ thread BlockWriteBatcher::commit(bool finalCommit)
    l.lock();
    TIMER_STOP("waitingOnWriteThread");
 
-   if (commitingObject_ != nullptr)
-      commitingObject_->subSshMapToWrite_ = move(subSshMapToWrite_);
-   subSshMapToWrite_ = move(subSshMap_);
-
+   bwbWriteObj->subSshMap_ = move(subSshMap_);
    commitingObject_ = bwbWriteObj;
 
    if (isCommiting)
@@ -722,26 +696,25 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
    //that will get any traffic, and in order to update all alreadyScannedUpToBlk_
    //members each commit
 
-   if (sshToModify_)
-      return;
-
-   sshToModify_ = shared_ptr<map<BinaryData, StoredScriptHistory>>(
-      new map<BinaryData, StoredScriptHistory>);
-   
    if (config_.armoryDbType == ARMORY_DB_SUPER)
       return;
+   
+   if (dataToCommit_.sshHeaders_ != nullptr)
+      return;
 
-   BinaryData hgtX(0);
-
+   dataToCommit_.sshHeaders_.reset(new SSHheaders(iface_, 1));
+   dataToCommit_.sshHeaders_->buildSshHeadersFromSAF(sasd);
+   
    uint32_t utxoCount=0;
    LMDBEnv::Transaction tx;
    iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
-   for (auto saPair : sasd.getScrAddrMap())
-   {
-      auto& ssh = (*sshToModify_)[saPair.first];
-      getSshHeader(ssh, saPair.first);
+   auto& sshMap = dataToCommit_.sshHeaders_->sshToModify_;
 
+   for (auto sshPair : *sshMap)
+   {
+      auto& ssh = sshPair.second;
+      
       if (ssh.totalTxioCount_ != 0)
       {
          StoredScriptHistory tempSSH = ssh;
@@ -783,18 +756,17 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
 void BlockWriteBatcher::writeToDB(shared_ptr<BlockWriteBatcher> bwb)
 {
    unique_lock<mutex> lock(bwb->parent_->writeLock_);
-   LMDBBlockDatabase *db = bwb->iface_;
 
-   bwb->dataToCommit_.serializeData(*bwb, (bwb->parent_->subSshMapToWrite_));
+   bwb->dataToCommit_.serializeData(bwb);
 
    {
-      bwb->dataToCommit_.putSSH(db);
-      bwb->dataToCommit_.putSTX(db);
-      bwb->dataToCommit_.deleteEmptyKeys(db);
+      bwb->dataToCommit_.putSSH();
+      bwb->dataToCommit_.putSTX();
+      bwb->dataToCommit_.deleteEmptyKeys();
 
 
       if (bwb->mostRecentBlockApplied_ != 0 && bwb->updateSDBI_ == true)
-         bwb->dataToCommit_.updateSDBI(db);
+         bwb->dataToCommit_.updateSDBI();
 
       //bwb->parent_->commitingObject_.reset();
    }
@@ -1096,7 +1068,7 @@ BinaryData BlockWriteBatcher::scanBlocks(
    
    timeElapsed = TIMER_READ_SEC("lookforutxo");
    LOGWARN << "--- lookforutxo: " << timeElapsed << " s";
-      timeElapsed = TIMER_READ_SEC("leverageUTXOinRAM");
+   timeElapsed = TIMER_READ_SEC("leverageUTXOinRAM");
    LOGWARN << "--- leverageUTXOinRAM: " << timeElapsed << " s";
    
    timeElapsed = TIMER_READ_SEC("inCommit");
@@ -1192,7 +1164,7 @@ void BlockWriteBatcher::resetHistoryTransaction(void)
       unique_lock<mutex> lock((*writer)->writeLock_);
       if (commitingObject_ == *writer)
       {
-         commitingObject_->subSshMapToWrite_ = move(subSshMapToWrite_);
+         //commitingObject_->subSshMapToWrite_ = move(subSshMapToWrite_);
          commitingObject_.reset();
       }
 
@@ -1200,58 +1172,22 @@ void BlockWriteBatcher::resetHistoryTransaction(void)
       (*writer)->signalCleanup_.notify_all();
       TIMER_STOP("resetTxn");
    }
-
 }
-
-////////////////////////////////////////////////////////////////////////////////
-map<BinaryData, StoredScriptHistory>& BlockWriteBatcher::getSSHMap(
-   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
-{
-   {
-      shared_ptr<BlockWriteBatcher> commitingObj = parent_->commitingObject_;
-      if (commitingObj != nullptr)
-      {
-         if (&commitingObj->dataToCommit_ != &dataToCommit_)
-         {
-            unique_lock<mutex> lock(commitingObj->dataToCommit_.lock_);
-            
-            sshToModify_ = commitingObj->sshToModify_;
-         }
-      }
-      else parent_->resetTransactions();
-   }
-
-   auto ssh = parent_->sshToModify_;
-   if (ssh != nullptr && ssh->size() != 0)
-      return *ssh;
-
-   if (!sshToModify_)
-      sshToModify_ = shared_ptr<map<BinaryData, StoredScriptHistory>>(
-      new map<BinaryData, StoredScriptHistory>);
-
-   for (auto& scrAddr : subsshMap)
-   {
-      auto& ssh = (*sshToModify_)[scrAddr.first];
-      if (ssh.alreadyScannedUpToBlk_ == 0)
-         getSshHeader(ssh, scrAddr.first);
-   }
-
-   return *sshToModify_;
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DataToCommit
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
-   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
+void DataToCommit::serializeSSH(shared_ptr<BlockWriteBatcher> bwb)
 {
-   auto dbType = bwb.config_.armoryDbType;
-   auto pruneType = bwb.config_.pruneType;
+   auto dbType = bwb->config_.armoryDbType;
+   auto pruneType = bwb->config_.pruneType;
 
-   auto& sshMap = bwb.getSSHMap(subsshMap);
+   auto& subsshMap = bwb->subSshMap_;
+
+   sshHeaders_->getSshHeaders(bwb);
    
-   for (auto& sshPair : sshMap)
+   auto& sshMap = sshHeaders_->sshToModify_;
+   for (auto& sshPair : *sshMap)
    {
       BinaryData sshKey;
       sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
@@ -1293,11 +1229,11 @@ void DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
             }
          }
 
-         if (bwb.config_.armoryDbType == ARMORY_DB_SUPER)
+         if (dbType == ARMORY_DB_SUPER)
          {
             if (ssh.totalTxioCount_ > 0)
             {
-               ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
+               ssh.alreadyScannedUpToBlk_ = bwb->mostRecentBlockApplied_;
                BinaryWriter& bw = serializedSshToModify_[sshKey];
                ssh.serializeDBValue(bw, dbType, pruneType);
             }
@@ -1306,15 +1242,15 @@ void DataToCommit::serializeSSH(BlockWriteBatcher& bwb,
          }
       }
 
-      if (bwb.config_.armoryDbType != ARMORY_DB_SUPER)
+      if (dbType != ARMORY_DB_SUPER)
       {
-         ssh.alreadyScannedUpToBlk_ = bwb.mostRecentBlockApplied_;
+         ssh.alreadyScannedUpToBlk_ = bwb->mostRecentBlockApplied_;
          BinaryWriter& bw = serializedSshToModify_[sshKey];
          ssh.serializeDBValue(bw, dbType, pruneType);
       }
    }
 
-   for (auto& ssh : sshMap)
+   for (auto& ssh : *sshMap)
       sshPrefixes_[ssh.first] = ssh.second.getSubKey();
 }
 
@@ -1346,11 +1282,12 @@ void DataToCommit::serializeStxo(STXOS& stxos)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
-   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
+void DataToCommit::serializeDataToCommit(shared_ptr<BlockWriteBatcher> bwb)
 {
-   auto dbType = bwb.config_.armoryDbType;
-   auto pruneType = bwb.config_.pruneType;
+   auto dbType = bwb->config_.armoryDbType;
+   auto pruneType = bwb->config_.pruneType;
+
+   auto& subsshMap = bwb->subSshMap_;
 
    //subssh
    {
@@ -1400,13 +1337,13 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
    }
    
    //stxout
-   serializeStxo(bwb.stxos_);
+   serializeStxo(bwb->stxos_);
 
    //txOutCount
    if (dbType != ARMORY_DB_SUPER)
    {
-      LMDBEnv::Transaction txHints(bwb.iface_->dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
-      for (auto& txData : bwb.txCountAndHint_)
+      LMDBEnv::Transaction txHints(bwb->iface_->dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
+      for (auto& txData : bwb->txCountAndHint_)
       {
          BinaryWriter& bw = serializedTxCountAndHash_[txData.first];
          bw.put_uint32_t(txData.second.count_);
@@ -1414,7 +1351,7 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
 
          BinaryDataRef ldbKey = txData.first.getSliceRef(1, 6);
          StoredTxHints sths;
-         bwb.iface_->getStoredTxHints(sths, txData.second.hash_);
+         bwb->iface_->getStoredTxHints(sths, txData.second.hash_);
 
          // Check whether the hint already exists in the DB
          bool needToAddTxToHints = true;
@@ -1445,25 +1382,29 @@ void DataToCommit::serializeDataToCommit(BlockWriteBatcher& bwb,
       }
    }
 
-   topBlockHash_ = bwb.topScannedBlockHash_;
-   mostRecentBlockApplied_ = bwb.mostRecentBlockApplied_ +1;
+   topBlockHash_ = bwb->topScannedBlockHash_;
+   mostRecentBlockApplied_ = bwb->mostRecentBlockApplied_ +1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::serializeData(BlockWriteBatcher& bwb,
-   const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap)
+void DataToCommit::serializeData(shared_ptr<BlockWriteBatcher> bwb)
 {
    if (isSerialized_)
       return;
 
-   unique_lock<mutex> lock(lock_);
+   uint32_t nThreads = getProcessSSHnThreads();
+   sshHeaders_.reset(new SSHheaders(db_, nThreads));
+
+   unique_lock<mutex> lock(sshHeaders_->mu_);
+
+   auto& subsshMap = bwb->subSshMap_;
 
    auto serialize = [&](void)
-   { serializeDataToCommit(bwb, subsshMap); };
+   { serializeDataToCommit(bwb); };
 
    thread serThread = thread(serialize);
 
-   serializeSSH(bwb, subsshMap);
+   serializeSSH(bwb);
    lock.unlock();
 
    if (serThread.joinable())
@@ -1524,13 +1465,13 @@ void DataToCommit::serializeData(BlockWriteBatcher& bwb,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::putSSH(LMDBBlockDatabase* db)
+void DataToCommit::putSSH()
 {
    LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
    for (auto& sshPair : serializedSshToModify_)
-      db->putValue(HISTORY, sshPair.first, sshPair.second.getData());
+      db_->putValue(HISTORY, sshPair.first, sshPair.second.getData());
 
    {
       LMDBEnv::Transaction subsshtx;
@@ -1539,62 +1480,62 @@ void DataToCommit::putSSH(LMDBBlockDatabase* db)
       for (auto& submap : serializedSubSshToApply_)
       {
          currentKeyLength = submap.first;
-         db->beginSubSSHDBTransaction(subsshtx, 
+         db_->beginSubSSHDBTransaction(subsshtx, 
                                     currentKeyLength, LMDB::ReadWrite);
 
          for (auto& subsshentry : submap.second)
-            db->putValue(currentKeyLength, subsshentry.first, 
+            db_->putValue(currentKeyLength, subsshentry.first, 
                          subsshentry.second.getData());
       }
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::putSTX(LMDBBlockDatabase* db)
+void DataToCommit::putSTX()
 {
    if (serializedStxOutToModify_.size() > 0)
    {
-      LMDBEnv::Transaction tx(db->dbEnv_[STXO].get(), LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(db_->dbEnv_[STXO].get(), LMDB::ReadWrite);
 
       for (auto& stxoPair : serializedStxOutToModify_)
-         db->putValue(STXO, stxoPair.first, stxoPair.second.getData());
+         db_->putValue(STXO, stxoPair.first, stxoPair.second.getData());
    }
 
    {
-      LMDBEnv::Transaction tx(db->dbEnv_[SPENTNESS].get(), LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(db_->dbEnv_[SPENTNESS].get(), LMDB::ReadWrite);
 
       for (auto& spentness : serializedSpentness_)
-         db->putValue(SPENTNESS, spentness.first, spentness.second.getData());
+         db_->putValue(SPENTNESS, spentness.first, spentness.second.getData());
 
       for (auto& delKey : spentnessToDelete_)
-         db->deleteValue(SPENTNESS, delKey);
+         db_->deleteValue(SPENTNESS, delKey);
    }
    
    if (dbType_ == ARMORY_DB_SUPER)
       return;
    
    {
-      LMDBEnv::Transaction tx(db->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(db_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
       for (auto& txCount : serializedTxCountAndHash_)
-         db->putValue(HISTORY, txCount.first, txCount.second.getData());
+         db_->putValue(HISTORY, txCount.first, txCount.second.getData());
 
       ////
-      LMDBEnv::Transaction txHints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
-         for (auto& txHints : serializedTxHints_)
-         db->putValue(TXHINTS, txHints.first, txHints.second.getData());
+      LMDBEnv::Transaction txHints(db_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+      for (auto& txHints : serializedTxHints_)
+      db_->putValue(TXHINTS, txHints.first, txHints.second.getData());
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::deleteEmptyKeys(LMDBBlockDatabase* db)
+void DataToCommit::deleteEmptyKeys()
 {
    {
       LMDBEnv::Transaction tx;
-      db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+      db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
       for (auto& toDel : sshKeysToDelete_)
-         db->deleteValue(HISTORY, toDel.getRef());
+         db_->deleteValue(HISTORY, toDel.getRef());
    }
 
    for (auto& subset : subSshKeysToDelete_)
@@ -1602,21 +1543,21 @@ void DataToCommit::deleteEmptyKeys(LMDBBlockDatabase* db)
       uint32_t keySize = subset.first;
 
       LMDBEnv::Transaction subtx;
-      db->beginSubSSHDBTransaction(subtx, keySize, LMDB::ReadWrite);
+      db_->beginSubSSHDBTransaction(subtx, keySize, LMDB::ReadWrite);
 
       for (auto& ktd : subset.second)
-         db->deleteValue(keySize, ktd.getRef());
+         db_->deleteValue(keySize, ktd.getRef());
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void DataToCommit::updateSDBI(LMDBBlockDatabase* db)
+void DataToCommit::updateSDBI()
 {
    LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
-   db->getStoredDBInfo(HISTORY, sdbi);
+   db_->getStoredDBInfo(HISTORY, sdbi);
    if (!sdbi.isInitialized())
       LOGERR << "How do we have invalid SDBI in applyMods?";
    else
@@ -1628,7 +1569,7 @@ void DataToCommit::updateSDBI(LMDBBlockDatabase* db)
       if (topBlockHash_ != BtcUtils::EmptyHash_)
          sdbi.topScannedBlkHash_ = topBlockHash_;
 
-      db->putStoredDBInfo(HISTORY, sdbi);
+      db_->putStoredDBInfo(HISTORY, sdbi);
    }
 }
 
@@ -1847,7 +1788,7 @@ void STXOS::writeStxoToDB(shared_ptr<STXOS> stxos)
       LMDBBlockDatabase *db = stxos->iface_;
       stxos->dataToCommit_.serializeStxo(*stxos);
 
-      stxos->dataToCommit_.putSTX(db);
+      stxos->dataToCommit_.putSTX();
    }
 
    if (stxos->waitOnCleanup_)
@@ -1893,4 +1834,155 @@ void STXOS::recycleTxn(void)
 
    unique_lock<mutex> lock(next->signalMutex_);
    next->signalCV_.notify_all();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////SSHheaders
+////////////////////////////////////////////////////////////////////////////////
+void SSHheaders::getSshHeaders(shared_ptr<BlockWriteBatcher> bwb)
+{
+   if (db_->armoryDbType() != ARMORY_DB_SUPER)
+   {
+      shared_ptr<SSHheaders> parent = bwb->parent_->dataToCommit_.sshHeaders_;
+      unique_lock<mutex> lock(parent->mu_);
+      sshToModify_ = parent->sshToModify_;
+      return;
+   }
+
+   shared_ptr<SSHheaders> commitingHeaders = nullptr;
+
+   {
+      shared_ptr<BlockWriteBatcher> commitingObj = nullptr;
+      if (bwb->parent_ != nullptr)
+      {
+         if (bwb->parent_->dataToCommit_.sshHeaders_ != nullptr)
+         {
+            //parent has a valid SSHheaders object, just use that
+            commitingHeaders = bwb->parent_->dataToCommit_.sshHeaders_;
+         }
+         else commitingObj = bwb->parent_->commitingObject_;
+      }
+
+      if (commitingObj != nullptr)
+         commitingHeaders = commitingObj->dataToCommit_.sshHeaders_;
+   }
+
+   if (commitingHeaders != nullptr && commitingHeaders.get() != this)
+   {
+      unique_lock<mutex> lock(commitingHeaders->mu_);
+      processSshHeaders(
+         bwb->subSshMap_, *commitingHeaders->sshToModify_);
+   }
+   else
+   {
+      processSshHeaders(
+         bwb->subSshMap_, map<BinaryData, StoredScriptHistory>());
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void SSHheaders::processSshHeaders(
+   const map <BinaryData, map<BinaryData, StoredSubHistory>>& subsshMap,
+   const map<BinaryData, StoredScriptHistory>& prevSshToModify)
+{
+   sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
+   vector<BinaryData> saStart;
+   saStart.push_back(subsshMap.begin()->first);
+
+   uint32_t i = 0, cut = subsshMap.size() / nThreads_;
+   for (auto& subssh : subsshMap)
+   {
+      StoredScriptHistory& ssh = (*sshToModify_)[subssh.first];
+
+      auto sshIter = prevSshToModify.find(subssh.first);
+      if (sshIter != prevSshToModify.end())
+         ssh = sshIter->second;
+
+      if (i % cut == 0)
+         saStart.push_back(subssh.first);
+
+      i++;
+   }
+
+   auto processSshThread = [this](const BinaryData& start, uint32_t count)->void
+   { this->fetchSshHeaders(start, count); };
+
+   vector<thread> vecTh;
+   for (i = 0; i < nThreads_; i++)
+      vecTh.push_back(thread(processSshThread, saStart[i], cut));
+
+   for (i = 0; i < nThreads_; i++)
+      if (vecTh[i].joinable())
+         vecTh[i].join();
+
+   //check for key collisions
+   map<BinaryData, vector<StoredScriptHistory*> > collisionMap;
+
+   for (auto& ssh : *sshToModify_)
+      collisionMap[ssh.second.getSubKey()].push_back(&ssh.second);
+
+   for (auto& subkey : collisionMap)
+   {
+      if (subkey.second.size())
+      {
+         //several new ssh are sharing the same key, let's fix that
+         uint32_t previousPrefix = subkey.second[0]->dbPrefix_;
+         uint32_t previousKeylen = subkey.second[0]->keyLength_;
+
+         for (i = 1; i < subkey.second.size(); i++)
+         {
+            ++previousPrefix;
+            if (previousPrefix > 0xFF)
+            { 
+               previousPrefix = 0;
+               ++previousKeylen;
+            }
+
+            StoredScriptHistory& ssh = *subkey.second[i];
+            ssh.dbPrefix_ = previousPrefix;
+            ssh.keyLength_ = previousKeylen;
+         }
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void SSHheaders::fetchSshHeaders(const BinaryData& start, uint32_t count)
+{
+   auto iter = sshToModify_->find(start);
+
+   uint32_t i = 0;
+   while(iter != sshToModify_->end() && i<=count)
+   {
+      auto& ssh = iter->second;
+      if (ssh.keyLength_ == 0)
+      {
+         db_->getStoredScriptHistorySummary(ssh, iter->first);
+         if (!ssh.isInitialized())
+         {
+            BinaryData key = db_->getSubSSHKey(iter->first);
+            ssh.uniqueKey_ = iter->first;
+            ssh.dbPrefix_ = key.getPtr()[0];
+            ssh.keyLength_ = key.getSize();
+         }
+      }
+
+      ++iter;
+      ++i;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void SSHheaders::buildSshHeadersFromSAF(const ScrAddrFilter& SAF)
+{
+   //for (auto saPair : sasd.getScrAddrMap())
+   map<BinaryData, map<BinaryData, StoredSubHistory>> subsshMap;
+
+   auto& saMap = SAF.getScrAddrMap();
+
+   for (auto& sa : saMap)
+      subsshMap.insert(
+         make_pair(sa.first, map<BinaryData, StoredSubHistory>()));
+
+   processSshHeaders(subsshMap, map<BinaryData, StoredScriptHistory>());
 }

@@ -330,6 +330,33 @@ struct keyHasher
    }
 };
 
+class SSHheaders
+{
+public:
+   SSHheaders(LMDBBlockDatabase *db, uint32_t nThreads) :
+      db_(db), nThreads_(nThreads)
+   {}
+
+   void getSshHeaders(shared_ptr<BlockWriteBatcher>);
+   void buildSshHeadersFromSAF(const ScrAddrFilter& SAF);
+
+private:
+   void processSshHeaders(
+      const map<BinaryData, map<BinaryData, StoredSubHistory>>&,
+      const map<BinaryData, StoredScriptHistory>&);
+   void fetchSshHeaders(const BinaryData& start, uint32_t count);
+   
+   ///////
+public:
+   shared_ptr<map<BinaryData, StoredScriptHistory> > sshToModify_;
+   mutex mu_;
+
+private:
+   const LMDBBlockDatabase *db_;
+
+   const uint32_t nThreads_;
+};
+
 struct STXOS;
 
 struct DataToCommit
@@ -350,36 +377,43 @@ struct DataToCommit
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
    map<BinaryData, BinaryWriter> serializedTxHints_;
 
+   shared_ptr<SSHheaders> sshHeaders_;
+
    uint32_t mostRecentBlockApplied_;
    BinaryData topBlockHash_;
 
    bool isSerialized_ = false;
 
+   ////
+   LMDBBlockDatabase* db_;
    const ARMORY_DB_TYPE dbType_;
 
-   mutex lock_;
-
    ////
-   DataToCommit(ARMORY_DB_TYPE dbType) :
-      dbType_(dbType)
-   {}
+   DataToCommit(LMDBBlockDatabase *db) :
+      db_(db), dbType_(db->armoryDbType())
+   {
+   }
 
    DataToCommit(DataToCommit&&);
 
    ////
-   void serializeData(BlockWriteBatcher& bwb,
-      const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
-   void serializeSSH(BlockWriteBatcher& bwb,
-      const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
+   void serializeData(shared_ptr<BlockWriteBatcher> bwb);
+   void serializeSSH(shared_ptr<BlockWriteBatcher> bwb);
    void serializeStxo(STXOS& stxos);
-   void serializeDataToCommit(BlockWriteBatcher& bwb,
-      const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
+   void serializeDataToCommit(shared_ptr<BlockWriteBatcher> bwb);
 
-   void putSSH(LMDBBlockDatabase* db);
-   void putSTX(LMDBBlockDatabase* db);
-   void putSBH(LMDBBlockDatabase* db);
-   void deleteEmptyKeys(LMDBBlockDatabase* db);
-   void updateSDBI(LMDBBlockDatabase* db);
+   void putSSH();
+   void putSTX();
+   void deleteEmptyKeys();
+   void updateSDBI();
+
+   uint32_t getProcessSSHnThreads(void)
+   {
+      if (dbType_ == ARMORY_DB_SUPER)
+         return 3;
+
+      return 1;
+   }
 
    //During reorgs, alreadyScannedUpToBlock is not an accurate indicator of the 
    //last blocks this ssh has seen anymore. This value should be used instead.
@@ -394,8 +428,8 @@ struct STXOS
    static const uint32_t UTXO_THRESHOLD = 2;
    static const uint32_t STXO_THRESHOLD = 2;
 #else
-   static const uint32_t UTXO_THRESHOLD = 200000;
-   static const uint32_t STXO_THRESHOLD = 300000;
+   static const uint32_t UTXO_THRESHOLD = 300000;
+   static const uint32_t STXO_THRESHOLD = 600000;
 #endif
 
    ///data containers
@@ -426,14 +460,14 @@ struct STXOS
    ///
    STXOS(LMDBBlockDatabase* db)
       : iface_(db), dbType_(db->getDbType()),
-      dataToCommit_(dbType_)
+      dataToCommit_(db)
    {
       writeMutex_.reset(new mutex());
    }
 
    STXOS(const STXOS& parent) :
       iface_(parent.iface_), dbType_(parent.dbType_),
-      dataToCommit_(dbType_)
+      dataToCommit_(parent.iface_)
    {
       writeMutex_ = parent.writeMutex_;
       
@@ -477,6 +511,7 @@ struct STXOS
 
 class BlockWriteBatcher
 {
+   friend class SSHheaders;
    friend struct DataToCommit;
 
 public:
@@ -697,12 +732,9 @@ private:
    static bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
       LMDBBlockDatabase* db, BlockFileAccessor& bfa);
 
-   void serializeData(
+   /*void serializeData(
       const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap) 
-   { dataToCommit_.serializeData(*this, subsshMap); }
-
-   map<BinaryData, StoredScriptHistory>& getSSHMap(
-      const map<BinaryData, map<BinaryData, StoredSubHistory> >& subsshMap);
+   { dataToCommit_.serializeData(*this, subsshMap); }*/
 
 private:
 
@@ -724,8 +756,6 @@ private:
       const BinaryData& txOutKey,
       const BinaryData& txInKey);
 
-   void getSshHeader(StoredScriptHistory& ssh, const BinaryData& uniqKey) const;
-
    void resetHistoryTransaction(void);
 
 private:
@@ -736,16 +766,15 @@ private:
    // turn off batches by setting this to 0
    uint64_t dbUpdateSize_ = 0;
 
-   map<BinaryData, map<BinaryData, StoredSubHistory> > subSshMapToWrite_ ;
-   map<BinaryData, map<BinaryData, StoredSubHistory> >   subSshMap_;
-   shared_ptr<map<BinaryData, StoredScriptHistory> >     sshToModify_;
+   //map<BinaryData, map<BinaryData, StoredSubHistory> > subSshMapToWrite_ ;
+   map<BinaryData, map<BinaryData, StoredSubHistory> > subSshMap_;
    
    STXOS stxos_;
 
    //Fullnode only
-   map<BinaryData, CountAndHint>                         txCountAndHint_;
+   map<BinaryData, CountAndHint> txCountAndHint_;
    
-   DataToCommit                                          dataToCommit_;
+   DataToCommit dataToCommit_;
    // incremented for each
    // applyBlockToDB and decremented for each
    // undoBlockFromDB
