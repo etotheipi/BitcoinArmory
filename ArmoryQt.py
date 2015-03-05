@@ -4962,11 +4962,15 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def closeExistingBitcoin(self):
       for proc in psutil.process_iter():
-         if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe',\
-                                     'bitcoind','bitcoin-qt']:
-            killProcess(proc.pid)
-            time.sleep(2)
-            return
+         try:
+            if proc.name().lower() in ['bitcoind.exe','bitcoin-qt.exe',\
+                                        'bitcoind','bitcoin-qt']:
+               killProcess(proc.pid)
+               time.sleep(2)
+               return
+         # If the block above rasises access denied or anything else just skip it
+         except:
+            pass
 
       # If got here, never found it
       QMessageBox.warning(self, 'Not Found', \
