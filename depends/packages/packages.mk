@@ -1,4 +1,4 @@
-packages:=openssl python3
+packages:=openssl python3 swig
 
 qt_native_packages = native_protobuf
 qt_packages = qrencode protobuf
