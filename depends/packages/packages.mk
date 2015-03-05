@@ -1,4 +1,4 @@
-packages:=openssl psutil python3 swig
+packages:=openssl psutil python3 swig twisted zope.interface
 
 qt_native_packages = native_protobuf
 qt_packages = qrencode protobuf
