@@ -6767,6 +6767,9 @@ class ArmoryMainWindow(QMainWindow):
             self.actuallyDoExitNow(STOPPED_ACTION, 1)
             return
          
+         self.shutdownBitcoindThread = threading.Thread(target=TheSDM.stopBitcoind)
+         self.shutdownBitcoindThread.start()
+         
          TheBDM.registerCppNotification(self.actuallyDoExitNow)
          TheBDM.beginCleanShutdown()
 
@@ -6791,7 +6794,11 @@ class ArmoryMainWindow(QMainWindow):
 
       
       # This will do nothing if bitcoind isn't running.
-      TheSDM.stopBitcoind()
+      try:
+         self.shutdownBitcoindThread.join()
+      except:
+         pass
+
       
 
       from twisted.internet import reactor

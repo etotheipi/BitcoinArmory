@@ -681,15 +681,29 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def stopBitcoind(self):
       LOGINFO('Called stopBitcoind')
-      if not self.isRunningBitcoind():
-         LOGINFO('...but bitcoind is not running, to be able to stop')
+      try:
+         if not self.isRunningBitcoind():
+               LOGINFO('...but bitcoind is not running, to be able to stop')
+               return
+
+         #signal bitcoind to stop
+         self.proxy.stop()
+
+         #poll the pid until it's gone, for as long as 2 minutes
+         total = 0
+         while self.bitcoind.poll()==None:
+            time.sleep(0.1)
+            total += 1
+
+            if total > 1200:
+               LOGERROR("bitcoind failed to shutdown in less than 2 minutes."
+                      " Terminating.")
+               return
+
+         self.bitcoind = None
+      except Exception as e:
+         LOGERROR(e)
          return
-
-      killProcessTree(self.bitcoind.pid)
-      killProcess(self.bitcoind.pid)
-
-      time.sleep(1)
-      self.bitcoind = None
 
 
    #############################################################################
