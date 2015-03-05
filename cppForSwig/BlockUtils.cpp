@@ -269,8 +269,13 @@ public:
          }
 
          if (!foundTopBlock)
-            throw runtime_error("Failed to find last known top block hash in"
-               "blk files. Blockchain is corrupt, time for a factory reset!");
+         {
+            //can't find the top header, let's just rescan all headers
+            LOGERR << "Failed to find last known top block hash in "
+               "blk files. Rescanning all headers";
+            
+            return BlockFilePosition(0, 0);
+         }
 
          //Check this file to see if we are missing any block hashes in there
          auto& f = blkFiles_[foundAtPosition.first];
@@ -933,8 +938,6 @@ pair<BlockFilePosition, vector<BlockHeader*>>
             blockhash, block, suppressOutput);
 
          blockHeadersAdded.push_back(&addedBlock);
-         //LOGINFO << "Added block header with hash " << addedBlock.getThisHash().copySwapEndian().toHexStr()
-         //   << " from " << fnum << " offset " << offset;
          
          // is there any reason I can't just do this to "block"?
          addedBlock.setBlockFileNum(pos.first);
