@@ -428,11 +428,11 @@ class QLabelButton(QLabel):
 
    def mousePressEvent(self, ev):  
       # Prevent click-bleed-through to dialogs being opened
-      txt = toBytes(str(self.text()))
+      txt = toBytes(self.text())
       self.mousePressOn.add(txt)
 
    def mouseReleaseEvent(self, ev):  
-      txt = toBytes(str(self.text()))
+      txt = toBytes(self.text())
       if txt in self.mousePressOn:
          self.mousePressOn.remove(txt)
          self.clicked.emit() 
@@ -1004,11 +1004,11 @@ def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
    types.append('All files (*)')
    typesStr = ';; '.join(types)
    if not OS_MACOSX:
-      fullPath = str(QFileDialog.getOpenFileName(parent, \
-         title, ARMORY_HOME_DIR, typesStr))
+      fullPath = QFileDialog.getOpenFileName(parent, title, \
+                                             ARMORY_HOME_DIR, typesStr)
    else:
-      fullPath = str(QFileDialog.getOpenFileName(parent, \
-         title, ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog))
+      fullPath = QFileDialog.getOpenFileName(parent, title, \
+         ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog)
 
    if fullPath:
       qObj.setText( fullPath)
@@ -1016,16 +1016,16 @@ def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
 
 def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
    initPath = ARMORY_HOME_DIR
-   currText = str(qObj.text()).strip()
+   currText = qObj.text().strip()
    if len(currText)>0:
       if os.path.exists(currText):
          initPath = currText
     
    if not OS_MACOSX:
-      fullPath = str(QFileDialog.getExistingDirectory(par, title, initPath))
+      fullPath = QFileDialog.getExistingDirectory(par, title, initPath)
    else:
-      fullPath = str(QFileDialog.getExistingDirectory(par, title, initPath, \
-                                       options=QFileDialog.DontUseNativeDialog))
+      fullPath = QFileDialog.getExistingDirectory(par, title, initPath, \
+                                       options=QFileDialog.DontUseNativeDialog)
    if fullPath:
       qObj.setText( fullPath)
     

@@ -301,7 +301,7 @@ class DlgUnlockWallet(ArmoryDialog):
    def acceptPassphrase(self):
 
       self.securePassphrase = SecureBinaryData()
-      self.securePassphrase.createFromHex(binary_to_hex(str(self.edtPasswd.text()).encode()).decode())
+      self.securePassphrase.createFromHex(binary_to_hex(self.edtPasswd.text().encode()).decode())
       self.edtPasswd.setText('')
 
       if self.returnResult:
@@ -357,7 +357,7 @@ class LetterButton(QPushButton):
          self.insertLetter = self.pressBackspace
 
    def insertLetter(self):
-      currPwd = str(self.parent.edtPasswd.text())
+      currPwd = self.parent.edtPasswd.text()
       insChar = self.upper if self.parent.btnShift.isChecked() else self.lower
       if len(insChar) == 2 and insChar.startswith('#'):
          insChar = insChar[1]
@@ -369,7 +369,7 @@ class LetterButton(QPushButton):
       self.parent.redrawKeys()
 
    def pressBackspace(self):
-      currPwd = str(self.parent.edtPasswd.text())
+      currPwd = self.parent.edtPasswd.text()
       if len(currPwd) > 0:
          self.parent.edtPasswd.setText(currPwd[:-1])
       self.parent.redrawKeys()
@@ -532,13 +532,13 @@ class DlgBugReport(ArmoryDialog):
       else:
          return
 
-      emailAddr = str(self.edtEmail.text()).strip()
+      emailAddr = self.edtEmail.text().strip()
       emailLen = lenBytes(emailAddr)
 
-      subjectText = str(self.edtSubject.text()).strip()
+      subjectText = self.edtSubject.text().strip()
       subjectLen = lenBytes(subjectText)
 
-      description = str(self.txtDescr.toPlainText()).strip()
+      description = self.txtDescr.toPlainText().strip()
       descrLen = lenBytes(description)
 
 
@@ -831,13 +831,13 @@ class DlgInconsistentWltReport(ArmoryDialog):
       else:
          return
 
-      emailAddr = str(self.edtEmail.text()).strip()
+      emailAddr = self.edtEmail.text().strip()
       emailLen = lenBytes(emailAddr)
 
-      subjectText = str(self.edtSubject.text()).strip()
+      subjectText = self.edtSubject.text().strip()
       subjectLen = lenBytes(subjectText)
 
-      description = str(self.txtDescr.toPlainText()).strip()
+      description = self.txtDescr.toPlainText().strip()
       descrLen = lenBytes(description)
 
 
@@ -1245,7 +1245,7 @@ class DlgNewWallet(ArmoryDialog):
 
       ### Check that the KDF inputs are well-formed ####################
       try:
-         kdfT, kdfUnit = str(self.edtComputeTime.text()).strip().split(' ')
+         kdfT, kdfUnit = self.edtComputeTime.text().strip().split(' ')
          if kdfUnit.lower() == 'ms':
             self.kdfSec = float(kdfT) / 1000.
          elif kdfUnit.lower() in ('s', 'sec', 'seconds'):
@@ -1257,7 +1257,7 @@ class DlgNewWallet(ArmoryDialog):
                'Values above one second are usually unnecessary.')
             return False
 
-         kdfM, kdfUnit = str(self.edtComputeMem.text()).split(' ')
+         kdfM, kdfUnit = self.edtComputeMem.text().split(' ')
          if kdfUnit.lower() == 'mb':
             self.kdfBytes = round(float(kdfM) * (1024.0 ** 2))
          if kdfUnit.lower() == 'kb':
@@ -1395,7 +1395,7 @@ class DlgChangePassphrase(ArmoryDialog):
          if self.checkPassphrase():
             dlg = DlgPasswd3(self, self.main)
             if dlg.exec_():
-               if not str(dlg.edtPasswd3.text()) == str(self.edtPasswd1.text()):
+               if not dlg.edtPasswd3.text() == self.edtPasswd1.text():
                   QMessageBox.critical(self, 'Invalid Passphrase', \
                      'You entered your confirmation passphrase incorrectly!', QMessageBox.Ok)
                else:
@@ -1491,11 +1491,11 @@ class DlgChangeLabels(ArmoryDialog):
 
 
    def accept(self, *args):
-      if len(str(self.edtName.text()).strip()) == 0:
+      if len(self.edtName.text().strip()) == 0:
          QMessageBox.critical(self, 'Empty Name', \
             'All wallets must have a name. ', QMessageBox.Ok)
          return
-      super().accept(*args)
+      super().accept()
 
 
 ################################################################################
@@ -1844,7 +1844,7 @@ class DlgWalletDetails(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.writeSetting('WltPropGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('WltPropGeometry', bytes(self.saveGeometry().toHex()))
       self.main.writeSetting('WltPropAddrCols', saveTableView(self.wltAddrView))
 
    #############################################################################
@@ -1884,8 +1884,8 @@ class DlgWalletDetails(ArmoryDialog):
       # Get data on a given row, easily
       def getModelStr(col):
          model = self.wltAddrView.model()
-         qstr = model.index(idx.row(), col).data()
-         return str(qstr).strip()
+         qstr = str(model.index(idx.row(), col).data())
+         return qstr.strip()
 
 
       addr = getModelStr(ADDRESSCOLS.Address)
@@ -1912,7 +1912,7 @@ class DlgWalletDetails(ArmoryDialog):
          DlgRequestPayment(self, self.main, addr).exec_()
          return
       elif dev and action == actionCopyHash160:
-         clippy = binary_to_hex(addrStr_to_hash160(addr)[1])
+         clippy = binary_to_hex(addrStr_to_hash160(addr)[1]).decode()
       elif dev and action == actionCopyPubKey:
          astr = getModelStr(ADDRESSCOLS.Address)
          addrObj = self.wlt.getAddrByHash160( addrStr_to_hash160(astr)[1] )
@@ -1926,7 +1926,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(str(clippy).strip())
+      clipb.setText(clippy.strip())
 
    #############################################################################
    def dblClickAddressView(self, index):
@@ -1951,8 +1951,8 @@ class DlgWalletDetails(ArmoryDialog):
       if dlgLabels.exec_():
          # Make sure to use methods like this which not only update in memory,
          # but guarantees the file is updated, too
-         newName = str(dlgLabels.edtName.text())[:32]
-         newDescr = str(dlgLabels.edtDescr.toPlainText())[:256]
+         newName = dlgLabels.edtName.text()[:32]
+         newDescr = dlgLabels.edtDescr.toPlainText()[:256]
          self.wlt.setWalletLabels(newName, newDescr)
 
          self.labelValues[WLTFIELDS.Name].setText(newName)
@@ -1965,13 +1965,13 @@ class DlgWalletDetails(ArmoryDialog):
       if dlgCrypt.exec_():
          self.disableEncryption = dlgCrypt.chkDisableCrypt.isChecked()
          newPassphrase = SecureBinaryData()
-         newPassphrase.createFromHex(binary_to_hex(str(dlgCrypt.edtPasswd1.text()).encode()).decode())
+         newPassphrase.createFromHex(binary_to_hex(dlgCrypt.edtPasswd1.text().encode()).decode())
          dlgCrypt.edtPasswd1.clear()
          dlgCrypt.edtPasswd2.clear()
 
          if self.wlt.useEncryption:
             origPassphrase = SecureBinaryData()
-            origPassphrase.createFromHex(binary_to_hex(str(dlgCrypt.edtPasswdOrig.text()).encode()).decode())
+            origPassphrase.createFromHex(binary_to_hex(dlgCrypt.edtPasswdOrig.text().encode()).decode())
             dlgCrypt.edtPasswdOrig.clear()
             if self.wlt.verifyPassphrase(origPassphrase):
                unlockProgress = DlgProgress(self, self.main, HBar=1, 
@@ -2443,7 +2443,7 @@ class DlgWalletDetails(ArmoryDialog):
             self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.labelValues[WLTFIELDS.Secure].setText('<i>Offline</i>')
          else:
-            owner = str(dlg.edtOwnerString.text())
+            owner = dlg.edtOwnerString.text()
             self.main.setWltSetting(self.wltID, 'IsMine', False)
             self.main.setWltSetting(self.wltID, 'BelongsTo', owner)
 
@@ -2747,7 +2747,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       btnClipboard.clicked.connect(self.setClipboard)
 
       def openPaymentRequest():
-         msgTxt = str(self.edtComm.toPlainText())
+         msgTxt = self.edtComm.toPlainText()
          msgTxt = msgTxt.split('\n')[0][:128]
          dlg = DlgRequestPayment(self, self.main, addrStr, msg=msgTxt)
          dlg.exec_()
@@ -2867,7 +2867,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
 
    def acceptNewAddr(self):
-      comm = str(self.edtComm.toPlainText())
+      comm = self.edtComm.toPlainText()
       if len(comm) > 0:
          self.wlt.setComment(self.addr.getAddr160(), comm)
       self.accept()
@@ -3066,7 +3066,7 @@ class DlgImportAddress(ArmoryDialog):
       securePrintCode = None
       if self.chkUseSP.isChecked():
          SECPRINT = HardcodedKeyMaskParams()
-         securePrintCode = str(self.edtSecurePrint.text()).strip()
+         securePrintCode = self.edtSecurePrint.text().strip()
          self.edtSecurePrint.setText("")
          
          if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
@@ -3080,7 +3080,7 @@ class DlgImportAddress(ArmoryDialog):
 
    #############################################################################
    def processUserString(self, pwd=None):
-      theStr = str(self.edtPrivData.text()).strip().replace(' ', '').encode()
+      theStr = self.edtPrivData.text().strip().replace(' ', '').encode()
       binKeyData, addr160, addrStr = b'', b'', b''
 
       try:
@@ -3275,7 +3275,7 @@ class DlgImportAddress(ArmoryDialog):
    def processMultiSig(self, pwd=None):
       thisWltID = self.wlt.uniqueIDB58
 
-      inputText = str(self.txtPrivBulk.toPlainText())
+      inputText = self.txtPrivBulk.toPlainText()
       inputLines = [s.strip().replace(' ', '') for s in inputText.split('\n')]
       binKeyData, addr160, addrStr = b'', b'', b''
       
@@ -3700,7 +3700,7 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append(QLabel(''))
       lbls[-1].append(QRichLabel('<b>Comment:</b>'))
       if self.addr.chainIndex > -1:
-         lbls[-1].append(QLabel(str(wlt.commentsMap[addr160]) if addr160 in wlt.commentsMap else ''))
+         lbls[-1].append(QLabel(wlt.commentsMap[addr160] if addr160 in wlt.commentsMap else ''))
       else:
          lbls[-1].append(QLabel(''))
          
@@ -4227,7 +4227,7 @@ class DlgImportPaperWallet(ArmoryDialog):
 
 
    def autoSpacerFunction(self, i):
-      currStr = str(self.lineEdits[i].text())
+      currStr = self.lineEdits[i].text()
       rawStr = currStr.replace(' ', '')
       if len(rawStr) > 36:
          rawStr = rawStr[:36]
@@ -4248,7 +4248,7 @@ class DlgImportPaperWallet(ArmoryDialog):
       for i in range(4):
          hasError = False
          try:
-            data, err = readSixteenEasyBytes(str(self.lineEdits[i].text()))
+            data, err = readSixteenEasyBytes(self.lineEdits[i].text())
          except (KeyError, TypeError):
             data, err = ('', 'Exception')
 
@@ -4260,7 +4260,7 @@ class DlgImportPaperWallet(ArmoryDialog):
                'on the wallet-backup page.', \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
-            self.labels[i].setText('<font color="red">' + str(self.labels[i].text()) + '</font>')
+            self.labels[i].setText('<font color="red">' + self.labels[i].text() + '</font>')
             return
          if err == 'Fixed_1' or err == 'No_Checksum':
             errorLines += [i + 1]
@@ -4314,7 +4314,7 @@ class DlgImportPaperWallet(ArmoryDialog):
          dlgPasswd = DlgChangePassphrase(self, self.main)
          if dlgPasswd.exec_():
             passwd = SecureBinaryData()
-            passwd.createFromHex(binary_to_hex(str(dlgPasswd.edtPasswd1.text()).encode()).decode())
+            passwd.createFromHex(binary_to_hex(dlgPasswd.edtPasswd1.text().encode()).decode())
          else:
             QMessageBox.critical(self, 'Cannot Encrypt', \
                'You requested your restored wallet be encrypted, but no '
@@ -5091,7 +5091,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.writeSetting('SendBtcGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('SendBtcGeometry', bytes(self.saveGeometry().toHex()))
 
    #############################################################################
    def closeEvent(self, event):
@@ -5101,7 +5101,7 @@ class DlgSendBitcoins(ArmoryDialog):
    #############################################################################
    def accept(self, *args):
       self.saveGeometrySettings()
-      super().accept(*args)
+      super().accept()
 
    #############################################################################
    def reject(self, *args):
@@ -5557,7 +5557,7 @@ class DlgShowKeyList(ArmoryDialog):
                                  defaultFilename='keylist_%s_.txt' % wltID.decode())
       if len(fn) > 0:
          fileobj = open(fn, 'w')
-         fileobj.write(str(self.txtBox.toPlainText()))
+         fileobj.write(self.txtBox.toPlainText())
          fileobj.close()
 
 
@@ -5565,7 +5565,7 @@ class DlgShowKeyList(ArmoryDialog):
    def copyToClipboard(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(str(self.txtBox.toPlainText()))
+      clipb.setText(self.txtBox.toPlainText())
       self.lblCopied.setText('<i>Copied!</i>')
 
 
@@ -7064,14 +7064,14 @@ class DlgPrintBackup(ArmoryDialog):
    def redrawBackup(self):
       cmbPage = 1
       if self.comboPageNum.count() > 0:
-         cmbPage = int(str(self.comboPageNum.currentText()))
+         cmbPage = int(self.comboPageNum.currentText())
 
       if self.doPrintFrag:
          cmbPage -= 1
          if not self.doMultiFrag:
             cmbPage = self.fragData['Range'][0]
          elif self.comboPageNum.count() > 0:
-            cmbPage = int(str(self.comboPageNum.currentText())) - 1
+            cmbPage = int(self.comboPageNum.currentText()) - 1
 
          self.createPrintScene('Fragmented Backup', cmbPage)
       else:
@@ -7988,7 +7988,7 @@ class DlgECDSACalc(ArmoryDialog):
    #############################################################################
    def getBinary(self, widget, name):
       try:
-         hexVal = str(widget.text())
+         hexVal = widget.text()
          binVal = hex_to_binary(hexVal)
       except:
          QMessageBox.critical(self, 'Bad Input', \
@@ -8285,7 +8285,7 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.writeSetting('AddrBookGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('AddrBookGeometry', bytes(self.saveGeometry().toHex()))
       self.main.writeSetting('AddrBookWltTbl', saveTableView(self.wltDispView))
       self.main.writeSetting('AddrBookRxTbl', saveTableView(self.addrBookRxView))
       self.main.writeSetting('AddrBookTxTbl', saveTableView(self.addrBookTxView))
@@ -8454,7 +8454,7 @@ class DlgAddressBook(ArmoryDialog):
 
       dialog = DlgSetComment(self, self.main, self.selectedCmmt, 'Address')
       if dialog.exec_():
-         newComment = str(dialog.edtComment.text())
+         newComment = dialog.edtComment.text()
          addr160 = addrStr_to_hash160(self.selectedAddr)[1]
          wlt.setComment(addr160, newComment)
          
@@ -8506,7 +8506,7 @@ class DlgAddressBook(ArmoryDialog):
 
       dialog = DlgSetComment(self, self.main, self.selectedCmmt, 'Address')
       if dialog.exec_():
-         newComment = str(dialog.edtComment.text())
+         newComment = dialog.edtComment.text()
          addr160 = addrStr_to_hash160(self.selectedAddr)[1]
          wlt.setComment(addr160, newComment)
 
@@ -8605,7 +8605,7 @@ class DlgAddressBook(ArmoryDialog):
          atype, addr160 = addrStr_to_hash160(s)
          if atype==P2SHBYTE:
             LOGWARN('Copying Hash160 of P2SH address: %s' % s)
-         s = binary_to_hex(addr160)
+         s = binary_to_hex(addr160).decode()
       elif action == actionCopyComment:
          s = self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Comment).data()
       else:
@@ -8613,7 +8613,7 @@ class DlgAddressBook(ArmoryDialog):
 
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(str(s).strip())
+      clipb.setText(s.strip())
 
 
    #############################################################################
@@ -9011,9 +9011,10 @@ class DlgSettings(ArmoryDialog):
                           'the most commonly used codes/symbols.  '
                           'The text next to it shows how '
                           '"%s" would be shown with the '
-                          'specified format.' % exampleStr)
+                          'specified format.' % exampleStr.decode())
       lblDateFmt.setAlignment(Qt.AlignTop)
       fmt = self.main.getPreferredDateFormat()
+      LOGERROR("fmt is %s" % fmt)
       ttipStr = 'Use any of the following symbols:<br>'
       fmtSymbols = [x[0] + ' = ' + x[1] for x in FORMAT_SYMBOLS]
       ttipStr += '<br>'.join(fmtSymbols)
@@ -9279,7 +9280,7 @@ class DlgSettings(ArmoryDialog):
 
       if self.chkManageSatoshi.isChecked():
          # Check valid path is supplied for bitcoin installation
-         pathExe = str(self.edtSatoshiExePath.text()).strip()
+         pathExe = self.edtSatoshiExePath.text().strip()
          if len(pathExe) > 0:
             if not os.path.exists(pathExe):
                exeName = 'bitcoin-qt.exe' if OS_WINDOWS else 'bitcoin-qt'
@@ -9296,7 +9297,7 @@ class DlgSettings(ArmoryDialog):
             self.main.settings.delete('SatoshiExe')
 
          # Check valid path is supplied for bitcoind home directory
-         pathHome = str(self.edtSatoshiHomePath.text()).strip()
+         pathHome = self.edtSatoshiHomePath.text().strip()
          if len(pathHome) > 0:
             if not os.path.exists(pathHome):
                exeName = 'bitcoin-qt.exe' if OS_WINDOWS else 'bitcoin-qt'
@@ -9321,7 +9322,7 @@ class DlgSettings(ArmoryDialog):
 
 
       try:
-         defaultFee = str2coin(str(self.edtDefaultFee.text()).replace(' ', '').encode())
+         defaultFee = str2coin(self.edtDefaultFee.text().replace(' ', '').encode())
          self.main.writeSetting('Default_Fee', defaultFee)
       except:
          QMessageBox.warning(self, 'Invalid Amount', \
@@ -9330,11 +9331,12 @@ class DlgSettings(ArmoryDialog):
             QMessageBox.Ok)
          return
 
-      if not self.main.setPreferredDateFormat(str(self.edtDateFormat.text())):
+      if not self.main.setPreferredDateFormat(self.edtDateFormat.text()):
+         LOGERROR("couldn't set it")
          return
 
       if not self.usermodeInit == self.cmbUsermode.currentIndex():
-         modestr = str(self.cmbUsermode.currentText())
+         modestr = self.cmbUsermode.currentText()
          if modestr.lower() == 'standard':
             self.main.setUserMode(USERMODE.Standard)
          elif modestr.lower() == 'advanced':
@@ -9398,7 +9400,7 @@ class DlgSettings(ArmoryDialog):
    #############################################################################
    def setUsermodeDescr(self):
       strDescr = ''
-      modestr = str(self.cmbUsermode.currentText())
+      modestr = self.cmbUsermode.currentText()
       if modestr.lower() == 'standard':
          strDescr += \
             ('"Standard" is for users that only need the core set of features '
@@ -9422,9 +9424,9 @@ class DlgSettings(ArmoryDialog):
 
    #############################################################################
    def doExampleDate(self, qstr=None):
-      fmtstr = str(self.edtDateFormat.text())
+      fmtstr = self.edtDateFormat.text().encode()
       try:
-         self.lblDateExample.setText('Sample: ' + unixTimeToFormatStr(self.exampleUnixTime, fmtstr))
+         self.lblDateExample.setText('Sample: ' + unixTimeToFormatStr(self.exampleUnixTime, fmtstr).decode())
          self.isValidFormat = True
       except:
          self.lblDateExample.setText('Sample: [[invalid date format]]')
@@ -9550,10 +9552,10 @@ class DlgExportTxHistory(ArmoryDialog):
 
    #############################################################################
    def doExampleDate(self, qstr=None):
-      fmtstr = str(self.edtDateFormat.text())
+      fmtstr = self.edtDateFormat.text().encode()
       try:
          exampleDateStr = unixTimeToFormatStr(1030501970, fmtstr)
-         self.lblDateExample.setText('Example: %s' % exampleDateStr)
+         self.lblDateExample.setText('Example: %s' % exampleDateStr.decode())
          self.isValidFormat = True
       except:
          self.lblDateExample.setText('Example: [[invalid date format]]')
@@ -9562,7 +9564,7 @@ class DlgExportTxHistory(ArmoryDialog):
    #############################################################################
    def accept(self, *args):
       if self.createFile_CSV():
-         super().accept(*args)
+         super().accept()
 
 
    #############################################################################
@@ -9613,7 +9615,7 @@ class DlgExportTxHistory(ArmoryDialog):
             pass
          
       order = order_ascending
-      sortTxt = str(self.cmbSortSelect.currentText())
+      sortTxt = self.cmbSortSelect.currentText()
       if 'newest' in sortTxt:
          order = order_descending
          
@@ -9649,10 +9651,10 @@ class DlgExportTxHistory(ArmoryDialog):
       
                
       #prepare csv file  
-      wltSelectStr = str(self.cmbWltSelect.currentText()).replace(' ', '_')
-      timestampStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+      wltSelectStr = self.cmbWltSelect.currentText().replace(' ', '_')
+      timestampStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M').decode()
       filenamePrefix = 'ArmoryTxHistory_%s_%s' % (wltSelectStr, timestampStr)
-      fmtstr = str(self.cmbFileFormat.currentText())
+      fmtstr = self.cmbFileFormat.currentText()
       if 'csv' in fmtstr:
          defaultName = filenamePrefix + '.csv'
          fullpath = self.main.getFileSave('Save CSV File', \
@@ -9664,7 +9666,7 @@ class DlgExportTxHistory(ArmoryDialog):
          
          f = open(fullpath, 'w')
    
-         f.write('Export Date:, %s\n' % unixTimeToFormatStr(RightNow()))
+         f.write('Export Date:, %s\n' % unixTimeToFormatStr(RightNow()).decode())
          f.write('Total Funds:, %s\n' % coin2str(totalFunds, maxZeros=0).strip())
          f.write('Spendable Funds:, %s\n' % coin2str(spendFunds, maxZeros=0).strip())
          f.write('Unconfirmed Funds:, %s\n' % coin2str(unconfFunds, maxZeros=0).strip())
@@ -9674,10 +9676,10 @@ class DlgExportTxHistory(ArmoryDialog):
          for wltID in wltIDList:
             if wltID in self.main.walletMap:
                wlt = self.main.walletMap[wltID]
-               f.write('%s,%s\n' % (wltID, wlt.labelName.replace(',', ';')))
+               f.write('%s,%s\n' % (wltID.decode(), wlt.labelName.replace(',', ';')))
             else:
                wlt = self.main.allLockboxes[self.main.lockboxIDMap[wltID]]
-               f.write('%s (lockbox),%s\n' % (wltID, wlt.shortName.replace(',', ';')))               
+               f.write('%s (lockbox),%s\n' % (wltID.decode(), wlt.shortName.replace(',', ';')))               
          f.write('\n')
    
    
@@ -9703,7 +9705,7 @@ class DlgExportTxHistory(ArmoryDialog):
             # each row, then sort it the way that was requested by the user.
             for row in ledgerTable:
                if row[COL.toSelf] == False:
-                  rawAmt = str2coin(row[COL.Amount])
+                  rawAmt = str2coin(row[COL.Amount].encode())
                else:
                   #if SentToSelf, balance and total rolling balance should only take fee in account
                   rawAmt = getFeeForTx(hex_to_binary(row[COL.TxHash])) * -1
@@ -9723,12 +9725,12 @@ class DlgExportTxHistory(ArmoryDialog):
             for row in ledgerTable:
                vals = []
    
-               fmtstr = str(self.edtDateFormat.text())
+               fmtstr = self.edtDateFormat.text()
                unixTime = row[COL.UnixTime]
-               vals.append(unixTimeToFormatStr(unixTime, fmtstr))
-               vals.append(hex_switchEndian(row[COL.TxHash]))
+               vals.append(unixTimeToFormatStr(unixTime, fmtstr).decode())
+               vals.append(hex_switchEndian(row[COL.TxHash]).decode())
                vals.append(row[COL.NumConf])
-               vals.append(row[COL.WltID])
+               vals.append(row[COL.WltID].decode())
                if row[COL.WltID] in self.main.walletMap:
                   vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
                else:
@@ -9984,7 +9986,7 @@ class DlgRequestPayment(ArmoryDialog):
       from twisted.internet import reactor
       reactor.callLater(1, self.periodicUpdate)
 
-      hexgeom = str(self.main.settings.get('PayReqestGeometry'))
+      hexgeom = self.main.settings.get('PayReqestGeometry')
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
@@ -9992,7 +9994,7 @@ class DlgRequestPayment(ArmoryDialog):
 
 
    def saveLinkText(self):
-      linktext = str(self.edtLinkText.text()).strip()
+      linktext = self.edtLinkText.text().strip()
       if len(linktext) > 0:
          # TODO:  We desperately need a new settings file format -- the one
          #        we use was more of an experiment in how quickly I could 
@@ -10010,7 +10012,7 @@ class DlgRequestPayment(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.writeSetting('PayReqestGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('PayReqestGeometry', bytes(self.saveGeometry().toHex()))
 
    #############################################################################
    def closeEvent(self, event):
@@ -10037,7 +10039,7 @@ class DlgRequestPayment(ArmoryDialog):
       try:
          # The
          lastTry = 'Amount'
-         amtStr = str(self.edtAmount.text()).strip()
+         amtStr = self.edtAmount.text().strip()
          if len(amtStr) == 0:
             amt = None
          else:
@@ -10047,12 +10049,12 @@ class DlgRequestPayment(ArmoryDialog):
                amt = None
 
          lastTry = 'Message'
-         msgStr = str(self.edtMessage.text()).strip()
+         msgStr = self.edtMessage.text().strip()
          if len(msgStr) == 0:
             msgStr = None
 
          lastTry = 'Address'
-         addr = str(self.edtAddress.text()).strip().encode()
+         addr = self.edtAddress.text().strip().encode()
          if not checkAddrStrValid(addr):
             raise
 
@@ -10065,7 +10067,7 @@ class DlgRequestPayment(ArmoryDialog):
          self.btnCopyRaw.setEnabled(False)
          self.btnCopyHtml.setEnabled(False)
          self.btnCopyAll.setEnabled(False)
-         # self.lblLink.setText('<br>'.join(str(self.lblLink.text()).split('<br>')[1:]))
+         # self.lblLink.setText('<br>'.join(self.lblLink.text().split('<br>')[1:]))
          self.lblLink.setEnabled(False)
          self.lblLink.setTextInteractionFlags(Qt.NoTextInteraction)
          return
@@ -10073,7 +10075,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                            Qt.TextSelectableByKeyboard)
 
-      self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, str(self.edtLinkText.text()))
+      self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, self.edtLinkText.text())
       self.lblWarn.setText('')
       self.dispText = self.rawHtml[:]
       self.dispText += '<br>'
@@ -10092,7 +10094,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.btnCopyAll.setEnabled(True)
 
       # Plain text to copy to clipboard as "text/plain"
-      self.plainText = str(self.edtLinkText.text()) + '\n'
+      self.plainText = self.edtLinkText.text() + '\n'
       self.plainText += 'If clicking on the line above does not work, use this payment info:\n'
       self.plainText += 'Pay to:  %s' % addr
       if amt:
@@ -10116,7 +10118,7 @@ class DlgRequestPayment(ArmoryDialog):
             '%s</span></a><br />'
             'If clicking on the line above does not work, use this payment info:'
             '<br /><span style=" font-weight:600;">Pay to</span>: %s') % \
-            (self.rawURI, str(self.edtLinkText.text()), addr)
+            (self.rawURI, self.edtLinkText.text(), addr)
       if amt:
          self.clipText += ('<br /><span style=" font-weight:600;">Amount'
                            '</span>: %s' % coin2str(amt, maxZeros=0))
@@ -10465,7 +10467,7 @@ class DlgUriCopyAndPaste(ArmoryDialog):
 
 
    def clickedOkay(self):
-      uriStr = str(self.txtUriString.text())
+      uriStr = self.txtUriString.text()
       self.uriDict = self.main.parseUriLink(uriStr, 'enter')
       if len(list(self.uriDict.keys())) > 0:
          self.accept()
@@ -10877,10 +10879,10 @@ class DlgInstallLinux(ArmoryDialog):
          title = 'Download Bitcoin software to...'
          initPath = self.main.settings.get('LastDirectory')
          if not OS_MACOSX:
-            installPath = str(QFileDialog.getExistingDirectory(self, title, initPath))
+            installPath = QFileDialog.getExistingDirectory(self, title, initPath)
          else:
-            installPath = str(QFileDialog.getExistingDirectory(self, title, initPath, \
-                                             options=QFileDialog.DontUseNativeDialog))
+            installPath = QFileDialog.getExistingDirectory(self, title, initPath, \
+                                             options=QFileDialog.DontUseNativeDialog)
 
       if not os.path.exists(installPath):
          if len(installPath.strip()) > 0:
@@ -11413,7 +11415,7 @@ class DlgExpWOWltData(ArmoryDialog):
       def clippy():
          clipb = QApplication.clipboard()
          clipb.clear()
-         clipb.setText(str(self.txtLongDescr.toPlainText()))
+         clipb.setText(self.txtLongDescr.toPlainText())
          clipboardLbl.setText(tr('<i>Copied!</i>'))
 
       clipboardBtn.clicked.connect(clippy)
@@ -11834,8 +11836,8 @@ class DlgFragBackup(ArmoryDialog):
 
    #############################################################################
    def updateComboN(self):
-      M = int(str(self.comboM.currentText()))
-      oldN = int(str(self.comboN.currentText()))
+      M = int(self.comboM.currentText())
+      oldN = int(self.comboN.currentText())
       self.currMinN = M
       self.comboN.clear()
 
@@ -11854,8 +11856,8 @@ class DlgFragBackup(ArmoryDialog):
    #############################################################################
    def createFragDisplay(self):
       self.recomputeFragData()
-      M = int(str(self.comboM.currentText()))
-      N = int(str(self.comboN.currentText()))
+      M = int(self.comboM.currentText())
+      N = int(self.comboN.currentText())
 
 
 
@@ -11906,8 +11908,8 @@ class DlgFragBackup(ArmoryDialog):
    def createFragFrm(self, idx):
 
       doMask = self.chkSecurePrint.isChecked()
-      M = int(str(self.comboM.currentText()))
-      N = int(str(self.comboN.currentText()))
+      M = int(self.comboM.currentText())
+      N = int(self.comboN.currentText())
 
       lblFragID = QRichLabel(tr('<b>Fragment ID:<br>%(prefix)s-%(idx)d</b>') % \
                                { 'prefix' : self.fragPrefixStr, 'idx' : idx + 1})
@@ -11964,15 +11966,15 @@ class DlgFragBackup(ArmoryDialog):
 
    #############################################################################
    def clickPrintAll(self):
-      self.clickPrintFrag(list(range(int(str(self.comboN.currentText())))))
+      self.clickPrintFrag(list(range(int(self.comboN.currentText()))))
 
    #############################################################################
    def clickPrintFrag(self, zindex):
       if not isinstance(zindex, (list, tuple)):
          zindex = [zindex]
       fragData = {}
-      fragData['M'] = int(str(self.comboM.currentText()))
-      fragData['N'] = int(str(self.comboN.currentText()))
+      fragData['M'] = int(self.comboM.currentText())
+      fragData['N'] = int(self.comboN.currentText())
       fragData['FragIDStr'] = self.fragPrefixStr
       fragData['FragPixmap'] = self.fragPixmapFn
       fragData['Range'] = zindex
@@ -12102,8 +12104,8 @@ class DlgFragBackup(ArmoryDialog):
       Only M is needed, since N doesn't change
       """
 
-      M = int(str(self.comboM.currentText()))
-      N = int(str(self.comboN.currentText()))
+      M = int(self.comboM.currentText())
+      N = int(self.comboN.currentText())
       # Make sure only local variables contain non-SBD data
       self.destroyFrags()
       insecureData = SplitSecret(self.securePrint, M, self.maxmaxN)
@@ -12252,7 +12254,7 @@ class MaskedInputLineEdit(QLineEdit):
       self.cursorPositionChanged.connect(self.controlCursor)
 
    def controlCursor(self, oldpos, newpos):
-      if newpos != 0 and len(str(self.text()).strip()) == 0:
+      if newpos != 0 and len(self.text().strip()) == 0:
          self.setCursorPosition(0)
 
 
@@ -12432,7 +12434,7 @@ class DlgRestoreSingle(ArmoryDialog):
       for i in range(nLine):
          hasError = False
          try:
-            rawEntry = str(self.edtList[i].text())
+            rawEntry = self.edtList[i].text()
             rawBin, err = readSixteenEasyBytes(rawEntry.replace(' ', ''))
             if err == 'Error_2+':
                hasError = True
@@ -12450,7 +12452,7 @@ class DlgRestoreSingle(ArmoryDialog):
                The error occured on <font color="red">line #%(line)d</font>.""") % { 'line' : lineNumber }, \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
-            self.prfxList[i].setText('<font color="red">' + str(self.prfxList[i].text()) + '</font>')
+            self.prfxList[i].setText('<font color="red">' + self.prfxList[i].text() + '</font>')
             return
 
          inputLines.append(rawBin)
@@ -12489,7 +12491,7 @@ class DlgRestoreSingle(ArmoryDialog):
       if self.doMask:
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
-         securePrintCode = str(self.editSecurePrint.text()).strip()
+         securePrintCode = self.editSecurePrint.text().strip()
          if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
 
@@ -12540,7 +12542,7 @@ class DlgRestoreSingle(ArmoryDialog):
          dlgPasswd = DlgChangePassphrase(self, self.main)
          if dlgPasswd.exec_():
             passwd = SecureBinaryData()
-            passwd.createFromHex(binary_to_hex(str(dlgPasswd.edtPasswd1.text()).encode()).decode())
+            passwd.createFromHex(binary_to_hex(dlgPasswd.edtPasswd1.text().encode()).decode())
          else:
             QMessageBox.critical(self, tr('Cannot Encrypt'), \
                tr('You requested your restored wallet be encrypted, but no '
@@ -12736,7 +12738,7 @@ class DlgRestoreWOData(ArmoryDialog):
 
       # Read in the root ID data and handle any errors.
       try:
-         rawID = easyType16_to_binary(str(self.rootIDLine.text()).replace(' ', ''))
+         rawID = easyType16_to_binary(self.rootIDLine.text().replace(' ', ''))
          if len(rawID) != 9:
             raise ValueError('Must supply 9 byte input for the ID')
 
@@ -12772,7 +12774,7 @@ class DlgRestoreWOData(ArmoryDialog):
       for i in range(nLine):
          hasError = False
          try:
-            rawEntry = str(self.pkccList[i].text())
+            rawEntry = self.pkccList[i].text()
             rawBin, err = readSixteenEasyBytes(rawEntry.replace(' ', ''))
             if err == 'Error_2+':  # 2+ bytes are wrong, so we need to stop.
                hasError = True
@@ -13054,8 +13056,8 @@ class DlgRestoreFragged(ArmoryDialog):
    #############################################################################
    def dataLoad(self, fnum):
       LOGINFO('Loading data for entry, %d', fnum)
-      toLoad = str(self.main.getFileLoad(tr('Load Fragment File'), \
-                                    [tr('Wallet Fragments (*.frag)')]))
+      toLoad = self.main.getFileLoad(tr('Load Fragment File'), \
+                                    [tr('Wallet Fragments (*.frag)')])
 
       if len(toLoad) == 0:
          return
@@ -13187,7 +13189,7 @@ class DlgRestoreFragged(ArmoryDialog):
 
       M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragData[0])
       # If we don't know the Secure String Yet we have to get it
-      if doMask and len(str(self.displaySecureString.text()).strip()) == 0:
+      if doMask and len(self.displaySecureString.text().strip()) == 0:
          dlg = DlgEnterSecurePrintCode(self, self.main)
          if dlg.exec_():
             self.displaySecureString.setText(dlg.editSecurePrint.text())
@@ -13265,7 +13267,7 @@ class DlgRestoreFragged(ArmoryDialog):
       SECPRINT = HardcodedKeyMaskParams()
       pwd, ekey = '', ''
       if self.displaySecureString.isVisible():
-         pwd = str(self.displaySecureString.text()).strip()
+         pwd = self.displaySecureString.text().strip()
          maskKey = SECPRINT['FUNC_KDF'](pwd)
 
       fragMtrx, M = [], -1
@@ -13346,7 +13348,7 @@ class DlgRestoreFragged(ArmoryDialog):
          dlgPasswd = DlgChangePassphrase(self, self.main)
          if dlgPasswd.exec_():
             passwd = SecureBinaryData()
-            passwd.createFromHex(binary_to_hex(str(dlgPasswd.edtPasswd1.text()).encode()).decode())
+            passwd.createFromHex(binary_to_hex(dlgPasswd.edtPasswd1.text().encode()).decode())
          else:
             QMessageBox.critical(self, tr('Cannot Encrypt'), tr("""
                You requested your restored wallet be encrypted, but no
@@ -13554,7 +13556,7 @@ class DlgEnterSecurePrintCode(ArmoryDialog):
    def verifySecurePrintCode(self):
       # Prepare the key mask parameters
       SECPRINT = HardcodedKeyMaskParams()
-      securePrintCode = str(self.editSecurePrint.text()).strip()
+      securePrintCode = self.editSecurePrint.text().strip()
 
       if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
          return
@@ -13726,7 +13728,7 @@ class DlgEnterOneFrag(ArmoryDialog):
 
    #############################################################################
    def isSecurePrintID(self):
-      return hex_to_int(str(self.edtID.text()[:2])) > 127
+      return hex_to_int(self.edtID.text()[:2].encode()) > 127
    
    #############################################################################
    def verifyUserInput(self):
@@ -13750,7 +13752,7 @@ class DlgEnterOneFrag(ArmoryDialog):
          sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
-         securePrintCode = str(self.editSecurePrint.text()).strip()
+         securePrintCode = self.editSecurePrint.text().strip()
          if not checkSecurePrintCode(self, SECPRINT, securePrintCode):
             return
       elif self.isSecurePrintID():
@@ -13762,7 +13764,7 @@ class DlgEnterOneFrag(ArmoryDialog):
       for i in rng:
          hasError = False
          try:
-            rawEntry = str(self.edtList[i].text())
+            rawEntry = self.edtList[i].text()
             rawBin, err = readSixteenEasyBytes(rawEntry.replace(' ', ''))
             if err == 'Error_2+':
                hasError = True
@@ -13777,9 +13779,9 @@ class DlgEnterOneFrag(ArmoryDialog):
                fixed automatically.  Please double-check that you entered the
                text exactly as it appears on the wallet-backup page. <br><br>
                The error occured on the "%(text)s" line.""") % \
-               { 'text' : str(self.prfxList[i].text()) }, QMessageBox.Ok)
+               { 'text' : self.prfxList[i].text() }, QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
-            self.prfxList[i].setText('<font color="red">' + str(self.prfxList[i].text()) + '</font>')
+            self.prfxList[i].setText('<font color="red">' + self.prfxList[i].text() + '</font>')
             self.destroyFragData()
             return
 
@@ -13789,7 +13791,7 @@ class DlgEnterOneFrag(ArmoryDialog):
          rawBin = None
 
 
-      idLine = str(self.edtID.text()).replace(' ', '')
+      idLine = self.edtID.text().replace(' ', '')
       self.fragData.insert(0, hex_to_binary(idLine))
 
       M, fnum, wltID, doMask, fid = ReadFragIDLineBin(self.fragData[0])
@@ -14093,7 +14095,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layout_btnH.addWidget(self.btnCancel, 1)
 
       def updateBtn(qstr):
-         if os.path.exists(str(qstr).strip()):
+         if os.path.exists(qstr.strip()):
             self.btnRecover.setEnabled(True)
             self.btnRecover.setToolTip('')
          else:
@@ -14124,7 +14126,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
       Proceeds to Recover the wallet. Prompt for password if the wallet is locked
       """
       if self.exec_():
-         path = str(self.edtWalletPath.text())
+         path = self.edtWalletPath.text()
          mode = RECOVERMODE.Bare
          if self.rdbtnStripped.isChecked():
             mode = RECOVERMODE.Stripped
@@ -14157,16 +14159,16 @@ class DlgWltRecoverWallet(ArmoryDialog):
       # implemented doesn't let me access self.main.getFileLoad
       ftypes = tr('Wallet files (*.wallet);; All files (*)')
       if not OS_MACOSX:
-         pathSelect = str(QFileDialog.getOpenFileName(self, \
+         pathSelect = QFileDialog.getOpenFileName(self, \
                                  tr('Recover Wallet'), \
                                  ARMORY_HOME_DIR, \
-                                 ftypes))
+                                 ftypes)
       else:
-         pathSelect = str(QFileDialog.getOpenFileName(self, \
+         pathSelect = QFileDialog.getOpenFileName(self, \
                                  tr('Recover Wallet'), \
                                  ARMORY_HOME_DIR, \
                                  ftypes, \
-                                 options=QFileDialog.DontUseNativeDialog))
+                                 options=QFileDialog.DontUseNativeDialog)
 
       self.edtWalletPath.setText(pathSelect)
 
@@ -14530,7 +14532,7 @@ class DlgCorruptWallet(DlgProgress):
 
    def addStatus(self, wallet, status):
       if wallet:
-         strStatus = ''.join(status) + str(self.lblStatus.text())
+         strStatus = ''.join(status) + self.lblStatus.text()
          self.lblStatus.setText(strStatus)
 
          self.walletList.append(wallet)
@@ -15071,7 +15073,7 @@ class DlgBroadcastBlindTx(ArmoryDialog):
       self.lblInvalid.setText("")
       if not isTrue:
          self.txtTxInfo.setPlainText('')
-         if len(str(self.txtRawTx.toPlainText()).strip()) > 0:
+         if len(self.txtRawTx.toPlainText().strip()) > 0:
             self.lblInvalid.setText(tr("""<font color="%s"><b>Raw transaction 
             is invalid!</font></b>""") % htmlColor('TextWarn'))
 

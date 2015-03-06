@@ -3723,23 +3723,24 @@ class SettingsFile(object):
    def writeSettingsFile(self, path=None):
       if not path:
          path = self.settingsPath
-      f = open(path, 'w')
-      for key,val in list(self.settingsMap.items()):
+      f = open(path, 'wb')
+      for key in sorted(self.settingsMap.keys()):
+         val = self.settingsMap[key]
          try:
             # Skip anything that throws an exception
-            valStr = ''
+            valBytes = b''
             if   isinstance(val, str):
-               valStr = val
-            elif isinstance(val, int) or \
-                 isinstance(val, float):
-               valStr = str(val)
-            elif isinstance(val, list) or \
-                 isinstance(val, tuple):
-               valStr = ' $  '.join([str(v) for v in val])
-            f.write(key.ljust(36))
-            f.write(' | ')
-            f.write(toBytes(valStr).decode("UTF-8"))
-            f.write('\n')
+               valBytes = val.encode()
+            elif isinstance(val, bytes):
+               valBytes = val
+            elif isinstance(val, (int, float)):
+               valBytes = str(val).encode()
+            elif isinstance(val, (list, tuple)):
+               valBytes = b' $  '.join([v.encode() if isinstance(v, str) else v for v in val])
+            f.write(key.encode().ljust(36))
+            f.write(b' | ')
+            f.write(valBytes)
+            f.write(b'\n')
          except:
             LOGEXCEPT('Invalid entry in SettingsFile %s: %s... skipping' % (key, val))
       f.close()
@@ -3754,7 +3755,7 @@ class SettingsFile(object):
          raise FileExistsError('Settings file DNE:' + path)
 
       f = open(path, 'rb')
-      sdata = f.read().decode("ascii")
+      sdata = f.read().decode()
       f.close()
 
       # Automatically convert settings to numeric if possible

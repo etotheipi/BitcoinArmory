@@ -254,7 +254,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # This is a list of alerts that the user has chosen to no longer
       # be notified about
-      alert_str = str(self.getSettingOrSetDefault('IgnoreAlerts', ""))
+      alert_str = self.getSettingOrSetDefault('IgnoreAlerts', "")
       if alert_str == "":
          alerts = []
       else:
@@ -899,7 +899,7 @@ class ArmoryMainWindow(QMainWindow):
    def changeWltFilter(self):
 
       currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-      currText = str(self.comboWltSelect.currentText()).lower()
+      currText = self.comboWltSelect.currentText().lower()
 
       if currText.lower().startswith('custom filter'):
          self.walletsView.showColumn(0)
@@ -1272,7 +1272,7 @@ class ArmoryMainWindow(QMainWindow):
          pixBuf = QBuffer(pixRaw)
          pixBuf.open(QIODevice.WriteOnly)
          pixDesk.save(pixBuf, 'PNG')
-         source3 = pixBuf.buffer().toHex()
+         source3 = str(pixBuf.buffer().toHex())
       except:
          LOGEXCEPT('Third source of entropy (desktop screenshot) failed')
 
@@ -1572,9 +1572,9 @@ class ArmoryMainWindow(QMainWindow):
          app_path = ctypes.create_string_buffer(1024)
          rtlength = ctypes.c_int()
          rtlength = GetModuleFileNameW(None, ctypes.byref(app_path), 1024)
-         passstr = str(app_path.raw)
+         passstr = app_path.raw
 
-         modulepathname += str(passstr[0:(rtlength*2)], encoding='utf16') + '" "%1"'
+         modulepathname += passstr[0:(rtlength*2)].decode('utf16') + '" "%1"'
          modulepathname = modulepathname.encode('utf8')
 
          rootKey = 'bitcoin\\shell\\open\\command'
@@ -1638,7 +1638,7 @@ class ArmoryMainWindow(QMainWindow):
          if action=='DoIt':
 
             LOGINFO('Registering Armory  for current user')
-            baseDir = os.path.dirname(str(passstr[0:(rtlength*2)], encoding='utf16'))
+            baseDir = os.path.dirname(passstr[0:(rtlength*2)].decode('utf16'))
             regKeys = []
             regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
             regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
@@ -1744,7 +1744,7 @@ class ArmoryMainWindow(QMainWindow):
 
       if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58.decode(), suffix)
-      savePath = str(self.getFileSave(defaultFilename=fn))
+      savePath = self.getFileSave(defaultFilename=fn)
       if not len(savePath)>0:
          return False
 
@@ -1767,7 +1767,7 @@ class ArmoryMainWindow(QMainWindow):
                   No passphrase was selected for the encrypted backup.
                   No backup was created"""), QMessageBox.Ok)
             newPassphrase = SecureBinaryData()
-            newPassphrase.createFromHex(binary_to_hex(str(dlgCrypt.edtPasswd1.text()).encode()).decode())
+            newPassphrase.createFromHex(binary_to_hex(dlgCrypt.edtPasswd1.text().encode()).decode())
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
       elif copyType.lower() == 'pkcc':
@@ -1838,7 +1838,7 @@ class ArmoryMainWindow(QMainWindow):
       # interfere with the SettingsFile symbols
       globalDefault = binary_to_hex(DEFAULT_DATE_FORMAT.encode())
       fmt = self.getSettingOrSetDefault('DateFormat', globalDefault)
-      return hex_to_binary(str(fmt).encode())  # short hex strings could look like int()
+      return hex_to_binary(fmt)  # short hex strings could look like int()
 
    #############################################################################
    def setPreferredDateFormat(self, fmtStr):
@@ -1886,7 +1886,7 @@ class ArmoryMainWindow(QMainWindow):
          # it every month for privacy reasons
          idData = self.getSettingOrSetDefault('MonthlyID', '0000_00000000')
          storedYM,currID = idData.split('_')
-         monthyear = unixTimeToFormatStr(RightNow(), '%m%y')
+         monthyear = unixTimeToFormatStr(RightNow(), '%m%y').decode()
          if not storedYM == monthyear:
             currID = SecureBinaryData().GenerateRandom(4).toHexStr()
             self.settings.set('MonthlyID', '%s_%s' % (monthyear, currID))
@@ -3443,7 +3443,7 @@ class ArmoryMainWindow(QMainWindow):
 
       dialog = DlgSetComment(self, self, currComment, 'Transaction')
       if dialog.exec_():
-         newComment = str(dialog.edtComment.text())
+         newComment = dialog.edtComment.text()
          self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
          self.walletListChanged()
 
@@ -4291,7 +4291,7 @@ class ArmoryMainWindow(QMainWindow):
                                   ffilter=['Text Files (*.txt)'], \
                                   defaultFilename=defaultFN)
 
-      if len(str(saveFile)) > 0:
+      if len(saveFile) > 0:
          fout = open(saveFile, 'wb')
          fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
          fout.write(getLastBytesOfFile(ARMCPP_LOG_FILE, 256*1024))
@@ -6040,11 +6040,11 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftSync.setVisible(False)
                self.lblDashModeSync.setVisible(False)
 
-            if len(str(self.lblDashModeBuild.text()).strip()) == 0:
+            if len(self.lblDashModeBuild.text().strip()) == 0:
                self.lblDashModeBuild.setText( tr('Preparing Databases'), \
                                           size=4, bold=True, color='Foreground')
 
-            if len(str(self.lblDashModeScan.text()).strip()) == 0:
+            if len(self.lblDashModeScan.text().strip()) == 0:
                self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                           size=4, bold=True, color='DisableFG')
 
@@ -6138,7 +6138,7 @@ class ArmoryMainWindow(QMainWindow):
       # probably use some refactoring
       def updateAddrDetectLabels():
          try:
-            enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+            enteredText = addrEntryObjs['QLE_ADDR'].text().strip()
 
             scriptInfo = self.getScriptForUserString(enteredText)
             displayInfo = self.getDisplayStringForScript(
@@ -6173,7 +6173,7 @@ class ArmoryMainWindow(QMainWindow):
       # (The last one is really only used to determine what info is most
       #  relevant to display to the user...it can be ignored in most cases)
       def getScript():
-         entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+         entered = addrEntryObjs['QLE_ADDR'].text().strip()
          return self.getScriptForUserString(entered)
 
       addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
@@ -6773,7 +6773,7 @@ class ArmoryMainWindow(QMainWindow):
 
       try:
          # Save the main window geometry in the settings file
-         self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
+         self.writeSetting('MainGeometry', bytes(self.saveGeometry().toHex()))
          self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
          self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
 
@@ -6972,7 +6972,7 @@ class ArmoryMainWindow(QMainWindow):
                canFix.append(tr("""
                   <b>The following dialogs need closed before you can
                   run the wallet analysis tool:</b>"""))
-               canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
+               canFix.extend([myobj.windowTitle() for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)
             time.sleep(0.2)
          else:
