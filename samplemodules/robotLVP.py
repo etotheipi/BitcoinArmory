@@ -14,17 +14,21 @@ from PyQt4.Qt import QPushButton, SIGNAL, Qt, QLineEdit, QTableWidget, \
 from armorycolors import htmlColor
 from armoryengine.ArmoryUtils import RightNow, secondsToHumanTime, coin2str,\
    scrAddr_to_addrStr, script_to_addrStr, addrStr_to_hash160, P2SHBYTE, LOGWARN,\
-   isASCII
+   isASCII, ADDRBYTE, LOGERROR
 from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import makeHorizFrame, makeVertFrame, STYLE_PLAIN, QRichLabel, \
    GETFONT
 import functools
 from jasvet import readSigBlock, verifySignature, ASv1CS
 from armoryengine.Transaction import PyTx
-from qtdialogs import createAddrBookButton, DlgUnlockWallet, STRETCH
+from qtdialogs import createAddrBookButton, DlgUnlockWallet, STRETCH,\
+   DlgRequestPayment
+import inspect
+from inspect import getargspec
 
 
-def getReceivedFromAddress(sender, wlt):
+
+def getReceivedFromAddress(sender, wallet):
    """
    DESCRIPTION:
    Return the number of coins received from a particular sender.
@@ -34,7 +38,7 @@ def getReceivedFromAddress(sender, wlt):
    Number of Bitcoins sent by the sender to the current wallet.
    """
    totalReceived = 0.0
-   ledgerEntries = wlt.getTxLedger('blk')
+   ledgerEntries = wallet.getTxLedger('blk')
 
    for entry in ledgerEntries:
       cppTx = TheBDM.bdv().getTxByHash(entry.getTxHash())
@@ -53,37 +57,30 @@ def getReceivedFromAddress(sender, wlt):
             txBinary = cppTx.serialize()
             pyTx = PyTx().unserialize(txBinary)
             for txout in pyTx.outputs:
-               if wlt.hasAddr(script_to_addrStr(txout.getScript())):
+               if wallet.hasAddr(script_to_addrStr(txout.getScript())):
                   totalReceived += txout.value
 
    return totalReceived
 
-def verifySignature(sigBlock):
+
+def verifySignature(signedMsg):
    """
    DESCRIPTION:
    Take a message (RFC 2440: clearsign or Base64) signed by a Bitcoin address
    and verify the message.
    PARAMETERS:
-   sigBlock - Message with the RFC 2440 message to be verified. The message
+   signedMsg - Message with the RFC 2440 message to be verified. The message
               must be enclosed in quotation marks.
    RETURN:
    verified message and the Base58 address of the signer.
    """
-
-   # We must deal with a couple of quirks. First, non-escaped spaces (i.e.,
-   # spaces that aren't \u0020) will cause the CL parser to split the sig
-   # into multiple lines. We need to combine the lines. Second, the quotation
-   # marks used to prevent Armory from treating the sig like a CL arg need
-   # to be removed. (NB: The final space must be stripped too.)
-   signedMsg = (''.join((str(piece) + ' ') for piece in sigBlock))[1:-2]
-
    # Get the signature block's signature and message. The signature must be
    # formatted for clearsign or Base64 persuant to RFC 2440.
-   sig, msg = readSigBlock(signedMsg)
-   addrB58 = verifySignature(sig, msg, 'v1', ord(self.addrByte) )
-   return [msg, addrB58]
+   signature, bareMessage = readSigBlock(signedMsg)
+   addrB58 = verifySignature(signature, bareMessage, 'v1', ord(ADDRBYTE) )
+   return [bareMessage, addrB58]
 
-def processPaidMessage(sigBlock, wlt):
+def processPaidMessage(signedMessage, wallet):
    """
    DESCRIPTION:
    Verify that a message (RFC 2440: clearsign or Base64) has been signed by
@@ -93,45 +90,66 @@ def processPaidMessage(sigBlock, wlt):
    sigBlock - Message with the RFC 2440 message to be verified. The message
               must be enclosed in quotation marks.
    RETURN:
-   verified message and the amount of money sent to the
-   current wallet by the signer.
+   verified message, signing address, and the amount of money sent to the
+   wallet by the signer.
    """
-
-   # We must deal with a quirk. Non-escaped spaces (i.e., spaces that aren't
-   # \u0020) will cause the CL parser to split the sig into multiple lines.
-   # We need to combine the lines. (NB: Strip the final space too!)
-   signedMsg = (''.join((str(piece) + ' ') for piece in sigBlock))[:-1]
-
-   message, addrB58 = verifySignature(signedMsg)
-   amountReceived = getReceivedFromAddress(addrB58)
+   # Get the signature block's signature and message. The signature must be
+   # formatted for clearsign or Base64 persuant to RFC 2440.
+   sig, message = readSigBlock(signedMessage)
+   addrB58 = verifySignature(sig, message, 'v1', ord(ADDRBYTE))
+   amountReceived = getReceivedFromAddress(addrB58, wallet)
 
    return message, addrB58, amountReceived
 
-
-def getMessageAndIsPaid(signedMessage, requestorAddress, paymentRequired):
-   message, addrB58, amountReceived = processPaidMessage(signedMessage, requestorAddress)
+def getMessageAndIsPaid(signedMessage, wallet, requestorAddress, paymentRequired):
+   message, addrB58, amountReceived = processPaidMessage(signedMessage, wallet)
    isPaid = requestorAddress == addrB58 and  amountReceived >= paymentRequired
    return message, isPaid
 
-def receivePayment():
-   pass
+class DecoratedFunctionMissingRequiredArgument(Exception): pass
 
-# Prevents a call to the decorated method unless amount received by wlt
+DECORATED_REQUIRED_ARG = 'requestMessage'
+NOT_PAID = 'not paid'
+MINIMUM_PAYMENT=500000
+LUCY_WALLET_ID = '2pNNoY1Hx'
+
+# Prevents a call to the decorated method unless amount received by wallet
 # is at least the paymentRequired
-def ProofOfPaymentRequired(wlt=None, paymentRequired=0):
+# The inner method is expected to have an argument called
+# "requestMessage" message that is a String
+def ProofOfPayment(walletID=None, paymentRequired=0):
    def ActualProofOfPaymentRequired(func):
+      # Enforce required argument for the decorated function
+      if not DECORATED_REQUIRED_ARG in getargspec(func)[0]:
+         LOGERROR('ProofOfPayment - required argument is missing from decorated function definition: %s', DECORATED_REQUIRED_ARG)
+         raise DecoratedFunctionMissingRequiredArgument
       @functools.wraps(func)  # Pull in certain "helper" data from dec'd func
-      def inner(signedMessage, requestorAddress, *args, **kwargs):
-         if wlt and paymentRequired>0:
-            bareMessage, isPaid = getMessageAndIsPaid(wlt, signedMessage, requestorAddress, paymentRequired)
+      def inner(signedMessage, requestorAddress, walletMap, *args, **kwargs):
+         if walletID in walletMap.keys() and paymentRequired>0:
+            wallet = walletMap[walletID]
+            bareMessage, isPaid = getMessageAndIsPaid(signedMessage, wallet, requestorAddress, paymentRequired)
             if isPaid:
-               return func(bareMessage, *args, **kwargs) 
+               kwargs[DECORATED_REQUIRED_ARG] = bareMessage
+               return func(*args,  **kwargs)
             else:
-               receivePayment()
+               return NOT_PAID
          else:
+            # if the decorator is missing a valid wallet id or minimum < 1
+            # simply pass the signed message to the decorated function
+            kwargs[DECORATED_REQUIRED_ARG] = signedMessage
             return func(*args, **kwargs) 
       return inner
    return ActualProofOfPaymentRequired
+
+# This instance of the decorator checks if Lucy's wallet ('2pNNoY1Hx') is
+# paid at least 5 millibits. 
+# expected args - signedMessage, requestorAddress, walletMap
+@ProofOfPayment(walletID=LUCY_WALLET_ID, paymentRequired=MINIMUM_PAYMENT)
+def askQuestion(requestMessage):
+   if 'depressed' in requestMessage:
+      return 'Get over it!'
+   else:
+      return 'You are no different from everyone else!'
 
 # ArmoryQt will access this by importing PluginObject and initializing one
 #   -- It adds plugin.getTabToDisplay() to the main window tab list
@@ -183,6 +201,7 @@ class PluginObject(object):
       # Create a Signature display
       responseLabel = QRichLabel('LVP Robot Response:')
       self.responseDisplay = QTextEdit()
+      self.responseDisplay.setReadOnly(True)
       controlsLayout.addWidget(responseLabel,         4, 0)
       controlsLayout.addWidget(self.responseDisplay,  4, 1, 1, 2)
       self.clearFieldsButton = QPushButton("Clear")
@@ -191,16 +210,32 @@ class PluginObject(object):
       controlsFrame = QWidget()
       controlsFrame.setLayout(controlsLayout)
       
-      @ProofOfPaymentRequired(wlt=self.main.WltMap['2pNNoY1Hx'], paymentRequired=500000)
-      def askQuestion():
-         self.responseDisplay.setText('Get over it!')
+      def askQuestionClicked():
+         paidFromAddress = str(self.addressLineEdit.text())
+         question = str(self.questionText.toPlainText())
+         if len(question) > 0:
+            answer = askQuestion(self.signQuestion(question),
+                  paidFromAddress,
+                  main.walletMap)
+            if answer:
+               if answer == NOT_PAID:
+                  dlg = DlgRequestPayment(self.main, self.main, 
+                        self.main.walletMap[LUCY_WALLET_ID].getNextUnusedAddress().getAddrStr(),
+                        amt = MINIMUM_PAYMENT,
+                        msg='5 Millibits Please')
+                  dlg.exec_()
+               else:
+                  self.responseDisplay.setPlainText(answer)
+         else:
+            self.responseDisplay.setPlainText('What is your question?')
+            
          
-      def clearFields():
+      def clearFieldsClicked():
          self.questionText.setPlainText('')
          self.responseDisplay.setPlainText('')
 
-      self.main.connect(self.askQuestionButton, SIGNAL('clicked()'), askQuestion)
-      self.main.connect(self.clearFieldsButton, SIGNAL('clicked()'), clearFields)
+      self.main.connect(self.askQuestionButton, SIGNAL('clicked()'), askQuestionClicked)
+      self.main.connect(self.clearFieldsButton, SIGNAL('clicked()'), clearFieldsClicked)
       
       lvpPic = QLabel()
       lvpPixmap = QPixmap(':/RobotLVP.png')
@@ -213,8 +248,10 @@ class PluginObject(object):
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(lvpFrame)
       
-      
-      
+
+         
+   
+   # Get the private key from the address chosen by the user
    def getPrivateKeyFromAddrInput(self):
       atype, addr160 = addrStr_to_hash160(str(self.addressLineEdit.text()))
       if atype==P2SHBYTE:
@@ -223,32 +260,31 @@ class PluginObject(object):
       wallet = self.main.walletMap[walletId]
       if wallet.useEncryption and wallet.isLocked:
          # Target wallet is encrypted...
-         unlockdlg = DlgUnlockWallet(wallet, self, self.main, 'Unlock Wallet to Import')
+         unlockdlg = DlgUnlockWallet(wallet, self.main, self.main, 'Unlock Wallet to Import')
          if not unlockdlg.exec_():
-            QMessageBox.critical(self, 'Wallet is Locked', \
+            QMessageBox.warning(self, 'Wallet is Locked', \
                'Cannot import private keys without unlocking wallet!', \
                QMessageBox.Ok)
             return
       return wallet.addrMap[addr160].binPrivKey32_Plain.toBinStr()
    
-   def clearSignMessage(self):
-      messageText = str(self.messageTextEdit.toPlainText())
+   # Sign the message using the private key from the address chosen by the user
+   def signQuestion(self, messageText):
+      result = ''
       if not isASCII(messageText):
          QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
       else:
          try:
             privateKey = self.getPrivateKeyFromAddrInput()
          except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            QMessageBox.warning(self.main, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
             raise
          if privateKey:
-            signature = ASv1CS(privateKey, messageText)
-            self.signatureDisplay.setPlainText(signature)
+            result =  ASv1CS(privateKey, messageText)
          else:
-            QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
-
-      
-
+            QMessageBox.warning(self.main, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
+      return result
+   
    #############################################################################
    def getTabToDisplay(self):
       return self.tabToDisplay
