@@ -201,6 +201,7 @@ class PluginObject(object):
       # Create a Signature display
       responseLabel = QRichLabel('LVP Robot Response:')
       self.responseDisplay = QTextEdit()
+      self.responseDisplay.setMaximumHeight(75)
       self.responseDisplay.setReadOnly(True)
       controlsLayout.addWidget(responseLabel,         4, 0)
       controlsLayout.addWidget(self.responseDisplay,  4, 1, 1, 2)
@@ -219,11 +220,16 @@ class PluginObject(object):
                   main.walletMap)
             if answer:
                if answer == NOT_PAID:
-                  dlg = DlgRequestPayment(self.main, self.main, 
-                        self.main.walletMap[LUCY_WALLET_ID].getNextUnusedAddress().getAddrStr(),
-                        amt = MINIMUM_PAYMENT,
-                        msg='5 Millibits Please')
-                  dlg.exec_()
+                  result = QMessageBox.warning(self.main,
+                        '5 Millibits Please',
+                        'No freebies! Please pay 5 millibits to continue.',
+                        QMessageBox.Cancel | QMessageBox.Ok)
+                  if result == QMessageBox.Ok:
+                     dlg = DlgRequestPayment(self.main, self.main, 
+                           self.main.walletMap[LUCY_WALLET_ID].getNextUnusedAddress().getAddrStr(),
+                           amt = MINIMUM_PAYMENT,
+                           msg='5 Millibits Please')
+                     dlg.exec_()
                else:
                   self.responseDisplay.setPlainText(answer)
          else:
@@ -238,7 +244,7 @@ class PluginObject(object):
       self.main.connect(self.clearFieldsButton, SIGNAL('clicked()'), clearFieldsClicked)
       
       lvpPic = QLabel()
-      lvpPixmap = QPixmap(':/RobotLVP.png')
+      lvpPixmap = QPixmap(':/RobotLVP.png').scaled(300,340)
       lvpPic.setPixmap(lvpPixmap)
 
       cartoonFrame = makeVertFrame([lvpPic, STRETCH])
