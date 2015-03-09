@@ -279,7 +279,6 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
    bool prevChainStillValid = (topBlockPtr_ == &prevTopBlock);
    topBlockPtr_->nextHash_ = BtcUtils::EmptyHash();
    BlockHeader* thisHeaderPtr = topBlockPtr_;
-   //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
    while( !thisHeaderPtr->isFinishedCalc_ )
    {

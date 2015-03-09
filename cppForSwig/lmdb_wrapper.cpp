@@ -3623,18 +3623,37 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    StoredHeader sbh;
 
    BlockHeader bhUnser(brr);
-   const BlockHeader & bh = getBH(bhUnser.getThisHash());
-   sbh.blockHeight_ = bh.getBlockHeight();
-   sbh.duplicateID_ = bh.getDuplicateID();
-   sbh.isMainBranch_ = bh.isMainBranch();
+   const BlockHeader *bh;
+   try
+   {
+      bh = &getBH(bhUnser.getThisHash());
+   }
+   catch (std::range_error&)
+   {
+      //couldn't find this header hash in the blockchain object, move on.
+      return 0xFF;
+   }
+
+   sbh.blockHeight_ = bh->getBlockHeight();
+   sbh.duplicateID_ = bh->getDuplicateID();
+   sbh.isMainBranch_ = bh->isMainBranch();
    sbh.blockAppliedToDB_ = false;
-   sbh.numBytes_ = bh.getBlockSize();
+   sbh.numBytes_ = bh->getBlockSize();
 
    //put raw block with header data
    {
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-      BinaryData dbKey(sbh.getDBKey(true));
-      putValue(BLKDATA, BinaryDataRef(dbKey), brr.getRawRef());
+      try
+      {
+         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+         BinaryData dbKey(sbh.getDBKey(true));
+         putValue(BLKDATA, BinaryDataRef(dbKey), brr.getRawRef());
+      }
+      catch (std::range_error&)
+      {
+         //block has no height and dup, this it is an orphan and we can't 
+         //get a DB for it, move on.
+         return 0xFF;
+      }
    }
 
    //update SDBI in HISTORY DB
@@ -3647,7 +3666,7 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
          if (sbh.blockHeight_ > sdbiB.topBlkHgt_)
          {
             sdbiB.topBlkHgt_ = sbh.blockHeight_;
-            sdbiB.topBlkHash_ = bh.getThisHash();
+            sdbiB.topBlkHash_ = bh->getThisHash();
             putStoredDBInfo(HISTORY, sdbiB);
          }
       }

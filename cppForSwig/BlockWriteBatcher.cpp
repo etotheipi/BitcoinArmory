@@ -1031,8 +1031,8 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       {
          string errorMessage("The scanning process "
             "interrupted unexpectedly, Armory will now shutdown. "
-            "You will have to proceed to \"Help -> Rebuild and Rescan\" "
-            "on the next start. If the error persists, contact support. "
+            "If the error persists, you will have to rebuild and rescan your database. "
+            "If rebuilding and rescaning did not fix the issue, contact support. "
             "Refer to your log file for more details on the error.");
 
          criticalError_(errorMessage);
@@ -1100,8 +1100,8 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          {
             string errorMessage("The scanning process "
                "interrupted unexpectedly, Armory will now shutdown. "
-               "You will have to proceed to \"Help -> Rebuild and Rescan\" "
-               "on the next start. If the error persists, contact support. "
+               "If the error persists, you will have to rebuild and rescan your database. "
+               "If rebuilding and rescaning did not fix the issue, contact support. "
                "Refer to your log file for more details on the error.");
 
             criticalError_(errorMessage);

@@ -87,10 +87,13 @@ class ProgressReporter;
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
 class FoundAllBlocksException {};
 
+class debug_replay_blocks {};
+
+
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
-   void grablock(uint32_t n);
+   //void grablock(uint32_t n);
 
 
 private:

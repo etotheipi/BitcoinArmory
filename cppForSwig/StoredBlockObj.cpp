@@ -163,8 +163,7 @@ BinaryData DBBlock::getDBKey(bool withPrefix) const
 {
    if(blockHeight_==UINT32_MAX || duplicateID_==UINT8_MAX)
    {
-      LOGERR << "Requesting DB key for incomplete SBH";
-      return BinaryData(0);
+      throw std::range_error("Requesting DB key for incomplete SBH");
    }
 
    if(withPrefix)

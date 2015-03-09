@@ -6319,13 +6319,13 @@ class ArmoryMainWindow(QMainWindow):
          #it to the user
          if 'rescan' in args[0].lower() or 'rebuild' in args[0].lower():
             result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
-                                    "Rebuild and rescan on next start", dnaaStartChk=True)
+                                    "Rebuild and rescan on next start", dnaaStartChk=False)
             if result[1] == True:
                touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
          
          elif 'factory reset' in args[0].lower():
             result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
-                                    "Factory reset on next start", dnaaStartChk=True)
+                                    "Factory reset on next start", dnaaStartChk=False)
             if result[1] == True:
                DlgFactoryReset(self, self).exec_()           
          
