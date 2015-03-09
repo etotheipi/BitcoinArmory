@@ -687,8 +687,6 @@ public:
    mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
    mutable LMDB dbs_[COUNT];
 
-   mutable LMDBEnv subSSHDBEnv_[SUBSSHDB_PREFIX_COUNT];
-   mutable LMDB subSSHDBs_[SUBSSHDB_PREFIX_COUNT];
 
 private:
    bool                 dbIsOpen_;
@@ -709,6 +707,10 @@ private:
 
    //for fullnode accessor
    shared_ptr<vector<BlkFile>> blkFiles_;
+   
+   //sub ssh dbs
+   mutable LMDBEnv subSSHDBEnv_[SUBSSHDB_PREFIX_MAX];
+   mutable LMDB subSSHDBs_[SUBSSHDB_PREFIX_MAX];
 };
 
 #endif

@@ -274,6 +274,13 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud,
    resetHistoryTransaction();
    resetTransactions();
 
+   if (dataToCommit_.sshHeaders_ == nullptr)
+   {
+      dataToCommit_.sshHeaders_.reset(new SSHheaders(iface_, 1));
+      dataToCommit_.sshHeaders_->sshToModify_.reset(
+         new map<BinaryData, StoredScriptHistory>());
+   }
+
    PulledBlock pb;
    {
       LMDBEnv::Transaction blkdataTx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
@@ -1887,9 +1894,14 @@ void SSHheaders::processSshHeaders(
 {
    sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
    vector<BinaryData> saStart;
-   saStart.push_back(subsshMap.begin()->first);
 
-   uint32_t i = 0, cut = subsshMap.size() / nThreads_;
+   if (subsshMap.size() == 0)
+      return;
+
+   int i = 0, cut = subsshMap.size() / nThreads_;
+   if (cut == 0)
+      cut = subsshMap.size();
+
    for (auto& subssh : subsshMap)
    {
       StoredScriptHistory& ssh = (*sshToModify_)[subssh.first];
@@ -1907,11 +1919,15 @@ void SSHheaders::processSshHeaders(
    auto processSshThread = [this](const BinaryData& start, uint32_t count)->void
    { this->fetchSshHeaders(start, count); };
 
-   vector<thread> vecTh;
-   for (i = 0; i < nThreads_; i++)
-      vecTh.push_back(thread(processSshThread, saStart[i], cut));
+   int curNThreads = saStart.size() -1;
 
-   for (i = 0; i < nThreads_; i++)
+   vector<thread> vecTh;
+   for (i = 0; i < curNThreads; i++)
+      vecTh.push_back(thread(processSshThread, saStart[i+1], cut));
+
+   processSshThread(saStart[0], cut);
+
+   for (i = 0; i < curNThreads; i++)
       if (vecTh[i].joinable())
          vecTh[i].join();
 

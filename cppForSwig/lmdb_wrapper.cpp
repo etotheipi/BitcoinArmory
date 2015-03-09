@@ -523,6 +523,14 @@ void LMDBBlockDatabase::openDatabases(
             }
          }
       }
+
+      for (uint32_t i = SUBSSHDB_PREFIX_MIN; i < SUBSSHDB_PREFIX_MAX; i++)
+      {
+         subSSHDBEnv_[i].open(getSubSSHDBFile(i));
+         stringstream ss;
+         ss << "subssh" << i << std::ends;
+         subSSHDBs_[i].open(&subSSHDBEnv_[i], ss.str().c_str());
+      }
    }
    catch (LMDBException &e)
    {
@@ -588,7 +596,7 @@ void LMDBBlockDatabase::closeDatabases(void)
          dbEnv_[(DB_SELECT)db].reset();
    }
 
-   for (uint32_t db = 0; db < SUBSSHDB_PREFIX_COUNT; db++)
+   for (uint32_t db = SUBSSHDB_PREFIX_MIN; db < SUBSSHDB_PREFIX_MAX; db++)
    {
       subSSHDBs_[db].close();
       subSSHDBEnv_[db].close();
@@ -614,7 +622,7 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    remove(dbZeroconfFilename().c_str());
    remove(dbSpentnessFilename().c_str());
 
-   for (uint32_t db = 0; db < SUBSSHDB_PREFIX_COUNT; db++)
+   for (uint32_t db = SUBSSHDB_PREFIX_MIN; db < SUBSSHDB_PREFIX_MAX; db++)
       remove(getSubSSHDBFile(db).c_str());
 
    // Reopen the databases with the exact same parameters as before
@@ -647,11 +655,16 @@ void LMDBBlockDatabase::cleanUpHistoryInDB()
    }
 
    {
-      for (uint32_t db=0; db < SUBSSHDB_PREFIX_COUNT; db++)
+      for (uint32_t db = SUBSSHDB_PREFIX_MIN; db < SUBSSHDB_PREFIX_MAX; db++)
       {
          subSSHDBs_[db].close();
          subSSHDBEnv_[db].close();
          _unlink(getSubSSHDBFile(db).c_str());
+         
+         subSSHDBEnv_[db].open(getSubSSHDBFile(db));
+         stringstream ss;
+         ss << "subssh" << db << std::ends;
+         subSSHDBs_[db].open(&subSSHDBEnv_[db], ss.str().c_str());
       }
    }
 
@@ -3643,7 +3656,7 @@ BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey) const
 {
    //no prefix yet, build it
 
-   uint32_t keyLength = 5;
+   uint32_t keyLength = SUBSSHDB_PREFIX_MIN;
    StoredSubHistory subssh;
 
    while (1)
@@ -3692,6 +3705,9 @@ BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey) const
       while (ldbIter.advance());
 
       keyLength++;
+      if (keyLength >= SUBSSHDB_PREFIX_MAX)
+         throw std::range_error(
+            "key collision count exceeded maximum addressable key space");
    }
 
 }
@@ -3701,18 +3717,8 @@ void LMDBBlockDatabase::beginSubSSHDBTransaction(
    LMDBEnv::Transaction& tx, uint32_t prefixLength,
    LMDB::Mode mode) const
 {
-   if (prefixLength >= SUBSSHDB_PREFIX_COUNT)
+   if (prefixLength >= SUBSSHDB_PREFIX_MAX)
       throw runtime_error("bad subsshdb descriptor");
-
-   if (!subSSHDBEnv_[prefixLength].isOpen())
-   {
-      subSSHDBEnv_[prefixLength].open(getSubSSHDBFile(prefixLength));
-
-      LMDBEnv::Transaction tx(&subSSHDBEnv_[prefixLength], LMDB::ReadWrite);
-      stringstream ss;
-      ss << "subssh" << prefixLength;
-      subSSHDBs_[prefixLength].open(&subSSHDBEnv_[prefixLength], ss.str());
-   }
 
    tx = move(LMDBEnv::Transaction(&subSSHDBEnv_[prefixLength], mode));
 }
