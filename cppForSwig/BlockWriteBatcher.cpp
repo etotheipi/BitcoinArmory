@@ -763,12 +763,19 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
 void BlockWriteBatcher::writeToDB(shared_ptr<BlockWriteBatcher> bwb)
 {
    unique_lock<mutex> lock(bwb->parent_->writeLock_);
+   TIMER_START("writeToDB");
 
    bwb->dataToCommit_.serializeData(bwb);
 
    {
+      TIMER_START("putSSH");
       bwb->dataToCommit_.putSSH();
+      TIMER_STOP("putSSH");
+
+      TIMER_START("putSTX");
       bwb->dataToCommit_.putSTX();
+      TIMER_STOP("putSTX");
+
       bwb->dataToCommit_.deleteEmptyKeys();
 
 
@@ -790,6 +797,7 @@ void BlockWriteBatcher::writeToDB(shared_ptr<BlockWriteBatcher> bwb)
    bwbParent->resetWriterPtr_.store(&bwb, memory_order_release);
 
    //signal DB is ready for new commit
+   TIMER_STOP("writeToDB");
    lock.unlock();
 
    //wait for scan thread to dump its useless containers on this bwb object in
@@ -1101,6 +1109,21 @@ BinaryData BlockWriteBatcher::scanBlocks(
    LOGWARN << "--- getNextBlock: " << timeElapsed << " s";
    
    
+   timeElapsed = TIMER_READ_SEC("writeToDB");
+   LOGWARN << "--- writeToDB: " << timeElapsed << " s";
+
+   timeElapsed = TIMER_READ_SEC("putSSH");
+   LOGWARN << "--- putSSH: " << timeElapsed << " s";
+
+   timeElapsed = TIMER_READ_SEC("putSTX");
+   LOGWARN << "--- putSTX: " << timeElapsed << " s";
+
+   timeElapsed = TIMER_READ_SEC("processHeaders");
+   LOGWARN << "--- processHeaders: " << timeElapsed << " s";
+   
+   timeElapsed = TIMER_READ_SEC("getParentSshToModify");
+   LOGWARN << "--- getParentSshToModify: " << timeElapsed << " s";
+
    return bd;
 }
 
@@ -1477,24 +1500,34 @@ void DataToCommit::putSSH()
    LMDBEnv::Transaction tx;
    db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
+   auto putThread = [this](uint32_t keyLength)->void
+   { this->putSubSSH(keyLength); };
+
+   vector<thread> subSshThreads;
+   for (auto& submap : serializedSubSshToApply_)
+      subSshThreads.push_back(thread(putThread, submap.first));
+
    for (auto& sshPair : serializedSshToModify_)
       db_->putValue(HISTORY, sshPair.first, sshPair.second.getData());
 
-   {
-      LMDBEnv::Transaction subsshtx;
+   for (auto& writeThread : subSshThreads)
+      if (writeThread.joinable())
+         writeThread.join();
+}
 
-      uint32_t currentKeyLength = 0;
-      for (auto& submap : serializedSubSshToApply_)
-      {
-         currentKeyLength = submap.first;
-         db_->beginSubSSHDBTransaction(subsshtx, 
-                                    currentKeyLength, LMDB::ReadWrite);
+////////////////////////////////////////////////////////////////////////////////
+void DataToCommit::putSubSSH(uint32_t keyLength)
+{
+   LMDBEnv::Transaction subsshtx;
 
-         for (auto& subsshentry : submap.second)
-            db_->putValue(currentKeyLength, subsshentry.first, 
-                         subsshentry.second.getData());
-      }
-   }
+   db_->beginSubSSHDBTransaction(subsshtx,
+      keyLength, LMDB::ReadWrite);
+
+   auto& submap = serializedSubSshToApply_[keyLength];
+
+   for (auto& subsshentry : submap)
+      db_->putValue(keyLength, subsshentry.first,
+      subsshentry.second.getData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1848,6 +1881,7 @@ void STXOS::recycleTxn(void)
 ////////////////////////////////////////////////////////////////////////////////
 void SSHheaders::getSshHeaders(shared_ptr<BlockWriteBatcher> bwb)
 {
+   TIMER_START("getParentSshToModify");
    if (db_->armoryDbType() != ARMORY_DB_SUPER)
    {
       shared_ptr<SSHheaders> parent = bwb->parent_->dataToCommit_.sshHeaders_;
@@ -1873,6 +1907,7 @@ void SSHheaders::getSshHeaders(shared_ptr<BlockWriteBatcher> bwb)
       if (commitingObj != nullptr)
          commitingHeaders = commitingObj->dataToCommit_.sshHeaders_;
    }
+   TIMER_STOP("getParentSshToModify");
 
    if (commitingHeaders != nullptr && commitingHeaders.get() != this)
    {
@@ -1892,6 +1927,7 @@ void SSHheaders::processSshHeaders(
    const map <BinaryData, map<BinaryData, StoredSubHistory>>& subsshMap,
    const map<BinaryData, StoredScriptHistory>& prevSshToModify)
 {
+   TIMER_START("processHeaders");
    sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
    vector<BinaryData> saStart;
 
@@ -1932,34 +1968,42 @@ void SSHheaders::processSshHeaders(
          vecTh[i].join();
 
    //check for key collisions
-   map<BinaryData, vector<StoredScriptHistory*> > collisionMap;
-
-   for (auto& ssh : *sshToModify_)
-      collisionMap[ssh.second.getSubKey()].push_back(&ssh.second);
-
-   for (auto& subkey : collisionMap)
+   bool increasedKeySize = true;
+   while (increasedKeySize)
    {
-      if (subkey.second.size())
+      increasedKeySize = false;
+      map<BinaryData, vector<StoredScriptHistory*> > collisionMap;
+
+      for (auto& ssh : *sshToModify_)
+         collisionMap[ssh.second.getSubKey()].push_back(&ssh.second);
+
+      for (auto& subkey : collisionMap)
       {
-         //several new ssh are sharing the same key, let's fix that
-         uint32_t previousPrefix = subkey.second[0]->dbPrefix_;
-         uint32_t previousKeylen = subkey.second[0]->keyLength_;
-
-         for (i = 1; i < subkey.second.size(); i++)
+         if (subkey.second.size())
          {
-            ++previousPrefix;
-            if (previousPrefix > 0xFF)
-            { 
-               previousPrefix = 0;
-               ++previousKeylen;
-            }
+            //several new ssh are sharing the same key, let's fix that
+            uint32_t previousPrefix = subkey.second[0]->dbPrefix_;
+            uint32_t previousKeylen = subkey.second[0]->keyLength_;
 
-            StoredScriptHistory& ssh = *subkey.second[i];
-            ssh.dbPrefix_ = previousPrefix;
-            ssh.keyLength_ = previousKeylen;
+            for (i = 1; i < subkey.second.size(); i++)
+            {
+               ++previousPrefix;
+               if (previousPrefix > 0xFF)
+               {
+                  previousPrefix = 0;
+                  ++previousKeylen;
+                  increasedKeySize = true;
+               }
+
+               StoredScriptHistory& ssh = *subkey.second[i];
+               ssh.dbPrefix_ = previousPrefix;
+               ssh.keyLength_ = previousKeylen;
+            }
          }
       }
    }
+
+   TIMER_STOP("processHeaders");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1968,6 +2012,7 @@ void SSHheaders::fetchSshHeaders(const BinaryData& start, uint32_t count)
    auto iter = sshToModify_->find(start);
 
    uint32_t i = 0;
+   uint32_t distribute = 0;
    while(iter != sshToModify_->end() && i<=count)
    {
       auto& ssh = iter->second;
@@ -1979,8 +2024,19 @@ void SSHheaders::fetchSshHeaders(const BinaryData& start, uint32_t count)
             BinaryData key = db_->getSubSSHKey(iter->first);
             ssh.uniqueKey_ = iter->first;
             ssh.dbPrefix_ = key.getPtr()[0];
-            ssh.keyLength_ = key.getSize();
+            ssh.keyLength_ = key.getSize() + (distribute % nThreads_);
+            distribute++;
          }
+         else
+         {
+            if (ssh.keyLength_ == SUBSSHDB_PREFIX_MIN + (distribute % nThreads_))
+               distribute++;
+         }
+      }
+      else
+      {
+         if (ssh.keyLength_ == SUBSSHDB_PREFIX_MIN + (distribute % nThreads_))
+            distribute++;
       }
 
       ++iter;

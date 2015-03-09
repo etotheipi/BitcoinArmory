@@ -403,6 +403,7 @@ struct DataToCommit
    void serializeDataToCommit(shared_ptr<BlockWriteBatcher> bwb);
 
    void putSSH();
+   void putSubSSH(uint32_t keyLength);
    void putSTX();
    void deleteEmptyKeys();
    void updateSDBI();
