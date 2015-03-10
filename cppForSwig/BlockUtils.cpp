@@ -1412,6 +1412,7 @@ void BlockDataManager_LevelDB::loadDiskState(
          checkFrom--;
 
       {
+         LOGINFO << "Checking dupIDs from " << checkFrom << " onward";
          uint8_t dupId;
          uint32_t currentTop = blockchain_.top().getBlockHeight();
          LMDBEnv::Transaction blktx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
