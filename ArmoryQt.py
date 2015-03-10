@@ -1940,14 +1940,14 @@ class ArmoryMainWindow(QMainWindow):
    def processAlerts(self):
       # display to the user any alerts that came in through the bitcoin
       # network
-      factory = self.getSingletonConnectedNetworkingFactory()
-      armoryClient = factory.proto
+      factory = self.NetworkingFactory
+      armoryClient = factory.getProto()
       if armoryClient is None:
          return
-      alerts = factory.proto.alerts
+      alerts = armoryClient.alerts
       
       try:
-         peerInfo = self.NetworkingFactory.proto.peerInfo
+         peerInfo = armoryClient.peerInfo
       except: 
          LOGERROR("failed to process alerts from bitcoind")
          return
@@ -2071,13 +2071,16 @@ class ArmoryMainWindow(QMainWindow):
                   return
 
                # This is to detect the running versions of Bitcoin-Qt/bitcoind
-               thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
-               thisVerStr = thisVerStr.strip('/').split(':')[-1]
+               if self.NetworkingFactory.getProto():
+                  thisVerStr = self.NetworkingFactory.getProto().peerInfo['subver']
+                  thisVerStr = thisVerStr.strip('/').split(':')[-1]
 
-               if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
+                  if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
+                     return
+   
+                  self.satoshiVersions[0] = thisVerStr
+               else:
                   return
-
-               self.satoshiVersions[0] = thisVerStr
 
             except:
                pass
