@@ -1,5 +1,5 @@
 # zip is currently broken. Add it back to packages when it is fixed.
-packages:=openssl psutil pyqt5 python3 rsync sip swig twisted zope.interface
+packages:=gcc gmp mpc mpfr openssl psutil pyqt5 python3 rsync sip swig twisted zope.interface
 
 qt_native_packages = native_protobuf
 qt_packages = qrencode protobuf
