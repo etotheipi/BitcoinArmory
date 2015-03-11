@@ -2291,8 +2291,23 @@ def unpackVarInt(hvi):
    else: assert(False)
 
 
+#############################################################################
+##### VARSTR #####
+def getTotalVarStrBytes(inVarStr):
+   totLen = len(inVarStr)
+   if totLen < '\xfd':
+      totLen += 1
+   elif totLen <= 65535:
+      totLen += 3
+   elif totLen <= 4294967295:
+      totLen += 5
+   else:
+      totLen += 9
+
+   return totLen
 
 
+#############################################################################
 def fixChecksumError(binaryStr, chksum, hashFunc=hash256):
    """
    Will only try to correct one byte, as that would be the most

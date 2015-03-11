@@ -1,0 +1,102 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
+This DNSSEC/DANE code is meant to be a proof of concept of an in-progress
+project. The code will continue to shift over time.
+
+The getdns API (http://www.vpnc.org/getdns-api/) has a reference implementation
+(https://github.com/getdnsapi/getdns) and reference Python bindings
+(https://github.com/getdnsapi/getdns-python-bindings) used to create an
+easy-to-use API that provides access to DNS and DNSSEC. The following is an
+in-order list of the material one will need to get both the getdns reference
+code and the getdns Python bindings to work. The directions given may not be
+needed for everybody; they're for people building everything from source. (Linux
+distros may already have some libraries built in or offered in pre-built
+packages.) In addition, some of the libraries may require extra packages. This
+file may be missing some of the packages! 
+
+1)libtool  (https://www.gnu.org/software/libtool/)
+-Binaries are required by Expat - Can just install a pre-built package
+
+2)makeinfo  (https://www.gnu.org/software/texinfo/)
+-Binaries are required by libcheck - Can just install a pre-built package
+-Package will probably be the "texinfo" package
+
+3)libexpat  (http://expat.sourceforge.net/)
+-Run buildconf.sh if you did a CVS checkout
+-./configure
+-make
+-sudo make install
+
+4)libcheck  (http://check.sourceforge.net/)
+Optional - Used only to run getdns tests
+-./configure
+-make
+-make check
+-sudo make install
+
+5)OpenSSL  (https://www.openssl.org/)
+-If building your own OpenSSL, placing everything in /usr/local instead of
+ /usr/local/ssl may make things go more smoothly later.
+-CFLAGS="-fPIC"
+-./config shared no-idea
+-make depend
+-make
+-make test
+-sudo make install
+
+6)libidn  (https://www.gnu.org/software/libidn/)
+-./configure
+-make
+-make install
+
+7)libevent  (http://libevent.org/)
+-buildconf.sh ONLY if you did a CVS checkout
+-./configure
+-./make
+-./sudo make install
+
+8)ldns  (https://www.nlnetlabs.nl/projects/ldns/)
+-./configure --with-examples --with-drill
+-make
+-sudo make install
+
+9)libunbound  (https://unbound.net/)
+-autogen.sh ONLY if you did a Git checkout
+-./configure --with-ldns --with-libevent --with-ssl
+-make
+-make test
+-sudo make install
+
+10)Run "sudo ldconfig"  (Needed for getdns tests)
+
+11)getdns  (https://github.com/getdnsapi/getdns)
+-autoreconf --install
+-./configure --with-libevent
+-make CFLAGS="-I/usr/local/include -I/usr/local/include -I/usr/local/include -I/usr/local/ssl/include -I."
+-make test CFLAGS="-I/usr/local/include -I/usr/local/include -I/usr/local/include -I/usr/local/ssl/include -I../"
+-sudo make install
+-mkdir /etc/unbound
+-unbound-anchor -a "/etc/unbound/getdns-root.key"
+
+12)Run "sudo ldconfig"  (Possibly needed for getdns Python bindings)
+
+13)setuptools  (https://pypi.python.org/pypi/setuptools)
+-Optional - Required by the optional "M2Crypto" Python package
+-wget https://bootstrap.pypa.io/ez_setup.py -O - | sudo python
+
+14)M2Crypto  (http://chandlerproject.org/Projects/MeTooCrypto - https://github.com/martinpaljak/M2Crypto)
+-Edit setup.py such that "opensslIncludeDir" & "opensslLibraryDir" point to the
+ correct directories.
+-sudo python setup.py install
+
+15)getdns-python-bindings  (https://github.com/getdnsapi/getdns-python-bindings)
+-Download the "develop" branch from Github.
+-If OpenSSL was compiled from source, edit setup.py such that
+ "include_dirs = [ '/usr/local/include', '/usr/local/ssl/include' ],"
+-sudo python setup.py install

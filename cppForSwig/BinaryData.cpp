@@ -223,4 +223,14 @@ bool BinaryData::operator==(BinaryDataRef const & bd2) const
 }
 
 
+// XOR all bytes in BinaryData with a given byte.
+/////////////////////////////////////////////////////////////////////////////
+BinaryData BinaryData::XOR(uint8_t xorValue) {
+   BinaryData xorOut = copy();
+   size_t xorSize = getSize();
+   for(size_t x = 0; x < xorSize; ++x) {
+      xorOut[x] ^= xorValue;
+   }
 
+   return xorOut;
+}
