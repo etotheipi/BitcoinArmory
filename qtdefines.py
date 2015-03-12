@@ -756,6 +756,8 @@ class ArmoryDialog(QDialog):
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
 
+      self.setAttribute(Qt.WA_DeleteOnClose)
+
       if USE_TESTNET:
          self.setWindowTitle(tr('Armory - Bitcoin Wallet Management [TESTNET] ' + self.__class__.__name__))
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))

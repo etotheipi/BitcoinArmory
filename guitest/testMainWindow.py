@@ -1,10 +1,11 @@
 import sys
+import time
 
-from ldtp import objectexist
+from ldtp import objectexist, click, getobjectlist, guiexist
 from unittest import TestCase
 
-
-MAIN_WINDOW = "dlgArmory*dlgMain"
+# main window and ui items
+WINDOW_MAIN = "dlgArmory*dlgMain"
 
 # buttons on left-hand side
 BTN_SENDBITCOINS = "btnSendBitcoins"
@@ -82,16 +83,60 @@ BTN_IMPORTORRESTOREWALLET = "btnImportorRestoreWallet"
 
 WALLET_BUTTONS = [BTN_CREATEWALLET, BTN_IMPORTORRESTOREWALLET,]
 
+# send bitcoins window and ui items
+WINDOW_SENDBITCOINS = "*DlgSendBitcoins"
+
+BTN_CANCEL = "btnCancel"
+BTN_SEND = "btnSend!"
+
+SEND_BUTTONS = [BTN_CANCEL, BTN_SEND]
+
+# receive bitcoins window and ui items
+WINDOW_SELECTWALLET = "dlgSelectWallet"
+
+BTN_OK = "btnOK"
+
+WALLET_SELECT_BUTTONS = [BTN_CANCEL, BTN_OK]
+
+def cl(window, obj):
+    try:
+        # this causes an error, but we don't care
+        click(window, obj)
+    except:
+        pass
+
+
 class GuiTest(TestCase):
 
     def testLeftHandButtons(self):
+        # check that buttons exist (note Lockboxes button not checked)
         for button in LEFT_HAND_BUTTONS:
-            self.assertTrue(objectexist(MAIN_WINDOW, button))
+            self.assertTrue(objectexist(WINDOW_MAIN, button))
+
+    def testSendBitcoinsButton(self):
+        cl(WINDOW_MAIN, BTN_SENDBITCOINS)
+        for button in SEND_BUTTONS:
+            self.assertTrue(objectexist(WINDOW_SENDBITCOINS, button))
+
+        # close this window
+        cl(WINDOW_SENDBITCOINS, BTN_CANCEL)
+        self.assertTrue(not guiexist(WINDOW_SENDBITCOINS))
+
+    def testReceiveBitcoinsButton(self):
+        cl(WINDOW_MAIN, BTN_RECEIVEBITCOINS)
+        for button in WALLET_SELECT_BUTTONS:
+            self.assertTrue(objectexist(WINDOW_SELECTWALLET, button))
+
+        # close this window
+        cl(WINDOW_SELECTWALLET, BTN_CANCEL)
+        self.assertTrue(not guiexist(WINDOW_SELECTWALLET))
+        
 
     def testMenuItems(self):
         for item in MENU_ITEMS:
-            self.assertTrue(objectexist(MAIN_WINDOW, item))
+            self.assertTrue(objectexist(WINDOW_MAIN, item))
 
     def testWalletButtons(self):
         for button in WALLET_BUTTONS:
-            self.assertTrue(objectexist(MAIN_WINDOW, button))
+            self.assertTrue(objectexist(WINDOW_MAIN, button))
+
