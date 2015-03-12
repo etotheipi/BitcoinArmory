@@ -1940,6 +1940,10 @@ class ArmoryMainWindow(QMainWindow):
    def processAlerts(self):
       # display to the user any alerts that came in through the bitcoin
       # network
+      
+      if self.NetworkingFactory == None:
+         return
+      
       factory = self.NetworkingFactory
       armoryClient = factory.getProto()
       if armoryClient is None:
