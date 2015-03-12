@@ -1797,6 +1797,8 @@ def RightNowStr(fmt=DEFAULT_DATE_FORMAT):
 # UPDATE:  mini-private-key format requires vanilla sha256...
 def sha1(bits):
    return hashlib.new('sha1', bits).digest()
+def sha224(bits):
+   return hashlib.new('sha224', bits).digest()
 def sha256(bits):
    return hashlib.new('sha256', bits).digest()
 def sha512(bits):
@@ -2436,22 +2438,6 @@ def unpackVarInt(hvi):
    elif code == 0xfe: return [unpack('<I',hvi[1:5])[0], 5]
    elif code == 0xff: return [unpack('<Q',hvi[1:9])[0], 9]
    else: assert(False)
-
-
-#############################################################################
-##### VARSTR #####
-def getTotalVarStrBytes(inVarStr):
-   totLen = len(inVarStr)
-   if totLen < '\xfd':
-      totLen += 1
-   elif totLen <= 65535:
-      totLen += 3
-   elif totLen <= 4294967295:
-      totLen += 5
-   else:
-      totLen += 9
-
-   return totLen
 
 
 #############################################################################

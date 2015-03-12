@@ -524,6 +524,39 @@ class ExternalPublicKeySource(object):
 
 
 ################################################################################
+def getP2PKHStr(useActualKeyHash, keyData=None):
+   # Need to make this code more robust. Check input data & input length, have
+   # an error condition, etc.
+   templateStrKeyData = '\xff\x01'
+   if useActualKeyHash == True and keyData != None:
+      templateStrKeyData = keyData
+
+   templateStr  = ''
+   templateStr += getOpCode('OP_DUP')
+   templateStr += getOpCode('OP_HASH160')
+   templateStr += templateStrKeyData
+   templateStr += getOpCode('OP_EQUALVERIFY')
+   templateStr += getOpCode('OP_CHECKSIG')
+
+   return templateStr
+
+
+################################################################################
+def getP2PKStr(useActualKey, keyData=None):
+   # Need to make this code more robust. Check input data & input length, have
+   # an error condition, etc.
+   templateStrKeyData = '\xff\x01'
+   if useActualKey == True and keyData != None:
+      templateStrKeyData = keyData
+
+   templateStr  = ''
+   templateStr += templateStrKeyData
+   templateStr += getOpCode('OP_CHECKSIG')
+
+   return templateStr
+
+
+################################################################################
 class ConstructedScript(object):
    """
    This defines a script template that will be used, in conjunction with a
@@ -660,12 +693,7 @@ class ConstructedScript(object):
       if not len(binRootPubKey) in [33,65]:
          raise KeyDataError('Invalid pubkey;  length=%d' % len(binRootPubKey))
 
-      templateStr  = ''
-      templateStr += getOpCode('OP_DUP')
-      templateStr += getOpCode('OP_HASH160')
-      templateStr += '\xff\x01'
-      templateStr += getOpCode('OP_EQUALVERIFY')
-      templateStr += getOpCode('OP_CHECKSIG')
+      templateStr = getP2PKHStr(False)
 
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
@@ -689,9 +717,7 @@ class ConstructedScript(object):
       if not len(binRootPubKey) in [33,65]:
          raise KeyDataError('Invalid pubkey;  length=%d' % len(binRootPubKey))
 
-      templateStr  = ''
-      templateStr += '\xff\x01'
-      templateStr += getOpCode('OP_CHECKSIG')
+      templateStr = getP2PKStr(False)
 
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
@@ -1017,7 +1043,8 @@ class PaymentRequest(object):
                    daneReqNames       = [VAR_STR],
                    srpLists           = [VAR_STR],
                    ver                = int)
-   def initialize(self, unvalidatedScripts, daneReqNames, srpLists, ver=None):
+   def initialize(self, unvalidatedScripts, daneReqNames, srpLists,
+                  ver=BTCAID_PR_VERSION):
       """
       Set all PR values.
       """
@@ -1028,11 +1055,11 @@ class PaymentRequest(object):
       self.daneReqNames       = daneReqNames
       self.srpLists           = srpLists
       for x in unvalidatedScripts:
-         self.reqSize += getTotalVarStrBytes(x)
+         self.reqSize += len(x)
       for y in daneReqNames:
-         self.reqSize += getTotalVarStrBytes(y)
+         self.reqSize += len(y)
       for z in srpLists:
-         self.reqSize += getTotalVarStrBytes(z)
+         self.reqSize += len(z)
 
 
    #############################################################################
@@ -1051,11 +1078,11 @@ class PaymentRequest(object):
       bp.put(VAR_INT, self.numTxOutScripts, width=3)
       bp.put(VAR_INT, self.reqSize, width=3)
       for scriptItem in self.unvalidatedScripts:
-         bp.put(VAR_STR, scriptItem)
+         bp.put(BINARY_CHUNK, scriptItem)
       for daneItem in self.daneReqNames:
-         bp.put(VAR_STR, daneItem)
+         bp.put(BINARY_CHUNK, daneItem)
       for srpItem in self.srpLists:
-         bp.put(VAR_STR, srpItem)
+         bp.put(BINARY_CHUNK, srpItem)
 
       return bp.getBinaryString()
 
