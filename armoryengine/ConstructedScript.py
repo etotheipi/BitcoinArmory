@@ -177,7 +177,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
 
    # Sanity check the inputs
    if not len(startPubKey)==33 or not startPubKey[0] in ['\x02','\x03']:
-      raise KeyDataError('Input public key is a valid format')
+      raise KeyDataError('Input public key is not in a valid format')
 
    if not len(binChaincode)==32:
       raise KeyDataError('Chaincode must be 32 bytes')
@@ -213,6 +213,57 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
                                 multList=binMultList)
 
    return finalPubKey, proofObject
+
+
+################################################################################
+def DeriveBip32PrivateKey(startPriKey, binChaincode, indexList):
+   """
+   We will actually avoid using the higher level ArmoryKeyPair (AKP) objects
+   for now, as they do a ton of extra stuff we don't need for this.  We go
+   a bit lower-level and talk to CppBlockUtils.HDWalletCrypto directly.
+
+   Inputs:
+      startPriKey:   python string, 33-byte private key
+      binChaincode:  python string, 32-byte chaincode
+      indexList:     python list of UINT32s
+
+   Output: finalPriKey
+
+      finalPubKey:   pyton string:  33-byte private key
+
+   Note that an error will be thrown if any items in the index list correspond
+   to a hardened derivation.  We need this proof to be generatable strictly
+   from public key material.
+   """
+
+   # Sanity check the inputs
+   if not len(startPriKey)==33 or not startPriKey[0] in ['\x00']:
+      raise KeyDataError('Input private key is a valid format')
+
+   if not len(binChaincode)==32:
+      raise KeyDataError('Chaincode must be 32 bytes')
+
+   # Crypto-related code uses SecureBinaryData and Cpp.ExtendedKey objects
+   sbdPrivateKey = SecureBinaryData(startPriKey)
+   sbdChainCode  = SecureBinaryData(binChaincode)
+   extPriKeyObj  = Cpp.ExtendedKey(sbdPrivateKey, sbdChainCode)
+
+   # Prepare the output multiplier list
+   binMultList = []
+
+   # Derive the children. Maybe use MultiplierProof later and merge?
+   for childIndex in indexList:
+      if (childIndex & 0x80000000) > 0:
+         raise ChildDeriveError('Cannot generate proofs along hardened paths')
+
+      # Pass in a NULL SecureBinaryData object as a reference
+      sbdMultiplier = NULLSBD()
+
+      # Computes the child and emits the multiplier via the last arg
+      extPriKeyObj = Cpp.HDWalletCrypto().childKeyDeriv(extPriKeyObj,
+                                                        childIndex)
+
+   return extPriKeyObj.getKey().toBinStr()
 
 
 ################################################################################
