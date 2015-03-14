@@ -18,16 +18,19 @@ code and the getdns Python bindings to work. The directions given may not be
 needed for everybody; they're for people building everything from source. (Linux
 distros may already have some libraries built in or offered in pre-built
 packages.) In addition, some of the libraries may require extra packages. This
-file may be missing some of the packages! 
+file may be missing some of the packages!
 
 1)libtool  (https://www.gnu.org/software/libtool/)
+Ubuntu package: libtool
 -Binaries are required by Expat - Can just install a pre-built package
 
 2)makeinfo  (https://www.gnu.org/software/texinfo/)
+Ubuntu package: texinfo
 -Binaries are required by libcheck - Can just install a pre-built package
--Package will probably be the "texinfo" package
 
 3)libexpat  (http://expat.sourceforge.net/)
+Ubuntu package: libexpat1
+OR
 -Run buildconf.sh if you did a CVS checkout
 -./configure
 -make
@@ -35,12 +38,15 @@ file may be missing some of the packages!
 
 4)libcheck  (http://check.sourceforge.net/)
 Optional - Used only to run getdns tests
+Ubuntu package: None
 -./configure
 -make
 -make check
 -sudo make install
 
 5)OpenSSL  (https://www.openssl.org/)
+Ubuntu package: openssl
+OR
 -If building your own OpenSSL, placing everything in /usr/local instead of
  /usr/local/ssl may make things go more smoothly later.
 -CFLAGS="-fPIC"
@@ -51,22 +57,29 @@ Optional - Used only to run getdns tests
 -sudo make install
 
 6)libidn  (https://www.gnu.org/software/libidn/)
+Ubuntu package: None
 -./configure
 -make
 -make install
 
 7)libevent  (http://libevent.org/)
+Ubuntu package: libevent-dev
+OR
 -buildconf.sh ONLY if you did a CVS checkout
 -./configure
 -./make
 -./sudo make install
 
 8)ldns  (https://www.nlnetlabs.nl/projects/ldns/)
+Ubuntu package: libldns-dev
+OR
 -./configure --with-examples --with-drill
 -make
 -sudo make install
 
 9)libunbound  (https://unbound.net/)
+Ubuntu package: libunbound-dev
+OR
 -autogen.sh ONLY if you did a Git checkout
 -./configure --with-ldns --with-libevent --with-ssl
 -make
@@ -76,27 +89,41 @@ Optional - Used only to run getdns tests
 10)Run "sudo ldconfig"  (Needed for getdns tests)
 
 11)getdns  (https://github.com/getdnsapi/getdns)
+Ubuntu package (as of 15.04): getdns
+OR
 -autoreconf --install
 -./configure --with-libevent
 -make CFLAGS="-I/usr/local/include -I/usr/local/include -I/usr/local/include -I/usr/local/ssl/include -I."
 -make test CFLAGS="-I/usr/local/include -I/usr/local/include -I/usr/local/include -I/usr/local/ssl/include -I../"
 -sudo make install
--mkdir /etc/unbound
--unbound-anchor -a "/etc/unbound/getdns-root.key"
 
-12)Run "sudo ldconfig"  (Possibly needed for getdns Python bindings)
+12)unbound-anchor  (https://www.unbound.net/documentation/unbound-anchor.html)
+Ubuntu package: unbound-anchor
+-Binaries are required by getdns in order to support DNSSEC - Can just install a
+ pre-built package
+-sudo mkdir /etc/unbound
+-sudo unbound-anchor -a "/etc/unbound/getdns-root.key"
 
-13)setuptools  (https://pypi.python.org/pypi/setuptools)
+13)Run "sudo ldconfig"  (Possibly needed for getdns Python bindings)
+
+14)setuptools  (https://pypi.python.org/pypi/setuptools)
+Ubuntu package: python-setuptools
+OR
 -Optional - Required by the optional "M2Crypto" Python package
 -wget https://bootstrap.pypa.io/ez_setup.py -O - | sudo python
 
-14)M2Crypto  (http://chandlerproject.org/Projects/MeTooCrypto - https://github.com/martinpaljak/M2Crypto)
+15)M2Crypto  (http://chandlerproject.org/Projects/MeTooCrypto - https://github.com/martinpaljak/M2Crypto)
+Ubuntu package: python-m2crypto
+OR
 -Edit setup.py such that "opensslIncludeDir" & "opensslLibraryDir" point to the
  correct directories.
 -sudo python setup.py install
 
-15)getdns-python-bindings  (https://github.com/getdnsapi/getdns-python-bindings)
+16)getdns-python-bindings  (https://github.com/getdnsapi/getdns-python-bindings)
+Ubuntu package: None
 -Download the "develop" branch from Github.
 -If OpenSSL was compiled from source, edit setup.py such that
  "include_dirs = [ '/usr/local/include', '/usr/local/ssl/include' ],"
 -sudo python setup.py install
+-If compilation fails, download the "v0.1.3" branch from Github and repeat the
+ previous compilation instructions.
