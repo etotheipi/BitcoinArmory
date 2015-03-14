@@ -69,7 +69,14 @@ static void createUndoDataFromBlock(
          iface->getStoredTx(prevStx, prevHash);
          if (KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
          {
-            throw runtime_error("Cannot get undo data for block because not full!");
+            if (iface->armoryDbType() == ARMORY_DB_SUPER)
+               throw runtime_error("Cannot get undo data for block because not full!");
+            else
+            {
+               LOGWARN << "Cannot get undo data for block because not full! "
+                  "Ignore this warning in fullnode";
+               continue;
+            }
          }
 
          // 

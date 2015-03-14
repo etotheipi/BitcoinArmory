@@ -7494,6 +7494,77 @@ TEST_F(BlockDir, HeadersFirstUpdate)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockDir, HeadersFirstReorg)
+{
+   BlockDataManagerConfig config;
+   config.armoryDbType = ARMORY_DB_BARE;
+   config.pruneType = DB_PRUNE_NONE;
+   config.blkFileLocation = blkdir_;
+   config.levelDBLocation = ldbdir_;
+
+   config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
+   config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+   config.magicBytes = READHEX(MAINNET_MAGIC_BYTES);
+
+   setBlocks({ "0", "1"}, blk0dat_);
+
+   BlockDataManager_LevelDB bdm(config);
+   bdm.openDatabase();
+   
+   const std::vector<BinaryData> scraddrs
+   {
+      TestChain::scrAddrA,
+      TestChain::scrAddrB,
+      TestChain::scrAddrC
+   };
+
+   BlockDataViewer bdv(&bdm);
+   BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
+
+   bdm.doInitialSyncOnLoad(nullProgress);
+
+   bdv.scanWallets();
+
+   appendBlocks({ "4A" }, blk0dat_);
+   appendBlocks({ "3" }, blk0dat_);
+
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   appendBlocks({ "2" }, blk0dat_);
+   appendBlocks({ "5" }, blk0dat_);
+
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   appendBlocks({ "4" }, blk0dat_);
+
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   const ScrAddrObj *scrobj;
+
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[0]);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[1]);
+   EXPECT_EQ(scrobj->getFullBalance(), 70 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(scraddrs[2]);
+   EXPECT_EQ(scrobj->getFullBalance(), 20 * COIN);
+
+   appendBlocks({ "5A" }, blk0dat_);
+
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrobj->getFullBalance(), 50 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrobj->getFullBalance(), 30 * COIN);
+   scrobj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrobj->getFullBalance(), 55 * COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockDir, HeadersFirstUpdateTwice)
 {
    BlockDataManagerConfig config;
@@ -7506,7 +7577,6 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
    config.magicBytes = READHEX(MAINNET_MAGIC_BYTES);
       
-   // Put the first 5 blocks out of order
    setBlocks({ "0", "1", "2" }, blk0dat_);
    
    BlockDataManager_LevelDB bdm(config);
@@ -7547,8 +7617,6 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
    scrobj = wlt.getScrAddrObjByKey(scraddrs[2]);
    EXPECT_EQ(scrobj->getFullBalance(), 20*COIN);
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockDir, AddBlockWhileUpdating)
