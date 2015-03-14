@@ -7,7 +7,8 @@
 ################################################################################
 
 #from armoryengine.ArmoryUtils import binary_to_hex
-#import getdns
+import getdns
+from binascii import hexlify
 from armoryengine.ConstructedScript import PublicKeySource, ConstructedScript, \
    ScriptRelationshipProof, PublicKeyRelationshipProof, BTCAID_PR_VERSION, \
    BTCAID_PAYLOAD_TYPE
@@ -89,20 +90,45 @@ def validatePaymentRequest(inPayReq):
 #         PLACEHOLDER CODE)
 # OUTPUT: None
 # RETURN: An enum indicating the returned record type, and the returned record.
-def getDANERecord(daneRecName, desiredRecType):
+def getDANERecord(daneRecName, desiredRecType=None):
    retType = BTCAID_PAYLOAD_TYPE.InvalidRec
    retRec = None
 
-   # THIS CODE WILL BE REPLACED WITH PROPER DNS CODE EVENTUALLY!!!
+   # TO BE USED ONLY FOR TEST CASES!!!
    # For now, it returns a PKS or CS based on the second master pub key from the
    # BIP32 test vector. Any code that doesn't account for this will fail.
-   if desiredRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
-      retRec = PublicKeySource().unserialize(PKS1NoChksum_Comp_v0)
-      retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
-   elif desiredRecType == BTCAID_PAYLOAD_TYPE.ConstructedScript:
-      retRec = ConstructedScript().unserialize(CS1Chksum_Comp_v0)
-      retType = BTCAID_PAYLOAD_TYPE.ConstructedScript
+   if desiredRecType != None:
+      if desiredRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+         retRec = PublicKeySource().unserialize(PKS1NoChksum_Comp_v0)
+         retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
+      elif desiredRecType == BTCAID_PAYLOAD_TYPE.ConstructedScript:
+         retRec = ConstructedScript().unserialize(CS1Chksum_Comp_v0)
+         retType = BTCAID_PAYLOAD_TYPE.ConstructedScript
+      else:
+         LOGERROR('Wrong BTCA record type requested.')
+
    else:
-      print 'Wrong BTCA record type requested.'
+      # Assume PMTA record type = 65337
+      GETDNS_RRTYPE_PMTA = 65337
+
+      # Go out and grab the record that we're querying.
+      ctx = getdns.Context()
+      #extensions = { "dnssec_return_only_secure": getdns.GETDNS_EXTENSION_TRUE }
+      results = ctx.general(name = daneRecName, request_type = GETDNS_RRTYPE_PMTA)
+      status = results['status']
+
+      # Deep dive to extract the data we want.
+      daneRec = None
+      if status == getdns.GETDNS_RESPSTATUS_GOOD:
+         for reply in results['replies_tree']:
+            for rr in reply['answer']:
+               if rr['type'] == GETDNS_RRTYPE_PMTA:
+                  # HACK HACK HACK: Rec type & format are set for a demo.
+                  # Must fix later!!!
+                  rdata = rr['rdata']
+                  retRec = rdata['rdata_raw']
+                  retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
+      else:
+         LOGERROR("getdns: failed looking up PMTA record, code: %d" % status)
 
    return retType, retRec
