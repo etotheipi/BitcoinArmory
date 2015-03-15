@@ -4,7 +4,7 @@ $(package)_version=1.8.6
 $(package)_download_path=http://dbus.freedesktop.org/releases/dbus
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=eded83ca007b719f32761e60fd8b9ffd0f5796a4caf455b01b5a5ef740ebd23f
-$(package)_dependencies=expat
+$(package)_dependencies=expat gcc
 
 define $(package)_set_vars
   $(package)_config_opts=--disable-tests --disable-doxygen-docs --disable-xml-docs --disable-static --without-x
