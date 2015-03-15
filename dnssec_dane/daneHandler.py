@@ -113,9 +113,12 @@ def getDANERecord(daneRecName, desiredRecType=None):
       GETDNS_RRTYPE_PMTA = 65337
 
       # Go out and grab the record that we're querying.
+      # HACK: Force DNSSEC to be used. Need a flag to determine if it's used.
       ctx = getdns.Context()
-      #extensions = { "dnssec_return_only_secure": getdns.GETDNS_EXTENSION_TRUE }
-      results = ctx.general(name = daneRecName, request_type = GETDNS_RRTYPE_PMTA)
+      extensions = { "dnssec_return_only_secure": getdns.GETDNS_EXTENSION_TRUE }
+      results = ctx.general(name = daneRecName,
+                            request_type = GETDNS_RRTYPE_PMTA,
+                            extensions=extensions)
       status = results['status']
 
       # Deep dive to extract the data we want.
