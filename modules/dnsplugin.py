@@ -65,8 +65,6 @@ class PluginObject(object):
                                     makeHorizFrame([self.btnFetch, self.btnClear, 'Stretch']),
                                     'Stretch'])
 
-
-
       # Now set the scrollarea widget to the layout
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
@@ -79,6 +77,7 @@ class PluginObject(object):
 
 
    #############################################################################
+   # Code lifted from armoryd. Need to place in a common space one day....
    def fetchPMTA(self):
       self.lblResult.setText('')
       inAddr = str(self.edtPayWho.text())
@@ -96,9 +95,12 @@ class PluginObject(object):
          # has a Hash160 value.
          pksRec = PublicKeySource().unserialize(daneRec)
 
-         # Convert Hash160 to Bitcoin address.
-         if daneRec != None:
+         # Convert Hash160 to Bitcoin address. Make sure we get a PKS, which we
+         # won't if the checksum fails.
+         if daneRec != None and pksRec != None:
             userAddr = hash160_to_addrStr(pksRec.rawSource, ADDRBYTE)
+         else:
+            raise InvalidDANESearchParam('PKS record is invalid.')
 
          self.lblResult.setText('Found static Public Key Source: %s' % userAddr)
       else:
@@ -107,19 +109,32 @@ class PluginObject(object):
 
 
       result = MsgBoxCustom(MSGBOX.Good, 'Found PMTA Record', tr("""
-            Found static Public Key Source: 
-            <br><br>
-            %s
-            <br><br>
-            Would you like to create a payment to this address?""") % userAddr,
-            wCancel=True, yesStr='Create Payment')
-
+         Found static address from Public Key Source record: 
+         <br><br>
+         %s
+         <br><br>
+         Raw Record Data: %s<br>
+         PKS Version: %d<br>
+         isStatic: %d<br>
+         useComp: %d<br>
+         hash160: %d<br>
+         isStealth: %d<br>
+         isUserKey: %d<br>
+         isExtSrc: %d<br>
+         isChksumPres: %d<br>
+         Hash160 value: %s<br>
+         Checksum Value: %s
+         <br><br>
+         Would you like to create a payment to this address?""") %
+         (userAddr, binary_to_hex(pksRec.serialize()), pksRec.version,
+          pksRec.isStatic, len(pksRec.rawSource)==33, pksRec.useHash160,
+          pksRec.isStealth, pksRec.isUserKey, pksRec.isExternalSrc,
+          pksRec.isChksumPresent, binary_to_hex(pksRec.rawSource),
+          binary_to_hex(pksRec.serialize()[-4:])),
+         wCancel=True, yesStr='Create Payment')
 
       if result:
          firstWlt = self.main.walletMap[self.main.walletMap.keys()[0]]
          DlgSendBitcoins(firstWlt, self.main, self.main, {'address': userAddr}).exec_()
-         
 
       return userAddr
-
-      
