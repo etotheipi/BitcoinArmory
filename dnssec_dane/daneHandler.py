@@ -9,6 +9,7 @@
 #from armoryengine.ArmoryUtils import binary_to_hex
 import getdns
 from binascii import hexlify
+from armoryengine.ArmoryUtils import LOGERROR
 from armoryengine.ConstructedScript import PublicKeySource, ConstructedScript, \
    ScriptRelationshipProof, PublicKeyRelationshipProof, BTCAID_PR_VERSION, \
    BTCAID_PAYLOAD_TYPE
