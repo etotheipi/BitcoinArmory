@@ -96,7 +96,6 @@ import decimal
 from inspect import *
 import json
 import sys
-from jasvet import hash_160_to_bc_address
 import getdns
 
 from twisted.cred.checkers import FilePasswordDB
@@ -292,12 +291,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # has a Hash160 value.
          pksRec = PublicKeySource().unserialize(daneRec)
 
-         # Convert Hash160 to Bitcoin address. 
-         verByte = 0
-         if USE_TESTNET:
-            verByte = 111
+         # Convert Hash160 to Bitcoin address.
          if daneRec != None:
-            userAddr = hash_160_to_bc_address(pksRec.rawSource, verByte)
+            userAddr = hash160_to_addrStr(pksRec.rawSource, ADDRBYTE)
 
       else:
          raise InvalidDANESearchParam(inAddr + " has no DANE record")

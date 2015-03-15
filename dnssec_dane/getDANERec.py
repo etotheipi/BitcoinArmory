@@ -3,11 +3,10 @@ import sys
 import getdns
 from binascii import hexlify
 sys.path.append("..")
-from jasvet import hash_160_to_bc_address
-from armoryengine.ArmoryUtils import sha224, binary_to_hex
+from armoryengine.ArmoryUtils import sha224, binary_to_hex, hash160_to_addrStr
 
 # ROUGH CODE!!! When making more robust, search for "assume" and fix any & all
-# assumptions.
+# assumptions. Search for "Python 3" too.
 
 # Assume PMTA record type = 65337
 GETDNS_RRTYPE_PMTA = 65337
@@ -35,6 +34,7 @@ if status == getdns.GETDNS_RESPSTATUS_GOOD:
    for reply in results['replies_tree']:
       for rr in reply['answer']:
          if rr['type'] == 65337:
+            # NB: Can switch hexlify() to binary_to_hex() after Python 3 upgrade
             rdata = rr['rdata']
             print 'Extracted record = %s' % hexlify(rdata['rdata_raw'])
             daneRec = rdata['rdata_raw']
@@ -45,15 +45,14 @@ else:
 
 # Convert Hash160 to Bitcoin address. Assume record is a PKS record that's
 # static and has a Hash160 value.
-verByte = 0
+verByte = '\x00'
 if sys.argv[2].lower() == 't':
-   verByte = 111
+   verByte = '\x6f'
 elif sys.argv[2].lower() != 'm':
    print 'Oops! Format is getDaneRec <email address> <M=Mainnet, T=Testnet>'
    sys.exit(0)
 
 userAddr = ''
 if daneRec != None:
-   userAddr = hash_160_to_bc_address(daneRec[4:24], verByte)
+   userAddr = hash160_to_addrStr(daneRec[4:24], verByte)
    print '%s has a Bitcoin address - %s' % (sys.argv[1], userAddr)
-   
