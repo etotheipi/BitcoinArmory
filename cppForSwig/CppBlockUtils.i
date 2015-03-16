@@ -109,6 +109,11 @@ namespace std
    $result = PyString_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
 }
 
+/* Convert C++(const BinaryDataRef) to Python(str) */
+%typemap(out) const BinaryDataRef
+{
+   $result = PyString_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
+}
 /******************************************************************************/
 /*
 // Convert Python(str) to C++(BinaryData const &) 

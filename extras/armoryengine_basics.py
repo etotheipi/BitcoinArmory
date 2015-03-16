@@ -1,7 +1,7 @@
 #! /usr/bin/python
 import sys
 sys.path.append('..')
-from armoryengine import *
+from armoryengine.All import *
 
 # Integer/Hex/Binary/Base58 Conversions
 print '\nInteger/Hex/Binary/Base58 Conversions'
