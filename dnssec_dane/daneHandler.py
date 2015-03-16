@@ -132,8 +132,27 @@ def getDANERecord(daneRecName, desiredRecType=None):
                   # HACK HACK HACK: Rec type & format are set for a demo.
                   # Must fix later!!!
                   rdata = rr['rdata']
+                  print 'DEBUG: PMTAname=%s' % rr['name']
+                  print 'DEBUG: type=%d' % rr['type']
+                  print 'DEBUG: class=%d' % rr['class']
+                  print 'DEBUG: rdata_raw=%s\n\n' % hexlify(rdata['rdata_raw'])
                   retRec = rdata['rdata_raw']
                   retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
+               elif rr['type'] == getdns.GETDNS_RRTYPE_RRSIG:
+                  rdata = rr['rdata']
+                  print 'DEBUG: name=%s' % rr['name']
+                  print 'DEBUG: type=%d' % rr['type']
+                  print 'DEBUG: class=%d' % rr['class']
+                  print 'DEBUG: signers_name=%s' % rdata['signers_name']
+                  print 'DEBUG: signature_expiration=%s' % rdata['signature_expiration']                  
+                  print 'DEBUG: algorithm=%d' % rdata['algorithm']
+                  print 'DEBUG: type_covered=%d' % rdata['type_covered']
+                  print 'DEBUG: labels=%d' % rdata['labels']
+                  print 'DEBUG: key_tag=%d' % rdata['key_tag']
+                  print 'DEBUG: original_ttl=%d' % rdata['original_ttl']
+                  print 'DEBUG: signature=%s' % hexlify(rdata['signature'])
+                  print 'DEBUG: signature_inception=%d' % rdata['signature_inception']
+                  print 'DEBUG: rdata_raw=%s\n\n' % hexlify(rdata['rdata_raw'])
       else:
          LOGERROR("getdns: failed looking up PMTA record, code: %d" % status)
 
