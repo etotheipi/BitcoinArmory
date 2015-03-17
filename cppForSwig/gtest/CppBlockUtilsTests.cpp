@@ -21,6 +21,9 @@
 #include "../reorgTest/blkdata.h"
 #include "../txio.h"
 
+#include <thread>
+
+
 #ifdef _MSC_VER
    #ifdef mlock
       #undef mlock
@@ -9825,21 +9828,198 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsSuper, Load4BlocksPlus1)
+TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
-   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+   setBlocks({ "0", "1", "2"}, blk0dat_);
    TheBDM.doInitialSyncOnLoad(nullProgress);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
 
-   appendBlocks({ "4", "5" }, blk0dat_);
+   appendBlocks({ "3"}, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   appendBlocks({ "5"}, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   delete theBDM;
+   theBDM = new BlockDataManager_LevelDB(config_);
+
+   theBDM->openDatabase();
+   iface_ = theBDM->getIFace();
+
+   theBDM->doInitialSyncOnLoad(nullProgress);
+
+   appendBlocks({ "4" }, blk0dat_);
+
    TheBDM.readBlkFileUpdate();
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrA);
+   EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 1);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
+   EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 14);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
+   EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 75 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 8);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
+   EXPECT_EQ(ssh.getScriptBalance(), 65 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 65 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 5);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 25 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 4);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 2);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsSuper, RepaidMissingTxio)
+{
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   setBlocks({ "0", "1", "2" }, blk0dat_);
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
+
+   appendBlocks({ "3" }, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   //grab a ssh and delete some utxos
+   StoredScriptHistory ssh;
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
+
+   for (auto& subssh : ssh.subHistMap_)
+   {
+      auto txioIter = subssh.second.txioMap_.begin();
+
+      while (txioIter != subssh.second.txioMap_.end())
+      {
+         if (txioIter->second.isUTXO() && 
+             !txioIter->second.isMultisig())
+         {
+            ssh.totalTxioCount_--;
+            ssh.totalUnspent_ -= txioIter->second.getValue();
+            subssh.second.txioMap_.erase(txioIter++);
+         }
+         else
+            ++txioIter;
+      }
+   }
+
+   //delete the keys
+   auto& delKeysThread = [&ssh, this](void)->void
+   { 
+      LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+
+      iface_->putStoredScriptHistory(ssh);
+   };
+
+   thread delKeysTID(delKeysThread);
+   delKeysTID.join();
+
+   appendBlocks({ "5" }, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   appendBlocks({ "4" }, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrA);
+   EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 1);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
+   EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 14);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
+   EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 75 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 8);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
+   EXPECT_EQ(ssh.getScriptBalance(), 65 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 65 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 5);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 25 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 4);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 2);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
