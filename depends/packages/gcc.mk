@@ -5,11 +5,11 @@ $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=3e573826ec8b0d62d47821408fbc58721cd020df3e594cd492508de487a43b5e
 $(package)_dependencies=gmp mpfr mpc
 $(package)_patches=30880.patch
-$(package)_cc=gcc
-$(package)_cxx=g++
-$(package)_ar=ar
-$(package)_nm=nm
-$(package)_ranlib=ranlib
+$(package)_cc=$(default_host_CC)
+$(package)_cxx=$(default_host_CXX)
+$(package)_ar=$(default_host_AR)
+$(package)_nm=$(default_host_NM)
+$(package)_ranlib=$(default_host_RANLIB)
 
 define $(package)_preprocess_cmds
   patch -p1 < $($(package)_patch_dir)/30880.patch
