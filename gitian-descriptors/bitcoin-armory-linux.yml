@@ -3,9 +3,9 @@ name: "bitcoin-armory-linux"
 suites:
 - "precise"
 architectures:
-- "i386"
 - "amd64"
 packages:
+- "clang-3.4"
 - "faketime"
 - "libcrypto++-dev"
 - "libleveldb-dev"
@@ -19,7 +19,7 @@ packages:
 - "zip"
 reference_datetime: "2013-06-01 00:00:00"
 remotes:
-- "url": "https://github.com/namecoin/BitcoinArmory.git"
+- "url": "https://github.com/etotheipi/BitcoinArmory.git"
   "dir": "BitcoinArmory"
 files: []
 script: |
@@ -43,5 +43,5 @@ script: |
     export PATH=${WRAP_DIR}:${PATH}
     
     cd BitcoinArmory
-    make
+    make CC=clang CXX=clang++
     cd .. && find BitcoinArmory -path "*/.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
