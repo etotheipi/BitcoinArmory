@@ -143,6 +143,9 @@ public:
    Tx                getTxByHash(BinaryData const & txHash) const;
    TxOut             getPrevTxOut(TxIn & txin) const;
    Tx                getPrevTx(TxIn & txin) const;
+
+   BinaryData        getTxHashForDbKey(const BinaryData& dbKey6) const
+   { return db_->getTxHashForLdbKey(dbKey6); }
    
    bool isTxMainBranch(const Tx &tx) const;
 
@@ -232,6 +235,10 @@ public:
    LedgerDelegate getLedgerDelegateForLockboxes();
    LedgerDelegate getLedgerDelegateForScrAddr(
       const BinaryData& wltID, const BinaryData& scrAddr);
+
+   TxOut getTxOutCopy(const BinaryData& txHash, uint16_t index) const;
+   Tx getSpenderTxForTxOut(uint32_t height, uint32_t txindex, uint16_t txoutid) const;
+
 
 public:
    bool rescanZC_    = false;

@@ -290,18 +290,17 @@ class ArmoryClient(Protocol):
          self.sendMessage( PayloadTx(txObj))
       elif isinstance(txObj, str):
          self.sendMessage( PayloadTx(PyTx().unserialize(txObj)) )
-         
-
-
-
-
-   
-
 
 ################################################################################
 ################################################################################
 class ArmoryClientFactory(ReconnectingClientFactory):
    """
+   NOTE: If you add a method or change a method signature in this class
+   make sure you add it to FakeClientFactory. This might cause a very
+   hard to reproduce bug.
+   
+   TODO: Fix this technical debt
+   
    Spawns Protocol objects used for communicating over the socket.  All such
    objects (ArmoryClients) can share information through this factory.
    However, at the moment, this class is designed to only create a single 
@@ -342,7 +341,9 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       self.func_inv         = func_inv
       self.proto = None
 
-   
+   #############################################################################
+   def getProto(self):
+      return self.proto
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
@@ -1130,11 +1131,13 @@ class FakeClientFactory(ReconnectingClientFactory):
                 func_newTx=(lambda x: None), \
                 func_newBlock=(lambda x,y: None), \
                 func_inv=(lambda x: None)): pass
+   def getProto(self): return None
    def addTxToMemoryPool(self, pytx): pass
    def handshakeFinished(self, protoObj): pass
    def clientConnectionLost(self, connector, reason): pass
    def connectionFailed(self, protoObj, reason): pass
    def sendTx(self, pytxObj): pass
+   def sendMessage(self, msgObj): pass
 
 ################################################################################
 # It seems we need to do this frequently when downloading headers & blocks

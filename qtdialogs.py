@@ -8996,7 +8996,7 @@ class DlgSettings(ArmoryDialog):
       if OS_MACOSX:
          osxMinorVer = OS_VARIANT[0].split(".")[1]
 
-      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
+      lblNotify = QRichLabel('<b>Enable notifications from the system-tray:</b>')
       self.chkBtcIn = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
       self.chkDiscon = QCheckBox('Bitcoin-Qt/bitcoind disconnected')
@@ -13573,10 +13573,10 @@ class DlgEnterOneFrag(ArmoryDialog):
       if len(fragList) > 0:
          strList = ['<font color="%s">%d</font>' % (BLUE, f) for f in fragList]
          replStr = '[' + ','.join(strList[:]) + ']'
-         already = tr(""" You have entered fragments %(replstr)s, so far.  """) % { 'replystr' : replStr }
+         already = tr(""" You have entered fragments %(replystr)s, so far.  """) % { 'replystr' : replStr }
 
       lblDescr = QRichLabel(tr("""
-         <b><u>Enter Another Fragment...</u></b> <br><br> %(already)s
+         <b><u>Enter Another Fragment...</u></b> <br><br> %s
          The fragments can be entered in any order, as long as you provide
          enough of them to restore the wallet.  If any fragments use a
          SecurePrint\xe2\x84\xa2 code, please enter it once on the

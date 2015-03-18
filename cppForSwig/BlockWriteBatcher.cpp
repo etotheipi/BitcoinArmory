@@ -569,10 +569,24 @@ bool BlockWriteBatcher::parseTxIns(
             0);
 
       // update the txio in its subSSH
-      auto& txio = subssh.markTxOutSpent(stxoKey);
+      bool fixed = false;
+      const TxIOPair* txio = nullptr;
+      while (nullptr == (txio = subssh.markTxOutSpent(stxoKey)))
+      {
+         LOGERR << "missing txio! let's fix this";
+         subssh.markTxOutUnspent(stxoKey, dbUpdateSize_, 
+            stxoPtr->getValue(), stxoPtr->isCoinbase_, false);
+         fixed = true;
+      }
          
       //Mirror the spent txio at txin height
-      insertSpentTxio(txio, mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_);
+      insertSpentTxio(*txio, mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_);
+      
+      if (fixed)
+      {
+         TxIOPair& mirrorTxio = mirrorsubssh.txioMap_[stxoKey];
+         mirrorTxio.flagged = true;
+      }
    }
 
    return txIsMine;
@@ -1031,8 +1045,8 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       {
          string errorMessage("The scanning process "
             "interrupted unexpectedly, Armory will now shutdown. "
-            "You will have to proceed to \"Help -> Rebuild and Rescan\" "
-            "on the next start. If the error persists, contact support. "
+            "If the error persists, you will have to rebuild and rescan your database. "
+            "If rebuilding and rescaning did not fix the issue, contact support. "
             "Refer to your log file for more details on the error.");
 
          criticalError_(errorMessage);
@@ -1100,8 +1114,8 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
          {
             string errorMessage("The scanning process "
                "interrupted unexpectedly, Armory will now shutdown. "
-               "You will have to proceed to \"Help -> Rebuild and Rescan\" "
-               "on the next start. If the error persists, contact support. "
+               "If the error persists, you will have to rebuild and rescan your database. "
+               "If rebuilding and rescaning did not fix the issue, contact support. "
                "Refer to your log file for more details on the error.");
 
             criticalError_(errorMessage);
@@ -1145,8 +1159,6 @@ BinaryData BlockWriteBatcher::scanBlocks(
    ScrAddrFilter& scf
 )
 {
-   //TIMER_START("applyBlockRangeToDBIter");
-   
    prepareSshToModify(scf);
 
    shared_ptr<LoadedBlockData> tempBlockData = 

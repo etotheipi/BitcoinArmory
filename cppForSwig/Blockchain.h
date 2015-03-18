@@ -40,10 +40,12 @@ public:
    /**
     * Adds a block to the chain
     **/
-   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block);
+   BlockHeader& addBlock(const HashString &blockhash, 
+      const BlockHeader &block, bool suppressVerbose);
    BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block,
                          uint32_t height, uint8_t dupId);
-   BlockHeader& addNewBlock(const HashString &blockhash, const BlockHeader &block);
+   BlockHeader& addNewBlock(const HashString &blockhash, 
+      const BlockHeader &block, bool suppressVerbose);
 
    ReorganizationState organize();
    ReorganizationState forceOrganize();

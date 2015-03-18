@@ -37,10 +37,12 @@ void Blockchain::clear()
 
 BlockHeader& Blockchain::addBlock(
       const HashString &blockhash,
-      const BlockHeader &block
+      const BlockHeader &block, 
+      bool suppressVerbose
    )
 {
-   if (hasHeaderWithHash(blockhash) && blockhash != genesisHash_)
+   if (hasHeaderWithHash(blockhash) && blockhash != genesisHash_ &&
+      !suppressVerbose)
    { // we don't show this error for the genesis block
       LOGWARN << "Somehow tried to add header that's already in map";
       LOGWARN << "    Header Hash: " << blockhash.copySwapEndian().toHexStr();
@@ -55,7 +57,7 @@ BlockHeader& Blockchain::addBlock(
    const BlockHeader &block,
    uint32_t height, uint8_t dupId)
 {
-   BlockHeader& bh = addBlock(blockhash, block);
+   BlockHeader& bh = addBlock(blockhash, block, false);
    bh.blockHeight_ = height;
    bh.duplicateID_ = dupId;
 
@@ -64,9 +66,10 @@ BlockHeader& Blockchain::addBlock(
 
 BlockHeader& Blockchain::addNewBlock(
    const HashString &blockhash,
-   const BlockHeader &block)
+   const BlockHeader &block,
+   bool suppressVerbose)
 {
-   BlockHeader& bh = addBlock(blockhash, block);
+   BlockHeader& bh = addBlock(blockhash, block, suppressVerbose);
    newlyParsedBlocks_.push_back(&bh);
 
    return bh;
@@ -276,7 +279,6 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
    bool prevChainStillValid = (topBlockPtr_ == &prevTopBlock);
    topBlockPtr_->nextHash_ = BtcUtils::EmptyHash();
    BlockHeader* thisHeaderPtr = topBlockPtr_;
-   //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
    while( !thisHeaderPtr->isFinishedCalc_ )
    {

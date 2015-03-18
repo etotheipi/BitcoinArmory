@@ -85,11 +85,15 @@ typedef enum
 class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
+class FoundAllBlocksException {};
+
+class debug_replay_blocks {};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
-   void grablock(uint32_t n);
+   //void grablock(uint32_t n);
 
 
 private:
@@ -241,6 +245,8 @@ public:
 
    StoredHeader getMainBlockFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup) const;
+
+   void repairBlockDataDB(set<BinaryData>& missingBlocksByHash);
 
 public:
 

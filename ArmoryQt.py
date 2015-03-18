@@ -102,7 +102,7 @@ class ArmoryMainWindow(QMainWindow):
       # SETUP THE WINDOWS DECORATIONS
       self.lblLogoIcon = QLabel()
       if USE_TESTNET:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET] dlgMain')
          self.iconfile = ':/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
          if Colors.isDarkBkgd:
@@ -1940,12 +1940,21 @@ class ArmoryMainWindow(QMainWindow):
    def processAlerts(self):
       # display to the user any alerts that came in through the bitcoin
       # network
-      factory = self.getSingletonConnectedNetworkingFactory()
-      armoryClient = factory.proto
+      
+      if self.NetworkingFactory == None:
+         return
+      
+      factory = self.NetworkingFactory
+      armoryClient = factory.getProto()
       if armoryClient is None:
          return
-      alerts = factory.proto.alerts
-      peerInfo = self.NetworkingFactory.proto.peerInfo
+      alerts = armoryClient.alerts
+      
+      try:
+         peerInfo = armoryClient.peerInfo
+      except: 
+         LOGERROR("failed to process alerts from bitcoind")
+         return
 
       for id, alert in alerts.items():
          if self.ignoreAlerts.get(id):
@@ -2066,13 +2075,16 @@ class ArmoryMainWindow(QMainWindow):
                   return
 
                # This is to detect the running versions of Bitcoin-Qt/bitcoind
-               thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
-               thisVerStr = thisVerStr.strip('/').split(':')[-1]
+               if self.NetworkingFactory.getProto():
+                  thisVerStr = self.NetworkingFactory.getProto().peerInfo['subver']
+                  thisVerStr = thisVerStr.strip('/').split(':')[-1]
 
-               if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
+                  if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
+                     return
+   
+                  self.satoshiVersions[0] = thisVerStr
+               else:
                   return
-
-               self.satoshiVersions[0] = thisVerStr
 
             except:
                pass
@@ -4957,11 +4969,15 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def closeExistingBitcoin(self):
       for proc in psutil.process_iter():
-         if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe',\
-                                     'bitcoind','bitcoin-qt']:
-            killProcess(proc.pid)
-            time.sleep(2)
-            return
+         try:
+            if proc.name().lower() in ['bitcoind.exe','bitcoin-qt.exe',\
+                                        'bitcoind','bitcoin-qt']:
+               killProcess(proc.pid)
+               time.sleep(2)
+               return
+         # If the block above rasises access denied or anything else just skip it
+         except:
+            pass
 
       # If got here, never found it
       QMessageBox.warning(self, 'Not Found', \
@@ -6310,9 +6326,16 @@ class ArmoryMainWindow(QMainWindow):
          #it to the user
          if 'rescan' in args[0].lower() or 'rebuild' in args[0].lower():
             result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
-                                    "Rebuild and rescan on next start", dnaaStartChk=True)
+                                    "Rebuild and rescan on next start", dnaaStartChk=False)
             if result[1] == True:
                touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
+         
+         elif 'factory reset' in args[0].lower():
+            result = MsgBoxWithDNAA(self, self, MSGBOX.Critical, 'BDM error!', args[0], 
+                                    "Factory reset on next start", dnaaStartChk=False)
+            if result[1] == True:
+               DlgFactoryReset(self, self).exec_()           
+         
          else:   
             QMessageBox.critical(self, tr('BlockDataManager Warning'), \
                               tr(args[0]), \
@@ -6755,6 +6778,9 @@ class ArmoryMainWindow(QMainWindow):
             self.actuallyDoExitNow(STOPPED_ACTION, 1)
             return
          
+         self.shutdownBitcoindThread = threading.Thread(target=TheSDM.stopBitcoind)
+         self.shutdownBitcoindThread.start()
+         
          TheBDM.registerCppNotification(self.actuallyDoExitNow)
          TheBDM.beginCleanShutdown()
 
@@ -6779,7 +6805,11 @@ class ArmoryMainWindow(QMainWindow):
 
       
       # This will do nothing if bitcoind isn't running.
-      TheSDM.stopBitcoind()
+      try:
+         self.shutdownBitcoindThread.join()
+      except:
+         pass
+
       
 
       from twisted.internet import reactor
