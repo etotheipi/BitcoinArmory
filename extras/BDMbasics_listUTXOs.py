@@ -7,65 +7,49 @@ In this example, we will list all unpsent txouts for our wallet.
 This example needs one argument, the path to the wallet to monitor.
 '''
 
+import os
+import sys
+sys.path.append('..')
 from armoryengine.ALL import *
 
-cv = threading.Condition(None)
+# Check that user actually supplied a wallet file
+if len(CLI_ARGS) < 1:
+   print 'Must supply path to wallet file as first argument!'
+   exit(1)
 
-#load wallet from file
-wlt = PyBtcWallet().readWalletFile( CLI_ARGS[0] )
+# Check that wallet file exists
+walletPath = CLI_ARGS[0]
+if not os.path.exists(walletPath):
+   print 'Wallet file does not exist: "%s"' % walletPath
+   exit(1)
+   
+# Read it into a PyBtcWallet object
+wlt = PyBtcWallet().readWalletFile(walletPath)
+
+# Creates a shared condition variable for signaling main thread shutdown
+cvShutdown = threading.Condition(None)
+
 
 ################################################################################
-def listUTXOs():
-   #get the UTXOs from the wallet
+def listUTXOs(*args):
+   # Leverages armoryengine.CoinSelection.py to print all UTXOs
+   # args is ignored -- we only care that this is called after BDM is loaded
+   print 'Printing UTXOs for wallet: ' + wlt.uniqueIDB58
    utxos = wlt.getFullUTXOList()
-   
-   print ''
-   print 'printing UTXOs for wallet: ' + wlt.uniqueIDB58
-   print '---------------'
-   
    pprintUnspentTxOutList(utxos)
+
+   # Signal to main thread that we're done
+   cvShutdown.acquire(); cvShutdown.notify_all(); cvShutdown.release()
    
-   #we're done, let's signal the waiting main thread to move on
-   cv.acquire()
-   cv.notify_all()
-   cv.release()
 
-################################################################################
-def BDM_callback(signal, args):
-   '''
-   This is a prototype callback method. It has to take 2 arguments:
-      1) signal: the type of signal received from the BDM
-      2) args: an object containing the extra arguments passed to the callback, 
-         dependant on the signal type 
-         
-      Once this callback is registered with the BDM, it will receive all
-      notifications from the BDM. Notification you don't need handle can simply
-      be ignored
-   '''
-   
-   if signal == FINISH_LOAD_BLOCKCHAIN_ACTION:
-      #This signal indicates the BDM has finished initializing. All wallet 
-      #history is up to date on the BDM side. At this point
-      #you can query balance and create transactions for your wallets.
-      #args is None
-      print 'BDM is ready!'
-      print ''
+# Register the method to be called when TheBDM is done loading the blockchain
+TheBDM.RegisterEventForSignal(listUTXOs, FINISH_LOAD_BLOCKCHAIN_ACTION)
 
-      listUTXOs()
-
-################################################################################
-################################################################################
-################################################################################
-
-#Register the BDM callback
-TheBDM.registerCppNotification(BDM_callback)
-
-# Register our wallet with the BDM.
-# Pass False during registration because we don't know if the wallet is new. 
+# Register our wallet with the BDM before we attempt to load the blockchain
 # The BDM will make sure the history is up to date before signaling our callback
-wlt.registerWallet(False)
+wlt.registerWallet(isNew=False)
 
-#Now start the BDM
+# Now start the BDM.  It will load & update databases, emit signals when ready
 TheBDM.goOnline()
 
 '''
@@ -79,8 +63,7 @@ variable that listUTXOs will notify once it is done, which will result in the
 main thread exiting and the subsequent termination of the process.
 '''
 
-cv.acquire()
-cv.wait()
-cv.release()
+# This will pause the main thread until notification is received
+cvShutdown.acquire(); cvShutdown.wait(); cvShutdown.release()
    
-print 'exiting'
+print '...Done'

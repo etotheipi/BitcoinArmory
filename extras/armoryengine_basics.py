@@ -1,7 +1,7 @@
 #! /usr/bin/python
 import sys
 sys.path.append('..')
-from armoryengine.All import *
+from armoryengine.ALL import *
 
 # Integer/Hex/Binary/Base58 Conversions
 print '\nInteger/Hex/Binary/Base58 Conversions'
@@ -30,11 +30,11 @@ print 17, binary_to_hex( hash160('\x00'*65), BIGENDIAN )
 
 print '\nAddress Conversions:'
 donateStr  = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
-donate160  = addrStr_to_hash160(donateStr)
+netByte,donate160  = addrStr_to_hash160(donateStr)
 donateStr2 = hash160_to_addrStr(donate160)
 print 18, binary_to_hex(donate160)
 print 19, binary_to_hex(donate160, BIGENDIAN)
-print 20, donateStr2
+print 20, donateStr2, '(network: %s)' % NETWORKS[netByte]
 
 print '\nBuiltin Constants and magic numbers:'
 print 21, 'BITCOIN_PORT:    ', BITCOIN_PORT

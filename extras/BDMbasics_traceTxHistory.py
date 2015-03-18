@@ -12,6 +12,8 @@ This example only works in supernode
 This example needs one argument, the hash of the transaction to trace.
 '''
 
+import sys
+sys.path.append('..')
 from armoryengine.ALL import *
 
 cv = threading.Condition(None)
