@@ -9,7 +9,7 @@ $(package)_cc=$(host_CC)
 $(package)_cxx=$(host_CXX)
 $(package)_ar=$(host_AR)
 $(package)_nm=$(host_NM)
-$(package)_ranlib=$(RANLIB)
+$(package)_ranlib=$(host_RANLIB)
 
 define $(package)_preprocess_cmds
   patch -p1 < $($(package)_patch_dir)/30880.patch
