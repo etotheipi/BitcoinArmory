@@ -1,5 +1,5 @@
 This is a system of building and caching dependencies necessary for building
-Bitcoin.
+Bitcoin Armory.
 
 There are several features that make it different from most similar systems:
 
