@@ -6,7 +6,7 @@ $(package)_sha256_hash=c8bba33e66ac3201dabdc556f0ea7cfe6ac11946ec32d357c4c6f9b01
 $(package)_dependencies=gcc
 
 define $(package)_config_cmds
-  $($(package)_autoconf) --build=$(build_arch)
+  $($(package)_autoconf) --build=$(BUILD)
 endef
 
 define $(package)_build_cmds
