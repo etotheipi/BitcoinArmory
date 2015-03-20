@@ -6,5 +6,5 @@ $(package)_sha256_hash=ac609262253057cf2aeb9dc049ba7877d646f31b4caef06a50189a023
 $(package)_dependencies=python2 zope.interface
 
 define $(package)_stage_cmds
-  $($(package)_prefixbin)/python setup.py install --prefix=$($(package)_prefix)
+  $($(package)_prefixbin)/python setup.py install --prefix=$($(package)_staging_prefix_dir)
 endef
