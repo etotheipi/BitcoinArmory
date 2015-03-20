@@ -4,7 +4,6 @@ $(package)_version=1.0.1l
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=b2cf4d48fe5d49f240c61c9e624193a6f232b5ed0baf010681e725963c40d1d4
-$(package)_dependencies=gcc
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
