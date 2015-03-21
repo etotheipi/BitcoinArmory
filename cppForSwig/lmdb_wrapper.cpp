@@ -2379,7 +2379,9 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
          ++i;
       }
 
-      return Tx(brr);
+      Tx rawTx(brr);
+      rawTx.setTxRef(TxRef(ldbKey6B));
+      return rawTx;
    }
 }
 
@@ -2970,7 +2972,7 @@ bool LMDBBlockDatabase::getStoredTxOut(
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getUnspentTxOut(
-   StoredTxOut & stxo, const BinaryData& DBkey) const
+   StoredTxOut & stxo, const BinaryData& DBkey, bool getRawTx) const
 {
    if (DBkey.getSize() != 8)
    {
@@ -3004,6 +3006,9 @@ bool LMDBBlockDatabase::getUnspentTxOut(
       LOGERR << "STXO DB does not have the requested TxOut";
       return false;
    }
+
+   if (!getRawTx)
+      return false;
 
    //again, in Fullnode, need to pull the entire block, unserialize then
    //return the one stxo

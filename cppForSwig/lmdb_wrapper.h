@@ -518,7 +518,7 @@ public:
    bool getStoredTxOut(StoredTxOut & stxo,
       const BinaryData& DBkey) const;
    bool getUnspentTxOut(StoredTxOut & stxo,
-      const BinaryData& DBkey) const;
+      const BinaryData& DBkey, bool getRawTx=true) const;
 
 
    void putStoredScriptHistory(StoredScriptHistory & ssh);

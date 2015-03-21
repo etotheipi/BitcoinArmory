@@ -1126,6 +1126,10 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       return *this;
    }
 
+   blockHeight_ = tx.getBlockHeight();
+   duplicateID_ = tx.getDuplicateID();
+   txIndex_     = tx.getBlockTxIndex();
+
    thisHash_  = tx.getThisHash();
    numTxOut_  = tx.getNumTxOut();
    version_   = tx.getVersion();
@@ -1160,6 +1164,10 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.unserialize(tx.getTxOutCopy(txo).serialize());
          stxo.txVersion_      = tx.getVersion();
          stxo.txIndex_        = tx.getBlockTxIndex();
+         
+         stxo.blockHeight_ = blockHeight_;
+         stxo.duplicateID_ = duplicateID_;
+         
          stxo.txOutIndex_     = txo;
          stxo.isCoinbase_     = tx.getTxInCopy(0).isCoinbase();
          stxo.parentHash_     = thisHash_;

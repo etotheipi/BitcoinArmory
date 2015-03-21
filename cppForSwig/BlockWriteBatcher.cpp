@@ -1280,10 +1280,15 @@ StoredTxOut* STXOS::lookForUTXOInMap(const BinaryData& txHash)
 
       uint32_t txoId = READ_UINT16_BE(txHash.getPtr() + 32);
       dbKey.append(WRITE_UINT16_BE(txoId));
-      if (!BlockWriteBatcher::iface_->getUnspentTxOut(*stxo, dbKey))
+      if (!BlockWriteBatcher::iface_->getUnspentTxOut(*stxo, dbKey, false))
       {
-         LOGERR << "missing txout in supernode";
-         throw runtime_error("missing txout in supernode");
+         if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+         {
+            LOGERR << "missing stxo in supenode";
+            throw runtime_error("missing txhint in supernode");
+         }
+         else
+            return nullptr;
       }
 
       stxoToUpdate_.push_back(stxo);
