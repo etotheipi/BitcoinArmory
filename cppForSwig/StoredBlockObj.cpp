@@ -1946,7 +1946,6 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
 void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B, 
-                                        uint64_t&  additionalSize,
                                         const uint64_t&  value,
                                         bool       isCoinbase,
                                         bool       isMultisigRef,
@@ -1961,8 +1960,6 @@ void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B,
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMultisigRef);
       txio.setUTXO(true);
-      
-      additionalSize += sizeof(TxIOPair)+8;
    }
    else
    {

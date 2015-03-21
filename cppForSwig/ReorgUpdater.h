@@ -174,8 +174,8 @@ private:
       // Walk down invalidated chain first, until we get to the branch point
       // Mark transactions as invalid
 
-      BlockWriteBatcher blockWrites(config_, iface_);
-      BlockFileAccessor bfa(scrAddrData_->getDb()->getBlkFiles());
+      BlockWriteBatcher blockWrites(config_, iface_, *scrAddrData_);
+      BlockFileAccessor bfa(iface_->getBlkFiles());
 
       BlockHeader* thisHeaderPtr = oldTopPtr_;
       LOGINFO << "Invalidating old-chain transactions...";
@@ -234,8 +234,8 @@ private:
       //       I need to apply the blocks in order, so I switched it to start
       //       from the branch point and walk up
 
-      BlockWriteBatcher blockWrites(config_, iface_);
-      BlockFileAccessor bfa(scrAddrData_->getDb()->getBlkFiles());
+      BlockWriteBatcher blockWrites(config_, iface_, *scrAddrData_);
+      BlockFileAccessor bfa(iface_->getBlkFiles());
 
       BlockHeader* thisHeaderPtr = branchPtr_;
 

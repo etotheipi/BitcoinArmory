@@ -552,7 +552,7 @@ public:
 class StoredSubHistory
 {
    friend class BlockWriteBatcher;
-   friend class DataToCommit;
+   friend struct DataToCommit;
 public:
 
    StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
@@ -584,7 +584,6 @@ public:
    void markTxOutSpent(const BinaryData& txOutKey8B);
 
    void markTxOutUnspent(const BinaryData& txOutKey8B,
-                             uint64_t&  additionalSize,
                              const uint64_t&  value,
                              bool       isCoinbase,
                              bool       isMultisigRef,

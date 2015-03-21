@@ -471,7 +471,7 @@ private:
       {
          const uint32_t HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
          BinaryDataRef magic, szstr, rawHead; // (HEAD_AND_NTX_SZ);
-         while(!pos < fm.mapsize_)
+         while(pos < fm.mapsize_)
          {
             magic = BinaryDataRef(fm.filemap_ + pos, 4);
             pos += 4;
@@ -941,8 +941,7 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    ProgressFilter progress(&prog, startingAt, totalBytes);
    
    // Start scanning and timer
-   BlockWriteBatcher blockWrites(config_, iface_);
-   blockWrites.setUpdateSDBI(updateSDBI);
+   BlockWriteBatcher blockWrites(config_, iface_, scrAddrData);
 
    auto errorLambda = [this](string str)->void
    {  criticalError_ = str;

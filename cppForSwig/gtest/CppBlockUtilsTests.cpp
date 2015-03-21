@@ -7879,7 +7879,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, Load5Blocks)
+TEST_F(BlockUtilsBare, Load6Blocks)
 {
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
