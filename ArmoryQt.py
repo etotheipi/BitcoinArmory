@@ -6357,7 +6357,11 @@ class ArmoryMainWindow(QMainWindow):
          hasWallet = False
          hasLockbox = False
 
-         for wltID in wltIDList:
+         for w in wltIDList:
+            if isinstance(w, str):
+               wltID = w.encode()
+            else:
+               wltID = w
             self.walletSideScanProgress[wltID] = 0
             if len(wltID) > 0:
                if wltID in self.walletMap:
