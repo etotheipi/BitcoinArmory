@@ -102,8 +102,12 @@ def calcLockboxID(script=None, scraddr=None):
 
 ################################################################################
 def createLockboxEntryStr(lbID, isBareMultiSig=False):
+   if isinstance(lbID, bytes):
+      lbStr = lbID.decode()
+   else:
+      lbStr = lbID
    return '%s%s%s' % (LBPREFIX.decode() if isBareMultiSig else LBP2SHPREFIX.decode(),
-                       lbID.decode(), LBSUFFIX.decode())
+                       lbStr, LBSUFFIX.decode())
 
 ################################################################################
 def readLockboxEntryStr(addrtext):

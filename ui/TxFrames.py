@@ -519,7 +519,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          # 0.10.0
          recipBytes = recipStr.encode()
          if isP2SHLockbox(recipBytes):
-            lbox = self.main.getLockboxByID(readLockboxEntryStr(recipStr))
+            lbox = self.main.getLockboxByID(readLockboxEntryStr(recipBytes))
             if isMofNNonStandardToSpend(lbox.M, lbox.N):
                reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
                   Due to the Lockbox size (%d-of-%d) of recipient %d, spending
@@ -909,16 +909,16 @@ class SendBitcoinsFrame(ArmoryFrame):
       r = 0
       try:
          bal = self.getUsableBalance()
-         txFee = str2coin(str(self.edtFeeAmt.text()))
+         txFee = str2coin(self.edtFeeAmt.text().encode())
          while r < nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
             if targWidget == self.widgetTable[r]['QLE_AMT']:
                r += 1
                continue
 
-            amtStr = str(self.widgetTable[r]['QLE_AMT'].text()).strip()
+            amtStr = self.widgetTable[r]['QLE_AMT'].text().strip()
             if len(amtStr) > 0:
-               totalOther += str2coin(amtStr)
+               totalOther += str2coin(amtStr.encode())
             r += 1
 
       except:

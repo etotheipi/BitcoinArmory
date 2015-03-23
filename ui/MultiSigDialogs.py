@@ -3048,7 +3048,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          safe to send this data via email or USB key.  No data is included 
          that would compromise the security of any of the signing devices.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
-      defaultFN = 'MultisigTransaction_%s_.sigcollect.tx' % self.ustx.uniqueIDB58
+      defaultFN = 'MultisigTransaction_%s_.sigcollect.tx' % self.ustx.uniqueIDB58.decode()
          
       DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
                                                     ftypes, defaultFN).exec_()

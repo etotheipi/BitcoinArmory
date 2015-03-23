@@ -5908,7 +5908,7 @@ class DlgDispTxInfo(ArmoryDialog):
                   'All transactions are eventually included in a "block."  The '
                   'time shown here is the time that the block entered the "blockchain."'))
          lbls[-1].append(QLabel('Transaction Time:'))
-         lbls[-1].append(QLabel(str(self.data[FIELDS.Time])))
+         lbls[-1].append(QLabel(self.data[FIELDS.Time].decode()))
 
       if not self.data[FIELDS.Blk] == None:
          nConf = 0
@@ -8406,7 +8406,7 @@ class DlgAddressBook(ArmoryDialog):
          self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID.decode()))
          nextAddr160 = wlt.peekNextUnusedAddr160()
          self.lblSelectWlt.setText('Will create new address: %s...' % \
-                                    hash160_to_addrStr(nextAddr160)[:10])
+                                    hash160_to_addrStr(nextAddr160)[:10].decode())
 
          # If switched wallet selection, de-select address so it doesn't look
          # like the currently-selected address is for this different wallet
@@ -8481,7 +8481,7 @@ class DlgAddressBook(ArmoryDialog):
       if not self.isBrowsingOnly:
          self.btnSelectAddr.setEnabled(True)
          self.useBareMultiSigCheckBox.setEnabled(True)
-         selectedLockBoxId = currIndex.model().index(row, LOCKBOXCOLS.ID).data()
+         selectedLockBoxId = currIndex.model().index(row, LOCKBOXCOLS.ID).data().encode()
          self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBoxId,
                                       self.useBareMultiSigCheckBox.isChecked()))
 

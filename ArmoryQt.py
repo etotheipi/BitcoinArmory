@@ -3304,7 +3304,7 @@ class ArmoryMainWindow(QMainWindow):
             if not lbox:
                continue
             isWatch = True
-            wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, lboxId)
+            wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, lboxId.decode())
             dispComment = self.getCommentForLockboxTx(lboxId, le)
          nConf = TheBDM.getTopBlockHeight() - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
@@ -6553,14 +6553,14 @@ class ArmoryMainWindow(QMainWindow):
             dispName = tr('"%(name)s"') % { 'name' : wlt.labelName }
          else:
             dispName = tr('"%(shortname)s..."') % { 'shortname' : wlt.labelName[:17] }
-         dispName = tr('Wallet %(n)s (%(id)s)') % { 'n' : dispName, 'id':wlt.uniqueIDB58}
+         dispName = tr('Wallet %(n)s (%(id)s)') % { 'n' : dispName, 'id':wlt.uniqueIDB58.decode()}
       elif moneyID in self.cppLockboxWltMap:
          lbox = self.getLockboxByID(moneyID)
          if len(lbox.shortName) <= 20:
             dispName = '%(M)d-of-%(N)d "%(shortname)s"' % { 'M' : lbox.M, 'N' : lbox.N, 'shortname' : lbox.shortName}
          else:
             dispName = tr('%(M)d-of-%(N)d "%(shortname)s..."') % {'M' : lbox.M, 'N' : lbox.N, 'shortname' : lbox.shortName[:17] }
-         dispName = tr('Lockbox %(name)s (%(id)s)') % { 'name' : dispName, 'id' : lbox.uniqueIDB58 }
+         dispName = tr('Lockbox %(name)s (%(id)s)') % { 'name' : dispName, 'id' : lbox.uniqueIDB58.decode() }
       else:
          LOGERROR('Asked to show notification for wlt/lbox we do not have')
          return
