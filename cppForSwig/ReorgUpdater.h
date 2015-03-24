@@ -8,6 +8,7 @@
 #include "Blockchain.h"
 #include "BDM_supportClasses.h"
 #include "BlockWriteBatcher.h"
+#include "Progress.h"
 
 #include <thread>
 
@@ -174,37 +175,14 @@ private:
       // Walk down invalidated chain first, until we get to the branch point
       // Mark transactions as invalid
 
-      BlockWriteBatcher blockWrites(config_, iface_, *scrAddrData_);
-      BlockFileAccessor bfa(iface_->getBlkFiles());
+      NullProgressReporter nullProgress;
+      ProgressReporterFilter nullFilter((ProgressReporter*)(&nullProgress));
+      ProgressFilter progressFilter(&nullFilter, 0);
 
-      BlockHeader* thisHeaderPtr = oldTopPtr_;
       LOGINFO << "Invalidating old-chain transactions...";
-
-      while (thisHeaderPtr != branchPtr_)
-      {
-         uint32_t hgt = thisHeaderPtr->getBlockHeight();
-         uint8_t  dup = thisHeaderPtr->getDuplicateID();
-
-         //if(config_.armoryDbType != ARMORY_DB_BARE)
-         {
-            // Added with leveldb... in addition to reversing blocks in RAM, 
-            // we also need to undo the blocks in the DB
-            StoredUndoData sud;
-            createUndoDataFromBlock(iface_, hgt, dup, sud);
-            blockWrites.undoBlockFromDB(sud, *scrAddrData_, bfa);
-         }
-
-         try
-         {
-            thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getPrevHash());
-         }
-         catch (exception &e)
-         {
-            throw runtime_error("Exception occured while looking for branch="
-               + branchPtr_->getThisHash().toHexStr() + ": " + e.what()
-               );
-         }
-      }
+      BlockWriteBatcher blockWrites(config_, iface_, *scrAddrData_, true);
+      blockWrites.scanBlocks(progressFilter, oldTopPtr_->getBlockHeight(),
+         branchPtr_->getBlockHeight()+1, *scrAddrData_);
    }
 
    void updateBlockDupIDs(void)
@@ -234,21 +212,13 @@ private:
       //       I need to apply the blocks in order, so I switched it to start
       //       from the branch point and walk up
 
+      NullProgressReporter nullProgress;
+      ProgressReporterFilter nullFilter((ProgressReporter*)(&nullProgress));
+      ProgressFilter progressFilter(&nullFilter, 0);
+      
       BlockWriteBatcher blockWrites(config_, iface_, *scrAddrData_);
-      BlockFileAccessor bfa(iface_->getBlkFiles());
-
-      BlockHeader* thisHeaderPtr = branchPtr_;
-
-      LOGINFO << "Marking new-chain transactions valid...";
-      while (thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash() &&
-         thisHeaderPtr->getNextHash().getSize() > 0)
-      {
-         thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getNextHash());
-         uint32_t hgt = thisHeaderPtr->getBlockHeight();
-         uint8_t  dup = thisHeaderPtr->getDuplicateID();
-
-         blockWrites.reorgApplyBlock(hgt, dup, *scrAddrData_, bfa);
-      }
+      blockWrites.scanBlocks(progressFilter, branchPtr_->getBlockHeight() +1,
+         newTopPtr_->getBlockHeight(), *scrAddrData_);
    }
 
    void reassessAfterReorgThread()

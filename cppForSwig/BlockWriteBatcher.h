@@ -371,7 +371,7 @@ private:
 
    uint32_t startBlock_ = 0;
    uint32_t endBlock_ = 0;
-   uint32_t currentHeight_ = 0;
+   int32_t currentHeight_ = 0;
 
    uint32_t topLoadedBlock_ = 0;
    const uint32_t nThreads_;
@@ -390,6 +390,12 @@ public:
 
    shared_ptr<BlockDataFeed> blockDataFeed_;
    shared_ptr<BlockDataFeed> interruptFeed_ = nullptr;
+
+   static int32_t getOffsetHeight(LoadedBlockData&, uint32_t);
+   static bool isHeightValid(LoadedBlockData&, int32_t);
+   static void nextHeight(LoadedBlockData&, int32_t&);
+   static uint32_t getTopHeight(LoadedBlockData& lbd, PulledBlock&);
+   static BinaryData getTopHash(LoadedBlockData& lbd, PulledBlock&);
 
 private:
    LoadedBlockData(const LoadedBlockData&) = delete;
@@ -608,6 +614,9 @@ public:
    BlockDataThread(BlockDataContainer& parent);
 
    void processBlockFeed(void);
+
+private:
+   
    void applyBlockToDB(shared_ptr<PulledBlock> pb);
    void applyTxToBatchWriteData(
       PulledTx& thisSTX,
@@ -615,6 +624,20 @@ public:
 
    bool parseTxIns(PulledTx& thisSTX, StoredUndoData * sud);
    bool parseTxOuts(PulledTx& thisSTX, StoredUndoData * sud);
+
+   void prepareUndoData(StoredUndoData& sud,
+      shared_ptr<PulledBlock> block);
+   void processUndoData(StoredUndoData &sud, shared_ptr<PulledBlock>);
+   void undoBlockFromDB(shared_ptr<PulledBlock> block);
+
+   StoredSubHistory& makeSureSubSSHInMap(
+      const BinaryData& uniqKey,
+      const BinaryData& hgtX);
+   StoredSubHistory& makeSureSubSSHInMap_IgnoreDB(
+      const BinaryData& uniqKey,
+      const BinaryData& hgtX);
+   StoredScriptHistory& makeSureSSHInMap(
+      const BinaryData& uniqKey);
 
 private:
 
@@ -638,7 +661,10 @@ private:
    map<BinaryData, map<BinaryData, StoredSubHistory> > subSshMap_;
    STXOS stxos_;
 
+   function<void(shared_ptr<PulledBlock>)> processMethod_;
+
    bool workDone_ = false;
+   const bool undo_;
 
    //Fullnode only
    map<BinaryData, CountAndHint> txCountAndHint_;
@@ -649,7 +675,7 @@ class BlockDataContainer
    friend class BlockDataProcessor;
    friend class BlockDataThread;
    friend class SSHheaders;
-   friend class DataToCommit;
+   friend struct DataToCommit;
 
 private:
    DataToCommit dataToCommit_;
@@ -666,6 +692,8 @@ public:
    
    const uint32_t nThreads_;
    vector<shared_ptr<BlockDataThread>> threads_;
+
+   const bool undo_;
 
 public:
    BlockDataContainer(BlockDataProcessor* bdpPtr);
@@ -689,6 +717,7 @@ class BlockDataProcessor
 private:
 
    const uint32_t nThreads_;
+   const bool undo_;
    
 public:
    shared_ptr<SSHheaders> sshHeaders_;
@@ -701,9 +730,16 @@ public:
    condition_variable workCV_;
 
 public:
-   BlockDataProcessor(uint32_t nThreads)
-      : nThreads_(nThreads)
-   {}
+   BlockDataProcessor(uint32_t nThreads, bool undo)
+      : nThreads_(nThreads), undo_(undo)
+   {
+      if (undo)
+      {
+         sshHeaders_.reset(new SSHheaders(1));
+         sshHeaders_->sshToModify_.reset(
+            new map<BinaryData, StoredScriptHistory>());
+      }
+   }
 
    ~BlockDataProcessor()
    {
@@ -736,12 +772,8 @@ class BlockWriteBatcher
 
 public:
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
-      LMDBBlockDatabase* iface, ScrAddrFilter&);
+      LMDBBlockDatabase* iface, ScrAddrFilter&, bool undo=false);
    
-   void reorgApplyBlock(uint32_t hgt, uint8_t dup, 
-      ScrAddrFilter& scrAddrData, BlockFileAccessor& bfa);
-   void undoBlockFromDB(StoredUndoData &sud, ScrAddrFilter& scrAddrData,
-      BlockFileAccessor& bfa);
    BinaryData scanBlocks(ProgressFilter &prog, 
       uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
    
@@ -761,20 +793,6 @@ private:
       BlockFileAccessor& bfa);
 
 private:
-
-   static StoredSubHistory& makeSureSubSSHInMap(
-      map<BinaryData, map<BinaryData, StoredSubHistory>> subSshMap_,
-      const BinaryData& uniqKey,
-      const BinaryData& hgtX);
-
-   StoredSubHistory& makeSureSubSSHInMap_IgnoreDB(
-      const BinaryData& uniqKey,
-      const BinaryData& hgtX,
-      const uint32_t& currentBlockHeight);
-
-   StoredScriptHistory& makeSureSSHInMap(
-      const BinaryData& uniqKey);
-
    void insertSpentTxio(
       const TxIOPair& txio,
             StoredSubHistory& inHgtSubSsh,
