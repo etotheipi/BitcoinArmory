@@ -21,7 +21,7 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 
 # The Python link should be here so that the link works wherever this is
 # executed, and not just on the build machine.
-ln -sf "${FRDIR}/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "${DIRNAME}/Python"
+ln -sf "${FRDIR}/Python.framework/Versions/3.4/Resources/Python.app/Contents/MacOS/Python" "${DIRNAME}/Python"
 
 # Assume all args are meant for armoryd. Assuming otherwise, for shell scripts
 # at least, it horribly painful.

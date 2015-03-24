@@ -12,18 +12,12 @@
 
 #include "ArmoryMac.h"
 
-#include <QMenu>
-#include <QWidget>
-#if QT_VERSION >= 0x050200
-#include <QtMac>
-#endif
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QWidget>
+#include <QtMacExtras/QtMac>
 
 #undef slots
 #include <Cocoa/Cocoa.h>
-
-#if QT_VERSION < 0x050000
-extern void qt_mac_set_dock_menu(QMenu *);
-#endif
 
 @interface DockIconClickEventHandler : NSObject
 {
@@ -69,11 +63,7 @@ MacDockIconHandler::MacDockIconHandler() : QObject()
     this->m_dummyWidget = new QWidget();
     this->m_dockMenu = new QMenu(this->m_dummyWidget);
     this->setMainWindow(NULL);
-#if QT_VERSION < 0x050000
-    qt_mac_set_dock_menu(this->m_dockMenu);
-#elif QT_VERSION >= 0x050200
     this->m_dockMenu->setAsDockMenu();
-#endif
     [pool release];
 }
 
@@ -105,15 +95,10 @@ void MacDockIconHandler::setIcon(const QIcon &icon)
         QPixmap pixmap = icon.pixmap(size);
 
         // Perform a QPixmap -> CGImage -> NSImage conversion.
-#if QT_VERSION < 0x050000
-        image = [[NSImage alloc] initWithCGImage:pixmap.toMacCGImageRef()
-                                 size:(NSSize){128, 128}];
-#else
         // This only works for Qt 5.2+ but OS X Armory will never run Qt 5.0 or
         // 5.1.
         image = [[NSImage alloc] initWithCGImage:(QtMac::toCGImageRef(pixmap))
                                  size:(NSSize){128, 128}];
-#endif
 
         if(!image) {
             // if testnet image could not be created, load std. app icon

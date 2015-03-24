@@ -18,7 +18,8 @@ http://www.opensource.org/licenses/mit-license.php for more information.
 %Module(name=ArmoryMac)
 
 %Import QtCore/QtCoremod.sip
-%Import QtGui/QtGuimod.sip
+%Import QtWidgets/QtWidgetsmod.sip
+%Import QtMacExtras/QtMacExtrasmod.sip
 
 class DockIconClickEventHandler;
 
@@ -47,31 +48,6 @@ signals:
 private:
     MacDockIconHandler();
 };
-
-class MacNotificationHandler : QObject {
-%TypeHeaderCode
-#include <ArmoryMac.h>
-%End
-
-public:
-    // SIP doesn't seem to like enums unless they're part of a class.
-	enum notifType
-    {
-        None,
-        Growl12,
-        Growl13,
-        BuiltIn
-    };
-
-    void showNotification(const QString &title, const QString &text);
-
-    void sendAppleScript(const QString &script);
-
-    bool hasUserNotificationCenterSupport();
-    MacNotificationHandler::notifType hasGrowl();
-    void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
-    static MacNotificationHandler *instance();
-}; // class
 
 class MacUtils : QObject {
 %TypeHeaderCode

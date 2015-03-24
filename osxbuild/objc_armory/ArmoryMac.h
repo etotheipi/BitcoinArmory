@@ -15,8 +15,8 @@
 #ifndef ARMORYMAC_H
 #define ARMORYMAC_H
 
-#include <QMainWindow>
-#include <QObject>
+#include <QtWidgets/QMainWindow>
+#include <QtCore/QObject>
 
 QT_BEGIN_NAMESPACE
 class QIcon;
@@ -58,35 +58,6 @@ private:
     QMainWindow *mainWindow;
 };
 
-/** Macintosh-specific notification handler (supports UserNotificationCenter and Growl).
- */
-class MacNotificationHandler : public QObject
-{
-    Q_OBJECT
-
-public:
-    // SIP seems to require enums to be part of a class.
-	enum notifType
-    {
-        None = 0,
-        Growl12,
-        Growl13,
-        BuiltIn
-    };
-
-    /** shows a 10.8+ UserNotification in the UserNotificationCenter
-     */
-    void showNotification(const QString &title, const QString &text);
-
-    /** executes AppleScript */
-    void sendAppleScript(const QString &script);
-
-    /** check if OS can handle UserNotifications */
-    bool hasUserNotificationCenterSupport(void);
-    notifType hasGrowl(void);
-    void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
-    static MacNotificationHandler *instance();
-};
 
 /** Macintosh-specific utilities */
 class MacUtils : public QObject

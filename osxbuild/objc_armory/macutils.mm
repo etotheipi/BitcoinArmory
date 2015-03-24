@@ -10,7 +10,7 @@
 
 #undef slots
 #include <Cocoa/Cocoa.h>
-#include <QString>
+#include <QtCore/QString>
 
 // Class that provides miscellaneous functionality to Armory's OS X build.
 // Similar in spirit to armoryengine's ArmoryUtils.

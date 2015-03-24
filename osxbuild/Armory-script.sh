@@ -25,7 +25,7 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 # symlink from the execution directory, the app name from Info.plist is used.
 # Also, the link should be here so that the link works wherever this is
 # executed, and not just on the build machine.
-ln -sf "${FRDIR}/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "${DIRNAME}/Python"
+ln -sf "${FRDIR}/Python.framework/Versions/3.4/Resources/Python.app/Contents/MacOS/Python" "${DIRNAME}/Python"
 
 # Assume all args are meant for Armory. Assuming otherwise, for shell scripts
 # at least, it horribly painful.
