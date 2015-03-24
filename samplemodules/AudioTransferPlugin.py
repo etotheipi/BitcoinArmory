@@ -8,7 +8,7 @@ import StringIO
 import logging
 import zlib
 
-from amodem import recv, send, audio
+from amodem import recv, send, audio, async
 from amodem import main as mainAudio
 from amodem.config import bitrates
 
@@ -34,20 +34,21 @@ class PluginObject(object):
       mode = self.main.netMode
 
       self.debugWindow = self.createDebug()
+      AUDIO_INTERFACE.load(AUDIO_LIBRARY)
 
       def sendAudio():
-         with AUDIO_INTERFACE.load(AUDIO_LIBRARY):
+         with AUDIO_INTERFACE:
             src = StringIO.StringIO(self.debugWindow.toPlainText())
             dst = AUDIO_INTERFACE.player()
             mainAudio.send(CONFIG, src=src, dst=dst)
 
       def receiveAudio():
-         with AUDIO_INTERFACE.load(AUDIO_LIBRARY):
-            src = AUDIO_INTERFACE.recorder()
+         with AUDIO_INTERFACE:
+            s = AUDIO_INTERFACE.recorder()
+            src = async.AsyncReader(stream=s, bufsize=s.bufsize)
             dst = StringIO.StringIO()
             mainAudio.recv(CONFIG, src=src, dst=dst)
             self.debugWindow.setText(dst.getvalue())
-
 
       lblHeader = QRichLabel(tr("""<b>Audio TX Transfer</b>"""), doWrap=False)
       self.sendButton = QPushButton("Send To Audio")
