@@ -729,6 +729,8 @@ public:
    mutex writeMutex_;
    condition_variable workCV_;
 
+   uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
+
 public:
    BlockDataProcessor(uint32_t nThreads, bool undo)
       : nThreads_(nThreads), undo_(undo)
@@ -775,7 +777,8 @@ public:
       LMDBBlockDatabase* iface, ScrAddrFilter&, bool undo=false);
    
    BinaryData scanBlocks(ProgressFilter &prog, 
-      uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca);
+      uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca,
+      uint32_t forceUpdateFromHeight=UINT32_MAX);
    
    void setCriticalErrorLambda(function<void(string)> lbd) 
    { criticalError_ = lbd; }

@@ -218,7 +218,7 @@ private:
       
       BlockWriteBatcher blockWrites(config_, iface_, *scrAddrData_);
       blockWrites.scanBlocks(progressFilter, branchPtr_->getBlockHeight() +1,
-         newTopPtr_->getBlockHeight(), *scrAddrData_);
+         newTopPtr_->getBlockHeight(), *scrAddrData_, branchPtr_->getBlockHeight());
    }
 
    void reassessAfterReorgThread()

@@ -390,7 +390,8 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 BinaryData BlockWriteBatcher::scanBlocks(
    ProgressFilter &prog,
    uint32_t startBlock, uint32_t endBlock, 
-   ScrAddrFilter& scf)
+   ScrAddrFilter& scf,
+   uint32_t forceUpdateFromHeight)
 {
    //endBlock = 220000;
    uint32_t nThreads = 1;
@@ -404,6 +405,7 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
    prepareSshToModify(scf);
 
+   dataProcessor_.forceUpdateSshAtHeight_ = forceUpdateFromHeight;
    shared_ptr<LoadedBlockData> blockData = 
       make_shared<LoadedBlockData>(startBlock, endBlock, scf, nThreads);
 
@@ -1671,16 +1673,13 @@ thread BlockDataProcessor::commit(bool finalCommit)
    else
       l.unlock();
 
-   //set writer_ as worker_ then reset it, we'll create a new worker_ in the
+   //set writer_ as worker_ then reset it. We'll create a new worker_ in the
    //processBlockData loop
    shared_ptr<BlockDataContainer> commitObject = worker_;
    worker_.reset();
 
-   if (commitObject->forceUpdateSsh_)
-   {
-      commitObject->dataToCommit_.forceUpdateSshAtHeight_ = 
-         commitObject->mostRecentBlockApplied_ - 1;
-   }
+   commitObject->dataToCommit_.forceUpdateSshAtHeight_ = 
+      forceUpdateSshAtHeight_;
 
    /*if (isCommiting)
    {
