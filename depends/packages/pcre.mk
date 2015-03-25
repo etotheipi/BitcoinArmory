@@ -4,6 +4,10 @@ $(package)_download_path=http://sourceforge.net/projects/$(package)/files/$(pack
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=b37544f33caed0cc502a1e729c3b1d3df5086dcc819b9125c30700c239246c9e
 
+define $(package)_set_vars
+$(package)_config_opts = --disable-shared --enable-static
+endef
+
 define $(package)_config_cmds
   $($(package)_autoconf)
 endef
