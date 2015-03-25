@@ -11,18 +11,16 @@ $(package)_sha256_hash=853780dcdbe2e6ba785d703d059b096e1fc49369d3e8d41a060be874b
 $(package)_linux_sha256_hash=853780dcdbe2e6ba785d703d059b096e1fc49369d3e8d41a060be874b8745686
 $(package)_darwin_sha256_hash=8b8bb3a2ef8b7368710e0bc59d6e94e1f513f7dbf10a3aaa3154f7b848c88b4d
 $(package)_mingw32_sha256_hash=aa25a2e11464fd2ff26e1a3ad514aae6d89a61bb03ce4746d255a82cf909225d
-$(package)_dependencies=python2 qt46 sip
-
-define $(package)_set_vars
-$(package)_build_opts=CC="$($(package)_cc)" CXX="$($(package)_cxx)" AR="$($(package)_ar) cqs" NM="$($(package)_nm)" RANLIB="$($(package)_ranlib)"
-endef
+$(package)_dependencies=python2 qt48 sip
 
 define $(package)_config_cmds
-  $($(package)_prefixbin)/python configure.py --confirm-license #--qmake=$($(package)_prefixbin)/qmake-4.6
+  export QTDIR=$($(package)_prefix) && \
+  export PATH="$($(package)_prefixbin):${PATH}" && \
+  $($(package)_prefixbin)/python configure-ng.py --confirm-license --qmake $($(package)_prefix)/native/bin/qmake --sip-incdir $($(package)_prefix)/include/python2.7/ --static
 endef
 
 define $(package)_build_cmds
-  $(MAKE) $($(package)_build_opts)
+  $(MAKE)
 endef
 
 define $(package)_stage_cmds
