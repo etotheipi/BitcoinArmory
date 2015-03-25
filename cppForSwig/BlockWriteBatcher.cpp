@@ -342,7 +342,6 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
                //feed is processed
 
                blockData->feedCV_.wait(lock);
-               int abc = 0;
             }
          }
          else
@@ -769,7 +768,11 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
 
    for (auto& inbw : intermidiarrySubSshToApply_)
    {
-      auto& sshkey = sshPrefixes_[inbw.first];
+      auto sshIter = sshPrefixes_.find(inbw.first);
+      if (sshIter == sshPrefixes_.end())
+         continue;
+
+      auto& sshkey = sshIter->second;
       size_t keySize = sshkey.getSize();
 
       auto& submap = serializedSubSshToApply_[keySize];
@@ -1272,6 +1275,7 @@ void SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
    sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
 
    vector<vector<const BinaryData*>> saVec;
+   saVec.resize(nThreads_);
 
    uint32_t i = 0;
    for (auto& threadData : bdc->threads_)
