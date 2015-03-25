@@ -25,6 +25,12 @@ $(package)_config_opts_i686_linux  = -platform linux-g++-32
 $(package)_build_env  = QT_RCC_TEST=1
 endef
 
+define $(package)_preprocess_cmds
+  sed -i.old "s|/usr/X11R6/lib64|$(host_prefix)/lib|" mkspecs/*/*.conf && \
+  sed -i.old "s|/usr/X11R6/lib|$(host_prefix)/lib|" mkspecs/*/*.conf && \
+  sed -i.old "s|/usr/X11R6/include|$(host_prefix)/include|" mkspecs/*/*.conf
+endef
+
 define $(package)_config_cmds
   export PKG_CONFIG_SYSROOT_DIR=/ && \
   export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
