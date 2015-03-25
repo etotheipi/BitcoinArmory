@@ -20,7 +20,6 @@ try: # Python 2.7+
     from collections import OrderedDict
 except ImportError:
     from .packages.ordered_dict import OrderedDict
-from .packages.six import itervalues
 
 
 __all__ = ['RecentlyUsedContainer', 'HTTPHeaderDict']
@@ -198,7 +197,7 @@ class HTTPHeaderDict(MutableMapping):
         return len(self._data)
 
     def __iter__(self):
-        for headers in itervalues(self._data):
+        for headers in self._data.values():
             yield headers[0][0]
 
     def __repr__(self):

@@ -11,7 +11,6 @@ import io
 
 from ._collections import HTTPHeaderDict
 from .exceptions import DecodeError
-from .packages.six import string_types as str, binary_type
 from .util import is_fp_closed
 
 
@@ -22,7 +21,7 @@ class DeflateDecoder(object):
 
     def __init__(self):
         self._first_try = True
-        self._data = binary_type()
+        self._data = b''
         self._obj = zlib.decompressobj()
 
     def __getattr__(self, name):
@@ -208,7 +207,7 @@ class HTTPResponse(io.IOBase):
                     e)
 
             if flush_decoder and decode_content and self._decoder:
-                buf = self._decoder.decompress(binary_type())
+                buf = self._decoder.decompress(b'')
                 data += buf + self._decoder.flush()
 
             if cache_content:

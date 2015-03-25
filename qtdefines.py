@@ -11,8 +11,7 @@ from tempfile import mkstemp
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from six.moves import urllib
-#import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.parse, urllib.error
 
 from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *

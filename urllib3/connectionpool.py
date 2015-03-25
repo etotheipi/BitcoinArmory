@@ -30,7 +30,6 @@ from .exceptions import (
     ProxyError,
 )
 from .packages.ssl_match_hostname import CertificateError
-from .packages import six
 from .connection import (
     port_by_scheme,
     DummyConnection,
@@ -46,8 +45,6 @@ from .util import (
     Timeout,
 )
 
-
-xrange = six.moves.xrange
 
 log = logging.getLogger(__name__)
 
@@ -654,8 +651,6 @@ class HTTPSConnectionPool(HTTPConnectionPool):
             actual_port = self.proxy.port
 
         extra_params = {}
-        if not six.PY3:  # Python 2
-            extra_params['strict'] = self.strict
 
         conn = self.ConnectionCls(host=actual_host, port=actual_port,
                                   timeout=self.timeout.connect_timeout,

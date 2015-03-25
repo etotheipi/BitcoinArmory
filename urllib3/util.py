@@ -32,7 +32,6 @@ try:  # Test for SSL features
 except ImportError:
     pass
 
-from .packages import six
 from .exceptions import LocationParseError, SSLError, TimeoutStateError
 
 
@@ -476,11 +475,11 @@ def make_headers(keep_alive=None, accept_encoding=None, user_agent=None,
 
     if basic_auth:
         headers['authorization'] = 'Basic ' + \
-            b64encode(six.b(basic_auth)).decode('utf-8')
+            b64encode(basic_auth.encode()).decode('utf-8')
 
     if proxy_basic_auth:
         headers['proxy-authorization'] = 'Basic ' + \
-            b64encode(six.b(proxy_basic_auth)).decode('utf-8')
+            b64encode(proxy_basic_auth.encode()).decode('utf-8')
 
     return headers
 

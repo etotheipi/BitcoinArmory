@@ -39,7 +39,6 @@ from .exceptions import (
     ConnectTimeoutError,
 )
 from .packages.ssl_match_hostname import match_hostname
-from .packages import six
 from .util import (
     assert_fingerprint,
     resolve_cert_reqs,
@@ -66,8 +65,7 @@ class HTTPConnection(_HTTPConnection, object):
     tcp_nodelay = 1
 
     def __init__(self, *args, **kw):
-        if six.PY3:  # Python 3
-            kw.pop('strict', None)
+        kw.pop('strict', None)
 
         if sys.version_info < (2, 7):  # Python 2.6 and earlier
             kw.pop('source_address', None)
