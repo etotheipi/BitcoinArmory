@@ -12,7 +12,7 @@ $(package)_config_opts += --without-java --without-lua --without-mzscheme
 $(package)_config_opts += --without-ocaml --without-octave --without-perl5
 $(package)_config_opts += --without-php4 --without-pike --without-r
 $(package)_config_opts += --without-ruby --without-rxspencer --without-tcl
-$(package)_config_opts += --prefix $($(package)_staging_dir) --disable-ccache
+$(package)_config_opts += --disable-ccache
 $(package)_config_opts += PCRE_CONFIG=$($(package)_prefixbin)/pcre-config
 $(package)_build_opts = LIBS="-lpcre -lz"
 endef
@@ -26,5 +26,5 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) install
+  $(MAKE) DESTDIR=$($(package)_staging_dir) install
 endef
