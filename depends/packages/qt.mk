@@ -43,7 +43,6 @@ $(package)_config_opts_arm_linux  = -platform linux-g++ -xplatform $(host)
 $(package)_config_opts_i686_linux  = -xplatform linux-g++-32
 $(package)_config_opts_mingw32  = -no-opengl -xplatform win32-g++ -device-option CROSS_COMPILE="$(host)-"
 $(package)_build_env  = QT_RCC_TEST=1
-$(package)_build_opts=CC="$($(package)_cc)" CXX="$($(package)_cxx)" AR="$($(package)_ar) cqs" NM="$($(package)_nm)" RANLIB="$($(package)_ranlib)" LINK="$($(package)_cxx)"
 endef
 
 define $(package)_preprocess_cmds
@@ -81,9 +80,9 @@ endef
 
 define $(package)_build_cmds
   export CPATH=$(host_prefix)/include && \
-  $(MAKE) -C src $(addprefix sub-,$($(package)_qt_libs)) $($(package)_build_opts) && \
-  $(MAKE) -C ../qttools/src/linguist/lrelease $($(package)_build_opts) && \
-  $(MAKE) -C ../qttranslations $($(package)_build_opts)
+  $(MAKE) -C src $(addprefix sub-,$($(package)_qt_libs)) && \
+  $(MAKE) -C ../qttools/src/linguist/lrelease && \
+  $(MAKE) -C ../qttranslations
 endef
 
 define $(package)_stage_cmds
