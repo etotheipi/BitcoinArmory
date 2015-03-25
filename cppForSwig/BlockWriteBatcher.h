@@ -730,6 +730,7 @@ public:
    condition_variable workCV_;
 
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
+   BinaryData lastScannedBlockHash_;
 
 public:
    BlockDataProcessor(uint32_t nThreads, bool undo)
@@ -806,16 +807,14 @@ public:
    static ARMORY_DB_TYPE armoryDbType_;
    static LMDBBlockDatabase* iface_;
    static ScrAddrFilter* scrAddrData_;
-
+   
 private:
-      
    //to report back fatal errors to the main thread
    static function<void(string)> criticalError_;
 
    ////
    BlockDataProcessor dataProcessor_;
 };
-
 
 #endif
 // kate: indent-width 3; replace-tabs on;

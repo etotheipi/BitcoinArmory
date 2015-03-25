@@ -310,8 +310,6 @@ void GrabThreadData::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
 BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
    shared_ptr<LoadedBlockData> blockData)
 {
-   BinaryData lastScannedBlockHash;
-
    try
    {
       uint32_t threshold = 2500;
@@ -382,7 +380,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
    timeElapsed = TIMER_READ_SEC("scanThreadSleep");
    LOGINFO << "scanThreadSleep: " << timeElapsed << "s";
    
-   return lastScannedBlockHash;
+   return dataProcessor_.lastScannedBlockHash_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1613,12 +1611,9 @@ thread BlockDataProcessor::startThreads(shared_ptr<LoadedBlockData> blockData)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
 {
-   //setup
-
+   TIMER_START("applyBlockToDBinternal");
    
    shared_ptr<BlockDataFeed> dataFeed;
-
-   TIMER_START("applyBlockToDBinternal");
    while (1)
    {      
       unique_lock<mutex> workLock(workMutex_);
@@ -1734,6 +1729,8 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
             commitObject->updateSDBI_ == true)
             commitObject->dataToCommit_.updateSDBI();
 
+         commitObject->parent_->lastScannedBlockHash_ =
+            commitObject->topScannedBlockHash_;
          commitObject->parent_->writer_.reset();
       }
    
