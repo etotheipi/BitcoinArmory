@@ -16,7 +16,7 @@ $(package)_dependencies=python2 qt48 sip
 define $(package)_config_cmds
   export QTDIR=$($(package)_prefix) && \
   export PATH="$($(package)_prefixbin):${PATH}" && \
-  $($(package)_prefixbin)/python configure-ng.py --confirm-license --qmake $($(package)_prefix)/native/bin/qmake --sip-incdir $($(package)_prefix)/include/python2.7/ --static
+  $($(package)_prefixbin)/python configure-ng.py --confirm-license --qmake $($(package)_prefix)/native/bin/qmake --sip-incdir $($(package)_prefix)/include/python2.7/ --bindir=$($(package)_staging_prefix_dir)/bin --static
 endef
 
 define $(package)_build_cmds
@@ -24,5 +24,5 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) install
+  $(MAKE) install
 endef
