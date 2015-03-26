@@ -1146,9 +1146,9 @@ def GetSystemDetails():
       out.Memory = stat.ullTotalPhys/1024.
       out.CpuStr = platform.processor()
    elif OS_MACOSX:
-      memsizeStr = subprocess_check_output('sysctl hw.memsize', shell=True)
+      memsizeStr = subprocess_check_output('sysctl hw.memsize', shell=True).decode()
       out.Memory = int(memsizeStr.split(": ")[1]) / 1024
-      out.CpuStr = subprocess_check_output('sysctl -n machdep.cpu.brand_string', shell=True)
+      out.CpuStr = subprocess_check_output('sysctl -n machdep.cpu.brand_string', shell=True).decode()
    else:
       out.CpuStr = 'Unknown'
       raise OSError("Can't get system specs in: %s" % platform.system())
