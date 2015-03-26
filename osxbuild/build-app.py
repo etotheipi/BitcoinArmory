@@ -448,12 +448,9 @@ def compile_qt():
    copyfile(src, dst)
 
    # Put Qt patches here.
-#   # Partial bug fixes for modal windows.
-#   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), \
-#               cwd=qtBuildDir)
-#   # Completed bug fixes for modal windows.
-#   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
-#               cwd=qtBuildDir)
+   # Bug fix for modal windows.
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
+               cwd=qtBuildDir)
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
