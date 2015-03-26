@@ -729,6 +729,7 @@ public:
    mutex writeMutex_;
    condition_variable workCV_;
 
+   bool forceUpdateSSH_ = false;
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
    BinaryData lastScannedBlockHash_;
 
@@ -779,7 +780,7 @@ public:
    
    BinaryData scanBlocks(ProgressFilter &prog, 
       uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca,
-      uint32_t forceUpdateFromHeight=UINT32_MAX);
+      bool forceUpdateFromHeight=false);
    
    void setCriticalErrorLambda(function<void(string)> lbd) 
    { criticalError_ = lbd; }
