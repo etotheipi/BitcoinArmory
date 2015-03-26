@@ -12,9 +12,9 @@
 
 #include "ArmoryMac.h"
 
-#include <QtWidgets/QMenu>
-#include <QtWidgets/QWidget>
-#include <QtMacExtras/QtMac>
+#include <QMenu>
+#include <QWidget>
+#include <QtMac>
 
 #undef slots
 #include <Cocoa/Cocoa.h>

@@ -20,8 +20,6 @@ minOSXVer    = '10.7'
 osxName      = 'Yosemite'
 pythonVer    = '3.4.3'  # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer   = '3.4'
-#setToolVer   = '10.2.1'
-#pipVer       = '6.0.3'
 psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
@@ -94,7 +92,6 @@ def main():
    
    make_empty_app()
    compile_python()
-#   compile_pip()  # Included starting in Py3.4.
    install_libpng()
    install_qt()
    compile_sip()
@@ -306,16 +303,6 @@ distfiles.append( [ 'Python', \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
                     "7ca5cd664598bea96eec105aa6453223bb6b4456" ] )
 
-#distfiles.append( [ 'setuptools', \
-#                    "setuptools-%s.tar.gz" % setToolVer, \
-#                    "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-#                    "09da3f767e40d1451cac97af59afd99802c77076" ] )
-
-#distfiles.append( [ 'Pip', \
-#                    "pip-%s.tar.gz" % pipVer, \
-#                    "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-#                    "67d4affd83ee2f3514ac1386bee59f10f672517c" ] )
-
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
                     "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
@@ -337,17 +324,6 @@ distfiles.append( [ 'libpng', \
 #                    "qt5_git_repo.tar.gz", \
 #                    'git://gitorious.org/qt/qt5.git',
 #                    'stable' ] )
-
-#distfiles.append( [ "Qt-git", \
-#                    "qt4_git_repo.tar.gz", \
-#                    'git://gitorious.org/qt/qt.git',
-#                    '4.8' ] )
-
-# When we upgrade to Qt5....
-#distfiles.append( [ "Qt", \
-#                    "qt-everywhere-opensource-src-5.2.1.tar.gz", \
-#                    "http://download.qt-project.org/official_releases/qt/5.2/5.2.1/single/qt-everywhere-opensource-src-5.2.1.tar.gz", \
-#                    "31a5cf175bb94dbde3b52780d3be802cbeb19d65" ] )
 
 # Pre-packaged source can lag a bit but provides for more consistent user
 # support. Use pre-packaged source instead of Git whenever possible.
@@ -398,8 +374,9 @@ def make_empty_app():
    makedir(path.join(APPDIR,'Contents/Dependencies'))
 
 ################################################################################
+# Python 3.4+ includes pip/setuptools, so a separate compile's no longer needed.
 def compile_python():
-   logprint('Installing python.')
+   logprint('Installing python3.')
    bldPath = unpack(tarfilesToDL['Python'])
 
    # ./configure
@@ -412,28 +389,10 @@ def compile_python():
    # pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
    execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
 
-   # Update $PATH var
+   # Update $PATH var so that the invoked python3 is our version.
    newPath = path.join(PYPREFIX, 'bin')
    os.environ['PATH'] = '%s:%s' % (newPath, os.environ['PATH'])
    logprint('PATH is now %s' % os.environ['PATH'])
-
-################################################################################
-#def compile_pip():
-#   logprint('Installing setuptools.')
-#   pipexe = path.join(PYPREFIX, 'bin/pip')
-#   if path.exists(pipexe):
-#      logprint('Pip already installed')
-#   else:
-#      logprint('Installing pip.')
-#      command = 'python -s setup.py --no-user-cfg install --force --verbose'
-#
-#      # Unpack and build setuptools
-#      setupDir = unpack(tarfilesToDL['setuptools'])
-#      execAndWait(command, cwd=setupDir)
-#
-#      # Unpack and build pip
-#      pipDir   = unpack(tarfilesToDL['Pip'])
-#      execAndWait(command, cwd=pipDir)
 
 ################################################################################
 def install_libpng():
@@ -458,7 +417,6 @@ def compile_qt():
    qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtMinorVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
    qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtMinorVer)
-   #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
    # If we did a fresh download, it's already uncompressed in DLDir.  Move it
@@ -581,7 +539,7 @@ def compile_sip():
       logprint('SIP is already installed.')
    else:
       sipPath = unpack(tarfilesToDL['sip'])
-      command  = 'python configure.py'
+      command  = 'python3 configure.py'
       command += ' --destdir="%s"' % PYSITEPKGS
       command += ' --bindir="%s/bin"' % PYPREFIX
       command += ' --incdir="%s/include"' % PYPREFIX
@@ -602,7 +560,7 @@ def compile_pyqt():
    else:
       pyqtPath = unpack(tarfilesToDL['pyqt'])
       incDir = path.join(PYPREFIX, 'include')
-      execAndWait('python ./configure.py -w --confirm-license --sip-incdir="%s"' % incDir, cwd=pyqtPath)
+      execAndWait('python3 ./configure.py -w --confirm-license --sip-incdir="%s" --destdir="%s"' % (incDir, PYSITEPKGS), cwd=pyqtPath)
       execAndWait('make %s' % MAKEFLAGS, cwd=pyqtPath)
 
    # Need to add pyrcc5 to the PATH
@@ -611,28 +569,13 @@ def compile_pyqt():
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ################################################################################
-'''
-def pip_install(package, lookfor):
-   """Install package with pip.
-
-   For some reason this appears to be broken.  Pip installs psutil in /usr/local instead of
-   inside the app.  Strange.  Do not use!
-   """
-   if path.exists(path.join(PYSITEPKGS, lookfor)):
-      print(package, "already installed")
-   else: 
-      print("Installing %s using pip." % (package,))
-      execAndWait("pip install %s > pip-%s.log 2>&1" % (package, package))
-'''
-
-################################################################################
 def compile_twisted():
    logprint('Installing python-twisted')
 
    if glob.glob(PYSITEPKGS + '/Twisted*'):
       logprint('Twisted already installed')
    else:
-      command = "python -s setup.py --no-user-cfg install --force --verbose"
+      command = "python3 -s setup.py --no-user-cfg install --force --verbose"
       twpath = unpack(tarfilesToDL['Twisted'])
       execAndWait(command, cwd=twpath)
 
@@ -643,7 +586,7 @@ def compile_zope():
    if glob.glob(PYSITEPKGS + '/zope*'):
       logprint('zope already installed')
    else:
-      command = "python -s setup.py --no-user-cfg install --force --verbose"
+      command = "python3 -s setup.py --no-user-cfg install --force --verbose"
       twpath = unpack(tarfilesToDL['zope'])
       execAndWait(command, cwd=twpath)
 
@@ -654,7 +597,7 @@ def compile_psutil():
    if glob.glob(PYSITEPKGS + '/psutil*'):
       logprint('Psutil already installed')
    else:
-      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      command = 'python3 -s setup.py --no-user-cfg install --force --verbose'
       psPath = unpack(tarfilesToDL['psutil'])
       execAndWait(command, cwd=psPath)
 
@@ -665,7 +608,7 @@ def compile_appnope():
    if glob.glob(PYSITEPKGS + '/appnope*'):
       logprint('appnope already installed')
    else:
-      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      command = 'python3 -s setup.py --no-user-cfg install --force --verbose'
       appnopePath = unpack(tarfilesToDL['appnope'])
       execAndWait(command, cwd=appnopePath)
 
@@ -758,7 +701,6 @@ def getVersionStr():
                vstr += '.%d' % vquad[3]
             return vstr
 
-
 ################################################################################
 def show_app_size():
    "Show the size of the app."
@@ -815,10 +757,10 @@ def delete_prev_data(opts):
       removetree(DLDIR)      # Clear even the downloaded files
    elif opts.rebuildall:
       removetree(UNPACKDIR)
-   elif not opts.qtcheckout == '4.8':
-      resetQtRepo()
-      execAndWait('git pull')
-      execAndWait('git checkout %s' % opts.qtcheckout)
+#   elif not opts.qtcheckout == '4.8':
+#      resetQtRepo()
+#      execAndWait('git pull')
+#      execAndWait('git checkout %s' % opts.qtcheckout)
    elif opts.qtupdate:
       resetQtRepo()
       execAndWait('git pull')

@@ -15,8 +15,8 @@
 #ifndef ARMORYMAC_H
 #define ARMORYMAC_H
 
-#include <QtWidgets/QMainWindow>
-#include <QtCore/QObject>
+#include <QMainWindow>
+#include <QObject>
 
 QT_BEGIN_NAMESPACE
 class QIcon;
