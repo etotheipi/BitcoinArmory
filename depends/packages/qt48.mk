@@ -16,7 +16,7 @@ $(package)_config_opts += -no-xkb -no-xrender -no-xrandr -no-xfixes -no-xcursor 
 $(package)_config_opts += -no-libtiff -no-fontconfig -openssl-linked
 $(package)_config_opts += -no-sql-db2 -no-sql-ibase -no-sql-oci -no-sql-tds -no-sql-mysql
 $(package)_config_opts += -no-sql-odbc -no-sql-psql -no-sql-sqlite -no-sql-sqlite2
-$(package)_config_opts += -xmlpatterns -no-multimedia -no-phonon -no-scripttools -no-declarative
+$(package)_config_opts += -no-xmlpatterns -no-multimedia -no-phonon -no-scripttools -no-declarative
 $(package)_config_opts += -no-phonon-backend -no-webkit -no-javascript-jit -no-script
 $(package)_config_opts += -no-svg -no-libjpeg -no-libtiff -no-libpng -no-libmng -no-qt3support -no-opengl
 
