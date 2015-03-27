@@ -12,6 +12,11 @@ $(package)_linux_sha256_hash=853780dcdbe2e6ba785d703d059b096e1fc49369d3e8d41a060
 $(package)_darwin_sha256_hash=8b8bb3a2ef8b7368710e0bc59d6e94e1f513f7dbf10a3aaa3154f7b848c88b4d
 $(package)_mingw32_sha256_hash=aa25a2e11464fd2ff26e1a3ad514aae6d89a61bb03ce4746d255a82cf909225d
 $(package)_dependencies=python2 qt48 sip
+$(package)_patches=remove_timestamps.patch
+
+define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/remove_timestamps.patch
+endef
 
 define $(package)_config_cmds
   export QTDIR=$($(package)_prefix) && \
