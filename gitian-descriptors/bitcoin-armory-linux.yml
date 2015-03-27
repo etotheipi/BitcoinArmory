@@ -1,21 +1,14 @@
 ---
 name: "bitcoin-armory-linux"
+enable_cache: true
 suites:
-- "precise"
+- "trusty"
 architectures:
 - "amd64"
 packages:
-- "clang-3.4"
 - "faketime"
-- "libcrypto++-dev"
-- "libleveldb-dev"
-- "pyqt4-dev-tools"
-- "python-dev"
-- "python-psutil"
-- "python-qt4"
-- "python-twisted"
-- "rsync"
-- "swig"
+- "libstdc++-4.8-pic"
+- "pkg-config"
 - "zip"
 reference_datetime: "2013-06-01 00:00:00"
 remotes:
@@ -23,25 +16,53 @@ remotes:
   "dir": "BitcoinArmory"
 files: []
 script: |
-    export LD_PRELOAD=/usr/lib/faketime/libfaketime.so.1
-    export FAKETIME=$REFERENCE_DATETIME
+    HOSTS="x86_64-unknown-linux-gnu"
+
     export TZ=UTC
 
+    export GZIP="-9n"
+    export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+
     WRAP_DIR=$HOME/wrapped
-    FAKETIME_PROGS="date ar ranlib nm strip pyrcc4"
+    FAKETIME_PROGS="date ar ranlib nm strip"
     mkdir -p ${WRAP_DIR}
+    if test -n "$GBUILD_CACHE_ENABLED"; then
+      export SOURCES_PATH=${GBUILD_COMMON_CACHE}
+      export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+      mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
+    fi
 
     # Create global faketime wrappers
     for prog in ${FAKETIME_PROGS}; do
       echo '#!/bin/bash' > ${WRAP_DIR}/${prog}
       echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
-      echo 'export LD_PRELOAD=/usr/lib/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+      echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
       echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/${prog}
       echo "\$REAL \$@" >> $WRAP_DIR/${prog}
       chmod +x ${WRAP_DIR}/${prog}
     done
     export PATH=${WRAP_DIR}:${PATH}
-    
+
     cd BitcoinArmory
-    make CC=clang CXX=clang++
-    cd .. && find BitcoinArmory -path "*/.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
+    BASEPREFIX=`pwd`/depends    
+    ORIGPATH="$PATH"
+    for i in $HOSTS; do
+      make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
+    done
+
+    # Create pyrcc4 faketime wrapper
+    echo '#!/bin/bash' > ${WRAP_DIR}/pyrcc4
+    echo "REAL=${BASEPREFIX}/`echo '${HOSTS} | awk '{print $1;}''`/bin/pyrcc4" >> ${WRAP_DIR}/pyrcc4
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/pyrcc4
+    echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/pyrcc4
+    echo "\$REAL \$@" >> $WRAP_DIR/pyrcc4
+    chmod +x ${WRAP_DIR}/pyrcc4
+
+    ln -s /usr/lib/gcc/x86_64-linux-gnu/4.8/libstdc++_pic.a ${BASEPREFIX}/x86_64-unknown-linux-gnu/lib/libstdc++.a
+
+    for i in $HOSTS; do
+      export PATH=${BASEPREFIX}/${i}/bin:${ORIGPATH}
+
+      make
+      find . -path "*/\.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
+    done
