@@ -2658,11 +2658,9 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       byteSecret = secret
       a = binary_to_int(byteSecret, BIGENDIAN)
    else:
-      if not isinstance(secret, str):
-         s = SecureBinaryData()
-         s.createFromHex(secret.toHexStr())
-      byteSecret = s.toHexStr().encode()
+      byteSecret = secret.toHexStr().encode()
       a = hex_to_int(byteSecret,BIGENDIAN)
+      byteSecret = hex_to_binary(byteSecret)
    if nbytes==None:
       nbytes = len(byteSecret)
 

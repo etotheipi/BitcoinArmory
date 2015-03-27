@@ -386,6 +386,7 @@ class PyBtcAddress(object):
 
       if chksum and not verifyChecksum(hex_to_binary(self.binPrivKey32_Plain.toHexStr().encode()), chksum):
          raise ChecksumError("Checksum doesn't match plaintext priv key!")
+
       if publicKey65:
          self.binPublicKey65 = SecureBinaryData(publicKey65)
          if not self.binPublicKey65.getHash160()==self.addrStr20:

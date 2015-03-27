@@ -13137,7 +13137,7 @@ class DlgRestoreFragged(ArmoryDialog):
          self.lblRightFrm.setText(tr('<b><u>Wallet Being Restored:</u></b>'))
          self.imgPie.setPixmap(QPixmap(':/frag%df.png' % M).scaled(96,96))
          self.lblReqd.setText(tr('<b>Frags Needed:</b> %d') % M)
-         self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin))
+         self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin).decode())
          self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split(b'-')[0].decode())
          self.btnRestore.setEnabled(len(self.fragDataMap) >= M)
          break
@@ -13320,7 +13320,6 @@ class DlgRestoreFragged(ArmoryDialog):
 
       first = root.extendAddressChain()
       newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
-
       # If this is a test, then bail
       if self.thisIsATest:
          verifyRecoveryTestID(self, newWltID, self.testWltID)
