@@ -1,0 +1,29 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html lang="en">
+<head>
+<title>{% block title %}Armory Web Shop{% endblock %}</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link href='http://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='custom.css') }}"/>		
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='customjs.js') }}"></script>
+{% block head %}{% endblock %}
+</head>
+<body>
+<nav class="navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">Armory Web Shop</a>
+    <div class="navbar-right">
+      <div class="container minicart" onclick="document.location='/cart'"></div>
+    </div>
+  </div>
+</nav>
+{% block body %}{% endblock %}
+
+</body>
+</html>

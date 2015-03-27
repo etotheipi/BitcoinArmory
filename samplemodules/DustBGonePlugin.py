@@ -28,7 +28,7 @@ MAX_DUST_LIMIT_STR = '0.00100000'
 class PluginObject(object):
 
    tabName = 'Dust-B-Gone'
-   maxVersion = '0.93'
+   maxVersion = '0.93.99'
    
    #############################################################################
    def __init__(self, main):

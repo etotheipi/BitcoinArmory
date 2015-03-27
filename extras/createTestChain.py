@@ -1,6 +1,7 @@
 #! /usr/bin/python
 import sys
 import errno
+import argparse
 from armoryengine.Block import *
 from armoryengine.ArmoryUtils import *
 from armoryengine.PyBtcAddress import *
@@ -20,6 +21,12 @@ if not os.path.isdir('cppForSwig/reorgTest'):
    print "This program must be run from the armory source root dir. Copy this " \
       "file to the root directory and run it from there."
    sys.exit(1);
+
+# Real blocks have to be properly mined, which takes hours. If messing with this
+# file, using fake blocks will be a lot faster and allow almost all C++ unit
+# tests to pass. (Command line args are ideal but this script collides with the
+# parser in ArmoryUtils.)
+fakeBlocks=False
 
 # Use the genesis block to kick things off. (Might not work on Windows.)
 blkfile = open(os.environ['HOME'] + '/.bitcoin/blocks/blk00000.dat','r')
@@ -70,7 +77,7 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
    print 'Creating block (%d tx):  Computing nonce...' % len(txlist)
    extraNonce = random.randrange(2**32)
    txlist[0].inputs[0].binScript = int_to_binary(extraNonce, widthBytes=4)
-   aGoodNonce = 0
+   aGoodNonce = False
    numTries = 0
    newbh = CppBlockHeader()
 
@@ -78,7 +85,8 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
    # http://bitcoin.stackexchange.com/questions/5048/what-is-the-extranonce for
    # more info on why we mod the timestamp instead of the coinbase script
    # (extraNonce).
-   while aGoodNonce == 0:
+   nonceVal = -1
+   while not aGoodNonce:
       blk = PyBlock(prevBlkHeader, txlist)
       blk.blockHeader.timestamp += numTries
 
@@ -87,14 +95,21 @@ def createPyBlock(prevBlkHeader, txlist, useMinDiff=True):
       diffHex = 'FFFF0000000000000000000000000000000000000000000000000000h'
       if not useMinDiff:
          blk.blockHeader.diffBits = hex_to_binary('1d00fffe', BIGENDIAN)
-         diffHex = 'FEFF0000000000000000000000000000000000000000000000000000h'
+         diffHex = 'FFFE0000000000000000000000000000000000000000000000000000h'
 
       newbh = CppBlockHeader()
       newbh.unserialize_1_(blk.blockHeader.serialize())
-      aGoodNonce = newbh.findNonce(diffHex)
+      if fakeBlocks:
+         nonceVal = 1414
+         aGoodNonce = True
+      else:
+         # C++ returns -1 if a nonce isn't found.
+         nonceVal = newbh.findNonce(diffHex)
+         if nonceVal != -1:
+            aGoodNonce = True
       numTries += 1
 
-   blk.blockHeader.nonce = aGoodNonce
+   blk.blockHeader.nonce = nonceVal
    blk.blockHeader.timestamp = newbh.getTimestamp()
    print 'Done!'
    return blk
@@ -224,7 +239,6 @@ printBlkInfo(Blk5A, '')
 ################################################################################
 # Now serialize the block data into .dat files so we can feed them into a 
 # program that claims to handle reorgs
-
 def writeBlkBin(fileHandle, blk):
    fileHandle.write( hex_to_binary('f9beb4d9') )
    fileHandle.write( int_to_binary(blk.getSize(), widthBytes=4) )
@@ -284,6 +298,18 @@ for blk,name in ([genBlock, '0'], [Blk1, '1'], [Blk2, '2'], [Blk3, '3'], \
    blkfile.close()
    
    addrfile.write("const BinaryData blkHash" + name + " = BinaryData::CreateFromHex(\"" + binary_to_hex(blk.blockHeader.theHash) + "\");\n")
+addrfile.write("\n")
+
+# Finally, write Blk5/Tx1 & Blk4/Tx1 to indiv. files for specialized tests.
+b5tx1File = open('cppForSwig/reorgTest/ZCtx.tx','wb+')
+b5tx1File.write(Blk5_Tx1.serialize())
+addrfile.write("const unsigned int zcTxSize = " + str(b5tx1File.tell()) + ";\n")
+addrfile.write("const string zcTxHash256 = \"" + binary_to_hex(hash256(Blk5_Tx1.serialize())) + "\";\n")
+b5tx1File.close()
+b4tx1File = open('cppForSwig/reorgTest/LBZC.tx','wb+')
+b4tx1File.write(Blk4_Tx1.serialize())
+addrfile.write("const unsigned int lbZCTxSize = " + str(b4tx1File.tell()) + ";\n")
+b4tx1File.close()
 
 addrfile.write("}\n")
 addrfile.write("\n#endif\n")

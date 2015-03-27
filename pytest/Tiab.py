@@ -6,6 +6,7 @@ from twisted.python import filepath
 sys.argv.append('--testnet')
 # Uncomment when debugging
 sys.argv.append('--debug')
+sys.argv.append('--supernode')
 # sys.argv.append('--nologging')
 
 import os
@@ -147,8 +148,8 @@ class TiabTest(unittest.TestCase):
       newTheBDM()
       self.armoryHomeDir = os.path.join(self.tiab.tiabDirectory,'tiab','armory')
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
-      TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
-      TheBDM.goOnline(levelDBDir=self.armoryHomeDir)
+      TheBDM.setArmoryDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
+      TheBDM.goOnline(armoryDBDir=self.armoryHomeDir)
       
       i = 0
       while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:

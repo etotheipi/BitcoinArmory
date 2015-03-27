@@ -26,12 +26,12 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
 {
     // This is actually taken from DL_SignerBase (pubkey.h) with one
     // modification: The RNG is completely ignored. Instead, we'll determine the
-    // k-value using RNG 6979, which requires only the private key (m_key, from
-    // DL_ObjectImplBase - pubkey.h) and the data to sign (messageAccumulator).
-    // INPUT:  An RNG that can be ignored (RandomNumberGenerator&)
+    // k-value using RNG 6979, which requires only the private key and the data
+    // to sign (messageAccumulator).
+    // INPUT:  An unused RNG required by the prototype (RandomNumberGenerator&)
     //         The message to sign (PK_MessageAccumulator&)
-    //         The ECDSA curve order (const Integer&)
-    // OUTPUT: The signature (byte*)
+    //         An unused "restart" variable required by the prototype (bool)
+    // OUTPUT: The final signature (byte*)
     // RETURN: The size of the signature in bytes (size_t)
     size_t SignAndRestart(RandomNumberGenerator &rng,
                           PK_MessageAccumulator &messageAccumulator,
@@ -40,6 +40,19 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
     {
         this->GetMaterial().DoQuickSanityCheck();
 
+        // Actual variable locations:
+        // SCHEME_OPTIONS = DL_SignatureSchemeOptions<DL_SSDetSign<DL_Keys_ECDSA<ECP>,
+        //                                                         DL_Algorithm_ECDSA<ECP>,
+        //                                                         DL_SignatureMessageEncodingMethod_DSA,
+        //                                                         SHA256,
+        //                                                         int>,
+        //                                            DL_Keys_ECDSA<ECP>,
+        //                                            DL_Algorithm_ECDSA<ECP>,
+        //                                            DL_SignatureMessageEncodingMethod_DSA,
+        //                                            SHA256>
+        // alg - Singleton<CPP_TYPENAME SCHEME_OPTIONS::SignatureAlgorithm>().Ref() (DL_ObjectImpl)
+        // params - m_groupParameters (DL_KeyImpl)
+        // key - m_key (DL_ObjectImplBase)
         PK_MessageAccumulatorBase &ma = static_cast<PK_MessageAccumulatorBase &>(messageAccumulator);
         const DL_ElgamalLikeSignatureAlgorithm<typename SCHEME_OPTIONS::Element> &alg = this->GetSignatureAlgorithm();
         const DL_GroupParameters<typename SCHEME_OPTIONS::Element> &params = this->GetAbstractGroupParameters();
@@ -60,6 +73,7 @@ class DL_SignerImplDetSign : public DL_SignerImpl<SCHEME_OPTIONS>
         ma.m_empty = true;
         Integer e(representative, representative.size());
 
+        // The k-value must be deterministic.
         Integer k = getDetKVal(key.GetPrivateExponent(),
                                representative,
                                representative.size(),

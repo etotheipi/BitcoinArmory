@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -8,6 +8,8 @@
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
+
+BinaryData BinaryData::EmptyBinData_(0);
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData::BinaryData(BinaryDataRef const & bdRef) 

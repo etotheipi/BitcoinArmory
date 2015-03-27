@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef _LEDGER_ENTRY_H
 #define _LEDGER_ENTRY_H
 
@@ -61,7 +68,6 @@ public:
       isChangeBack_(false) {}
 
    LedgerEntry(BinaryData const & ID,
-               string const & wltId,
                int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
@@ -113,19 +119,24 @@ public:
                                 const map<BinaryData, TxIOPair>& txioMap,
                                 uint32_t startBlock, uint32_t endBlock,
                                 const BinaryData& ID,
-                                LMDBBlockDatabase* db,
-                                Blockchain* bc,
+                                const LMDBBlockDatabase* db,
+                                const Blockchain* bc,
                                 bool purge);
    
+   set<BinaryData> getScrAddrList(void) const
+   { return scrAddrSet_; }
+   
+public:
+
    static LedgerEntry EmptyLedger_;
    static map<BinaryData, LedgerEntry> EmptyLedgerMap_;
    static BinaryData ZCheader_;
+   static BinaryData EmptyID_;
 
 private:
    
    //holds either a scrAddr or a walletId
    BinaryData       ID_;
-   static BinaryData EmptyID_;
 
    int64_t          value_;
    uint32_t         blockNum_;
@@ -135,6 +146,15 @@ private:
    bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;
+
+   //for matching scrAddr comments to LedgerEntries on the Python side
+   set<BinaryData> scrAddrSet_;
 }; 
+
+struct LedgerEntry_DescendingOrder
+{
+   bool operator() (const LedgerEntry& a, const LedgerEntry& b)
+   { return a > b; }
+};
 
 #endif

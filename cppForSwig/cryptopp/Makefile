@@ -61,7 +61,10 @@ CXXFLAGS += -DCRYPTOPP_DISABLE_SSSE3
 else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
+else
+CXXFLAGS += -mpclmul -mssse3 -maes -msse4
 endif
+
 endif
 ifeq ($(UNAME),SunOS)
 CXXFLAGS += -Wa,--divide	# allow use of "/" operator
@@ -102,6 +105,12 @@ endif
 # ARMORY - C++11 support is necessary in order to build the code.
 CXXFLAGS += -std=c++11 -stdlib=libc++
 LDFLAGS += -lc++
+endif
+
+# ARMORY - If using clang outside OS X for some reason, disable ASM.
+# http://llvm.org/bugs/show_bug.cgi?id=18916
+ifeq ($(CXX),clang++)
+CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
 endif
 
 ifeq ($(UNAME),SunOS)

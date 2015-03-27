@@ -5,8 +5,13 @@ ifdef DEBUG
 CFLAGS=-g3 -Wall -pipe -fPIC
 CXXFLAGS=-g3 -Wall -pipe -fPIC
 else
-CFLAGS=-O2 -pipe -fPIC
-CXXFLAGS=-O2 -pipe -fPIC
+CFLAGS = -O2 -pipe -fPIC
+CXXFLAGS = -O2 -pipe -fPIC
+endif
+
+ifdef STATIC_LINK
+CFLAGS += -static-libstdc++ -static-libgcc
+CXXFLAGS += -static-libstdc++ -static-libgcc
 endif
 
 ifdef STATIC_LINK
@@ -30,7 +35,7 @@ OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
 	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
-	libcryptopp.a mdb.o midl.o
+	libcryptopp.a mdb.o midl.o txio.o
 
 #if python is specified, use it
 ifndef PYVER
@@ -42,7 +47,7 @@ endif
 
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -classic -threads
+SWIG_OPTS    += -c++ -python -threads
 
 SWIG_INC     += 
 
@@ -79,9 +84,9 @@ libcryptopp.a: Makefile
 	mv cryptopp/libcryptopp.a .
 
 mdb.o: mdb/mdb.c mdb/lmdb.h mdb/midl.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c mdb/mdb.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c mdb/mdb.c
 midl.o: mdb/midl.c mdb/lmdb.h mdb/midl.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c mdb/midl.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c mdb/midl.c
 
 %.o: %.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<

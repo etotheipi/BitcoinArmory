@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef _BTCWALLET_H
 #define _BTCWALLET_H
 
@@ -49,22 +56,35 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
-   friend class BlockDataViewer;
+   friend class WalletGroup;
 
    static const uint32_t MIN_UTXO_PER_TXN = 100;
 
 public:
 
-   enum MergeMode
+   enum MergeWallet
    {
       NoMerge,
+      NeedsMerging
+   };
+
+   enum MergeAction
+   {
+      NoRescan,
       Rescan,
-      NoRescan
+      DeleteAddresses
    };
 
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
-      : bdvPtr_(bdv), mergeLock_(0), walletID_(ID)
+      : bdvPtr_(bdv), walletID_(ID)
    {}
+
+   BtcWallet(const BtcWallet& wlt) :
+      bdvPtr_(wlt.bdvPtr_), walletID_(wlt.walletID_)
+   {
+      scrAddrMap_ = wlt.scrAddrMap_;
+      balance_ = wlt.balance_;
+   }
    
    ~BtcWallet(void);
 
@@ -79,6 +99,7 @@ public:
                    uint32_t      lastBlockNum   = 0);
    void addAddressBulk(vector<BinaryData> const & scrAddrBulk,
                        bool areNew);
+   void removeAddressBulk(vector<BinaryData> const & scrAddrBulk);
 
 
    // SWIG has some serious problems with typemaps and variable arg lists
@@ -139,9 +160,9 @@ public:
    vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX,
       bool ignoreZC = true);
 
-   vector<const LedgerEntry*>
+   vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const;
-   vector<const LedgerEntry*>
+   vector<LedgerEntry>
       getTxLedger(void) const;
 
    void pprintLedger() const;
@@ -162,12 +183,15 @@ public:
 
    size_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
 
-   const ScrAddrObj* getScrAddrObjByKey(BinaryData key) const;
+   const ScrAddrObj* getScrAddrObjByKey(const BinaryData& key) const;
+   ScrAddrObj& getScrAddrObjRef(const BinaryData& key);
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
    void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 
                                bool isNew,
                                BinaryData topScannedBlockHash);
+   void markAddressListForDeletion(const vector<BinaryData>& scrAddrVecToDel);
+
 
    void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
    const BinaryData& walletID() const { return walletID_; }
@@ -176,7 +200,7 @@ public:
 
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
    vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
-   uint32_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
+   size_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
    void needsRefresh(void);
    void forceScan(void);
@@ -226,6 +250,17 @@ private:
    void resetTxOutHistory(void);
 
 private:
+
+   struct mergeStruct
+   {
+      map<BinaryData, ScrAddrObj> scrAddrMapToMerge_;
+      vector<BinaryData>          scrAddrVecToDelete_;
+      BinaryData                  mergeTopScannedBlkHash_;
+      MergeAction                 mergeAction_;
+
+      shared_ptr<mergeStruct> nextMergeData_;
+   };
+
    BlockDataViewer* const        bdvPtr_;
    map<BinaryData, ScrAddrObj>   scrAddrMap_;
    
@@ -234,13 +269,12 @@ private:
                                  
    bool                          isRegistered_=false;
 
-   BtcWallet(const BtcWallet&); // no copies
+   //BtcWallet(const BtcWallet&); // no copies
 
    //for post init importing of new addresses
-   atomic<uint32_t>              mergeLock_;
-   map<BinaryData, ScrAddrObj>   scrAddrMapToMerge_;
-   BinaryData                    mergeTopScannedBlkHash_;
-   MergeMode                     mergeFlag_ = MergeMode::NoMerge;
+   mutex                         mergeLock_;
+   shared_ptr<mergeStruct>       mergeData_;
+   MergeWallet                   mergeFlag_ = MergeWallet::NoMerge;
    
    //manages history pages
    HistoryPager                  histPages_;

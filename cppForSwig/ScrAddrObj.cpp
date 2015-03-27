@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #include "ScrAddrObj.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -52,6 +59,8 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ) const
 {
    /***may need some help with the paging system in place***/
+   if (!db_->isReady())
+      throw runtime_error("DB isnt ready");
 
    uint64_t balance = 0;
    for (auto txio : relevantTxIO_)
@@ -65,6 +74,9 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getFullBalance() const
 {
+   if (!db_->isReady())
+      throw runtime_error("DB isnt ready");
+
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr_);
    uint64_t balance = ssh.getScriptBalance(false);
@@ -114,11 +126,20 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
    function<bool(const BinaryData&)> isZcFromWallet)
 {
+   //Dont use a reference for this loop. We check and set the isFromSelf flag
+   //in this operation, which is based on the wallet this scrAddr belongs to.
+   //The txio comes straight from the ZC container object, which only deals 
+   //with scrAddr. Since several wallets may reference the same scrAddr, we 
+   //can't modify original txio, so we use a copy.
+
    for (auto txioPair : zcTxIOMap)
    {
       if (txioPair.second.hasTxOutZC() &&
          isZcFromWallet(txioPair.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
          txioPair.second.setTxOutFromSelf(true);
+
+      txioPair.second.setScrAddrLambda(
+         [this](void)->const BinaryData&{ return this->getScrAddr(); });
 
       relevantTxIO_[txioPair.first] = txioPair.second;
    }
@@ -219,6 +240,9 @@ void ScrAddrObj::updateLedgers(map<BinaryData, LedgerEntry>& leMap,
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getTxioCountFromSSH(void) const
 {
+   if (!db_->isReady())
+      throw runtime_error("DB isnt ready");
+
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr_);
 
@@ -246,13 +270,20 @@ void ScrAddrObj::getHistoryForScrAddr(
    bool update,
    bool withMultisig) const
 {
-   //check ScrAddrObj::relevantTxio_ first to see if it has some of the TxIOs
+   //check relevantTxio_ first to see if it has some of the TxIOs
    uint32_t localTxioBottom = hist_.getPageBottom(0);
    if (update==false && endBlock > localTxioBottom)
    {
       if (startBlock <= localTxioBottom)
       {
-         outMap.insert(relevantTxIO_.begin(), relevantTxIO_.end());
+         for (auto txioPair : relevantTxIO_)
+         {
+            auto& txio = outMap[txioPair.first];
+            txio = txioPair.second;
+            txio.setScrAddrLambda(
+               [this](void)->const BinaryData&
+               { return this->getScrAddr(); });
+         }
       }
       else
       {
@@ -262,7 +293,13 @@ void ScrAddrObj::getHistoryForScrAddr(
          for (auto txioPair : relevantTxIO_)
          {
             if (txioPair.second >= startHeight)
-               outMap.insert(txioPair);
+            {
+               auto& txio = outMap[txioPair.first];
+               txio = txioPair.second;
+               txio.setScrAddrLambda(
+                  [this](void)->const BinaryData&
+                  { return this->getScrAddr(); });
+            }
          }
       }
          
@@ -296,9 +333,16 @@ void ScrAddrObj::getHistoryForScrAddr(
 
       for (auto &txiop : subssh.txioMap_)
       {
-         const TxIOPair & txio = txiop.second;
-         if (withMultisig || !txio.isMultisig())
-            outMap.insert(txiop); 
+         if (withMultisig || !txiop.second.isMultisig())
+         {
+            auto& txio = outMap[txiop.first];
+            txio.setScrAddrLambda(
+                  [this](void)->const BinaryData&
+               { return this->getScrAddr(); });
+            
+            if (!txio.hasValue())
+               txio = txiop.second;
+         }
       }
 
       ++subSSHiter;
@@ -308,10 +352,8 @@ void ScrAddrObj::getHistoryForScrAddr(
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> ScrAddrObj::getHistoryPageById(uint32_t id)
 {
-   if (id < 0)
-   {
-      return vector<LedgerEntry>();
-   }
+   if (id < 0 || id > hist_.getPageCount())
+      throw std::range_error("pageId out of range");
 
    auto getTxio = [this](uint32_t start, 
                          uint32_t end, 
@@ -502,4 +544,18 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
    }
 
    return utxoVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrObj::getBlockInVicinity(uint32_t blk) const
+{
+   //expect history has been computed, it will throw otherwise
+   return hist_.getBlockInVicinity(blk);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ScrAddrObj::getPageIdForBlockHeight(uint32_t blk) const
+{
+   //same as above
+   return hist_.getPageIdForBlockHeight(blk);
 }

@@ -22,6 +22,10 @@ http://www.opensource.org/licenses/mit-license.php for more information.
 
 class DockIconClickEventHandler;
 
+// SIP can't handle C++ strings right now. Use QStrings if you can, but code at
+// http://www.riverbankcomputing.com/pipermail/pyqt/2011-July/030115.html
+// is avaialble if you MUST use C++ strings.
+
 class MacDockIconHandler : public QObject {
 %TypeHeaderCode
 #include <ArmoryMac.h>
@@ -44,27 +48,13 @@ private:
     MacDockIconHandler();
 };
 
-class MacNotificationHandler : QObject {
+
+class MacUtils : QObject {
 %TypeHeaderCode
 #include <ArmoryMac.h>
 %End
 
 public:
-    // SIP doesn't seem to like enums unless they're part of a class.
-	enum notifType
-    {
-        None,
-        Growl12,
-        Growl13,
-        BuiltIn
-    };
-
-    void showNotification(const QString &title, const QString &text);
-
-    void sendAppleScript(const QString &script);
-
-    bool hasUserNotificationCenterSupport();
-    MacNotificationHandler::notifType hasGrowl();
-    void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
-    static MacNotificationHandler *instance();
-}; // class
+    QString openFile();
+    static MacUtils* instance();
+};

@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -17,6 +17,7 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.MultiSigUtils import *
 
+import gettext
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
@@ -60,7 +61,7 @@ def AddToRunningDialogsList(func):
    return wrapper
 
 ################################################################################
-def tr(txt, replList=None, pluralList=None):
+def tr(txt, y=None, z=None):
    """
    This is a common convention for implementing translations, where all 
    translatable strings are put int the _(...) function, and that method 
@@ -109,9 +110,12 @@ def tr(txt, replList=None, pluralList=None):
 
    txt = TRANSLATE(txt)
 
-   return formatWithPlurals(txt, replList, pluralList)
-   
-
+   if z == None:
+      return txt
+   elif z == 1:
+      return txt
+   else:
+      return y
 
 ################################################################################
 def HLINE(style=QFrame.Plain):
@@ -178,11 +182,11 @@ def UnicodeErrorBox(parent):
 #######
 def UserModeStr(mode):
    if mode==USERMODE.Standard:
-      return 'Standard'
+      return tr('Standard User')
    elif mode==USERMODE.Advanced:
-      return 'Advanced'
+      return tr('Advanced User')
    elif mode==USERMODE.Expert:
-      return 'Expert'
+      return tr('Expert User')
 
 
 #######
@@ -241,13 +245,13 @@ def relaxedSizeNChar(obj, nChar):
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
       if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
-         return [WLTTYPES.Offline, 'Offline']
+         return [WLTTYPES.Offline, tr('Offline')]
       else:
-         return [WLTTYPES.WatchOnly, 'Watching-Only']
+         return [WLTTYPES.WatchOnly, tr('Watching-Only')]
    elif wlt.useEncryption:
-      return [WLTTYPES.Crypt, 'Encrypted']
+      return [WLTTYPES.Crypt, tr('Encrypted')]
    else:
-      return [WLTTYPES.Plain, 'No Encryption']
+      return [WLTTYPES.Plain, tr('No Encryption')]
 
 
 
@@ -480,8 +484,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
-            if not yesStr: yesStr = '&Yes'
-            if not noStr:  noStr = '&No'
+            if not yesStr: yesStr = tr('&Yes')
+            if not noStr:  noStr = tr('&No')
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
@@ -489,8 +493,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            cancelStr = '&Cancel' if (noStr is not None or withCancel) else ''
-            yesStr    = '&OK' if (yesStr is None) else yesStr
+            cancelStr = tr('&Cancel') if (noStr is not None or withCancel) else ''
+            yesStr    = tr('&OK') if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
             btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
@@ -524,7 +528,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
 
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
+def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
                    yesStr='Yes', noStr='No', dnaaStartChk=False):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
@@ -532,20 +536,20 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
    """
 
    class dlgWarn(ArmoryDialog):
-      def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
-         super(dlgWarn, self).__init__(None)
+      def __init__(self, parent, main, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
+         super(dlgWarn, self).__init__(parent, main)
          
          msgIcon = QLabel()
          fpix = ''
          if dtype==MSGBOX.Info:
             fpix = ':/MsgBox_info48.png'
-            if not dmsg:  dmsg = 'Do not show this message again'
+            if not dmsg:  dmsg = tr('Do not show this message again')
          if dtype==MSGBOX.Question:
             fpix = ':/MsgBox_question64.png'
-            if not dmsg:  dmsg = 'Do not ask again'
+            if not dmsg:  dmsg = tr('Do not ask again')
          if dtype==MSGBOX.Warning:
             fpix = ':/MsgBox_warning48.png'
-            if not dmsg:  dmsg = 'Do not show this warning again'
+            if not dmsg:  dmsg = tr('Do not show this warning again')
          if dtype==MSGBOX.Critical:
             fpix = ':/MsgBox_critical64.png'
             if not dmsg:  dmsg = None  # should always show crits
@@ -601,7 +605,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
          self.setWindowTitle(dtitle)
 
 
-   dlg = dlgWarn(wtype, title, msg, dnaaMsg, wCancel) 
+   dlg = dlgWarn(parent, main, wtype, title, msg, dnaaMsg, wCancel) 
    result = dlg.exec_()
    
    return (result, dlg.chkDnaa.isChecked())
@@ -734,25 +738,38 @@ class ArmoryFrame(QFrame):
 
 ################################################################################
 class ArmoryDialog(QDialog):
+   #create a signal with a random name that children to this dialog will 
+   #connect to close themselves if the parent is closed first   
+
+      
    def __init__(self, parent=None, main=None):
       super(ArmoryDialog, self).__init__(parent)
 
+      self.closeSignal = str(random.random())       
       self.parent = parent
       self.main   = main
-
+      
+      #connect this dialog to the parent's close signal
+      if self.parent is not None and hasattr(self.parent, 'closeSignal'):
+         self.connect(self.parent, SIGNAL(self.parent.closeSignal), self.reject)
+         
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
 
       if USE_TESTNET:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management [TESTNET]'))
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management')
+         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management'))
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
    
    @AddToRunningDialogsList
    def exec_(self):
       return super(ArmoryDialog, self).exec_()
+   
+   def reject(self):
+      self.emit(SIGNAL(self.closeSignal))
+      super(ArmoryDialog, self).reject()
       
 
 ################################################################################
@@ -844,7 +861,7 @@ class QRCodeWidget(QWidget):
 # Create a very simple dialog and execute it
 class DlgInflatedQR(ArmoryDialog):
    def __init__(self, parent, dataToQR):
-      super(DlgInflatedQR, self).__init__(parent)
+      super(DlgInflatedQR, self).__init__(parent, parent.main)
 
       sz = QApplication.desktop().size()
       w,h = sz.width(), sz.height()
@@ -856,7 +873,7 @@ class DlgInflatedQR(ArmoryDialog):
       qrDisp.mouseDoubleClickEvent = closeDlg
       self.mouseDoubleClickEvent = closeDlg
 
-      lbl = QRichLabel('<b>Double-click or press ESC to close</b>')
+      lbl = QRichLabel(tr('<b>Double-click or press ESC to close</b>'))
       lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
       frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])

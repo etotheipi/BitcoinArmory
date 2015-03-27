@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -120,7 +120,7 @@ public:
    BinaryData(BinaryData const & bd)           { copyFrom(bd);           }
 
    BinaryData(BinaryData && copy)
-      { data_.swap(copy.data_);           }
+      { data_ = move(copy.data_);           }
 
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
@@ -565,6 +565,9 @@ public:
 
    // For deallocating all the memory that is currently used by this BD
    void clear(void) { data_.clear(); }
+
+public:
+   static BinaryData EmptyBinData_;
 
 private:
    vector<uint8_t> data_;

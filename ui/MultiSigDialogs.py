@@ -1,10 +1,17 @@
+################################################################################
+#                                                                              #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
+################################################################################
 from PyQt4.Qt import *
 from PyQt4.QtGui import *
 from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
                       DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-                      DlgDispTxInfo
+                      DlgDispTxInfo, STRETCH
 from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
@@ -111,7 +118,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
          addrWidgets = self.main.createAddressEntryWidgets(self, '', 60, 2, 
-                                       getPubKey=True, showLockboxes=False)
+                                       getPubKey=True, showLockboxes=False, selectMineOnly=True)
          self.widgetMap[i]['QLE_PUBK'] = addrWidgets['QLE_ADDR']
          self.widgetMap[i]['BTN_BOOK'] = addrWidgets['BTN_BOOK']
          self.widgetMap[i]['LBL_DETECT']=addrWidgets['LBL_DETECT']
@@ -324,7 +331,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       class DlgSetLongDescr(ArmoryDialog):
          def __init__(self, parent, currDescr=''):
-            super(DlgSetLongDescr, self).__init__(parent)
+            super(DlgSetLongDescr, self).__init__(parent, None)
             lbl = QRichLabel(tr("""
                <b><u>Set Extended Lockbox Details</u></b>
                <br><br>
@@ -704,11 +711,12 @@ class DlgLockboxManager(ArmoryDialog):
          self.lboxView.hideColumn(i)
       self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
 
-      self.ledgerProxy = LedgerDispSortProxy(self)
-      self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
+      #self.ledgerProxy = LedgerDispSortProxy(self)
+      #self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
 
-      self.ledgerView  = QTableView()
-      self.ledgerView.setModel(self.ledgerProxy)
+      self.frmLedgUpDown = QFrame()
+      self.ledgerView  = ArmoryTableView(self.parent, self.main, self.frmLedgUpDown)
+      self.ledgerView.setModel(self.main.lockboxLedgModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -749,8 +757,10 @@ class DlgLockboxManager(ArmoryDialog):
 
       # Setup the ledger tab
       self.tabLedger = QWidget()
-      layoutLedger = QHBoxLayout()
+      layoutLedger = QVBoxLayout()
       layoutLedger.addWidget(self.ledgerView)
+      bottomRow = makeHorizFrame([STRETCH, self.frmLedgUpDown, STRETCH], condenseMargins=True)
+      layoutLedger.addWidget(bottomRow)
       self.tabLedger.setLayout(layoutLedger)
 
       # Creates self.stkDashboard
@@ -795,6 +805,7 @@ class DlgLockboxManager(ArmoryDialog):
       if len(ledggeom) > 0:
          restoreTableView(self.ledgerView, ledggeom)
 
+      self.changeLBFilter()
 
    #############################################################################
    def createLockboxDashboardTab(self):
@@ -1313,9 +1324,9 @@ class DlgLockboxManager(ArmoryDialog):
             pytx = PyTx().unserialize(cppTx.serialize())
 
       if pytx==None:
-         QMessageBox.critical(self, 'Invalid Tx:',
+         QMessageBox.critical(self, 'Invalid Tx',
          'The transaction you requested be displayed does not exist in '
-         'in Armory\'s database.  This is unusual...', QMessageBox.Ok)
+         'Armory\'s database.  This is unusual...', QMessageBox.Ok)
          return
 
       lboxId  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
@@ -1397,7 +1408,8 @@ class DlgLockboxManager(ArmoryDialog):
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
       if True:  actionRemoveLB    = menu.addAction("Delete Lockbox")
-      if True:  actionRescanLB    = menu.addAction("Rescan Lockbox")
+      if ENABLE_SUPERNODE is False:  
+         actionRescanLB    = menu.addAction("Rescan Lockbox")
 
       selectedIndexes = self.lboxView.selectedIndexes()
 
@@ -1440,7 +1452,7 @@ class DlgLockboxManager(ArmoryDialog):
             if not self.main.getSettingOrSetDefault('DNAA_P2SHCompatWarn', False):
                oldStartChar = "'m' or 'n'" if USE_TESTNET else "'1'"
                newStartChar = "'2'"        if USE_TESTNET else "'3'"
-               reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Compatibility Warning'), 
+               reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, tr('Compatibility Warning'), 
                   tr("""You are about to request payment to a "P2SH" address 
                   which is the format used for receiving to multi-signature
                   addresses/lockboxes.  "P2SH" are like regular Bitcoin 
@@ -1495,8 +1507,7 @@ class DlgLockboxManager(ArmoryDialog):
                <font color="%s">%s</font> """) % (htmlColor('TextBlue'), 
                dispInfo['String']), QMessageBox.Yes | QMessageBox.No) 
 
-            if reply==QMessageBox.Yes:
-               self.main.setWalletIsScanning(lbox)            
+            if reply==QMessageBox.Yes:    
                lwlt = self.main.cppLockboxWltMap[lbox.uniqueIDB58]  
                lwlt.forceScan()          
                self.lboxModel.reset()
@@ -1550,6 +1561,11 @@ class DlgLockboxManager(ArmoryDialog):
       if lbID:
          return self.main.getLockboxByID(lbID)
       return None
+   
+   #############################################################################
+   def resetLBSelection(self):
+      self.lboxView.clearSelection()
+      self.singleClickLockbox(None, [])
 
    #############################################################################
    def getDisplayRichText(self, lb, tr=None, dateFmt=None):
@@ -1639,21 +1655,7 @@ class DlgLockboxManager(ArmoryDialog):
       dlg = DlgImportLockbox(self, self.main)
       if dlg.exec_():
          if dlg.importedLockbox is not None:
-            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
-            if not self.main.getSettingOrSetDefault('DNAA_LockboxImport', False):
-               reply = MsgBoxWithDNAA(MSGBOX.Info, tr("Import Successful"), tr("""
-                  The lockbox was imported successfully.  If this is a new 
-                  lockbox that has never been used before, then you
-                  can start using it right away.  
-                  <br><br>
-                  If the lockbox is not new and has been used before,
-                  Armory will not know about its history until you rescan
-                  the databases.  You can manually initiate a rescan by
-                  selecting the lockbox and clicking rescan"""), \
-                  tr("Do not show this message again"))
-
-               if reply[1]:
-                  self.main.writeSetting('DNAA_LockboxImport', True)
+            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=False)
                
          self.lboxModel.reset()
          self.singleClickLockbox()
@@ -1832,6 +1834,15 @@ class DlgLockboxManager(ArmoryDialog):
       self.main.lbDialogModel = None      
       super(DlgLockboxManager, self).reject(*args)
       
+   #############################################################################
+   def changeLBFilter(self):
+      lbIDList = []
+      for lb in self.main.allLockboxes:
+         if lb.isEnabled:
+            lbIDList.append(lb.uniqueIDB58)
+            
+      self.main.currentLBPage = 0      
+      TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
 
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):
@@ -2075,7 +2086,7 @@ class DlgSimulfundSelect(ArmoryDialog):
 ################################################################################
 class DlgImportAsciiBlock(ArmoryDialog):
    def __init__(self, parent, main, titleStr, descrStr, fileTypes, importType):
-      super(DlgImportAsciiBlock, self).__init__(parent)
+      super(DlgImportAsciiBlock, self).__init__(parent, main)
       self.main = main
       self.fileTypes = fileTypes
       self.importType = importType
@@ -2371,7 +2382,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       
       if not self.main.getSettingOrSetDefault('DNAA_MailtoWarn', False):
-         reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Email Triggered'), tr("""
+         reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, tr('Email Triggered'), tr("""
             Armory attempted to execute a "mailto:" link which should trigger
             your email application or web browser to open a compose-email window.
             This does not work in all environments, and you might have to 
@@ -2387,7 +2398,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 ################################################################################
 class DlgImportLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgImportLockbox, self).__init__(parent)
+      super(DlgImportLockbox, self).__init__(parent, main)
       self.main = main
       self.importedLockbox = None
       lbl = QRichLabel(tr("""
@@ -2997,7 +3008,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       # Now modify the window/buttons based on the whole transaction state
       # (i.e. Can broadcast, etc)
-      extraTxt = tr('')
+      extraTxt = ''
       if not self.main.netMode == NETWORKMODE.Full:
          extraTxt = tr("""
             from any online computer (you are currently offline)""")

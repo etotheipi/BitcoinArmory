@@ -1,5 +1,5 @@
---- src/gui/kernel/qeventdispatcher_mac.mm	2014-10-07 12:49:37.000000000 -0400
-+++ src/gui/kernel-alt/qeventdispatcher_mac.mm	2014-10-07 12:58:12.000000000 -0400
+--- ./src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:35:52.000000000 -0500
++++ ./src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:48:08.000000000 -0500
 @@ -558,7 +558,6 @@
  
      // In case we end up recursing while we now process events, make sure
@@ -9,10 +9,10 @@
  
      bool excludeUserEvents = flags & QEventLoop::ExcludeUserInputEvents;
 @@ -600,8 +599,34 @@
-             // [NSApp run], which is the normal code path for cocoa applications.
+             // [NSApplication run], which is the normal code path for cocoa applications.
              if (NSModalSession session = d->currentModalSession()) {
                  QBoolBlocker execGuard(d->currentExecIsNSAppRun, false);
--                while ([NSApp runModalSession:session] == NSRunContinuesResponse && !d->interrupt)
+-                while ([[NSApplication sharedApplication] runModalSession:session] == NSRunContinuesResponse && !d->interrupt)
 -                    qt_mac_waitForMoreModalSessionEvents();
 +
 +                // OSX 10.9 appears to tighten up its internal code such that
@@ -44,18 +44,8 @@
 +                }
  
                  if (!d->interrupt && session == d->currentModalSessionCached) {
-                     // Someone called [NSApp stopModal:] from outside the event
-@@ -610,8 +635,7 @@
-                     d->temporarilyStopAllModalSessions();
-                 }
- 
--                // Clean up the modal session list, call endModalSession.
--                    if (d->cleanupModalSessionsNeeded) {
-+                if (d->cleanupModalSessionsNeeded) {
-                     d->cleanupModalSessions();
-                 }
- 
-@@ -632,15 +656,22 @@
+                     // Someone called [[NSApplication sharedApplication] stopModal:] from outside the event
+@@ -631,8 +656,16 @@
                      // to use cocoa's native way of running modal sessions:
                      if (flags & QEventLoop::WaitForMoreEvents)
                          qt_mac_waitForMoreModalSessionEvents();
@@ -67,28 +57,21 @@
 +#else
 +                    checkStatus = NSModalResponseContinue;
 +#endif
-                     NSInteger status = [NSApp runModalSession:session];
+                     NSInteger status = [[NSApplication sharedApplication] runModalSession:session];
 -                    if (status != NSRunContinuesResponse && session == d->currentModalSessionCached) {
 +                    if (status != checkStatus && session == d->currentModalSessionCached) {
-                         // INVARIANT: Someone called [NSApp stopModal:] from outside the event
+                         // INVARIANT: Someone called [NSApplication stopModal:] from outside the event
                          // dispatcher (e.g to stop a native dialog). But that call wrongly stopped
                          // 'session' as well. As a result, we need to restart all internal sessions:
-                         d->temporarilyStopAllModalSessions();
-                     }
- 
--                    // Clean up the modal session list, call endModalSession.
-                     if (d->cleanupModalSessionsNeeded) {
-                         d->cleanupModalSessions();
-                     }
-@@ -835,6 +866,7 @@
+@@ -833,6 +866,7 @@
          if (info.session) {
-             [NSApp endModalSession:info.session];
+             [[NSApplication sharedApplication] endModalSession:info.session];
              info.session = 0;
 +            [(NSWindow*) info.nswindow release];
          }
      }
      currentModalSessionCached = 0;
-@@ -935,12 +967,15 @@
+@@ -933,12 +967,15 @@
              currentModalSessionCached = info.session;
              break;
          }
@@ -96,7 +79,7 @@
          currentModalSessionCached = 0;
          if (info.session) {
 +            Q_ASSERT(info.nswindow != 0);
-             [NSApp endModalSession:info.session];
+             [[NSApplication sharedApplication] endModalSession:info.session];
              [(NSWindow *)info.nswindow release];
          }
 +
@@ -105,7 +88,7 @@
      }
  
      updateChildrenWorksWhenModal();
-@@ -949,6 +984,8 @@
+@@ -947,6 +984,8 @@
  
  void QEventDispatcherMacPrivate::beginModalSession(QWidget *widget)
  {
@@ -114,7 +97,7 @@
      // Add a new, empty (null), NSModalSession to the stack.
      // It will become active the next time QEventDispatcher::processEvents is called.
      // A QCocoaModalSessionInfo is considered pending to become active if the widget pointer 
-@@ -970,16 +1007,20 @@
+@@ -968,16 +1007,20 @@
      // when we stop the _current_ modal session (which is the session on top of
      // the stack, and might not belong to 'widget'). 
      int stackSize = cocoaModalSessionStack.size();
@@ -137,7 +120,7 @@
              }
          }
      }
-@@ -1056,8 +1097,9 @@
+@@ -1054,8 +1097,9 @@
      }
  
  #ifdef QT_MAC_USE_COCOA
@@ -148,7 +131,7 @@
  #endif
  
      if (d->interrupt) {
-@@ -1067,8 +1109,9 @@
+@@ -1065,8 +1109,9 @@
              // [NSApplication run] is running the event loop, we
              // delayed stopping it until now (to let cocoa process 
              // pending cocoa events first).
@@ -156,6 +139,6 @@
 +            if (d->currentModalSessionCached) {
                  d->temporarilyStopAllModalSessions();
 +            }
-             [NSApp stop:NSApp];
+             [[NSApplication sharedApplication] stop:[NSApplication sharedApplication]];
              d->cancelWaitForMoreEvents();
          }

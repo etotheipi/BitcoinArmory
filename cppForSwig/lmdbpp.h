@@ -174,6 +174,8 @@ public:
    void open(LMDBEnv *env, const std::string &name=std::string());
    
    void close();
+   
+   void drop();
       
    // insert a value into the database, replacing
    // the one with a matching key if it is already there
@@ -266,6 +268,8 @@ public:
       Transaction(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
       // commit a transaction if it exists
       ~Transaction();
+
+      Transaction& operator=(Transaction&& mv);
       
       // commit the current transaction, create a new one, and begin it
       void open(LMDBEnv *env, LMDB::Mode mode = LMDB::ReadWrite);
@@ -279,6 +283,7 @@ public:
       void rollback();
       // start a new transaction. If one already exists, do nothing
       void begin();
+
    private:
       Transaction(const Transaction&); // no copies
    };

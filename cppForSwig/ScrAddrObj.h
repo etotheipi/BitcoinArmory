@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef SCRADDROBJ_H
 #define SCRADDROBJ_H
 
@@ -5,6 +12,7 @@
 #include "lmdb_wrapper.h"
 #include "Blockchain.h"
 #include "BlockObj.h"
+#include "txio.h"
 #include "LedgerEntry.h"
 #include "HistoryPager.h"
 
@@ -30,7 +38,6 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
-
 class ScrAddrObj
 {
    friend class BtcWallet;
@@ -84,8 +91,6 @@ private:
       uint32_t fetchMoreUTXO(uint32_t start, uint32_t end,
          function<bool(const BinaryData&)> spentByZC)
       {
-         LMDBEnv::Transaction tx(&scrAddrObj_->db_->dbEnv_, LMDB::ReadOnly);
-
          uint32_t nutxo = 0;
          uint64_t val = 0;
 
@@ -297,6 +302,9 @@ public:
    void addZcUTXOs(const map<BinaryData, TxIOPair>& txioMap,
       function<bool(const BinaryData&)> isFromWallet)
    { utxos_.addZcUTXOs(txioMap, isFromWallet); }
+
+   uint32_t getBlockInVicinity(uint32_t blk) const;
+   uint32_t getPageIdForBlockHeight(uint32_t blk) const;
 
 private:
    LMDBBlockDatabase *db_;

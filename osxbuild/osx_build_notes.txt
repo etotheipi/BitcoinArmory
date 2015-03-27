@@ -9,19 +9,14 @@ are executed from a terminal (aka command line) window.
 (2) Run Xcode and install the command-line utilities.
     "Xcode" --> "Preferences" --> "Downloads"
 
-(3) You may also have to run "xcode-select --install" from the terminal. If so,
-    you will have to click through an EULA and a few other dialogs.
+(3) Open a terminal and run "xcode-select --install". You will have to click
+    through an EULA and possibly other dialogs.
 
-(4) Execute the "xz" command. If your installation of OS X doesn't have xz, you
-    can go to http://tukaani.org/xz/ and compile your own version of xz, or go
-    to http://sourceforge.net/projects/macpkg/files/XZ/ and install a
-    pre-compiled xz package (*.pkg).
-
-(5) As seen in Red Emerald's preparation steps for compiling Armory on Mac
+(4) As seen in Red Emerald's preparation steps for compiling Armory on Mac
     (https://gist.github.com/WyseNynja/4200620), execute the following steps to
     install and update brew:
 
-       ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
+       ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
        touch ~/.bashrc
        echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
        echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
@@ -29,9 +24,21 @@ are executed from a terminal (aka command line) window.
        brew update
        brew doctor
 
-(6) Execute "brew install swig".
+(5) Execute "brew install xz swig gettext".
+
+(6) Execute "brew link gettext --force".
 
 (7) "cd" into the "osxbuild" directory, and execute "python build-app.py".
     Armory will be found under the "workspace" subdirectory. Armory.app can be
     moved elsewhere on the system, including under /Applications so that it's
-    accessible by the OS X Launchpad.
+    accessible from the OS X Launchpad.
+
+(8) To avoid runtime issues (e.g., "ImportError: No module named pkg_resources")
+    when attempting to run builds on other machines/VMs, make sure $PYTHONPATH
+    is empty. In addition, try not to have any "brew"ed Python or Qt modules
+    installed. Any of the above could lead to unpredictable behavior.
+
+(9) If running a beta version of Xcode, the build tools will need to point to
+    the beta. Open a terminal and run "sudo xcode-select --switch
+    /Applications/Xcode-Beta.app". Command line tools should be updated
+    automatically. If not, follow instructions given when running "clang".

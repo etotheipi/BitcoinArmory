@@ -1,10 +1,12 @@
 #! /usr/bin/python
+################################################################################
+#                                                                              #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
+################################################################################
 
-# This script doesn't actually do the verification stuff yet.  You should 
-# manually check, after this script completes, that signed_release_unpack:
-#   dpkg-sig --verify *.deb
-#   gpg -v *.asc
-#   cd BitcoinArmory; git tag -v v0.90-beta  (or whatever the tag is)
 from sys import argv
 import os
 import time

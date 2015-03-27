@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #include "Blockchain.h"
 #include "util.h"
 
@@ -21,10 +28,14 @@ Blockchain::Blockchain(const HashString &genesisHash)
 
 void Blockchain::clear()
 {
-   headerMap_.clear();
+   newlyParsedBlocks_.clear();
    headersByHeight_.resize(0);
+   headerMap_.clear();
    topBlockPtr_ = genesisBlockBlockPtr_ =
       &headerMap_[genesisHash_];
+
+   //set genesis block height to 0 for pre initialized blockchain operations
+   topBlockPtr_->blockHeight_ = 0;
 }
 
 BlockHeader& Blockchain::addBlock(
@@ -37,7 +48,31 @@ BlockHeader& Blockchain::addBlock(
       LOGWARN << "Somehow tried to add header that's already in map";
       LOGWARN << "    Header Hash: " << blockhash.copySwapEndian().toHexStr();
    }
-   return headerMap_[blockhash] = block;
+   
+   BlockHeader& bh = headerMap_[blockhash] = block;
+   return bh;
+}
+
+BlockHeader& Blockchain::addBlock(
+   const HashString &blockhash,
+   const BlockHeader &block,
+   uint32_t height, uint8_t dupId)
+{
+   BlockHeader& bh = addBlock(blockhash, block);
+   bh.blockHeight_ = height;
+   bh.duplicateID_ = dupId;
+
+   return bh;
+}
+
+BlockHeader& Blockchain::addNewBlock(
+   const HashString &blockhash,
+   const BlockHeader &block)
+{
+   BlockHeader& bh = addBlock(blockhash, block);
+   newlyParsedBlocks_.push_back(&bh);
+
+   return bh;
 }
 
 Blockchain::ReorganizationState Blockchain::organize()
@@ -58,6 +93,17 @@ Blockchain::ReorganizationState Blockchain::forceOrganize()
    st.prevTopBlockStillValid = !st.reorgBranchPoint;
    st.hasNewTop = (st.prevTopBlock != &top());
    return st;
+}
+
+void Blockchain::setDuplicateIDinRAM(
+   LMDBBlockDatabase* iface, bool forceUpdateDupID)
+{
+   for (const auto& block : headerMap_)
+   {
+      if (block.second.isMainBranch_)
+         iface->setValidDupIDForHeight(
+            block.second.blockHeight_, block.second.duplicateID_);
+   }
 }
 
 Blockchain::ReorganizationState 
@@ -353,8 +399,6 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
    consider the next dup to be the first unknown block in DB until a new
    block file is created by Core.
    ***/
-   LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadWrite);
-
    for (auto& block : headerMap_)
    {
       StoredHeader sbh;
@@ -364,3 +408,18 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
+{
+   for (auto& block : newlyParsedBlocks_)
+   {
+      StoredHeader sbh;
+      sbh.createFromBlockHeader(*block);
+      uint8_t dup = db->putBareHeader(sbh, true);
+      block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+   }
+
+   //once commited to the DB, they aren't considered new anymore, 
+   //so clean up the container
+   newlyParsedBlocks_.clear();
+}

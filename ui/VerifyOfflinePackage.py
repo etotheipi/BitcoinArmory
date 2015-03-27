@@ -1,3 +1,10 @@
+################################################################################
+#                                                                              #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
+################################################################################
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
 from qtdefines import tr, QRichLabel, ArmoryDialog
@@ -7,7 +14,7 @@ from armorycolors import htmlColor
 
 class VerifyOfflinePackageDialog(ArmoryDialog):
    def __init__(self, parent, main):
-      super(VerifyOfflinePackageDialog, self).__init__(parent)
+      super(VerifyOfflinePackageDialog, self).__init__(parent, main)
       self.main = main
 
       layout = QVBoxLayout(self)

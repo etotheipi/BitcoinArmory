@@ -960,7 +960,8 @@ class Popen(object):
                 startup_info.hStdOutput = c2pwrite
                 startup_info.hStdError = errwrite
 
-            startup_info.dwFlags |= startupinfo.dwFlags
+            if startupinfo != None:
+               startup_info.dwFlags |= startupinfo.dwFlags
 
             if shell:
                 #startup_info.dwFlags |= 0x00000001

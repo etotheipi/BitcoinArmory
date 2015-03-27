@@ -4,7 +4,7 @@ Created on Aug 6, 2013
 @author: Andy
 '''
 import sys
-from twisted.trial._synctest import SkipTest
+from unittest.case import SkipTest
 sys.path.append('..')
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK
 

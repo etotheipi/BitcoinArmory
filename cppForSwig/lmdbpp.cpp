@@ -350,6 +350,20 @@ LMDBEnv::Transaction::Transaction(LMDBEnv *env, LMDB::Mode mode)
    begin();
 }
 
+LMDBEnv::Transaction& LMDBEnv::Transaction::operator=(Transaction&& mv)
+{
+   if (this == &mv)
+      return *this;
+
+   this->env = mv.env;
+   this->mode_ = mv.mode_;
+   this->began = mv.began;
+
+   mv.began = false;
+
+   return *this;
+}
+
 LMDBEnv::Transaction::~Transaction()
 {
    commit();
@@ -453,8 +467,6 @@ void LMDBEnv::Transaction::rollback()
 }
 
 
-
-
 LMDB::~LMDB()
 {
    try
@@ -529,7 +541,10 @@ void LMDB::insert(
    
    int rc = mdb_put(txnIter->second.txn_, dbi, &mkey, &mval, 0);
    if (rc != MDB_SUCCESS)
+   {
+      std::cout << "failed to insert data, returned following error string: " << errorString(rc) << std::endl;
       throw LMDBException("Failed to insert (" + errorString(rc) + ")");
+   }
 }
 
 void LMDB::erase(const CharacterArrayRef& key)
@@ -545,7 +560,10 @@ void LMDB::erase(const CharacterArrayRef& key)
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    int rc = mdb_del(txnIter->second.txn_, dbi, &mkey, 0);
    if (rc != MDB_SUCCESS && rc != MDB_NOTFOUND)
+   {
+      std::cout << "failed to erase data, returned following error string: " << errorString(rc) << std::endl;
       throw LMDBException("Failed to erase (" + errorString(rc) + ")");
+   }
 }
 
 std::string LMDB::value(const CharacterArrayRef& key) const
@@ -566,7 +584,7 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
    
    auto txnIter = env->txForThreads_.find(tID);
    if (txnIter == env->txForThreads_.end())
-      throw std::runtime_error("Iterator must be created within Transaction");
+      throw std::runtime_error("Need transaction to get data");
    
    lock.unlock();
 
@@ -582,6 +600,21 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
       static_cast<uint8_t*>(mdata.mv_data)
    );
    return ref;
+}
+
+void LMDB::drop(void)
+{
+   const pthread_t tID = pthread_self();
+   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+
+   auto txnIter = env->txForThreads_.find(tID);
+   if (txnIter == env->txForThreads_.end())
+      throw std::runtime_error("Need transaction to get data");
+
+   lock.unlock();
+
+   if (mdb_drop(txnIter->second.txn_, dbi, 0) != MDB_SUCCESS)
+      throw std::runtime_error("Failed to drop DB!");
 }
 
 // kate: indent-width 3; replace-tabs on;

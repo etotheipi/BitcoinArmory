@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef BDM_MAINTHREAD_H
 #define BDM_MAINTHREAD_H
 
@@ -25,7 +32,7 @@ public:
    virtual void run(BDMAction action, void* ptr, int block=0)=0;
    virtual void progress(
       BDMPhase phase,
-      const string &walletId,
+      const vector<string> &walletIdVec,
       float progress, unsigned secondsRem,
       unsigned progressNumeric
    )=0;

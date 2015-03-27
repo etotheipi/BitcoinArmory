@@ -1,3 +1,10 @@
+################################################################################
+#                                                                              #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
+################################################################################
 from os import path
 import platform
 import sys
@@ -47,7 +54,7 @@ class LockboxDisplayModel(QAbstractTableModel):
 
       nTx, bal = 0, 0
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         nTx = len(lwlt.getTxLedger())
+         nTx = lwlt.getWltTotalTxnCount()
          bal = lwlt.getFullBalance()
 
       if role==Qt.DisplayRole:

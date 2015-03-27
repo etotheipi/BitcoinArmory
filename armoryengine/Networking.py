@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -25,11 +25,11 @@ import random
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ReconnectingClientFactory
 
-from armoryengine.ArmoryUtils import LOGINFO, RightNow, getVersionString, \
+from armoryengine.ArmoryUtils import LOGINFO, LOGWARN, RightNow, getVersionString, \
    BTCARMORY_VERSION, NetworkIDError, LOGERROR, BLOCKCHAINS, CLI_OPTIONS, LOGDEBUG, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
    MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
-   bitset_to_int, unixTimeToFormatStr
+   bitset_to_int, unixTimeToFormatStr, UnknownNetworkPayload
 from armoryengine.BDM import  BDM_OFFLINE, BDM_SCANNING,\
    BDM_BLOCKCHAIN_READY
 from armoryengine.BinaryPacker import BinaryPacker, BINARY_CHUNK, UINT32, UINT64, \
@@ -54,6 +54,7 @@ class ArmoryClient(Protocol):
       self.sentVerack = False
       self.sentHeadersReq = True
       self.peer = []
+      self.alerts = {}
 
    ############################################################
    def connectionMade(self):
@@ -115,6 +116,8 @@ class ArmoryClient(Protocol):
             # Before raising the error, we should've finished reading the msg
             # So pop it off the front of the buffer
             self.recvData = buf.getRemainingString()
+            return
+         except UnknownNetworkPayload:
             return
          except UnpackerError:
             # Expect this error when buffer isn't full enough for a whole msg
@@ -211,7 +214,12 @@ class ArmoryClient(Protocol):
          pyTxList = msg.payload.txList
          LOGINFO('Received new block.  %s', binary_to_hex(pyHeader.getHash(), BIGENDIAN))
          self.factory.func_newBlock(pyHeader, pyTxList)
-
+      elif msg.cmd=='alert':
+         # store the alert in our map
+         id = msg.payload.uniqueID
+         if not self.alerts.get(id):
+            self.alerts[id] = msg.payload
+         LOGWARN("received alert: %s" % msg.payload.statusBar)
                   
 
    ############################################################
@@ -467,7 +475,10 @@ class PyMessage(object):
       payload    = msgData.get(BINARY_CHUNK, length)
       payload    = verifyChecksum(payload, chksum)
 
-      self.payload = PayloadMap[self.cmd]().unserialize(payload)
+      try:
+         self.payload = PayloadMap[self.cmd]().unserialize(payload)
+      except KeyError:
+         raise UnknownNetworkPayload
 
       if self.magic != MAGIC_BYTES:
          raise NetworkIDError, 'Message has wrong network bytes!'
@@ -978,6 +989,7 @@ class PayloadAlert(object):
    command = 'alert'
 
    def __init__(self):
+      self.nonSigLength = 0
       self.version = 1
       self.relayUntil = 0
       self.expiration = 0
@@ -987,6 +999,7 @@ class PayloadAlert(object):
       self.minVersion = 0
       self.maxVersion = 0
       self.subVerSet  = []
+      self.priority   = 0
       self.comment    = ''
       self.statusBar  = ''
       self.reserved   = ''
@@ -994,20 +1007,61 @@ class PayloadAlert(object):
    
 
    def unserialize(self, toUnpack):
-      if isinstance(toUnpack, BinaryUnpacker):
-         blkData = toUnpack
-      else:
-         blkData = BinaryUnpacker( toUnpack )
+      alertData = BinaryUnpacker( toUnpack )
+      self.nonSigLength = alertData.get(INT8)
+      self.version = alertData.get(UINT32)
+      self.relayUntil = alertData.get(UINT64)
+      self.expiration = alertData.get(UINT64)
+      self.uniqueID = alertData.get(UINT32)
+      self.cancelVal = alertData.get(UINT32)
+      numCancel = alertData.get(INT8)
+      for i in range(numCancel):
+         self.cancelSet.append(alertData.get(UINT32))
+      self.minVersion = alertData.get(UINT32)
+      self.maxVersion = alertData.get(UINT32)
+      numSubVer = alertData.get(INT8)
+      for i in range(numSubVer):
+         self.subVerSet.append(alertData.get(VAR_STR))
+      self.priority = alertData.get(UINT32)
+      self.comment = alertData.get(VAR_STR)
+      self.statusBar = alertData.get(VAR_STR)
+      self.reserved = alertData.get(VAR_STR)
+      self.signature = alertData.get(VAR_STR)
 
       return self
 
    def serialize(self):
       bp = BinaryPacker()
+      bp.put(INT8, self.nonSigLength)
+      bp.put(UINT32, self.version)
+      bp.put(UINT64, self.expiration)
+      bp.put(UINT64, self.relayUntil)
+      bp.put(UINT32, self.uniqueID)
+      bp.put(UINT32, self.cancelVal)
+      bp.put(INT8, len(self.cancelSet))
+      for cancel in self.cancelSet:
+         bp.put(UINT32, cancel)
+      bp.put(UINT32, self.minVersion)
+      bp.put(UINT32, self.maxVersion)
+      bp.put(INT8, len(self.subVerSet))
+      for subVer in self.subVerSet:
+         bp.put(VAR_STR, subVer)
+      bp.put(UINT32, self.priority)
+      bp.put(VAR_STR, self.comment)
+      bp.put(VAR_STR, self.statusBar)
+      bp.put(VAR_STR, self.reserved)
+      bp.put(VAR_STR, self.signature)
+      
       return bp.getBinaryString()
 
 
    def pprint(self, nIndent=0):
-      print nIndent*'\t' + 'ALERT(...)'
+      print nIndent*'\t' + "ALERT:" + "\n" + \
+         nIndent*'\t' + ("version:%s" % self.version) + "\n" + \
+         nIndent*'\t' + ("comment:%s" % self.comment) + "\n" + \
+         nIndent*'\t' + ("statusBar:%s" % self.statusBar) + "\n" + \
+         nIndent*'\t' + ("reserved:%s" % self.reserved) + "\n"
+
 
 REJECT_MALFORMED_CODE = 0x01
 REJECT_INVALID_CODE = 0x10

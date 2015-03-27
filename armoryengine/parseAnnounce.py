@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -115,8 +115,7 @@ class changelogParser(object):
             else:
                curr = self.changelog[-1][2][-1][-1]
                self.changelog[-1][2][-1][-1] += ('' if len(curr)==0 else ' ') + line
-   
-            return self.getChangelog()
+         return self.getChangelog()
       except:
          LOGEXCEPT('Failed to parse changelog')
          return None

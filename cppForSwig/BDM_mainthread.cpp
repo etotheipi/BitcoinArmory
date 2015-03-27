@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #include "BDM_mainthread.h"
 #include "BlockUtils.h"
 #include "BlockDataViewer.h"
@@ -259,8 +266,8 @@ try
          lastvalues = currentvalues;
          
          //pass empty walletID for main build&scan calls
-         callback->progress(phase, string(), prog, time, numericProgress);
-         
+         callback->progress(phase, vector<string>(), prog, time, numericProgress);
+
          if (!pimpl->run)
          {
             LOGINFO << "Stop requested detected";
@@ -279,9 +286,9 @@ try
          unsigned mode = pimpl->mode & 0x00000003;
          bool clearZc = pimpl->mode & 0x00000004;
 
-         if(mode==0) bdm->doInitialSyncOnLoad(loadProgress);
-         else if(mode==1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
-         else if(mode==2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
+         if (mode == 0) bdm->doInitialSyncOnLoad(loadProgress);
+         else if (mode == 1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
+         else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
 
          if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
          {
@@ -298,6 +305,7 @@ try
                "recommended you re-download the blockchain using: "
                "<i>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
             callback->run(BDMAction_ErrorMsg, &errorMsg, bdm->missingBlockHashes().size());
+            throw;
          }
 
          bdv->enableZeroConf(clearZc);
@@ -315,7 +323,7 @@ try
    unsigned lasttime=0;
    
    const auto rescanProgress
-      = [&] (const BinaryData &wltId, double prog,unsigned time)
+      = [&] (const vector<string>& wltIdVec, double prog,unsigned time)
    {
       if (prog == lastprog && time==lasttime)
          return; // don't go to python if nothing's changed
@@ -325,7 +333,7 @@ try
       
       callback->progress(
          BDMPhase_Rescan,
-         string(wltId.getCharPtr(), wltId.getSize()),
+         wltIdVec,
          lastprog, lasttime, 0
       );
    };   
@@ -341,7 +349,18 @@ try
       {
          bdm->sideScanFlag_ = false;
 
-         bdm->startSideScan(rescanProgress);
+         bool doScan = bdm->startSideScan(rescanProgress);
+         
+         vector<string> wltIDs = bdm->getNextWalletIDToScan();
+         if (wltIDs.size() && doScan)
+         {
+            callback->run(BDMAction_StartedWalletScan, &wltIDs);
+         }
+      }
+
+      if (bdm->criticalError_.size())
+      {
+         throw runtime_error(bdm->criticalError_.c_str());
       }
 
       if(bdv->rescanZC_)
@@ -356,9 +375,13 @@ try
 
             for (const auto& txHash : newZCTxHash)
             {
-               LedgerEntry le = bdv->getTxLedgerByHash(txHash);
-               if (le.getTxTime() != 0)
-                  newZCLedgers.push_back(le);
+               auto& le_w = bdv->getTxLedgerByHash_FromWallets(txHash);
+               if (le_w.getTxTime() != 0)
+                  newZCLedgers.push_back(le_w);
+
+               auto& le_lb = bdv->getTxLedgerByHash_FromLockboxes(txHash);
+               if (le_lb.getTxTime() != 0)
+                  newZCLedgers.push_back(le_lb);
             }
 
             LOGINFO << newZCLedgers.size() << " new ZC Txn";
@@ -402,6 +425,8 @@ try
 catch (std::exception &e)
 {
    LOGERR << "BDM thread failed: " << e.what();
+   string errstr(e.what());
+   pimpl->callback->run(BDMAction_ErrorMsg, &errstr);
    pimpl->inject->setFailureFlag();
    pimpl->inject->notify();
 }

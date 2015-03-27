@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #include "LedgerEntry.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,6 +149,8 @@ void LedgerEntry::purgeLedgerVectorFromHeight(
    //Remove all entries starting this height, included.
    uint32_t i = 0;
 
+   sort(leVec.begin(), leVec.end());
+
    for (const auto& le : leVec)
    {
       if (le.getBlockNum() >= purgeFrom)
@@ -159,34 +168,33 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
    const map<BinaryData, TxIOPair>& txioMap,
    uint32_t startBlock, uint32_t endBlock,
    const BinaryData& ID,
-   LMDBBlockDatabase* db,
-   Blockchain* bc,
+   const LMDBBlockDatabase* db,
+   const Blockchain* bc,
    bool purge)
 {
    if (purge)
       LedgerEntry::purgeLedgerMapFromHeight(leMap, startBlock);
 
    //arrange txios by transaction
-   map<BinaryData, vector<TxIOPair> > TxnTxIOMap;
+   map<BinaryData, vector<const TxIOPair*> > TxnTxIOMap;
 
    for (const auto& txio : txioMap)
    {
       auto txOutDBKey = txio.second.getDBKeyOfOutput().getSliceCopy(0, 6);
 
       auto& txioVec = TxnTxIOMap[txOutDBKey];
-      txioVec.push_back(txio.second);
+      txioVec.push_back(&txio.second);
 
       if (txio.second.hasTxIn())
       {
          auto txInDBKey = txio.second.getDBKeyOfInput().getSliceCopy(0, 6);
 
          auto& txioVec = TxnTxIOMap[txInDBKey];
-         txioVec.push_back(txio.second);
+         txioVec.push_back(&txio.second);
       }
    }
 
    //convert TxIO to ledgers
-
    for (const auto& txioVec : TxnTxIOMap)
    {
       //reset ledger variables
@@ -195,6 +203,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       uint32_t blockNum;
       uint32_t txTime;
       uint16_t txIndex;
+
+      set<BinaryData> scrAddrSet;
       
       //grab iterator
       auto txioIter = txioVec.second.cbegin();
@@ -212,12 +222,12 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       {
          blockNum = UINT32_MAX;
          txIndex = READ_UINT16_BE(txioVec.first.getSliceRef(4, 2));
-         txTime = txioIter->getTxTime();
+         txTime = (*txioIter)->getTxTime();
 
-         if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
-            txHash = txioIter->getTxHashOfOutput(db);
-         else if (txioIter->getDBKeyOfInput().startsWith(txioVec.first))
-            txHash = txioIter->getTxHashOfInput(db);
+         if ((*txioIter)->getDBKeyOfOutput().startsWith(txioVec.first))
+            txHash = (*txioIter)->getTxHashOfOutput(db);
+         else if ((*txioIter)->getDBKeyOfInput().startsWith(txioVec.first))
+            txHash = (*txioIter)->getTxHashOfInput(db);
       }
 
       if (blockNum < startBlock || blockNum > endBlock)
@@ -230,23 +240,24 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
      
       while (txioIter != txioVec.second.cend())
       {
-         if (txioIter->getDBKeyOfOutput().startsWith(txioVec.first))
+         if ((*txioIter)->getDBKeyOfOutput().startsWith(txioVec.first))
          {
-            isCoinbase |= txioIter->isFromCoinbase();
-            valIn += txioIter->getValue();
-            value += txioIter->getValue();
+            isCoinbase |= (*txioIter)->isFromCoinbase();
+            valIn += (*txioIter)->getValue();
+            value += (*txioIter)->getValue();
 
             nTxOutAreOurs++;
          }
 
-         if (txioIter->getDBKeyOfInput().startsWith(txioVec.first))
+         if ((*txioIter)->getDBKeyOfInput().startsWith(txioVec.first))
          {
-            valOut -= txioIter->getValue();
-            value -= txioIter->getValue();
+            valOut -= (*txioIter)->getValue();
+            value -= (*txioIter)->getValue();
 
             nTxInAreOurs++;
          }
 
+         scrAddrSet.insert((*txioIter)->getScrAddr());
          ++txioIter;
       }
 
@@ -258,18 +269,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          //if some of the txins AND some of the txouts are ours, this could be an STS
          //pull the txn and compare the txin and txout counts
 
-         LMDBEnv::Transaction tx(&db->dbEnv_, LMDB::ReadOnly);
-
-         StoredTx stx;
-         if (!txioVec.first.startsWith(ZCheader_))
-         {
-            uint8_t dupId = DBUtils::hgtxToDupID(txioVec.first.getSliceRef(0, 4));
-            db->getStoredTx(stx, blockNum, dupId, txIndex, false);
-         }
-         else
-            db->getStoredZcTx(stx, txioVec.first);
-
-         if (stx.numTxOut_ == nTxOutAreOurs)
+         uint32_t nTxOutInTx = db->getStxoCountForTx(txioVec.first.getSliceRef(0, 6));
+         if (nTxOutInTx == nTxOutAreOurs)
          {
             value = valIn;
             isSentToSelf = true;
@@ -278,7 +279,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       else if (nTxInAreOurs != 0 && (valIn + valOut) < 0)
          isChangeBack = true;
 
-      LedgerEntry le(ID, "",
+      LedgerEntry le(ID,
          value,
          blockNum,
          txHash,
@@ -288,6 +289,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          isSentToSelf,
          isChangeBack);
 
+      le.scrAddrSet_ = move(scrAddrSet);
       leMap[txioVec.first] = le;
    }
 }

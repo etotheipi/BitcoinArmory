@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -22,13 +22,14 @@ BDM_OFFLINE = 'Offline'
 BDM_UNINITIALIZED = 'Uninitialized'
 BDM_BLOCKCHAIN_READY = 'BlockChainReady'
 BDM_SCANNING = 'Scanning'
+
 FINISH_LOAD_BLOCKCHAIN_ACTION = 'FinishLoadBlockchain'   
 NEW_ZC_ACTION = 'newZC'
 NEW_BLOCK_ACTION = 'newBlock'
 REFRESH_ACTION = 'refresh'
 STOPPED_ACTION = 'stopped'
 WARNING_ACTION = 'warning'
-
+SCAN_ACTION = 'StartedWalletScan'
 
 def newTheBDM(isOffline=False):
    global TheBDM
@@ -75,6 +76,10 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             act = WARNING_ACTION
             argstr = Cpp.BtcUtils_cast_to_string(arg)
             arglist.append(argstr)
+         elif action == Cpp.BDMAction_StartedWalletScan:
+            act = SCAN_ACTION
+            argstr = Cpp.BtcUtils_cast_to_string_vec(arg)
+            arglist.append(argstr)
             
          listenerList = TheBDM.getListenerList()
          for cppNotificationListener in listenerList:
@@ -84,16 +89,16 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          print sys.exc_info()
          raise
 
-   def progress(self, phase, walletId, prog, seconds, progressNumeric):
+   def progress(self, phase, walletVec, prog, seconds, progressNumeric):
       try:
-         walletIdString = str(walletId)
-         if len(walletIdString) == 0:
+         #walletIdString = str(walletId)
+         if len(walletVec) == 0:
             self.bdm.progressPhase = phase
             self.bdm.progressComplete = prog
             self.bdm.secondsRemaining = seconds
             self.bdm.progressNumeric = progressNumeric
          else:
-            progInfo = [walletIdString, prog]
+            progInfo = [walletVec, prog]
             for cppNotificationListener in TheBDM.getListenerList():
                cppNotificationListener('progress', progInfo)
                
@@ -158,11 +163,12 @@ class BlockDataManager(object):
       self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
       
-      self.ldbdir = ""
+      self.armoryDBDir = ""
 
       #dbType
-      #self.dbType = Cpp.ARMORY_DB_BARE
-      self.dbType = Cpp.ARMORY_DB_SUPER      
+      self.dbType = Cpp.ARMORY_DB_BARE
+      if ENABLE_SUPERNODE:
+         self.dbType = Cpp.ARMORY_DB_SUPER      
       
       self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
 
@@ -177,7 +183,7 @@ class BlockDataManager(object):
       else: self.bdmState = BDM_UNINITIALIZED
 
       self.btcdir = BTC_HOME_DIR
-      self.ldbdir = LEVELDB_DIR
+      self.armoryDBDir = ARMORY_DB_DIR
       self.lastPctLoad = 0
       
       self.topBlockHeight = 0
@@ -240,7 +246,7 @@ class BlockDataManager(object):
    
    #############################################################################
    @ActLikeASingletonBDM
-   def goOnline(self, satoshiDir=None, levelDBDir=None, armoryHomeDir=None):
+   def goOnline(self, satoshiDir=None, armoryDBDir=None, armoryHomeDir=None):
 
       self.bdmThread.setConfig(self.bdmConfig())
       
@@ -279,11 +285,11 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
-   def setLevelDBDir(self, ldbdir):
-      if not os.path.exists(ldbdir):
-         os.makedirs(ldbdir)
+   def setArmoryDBDir(self, armoryDBDir):
+      if not os.path.exists(armoryDBDir):
+         os.makedirs(armoryDBDir)
 
-      self.ldbdir = ldbdir
+      self.armoryDBDir = armoryDBDir
    
    #############################################################################   
    @ActLikeASingletonBDM
@@ -319,19 +325,19 @@ class BlockDataManager(object):
             raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
       blockdir = blkdir
-      leveldbdir = self.ldbdir
+      armoryDBDir = self.armoryDBDir
       
       if OS_WINDOWS:
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
-         if isinstance(self.ldbdir, unicode):
-            leveldbdir = self.ldbdir.encode('utf8')
+         if isinstance(self.armoryDBDir, unicode):
+            armoryDBDir = self.armoryDBDir.encode('utf8')
 
       bdmConfig = Cpp.BlockDataManagerConfig()
       bdmConfig.armoryDbType = self.dbType
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.blkFileLocation = blockdir
-      bdmConfig.levelDBLocation = leveldbdir
+      bdmConfig.levelDBLocation = armoryDBDir
       bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
       bdmConfig.setGenesisTxHash(GENESIS_TX_HASH)
       bdmConfig.setMagicBytes(MAGIC_BYTES)
@@ -373,6 +379,11 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def runBDM(self, fn):
       return self.inject.runCommand(fn)
+   
+   #############################################################################
+   @ActLikeASingletonBDM
+   def forceSupernode(self):
+      self.dbType = Cpp.ARMORY_DB_SUPER 
    
 ################################################################################
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 

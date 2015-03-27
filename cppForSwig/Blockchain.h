@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef _BLOCKCHAIN_H
 #define _BLOCKCHAIN_H
 
@@ -34,10 +41,15 @@ public:
     * Adds a block to the chain
     **/
    BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block);
-   
+   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block,
+                         uint32_t height, uint8_t dupId);
+   BlockHeader& addNewBlock(const HashString &blockhash, const BlockHeader &block);
+
    ReorganizationState organize();
    ReorganizationState forceOrganize();
    ReorganizationState findReorgPointFromBlock(const BinaryData& blkHash);
+
+   void setDuplicateIDinRAM(LMDBBlockDatabase* iface, bool forceUpdateDupID);
 
    BlockHeader& top() const;
    BlockHeader& getGenesisBlock() const;
@@ -71,6 +83,7 @@ public:
    }
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
+   void putNewBareHeaders(LMDBBlockDatabase *db);
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);
@@ -84,6 +97,7 @@ private:
 private:
    const HashString genesisHash_;
    map<HashString, BlockHeader> headerMap_;
+   vector<BlockHeader*> newlyParsedBlocks_;
    deque<BlockHeader*> headersByHeight_;
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;

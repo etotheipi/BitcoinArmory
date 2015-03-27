@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -12,7 +12,7 @@ from armoryengine.ArmoryUtils import ADDRBYTE, hash256, binary_to_base58, \
    computeChecksum, getVersionInt, PYBTCWALLET_VERSION, bitset_to_int, \
    LOGDEBUG, Hash160ToScrAddr, int_to_bitset, UnserializeError, \
    hash160_to_addrStr, int_to_binary, BIGENDIAN, \
-   BadAddressError, checkAddrStrValid, binary_to_hex
+   BadAddressError, checkAddrStrValid, binary_to_hex, ENABLE_DETSIGN
 from armoryengine.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, UINT64, \
    INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
 from armoryengine.BinaryUnpacker import BinaryUnpacker
@@ -688,7 +688,8 @@ class PyBtcAddress(object):
 
    #############################################################################
    @TimeThisFunction
-   def generateDERSignature(self, binMsg, secureKdfOutput=None, DetSign=True):
+   def generateDERSignature(self, binMsg, secureKdfOutput=None,
+                            DetSign=ENABLE_DETSIGN):
       """
       This generates a DER signature for this address using the private key.
       Obviously, if we don't have the private key, we throw an error.  Or if

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -87,8 +87,59 @@ class ProgressReporter;
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
 
 ////////////////////////////////////////////////////////////////////////////////
+class FileMap
+{
+   friend class BlockFileAccessor;
+
+private:
+   atomic<uint64_t> lastSeenCumulated_;
+
+public:
+   uint8_t* filemap_ = nullptr;
+   uint64_t mapsize_ = 0;
+   uint16_t fnum_;
+
+   FileMap(BlkFile& blk);
+   //FileMap(FileMap&& fm);
+
+   ~FileMap(void);
+
+
+   void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
+      atomic<uint64_t>& lastSeenCumulative);
+private:
+   FileMap(const FileMap&); // not defined
+};
+
+class BlockFileAccessor
+{
+private:
+   shared_ptr<vector<BlkFile> > blkFiles_;
+   map<uint16_t, shared_ptr<FileMap> > blkMaps_;
+   atomic<uint64_t> lastSeenCumulative_;
+
+   static const uint64_t threshold_ = 50 * 1024 * 1024LL;
+   uint64_t nextThreshold_ = threshold_;
+
+   mutex mu_;
+
+public:
+   ///////
+   BlockFileAccessor(shared_ptr<vector<BlkFile> > blkfiles);
+
+   void getRawBlock(BinaryDataRef& bdr, uint32_t fnum, uint64_t offset,
+      uint32_t size, shared_ptr<FileMap>** fmPtr);
+
+   shared_ptr<FileMap>& getFileMap(uint32_t fnum);
+   void dropFileMap(uint32_t fnum);
+};
+
+////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
+   void grablock(uint32_t n);
+
+
 private:
    BlockDataManagerConfig config_;
    
@@ -133,6 +184,7 @@ private:
 
    BDM_state BDMstate_ = BDM_offline;
 
+
 public:
    bool                               sideScanFlag_ = false;
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;
@@ -143,6 +195,8 @@ public:
       virtual ~Notifier() { }
       virtual void notify()=0;
    };
+   
+   string criticalError_;
 
 private:
    Notifier* notifier_ = nullptr;
@@ -167,7 +221,7 @@ public:
          notifier_->notify(); 
    }
    
-   bool hasNotifier() const { return notifier_; }
+   bool hasNotifier() const { return notifier_ != nullptr; }
 
    
    
@@ -210,8 +264,13 @@ private:
          ProgressReporter &prog,
          const BlockFilePosition &fileAndOffset
       );
+   
    void deleteHistories(void);
-   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
+
+   void addRawBlockToDB(BinaryRefReader & brr, 
+      uint16_t fnum, uint64_t offset, bool updateDupID = true);
+   uint32_t findFirstBlockToScan(void);
+   void findFirstBlockToApply(void);
 
 public:
 
@@ -252,13 +311,16 @@ public:
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
-   void startSideScan(
-      const function<void(const BinaryData&, double prog,unsigned time)> &cb
+   bool startSideScan(
+      const function<void(const vector<string>&, double prog,unsigned time)> &cb
    );
 
    void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
+   bool isReady(void) const   { return BDMstate_ == BDM_ready; }
+
+   vector<string> getNextWalletIDToScan(void);
 };
 
 

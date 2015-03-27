@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -225,6 +225,8 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       return finalSortedList
    if sortMethod in (5, 6, 7):
       utxoSorted = PySortCoins(unspentTxOutInfo, 1)
+      if len(utxoSorted) == 0:
+         return utxoSorted
       # Rotate the top 1,2 or 3 elements to the bottom of the list
       for i in range(sortMethod-4):
          utxoSorted.append(utxoSorted[0])

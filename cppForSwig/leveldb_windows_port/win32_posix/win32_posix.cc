@@ -342,6 +342,15 @@ int rmdir_win32(const char *path)
 							i |= rmdir_resovled(delpath);
 						}
 					}
+               else
+               {
+                  //file
+                  wcscpy(checkwc, dirp->wd_name);
+                  checkwc[wildcard_length] = 0;
+
+                  if (!wcscmp(checkwc, wildcard)) //wild card matches
+                     _wunlink(delpath); //else delete the file
+               }
 				}
 			}
 		}

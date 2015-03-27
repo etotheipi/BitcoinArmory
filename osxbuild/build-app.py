@@ -16,20 +16,23 @@ from subprocess import Popen, PIPE
 from tempfile import mkstemp
 
 # Set some constants up front
-#swigBinVer = '2.0.12'
+minOSXVer    = '10.7'
 osxName      = 'Yosemite'
-pythonVer    = '2.7.8'  # NB: ArmoryMac.pro must also be kept up to date!!!
-setToolVer   = '6.0.2'
-pipVer       = '1.5.6'
+pythonVer    = '2.7.9'  # NB: ArmoryMac.pro must also be kept up to date!!!
+pyMajorVer   = '2.7'
+setToolVer   = '10.2.1'
+pipVer       = '6.0.3'
 psutilVer    = '2.1.3'
 zopeVer      = '4.1.1'
 twistedVer   = '14.0.2'
-libpngVer    = '1.6.12'
-qtVer        = '4.8.6'  # NB: ArmoryMac.pro must also be kept up to date!!!
+libpngVer    = '1.6.15'
+qtVerDate    = '2015-02-16-4'
+qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
-sipVer       = '4.16.3' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer      = '4.11.2' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev    = '174196'
+sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev    = '175335'
+appNopeVer   = '0.1.0'
 LOGFILE      = 'build-app.log.txt'
 LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR    = '..'
@@ -38,19 +41,18 @@ WORKDIR      = path.join(os.getcwd(), 'workspace')
 APPDIR       = path.join(WORKDIR, 'Armory.app') # actually make it local
 DLDIR        = path.join(WORKDIR, 'downloads')
 UNPACKDIR    = path.join(WORKDIR, 'unpackandbuild')
-#SWIGDIR      = path.join(UNPACKDIR, 'swig', swigBinVer)
 INSTALLDIR   = path.join(WORKDIR, 'install')
-PYPREFIX     = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/2.7')
-PYSITEPKGS   = path.join(PYPREFIX, 'lib/python2.7/site-packages')
+PYPREFIX     = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
+PYSITEPKGS   = path.join(PYPREFIX, 'lib/python%s/site-packages' % pyMajorVer)
 MAKEFLAGS    = '-j4'
 
 QTBUILTFLAG = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
 #pypath_txt_template=""" PYTHON_INCLUDE=%s/include/python2.7/ PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a PYVER=python2.7 """
-pypathData  =   'PYTHON_INCLUDE=%s/include/python2.7/' % PYPREFIX
-pypathData += '\nPYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a' % PYPREFIX
-pypathData += '\nPYTHON_LIB_DIR=%s/lib/python2.7/config/' % PYPREFIX
-pypathData += '\nPYVER=python2.7'
+pypathData  =   'PYTHON_INCLUDE=%s/include/python%s/' % (PYPREFIX, pyMajorVer)
+pypathData += '\nPYTHON_LIB=%s/lib/python%s/config/libpython%s.a' % (PYPREFIX, pyMajorVer, pyMajorVer)
+pypathData += '\nPYTHON_LIB_DIR=%s/lib/python%s/config/' % (PYPREFIX, pyMajorVer)
+pypathData += '\nPYVER=python%s' % pyMajorVer
 
 # If no arguments specified, then do the minimal amount of work necessary
 # Assume that only one flag is specified.  These should be 
@@ -100,7 +102,7 @@ def main():
    compile_zope()
    compile_twisted()
    compile_psutil()
-   #unzip_swig()
+   #compile_appnope() # Disable App Nap. Done already in Mac manifest.
    compile_armory()
    compile_objc_library()
    make_resources()
@@ -115,32 +117,6 @@ def logprint(s):
    print s
    with open(LOGFILE,'a') as f:
       f.write(s if s.endswith('\n') else s+'\n')
-
-################################################################################
-"""
-# While this worked well to capture the output, buffering made it impossible
-# to write the data to stdout in real time (it woud all buffer up to the end
-def execAndWait(syscmd, cwd=None):
-   try:
-      logprint('*'*80)
-      logprint('Executing: "%s"' % syscmd)
-      proc = Popen(syscmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
-      while proc.poll() == None:
-         time.sleep(0.25)
-   
-   except Exception as e:
-      logprint('\n' + '-'*80)
-      logprint('ERROR: %s' % str(e))
-      logprint('-'*80 + '\n')
-   finally:
-      out,err = proc.communicate()
-      logprint('STDOUT:')
-      logprint(out if len(out.strip()) > 0 else "<NO OUTPUT>")
-      logprint('STDERR:')
-      logprint(err if len(err.strip()) > 0 else "<NO OUTPUT>")
-      logprint('*'*80)
-      return [out,err]
-"""
 
 ################################################################################
 def getRightNowStr():
@@ -328,17 +304,17 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "9c6281eeace0c3646fa556c8087bb1b7e033c9c4" ] )
+                    "3172f6e957713c2d9fca462cc16068222fd1b9d3" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
                     "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "a29a81b7913151697cb15b069844af75d441408f" ] )
+                    "09da3f767e40d1451cac97af59afd99802c77076" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
                     "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-                    "e6cd9e6f2fd8d28c9976313632ef8aa8ac31249e" ] )
+                    "67d4affd83ee2f3514ac1386bee59f10f672517c" ] )
 
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
@@ -354,7 +330,7 @@ distfiles.append( [ 'Twisted', \
 distfiles.append( [ 'libpng', \
                     "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
                     "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "6b82dd8fc966b83b15ab27224f864a384b7b766d" ] )
+                    "059d99d0321a8519252ae860667237a838d2a557" ] )
 
 # Skipping Git for now.
 #distfiles.append( [ "Qt-git", \
@@ -376,19 +352,22 @@ distfiles.append( [ 'libpng', \
 # Pre-packaged source can lag a bit but provides for more consistent user
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
-                    "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
+                    #"qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
+                    "qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
+                    #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
+                    "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
+                    #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
+                    "9c1e2f3135bc4a36c5d24c1a3c3c640637041c92" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "0bb3ebd4003da7111bcc5c24b963eab9ca2295a3" ] )
+                    "c8db972c03953d0d3ef89c7e67ce4a2e46dd9c36" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    '7c4079d164ccbfe4a5274eaeebe8e3cc86e3a75a' ] )
+                    'd5d7b6765de8634eccf48a250dbd915f01b2a771' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
@@ -404,13 +383,12 @@ distfiles.append( [ "zope", \
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    'c8534aa008b311ec370fc87a0748b510d6436e60' ] )
+                    '8c53254b38686e5366d74eba81f02f9611f39166' ] )
 
-# May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
-#distfiles.append( [ 'swig', \
-#                    "swig-2.0.12.mavericks.bottle.tar.gz", \
-#                    "https://downloads.sf.net/project/machomebrew/Bottles/swig-2.0.12.mavericks.bottle.tar.gz", \
-#                    "5e429bc6228e8ec1f154ee5eb9497b54b8b765d5" ] )
+#distfiles.append( [ 'appnope', \
+#                    "appnope-%s.tar.gz" % appNopeVer, \
+#                    "https://pypi.python.org/packages/source/a/appnope/appnope-%s.tar.gz" % appNopeVer, \
+#                    "838158bf881f3e8538b7bfeff4ad289a6623cdda" ] )
 
 # Now repack the information in distfiles
 tarfilesToDL = {}
@@ -486,9 +464,11 @@ def compile_qt():
    # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+   #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-%s' % (qtVer, qtVerDate))
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-%s.tar.gz' % (qtVer, qtVerDate))
    #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
@@ -526,22 +506,15 @@ def compile_qt():
    # Completed bug fixes for modal windows.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
                cwd=qtBuildDir)
-   # Add OS X 10.10 support to Qt4. (Can be removed when Qt 4.8.7 is released.)
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40612.patch'), \
-               cwd=qtBuildDir)
-   # For now, Qt requires a patch to compile on 10.10, and may require a more
-   # comprehensive patch later.
-   osMjrVer = os.uname()[2].split('.')[0]
-   if osMjrVer == '14':
-      execAndWait('patch -p0 < %s' % path.join(os.getcwd(), \
-                                               'QTBUG-39644.patch'), \
-                  cwd=qtBuildDir)
 
-   ##### Configure
+   # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
+   # that can be checked for ideas.
+   # NB: Qt5 apparently requires the "-c++11" flag, which isn't in Qt4.
+   #     "-platform macx-clang-libc++" will also probably be required.
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
    command += '-nomake demos -nomake examples -nomake docs -cocoa -fast -release '
    command += '-no-qt3support -arch x86_64 -no-3dnow ' 
-   command += '-platform unsupported/macx-clang' 
+   command += '-platform unsupported/macx-clang-libc++'
    execAndWait(command % qtInstDir, cwd=qtBuildDir)
 
    ##### Make
@@ -593,11 +566,12 @@ def install_qt():
       except KeyError:
          old = ''
    
+      # Qt5 may require QMAKESPEC to change.
       frmpath = path.join(APPDIR, 'Contents/Frameworks')
       os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
       os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (frmpath, old)
       os.environ['QTDIR'] = qtInstDir
-      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/macx-g++')
+      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/unsupported/macx-clang-libc++')
       logprint('All the following ENV vars are now set:')
       for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
          logprint('   %s: \n      %s' % (var, os.environ[var]))
@@ -608,13 +582,13 @@ def compile_sip():
    if path.exists(path.join(PYSITEPKGS, 'sip.so')):
       logprint('Sip is already installed.')
    else:
-      #os.chdir('build/sip-4.14.6')
       sipPath = unpack(tarfilesToDL['sip'])
       command  = 'python configure.py'
       command += ' --destdir="%s"' % PYSITEPKGS
       command += ' --bindir="%s/bin"' % PYPREFIX
       command += ' --incdir="%s/include"' % PYPREFIX
       command += ' --sipdir="%s/share/sip"' % PYPREFIX
+      command += ' --deployment-target=%s' % minOSXVer
       execAndWait(command, cwd=sipPath)
       execAndWait('make', cwd=sipPath)
 
@@ -689,6 +663,17 @@ def compile_psutil():
       execAndWait(command, cwd=psPath)
 
 ################################################################################
+def compile_appnope():
+   logprint('Installing appnope')
+
+   if glob.glob(PYSITEPKGS + '/appnope*'):
+      logprint('appnope already installed')
+   else:
+      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      appnopePath = unpack(tarfilesToDL['appnope'])
+      execAndWait(command, cwd=appnopePath)
+
+################################################################################
 def compile_armory():
    logprint('Compiling and installing Armory')
    # Always compile - even if already in app
@@ -701,6 +686,10 @@ def compile_armory():
    armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
    armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
    pydir = path.join(APPDIR, 'Contents/MacOS/py')
+   currentDir = os.getcwd()
+   os.chdir("..")
+   execAndWait('python update_version.py')
+   os.chdir(currentDir)
    execAndWait('make all', cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
@@ -719,6 +708,11 @@ def compile_objc_library():
               '-P -g -c . -I ../workspace/unpackandbuild/PyQt-mac-gpl-%s/sip' % pyQtVer
    execAndWait('../workspace/unpackandbuild/sip-%s/sipgen/sip %s ./ArmoryMac.sip' % (sipVer, sipFlags), cwd=OBJCDIR)
    execAndWait('../workspace/unpackandbuild/qt-everywhere-opensource-src-%s/bin/qmake ArmoryMac.pro' % qtVer, cwd=OBJCDIR)
+   # For some reason, qmake mangles LFLAGS when LFLAGS is built. The exact cause
+   # is unknown but probably has to do with a conf file included in
+   # mkspecs/unsupported/macx-clang-libc++/qmake.conf. Patch the output for now.
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), \
+               cwd=OBJCDIR)
    execAndWait('make', cwd=OBJCDIR)
 
 
@@ -731,19 +725,13 @@ def make_resources():
    icnsArm = '../img/armory_icon_fullres.icns'
    icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile(icnsArm, icnsRes)
-   
-################################################################################
-#def unzip_swig():
-#   '''Unzip the SWIG binary.'''
-#   logprint('Unzipping the SWIG binary.')
-#   swigDir = unpack(tarfilesToDL['swig'])
 
 ################################################################################
 def cleanup_app():
    "Try to remove as much unnecessary junk as possible."
    show_app_size()
    print "Removing Python test-suite."
-   testdir = path.join(PYPREFIX, "lib/python2.7/test")
+   testdir = path.join(PYPREFIX, "lib/python%s/test" % pyMajorVer)
    if path.exists(testdir):
       removetree(testdir)
    print "Removing .pyo and unneeded .py files."

@@ -10,7 +10,7 @@ from PyQt4 import QtGui
 class PluginObject(object):
 
    tabName = 'Armory Log'
-   maxVersion = '0.93'
+   maxVersion = '0.93.99'
    
    #############################################################################
    def __init__(self, main):

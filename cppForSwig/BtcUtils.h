@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -1629,6 +1629,12 @@ public:
    {
       string *str = (string*)in;
       return *str;
+   }
+
+   static const vector<string>& cast_to_string_vec(void *in)
+   {
+      vector<string>* strvec = (vector<string>*)in;
+      return *strvec;
    }
 
    static vector<BinaryData> cast_to_BinaryDataVector(void *in)

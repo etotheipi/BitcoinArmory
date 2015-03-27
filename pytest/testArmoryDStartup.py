@@ -1,9 +1,9 @@
 import sys
-from twisted.trial._synctest import SkipTest
-from armoryengine.BDM import BDM_BLOCKCHAIN_READY
 sys.path.append('..')
 from pytest.Tiab import *
+from armoryengine.BDM import BDM_BLOCKCHAIN_READY
 import json
+import time
 
 from armoryd import Armory_Daemon
 from armoryengine.ArmoryUtils import CLI_OPTIONS
@@ -51,16 +51,21 @@ class ArmoryDSession:
             '--datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory'),
             '--satoshi-datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', '1'),
             '--satoshi-port=' + str(TIAB_SATOSHI_PORT),
-            '--skip-online-check']
+            '--skip-online-check',
+            '--supernode']
             # if this is process is in debug mode, make the subrocess debug too
       if CLI_OPTIONS.doDebug:
          armoryDArgs.append('--debug')
 
       armoryDArgs.extend(additionalArgs)
-
       if waitForOutput:
+         # We're expecting some json to come back, that means there should
+         # already be a daemon running
+         if not Armory_Daemon.checkForAlreadyRunning():
+            raise RuntimeError("armoryd isn't running")
+
          # If there is output coming back convert it from a string to a dictionary
-         return json.loads(subprocess.check_output(armoryDArgs))
+         return subprocess.check_output(armoryDArgs)
       else:
          # If we are not waiting output, e.g. when starting ArmoryD, return the started process.
          startedProcess = subprocess.Popen(armoryDArgs)
@@ -81,7 +86,7 @@ class ArmoryDSession:
             time.sleep(1)
             i += 1
          if i >= 10:
-            raise RuntimeError("Cannot have more than one ArmoryD session simultaneously")
+            raise RuntimeError("ArmoryD session not running")
             
       except:
          self.clean()
@@ -92,31 +97,29 @@ class ArmoryDStartupTest(TiabTest):
 
    def setUp(self):
       self.armoryDSession = ArmoryDSession(self.tiab)
-   
-   
+      time.sleep(1)
+
    def tearDown(self):
       self.armoryDSession.clean()
-            
-   @SkipTest
+
    def testJSONGetinfo(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
-      actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'])
+      actualResult = json.loads(self.armoryDSession.callArmoryD(['getarmorydinfo']))
       self.assertEqual(actualResult['balance'], FIRST_WLT_BALANCE)
       self.assertEqual(actualResult['bdmstate'], BDM_BLOCKCHAIN_READY)
       self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)
       self.assertEqual(actualResult['difficulty'], 1.0)
       self.assertEqual(actualResult['testnet'], True)
-      
-   @SkipTest
+
    def testJSONMultipleWallets(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
-      wltDictionary = self.armoryDSession.callArmoryD(['listloadedwallets'])
+      wltDictionary = json.loads(self.armoryDSession.callArmoryD(['listloadedwallets']))
       self.assertTrue(len(wltDictionary), 3)
-      actualResult = self.armoryDSession.callArmoryD(['getwalletinfo'])
+      actualResult = json.loads(self.armoryDSession.callArmoryD(['getwalletinfo']))
       self.assertEqual(actualResult['name'], 'Primary Wallet')
       setWltResult = self.armoryDSession.callArmoryD(['setactivewallet', THIRD_WLT_NAME])
       self.assertTrue(setWltResult.index(THIRD_WLT_NAME) > 0)
-      actualResult2 = self.armoryDSession.callArmoryD(['getwalletinfo'])
+      actualResult2 = json.loads(self.armoryDSession.callArmoryD(['getwalletinfo']))
       self.assertEqual(actualResult2['name'], 'Third Wallet')
 
 # Running tests with "python <module name>" will NOT work for any Armory tests

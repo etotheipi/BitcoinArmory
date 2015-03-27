@@ -325,7 +325,7 @@ operation = promoKitArgList[1]
 walletFile = promoKitArgList[2]
 if not os.path.exists(walletFile):
    print 'Wallet file was not found: %s' % walletFile
-masterWallet = PyBtcWallet().readWalletFile(walletFile, False, False)
+masterWallet = PyBtcWallet().readWalletFile(walletFile, False)
 if operation == '--create':
    if len(promoKitArgList)<6:
       printHelp()

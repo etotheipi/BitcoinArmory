@@ -7,11 +7,9 @@
 # Set environment variables so the Python executable finds its stuff.
 # Note that `dirname $0` gives a relative path. We'd like the absolute path.
 DIRNAME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ARMORYDIR="$DIRNAME/py/usr/lib/armory"
-LIBDIR="$DIRNAME/../Dependencies"
-FRDIR="$DIRNAME/../Frameworks"
-CLARGS=""
-ARMORYARGS=""
+ARMORYDIR="${DIRNAME}/py/usr/lib/armory"
+LIBDIR="${DIRNAME}/../Dependencies"
+FRDIR="${DIRNAME}/../Frameworks"
 
 export PYTHONPATH="$ARMORYDIR"
 export DYLD_LIBRARY_PATH="${LIBDIR}:${FRDIR}"
@@ -21,28 +19,10 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 #OSXVER=`sw_vers -productVersion | awk '{ print substr( $0, 0, 4 ) }'`
 #if [ $# == "0" ]; then # <-- If 0 CL args....
 
-# OS X has a quirk. For whatever reasons, if you execute Python from a different
-# location than the location of what actually gets executed when you run Armory,
-# the menu bar calls Armory "Python". However, if you symlink Python and run the
-# symlink from the execution directory, the app name from Info.plist is used.
-# Also, the link should be here so that the link works wherever this is
+# The Python link should be here so that the link works wherever this is
 # executed, and not just on the build machine.
-ln -sf "$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "$DIRNAME/Python"
+ln -sf "${FRDIR}/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "${DIRNAME}/Python"
 
-# Process command line arguments.
-while [ "$1" != "" ]; do
-key="$1"
-
-case $key in
-    -B|-d|-E|-h|-i|-O|-OO|-R|-s|-S|-t|-u|-v|-V|-x|-3)
-	CLARGS+=" $key"
-	;;
-	*)
-	ARMORYARGS+=" $key"
-	;;
-esac
-shift
-done
-
-# Call armoryd and get this party started!
-"${DIRNAME}/Python"${CLARGS} "${ARMORYDIR}/armoryd.py"${ARMORYARGS}
+# Assume all args are meant for armoryd. Assuming otherwise, for shell scripts
+# at least, it horribly painful.
+exec "${DIRNAME}/Python" "${ARMORYDIR}/armoryd.py" "$@"

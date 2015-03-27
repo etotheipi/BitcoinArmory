@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -96,7 +96,7 @@ class WalletWizard(ArmoryWizard):
       
       # Page 5: Create Watching Only Wallet -- but only if expert, or offline
       self.hasCWOWPage = False
-      if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
+      if self.main.usermode==USERMODE.Expert or TheBDM.getState() == BDM_OFFLINE:
          self.hasCWOWPage = True
          self.createWOWPage = CreateWatchingOnlyWalletPage(self)
          self.addPage(self.createWOWPage)
@@ -136,7 +136,7 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.FinishButton])
    def done(self, event):
       if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
-         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""
+         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""<qt>
                You have not made a backup for your new wallet.  You only have 
                to make a backup of your wallet <u>one time</u> to protect 
                all the funds held by this wallet <i>any time in the future</i>
@@ -147,7 +147,7 @@ class WalletWizard(ArmoryWizard):
                suffer from hardware failure.
                <br><br>
                Are you sure that you want to leave this wizard without backing 
-               up your wallet?"""), \
+               up your wallet?</qt>"""), \
                QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
             # Stay in the wizard

@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -18,7 +18,7 @@ from CppBlockUtils import *
 from armoryengine.ALL import *
 from qtdefines import *
 from armoryengine.MultiSigUtils import calcLockboxID
-
+from copy import deepcopy
 
 sys.path.append('..')
 sys.path.append('../cppForSwig')
@@ -36,6 +36,7 @@ TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
 TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script', 'AddrStr')
 PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
+PAGE_LOAD_OFFSET = 10
 
 class AllWalletsDispModel(QAbstractTableModel):
    
@@ -109,7 +110,7 @@ class AllWalletsDispModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['', 'ID', 'Wallet Name', 'Security', 'Balance']
+      colLabels = ['', tr('ID'), tr('Wallet Name'), tr('Security'), tr('Balance')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])
@@ -294,6 +295,12 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
       return QStyledItemDelegate.sizeHint(self, option, index)
 
 ################################################################################
+class TableEntry():
+   def __init__(self, id=-1, table=[]):
+      self.id = id
+      self.table = table
+
+################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx10 table of pre-formatted/processed ledger entries """
    def __init__(self, ledgerTable, parent=None, main=None, isLboxModel=False):
@@ -302,7 +309,14 @@ class LedgerDispModelSimple(QAbstractTableModel):
       self.main   = main
       self.ledger = ledgerTable
       self.isLboxModel = isLboxModel
-
+      
+      self.bottomPage = TableEntry(1, [])
+      self.currentPage = TableEntry(0, [])
+      self.topPage = TableEntry(-1, [])
+      
+      self.getPageLedger = None
+      self.convertLedger = None
+      
    def rowCount(self, index=QModelIndex()):
       return len(self.ledger)
 
@@ -414,7 +428,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
 
       return QVariant()
 
-
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       COL = LEDGERCOLS
       if role==Qt.DisplayRole:
@@ -431,9 +444,478 @@ class LedgerDispModelSimple(QAbstractTableModel):
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
+   def setLedgerDelegate(self, delegate):
+      self.ledgerDelegate = delegate
+      
+   def setConvertLedgerMethod(self, method):
+      self.convertLedger = method
+      
+   def getMoreData(self, atBottom):
+      #return 0 if self.ledger didn't change
 
+      if atBottom == True:
+         #Try to grab the next page. If it throws, there is no more data
+         #so we can simply return
+         try:
+            newLedger = self.ledgerDelegate.getHistoryPage(self.bottomPage.id +1)
+            toTable = self.convertLedger(newLedger)
+         except:
+            return 0       
+         
+         self.previousOffset = -len(self.topPage.table)
+         
+         #get the length of the ledger we're not dumping
+         prevPageCount = len(self.currentPage.table) + \
+                         len(self.bottomPage.table)
+         
+         #Swap pages downwards 
+         self.topPage = deepcopy(self.currentPage)
+         self.currentPage = deepcopy(self.bottomPage)        
+         
+         self.bottomPage.id += 1
+         self.bottomPage.table = toTable
 
+         #figure out the bottom of the previous view in 
+         #relation with the new one
+         pageCount = prevPageCount + len(self.bottomPage.table)
+         if pageCount == 0:
+            ratio = 0
+         else:
+            ratio = float(prevPageCount) / float(pageCount)
 
+      else:
+         try:
+            newLedger = self.ledgerDelegate.getHistoryPage(self.topPage.id -1)
+            toTable = self.convertLedger(newLedger)
+         except:
+            return 0
+         
+         self.previousOffset = len(self.topPage.table)
+         
+         prevPageCount = len(self.currentPage.table) + \
+                     len(self.topPage.table)
+         
+         self.bottomPage = deepcopy(self.currentPage)
+         self.currentPage = deepcopy(self.topPage)        
+         
+         self.topPage.id -= 1
+         self.topPage.table = toTable
+         
+         pageCount = prevPageCount + len(self.topPage.table)
+         ratio = 1 - float(prevPageCount) / float(pageCount)
+         
+      #call reset, which will pull the missing ledgerTable from C++ 
+      self.reset()      
+      return ratio
+      
+   def reset(self, hard=False):
+      #if either top or current page is index 0, update it
+      #also if any of the pages has no ledger, pull and convert it
+      
+      if hard == True:
+         self.topPage.id = -1
+         self.topPage.table = []
+         
+         self.currentPage.id = 0
+         self.currentPage.table = []
+         
+         self.bottomPage.id = 1
+         self.bottomPage.table = []
+      
+      if self.topPage.id == 0 or len(self.topPage.table) == 0:
+         try:
+            newLedger = self.ledgerDelegate.getHistoryPage(self.topPage.id)
+            toTable = self.convertLedger(newLedger)
+            self.topPage.table = toTable 
+         except:
+            pass
+         
+      if self.currentPage.id == 0 or len(self.currentPage.table) == 0:
+         try:
+            newLedger = self.ledgerDelegate.getHistoryPage(self.currentPage.id)
+            toTable = self.convertLedger(newLedger)
+            self.currentPage.table = toTable 
+         except:
+            pass
+               
+      if len(self.bottomPage.table) == 0:
+         try:
+            newLedger = self.ledgerDelegate.getHistoryPage(self.bottomPage.id)
+            toTable = self.convertLedger(newLedger)
+            self.bottomPage.table = toTable 
+         except:
+            pass
+      
+      self.ledger = []
+      self.ledger.extend(self.topPage.table)
+      self.ledger.extend(self.currentPage.table)
+      self.ledger.extend(self.bottomPage.table)
+      
+      #call the parent reset() which will update the view
+      super(QAbstractTableModel, self).reset()
+    
+   def centerAtHeight(self, blk):
+      #return the index for that block height in the new ledger
+      centerId = self.ledgerDelegate.getPageIdForBlockHeight(blk)
+        
+      self.bottomPage = TableEntry(centerId +1, [])
+      self.currentPage = TableEntry(centerId, [])
+      self.topPage = TableEntry(centerId -1, [])
+      
+      self.reset()
+      
+      blockDiff = 2**32
+      blockReturn = 0
+      
+      for leID in range(0, len(self.ledger)):
+         block = TheBDM.getTopBlockHeight() - self.ledger[leID][0] -1
+         diff = abs(block - blk)
+         if blockDiff >= diff :
+            blockDiff = diff
+            blockReturn = leID
+      
+      return blockReturn
+  
+################################################################################
+class CalendarDialog(ArmoryDialog):   
+   def __init__(self, parent, main):
+      super(CalendarDialog, self).__init__(parent, main)
+           
+      self.parent = parent
+      self.main = main
+      
+      self.calendarWidget = QCalendarWidget(self)
+      self.layout = QGridLayout()
+      self.layout.addWidget(self.calendarWidget, 0, 0)
+      self.setLayout(self.layout)
+      
+      self.adjustSize()
+      
+      self.calendarWidget.selectionChanged.connect(self.accept)
+           
+################################################################################
+class ArmoryBlockAndDateSelector():
+   def __init__(self, parent, main, controlFrame):
+      self.parent = parent
+      self.main = main
+      
+      self.ledgerDelegate = None
+      self.Height = 0
+      self.Width  = 0
+      
+      self.Block = 0
+      self.Date = 0
+      
+      self.isExpanded = False
+      self.doHide = False
+      self.isEditingBlockHeight = False
+      
+      self.frmBlockAndDate = QFrame()
+      self.frmBlockAndDateLayout = QGridLayout()
+      self.frmBlockAndDateLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+      
+      self.lblBlock = QLabel("<a href=edtBlock>Block:</a>")
+      self.lblBlock.linkActivated.connect(self.linkClicked)
+      self.lblBlock.adjustSize()
+      self.lblBlockValue = QLabel("")
+      self.lblBlockValue.adjustSize()
+      
+      self.lblDate = QLabel("<a href=edtDate>Date:</a>")
+      self.lblDate.linkActivated.connect(self.linkClicked)     
+      self.lblDate.adjustSize()
+      self.lblDateValue = QLabel("")
+      self.lblDateValue.adjustSize()
+      
+      self.lblTop = QLabel("<a href=goToTop>Top</a>")
+      self.lblTop.linkActivated.connect(self.goToTop)
+      self.lblTop.adjustSize()
+      
+      self.calendarDlg = CalendarDialog(self.parent, self.main)
+      
+      self.edtBlock = QLineEdit()
+      edtFontMetrics = self.edtBlock.fontMetrics()
+      fontRect = edtFontMetrics.boundingRect("00000000")
+      self.edtBlock.setFixedWidth(fontRect.width())
+      self.edtBlock.setVisible(False)
+      self.edtBlock.editingFinished.connect(self.blkEditingFinished)
+      
+      self.frmBlock = QFrame()
+      self.frmBlockLayout = QGridLayout()
+      self.frmBlockLayout.addWidget(self.lblBlock, 0, 0)
+      self.frmBlockLayout.addWidget(self.lblBlockValue, 0, 1)
+      self.frmBlockLayout.addWidget(self.edtBlock, 0, 1)
+      self.frmBlockLayout.addWidget(self.lblTop, 0, 2)   
+      self.frmBlock.setLayout(self.frmBlockLayout)   
+      self.frmBlock.adjustSize()
+      
+      self.frmBlockAndDateLayout.addWidget(self.lblBlock, 0, 0)
+      self.frmBlockAndDateLayout.addWidget(self.lblBlockValue, 0, 1)
+      self.frmBlockAndDateLayout.addWidget(self.edtBlock, 0, 1)
+      self.frmBlockAndDateLayout.addWidget(self.lblTop, 0, 2)
+
+      self.frmBlockAndDateLayout.addWidget(self.lblDate, 1, 0)
+      self.frmBlockAndDateLayout.addWidget(self.lblDateValue, 1, 1)
+      
+      self.frmBlockAndDate.setLayout(self.frmBlockAndDateLayout)
+      self.frmBlockAndDate.setBackgroundRole(QPalette.Window)
+      self.frmBlockAndDate.setAutoFillBackground(True)
+      self.frmBlockAndDate.setFrameStyle(QFrame.Panel | QFrame.Raised);
+      self.frmBlockAndDate.setVisible(False)
+      self.frmBlockAndDate.setMouseTracking(True)   
+      self.frmBlockAndDate.leaveEvent = self.triggerHideBlockAndDate
+      self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
+                                                    
+      self.dateBlockSelectButton = QPushButton('Goto')
+      self.dateBlockSelectButton.setStyleSheet(\
+            'QPushButton { font-size : 10px }')
+      self.dateBlockSelectButton.setMaximumSize(60, 20)  
+      self.main.connect(self.dateBlockSelectButton, \
+                        SIGNAL('clicked()'), self.showBlockDateController)
+
+                                 
+      self.frmLayout = QGridLayout()
+      self.frmLayout.addWidget(self.dateBlockSelectButton)       
+      self.frmLayout.addWidget(self.frmBlockAndDate)
+      self.frmLayout.connect(self.frmLayout, SIGNAL('hideIt'), self.hideBlockAndDate)
+      self.frmLayout.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+      self.frmLayout.setMargin(0)
+      
+      self.dateBlockSelectButton.setVisible(True)
+
+      controlFrame.setLayout(self.frmLayout)
+                
+   def linkClicked(self, link):
+      if link == 'edtBlock':
+         self.editBlockHeight()
+      elif link == 'edtDate':
+         self.editDate()     
+         
+   def updateLabel(self, block):
+      self.Block = block
+      
+      try:
+         self.Date = TheBDM.bdv().getBlockTimeByHeight(block)
+         datefmt = self.main.getPreferredDateFormat()
+         dateStr = unixTimeToFormatStr(self.Date, datefmt)
+      except:
+         dateStr = "N/A"
+         
+      self.lblBlockValue.setText(str(block)  )
+      self.lblBlockValue.adjustSize()
+      self.lblDateValue.setText(dateStr)
+      self.lblDateValue.adjustSize()
+      
+      self.frmBlockAndDate.adjustSize()
+      
+      if self.isExpanded == True:
+         fontRect = self.frmBlockAndDate.geometry()
+      else:
+         fontRect = self.dateBlockSelectButton.geometry()
+
+      self.Width = fontRect.width()
+      self.Height = fontRect.height()
+      
+   def getLayoutSize(self):
+      return QSize(self.Width, self.Height)
+   
+   def pressEvent(self, mEvent):
+      if mEvent.button() == Qt.LeftButton:
+         self.lblClicked()
+        
+   def showBlockDateController(self):
+      self.isExpanded = True
+      self.dateBlockSelectButton.setVisible(False)
+      self.frmBlockAndDate.setVisible(True)
+      
+      self.updateLabel(self.Block)
+   
+   def prepareToHideThread(self):
+      self.doHide = True   
+      time.sleep(1)
+      
+      self.frmLayout.emit(SIGNAL('hideIt'))
+      
+   def triggerHideBlockAndDate(self, mEvent):
+      hideThread = PyBackgroundThread(self.prepareToHideThread)
+      hideThread.start() 
+      
+   def hideBlockAndDate(self):
+      if self.isExpanded == True and self.doHide == True:
+         self.frmBlockAndDate.setVisible(False)
+         self.dateBlockSelectButton.setVisible(True)   
+         self.isExpanded = False     
+                   
+         self.updateLabel(self.Block)  
+         
+   def resetHideBlockAndDate(self, mEvent):
+      self.doHide = False    
+      
+   def editBlockHeight(self):
+      if self.isEditingBlockHeight == False:
+         self.edtBlock.setText(self.lblBlockValue.text())
+         self.lblBlockValue.setVisible(False)
+         self.edtBlock.setVisible(True)
+         self.isEditingBlockHeight = True
+         self.frmBlockAndDate.adjustSize()
+      else: 
+         self.lblBlockValue.setVisible(True)
+         self.edtBlock.setVisible(False)
+         self.isEditingBlockHeight = False
+         self.frmBlockAndDate.adjustSize()
+         
+   def editDate(self):
+      if self.isEditingBlockHeight == True:
+         self.editBlockHeight()
+               
+      if self.calendarDlg.exec_() == True:
+         self.dateChanged()
+         
+   def blkEditingFinished(self):
+      try:
+         blk = int(self.edtBlock.text())         
+         self.Block = self.ledgerDelegate.getBlockInVicinity(blk)
+         self.Date = TheBDM.bdv().getBlockTimeByHeight(self.Block)
+      except:
+         pass
+      
+      self.editBlockHeight()
+      self.updateLabel(self.Block)
+      
+      self.parent.emit(SIGNAL('centerView'), self.Block)
+      
+   def dateChanged(self):
+      try:
+         ddate = self.calendarDlg.calendarWidget.selectedDate().toPyDate()
+         self.Date = int(time.mktime(ddate.timetuple()))
+         
+         self.Block = TheBDM.bdv().getClosestBlockHeightForTime(self.Date)
+      except:         
+         pass
+      
+      self.updateLabel(self.Block)       
+      self.parent.emit(SIGNAL('centerView'), self.Block)
+      
+   def goToTop(self):
+      if self.isEditingBlockHeight == True:
+         self.editBlockHeight()
+      self.parent.emit(SIGNAL('goToTop'))
+      
+   def hide(self):
+      self.dateBlockSelectButton.setVisible(False)
+      
+   def show(self):
+      if self.isExpanded == False:
+         self.dateBlockSelectButton.setVisible(True)   
+   
+      
+################################################################################
+class ArmoryTableView(QTableView):
+   def __init__(self, parent, main, controlFrame):
+      super(ArmoryTableView, self).__init__()
+      
+      self.parent = parent
+      self.main = main
+      
+      self.BlockAndDateSelector = ArmoryBlockAndDateSelector(self, self.main, controlFrame)
+      self.verticalScrollBar().rangeChanged.connect(self.scrollBarRangeChanged)
+      self.vBarRatio = 0
+      # self.verticalScrollBar().setVisible(False)
+      self.setSelectionMode(QAbstractItemView.SingleSelection)
+      
+      self.prevIndex = -1
+      
+      self.connect(self, SIGNAL('centerView'), self.centerViewAtBlock)
+      self.connect(self, SIGNAL('goToTop'), self.goToTop)
+   
+   def verticalScrollbarValueChanged(self, dx):
+
+      if dx > self.verticalScrollBar().maximum() - PAGE_LOAD_OFFSET:
+         #at the bottom of the scroll area
+         ratio = self.ledgerModel.getMoreData(True)
+         if ratio != 0:
+            self.vBarRatio = ratio
+
+      elif dx < PAGE_LOAD_OFFSET:
+         #at the top of the scroll area
+         ratio = self.ledgerModel.getMoreData(False)
+         if ratio != 0:
+            self.vBarRatio = ratio
+     
+      self.updateBlockAndDateLabel()  
+            
+   def setModel(self, model):
+      QTableView.setModel(self, model)
+      self.ledgerModel = model
+      self.BlockAndDateSelector.ledgerDelegate = self.ledgerModel.ledgerDelegate
+      
+   def scrollBarRangeChanged(self, rangeMin, rangeMax):
+      pos = int(self.vBarRatio * rangeMax) 
+      self.verticalScrollBar().setValue(pos)   
+      self.updateBlockAndDateLabel()  
+      
+   def selectionChanged(self, itemSelected, itemDeselected):
+      if itemSelected.last().bottom() +2 >= len(self.ledgerModel.ledger):
+         ratio = self.ledgerModel.getMoreData(True)
+         if ratio != 0:
+            self.vBarRatio = ratio         
+      elif itemSelected.last().top() -2 <= 0:
+         ratio = self.ledgerModel.getMoreData(False)
+         if ratio != 0:
+            self.vBarRatio = ratio    
+
+      super(ArmoryTableView, self).selectionChanged(itemSelected, itemDeselected)
+      self.updateBlockAndDateLabel()  
+       
+   def moveCursor(self, action, modifier):
+      self.prevIndex = self.currentIndex().row()
+      if action == QAbstractItemView.MoveUp:
+         if self.currentIndex().row() > 0:
+            return self.ledgerModel.index(self.currentIndex().row() -1, 0)
+         
+      elif action == QAbstractItemView.MoveDown:
+         if self.currentIndex().row() < self.ledgerModel.rowCount() -1:
+            return self.ledgerModel.index(self.currentIndex().row() +1, 0)
+                     
+      return self.currentIndex() 
+   
+   def reset(self):
+      #save the previous selection
+      super(ArmoryTableView, self).reset()
+      
+      if self.prevIndex != -1:
+         self.setCurrentIndex(\
+            self.ledgerModel.index(self.ledgerModel.previousOffset + self.prevIndex, 0))
+      
+      self.updateBlockAndDateLabel()  
+
+   def centerViewAtBlock(self, Blk):
+      itemIndex = self.ledgerModel.centerAtHeight(Blk)
+      self.vBarRatio = float(itemIndex) / float(self.ledgerModel.rowCount())
+      self.verticalScrollBar().setValue(\
+         self.vBarRatio * self.verticalScrollBar().maximum())
+      
+   def updateBlockAndDateLabel(self): 
+      try:
+         sbMax = self.verticalScrollBar().maximum()
+         if sbMax == 0:
+            self.BlockAndDateSelector.hide()
+         else:
+            self.BlockAndDateSelector.show()
+         
+         ratio = float(self.verticalScrollBar().value()) \
+              / float(self.verticalScrollBar().maximum())
+              
+         leID = int(ratio * float(self.ledgerModel.rowCount()))
+         block = TheBDM.getTopBlockHeight() - self.ledgerModel.ledger[leID][0] +1               
+         self.BlockAndDateSelector.updateLabel(block)
+      except:
+         pass
+      
+   def goToTop(self):
+      self.ledgerModel.reset(True)
+      self.vBarRatio = 0 
+      self.verticalScrollBar().setValue(0)  
+       
 ################################################################################
 class LedgerDispSortProxy(QSortFilterProxyModel):
    """      
@@ -471,7 +953,6 @@ class LedgerDispSortProxy(QSortFilterProxyModel):
          return (abs(btcLeft) < abs(btcRight))
       else:
          return super(LedgerDispSortProxy, self).lessThan(idxLeft, idxRight)
-
 
 
 ################################################################################
@@ -543,9 +1024,6 @@ class LedgerDispDelegate(QStyledItemDelegate):
       elif index.column()==self.COL.TxDir:
          return QSize(28,28)
       return QStyledItemDelegate.sizeHint(self, option, index)
-
-
-
 
 
 ################################################################################
@@ -652,7 +1130,11 @@ class WalletAddrDispModel(QAbstractTableModel):
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedgerSize()>0
+         try:
+            hasTx = self.wlt.cppWallet.getAddrTotalTxnCount(Hash160ToScrAddr(addr160))>0
+         except:
+            hasTx = False
+            
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 

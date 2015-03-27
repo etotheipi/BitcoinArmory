@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -17,25 +17,23 @@
 #include <map>
 #include <set>
 #include <cassert>
+#include <functional>
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
 
-
-
 ////////////////////////////////////////////////////////////////////////////////
 class LMDBBlockDatabase; 
-class LMDBBlockDatabase;
 class TxRef;
 class Tx;
 class TxIn;
 class TxOut;
 
 
-
 class BlockHeader
 {
    friend class Blockchain;
+   friend class testBlockHeader;
 
 public:
 
@@ -82,6 +80,7 @@ public:
 
    const string&  getFileName(void) const { return blkFile_; }
    uint64_t       getOffset(void) const { return blkFileOffset_; }
+   uint32_t       getBlockFileNum(void) const { return blkFileNum_; }
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const  {
       assert(isInitialized_);
@@ -108,9 +107,11 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    const BinaryData& serialize(void) const   { return dataCopy_; }
 
+   bool hasFilePos(void) const { return blkFileNum_ != UINT32_MAX; }
+
    /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
-   uint32_t      findNonce(const char* inDiffStr);
+   int64_t findNonce(const char* inDiffStr);
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, uint32_t size);
@@ -147,7 +148,7 @@ private:
    double         difficultySum_;
 
    string         blkFile_;
-   uint32_t       blkFileNum_;
+   uint32_t       blkFileNum_ = UINT32_MAX;
    uint64_t       blkFileOffset_;
 
 
@@ -171,7 +172,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void setRef(BinaryDataRef bdr);
 
-   DBTxRef attached(LMDBBlockDatabase* db) const;
+   DBTxRef attached(const LMDBBlockDatabase* db) const;
       
    /////////////////////////////////////////////////////////////////////////////
    bool           isInitialized(void)  const {return dbKey6B_.getSize()>0;}
@@ -220,7 +221,7 @@ class DBTxRef : public TxRef
 public:
    DBTxRef()
    { }
-   DBTxRef( const TxRef &txref, LMDBBlockDatabase* db)
+   DBTxRef( const TxRef &txref, const LMDBBlockDatabase* db)
       : TxRef(txref), db_(db)
    { }
    
@@ -240,11 +241,11 @@ public:
    TxOut getTxOutCopy(uint32_t i);
 
 private:
-   LMDBBlockDatabase*  db_;  
+   const LMDBBlockDatabase*  db_;  
 };
 
 
-inline DBTxRef TxRef::attached(LMDBBlockDatabase* db) const
+inline DBTxRef TxRef::attached(const LMDBBlockDatabase* db) const
 {
    return DBTxRef(*this, db);
 }
@@ -632,128 +633,6 @@ private:
 // are no longer TxIO pairs, they're just TxO's...which eventually are removed)
 //
 //
-class TxIOPair
-{
-public:
-   //////////////////////////////////////////////////////////////////////////////
-   // TODO:  since we tend not to track TxIn/TxOuts but make them on the fly,
-   //        we should probably do that here, too.  I designed this before I
-   //        realized that these copies will fall out of sync on a reorg
-   TxIOPair(void);
-   explicit TxIOPair(uint64_t amount);
-   explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex);
-   explicit TxIOPair(const BinaryData& txOutKey8B, uint64_t value);
-   explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex, 
-                     TxRef txRefI, uint32_t txinIndex);
-
-   // Lots of accessors
-   bool      hasTxOut(void) const   { return (txRefOfOutput_.isInitialized()); }
-   bool      hasTxIn(void) const    { return (txRefOfInput_.isInitialized()); }
-   bool      hasTxOutInMain(LMDBBlockDatabase *db) const;
-   bool      hasTxInInMain(LMDBBlockDatabase *db) const;
-   bool      hasTxOutZC(void) const;
-   bool      hasTxInZC(void) const;
-   bool      hasValue(void) const   { return (amount_!=0); }
-   uint64_t  getValue(void) const   { return  amount_;}
-   void      setValue(uint64_t newVal) { amount_ = newVal;}
-
-   //////////////////////////////////////////////////////////////////////////////
-   TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
-   TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
-   uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
-   uint32_t  getIndexOfInput(void) const  { return indexOfInput_;  }
-   OutPoint  getOutPoint(LMDBBlockDatabase *db) const { return OutPoint(getTxHashOfOutput(db),indexOfOutput_);}
-
-   pair<bool,bool> reassessValidity(LMDBBlockDatabase *db);
-   bool  isTxOutFromSelf(void) const  { return isTxOutFromSelf_; }
-   void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
-   bool  isFromCoinbase(void) const { return isFromCoinbase_; }
-   void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
-   bool  isMultisig(void) const { return isMultisig_; }
-   void setMultisig(bool isTrue=true) { isMultisig_ = isTrue; }
-
-   BinaryData getDBKeyOfOutput(void) const
-               { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
-   BinaryData getDBKeyOfInput(void) const
-               { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
-
-   //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(LMDBBlockDatabase *db=nullptr) const;
-   BinaryData    getTxHashOfOutput(LMDBBlockDatabase *db=nullptr) const;
-
-   void setTxHashOfInput(const BinaryData& txHash)
-   { txHashOfInput_ = txHash; }
-   void setTxHashOfOutput(const BinaryData& txHash)
-   { txHashOfOutput_ = txHash; }
-
-   TxOut getTxOutCopy(LMDBBlockDatabase *db) const;
-   TxIn  getTxInCopy (LMDBBlockDatabase *db) const;
-
-   bool setTxIn   (TxRef  txref, uint32_t index);
-   bool setTxIn   (const BinaryData& dbKey8B);
-   bool setTxOut  (TxRef  txref, uint32_t index);
-   bool setTxOut  (const BinaryData& dbKey8B);
-
-   //////////////////////////////////////////////////////////////////////////////
-   bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
-
-   bool isSpent(LMDBBlockDatabase *db) const;
-   bool isUnspent(LMDBBlockDatabase *db) const;
-   bool isSpendable(
-      LMDBBlockDatabase *db,
-      uint32_t currBlk=0, bool ignoreAllZeroConf=false
-   ) const;
-   bool isMineButUnconfirmed(
-      LMDBBlockDatabase *db,
-      uint32_t currBlk, bool includeAllZeroConf=false
-   ) const;
-   void pprintOneLine(LMDBBlockDatabase *db) const;
-
-   bool operator<(TxIOPair const & t2)
-      { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
-   bool operator==(TxIOPair const & t2)
-      { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
-   bool operator>=(const BinaryData &) const;
-
-   void setTxTime(uint32_t t) { txtime_ = t; }
-   uint32_t getTxTime(void) const { return txtime_; }
-
-   bool isUTXO(void) const { return isUTXO_; }
-   void setUTXO(bool val) { isUTXO_ = val; }
-
-private:
-   uint64_t  amount_;
-
-   TxRef     txRefOfOutput_;
-   uint32_t  indexOfOutput_;
-   TxRef     txRefOfInput_;
-   uint32_t  indexOfInput_;
-
-   mutable BinaryData txHashOfOutput_;
-   mutable BinaryData txHashOfInput_;
-
-   // Zero-conf data isn't on disk, yet, so can't use TxRef
-   bool      isTxOutFromSelf_;
-   bool      isFromCoinbase_;
-   bool      isMultisig_;
-
-   //mainly for ZC ledgers. Could replace the need for a blockchain 
-   //object to build scrAddrObj ledgers.
-   uint32_t txtime_;
-
-   /***marks txio as spent for serialize/deserialize operations. It signifies 
-   whether a subSSH entry with only a TxOut DBkey is spent. 
-
-   To allow for partial parsing of SSH history, txouts need to be visible at
-   the height they appeared, while spent txouts need to be visible at the 
-   spending txin height. 
-   
-   While spent txouts at txin height are unique, spent txouts at txout height
-   need to be differenciated from utxo.
-   ***/
-   bool isUTXO_;
-};
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Just a simple struct for storing spentness info

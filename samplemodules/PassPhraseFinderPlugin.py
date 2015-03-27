@@ -35,7 +35,7 @@ OVER_BILLION_STR = '> 1 Billion'
 class PluginObject(object):
 
    tabName = 'Pass Phrase Finder'
-   maxVersion = '0.93'
+   maxVersion = '0.93.99'
    
    #############################################################################
    def __init__(self, main):

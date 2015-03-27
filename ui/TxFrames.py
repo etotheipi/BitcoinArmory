@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -19,6 +19,7 @@ from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
    isP2SHLockbox
+from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH
  
 
 
@@ -110,8 +111,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          ' and/or broadcast later.')
       self.unsignedCheckbox = QCheckBox('Create Unsigned')
       self.btnSend = QPushButton('Send!')
-
-
+      self.btnCancel = QPushButton('Cancel')
+      self.connect(self.btnCancel, SIGNAL(CLICKED), parent.reject)
 
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
@@ -132,20 +133,21 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
-      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, 'Stretch']
+      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, STRETCH]
       if self.createUnsignedTxCallback:
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
          componentList.append(self.unsignedCheckbox)
          componentList.append(self.ttipUnsigned)
-      
+      buttonList = [STRETCH]
+      buttonList.append(self.btnCancel)
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
-         componentList.append(self.btnSend)
+         buttonList.append(self.btnSend)
          
       txFrm = makeHorizFrame(componentList, condenseMargins=True)
-
+      buttonFrame = makeHorizFrame(buttonList, condenseMargins=True)
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
       ttipEnterURI = self.main.createToolTipWidget( tr("""
          Armory does not always succeed at registering itself to handle 
@@ -227,7 +229,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
       leftFrame = makeVertFrame([lblSend, frmBottomLeft], condenseMargins=True)
-      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], condenseMargins=True)
+      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm, buttonFrame], condenseMargins=True)
       layout = QHBoxLayout()
       layout.addWidget(leftFrame, 0)
       layout.addWidget(rightFrame, 1)
@@ -263,7 +265,7 @@ class SendBitcoinsFrame(ArmoryFrame):
            not loadCount == lastPestering and \
            not dnaaDonate and \
            not USE_TESTNET:
-         result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', tr("""
+         result = MsgBoxWithDNAA(self, self.main, MSGBOX.Question, 'Please donate!', tr("""
             <i>Armory</i> is the result of thousands of hours of development 
             by very talented coders.  Yet, this software 
             has been given to you for free to benefit the greater Bitcoin 
@@ -446,10 +448,9 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
-         QMessageBox.critical(self, tr('Invalid Address'), tr("""
-           You have entered %d invalid @{address|addresses}@.  
-           The @{error has|errors have}@ been highlighted on the 
-           entry screen.""", numChkFail, numChkFail), QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Invalid Address'),
+               tr("You have entered an invalid address. The error has been highlighted on the entrry screen.",
+               "You have entered %d invalid addresses. The errors have been highlighted on the entry screen", numChkFail), QMessageBox.Ok)
 
          for row in range(len(self.widgetTable)):
             try:
@@ -830,7 +831,8 @@ class SendBitcoinsFrame(ArmoryFrame):
             utxoList = []
             for a160 in self.sourceAddrList:
                # Trying to avoid a swig bug involving iteration over vector<> types
-               utxos = self.wlt.getAddrTxOutList(a160)
+               cppAddr = self.wlt.getCppAddr(a160)
+               utxos = cppAddr.getSpendableTxOutList(IGNOREZC)
                for i in range(len(utxos)):
                   utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
             return utxoList
@@ -1009,6 +1011,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r]['QLE_COMM'] = QLineEdit()
          self.widgetTable[r]['QLE_COMM'].setFont(GETFONT('var', 9))
          self.widgetTable[r]['QLE_COMM'].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r]['QLE_COMM'].setMaxLength(MAX_COMMENT_LENGTH)
 
          if r < nRecip and r < prevNRecip:
             self.widgetTable[r]['QLE_ADDR'].setText(inputs[r][0])
@@ -1439,36 +1442,42 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.ustxReadable = False
 
       ustxStr = str(self.txtUSTX.toPlainText())
-      try:
-         self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
-         self.signStat = self.ustxObj.evaluateSigningStatus()
-         self.enoughSigs = self.signStat.canBroadcast
-         self.sigsValid = self.ustxObj.verifySigsAllInputs()
-         self.ustxReadable = True
-      except BadAddressError:
-         QMessageBox.critical(self, 'Inconsistent Data!', \
-            'This transaction contains inconsistent information.  This '
-            'is probably not your fault...', QMessageBox.Ok)
-         self.ustxObj = None
-         self.ustxReadable = False
-      except NetworkIDError:
-         QMessageBox.critical(self, 'Wrong Network!', \
-            'This transaction is actually for a different network!  '
-            'Did you load the correct transaction?', QMessageBox.Ok)
-         self.ustxObj = None
-         self.ustxReadable = False
-      except (UnserializeError, IndexError, ValueError):
-         self.ustxObj = None
-         self.ustxReadable = False
+      if len(ustxStr) > 0:
+         try:
+            self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
+            self.signStat = self.ustxObj.evaluateSigningStatus()
+            self.enoughSigs = self.signStat.canBroadcast
+            self.sigsValid = self.ustxObj.verifySigsAllInputs()
+            self.ustxReadable = True
+         except BadAddressError:
+            QMessageBox.critical(self, 'Inconsistent Data!', \
+               'This transaction contains inconsistent information.  This '
+               'is probably not your fault...', QMessageBox.Ok)
+            self.ustxObj = None
+            self.ustxReadable = False
+         except NetworkIDError:
+            QMessageBox.critical(self, 'Wrong Network!', \
+               'This transaction is actually for a different network!  '
+               'Did you load the correct transaction?', QMessageBox.Ok)
+            self.ustxObj = None
+            self.ustxReadable = False
+         except (UnserializeError, IndexError, ValueError):
+            self.ustxObj = None
+            self.ustxReadable = False
 
-      if not self.enoughSigs or not self.sigsValid or not self.ustxReadable:
-         self.btnBroadcast.setEnabled(False)
-      else:
-         if self.main.netMode == NETWORKMODE.Full:
-            self.btnBroadcast.setEnabled(True)
-         else:
+         if not self.enoughSigs or not self.sigsValid or not self.ustxReadable:
             self.btnBroadcast.setEnabled(False)
-            self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
+         else:
+            if self.main.netMode == NETWORKMODE.Full:
+               self.btnBroadcast.setEnabled(True)
+            else:
+               self.btnBroadcast.setEnabled(False)
+               self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
+      else:
+         self.ustxObj = None
+         self.ustxReadable = False
+         self.btnBroadcast.setEnabled(False)
+         
 
       self.btnSave.setEnabled(True)
       self.btnCopyHex.setEnabled(False)
@@ -1484,7 +1493,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          return
       elif not self.enoughSigs:
          if not self.main.getSettingOrSetDefault('DNAA_ReviewOfflineTx', False):
-            result = MsgBoxWithDNAA(MSGBOX.Warning, title='Offline Warning', \
+            result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, title='Offline Warning', \
                   msg='<b>Please review your transaction carefully before '
                   'signing and broadcasting it!</b>  The extra security of '
                   'using offline wallets is lost if you do '
@@ -1847,6 +1856,6 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 from qtdialogs import CLICKED, DlgConfirmSend, DlgUriCopyAndPaste, \
-         DlgUnlockWallet, extractTxInfo, DlgDispTxInfo, NO_CHANGE
+         DlgUnlockWallet, extractTxInfo, DlgDispTxInfo, NO_CHANGE, STRETCH
 
 

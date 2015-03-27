@@ -126,13 +126,13 @@ class ArmoryDTiabTest(TiabTest):
       # Load the primary file from the test net in a box
       self.fileA = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
                                 'armory_%s_.wallet' % FIRST_WLT_NAME)
-      self.wltA  = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
+      self.wltA  = PyBtcWallet().readWalletFile(self.fileA)
       self.fileB = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
                                 'armory_%s_.wallet' % SECOND_WLT_NAME)
-      self.wltB  = PyBtcWallet().readWalletFile(self.fileB, doScanNow=True)
+      self.wltB  = PyBtcWallet().readWalletFile(self.fileB)
       self.fileC = os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory', \
                                 'armory_%s_.wallet' % THIRD_WLT_NAME)
-      self.wltC  = PyBtcWallet().readWalletFile(self.fileC, doScanNow=True)
+      self.wltC  = PyBtcWallet().readWalletFile(self.fileC)
       self.jsonServer = Armory_Json_Rpc_Server(self.wltA, \
                                     inWltMap={SECOND_WLT_NAME : self.wltB, \
                                               THIRD_WLT_NAME : self.wltC}, \
@@ -147,8 +147,11 @@ class ArmoryDTiabTest(TiabTest):
       self.numberOfWalletsScanned = 0
       
       self.wltA.registerWallet()
+      time.sleep(0.5)
       self.wltB.registerWallet()
+      time.sleep(0.5)
       self.wltC.registerWallet()
+      time.sleep(0.5)
       #wait on scan for 20sec then raise if the scan hasn't finished yet
       i = 0
       while self.numberOfWalletsScanned < 3:
@@ -436,13 +439,15 @@ class ArmoryDTiabTest(TiabTest):
 
       # Test two paths through signing method and make sure they are equal
       # Wallets in the TIAB start out unencrypted
+      f = open(TX_FILENAME, 'w')
+      f.write(serializedUnsignedTx)
+      f.close()
       serializedSignedTxUnencrypted = \
-            self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
-                                                         '')['SignedTx']
+            self.jsonServer.jsonrpc_signasciitransaction(TX_FILENAME) 
       self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
+      self.jsonServer.jsonrpc_walletpassphrase(PASSPHRASE1)
       serializedSignedTxEncrypted = \
-            self.jsonServer.jsonrpc_signasciitransaction(serializedUnsignedTx, \
-                                                         PASSPHRASE1)['SignedTx']
+            self.jsonServer.jsonrpc_signasciitransaction(TX_FILENAME)
       # Other tests expect wallet to be unencrypted
       self.wltA.unlock(securePassphrase=SecureBinaryData(PASSPHRASE1),
                             tempKeyLifetime=1000000)
@@ -473,7 +478,7 @@ class ArmoryDTiabTest(TiabTest):
    def testSendmany(self):
       # Send 1 BTC
       serializedUnsignedTx = \
-         self.jsonServer.jsonrpc_createustxformany(','.join([TIAB_WLT_3_ADDR_2, str(BTC_TO_SEND)]), \
+         self.jsonServer.jsonrpc_createustxformany(None, ','.join([TIAB_WLT_3_ADDR_2, str(BTC_TO_SEND)]), \
                                                    ','.join([TIAB_WLT_3_ADDR_3, str(BTC_TO_SEND)]))
       unsignedTx = UnsignedTransaction().unserializeAscii(serializedUnsignedTx)
       # Should have 2 txouts to TIAB_WLT_3_ADDR_3 and the change

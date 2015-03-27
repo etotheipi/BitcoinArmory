@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -92,12 +92,14 @@ void BlockHeader::pprintAlot(ostream & os)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockHeader::findNonce(const char* inDiffStr)
+// Due to SWIG complications, passing in a value by reference really isn't
+// feasible. Therefore, we'll use int64 and pass back -1 if we don't find a
+// nonce.
+int64_t BlockHeader::findNonce(const char* inDiffStr)
 {
    const BinaryData playHeader(serialize());
    const CryptoPP::Integer minBDiff("FFFF0000000000000000000000000000000000000000000000000000h");
    const CryptoPP::Integer inDiff(inDiffStr);
-   uint32_t solution = 0;
 
    if(inDiff > minBDiff) {
       cout << "Difficulty " << inDiffStr << " is too high for Bitcoin (bdiff)." << endl;
@@ -108,7 +110,7 @@ uint32_t BlockHeader::findNonce(const char* inDiffStr)
       std::mutex lockSolution;
       bool hasSolution=false;
 
-      const auto computer = [&] (uint32_t startAt, uint32_t stopAt)
+      const auto computer = [&] (uint32_t startAt, uint32_t stopAt)->int64_t
       {
          BinaryData hashResult(32);
          for(uint32_t nonce=startAt; nonce<stopAt; nonce++)
@@ -128,9 +130,8 @@ uint32_t BlockHeader::findNonce(const char* inDiffStr)
                pprint();
                cout << "Hash:       " << hashResult.toHexStr() << endl;
                hasSolution=true;
-               solution = nonce;
                stopNow=true;
-               return;
+               return nonce;
             }
 
             if (stopNow)
@@ -144,6 +145,9 @@ uint32_t BlockHeader::findNonce(const char* inDiffStr)
                cout.flush();
             }
          }
+
+         //needs a return val for windows to build
+         return -1;
       };
 
       const unsigned numThreads = thread::hardware_concurrency();
@@ -169,10 +173,8 @@ uint32_t BlockHeader::findNonce(const char* inDiffStr)
    }
 
    // If we've landed here for one reason or another, we've failed. Return 0.
-   return solution;
+   return -1;
 }
-
-
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -838,320 +840,6 @@ TxOut DBTxRef::getTxOutCopy(uint32_t i)
 {
    return db_->getTxOutCopy(dbKey6B_, i);
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// TxIOPair Methods
-//
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(void) : 
-   amount_(0),
-   indexOfOutput_(0),
-   indexOfInput_(0),
-   isTxOutFromSelf_(false),
-   isFromCoinbase_(false),
-   isMultisig_(false),
-   txtime_(0),
-   isUTXO_(false)
-   {}
-
-//////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(uint64_t  amount) :
-   amount_(amount),
-   indexOfOutput_(0),
-   indexOfInput_(0),
-   isTxOutFromSelf_(false),
-   isFromCoinbase_(false),
-   isMultisig_(false),
-   txtime_(0),
-   isUTXO_(false)
-   {}
-
-//////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
-   amount_(0),
-   indexOfInput_(0) ,
-   isTxOutFromSelf_(false),
-   isFromCoinbase_(false),
-   isMultisig_(false),
-   txtime_(0),
-   isUTXO_(false)
-{ 
-   setTxOut(txPtrO, txoutIndex);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(TxRef     txPtrO,
-                   uint32_t  txoutIndex,
-                   TxRef     txPtrI, 
-                   uint32_t  txinIndex) :
-   amount_(0),
-   isTxOutFromSelf_(false),
-   isFromCoinbase_(false),
-   isMultisig_(false),
-   txtime_(0),
-   isUTXO_(false)
-{ 
-   setTxOut(txPtrO, txoutIndex);
-   setTxIn (txPtrI, txinIndex );
-}
-
-//////////////////////////////////////////////////////////////////////////////
-TxIOPair::TxIOPair(const BinaryData& txOutKey8B, uint64_t val) :
-   amount_(val),
-   indexOfOutput_(0),
-   indexOfInput_(0),
-   isTxOutFromSelf_(false),
-   isFromCoinbase_(false),
-   isMultisig_(false),
-   txtime_(0),
-   isUTXO_(false)
-{
-   setTxOut(txOutKey8B);
-}
- //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfOutput(LMDBBlockDatabase *db) const
-{
-   if (!hasTxOut())
-      return BtcUtils::EmptyHash();
-   else if (txHashOfOutput_.getSize() == 32)
-      return txHashOfOutput_;
-   else if (txRefOfOutput_.isInitialized() && db!=nullptr)
-   {
-      txHashOfOutput_ = txRefOfOutput_.attached(db).getThisHash();
-      return txHashOfOutput_;
-   }
-
-   return BinaryData(0);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfInput(LMDBBlockDatabase *db) const
-{
-   if (!hasTxIn())
-      return BtcUtils::EmptyHash();
-   else if (txHashOfInput_.getSize() == 32)
-      return txHashOfInput_;
-   else if (txRefOfInput_.isInitialized() && db != nullptr)
-   {
-      txHashOfInput_ = txRefOfInput_.attached(db).getThisHash();
-      return txHashOfInput_;
-   }
-
-   return BinaryData(0);
-}
-//////////////////////////////////////////////////////////////////////////////
-TxOut TxIOPair::getTxOutCopy(LMDBBlockDatabase *db) const
-{
-   // I actually want this to segfault when there is no TxOut... 
-   // we should't ever be trying to access it without checking it 
-   // first in the calling code (hasTxOut/hasTxOutZC)
-   if(hasTxOut())
-      return txRefOfOutput_.attached(db).getTxOutCopy(indexOfOutput_);
-
-   throw runtime_error("Has not TxOutCopy");
-}
-
-//////////////////////////////////////////////////////////////////////////////
-TxIn TxIOPair::getTxInCopy(LMDBBlockDatabase *db) const
-{
-   // I actually want this to segfault when there is no TxIn... 
-   // we should't ever be trying to access it without checking it 
-   // first in the calling code (hasTxIn/hasTxInZC)
-   if(hasTxIn())
-      return txRefOfInput_.attached(db).getTxInCopy(indexOfInput_);
-   /*else
-      return getTxInZC();*/
-   throw runtime_error("Has not TxInCopy");
-}
-
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxIn(TxRef  txref, uint32_t index)
-{ 
-   txRefOfInput_  = txref;
-   indexOfInput_  = index;
-
-   return true;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxIn(const BinaryData& dbKey8B)
-{
-   if (dbKey8B.getSize() == 8)
-   {
-      BinaryRefReader brr(dbKey8B);
-      BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-      uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
-      return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
-   }
-   else
-   {
-      //pass a 0 byte dbkey to reset the txin
-      setTxIn(TxRef(), 0);
-      return false;
-   }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOut(const BinaryData& dbKey8B)
-{
-   if (dbKey8B.getSize() == 8)
-   {
-      BinaryRefReader brr(dbKey8B);
-      BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-      uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
-      return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
-   }
-   else
-   {
-      //pass 0 byte dbkey to reset the txout
-      setTxOut(TxRef(), 0);
-      return false;
-   }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOut(TxRef txref, uint32_t index)
-{
-   txRefOfOutput_   = txref; 
-   indexOfOutput_   = index;
-   return true;
-}
-
-
-//////////////////////////////////////////////////////////////////////////////
-pair<bool,bool> TxIOPair::reassessValidity(LMDBBlockDatabase *db)
-{
-   pair<bool,bool> result;
-   result.first  = hasTxOutInMain(db);
-   result.second = hasTxInInMain(db);
-   return result;
-}
-
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpent(LMDBBlockDatabase *db) const
-{ 
-   // Not sure whether we should verify hasTxOut.  It wouldn't make much 
-   // sense to have TxIn but not TxOut, but there might be a preferred 
-   // behavior in such awkward circumstances
-   return (hasTxInZC() || hasTxInInMain(db));
-}
-
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isUnspent(LMDBBlockDatabase *db) const
-{ 
-   return ( (hasTxOutZC() || hasTxOutInMain(db)) && !isSpent(db));
-
-}
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreAllZeroConf) const
-{ 
-   // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
-   // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
-   if ( hasTxInZC() || hasTxInInMain(db))
-      return false;
-   
-   if( hasTxOutInMain(db) )
-   {
-      uint32_t nConf = currBlk - txRefOfOutput_.getBlockHeight() + 1;
-      if(isFromCoinbase_ && nConf<=COINBASE_MATURITY)
-         return false;
-      else
-         return true;
-   }
-
-   if( hasTxOutZC() && isTxOutFromSelf() )
-      return !ignoreAllZeroConf;
-
-   return false;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isMineButUnconfirmed(
-   LMDBBlockDatabase *db,
-   uint32_t currBlk, bool inclAllZC
-) const
-{
-   // All TxOuts that were from our own transactions are always confirmed
-   if(isTxOutFromSelf())
-      return false;   
-
-   if (hasTxInZC() || (hasTxIn() && txRefOfInput_.attached(db).isMainBranch()))
-      return false;
-
-   if(hasTxOutInMain(db))
-   {
-      uint32_t nConf = currBlk - txRefOfOutput_.getBlockHeight() + 1;
-      if(isFromCoinbase_)
-         return (nConf<COINBASE_MATURITY);
-      else 
-         return (nConf<MIN_CONFIRMATIONS);
-   }
-   else if( hasTxOutZC() && (!isTxOutFromSelf() || inclAllZC))
-      return true;
-
-
-   return false;
-}
-
-bool TxIOPair::hasTxOutInMain(LMDBBlockDatabase *db) const
-{
-   return (!hasTxOutZC() &&
-            hasTxOut() && txRefOfOutput_.attached(db).isMainBranch());
-}
-
-bool TxIOPair::hasTxInInMain(LMDBBlockDatabase *db) const
-{
-   return (!hasTxInZC() &&
-      hasTxIn() && txRefOfInput_.attached(db).isMainBranch());
-}
-
-bool TxIOPair::hasTxOutZC(void) const
-{ 
-   return txRefOfOutput_.getDBKey().startsWith(READHEX("ffff"));
-}
-
-bool TxIOPair::hasTxInZC(void) const
-{ 
-   return txRefOfInput_.getDBKey().startsWith(READHEX("ffff"));
-}
-
-void TxIOPair::pprintOneLine(LMDBBlockDatabase *db) const
-{
-   printf("   Val:(%0.3f)\t  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
-           (double)getValue()/1e8,
-           (isTxOutFromSelf() ? 1 : 0),
-           (hasTxOut() ? 1 : 0),
-           (hasTxIn() ? 1 : 0),
-           (hasTxOutInMain(db) ? 1 : 0),
-           (hasTxInInMain(db) ? 1 : 0),
-           (hasTxOutZC() ? 1 : 0),
-           (hasTxInZC() ? 1 : 0));
-
-}
-
-bool TxIOPair::operator>=(const BinaryData &dbKey) const
-{
-   if (txRefOfOutput_ >= dbKey)
-      return true;
-
-   if (txRefOfInput_ >= dbKey)
-      return true;
-
-   return false;
-}
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

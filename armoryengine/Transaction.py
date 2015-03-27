@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -899,9 +899,9 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
 
    Right now only supports SIGHASH_ALL
    """
-   
-   if not hashcode in [1, SIGHASH_NONE|SIGHASH_ANYONECANPAY]:
-      LOGERROR('Only hashcode=1 and 82 are supported at this time!')
+   if not hashcode == 1:
+      # NO OTHER HASHCODES HAVE BEEN TESTED
+      LOGERROR('Only hashcode=1 is supported at this time!')
       LOGERROR('Requested hashcode=%d' % hashcode)
       return None
 
@@ -913,9 +913,14 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
    # Set the script of the TxIn being signed, to the previous TxOut script
    txCopy.inputs[txInIndex].binScript = prevTxOutScript
    
-   # for SIGHASH_NONE|SIGHASH_ANYONECANPAY remove everything except the current input
-   if hashcode == SIGHASH_NONE|SIGHASH_ANYONECANPAY:
+   # Remove outputs given SIGHASH type (DISABLED DUE TO FIRST CONDITIONAL ABOVE)
+   if hashcode & 0x7fffffff == SIGHASH_NONE:
       txCopy.outputs = []
+   elif hashcode & 0x7fffffff == SIGHASH_SINGLE:
+      txCopy.outputs = [txCopy.outputs[txInIndex]]
+
+   # Remove all other inputs if needed (DISABLED DUE TO FIRST CONDITIONAL ABOVE)
+   if hashcode & SIGHASH_ANYONECANPAY:
       txCopy.inputs = [txCopy.inputs[txInIndex]]
 
    hashCode1  = int_to_binary(hashcode, widthBytes=1)
@@ -1212,7 +1217,8 @@ class UnsignedTxInput(AsciiSerializable):
 
 
    #############################################################################
-   def createTxSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
+   def createTxSignature(self, pytx, sbdPrivKey, hashcode=1,
+                         DetSign=ENABLE_DETSIGN):
       """
       This might be a little confusing ... remember this is an input for a
       transaction which may not have been fully defined at the time this
@@ -1223,7 +1229,6 @@ class UnsignedTxInput(AsciiSerializable):
       This returns a DER-encoded signature string with the 1-byte hashcode
       appended to the end
       """
-
       # Make sure the supplied privateKey is relevant to this USTXI
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
       if not computedPub in self.pubKeys:
@@ -1267,7 +1272,6 @@ class UnsignedTxInput(AsciiSerializable):
 
    #############################################################################
    def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
-
       derSig = self.createTxSignature(pytx, sbdPrivKey, hashcode, DetSign)
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
 
@@ -1317,6 +1321,9 @@ class UnsignedTxInput(AsciiSerializable):
 
       rBin, sBin = getRSFromDERSig(sigStr)
       hashcode  = binary_to_int(sigStr[-1])
+      if not hashcode==1:
+         LOGERROR('Cannot allow non-standard SIGHASH types: %d' % hashcode)
+         return -1
 
       # Don't forget "sigStr" has the 1-byte hashcode at the end
       msg = generatePreHashTxMsgToSign(pytx, txiIdx,
@@ -2472,7 +2479,7 @@ class UnsignedTransaction(AsciiSerializable):
 
    #############################################################################
    def createAndInsertSignatureForInput(self, txInIndex, sbdPrivKey, hashcode=1,
-                                        DetSign=True):
+                                        DetSign=ENABLE_DETSIGN):
       if txInIndex >= len(self.ustxInputs):
          raise SignatureError('TxIn index is out of range for this USTX')
 
@@ -2779,18 +2786,21 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 #############################################################################
 def getFeeForTx(txHash):
    if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-      txref = TheBDM.getTxByHash(txHash)
-      if not txref.isInitialized():
-         LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
-                                             binary_to_hex(txHash,BIGENDIAN))
+      try:
+         txref = TheBDM.getTxByHash(txHash)
+         if not txref.isInitialized():
+            LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
+                                                binary_to_hex(txHash,BIGENDIAN))
+            return 0
+         valIn, valOut = 0,0
+         for i in range(txref.getNumTxIn()):
+            valIn += TheBDM.bdv().getSentValue(txref.getTxInCopy(i))
+         for i in range(txref.getNumTxOut()):
+            valOut += txref.getTxOutCopy(i).getValue()
+         return valIn - valOut
+      except:
+         LOGERROR('Couldn\'t get tx fee. Ignore this message in Fullnode') 
          return 0
-      valIn, valOut = 0,0
-      for i in range(txref.getNumTxIn()):
-         valIn += TheBDM.bdv().getSentValue(txref.getTxInCopy(i))
-      for i in range(txref.getNumTxOut()):
-         valOut += txref.getTxOutCopy(i).getValue()
-      return valIn - valOut
-
 
 #############################################################################
 def determineSentToSelfAmt(le, wlt):

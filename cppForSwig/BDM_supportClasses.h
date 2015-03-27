@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef _BDM_SUPPORTCLASSES_H_
 #define _BDM_SUPPORTCLASSES_H_
 
@@ -72,56 +79,66 @@ public:
       only 1 wallet can be registered per post BDM init address scan.
       ***/
       uint32_t startScanFrom_=0;
-      shared_ptr<BtcWallet> wltPtr_;
+      map<shared_ptr<BtcWallet>, vector<BinaryData>> wltNAddrMap_;
 
       BinaryData lastScannedBlkHash_;
 
       map<BinaryData, uint32_t> scrAddrsToMerge_;
-      set<BinaryData>           UTxOToMerge_;
 
       ScrAddrSideScanData(void) {}
-      ScrAddrSideScanData(uint32_t height, shared_ptr<BtcWallet> wltPtr) :
-         startScanFrom_(height),
-         wltPtr_(wltPtr) {}
+      ScrAddrSideScanData(uint32_t height) :
+         startScanFrom_(height) {}
+
+      vector<string> getWalletIDString(void)
+      {
+         vector<string> strVec;
+         for (auto& batch : wltNAddrMap_)
+            strVec.push_back(string(batch.first->walletID().getCharPtr(),
+                             batch.first->walletID().getSize()));
+
+         return strVec;
+      }
+   };
+   
+   struct hashBinData
+   {
+      std::size_t operator()(const BinaryData& bd) const
+      {
+         return *((std::size_t*)bd.getPtr());
+      }
    };
 
 private:
    //map of scrAddr and their respective last scanned block
    //this is used only for the inital load currently
-   map<BinaryData, uint32_t>   scrAddrMap_;
 
-   set<BinaryData>                UTxO_;
-   mutable uint32_t               blockHeightCutOff_=0;
+
+   unordered_map<BinaryData, uint32_t, hashBinData>   scrAddrMap_;
+
    LMDBBlockDatabase *const       lmdb_;
 
    //
-   shared_ptr<ScrAddrFilter>            child_;
-   ScrAddrFilter*                       root_;
-   ScrAddrSideScanData                  scrAddrDataForSideScan_;
-   atomic<int32_t>                      mergeLock_;
-   bool                                 mergeFlag_=false;
+   shared_ptr<ScrAddrFilter>      child_;
+   ScrAddrFilter*                 root_;
+   ScrAddrSideScanData            scrAddrDataForSideScan_;
+   atomic<int32_t>                mergeLock_;
+   bool                           mergeFlag_=false;
    
-   //0: dont scan
-   //1: scan from existing SSH lastScannedHeight
-   //-1: wipe existing SSH first then scan
-   int32_t                        doScan_ = 1; 
-   
+   //false: dont scan
+   //true: wipe existing SSH then scan
+   bool                           doScan_ = true; 
    bool                           isScanning_ = false;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
       auto scrAddrIter = scrAddrMap_.find(scrAddr);
       if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
-      {
          scrAddrIter->second = blkHgt;
-         blockHeightCutOff_ = max(blockHeightCutOff_, blkHgt);
-      }
    }
 
 protected:
-   function<void(const BinaryData&, double prog, unsigned time)> 
-      scanThreadProgressCallback_ = 
-      [](const BinaryData&, double, unsigned) {};
+   function<void(const vector<string>& wltIDs, double prog, unsigned time)>
+      scanThreadProgressCallback_;// = [](const vector<string>&, double, unsigned)->void {};
 
 public:
    
@@ -129,7 +146,10 @@ public:
   
    ScrAddrFilter(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
       : lmdb_(lmdb), mergeLock_(0), armoryDbType_(armoryDbType)
-   {}
+   {
+      scanThreadProgressCallback_ = 
+         [](const vector<string>&, double, unsigned)->void {};
+   }
 
    ScrAddrFilter(const ScrAddrFilter& sca) //copy constructor
       : lmdb_(sca.lmdb_), mergeLock_(0), armoryDbType_(sca.armoryDbType_)
@@ -139,15 +159,18 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const map<BinaryData, uint32_t>& getScrAddrMap(void) const
+   const unordered_map<BinaryData, uint32_t, hashBinData>& getScrAddrMap(void) const
    { return scrAddrMap_; }
 
    size_t numScrAddr(void) const
    { return scrAddrMap_.size(); }
 
    uint32_t scanFrom(void) const;
-   bool registerAddresses(const vector<BinaryData>& saVec, 
-                          shared_ptr<BtcWallet> wltPtr, int32_t doScan);
+   bool registerAddresses(const vector<BinaryData>&, shared_ptr<BtcWallet>,
+      bool areNew);
+   bool registerAddressBatch(
+      const map<shared_ptr<BtcWallet>, vector<BinaryData>>& wltNAddrMap,
+      bool areNew);
 
    void unregisterScrAddr(BinaryData& scrAddrIn)
    { scrAddrMap_.erase(scrAddrIn); }
@@ -156,14 +179,6 @@ public:
 
    bool hasScrAddress(const BinaryData & sa)
    { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
-
-   int8_t hasUTxO(const BinaryData& dbkey) const;
-
-   void addUTxO(pair<const BinaryData, TxIOPair>& txio);
-   void addUTxO(const BinaryData& dbkey);
-
-   bool eraseUTxO(const BinaryData& dbkey)
-   { return UTxO_.erase(dbkey) == 1; }
 
    void getScrAddrCurrentSyncState();
    void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
@@ -188,8 +203,11 @@ public:
    void merge(const BinaryData& lastScannedBlkHash);
    void checkForMerge(void);
 
-   void startSideScan(
-      function<void(const BinaryData&, double prog, unsigned time)> progress);
+   bool startSideScan(
+      function<void(const vector<string>&, double prog, unsigned time)> progress);
+
+   const vector<string> getNextWalletIDToScan(void);
+   LMDBBlockDatabase* getDb(void) const { return lmdb_; }
  
 public:
    virtual ScrAddrFilter* copy()=0;
@@ -197,7 +215,7 @@ public:
 protected:
    virtual bool bdmIsRunning() const=0;
    virtual BinaryData applyBlockRangeToDB(
-      uint32_t startBlock, uint32_t endBlock, BtcWallet *wltPtr
+      uint32_t startBlock, uint32_t endBlock, const vector<string>& wltIDs
    )=0;
    virtual uint32_t currentTopBlockHeight() const=0;
    virtual void flagForScanThread(void) = 0;
@@ -207,7 +225,8 @@ protected:
 
 private:
    void scanScrAddrThread(void);
-   void buildSideScanData(shared_ptr<BtcWallet> wltPtr);
+   void buildSideScanData(
+      const map<shared_ptr<BtcWallet>, vector<BinaryData>>& wltnAddrMap);
 };
 
 class ZeroConfContainer
@@ -250,8 +269,8 @@ private:
    set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
 
 
-   std::atomic<uint32_t>       topId_;
-   atomic<uint32_t>            lock_;
+   std::atomic<uint32_t> topId_;
+   mutex                 mu_;
 
    //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
    //The code has a thread pushing new ZC, and set the BDM thread flag
@@ -283,7 +302,7 @@ private:
 
 public:
    ZeroConfContainer(LMDBBlockDatabase* db) :
-      topId_(0), lock_(0), db_(db) {}
+      topId_(0), db_(db) {}
 
    void addRawTx(const BinaryData& rawTx, uint32_t txtime);
 
@@ -294,7 +313,7 @@ public:
       function<bool(const BinaryData&)>);
 
    const map<HashString, map<BinaryData, TxIOPair> >& 
-      getNewTxioMap(void);
+      getNewTxioMap(void) const;
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 

@@ -97,7 +97,7 @@ class PyBtcWalletRecoveryTest(TiabTest):
       #check obfuscated keys yield the valid key
       #grab root key
       badWlt = PyBtcWallet()
-      badWlt.readWalletFile(self.corruptWallet, False, False)
+      badWlt.readWalletFile(self.corruptWallet, False)
       rootAddr = badWlt.addrMap['ROOT']
       
       SecurePassphrase = SecureBinaryData('testing')
