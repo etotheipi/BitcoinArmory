@@ -1944,9 +1944,14 @@ def hex_to_int(h, endIn=LITTLEENDIAN):
    Convert hex-string to integer (or long).  Default behavior is to interpret
    hex string as little-endian
    """
+   # copies data, no references
    if isinstance(h, str):
-      h = h.encode()
-   hstr = h.replace(b' ',b'')  # copies data, no references
+      hstr = h.encode()
+   else:
+      hstr = h
+   hstr = hstr.replace(b' ',b'')
+   if hstr == b'':
+      return 0
    if endIn==LITTLEENDIAN:
       hstr = hex_switchEndian(hstr)
    return( int(hstr, 16) )
@@ -2230,10 +2235,11 @@ def binary_to_easyType16(binstr):
 # Treat unrecognized characters as 0, to facilitate possibly later recovery of
 # their correct values from the checksum.
 def easyType16_to_binary(b16str):
-   return hex_to_binary(''.join([base16_to_hex_map.get(c, '0') for c in b16str]))
+   return hex_to_binary(bytes([base16_to_hex_map.get(c, 48) for c in b16str]))
 
 
 def makeSixteenBytesEasy(b16):
+   assert(isinstance(b16,bytes))
    if not len(b16)==16:
       raise ValueError('Must supply 16-byte input')
    chk2 = computeChecksum(b16, nBytes=2)
@@ -2245,17 +2251,21 @@ def makeSixteenBytesEasy(b16):
    return b'  '.join([first4, second4, last1])
 
 def readSixteenEasyBytes(et18):
-   b18 = easyType16_to_binary(et18.strip().replace(' ',''))
+   if isinstance(et18, str):
+      e18 = et18.strip().encode()
+   else:
+      e18 = et18.strip()
+   b18 = easyType16_to_binary(e18.replace(b' ',b''))
    if len(b18)!=18:
       raise ValueError('Must supply 18-byte input')
    b16 = b18[:16]
    chk = b18[ 16:]
-   if chk=='':
+   if chk==b'':
       LOGWARN('Missing checksum when reading EasyType')
       return (b16, 'No_Checksum')
    b16new = verifyChecksum(b16, chk)
    if len(b16new)==0:
-      return ('','Error_2+')
+      return (b'','Error_2+')
    elif not b16new==b16:
       return (b16new,'Fixed_1')
    else:
@@ -2480,7 +2490,7 @@ def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
             5 if errLevel == QRErrorCorrectLevel.M else \
             6 if errLevel == QRErrorCorrectLevel.Q else \
             7 # errLevel = QRErrorCorrectLevel.H
-   sz = baseSz if dataLen < 70 else  5 +  (dataLen - 70) / 30
+   sz = baseSz if dataLen < 70 else  5 +  (dataLen - 70) // 30
    qrmtrx = [[]]
    success = False
    while sz<20:
@@ -2492,7 +2502,6 @@ def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
          success=True
          break
       except TypeError:
-         LOGEXCEPT("")
          sz += 1
 
    if not success:
@@ -2650,13 +2659,12 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       a = binary_to_int(byteSecret, BIGENDIAN)
    else:
       if not isinstance(secret, str):
-         secret = SecureBinaryData()
-         secret.createFromHex(secret.toHexStr())
-      byteSecret = SecureBinaryData(secret).toHexStr().encode()
+         s = SecureBinaryData()
+         s.createFromHex(secret.toHexStr())
+      byteSecret = s.toHexStr().encode()
       a = hex_to_int(byteSecret,BIGENDIAN)
-
    if nbytes==None:
-      nbytes = len(secret)
+      nbytes = len(byteSecret)
 
    ff = FiniteField(nbytes)
    fragments = []
@@ -2791,7 +2799,7 @@ def testReconstructSecrets(fragMap, M, maxTestCount=20):
 def ComputeFragIDBase58(M, wltIDBin):
    mBin4   = int_to_binary(M, widthBytes=4, endOut=BIGENDIAN)
    fragBin = hash256(wltIDBin + mBin4)[:4]
-   fragB58 = str(M) + binary_to_base58(fragBin)
+   fragB58 = str(M).encode() + binary_to_base58(fragBin)
    return fragB58
 
 ################################################################################
@@ -2801,19 +2809,20 @@ def ComputeFragIDLineHex(M, index, wltIDBin, isSecure=False, addSpaces=False):
    fragID += binary_to_hex(wltIDBin)
 
    if addSpaces:
-      fragID = ' '.join([fragID[i*4:(i+1)*4] for i in range(4)])
+      fragID = b' '.join([fragID[i*4:(i+1)*4] for i in range(4)])
 
    return fragID
 
 
 ################################################################################
 def ReadFragIDLineBin(binLine):
-   doMask = binary_to_int(binLine[0]) > 127
-   M      = binary_to_int(binLine[0]) & 0x7f
-   fnum   = binary_to_int(binLine[1])
+   assert(isinstance(binLine, bytes))
+   doMask = binLine[0] > 127
+   M      = binLine[0] & 0x7f
+   fnum   = binLine[1]
    wltID  = binLine[2:]
 
-   idBase58 = ComputeFragIDBase58(M, wltID) + '-#' + str(fnum)
+   idBase58 = ComputeFragIDBase58(M, wltID) + b'-#' + str(fnum).encode()
    return (M, fnum, wltID, doMask, idBase58)
 
 
@@ -3573,8 +3582,8 @@ def HardcodedKeyMaskParams():
          tmp.createFromHex(binary_to_hex(secret).decode())
          secret = tmp
       bin7 = HMAC512(secret.getHash256(), hex_to_binary(paramMap['SALT'].toHexStr()))[:7]
-      out,bin7 = SecureBinaryData(), None
-      out.createFromHex(binary_to_hex(binary_to_base58(bin7 + hash256(bin7)[0])).decode())
+      out,bin7 = SecureBinaryData(), b''
+      out.createFromHex(binary_to_hex(binary_to_base58(bin7 + hash256(bin7)[0:1])).decode())
       return out
 
    def hardcodeCheckSecurePrintCode(securePrintCode):

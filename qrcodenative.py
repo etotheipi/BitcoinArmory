@@ -29,10 +29,10 @@ class QR8bitByte:
    def getLength(self):
       return len(self.data)
 
-   def write(self, buffer):
-      for i in range(len(self.data)):
+   def write(self, buf):
+      for d in self.data:
          #// not JIS ...
-         buffer.put(self.data[i], 8)
+         buf.put(d, 8)
    def __repr__(self):
       return self.data
 
@@ -263,51 +263,43 @@ class QRCode:
    @staticmethod
    def createData(typeNumber, errorCorrectLevel, dataList):
 
-      rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel)
-
-      buffer = QRBitBuffer();
-
-      for i in range(len(dataList)):
-         data = dataList[i]
-         buffer.put(data.mode, 4)
-         buffer.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber) )
-         data.write(buffer)
+      buf = QRBitBuffer();
+      for data in dataList:
+         buf.put(data.mode, 4)
+         buf.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber) )
+         data.write(buf)
 
       #// calc num max data.
-      totalDataCount = 0;
-      for i in range(len(rsBlocks)):
-         totalDataCount += rsBlocks[i].dataCount
+      rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel)
+      totalDataCount = sum([r.dataCount for r in rsBlocks])
 
-      if (buffer.getLengthInBits() > totalDataCount * 8):
-         raise Exception("code length overflow. ("
-            + buffer.getLengthInBits()
-            + ">"
-            +  totalDataCount * 8
-            + ")")
+      if (buf.getLengthInBits() > totalDataCount * 8):
+         raise TypeError("code length overflow. (%s>%s)" %
+            (buf.getLengthInBits(), totalDataCount * 8))
 
       #// end code
-      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8):
-         buffer.put(0, 4)
+      if (buf.getLengthInBits() + 4 <= totalDataCount * 8):
+         buf.put(0, 4)
 
       #// padding
-      while (buffer.getLengthInBits() % 8 != 0):
-         buffer.putBit(False)
+      while (buf.getLengthInBits() % 8 != 0):
+         buf.putBit(False)
 
       #// padding
       while (True):
 
-         if (buffer.getLengthInBits() >= totalDataCount * 8):
+         if (buf.getLengthInBits() >= totalDataCount * 8):
             break
-         buffer.put(QRCode.PAD0, 8)
+         buf.put(QRCode.PAD0, 8)
 
-         if (buffer.getLengthInBits() >= totalDataCount * 8):
+         if (buf.getLengthInBits() >= totalDataCount * 8):
             break
-         buffer.put(QRCode.PAD1, 8)
+         buf.put(QRCode.PAD1, 8)
 
-      return QRCode.createBytes(buffer, rsBlocks)
+      return QRCode.createBytes(buf, rsBlocks)
 
    @staticmethod
-   def createBytes(buffer, rsBlocks):
+   def createBytes(buf, rsBlocks):
 
       offset = 0
 
@@ -328,7 +320,7 @@ class QRCode:
          dcdata[r] = [0 for x in range(dcCount)]
 
          for i in range(len(dcdata[r])):
-            dcdata[r][i] = 0xff & buffer.buffer[i + offset]
+            dcdata[r][i] = 0xff & buf.buf[i + offset]
          offset += dcCount
 
          rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount)
@@ -925,13 +917,13 @@ class QRRSBlock:
 
    @staticmethod
    def getRSBlocks(typeNumber, errorCorrectLevel):
-      rsBlock = QRRSBlock.getRsBlockTable(typeNumber, errorCorrectLevel);
+      rsBlock = QRRSBlock.getRsBlockTable(typeNumber, errorCorrectLevel)
       if rsBlock == None:
          raise Exception("bad rs block @ typeNumber:" + typeNumber + "/errorCorrectLevel:" + errorCorrectLevel)
 
       length = len(rsBlock) // 3
 
-      list = []
+      li = []
 
       for i in range(length):
 
@@ -940,34 +932,34 @@ class QRRSBlock:
          dataCount  = rsBlock[i * 3 + 2]
 
          for j in range(count):
-            list.append(QRRSBlock(totalCount, dataCount))
+            li.append(QRRSBlock(totalCount, dataCount))
 
-      return list;
+      return li
 
    @staticmethod
    def getRsBlockTable(typeNumber, errorCorrectLevel):
       if errorCorrectLevel == QRErrorCorrectLevel.L:
-         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0]
       elif errorCorrectLevel == QRErrorCorrectLevel.M:
-         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1]
       elif errorCorrectLevel ==  QRErrorCorrectLevel.Q:
-         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2]
       elif errorCorrectLevel ==  QRErrorCorrectLevel.H:
-         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+         return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3]
       else:
-         return None;
+         return None
 
 class QRBitBuffer:
    def __init__(self):
-      self.buffer = []
+      self.buf = []
       self.length = 0
    def __repr__(self):
-      return ".".join([str(n) for n in self.buffer])
+      return ".".join([chr(n) for n in self.buf])
    def get(self, index):
-      bufIndex = math.floor(index / 8)
-      val = ( (self.buffer[bufIndex] >> (7 - index % 8) ) & 1) == 1
+      bufIndex = index // 8
+      val = ( (self.buf[bufIndex] >> (7 - index % 8) ) & 1) == 1
       print("get ", val)
-      return ( (self.buffer[bufIndex] >> (7 - index % 8) ) & 1) == 1
+      return ( (self.buf[bufIndex] >> (7 - index % 8) ) & 1) == 1
    def put(self, num, length):
       for i in range(length):
          self.putBit( ( (num >> (length - i - 1) ) & 1) == 1)
@@ -975,8 +967,8 @@ class QRBitBuffer:
       return self.length
    def putBit(self, bit):
       bufIndex = self.length // 8
-      if len(self.buffer) <= bufIndex:
-         self.buffer.append(0)
+      if len(self.buf) <= bufIndex:
+         self.buf.append(0)
       if bit:
-         self.buffer[bufIndex] |= (0x80 >> (self.length % 8) )
+         self.buf[bufIndex] |= (0x80 >> (self.length % 8) )
       self.length+=1

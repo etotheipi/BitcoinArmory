@@ -6621,7 +6621,7 @@ class GfxItemQRCode(QGraphicsItem):
          self.maxSize = maxSize
 
       self.qrmtrx, self.modCt = CreateQRMatrix(toEncode, 'H')
-      self.modSz = round(float(self.maxSize) / float(self.modCt) - 0.5)
+      self.modSz = round(self.maxSize / self.modCt - 0.5)
       totalSize = self.modCt * self.modSz
       self.Rect = QRectF(0, 0, totalSize, totalSize)
 
@@ -6779,7 +6779,6 @@ class SimplePrintableGraphicsScene(object):
          pix = pix.scaled(sizePx, sizePx)
       pixItem = QGraphicsPixmapItem(pix)
       pixItem.setPos(self.cursorPos)
-      pixItem.setMatrix(QMatrix())
       self.gfxScene.addItem(pixItem)
       rect = pixItem.boundingRect()
       self.lastItemSize = (rect.width(), rect.height())
@@ -6789,7 +6788,6 @@ class SimplePrintableGraphicsScene(object):
    def drawQR(self, qrdata, size=150):
       objQR = GfxItemQRCode(qrdata, size)
       objQR.setPos(self.cursorPos)
-      objQR.setMatrix(QMatrix())
       self.gfxScene.addItem(objQR)
       rect = objQR.boundingRect()
       self.lastItemSize = (rect.width(), rect.height())
@@ -7119,7 +7117,7 @@ class DlgPrintBackup(ArmoryDialog):
       bottomOfPage = self.scene.pageRect().height() + MARGIN
       totalHgt = bottomOfPage - self.bottomOfSceneHeader
       self.maxKeysPerPage = int(totalHgt / (self.importHgt))
-      self.numImportPages = (len(self.binImport) - 1) / self.maxKeysPerPage + 1
+      self.numImportPages = (len(self.binImport) - 1) // self.maxKeysPerPage + 1
       if self.comboPageNum.count() == 0:
          if self.doPrintFrag:
             numFrag = len(self.fragData['Range'])
@@ -7465,7 +7463,7 @@ class DlgPrintBackup(ArmoryDialog):
       edgeBot = self.scene.pageRect().height() - MARGIN
 
       qrSize = max(1.5 * INCH, min(edgeRgt - x, edgeBot - y, 2.0 * INCH))
-      self.scene.drawQR('\n'.join(Lines), qrSize)
+      self.scene.drawQR(b'\n'.join(Lines), qrSize)
       self.scene.newLine(extra_dy=25)
 
       Lines = None
@@ -11732,7 +11730,7 @@ class DlgFragBackup(ArmoryDialog):
 
       lblDescrTitle = QRichLabel(tr("""
          <b><u>Create M-of-N Fragmented Backup</u> of "%s" (%s)</b>""") % \
-         (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
+         (wlt.labelName, wlt.uniqueIDB58.decode()), doWrap=False)
       lblDescrTitle.setContentsMargins(5, 5, 5, 5)
 
       self.lblAboveFrags = QRichLabel('')
@@ -11926,9 +11924,9 @@ class DlgFragBackup(ArmoryDialog):
       binID = self.wlt.uniqueIDBin
       ID = ComputeFragIDLineHex(M, idx, binID, doMask, addSpaces=True)
 
-      fragPreview = 'ID: %s...<br>' % ID[:12]
-      fragPreview += 'F1: %s...<br>' % easyYs1[:12]
-      fragPreview += 'F2: %s...    ' % easyYs2[:12]
+      fragPreview = 'ID: %s...<br>' % ID[:12].decode()
+      fragPreview += 'F1: %s...<br>' % easyYs1[:12].decode()
+      fragPreview += 'F2: %s...    ' % easyYs2[:12].decode()
       lblPreview = QRichLabel(fragPreview)
       lblPreview.setFont(GETFONT('Fixed', 9))
 
@@ -12023,7 +12021,7 @@ class DlgFragBackup(ArmoryDialog):
 
       fout = open(savepath, 'w')
       fout.write('Wallet ID:     %s\n' % wid.decode())
-      fout.write('Create Date:   %s\n' % unixTimeToFormatStr(RightNow()))
+      fout.write('Create Date:   %s\n' % unixTimeToFormatStr(RightNow()).decode())
       fout.write('Fragment ID:   %s-#%d\n' % (pref, fnum))
       fout.write('Frag Needed:   %d\n' % M)
       fout.write('\n\n')
@@ -12033,15 +12031,15 @@ class DlgFragBackup(ArmoryDialog):
          binID = self.wlt.uniqueIDBin
          IDLine = ComputeFragIDLineHex(M, zindex, binID, doMask, addSpaces=True)
          if len(yBin) == 32:
-            fout.write('ID: ' + IDLine + '\n')
-            fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16 ]) + '\n')
-            fout.write('F2: ' + makeSixteenBytesEasy(yBin[ 16:]) + '\n')
+            fout.write('ID: ' + IDLine.decode() + '\n')
+            fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16 ]).decode() + '\n')
+            fout.write('F2: ' + makeSixteenBytesEasy(yBin[ 16:]).decode() + '\n')
          elif len(yBin) == 64:
-            fout.write('ID: ' + IDLine + '\n')
-            fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16       ]) + '\n')
-            fout.write('F2: ' + makeSixteenBytesEasy(yBin[ 16:32    ]) + '\n')
-            fout.write('F3: ' + makeSixteenBytesEasy(yBin[    32:48 ]) + '\n')
-            fout.write('F4: ' + makeSixteenBytesEasy(yBin[       48:]) + '\n')
+            fout.write('ID: ' + IDLine.decode() + '\n')
+            fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16       ]).decode() + '\n')
+            fout.write('F2: ' + makeSixteenBytesEasy(yBin[ 16:32    ]).decode() + '\n')
+            fout.write('F3: ' + makeSixteenBytesEasy(yBin[    32:48 ]).decode() + '\n')
+            fout.write('F4: ' + makeSixteenBytesEasy(yBin[       48:]).decode() + '\n')
          else:
             LOGERROR('yBin is not 32 or 64 bytes!  It is %s bytes', len(yBin))
       finally:
@@ -12110,7 +12108,10 @@ class DlgFragBackup(ArmoryDialog):
       self.destroyFrags()
       insecureData = SplitSecret(self.securePrint, M, self.maxmaxN)
       for x, y in insecureData:
-         self.secureMtrx.append([SecureBinaryData(x), SecureBinaryData(y)])
+         sec_x, sec_y = SecureBinaryData(), SecureBinaryData()
+         sec_x.createFromHex(binary_to_hex(x).decode())
+         sec_y.createFromHex(binary_to_hex(y).decode())
+         self.secureMtrx.append([sec_x, sec_y])
       insecureData, x, y = None, None, None
 
       #####
@@ -12126,7 +12127,7 @@ class DlgFragBackup(ArmoryDialog):
       #####
 
       self.M, self.N = M, N
-      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt.uniqueIDBin)
+      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt.uniqueIDBin).decode()
       self.fragPixmapFn = ':/frag%df.png' % M
 
 
@@ -12413,7 +12414,7 @@ class DlgRestoreSingle(ArmoryDialog):
       elif sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
          visList = [1, 1, 1, 0, 0]
       else:
-         LOGERROR('What the heck backup type is selected?  %d', sel)
+         LOGERROR('What the heck backup type is selected?  %s' % sel)
          return
 
       self.doMask = (visList[0] == 1)
@@ -12483,7 +12484,7 @@ class DlgRestoreSingle(ArmoryDialog):
 
       data = b''.join(inputLines[:2])
       privKey = SecureBinaryData()
-      privKey.createFromHex(binary_to_hex(data.encode()).decode())
+      privKey.createFromHex(binary_to_hex(data).decode())
       if self.isLongForm:
          chain = SecureBinaryData()
          chain.createFromHex(binary_to_hex(b''.join(inputLines[2:])).decode())
@@ -12998,9 +12999,9 @@ class DlgRestoreFragged(ArmoryDialog):
          if i in self.fragDataMap:
             M, fnum, wltID, doMask, fid = ReadFragIDLineBin(self.fragDataMap[i][0])
             self.fragsDone.append(fnum)
-            lblFragID.setText('<b>' + fid + '</b>')
+            lblFragID.setText('<b>' + fid.decode() + '</b>')
             if doMask:
-               lblFragID.setText('<b>' + fid + '</b>', color='TextWarn')
+               lblFragID.setText('<b>' + fid.decode() + '</b>', color='TextWarn')
 
 
          btnEnter.clicked.connect(functools.partial(self.dataEnter, fnum=i))
@@ -13049,7 +13050,7 @@ class DlgRestoreFragged(ArmoryDialog):
       if dlg.exec_():
          LOGINFO('Good data from enter_one_frag exec! %d', fnum)
          self.displaySecureString.setText(dlg.editSecurePrint.text())
-         self.addFragToTable(fnum, dlg.fragData)
+         self.addFragToTable(fnum, dlg.fragData.encode())
          self.makeFragInputTable()
 
 
@@ -13070,29 +13071,29 @@ class DlgRestoreFragged(ArmoryDialog):
             QMessageBox.Ok)
 
       fragMap = {}
-      with open(toLoad, 'r') as fin:
+      with open(toLoad, 'rb') as fin:
          allData = [line.strip() for line in fin.readlines()]
          fragMap = {}
          for line in allData:
-            if line[:2].lower() in ['id', 'x1', 'x2', 'x3', 'x4', \
-                                         'y1', 'y2', 'y3', 'y4', \
-                                         'f1', 'f2', 'f3', 'f4']:
-               fragMap[line[:2].lower()] = line[3:].strip().replace(' ', '')
+            if line[:2].lower() in [b'id', b'x1', b'x2', b'x3', b'x4', \
+                                    b'y1', b'y2', b'y3', b'y4', \
+                                    b'f1', b'f2', b'f3', b'f4']:
+               fragMap[line[:2].lower()] = line[3:].strip().replace(b' ', b'')
 
 
       cList, nList = [], []
       if len(fragMap) == 9:
-         cList, nList = ['x', 'y'], ['1', '2', '3', '4']
+         cList, nList = [b'x', b'y'], [b'1', b'2', b'3', b'4']
       elif len(fragMap) == 5:
-         cList, nList = ['f'], ['1', '2', '3', '4']
+         cList, nList = [b'f'], [b'1', b'2', b'3', b'4']
       elif len(fragMap) == 3:
-         cList, nList = ['f'], ['1', '2']
+         cList, nList = [b'f'], [b'1', b'2']
       else:
          LOGERROR('Unexpected number of lines in the frag file, %d', len(fragMap))
          return
 
       fragData = []
-      fragData.append(hex_to_binary(fragMap['id']))
+      fragData.append(hex_to_binary(fragMap[b'id']))
       for c in cList:
          for n in nList:
             mapKey = c + n
@@ -13137,7 +13138,7 @@ class DlgRestoreFragged(ArmoryDialog):
          self.imgPie.setPixmap(QPixmap(':/frag%df.png' % M).scaled(96,96))
          self.lblReqd.setText(tr('<b>Frags Needed:</b> %d') % M)
          self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin))
-         self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split('-')[0])
+         self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split(b'-')[0].decode())
          self.btnRestore.setEnabled(len(self.fragDataMap) >= M)
          break
 
@@ -13186,8 +13187,11 @@ class DlgRestoreFragged(ArmoryDialog):
          LOGERROR('Mixing frag types!  How did that happen?')
          return
 
-
-      M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragData[0])
+      if isinstance(fragData[0], bytes):
+         binLine = fragData[0]
+      else:
+         binLine = hex_to_binary(fragData[0].toHexStr().encode())
+      M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(binLine)
       # If we don't know the Secure String Yet we have to get it
       if doMask and len(self.displaySecureString.text().strip()) == 0:
          dlg = DlgEnterSecurePrintCode(self, self.main)
@@ -13197,8 +13201,8 @@ class DlgRestoreFragged(ArmoryDialog):
             return
          
       if self.fragIDPrefix == UNKNOWN:
-         self.fragIDPrefix = idBase58.split('-')[0]
-      elif not self.fragIDPrefix == idBase58.split('-')[0]:
+         self.fragIDPrefix = idBase58.split(b'-')[0]
+      elif not self.fragIDPrefix == idBase58.split(b'-')[0]:
          QMessageBox.critical(self, tr('Multiple Walletss'), tr("""
             The fragment you just entered is actually for a different wallet
             than the previous fragments you entered.  Please double-check that
@@ -13226,18 +13230,18 @@ class DlgRestoreFragged(ArmoryDialog):
          Y.createFromHex(data)
       elif currType == BACKUP_TYPE_135A:
          X = SecureBinaryData()
-         X.createFromHex(int_to_hex(fnum + 1, widthBytes=64, endOut=BIGENDIAN).encode())
+         X.createFromHex(int_to_hex(fnum + 1, widthBytes=64, endOut=BIGENDIAN).decode())
          data = ''.join([fragData[i].toHexStr() for i in range(1, 5)])
          Y = SecureBinaryData()
          Y.createFromHex(data)
       elif currType == BACKUP_TYPE_135C:
          X = SecureBinaryData()
-         X.createFromHex(int_to_hex(fnum + 1, widthBytes=32, endOut=BIGENDIAN).encode())
+         X.createFromHex(int_to_hex(fnum + 1, widthBytes=32, endOut=BIGENDIAN).decode())
          data = ''.join([fragData[i].toHexStr() for i in range(1, 3)])
          Y = SecureBinaryData()
          Y.createFromHex(data)
 
-      self.fragDataMap[tableIndex] = [fragData[0][:], X.copy(), Y.copy()]
+      self.fragDataMap[tableIndex] = [binLine[:], X.copy(), Y.copy()]
 
       X.destroy()
       Y.destroy()
