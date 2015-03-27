@@ -454,8 +454,7 @@ def compile_qt():
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
-   # NB: Qt5 apparently requires the "-c++11" flag, which isn't in Qt4.
-   #     "-platform macx-clang-libc++" will also probably be required.
+   # NB: Due to minimum Mac requirements, disable post-SSE3 assembly.
    command  = './configure -prefix "%s" -system-zlib -confirm-license ' 
    command += '-opensource -nomake examples -release -arch x86_64 -c++11 '
    command += '-platform macx-clang -skip qtactiveqt -skip qtandroidextras '
@@ -466,7 +465,8 @@ def compile_qt():
    command += '-skip qtserialport -skip qtsvg -skip qttools '
    command += '-skip qttranslations -skip qtwayland -skip qtwebchannel '
    command += '-skip qtwebengine -skip qtwebkit-examples -skip qtwebsockets '
-   command += '-skip qtwinextras -skip qtx11extras -skip qtxmlpatterns'
+   command += '-skip qtwinextras -skip qtx11extras -skip qtxmlpatterns '
+   command += '-no-sse4.1 -no-sse4.2 -no-avx -no-avx2'
    execAndWait(command % qtInstDir, cwd=qtBuildDir)
 
    ##### Make
