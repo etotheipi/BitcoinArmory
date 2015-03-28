@@ -484,7 +484,7 @@ public:
       : nThreads_(nThreads)
    {}
 
-   void getSshHeaders(shared_ptr<BlockDataContainer>);
+   unique_lock<mutex>* getSshHeaders(shared_ptr<BlockDataContainer>);
    void buildSshHeadersFromSAF(const ScrAddrFilter& SAF);
 
 private:
@@ -590,9 +590,8 @@ struct STXOS
    }
 
    ///
-   StoredTxOut* lookForUTXOInMap(const BinaryData& txHash);
-   StoredTxOut* makeSureSTXOInMap(LMDBBlockDatabase* iface, BinaryDataRef txHash,
-      uint16_t txoId);
+   StoredTxOut* getStoredTxOut(const BinaryData& txHash, uint16_t utxoid);
+   StoredTxOut* lookForUTXOInMap(const BinaryData& txHashAndId34, bool forceFetch=false);
 
    void moveStxoToUTXOMap(const shared_ptr<StoredTxOut>& thisTxOut);
 
