@@ -14,11 +14,6 @@ CFLAGS += -static-libstdc++ -static-libgcc
 CXXFLAGS += -static-libstdc++ -static-libgcc
 endif
 
-ifdef STATIC_LINK
-CFLAGS += -static-libstdc++ -static-libgcc
-CXXFLAGS += -static-libstdc++ -static-libgcc
-endif
-
 platform=$(shell uname)
 
 ifeq ($(shell uname), Darwin)
@@ -46,7 +41,7 @@ PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -Lmdb
+LDLIBS += -lpthread -lrt -Lmdb
 SWIG_OPTS    += -c++ -python -threads
 
 SWIG_INC     += 
