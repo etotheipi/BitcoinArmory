@@ -201,6 +201,7 @@ namespace std
 	$result = thisList;
 }
 
+/******************************************************************************/
 // Convert Python(dict{str:list[str]}) to C++(map<BinaryData, vector<BinaryData>) 
 %typemap(in) const std::map<BinaryData, std::vector<BinaryData> >& (std::map<BinaryData, std::vector<BinaryData> > map_bd_vec_bd)
 {
@@ -226,6 +227,55 @@ namespace std
 	$1 = &map_bd_vec_bd;
 }
 
+/******************************************************************************/
+// Convert C++(StoredHeader) to a Python dict with the following key:val pairs:
+// {
+// "height":int
+// "blockHash":str
+// "merkle":str
+// "numBytes":int
+// "numTx":int
+// "txHashList":[TxHash, TxHash, TxHash, ...]
+// }
+%typemap(out) StoredHeader
+{
+	PyObject *thisDict = PyDict_New();
+
+	//height
+	PyDict_SetItemString(thisDict, "height", PyInt_FromSize_t($1.blockHeight_));
+
+	//block hash
+	std::string hashStr = $1.thisHash_.toHexStr(true);
+	PyDict_SetItemString(thisDict, "blockHash", 
+		PyString_FromStringAndSize(hashStr.c_str(), hashStr.size()));
+
+	//merkle
+	std::string merkleStr = $1.merkle_.toHexStr(true);
+	PyDict_SetItemString(thisDict, "merkle", 
+		PyString_FromStringAndSize(merkleStr.c_str(), merkleStr.size()));
+
+	//size of block in bytes
+	PyDict_SetItemString(thisDict, "numBytes", PyInt_FromSize_t($1.numBytes_));
+
+	//tx count
+	PyDict_SetItemString(thisDict, "numTx", PyInt_FromSize_t($1.getNumTx()));
+
+	PyObject *thisList = PyList_New($1.getNumTx());
+	
+	//tx hash list
+	for(unsigned i=0; i<$1.getNumTx(); i++)
+	{
+		DBTx& tx = $1.getTxByIndex(i);
+		std::string hashStr = tx.thisHash_.toHexStr(true);
+		PyList_SET_ITEM(thisList, i, 
+			PyString_FromStringAndSize(hashStr.c_str(), hashStr.size()));
+	}
+
+	//add list to dict
+	PyDict_SetItemString(thisDict, "txHashList", thisList);
+
+	$result = thisDict;
+}
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
