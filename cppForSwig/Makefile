@@ -41,7 +41,7 @@ PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -lrt -Lmdb
+LDLIBS += -Wl,--no-as-needed -lpthread -lrt -Lmdb
 SWIG_OPTS    += -c++ -python -threads
 
 SWIG_INC     += 
