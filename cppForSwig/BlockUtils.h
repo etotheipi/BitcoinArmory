@@ -14,6 +14,7 @@
 #include <vector>
 #include <set>
 
+#include "FileMap.h"
 #include "Blockchain.h"
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -85,37 +86,6 @@ typedef enum
 class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
-
-////////////////////////////////////////////////////////////////////////////////
-class FileMap
-{
-   friend class BlockFileAccessor;
-
-private:
-   atomic<uint64_t> lastSeenCumulated_;
-
-private:
-   FileMap(FileMap&& fm);
-
-public:
-   uint8_t* filemap_ = nullptr;
-   uint64_t mapsize_ = 0;
-   uint16_t fnum_;
-
-   FileMap(BlkFile& blk);
-
-   ~FileMap(void);
-
-
-   void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
-      atomic<uint64_t>& lastSeenCumulative);
-};
-
-struct FileMapContainer
-{
-   shared_ptr<FileMap> current_;
-   shared_ptr<FileMap>* prev_ = nullptr;
-};
 
 class BlockFileAccessor
 {

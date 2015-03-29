@@ -16,6 +16,7 @@
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
+#include "FileMap.h"
 
 #include "lmdbpp.h"
 

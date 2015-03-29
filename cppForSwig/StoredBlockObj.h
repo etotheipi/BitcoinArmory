@@ -111,15 +111,6 @@ class DBTx;
 class StoredScriptHistory;
 class StoredSubHistory;
 
-struct BlkFile
-{
-   size_t fnum;
-   string path;
-   uint64_t filesize;
-   uint64_t filesizeCumul;
-};
-
-
 template<class T, typename ...Args>
 static BinaryData serializeDBValue(const T &o, const Args &...a)
 {
