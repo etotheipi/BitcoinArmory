@@ -94,13 +94,15 @@ class FileMap
 private:
    atomic<uint64_t> lastSeenCumulated_;
 
+private:
+   FileMap(FileMap&& fm);
+
 public:
    uint8_t* filemap_ = nullptr;
    uint64_t mapsize_ = 0;
    uint16_t fnum_;
 
    FileMap(BlkFile& blk);
-   FileMap(FileMap&& fm);
 
    ~FileMap(void);
 
