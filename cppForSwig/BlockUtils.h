@@ -87,29 +87,6 @@ class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
 
-class BlockFileAccessor
-{
-private:
-   shared_ptr<vector<BlkFile>> blkFiles_;
-   map<uint16_t, shared_ptr<FileMap> > blkMaps_;
-   atomic<uint64_t> lastSeenCumulative_;
-
-   static const uint64_t threshold_ = 50 * 1024 * 1024LL;
-   uint64_t nextThreshold_ = threshold_;
-
-   mutex mu_;
-
-public:
-   ///////
-   BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles);
-
-   void getRawBlock(BinaryDataRef& bdr, uint32_t fnum, uint64_t offset,
-      uint32_t size, FileMapContainer* fmpPtr = nullptr);
-
-   shared_ptr<FileMap>& getFileMap(uint32_t fnum);
-   void dropFileMap(uint32_t fnum);
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
