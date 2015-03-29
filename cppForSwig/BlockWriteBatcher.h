@@ -331,6 +331,7 @@ class BlockWriteBatcher;
 class BlockDataProcessor;
 class BlockDataContainer;
 class LoadedBlockData;
+struct GrabThreadData;
 
 class BlockDataFeed
 {

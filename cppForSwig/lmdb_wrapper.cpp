@@ -646,7 +646,12 @@ void LMDBBlockDatabase::cleanUpHistoryInDB()
 
       dbs_[HISTORY].close();
       dbEnv_[HISTORY]->close();
+      
+      #ifdef WIN32
       _unlink(dbHistoryFilename().c_str());
+      #else
+      unlink(dbHistoryFilename().c_str());
+      #endif
       
       dbEnv_[HISTORY]->open(dbHistoryFilename());
       LMDBEnv::Transaction txhist(dbEnv_[HISTORY].get(), LMDB::ReadWrite);
@@ -659,7 +664,12 @@ void LMDBBlockDatabase::cleanUpHistoryInDB()
       {
          subSSHDBs_[db].close();
          subSSHDBEnv_[db].close();
+         
+         #ifdef WIN32
          _unlink(getSubSSHDBFile(db).c_str());
+         #else
+         unlink(getSubSSHDBFile(db).c_str());
+         #endif
          
          subSSHDBEnv_[db].open(getSubSSHDBFile(db));
          stringstream ss;
@@ -677,7 +687,12 @@ void LMDBBlockDatabase::cleanUpHistoryInDB()
    {
       dbs_[SPENTNESS].close();
       dbEnv_[SPENTNESS]->close();
+
+      #ifdef WIN32
       _unlink(dbSpentnessFilename().c_str());
+      #else
+      unlink(dbSpentnessFilename().c_str());
+      #endif
 
       dbEnv_[SPENTNESS]->open(dbSpentnessFilename());
       LMDBEnv::Transaction txspentess(dbEnv_[SPENTNESS].get(), LMDB::ReadWrite);
@@ -2762,7 +2777,7 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
       if (dup != getValidDupIDForHeight(height) && numHints > 1)
          continue;
 
-      BinaryData& gettxhash = getTxHashForLdbKey(hint);
+      const BinaryData& gettxhash = getTxHashForLdbKey(hint);
 
       if (gettxhash != txHash)
          continue;
