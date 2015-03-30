@@ -359,6 +359,7 @@ public:
 
    BinaryData topBlockHash_;
    uint32_t topBlockHeight_;
+   uint32_t bottomBlockHeight_;
    uint32_t totalSizeInBytes_;
 
    bool hasData_ = false;
@@ -685,9 +686,10 @@ private:
    bool forceUpdateSsh_ = false;
 
 public:
-   STXOS stxos_;
+   STXOS commitStxos_;
    
-   uint32_t mostRecentBlockApplied_ = 0;
+   uint32_t higehstBlockProcessed_ = 0;
+   uint32_t lowestBlockProcessed_ = 0;
    BinaryData topScannedBlockHash_ = BtcUtils::EmptyHash_;
    
    const uint32_t nThreads_;

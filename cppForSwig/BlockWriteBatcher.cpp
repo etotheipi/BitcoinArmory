@@ -543,7 +543,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
                uint32_t subsshHeight = DBUtils::hgtxToHeight(subsshPair.first);
                if (subsshHeight > ssh.alreadyScannedUpToBlk_ ||
                   !ssh.alreadyScannedUpToBlk_ ||
-                  subsshHeight > forceUpdateSshAtHeight_)
+                  subsshHeight >= forceUpdateSshAtHeight_)
                {
                   for (const auto& txioPair : subssh.txioMap_)
                   {
@@ -551,7 +551,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
 
                      if (!txio.hasTxIn())
                      {
-                        if (!txio.isMultisig() && txio.isUTXO())
+                        if (!txio.isMultisig())
                            ssh.totalUnspent_ += txio.getValue();
                      }
                      else
@@ -573,7 +573,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
       {
          if (ssh.totalTxioCount_ > 0)
          {
-            ssh.alreadyScannedUpToBlk_ = bdc->mostRecentBlockApplied_;
+            ssh.alreadyScannedUpToBlk_ = bdc->higehstBlockProcessed_;
             BinaryWriter& bw = serializedSshToModify_[sshKey];
             ssh.serializeDBValue(bw, dbType, pruneType);
          }
@@ -583,7 +583,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
 
       if (dbType != ARMORY_DB_SUPER)
       {
-         ssh.alreadyScannedUpToBlk_ = bdc->mostRecentBlockApplied_;
+         ssh.alreadyScannedUpToBlk_ = bdc->higehstBlockProcessed_;
          BinaryWriter& bw = serializedSshToModify_[sshKey];
          ssh.serializeDBValue(bw, dbType, pruneType);
       }
@@ -691,7 +691,7 @@ void DataToCommit::serializeDataToCommit(shared_ptr<BlockDataContainer> bdc)
    }
    
    //stxout
-   serializeStxo(bdc->stxos_);
+   serializeStxo(bdc->commitStxos_);
 
    //txOutCount
    if (dbType != ARMORY_DB_SUPER)
@@ -741,7 +741,7 @@ void DataToCommit::serializeDataToCommit(shared_ptr<BlockDataContainer> bdc)
    }
 
    topBlockHash_ = bdc->topScannedBlockHash_;
-   mostRecentBlockApplied_ = bdc->mostRecentBlockApplied_ +1;
+   mostRecentBlockApplied_ = bdc->higehstBlockProcessed_ + 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1502,7 +1502,7 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
    size_t sizePerThread = UPDATE_BYTES_THRESH / nThreads_;
 
    totalSizeInBytes_ = 0;
-   uint32_t i = 0;
+   uint32_t i = 0, lowestBlockHeight = UINT32_MAX;
    while (1)
    {
       blockData->wakeGrabThreadsIfNecessary();
@@ -1511,6 +1511,8 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
       if (block == nullptr)
          break;
       
+      if (block->blockHeight_ < lowestBlockHeight)
+         lowestBlockHeight = block->blockHeight_;
       lastValidBlock = block;
       hasData_ = true;
 
@@ -1566,6 +1568,8 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
 
       topBlockHash_ = 
          LoadedBlockData::getTopHash(*blockData, *lastValidBlock);
+
+      bottomBlockHeight_ = lowestBlockHeight;
    }
 }
 
@@ -1619,7 +1623,8 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       }
 
       //all workers are done, time to commit
-      worker_->mostRecentBlockApplied_ = dataFeed->topBlockHeight_;
+      worker_->higehstBlockProcessed_ = dataFeed->topBlockHeight_;
+      worker_->lowestBlockProcessed_ = dataFeed->bottomBlockHeight_;
       worker_->topScannedBlockHash_ = dataFeed->topBlockHash_;
 
       stxos_.commit(worker_);
@@ -1654,7 +1659,7 @@ thread BlockDataProcessor::commit(bool finalCommit)
    if (forceUpdateSSH_)
    {
       commitObject->dataToCommit_.forceUpdateSshAtHeight_ =
-         commitObject->mostRecentBlockApplied_ - 1;
+         commitObject->lowestBlockProcessed_;
    }
 
    /*if (isCommiting)
@@ -1702,7 +1707,7 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
          commitObject->dataToCommit_.deleteEmptyKeys();
 
 
-         if (commitObject->mostRecentBlockApplied_ != 0 &&
+         if (commitObject->higehstBlockProcessed_ != 0 &&
             commitObject->updateSDBI_ == true)
             commitObject->dataToCommit_.updateSDBI();
 
@@ -2203,5 +2208,5 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
 
    // Finally, mark this block as UNapplied.
    pb->blockAppliedToDB_ = false;
-   parent_->mostRecentBlockApplied_ = sud.blockHeight_ - 1;
+   parent_->higehstBlockProcessed_ = sud.blockHeight_ - 1;
 }
