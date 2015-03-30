@@ -278,11 +278,9 @@ class QRCode:
          totalDataCount += rsBlocks[i].dataCount
 
       if (buffer.getLengthInBits() > totalDataCount * 8):
-         raise Exception("code length overflow. ("
-            + buffer.getLengthInBits()
-            + ">"
-            +  totalDataCount * 8
-            + ")")
+         # this exception is caught in ArmoryUtils:CreateQRMatrix
+         raise OverflowError("code length overflow. (%s > %s)" % (
+            buffer.getLengthInBits(), totalDataCount * 8))
 
       #// end code
       if (buffer.getLengthInBits() + 4 <= totalDataCount * 8):
