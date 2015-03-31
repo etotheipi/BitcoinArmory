@@ -1,4 +1,4 @@
-package=python3
+package=native_python3
 $(package)_version=3.4.3
 $(package)_download_path=https://www.python.org/ftp/python/$($(package)_version)
 $(package)_file_name=Python-$($(package)_version).tgz
