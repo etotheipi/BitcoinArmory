@@ -40,8 +40,16 @@ else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
+# "-Wl,--no-as-needed" used for Ubuntu 12.04 due to rt library linking issues.
+# http://stackoverflow.com/questions/17150075/undefined-reference-to-clock-gettime-although-lrt-is-given
+# has more info. Require only for static linking. When 12.04 goes, remove this.
+ifdef STATIC_LINK
+LDLIBS += -Wl,--no-as-needed
+endif
+
+# rt library used for glibc <2.17 but is safe to include in all cases.
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -Wl,--no-as-needed -lpthread -lrt -Lmdb
+LDLIBS += -lpthread -lrt -Lmdb
 SWIG_OPTS    += -c++ -python -threads
 
 SWIG_INC     += 
@@ -66,6 +74,8 @@ ALL_HEADERS=$(filter-out CppBlockUtils_wrap.h,$(ALL_HEADERS_FOUND))
 
 all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
+# LDLIBS must come after any object files. This ensures the linker will link
+# based on the needs of the object files it has already encountered.
 ../_CppBlockUtils.so: $(OBJS) CppBlockUtils_wrap.o
 	$(LINK) -shared -fPIC $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o $(LDLIBS) -o ../_CppBlockUtils.so
 
