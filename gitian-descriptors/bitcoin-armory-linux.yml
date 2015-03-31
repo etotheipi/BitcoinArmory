@@ -61,7 +61,7 @@ script: |
     ln -s /usr/lib/gcc/x86_64-linux-gnu/4.8/libstdc++_pic.a ${BASEPREFIX}/x86_64-unknown-linux-gnu/lib/libstdc++.a
 
     for i in $HOSTS; do
-      export PATH=${BASEPREFIX}/${i}/bin:${ORIGPATH}
+      export PATH=${BASEPREFIX}/${i}/bin:${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
 
       make STATIC_LINK=1
       find . -path "*/\.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
