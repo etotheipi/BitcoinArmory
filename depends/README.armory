@@ -1,6 +1,5 @@
 This README documents specific things to be aware of when it comes to using
-this system to build Bitcoin Armory dependencies. README.usage documents
-general usage.
+this system to build Armory dependencies. README.usage documents general usage.
 
 - Defaults to using GCC that we build
 
