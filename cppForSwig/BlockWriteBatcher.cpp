@@ -1431,17 +1431,18 @@ shared_ptr<BlockDataFeed> LoadedBlockData::getNextFeed()
    shared_ptr<BlockDataFeed> currentFeed;
    
    //we grab the feed lock, assign the feed ptr locally and check if it's valid
-   unique_lock<mutex> lock(feedLock_);
-   currentFeed = blockDataFeed_->next_;
-
-   //try wake up the grab thread
-   feedCV_.notify_all();
-
-   if (currentFeed == nullptr)
+   while (1)
    {
-      //feed isn't ready, wait on grab thread signal
-      feedCV_.wait(lock);
+      unique_lock<mutex> lock(feedLock_);
       currentFeed = blockDataFeed_->next_;
+
+
+      if (currentFeed != nullptr)
+         break;
+
+      //feed isn't ready, wake grab thread and wait on it
+      feedCV_.notify_all();
+      feedCV_.wait(lock);
    }
 
    if (currentFeed == interruptFeed_)
@@ -1505,7 +1506,7 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
    uint32_t i = 0, lowestBlockHeight = UINT32_MAX;
    while (1)
    {
-      blockData->wakeGrabThreadsIfNecessary();
+      //blockData->wakeGrabThreadsIfNecessary();
       block = blockData->getNextBlock(&scanLock);
 
       if (block == nullptr)
