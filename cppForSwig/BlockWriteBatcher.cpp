@@ -191,11 +191,13 @@ BinaryData LoadedBlockData::getTopHash(LoadedBlockData& lbd, PulledBlock& pb)
 
 ////////////////////////////////////////////////////////////////////////////////
 void GrabThreadData::grabBlocksFromDB(shared_ptr<LoadedBlockData> blockData,
-   LMDBBlockDatabase* db, uint32_t threadId)
+   uint32_t threadId)
 {
    /***
    Grab blocks from the DB, put each block in the current block's nextBlock_
    ***/
+
+   auto db = BlockWriteBatcher::iface_;
 
    //TIMER_START("grabBlocksFromDB");
 
@@ -320,7 +322,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       TIMER_START("applyBlockToDBinternal");
       TIMER_STOP("applyBlockToDBinternal");
 
-      blockData->startGrabThreads(iface_, blockData);
+      blockData->startGrabThreads(blockData);
       thread processorTID = dataProcessor_.startThreads(blockData);
 
       uint64_t totalBlockDataProcessed=0;
@@ -573,7 +575,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
       {
          if (ssh.totalTxioCount_ > 0)
          {
-            ssh.alreadyScannedUpToBlk_ = bdc->higehstBlockProcessed_;
+            ssh.alreadyScannedUpToBlk_ = bdc->highestBlockProcessed_;
             BinaryWriter& bw = serializedSshToModify_[sshKey];
             ssh.serializeDBValue(bw, dbType, pruneType);
          }
@@ -583,7 +585,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
 
       if (dbType != ARMORY_DB_SUPER)
       {
-         ssh.alreadyScannedUpToBlk_ = bdc->higehstBlockProcessed_;
+         ssh.alreadyScannedUpToBlk_ = bdc->highestBlockProcessed_;
          BinaryWriter& bw = serializedSshToModify_[sshKey];
          ssh.serializeDBValue(bw, dbType, pruneType);
       }
@@ -741,7 +743,7 @@ void DataToCommit::serializeDataToCommit(shared_ptr<BlockDataContainer> bdc)
    }
 
    topBlockHash_ = bdc->topScannedBlockHash_;
-   mostRecentBlockApplied_ = bdc->higehstBlockProcessed_ + 1;
+   mostRecentBlockApplied_ = bdc->highestBlockProcessed_ + 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1456,13 +1458,11 @@ shared_ptr<BlockDataFeed> LoadedBlockData::getNextFeed()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void LoadedBlockData::startGrabThreads(
-   LMDBBlockDatabase* db,
-   shared_ptr<LoadedBlockData>& lbd)
+void LoadedBlockData::startGrabThreads(shared_ptr<LoadedBlockData>& lbd)
 {
    for (uint32_t i = 0; i < nThreads_; i++)
    {
-      thread grabThread(GrabThreadData::grabBlocksFromDB, lbd, db, i);
+      thread grabThread(GrabThreadData::grabBlocksFromDB, lbd, i);
       grabThread.detach();
    }
 }
@@ -1605,11 +1605,11 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       uint32_t i = 0;
       for (auto& thr : worker_->threads_)
       {
-         unique_lock<mutex> threadLock(thr->mu_);
          thr->blocks_ = dataFeed->blockPackets_[i].blocks_;
-         thr->cv_.notify_all();
          i++;
       }
+
+      worker_->startThreads();
 
       uint32_t finishedWork = 0;
       while (finishedWork < nThreads_)
@@ -1624,7 +1624,7 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       }
 
       //all workers are done, time to commit
-      worker_->higehstBlockProcessed_ = dataFeed->topBlockHeight_;
+      worker_->highestBlockProcessed_ = dataFeed->topBlockHeight_;
       worker_->lowestBlockProcessed_ = dataFeed->bottomBlockHeight_;
       worker_->topScannedBlockHash_ = dataFeed->topBlockHash_;
 
@@ -1708,7 +1708,7 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
          commitObject->dataToCommit_.deleteEmptyKeys();
 
 
-         if (commitObject->higehstBlockProcessed_ != 0 &&
+         if (commitObject->highestBlockProcessed_ != 0 &&
             commitObject->updateSDBI_ == true)
             commitObject->dataToCommit_.updateSDBI();
 
@@ -1732,8 +1732,6 @@ BlockDataContainer::BlockDataContainer(BlockDataProcessor* bdpPtr)
       shared_ptr<BlockDataThread> bdt(new BlockDataThread(*this));
       threads_.push_back(bdt);
    }
-
-   startThreads();
 }
 
 
@@ -1813,11 +1811,6 @@ BlockDataThread::BlockDataThread(BlockDataContainer& parent)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataThread::processBlockFeed()
 {
-   unique_lock<mutex> lock(mu_);
-
-   //control thread will wake this up when a feed is ready
-   cv_.wait(lock);
-
    LMDBEnv::Transaction stxoTx(BlockWriteBatcher::iface_->dbEnv_[STXO].get(),
       LMDB::ReadOnly);
 
@@ -1960,9 +1953,6 @@ bool BlockDataThread::parseTxOuts(
          auto height =
             (*parent_->parent_->sshHeaders_->
             sshToModify_)[uniqKey].alreadyScannedUpToBlk_;
-
-         /*if (height >= thisSTX.blockHeight_ && height != 0)
-            continue;*/
 
          txIsMine = true;
       }
@@ -2209,5 +2199,5 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
 
    // Finally, mark this block as UNapplied.
    pb->blockAppliedToDB_ = false;
-   parent_->higehstBlockProcessed_ = sud.blockHeight_ - 1;
+   parent_->highestBlockProcessed_ = sud.blockHeight_ - 1;
 }

@@ -430,9 +430,7 @@ public:
    }
 
    shared_ptr<PulledBlock> getNextBlock(unique_lock<mutex>* mu);
-   void startGrabThreads(
-      LMDBBlockDatabase* db,
-      shared_ptr<LoadedBlockData>& lbd);
+   void startGrabThreads(shared_ptr<LoadedBlockData>& lbd);
    void wakeGrabThreadsIfNecessary();
 
    shared_ptr<BlockDataFeed> getNextFeed(void);
@@ -455,8 +453,7 @@ struct GrabThreadData
    }
 
    //////
-   static void grabBlocksFromDB(shared_ptr<LoadedBlockData>,
-      LMDBBlockDatabase* db, uint32_t threadId);
+   static void grabBlocksFromDB(shared_ptr<LoadedBlockData>, uint32_t threadId);
 
    static bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
       LMDBBlockDatabase* db, BlockFileAccessor& bfa);
@@ -652,9 +649,6 @@ private:
 
 
    thread tID_;
-   mutex mu_;
-   condition_variable cv_;
-
    BlockDataContainer* parent_;
 
    vector<shared_ptr<PulledBlock>> blocks_;
@@ -688,7 +682,7 @@ private:
 public:
    STXOS commitStxos_;
    
-   uint32_t higehstBlockProcessed_ = 0;
+   uint32_t highestBlockProcessed_ = 0;
    uint32_t lowestBlockProcessed_ = 0;
    BinaryData topScannedBlockHash_ = BtcUtils::EmptyHash_;
    
