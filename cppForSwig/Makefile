@@ -9,6 +9,7 @@ CFLAGS = -O2 -pipe -fPIC
 CXXFLAGS = -O2 -pipe -fPIC
 endif
 
+# NB: Static linking is tested on Linux, not on OS X, which may need more work.
 ifdef STATIC_LINK
 CFLAGS += -static-libstdc++ -static-libgcc
 CXXFLAGS += -static-libstdc++ -static-libgcc
@@ -16,10 +17,11 @@ endif
 
 platform=$(shell uname)
 
+# Enforce some OS X build requirements.
 ifeq ($(shell uname), Darwin)
-MACOSX_DEPLOYMENT_TARGET=10.7
-export MACOSX_DEPLOYMENT_TARGET
-LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
+    MACOSX_DEPLOYMENT_TARGET=10.7
+    export MACOSX_DEPLOYMENT_TARGET
+    LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
 endif
 
 #**************************************************************************
@@ -42,28 +44,30 @@ endif
 
 # "-Wl,--no-as-needed" used for Ubuntu 12.04 due to rt library linking issues.
 # http://stackoverflow.com/questions/17150075/undefined-reference-to-clock-gettime-although-lrt-is-given
-# has more info. Require only for static linking. When 12.04 goes, remove this.
+# has more info. Require only for static linking. When 12.04 goes, remove this
+# unless it's discovered that OS X needs it.
 ifdef STATIC_LINK
 LDLIBS += -Wl,--no-as-needed
 endif
 
-# rt library used for glibc <2.17 but is safe to include in all cases.
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -lrt -Lmdb
-SWIG_OPTS    += -c++ -python -threads
-
-SWIG_INC     += 
-
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
-
-# OS X requires a little extra elbow grease to support C++11.
+# rt library used for glibc <2.17 but is safe to include for Linux, not OS X.
+# Also, OS X requires a little extra elbow grease to support C++11.
 ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
         CXXCPP += -stdlib=libc++
         LDLIBS += -lc++
+    else
+        LDLIBS += -lrt
     endif
 endif
+
+CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+LDLIBS += -lpthread -Lmdb
+SWIG_OPTS    += -c++ -python -threads
+SWIG_INC     +=
+
+CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
 # each .o file depends on all .h files
 ALL_HEADERS_FOUND=$(wildcard *.h)
