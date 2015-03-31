@@ -1,14 +1,6 @@
 This README documents specific things to be aware of when it comes to using
 this system to build Armory dependencies. README.usage documents general usage.
 
-- Defaults to using GCC that we build
-
-The funcs.mk file was modified so that the tools we use by default are the ones
-we built. This is overridden in the Makefiles for GCC and its dependencies
-(because we can't use our GCC until it is actually built). Also ldflags was
-modified to pass the -static-libstdc++ flag by default, so that everything
-should be build with libstdc++ statically.
-
 - Need to specify variable values when autoconf isn't used
 
 The system is designed to automatically override CC, CXX, etc. when autoconf is
