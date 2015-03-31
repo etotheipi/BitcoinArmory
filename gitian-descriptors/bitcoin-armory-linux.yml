@@ -63,6 +63,6 @@ script: |
     for i in $HOSTS; do
       export PATH=${BASEPREFIX}/${i}/bin:${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
 
-      make STATIC_LINK=1
+      make ${MAKEOPTS} STATIC_LINK=1
       find . -path "*/\.*" -prune -o -print | sort | zip -X@ ${OUTDIR}/bitcoin-armory-gitian-linux${GBUILD_BITS}.zip
     done
