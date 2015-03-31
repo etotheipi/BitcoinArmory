@@ -1,3 +1,5 @@
+Needs to be reviewed once OS X support is added.
+---
 --- old/qtbase/src/widgets/kernel/qwidgetwindow.cpp	2014-09-05 20:45:18.717570370 -0400
 +++ new/qtbase/src/widgets/kernel/qwidgetwindow.cpp	2014-09-05 20:52:38.653576561 -0400
 @@ -57,7 +57,7 @@

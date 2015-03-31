@@ -1,3 +1,5 @@
+Needs to be reviewed once OS X support is added.
+---
 --- old/qtbase/src/plugins/platforms/xcb/xcb-plugin.pro	2014-07-30 18:17:27.384458441 -0400
 +++ new/qtbase/src/plugins/platforms/xcb/xcb-plugin.pro	2014-07-30 18:18:28.620459303 -0400
 @@ -101,10 +101,6 @@
