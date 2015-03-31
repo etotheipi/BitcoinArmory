@@ -47,23 +47,24 @@ ifdef STATIC_LINK
 LDLIBS += -Wl,--no-as-needed
 endif
 
-# rt library used for glibc <2.17 but is safe to include in all cases.
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -lrt -Lmdb
-SWIG_OPTS    += -c++ -python -threads
-
-SWIG_INC     += 
-
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
-
-# OS X requires a little extra elbow grease to support C++11.
+# rt library used for glibc <2.17 but is safe to include for Linux, not OS X.
+# Also, OS X requires a little extra elbow grease to support C++11.
 ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
         CXXCPP += -stdlib=libc++
         LDLIBS += -lc++
-    endif
+    else
+	    LDLIBS += -lrt
+	endif
 endif
+
+CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+LDLIBS += -lpthread -Lmdb
+SWIG_OPTS    += -c++ -python -threads
+SWIG_INC     +=
+
+CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
 # each .o file depends on all .h files
 ALL_HEADERS_FOUND=$(wildcard *.h)
