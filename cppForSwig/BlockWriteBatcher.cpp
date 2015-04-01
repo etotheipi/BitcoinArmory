@@ -1150,9 +1150,9 @@ thread STXOS::commitStxo(shared_ptr<BlockDataContainer> bdc)
 ////////////////////////////////////////////////////////////////////////////////
 void STXOS::commit(shared_ptr<BlockDataContainer> bdp)
 {
-   auto committhread = commitStxo(bdp);
-   if (committhread.joinable())
-      committhread.detach();
+   if (committhread_.joinable())
+      committhread_.detach();
+   committhread_ = commitStxo(bdp);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1592,6 +1592,7 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
 {
    TIMER_START("applyBlockToDBinternal");
    
+   thread committhread;
    shared_ptr<BlockDataFeed> dataFeed;
    while (1)
    {      
@@ -1630,13 +1631,15 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
 
       stxos_.commit(worker_);
 
-      thread committhread = commit();
       if (committhread.joinable())
          committhread.detach();
+      committhread = commit();
    }
 
-   unique_lock<mutex> stxoWriter(stxos_.writeMutex_);
-   unique_lock<mutex> blockDataWriter(writeMutex_);
+   if (stxos_.committhread_.joinable())
+      stxos_.committhread_.join();
+   if (committhread.joinable())
+      committhread.join();
 
    TIMER_STOP("applyBlockToDBinternal");
 }

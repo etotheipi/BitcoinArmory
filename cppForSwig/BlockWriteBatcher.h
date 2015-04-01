@@ -575,6 +575,7 @@ struct STXOS
 
    STXOS* parent_ = nullptr;
    mutex writeMutex_;
+   thread committhread_;
 
    ///
    STXOS(void) 
