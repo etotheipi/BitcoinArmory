@@ -285,11 +285,11 @@ namespace std
 // 12.04 build under later versions of Ubuntu (with static linking) creates a
 // hole due to glibc 2.17+ being present post-12.04. SWIG somehow gets tripped
 // up, as seen if compiling Armory with the "-Wl,--no-undefined" linker flag. To
-// fix this, create a dummy call in the SWIG-generated code that forces an rt
-// link in SWIG. This marks the appropriate library as "NEEDED" by the linker.
-// The alternative - using the "-Wl,--no-as-needed" linker flag - is brute
-// force and can cause bloat by adding unneeded libraries if devs aren't
-// careful. (Also, this only affects Linux.)
+// fix this, create a dummy call in the SWIG-generated code with a clock_* call.
+// This marks the appropriate library (librt or libc) as "NEEDED" by the linker
+// even if the call isn't used. The alternative - using the "-Wl,--no-as-needed"
+// linker flag - is brute force and adds bloat due to unnecessary libraries
+// being linked if they're in the Makefile. (Also, this only affects Linux.)
 %inline %{
 #if defined(__linux) || defined(__linux__)
    void force_librt() { timer_create(CLOCK_REALTIME, NULL, NULL); }
