@@ -293,8 +293,8 @@ namespace std
 // code. The flag is brute force and causes bloat by adding unneeded libraries
 // if devs aren't careful. Therefore, it's not used.
 //
-// Finally, this code should be compiled only for Linux. Targeting specific
-// distros requires too much effort. All Linux compilers will have to deal. :)
+// Finally, this code is compiled only for Linux. Targeting specific distros
+// requires too much effort. All Linux compilers will have to deal. :)
 %inline %{
 #if defined(__linux) || defined(__linux__)
    void force_librt() { timer_create(CLOCK_REALTIME, NULL, NULL); }
