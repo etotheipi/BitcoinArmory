@@ -375,7 +375,6 @@ private:
    uint32_t endBlock_ = 0;
    int32_t currentHeight_ = 0;
 
-   uint32_t topLoadedBlock_ = 0;
    const uint32_t nThreads_;
 
    ScrAddrFilter& scrAddrFilter_;
@@ -418,7 +417,6 @@ public:
       BFA_(scf.getDb()->getBlkFiles()), nThreads_(nthreads)
    {
       currentHeight_ = start;
-      topLoadedBlock_ = start;
 
       interruptBlock_ = make_shared<PulledBlock>();
       interruptBlock_->nextBlock_ = interruptBlock_;

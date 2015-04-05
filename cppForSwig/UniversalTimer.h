@@ -107,7 +107,7 @@ private:
    {
    public:
       timer(void) :
-         isRunning_(false),
+         isRunning_(0),
          start_clock_(0),
          stop_clock_(0),
          start_time_(0),
@@ -120,7 +120,7 @@ private:
       void   reset(void);
       double getPrev(void) { return prev_elapsed_; }
    private:
-      bool    isRunning_;
+      uint32_t isRunning_;
       clock_t start_clock_;
       clock_t stop_clock_;
       time_t  start_time_;

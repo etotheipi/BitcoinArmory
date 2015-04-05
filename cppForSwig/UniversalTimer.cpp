@@ -19,9 +19,9 @@ using namespace std;
 
 void UniversalTimer::timer::start(void)
 {
-   if (isRunning_)
+   if (isRunning_++ > 0)
       return;
-   isRunning_ = true;
+
    start_clock_ = clock();
    start_time_ = time(0);
 }
@@ -29,7 +29,7 @@ void UniversalTimer::timer::start(void)
 // RESTART TIMER
 void UniversalTimer::timer::restart(void)
 {
-   isRunning_ = true;
+   isRunning_++;
    accum_time_ = 0;
    start_clock_ = clock();
    start_time_ = time(0);
@@ -38,7 +38,7 @@ void UniversalTimer::timer::restart(void)
 // STOP TIMER
 void UniversalTimer::timer::stop(void)
 {
-   if (isRunning_)
+   if (--isRunning_ == 0)
    {
       time_t acc_sec = time(0) - start_time_;
       if (acc_sec < 3600)
@@ -47,13 +47,12 @@ void UniversalTimer::timer::stop(void)
          prev_elapsed_ = (1.0 * acc_sec);
       accum_time_ += prev_elapsed_;
    }
-   isRunning_ = false;
 }
 
 // STOP AND RESET TTMER
 void UniversalTimer::timer::reset(void)
 {
-   isRunning_ = false;
+   isRunning_ = 0;
    accum_time_ = 0;
 }
 
@@ -61,12 +60,12 @@ void UniversalTimer::timer::reset(void)
 double UniversalTimer::timer::read(void)
 {
    double accum = accum_time_; // if not running, this is correct
-   if(isRunning_)
+   /*if(isRunning_ > 0)
    {
       stop();
       accum = accum_time_;
       start();
-   }
+   }*/
    return accum;
 }
 ////////////////////////////////////////////////////////////////////////////////
