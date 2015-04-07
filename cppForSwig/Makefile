@@ -9,6 +9,7 @@ CFLAGS = -O2 -pipe -fPIC
 CXXFLAGS = -O2 -pipe -fPIC
 endif
 
+# NB: Static linking is tested on Linux, not on OS X, which may need more work.
 ifdef STATIC_LINK
 CFLAGS += -static-libstdc++ -static-libgcc
 CXXFLAGS += -static-libstdc++ -static-libgcc
@@ -16,10 +17,11 @@ endif
 
 platform=$(shell uname)
 
+# Enforce some OS X build requirements.
 ifeq ($(shell uname), Darwin)
-MACOSX_DEPLOYMENT_TARGET=10.7
-export MACOSX_DEPLOYMENT_TARGET
-LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
+    MACOSX_DEPLOYMENT_TARGET=10.7
+    export MACOSX_DEPLOYMENT_TARGET
+    LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
 endif
 
 #**************************************************************************
@@ -40,14 +42,6 @@ else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -threads
-
-SWIG_INC     += 
-
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
-
 # OS X requires a little extra elbow grease to support C++11.
 ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
@@ -56,6 +50,22 @@ ifneq ($(OS),Windows_NT)
         LDLIBS += -lc++
     endif
 endif
+
+CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+LDLIBS += -lpthread -Lmdb
+SWIG_OPTS    += -c++ -python -threads
+SWIG_INC     +=
+
+# rt library used for glibc <2.17. Safe to include for Linux but not OS X.
+# Place at the end due to link order concerns involving 12.04.
+ifneq ($(OS),Windows_NT)
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        LDLIBS += -lrt
+    endif
+endif
+
+CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
 # each .o file depends on all .h files
 ALL_HEADERS_FOUND=$(wildcard *.h)
@@ -66,8 +76,10 @@ ALL_HEADERS=$(filter-out CppBlockUtils_wrap.h,$(ALL_HEADERS_FOUND))
 
 all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
+# LDLIBS must come after any object files. This ensures the linker will link
+# based on the needs of the object files it has already encountered.
 ../_CppBlockUtils.so: $(OBJS) CppBlockUtils_wrap.o
-	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	$(LINK) -shared -fPIC $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o $(LDLIBS) -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml

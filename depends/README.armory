@@ -1,0 +1,10 @@
+This README documents specific things to be aware of when it comes to using
+this system to build Armory dependencies. README.usage documents general usage.
+
+- Need to specify variable values when autoconf isn't used
+
+The system is designed to automatically override CC, CXX, etc. when autoconf is
+used, by passing the variables as part of $($(package)_autoconf). See qt.mk for
+an example of how to pass the values when autoconf is not used. This is only
+something you need to be concerned about if you are creating a new Makefile for
+some new dependency
