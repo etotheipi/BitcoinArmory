@@ -74,7 +74,7 @@
 
 // This is used to attempt to keep keying material out of swap
 // I am stealing this from bitcoin 0.4.0 src, serialize.h
-#if defined(_MSC_VER) || defined(__MINGW32__)
+#if defined(_MSC_VER) || defined(__MINGW32__) && !defined(__MINGW64__)
    // Note that VirtualLock does not provide this as a guarantee on Windows,
    // but, in practice, memory that has been VirtualLock'd almost never gets written to
    // the pagefile except in rare circumstances where memory is extremely low.
@@ -83,19 +83,38 @@
    //#define mlock(p, n) VirtualLock((p), (n));
    //#define munlock(p, n) VirtualUnlock((p), (n));
 #else
-   #include <sys/mman.h>
+   #ifndef __MINGW64__
+      #include <sys/mman.h>
+   #endif
    #include <limits.h>
    /* This comes from limits.h if it's not defined there set a sane default */
    #ifndef PAGESIZE
-      #include <unistd.h>
-      #define PAGESIZE sysconf(_SC_PAGESIZE)
+      #ifndef __MINGW64__
+         #include <unistd.h>
+         #define PAGESIZE sysconf(_SC_PAGESIZE)
+      /* No _SC_PAGESIZE for Windows */
+      #else
+         #include <windows.h>
+         #include <stdio.h>
+         #define PAGESIZE si.dwPageSize
+      #endif
    #endif
-   #define mlock(a,b) \
-     mlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
-     (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
-   #define munlock(a,b) \
-     munlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
-     (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
+   // JB: This should be cleaned up by making intermediate defines
+   #ifndef __MINGW64__
+      #define mlock(a,b) \
+        mlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
+        (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
+      #define munlock(a,b) \
+        munlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
+        (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
+   #else
+      #define mlock(a,b) \
+        VirtualLock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
+        (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
+      #define munlock(a,b) \
+        VirtualLock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
+        (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
+   #endif
 #endif
 
 
@@ -194,12 +213,20 @@ public:
 
    void lockData(void)
    {
+      #ifdef __MINGW64__
+         SYSTEM_INFO si;
+         GetSystemInfo(&si);
+      #endif
       if(getSize() > 0)
          mlock(getPtr(), getSize());
    }
 
    void destroy(void)
    {
+      #ifdef __MINGW64__
+         SYSTEM_INFO si;
+         GetSystemInfo(&si);
+      #endif
       if(getSize() > 0)
       {
          fill(0x00);

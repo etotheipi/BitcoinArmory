@@ -69,3 +69,18 @@ osxbuild/env
 /armory_*_raspbian-armhf*
 
 /dpkgfiles/control
+
+# autoreconf
+Makefile.in
+aclocal.m4
+autom4te.cache/
+build-aux/ar-lib
+build-aux/config.guess
+build-aux/config.sub
+build-aux/install-sh
+build-aux/missing
+build-aux/compile
+config.log
+config.status
+configure
+Makefile

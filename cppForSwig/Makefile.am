@@ -1,65 +1,47 @@
-CXX = g++
-CC = gcc
-
-ifdef DEBUG
-CFLAGS=-g3 -Wall -pipe -fPIC
-CXXFLAGS=-g3 -Wall -pipe -fPIC
-else
-CFLAGS = -O2 -pipe -fPIC
-CXXFLAGS = -O2 -pipe -fPIC
-endif
-
-ifdef STATIC_LINK
-CFLAGS += -static-libstdc++ -static-libgcc
-CXXFLAGS += -static-libstdc++ -static-libgcc
-endif
-
-platform=$(shell uname)
-
-ifeq ($(shell uname), Darwin)
-MACOSX_DEPLOYMENT_TARGET=10.7
-export MACOSX_DEPLOYMENT_TARGET
-LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
-endif
-
-#**************************************************************************
 LINK = $(CXX)
+
+# Export variables to make them available to cryptopp Makefile.
+export AR
+export CXX
+export RANLIB
+
+if TARGET_LINUX
+CRYPTOPP_EXT=.a
+else
+if TARGET_WINDOWS
+CRYPTOPP_EXT=.a
+endif
+endif
 
 OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
 	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
-	libcryptopp.a mdb.o midl.o txio.o
-
+	libcryptopp$(CRYPTOPP_EXT) mdb.o midl.o txio.o
 #if python is specified, use it
-ifndef PYVER
-PYVER=python
-PYTHON_INCLUDES=$(shell python-config --includes )
-else
-PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
-endif
+#ifndef PYVER
+#PYVER=python
+#PYTHON_INCLUDES=$(shell python-config --includes )
+#else
+#PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
+#endif
 
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -threads
+CPPFLAGS = $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+LDLIBS = -lpthread -Lmdb
+SWIG_OPTS    = -c++ -python -threads
 
-SWIG_INC     += 
+SWIG_INC     =
 
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
-
-# OS X requires a little extra elbow grease to support C++11.
-ifneq ($(OS),Windows_NT)
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Darwin)
-        CXXCPP += -stdlib=libc++
-        LDLIBS += -lc++
-    endif
-endif
+CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
 # each .o file depends on all .h files
-ALL_HEADERS_FOUND=$(wildcard *.h)
-ALL_HEADERS=$(filter-out CppBlockUtils_wrap.h,$(ALL_HEADERS_FOUND))
+EVERY_HEADER = bdmenums.h BDM_mainthread.h BDM_supportClasses.h BinaryData.h \
+	Blockchain.h BlockDataManagerConfig.h BlockDataViewer.h BlockObj.h \
+	BlockUtils.h BlockWriteBatcher.h BtcUtils.h BtcWallet.h EncryptionUtils.h \
+	HistoryPager.h LedgerEntry.h lmdbpp.h lmdb_wrapper.h log.h \
+	OS_TranslatePath.h PartialMerkle.h Progress.h ReorgUpdater.h ScrAddrObj.h \
+	StoredBlockObj.h txio.h UniversalTimer.h util.h
 
 
 #**************************************************************************
@@ -74,33 +56,33 @@ all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 
 #**************************************************************************
-libcryptopp.a: Makefile
-	$(MAKE) -C cryptopp libcryptopp.a
-	mv cryptopp/libcryptopp.a .
+libcryptopp$(CRYPTOPP_EXT): Makefile
+	$(MAKE) -C cryptopp libcryptopp$(CRYPTOPP_EXT) RANLIB=$(RANLIB)
+	mv cryptopp/libcryptopp$(CRYPTOPP_EXT) .
 
 mdb.o: mdb/mdb.c mdb/lmdb.h mdb/midl.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c mdb/mdb.c
 midl.o: mdb/midl.c mdb/lmdb.h mdb/midl.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c mdb/midl.c
 
-%.o: %.cpp $(ALL_HEADERS)
+%.o: %.cpp $(EVERY_HEADER)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<
 
 
-CppBlockUtils_wrap.cxx: $(ALL_HEADERS) CppBlockUtils.i
+CppBlockUtils_wrap.cxx: $(EVERY_HEADER) CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
-CppBlockUtils_wrap.o: $(ALL_HEADERS) CppBlockUtils_wrap.cxx
+CppBlockUtils_wrap.o: $(EVERY_HEADER) CppBlockUtils_wrap.cxx
 	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
-playground: ../_CppBlockUtils.so playground.cpp $(ALL_HEADERS)
+playground: ../_CppBlockUtils.so playground.cpp $(EVERY_HEADER)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(shell $(PYVER)-config --libs) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp
 
 ##########################################################################
 # And now we have created all the individual object files specified with 
 # the macro "OBJS". 
 #************************************************************************
-clean:
+clean-local:
 	touch CppBlockUtils.i
 	rm -f *.o *.out *.a
 	rm -f CppBlockUtils_wrap.cxx 
