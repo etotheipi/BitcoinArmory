@@ -42,23 +42,12 @@ else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
-# "-Wl,--no-as-needed" used for Ubuntu 12.04 due to rt library linking issues.
-# http://stackoverflow.com/questions/17150075/undefined-reference-to-clock-gettime-although-lrt-is-given
-# has more info. Require only for static linking. When 12.04 goes, remove this
-# unless it's discovered that OS X needs it.
-ifdef STATIC_LINK
-LDLIBS += -Wl,--no-as-needed
-endif
-
-# rt library used for glibc <2.17 but is safe to include for Linux, not OS X.
-# Also, OS X requires a little extra elbow grease to support C++11.
+# OS X requires a little extra elbow grease to support C++11.
 ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
         CXXCPP += -stdlib=libc++
         LDLIBS += -lc++
-    else
-        LDLIBS += -lrt
     endif
 endif
 
@@ -66,6 +55,15 @@ CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MA
 LDLIBS += -lpthread -Lmdb
 SWIG_OPTS    += -c++ -python -threads
 SWIG_INC     +=
+
+# rt library used for glibc <2.17. Safe to include for Linux but not OS X.
+# Place at the end due to link order concerns involving 12.04.
+ifneq ($(OS),Windows_NT)
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        LDLIBS += -lrt
+    endif
+endif
 
 CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
 
