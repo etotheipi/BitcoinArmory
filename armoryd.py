@@ -1377,14 +1377,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # Get the address & amount from each TxIn.
             myinputs, otherinputs = [], []
             for iin in range(cppTx.getNumTxIn()):
-               sender = TheBDM.bdv().getSenderScrAddr(cppTx.getTxInCopy(iin))
-               val    = TheBDM.bdv().getSentValue(cppTx.getTxInCopy(iin))
-               addTo  = (myinputs if ledgerWlt.hasScrAddress(sender) else \
-                         otherinputs)
-               addTo.append( {'address': scrAddr_to_displayStr(sender, \
-                                                            self.serverWltMap, \
-                                                   self.serverLBMap.values()), \
-                              'amount':  AmountToJSON(val)} )
+               try:
+                  sender = TheBDM.bdv().getSenderScrAddr(cppTx.getTxInCopy(iin))
+                  val    = TheBDM.bdv().getSentValue(cppTx.getTxInCopy(iin))
+                  addTo  = (myinputs if ledgerWlt.hasScrAddress(sender) else \
+                            otherinputs)
+                  addTo.append( {'address': scrAddr_to_displayStr(sender, \
+                                                               self.serverWltMap, \
+                                                      self.serverLBMap.values()), \
+                                 'amount':  AmountToJSON(val)} )
+               except:
+                  addTo = otherinputs
+                  addTo.append( {'address': 'unknown',
+                                 'amount':  'unknown'})
 
             # Get the address & amount from each TxOut.
             myoutputs, otheroutputs = [], []
