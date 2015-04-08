@@ -426,7 +426,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       isSendToNonStandardLockbox = False
       for row in range(len(self.widgetTable)):
          # Verify validity of address strings
-         addrStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
+         addrStr = unicode(self.widgetTable[row]['QLE_ADDR'].text()).strip().encode(errors='replace')
          self.widgetTable[row]['QLE_ADDR'].setText(addrStr) # overwrite w/ stripped
          addrIsValid = True
          addrList.append(addrStr)
@@ -473,8 +473,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalSend = 0
       for row in range(len(self.widgetTable)):
          try:
-            recipStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
-            valueStr = str(self.widgetTable[row]['QLE_AMT'].text()).strip()
+            recipStr = unicode(self.widgetTable[row]['QLE_ADDR'].text()).strip().encode(errors='replace')
+            valueStr = unicode(self.widgetTable[row]['QLE_AMT'].text()).strip().encode(errors='replace')
             value = str2coin(valueStr, negAllowed=False)
             if value == 0:
                QMessageBox.critical(self, 'Zero Amount', \
@@ -915,7 +915,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                r += 1
                continue
 
-            amtStr = str(self.widgetTable[r]['QLE_AMT'].text()).strip()
+            amtStr = unicode(self.widgetTable[r]['QLE_AMT'].text()).strip().encode(errors='replace')
             if len(amtStr) > 0:
                totalOther += str2coin(amtStr)
             r += 1

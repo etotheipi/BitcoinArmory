@@ -6136,7 +6136,8 @@ class ArmoryMainWindow(QMainWindow):
       # probably use some refactoring
       def updateAddrDetectLabels():
          try:
-            enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+            
+            enteredText = unicode(addrEntryObjs['QLE_ADDR'].text()).strip().encode(errors='replace')
 
             scriptInfo = self.getScriptForUserString(enteredText)
             displayInfo = self.getDisplayStringForScript(
@@ -6172,7 +6173,7 @@ class ArmoryMainWindow(QMainWindow):
       # (The last one is really only used to determine what info is most 
       #  relevant to display to the user...it can be ignored in most cases)
       def getScript():
-         entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+         entered = unicode(addrEntryObjs['QLE_ADDR'].text()).strip().encode(errors='replace')
          return self.getScriptForUserString(entered)
 
       addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
