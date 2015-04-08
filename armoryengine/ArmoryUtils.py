@@ -2406,7 +2406,7 @@ def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
          qr.make()
          success=True
          break
-      except TypeError:
+      except OverflowError:
          sz += 1
 
    if not success:
