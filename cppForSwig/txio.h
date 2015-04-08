@@ -133,7 +133,7 @@ public:
    void serializeDbValue(BinaryWriter& bw) const;
 
 public:
-   bool flagged = false;
+   bool flagged_ = false;
 
 private:
    uint64_t  amount_;

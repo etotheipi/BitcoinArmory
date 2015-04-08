@@ -120,7 +120,7 @@ private:
       void   reset(void);
       double getPrev(void) { return prev_elapsed_; }
    private:
-      uint32_t isRunning_;
+      int32_t isRunning_;
       clock_t start_clock_;
       clock_t stop_clock_;
       time_t  start_time_;

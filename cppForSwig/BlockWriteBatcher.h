@@ -362,6 +362,8 @@ public:
    uint32_t bottomBlockHeight_;
    uint32_t totalSizeInBytes_;
 
+   map<BinaryData, shared_ptr<StoredTxOut>> localStxos_;
+
    bool hasData_ = false;
 };
 
@@ -572,6 +574,7 @@ struct STXOS
    DataToCommit dataToCommit_;
 
    STXOS* parent_ = nullptr;
+   map<BinaryData, shared_ptr<StoredTxOut>>* feedStxos_ = nullptr;
    mutex writeMutex_;
    thread committhread_;
 
@@ -648,7 +651,7 @@ private:
 
 
    thread tID_;
-   BlockDataContainer* parent_;
+   BlockDataContainer* container_;
 
    vector<shared_ptr<PulledBlock>> blocks_;
 
@@ -674,7 +677,7 @@ class BlockDataContainer
 private:
    DataToCommit dataToCommit_;
 
-   BlockDataProcessor *parent_;
+   BlockDataProcessor *processor_;
    bool updateSDBI_ = true;
    bool forceUpdateSsh_ = false;
 
@@ -711,7 +714,7 @@ class BlockDataProcessor
    friend class BlockDataContainer;
 private:
 
-   const uint32_t nThreads_;
+   uint32_t nThreads_ = 1;
    const bool undo_;
    
 public:
@@ -729,8 +732,8 @@ public:
    BinaryData lastScannedBlockHash_;
 
 public:
-   BlockDataProcessor(uint32_t nThreads, bool undo)
-      : nThreads_(nThreads), undo_(undo)
+   BlockDataProcessor(bool undo)
+      : undo_(undo)
    {
       if (undo)
       {
@@ -810,6 +813,7 @@ private:
 
    ////
    BlockDataProcessor dataProcessor_;
+   const bool undo_;
 };
 
 #endif

@@ -38,7 +38,7 @@ void UniversalTimer::timer::restart(void)
 // STOP TIMER
 void UniversalTimer::timer::stop(void)
 {
-   if (--isRunning_ == 0)
+   if (--isRunning_ <= 0)
    {
       time_t acc_sec = time(0) - start_time_;
       if (acc_sec < 3600)
@@ -46,6 +46,7 @@ void UniversalTimer::timer::stop(void)
       else
          prev_elapsed_ = (1.0 * acc_sec);
       accum_time_ += prev_elapsed_;
+      isRunning_ = 0;
    }
 }
 
