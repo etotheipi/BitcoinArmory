@@ -982,10 +982,10 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
-                                   bool forceSaveSpentness) const
+void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, 
+   DB_PRUNE_TYPE pruneType, bool forceSaveSpentness) const
 {
-   TXOUT_SPENTNESS writeSpent = spentness_;
+   TXOUT_SPENTNESS writeSpent = TXOUT_UNSPENT;
    
    if(!forceSaveSpentness)
    { 
@@ -1125,6 +1125,10 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       return *this;
    }
 
+   blockHeight_ = tx.getBlockHeight();
+   duplicateID_ = tx.getDuplicateID();
+   txIndex_     = tx.getBlockTxIndex();
+
    thisHash_  = tx.getThisHash();
    numTxOut_  = tx.getNumTxOut();
    version_   = tx.getVersion();
@@ -1159,6 +1163,10 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.unserialize(tx.getTxOutCopy(txo).serialize());
          stxo.txVersion_      = tx.getVersion();
          stxo.txIndex_        = tx.getBlockTxIndex();
+         
+         stxo.blockHeight_ = blockHeight_;
+         stxo.duplicateID_ = duplicateID_;
+         
          stxo.txOutIndex_     = txo;
          stxo.isCoinbase_     = tx.getTxInCopy(0).isCoinbase();
          stxo.parentHash_     = thisHash_;
@@ -1294,6 +1302,9 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
    (void)txoListType;
 
+   dbPrefix_ = brr.get_uint8_t();
+   keyLength_ = brr.get_uint8_t();
+   
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    totalTxioCount_ = brr.get_var_int();
 
@@ -1303,6 +1314,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    
    subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1317,6 +1329,10 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
+   //
+   bw.put_uint8_t(dbPrefix_);
+   bw.put_uint8_t(keyLength_);
+   
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
@@ -1349,6 +1365,18 @@ BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
    return bw.getData();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredScriptHistory::getSubKey() const
+{
+   if (keyLength_ == 0 || keyLength_ > uniqueKey_.getSize())
+      return BinaryData();
+
+   BinaryData key(keyLength_);
+   key.getPtr()[0] = dbPrefix_;
+   memcpy(key.getPtr() + 1, uniqueKey_.getPtr() +1, keyLength_ -1);
+
+   return key;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 SCRIPT_PREFIX StoredScriptHistory::getScriptType(void) const
@@ -1605,48 +1633,7 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       return;
    }
 
-   BinaryData fullTxKey(8);
-   hgtX_.copyTo(fullTxKey.getPtr());
-
    txioCount_ = (uint32_t)(brr.get_var_int());
-   for (uint32_t i = 0; i<txioCount_; i++)
-   {
-      BitUnpacker<uint8_t> bitunpack(brr);
-      bool isFromSelf      = bitunpack.getBit();
-      bool isCoinbase      = bitunpack.getBit();
-      bool isSpent         = bitunpack.getBit();
-      bool isMulti         = bitunpack.getBit();
-      bool isUTXO          = bitunpack.getBit();
-
-      // We always include the 8-byte value
-      uint64_t txoValue  = brr.get_uint64_t();
-      TxIOPair txio;
-      txio.setValue(txoValue);
-      txio.setUTXO(isUTXO);
-
-      if (!isSpent)
-      {
-         // First 4 bytes is same for all TxIOs, and was copied outside the loop.
-         // So we grab the last four bytes and copy it to the end.
-         brr.get_BinaryData(fullTxKey.getPtr() + 4, 4);
-         txio.setTxOut(fullTxKey);
-      }
-      else
-      {
-         //spent subssh, TxOut will always carry a full DBkey
-         txio.setTxOut(brr.get_BinaryDataRef(8));
-
-         //4 bytes entry
-         brr.get_BinaryData(fullTxKey.getPtr() + 4, 4);
-         txio.setTxIn(fullTxKey);
-      }
-
-      txio.setTxOutFromSelf(isFromSelf);
-      txio.setFromCoinbase(isCoinbase);
-      txio.setMultisig(isMulti);
-
-      insertTxio(txio);
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1673,7 +1660,8 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
                                         DB_PRUNE_TYPE pruneType) const
 {
    bw.put_var_int(txioMap_.size());
-   for(const auto& txioPair : txioMap_)
+   bw.put_BinaryData(uniqueKey_);
+/*   for(const auto& txioPair : txioMap_)
    {
       TxIOPair const & txio = txioPair.second;
       bool isSpent = txio.hasTxInInMain(db);
@@ -1724,7 +1712,7 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
          //Spent subssh are saved by TxIn hgtX, only write the last 4 bytes
          bw.put_BinaryData(key8B.getSliceCopy(4, 4));
       }
-   }
+   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1746,16 +1734,8 @@ void StoredSubHistory::unserializeDBKey(BinaryDataRef key, bool withPrefix)
 {
    uint32_t sz = key.getSize();
    BinaryRefReader brr(key);
-   
-   // Assume prefix
-   if(withPrefix)
-   {
-      DBUtils::checkPrefixByte(brr, DB_PREFIX_SCRIPT);
-      sz -= 1;
-   }
 
-   brr.get_BinaryData(uniqueKey_, sz-4);
-   brr.get_BinaryData(hgtX_, 4);
+   hgtX_ = key.getSliceRef(sz - 4, 4);
 
    uint8_t* hgtXptr = (uint8_t*)hgtX_.getPtr();
    height_ = 0;
@@ -1854,20 +1834,12 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const TxIOPair* StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
+void StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
 {
-   TxIOPair * txioptr = findTxio(txOutKey8B);
-   if(txioptr==NULL)
-   {
-      LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
-      return nullptr;
-      //throw runtime_error("missing txio!");
-   }
+   TxIOPair& txio = txioMap_[txOutKey8B];
 
-   txioptr->setUTXO(false);
-   txioptr->flagged = true;
-
-   return txioptr;
+   txio.setUTXO(false);
+   txio.flagged_ = !txio.flagged_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1884,7 +1856,19 @@ bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
       return false;
    }
 
+   BinaryData txioKey;
+   if (!txioIter->second.hasTxIn())
+      txioKey = txioIter->second.getDBKeyOfOutput();
+   else
+   {
+      txioKey = txioIter->second.getDBKeyOfInput();
+      txioKey.getPtr()[4] |= 0x80;
+   }
+
    txioMap_.erase(txioIter);
+   keysToDelete_.push_back(txioKey);
+
+   txioCount_--;
    return true;
 }
 
@@ -1967,10 +1951,10 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
 void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B, 
-                                        uint64_t&  additionalSize,
                                         const uint64_t&  value,
                                         bool       isCoinbase,
-                                        bool       isMultisigRef)
+                                        bool       isMultisigRef,
+                                        bool       increment)
 {
    TxIOPair& txio = txioMap_[txOutKey8B];
    if(!txio.hasTxOut())
@@ -1981,14 +1965,15 @@ void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B,
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMultisigRef);
       txio.setUTXO(true);
-      
-      additionalSize += sizeof(TxIOPair)+8;
    }
    else
    {
       txio.setTxIn(TxRef(), UINT32_MAX);
       txio.setUTXO(true);
    }
+
+   if (increment)
+      txioCount_++;
 }
 
 /* Meh, no demand for this functionality yet ... finish it later

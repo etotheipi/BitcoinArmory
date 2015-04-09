@@ -426,6 +426,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
+    <ClInclude Include="..\FileMap.h" />
     <ClInclude Include="..\HistoryPager.h" />
     <ClInclude Include="..\LedgerEntry.h" />
     <ClInclude Include="..\lmdb_wrapper.h" />
@@ -451,6 +452,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClCompile Include="..\BtcWallet.cpp" />
     <ClCompile Include="..\CppBlockUtils_wrap.cxx" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
+    <ClCompile Include="..\FileMap.cpp" />
     <ClCompile Include="..\HistoryPager.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />

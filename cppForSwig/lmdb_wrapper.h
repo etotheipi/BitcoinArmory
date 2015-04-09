@@ -16,6 +16,7 @@
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
+#include "FileMap.h"
 
 #include "lmdbpp.h"
 
@@ -268,6 +269,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Sometimes, we just need to nuke everything and start over
    void destroyAndResetDatabases(void);
+   void cleanUpHistoryInDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
    bool databasesAreOpen(void) { return dbIsOpen_; }
@@ -283,6 +285,11 @@ public:
       return dbs_[db].begin();
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   LDBIter getSubSSHIterator(uint32_t db) const
+   {
+      return subSSHDBs_[db].begin();
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
@@ -316,12 +323,14 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
+   void putValue(uint32_t subsshdb, BinaryDataRef key, BinaryDataRef value);
    void putValue(DB_SELECT db, BinaryData const & key, BinaryData const & value);
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
    void deleteValue(DB_SELECT db, BinaryDataRef key);
+   void deleteValue(uint32_t db, BinaryDataRef key);
    void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
    
    // Move the iterator in DB to the lowest entry with key >= inputKey
@@ -403,7 +412,8 @@ public:
    // Interface to translate Stored* objects to/from persistent DB storage
    /////////////////////////////////////////////////////////////////////////////
    void putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi);
-   bool getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn = true);
+   bool getStoredDBInfo(
+      DB_SELECT db, StoredDBInfo & sdbi, bool warn = true) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // BareHeaders are those int the HEADERS DB with no blockdta associated
@@ -508,6 +518,9 @@ public:
 
    bool getStoredTxOut(StoredTxOut & stxo,
       const BinaryData& DBkey) const;
+   bool getUnspentTxOut(StoredTxOut & stxo,
+      const BinaryData& DBkey, bool getRawTx=true) const;
+
 
    void putStoredScriptHistory(StoredScriptHistory & ssh);
    void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
@@ -638,7 +651,7 @@ public:
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
    bool isReady(void) { return isDBReady_(); }
-   ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
+   ARMORY_DB_TYPE armoryDbType(void) const { return armoryDbType_; }
 
    void setBlkFiles(shared_ptr<vector<BlkFile>> blkFiles)
    { blkFiles_ = blkFiles; }
@@ -646,18 +659,26 @@ public:
    shared_ptr<vector<BlkFile>> getBlkFiles(void) const
    { return blkFiles_; }
 
+   BinaryData getSubSSHKey(BinaryDataRef uniqKey) const;
+
+   void beginSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
+
 private:
-   string               baseDir_;
+   string baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
    string dbHeadersFilename() const { return baseDir_ + "/headers"; }
    string dbHistoryFilename() const { return baseDir_ + "/history"; }
+   string dbSubsshFilename() const { return baseDir_ + "/subssh"; }
    string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
    string dbStxoFilename() const { return baseDir_ + "/stxo"; }
    string dbZeroconfFilename() const { return baseDir_ + "/zeroconf"; }
+   string dbSpentnessFilename() const { return baseDir_ + "/spentness"; }
 
-   BinaryData           genesisBlkHash_;
-   BinaryData           genesisTxHash_;
-   BinaryData           magicBytes_;
+   string getSubSSHDBFile(uint32_t prefixLength) const;
+
+   BinaryData genesisBlkHash_;
+   BinaryData genesisTxHash_;
+   BinaryData magicBytes_;
 
    ARMORY_DB_TYPE armoryDbType_;
    DB_PRUNE_TYPE dbPruneType_;
@@ -666,6 +687,7 @@ public:
 
    mutable map<DB_SELECT, shared_ptr<LMDBEnv> > dbEnv_;
    mutable LMDB dbs_[COUNT];
+
 
 private:
    bool                 dbIsOpen_;
@@ -686,6 +708,10 @@ private:
 
    //for fullnode accessor
    shared_ptr<vector<BlkFile>> blkFiles_;
+   
+   //sub ssh dbs
+   mutable LMDBEnv subSSHDBEnv_[SUBSSHDB_PREFIX_MAX];
+   mutable LMDB subSSHDBs_[SUBSSHDB_PREFIX_MAX];
 };
 
 #endif

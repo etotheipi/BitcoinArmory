@@ -340,6 +340,7 @@ public:
    }
    
    BlockFilePosition readRawBlocks(
+      LMDBBlockDatabase* db,
       BlockFilePosition startAt,
       BlockFilePosition stopAt,
       const function<void(
@@ -361,6 +362,11 @@ public:
       uint64_t finishLocation=stopAt.second;
       while (startAt.first <= stopAt.first)
       {
+         LMDBEnv::Transaction txblk(db->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
+         LMDBEnv::Transaction txhints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
+         LMDBEnv::Transaction txstxo(db->dbEnv_[STXO].get(), LMDB::ReadWrite);
+         LMDBEnv::Transaction txhistory(db->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+
          auto& f = (*blkFiles_)[startAt.first];
          const uint64_t stopAtOffset
             = startAt.first < stopAt.first ? f.filesize : stopAt.second;
@@ -566,7 +572,7 @@ private:
       {
          const uint32_t HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
          BinaryDataRef magic, szstr, rawHead; // (HEAD_AND_NTX_SZ);
-         while(!pos < fm.mapsize_)
+         while(pos < fm.mapsize_)
          {
             magic = BinaryDataRef(fm.filemap_ + pos, 4);
             pos += 4;
@@ -1044,8 +1050,7 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    ProgressFilter progress(&prog, startingAt, totalBytes);
    
    // Start scanning and timer
-   BlockWriteBatcher blockWrites(config_, iface_);
-   blockWrites.setUpdateSDBI(updateSDBI);
+   BlockWriteBatcher blockWrites(config_, iface_, scrAddrData);
 
    auto errorLambda = [this](string str)->void
    {  criticalError_ = str;
@@ -1432,7 +1437,9 @@ void BlockDataManager_LevelDB::loadDiskState(
       
       TIMER_STOP("applyBlockRangeToDB");
       double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
+      double bwbdtor = TIMER_READ_SEC("bwbDtor");
       CLEANUP_ALL_TIMERS();
+      LOGINFO << "--- bwbDtor: " << bwbdtor << "s";
       LOGINFO << "Scanned Block range in " << timeElapsed << "s";
    }
 
@@ -1472,7 +1479,7 @@ void BlockDataManager_LevelDB::loadBlockData(
    
    LOGINFO << "Loading block data... file "
       << blkDataPosition_.first << " offset " << blkDataPosition_.second;
-   blkDataPosition_ = readBlockHeaders_->readRawBlocks(
+   blkDataPosition_ = readBlockHeaders_->readRawBlocks(iface_,
       blkDataPosition_, stopAt, blockCallback
    );
 }
@@ -1663,25 +1670,7 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
 // Deletes all SSH entries in the database
 void BlockDataManager_LevelDB::deleteHistories(void)
 {
-   LOGWARN << "Clearing history";
-
-   LMDBEnv::Transaction txhist(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txstxo(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
-
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(HISTORY, sdbi);
-
-   sdbi.appliedToHgt_ = 0;
-   sdbi.topScannedBlkHash_ = BinaryData(0);
-
-   iface_->dbs_[HISTORY].drop();
-   iface_->putStoredDBInfo(HISTORY, sdbi);
-
-   if (config_.armoryDbType != ARMORY_DB_SUPER)
-      iface_->dbs_[TXHINTS].drop();
-
-   iface_->dbs_[STXO].drop();
+   iface_->cleanUpHistoryInDB();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2010,144 +1999,5 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
       blkDataPosition_ = { 0, 0 };
    }
 }
-
-////////////////////////////////////////////////////////////////////////////////
-///
-/// FileMap
-///
-////////////////////////////////////////////////////////////////////////////////
-FileMap::FileMap(BlkFile& blk)
-{
-   lastSeenCumulated_.store(0, memory_order_relaxed);
-   fnum_ = blk.fnum;
-#ifdef WIN32
-   int fd = _open(blk.path.c_str(), _O_RDONLY | _O_BINARY);
-   if (fd == -1)
-      throw std::runtime_error("failed to open file");
-
-   mapsize_ = blk.filesize;
-   filemap_ = (uint8_t*)malloc(mapsize_);
-   _read(fd, filemap_, mapsize_);
-   _close(fd);
-#else
-   int fd = open(blk.path.c_str(), O_RDONLY);
-   if (fd == -1)
-      throw std::runtime_error("failed to open file");
-
-   mapsize_ = blk.filesize;
-   filemap_ = (uint8_t*)malloc(mapsize_);
-   read(fd, filemap_, mapsize_);
-
-   close(fd);
-#endif
-}
-
-#if 0
-////////////////////////////////////////////////////////////////////////////////
-FileMap::FileMap(FileMap&& fm)
-{
-   this->filemap_ = fm.filemap_;
-   this->mapsize_ = fm.mapsize_;
-   lastSeenCumulated_.store(0, memory_order_relaxed);
-
-   fnum_ = fm.fnum_;
-   fm.filemap_ = nullptr;
-}
-#endif
-
-////////////////////////////////////////////////////////////////////////////////
-FileMap::~FileMap()
-{
-   if (filemap_ != nullptr)
-      free(filemap_);
-
-   filemap_ = nullptr;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void FileMap::getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
-   atomic<uint64_t>& lastSeenCumulative)
-{
-   bdr.setRef(filemap_ + offset, size);
-
-   lastSeenCumulated_.store(
-      lastSeenCumulative.fetch_add(size, memory_order_relaxed) + size,
-      memory_order_relaxed);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-///
-/// BlockFileAccessor
-///
-////////////////////////////////////////////////////////////////////////////////
-BlockFileAccessor::BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
-: blkFiles_(blkfiles)
-{
-   lastSeenCumulative_.store(0, memory_order_relaxed);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockFileAccessor::getRawBlock(BinaryDataRef& bdr, uint32_t fnum, 
-   uint64_t offset, uint32_t size, shared_ptr<FileMap>** fmPtr)
-{
-   shared_ptr<FileMap>* fmptr;
-   if (fmPtr != nullptr && *fmPtr != nullptr && **fmPtr != nullptr)
-      fmptr = *fmPtr;
-   else
-      fmptr = &getFileMap(fnum);
-
-   (*fmptr)->getRawBlock(bdr, offset, size, lastSeenCumulative_);
-   *fmPtr = fmptr;
-
-   //clean up maps that haven't been used for a while
-   if (lastSeenCumulative_.load(memory_order_relaxed) >= nextThreshold_)
-   {
-      unique_lock<mutex> lock(mu_);
-      auto mapIter = blkMaps_.begin();
-
-      while (mapIter != blkMaps_.end())
-      {
-         if (mapIter->second->lastSeenCumulated_ + threshold_ <
-            lastSeenCumulative_.load(memory_order_relaxed))
-         {
-            if (mapIter->second.use_count() == 1)
-            {
-               blkMaps_.erase(mapIter++);
-               continue;
-            }
-         }
-
-         ++mapIter;
-      }
-
-      nextThreshold_ =
-         lastSeenCumulative_.load(memory_order_relaxed) + threshold_;
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-shared_ptr<FileMap>& BlockFileAccessor::getFileMap(uint32_t fnum)
-{
-   unique_lock<mutex> lock(mu_);
-
-   auto mapIter = blkMaps_.find(fnum);
-   if (mapIter == blkMaps_.end())
-   {
-      shared_ptr<FileMap> fm(new FileMap((*blkFiles_)[fnum]));
-      auto result = blkMaps_.insert(make_pair(fnum, fm));
-      mapIter = result.first;
-   }
-
-   return mapIter->second;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockFileAccessor::dropFileMap(uint32_t fnum)
-{
-   unique_lock<mutex> lock(mu_);
-   blkMaps_.erase(fnum);
-}
-
-
 
 // kate: indent-width 3; replace-tabs on;

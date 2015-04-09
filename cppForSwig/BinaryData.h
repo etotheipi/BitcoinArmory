@@ -930,7 +930,6 @@ public:
    }
 
 
-
 /*
 #ifdef USE_CRYPTOPP
 

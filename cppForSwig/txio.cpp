@@ -354,3 +354,65 @@ TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
 
    return *this;
 }
+
+void TxIOPair::unserialize(const BinaryDataRef& key, const BinaryDataRef& val)
+{
+   BinaryRefReader brr(val);
+
+   BitUnpacker<uint8_t> bitunpack(brr);
+   isTxOutFromSelf_  = bitunpack.getBit();
+   isFromCoinbase_   = bitunpack.getBit();
+   bool isSpent      = bitunpack.getBit();
+   isMultisig_       = bitunpack.getBit();
+   isUTXO_           = bitunpack.getBit();
+
+   // We always include the 8-byte value
+   amount_ = brr.get_uint64_t();
+
+   //the key always carries the full txout ref
+   if (!isSpent)
+      setTxOut(key);
+   else
+   {
+      //spent subssh, txout key      
+      setTxOut(val.getSliceRef(9, 8));
+
+      //when keyed by txins, the top bit in the tx index is always flipped
+      BinaryData txinKey(key);
+      txinKey.getPtr()[4] &= 0x7F;
+      
+      //last 8 bytes carry the txin key
+      setTxIn(txinKey);
+   }
+}
+
+BinaryData TxIOPair::serializeDbKey(void) const
+{
+   if (!hasTxIn())
+      return getDBKeyOfOutput();
+   
+   BinaryData bd(getDBKeyOfInput());
+   bd.getPtr()[4] |= 0x80;
+
+   return bd;
+}
+
+void TxIOPair::serializeDbValue(BinaryWriter& bw) const
+{
+   BitPacker<uint8_t> bitpacker;
+
+   bitpacker.putBit(isTxOutFromSelf_);
+   bitpacker.putBit(isFromCoinbase_);
+   bitpacker.putBit(hasTxIn());
+   bitpacker.putBit(isMultisig_);
+   bitpacker.putBit(isUTXO_);
+
+   bw.put_BitPacker(bitpacker);
+   bw.put_uint64_t(amount_);
+
+   if (hasTxIn())
+   {
+      //has a txin, val will be the txout full key
+      bw.put_BinaryData(getDBKeyOfOutput());
+   }
+}

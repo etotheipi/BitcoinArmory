@@ -64,11 +64,14 @@ enum DB_SELECT
    BLKDATA,
    HISTORY,
    STXO,
+   SPENTNESS,
    TXHINTS,
    ZEROCONF,
    COUNT
 };
 
+#define SUBSSHDB_PREFIX_MAX 16
+#define SUBSSHDB_PREFIX_MIN 4
 
 enum TX_SERIALIZE_TYPE
 {
@@ -107,15 +110,6 @@ class TxIOPair;
 class DBTx;
 class StoredScriptHistory;
 class StoredSubHistory;
-
-struct BlkFile
-{
-   size_t fnum;
-   string path;
-   uint64_t filesize;
-   uint64_t filesizeCumul;
-};
-
 
 template<class T, typename ...Args>
 static BinaryData serializeDBValue(const T &o, const Args &...a)
@@ -267,7 +261,7 @@ public:
       txIndex_(UINT16_MAX),
       txOutIndex_(UINT16_MAX),
       parentHash_(0),
-      spentness_(TXOUT_SPENTUNK),
+      spentness_(TXOUT_UNSPENT),
       isCoinbase_(false),
       spentByTxInKey_(0)
    {}
@@ -278,7 +272,7 @@ public:
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
 
-   void       unserializeDBValue(BinaryRefReader &  brr);
+   void unserializeDBValue(BinaryRefReader &  brr);
    void serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
       DB_PRUNE_TYPE pruneType,
       bool forceSaveSpent = false) const;
@@ -548,6 +542,8 @@ public:
 // transactions in the previous few blocks before it.  
 class StoredSubHistory
 {
+   friend class BlockWriteBatcher;
+   friend struct DataToCommit;
 public:
 
    StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
@@ -568,10 +564,6 @@ public:
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
-   //uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
-
-   //void pprintOneLine(uint32_t indent=3);
-   //void pprintFullSSH(uint32_t indent=3);
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, 
@@ -580,13 +572,13 @@ public:
 
    
    // This adds the TxOut if it doesn't exist yet
-   const TxIOPair* markTxOutSpent(const BinaryData& txOutKey8B);
+   void markTxOutSpent(const BinaryData& txOutKey8B);
 
    void markTxOutUnspent(const BinaryData& txOutKey8B,
-                             uint64_t&  additionalSize,
                              const uint64_t&  value,
                              bool       isCoinbase,
-                             bool       isMultisigRef);
+                             bool       isMultisigRef,
+                             bool       increment);
 
    uint64_t getSubHistoryBalance(bool withMultisig=false);
    uint64_t getSubHistoryReceived(bool withMultisig=false);
@@ -624,6 +616,10 @@ public:
    uint32_t height_;
    uint8_t  dupID_;
    uint32_t txioCount_;
+
+private:
+   //BWB members, ignore outside of scans
+   vector<BinaryData> keysToDelete_;
 };
 
 
@@ -652,6 +648,7 @@ public:
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
+   BinaryData    getSubKey() const;
    SCRIPT_PREFIX getScriptType(void) const;
 
    void pprintOneLine(uint32_t indent=3);
@@ -671,11 +668,16 @@ public:
    void insertTxio(const TxIOPair& txio);
    void eraseTxio(const TxIOPair& txio);
 
+
+   /////
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
+   
+   uint8_t        dbPrefix_ = 0;
+   uint8_t        keyLength_ = 0;
 
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.

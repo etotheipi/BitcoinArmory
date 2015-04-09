@@ -123,17 +123,17 @@ public:
    void setUTXO(bool val) { isUTXO_ = val; }
 
    void setScrAddrLambda(function < const BinaryData&(void) > func)
-   {
-      getScrAddr_ = func;
-   }
+   { getScrAddr_ = func; }
 
    const BinaryData& getScrAddr(void) const
-   {
-      return getScrAddr_();
-   }
+   { return getScrAddr_(); }
+
+   void unserialize(const BinaryDataRef& key, const BinaryDataRef& val);
+   BinaryData serializeDbKey(void) const;
+   void serializeDbValue(BinaryWriter& bw) const;
 
 public:
-   bool flagged = false;
+   bool flagged_ = false;
 
 private:
    uint64_t  amount_;
