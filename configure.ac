@@ -33,9 +33,34 @@ esac
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
 
+dnl Define variables
+AC_ARG_VAR([PYVER], [Defines the version of Python to use (e.g. python2.7)])
+if test "x$PYVER" = "x"; then
+    PYVER="python"
+fi
+
+PYTHON_INCLUDES=`$PYVER-config --includes`
+PYTHON_LIBS=`$PYVER-config --libs`
+
+
+dnl Make variables available to Makefiles
+AC_SUBST(PYTHON_INCLUDES)
+AC_SUBST(PYTHON_LIBS)
+
 AM_CONDITIONAL([TARGET_LINUX], [test x$TARGET_OS = xlinux])
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
+AM_CONDITIONAL([DEBUG], [test x = y])
+
+dnl Set compiler flags
+dnl Use "x" = "y" for now to force non-debug mode until flag is added
+if test "x" = "y"; then
+    CFLAGS='-g3 -Wall -pipe -fPIC'
+    CXXFLAGS='-g3 -Wall -pipe -fPIC'
+else
+    CFLAGS='-O2 -pipe -fPIC'
+    CXXFLAGS='-O2 -pipe -fPIC'
+fi
 
 dnl Compiler checks
 AM_PROG_AR

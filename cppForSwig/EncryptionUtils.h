@@ -74,7 +74,7 @@
 
 // This is used to attempt to keep keying material out of swap
 // I am stealing this from bitcoin 0.4.0 src, serialize.h
-#if defined(_MSC_VER) || defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_MSC_VER)
    // Note that VirtualLock does not provide this as a guarantee on Windows,
    // but, in practice, memory that has been VirtualLock'd almost never gets written to
    // the pagefile except in rare circumstances where memory is extremely low.
@@ -83,13 +83,13 @@
    //#define mlock(p, n) VirtualLock((p), (n));
    //#define munlock(p, n) VirtualUnlock((p), (n));
 #else
-   #ifndef __MINGW64__
+   #ifndef __MINGW32__
       #include <sys/mman.h>
    #endif
    #include <limits.h>
    /* This comes from limits.h if it's not defined there set a sane default */
    #ifndef PAGESIZE
-      #ifndef __MINGW64__
+      #ifndef __MINGW32__
          #include <unistd.h>
          #define PAGESIZE sysconf(_SC_PAGESIZE)
       /* No _SC_PAGESIZE for Windows */
@@ -100,7 +100,7 @@
       #endif
    #endif
    // JB: This should be cleaned up by making intermediate defines
-   #ifndef __MINGW64__
+   #ifndef __MINGW32__
       #define mlock(a,b) \
         mlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
         (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
@@ -213,7 +213,7 @@ public:
 
    void lockData(void)
    {
-      #ifdef __MINGW64__
+      #ifdef __MINGW32__
          SYSTEM_INFO si;
          GetSystemInfo(&si);
       #endif
@@ -223,7 +223,7 @@ public:
 
    void destroy(void)
    {
-      #ifdef __MINGW64__
+      #ifdef __MINGW32__
          SYSTEM_INFO si;
          GetSystemInfo(&si);
       #endif

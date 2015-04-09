@@ -1,5 +1,8 @@
 LINK = $(CXX)
 
+PYTHON_INCLUDES=@PYTHON_INCLUDES@
+PYTHON_LIBS=@PYTHON_LIBS@
+
 # Export variables to make them available to cryptopp Makefile.
 export AR
 export CXX
@@ -10,6 +13,10 @@ CRYPTOPP_EXT=.a
 else
 if TARGET_WINDOWS
 CRYPTOPP_EXT=.a
+else
+if TARGET_DARWIN
+CRYPTOPP_EXT=.a
+endif
 endif
 endif
 
@@ -19,13 +26,6 @@ OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
 	libcryptopp$(CRYPTOPP_EXT) mdb.o midl.o txio.o
-#if python is specified, use it
-#ifndef PYVER
-#PYVER=python
-#PYTHON_INCLUDES=$(shell python-config --includes )
-#else
-#PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
-#endif
 
 CPPFLAGS = $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS = -lpthread -Lmdb
@@ -76,7 +76,7 @@ CppBlockUtils_wrap.o: $(EVERY_HEADER) CppBlockUtils_wrap.cxx
 	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
 playground: ../_CppBlockUtils.so playground.cpp $(EVERY_HEADER)
-	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(shell $(PYVER)-config --libs) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp
+	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(PYTHON_LIBS) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp
 
 ##########################################################################
 # And now we have created all the individual object files specified with 
