@@ -27,8 +27,7 @@ zopeVer      = '4.1.2'
 twistedVer   = '15.0.0'
 libpngVer    = '1.6.16'
 libpngVerAlt = '1'
-qtVerDate    = '2015-03-25-5'
-qtVerDateAlt = '2015-03-23-5'
+qtVerDate    = '2015-04-07-6'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
 sipVer       = '4.16.7' # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -360,7 +359,7 @@ distfiles.append( [ "Qt", \
                     "qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
                     #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     #"http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
-                    "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDateAlt, qtVer, qtVerDate), \
+                    "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
                     #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
                     "b1cef10b29432c7ea1b462f78b1406eec743f5dd" ] )
 
