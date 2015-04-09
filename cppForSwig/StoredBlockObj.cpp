@@ -163,8 +163,7 @@ BinaryData DBBlock::getDBKey(bool withPrefix) const
 {
    if(blockHeight_==UINT32_MAX || duplicateID_==UINT8_MAX)
    {
-      LOGERR << "Requesting DB key for incomplete SBH";
-      return BinaryData(0);
+      throw std::range_error("Requesting DB key for incomplete SBH");
    }
 
    if(withPrefix)
@@ -1855,19 +1854,20 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const TxIOPair& StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
+const TxIOPair* StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
 {
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
    {
       LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
-      throw runtime_error("missing txio!");
+      return nullptr;
+      //throw runtime_error("missing txio!");
    }
 
    txioptr->setUTXO(false);
    txioptr->flagged = true;
 
-   return *txioptr;
+   return txioptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

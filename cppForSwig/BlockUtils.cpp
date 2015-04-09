@@ -81,7 +81,22 @@ class BlockDataManager_LevelDB::BitcoinQtBlockFiles
    uint64_t totalBlockchainBytes_=0;
    
    const BinaryData magicBytes_;
-   
+
+   class stopReadingHeaders
+   {
+   public:
+      size_t fnum_;
+      size_t pos_;
+
+      stopReadingHeaders(size_t fnum, size_t pos) :
+         fnum_(fnum), pos_(pos)
+      {}
+   };
+
+   class StopReading : public std::exception
+   {
+   };
+
 public:
    BitcoinQtBlockFiles(const string& blkFileLocation, const BinaryData &magicBytes)
       : blkFileLocation_(blkFileLocation), magicBytes_(magicBytes),
@@ -170,13 +185,12 @@ public:
       // now lets linearly search this file until we find an unrecognized blk
       
       BlockFilePosition foundAtPosition{ 0, 0 };
-      
-      class StopReading : public std::exception
-      {
-      };
-      
+            
+      bool foundTopBlock = false;
+      auto topBlockHash = bc.top().getThisHash();
+
       const auto stopIfBlkHeaderRecognized =
-      [&allHeaders, &foundAtPosition] (
+      [&allHeaders, &foundAtPosition, &foundTopBlock, &topBlockHash] (
          const BinaryDataRef &blockheader,
          const BlockFilePosition &pos,
          uint32_t blksize
@@ -194,6 +208,9 @@ public:
          
          if(bhIter == allHeaders.end())
             throw StopReading();
+
+         if (bhIter->second.getThisHash() == topBlockHash)
+            foundTopBlock = true;
 
          bhIter->second.setBlockFileNum(pos.first);
          bhIter->second.setBlockFileOffset(pos.second);
@@ -224,6 +241,71 @@ public:
       if (returnedOffset != UINT64_MAX)
          foundAtPosition.second = returnedOffset;
 
+
+      if (!foundTopBlock)
+      {
+         LOGWARN << "Couldn't find top block hash in last seen blk file."
+            " Searching for it further down the chain";
+
+         //Couldn't find the top header in the last seen blk file. Since Core
+         //0.10, this can be an indicator of missing hashes. Let's find the
+         //the top block header in file.
+         BlockFilePosition topBlockPos(0, 0);
+         auto checkBlkHash = [&topBlockHash, &topBlockPos]
+            (const BinaryData &rawBlock,
+            const BlockFilePosition &pos,
+            uint32_t blksize)->void
+         {
+            BlockHeader bhUnser(rawBlock);
+            if (bhUnser.getThisHash() == topBlockHash)
+            {
+               topBlockPos = pos;
+               throw StopReading();
+            }
+         };
+
+         bool foundTopBlock = false;
+         int32_t fnum = blkFiles_.size();
+         if (fnum > 0)
+            fnum--;
+         try
+         {
+            for (; fnum > -1; fnum--)
+               readHeadersFromFile(blkFiles_[fnum], 0, 
+                                   checkBlkHash);
+         }
+         catch (StopReading&)
+         {
+            foundTopBlock = true;
+            // we're fine
+         }
+
+         if (!foundTopBlock)
+         {
+            //can't find the top header, let's just rescan all headers
+            LOGERR << "Failed to find last known top block hash in "
+               "blk files. Rescanning all headers";
+            
+            return BlockFilePosition(0, 0);
+         }
+
+         //Check this file to see if we are missing any block hashes in there
+         auto& f = blkFiles_[foundAtPosition.first];
+         try
+         {
+            readHeadersFromFile(f, 0, stopIfBlkHeaderRecognized);
+         }
+         catch (StopReading&)
+         {
+            //so we are indeed missing some block headers. Let's just scan the 
+            //blocks folder for headers
+            foundAtPosition.first = 0;
+            foundAtPosition.second = 0;
+
+            LOGWARN << "Inconsistent headers DB, attempting repairs";
+         }
+      }
+
       return foundAtPosition;
    }
 
@@ -251,8 +333,10 @@ public:
          );
          startAt.second = 0;
          startAt.first++;
+         finishOffset = e.pos_;
       }
-      return { startAt.first-1, finishOffset };
+
+      return { startAt.first -1, finishOffset };
    }
    
    BlockFilePosition readRawBlocks(
@@ -289,6 +373,23 @@ public:
       
       return { startAt.first-1, finishLocation };
    }
+
+   void readRawBlocksFromTop(
+      uint32_t fnum,
+      const function<void(
+      const BinaryData &,
+      const BlockFilePosition &pos,
+      uint32_t blksize
+      )> &blockDataCallback
+      )
+   {
+      for (int32_t i = fnum; i > -1; i--)
+      {
+         const BlkFile &f = blkFiles_[i];
+         readRawBlocksFromFile(f, 0, f.filesize, blockDataCallback);
+      }
+   }
+
 
    void getFileAndPosForBlockHash(BlockHeader& blk)
    {
@@ -755,12 +856,6 @@ void BlockDataManager_LevelDB::openDatabase()
       ss << "DB failed to open, reporting the following error: " << e.what();
       throw runtime_error(ss.str());
    }
-   catch (LMDBException &e)
-   {
-      stringstream ss;
-      ss << "DB failed to open, reporting the following error: " << e.what();
-      throw runtime_error(ss.str());
-   }
    catch (...)
    {
       stringstream ss;
@@ -795,6 +890,11 @@ pair<BlockFilePosition, vector<BlockHeader*>>
       readBlockHeaders_->totalBlockchainBytes()
    );
    uint64_t totalOffset=0;
+   bool suppressOutput = false;
+   if (fileAndOffset.first == 0 && fileAndOffset.second == 0)
+      suppressOutput = true;
+   
+   class StopReading {};
 
    auto blockHeaderCallback
       = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
@@ -806,12 +906,11 @@ pair<BlockFilePosition, vector<BlockHeader*>>
          const HashString blockhash = block.getThisHash();
          
          const uint32_t nTx = brr.get_var_int();
-         BlockHeader& addedBlock = blockchain().addNewBlock(blockhash, block);
+         BlockHeader& addedBlock = blockchain().addNewBlock(
+            blockhash, block, suppressOutput);
 
          blockHeadersAdded.push_back(&addedBlock);
-         
-         
-         // is there any reason I can't just do this to "block"?
+
          addedBlock.setBlockFileNum(pos.first);
          addedBlock.setBlockFileOffset(pos.second);
          addedBlock.setNumTx(nTx);
@@ -819,11 +918,21 @@ pair<BlockFilePosition, vector<BlockHeader*>>
          
          totalOffset += blksize+8;
          progfilter.advance(totalOffset);
+
+#ifdef _DEBUG_REPLAY_BLOCKS
+         if (fileAndOffset.first == 0)
+         {
+            if (pos.first == readBlockHeaders_->numBlockFiles() -1)
+               throw debug_replay_blocks();
+         }
+         else
+            throw debug_replay_blocks();
+#endif
       };
    
-   const BlockFilePosition position
-      = readBlockHeaders_->readHeaders(fileAndOffset, blockHeaderCallback);
-   
+   BlockFilePosition position
+         = readBlockHeaders_->readHeaders(fileAndOffset, blockHeaderCallback);
+
    return { position, blockHeadersAdded };
 }
 
@@ -1230,6 +1339,64 @@ void BlockDataManager_LevelDB::loadDiskState(
       double timeElapsed = TIMER_READ_SEC("writeBlocksToDB");
       LOGINFO << "Wrote blocks to DB in " << timeElapsed << "s";
    }
+
+   {
+      /***Core 0.10 specific change:
+      Let's be consistent across different blocks folders by checking if the
+      newly added range of blocks is continuous
+      ***/
+
+      set<uint32_t> missingHeadersHeight;
+      set<uint32_t> missingBlocks;
+
+      uint32_t checkFrom = min(lastTop, scanFrom);
+      if (checkFrom > 0)
+         checkFrom--;
+
+      {
+         LOGINFO << "Checking dupIDs from " << checkFrom << " onward";
+         uint8_t dupId;
+         uint32_t currentTop = blockchain_.top().getBlockHeight();
+         LMDBEnv::Transaction blktx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+         for (uint32_t i = checkFrom; i <= currentTop; i++)
+         {
+            dupId = iface_->getValidDupIDForHeight(i);
+            if (dupId == UINT8_MAX)
+            {
+               missingHeadersHeight.insert(i);
+               missingBlocks.insert(i);
+               continue;
+            }
+
+            auto blockKey = DBUtils::getBlkDataKey(i, dupId);
+            auto blockData = iface_->getValueNoCopy(BLKDATA, blockKey);
+            if (blockData.getSize() == 0)
+               missingBlocks.insert(i);
+         }
+      }
+
+      if (missingHeadersHeight.size() > 0)
+      {
+         LOGERR << "missing " << missingHeadersHeight.size() << " block headers";
+         throw runtime_error("Missing headers! "
+            "This is unexpected, Armory will have to close. "
+            "If the error persists, do a factory reset.");
+      }
+
+      if (missingBlocks.size() > 0)
+      {
+         LOGERR << "Missing block data, attempting to repair the DB";
+         set<BinaryData> missingBlocksByHash;
+         for (auto id : missingBlocks)
+         {
+            auto& bh = blockchain_.getHeaderByHeight(id);
+            missingBlocksByHash.insert(bh.getThisHash());
+         }
+
+         repairBlockDataDB(missingBlocksByHash);
+      }
+   }
+
    
    {
       ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
@@ -1268,7 +1435,7 @@ void BlockDataManager_LevelDB::loadDiskState(
       CLEANUP_ALL_TIMERS();
       LOGINFO << "Scanned Block range in " << timeElapsed << "s";
    }
-   
+
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;
       
@@ -1328,13 +1495,12 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    const pair<BlockFilePosition, vector<BlockHeader*>>
       loadResult = loadBlockHeadersStartingAt(prog, headerOffset);
    
-   const vector<BlockHeader*> &loadedBlockHeaders = loadResult.second;
    const BlockFilePosition &readHeadersUpTo = loadResult.first;
 
    if (callbacks.headersRead)
       callbacks.headersRead();
       
-   if (loadedBlockHeaders.empty())
+   if (loadResult.second.empty())
       return 0;
    
    
@@ -1342,32 +1508,63 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    {
       const Blockchain::ReorganizationState state = blockchain_.organize();
       const bool updateDupID = state.prevTopBlockStillValid;
-      
+
+      if (!state.hasNewTop)
+      {
+         blkDataPosition_ = readHeadersUpTo;
+         return 0;
+      }
+
       {
          LMDBEnv::Transaction tx;
          iface_->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
-      
-         for (BlockHeader *bh : loadedBlockHeaders)
+
+         //grab all blocks from previous to current top
+         vector<BlockHeader*> newHeadersVec;
          {
-            if (bh->getBlockHeight() == UINT32_MAX)
+            BlockHeader* newHeader = state.prevTopBlock;
+            if (!state.prevTopBlockStillValid)
+               newHeader = state.reorgBranchPoint;
+
+            while (1)
             {
-               // this header has no height, therefor it's an orphan
-               // this might be the result of HeadersFirst, therefor
-               // we should just exit and hope it gets put on the 
-               // chain later on
-               LOGWARN << "Found an orphan block in the blockchain."
-                  " If this message persists, please report it.";
-               return 0;
+               BinaryData nextHash = newHeader->getNextHashRef();
+               try
+               {
+                  newHeader = &blockchain_.getHeaderByHash(nextHash);
+                  newHeadersVec.push_back(newHeader);
+               }
+               catch (std::range_error& e)
+               {
+                  //got the last block
+                  break;
+               }
             }
-            
+         }
+      
+         for (BlockHeader *bh : newHeadersVec)
+         {
             StoredHeader sbh;
             sbh.createFromBlockHeader(*bh);
             uint8_t dup = iface_->putBareHeader(sbh, updateDupID);
             bh->setDuplicateID(dup);
          }
+
          if (callbacks.headersUpdated)
             callbacks.headersUpdated();
          
+         //find lowest offset in the new blocks to add
+         for (auto bh : newHeadersVec)
+         {
+            if (bh->getBlockFileNum() < blkDataPosition_.first ||
+               (bh->getBlockFileNum() == blkDataPosition_.first &&
+               bh->getOffset() < blkDataPosition_.second))
+            {
+               blkDataPosition_.first = bh->getBlockFileNum();
+               blkDataPosition_.second = bh->getOffset();
+            }
+         }
+
          loadBlockData(prog, readHeadersUpTo, updateDupID);
          if (callbacks.blockDataLoaded)
             callbacks.blockDataLoaded();
@@ -1590,22 +1787,40 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
             throw BlockDeserializingException("Error parsing block (corrupt?) and block header invalid");
          }
       }
-      BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
-      sbh.blockHeight_ = bh.getBlockHeight();
-      sbh.duplicateID_ = bh.getDuplicateID();
-      sbh.isMainBranch_ = bh.isMainBranch();
+
+      BlockHeader *bh;
+      try
+      {
+          bh = &blockchain_.getHeaderByHash(sbh.thisHash_);
+      }
+      catch (range_error&)
+      {
+         LOGWARN << "Header not on main chain, skiping addRawBlockToDB"; 
+         return;
+      }
+
+      sbh.blockHeight_ = bh->getBlockHeight();
+      sbh.duplicateID_ = bh->getDuplicateID();
+      sbh.isMainBranch_ = bh->isMainBranch();
       sbh.blockAppliedToDB_ = false;
-      sbh.numBytes_ = bh.getBlockSize();
+      sbh.numBytes_ = bh->getBlockSize();
 
       // Don't put it into the DB if it's not proper!
       if (sbh.blockHeight_ == UINT32_MAX || sbh.duplicateID_ == UINT8_MAX)
       {
-         throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup (hash="
-            + bh.getThisHash().copySwapEndian().toHexStr() + ")"
-            );
+         LOGWARN << "Header not on main chain, skiping addRawBlockToDB";
+         return;
       }
 
-      iface_->putStoredHeader(sbh, fnum, offset, true, updateDupID, true);
+      //make sure this block is not already in the DB
+      auto valRef = iface_->getValueNoCopy(BLKDATA, sbh.getDBKey());
+      if (valRef.getSize() > 0)
+      {
+         LOGWARN << "Block is already in BLKDATA, skipping addRawBlockToDB";
+         return;
+      }
+
+      iface_->putStoredHeader(sbh, true, updateDupID);
    }
    else
    {

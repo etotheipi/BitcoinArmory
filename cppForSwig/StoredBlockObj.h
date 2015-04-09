@@ -580,7 +580,7 @@ public:
 
    
    // This adds the TxOut if it doesn't exist yet
-   const TxIOPair& markTxOutSpent(const BinaryData& txOutKey8B);
+   const TxIOPair* markTxOutSpent(const BinaryData& txOutKey8B);
 
    void markTxOutUnspent(const BinaryData& txOutKey8B,
                              uint64_t&  additionalSize,

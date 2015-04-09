@@ -6874,22 +6874,15 @@ class DlgPrintBackup(ArmoryDialog):
 
       # This badBackup stuff was implemented to avoid making backups if there is
       # an inconsistency in the data.  Yes, this is like a goto!
-      try:
-         if privKey:
-            if not chaincode:
-               raise KeyDataError
-            self.binPriv = privKey.copy()
-            self.binChain = chaincode.copy()
-
-         if self.binPriv.getSize() < 32:
+      if privKey:
+         if not chaincode:
             raise KeyDataError
+         self.binPriv = privKey.copy()
+         self.binChain = chaincode.copy()
 
-      except:
-         LOGEXCEPT("Problem with private key and/or chaincode.  Aborting.")
-         QMessageBox.critical(self, tr("Error Creating Backup"), tr("""
-            There was an error with the backup creator.  The operation is being
-            canceled to avoid making bad backups!"""), QMessageBox.Ok)
-         return
+      if self.binPriv.getSize() < 32:
+         raise KeyDataError
+
 
 
       self.binImport = []
@@ -7536,12 +7529,20 @@ def OpenPaperBackupWindow(backupType, parent, main, wlt, unlockTitle=None):
    result = True
    verifyText = ''
    if backupType == 'Single':
-      result = DlgPrintBackup(parent, main, wlt).exec_()
-      verifyText = tr("""
-         If the backup was printed with SecurePrint\xe2\x84\xa2, please
-         make sure you wrote the SecurePrint\xe2\x84\xa2 code on the
-         printed sheet of paper. Note that the code <b><u>is</u></b>
-         case-sensitive!""")
+      try:
+         result = DlgPrintBackup(parent, main, wlt).exec_()
+         verifyText = tr("""
+            If the backup was printed with SecurePrint\xe2\x84\xa2, please
+            make sure you wrote the SecurePrint\xe2\x84\xa2 code on the
+            printed sheet of paper. Note that the code <b><u>is</u></b>
+            case-sensitive!""")
+      
+      except KeyDataError:
+         LOGEXCEPT("Problem with private key and/or chaincode.  Aborting.")
+         QMessageBox.critical(parent, tr("Error Creating Backup"), tr("""
+            There was an error with the backup creator.  The operation is being
+            canceled to avoid making bad backups!"""), QMessageBox.Ok)
+
    elif backupType == 'Frag':
       result = DlgFragBackup(parent, main, wlt).exec_()
       verifyText = tr("""
@@ -11999,10 +12000,16 @@ class DlgFragBackup(ArmoryDialog):
       fragData['FragPixmap'] = self.fragPixmapFn
       fragData['Range'] = zindex
       fragData['Secure'] = self.chkSecurePrint.isChecked()
-      dlg = DlgPrintBackup(self, self.main, self.wlt, tr('Fragments'), \
-                              self.secureMtrx, self.secureMtrxCrypt, fragData, \
-                              self.secureRoot, self.secureChain)
-      dlg.exec_()
+      try:
+         dlg = DlgPrintBackup(self, self.main, self.wlt, tr('Fragments'), \
+                                 self.secureMtrx, self.secureMtrxCrypt, fragData, \
+                                 self.secureRoot, self.secureChain)
+         dlg.exec_()
+      except KeyDataError:
+         LOGEXCEPT("Problem with private key and/or chaincode.  Aborting.")
+         QMessageBox.critical(self, tr("Error Creating Backup"), tr("""
+            There was an error with the backup creator.  The operation is being
+            canceled to avoid making bad backups!"""), QMessageBox.Ok)
 
    #############################################################################
    def clickSaveFrag(self, zindex):
@@ -13573,10 +13580,10 @@ class DlgEnterOneFrag(ArmoryDialog):
       if len(fragList) > 0:
          strList = ['<font color="%s">%d</font>' % (BLUE, f) for f in fragList]
          replStr = '[' + ','.join(strList[:]) + ']'
-         already = tr(""" You have entered fragments %(replstr)s, so far.  """) % { 'replystr' : replStr }
+         already = tr(""" You have entered fragments %(replystr)s, so far.  """) % { 'replystr' : replStr }
 
       lblDescr = QRichLabel(tr("""
-         <b><u>Enter Another Fragment...</u></b> <br><br> %(already)s
+         <b><u>Enter Another Fragment...</u></b> <br><br> %s
          The fragments can be entered in any order, as long as you provide
          enough of them to restore the wallet.  If any fragments use a
          SecurePrint\xe2\x84\xa2 code, please enter it once on the

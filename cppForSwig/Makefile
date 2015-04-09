@@ -57,7 +57,7 @@ SWIG_OPTS    += -c++ -python -threads
 SWIG_INC     +=
 
 # rt library used for glibc <2.17. Safe to include for Linux but not OS X.
-# Place at the end due to link order concerns involving 12.04.
+# Place at the end due to link order concerns involving Ubuntu 12.04.
 ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)

@@ -1244,21 +1244,25 @@ void LMDBBlockDatabase::readAllHeaders(
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t LMDBBlockDatabase::getValidDupIDForHeight(uint32_t blockHgt) const
 {
-   if(blockHgt != UINT32_MAX && validDupByHeight_.size() < blockHgt+1)
+   auto iter = validDupByHeight_.find(blockHgt);
+
+   if(iter == validDupByHeight_.end())
    {
       LOGERR << "Block height exceeds DupID lookup table";
       return UINT8_MAX;
    }
-   return validDupByHeight_[blockHgt];
+
+   return iter->second;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup,
                                                bool overwrite)
 {
-   while (blockHgt != UINT32_MAX && validDupByHeight_.size() < blockHgt + 1)
-      validDupByHeight_.push_back(UINT8_MAX);
-   
+   auto iter = validDupByHeight_.find(blockHgt);
+   if (iter == validDupByHeight_.end())
+      validDupByHeight_[blockHgt] = UINT8_MAX;
+
    uint8_t& dupid = validDupByHeight_[blockHgt];
    if (!overwrite && dupid != UINT8_MAX)
       return;
@@ -3449,12 +3453,22 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
    StoredHeader sbh;
 
    BlockHeader bhUnser(brr);
-   const BlockHeader & bh = getBH(bhUnser.getThisHash());
-   sbh.blockHeight_ = bh.getBlockHeight();
-   sbh.duplicateID_ = bh.getDuplicateID();
-   sbh.isMainBranch_ = bh.isMainBranch();
+   const BlockHeader *bh;
+   try
+   {
+      bh = &getBH(bhUnser.getThisHash());
+   }
+   catch (std::range_error&)
+   {
+      //couldn't find this header hash in the blockchain object, move on.
+      return 0xFF;
+   }
+
+   sbh.blockHeight_ = bh->getBlockHeight();
+   sbh.duplicateID_ = bh->getDuplicateID();
+   sbh.isMainBranch_ = bh->isMainBranch();
    sbh.blockAppliedToDB_ = false;
-   sbh.numBytes_ = bh.getBlockSize();
+   sbh.numBytes_ = bh->getBlockSize();
 
    //put raw block with header data
    {
@@ -3478,7 +3492,7 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
          if (sbh.blockHeight_ > sdbiB.topBlkHgt_)
          {
             sdbiB.topBlkHgt_ = sbh.blockHeight_;
-            sdbiB.topBlkHash_ = bh.getThisHash();
+            sdbiB.topBlkHash_ = bh->getThisHash();
             putStoredDBInfo(HISTORY, sdbiB);
          }
       }

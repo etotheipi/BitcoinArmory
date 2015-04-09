@@ -384,6 +384,16 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def forceSupernode(self):
       self.dbType = Cpp.ARMORY_DB_SUPER 
+
+
+   #############################################################################
+   @ActLikeASingletonBDM
+   def RegisterEventForSignal(self, func, signal):
+      def bdmCallback(bdmSignal, args):
+         if bdmSignal == signal:
+            func(args)
+      self.registerCppNotification(bdmCallback)
+      
    
 ################################################################################
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 

@@ -31,6 +31,7 @@ Name "Bitcoin Armory"
 !include Sections.nsh
 !include MUI2.nsh
 !include CompilerArgs.nsi
+!include x64.nsh
 
 # Reserved Files
 ReserveFile "${NSISDIR}\Plugins\x86-ansi\StartMenu.dll"
@@ -104,36 +105,48 @@ ShowUninstDetails show
 !macroend
 
 Section -Main SEC0000
-    SetOutPath $INSTDIR
-    RmDir /r $INSTDIR
-    SetOverwrite on
-    File /r ArmoryStandalone\*
-    File ArmoryStandalone\ArmoryQt.exe
-    !insertmacro CreateRegKey ${HKEY_CURRENT_USER} "Software\Armory"
-    SetOutPath $DESKTOP
-    CreateShortcut "$DESKTOP\Bitcoin Armory.lnk" $INSTDIR\ArmoryQt.exe
-    !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory" "$INSTDIR\ArmoryQt.exe" ""
-    !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (Offline)" "$INSTDIR\ArmoryQt.exe" "--offline"
-    !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (testnet)" "$INSTDIR\ArmoryQt.exe" "--testnet"
-    WriteRegStr HKLM "${REGKEY}\Components" Main 1
+   
+    ${If} ${RunningX64}
+        # 64 bit code
+        SetOutPath $INSTDIR
+        RmDir /r $INSTDIR
+        SetOverwrite on
+        File /r ArmoryStandalone\*
+        File ArmoryStandalone\ArmoryQt.exe
+        !insertmacro CreateRegKey ${HKEY_CURRENT_USER} "Software\Armory"
+        SetOutPath $DESKTOP
+        CreateShortcut "$DESKTOP\Bitcoin Armory.lnk" $INSTDIR\ArmoryQt.exe
+        !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory" "$INSTDIR\ArmoryQt.exe" ""
+        !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (Offline)" "$INSTDIR\ArmoryQt.exe" "--offline"
+        !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (testnet)" "$INSTDIR\ArmoryQt.exe" "--testnet"
+        WriteRegStr HKLM "${REGKEY}\Components" Main 1
+    ${Else}
+        # 32 bit code
+        MessageBox MB_OK "You cannot install this version on a 32-bit system"
+    ${EndIf} 
 SectionEnd
 
 Section -post SEC0001
-    WriteRegStr HKLM "${REGKEY}" Path $INSTDIR
-    SetOutPath $INSTDIR
-    WriteUninstaller $INSTDIR\uninstall.exe
-    !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
-    SetOutPath $SMPROGRAMS\$StartMenuGroup
-    CreateShortcut "$SMPROGRAMS\$StartMenuGroup\Uninstall $(^Name).lnk" $INSTDIR\uninstall.exe
-    !insertmacro MUI_STARTMENU_WRITE_END
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" DisplayName "$(^Name)"
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" DisplayVersion "${VERSION}"
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" Publisher "${COMPANY}"
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" URLInfoAbout "${URL}"
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" DisplayIcon $INSTDIR\uninstall.exe
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" UninstallString $INSTDIR\uninstall.exe
-    WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" NoModify 1
-    WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" NoRepair 1
+    ${If} ${RunningX64}
+        # 64 bit code
+        WriteRegStr HKLM "${REGKEY}" Path $INSTDIR
+        SetOutPath $INSTDIR
+        WriteUninstaller $INSTDIR\uninstall.exe
+        !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
+        SetOutPath $SMPROGRAMS\$StartMenuGroup
+        CreateShortcut "$SMPROGRAMS\$StartMenuGroup\Uninstall $(^Name).lnk" $INSTDIR\uninstall.exe
+        !insertmacro MUI_STARTMENU_WRITE_END
+        WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" DisplayName "$(^Name)"
+        WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" DisplayVersion "${VERSION}"
+        WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" Publisher "${COMPANY}"
+        WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" URLInfoAbout "${URL}"
+        WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" DisplayIcon $INSTDIR\uninstall.exe
+        WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" UninstallString $INSTDIR\uninstall.exe
+        WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" NoModify 1
+        WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" NoRepair 1
+    ${Else}
+        # 32 bit code
+    ${EndIf}
 SectionEnd
 
 # Macro for selecting uninstaller sections
