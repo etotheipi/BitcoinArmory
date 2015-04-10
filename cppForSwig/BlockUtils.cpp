@@ -265,13 +265,13 @@ public:
          };
 
          bool foundTopBlock = false;
-         int32_t fnum = blkFiles_.size();
+         int32_t fnum = blkFiles_->size();
          if (fnum > 0)
             fnum--;
          try
          {
             for (; fnum > -1; fnum--)
-               readHeadersFromFile(blkFiles_[fnum], 0, 
+               readHeadersFromFile(bfa, fnum, 0, 
                                    checkBlkHash);
          }
          catch (StopReading&)
@@ -290,10 +290,10 @@ public:
          }
 
          //Check this file to see if we are missing any block hashes in there
-         auto& f = blkFiles_[foundAtPosition.first];
          try
          {
-            readHeadersFromFile(f, 0, stopIfBlkHeaderRecognized);
+            readHeadersFromFile(bfa, foundAtPosition.first, 0, 
+               stopIfBlkHeaderRecognized);
          }
          catch (StopReading&)
          {
@@ -326,12 +326,19 @@ public:
       uint64_t finishOffset=startAt.second;
       BlockFileAccessor bfa(blkFiles_);
       
-      while (startAt.first < blkFiles_->size())
+      try
       {
-         finishOffset = readHeadersFromFile(bfa,
-            startAt.first, startAt.second, blockDataCallback
-         );
-         startAt.second = 0;
+         while (startAt.first < blkFiles_->size())
+         {
+            finishOffset = readHeadersFromFile(bfa,
+               startAt.first, startAt.second, blockDataCallback
+               );
+            startAt.second = 0;
+            startAt.first++;
+         }
+      }
+      catch (stopReadingHeaders& e)
+      {
          startAt.first++;
          finishOffset = e.pos_;
       }
@@ -381,6 +388,7 @@ public:
    }
 
    void readRawBlocksFromTop(
+      BlockFileAccessor& bfa,
       uint32_t fnum,
       const function<void(
       const BinaryData &,
@@ -391,8 +399,8 @@ public:
    {
       for (int32_t i = fnum; i > -1; i--)
       {
-         const BlkFile &f = blkFiles_[i];
-         readRawBlocksFromFile(f, 0, f.filesize, blockDataCallback);
+         readRawBlocksFromFile(bfa, i, 0, 
+            (*blkFiles_)[i].filesize, blockDataCallback);
       }
    }
 
@@ -1295,7 +1303,8 @@ void BlockDataManager_LevelDB::loadDiskState(
       
    // now load the new headers found in the blkfiles
    BlockFilePosition readHeadersUpTo;
-   
+   uint32_t lastTop = blockchain_.top().getBlockHeight();
+
    {
       ProgressWithPhase prog(BDMPhase_BlockHeaders, progress);
       readHeadersUpTo = loadBlockHeadersStartingAt(prog, blkDataPosition_).first;
@@ -1809,7 +1818,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
          return;
       }
 
-      iface_->putStoredHeader(sbh, true, updateDupID);
+      iface_->putStoredHeader(sbh, fnum, offset, true, updateDupID, true);
    }
    else
    {
@@ -1999,5 +2008,51 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
       blkDataPosition_ = { 0, 0 };
    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::repairBlockDataDB(
+   set<BinaryData>& missingBlocksByHash)
+{
+   const auto blockCallback
+      = [&](const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
+   {
+      BlockHeader bhUnser(blockdata);
+      auto hashIter = missingBlocksByHash.find(bhUnser.getThisHash());
+
+      if (hashIter != missingBlocksByHash.end())
+      {
+         LMDBEnv::Transaction tx;
+         iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
+
+         BinaryRefReader brr(blockdata);
+         addRawBlockToDB(brr, pos.first, pos.second, true);
+
+         missingBlocksByHash.erase(hashIter);
+
+         if (missingBlocksByHash.size() == 0)
+            throw FoundAllBlocksException();
+      }
+   };
+
+   try
+   {
+      BlockFileAccessor bfa(readBlockHeaders_->getBlkFiles());
+      readBlockHeaders_->readRawBlocksFromTop(bfa,
+         readBlockHeaders_->numBlockFiles() - 1,
+         blockCallback);
+   }
+   catch (FoundAllBlocksException&)
+   {
+      //graceful throw, move on
+   }
+
+   if (missingBlocksByHash.size() > 0)
+      throw runtime_error("Failed to repair BLKDATA DB, Armory will now shutdown. "
+      "If the error persists, do a factory reset.");
+
+   LOGINFO << "BLKDATA DB was repaired successfully";
+
+}
+
 
 // kate: indent-width 3; replace-tabs on;
