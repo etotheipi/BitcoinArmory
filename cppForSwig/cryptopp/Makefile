@@ -10,7 +10,8 @@ RANLIB = ranlib
 CP = cp
 MKDIR = mkdir
 EGREP = egrep
-UNAME = $(shell uname)
+# JB: UNAME comes from cppForSwig/Makefile
+#UNAME = $(shell uname)
 ISX86 = $(shell uname -m | $(EGREP) -c "i.86|x86|i86|amd64")
 
 # Default prefix for make install
@@ -92,9 +93,11 @@ endif
 endif
 
 ifeq ($(UNAME),Darwin)
-AR = libtool
-ARFLAGS = -static -o
-CXX = c++
+# JB: Fix this so c++ is used if compiling natively
+#AR = libtool
+#ARFLAGS = -static -o
+#CXX = c++
+CXX = clang++
 IS_GCC2 = $(shell $(CXX) -v 2>&1 | $(EGREP) -c gcc-932)
 ifeq ($(IS_GCC2),1)
 CXXFLAGS += -fno-coalesce-templates -fno-coalesce-static-vtables

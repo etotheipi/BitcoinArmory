@@ -3,10 +3,23 @@ LINK = $(CXX)
 PYTHON_INCLUDES=@PYTHON_INCLUDES@
 PYTHON_LIBS=@PYTHON_LIBS@
 
+if TARGET_LINUX
+UNAME=Linux
+else
+if TARGET_WINDOWS
+UNAME=Windows
+else
+if TARGET_DARWIN
+UNAME=Darwin
+endif
+endif
+endif
+
 # Export variables to make them available to cryptopp Makefile.
 export AR
 export CXX
 export RANLIB
+export UNAME
 
 if TARGET_LINUX
 CRYPTOPP_EXT=.a
@@ -18,6 +31,10 @@ if TARGET_DARWIN
 CRYPTOPP_EXT=.a
 endif
 endif
+endif
+
+if TARGET_DARWIN
+LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
 endif
 
 OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
@@ -34,6 +51,11 @@ SWIG_OPTS    = -c++ -python -threads
 SWIG_INC     =
 
 CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
+
+if TARGET_DARWIN
+CXXCPP += -stdlib=libc++ -I/usr/include/c++/v1
+LDLIBS += -lc++
+endif
 
 # each .o file depends on all .h files
 EVERY_HEADER = bdmenums.h BDM_mainthread.h BDM_supportClasses.h BinaryData.h \
