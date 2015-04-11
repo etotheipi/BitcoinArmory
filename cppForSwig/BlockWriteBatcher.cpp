@@ -2116,10 +2116,10 @@ void BlockDataThread::prepareUndoData(
    for (auto& stx : values(block->stxMap_))
    {
       // Convert to a regular tx to make accessing TxIns easier
-      for (uint32_t iin = 0; iin<stx.txInIndexes_.size() -1; iin++)
+      for (uint32_t iin = 0; iin < stx.txInIndexes_.size() - 1; iin++)
       {
          BinaryDataRef prevHash = stx.txHash34_[iin].getSliceRef(0, 32);
-         uint16_t prevIndex = 
+         uint16_t prevIndex =
             READ_UINT16_BE(stx.txHash34_[iin].getSliceRef(32, 2));
 
          // Skip if coinbase input
@@ -2129,10 +2129,14 @@ void BlockDataThread::prepareUndoData(
          // Above we checked the block to be undone is full, but we
          // still need to make sure the prevTx we just fetched has our data.
          StoredTx prevStx;
-         BlockWriteBatcher::iface_->getStoredTx(prevStx, prevHash);
-         if (KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
+         if(!BlockWriteBatcher::iface_->getStoredTx(prevStx, prevHash))
          {
-            throw runtime_error("Cannot get undo data for block because not full!");
+            if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+            {
+               throw runtime_error("Cannot get undo data for block because not full!");
+            }
+
+            continue;
          }
 
          // 
