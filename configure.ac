@@ -2,7 +2,7 @@ dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
 define(_CLIENT_VERSION_IS_RELEASE, false)
 define(_COPYRIGHT_YEAR, 2015)
-AC_INIT([Armory],m4_esyscmd([grep "^BTCARMORY_VERSION" armoryengine/ArmoryUtils.py | cut -d "(" -f2 | cut -d ")" -f1 | tr -d '[[:space:]]' | tr ',' '.']),[bugs@bitcoinarmory.com])
+AC_INIT([Armory],m4_esyscmd([grep "^BTCARMORY_VERSION" armoryengine/ArmoryUtils.py | cut -d "(" -f2 | cut -d ")" -f1 | tr -d '[[:space:]]' | tr ',' '.']))
 AC_CONFIG_SRCDIR([cppForSwig/BlockObj.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 
