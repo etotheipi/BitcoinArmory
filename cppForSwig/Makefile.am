@@ -50,7 +50,7 @@ SWIG_OPTS    = -c++ -python -threads
 
 SWIG_INC     =
 
-CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
+CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES)
 
 if TARGET_DARWIN
 CXXCPP += -stdlib=libc++ -I/usr/include/c++/v1

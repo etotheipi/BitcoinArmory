@@ -5,6 +5,7 @@ define(_COPYRIGHT_YEAR, 2015)
 AC_INIT([Armory],m4_esyscmd([grep "^BTCARMORY_VERSION" armoryengine/ArmoryUtils.py | cut -d "(" -f2 | cut -d ")" -f1 | tr -d '[[:space:]]' | tr ',' '.']))
 AC_CONFIG_SRCDIR([cppForSwig/BlockObj.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIR([build-aux/m4])
 
 AC_CANONICAL_HOST
 
@@ -67,6 +68,9 @@ AM_PROG_AR
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_RANLIB
+
+dnl Check for C++11 strict conformance mode (-std=c++11)
+AX_CXX_COMPILE_STDCXX_11([noext])
 
 AC_CONFIG_FILES([Makefile cppForSwig/Makefile])
 AC_OUTPUT
