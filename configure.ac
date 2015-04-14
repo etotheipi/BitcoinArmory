@@ -28,6 +28,13 @@ esac
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
 
+# Enable debug
+AC_ARG_ENABLE([debug],
+    [AS_HELP_STRING([--enable-debug],
+                    [use debug compiler flags and macros (default is no)])],
+    [enable_debug=$enableval],
+    [enable_debug=no])
+
 dnl Define variables
 AC_ARG_VAR([PYVER], [Defines the version of Python to use (e.g. python2.7)])
 if test "x$PYVER" = "x"; then
@@ -45,11 +52,9 @@ AC_SUBST(PYTHON_LIBS)
 AM_CONDITIONAL([TARGET_LINUX], [test x$TARGET_OS = xlinux])
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
-AM_CONDITIONAL([DEBUG], [test x = y])
 
 dnl Set compiler flags
-dnl Use "x" = "y" for now to force non-debug mode until flag is added
-if test "x" = "y"; then
+if test "x$enable_debug" = xyes; then
     CFLAGS='-g3 -Wall -pipe -fPIC'
     CXXFLAGS='-g3 -Wall -pipe -fPIC'
 else
