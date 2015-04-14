@@ -434,6 +434,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\Progress.h" />
     <ClInclude Include="..\ReorgUpdater.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
+    <ClInclude Include="..\SSHheaders.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeContainer.h" />
     <ClInclude Include="..\txio.h" />
@@ -463,6 +464,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClCompile Include="..\lmdb_wrapper.cpp" />
     <ClCompile Include="..\Progress.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
+    <ClCompile Include="..\SSHheaders.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

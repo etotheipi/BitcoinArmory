@@ -15,6 +15,7 @@
 #include "BinaryData.h"
 #include "ScrAddrObj.h"
 #include "BtcWallet.h"
+#include "SSHheaders.h"
 
 
 class ZeroConfContainer;
@@ -227,6 +228,7 @@ private:
    void scanScrAddrThread(void);
    void buildSideScanData(
       const map<shared_ptr<BtcWallet>, vector<BinaryData>>& wltnAddrMap);
+   void buildSSHKeys(void);
 };
 
 class ZeroConfContainer

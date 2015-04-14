@@ -108,7 +108,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRTDBG_MAP_ALLOC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;C:\Python27_64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
     </ClCompile>
     <Link>
@@ -189,6 +189,7 @@
     <ClInclude Include="..\Progress.h" />
     <ClInclude Include="..\ReorgUpdater.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
+    <ClInclude Include="..\SSHheaders.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeContainer.h" />
     <ClInclude Include="..\txio.h" />
@@ -219,6 +220,7 @@
     <ClCompile Include="..\lmdb_wrapper.cpp" />
     <ClCompile Include="..\Progress.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
+    <ClCompile Include="..\SSHheaders.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

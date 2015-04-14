@@ -1382,7 +1382,7 @@ void BlockDataManager_LevelDB::loadDiskState(
                continue;
             }
 
-            auto blockKey = DBUtils::getBlkDataKey(i, dupId);
+            auto blockKey = DBUtils::getBlkMetaKey(i, dupId);
             auto blockData = iface_->getValueNoCopy(BLKDATA, blockKey);
             if (blockData.getSize() == 0)
                missingBlocks.insert(i);

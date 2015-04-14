@@ -13,6 +13,7 @@
 #include "BlockUtils.h"
 #include "log.h"
 #include "txio.h"
+#include "SSHheaders.h"
 
 #include <thread>
 #include <condition_variable>
@@ -402,6 +403,13 @@ public:
 
 private:
    LoadedBlockData(const LoadedBlockData&) = delete;
+   BFA_PREFETCH getPrefetchMode(void)
+   {
+      if (startBlock_ < endBlock_ && endBlock_ - startBlock_ > 100)
+         return PREFETCH_FORWARD;
+      
+      return PREFETCH_NONE;
+   }
 
 public:
    ~LoadedBlockData(void)
@@ -416,7 +424,7 @@ public:
    LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf,
       uint32_t nthreads) :
       startBlock_(start), endBlock_(end), scrAddrFilter_(scf),
-      BFA_(scf.getDb()->getBlkFiles()), nThreads_(nthreads)
+      BFA_(scf.getDb()->getBlkFiles(), getPrefetchMode()), nThreads_(nthreads)
    {
       currentHeight_ = start;
 
@@ -474,33 +482,6 @@ struct keyHasher
 
       return *keyHash;
    }
-};
-
-class SSHheaders
-{
-public:
-   SSHheaders(uint32_t nThreads)
-      : nThreads_(nThreads)
-   {}
-
-   unique_lock<mutex>* getSshHeaders(shared_ptr<BlockDataContainer>);
-   void buildSshHeadersFromSAF(const ScrAddrFilter& SAF);
-
-private:
-   void processSshHeaders(
-      shared_ptr<BlockDataContainer>,
-      const map<BinaryData, StoredScriptHistory>&);
-   void fetchSshHeaders(map<BinaryData, StoredScriptHistory>& sshMap,
-      const vector<const BinaryData*>& saVec);
-   void checkForSubKeyCollisions(void);
-   
-   ///////
-public:
-   shared_ptr<map<BinaryData, StoredScriptHistory> > sshToModify_;
-   mutex mu_;
-
-private:
-   const uint32_t nThreads_;
 };
 
 struct STXOS;

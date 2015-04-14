@@ -1057,7 +1057,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
    putValue(HISTORY, ssh.getDBKey(), 
       serializeDBValue(ssh, armoryDbType_, dbPruneType_));
 
-   map<BinaryData, StoredSubHistory>::iterator iter;
+   /*map<BinaryData, StoredSubHistory>::iterator iter;
    for (iter = ssh.subHistMap_.begin();
       iter != ssh.subHistMap_.end();
       iter++)
@@ -1067,7 +1067,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
          putValue(HISTORY, subssh.getDBKey(),
             serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
          );
-   }
+   }*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
