@@ -27,7 +27,7 @@ zopeVer      = '4.1.2'
 twistedVer   = '15.0.0'
 libpngVer    = '1.6.16'
 libpngVerAlt = '1'
-qtVerDate    = '2015-04-07-6'
+qtVerDate    = '2015-04-14-7'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
 sipVer       = '4.16.7' # NB: ArmoryMac.pro must also be kept up to date!!!
