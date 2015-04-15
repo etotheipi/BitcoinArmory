@@ -22,6 +22,11 @@ ifeq ($(CXX),gcc)	# for some reason CXX is gcc on cygwin 1.1.4
 CXX = g++
 endif
 
+# Workaround for clang parsing issue.
+ifeq ($(CXX),clang++)
+CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
+endif
+
 ifeq ($(ISX86),1)
 
 GCC42_OR_LATER = $(shell $(CXX) -v 2>&1 | $(EGREP) -c "^gcc version (4.[2-9]|[5-9])")
