@@ -62,9 +62,10 @@ from dynamicImport import MODULE_PATH_KEY, ZIP_EXTENSION, getModuleList, importM
 import tempfile
 
 
+# JB: Disable ArmoryMac until we have it building with autotools
 # Load our framework with OS X-specific code.
-if OS_MACOSX:
-   import ArmoryMac
+#if OS_MACOSX:
+#   import ArmoryMac
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -122,8 +123,9 @@ class ArmoryMainWindow(QMainWindow):
       else:
          if USE_TESTNET:
             self.iconfile = ':/armory_icon_green_fullres.png'
-            ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
-            ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
+            # JB: Disable ArmoryMac until we have it building with autotools
+            #ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
+            #ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.netMode     = NETWORKMODE.Offline
