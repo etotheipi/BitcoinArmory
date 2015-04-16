@@ -79,7 +79,7 @@ all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 #**************************************************************************
 libcryptopp$(CRYPTOPP_EXT): Makefile
-	$(MAKE) -C cryptopp libcryptopp$(CRYPTOPP_EXT) RANLIB=$(RANLIB)
+	$(MAKE) -C cryptopp libcryptopp$(CRYPTOPP_EXT) RANLIB="$(RANLIB)" CXX="$(CXX)"
 	mv cryptopp/libcryptopp$(CRYPTOPP_EXT) .
 
 mdb.o: mdb/mdb.c mdb/lmdb.h mdb/midl.h

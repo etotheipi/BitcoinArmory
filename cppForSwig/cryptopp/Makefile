@@ -98,6 +98,7 @@ ifeq ($(UNAME),Darwin)
 #ARFLAGS = -static -o
 #CXX = c++
 CXX = clang++
+CXXFLAGS += -I/usr/include/c++/v1
 IS_GCC2 = $(shell $(CXX) -v 2>&1 | $(EGREP) -c gcc-932)
 ifeq ($(IS_GCC2),1)
 CXXFLAGS += -fno-coalesce-templates -fno-coalesce-static-vtables
@@ -112,7 +113,7 @@ endif
 
 # ARMORY - If using clang outside OS X for some reason, disable ASM.
 # http://llvm.org/bugs/show_bug.cgi?id=18916
-ifeq ($(CXX),clang++)
+ifneq (,$(findstring clang++,$(CXX)))
 CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
 endif
 
