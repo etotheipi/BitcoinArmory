@@ -34,6 +34,8 @@ endif
 endif
 
 if TARGET_DARWIN
+MACOSX_DEPLOYMENT_TARGET=10.7
+export MACOSX_DEPLOYMENT_TARGET
 LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
 endif
 
@@ -53,8 +55,11 @@ SWIG_INC     =
 CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES)
 
 if TARGET_DARWIN
-CXXCPP += -stdlib=libc++ -I/usr/include/c++/v1
+CXXCPP += -stdlib=libc++
 LDLIBS += -lc++
+if BUILD_LINUX
+CXXCPP += -I/usr/include/c++/v1
+endif
 endif
 
 # each .o file depends on all .h files
