@@ -44,7 +44,7 @@ QMAKE_CXXFLAGS += -fno-exceptions
 DEFINES += SIP_PROTECTED_IS_PUBLIC protected=public
 # 4.8.7 upgrade
 #INCLUDEPATH = $$QT_UNPACK_BASE/mkspecs/unsupported/macx-clang-libc++ . $$QT_UNPACK_BASE/include/QtCore $$QT_UNPACK_BASE/include $$QT_UNPACK_BASE/include/QtGui .rcc/release-shared .moc $$SIP_UNPACK_BASE/siplib $$PYTHON_UNPACK_BASE/Include $$PYTHON_UNPACK_BASE/Mac/Include $$PYTHON_UNPACK_BASE
-INCLUDEPATH = $$QT_UNPACK_BASE/mkspecs/unsupported/macx-clang . $$QT_UNPACK_BASE/include/QtCore $$QT_UNPACK_BASE/include $$QT_UNPACK_BASE/include/QtGui .rcc/release-shared .moc $$SIP_UNPACK_BASE/siplib $$PYTHON_UNPACK_BASE/Include $$PYTHON_UNPACK_BASE/Mac/Include $$PYTHON_UNPACK_BASE
+INCLUDEPATH = $$QT_UNPACK_BASE/mkspecs/unsupported/macx-clang . $$QT_UNPACK_BASE/include/QtCore $$QT_UNPACK_BASE/include $$QT_UNPACK_BASE/include/QtGui .rcc/release-shared .moc $$SIP_UNPACK_BASE/siplib $$PYTHON_UNPACK_BASE/Include $$PYTHON_UNPACK_BASE/Mac/Include $$PYTHON_UNPACK_BASE $$system(python-config --includes | sed \'s/\-I//g\')
 QMAKE_LFLAGS += -lc++
 QMAKE_LFLAGS += "-undefined dynamic_lookup"
 

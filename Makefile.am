@@ -46,3 +46,21 @@ install-exec-local:
 	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
 	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
+
+if TARGET_DARWIN
+if BUILD_LINUX
+QMAKE=qmake-qt4
+SIPPYQTINCLUDEDIR=/usr/share/sip/PyQt4
+else
+if BUILD_DARWIN
+QMAKE=qmake
+SIPPYQTINCLUDEDIR=/System/Library/Frameworks/Python.framework/Versions/2.7/share/sip/PyQt4
+endif
+endif
+objc:
+	sip -w -x VendorID -t WS_MACX -t Qt_4_8_6 -x Py_v3 -B Qt_5_0_0 -o \
+		-P -g -c osxbuild/objc_armory/ -I $(SIPPYQTINCLUDEDIR) \
+		osxbuild/objc_armory/ArmoryMac.sip
+	$(QMAKE) osxbuild/objc_armory/ArmoryMac.pro -o osxbuild/objc_armory/
+	$(MAKE) -C osxbuild/objc_armory/ CC="$(CC)" CXX="$(CXX)" LINK="$(LINK)"
+endif # end TARGET_DARWIN
