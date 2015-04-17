@@ -1821,8 +1821,7 @@ class DlgWalletDetails(ArmoryDialog):
       chkDNAA = not self.main.getWltSetting(wlt.uniqueIDB58, 'DNAA_RemindBackup')
       chkDont = not self.main.getSettingOrSetDefault('DNAA_AllBackupWarn', False)
       if chkLoad and chkType and chkDNAA and chkDont:
-         from twisted.internet import reactor
-         reactor.callLater(1, remindBackup)
+         reactorCallLater(1, remindBackup)
          lbtnBackups.setText('<font color="%s"><b>Backup This Wallet</b></font>' \
                                                          % htmlColor('TextWarn'))
 
@@ -2714,9 +2713,6 @@ class DlgKeypoolSettings(ArmoryDialog):
          self.addressesWereGenerated = True
          self.main.forceNeedRescan = False
 
-      # We use callLater so that we can let the screen redraw with "Calculating..."
-      #from twisted.internet import reactor
-      #reactor.callLater(0.1, doit)
       doit()
 
 
@@ -7064,12 +7060,7 @@ class DlgPrintBackup(ArmoryDialog):
       def scrollTop():
          vbar = self.view.verticalScrollBar()
          vbar.setValue(vbar.minimum())
-      from twisted.internet import reactor
-      reactor.callLater(0.01, scrollTop)
-
-      # if len(self.bin
-         # reactor.callLater(0.5, warnImportedKeys)
-
+      reactorCallLater(0.01, scrollTop)
 
    def redrawBackup(self):
       cmbPage = 1
@@ -7798,8 +7789,7 @@ class DlgExecLongProcess(ArmoryDialog):
          self.func()
          self.accept()
 
-      from twisted.internet import reactor
-      reactor.callLater(0.1, execAndClose)
+      reactorCallLater(0.1, execAndClose)
       QDialog.exec_(self)
 
 
@@ -10008,8 +9998,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.setWindowTitle('Create Payment Request Link')
 
-      from twisted.internet import reactor
-      reactor.callLater(1, self.periodicUpdate)
+      reactorCallLater(1, self.periodicUpdate)
 
       hexgeom = str(self.main.settings.get('PayReqestGeometry'))
       if len(hexgeom) > 0:
@@ -10153,9 +10142,8 @@ class DlgRequestPayment(ArmoryDialog):
 
    def periodicUpdate(self, nsec=1):
       if not self.closed:
-         from twisted.internet import reactor
          self.updateQRCode()
-         reactor.callLater(nsec, self.periodicUpdate)
+         reactorCallLater(nsec, self.periodicUpdate)
 
    def updateQRCode(self, e=None):
       if not self.prevURI == self.rawURI:
@@ -10423,8 +10411,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       # TODO:  Dear god this is terrible, but for my life I cannot figure
       #        out how to move the vbar, because you can't do it until
       #        the dialog is drawn which doesn't happen til after __init__
-      from twisted.internet import reactor
-      reactor.callLater(0.05, self.resizeEvent)
+      reactorCallLater(0.05, self.resizeEvent)
 
       self.setWindowTitle(titleStr)
       self.setWindowIcon(QIcon(iconFile))
@@ -10877,8 +10864,7 @@ class DlgInstallLinux(ArmoryDialog):
       self.clickInstallOpt()
       self.setWindowTitle('Install Bitcoin in Linux')
 
-      from twisted.internet import reactor
-      reactor.callLater(0.2, self.main.checkForLatestVersion)
+      reactorCallLater(0.2, self.main.checkForLatestVersion)
 
    #############################################################################
    def tryManualInstall(self):
@@ -10940,13 +10926,8 @@ class DlgInstallLinux(ArmoryDialog):
 
       QMessageBox.information(self, 'Succeeded', \
          'The download succeeded!', QMessageBox.Ok)
-      from twisted.internet import reactor
-      reactor.callLater(0.5, self.main.executeModeSwitch)
+      reactorCallLater(0.5, self.main.executeModeSwitch)
       self.accept()
-
-
-
-
 
    #############################################################################
    def clickInstallOpt(self):
@@ -10995,8 +10976,7 @@ def tryInstallLinux(main):
                              timeout=120)
       try:
          TheSDM.setupSDM()
-         from twisted.internet import reactor
-         reactor.callLater(0.1, main.executeModeSwitch)
+         reactorCallLater(0.1, main.executeModeSwitch)
          QMessageBox.information(main, 'Success!', \
             'The installation appears to have succeeded!')
       except:
@@ -11110,9 +11090,7 @@ class DlgDownloadFile(ArmoryDialog):
       def startBackgroundDownload(dlg):
          thr = PyBackgroundThread(dlg.startDL)
          thr.start()
-      #print 'Starting download in 1s...'
-      from twisted.internet import reactor
-      reactor.callLater(1, startBackgroundDownload, self)
+      reactorCallLater(1, startBackgroundDownload, self)
       self.main.extraHeartbeatSpecial.append(self.checkDownloadProgress)
       self.setWindowTitle('Downloading File...')
 
@@ -11193,8 +11171,7 @@ class DlgDownloadFile(ArmoryDialog):
 
    def checkDownloadProgress(self):
       if self.StopDownloadFlag:
-         from twisted.internet import reactor
-         reactor.callLater(1, self.reject)
+         reactorCallLater(1, self.reject)
          return -1
 
       if self.dlFileSize == 0:
@@ -11218,8 +11195,7 @@ class DlgDownloadFile(ArmoryDialog):
 
 
          if self.dlInstallStatus > self.STEPS.Verify:
-            from twisted.internet import reactor
-            reactor.callLater(2, self.accept)
+            reactorCallLater(2, self.accept)
             return -1
          else:
             return 0.1
@@ -11505,8 +11481,7 @@ class DlgExpWOWltData(ArmoryDialog):
       # TODO:  Dear god this is terrible, but for my life I cannot figure
       #        out how to move the vbar, because you can't do it until
       #        the dialog is drawn which doesn't happen til after __init__.
-      from twisted.internet import reactor
-      reactor.callLater(0.05, self.resizeEvent)
+      reactorCallLater(0.05, self.resizeEvent)
 
       self.setWindowTitle(titleStr)
 
@@ -11601,8 +11576,7 @@ class DlgWODataPrintBackup(ArmoryDialog):
       def scrollTop():
          vbar = self.view.verticalScrollBar()
          vbar.setValue(vbar.minimum())
-      from twisted.internet import reactor
-      reactor.callLater(0.01, scrollTop)
+      reactorCallLater(0.01, scrollTop)
 
 
    # Class called to redraw the print "canvas" when the data changes.

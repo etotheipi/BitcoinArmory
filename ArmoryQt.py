@@ -822,16 +822,15 @@ class ArmoryMainWindow(QMainWindow):
 
       self.setDashboardDetails()
 
-      from twisted.internet import reactor
-      reactor.callLater(0.1,  self.execIntroDialog)
-      reactor.callLater(1, self.Heartbeat)
+      reactorCallLater(0.1,  self.execIntroDialog)
+      reactorCallLater(1, self.Heartbeat)
 
       if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
          LOGINFO('MinimizeOnOpen is True')
-         reactor.callLater(0, self.minimizeArmory)
+         reactorCallLater(0, self.minimizeArmory)
 
       if CLI_ARGS:
-         reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+         reactorCallLater(1, self.uriLinkClicked, CLI_ARGS[0])
 
       # Now that construction of the UI is done
       # Check for warnings to be displayed
@@ -2546,7 +2545,6 @@ class ArmoryMainWindow(QMainWindow):
 
          # Actually setup the networking, now
          from twisted.internet import reactor
-
          def showOfflineMsg():
             self.netMode = NETWORKMODE.Disconnected
             self.setDashboardDetails()
@@ -3786,8 +3784,8 @@ class ArmoryMainWindow(QMainWindow):
          # Send the Tx after a short delay, give the system time to see the Tx
          # on the network and process it, and check to see if the Tx was seen.
          # We may change this setup in the future, but for now....
-         reactor.callLater(3, sendGetDataMsg)
-         reactor.callLater(7, checkForTxInBDM)
+         reactorCallLater(3, sendGetDataMsg)
+         reactorCallLater(7, checkForTxInBDM)
 
 
    #############################################################################
@@ -6388,14 +6386,14 @@ class ArmoryMainWindow(QMainWindow):
          try:
             nextBeat = fn()
             if nextBeat>0:
-               reactor.callLater(nextBeat, self.Heartbeat)
+               reactorCallLater(nextBeat, self.Heartbeat)
             else:
                self.extraHeartbeatSpecial = []
-               reactor.callLater(1, self.Heartbeat)
+               reactorCallLater(1, self.Heartbeat)
          except:
             LOGEXCEPT('Error in special heartbeat function')
             self.extraHeartbeatSpecial = []
-            reactor.callLater(1, self.Heartbeat)
+            reactorCallLater(1, self.Heartbeat)
          return
 
 
@@ -6512,7 +6510,7 @@ class ArmoryMainWindow(QMainWindow):
          errStr = 'Error Type: %s\nError Value: %s' % (errType, errVal)
          LOGERROR(errStr)
       finally:
-         reactor.callLater(nextBeatSec, self.Heartbeat)
+         reactorCallLater(nextBeatSec, self.Heartbeat)
 
 
    #############################################################################

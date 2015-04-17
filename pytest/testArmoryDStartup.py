@@ -102,6 +102,7 @@ class ArmoryDStartupTest(TiabTest):
    def tearDown(self):
       self.armoryDSession.clean()
 
+   
    def testJSONGetinfo(self):
       self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       actualResult = json.loads(self.armoryDSession.callArmoryD(['getarmorydinfo']))

@@ -3760,3 +3760,10 @@ def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
                 INTERNET_STATUS.Unavailable and \
       satoshiIsAvailable() and \
       os.path.exists(os.path.join(btcdir, 'blocks'))
+
+# Use Twisted reactor callLater to make sure reactor is imported just before using it
+# Also this consolidates all Eclipse error indicators into one line
+def reactorCallLater(callDelay, callable, *args, **kwargs):
+   from twisted.internet import reactor
+   reactor.callLater(callDelay, callable, *args, **kwargs)
+

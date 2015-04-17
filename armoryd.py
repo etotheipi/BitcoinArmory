@@ -3020,7 +3020,7 @@ class Armory_Daemon(object):
                               interface="127.0.0.1")
 
             # Setup the heartbeat function to run every
-            reactor.callLater(3, self.Heartbeat)
+            reactorCallLater(3, self.Heartbeat)
          else:
             errStr = 'armoryd is not ready to run! Please check to see if ' \
                      'bitcoind is running and the Blockchain files ' \
@@ -3349,7 +3349,7 @@ class Armory_Daemon(object):
          LOGERROR('Error Type: %s' % errType)
          LOGERROR('Error Value: %s' % errVal)
       finally:
-         reactor.callLater(nextBeatSec, self.Heartbeat)
+         reactorCallLater(nextBeatSec, self.Heartbeat)
 
 
 if __name__ == "__main__":
