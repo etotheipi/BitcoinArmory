@@ -63,4 +63,20 @@ objc:
 		osxbuild/objc_armory/ArmoryMac.sip
 	$(QMAKE) osxbuild/objc_armory/ArmoryMac.pro -o osxbuild/objc_armory/
 	$(MAKE) -C osxbuild/objc_armory/ CC="$(CC)" CXX="$(CXX)" LINK="$(LINK)"
+
+Armory.app: Armory-tmp
+	rm -rf osxbuild/$@
+	cp -r osxbuild/Armory-tmp osxbuild/$@
+
+Armory-tmp: all
+	rm -rf osxbuild/Armory-tmp osxbuild/$@
+	mkdir -p osxbuild/Armory-tmp/Contents/MacOS/py
+	mkdir -p osxbuild/Armory-tmp/Contents/Resources
+	$(MAKE) DESTDIR=osxbuild/Armory-tmp/Contents/MacOS/py PREFIX=/usr install
+	cp osxbuild/Info.plist osxbuild/Armory-tmp/Contents
+	cp img/armory_icon_fullres.icns osxbuild/Armory-tmp/Contents/Resources/Icon.icns
+	cp osxbuild/Armory-script-autotools.sh osxbuild/Armory-tmp/Contents/MacOS/Armory
+	cp osxbuild/armoryd-script-autotools.sh osxbuild/Armory-tmp/Contents/MacOS/armoryd
+	chmod +x osxbuild/Armory-tmp/Contents/MacOS/Armory
+	chmod +x osxbuild/Armory-tmp/Contents/MacOS/armoryd
 endif # end TARGET_DARWIN
