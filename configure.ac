@@ -26,6 +26,20 @@ case $host in
         ;;
 esac
 
+case $build_os in
+    *mingw*)
+        BUILD_OS=windows
+        ;;
+    *darwin*)
+        BUILD_OS=darwin
+        ;;
+    *linux*)
+        BUILD_OS=linux
+        ;;
+    *)
+        ;;
+esac
+
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
 
@@ -53,6 +67,9 @@ AC_SUBST(PYTHON_LIBS)
 AM_CONDITIONAL([TARGET_LINUX], [test x$TARGET_OS = xlinux])
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
+AM_CONDITIONAL([BUILD_LINUX], [test x$BUILD_OS = xlinux])
+AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
+AM_CONDITIONAL([BUILD_WINDOWS], [test x$BUILD_OS = xwindows])
 
 dnl Set compiler flags
 if test "x$enable_debug" = xyes; then
