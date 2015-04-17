@@ -350,7 +350,7 @@ public:
    // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    static SecureBinaryData SignData(SecureBinaryData const & binToSign, 
                                     BTC_PRIVKEY const & cppPrivKey,
-                                    const bool& detSign = true);
+                                    const bool& detSign = false);
 
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
