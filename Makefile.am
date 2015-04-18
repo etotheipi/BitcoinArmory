@@ -53,7 +53,7 @@ QMAKE=qmake-qt4
 SIPPYQTINCLUDEDIR=/usr/share/sip/PyQt4
 else
 if BUILD_DARWIN
-QMAKE=qmake
+QMAKE=qmake -spec macx-g++
 SIPPYQTINCLUDEDIR=/System/Library/Frameworks/Python.framework/Versions/2.7/share/sip/PyQt4
 endif
 endif
