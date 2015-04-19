@@ -98,7 +98,6 @@ import json
 import sys
 
 from twisted.cred.checkers import FilePasswordDB
-from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory  # REMOVE IN 0.93
 from twisted.web import server
 from txjsonrpc.auth import wrapResource
@@ -3015,7 +3014,7 @@ class Armory_Daemon(object):
             secured_resource = self.set_auth(self.resource)
 
             # This is LISTEN call for armory RPC server
-            reactor.listenTCP(ARMORY_RPC_PORT, \
+            reactorListenTCP(ARMORY_RPC_PORT, \
                               server.Site(secured_resource), \
                               interface="127.0.0.1")
 
@@ -3053,7 +3052,7 @@ class Armory_Daemon(object):
                         func_newTx       = self.execOnNewTx, \
                         func_newBlock    = self.execOnNewBlock)
 
-         reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+         reactorConnectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
          # give access to the networking factory from json-rpc listener
          self.resource.NetworkingFactory = self.NetworkingFactory
 
@@ -3111,7 +3110,7 @@ class Armory_Daemon(object):
                   self.WltMap[wltID].isEnabled = True
                else:
                   if wltID not in self.lboxMap:
-                     raise RuntimeError("cpp says %s exists, but armoryd can't find it" % wltId)
+                     raise RuntimeError("cpp says %s exists, but armoryd can't find it" % wltID)
                   self.lboxMap[wltID].isEnabled = True
 
                #no progress repoting in armoryd yet
@@ -3174,7 +3173,7 @@ class Armory_Daemon(object):
          LOGWARN('Registering wallet: %s' % wltID)
          wlt.registerWallet()
       TheBDM.goOnline()
-      reactor.run()
+      reactorRun()
 
    #############################################################################
    @classmethod

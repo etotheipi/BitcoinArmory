@@ -227,6 +227,7 @@ class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
 class NonBase58CharacterError(Exception): pass
 class isMSWallet(Exception): pass
+class ReactorListenError(Exception): pass
 
 # Get the host operating system
 opsys = platform.system()
@@ -3761,9 +3762,47 @@ def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
       satoshiIsAvailable() and \
       os.path.exists(os.path.join(btcdir, 'blocks'))
 
-# Use Twisted reactor callLater to make sure reactor is imported just before using it
-# Also this consolidates all Eclipse error indicators into one line
-def reactorCallLater(callDelay, callable, *args, **kwargs):
+# Have to make sure reactor is imported just before using it
+# Eclipse doesn't recognize twisted reactor methods
+# Also this consolidates all Eclipse error indicators into one area
+# so that the rest of the code base can avoid show
+# false errors in eclipse
+def reactorCallLater(*args, **kwargs):
    from twisted.internet import reactor
-   reactor.callLater(callDelay, callable, *args, **kwargs)
+   reactor.callLater(*args, **kwargs)
 
+def reactorRun(*args, **kwargs):
+   from twisted.internet import reactor
+   reactor.run(*args, **kwargs)
+
+def reactorStop(*args, **kwargs):
+   from twisted.internet import reactor
+   reactor.stop(*args, **kwargs)
+   
+def reactorRunReturn(*args, **kwargs):
+   from twisted.internet import reactor
+   reactor.runReturn(*args, **kwargs)
+
+def reactorListenTCP(*args, **kwargs):
+   from twisted.internet import reactor
+   from twisted.internet import error
+   try:
+      reactor.listenTCP(*args, **kwargs)
+   except error.CannotListenError:
+      raise ReactorListenError
+
+def reactorConnectTCP(*args, **kwargs):
+   from twisted.internet import reactor
+   reactor.connectTCP(*args, **kwargs)
+   
+def reactorCallWhenRunning(*args, **kwargs):
+   from twisted.internet import reactor
+   reactor.callWhenRunning(*args, **kwargs)
+
+def reactorAddSystemEventTrigger(*args, **kwargs):
+   from twisted.internet import reactor
+   reactor.addSystemEventTrigger(*args, **kwargs)
+
+def reactorGetThreadPool():
+   from twisted.internet import reactor
+   return reactor.threadpool

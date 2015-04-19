@@ -46,6 +46,8 @@ from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 from armoryengine.parseAnnounce import changelogParser, downloadLinkParser, \
    notificationParser
+from armoryengine.ArmoryUtils import ReactorListenError, reactorRunReturn,\
+   reactorAddSystemEventTrigger
 from armorymodels import *
 from jasvet import verifySignature
 import qrc_img_resources
@@ -2283,7 +2285,6 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('Setting up networking...')
 
       # Prevent Armory from being opened twice
-      from twisted.internet import reactor
       import twisted
       def uriClick_partial(a):
          self.uriLinkClicked(a)
@@ -2292,8 +2293,8 @@ class ArmoryMainWindow(QMainWindow):
          try:
             self.InstanceListener = ArmoryListenerFactory(self.bringArmoryToFront, \
                                                           uriClick_partial )
-            reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener)
-         except twisted.internet.error.CannotListenError:
+            reactorListenTCP(CLI_OPTIONS.interport, self.InstanceListener)
+         except ReactorListenError:
             LOGWARN('Socket already occupied!  This must be a duplicate Armory')
             QMessageBox.warning(self, tr('Already Open'), tr("""
                Armory is already running!  You can only have one Armory open
@@ -2544,7 +2545,6 @@ class ArmoryMainWindow(QMainWindow):
          # the very first time and never afterwards.
 
          # Actually setup the networking, now
-         from twisted.internet import reactor
          def showOfflineMsg():
             self.netMode = NETWORKMODE.Disconnected
             self.setDashboardDetails()
@@ -2587,7 +2587,7 @@ class ArmoryMainWindow(QMainWindow):
                                       func_loseConnect=showOfflineMsg,
                                       func_madeConnect=showOnlineMsg,
                                       func_newTx=self.newTxFunc)
-         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1',
+         reactorCallWhenRunning(reactorConnectTCP, '127.0.0.1',
                                  BITCOIN_PORT,
                                  self.SingletonConnectedNetworkingFactory)
       return self.SingletonConnectedNetworkingFactory
@@ -6796,11 +6796,8 @@ class ArmoryMainWindow(QMainWindow):
       except:
          pass
 
-      
-
-      from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
-      reactor.stop()
+      reactorStop()
     
 
    #############################################################################
@@ -7134,13 +7131,12 @@ if 1:
 
    SPLASH.finish(form)
 
-   from twisted.internet import reactor
    def endProgram():
-      if reactor.threadpool is not None:
-         reactor.threadpool.stop()
+      if reactorGetThreadPool() is not None:
+         reactorGetThreadPool().stop()
       QAPP.quit()
 
-   reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
+   reactorAddSystemEventTrigger('before', 'shutdown', endProgram)
    QAPP.setQuitOnLastWindowClosed(True)
-   reactor.runReturn()
+   reactorRunReturn()
    os._exit(QAPP.exec_())

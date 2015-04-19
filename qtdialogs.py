@@ -7792,11 +7792,6 @@ class DlgExecLongProcess(ArmoryDialog):
       reactorCallLater(0.1, execAndClose)
       QDialog.exec_(self)
 
-
-
-
-
-
 ################################################################################
 class DlgECDSACalc(ArmoryDialog):
    def __init__(self, parent=None, main=None, tabStart=0):
