@@ -1,0 +1,31 @@
+There are some files in this directory relating to building Qt 5 for the Mac.
+There is build-qt5.sh, which is the script you run to download the Qt 5 source
+and build it. Currently it has been tested with building from a Linux machine.
+There is also qt5-qmake.conf, which is used by the build-qt5.sh script.
+
+Building natively on the Mac probably doesn't work right now. The next step is
+to make sure the native Mac builds also work.
+
+(1) Install the Mac SDK. The Mac SDK is included with Xcode. The build-qt5.sh
+    script has been tested with (and currently expects) the 10.9 SDK. On Linux,
+    the SDK's contents should be placed in /usr/share/Mac10.9.sdk/.
+
+(2) Install cctools-port if building on Linux. I had to use the first link on
+    Debian Jessie, but the second link is the version used by BC Core.
+
+    https://github.com/tpoechtrager/cctools-port
+    https://github.com/theuni/cctools-port
+
+(3) Run ./build-qt5.sh in a terminal (command line).
+
+(4) You should find the result of the Qt 5 build in install-qt5.
+
+Notes:
+
+* We use Qt 5.2.1 like BC Core uses, because newer versions of Qt 5 require
+  Xcode to build for OS X. See https://bugreports.qt.io/browse/QTBUG-41908 for
+  more information. Requiring Xcode is a problem for cross-builds.
+
+* Building Qt 4 with a similar script was attempted, but it seems like Qt 5 was
+  better designed with cross-compilation in mind than Qt 4 was. It seems like
+  it isn't worth it to try getting Qt 4 cross-compiling for OS X builds.

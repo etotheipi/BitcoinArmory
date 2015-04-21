@@ -65,6 +65,8 @@ osxbuild/env
 /osxbuild/build-app.log.txt
 /osxbuild/objc_armory/*
 /osxbuild/workspace/*
+osxbuild/install-qt4/
+osxbuild/install-qt5/
 
 /armory_*_raspbian-armhf*
 
