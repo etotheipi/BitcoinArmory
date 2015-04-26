@@ -15,23 +15,23 @@ clean-local:
 	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
 
 install-data-local:
-	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
-	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/share/applications
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/share/armory/img
 	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(PREFIX)/share/armory/
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 
 install-exec-local:
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/extras
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/extras
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/ui
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/pytest
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/urllib3
+	$(MKDIR_P) $(DESTDIR)$(PREFIX)/bin
 	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
 	cp *.py *.so README.md $(DESTDIR)$(PREFIX)/lib/armory/
@@ -70,8 +70,8 @@ Armory.app: Armory-tmp
 
 Armory-tmp: all
 	rm -rf osxbuild/Armory-tmp osxbuild/$@
-	mkdir -p osxbuild/Armory-tmp/Contents/MacOS/py
-	mkdir -p osxbuild/Armory-tmp/Contents/Resources
+	$(MKDIR_P) osxbuild/Armory-tmp/Contents/MacOS/py
+	$(MKDIR_P) osxbuild/Armory-tmp/Contents/Resources
 	$(MAKE) DESTDIR=osxbuild/Armory-tmp/Contents/MacOS/py PREFIX=/usr install
 	cp osxbuild/Info.plist osxbuild/Armory-tmp/Contents
 	cp img/armory_icon_fullres.icns osxbuild/Armory-tmp/Contents/Resources/Icon.icns

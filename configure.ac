@@ -81,6 +81,7 @@ dnl Compiler checks
 AM_PROG_AR
 AC_PROG_CC
 AC_PROG_CXX
+AC_PROG_MKDIR_P
 AC_PROG_RANLIB
 
 dnl Check for C++11 strict conformance mode (-std=c++11)
