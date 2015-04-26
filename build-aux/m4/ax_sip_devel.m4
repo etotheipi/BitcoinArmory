@@ -79,7 +79,7 @@ AC_MSG_CHECKING([for sip include path])
 
 dnl modified by ATI
 # check for QtCore/QtCoremod.sip
-for i in "$sip_search_dir" "/usr/share/sip"; do
+for i in "$sip_search_dir" "/usr/share/sip" "/System/Library/Frameworks/Python.framework/Versions/2.7/share/sip; do
         sip_path1=`find $i -type f -name QtCoremod.sip -print | sed "1q"`
         if test -n "$sip_path1"; then
                 break
