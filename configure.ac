@@ -86,6 +86,9 @@ AC_PROG_RANLIB
 dnl Check for C++11 strict conformance mode (-std=c++11)
 AX_CXX_COMPILE_STDCXX_11([noext])
 
+dnl Check for sip executable and sip include path
+AX_SIP_DEVEL
+
 dnl PyQt check
 
 AC_MSG_CHECKING([for PyQt])
