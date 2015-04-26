@@ -51,13 +51,10 @@ AC_ARG_ENABLE([debug],
     [enable_debug=no])
 
 dnl Define variables
-AC_ARG_VAR([PYVER], [Defines the version of Python to use (e.g. python2.7)])
-if test "x$PYVER" = "x"; then
-    PYVER="python"
-fi
+AM_PATH_PYTHON([2.7])
 
-PYTHON_INCLUDES=`$PYVER-config --includes`
-PYTHON_LIBS=`$PYVER-config --libs`
+PYTHON_INCLUDES=`$PYTHON-config --includes`
+PYTHON_LIBS=`$PYTHON-config --libs`
 
 
 dnl Make variables available to Makefiles
@@ -88,6 +85,47 @@ AC_PROG_RANLIB
 
 dnl Check for C++11 strict conformance mode (-std=c++11)
 AX_CXX_COMPILE_STDCXX_11([noext])
+
+dnl PyQt check
+
+AC_MSG_CHECKING([for PyQt])
+
+prog="[import sys
+try: import PyQt4
+except ImportError: sys.exit(1)
+sys.exit(0)]"
+
+${PYTHON} -c "${prog}"
+retval=$?
+
+if test $retval -ne 0; then
+    AC_MSG_RESULT([no])
+    AC_MSG_ERROR([cannot find PyQt])
+else
+    AC_MSG_RESULT([yes])
+fi
+
+dnl PyQt tools check
+
+prog="[import os, sys
+from PyQt4.QtCore import QCoreApplication
+app = QCoreApplication([])
+path = app.applicationDirPath()
+sys.stdout.write(path)]"
+
+PYPATH=`${PYTHON} -c "${prog}"`
+
+AC_ARG_VAR([PYRCC4], [PyQt4 resources compiler])
+
+if test "x$PYRCC4" = "x" ; then
+    AC_PATH_PROG([PYRCC4], [pyrcc4], [], [${PYPATH}:$PATH])
+fi
+
+if test "x$PYRCC4" = "x"; then
+    AC_MSG_ERROR([cannot find PyQt dev tools])
+fi
+
+dnl End PyQt tools check
 
 AC_CONFIG_FILES([Makefile cppForSwig/Makefile])
 AC_OUTPUT
