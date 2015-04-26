@@ -50,16 +50,14 @@ install-exec-local:
 if TARGET_DARWIN
 if BUILD_LINUX
 QMAKE=qmake-qt4
-SIPPYQTINCLUDEDIR=/usr/share/sip/PyQt4
 else
 if BUILD_DARWIN
 QMAKE=qmake -spec macx-g++
-SIPPYQTINCLUDEDIR=/System/Library/Frameworks/Python.framework/Versions/2.7/share/sip/PyQt4
 endif
 endif
 objc:
-	sip -w -x VendorID -t WS_MACX -t Qt_4_8_6 -x Py_v3 -B Qt_5_0_0 -o \
-		-P -g -c osxbuild/objc_armory/ -I $(SIPPYQTINCLUDEDIR) \
+	$(SIP) -w -x VendorID -t WS_MACX -t Qt_4_8_6 -x Py_v3 -B Qt_5_0_0 -o \
+		-P -g -c osxbuild/objc_armory/ $(SIP_CPPFLAGS) \
 		osxbuild/objc_armory/ArmoryMac.sip
 	$(QMAKE) osxbuild/objc_armory/ArmoryMac.pro -o osxbuild/objc_armory/
 	$(MAKE) -C osxbuild/objc_armory/ CC="$(CC)" CXX="$(CXX)" LINK="$(LINK)"
