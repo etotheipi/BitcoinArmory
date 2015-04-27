@@ -90,6 +90,9 @@ AX_CXX_COMPILE_STDCXX_11([noext])
 dnl Check for sip executable and sip include path
 AX_SIP_DEVEL
 
+dnl Check for swig
+AX_PKG_SWIG(, [], [AC_MSG_ERROR([swig is required to build])])
+
 dnl PyQt check
 
 AC_MSG_CHECKING([for PyQt])
