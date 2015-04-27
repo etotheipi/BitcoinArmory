@@ -66,7 +66,7 @@ Armory.app: Armory-tmp
 	rm -rf osxbuild/$@
 	cp -r osxbuild/Armory-tmp osxbuild/$@
 
-Armory-tmp: all
+Armory-tmp: all osxbuild/install-py3 osxbuild/install-qt5
 	rm -rf osxbuild/Armory-tmp osxbuild/$@
 	$(MKDIR_P) osxbuild/Armory-tmp/Contents/MacOS/py
 	$(MKDIR_P) osxbuild/Armory-tmp/Contents/Frameworks
@@ -81,4 +81,12 @@ Armory-tmp: all
 	cp -r osxbuild/install-qt5/lib/Qt{Core,Gui,Network}.framework osxbuild/Armory-tmp/Contents/Frameworks/
 	chmod +x osxbuild/Armory-tmp/Contents/MacOS/Armory
 	chmod +x osxbuild/Armory-tmp/Contents/MacOS/armoryd
+
+osxbuild/install-py3:
+	@echo "building py3"
+	cd osxbuild && ./build-py3.sh
+
+osxbuild/install-qt5:
+	@echo "building qt5"
+	cd osxbuild && ./build-qt5.sh
 endif # end TARGET_DARWIN
