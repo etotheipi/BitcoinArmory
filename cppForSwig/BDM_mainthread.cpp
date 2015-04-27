@@ -13,6 +13,10 @@
 #include <unistd.h>
 #include "pthread.h"
 
+#ifdef __MINGW32__
+   #include <sys/time.h>
+#endif
+
 BDM_CallBack::~BDM_CallBack()
 {}
 
