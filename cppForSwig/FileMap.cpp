@@ -24,6 +24,8 @@ FileMap::FileMap(BlkFile& blk)
 
    close(fd);
 #endif
+
+   fetch_ = FETCH_FETCHED;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -35,6 +37,8 @@ FileMap::FileMap(FileMap&& fm)
 
    fnum_ = fm.fnum_;
    fm.filemap_ = nullptr;
+   
+   fetch_ = fm.fetch_;
 }
 
 
@@ -63,10 +67,32 @@ void FileMap::getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
 /// BlockFileAccessor
 ///
 ////////////////////////////////////////////////////////////////////////////////
-BlockFileAccessor::BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles)
-   : blkFiles_(blkfiles)
+BlockFileAccessor::BlockFileAccessor(shared_ptr<vector<BlkFile>> blkfiles,
+   BFA_PREFETCH prefetch)
+   : blkFiles_(blkfiles), prefetch_(prefetch)
 {
    lastSeenCumulative_.store(0, memory_order_relaxed);
+
+   if (prefetch == PREFETCH_NONE)
+      return;
+
+   tID_ = thread(prefetchThread, this);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BlockFileAccessor::~BlockFileAccessor()
+{
+   //make sure to shutdown the prefetch thread before returning from the dtor
+   if (!tID_.joinable())
+      return;
+
+   {
+      unique_lock<mutex> lock(prefetchMu_);
+      runThread_ = false;
+      prefetchCV_.notify_all();
+   }
+
+   tID_.join();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -129,6 +155,33 @@ shared_ptr<FileMap>& BlockFileAccessor::getFileMap(uint32_t fnum)
       mapIter = result.first;
    }
 
+   if (mapIter->second->fetch_ != FETCH_ACCESSED && 
+       prefetch_ != PREFETCH_NONE)
+   {
+      //signal the prefetch thread to grab the next file
+      uint32_t nextFnum = fnum + 1;
+      if (prefetch_ == PREFETCH_FORWARD)
+      {
+         if (nextFnum > blkFiles_->size() - 1)
+            nextFnum = UINT32_MAX;
+      }
+      else
+      {
+         nextFnum = fnum - 1;
+      }
+
+      //We only try to lock the prefetch thread mutex. If it fails, it means
+      //another thread is already filling the prefetch queue, or the thread is
+      //busy.
+      unique_lock<mutex> lock(prefetchMu_, defer_lock);
+      if (lock.try_lock())
+      {
+         prefetchFileNum_ = nextFnum;
+         prefetchCV_.notify_all();
+      }
+   }
+
+   mapIter->second->fetch_ = FETCH_ACCESSED;
    return mapIter->second;
 }
 
@@ -137,6 +190,32 @@ void BlockFileAccessor::dropFileMap(uint32_t fnum)
 {
    unique_lock<mutex> lock(mu_);
    blkMaps_.erase(fnum);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockFileAccessor::prefetchThread(BlockFileAccessor* bfaPtr)
+{
+   if (bfaPtr == nullptr)
+      return;
+
+   unique_lock<mutex> lock(bfaPtr->prefetchMu_);
+
+   while (bfaPtr->runThread_)
+   {
+      {
+         unique_lock<mutex> bfaLock(bfaPtr->mu_);
+
+         if (bfaPtr->prefetchFileNum_ != UINT32_MAX)
+         {
+            shared_ptr<FileMap> fm(
+               new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
+
+            bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+         }
+      }
+
+      bfaPtr->prefetchCV_.wait(lock);
+   }
 }
 
 

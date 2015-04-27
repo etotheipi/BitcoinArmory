@@ -24,7 +24,7 @@ by the reactor.  QCoreApplication does not require a GUI so trial testing
 can occur normally.
 
 Twisted can be initialized after QApplication.exec_() with a call to
-reactor.runReturn().  calling reactor.stop() will unhook twisted but
+reactor run return.  calling reactor.stop() will unhook twisted but
 leave your Qt application running
 
 API Stability: stable

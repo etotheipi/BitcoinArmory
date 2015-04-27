@@ -115,7 +115,8 @@ Section -Main SEC0000
         File ArmoryStandalone\ArmoryQt.exe
         !insertmacro CreateRegKey ${HKEY_CURRENT_USER} "Software\Armory"
         SetOutPath $DESKTOP
-        CreateShortcut "$DESKTOP\Bitcoin Armory.lnk" $INSTDIR\ArmoryQt.exe
+        IfFileExists "$DESKTOP\Bitcoin Armory.lnk" +2 0
+            CreateShortcut "$DESKTOP\Bitcoin Armory.lnk" $INSTDIR\ArmoryQt.exe
         !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory" "$INSTDIR\ArmoryQt.exe" ""
         !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (Offline)" "$INSTDIR\ArmoryQt.exe" "--offline"
         !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (testnet)" "$INSTDIR\ArmoryQt.exe" "--testnet"

@@ -46,6 +46,8 @@ from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 from armoryengine.parseAnnounce import changelogParser, downloadLinkParser, \
    notificationParser
+from armoryengine.ArmoryUtils import ReactorListenError, reactorRunReturn,\
+   reactorAddSystemEventTrigger
 from armorymodels import *
 from jasvet import verifySignature
 import qrc_img_resources
@@ -824,16 +826,15 @@ class ArmoryMainWindow(QMainWindow):
 
       self.setDashboardDetails()
 
-      from twisted.internet import reactor
-      reactor.callLater(0.1,  self.execIntroDialog)
-      reactor.callLater(1, self.Heartbeat)
+      reactorCallLater(0.1,  self.execIntroDialog)
+      reactorCallLater(1, self.Heartbeat)
 
       if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
          LOGINFO('MinimizeOnOpen is True')
-         reactor.callLater(0, self.minimizeArmory)
+         reactorCallLater(0, self.minimizeArmory)
 
       if CLI_ARGS:
-         reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+         reactorCallLater(1, self.uriLinkClicked, CLI_ARGS[0])
 
       # Now that construction of the UI is done
       # Check for warnings to be displayed
@@ -2286,7 +2287,6 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('Setting up networking...')
 
       # Prevent Armory from being opened twice
-      from twisted.internet import reactor
       import twisted
       def uriClick_partial(a):
          self.uriLinkClicked(a)
@@ -2295,8 +2295,8 @@ class ArmoryMainWindow(QMainWindow):
          try:
             self.InstanceListener = ArmoryListenerFactory(self.bringArmoryToFront, \
                                                           uriClick_partial )
-            reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener)
-         except twisted.internet.error.CannotListenError:
+            reactorListenTCP(CLI_OPTIONS.interport, self.InstanceListener)
+         except ReactorListenError:
             LOGWARN('Socket already occupied!  This must be a duplicate Armory')
             QMessageBox.warning(self, tr('Already Open'), tr("""
                Armory is already running!  You can only have one Armory open
@@ -2547,8 +2547,6 @@ class ArmoryMainWindow(QMainWindow):
          # the very first time and never afterwards.
 
          # Actually setup the networking, now
-         from twisted.internet import reactor
-
          def showOfflineMsg():
             self.netMode = NETWORKMODE.Disconnected
             self.setDashboardDetails()
@@ -2591,7 +2589,7 @@ class ArmoryMainWindow(QMainWindow):
                                       func_loseConnect=showOfflineMsg,
                                       func_madeConnect=showOnlineMsg,
                                       func_newTx=self.newTxFunc)
-         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1',
+         reactorCallWhenRunning(reactorConnectTCP, '127.0.0.1',
                                  BITCOIN_PORT,
                                  self.SingletonConnectedNetworkingFactory)
       return self.SingletonConnectedNetworkingFactory
@@ -3788,8 +3786,8 @@ class ArmoryMainWindow(QMainWindow):
          # Send the Tx after a short delay, give the system time to see the Tx
          # on the network and process it, and check to see if the Tx was seen.
          # We may change this setup in the future, but for now....
-         reactor.callLater(3, sendGetDataMsg)
-         reactor.callLater(7, checkForTxInBDM)
+         reactorCallLater(3, sendGetDataMsg)
+         reactorCallLater(7, checkForTxInBDM)
 
 
    #############################################################################
@@ -6390,14 +6388,14 @@ class ArmoryMainWindow(QMainWindow):
          try:
             nextBeat = fn()
             if nextBeat>0:
-               reactor.callLater(nextBeat, self.Heartbeat)
+               reactorCallLater(nextBeat, self.Heartbeat)
             else:
                self.extraHeartbeatSpecial = []
-               reactor.callLater(1, self.Heartbeat)
+               reactorCallLater(1, self.Heartbeat)
          except:
             LOGEXCEPT('Error in special heartbeat function')
             self.extraHeartbeatSpecial = []
-            reactor.callLater(1, self.Heartbeat)
+            reactorCallLater(1, self.Heartbeat)
          return
 
 
@@ -6514,7 +6512,7 @@ class ArmoryMainWindow(QMainWindow):
          errStr = 'Error Type: %s\nError Value: %s' % (errType, errVal)
          LOGERROR(errStr)
       finally:
-         reactor.callLater(nextBeatSec, self.Heartbeat)
+         reactorCallLater(nextBeatSec, self.Heartbeat)
 
 
    #############################################################################
@@ -6800,11 +6798,8 @@ class ArmoryMainWindow(QMainWindow):
       except:
          pass
 
-      
-
-      from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
-      reactor.stop()
+      reactorStop()
     
 
    #############################################################################
@@ -7138,13 +7133,12 @@ if 1:
 
    SPLASH.finish(form)
 
-   from twisted.internet import reactor
    def endProgram():
-      if reactor.threadpool is not None:
-         reactor.threadpool.stop()
+      if reactorGetThreadPool() is not None:
+         reactorGetThreadPool().stop()
       QAPP.quit()
 
-   reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
+   reactorAddSystemEventTrigger('before', 'shutdown', endProgram)
    QAPP.setQuitOnLastWindowClosed(True)
-   reactor.runReturn()
+   reactorRunReturn()
    os._exit(QAPP.exec_())

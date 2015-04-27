@@ -93,6 +93,9 @@
     <ClInclude Include="..\FileMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\SSHheaders.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -174,6 +177,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\FileMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SSHheaders.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

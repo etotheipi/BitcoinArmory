@@ -10114,7 +10114,7 @@ TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsSuper, RepaidMissingTxio)
+TEST_F(BlockUtilsSuper, DISABLED_RepairMissingTxio)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
@@ -10150,7 +10150,7 @@ TEST_F(BlockUtilsSuper, RepaidMissingTxio)
    }
 
    //delete the keys
-   auto& delKeysThread = [&ssh, this](void)->void
+   auto delKeysThread = [&ssh, this](void)->void
    { 
       LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 

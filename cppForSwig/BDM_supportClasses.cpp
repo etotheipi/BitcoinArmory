@@ -49,7 +49,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
       StoredScriptHistory ssh;
       lmdb_->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
       if (!ssh.isInitialized())
-         ssh.uniqueKey_ = scrAddrPair.first;
+         throw runtime_error("uninitialized SSH header");
 
       ssh.alreadyScannedUpToBlk_ = height;
 
@@ -185,19 +185,25 @@ void ScrAddrFilter::scanScrAddrThread()
 
    if(doScan_ == false)
    {
-      //new addresses, set their last seen block in the SSH entries
+      //new addresses, create the DB key and 
+      //set the last seen block in the SSH entries
+      buildSSHKeys();
       setSSHLastScanned(currentTopBlockHeight());
    }
    else
    {
-      //wipe SSH
+      //no need for that otherwise, the addresses will be scanned, which
+      //will create the DB keys and set the proper last seen block for
+      //each SSH
+      //instead, let's make sure the SSH we are scanning have no prior history
+      //by wiping them
       vector<BinaryData> saVec;
       for (const auto& scrAddrPair : scrAddrMap_)
          saVec.push_back(scrAddrPair.first);
       wipeScrAddrsSSH(saVec);
       saVec.clear();
 
-      //scan from 0
+      //scan from height 0
       topScannedBlockHash =
          applyBlockRangeToDB(0, endBlock, wltIDs);
    }
@@ -413,6 +419,32 @@ const vector<string> ScrAddrFilter::getNextWalletIDToScan(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::buildSSHKeys()
+{
+   //prepare the container
+   SSHheaders sshHeaders(1);
+   sshHeaders.sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
+   
+   vector<BinaryData> scrAddrs;
+   for (auto& sa : scrAddrMap_)
+   {
+      scrAddrs.push_back(sa.first);
+   }
+
+   //let the SSHheaders object handle the key creation and collision detection
+   sshHeaders.processSshHeaders(scrAddrs);
+   
+   //write the initialized SSHs to DB, the scanning process will grab them from
+   //the DB when needed
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   for (auto& ssh : *sshHeaders.sshToModify_)
+   {
+      lmdb_->putStoredScriptHistorySummary(ssh.second);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //ZeroConfContainer Methods
 ///////////////////////////////////////////////////////////////////////////////
 map<BinaryData, TxIOPair> ZeroConfContainer::emptyTxioMap_;
@@ -608,12 +640,6 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    }
 
    return invalidatedKeys;
-
-   /*
-   // Rewrite the zero-conf pool file
-   if (hashRmVec.size() > 0)
-   rewriteZeroConfFile();
-   */
 }
 
 ///////////////////////////////////////////////////////////////////////////////
