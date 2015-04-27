@@ -83,6 +83,7 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_MKDIR_P
 AC_PROG_RANLIB
+AC_PROG_SED
 
 dnl Check for C++11 strict conformance mode (-std=c++11)
 AX_CXX_COMPILE_STDCXX_11([noext])

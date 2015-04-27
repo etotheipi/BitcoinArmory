@@ -18,9 +18,9 @@ install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(PREFIX)/share/applications
 	$(MKDIR_P) $(DESTDIR)$(PREFIX)/share/armory/img
 	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(PREFIX)/share/armory/
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
+	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
+	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
+	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 
 install-exec-local:
 	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/extras
@@ -32,7 +32,7 @@ install-exec-local:
 	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	$(MKDIR_P) $(DESTDIR)$(PREFIX)/bin
-	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
+	$(SED) "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
 	cp *.py *.so README.md $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
