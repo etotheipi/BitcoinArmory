@@ -97,7 +97,7 @@ midl.o: mdb/midl.c mdb/lmdb.h mdb/midl.h
 
 
 CppBlockUtils_wrap.cxx: $(EVERY_HEADER) CppBlockUtils.i
-	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
+	$(SWIG) $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: $(EVERY_HEADER) CppBlockUtils_wrap.cxx
 	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
