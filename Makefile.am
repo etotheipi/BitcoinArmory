@@ -75,8 +75,8 @@ Armory-tmp: all osxbuild/install-py3 osxbuild/install-qt5
 	$(MAKE) DESTDIR=osxbuild/Armory-tmp/Contents/MacOS/py PREFIX=/usr install
 	cp osxbuild/Info.plist osxbuild/Armory-tmp/Contents
 	cp img/armory_icon_fullres.icns osxbuild/Armory-tmp/Contents/Resources/Icon.icns
-	cp osxbuild/Armory-script-autotools.sh osxbuild/Armory-tmp/Contents/MacOS/Armory
-	cp osxbuild/armoryd-script-autotools.sh osxbuild/Armory-tmp/Contents/MacOS/armoryd
+	cp osxbuild/Armory-script.sh osxbuild/Armory-tmp/Contents/MacOS/Armory
+	cp osxbuild/armoryd-script.sh osxbuild/Armory-tmp/Contents/MacOS/armoryd
 	cp -r osxbuild/install-py3/Python.framework osxbuild/Armory-tmp/Contents/Frameworks/
 	cp -r osxbuild/install-qt5/lib/Qt{Core,Gui,Network}.framework osxbuild/Armory-tmp/Contents/Frameworks/
 	chmod +x osxbuild/Armory-tmp/Contents/MacOS/Armory
