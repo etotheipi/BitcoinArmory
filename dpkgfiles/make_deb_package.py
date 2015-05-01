@@ -4,6 +4,7 @@ import os
 import shutil
 import platform
 import time
+import argparse
 from subprocess import Popen, PIPE
 
 def execAndWait(cli_str):
@@ -26,7 +27,17 @@ def cd(path):
 def pwd():
    return os.getcwd()
 
+# http://stackoverflow.com/questions/1724693/find-a-file-in-python
+def find(name, path):
+   for root, dirs, files in os.walk(path):
+      if name in files:
+         return os.path.join(root, name)
 
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('chroot', help='name of chroot (including .cow)')
+args = parser.parse_args()
 
 if pwd().split('/')[-1]=='dpkgfiles':
    cd('..')
@@ -76,11 +87,15 @@ execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir_)
 shutil.copytree(origDir, pkgdir)
-execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
+
+faketimePath = find('libfaketime.so.1', '/usr/lib')
+faketimeVars = 'export LD_PRELOAD=%s; export FAKETIME="2013-06-01 00:00:00";' % faketimePath
+
+execAndWait('%s tar -zcf %s.tar.gz %s' % (faketimeVars, pkgdir, pkgdir))
 cd(pkgdir)
-execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdir)
+execAndWait('%s export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % (faketimeVars, pkgdir))
 for f in dpkgfiles:
-   shutil.copy('dpkgfiles/%s' % f, 'debian/%s' % f)
+   execAndWait('%s cp dpkgfiles/%s debian/%s' % (faketimeVars, f, f))
 
 # Finally, all the magic happens here
-execAndWait('dpkg-buildpackage -rfakeroot')
+execAndWait('%s pdebuild --pbuilder cowbuilder --buildresult ../armory-build -- --basepath /var/cache/pbuilder/%s' % (faketimeVars, args.chroot))
