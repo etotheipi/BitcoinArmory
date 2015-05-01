@@ -5,7 +5,6 @@ all:
 	$(MAKE) -C cppForSwig
 
 clean-local:
-	$(MAKE) -C cppForSwig clean
 	rm -f CppBlockUtils.py
 	rm -f qrc_img_resources.py
 	rm -f _CppBlockUtils.so
@@ -46,6 +45,13 @@ install-exec-local:
 	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
 	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
+
+if TARGET_LINUX
+if BUILD_LINUX
+deb:
+	python dpkgfiles/make_deb_package.py
+endif
+endif
 
 if TARGET_DARWIN
 if BUILD_LINUX
