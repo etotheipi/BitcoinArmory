@@ -18,6 +18,8 @@ case $host in
         ;;
     *darwin*)
         TARGET_OS=darwin
+        dnl Check for sip executable and sip include path
+        AX_SIP_DEVEL
         ;;
     *linux*)
         TARGET_OS=linux
@@ -87,9 +89,6 @@ AC_PROG_SED
 
 dnl Check for C++11 strict conformance mode (-std=c++11)
 AX_CXX_COMPILE_STDCXX_11([noext])
-
-dnl Check for sip executable and sip include path
-AX_SIP_DEVEL
 
 dnl Check for swig
 AX_PKG_SWIG(, [], [AC_MSG_ERROR([swig is required to build])])
