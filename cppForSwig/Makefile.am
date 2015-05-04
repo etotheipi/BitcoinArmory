@@ -44,7 +44,7 @@ OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
 	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
-	libcryptopp$(CRYPTOPP_EXT) mdb.o midl.o txio.o
+	libcryptopp$(CRYPTOPP_EXT) mdb.o midl.o txio.o FileMap.o SSHheaders.o
 
 CPPFLAGS = $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS = -lpthread -Lmdb
@@ -66,9 +66,9 @@ endif
 EVERY_HEADER = bdmenums.h BDM_mainthread.h BDM_supportClasses.h BinaryData.h \
 	Blockchain.h BlockDataManagerConfig.h BlockDataViewer.h BlockObj.h \
 	BlockUtils.h BlockWriteBatcher.h BtcUtils.h BtcWallet.h EncryptionUtils.h \
-	HistoryPager.h LedgerEntry.h lmdbpp.h lmdb_wrapper.h log.h \
+	FileMap.h HistoryPager.h LedgerEntry.h lmdbpp.h lmdb_wrapper.h log.h \
 	OS_TranslatePath.h PartialMerkle.h Progress.h ReorgUpdater.h ScrAddrObj.h \
-	StoredBlockObj.h txio.h UniversalTimer.h util.h
+	SSHheaders.h StoredBlockObj.h txio.h UniversalTimer.h util.h
 
 
 #**************************************************************************
