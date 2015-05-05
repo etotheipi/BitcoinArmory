@@ -736,6 +736,19 @@ BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryDataRef LMDBBlockDatabase::getValueNoCopy(uint32_t subsshdb,
+   BinaryDataRef keyWithPrefix) const
+{
+   CharacterArrayRef data = subSSHDBs_[subsshdb].get_NoCopy(
+      CharacterArrayRef(keyWithPrefix.getSize(), 
+         (char*)keyWithPrefix.getPtr()));
+   if (data.data)
+      return BinaryDataRef((uint8_t*)data.data, data.len);
+   else
+      return BinaryDataRef();
+}
+
+/////////////////////////////////////////////////////////////////////////////
 BinaryDataRef LMDBBlockDatabase::getValueNoCopy(DB_SELECT db, 
    DB_PREFIX prefix, BinaryDataRef key) const
 {
@@ -3686,64 +3699,46 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey) const
+BinaryData LMDBBlockDatabase::getSubSSHKey(BinaryDataRef uniqKey, 
+   uint8_t keyLength) const
 {
-   //no prefix yet, build it
-
-   uint32_t keyLength = SUBSSHDB_PREFIX_MIN;
-   StoredSubHistory subssh;
-
-   while (1)
+   while (keyLength <= SUBSSHDB_PREFIX_MAX)
    {
-      if (uniqKey.getSize() < keyLength)
-         throw runtime_error("key is too short");
-
-      BinaryData key(keyLength);
-      BinaryData lastKey;
-
-      memset(key.getPtr(), 0, key.getSize());
-      memcpy(key.getPtr() + 1, uniqKey.getPtr() +1, keyLength - 1);
-         
       LMDBEnv::Transaction tx;
       beginSubSSHDBTransaction(tx, keyLength, LMDB::ReadOnly);
 
-      LDBIter ldbIter = getSubSSHIterator(keyLength);
-      if (!ldbIter.seekToExact(key))
-         return key;
+      BinaryData key(keyLength);
 
-      //check if there is no 0xFF entry?
+      memset(key.getPtr(), 0, key.getSize());
+      memcpy(key.getPtr() + 1,
+         uniqKey.getPtr() + 1,
+         keyLength - 1);
 
-      do
+      BinaryData topPrefix = getValueNoCopy(keyLength, key);
+
+      if (topPrefix.getSize() == 0)
       {
-         if (ldbIter.getKeyRef().getSize() != keyLength)
-            continue;
-
-         BinaryDataRef keyRef = ldbIter.getKeyRef();
-         if (keyRef.getSliceCopy(1, keyLength -1) != uniqKey)
+         //key doesnt exist yet, return
+         return key;
+      }
+      else
+      {
+         uint8_t pfx = READ_UINT8_LE(topPrefix);
+         if (pfx != 0xFF)
          {
-            if (lastKey.getSize())
-               return key;
-
-            uint8_t prefix = uint8_t(keyRef.getPtr()[0]);
-            if (prefix == 0xFF)
-               break;
-
-            prefix++;
-            key.getPtr()[0] = prefix;
+            //there is a key in the DB but the address space isn't maxed out yet
+            key.getPtr()[0] = pfx;
             return key;
          }
-
-         //check if subssh header carries our full uniqKey?
-         lastKey = keyRef;
-      } 
-      while (ldbIter.advance());
+      }
 
       keyLength++;
-      if (keyLength >= SUBSSHDB_PREFIX_MAX)
-         throw std::range_error(
-            "key collision count exceeded maximum addressable key space");
    }
 
+   throw std::range_error(
+      "key collision count exceeded address space");
+
+   return BinaryData();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

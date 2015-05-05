@@ -71,7 +71,11 @@ enum DB_SELECT
 };
 
 #define SUBSSHDB_PREFIX_MAX 16
-#define SUBSSHDB_PREFIX_MIN 4
+#ifdef DEBUG
+#define SUBSSHDB_PREFIX_MIN 1
+#else
+#define SUBSSHDB_PREFIX_MIN 2
+#endif
 
 enum TX_SERIALIZE_TYPE
 {

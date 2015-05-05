@@ -79,7 +79,7 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
    if (dataProcessor_.sshHeaders_ != nullptr)
       return;
 
-   dataProcessor_.sshHeaders_.reset(new SSHheaders(1));
+   dataProcessor_.sshHeaders_.reset(new SSHheaders(1, 0));
    dataProcessor_.sshHeaders_->buildSshHeadersFromSAF(
       sasd);
    
@@ -325,14 +325,9 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 {
    try
    {
-      uint32_t threshold = 2500;
-
-      blockData->blockDataFeed_.reset(new BlockDataFeed(1));
-      shared_ptr<BlockDataFeed>* bdfPtr = &blockData->blockDataFeed_->next_;
+      uint32_t threshold = 1 + blockData->startBlock() / 2500;
+      threshold *= 2500;
       
-      //TIMER_START("applyBlockToDBinternal");
-      //TIMER_STOP("applyBlockToDBinternal");
-
       blockData->startGrabThreads(blockData);
       thread processorTID = dataProcessor_.startThreads(blockData);
 
@@ -340,35 +335,18 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
 
       while (1)
       {
-         uint32_t nthreads = 3;
+         uint32_t feedTopBlockHeight = 0;
+         uint32_t feedSize = 0;
+         uint32_t nthreads = 1;
          if (undo_)
             nthreads = 1;
-         shared_ptr<BlockDataFeed> nextFeed(new BlockDataFeed(nthreads));
-         nextFeed->chargeFeed(blockData);
+         else if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+            nthreads = 4;
 
-         if (nextFeed->hasData_ == true)
+         auto nextFeed = blockData->chargeNextFeed();
+         
+         if (!nextFeed->hasData_)
          {
-            unique_lock<mutex> lock(blockData->feedLock_);
-            *bdfPtr = nextFeed;
-            bdfPtr = &nextFeed->next_;
-            blockData->feedCV_.notify_all();
-
-            if (blockData->blockDataFeed_->next_ != nullptr)
-            {
-               //we have charged up to the next feed, sleep until the current
-               //feed is processed
-
-               blockData->feedCV_.wait(lock);
-            }
-         }
-         else
-         {
-            {
-               unique_lock<mutex> lock(blockData->feedLock_);
-               *bdfPtr = blockData->interruptFeed_;
-               blockData->feedCV_.notify_all();
-            }
-
             if (processorTID.joinable())
                processorTID.join();
             break;
@@ -381,10 +359,9 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
             threshold = ((nextFeed->topBlockHeight_ / 2500) + 1) * 2500;
          }
 
-         //TIMER_START("updateProgress");
          totalBlockDataProcessed += nextFeed->totalSizeInBytes_;
          progress.advance(totalBlockDataProcessed);
-         //TIMER_START("updateProgress");
+         nextFeed.reset();
       }
    }
    catch (...)
@@ -392,12 +369,6 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       string errorMessage("Scan thread encountered an unkonwn error");
       criticalError_(errorMessage);
    }
-
-   /*double timeElapsed = TIMER_READ_SEC("grabThreadSleep");
-   LOGINFO << "grabThreadSleep: " << timeElapsed << "s";
-
-   timeElapsed = TIMER_READ_SEC("scanThreadSleep");
-   LOGINFO << "scanThreadSleep: " << timeElapsed << "s";*/
    
    return dataProcessor_.lastScannedBlockHash_;
 }
@@ -410,15 +381,10 @@ BinaryData BlockWriteBatcher::scanBlocks(
    bool forceUpdateSSH)
 {
    //endBlock = 220000;
-   uint32_t nThreads = 2;
-   /*if (scf.armoryDbType_ != ARMORY_DB_SUPER)
-   {
-      if (int(endBlock - startBlock) > 100)
-         nThreads = 1;
-   }*/
+   uint32_t nThreads = 3;
+   if (int(endBlock) - int(startBlock) < 100)
+      nThreads = 1;
    
-   //LOGINFO << "running with " << nThreads << " threads";
-
    prepareSshToModify(scf);
 
    dataProcessor_.forceUpdateSSH_ = forceUpdateSSH;
@@ -427,52 +393,74 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
    BinaryData bd = applyBlocksToDB(prog, blockData);
 
-   /*double timeElapsed = TIMER_READ_SEC("scanThreadSleep");
-   LOGWARN << "--- scanThreadSleep: " << timeElapsed << " s";
+   double timeElapsed = TIMER_READ_SEC("feedSleep");
+   LOGWARN << "--- feedSleep: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("parseTxOuts");
-   LOGWARN << "--- parseTxOuts: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("parseTxIns");
-   LOGWARN << "--- parseTxIns: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("workers");
+   LOGWARN << "--- workers: " << timeElapsed << " s";
+
+   timeElapsed = TIMER_READ_SEC("writeStxo");
+   LOGWARN << "--- writeStxo: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("writeStxo_grabMutex");
+   LOGWARN << "--- writeStxo_grabMutex: " << timeElapsed << " s";
    
-   timeElapsed = TIMER_READ_SEC("lookforutxo");
-   LOGWARN << "--- lookforutxo: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("leverageUTXOinRAM");
-   LOGWARN << "--- leverageUTXOinRAM: " << timeElapsed << " s";
-   
-   timeElapsed = TIMER_READ_SEC("inCommit");
-   LOGWARN << "--- inCommit: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("serializeInCommitThread");
-   LOGWARN << "--- serializeInCommitThread: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("writeSSH");
+   LOGWARN << "--- writeSSH: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("waitingOnWriteThread");
    LOGWARN << "--- waitingOnWriteThread: " << timeElapsed << " s";
-   
+   timeElapsed = TIMER_READ_SEC("checkForCollisions");
+   LOGWARN << "--- checkForCollisions: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("getExistingKeys");
+   LOGWARN << "--- getExistingKeys: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("getNewKeys");
+   LOGWARN << "--- getNewKeys: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("getSSHHeadersLock");
+   LOGWARN << "--- getSSHHeadersLock: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("prepareSSHheaders");
+   LOGWARN << "--- prepareSSHheaders: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("computeDBKeys");
+   LOGWARN << "--- computeDBKeys: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("getSshHeaders");
+   LOGWARN << "--- getSshHeaders: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("waitOnNewDBkeys");
+   LOGWARN << "--- waitOnNewDBkeys: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("finishSerializeSSH");
+   LOGWARN << "--- finishSerializeSSH: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("inCommitStxo");
-   LOGWARN << "--- inCommitStxo: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("preppingStxoWrite");
-   LOGWARN << "--- preppingStxoWrite: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("applyBlockToDBinternal");
-   LOGWARN << "--- applyBlockToDBinternal: " << timeElapsed << " s";
-   
-   timeElapsed = TIMER_READ_SEC("resetTxn");
-   LOGWARN << "--- resetTxn: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("serializeSSH");
+   LOGWARN << "--- serializeSSH: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("getNextBlock");
-   LOGWARN << "--- getNextBlock: " << timeElapsed << " s";
-   
-   
-   timeElapsed = TIMER_READ_SEC("writeToDB");
-   LOGWARN << "--- writeToDB: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("serializeDataToCommit");
+   LOGWARN << "--- serializeDataToCommit: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("serializeSubSsh");
+   LOGWARN << "--- serializeSubSsh: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("wait on serThread");
+   LOGWARN << "--- wait on serThread: " << timeElapsed << " s";
+
+   timeElapsed = TIMER_READ_SEC("finishSer");
+   LOGWARN << "--- finishSer: " << timeElapsed << " s";
+
    timeElapsed = TIMER_READ_SEC("putSSH");
    LOGWARN << "--- putSSH: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("putSTX");
    LOGWARN << "--- putSTX: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("processHeaders");
-   LOGWARN << "--- processHeaders: " << timeElapsed << " s";
-      timeElapsed = TIMER_READ_SEC("getParentSshToModify");
-   LOGWARN << "--- getParentSshToModify: " << timeElapsed << " s";*/
+   timeElapsed = TIMER_READ_SEC("cleanDTC");
+   LOGWARN << "--- cleanDTC: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("cleanBDT");
+   LOGWARN << "--- cleanBDT: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("cleanFeed");
+   LOGWARN << "--- cleanFeed: " << timeElapsed << " s";
+
+
+   timeElapsed = TIMER_READ_SEC("getnextfeed");
+   LOGWARN << "--- getnextfeed: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("inControlThread");
+   LOGWARN << "--- inControlThread: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("BDP_dtor");
+   LOGWARN << "--- BDP_dtor: " << timeElapsed << " s";
+
+   LOGWARN << "SSHheaders collision count: " << SSHheaders::collisionCount;
 
    return bd;
 }
@@ -536,9 +524,12 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
    auto dbType = BlockWriteBatcher::armoryDbType_;
    auto pruneType = DB_PRUNE_NONE;
 
-   unique_lock<mutex>* lock = sshHeaders_->getSshHeaders(bdc);
-   
-   auto& sshMap = sshHeaders_->sshToModify_;
+   TIMER_START("getSshHeaders");
+   unique_lock<mutex> lock;
+   thread tID = bdc->sshHeaders_->getSshHeaders(bdc, lock);
+   TIMER_STOP("getSshHeaders");
+
+   auto& sshMap = bdc->sshHeaders_->sshToModify_;
    for (auto& sshPair : *sshMap)
    {
       BinaryData sshKey;
@@ -594,11 +585,26 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
          }
       }
 
+      ssh.alreadyScannedUpToBlk_ = bdc->highestBlockProcessed_;
+   }
+   
+   TIMER_START("waitOnNewDBkeys");
+   if (tID.joinable())
+      tID.join();
+   TIMER_STOP("waitOnNewDBkeys");
+
+   TIMER_START("finishSerializeSSH");
+   for (auto& sshPair : *sshMap)
+   {
+      BinaryData sshKey;
+      sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
+      sshKey.append(sshPair.first);
+
+      auto& ssh = sshPair.second;
       if (dbType == ARMORY_DB_SUPER)
       {
          if (ssh.totalTxioCount_ > 0)
          {
-            ssh.alreadyScannedUpToBlk_ = bdc->highestBlockProcessed_;
             BinaryWriter& bw = serializedSshToModify_[sshKey];
             ssh.serializeDBValue(bw, dbType, pruneType);
          }
@@ -607,17 +613,16 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
       }
       else
       {
-         ssh.alreadyScannedUpToBlk_ = bdc->highestBlockProcessed_;
          BinaryWriter& bw = serializedSshToModify_[sshKey];
          ssh.serializeDBValue(bw, dbType, pruneType);
       }
    }
-   
-   delete lock;
 
+   
    for (auto& ssh : *sshMap)
       sshPrefixes_[ssh.first] = ssh.second.getSubKey();
 
+   TIMER_STOP("finishSerializeSSH");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -650,12 +655,14 @@ void DataToCommit::serializeStxo(STXOS& stxos)
 ////////////////////////////////////////////////////////////////////////////////
 void DataToCommit::serializeDataToCommit(shared_ptr<BlockDataContainer> bdc)
 {
+   TIMER_START("serializeDataToCommit");
    auto dbType = BlockWriteBatcher::armoryDbType_;
    auto pruneType = DB_PRUNE_NONE;
    auto iface = BlockWriteBatcher::iface_;
 
 
    //subssh
+   TIMER_START("serializeSubSsh");
    for (auto& threadData : bdc->threads_)
    {
       auto& subsshMap = threadData->subSshMap_;
@@ -717,7 +724,8 @@ void DataToCommit::serializeDataToCommit(shared_ptr<BlockDataContainer> bdc)
          }
       }
    }
-   
+   TIMER_STOP("serializeSubSsh");
+
    //stxout
    serializeStxo(bdc->commitStxos_);
 
@@ -770,6 +778,8 @@ void DataToCommit::serializeDataToCommit(shared_ptr<BlockDataContainer> bdc)
 
    topBlockHash_ = bdc->topScannedBlockHash_;
    mostRecentBlockApplied_ = bdc->highestBlockProcessed_ + 1;
+
+   TIMER_STOP("serializeDataToCommit");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -779,18 +789,39 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
       return;
 
    uint32_t nThreads = getProcessSSHnThreads();
-   sshHeaders_.reset(new SSHheaders(nThreads));
+   bdc->sshHeaders_.reset(new SSHheaders(nThreads, bdc->commitId_));
 
    auto serialize = [&](void)
    { serializeDataToCommit(bdc); };
 
    thread serThread = thread(serialize);
 
-   serializeSSH(bdc);
+   {
+      TIMER_START("serializeSSH");
+      serializeSSH(bdc);
 
+      /*unique_lock<mutex> setWriter(bdc->waitOnWriterMutex_);
+      bdc->waitOnWriterCV_.notify_all();*/
+
+      TIMER_STOP("serializeSSH");
+   }
+
+   TIMER_START("wait on serThread");
    if (serThread.joinable())
       serThread.join();
+   TIMER_STOP("wait on serThread");
 
+   /*auto cleanUp = [&bdc](void)->void
+   {
+      bdc->threads_.clear();
+      //bdc->dataFeed_.reset();
+   };
+
+   thread cleanUpThread(cleanUp);
+   if (cleanUpThread.joinable())
+      cleanUpThread.detach();*/
+
+   TIMER_START("finishSer");
    for (auto& inbw : intermidiarrySubSshToApply_)
    {
       auto sshIter = sshPrefixes_.find(inbw.first);
@@ -819,6 +850,14 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
          }
       }
    }
+
+   //save top prefix values for each key
+   for (auto& topPrefix : bdc->sshHeaders_->topPrefix_)
+   {
+      auto& submap = serializedSubSshToApply_[topPrefix.first.getSize()];
+      auto& bw = submap[topPrefix.first];
+      bw.put_uint8_t(topPrefix.second.first);
+   }
       
    for (auto& ktdSet : intermediarrySubSshKeysToDelete_)
    {
@@ -846,6 +885,7 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
    }
 
    isSerialized_ = true;
+   TIMER_STOP("finishSer");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1000,8 +1040,8 @@ DataToCommit::DataToCommit(DataToCommit&& dtc)
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t DataToCommit::getProcessSSHnThreads(void) const
 {
-   //if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
-      //return 3;
+   if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+      return 5;
 
    return 1;
 }
@@ -1143,9 +1183,6 @@ StoredTxOut* STXOS::lookForUTXOInMap(const BinaryData& hashAndId,
 ////////////////////////////////////////////////////////////////////////////////
 thread STXOS::commitStxo(shared_ptr<BlockDataContainer> bdc)
 {
-   //TIMER_START("inCommitStxo");
-
-
    //create commiting object and fill it up
    shared_ptr<STXOS> toCommit(new STXOS(*this));
    
@@ -1158,7 +1195,7 @@ thread STXOS::commitStxo(shared_ptr<BlockDataContainer> bdc)
          utxoMap_.erase(key);
    }
 
-   if (utxoMap_.size() > UTXO_THRESHOLD && 
+   if (utxoMap_.size() > UTXO_THRESHOLD &&
        BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
    {
       //utxoMap is getting too big, let's move data to the backup and clear
@@ -1192,8 +1229,6 @@ thread STXOS::commitStxo(shared_ptr<BlockDataContainer> bdc)
    ***/
    
    thread committhread(writeStxoToDB, toCommit);
-
-   //TIMER_STOP("inCommitStxo");
    return committhread;
 }
 
@@ -1209,7 +1244,9 @@ void STXOS::commit(shared_ptr<BlockDataContainer> bdp)
 void STXOS::writeStxoToDB(shared_ptr<STXOS> stxos)
 {
    {
+      TIMER_START("writeStxo_grabMutex");
       unique_lock<mutex> writeLock(stxos->parent_->writeMutex_);
+      TIMER_STOP("writeStxo_grabMutex");
       {
          LMDBBlockDatabase *db = BlockWriteBatcher::iface_;
          stxos->dataToCommit_.serializeStxo(*stxos);
@@ -1246,11 +1283,10 @@ shared_ptr<PulledBlock> LoadedBlockData::getNextBlock(unique_lock<mutex>* mu)
       wakeGrabThreadsIfNecessary();
 
       //wait for grabThread signal
-      //TIMER_START("scanThreadSleep");
       grabCV_.wait_for(*mu, chrono::seconds(2));
-      //TIMER_STOP("scanThreadSleep");
    }
 
+   currGTD.block_->nextBlock_.reset();
    currGTD.block_ = blk;
 
    //decrement bufferload
@@ -1266,33 +1302,72 @@ shared_ptr<PulledBlock> LoadedBlockData::getNextBlock(unique_lock<mutex>* mu)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+shared_ptr<BlockDataFeed> LoadedBlockData::chargeNextFeed()
+{
+   shared_ptr<BlockDataFeed> nextFeed(new BlockDataFeed(nThreads_));
+   nextFeed->chargeFeed(*this);
+   uint32_t feedId = topFeed_ % MAX_FEED_BUFFER;
+
+   if (!nextFeed->hasData_)
+   {
+      {
+         unique_lock<mutex> lock(feedLock_);
+         vecBDF_[feedId] = interruptFeed_;
+         feedCV_.notify_all();
+      }
+
+      return nextFeed;
+   }
+
+   unique_lock<mutex> lock(feedLock_);
+   while (vecBDF_[feedId] != nullptr)
+   {
+      //we have charged up to the next feed, sleep until the current
+      //feed is processed
+
+      TIMER_START("feedSleep");
+      feedCV_.wait(lock);
+      TIMER_STOP("feedSleep");
+   }
+  
+   vecBDF_[feedId] = nextFeed;
+   topFeed_++;
+   feedCV_.notify_all();
+
+   return nextFeed;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 shared_ptr<BlockDataFeed> LoadedBlockData::getNextFeed()
 {
-   shared_ptr<BlockDataFeed> currentFeed;
+   shared_ptr<BlockDataFeed> feed;
    
-   //we grab the feed lock, assign the feed ptr locally and check if it's valid
+   uint32_t currentId = currentFeed_ % MAX_FEED_BUFFER;
+   
+   //grab the feed lock, assign the feed ptr locally and check if it's valid
+   unique_lock<mutex> lock(feedLock_);
    while (1)
    {
-      unique_lock<mutex> lock(feedLock_);
-      currentFeed = blockDataFeed_->next_;
+      feed = vecBDF_[currentId];
 
-
-      if (currentFeed != nullptr)
+      if (feed != nullptr)
          break;
 
       //feed isn't ready, wake grab thread and wait on it
       feedCV_.notify_all();
       feedCV_.wait(lock);
+
    }
 
-   if (currentFeed == interruptFeed_)
+   if (feed == interruptFeed_)
       return nullptr;
 
-   //set current feed to the next one and return
-   blockDataFeed_ = blockDataFeed_->next_;
+   //reset current feed so a new one can replace it
+   vecBDF_[currentId].reset();
+   currentFeed_++;
    feedCV_.notify_all();
 
-   return currentFeed;
+   return feed;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1331,27 +1406,28 @@ void LoadedBlockData::wakeGrabThreadsIfNecessary()
 ////////////////////////////////////////////////////////////////////////////////
 //// BlockDataFeed
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
+void BlockDataFeed::chargeFeed(LoadedBlockData& blockData)
 {
    shared_ptr<PulledBlock> block;
    shared_ptr<PulledBlock> lastValidBlock;
 
-   unique_lock<mutex> scanLock(blockData->grabLock_);
+   unique_lock<mutex> scanLock(blockData.grabLock_);
 
    size_t sizePerThread = UPDATE_BYTES_THRESH / nThreads_;
 
    totalSizeInBytes_ = 0;
    uint32_t i = 0, lowestBlockHeight = UINT32_MAX;
+   uint32_t txoutCount = 0;
+
    while (1)
    {
-      //blockData->wakeGrabThreadsIfNecessary();
-      block = blockData->getNextBlock(&scanLock);
+      block = blockData.getNextBlock(&scanLock);
 
       if (block == nullptr)
          break;
 
       //check if next block is valid
-      if (block == blockData->interruptBlock_)
+      if (block == blockData.interruptBlock_)
       {
          string errorMessage("The scanning process "
             "interrupted unexpectedly, Armory will now shutdown. "
@@ -1367,7 +1443,11 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
       lastValidBlock = block;
       hasData_ = true;
 
+
       uint32_t blockSize = block->numBytes_;
+      for (auto& tx : block->stxMap_)
+         txoutCount += tx.second.numTxOut_;
+
       
       uint32_t rotation = 0;
       while (rotation < nThreads_)
@@ -1403,7 +1483,8 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
       }
 
       totalSizeInBytes_ += block->numBytes_;
-      if (totalSizeInBytes_ >= UPDATE_BYTES_THRESH)
+      if (totalSizeInBytes_ >= UPDATE_BYTES_THRESH || 
+          txoutCount > UPDATE_TXOUT_THRESH)
          break;
 
       i++;
@@ -1412,10 +1493,10 @@ void BlockDataFeed::chargeFeed(shared_ptr<LoadedBlockData> blockData)
    if (lastValidBlock != nullptr)
    {
       topBlockHeight_ = 
-         LoadedBlockData::getTopHeight(*blockData, *lastValidBlock);
+         LoadedBlockData::getTopHeight(blockData, *lastValidBlock);
 
       topBlockHash_ = 
-         LoadedBlockData::getTopHash(*blockData, *lastValidBlock);
+         LoadedBlockData::getTopHash(blockData, *lastValidBlock);
 
       bottomBlockHeight_ = lowestBlockHeight;
    }
@@ -1437,20 +1518,20 @@ thread BlockDataProcessor::startThreads(shared_ptr<LoadedBlockData> blockData)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
 {
-   //TIMER_START("applyBlockToDBinternal");
+   TIMER_START("inControlThread");
    
    thread committhread;
    shared_ptr<BlockDataFeed> dataFeed;
    while (1)
    {      
       unique_lock<mutex> workLock(workMutex_);
+      TIMER_START("getnextfeed");
       dataFeed = blockData->getNextFeed();
+      TIMER_STOP("getnextfeed");
       if (dataFeed == nullptr)
          break;
 
       stxos_.feedStxos_ = &dataFeed->localStxos_;
-
-      //figure out how many threads to use and create a new worker
       nThreads_ = dataFeed->blockPackets_.size();
       worker_.reset(new BlockDataContainer(this));
       
@@ -1462,8 +1543,10 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
                move(dataFeed->blockPackets_[i].blocks_);
       }
 
+      worker_->dataFeed_ = dataFeed;
       worker_->startThreads();
 
+      TIMER_START("workers");
       while (1)
       {
          uint32_t finishedWork = 0;
@@ -1478,17 +1561,23 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
          
          workCV_.wait(workLock);
       }
+      TIMER_STOP("workers");
 
       //all workers are done, time to commit
       worker_->highestBlockProcessed_ = dataFeed->topBlockHeight_;
       worker_->lowestBlockProcessed_ = dataFeed->bottomBlockHeight_;
       worker_->topScannedBlockHash_ = dataFeed->topBlockHash_;
+      dataFeed.reset();
 
+      TIMER_START("writeStxo");
       stxos_.commit(worker_);
+      TIMER_STOP("writeStxo");
 
+      TIMER_START("writeSSH");
       if (committhread.joinable())
          committhread.detach();
       committhread = commit();
+      TIMER_STOP("writeSSH");
    }
 
    if (stxos_.committhread_.joinable())
@@ -1496,51 +1585,25 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
    if (committhread.joinable())
       committhread.join();
 
-   //TIMER_STOP("applyBlockToDBinternal");
+   TIMER_STOP("inControlThread");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 thread BlockDataProcessor::commit(bool finalCommit)
 {
-   //TIMER_START("inCommit");
-   bool isCommiting = false;
-   unique_lock<mutex> l(writeMutex_, try_to_lock);
-   if (!l.owns_lock())
-      isCommiting = true;
-   else
-      l.unlock();
-
    //set writer_ as worker_ then reset it. We'll create a new worker_ in the
    //processBlockData loop
    shared_ptr<BlockDataContainer> commitObject = worker_;
    worker_.reset();
 
-   if (forceUpdateSSH_)
-   {
-      commitObject->dataToCommit_.forceUpdateSshAtHeight_ =
-         commitObject->lowestBlockProcessed_;
-   }
+   unique_lock<mutex> lock(commitObject->waitOnWriterMutex_);
+   thread committhread(writeToDB, commitObject);
 
-   /*if (isCommiting)
-   {
-      //the write thread is already running and we cumulated enough data in the
-      //read thread for the next write. Let's use that idle time to serialize
-      //the data to commit ahead of time
-      TIMER_START("serializeInCommitThread");
-      bwbWriteObj->serializeData(subSshMap_);
-      TIMER_STOP("serializeInCommitThread");
-   }*/
-
-
-   //TIMER_START("waitingOnWriteThread");
-   l.lock();
-   //TIMER_STOP("waitingOnWriteThread");
+   TIMER_START("waitingOnWriteThread");
+   commitObject->waitOnWriterCV_.wait(lock);
+   TIMER_STOP("waitingOnWriteThread");
 
    writer_ = commitObject;
-
-   thread committhread(writeToDB, writer_);
-
-   //TIMER_STOP("inCommit");
 
    return committhread;
 }
@@ -1548,42 +1611,59 @@ thread BlockDataProcessor::commit(bool finalCommit)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
 {
+   shared_ptr<BlockDataContainer> writerPtr =
+      commitObject->processor_->writer_;
+
+   shared_ptr<DataToCommit> dtc(new DataToCommit());
+   if (commitObject->processor_->forceUpdateSSH_)
+   {
+      dtc->forceUpdateSshAtHeight_ =
+         commitObject->lowestBlockProcessed_;
+   }
+   
+   dtc->serializeData(commitObject);
+      
    {
       unique_lock<mutex> lock(commitObject->processor_->writeMutex_);
-      //TIMER_START("writeToDB");
-
-      commitObject->dataToCommit_.serializeData(commitObject);
 
       {
-         //TIMER_START("putSSH");
-         commitObject->dataToCommit_.putSSH();
-         //TIMER_STOP("putSSH");
-
-         //TIMER_START("putSTX");
-         commitObject->dataToCommit_.putSTX();
-         //TIMER_STOP("putSTX");
-
-         commitObject->dataToCommit_.deleteEmptyKeys();
-
-
-         if (commitObject->highestBlockProcessed_ != 0 &&
-            commitObject->updateSDBI_ == true)
-            commitObject->dataToCommit_.updateSDBI();
-
-         commitObject->processor_->lastScannedBlockHash_ =
-            commitObject->topScannedBlockHash_;
-         commitObject->processor_->writer_.reset();
+         unique_lock<mutex> setWriter(commitObject->waitOnWriterMutex_);
+         commitObject->waitOnWriterCV_.notify_all();
       }
-   
-      //TIMER_STOP("writeToDB");
-   }
 
-   commitObject.reset();
+      TIMER_START("putSSH");
+      dtc->putSSH();
+      TIMER_STOP("putSSH");
+
+      TIMER_START("putSTX");
+      dtc->putSTX();
+      TIMER_STOP("putSTX");
+
+      dtc->deleteEmptyKeys();
+
+
+      if (commitObject->highestBlockProcessed_ != 0 &&
+         commitObject->updateSDBI_ == true)
+         dtc->updateSDBI();
+
+      commitObject->processor_->lastScannedBlockHash_ =
+         commitObject->topScannedBlockHash_;
+
+      commitObject->processor_->commitedId_.fetch_add(1, memory_order_release);
+   }
+      
+
+   TIMER_START("cleanDTC");
+   dtc.reset();
+   commitObject->dataFeed_.reset();
+   commitObject->threads_.clear();
+   TIMER_STOP("cleanDTC");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataContainer::BlockDataContainer(BlockDataProcessor* bdpPtr)
-   : processor_(bdpPtr), nThreads_(bdpPtr->nThreads_), undo_(bdpPtr->undo_)
+   : processor_(bdpPtr), nThreads_(bdpPtr->nThreads_), undo_(bdpPtr->undo_),
+   commitId_(bdpPtr->commitId_++)
 {
    for (uint32_t i = 0; i < nThreads_; i++)
    {
@@ -1610,8 +1690,9 @@ StoredSubHistory& BlockDataThread::makeSureSubSSHInMap(
 
       BinaryData key(uniqKey);
       key.append(hgtX);
-      BlockWriteBatcher::iface_->
-         getStoredSubHistoryAtHgtX(subssh, uniqKey, hgtX);
+      if (!BlockWriteBatcher::iface_->
+         getStoredSubHistoryAtHgtX(subssh, uniqKey, hgtX))
+         throw runtime_error("missing subssh for undo operation");
    }
 
    return subssh;
@@ -1719,12 +1800,8 @@ void BlockDataThread::applyTxToBatchWriteData(
    PulledTx& thisSTX,
    StoredUndoData * sud)
 {
-   //TIMER_START("parseTxOuts");
    bool txIsMine = parseTxOuts(thisSTX, sud);
-   //TIMER_STOP("parseTxOuts");
-   //TIMER_START("parseTxIns");
    txIsMine |= parseTxIns(thisSTX, sud);
-   //TIMER_STOP("parseTxIns");
 
    if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER && txIsMine)
    {

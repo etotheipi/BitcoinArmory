@@ -422,7 +422,7 @@ const vector<string> ScrAddrFilter::getNextWalletIDToScan(void)
 void ScrAddrFilter::buildSSHKeys()
 {
    //prepare the container
-   SSHheaders sshHeaders(1);
+   SSHheaders sshHeaders(1, 0);
    sshHeaders.sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
    
    vector<BinaryData> scrAddrs;
