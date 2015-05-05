@@ -1308,17 +1308,6 @@ shared_ptr<BlockDataFeed> LoadedBlockData::chargeNextFeed()
    nextFeed->chargeFeed(*this);
    uint32_t feedId = topFeed_ % MAX_FEED_BUFFER;
 
-   if (!nextFeed->hasData_)
-   {
-      {
-         unique_lock<mutex> lock(feedLock_);
-         vecBDF_[feedId] = interruptFeed_;
-         feedCV_.notify_all();
-      }
-
-      return nextFeed;
-   }
-
    unique_lock<mutex> lock(feedLock_);
    while (vecBDF_[feedId] != nullptr)
    {
@@ -1330,6 +1319,16 @@ shared_ptr<BlockDataFeed> LoadedBlockData::chargeNextFeed()
       TIMER_STOP("feedSleep");
    }
   
+   if (!nextFeed->hasData_)
+   {
+      {
+         vecBDF_[feedId] = interruptFeed_;
+         feedCV_.notify_all();
+      }
+
+      return nextFeed;
+   }
+
    vecBDF_[feedId] = nextFeed;
    topFeed_++;
    feedCV_.notify_all();
@@ -1356,7 +1355,6 @@ shared_ptr<BlockDataFeed> LoadedBlockData::getNextFeed()
       //feed isn't ready, wake grab thread and wait on it
       feedCV_.notify_all();
       feedCV_.wait(lock);
-
    }
 
    if (feed == interruptFeed_)

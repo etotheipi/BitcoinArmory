@@ -57,7 +57,8 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
 {
    TIMER_START("prepareSSHheaders");
    sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
-   vector<StoredScriptHistory*> sshVec;
+   shared_ptr<vector<StoredScriptHistory*>> sshVec(
+      new vector<StoredScriptHistory*>());
 
    if (prevHeaders != nullptr)
    {
@@ -91,7 +92,7 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
                ssh.uniqueKey_ = subssh.first;
             }
 
-            sshVec.push_back(&ssh);
+            sshVec->push_back(&ssh);
          }
       }
    }
@@ -107,17 +108,19 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
                continue;
            
             ssh.uniqueKey_ = subssh.first;
-            sshVec.push_back(&ssh);
+            sshVec->push_back(&ssh);
          }
       }
    }
 
-   grabExistingSSHHeaders(sshVec);
+   grabExistingSSHHeaders(*sshVec);
 
    TIMER_STOP("prepareSSHheaders");
 
    auto computeThread = [&sshVec, this](void)->void
-   { computeDBKeys(sshVec); };
+   { 
+      computeDBKeys(sshVec); 
+   };
 
    return thread(computeThread);
 }
@@ -125,17 +128,18 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
 ////////////////////////////////////////////////////////////////////////////////
 void SSHheaders::processSshHeaders(vector<BinaryData>& scrAddrs)
 {
-   vector<StoredScriptHistory*> sshVec;
+   shared_ptr<vector<StoredScriptHistory*>> sshVec(
+      new vector<StoredScriptHistory*>());
 
    for (auto& sa : scrAddrs)
    {
       auto sshIter = sshToModify_->insert(make_pair(sa, StoredScriptHistory()));
       sshIter.first->second.uniqueKey_ = sa;
-      sshVec.push_back(&sshIter.first->second);
+      sshVec->push_back(&sshIter.first->second);
    }
 
-   grabExistingSSHHeaders(sshVec);
-   computeDBKeys(move(sshVec));
+   grabExistingSSHHeaders(*sshVec);
+   computeDBKeys(sshVec);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -166,7 +170,7 @@ void SSHheaders::grabExistingSSHHeaders(vector<StoredScriptHistory*>& sshVec)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void SSHheaders::computeDBKeys(vector<StoredScriptHistory*> sshVec)
+void SSHheaders::computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> sshVec)
 {
    TIMER_START("computeDBKeys");
    uint32_t i;
@@ -183,7 +187,7 @@ void SSHheaders::computeDBKeys(vector<StoredScriptHistory*> sshVec)
    topPrefixes.resize(nThreads_);
 
    vector<StoredScriptHistory*> unknownSshVec;
-   for (auto sshPtr : sshVec)
+   for (auto sshPtr : *sshVec)
    {
       if (sshPtr->keyLength_ == 0)
       {
@@ -191,10 +195,10 @@ void SSHheaders::computeDBKeys(vector<StoredScriptHistory*> sshVec)
       }
    }
 
-   sshVec = move(unknownSshVec);
+   *sshVec = move(unknownSshVec);
    
    auto processNewSshThread = [&sshVec, &topPrefixes, this](uint32_t tId)->void
-   { this->fetchSshHeaders(*sshToModify_, sshVec, topPrefixes[tId], tId); };
+   { this->fetchSshHeaders(*sshToModify_, *sshVec, topPrefixes[tId], tId); };
 
    bool haveCollision = true;
    while (haveCollision)
@@ -217,12 +221,12 @@ void SSHheaders::computeDBKeys(vector<StoredScriptHistory*> sshVec)
       TIMER_STOP("getNewKeys");
 
       //check for key collisions
-      auto newSshVec = checkForSubKeyCollisions(sshVec);
+      auto newSshVec = checkForSubKeyCollisions(*sshVec);
 
       if (newSshVec.size() > 0)
       {
          haveCollision = true;
-         sshVec = move(newSshVec);
+         *sshVec = move(newSshVec);
          collisionCount++;
       }
 
@@ -401,7 +405,8 @@ void SSHheaders::buildSshHeadersFromSAF(const ScrAddrFilter& SAF)
    //for (auto saPair : sasd.getScrAddrMap())
    map<BinaryData, map<BinaryData, StoredSubHistory>> subsshMap;
 
-   vector<StoredScriptHistory*> sshVec;
+   shared_ptr<vector<StoredScriptHistory*>> sshVec(
+      new vector<StoredScriptHistory*>());
    auto& saMap = SAF.getScrAddrMap();
 
 
@@ -410,10 +415,10 @@ void SSHheaders::buildSshHeadersFromSAF(const ScrAddrFilter& SAF)
    {
       auto sshIter = sshToModify_->insert(make_pair(sa.first, StoredScriptHistory()));
       sshIter.first->second.uniqueKey_ = sa.first;
-      sshVec.push_back(&sshIter.first->second);
+      sshVec->push_back(&sshIter.first->second);
    }
 
    //needs reworked for the new key fetch/CD
-   grabExistingSSHHeaders(sshVec);
-   computeDBKeys(move(sshVec));
+   grabExistingSSHHeaders(*sshVec);
+   computeDBKeys(sshVec);
 }

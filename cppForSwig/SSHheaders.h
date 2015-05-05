@@ -26,7 +26,7 @@ private:
       shared_ptr<BlockDataContainer>,
       shared_ptr<SSHheaders>);
    void grabExistingSSHHeaders(vector<StoredScriptHistory*>& sshVec);
-   void computeDBKeys(vector<StoredScriptHistory*> saVec);
+   void computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> saVec);
    void fetchExistingSshHeaders(map<BinaryData, StoredScriptHistory>& sshMap,
       const vector<StoredScriptHistory*>& saVec,
       uint32_t threadId);
