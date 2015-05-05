@@ -62,6 +62,10 @@ CXXCPP += -I/usr/include/c++/v1
 endif
 endif
 
+if TARGET_LINUX
+LDLIBS += -lrt
+endif
+
 # each .o file depends on all .h files
 EVERY_HEADER = bdmenums.h BDM_mainthread.h BDM_supportClasses.h BinaryData.h \
 	Blockchain.h BlockDataManagerConfig.h BlockDataViewer.h BlockObj.h \
@@ -76,7 +80,7 @@ EVERY_HEADER = bdmenums.h BDM_mainthread.h BDM_supportClasses.h BinaryData.h \
 all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 ../_CppBlockUtils.so: $(OBJS) CppBlockUtils_wrap.o
-	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	$(LINK) -shared -fPIC $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o $(LDLIBS) -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
 	$(PYRCC4) -o ../qrc_img_resources.py ../imgList.xml

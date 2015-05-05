@@ -37,6 +37,7 @@ def find(name, path):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('chroot', help='name of chroot (including .cow)')
+parser.add_argument('static', type=int, help='boolean for static build (0 or 1)')
 args = parser.parse_args()
 
 if pwd().split('/')[-1]=='dpkgfiles':
@@ -74,7 +75,14 @@ if not vstr:
 
 # Copy the correct control file (for 32-bit or 64-bit OS)
 osBits = platform.architecture()[0][:2]
+staticStr = ''
+if args.static:
+   staticStr = 'static'
 shutil.copy('dpkgfiles/control%s' % (osBits), 'dpkgfiles/control')
+
+# Copy the correct rules file (for static or non-static build)
+shutil.copy('dpkgfiles/rules%s.template' % (staticStr), 'dpkgfiles/rules')
+
 dpkgfiles = ['control', 'copyright', 'postinst', 'postrm', 'rules']
 
 
@@ -98,4 +106,4 @@ for f in dpkgfiles:
    execAndWait('%s cp dpkgfiles/%s debian/%s' % (faketimeVars, f, f))
 
 # Finally, all the magic happens here
-execAndWait('%s pdebuild --pbuilder cowbuilder --buildresult ../armory-build -- --basepath /var/cache/pbuilder/%s' % (faketimeVars, args.chroot))
+execAndWait('%s pdebuild --pbuilder cowbuilder --use-pdebuild-internal --buildresult ../armory-build -- --basepath /var/cache/pbuilder/%s' % (faketimeVars, args.chroot))

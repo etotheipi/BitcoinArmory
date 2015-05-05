@@ -45,6 +45,13 @@ esac
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
 
+# Enable static linking
+AC_ARG_ENABLE([static-link],
+    [AS_HELP_STRING([--enable-static-link],
+                    [use static link flags (default is no)])],
+    [enable_static_link=$enableval],
+    [enable_static_link=no])
+
 # Enable debug
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
@@ -77,6 +84,12 @@ if test "x$enable_debug" = xyes; then
 else
     CFLAGS='-O2 -pipe -fPIC'
     CXXFLAGS='-O2 -pipe -fPIC'
+fi
+
+dnl Set static link flags
+if test "x$enable_static_link" = xyes; then
+    CFLAGS+=' -static-libstdc++ -static-libgcc'
+    CXXFLAGS+=' -static-libstdc++ -static-libgcc'
 fi
 
 dnl Compiler checks
