@@ -116,10 +116,10 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
 
    TIMER_STOP("prepareSSHheaders");
 
-   auto computeThread = [this](vector<StoredScriptHistory*>& sshv)->void
-   { computeDBKeys(sshv); };
+   auto computeThread = [&sshVec, this](void)->void
+   { computeDBKeys(sshVec); };
 
-   return thread(computeThread, sshVec);
+   return thread(computeThread);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +217,7 @@ void SSHheaders::computeDBKeys(vector<StoredScriptHistory*> sshVec)
       TIMER_STOP("getNewKeys");
 
       //check for key collisions
-      auto& newSshVec = checkForSubKeyCollisions(sshVec);
+      auto newSshVec = checkForSubKeyCollisions(sshVec);
 
       if (newSshVec.size() > 0)
       {
@@ -289,7 +289,7 @@ void SSHheaders::fetchExistingSshHeaders(
       auto& ssh = *sshVec[i];
       if (ssh.keyLength_ == 0)
       {
-         BinaryData& sshKey = ssh.getDBKey(true);
+         BinaryData sshKey = ssh.getDBKey(true);
          BinaryDataRef valRef = 
             BlockWriteBatcher::iface_->getValueNoCopy(HISTORY, sshKey);
          
