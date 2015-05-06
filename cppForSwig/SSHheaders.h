@@ -43,6 +43,7 @@ public:
    map<BinaryData, pair<uint8_t, uint32_t>> topPrefix_;
    mutex mu_;
    static int collisionCount;
+   static mutex keyAddressingMutex_;
 
 private:
    const uint32_t nThreads_;

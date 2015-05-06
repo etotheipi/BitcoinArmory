@@ -431,6 +431,9 @@ void ScrAddrFilter::buildSSHKeys()
       scrAddrs.push_back(sa.first);
    }
 
+   //we may create new ssh keys, need the lock first.
+   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
+
    //let the SSHheaders object handle the key creation and collision detection
    sshHeaders.processSshHeaders(scrAddrs);
    

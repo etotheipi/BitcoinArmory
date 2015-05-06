@@ -2,6 +2,7 @@
 #include "BlockWriteBatcher.h"
 
 int SSHheaders::collisionCount = 0;
+mutex SSHheaders::keyAddressingMutex_;
 
 ////////////////////////////////////////////////////////////////////////////////
 thread SSHheaders::getSshHeaders(
@@ -221,12 +222,11 @@ void SSHheaders::computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> sshVec)
       TIMER_STOP("getNewKeys");
 
       //check for key collisions
-      auto newSshVec = checkForSubKeyCollisions(*sshVec);
+      *sshVec = checkForSubKeyCollisions(*sshVec);
 
-      if (newSshVec.size() > 0)
+      if (sshVec->size() > 0)
       {
          haveCollision = true;
-         *sshVec = move(newSshVec);
          collisionCount++;
       }
 
