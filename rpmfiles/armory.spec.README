@@ -1,0 +1,31 @@
+Instructions for building an RPM from armory.spec
+
+
+1) Install rpm. The package name may be different if you are not on a Debian
+   based distro. The rpm package includes rpmbuild, which is what we will be
+   using.
+
+2) Make sure you have the following directory structure under ~/rpmbuild/:
+
+   BUILD/     BUILDROOT/ RPMS/      SOURCES/   SPECS/     SRPMS/
+
+3) Download the .tar.gz from the GitHub releases page of the Armory repo. Leave
+   it as a .tar.gz and place it directly under the SOURCES directory.
+
+4) Place the armory.spec file from the directory that contains these
+   instructions in SPECS directly.
+
+5) You may need to make some changes to the spec file, particularly if the
+   version of Armory you are building is different than the version that the
+   spec file was designed to build. You will likely be able to just modify all
+   instances of the Armory version string and then be able to build
+   successfully.
+
+6) Navigate to ~/rpmbuild/SPECS/ and run rpmbuild -ba armory.spec.
+
+7) Assuming the build was successful, you should find the RPM under RPMS,
+   though it will be in a subdirectory based on the architecture it is built
+   for (like x86_64)
+
+Note: This was only tested on a Debian Jessie build system with Fedora 21 as
+      the test machine it was installed and run on.
