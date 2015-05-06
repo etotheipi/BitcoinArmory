@@ -117,12 +117,12 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
 
    TIMER_STOP("prepareSSHheaders");
 
-   auto computeThread = [&sshVec, this](void)->void
+   auto computeThread = [this](shared_ptr<vector<StoredScriptHistory*>> sshv)->void
    { 
-      computeDBKeys(sshVec); 
+      computeDBKeys(sshv); 
    };
 
-   return thread(computeThread);
+   return thread(computeThread, sshVec);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
