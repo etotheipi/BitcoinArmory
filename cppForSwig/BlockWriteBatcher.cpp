@@ -380,7 +380,12 @@ BinaryData BlockWriteBatcher::scanBlocks(
    ScrAddrFilter& scf,
    bool forceUpdateSSH)
 {
-   //endBlock = 220000;
+   //Grab the SSHheader static mutex. This makes sure only this scan is 
+   //creating new SSH keys. If several scanning threads were to take place, 
+   //it could possibly result in key collision, as scan threads are not aware
+   //of each others' state
+   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
+
    uint32_t nThreads = 3;
    if (int(endBlock) - int(startBlock) < 100)
       nThreads = 1;
@@ -393,7 +398,7 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
    BinaryData bd = applyBlocksToDB(prog, blockData);
 
-   double timeElapsed = TIMER_READ_SEC("feedSleep");
+/*   double timeElapsed = TIMER_READ_SEC("feedSleep");
    LOGWARN << "--- feedSleep: " << timeElapsed << " s";
 
    timeElapsed = TIMER_READ_SEC("workers");
@@ -460,7 +465,7 @@ BinaryData BlockWriteBatcher::scanBlocks(
    timeElapsed = TIMER_READ_SEC("BDP_dtor");
    LOGWARN << "--- BDP_dtor: " << timeElapsed << " s";
 
-   LOGWARN << "SSHheaders collision count: " << SSHheaders::collisionCount;
+   LOGWARN << "SSHheaders collision count: " << SSHheaders::collisionCount;*/
 
    return bd;
 }
@@ -800,8 +805,8 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
       TIMER_START("serializeSSH");
       serializeSSH(bdc);
 
-      /*unique_lock<mutex> setWriter(bdc->waitOnWriterMutex_);
-      bdc->waitOnWriterCV_.notify_all();*/
+      unique_lock<mutex> setWriter(bdc->waitOnWriterMutex_);
+      bdc->waitOnWriterCV_.notify_all();
 
       TIMER_STOP("serializeSSH");
    }
@@ -811,7 +816,7 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
       serThread.join();
    TIMER_STOP("wait on serThread");
 
-   /*auto cleanUp = [&bdc](void)->void
+   auto cleanUp = [&bdc](void)->void
    {
       bdc->threads_.clear();
       //bdc->dataFeed_.reset();
@@ -819,7 +824,7 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
 
    thread cleanUpThread(cleanUp);
    if (cleanUpThread.joinable())
-      cleanUpThread.detach();*/
+      cleanUpThread.detach();
 
    TIMER_START("finishSer");
    for (auto& inbw : intermidiarrySubSshToApply_)
@@ -1624,10 +1629,10 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
    {
       unique_lock<mutex> lock(commitObject->processor_->writeMutex_);
 
-      {
+      /*{
          unique_lock<mutex> setWriter(commitObject->waitOnWriterMutex_);
          commitObject->waitOnWriterCV_.notify_all();
-      }
+      }*/
 
       TIMER_START("putSSH");
       dtc->putSSH();
@@ -1651,11 +1656,9 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
    }
       
 
-   TIMER_START("cleanDTC");
    dtc.reset();
    commitObject->dataFeed_.reset();
-   commitObject->threads_.clear();
-   TIMER_STOP("cleanDTC");
+   //commitObject->threads_.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
