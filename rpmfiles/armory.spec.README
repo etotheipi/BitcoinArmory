@@ -13,7 +13,8 @@ Instructions for building an RPM from armory.spec
    it as a .tar.gz and place it directly under the SOURCES directory.
 
 4) Place the armory.spec file from the directory that contains these
-   instructions in SPECS directly.
+   instructions in SPECS directly. If building 0.94 or above, place the
+   armory.spec.autotools as armory.spec.
 
 5) You may need to make some changes to the spec file, particularly if the
    version of Armory you are building is different than the version that the
@@ -28,4 +29,5 @@ Instructions for building an RPM from armory.spec
    for (like x86_64)
 
 Note: This was only tested on a Debian Jessie build system with Fedora 21 as
-      the test machine it was installed and run on.
+      the test machine it was installed and run on. The autotools version of
+      the spec is not yet tested.
