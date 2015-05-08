@@ -462,6 +462,9 @@ void LMDBBlockDatabase::openDatabases(
          );
    }
 
+   if(blkFile != nullptr) fclose(blkFile);
+   if(zcFile != nullptr) fclose(zcFile);
+
    if (genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
       LOGERR << " must set magic bytes and genesis block";
