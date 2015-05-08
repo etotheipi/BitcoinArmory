@@ -374,6 +374,9 @@ void LMDBBlockDatabase::openDatabases(
    )
 {
    /***
+   
+   ---- outdated, update this to 0.94 mechanics ----
+
    Supernode and Fullnode use different DB. 
    
    Supernode keeps all data within the same file.
@@ -435,6 +438,7 @@ void LMDBBlockDatabase::openDatabases(
    SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
+
    baseDir_ = basedir;
    magicBytes_ = magic;
    genesisTxHash_ = genesisTxHash;
@@ -442,6 +446,21 @@ void LMDBBlockDatabase::openDatabases(
 
    armoryDbType_ = dbtype;
    dbPruneType_ = pruneType;
+
+   //check if the folder contains a compatible db
+   bool hasBlocks = false;
+   bool hasSubSSH = false;
+   
+   FILE* blkFile = fopen(dbBlkdataFilename().c_str(), "rb");
+   FILE* zcFile = fopen(dbZeroconfFilename().c_str(), "rb");
+
+   if (blkFile && !zcFile)
+   {
+      throw runtime_error("Your current database is incompatible with this"
+         " version. Either empty the database folder or use a different"
+         " folder through the --dbdir command line argument."
+         );
+   }
 
    if (genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
