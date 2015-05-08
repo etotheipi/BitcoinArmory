@@ -46,6 +46,23 @@ install-exec-local:
 	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
 
+all-test-tools: all
+	$(MAKE) -C cppForSwig/gtest
+
+gtest: all-test-tools
+	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
+
+pytest: all
+	python -m unittest discover
+
+test: gtest pytest
+
+mo: messages
+	$(MAKE) -C po mo
+
+messages:
+	xgettext -o po/messages.pot --from-code=UTF-8 -L Python -ktr *.py armoryengine/*.py ui/*.py
+
 if TARGET_LINUX
 if BUILD_LINUX
 deb:
