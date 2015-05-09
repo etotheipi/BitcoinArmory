@@ -117,7 +117,19 @@ if args.build_depends:
     cd('..')
     execAndWait('mkdir armory-build-depends')
     cd('armory-build-depends')
-    depends = ['http://archive.ubuntu.com/ubuntu/pool/main/t/twisted/twisted_13.2.0-1ubuntu1.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/p/python-qt4/python-qt4_4.11.2+dfsg-1.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/s/sip4/sip4_4.16.3+dfsg-1.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/p/pyasn1/pyasn1_0.1.7-1ubuntu2.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/q/qt4-x11/qt4-x11_4.8.6+git49-gbc62005+dfsg-1ubuntu1.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/p/python-psutil/python-psutil_2.1.1-1.dsc', 'http://archive.ubuntu.com/ubuntu/pool/universe/d/dpkg-sig/dpkg-sig_0.13.1+nmu2.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/q/qt-assistant-compat/qt-assistant-compat_4.6.3-6.dsc', 'http://archive.ubuntu.com/ubuntu/pool/main/q/qtwebkit-source/qtwebkit-source_2.3.2-0ubuntu7.dsc']
+    twistedURL = 'http://archive.ubuntu.com/ubuntu/pool/main/t/twisted/twisted_13.2.0-1ubuntu1.dsc'
+    pythonQt4URL = 'http://archive.ubuntu.com/ubuntu/pool/main/p/python-qt4/python-qt4_4.11.2+dfsg-1.dsc'
+    sip4URL = 'http://archive.ubuntu.com/ubuntu/pool/main/s/sip4/sip4_4.16.3+dfsg-1.dsc'
+    pyasn1URL = 'http://archive.ubuntu.com/ubuntu/pool/main/p/pyasn1/pyasn1_0.1.7-1ubuntu2.dsc'
+    qt4X11URL = 'http://archive.ubuntu.com/ubuntu/pool/main/q/qt4-x11/qt4-x11_4.8.6+git49-gbc62005+dfsg-1ubuntu1.dsc'
+    pythonPsutilURL = 'http://archive.ubuntu.com/ubuntu/pool/main/p/python-psutil/python-psutil_2.1.1-1.dsc'
+    dpkgSigURL = 'http://archive.ubuntu.com/ubuntu/pool/universe/d/dpkg-sig/dpkg-sig_0.13.1+nmu2.dsc'
+    qtAssistantCompatURL = 'http://archive.ubuntu.com/ubuntu/pool/main/q/qt-assistant-compat/qt-assistant-compat_4.6.3-6.dsc'
+    qtwebkitSourceURL = 'http://archive.ubuntu.com/ubuntu/pool/main/q/qtwebkit-source/qtwebkit-source_2.3.2-0ubuntu7.dsc'
+    depends = [
+            twistedURL, pythonQt4URL, sip4URL, pyasn1URL, qt4X11URL,
+            pythonPsutilURL, dpkgSigURL, qtAssistantCompatURL, qtwebkitSourceURL
+            ]
     for url in depends:
         execAndWait('dget -x ' + url)
     for d in dir()[1]:
