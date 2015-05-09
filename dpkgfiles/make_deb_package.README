@@ -29,8 +29,12 @@ Instructions for using make_deb_package.py outside of Gitian
 
 3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow amd64 1 0"
    from the Armory root directory. Alternatively, run "make deb" after having
-   run "./configure". The "1" indicates that the build links libstdc++
-   statically. Substitute i386 for amd64 for a 32-bit package.
+   run "./configure". The first parameter is the filename for the chroot in
+   /var/cache/pbuilder/. The second parameter is i386 or amd64 to indicate what
+   is the bitness of the package we are building. The third parameter is 1 or 0
+   to indicate whether to build with static libstdc++ or not. The fourth
+   parameter is 1 or 0 to indicate whether or not to build the dependencies
+   from source.
 
 4) You should find the results of the build in ../armory-build/. Doing the same
    type of build twice will overwrite the previous results (amd64 and amd64 or
@@ -39,5 +43,5 @@ Instructions for using make_deb_package.py outside of Gitian
 
 Note: These instructions have been tested on a Debian Jessie host.
 
-Note: Specify --architecture i386 to the cowbuilder --create command for a
+Note: Specify --architecture i386 to the "cowbuilder --create" command for a
       32-bit chroot for building 32-bit deb packages.
