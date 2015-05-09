@@ -48,8 +48,15 @@ install-exec-local:
 
 if TARGET_LINUX
 if BUILD_LINUX
-deb:
-	python dpkgfiles/make_deb_package.py
+deb: all
+	@while [ -z "$$AMD64_CHROOT" ]; do \
+		read -r -p "Name of amd64 chroot: " AMD64_CHROOT; \
+	done && \
+	while [ -z "$$I386_CHROOT" ]; do \
+		read -r -p "Name of i386 chroot: " I386_CHROOT; \
+	done && \
+	python dpkgfiles/make_deb_package.py $$AMD64_CHROOT 64 1 0 && \
+	python dpkgfiles/make_deb_package.py $$I386_CHROOT 32 1 0
 endif
 endif
 
