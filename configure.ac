@@ -18,6 +18,8 @@ case $host in
         ;;
     *darwin*)
         TARGET_OS=darwin
+        dnl Check for sip executable and sip include path
+        AX_SIP_DEVEL
         ;;
     *linux*)
         TARGET_OS=linux
@@ -42,6 +44,13 @@ esac
 
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
+
+# Enable static linking
+AC_ARG_ENABLE([static-link],
+    [AS_HELP_STRING([--enable-static-link],
+                    [use static link flags (default is no)])],
+    [enable_static_link=$enableval],
+    [enable_static_link=no])
 
 # Enable debug
 AC_ARG_ENABLE([debug],
@@ -77,6 +86,12 @@ else
     CXXFLAGS='-O2 -pipe -fPIC'
 fi
 
+dnl Set static link flags
+if test "x$enable_static_link" = xyes; then
+    CFLAGS+=' -static-libstdc++ -static-libgcc'
+    CXXFLAGS+=' -static-libstdc++ -static-libgcc'
+fi
+
 dnl Compiler checks
 AM_PROG_AR
 AC_PROG_CC
@@ -87,9 +102,6 @@ AC_PROG_SED
 
 dnl Check for C++11 strict conformance mode (-std=c++11)
 AX_CXX_COMPILE_STDCXX_11([noext])
-
-dnl Check for sip executable and sip include path
-AX_SIP_DEVEL
 
 dnl Check for swig
 AX_PKG_SWIG(, [], [AC_MSG_ERROR([swig is required to build])])

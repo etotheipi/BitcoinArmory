@@ -1,9 +1,6 @@
 Instructions for using make_deb_package.py outside of Gitian
 
 
-Note that you probably don't want to follow these instructions. Instead, you
-probably want to just run the Gitian build script to generate the deb.
-
 1) We use cowbuilder to build in a chroot, so you need to prepare a chroot with
    cowbuilder first (instructions from the Debian reproducible build project):
 
@@ -16,6 +13,9 @@ probably want to just run the Gitian build script to generate the deb.
       apt-key fingerprint | grep '49B6 5747 36D0 B637 CC37  01EA 5DB7 CA67 EA59 A31F' || { echo 'Something is wrong' && exit 1; }
       apt-get update
       apt-get upgrade
+      # next two lines required only for static linking
+      apt-get install libstdc++-4.8-pic # may vary based on version of libstdc++
+      ln -s /usr/lib/gcc/x86_64-linux-gnu/4.8/libstdc++_pic.a /usr/lib/x86_64-linux-gnu/libstdc++.a # may vary based on the chroot's triplet and the version of libstdc++
       exit 0
 
    The above instructions install the Debian reproducible build toolchain in
@@ -27,10 +27,21 @@ probably want to just run the Gitian build script to generate the deb.
 2) Make sure you have libfaketime installed on the machine you are running the
    make_deb_package.py script from (not the chroot).
 
-3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow" from the
-   Armory root directory. Alternatively, run "make deb" after having run
-   "./configure".
+3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow amd64 1 0"
+   from the Armory root directory. Alternatively, run "make deb" after having
+   run "./configure". The first parameter is the filename for the chroot in
+   /var/cache/pbuilder/. The second parameter is i386 or amd64 to indicate what
+   is the bitness of the package we are building. The third parameter is 1 or 0
+   to indicate whether to build with static libstdc++ or not. The fourth
+   parameter is 1 or 0 to indicate whether or not to build the dependencies
+   from source.
 
-4) You should find the results of the build in ../armory-build/.
+4) You should find the results of the build in ../armory-build/. Doing the same
+   type of build twice will overwrite the previous results (amd64 and amd64 or
+   i386 and i386). However, you can do amd64 and then i386 without the i386
+   build overwriting the amd64 build result and the other way around.
 
 Note: These instructions have been tested on a Debian Jessie host.
+
+Note: Specify --architecture i386 to the "cowbuilder --create" command for a
+      32-bit chroot for building 32-bit deb packages.
