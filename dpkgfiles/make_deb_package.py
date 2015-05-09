@@ -37,10 +37,13 @@ def find(name, path):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('chroot', help='name of chroot (including .cow)')
+parser.add_argument('bitness', type=int, help='32-bit or 64-bit (32 or 64)')
 parser.add_argument('static', type=int, help='boolean for static build (0 or 1)')
 parser.add_argument('build_depends', metavar='build-depends', type=int, help='boolean for whether to'
         + 'build dependencies or not (0 or 1)')
 args = parser.parse_args()
+
+arch = {32: 'i386', 64: 'amd64'}[args.bitness]
 
 if pwd().split('/')[-1]=='dpkgfiles':
    cd('..')
@@ -76,7 +79,7 @@ if not vstr:
    exit(1)
 
 # Copy the correct control file (for 32-bit or 64-bit OS)
-osBits = platform.architecture()[0][:2]
+osBits = args.bitness
 staticStr = ''
 if args.static:
    staticStr = 'static'
@@ -108,7 +111,7 @@ for f in dpkgfiles:
    execAndWait('%s cp dpkgfiles/%s debian/%s' % (faketimeVars, f, f))
 
 # Finally, all the magic happens here
-execAndWait('%s pdebuild --pbuilder cowbuilder --use-pdebuild-internal --buildresult ../armory-build -- --basepath /var/cache/pbuilder/%s' % (faketimeVars, args.chroot))
+execAndWait('%s pdebuild --pbuilder cowbuilder --use-pdebuild-internal --architecture %s --buildresult ../armory-build -- --basepath /var/cache/pbuilder/%s' % (faketimeVars, arch, args.chroot))
 if args.build_depends:
     # Build all the dependencies
     cd('..')
