@@ -1,6 +1,6 @@
 # Pretty much taken verbatim from Bitcoin Core
 package=openssl
-$(package)_version=1.0.1m
+$(package)_version=1.0.1k
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=095f0b7b09116c0c5526422088058dc7e6e000aa14d22acca6a4e2babcdfef74
