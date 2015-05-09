@@ -1,3 +1,12 @@
+***WARNING***WARNING***WARNING***WARNING***WARNING***WARNING***WARNING***
+
+This (the stuff in the rpmfiles directory) is experimental! RPM builds are not
+supported by ATI and that should be kept in mind when using them. There is no
+guarantee that RPM builds will work.
+
+***WARNING***WARNING***WARNING***WARNING***WARNING***WARNING***WARNING***
+
+
 Instructions for building an RPM from armory.spec
 
 
