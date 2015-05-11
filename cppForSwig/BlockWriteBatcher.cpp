@@ -337,13 +337,10 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
       {
          uint32_t feedTopBlockHeight = 0;
          uint32_t feedSize = 0;
-         uint32_t nthreads = 1;
-         if (undo_)
-            nthreads = 1;
-         else if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
-            nthreads = 4;
+         uint32_t nthreads = 
+            dataProcessor_.nWorkers_.load(memory_order_acquire);
 
-         auto nextFeed = blockData->chargeNextFeed();
+         auto nextFeed = blockData->chargeNextFeed(nthreads);
          
          if (!nextFeed->hasData_)
          {
@@ -398,7 +395,7 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
    BinaryData bd = applyBlocksToDB(prog, blockData);
 
-/*   double timeElapsed = TIMER_READ_SEC("feedSleep");
+   double timeElapsed = TIMER_READ_SEC("feedSleep");
    LOGWARN << "--- feedSleep: " << timeElapsed << " s";
 
    timeElapsed = TIMER_READ_SEC("workers");
@@ -450,22 +447,17 @@ BinaryData BlockWriteBatcher::scanBlocks(
    LOGWARN << "--- putSSH: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("putSTX");
    LOGWARN << "--- putSTX: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("cleanDTC");
-   LOGWARN << "--- cleanDTC: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("cleanBDT");
-   LOGWARN << "--- cleanBDT: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("cleanFeed");
-   LOGWARN << "--- cleanFeed: " << timeElapsed << " s";
-
 
    timeElapsed = TIMER_READ_SEC("getnextfeed");
    LOGWARN << "--- getnextfeed: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("inControlThread");
    LOGWARN << "--- inControlThread: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("BDP_dtor");
-   LOGWARN << "--- BDP_dtor: " << timeElapsed << " s";
 
-   LOGWARN << "SSHheaders collision count: " << SSHheaders::collisionCount;*/
+   timeElapsed = TIMER_READ_SEC("parseTxOut");
+   LOGWARN << "--- parseTxOut: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("parseTxIn");
+   LOGWARN << "--- parseTxIn: " << timeElapsed << " s";
+
 
    return bd;
 }
@@ -793,7 +785,7 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
    if (isSerialized_)
       return;
 
-   uint32_t nThreads = getProcessSSHnThreads();
+   uint32_t nThreads = bdc->processor_->nWriters_.load(memory_order_acquire);
    bdc->sshHeaders_.reset(new SSHheaders(nThreads, bdc->commitId_));
 
    auto serialize = [&](void)
@@ -805,8 +797,8 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
       TIMER_START("serializeSSH");
       serializeSSH(bdc);
 
-      unique_lock<mutex> setWriter(bdc->waitOnWriterMutex_);
-      bdc->waitOnWriterCV_.notify_all();
+      /*unique_lock<mutex> setWriter(bdc->waitOnWriterMutex_);
+      bdc->waitOnWriterCV_.notify_all();*/
 
       TIMER_STOP("serializeSSH");
    }
@@ -1307,9 +1299,9 @@ shared_ptr<PulledBlock> LoadedBlockData::getNextBlock(unique_lock<mutex>* mu)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<BlockDataFeed> LoadedBlockData::chargeNextFeed()
+shared_ptr<BlockDataFeed> LoadedBlockData::chargeNextFeed(uint32_t nthreads)
 {
-   shared_ptr<BlockDataFeed> nextFeed(new BlockDataFeed(nThreads_));
+   shared_ptr<BlockDataFeed> nextFeed(new BlockDataFeed(nthreads));
    nextFeed->chargeFeed(*this);
    uint32_t feedId = topFeed_ % MAX_FEED_BUFFER;
 
@@ -1508,6 +1500,61 @@ void BlockDataFeed::chargeFeed(LoadedBlockData& blockData)
 ////////////////////////////////////////////////////////////////////////////////
 //// BlockDataProcesser
 ////////////////////////////////////////////////////////////////////////////////
+BlockDataProcessor::BlockDataProcessor(bool undo)
+: undo_(undo)
+{
+   commitedId_.store(0);
+
+   totalThreadCount_ = (int)thread::hardware_concurrency() - 3;
+   if (totalThreadCount_ < 1)
+      totalThreadCount_ = 1;
+
+   if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+   {
+      //for supernode, split workers and writers evenly, round up for writers
+      int32_t workers = totalThreadCount_ / 2;
+      if (workers < 1)
+         workers = 1;
+
+      int32_t writers = totalThreadCount_ - workers;
+      if (writers < 1)
+         writers = 1;
+
+      nWorkers_.store(workers);
+      nWriters_.store(writers);
+   }
+   else
+   {
+      //otherwise, give workers 90% of the processing power
+      int32_t writers = (totalThreadCount_ * 10) / 100;
+      if (writers < 1)
+         writers = 1;
+
+      int32_t workers = totalThreadCount_ - writers;
+      if (workers < 1)
+         workers = 1;
+
+      nWorkers_.store(workers);
+      nWriters_.store(writers);
+   }
+
+   if (undo)
+   {
+      sshHeaders_.reset(new SSHheaders(1, 0));
+      sshHeaders_->sshToModify_.reset(
+         new map<BinaryData, StoredScriptHistory>());
+
+      totalThreadCount_ = 1;
+      nWorkers_.store(1);
+      nWriters_.store(1);
+   }
+
+   LOGWARN << "Starting with: ";
+   LOGWARN << nWorkers_.load() << " workers";
+   LOGWARN << nWriters_.load() << " writers";
+}
+
+////////////////////////////////////////////////////////////////////////////////
 thread BlockDataProcessor::startThreads(shared_ptr<LoadedBlockData> blockData)
 {
    
@@ -1539,6 +1586,7 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       worker_.reset(new BlockDataContainer(this));
       
       //update the worker threads struct with the new data
+      worker_->workTime_ = clock();
       for (uint32_t i = 0; i < nThreads_; i++)
       {
          if (dataFeed->blockPackets_[i].blocks_.size() > 0)
@@ -1549,7 +1597,6 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       worker_->dataFeed_ = dataFeed;
       worker_->startThreads();
 
-      TIMER_START("workers");
       while (1)
       {
          uint32_t finishedWork = 0;
@@ -1564,7 +1611,8 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
          
          workCV_.wait(workLock);
       }
-      TIMER_STOP("workers");
+      
+      worker_->workTime_ = clock() - worker_->workTime_;
 
       //all workers are done, time to commit
       worker_->highestBlockProcessed_ = dataFeed->topBlockHeight_;
@@ -1614,6 +1662,7 @@ thread BlockDataProcessor::commit(bool finalCommit)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
 {
+   commitObject->writeTime_ = clock();
    shared_ptr<BlockDataContainer> writerPtr =
       commitObject->processor_->writer_;
 
@@ -1627,12 +1676,12 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
    dtc->serializeData(commitObject);
       
    {
-      unique_lock<mutex> lock(commitObject->processor_->writeMutex_);
-
-      /*{
+      {
          unique_lock<mutex> setWriter(commitObject->waitOnWriterMutex_);
          commitObject->waitOnWriterCV_.notify_all();
-      }*/
+      }
+
+      unique_lock<mutex> lock(commitObject->processor_->writeMutex_);
 
       TIMER_START("putSSH");
       dtc->putSSH();
@@ -1655,12 +1704,83 @@ void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
       commitObject->processor_->commitedId_.fetch_add(1, memory_order_release);
    }
       
+   commitObject->writeTime_ = clock() - commitObject->writeTime_;
+   //commitObject->processor_->adjustThreadCount(commitObject);
 
    dtc.reset();
    commitObject->dataFeed_.reset();
-   //commitObject->threads_.clear();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataProcessor::adjustThreadCount(
+   shared_ptr<BlockDataContainer> bdc)
+{
+   /***The idea is to write the processed data in parallel of the worker.
+   To achieve this, we adjust threads per task in an attempt to keep the 
+   write time below the work time, while keeping the work time as low as
+   possible.
+   ***/
+
+   uint32_t nworker = bdc->nThreads_;
+   uint32_t nwriter = bdc->sshHeaders_->nThreads_;
+
+   uint32_t newWriterCount, newWorkerCount;
+
+   if (bdc->writeTime_ > bdc->workTime_)
+   {
+      //writer is slower than worker, give it more threads
+      float ratio = float(bdc->writeTime_ * nwriter) / 
+         float(bdc->workTime_ * nworker) + 1.0f;
+      if (bdc->workTime_ == 0)
+         ratio = 0;
+
+      newWorkerCount = uint32_t((float)totalThreadCount_ / ratio);
+
+      if (newWorkerCount >= totalThreadCount_)
+         newWorkerCount = totalThreadCount_ - 1;
+
+      if (newWorkerCount == 0)
+         newWorkerCount = 1;
+
+      newWriterCount = totalThreadCount_ - newWorkerCount;
+   }
+   else
+   {
+      float ratio = float(bdc->workTime_ * nworker) /
+         float(bdc->writeTime_ * nwriter) + 1.0f;
+      if (bdc->writeTime_ != 0)
+         ratio = 0;
+
+      newWriterCount = uint32_t((float)totalThreadCount_ / ratio);
+
+      if (newWriterCount >= totalThreadCount_)
+         newWriterCount = totalThreadCount_ - 1;
+
+      if (newWriterCount == 0)
+         newWriterCount = 1;
+
+      newWorkerCount = totalThreadCount_ - newWriterCount;
+   }
+
+   if (newWorkerCount != nworker || newWriterCount != nwriter)
+   {
+      nWorkers_.store(newWorkerCount, memory_order_release);
+      nWriters_.store(newWriterCount, memory_order_release);
+
+      //msg
+      LOGWARN << "Readjusting thread count: ";
+      LOGWARN << newWorkerCount << " workers";
+      LOGWARN << newWriterCount << " writers";
+      LOGWARN << nworker << " old worker count";
+      LOGWARN << nwriter << " old writer count";
+      LOGWARN << bdc->workTime_ << "s of work time";
+      LOGWARN << bdc->writeTime_ << "s of write time";
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//// BlockDataContainer
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataContainer::BlockDataContainer(BlockDataProcessor* bdpPtr)
    : processor_(bdpPtr), nThreads_(bdpPtr->nThreads_), undo_(bdpPtr->undo_),
@@ -1672,7 +1792,6 @@ BlockDataContainer::BlockDataContainer(BlockDataProcessor* bdpPtr)
       threads_.push_back(bdt);
    }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// BlockDataThread
@@ -1801,8 +1920,13 @@ void BlockDataThread::applyTxToBatchWriteData(
    PulledTx& thisSTX,
    StoredUndoData * sud)
 {
+   TIMER_START("parseTxOut");
    bool txIsMine = parseTxOuts(thisSTX, sud);
+   TIMER_STOP("parseTxOut");
+   
+   TIMER_START("parseTxIn");
    txIsMine |= parseTxIns(thisSTX, sud);
+   TIMER_STOP("parseTxIn");
 
    if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER && txIsMine)
    {
