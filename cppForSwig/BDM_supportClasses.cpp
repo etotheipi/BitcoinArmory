@@ -422,7 +422,7 @@ const vector<string> ScrAddrFilter::getNextWalletIDToScan(void)
 void ScrAddrFilter::buildSSHKeys()
 {
    //prepare the container
-   SSHheaders sshHeaders(1);
+   SSHheaders sshHeaders(1, 0);
    sshHeaders.sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
    
    vector<BinaryData> scrAddrs;
@@ -430,6 +430,9 @@ void ScrAddrFilter::buildSSHKeys()
    {
       scrAddrs.push_back(sa.first);
    }
+
+   //we may create new ssh keys, need the lock first.
+   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
 
    //let the SSHheaders object handle the key creation and collision detection
    sshHeaders.processSshHeaders(scrAddrs);

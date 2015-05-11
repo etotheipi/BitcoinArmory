@@ -1369,11 +1369,14 @@ BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
 BinaryData StoredScriptHistory::getSubKey() const
 {
    if (keyLength_ == 0 || keyLength_ > uniqueKey_.getSize())
-      return BinaryData();
+      throw range_error("bad ssh key length");
 
    BinaryData key(keyLength_);
    key.getPtr()[0] = dbPrefix_;
-   memcpy(key.getPtr() + 1, uniqueKey_.getPtr() +1, keyLength_ -1);
+
+   memcpy(key.getPtr() + 1,
+      uniqueKey_.getPtr() +1,
+      keyLength_ -1);
 
    return key;
 }

@@ -299,6 +299,7 @@ public:
                                  BinaryDataRef keyWithPrefix) const;
    BinaryDataRef getValueNoCopy(DB_SELECT db, DB_PREFIX pref, 
                                  BinaryDataRef key) const;
+   BinaryDataRef getValueNoCopy(uint32_t subsshdb, BinaryDataRef key) const;
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -659,8 +660,8 @@ public:
    shared_ptr<vector<BlkFile>> getBlkFiles(void) const
    { return blkFiles_; }
 
-   BinaryData getSubSSHKey(BinaryDataRef uniqKey) const;
-
+   BinaryData getSubSSHKey(BinaryDataRef uniqKey, uint8_t keyLength) const;
+     
    void beginSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
 
 private:

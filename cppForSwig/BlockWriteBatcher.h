@@ -28,9 +28,13 @@ class ProgressFilter;
 //use a tiny update thresholds to trigger multiple commit threads for 
 //unit tests in debug builds
 static const uint64_t UPDATE_BYTES_THRESH = 300;
+static const uint32_t UPDATE_TXOUT_THRESH = 5;
 #else
 static const uint64_t UPDATE_BYTES_THRESH = 50 * 1024 * 1024;
+static const uint32_t UPDATE_TXOUT_THRESH = 150000;
 #endif
+
+#define MAX_FEED_BUFFER 3
 
 
 /*
@@ -336,6 +340,7 @@ struct GrabThreadData;
 
 class BlockDataFeed
 {
+   friend class LoadedBlockData;
    struct BlockPacket
    {
       vector<shared_ptr<PulledBlock>> blocks_;
@@ -349,13 +354,13 @@ public:
       blockPackets_.resize(nThreads);
    }
 
-   void chargeFeed(shared_ptr<LoadedBlockData> blockData);
+private:
+   void chargeFeed(LoadedBlockData& blockData);
 
 private:
    const uint32_t nThreads_;
 
 public:
-   shared_ptr<BlockDataFeed> next_;
    vector<BlockPacket> blockPackets_;
 
    BinaryData topBlockHash_;
@@ -371,12 +376,17 @@ public:
 class LoadedBlockData
 {
    friend struct GrabThreadData;
+   friend class BlockDataFeed;
 
 private:
 
    uint32_t startBlock_ = 0;
    uint32_t endBlock_ = 0;
    int32_t currentHeight_ = 0;
+
+   uint32_t currentFeed_ = 0;
+   uint32_t topFeed_ = 0;
+   vector<shared_ptr<BlockDataFeed>> vecBDF_;
 
    const uint32_t nThreads_;
 
@@ -391,8 +401,6 @@ public:
    condition_variable grabCV_, feedCV_;
 
    shared_ptr<PulledBlock> interruptBlock_ = nullptr;
-
-   shared_ptr<BlockDataFeed> blockDataFeed_;
    shared_ptr<BlockDataFeed> interruptFeed_ = nullptr;
 
    static int32_t getOffsetHeight(LoadedBlockData&, uint32_t);
@@ -400,6 +408,8 @@ public:
    static void nextHeight(LoadedBlockData&, int32_t&);
    static uint32_t getTopHeight(LoadedBlockData& lbd, PulledBlock&);
    static BinaryData getTopHash(LoadedBlockData& lbd, PulledBlock&);
+
+   uint32_t startBlock(void) const { return startBlock_; }
 
 private:
    LoadedBlockData(const LoadedBlockData&) = delete;
@@ -416,9 +426,6 @@ public:
    {
       interruptBlock_->nextBlock_.reset();
       interruptBlock_.reset();
-
-      interruptFeed_->next_.reset();
-      interruptFeed_.reset();
    }
 
    LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf,
@@ -432,7 +439,8 @@ public:
       interruptBlock_->nextBlock_ = interruptBlock_;
 
       interruptFeed_ = make_shared<BlockDataFeed>(1);
-      interruptFeed_->next_ = interruptFeed_;
+
+      vecBDF_.resize(MAX_FEED_BUFFER);
 
       GTD_.resize(nThreads_);
    }
@@ -441,6 +449,7 @@ public:
    void startGrabThreads(shared_ptr<LoadedBlockData>& lbd);
    void wakeGrabThreadsIfNecessary();
 
+   shared_ptr<BlockDataFeed> chargeNextFeed(void);
    shared_ptr<BlockDataFeed> getNextFeed(void);
 };
 
@@ -503,8 +512,6 @@ struct DataToCommit
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
    map<BinaryData, BinaryWriter> serializedTxHints_;
-
-   shared_ptr<SSHheaders> sshHeaders_;
 
    uint32_t mostRecentBlockApplied_;
    BinaryData topBlockHash_;
@@ -573,7 +580,8 @@ struct STXOS
 
    ///
    StoredTxOut* getStoredTxOut(const BinaryData& txHash, uint16_t utxoid);
-   StoredTxOut* lookForUTXOInMap(const BinaryData& txHashAndId34, bool forceFetch=false);
+   StoredTxOut* lookForUTXOInMap(const BinaryData& txHashAndId34, 
+      bool forceFetch=false);
 
    void moveStxoToUTXOMap(const shared_ptr<StoredTxOut>& thisTxOut);
 
@@ -656,11 +664,16 @@ class BlockDataContainer
    friend struct DataToCommit;
 
 private:
-   DataToCommit dataToCommit_;
+   //DataToCommit dataToCommit_;
 
    BlockDataProcessor *processor_;
    bool updateSDBI_ = true;
    bool forceUpdateSsh_ = false;
+
+   shared_ptr<SSHheaders> sshHeaders_;
+
+   const uint32_t commitId_;
+   shared_ptr<BlockDataFeed> dataFeed_;
 
 public:
    STXOS commitStxos_;
@@ -673,6 +686,9 @@ public:
    vector<shared_ptr<BlockDataThread>> threads_;
 
    const bool undo_;
+
+   mutex waitOnWriterMutex_;
+   condition_variable waitOnWriterCV_;
 
 public:
    BlockDataContainer(BlockDataProcessor* bdpPtr);
@@ -697,8 +713,10 @@ private:
 
    uint32_t nThreads_ = 1;
    const bool undo_;
-   
-public:
+   uint32_t commitId_ = 0;
+   atomic<uint32_t> commitedId_;
+
+   public:
    shared_ptr<SSHheaders> sshHeaders_;
 
    shared_ptr<BlockDataContainer> worker_;
@@ -716,9 +734,10 @@ public:
    BlockDataProcessor(bool undo)
       : undo_(undo)
    {
+      commitedId_.store(0);
       if (undo)
       {
-         sshHeaders_.reset(new SSHheaders(1));
+         sshHeaders_.reset(new SSHheaders(1, 0));
          sshHeaders_->sshToModify_.reset(
             new map<BinaryData, StoredScriptHistory>());
       }
@@ -726,12 +745,18 @@ public:
 
    ~BlockDataProcessor()
    {
+      TIMER_START("BDP_dtor");
       unique_lock<mutex> lock(workMutex_);
+      TIMER_STOP("BDP_dtor");
    }
 
    thread startThreads(shared_ptr<LoadedBlockData>);
    void processBlockData(shared_ptr<LoadedBlockData>);
    thread commit(bool force = false);
+   uint32_t getCommitedId(void) const
+   { 
+      return commitedId_.load(memory_order_acquire); 
+   }
 
    map<BinaryData, map<BinaryData, StoredSubHistory>> getSubSSHMap(void) const
    {
