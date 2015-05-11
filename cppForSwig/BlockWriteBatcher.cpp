@@ -1773,8 +1773,8 @@ void BlockDataProcessor::adjustThreadCount(
       LOGWARN << newWriterCount << " writers";
       LOGWARN << nworker << " old worker count";
       LOGWARN << nwriter << " old writer count";
-      LOGWARN << bdc->workTime_ << "s of work time";
-      LOGWARN << bdc->writeTime_ << "s of write time";
+      LOGWARN << (uint64_t)bdc->workTime_ << "s of work time";
+      LOGWARN << (uint64_t)bdc->writeTime_ << "s of write time";
    }
 }
 
