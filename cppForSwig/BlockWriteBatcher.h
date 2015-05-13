@@ -449,7 +449,7 @@ public:
    void startGrabThreads(shared_ptr<LoadedBlockData>& lbd);
    void wakeGrabThreadsIfNecessary();
 
-   shared_ptr<BlockDataFeed> chargeNextFeed(void);
+   shared_ptr<BlockDataFeed> chargeNextFeed(uint32_t nthreads);
    shared_ptr<BlockDataFeed> getNextFeed(void);
 };
 
@@ -675,6 +675,9 @@ private:
    const uint32_t commitId_;
    shared_ptr<BlockDataFeed> dataFeed_;
 
+   clock_t workTime_;
+   clock_t writeTime_;
+
 public:
    STXOS commitStxos_;
    
@@ -711,7 +714,6 @@ class BlockDataProcessor
    friend class BlockDataContainer;
 private:
 
-   uint32_t nThreads_ = 1;
    const bool undo_;
    uint32_t commitId_ = 0;
    atomic<uint32_t> commitedId_;
@@ -730,18 +732,14 @@ private:
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
    BinaryData lastScannedBlockHash_;
 
+   //atomic<uint32_t> nReaders_;
+   uint32_t nThreads_ = 0;
+   uint32_t totalThreadCount_;
+   atomic<uint32_t> nWorkers_;
+   atomic<uint32_t> nWriters_;
+
 public:
-   BlockDataProcessor(bool undo)
-      : undo_(undo)
-   {
-      commitedId_.store(0);
-      if (undo)
-      {
-         sshHeaders_.reset(new SSHheaders(1, 0));
-         sshHeaders_->sshToModify_.reset(
-            new map<BinaryData, StoredScriptHistory>());
-      }
-   }
+   BlockDataProcessor(bool undo);
 
    ~BlockDataProcessor()
    {
@@ -760,12 +758,14 @@ public:
 
    map<BinaryData, map<BinaryData, StoredSubHistory>> getSubSSHMap(void) const
    {
-      if (nThreads_ != 1)
+      if (worker_->threads_.size() != 1)
          throw runtime_error(
             "do not call this method with several processing threads");
 
       return worker_->threads_[0]->subSshMap_;
    }
+
+   void adjustThreadCount(shared_ptr<BlockDataContainer> bdc);
 
    STXOS stxos_;
 

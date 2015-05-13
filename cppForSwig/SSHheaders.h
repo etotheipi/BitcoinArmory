@@ -44,9 +44,9 @@ public:
    mutex mu_;
    static int collisionCount;
    static mutex keyAddressingMutex_;
+   const uint32_t nThreads_;
 
 private:
-   const uint32_t nThreads_;
    const uint32_t commitId_;
 };
 
