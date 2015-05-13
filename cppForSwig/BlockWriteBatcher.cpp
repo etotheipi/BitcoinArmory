@@ -810,7 +810,7 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
       serThread.join();
    TIMER_STOP("wait on serThread");
 
-   auto cleanUp = [&bdc](void)->void
+   /*auto cleanUp = [&bdc](void)->void
    {
       bdc->threads_.clear();
       //bdc->dataFeed_.reset();
@@ -818,7 +818,7 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
 
    thread cleanUpThread(cleanUp);
    if (cleanUpThread.joinable())
-      cleanUpThread.detach();
+      cleanUpThread.detach();*/
 
    TIMER_START("finishSer");
    for (auto& inbw : intermidiarrySubSshToApply_)
@@ -1695,6 +1695,7 @@ void BlockDataProcessor::writeThread()
 {
    auto cleanUpThread = [](shared_ptr<BlockDataContainer> bdc)->void
    {
+      bdc->threads_.clear();
       bdc->dataToCommit_.reset();
       bdc->dataFeed_.reset();
       bdc->sshHeaders_.reset();
