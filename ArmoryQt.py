@@ -975,12 +975,14 @@ class ArmoryMainWindow(QMainWindow):
          verArmoryInt = getVersionInt(BTCARMORY_VERSION)
          if verArmoryInt >verPluginInt:
             reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
-               Module "%s" is only specified to work up to Armory version %s.
-               You are using Armory version %s.  Please remove the module if
+               Module "%(mod)s" is only specified to work up to Armory version %(maxver)s.
+               You are using Armory version %(curver)s.  Please remove the module if
                you experience any problems with it, or contact the maintainer
                for a new version.
                <br><br>
-               Do you want to continue loading the module?"""), 
+               Do you want to continue loading the module?""") \
+               % { 'mod' : moduleName, 'maxver' : plugObj.maxVersion, 
+                                    'curver' : getVersionString(BTCARMORY_VERSION)},  
                QMessageBox.Yes | QMessageBox.No)
 
             if not reply==QMessageBox.Yes:
@@ -1086,7 +1088,7 @@ class ArmoryMainWindow(QMainWindow):
                      continue
       
                # All plugins should have "tabToDisplay" and "tabName" attributes
-               LOGWARN('Adding module to tab list: "' + plugObj.tabName + '"')
+               LOGINFO('Adding module to tab list: "' + plugObj.tabName + '"')
                self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
       
                # Also inject any extra methods that will be 
@@ -2826,7 +2828,7 @@ class ArmoryMainWindow(QMainWindow):
                self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
-            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', 
+            LOGWARN( '***WARNING: Wallet could not be loaded: %s (skipping)', 
                                                                            fpath)
             #raise
 
