@@ -550,7 +550,7 @@ void DataToCommit::serializeSSH(shared_ptr<BlockDataContainer> bdc)
                auto& subssh = subsshPair.second;
                uint32_t subsshHeight = DBUtils::hgtxToHeight(subsshPair.first);
                if (subsshHeight > ssh.alreadyScannedUpToBlk_ ||
-                  !ssh.alreadyScannedUpToBlk_ ||
+                  ssh.alreadyScannedUpToBlk_ == 0 ||
                   subsshHeight >= forceUpdateSshAtHeight_)
                {
                   for (const auto& txioPair : subssh.txioMap_)
@@ -1416,6 +1416,8 @@ void BlockDataFeed::chargeFeed(LoadedBlockData& blockData)
    uint32_t i = 0, lowestBlockHeight = UINT32_MAX;
    uint32_t txoutCount = 0;
 
+   localStxos_.reset(new map<BinaryData, shared_ptr<StoredTxOut>>());
+
    while (1)
    {
       block = blockData.getNextBlock(&scanLock);
@@ -1471,7 +1473,6 @@ void BlockDataFeed::chargeFeed(LoadedBlockData& blockData)
       }
 
       //fill up feed stxo container
-      localStxos_.reset(new map<BinaryData, shared_ptr<StoredTxOut>>());
       for (auto& stx : block->stxMap_)
       {
          for (auto& stxo : stx.second.stxoMap_)
