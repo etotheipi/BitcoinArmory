@@ -26,30 +26,13 @@ thread SSHheaders::getSshHeaders(
    //but first let's make sure there isn't one available, in case
    //there is a writer running
 
-   shared_ptr<SSHheaders> commitingHeaders = nullptr;
-   if (bdc->processor_->writer_ != nullptr)
-   {
-      //previous writer has a valid SSHheaders object, just use that
-      commitingHeaders =
-         bdc->processor_->writer_->sshHeaders_;
-   }
+   shared_ptr<SSHheaders> commitingHeaders = 
+      bdc->processor_->currentSSHheaders_;
 
-   if (commitingHeaders != nullptr && commitingHeaders.get() != this)
-   {
+   if (commitingHeaders != nullptr)
       unique_lock<mutex> parentHeadersLock(commitingHeaders->mu_);
-      return processSshHeaders(bdc, commitingHeaders);
-   }
-   else
-   {
-      //no ongoing serialization currently, let's not make the processing
-      //thread wait any longer.
-      {
-         unique_lock<mutex> writerLock(bdc->waitOnWriterMutex_);
-         bdc->waitOnWriterCV_.notify_all();
-      }
-
-      return processSshHeaders(bdc, nullptr);
-   }
+      
+   return processSshHeaders(bdc, commitingHeaders);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,11 +71,8 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
                ssh = sshIter->second;
                continue;
             }
-            else
-            {
-               ssh.uniqueKey_ = subssh.first;
-            }
 
+            ssh.uniqueKey_ = subssh.first;
             sshVec->push_back(&ssh);
          }
       }

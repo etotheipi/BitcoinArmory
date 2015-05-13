@@ -842,7 +842,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
       OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin), 36);
 
-      //check ZC txhash first, always cheaper than grabing a stxo from DB,
+      //check ZC txhash first, always cheaper than grabbing a stxo from DB,
       //and will always be checked if the tx doesn't hit in DB outpoints.
       {
          BinaryData opZcKey;

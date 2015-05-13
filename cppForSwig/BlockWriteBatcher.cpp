@@ -406,10 +406,12 @@ BinaryData BlockWriteBatcher::scanBlocks(
    timeElapsed = TIMER_READ_SEC("writeStxo_grabMutex");
    LOGWARN << "--- writeStxo_grabMutex: " << timeElapsed << " s";
    
-   timeElapsed = TIMER_READ_SEC("writeSSH");
-   LOGWARN << "--- writeSSH: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("waitingOnWriteThread");
-   LOGWARN << "--- waitingOnWriteThread: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("waitingOnSerThread");
+   LOGWARN << "--- waitingOnSerThread: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("waitForDataToWrite");
+   LOGWARN << "--- waitForDataToWrite: " << timeElapsed << " s";
+   
+   
    timeElapsed = TIMER_READ_SEC("checkForCollisions");
    LOGWARN << "--- checkForCollisions: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("getExistingKeys");
@@ -797,8 +799,8 @@ void DataToCommit::serializeData(shared_ptr<BlockDataContainer> bdc)
       TIMER_START("serializeSSH");
       serializeSSH(bdc);
 
-      /*unique_lock<mutex> setWriter(bdc->waitOnWriterMutex_);
-      bdc->waitOnWriterCV_.notify_all();*/
+      unique_lock<mutex> setWriter(bdc->serializeMutex_);
+      bdc->serializeCV_.notify_all();
 
       TIMER_STOP("serializeSSH");
    }
@@ -1230,11 +1232,11 @@ thread STXOS::commitStxo(shared_ptr<BlockDataContainer> bdc)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void STXOS::commit(shared_ptr<BlockDataContainer> bdp)
+void STXOS::commit(shared_ptr<BlockDataContainer> bdc)
 {
    if (committhread_.joinable())
       committhread_.detach();
-   committhread_ = commitStxo(bdp);
+   committhread_ = commitStxo(bdc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1469,11 +1471,12 @@ void BlockDataFeed::chargeFeed(LoadedBlockData& blockData)
       }
 
       //fill up feed stxo container
+      localStxos_.reset(new map<BinaryData, shared_ptr<StoredTxOut>>());
       for (auto& stx : block->stxMap_)
       {
          for (auto& stxo : stx.second.stxoMap_)
          {
-            localStxos_[stxo.second->hashAndId_] = stxo.second;
+            (*localStxos_)[stxo.second->hashAndId_] = stxo.second;
          }
       }
 
@@ -1501,7 +1504,7 @@ void BlockDataFeed::chargeFeed(LoadedBlockData& blockData)
 //// BlockDataProcesser
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataProcessor::BlockDataProcessor(bool undo)
-: undo_(undo)
+   : undo_(undo)
 {
    commitedId_.store(0);
 
@@ -1570,18 +1573,20 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
 {
    TIMER_START("inControlThread");
    
-   thread committhread;
+   auto writeData = [this](void)->void
+   { writeThread(); };
+   thread writethread(writeData);
+   
    shared_ptr<BlockDataFeed> dataFeed;
    while (1)
-   {      
-      unique_lock<mutex> workLock(workMutex_);
+   {  
       TIMER_START("getnextfeed");
       dataFeed = blockData->getNextFeed();
       TIMER_STOP("getnextfeed");
       if (dataFeed == nullptr)
          break;
 
-      stxos_.feedStxos_ = &dataFeed->localStxos_;
+      stxos_.feedStxos_ = dataFeed->localStxos_;
       nThreads_ = dataFeed->blockPackets_.size();
       worker_.reset(new BlockDataContainer(this));
       
@@ -1597,24 +1602,15 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       worker_->dataFeed_ = dataFeed;
       worker_->startThreads();
 
-      while (1)
+      for (auto threadData : worker_->threads_)
       {
-         uint32_t finishedWork = 0;
-         for (auto& threadData : worker_->threads_)
-         {
-            if (threadData->workDone_ == true)
-               finishedWork++;
-         }
-
-         if (finishedWork == nThreads_)
-            break;
-         
-         workCV_.wait(workLock);
+         if (threadData->tID_.joinable())
+            threadData->tID_.join();
       }
       
       worker_->workTime_ = clock() - worker_->workTime_;
 
-      //all workers are done, time to commit
+      //all workers are done, commit the processed data
       worker_->highestBlockProcessed_ = dataFeed->topBlockHeight_;
       worker_->lowestBlockProcessed_ = dataFeed->bottomBlockHeight_;
       worker_->topScannedBlockHash_ = dataFeed->topBlockHash_;
@@ -1624,91 +1620,135 @@ void BlockDataProcessor::processBlockData(shared_ptr<LoadedBlockData> blockData)
       stxos_.commit(worker_);
       TIMER_STOP("writeStxo");
 
-      TIMER_START("writeSSH");
-      if (committhread.joinable())
-         committhread.detach();
-      committhread = commit();
-      TIMER_STOP("writeSSH");
+      commit();
+   }
+
+   {
+      unique_lock<mutex> writeLock(writeMutex_);
+      writeMap_[commitId_] = nullptr;
+      writeCV_.notify_all();
    }
 
    if (stxos_.committhread_.joinable())
       stxos_.committhread_.join();
-   if (committhread.joinable())
-      committhread.join();
+   if (writethread.joinable())
+       writethread.join();
 
    TIMER_STOP("inControlThread");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-thread BlockDataProcessor::commit(bool finalCommit)
+void BlockDataProcessor::commit()
 {
    //set writer_ as worker_ then reset it. We'll create a new worker_ in the
    //processBlockData loop
    shared_ptr<BlockDataContainer> commitObject = worker_;
    worker_.reset();
 
-   unique_lock<mutex> lock(commitObject->waitOnWriterMutex_);
-   thread committhread(writeToDB, commitObject);
+   auto serThread = [this](shared_ptr<BlockDataContainer> bdc)->void
+   { serializeData(bdc); };
+   unique_lock<mutex> lock(commitObject->serializeMutex_);
+   thread serializeThread(serThread, commitObject);
+   if (serializeThread.joinable())
+      serializeThread.detach();
 
-   TIMER_START("waitingOnWriteThread");
-   commitObject->waitOnWriterCV_.wait(lock);
-   TIMER_STOP("waitingOnWriteThread");
+   TIMER_START("waitingOnSerThread");
+   commitObject->serializeCV_.wait(lock);
+   TIMER_STOP("waitingOnSerThread");
 
-   writer_ = commitObject;
+   currentSSHheaders_ = commitObject->sshHeaders_;
+}
 
-   return committhread;
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataProcessor::serializeData(shared_ptr<BlockDataContainer> bdc)
+{
+   {
+      /*unique_lock<mutex> lock(writeMutex_);
+      if (writeMap_.size() >= 2)
+         writeCV_.wait(lock);*/
+   }
+
+   bdc->writeTime_ = clock();
+   shared_ptr<SSHheaders> headersPtr =
+      bdc->processor_->currentSSHheaders_;
+
+   shared_ptr<DataToCommit> dtc(new DataToCommit());
+   if (bdc->processor_->forceUpdateSSH_)
+   {
+      dtc->forceUpdateSshAtHeight_ =
+         bdc->lowestBlockProcessed_;
+   }
+
+   dtc->serializeData(bdc);
+
+   bdc->dataToCommit_ = dtc;
+   
+   unique_lock<mutex> writerLock(writeMutex_);
+   writeMap_[bdc->commitId_] = bdc;
+   writeCV_.notify_all();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataProcessor::writeToDB(shared_ptr<BlockDataContainer> commitObject)
+void BlockDataProcessor::writeThread()
 {
-   commitObject->writeTime_ = clock();
-   shared_ptr<BlockDataContainer> writerPtr =
-      commitObject->processor_->writer_;
+   auto cleanUpThread = [](shared_ptr<BlockDataContainer> bdc)->void
+   {
+      bdc->dataToCommit_.reset();
+      bdc->dataFeed_.reset();
+      bdc->sshHeaders_.reset();
+   };
 
-   shared_ptr<DataToCommit> dtc(new DataToCommit());
-   if (commitObject->processor_->forceUpdateSSH_)
+   while (1)
    {
-      dtc->forceUpdateSshAtHeight_ =
-         commitObject->lowestBlockProcessed_;
-   }
-   
-   dtc->serializeData(commitObject);
+      uint32_t currentId = commitedId_.load(memory_order_relaxed);
+      shared_ptr<BlockDataContainer> commitObject = nullptr;
       
-   {
+      while (1)
       {
-         unique_lock<mutex> setWriter(commitObject->waitOnWriterMutex_);
-         commitObject->waitOnWriterCV_.notify_all();
+         unique_lock<mutex> lock(writeMutex_);
+         auto iter = writeMap_.find(currentId);
+         if (iter != writeMap_.end())
+         {
+            commitObject = iter->second;
+            writeMap_.erase(iter);
+            //writeCV_.notify_all();
+            break;
+         }
+
+         TIMER_START("waitForDataToWrite");
+         writeCV_.wait(lock);
+         TIMER_STOP("waitForDataToWrite");
       }
 
-      unique_lock<mutex> lock(commitObject->processor_->writeMutex_);
-
+      //nullptr marks the bottom of the write list
+      if (commitObject == nullptr)
+         return;
+         
       TIMER_START("putSSH");
-      dtc->putSSH();
+      commitObject->dataToCommit_->putSSH();
       TIMER_STOP("putSSH");
 
       TIMER_START("putSTX");
-      dtc->putSTX();
+      commitObject->dataToCommit_->putSTX();
       TIMER_STOP("putSTX");
 
-      dtc->deleteEmptyKeys();
-
+      commitObject->dataToCommit_->deleteEmptyKeys();
 
       if (commitObject->highestBlockProcessed_ != 0 &&
          commitObject->updateSDBI_ == true)
-         dtc->updateSDBI();
+         commitObject->dataToCommit_->updateSDBI();
 
-      commitObject->processor_->lastScannedBlockHash_ =
-         commitObject->topScannedBlockHash_;
+      lastScannedBlockHash_ = commitObject->topScannedBlockHash_;
 
-      commitObject->processor_->commitedId_.fetch_add(1, memory_order_release);
+      commitedId_.fetch_add(1, memory_order_release);
+      commitObject->writeTime_ = clock() - commitObject->writeTime_;
+      //commitObject->processor_->adjustThreadCount(commitObject);
+
+      thread cleanup(cleanUpThread, commitObject);
+      if (cleanup.joinable())
+         cleanup.detach();
    }
-      
-   commitObject->writeTime_ = clock() - commitObject->writeTime_;
-   //commitObject->processor_->adjustThreadCount(commitObject);
-
-   dtc.reset();
-   commitObject->dataFeed_.reset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1878,10 +1918,6 @@ void BlockDataThread::processBlockFeed()
       for (auto& block : blocks_)
          processMethod_(block);
    }
-
-   unique_lock<mutex> workLock(container_->processor_->workMutex_);
-   workDone_ = true;
-   container_->processor_->workCV_.notify_all();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

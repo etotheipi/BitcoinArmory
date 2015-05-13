@@ -368,7 +368,7 @@ public:
    uint32_t bottomBlockHeight_;
    uint32_t totalSizeInBytes_;
 
-   map<BinaryData, shared_ptr<StoredTxOut>> localStxos_;
+   shared_ptr<map<BinaryData, shared_ptr<StoredTxOut>>> localStxos_;
 
    bool hasData_ = false;
 };
@@ -562,7 +562,7 @@ struct STXOS
    DataToCommit dataToCommit_;
 
    STXOS* parent_ = nullptr;
-   map<BinaryData, shared_ptr<StoredTxOut>>* feedStxos_ = nullptr;
+   shared_ptr<map<BinaryData, shared_ptr<StoredTxOut>>> feedStxos_;
    mutex writeMutex_;
    thread committhread_;
 
@@ -649,7 +649,6 @@ private:
 
    function<void(shared_ptr<PulledBlock>)> processMethod_;
 
-   bool workDone_ = false;
    const bool undo_;
 
    //Fullnode only
@@ -664,7 +663,7 @@ class BlockDataContainer
    friend struct DataToCommit;
 
 private:
-   //DataToCommit dataToCommit_;
+   shared_ptr<DataToCommit> dataToCommit_;
 
    BlockDataProcessor *processor_;
    bool updateSDBI_ = true;
@@ -690,8 +689,8 @@ public:
 
    const bool undo_;
 
-   mutex waitOnWriterMutex_;
-   condition_variable waitOnWriterCV_;
+   mutex serializeMutex_;
+   condition_variable serializeCV_;
 
 public:
    BlockDataContainer(BlockDataProcessor* bdpPtr);
@@ -702,10 +701,7 @@ public:
       { threads_[i]->processBlockFeed(); };
 
       for (uint32_t i = 0; i < nThreads_; i++)
-      {
          threads_[i]->tID_ = thread(processThread, i);
-         threads_[i]->tID_.detach();
-      }
    }
 };
 
@@ -722,11 +718,12 @@ private:
    shared_ptr<SSHheaders> sshHeaders_;
 
    shared_ptr<BlockDataContainer> worker_;
-   shared_ptr<BlockDataContainer> writer_;
+   shared_ptr<SSHheaders> currentSSHheaders_;
    
-   mutex workMutex_;
    mutex writeMutex_;
-   condition_variable workCV_;
+   condition_variable writeCV_;
+
+   map<uint32_t, shared_ptr<BlockDataContainer>> writeMap_;
 
    bool forceUpdateSSH_ = false;
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
@@ -743,14 +740,11 @@ public:
 
    ~BlockDataProcessor()
    {
-      TIMER_START("BDP_dtor");
-      unique_lock<mutex> lock(workMutex_);
-      TIMER_STOP("BDP_dtor");
    }
 
    thread startThreads(shared_ptr<LoadedBlockData>);
    void processBlockData(shared_ptr<LoadedBlockData>);
-   thread commit(bool force = false);
+   void commit();
    uint32_t getCommitedId(void) const
    { 
       return commitedId_.load(memory_order_acquire); 
@@ -770,7 +764,8 @@ public:
    STXOS stxos_;
 
 private:
-   static void writeToDB(shared_ptr<BlockDataContainer>);
+   void serializeData(shared_ptr<BlockDataContainer>);
+   void writeThread();
 };
 
 class BlockWriteBatcher
