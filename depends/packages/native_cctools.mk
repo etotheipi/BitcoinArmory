@@ -9,6 +9,8 @@ $(package)_clang_download_path=http://llvm.org/releases/$($(package)_clang_versi
 $(package)_clang_download_file=clang+llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 $(package)_clang_file_name=clang-llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 $(package)_clang_sha256_hash=e8396103fbf794e6af671593659458dfe841c32234d3cd4f37be0b48cd6a9f8b
+$(package)_extra_sources=$($(package)_clang_file_name)
+
 define $(package)_fetch_cmds
 $(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash)) && \
 $(call fetch_file,$(package),$($(package)_clang_download_path),$($(package)_clang_download_file),$($(package)_clang_file_name),$($(package)_clang_sha256_hash))
