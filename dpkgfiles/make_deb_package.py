@@ -218,12 +218,12 @@ if args.depends:
             pythonTwistedRunner, pythonTwistedWords]
     for deb in depends:
         fname = deb['url'].rsplit('/', 1)[1]
-        execAndWait('rm %s' % fname)
+        execAndWait('rm -f %s' % fname)
         execAndWait('wget %s' % deb['url'])
         if sha256sum(fname) == deb['sha256sum%s' % arch]:
             print '%s was downloaded and verified successfully' % fname
         else:
-            execAndWait('rm %s' % fname)
+            execAndWait('rm -f %s' % fname)
             print '%s was not verified successfully' % fname
             print 'Exiting due to verification error'
             exit(1)
