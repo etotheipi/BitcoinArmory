@@ -27,14 +27,15 @@ Instructions for using make_deb_package.py outside of Gitian
 2) Make sure you have libfaketime installed on the machine you are running the
    make_deb_package.py script from (not the chroot).
 
-3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow amd64 1 0"
+3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow 64 1 1 0"
    from the Armory root directory. Alternatively, run "make deb" after having
    run "./configure". The first parameter is the filename for the chroot in
-   /var/cache/pbuilder/. The second parameter is i386 or amd64 to indicate what
+   /var/cache/pbuilder/. The second parameter is 32 or 64 to indicate what
    is the bitness of the package we are building. The third parameter is 1 or 0
    to indicate whether to build with static libstdc++ or not. The fourth
-   parameter is 1 or 0 to indicate whether or not to build the dependencies
-   from source.
+   parameter is 1 or 0 to indicate whether or not to include the prebuilt deb
+   package of the dependencies. The fifth parameter is 1 or 0 to indicate
+   whether or not to build the dependencies from source.
 
 4) You should find the results of the build in ../armory-build/. Doing the same
    type of build twice will overwrite the previous results (amd64 and amd64 or
