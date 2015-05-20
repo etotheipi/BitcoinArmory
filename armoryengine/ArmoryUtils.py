@@ -66,7 +66,7 @@ LEVELDB_BLKDATA = 'leveldb_blkdata'
 LEVELDB_HEADERS = 'leveldb_headers'
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 93,  1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 93,  2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -3003,7 +3003,9 @@ def getRSFromDERSig(derSig):
    assert(codeByte == '\x02')
    # Now we have the (r,s) values of the
 
-   return r[-32:], s[-32:]
+   rFinal = r[-32:].rjust(32, '\x00')
+   sFinal = s[-32:].rjust(32, '\x00')
+   return rFinal, sFinal
 
 
 #############################################################################
