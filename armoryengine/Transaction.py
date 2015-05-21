@@ -1271,7 +1271,7 @@ class UnsignedTxInput(AsciiSerializable):
 
 
    #############################################################################
-   def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=True):
+   def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=ENABLE_DETSIGN):
       derSig = self.createTxSignature(pytx, sbdPrivKey, hashcode, DetSign)
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
 
@@ -2751,7 +2751,7 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
             assert(src.hasPrivKey())
 
             # Create the sig, and use deterministic signing.
-            signature = src.generateDERSignature(preHashMsg, DetSign=True)
+            signature = src.generateDERSignature(preHashMsg, DetSign=ENABLE_DETSIGN)
 
             # If we are spending a Coinbase-TxOut, only need sig, no pubkey
             # Don't forget to tack on the one-byte hashcode and consider it part of sig
@@ -2770,7 +2770,7 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 
             for nxtAddr in srcTxOuts[i][3]:
                assert(nxtAddr.hasPrivKey())
-               signature = nxtAddr.generateDERSignature(preHashMsg, DetSign=True)
+               signature = nxtAddr.generateDERSignature(preHashMsg, DetSign=ENABLE_DETSIGN)
                sigLenInBinary    = int_to_binary(len(signature) + 1)
                newTx.inputs[i].binScript += sigLenInBinary + signature + hashCode1
 
