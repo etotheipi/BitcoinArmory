@@ -3003,8 +3003,8 @@ def getRSFromDERSig(derSig):
    assert(codeByte == '\x02')
    # Now we have the (r,s) values of the
 
-   rFinal = r[-32:].rjust(32, '\x00')
-   sFinal = s[-32:].rjust(32, '\x00')
+   rFinal = r.lstrip('\x00').rjust(32, '\x00')
+   sFinal = s.lstrip('\x00').rjust(32, '\x00')
    return rFinal, sFinal
 
 
