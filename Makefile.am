@@ -85,25 +85,47 @@ objc:
 	$(QMAKE) osxbuild/objc_armory/ArmoryMac.pro -o osxbuild/objc_armory/
 	$(MAKE) -C osxbuild/objc_armory/ CC="$(CC)" CXX="$(CXX)" LINK="$(LINK)"
 
+if USE_GITIAN
+Armory.app: Armory-tmp-gitian
+	rm -rf osxbuild/$@
+	cp -R osxbuild/Armory-tmp-gitian osxbuild/$@
+else
 Armory.app: Armory-tmp
 	rm -rf osxbuild/$@
 	cp -R osxbuild/Armory-tmp osxbuild/$@
+endif
 
 Armory-tmp: all osxbuild/install-py3 osxbuild/install-qt5
-	rm -rf osxbuild/Armory-tmp osxbuild/$@
-	$(MKDIR_P) osxbuild/Armory-tmp/Contents/MacOS/py
-	$(MKDIR_P) osxbuild/Armory-tmp/Contents/Frameworks
-	$(MKDIR_P) osxbuild/Armory-tmp/Contents/Resources
-	$(MKDIR_P) osxbuild/Armory-tmp/Contents/Dependencies
-	$(MAKE) DESTDIR=osxbuild/Armory-tmp/Contents/MacOS/py PREFIX=/usr install
-	cp osxbuild/Info.plist osxbuild/Armory-tmp/Contents
-	cp img/armory_icon_fullres.icns osxbuild/Armory-tmp/Contents/Resources/Icon.icns
-	cp osxbuild/Armory-script.sh osxbuild/Armory-tmp/Contents/MacOS/Armory
-	cp osxbuild/armoryd-script.sh osxbuild/Armory-tmp/Contents/MacOS/armoryd
-	cp -R osxbuild/install-py3/Python.framework osxbuild/Armory-tmp/Contents/Frameworks/
-	cp -R osxbuild/install-qt5/lib/Qt{Core,Gui,Network}.framework osxbuild/Armory-tmp/Contents/Frameworks/
-	chmod +x osxbuild/Armory-tmp/Contents/MacOS/Armory
-	chmod +x osxbuild/Armory-tmp/Contents/MacOS/armoryd
+	rm -rf osxbuild/$@
+	$(MKDIR_P) osxbuild/$@/Contents/MacOS/py
+	$(MKDIR_P) osxbuild/$@/Contents/Frameworks
+	$(MKDIR_P) osxbuild/$@/Contents/Resources
+	$(MKDIR_P) osxbuild/$@/Contents/Dependencies
+	$(MAKE) DESTDIR=osxbuild/$@/Contents/MacOS/py PREFIX=/usr install
+	cp osxbuild/Info.plist osxbuild/$@/Contents
+	cp img/armory_icon_fullres.icns osxbuild/$@/Contents/Resources/Icon.icns
+	cp osxbuild/Armory-script.sh osxbuild/$@/Contents/MacOS/Armory
+	cp osxbuild/armoryd-script.sh osxbuild/$@/Contents/MacOS/armoryd
+	cp -R osxbuild/install-py3/Python.framework osxbuild/$@/Contents/Frameworks/
+	cp -R osxbuild/install-qt5/lib/Qt{Core,Gui,Network}.framework osxbuild/$@/Contents/Frameworks/
+	chmod +x osxbuild/$@/Contents/MacOS/Armory
+	chmod +x osxbuild/$@/Contents/MacOS/armoryd
+
+Armory-tmp-gitian: all
+	rm -rf osxbuild/$@
+	$(MKDIR_P) osxbuild/$@/Contents/MacOS/py
+	$(MKDIR_P) osxbuild/$@/Contents/Frameworks
+	$(MKDIR_P) osxbuild/$@/Contents/Resources
+	$(MKDIR_P) osxbuild/$@/Contents/Dependencies
+	$(MAKE) DESTDIR=osxbuild/$@/Contents/MacOS/py PREFIX=/usr install
+	cp osxbuild/Info.plist osxbuild/$@/Contents
+	cp img/armory_icon_fullres.icns osxbuild/$@/Contents/Resources/Icon.icns
+	cp osxbuild/Armory-script.sh osxbuild/$@/Contents/MacOS/Armory
+	cp osxbuild/armoryd-script.sh osxbuild/$@/Contents/MacOS/armoryd
+	cp -R depends/x86_64-apple-darwin11/Python.framework osxbuild/$@/Contents/Frameworks/
+	cp -R depends/x86_64-apple-darwin11/lib/Qt{Core,Gui,Network}.framework osxbuild/$@/Contents/Frameworks/
+	chmod +x osxbuild/$@/Contents/MacOS/Armory
+	chmod +x osxbuild/$@/Contents/MacOS/armoryd
 
 osxbuild/install-py3:
 	@echo "building py3"

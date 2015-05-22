@@ -45,6 +45,13 @@ esac
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
 
+# Enable Gitian build
+AC_ARG_ENABLE([gitian],
+    [AS_HELP_STRING([--enable-gitian],
+                    [use Gitian-specific rules in Makefile (for Armory.app)])],
+    [enable_gitian=$enableval],
+    [enable_gitian=no])
+
 # Enable debug
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
@@ -69,6 +76,7 @@ AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
 AM_CONDITIONAL([BUILD_LINUX], [test x$BUILD_OS = xlinux])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AM_CONDITIONAL([BUILD_WINDOWS], [test x$BUILD_OS = xwindows])
+AM_CONDITIONAL([USE_GITIAN], [test "x$enable_gitian" = xyes])
 
 dnl Set compiler flags
 if test "x$enable_debug" = xyes; then
