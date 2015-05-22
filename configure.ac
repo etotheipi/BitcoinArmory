@@ -18,8 +18,6 @@ case $host in
         ;;
     *darwin*)
         TARGET_OS=darwin
-        dnl Check for sip executable and sip include path
-        AX_SIP_DEVEL
         ;;
     *linux*)
         TARGET_OS=linux
@@ -141,6 +139,15 @@ if test "x$PYRCC4" = "x"; then
 fi
 
 dnl End PyQt tools check
+
+case $host in
+    *darwin*)
+        dnl Check for sip executable and sip include path
+        AX_SIP_DEVEL
+        ;;
+    *)
+        ;;
+esac
 
 AC_CONFIG_FILES([Makefile cppForSwig/Makefile])
 AC_OUTPUT
