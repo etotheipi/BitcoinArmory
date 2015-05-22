@@ -99,39 +99,12 @@ AX_CXX_COMPILE_STDCXX_11([noext])
 dnl Check for swig
 AX_PKG_SWIG(, [], [AC_MSG_ERROR([swig is required to build])])
 
-dnl PyQt check
-
-AC_MSG_CHECKING([for PyQt])
-
-prog="[import sys
-try: import PyQt5
-except ImportError: sys.exit(1)
-sys.exit(0)]"
-
-${PYTHON} -c "${prog}"
-retval=$?
-
-if test $retval -ne 0; then
-    AC_MSG_RESULT([no])
-    AC_MSG_ERROR([cannot find PyQt])
-else
-    AC_MSG_RESULT([yes])
-fi
-
 dnl PyQt tools check
-
-prog="[import os, sys
-from PyQt5.QtCore import QCoreApplication
-app = QCoreApplication([])
-path = app.applicationDirPath()
-sys.stdout.write(path)]"
-
-PYPATH=`${PYTHON} -c "${prog}"`
 
 AC_ARG_VAR([PYRCC5], [PyQt5 resources compiler])
 
 if test "x$PYRCC5" = "x" ; then
-    AC_PATH_PROG([PYRCC5], [pyrcc5], [], [${PYPATH}:$PATH])
+    AC_PATH_PROG([PYRCC5], [pyrcc5], [], [$PATH])
 fi
 
 if test "x$PYRCC5" = "x"; then
