@@ -58,7 +58,7 @@ AC_ARG_ENABLE([debug],
     [enable_debug=no])
 
 dnl Define variables
-AM_PATH_PYTHON([2.7])
+AM_PATH_PYTHON([3.4])
 
 PYTHON_INCLUDES=`$PYTHON-config --includes`
 PYTHON_LIBS=`$PYTHON-config --libs`
@@ -104,7 +104,7 @@ dnl PyQt check
 AC_MSG_CHECKING([for PyQt])
 
 prog="[import sys
-try: import PyQt4
+try: import PyQt5
 except ImportError: sys.exit(1)
 sys.exit(0)]"
 
@@ -121,20 +121,20 @@ fi
 dnl PyQt tools check
 
 prog="[import os, sys
-from PyQt4.QtCore import QCoreApplication
+from PyQt5.QtCore import QCoreApplication
 app = QCoreApplication([])
 path = app.applicationDirPath()
 sys.stdout.write(path)]"
 
 PYPATH=`${PYTHON} -c "${prog}"`
 
-AC_ARG_VAR([PYRCC4], [PyQt4 resources compiler])
+AC_ARG_VAR([PYRCC5], [PyQt5 resources compiler])
 
-if test "x$PYRCC4" = "x" ; then
-    AC_PATH_PROG([PYRCC4], [pyrcc4], [], [${PYPATH}:$PATH])
+if test "x$PYRCC5" = "x" ; then
+    AC_PATH_PROG([PYRCC5], [pyrcc5], [], [${PYPATH}:$PATH])
 fi
 
-if test "x$PYRCC4" = "x"; then
+if test "x$PYRCC5" = "x"; then
     AC_MSG_ERROR([cannot find PyQt dev tools])
 fi
 
