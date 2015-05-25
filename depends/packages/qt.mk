@@ -16,6 +16,14 @@ $(package)_config_opts += -opensource -confirm-license
 $(package)_config_opts += -nomake examples -nomake tests
 $(package)_config_opts += -no-sql-db2 -no-sql-ibase -no-sql-oci -no-sql-tds -no-sql-mysql
 $(package)_config_opts += -no-sql-odbc -no-sql-psql -no-sql-sqlite -no-sql-sqlite2
+$(package)_config_opts += -skip qtandroidextras -skip qtconnectivity
+$(package)_config_opts += -skip qtdeclarative -skip qtdoc -skip qtgraphicaleffects
+$(package)_config_opts += -skip qtimageformats -skip qtlocation -skip qtmultimedia
+$(package)_config_opts += -skip qtquick1 -skip qtquickcontrols -skip qtscript
+$(package)_config_opts += -skip qtsensors -skip qtserialport -skip qtsvg
+$(package)_config_opts += -skip qttools -skip qttranslations
+$(package)_config_opts += -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns
+$(package)_config_opts += -no-sse4.1 -no-sse4.2 -no-avx -no-avx2
 
 $(package)_config_opts += -prefix $(host_prefix) -bindir $(build_prefix)/bin
 $(package)_config_opts += -system-zlib -v -silent -pkg-config
