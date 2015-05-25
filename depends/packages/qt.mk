@@ -23,6 +23,8 @@ $(package)_config_opts += -skip qtquick1 -skip qtquickcontrols -skip qtscript
 $(package)_config_opts += -skip qtsensors -skip qtserialport -skip qtsvg
 $(package)_config_opts += -skip qttools -skip qttranslations
 $(package)_config_opts += -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns
+
+# NB: Due to minimum Mac requirements, disable post-SSE3 assembly.
 $(package)_config_opts += -no-sse4.1 -no-sse4.2 -no-avx -no-avx2
 
 $(package)_config_opts += -prefix $(host_prefix) -bindir $(build_prefix)/bin
