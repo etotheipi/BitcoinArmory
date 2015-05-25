@@ -18,8 +18,6 @@ case $host in
         ;;
     *darwin*)
         TARGET_OS=darwin
-        dnl Check for sip executable and sip include path
-        AX_SIP_DEVEL
         ;;
     *linux*)
         TARGET_OS=linux
@@ -45,12 +43,12 @@ esac
 dnl Automake init set-up and checks
 AM_INIT_AUTOMAKE([no-define subdir-objects foreign])
 
-# Enable static linking
-AC_ARG_ENABLE([static-link],
-    [AS_HELP_STRING([--enable-static-link],
-                    [use static link flags (default is no)])],
-    [enable_static_link=$enableval],
-    [enable_static_link=no])
+# Enable Gitian build
+AC_ARG_ENABLE([gitian],
+    [AS_HELP_STRING([--enable-gitian],
+                    [use Gitian-specific rules in Makefile (for Armory.app)])],
+    [enable_gitian=$enableval],
+    [enable_gitian=no])
 
 # Enable debug
 AC_ARG_ENABLE([debug],
@@ -60,7 +58,7 @@ AC_ARG_ENABLE([debug],
     [enable_debug=no])
 
 dnl Define variables
-AM_PATH_PYTHON([2.7])
+AM_PATH_PYTHON([3.4])
 
 PYTHON_INCLUDES=`$PYTHON-config --includes`
 PYTHON_LIBS=`$PYTHON-config --libs`
@@ -76,6 +74,7 @@ AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
 AM_CONDITIONAL([BUILD_LINUX], [test x$BUILD_OS = xlinux])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AM_CONDITIONAL([BUILD_WINDOWS], [test x$BUILD_OS = xwindows])
+AM_CONDITIONAL([USE_GITIAN], [test "x$enable_gitian" = xyes])
 
 dnl Set compiler flags
 if test "x$enable_debug" = xyes; then
@@ -106,46 +105,28 @@ AX_CXX_COMPILE_STDCXX_11([noext])
 dnl Check for swig
 AX_PKG_SWIG(, [], [AC_MSG_ERROR([swig is required to build])])
 
-dnl PyQt check
-
-AC_MSG_CHECKING([for PyQt])
-
-prog="[import sys
-try: import PyQt4
-except ImportError: sys.exit(1)
-sys.exit(0)]"
-
-${PYTHON} -c "${prog}"
-retval=$?
-
-if test $retval -ne 0; then
-    AC_MSG_RESULT([no])
-    AC_MSG_ERROR([cannot find PyQt])
-else
-    AC_MSG_RESULT([yes])
-fi
-
 dnl PyQt tools check
 
-prog="[import os, sys
-from PyQt4.QtCore import QCoreApplication
-app = QCoreApplication([])
-path = app.applicationDirPath()
-sys.stdout.write(path)]"
+AC_ARG_VAR([PYRCC5], [PyQt5 resources compiler])
 
-PYPATH=`${PYTHON} -c "${prog}"`
-
-AC_ARG_VAR([PYRCC4], [PyQt4 resources compiler])
-
-if test "x$PYRCC4" = "x" ; then
-    AC_PATH_PROG([PYRCC4], [pyrcc4], [], [${PYPATH}:$PATH])
+if test "x$PYRCC5" = "x" ; then
+    AC_PATH_PROG([PYRCC5], [pyrcc5], [], [$PATH])
 fi
 
-if test "x$PYRCC4" = "x"; then
+if test "x$PYRCC5" = "x"; then
     AC_MSG_ERROR([cannot find PyQt dev tools])
 fi
 
 dnl End PyQt tools check
+
+case $host in
+    *darwin*)
+        dnl Check for sip executable and sip include path
+        AX_SIP_DEVEL
+        ;;
+    *)
+        ;;
+esac
 
 AC_CONFIG_FILES([Makefile cppForSwig/Makefile])
 AC_OUTPUT

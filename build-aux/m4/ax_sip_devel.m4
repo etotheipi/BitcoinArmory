@@ -96,8 +96,11 @@ fi
 dnl this part of the code to detect python version and include path
 dnl  was taken from AX_PYTHON_DEVEL macro, (rev. 2013)
 dnl  modified by ATI
-python_path=`$PYTHON -c "import distutils.sysconfig; \
-        print (disutils.sysconfig.get_python_inc ());"`
+if test -z "$PYTHON"; then
+        AC_MSG_ERROR([python interpreter not found])
+fi
+python_path=`${PYTHON} -c "import distutils.sysconfig; \
+        print (distutils.sysconfig.get_python_inc ());"`
 for i in "$python_path/include/python$PYTHON_VERSION/" "$python_path/include/python/" "$python_path/" ; do
         python_path=`find $i -type f -name Python.h -print | sed "1q"`
         if test -n "$python_path" ; then

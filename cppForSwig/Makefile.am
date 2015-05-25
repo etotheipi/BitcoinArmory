@@ -83,7 +83,7 @@ all: ../_CppBlockUtils.so ../qrc_img_resources.py
 	$(LINK) -shared -fPIC $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o $(LDLIBS) -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
-	$(PYRCC4) -o ../qrc_img_resources.py ../imgList.xml
+	$(PYRCC5) -o ../qrc_img_resources.py ../imgList.xml
 
 
 #**************************************************************************
