@@ -547,7 +547,7 @@ public:
 class StoredSubHistory
 {
    friend class BlockWriteBatcher;
-   friend struct DataToCommit;
+   friend struct ProcessedBatchSerializer;
 public:
 
    StoredSubHistory(void) : uniqueKey_(0), hgtX_(0), height_(0), dupID_(0),
