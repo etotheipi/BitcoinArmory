@@ -65,6 +65,7 @@ from armoryengine.ArmoryUtils import CheckHash160, binary_to_hex, coin2str, \
 from armoryengine.Timer import TimeThisFunction
 from armoryengine.Transaction import *
 import BDM
+from bitcoinrpc_jsonrpc.authproxy import JSONRPCException
 
 
 
@@ -724,15 +725,32 @@ DEFAULT_PRIORITY = 57600000
 ################################################################################
 # Call bitcoin core to get the fee estimate per KB
 def estimateFee():
-   fee = BDM.TheSDM.callJSON('estimatefee', NBLOCKS_TO_CONFIRM)
-   result = MIN_TX_FEE if fee == -1 else fee * ONE_BTC
-   return int(result)
+   result = MIN_TX_FEE
+   try:
+      fee = BDM.TheSDM.callJSON('estimatefee', NBLOCKS_TO_CONFIRM)
+      # -1 is returned if BitcoinD does not have enough data to estimate the fee.
+      if fee > 0:
+         result = int(fee * ONE_BTC)
+   except JSONRPCException:
+      # if the BitcoinD version does not support fee estimation return default
+      pass
+   return result
    
 ################################################################################
 # Call bitcoin core to get the priority estimate
 def estimatePriority():
-   priority = BDM.TheSDM.callJSON('estimatepriority', NBLOCKS_TO_CONFIRM)
-   result = DEFAULT_PRIORITY if priority == -1 else priority
+   result = DEFAULT_PRIORITY
+   try:
+      priority = BDM.TheSDM.callJSON('estimatepriority', NBLOCKS_TO_CONFIRM)
+      # -1 is returned if BitcoinD does not have enough data to estimate
+      # the priority
+      if priority == -1:
+         result = priority
+   except JSONRPCException:
+      # if the BitcoinD version does not support priority estimation
+      # return default
+      pass
+      
    return int(result)
 
 ################################################################################
