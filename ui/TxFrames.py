@@ -600,10 +600,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       
          if self.lbox is None:
             minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValPairs))[1]
+                                             len(scriptValPairs))
          else:
             minFee = calcMinSuggestedFeesHackMS(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValPairs))[1]
+                                             len(scriptValPairs))
 
 
       if minFee > 99*MIN_RELAY_TX_FEE:
