@@ -731,8 +731,9 @@ def estimateFee():
       # -1 is returned if BitcoinD does not have enough data to estimate the fee.
       if fee > 0:
          result = int(fee * ONE_BTC)
-   except JSONRPCException:
+   except:
       # if the BitcoinD version does not support fee estimation return default
+      # if the BitcoinD was never started return default
       pass
    return result
    
@@ -746,11 +747,11 @@ def estimatePriority():
       # the priority
       if priority == -1:
          result = priority
-   except JSONRPCException:
+   except:
       # if the BitcoinD version does not support priority estimation
       # return default
+      # if the BitcoinD was never started return default
       pass
-      
    return int(result)
 
 ################################################################################
