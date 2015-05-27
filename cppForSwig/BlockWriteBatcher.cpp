@@ -335,7 +335,7 @@ void PullBlockThread::pullThread(
 
    while (1)
    {
-      //create read only db txn within main loop, so that it is rewed
+      //create read only db txn within main loop, so that it is renewed
       //after each sleep period
       LMDBEnv::Transaction tx(db->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
       LDBIter ldbIter = db->getIterator(BLKDATA);
