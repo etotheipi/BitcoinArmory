@@ -727,8 +727,10 @@ DEFAULT_PRIORITY = 57600000
 def estimateFee():
    result = MIN_TX_FEE
    try:
+      # See https://bitcoin.org/en/developer-reference#estimatefee for
+      # documentation about this RPC call
       fee = BDM.TheSDM.callJSON('estimatefee', NBLOCKS_TO_CONFIRM)
-      # -1 is returned if BitcoinD does not have enough data to estimate the fee.
+      # -1 is returned if BitcoinD does not have enough data to estimate fee.
       if fee > 0:
          result = int(fee * ONE_BTC)
    except:
@@ -742,6 +744,8 @@ def estimateFee():
 def estimatePriority():
    result = DEFAULT_PRIORITY
    try:
+      # See https://bitcoin.org/en/developer-reference#estimatepriority for
+      # documentation about this RPC call
       priority = BDM.TheSDM.callJSON('estimatepriority', NBLOCKS_TO_CONFIRM)
       # -1 is returned if BitcoinD does not have enough data to estimate
       # the priority
