@@ -6,13 +6,13 @@ mutex SSHheaders::keyAddressingMutex_;
 
 ////////////////////////////////////////////////////////////////////////////////
 thread SSHheaders::getSshHeaders(
-   shared_ptr<BlockDataContainer> bdc, unique_lock<mutex>& lock)
+   shared_ptr<BatchThreadContainer> btc, unique_lock<mutex>& lock)
 {
    //if there is a parent SSHheader, we have to use that one
-   if (bdc->processor_->sshHeaders_ != nullptr)
+   if (btc->processor_->sshHeaders_ != nullptr)
    {
       shared_ptr<SSHheaders> parent =
-         bdc->processor_->sshHeaders_;
+         btc->processor_->sshHeaders_;
       TIMER_START("getSSHHeadersLock");
       lock = unique_lock<mutex>(parent->mu_);
       sshToModify_ = parent->sshToModify_;
@@ -27,16 +27,16 @@ thread SSHheaders::getSshHeaders(
    //there is a writer running
 
    shared_ptr<SSHheaders> commitingHeaders = 
-      bdc->processor_->currentSSHheaders_;
+      btc->processor_->currentSSHheaders_;
 
    if (commitingHeaders != nullptr)
       unique_lock<mutex> parentHeadersLock(commitingHeaders->mu_);
       
-   return processSshHeaders(bdc, commitingHeaders);
+   return processSshHeaders(btc, commitingHeaders);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
+thread SSHheaders::processSshHeaders(shared_ptr<BatchThreadContainer> btc,
    shared_ptr<SSHheaders> prevHeaders)
 {
    TIMER_START("prepareSSHheaders");
@@ -46,14 +46,14 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
 
    if (prevHeaders != nullptr)
    {
-      uint32_t commitedId = bdc->processor_->getCommitedId();
+      uint32_t commitedId = btc->processor_->getCommitedId();
       for (auto& prefix : prevHeaders->topPrefix_)
       {
          if (prefix.second.second >= commitedId)
             topPrefix_.insert(prefix);
       }
 
-      for (auto& threadData : bdc->threads_)
+      for (auto& threadData : btc->threads_)
       {
          auto& subsshMap = threadData->subSshMap_;
          for (auto& subssh : subsshMap)
@@ -79,7 +79,7 @@ thread SSHheaders::processSshHeaders(shared_ptr<BlockDataContainer> bdc,
    }
    else
    {
-      for (auto& threadData : bdc->threads_)
+      for (auto& threadData : btc->threads_)
       {
          auto& subsshMap = threadData->subSshMap_;
          for (auto& subssh : subsshMap)

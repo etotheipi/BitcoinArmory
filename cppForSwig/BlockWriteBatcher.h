@@ -27,14 +27,14 @@ class ProgressFilter;
 #if defined(_DEBUG) || defined(DEBUG )
 //use a tiny update thresholds to trigger multiple commit threads for 
 //unit tests in debug builds
-static const uint64_t UPDATE_BYTES_THRESH = 300;
-static const uint32_t UPDATE_TXOUT_THRESH = 5;
+static const uint64_t BYTES_PER_BATCH = 300;
+static const uint32_t TXOUT_PER_BATCH = 5;
 #else
-static const uint64_t UPDATE_BYTES_THRESH = 50 * 1024 * 1024;
-static const uint32_t UPDATE_TXOUT_THRESH = 150000;
+static const uint64_t BYTES_PER_BATCH = 50 * 1024 * 1024;
+static const uint32_t TXOUT_PER_BATCH = 150000;
 #endif
 
-#define MAX_FEED_BUFFER 3
+#define MAX_BATCH_BUFFER 3
 
 
 /*
@@ -333,14 +333,23 @@ struct PulledBlock : public DBBlock
 };
 
 class BlockWriteBatcher;
-class BlockDataProcessor;
-class BlockDataContainer;
-class LoadedBlockData;
-struct GrabThreadData;
+class BlockBatchProcessor;
+class BatchThreadContainer;
+class BlockDataBatchLoader;
+struct PullBlockThread;
 
-class BlockDataFeed
+class BlockDataBatch
 {
-   friend class LoadedBlockData;
+   /***
+   Batch of PulledBlock objects, split in nThreads BlockPacket structs. Each 
+   processor thread gets its own BlockPacket struct, so the amount of processing
+   threads per batch is effectively defined by each current BlockDataBatch 
+   nThreads_.
+   ***/
+
+   friend class BlockDataBatchLoader;
+   friend class BatchThreadContainer;
+
    struct BlockPacket
    {
       vector<shared_ptr<PulledBlock>> blocks_;
@@ -348,19 +357,29 @@ class BlockDataFeed
    };
 
 public:
-   BlockDataFeed(uint32_t nThreads) :
-      nThreads_(nThreads)
+   BlockDataBatch(uint32_t nReaders, uint32_t nWorkers, uint32_t nWriters) :
+      nReaders_(nReaders), nWorkers_(nWorkers), nWriters_(nWriters)
    {
-      blockPackets_.resize(nThreads);
+      blockPackets_.resize(nWorkers);
+   }
+
+   ~BlockDataBatch(void)
+   {
+
    }
 
 private:
-   void chargeFeed(LoadedBlockData& blockData);
+   void chargeBatch(BlockDataBatchLoader& blockData);
 
-private:
-   const uint32_t nThreads_;
 
 public:
+   const uint32_t nReaders_;
+   const uint32_t nWorkers_;
+   const uint32_t nWriters_;
+
+   clock_t chargeSleep_ = 0;
+   clock_t readTime_ = 0;
+   
    vector<BlockPacket> blockPackets_;
 
    BinaryData topBlockHash_;
@@ -368,15 +387,23 @@ public:
    uint32_t bottomBlockHeight_;
    uint32_t totalSizeInBytes_;
 
-   shared_ptr<map<BinaryData, shared_ptr<StoredTxOut>>> localStxos_;
+   /***Reference to all stxos within each batch of block data. Each thread only
+   knows of the blocks within its own BlockPacket, yet each thread needs to be 
+   aware of all existing stxos.
+   ***/
+   shared_ptr<map<BinaryData, shared_ptr<StoredTxOut>>> batchStxos_;
 
+   //Set to false to indicate grab threads ran out of raw data
    bool hasData_ = false;
 };
 
-class LoadedBlockData
+class BlockDataBatchLoader
 {
-   friend struct GrabThreadData;
-   friend class BlockDataFeed;
+   /***
+   Maintains threads that load up BlockDataBatch objects.
+   ***/
+   friend struct PullBlockThread;
+   friend class BlockDataBatch;
 
 private:
 
@@ -384,35 +411,37 @@ private:
    uint32_t endBlock_ = 0;
    int32_t currentHeight_ = 0;
 
-   uint32_t currentFeed_ = 0;
-   uint32_t topFeed_ = 0;
-   vector<shared_ptr<BlockDataFeed>> vecBDF_;
-
    const uint32_t nThreads_;
 
    ScrAddrFilter& scrAddrFilter_;
 
    BlockFileAccessor BFA_;
-   vector<GrabThreadData> GTD_;
+   vector<PullBlockThread> pullThreads_;
 
+   atomic<bool> terminate_;
+
+   BlockWriteBatcher* const bwbPtr_;
 
 public:
-   mutex grabLock_, feedLock_;
-   condition_variable grabCV_, feedCV_;
+   mutex pullLock_;
+   condition_variable pullCV_;
 
    shared_ptr<PulledBlock> interruptBlock_ = nullptr;
-   shared_ptr<BlockDataFeed> interruptFeed_ = nullptr;
+   
+   static shared_ptr<BlockDataBatch> interruptBatch_;
 
-   static int32_t getOffsetHeight(LoadedBlockData&, uint32_t);
-   static bool isHeightValid(LoadedBlockData&, int32_t);
-   static void nextHeight(LoadedBlockData&, int32_t&);
-   static uint32_t getTopHeight(LoadedBlockData& lbd, PulledBlock&);
-   static BinaryData getTopHash(LoadedBlockData& lbd, PulledBlock&);
+public:
+   static int32_t getOffsetHeight(BlockDataBatchLoader&, uint32_t);
+   static bool isHeightValid(BlockDataBatchLoader&, int32_t);
+   static void nextHeight(BlockDataBatchLoader&, int32_t&);
+   static uint32_t getTopHeight(BlockDataBatchLoader& lbd, PulledBlock&);
+   static BinaryData getTopHash(BlockDataBatchLoader& lbd, PulledBlock&);
 
    uint32_t startBlock(void) const { return startBlock_; }
 
 private:
-   LoadedBlockData(const LoadedBlockData&) = delete;
+   BlockDataBatchLoader(const BlockDataBatchLoader&) = delete;
+   
    BFA_PREFETCH getPrefetchMode(void)
    {
       if (startBlock_ < endBlock_ && endBlock_ - startBlock_ > 100)
@@ -422,55 +451,45 @@ private:
    }
 
 public:
-   ~LoadedBlockData(void)
-   {
-      interruptBlock_->nextBlock_.reset();
-      interruptBlock_.reset();
-   }
+   BlockDataBatchLoader(BlockWriteBatcher *bwbPtr,
+      uint32_t nthreads, shared_ptr<BlockDataBatchLoader> prevLoader);
 
-   LoadedBlockData(uint32_t start, uint32_t end, ScrAddrFilter& scf,
-      uint32_t nthreads) :
-      startBlock_(start), endBlock_(end), scrAddrFilter_(scf),
-      BFA_(scf.getDb()->getBlkFiles(), getPrefetchMode()), nThreads_(nthreads)
-   {
-      currentHeight_ = start;
-
-      interruptBlock_ = make_shared<PulledBlock>();
-      interruptBlock_->nextBlock_ = interruptBlock_;
-
-      interruptFeed_ = make_shared<BlockDataFeed>(1);
-
-      vecBDF_.resize(MAX_FEED_BUFFER);
-
-      GTD_.resize(nThreads_);
-   }
+   ~BlockDataBatchLoader(void);
 
    shared_ptr<PulledBlock> getNextBlock(unique_lock<mutex>* mu);
-   void startGrabThreads(shared_ptr<LoadedBlockData>& lbd);
-   void wakeGrabThreadsIfNecessary();
+   void startPullThreads(shared_ptr<BlockDataBatchLoader>& lbd);
+   void wakePullThreadsIfNecessary();
 
-   shared_ptr<BlockDataFeed> chargeNextFeed(uint32_t nthreads);
-   shared_ptr<BlockDataFeed> getNextFeed(void);
+   shared_ptr<BlockDataBatch> chargeNextBatch(
+      uint32_t nReaders, uint32_t nWorkers, uint32_t nWriters);
+
+   void terminate(void);
 };
 
-struct GrabThreadData
+struct PullBlockThread
 {
-   GrabThreadData(void) 
+   PullBlockThread(void)
    { 
       bufferLoad_ = 0; 
       block_.reset(new PulledBlock());
    }
 
-   GrabThreadData(const GrabThreadData&) = delete;
+   PullBlockThread(const PullBlockThread&) = delete;
 
-   GrabThreadData(GrabThreadData&& gtd)
+   PullBlockThread(PullBlockThread&& gtd)
    {
       bufferLoad_ = 0;
       block_ = gtd.block_;
    }
 
+   ~PullBlockThread(void)
+   {
+   /*   if (tID_.joinable())
+         tID_.join();*/
+   }
+
    //////
-   static void grabBlocksFromDB(shared_ptr<LoadedBlockData>, uint32_t threadId);
+   static void pullThread(shared_ptr<BlockDataBatchLoader>, uint32_t threadId);
 
    static bool pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
       LMDBBlockDatabase* db, BlockFileAccessor& bfa);
@@ -479,6 +498,7 @@ struct GrabThreadData
    shared_ptr<PulledBlock> block_ = nullptr;
    volatile atomic<uint32_t> bufferLoad_;
 
+   thread tID_;
    mutex assignLock_, grabLock_;
    condition_variable grabCV_;
 };
@@ -495,10 +515,17 @@ struct keyHasher
 
 struct STXOS;
 
-struct DataToCommit
+struct ProcessedBatchSerializer
 {
-   map<uint32_t, map<BinaryData, BinaryWriter>> serializedSubSshToApply_;
-   map<BinaryData, map<BinaryData, BinaryWriter>> intermidiarrySubSshToApply_;
+   struct SerializedSubSSH
+   {
+      BinaryData sshKey_;
+      map<BinaryData, BinaryWriter> subSshMap_;
+   };
+
+   map<uint32_t  , vector<SerializedSubSSH*>> keyedSubSshToApply_;
+   map<BinaryData, SerializedSubSSH>  subSshToApply_;
+
    map<BinaryData, set<BinaryData>> intermediarrySubSshKeysToDelete_;
 
    map<BinaryData, BinaryWriter>    serializedSshToModify_;
@@ -507,7 +534,9 @@ struct DataToCommit
    set<BinaryData>                  sshKeysToDelete_;
    map<uint32_t, set<BinaryData>>   subSshKeysToDelete_;
    set<BinaryData>                  spentnessToDelete_;
-   map<BinaryData, BinaryData>      sshPrefixes_;
+   
+   map<BinaryData, BinaryData>      sshKeys_;
+   map<uint32_t, map<BinaryData, uint8_t>> prefixesToUpdate_;
 
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
@@ -519,15 +548,15 @@ struct DataToCommit
    bool isSerialized_ = false;
 
    ////
-   DataToCommit(void) {}
+   ProcessedBatchSerializer(void) {}
 
-   DataToCommit(DataToCommit&&);
+   ProcessedBatchSerializer(ProcessedBatchSerializer&&);
 
    ////
-   void serializeData(shared_ptr<BlockDataContainer>);
-   void serializeSSH(shared_ptr<BlockDataContainer>);
+   void serializeBatch(shared_ptr<BatchThreadContainer>);
+   void serializeSSH(shared_ptr<BatchThreadContainer>);
    void serializeStxo(STXOS& stxos);
-   void serializeDataToCommit(shared_ptr<BlockDataContainer>);
+   void serializeSubSSH(shared_ptr<BatchThreadContainer>);
 
    void putSSH();
    void putSubSSH(uint32_t keyLength);
@@ -559,7 +588,7 @@ struct STXOS
    vector<BinaryData>                       keysToDelete_;
 
    ///write members
-   DataToCommit dataToCommit_;
+   ProcessedBatchSerializer processedBatchSerializer_;
 
    STXOS* parent_ = nullptr;
    shared_ptr<map<BinaryData, shared_ptr<StoredTxOut>>> feedStxos_;
@@ -585,22 +614,22 @@ struct STXOS
 
    void moveStxoToUTXOMap(const shared_ptr<StoredTxOut>& thisTxOut);
 
-   void commit(shared_ptr<BlockDataContainer> bdp);
-   thread commitStxo(shared_ptr<BlockDataContainer> bdp);
+   void commit(shared_ptr<BatchThreadContainer> bdp);
+   thread commitStxo(shared_ptr<BatchThreadContainer> bdp);
    static void writeStxoToDB(shared_ptr<STXOS>);
 };
 
 class BlockDataThread
 {
-   friend class BlockDataContainer;
-   friend class BlockDataProcessor;
+   friend class BatchThreadContainer;
+   friend class BlockBatchProcessor;
    friend class SSHheaders;
-   friend struct DataToCommit;
+   friend struct ProcessedBatchSerializer;
    friend struct STXOS;
 
 public:
 
-   BlockDataThread(BlockDataContainer& parent);
+   BlockDataThread(BatchThreadContainer& parent);
 
    void processBlockFeed(void);
 
@@ -640,7 +669,7 @@ private:
 
 
    thread tID_;
-   BlockDataContainer* container_;
+   BatchThreadContainer* container_;
 
    vector<shared_ptr<PulledBlock>> blocks_;
 
@@ -655,24 +684,24 @@ private:
    map<BinaryData, CountAndHint> txCountAndHint_;
 };
 
-class BlockDataContainer
+class BatchThreadContainer
 {
-   friend class BlockDataProcessor;
+   friend class BlockBatchProcessor;
    friend class BlockDataThread;
    friend class SSHheaders;
-   friend struct DataToCommit;
+   friend struct ProcessedBatchSerializer;
 
 private:
-   shared_ptr<DataToCommit> dataToCommit_;
+   shared_ptr<ProcessedBatchSerializer> processedBatchSerializer_;
 
-   BlockDataProcessor *processor_;
+   BlockBatchProcessor *processor_;
    bool updateSDBI_ = true;
    bool forceUpdateSsh_ = false;
 
    shared_ptr<SSHheaders> sshHeaders_;
 
    const uint32_t commitId_;
-   shared_ptr<BlockDataFeed> dataFeed_;
+   shared_ptr<BlockDataBatch> dataBatch_;
 
    clock_t workTime_;
    clock_t writeTime_;
@@ -684,7 +713,6 @@ public:
    uint32_t lowestBlockProcessed_ = 0;
    BinaryData topScannedBlockHash_ = BtcUtils::EmptyHash_;
    
-   const uint32_t nThreads_;
    vector<shared_ptr<BlockDataThread>> threads_;
 
    const bool undo_;
@@ -693,21 +721,22 @@ public:
    condition_variable serializeCV_;
 
 public:
-   BlockDataContainer(BlockDataProcessor* bdpPtr);
+   BatchThreadContainer(BlockBatchProcessor* bdpPtr, 
+      shared_ptr<BlockDataBatch> bdb);
 
    void startThreads(void)
    {
       auto processThread = [this](uint32_t i)->void
       { threads_[i]->processBlockFeed(); };
 
-      for (uint32_t i = 0; i < nThreads_; i++)
+      for (uint32_t i = 0; i < dataBatch_->nWorkers_; i++)
          threads_[i]->tID_ = thread(processThread, i);
    }
 };
 
-class BlockDataProcessor
+class BlockBatchProcessor
 {
-   friend class BlockDataContainer;
+   friend class BatchThreadContainer;
 private:
 
    const bool undo_;
@@ -717,33 +746,35 @@ private:
    public:
    shared_ptr<SSHheaders> sshHeaders_;
 
-   shared_ptr<BlockDataContainer> worker_;
+   shared_ptr<BatchThreadContainer> worker_;
    shared_ptr<SSHheaders> currentSSHheaders_;
    
    mutex writeMutex_;
    condition_variable writeCV_;
 
-   map<uint32_t, shared_ptr<BlockDataContainer>> writeMap_;
+   map<uint32_t, shared_ptr<BatchThreadContainer>> writeMap_;
 
    bool forceUpdateSSH_ = false;
    uint32_t forceUpdateSshAtHeight_ = UINT32_MAX;
    BinaryData lastScannedBlockHash_;
 
-   //atomic<uint32_t> nReaders_;
-   uint32_t nThreads_ = 0;
-   uint32_t totalThreadCount_;
-   atomic<uint32_t> nWorkers_;
-   atomic<uint32_t> nWriters_;
+   BlockWriteBatcher* const bwbPtr_;
+
+   clock_t cumulatedReadTime_ = 0;
+   clock_t cumulatedWorkTime_ = 0;
+   clock_t cumulatedWriteTime_ = 0;
+   clock_t cumulatedBatchSleep_ = 0;
+   uint32_t cumulatedCount_ = 0;
 
 public:
-   BlockDataProcessor(bool undo);
+   BlockBatchProcessor(BlockWriteBatcher* const, bool undo);
 
-   ~BlockDataProcessor()
+   ~BlockBatchProcessor()
    {
    }
 
-   thread startThreads(shared_ptr<LoadedBlockData>);
-   void processBlockData(shared_ptr<LoadedBlockData>);
+   thread startThreads();
+   void processBlockData();
    void commit();
    uint32_t getCommitedId(void) const
    { 
@@ -759,19 +790,19 @@ public:
       return worker_->threads_[0]->subSshMap_;
    }
 
-   void adjustThreadCount(shared_ptr<BlockDataContainer> bdc);
+   void adjustThreadCount(shared_ptr<BatchThreadContainer> bdc);
 
    STXOS stxos_;
 
 private:
-   void serializeData(shared_ptr<BlockDataContainer>);
+   void serializeData(shared_ptr<BatchThreadContainer>);
    void writeThread();
 };
 
 class BlockWriteBatcher
 {
-   friend class SSHheaders;
-   friend struct DataToCommit;
+   friend class BlockDataBatchLoader;
+   friend struct ProcessedBatchSerializer;
 
 public:
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
@@ -786,11 +817,15 @@ public:
    static void criticalError(string msg)
    { criticalError_(msg); }
 
-private:
-   void prepareSshToModify(const ScrAddrFilter& sasd);
+   void setThreadCounts(
+      uint32_t nReaders, uint32_t nWorkers, uint32_t nWriters) const;
+   
+   shared_ptr<BlockDataBatch> popBatch();
 
-   BinaryData applyBlocksToDB(ProgressFilter &progress,
-      shared_ptr<LoadedBlockData> blockData);
+private:
+   void prepareSshHeaders(BlockBatchProcessor&, const ScrAddrFilter&);
+
+   BinaryData applyBlocksToDB(ProgressFilter &progress, ScrAddrFilter& scf);
    
    bool pullBlockFromDB(PulledBlock& pb,
       uint32_t height, uint8_t dup,
@@ -803,18 +838,55 @@ private:
       const BinaryData& txOutKey,
       const BinaryData& txInKey);
 
+   //blocks if until the queue has room
+   void pushBatch(shared_ptr<BlockDataBatch>);
+
 public:
    static ARMORY_DB_TYPE armoryDbType_;
    static LMDBBlockDatabase* iface_;
-   static ScrAddrFilter* scrAddrData_;
-   
+   static ScrAddrFilter* scrAddrFilter_;
+
+   /***
+   controls the amount of threads per task:
+
+   Readers pull raw block data from DB/blockchain and serialize them into
+   PulledBlock objects. Readers control thread load PullBlock objects into
+   BlockDataBatch objects.
+
+   Workers process take BlockDataBatch Objects and process the content into
+   ssh, subssh and txios
+
+   Writers commit to DB. Serializing runs on as many threads as writers.
+   ***/
+
+   uint32_t nThreads_ = 0;
+   uint32_t totalThreadCount_;
+   mutable atomic<uint32_t> nReaders_;
+   mutable atomic<uint32_t> nWorkers_;
+   mutable atomic<uint32_t> nWriters_;
+
 private:
    //to report back fatal errors to the main thread
    static function<void(string)> criticalError_;
 
    ////
-   BlockDataProcessor dataProcessor_;
    const bool undo_;
+
+   uint32_t startBlock_;
+   uint32_t endBlock_;
+   bool forceUpdateSSH_;
+
+   /***
+   The batches the readers thread load are put in this vector for the process
+   for the process thread to grab. The vector is MAX_BATCH_BUFFER and behaves
+   like a FIFO queue.
+   ***/
+   vector<shared_ptr<BlockDataBatch>> batchVector_;
+   mutex grabLock_, batchLock_;
+   condition_variable batchCV_;
+
+   uint32_t currentBatch_ = 0;
+   uint32_t topBatch_ = 0;
 };
 
 #endif

@@ -6,7 +6,7 @@
 #include "BinaryData.h"
 #include "StoredBlockObj.h"
 
-class BlockDataContainer;
+class BatchThreadContainer;
 class ScrAddrFilter;
 
 class SSHheaders
@@ -16,14 +16,14 @@ public:
       : nThreads_(nThreads), commitId_(commitId)
    {}
 
-   thread getSshHeaders(shared_ptr<BlockDataContainer>,
+   thread getSshHeaders(shared_ptr<BatchThreadContainer>,
       unique_lock<mutex>&);
    void buildSshHeadersFromSAF(const ScrAddrFilter& SAF);
    void processSshHeaders(vector<BinaryData>& scrAddrs);
 
 private:
    thread processSshHeaders(
-      shared_ptr<BlockDataContainer>,
+      shared_ptr<BatchThreadContainer>,
       shared_ptr<SSHheaders>);
    void grabExistingSSHHeaders(vector<StoredScriptHistory*>& sshVec);
    void computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> saVec);
