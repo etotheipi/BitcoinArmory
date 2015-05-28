@@ -586,9 +586,11 @@ BinaryData BlockWriteBatcher::scanBlocks(
    LOGWARN << "--- waitOnSubSSHThread: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("updatePrefixes");
    LOGWARN << "--- updatePrefixes: " << timeElapsed << " s";
-
    timeElapsed = TIMER_READ_SEC("finishSer");
    LOGWARN << "--- finishSer: " << timeElapsed << " s";
+   
+   timeElapsed = TIMER_READ_SEC("waitOnWriteThread");
+   LOGWARN << "--- waitOnWriteThread: " << timeElapsed << " s";
 
    timeElapsed = TIMER_READ_SEC("putSSH");
    LOGWARN << "--- putSSH: " << timeElapsed << " s";
@@ -1782,12 +1784,14 @@ void BlockBatchProcessor::serializeData(shared_ptr<BatchThreadContainer> bdc)
       //This bottleneck, along with the one at the batch loader level, guarantees
       //that there won't be more than (MAX_BATCH_BUFFER*2 +2) batches in RAM at 
       //any point in time.
+      TIMER_START("waitOnWriteThread");
       unique_lock<mutex> lock(writeMutex_);
       if (writeMap_.size() >= MAX_BATCH_BUFFER)
          writeCV_.wait(lock);
+      TIMER_STOP("waitOnWriteThread");
    }
 
-   bdc->writeTime_ = clock();
+   //bdc->writeTime_ = clock();
    shared_ptr<SSHheaders> headersPtr =
       bdc->processor_->currentSSHheaders_;
 
@@ -1851,6 +1855,7 @@ void BlockBatchProcessor::writeThread()
       //to push the next processed batch in the write queue.
       writeCV_.notify_all();
          
+      commitObject->writeTime_ = clock();
       TIMER_START("putSSH");
       commitObject->processedBatchSerializer_->putSSH();
       TIMER_STOP("putSSH");
@@ -1931,6 +1936,10 @@ void BlockBatchProcessor::adjustThreadCount(
 
    if (newWriterCount == 0)
       newWriterCount = 1;
+
+   LOGINFO << " &&&&&&&&& cumulatedReadTime: " << (float)cumulatedReadTime_ / (float)CLOCKS_PER_SEC << "s";
+   LOGINFO << " &&&&&&&&& cumulatedWorkTime: " << (float)cumulatedWorkTime_ / (float)CLOCKS_PER_SEC << "s";
+   LOGINFO << " &&&&&&&&& cumulatedWriteTime: " << (float)cumulatedWriteTime_ / (float)CLOCKS_PER_SEC << "s";
 
    cumulatedReadTime_  = 0;
    cumulatedWorkTime_  = 0;
