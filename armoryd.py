@@ -1962,7 +1962,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                              self.convLBDictToList())
             outputPairs.append( [ustxScr['Script'], totalChange] )
          else:
-            outputPairs.append( [lbox.binScript, totalChange] )
+            outputPairs.append( [script_to_p2sh_script(lbox.binScript), totalChange] )
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
