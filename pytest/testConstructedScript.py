@@ -80,7 +80,7 @@ PR1_v0 = hex_to_binary(
    "00000001 541876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1370"
    "6b737265 63312e62 74637368 6f702e63 6f6d2600 01230001 2060e373 9cc2c395"
    "0b7c4d7f 32cc503e 13b996d0 f7a45623 d0a914e1 efa7f811 e0")
-PR2_v0 = hex_to_binary( # WRONG?
+PR2_v0 = hex_to_binary(
    "00000002 a81876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1876"
    "a95a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13 706b7372 6563312e"
    "62746373 686f702e 636f6d13 706b7372 6563312e 62746373 686f702e 636f6d26"
@@ -263,21 +263,61 @@ class DerivationTests(unittest.TestCase):
    # Confirm that BIP32 multipliers can be obtained from C++ and can be used to
    # create keys that match the keys directly derived via BIP32.
    def testBIP32Derivation(self):
-      fakeRootSeed = SecureBinaryData('\xf1'*32)
-      masterExtPrv = HDWalletCrypto().convertSeedToMasterKey(fakeRootSeed)
-      sbdPubKey = masterExtPrv.getPublicKey()
-      sbdChain  = masterExtPrv.getChaincode()
+      fakeRootSeed  = SecureBinaryData('\xf1'*32)
+      masterExtPrv1 = HDWalletCrypto().convertSeedToMasterKey(fakeRootSeed)
+      sbdPubKey1    = masterExtPrv1.getPublicKey()
+      sbdChain1     = masterExtPrv1.getChaincode()
 
       # Get the final pub key and the multiplier proofs, then confirm that we
       # can reverse engineer the final key with the proofs and the root pub key.
       # Note that the proofs will be based on a compressed root pub key.
-      finalPub, multProof = DeriveBip32PublicKeyWithProof(sbdPubKey.toBinStr(),
-                                                          sbdChain.toBinStr(),
-                                                          [2, 12, 37])
-      final1 = ApplyProofToRootKey(sbdPubKey.toBinStr(), multProof)
-      final1_alt = ApplyProofToRootKey(sbdPubKey.toBinStr(), multProof, finalPub)
-      self.assertEqual(final1, finalPub)
+      finalPub1, multProof1 = DeriveBip32PublicKeyWithProof(sbdPubKey1.toBinStr(),
+                                                            sbdChain1.toBinStr(),
+                                                            [2, 12, 37])
+      final1 = ApplyProofToRootKey(sbdPubKey1.toBinStr(), multProof1)
+      final1_alt = ApplyProofToRootKey(sbdPubKey1.toBinStr(), multProof1,
+                                       finalPub1)
+      self.assertEqual(final1, finalPub1)
       self.assertEqual(final1, final1_alt)
+
+      # Now, let's confirm that we can add the multipliers into one multiplier
+      # and get the same final key as if we got children one at a time.
+      finalMult1 = HDWalletCrypto().addModMults_SWIG(multProof1.rawMultList)
+      finalMultList1 = []
+      finalMultList1.append(finalMult1)
+      final1CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
+                                                          sbdPubKey1.toBinStr(),
+                                                                 finalMultList1)
+      self.assertEqual(final1, final1CombMults)
+
+      # Now, let's confirm that we can add the multipliers into two different
+      # multipliers (1 & 2+3, or 1+2 & 3) and get the same final key as if we
+      # got children one at a time.
+      # (1 & 2+3)
+      listY1 = []
+      listZ1 = []
+      listY1.append(multProof1.rawMultList[1])
+      listY1.append(multProof1.rawMultList[2])
+      tempMult1 = HDWalletCrypto().addModMults_SWIG(listY1)
+      listZ1.append(multProof1.rawMultList[0])
+      listZ1.append(tempMult1)
+      temp1CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
+                                                          sbdPubKey1.toBinStr(),
+                                                                listZ1)
+      self.assertEqual(final1, temp1CombMults)
+
+      # (1+2 & 3)
+      listY2 = []
+      listZ2 = []
+      listY2.append(multProof1.rawMultList[0])
+      listY2.append(multProof1.rawMultList[1])
+      tempMult2 = HDWalletCrypto().addModMults_SWIG(listY2)
+      listZ2.append(tempMult2)
+      listZ2.append(multProof1.rawMultList[2])
+      temp2CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
+                                                          sbdPubKey1.toBinStr(),
+                                                                listZ2)
+      self.assertEqual(final1, temp2CombMults)
 
       # Confirm that we can get the 1st derived key from the BIP32 test vector's
       # second key.
@@ -293,6 +333,15 @@ class DerivationTests(unittest.TestCase):
                                                             [0])
       self.assertEqual(finalPub2, BIP32MasterPubKey2Comp_D1)
 
+      # Now, let's confirm that we can add the multipliers into one multiplier
+      # and get the same final key as if we got children one at a time.
+      finalMult2 = HDWalletCrypto().addModMults_SWIG(multProof2.rawMultList)
+      finalMultList2 = []
+      finalMultList2.append(finalMult2)
+      final2CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
+                                                          sbdPubKey2.toBinStr(),
+                                                                 finalMultList2)
+      self.assertEqual(finalPub2, final2CombMults)
 
 if __name__ == "__main__":
    unittest.main()

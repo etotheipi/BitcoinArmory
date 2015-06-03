@@ -904,7 +904,6 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
       cout << "   BinPub: " << binPubKey.toHexStr() << endl;
    }
 
-
    if( binPubKey.getSize()==0 )
    {
       binPubKey = ComputePublicKey(binPrivKey);
@@ -933,24 +932,24 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
                            *(uint32_t*)(chainOrig.getPtr()+offset);
    }
 
-
    // Hard-code the order of the group
    static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData().CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   
+
    CryptoPP::Integer mult, origPrivExp, ecOrder;
-   // A 
+   // A
    mult.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
-   // B 
+   // B
    origPrivExp.Decode(binPrivKey.getPtr(), binPrivKey.getSize(), UNSIGNED);
    // C
-   ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize(), UNSIGNED);
+   ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize(),
+                  UNSIGNED);
 
    // A*B mod C will get us a new private key exponent
-   CryptoPP::Integer newPrivExponent = 
+   CryptoPP::Integer newPrivExponent =
                   a_times_b_mod_c(mult, origPrivExp, ecOrder);
 
-   // Convert new private exponent to big-endian binary string 
+   // Convert new private exponent to big-endian binary string
    SecureBinaryData newPrivData(32);
    newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
 
@@ -1852,6 +1851,64 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
 }
 
 
+// A SWIG-friendly function that takes a set of BIP32 multipliers and adds them
+// modulo the secp256k1 curve order. The resultant multiplier, w will produce the
+// same result as using each multiplier, one at a time, to derive a child key.
+//
+// INPUT:  A set of 32 byte multipliers to be added modulo curve order. (const
+//         vector<BinaryData>&)
+// OUTPUT: None
+// RETURN: The resultant, equivalent 32 byte multiplier. (BinaryData)
+SecureBinaryData HDWalletCrypto::addModMults(
+                                        const vector<SecureBinaryData>& mathOps)
+{
+   CryptoPP::Integer ecOrder;
+   ecOrder.Decode(ecOrder_BE.getPtr(), ecOrder_BE.getSize(), UNSIGNED);
+
+   // Add up all the multipliers.
+   CryptoPP::Integer totMult((long)0);
+   for(uint32_t i = 0; i < mathOps.size(); ++i)
+   {
+      assert(mathOps[i].getSize() == 32);
+      CryptoPP::Integer curMult;
+      curMult.Decode(mathOps[i].getPtr(), mathOps[i].getSize(), UNSIGNED);
+      totMult += curMult; 
+   }
+   SecureBinaryData tempMultData(totMult.ByteCount());
+   totMult.Encode(tempMultData.getPtr(), tempMultData.getSize(), UNSIGNED);
+
+   // Create and return the final multiplier.
+   SecureBinaryData retVal;
+   CryptoPP::Integer finalMult(totMult.Modulo(ecOrder));
+   SecureBinaryData finalMultData(32);
+   finalMult.Encode(finalMultData.getPtr(), finalMultData.getSize(), UNSIGNED);
+   if(finalMult != CryptoPP::Integer::Zero())
+   {
+      retVal = finalMultData;
+   }
+   else
+   {
+      // This will never happen in a billion lifetimes, but to be thorough....
+      LOGERR << "Derived BIP32 multiplier is zero (invalid)!";
+   }
+   return retVal;
+}
+
+
+// Same as above but using BinaryData objects which are SWIG friendly
+BinaryData HDWalletCrypto::addModMults_SWIG(const vector<BinaryData>& mathOps)
+{
+   vector<SecureBinaryData> sbdOpsVect;
+   for(uint32_t i = 0; i < mathOps.size(); ++i)
+   {
+      sbdOpsVect.push_back(SecureBinaryData(mathOps[i]));
+   }
+   
+   return addModMults(sbdOpsVect).getRawCopy();
+}
+
+
+// Perform BIP32 key derivation.
 //
 // INPUT:  The curve's base order multiplier (32 bytes). (const
 //         SecureBinaryData&)
@@ -2052,7 +2109,9 @@ BinaryData HDWalletCrypto::getChildKeyFromOps_SWIG(BinaryData parKey,
    SecureBinaryData sbdParKey(parKey);
    vector<SecureBinaryData> sbdOpsVect;
    for(uint32_t i=0; i<mathOps.size(); i++)
+   {
       sbdOpsVect.push_back(SecureBinaryData(mathOps[i]));
+   }
 
    return getChildKeyFromOps(sbdParKey, sbdOpsVect).getRawCopy();
 }

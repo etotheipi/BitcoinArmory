@@ -1106,10 +1106,13 @@ class PaymentRequest(object):
       self.daneReqNames       = daneReqNames
       self.srpLists           = srpLists
       for x in unvalidatedScripts:
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(x)
       for y in daneReqNames:
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(y)
       for z in srpLists:
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(z)
 
 
@@ -1129,10 +1132,13 @@ class PaymentRequest(object):
       bp.put(VAR_INT, self.numTxOutScripts, width=3)
       bp.put(VAR_INT, self.reqSize, width=3)
       for scriptItem in self.unvalidatedScripts:
+         bp.put(VAR_INT, len(scriptItem), width = 1)
          bp.put(BINARY_CHUNK, scriptItem)
       for daneItem in self.daneReqNames:
+         bp.put(VAR_INT, len(daneItem), width = 1)
          bp.put(BINARY_CHUNK, daneItem)
       for srpItem in self.srpLists:
+         bp.put(VAR_INT, len(srpItem), width = 1)
          bp.put(BINARY_CHUNK, srpItem)
 
       return bp.getBinaryString()
