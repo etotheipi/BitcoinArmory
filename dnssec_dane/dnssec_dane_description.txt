@@ -127,3 +127,52 @@ Ubuntu package: None
 -sudo python setup.py install
 -If compilation fails, download the "v0.1.3" branch from Github and repeat the
  previous compilation instructions.
+
+
+
+
+#######
+Based on the above notes, here's Alan's successful command history to get it 
+all working on Linux Mint 17.  Should work on Ubuntu 14.04, 14.10 as well.
+#######
+
+sudo apt-get install libtool texinfo libexpat1 libevent-dev libldns-dev libunbound-dev unbound-anchor python-setuptools python-m2crypto autoconf
+
+wget http://sourceforge.net/projects/check/files/check/0.9.14/check-0.9.14.tar.gz
+tar -xzf check-0.9.14.tar.gz
+cd check-0.9.14
+./configure
+make
+make check
+sudo make install
+
+cd ..
+wget http://ftp.gnu.org/gnu/libidn/libidn-1.30.tar.gz
+tar -zxf libidn-1.30.tar.gz
+cd libidn-1.30
+./configure
+make
+sudo make install
+
+cd ..
+git clone https://github.com/getdnsapi/getdns
+cd getdns
+autoreconf --install
+./configure --with-libevent
+make CFLAGS="-I/usr/local/include -I/usr/local/include -I/usr/local/include -I/usr/local/ssl/include -I."
+sudo make install
+
+sudo ldconfig  # necessary?
+
+cd ..
+git clone https://github.com/getdnsapi/getdns-python-bindings
+cd getdns-python-bindings/
+git checkout develop
+sudo python setup.py install
+
+cd ..
+git clone https://github.com/etotheipi/BitcoinArmory.git
+cd BitcoinArmory
+git checkout wallet2.0-dns
+cd dnssec_dane
+python getDANERec.py chris@payments.verisignlabs.com m

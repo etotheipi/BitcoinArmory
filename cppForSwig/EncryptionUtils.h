@@ -589,6 +589,10 @@ public:
    BinaryData getChildKeyFromOps_SWIG(BinaryData parKey,
                                       const vector<BinaryData>& mathOps);
 
+   // BIP32: Add multipliers modulo curve order to create one multiplier.
+   SecureBinaryData addModMults(const vector<SecureBinaryData>& mathOps);
+   BinaryData addModMults_SWIG(const vector<BinaryData>& mathOps);
+
    ~HDWalletCrypto();
 
 private:
