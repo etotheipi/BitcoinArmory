@@ -465,7 +465,7 @@ LedgerEntry ScrAddrObj::getFirstLedger() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool ScrAddrObj::getMoreUTXOs(function<bool(BinaryData)> spentByZC)
+bool ScrAddrObj::getMoreUTXOs(function<bool(const BinaryData&)> spentByZC)
 {
    return utxos_.fetchMoreUTXO(spentByZC);
 }

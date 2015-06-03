@@ -307,11 +307,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not txObj:
          raise InvalidTransaction, "file does not contain a valid tx"
       if not txObj.verifySigsAllInputs():
-         raise IncompleteTransaction, "transaction is needs more signatures"
+         raise IncompleteTransaction, "transaction needs more signatures"
 
       pytx = txObj.getSignedPyTx()
-
+      newTxHash = pytx.getHash()
+      
+      def sendGetDataMsg():
+         msg = PyMessage('getdata')
+         msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
+         self.NetworkingFactory.sendMessage(msg)
+      
       self.NetworkingFactory.sendTx(pytx)
+      reactor.callLater(3, sendGetDataMsg)
+            
       return pytx.getHashHex(BIGENDIAN)
 
 
@@ -1259,8 +1267,21 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # which entries we'll get.
          tx_count = int(tx_count)
          from_tx = int(from_tx)
-         ledgerEntries = ledgerWlt.getTxLedger()
-         sz = len(ledgerEntries)
+
+         sz = 0
+         pageId = 0
+         ledgerEntries = []
+         try:
+            while sz < from_tx + tx_count:
+               ledgerVector = ledgerWlt.getHistoryPageAsVector(pageId)
+               for entry in reversed(ledgerVector):
+                  ledgerEntries.append(entry)
+               
+               sz = len(ledgerEntries)
+               pageId = pageId + 1
+         except:
+            pass
+         
          lower = min(sz, from_tx)
          upper = min(sz, from_tx+tx_count)
          txSet = set([])
@@ -1283,7 +1304,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                cppHead = None
 
             if cppHead is None or not cppHead.isInitialized():
-               LOGERROR('Header pointer is not available!')
+               LOGERROR('Header pointer is not available! Probably trying'
+                        ' to get a block header for a ZC.')
                headHashBin = ''
                headHashHex = ''
                headtime    = 0

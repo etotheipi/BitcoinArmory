@@ -396,7 +396,7 @@ class ArmoryDTiabTest(TiabTest):
       ledger = self.jsonServer.jsonrpc_getledgersimple(FIRST_WLT_NAME)
       self.assertTrue(len(ledger)>4)
       amountList = [row['amount'] for row in ledger]
-      expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0]
+      expectedAmountList = [20.0, 6.0, 10.0, 0.8, 30.0]
       self.assertEqual(amountList[:5], expectedAmountList)
 
 
@@ -405,20 +405,21 @@ class ArmoryDTiabTest(TiabTest):
       ledger = self.jsonServer.jsonrpc_getledger(FIRST_WLT_NAME)
       self.assertTrue(len(ledger)>6)
       amountList = [row['amount'] for row in ledger]
-      expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0, 6.0, 20.0]
+      #expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0, 6.0, 20.0]
+      expectedAmountList = [20.0, 6.0, 10.0, 0.8, 30.0, 20.0, 1000.0]
       self.assertEqual(amountList, expectedAmountList)
       self.assertEqual(ledger[0]['direction'], 'receive')
       self.assertEqual(len(ledger[0]['recipme']), 1)
-      self.assertEqual(ledger[0]['recipme'][0]['amount'], 1000.0)
+      self.assertEqual(ledger[0]['recipme'][0]['amount'], 20.0)
       self.assertEqual(len(ledger[0]['recipother']), 1)
-      self.assertEqual(ledger[0]['recipother'][0]['amount'], 49.997)
+      self.assertEqual(ledger[0]['recipother'][0]['amount'], 0.8998)
       self.assertEqual(len(ledger[0]['senderme']), 0)
-      self.assertEqual(len(ledger[0]['senderother']), 21)
+      self.assertEqual(ledger[0]['senderother'][0]['amount'], 11.8999)
 
-      self.assertEqual(ledger[1]['direction'], 'send')
-      self.assertEqual(len(ledger[1]['senderother']), 0)
-      self.assertEqual(len(ledger[1]['senderme']), 1)
-      self.assertEqual(ledger[1]['senderme'][0]['amount'], 1000.0)
+      self.assertEqual(ledger[5]['direction'], 'send')
+      self.assertEqual(len(ledger[5]['senderother']), 0)
+      self.assertEqual(len(ledger[5]['senderme']), 1)
+      self.assertEqual(ledger[5]['senderme'][0]['amount'], 1000.0)
 
 
 

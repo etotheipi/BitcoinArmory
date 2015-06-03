@@ -23,6 +23,8 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 
    groups_.push_back(WalletGroup(this, saf_));
    groups_.push_back(WalletGroup(this, saf_));
+
+   flagRescanZC(false);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -145,7 +147,7 @@ void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
       txtime = (uint32_t)time(nullptr);
 
    zeroConfCont_.addRawTx(rawTx, txtime);
-   rescanZC_ = true;
+   flagRescanZC(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

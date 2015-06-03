@@ -37,7 +37,7 @@ static void updateBlkDataHeader(
 // {hgt, dup, idx}
 StoredTxOut* BlockWriteBatcher::makeSureSTXOInMap(
             LMDBBlockDatabase* iface,
-            BinaryDataRef txHash, 
+            const BinaryData& txHash, 
             uint16_t txoId)
 {
    // Get the existing STX in RAM and move it to the stxo vector 
