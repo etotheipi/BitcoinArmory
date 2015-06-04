@@ -566,28 +566,24 @@ BinaryData BlockWriteBatcher::scanBlocks(
    LOGWARN << "--- getNewKeys: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("getSSHHeadersLock");
    LOGWARN << "--- getSSHHeadersLock: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("prepareSSHheaders");
-   LOGWARN << "--- prepareSSHheaders: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("computeDBKeys");
    LOGWARN << "--- computeDBKeys: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("getSshHeaders");
    LOGWARN << "--- getSshHeaders: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("waitOnNewDBkeys");
-   LOGWARN << "--- waitOnNewDBkeys: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("finishSerializeSSH");
-   LOGWARN << "--- finishSerializeSSH: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("finalizeSerialization");
+   LOGWARN << "--- finalizeSerialization: " << timeElapsed << " s";
 
 
-   timeElapsed = TIMER_READ_SEC("serializeSSH");
-   LOGWARN << "--- serializeSSH: " << timeElapsed << " s";
+   
+   timeElapsed = TIMER_READ_SEC("serializeBatch");
+   LOGWARN << "--- serializeBatch: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("updateSSH");
+   LOGWARN << "--- updateSSH: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("serializeSubSsh");
    LOGWARN << "--- serializeSubSsh: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("waitOnSubSSHThread");
-   LOGWARN << "--- waitOnSubSSHThread: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("updatePrefixes");
-   LOGWARN << "--- updatePrefixes: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("finishSer");
-   LOGWARN << "--- finishSer: " << timeElapsed << " s";
+   timeElapsed = TIMER_READ_SEC("waitOnSSHser");
+   LOGWARN << "--- waitOnSSHser: " << timeElapsed << " s";
+   
    
    timeElapsed = TIMER_READ_SEC("waitOnWriteThread");
    LOGWARN << "--- waitOnWriteThread: " << timeElapsed << " s";
@@ -601,11 +597,6 @@ BinaryData BlockWriteBatcher::scanBlocks(
    LOGWARN << "--- getnextfeed: " << timeElapsed << " s";
    timeElapsed = TIMER_READ_SEC("inControlThread");
    LOGWARN << "--- inControlThread: " << timeElapsed << " s";
-
-   timeElapsed = TIMER_READ_SEC("parseTxOut");
-   LOGWARN << "--- parseTxOut: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("parseTxIn");
-   LOGWARN << "--- parseTxIn: " << timeElapsed << " s";
 
    return bd;
 }
@@ -664,24 +655,31 @@ bool BlockWriteBatcher::pullBlockFromDB(
 ////////////////////////////////////////////////////////////////////////////////
 /// ProcessedBatchSerializer
 ////////////////////////////////////////////////////////////////////////////////
-void ProcessedBatchSerializer::serializeSSH(
-   shared_ptr<BatchThreadContainer> btc)
+void ProcessedBatchSerializer::updateSSHThread(
+   shared_ptr<BatchThreadContainer> btc, uint32_t tID)
 {
+   uint32_t rangeStep = UINT32_MAX / btc->dataBatch_->nWriters_;
+   uint32_t rangeStart = rangeStep * tID;
+   uint32_t rangeEnd = rangeStep * (tID + 1);
+   if (tID + 1 == btc->dataBatch_->nWriters_)
+      rangeEnd = UINT32_MAX;
+
+   uint32_t intKey;
    auto dbType = BlockWriteBatcher::armoryDbType_;
    auto pruneType = DB_PRUNE_NONE;
 
-   TIMER_START("getSshHeaders");
-   unique_lock<mutex> lock;
-   thread tID = btc->sshHeaders_->getSshHeaders(btc, lock);
-   TIMER_STOP("getSshHeaders");
-
    auto& sshMap = btc->sshHeaders_->sshToModify_;
+
    for (auto& sshPair : *sshMap)
    {
+      memcpy(&intKey, sshPair.first.getPtr() + 1, 4);
+      if (intKey < rangeStart || intKey >= rangeEnd)
+         continue;
+
       BinaryData sshKey;
       sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
       sshKey.append(sshPair.first);
-      
+
       auto& ssh = sshPair.second;
 
       for (auto& threadData : btc->threads_)
@@ -733,41 +731,29 @@ void ProcessedBatchSerializer::serializeSSH(
 
       ssh.alreadyScannedUpToBlk_ = btc->highestBlockProcessed_;
    }
-   
-   TIMER_START("waitOnNewDBkeys");
-   if (tID.joinable())
-      tID.join();
-   TIMER_STOP("waitOnNewDBkeys");
 
-   TIMER_START("finishSerializeSSH");
-   for (auto& sshPair : *sshMap)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ProcessedBatchSerializer::updateSSH(
+   shared_ptr<BatchThreadContainer> btc)
+{
+   TIMER_START("updateSSH");
+   auto updateThread = [&btc, this](uint32_t tID)->void
+   { this->updateSSHThread(btc, tID); };
+
+   vector<thread> threadVec;
+
+   for (uint32_t i = 1; i < btc->dataBatch_->nWriters_; i++)
+      threadVec.push_back(thread(updateThread, i));
+   updateThread(0);
+
+   for (auto& thr : threadVec)
    {
-      BinaryData sshKey;
-      sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
-      sshKey.append(sshPair.first);
-
-      auto& ssh = sshPair.second;
-      if (dbType == ARMORY_DB_SUPER)
-      {
-         if (ssh.totalTxioCount_ > 0)
-         {
-            BinaryWriter& bw = serializedSshToModify_[sshKey];
-            ssh.serializeDBValue(bw, dbType, pruneType);
-         }
-         else
-            sshKeysToDelete_.insert(sshKey);
-      }
-      else
-      {
-         BinaryWriter& bw = serializedSshToModify_[sshKey];
-         ssh.serializeDBValue(bw, dbType, pruneType);
-      }
+      if (thr.joinable())
+         thr.join();
    }
-
-   for (auto& ssh : *sshMap)
-      sshKeys_[ssh.first] = ssh.second.getSubKey();
-
-   TIMER_STOP("finishSerializeSSH");
+   TIMER_STOP("updateSSH");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -798,16 +784,18 @@ void ProcessedBatchSerializer::serializeStxo(STXOS& stxos)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ProcessedBatchSerializer::serializeSubSSH(
-   shared_ptr<BatchThreadContainer> btc)
+void ProcessedBatchSerializer::serializeSubSSHThread(
+   shared_ptr<BatchThreadContainer> btc, uint32_t tID)
 {
-   auto dbType = BlockWriteBatcher::armoryDbType_;
-   auto pruneType = DB_PRUNE_NONE;
-   auto iface = BlockWriteBatcher::iface_;
+   uint32_t rangeStep = UINT32_MAX / btc->dataBatch_->nWriters_;
+   uint32_t rangeStart = rangeStep * tID;
+   uint32_t rangeEnd = rangeStep * (tID + 1);
+   if (tID + 1 == btc->dataBatch_->nWriters_)
+      rangeEnd = UINT32_MAX;
 
+   uint32_t first4;
+   auto& subsshtoapply = subSshToApply_[tID];
 
-   //subssh
-   TIMER_START("serializeSubSsh");
    for (auto& threadData : btc->threads_)
    {
       auto& subsshMap = threadData->subSshMap_;
@@ -816,11 +804,16 @@ void ProcessedBatchSerializer::serializeSubSSH(
 
       for (auto& sshPair : subsshMap)
       {
+         memcpy(&first4, sshPair.first.getPtr() + 1, 4);
+
+         if (first4 < rangeStart || first4 >= rangeEnd)
+            continue;
+
          uint32_t keysize = sshPair.first.getSize();
          BinaryData subkey(keysize + 4);
          memcpy(subkey.getPtr(), sshPair.first.getPtr(), keysize);
 
-         auto& serializedSubSSH = subSshToApply_[sshPair.first];
+         auto& serializedSubSSH = subsshtoapply[sshPair.first];
          auto& submap = serializedSubSSH.subSshMap_;
 
          for (const auto& subsshPair : sshPair.second)
@@ -870,6 +863,34 @@ void ProcessedBatchSerializer::serializeSubSSH(
          }
       }
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ProcessedBatchSerializer::serializeSubSSH(
+   shared_ptr<BatchThreadContainer> btc)
+{
+   auto dbType = BlockWriteBatcher::armoryDbType_;
+   auto pruneType = DB_PRUNE_NONE;
+   auto iface = BlockWriteBatcher::iface_;
+
+   //subssh
+   subSshToApply_.resize(btc->dataBatch_->nWriters_);
+
+   auto serThread = [&btc, this](uint32_t tID)->void
+   { this->serializeSubSSHThread(btc, tID); };
+
+   vector<thread> serThreadIDs;
+   TIMER_START("serializeSubSsh");
+   for (uint32_t i = 1; i < btc->dataBatch_->nWriters_; i++)
+      serThreadIDs.push_back(thread(serThread, i));
+   serThread(0);
+
+   for (auto& thr : serThreadIDs)
+   {
+      if (thr.joinable())
+         thr.join();
+   }
+
    TIMER_STOP("serializeSubSsh");
 
    //stxout
@@ -927,69 +948,115 @@ void ProcessedBatchSerializer::serializeSubSSH(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ProcessedBatchSerializer::serializeBatch(
+void ProcessedBatchSerializer::serializeSSH(
    shared_ptr<BatchThreadContainer> btc)
 {
-   if (isSerialized_)
-      return;
+   uint32_t nthreads = btc->dataBatch_->nWriters_ / 2;
+   if (nthreads < 1)
+      nthreads = 1;
 
-   uint32_t nThreads = btc->dataBatch_->nWriters_;
-   btc->sshHeaders_.reset(new SSHheaders(nThreads, btc->commitId_));
-
-   auto serialize = [&](void)
-   { serializeSubSSH(btc); };
-
-   thread serThread = thread(serialize);
-
+   auto serializeThread = [&nthreads, &btc, this](uint32_t tID)->void
    {
-      TIMER_START("serializeSSH");
-      
-      unique_lock<mutex> setWriter(btc->serializeMutex_);
-      serializeSSH(btc);
-      btc->serializeCV_.notify_all();
+      uint32_t rangeStep = UINT32_MAX / nthreads;
+      uint32_t rangeStart = rangeStep * tID;
+      uint32_t rangeEnd = rangeStep * (tID + 1);
+      if (tID + 1 == nthreads)
+         rangeEnd = UINT32_MAX;
+      uint32_t shortKey;
 
-      TIMER_STOP("serializeSSH");
-   }
+      auto dbType = BlockWriteBatcher::armoryDbType_;
+      auto pruneType = DB_PRUNE_NONE;
 
-   TIMER_START("waitOnSubSSHThread");
-   if (serThread.joinable())
-      serThread.join();
-   TIMER_STOP("waitOnSubSSHThread");
+      auto& sshMap = btc->sshHeaders_->sshToModify_;
 
-   /*auto cleanUp = [&bdc](void)->void
-   {
-      bdc->threads_.clear();
-      //bdc->dataFeed_.reset();
+      for (auto& sshPair : *sshMap)
+      {
+         shortKey = (uint32_t)(sshPair.first.getPtr() + 1);
+         if (shortKey < rangeStart || shortKey > rangeEnd)
+            continue;
+
+         BinaryData sshKey;
+         sshKey.append(WRITE_UINT8_LE(DB_PREFIX_SCRIPT));
+         sshKey.append(sshPair.first);
+
+         auto& ssh = sshPair.second;
+         if (dbType == ARMORY_DB_SUPER)
+         {
+            if (ssh.totalTxioCount_ > 0)
+            {
+               BinaryWriter& bw = serializedSshToModify_[tID][sshKey];
+               ssh.serializeDBValue(bw, dbType, pruneType);
+            }
+            else
+               sshKeysToDelete_.insert(sshKey);
+         }
+         else
+         {
+            BinaryWriter& bw = serializedSshToModify_[tID][sshKey];
+            ssh.serializeDBValue(bw, dbType, pruneType);
+         }
+      }
+
+      //save top prefix values for each key
+      for (auto& topPrefix : btc->sshHeaders_->topPrefix_)
+      {
+         uint32_t keySize = min(4, topPrefix.first.getSize() - 1);
+         memcpy(&shortKey, topPrefix.first.getPtr() + 1, keySize);
+
+         if (shortKey < rangeStart || shortKey >= rangeEnd)
+            continue;
+
+         auto& submap = prefixesToUpdate_[tID][topPrefix.first.getSize()];
+         submap[topPrefix.first] = topPrefix.second.first;
+      }
    };
 
-   thread cleanUpThread(cleanUp);
-   if (cleanUpThread.joinable())
-      cleanUpThread.detach();*/
+   serializedSshToModify_.resize(nthreads);
+   prefixesToUpdate_.resize(nthreads);
 
-   TIMER_START("finishSer");
-   for (auto& serSubSsh : subSshToApply_)
+   vector<thread> threadVec;
+   for (uint32_t i = 1; i < nthreads; i++)
+      threadVec.push_back(thread(serializeThread, i));
+   serializeThread(0);
+
+   for (auto& thr : threadVec)
    {
-      auto keyIter = sshKeys_.find(serSubSsh.first);
-      if (keyIter == sshKeys_.end())
-         continue;
-
-      auto& key = keyIter->second;
-      size_t keySize = key.getSize();
-      serSubSsh.second.sshKey_ = key;
-
-      BinaryData subKey(keySize + 8);
-      keyedSubSshToApply_[keySize].push_back(&serSubSsh.second);
+      if (thr.joinable())
+         thr.join();
    }
+}
 
-   TIMER_START("updatePrefixes");
-   //save top prefix values for each key
-   for (auto& topPrefix : btc->sshHeaders_->topPrefix_)
+////////////////////////////////////////////////////////////////////////////////
+void ProcessedBatchSerializer::finalizeSerialization(
+   shared_ptr<BatchThreadContainer> btc)
+{
+   TIMER_START("finalizeSerialization");
+
+   auto serializeSSH = [&btc, this](void)->void
+   { this->serializeSSH(btc); };
+   thread finishSSHThread(serializeSSH);
+
+   for (auto& ssh : *btc->sshHeaders_->sshToModify_)
+      sshKeys_[ssh.first] = ssh.second.getSubKey();
+
+   //set ssh key for each subssh entry
+   for (auto& subsshtoapply : subSshToApply_)
    {
-      auto& submap = prefixesToUpdate_[topPrefix.first.getSize()];
-      submap[topPrefix.first] = topPrefix.second.first;
+      for (auto& serSubSsh : subsshtoapply)
+      {
+         auto keyIter = sshKeys_.find(serSubSsh.first);
+         if (keyIter == sshKeys_.end())
+            continue;
+
+         auto& key = keyIter->second;
+         size_t keySize = key.getSize();
+         serSubSsh.second.sshKey_ = key;
+
+         BinaryData subKey(keySize + 8);
+         keyedSubSshToApply_[keySize].push_back(&serSubSsh.second);
+      }
    }
-   TIMER_STOP("updatePrefixes");
-      
+   
    for (auto& ktdSet : intermediarrySubSshKeysToDelete_)
    {
       auto& sshkey = sshKeys_[ktdSet.first];
@@ -1015,8 +1082,59 @@ void ProcessedBatchSerializer::serializeBatch(
       }
    }
 
+   TIMER_START("waitOnSSHser");
+   if (finishSSHThread.joinable())
+      finishSSHThread.join();
+   TIMER_STOP("waitOnSSHser");
+
    isSerialized_ = true;
-   TIMER_STOP("finishSer");
+   TIMER_STOP("finalizeSerialization");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ProcessedBatchSerializer::serializeBatch(
+   shared_ptr<BatchThreadContainer> btc)
+{
+   if (isSerialized_)
+      return;
+      
+   TIMER_START("serializeBatch");
+
+   uint32_t nThreads = btc->dataBatch_->nWriters_;
+   btc->sshHeaders_ = make_shared<SSHheaders>(nThreads, btc->commitId_);
+
+   auto serialize = [&](void)
+   { serializeSubSSH(btc); };
+
+   thread serThread = thread(serialize);
+
+   {
+      unique_lock<mutex> setWriter(btc->serializeMutex_);
+
+      TIMER_START("getSshHeaders");
+      unique_lock<mutex> lock;
+      auto newSSH = btc->sshHeaders_->getSshHeaders(btc, lock);
+      TIMER_STOP("getSshHeaders");
+
+      auto getNewSSHKeys = [&btc, &newSSH](void)->void
+      { btc->sshHeaders_->computeDBKeys(newSSH); };
+
+      thread getNewSSHKeysThread(getNewSSHKeys);
+      updateSSH(btc);
+
+      if (getNewSSHKeysThread.joinable())
+         getNewSSHKeysThread.join();
+
+      btc->serializeCV_.notify_all();
+
+   }
+
+   if (serThread.joinable())
+      serThread.join();
+   
+   TIMER_STOP("serializeBatch");
+
+   finalizeSerialization(btc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1033,8 +1151,11 @@ void ProcessedBatchSerializer::putSSH()
    for (auto& submap : keyedSubSshToApply_)
       subSshThreads.push_back(thread(putThread, submap.first));
 
-   for (auto& sshPair : serializedSshToModify_)
-      db->putValue(HISTORY, sshPair.first, sshPair.second.getData());
+   for (auto& sshMap : serializedSshToModify_)
+   {
+      for (auto& sshPair : sshMap)
+         db->putValue(HISTORY, sshPair.first, sshPair.second.getData());
+   }
 
    for (auto& writeThread : subSshThreads)
       if (writeThread.joinable())
@@ -1052,12 +1173,15 @@ void ProcessedBatchSerializer::putSubSSH(uint32_t keyLength)
 
    //update prefixes
    BinaryData prefixVal(1);
-   auto& prefixMap = prefixesToUpdate_[keyLength];
-
-   for (auto& prefix : prefixMap)
+   for (auto& prefixV : prefixesToUpdate_)
    {
-      prefixVal.getPtr()[0] = prefix.second;
-      db->putValue(keyLength, prefix.first, prefixVal);
+      auto& prefixMap = prefixV[keyLength];
+
+      for (auto& prefix : prefixMap)
+      {
+         prefixVal.getPtr()[0] = prefix.second;
+         db->putValue(keyLength, prefix.first, prefixVal);
+      }
    }
 
    //put subssh data
@@ -1924,9 +2048,9 @@ void BlockBatchProcessor::adjustThreadCount(
    workRatio  = workWeight  / totalWeight;
    writeRatio = writeWeight / totalWeight;
 
-   newReaderCount = uint32_t(readRatio  * (float)totalThreadCount);
-   newWorkerCount = uint32_t(workRatio  * (float)totalThreadCount);
-   newWriterCount = uint32_t(writeRatio * (float)totalThreadCount);
+   newReaderCount = uint32_t(floor(readRatio  * (float)totalThreadCount + 0.5f));
+   newWorkerCount = uint32_t(floor(workRatio  * (float)totalThreadCount + 0.5f));
+   newWriterCount = uint32_t(floor(writeRatio * (float)totalThreadCount + 0.5f));
 
    if (newReaderCount == 0)
       newReaderCount = 1;
@@ -2109,13 +2233,8 @@ void BlockDataThread::applyTxToBatchWriteData(
    PulledTx& thisSTX,
    StoredUndoData * sud)
 {
-   TIMER_START("parseTxOut");
    bool txIsMine = parseTxOuts(thisSTX, sud);
-   TIMER_STOP("parseTxOut");
-   
-   TIMER_START("parseTxIn");
    txIsMine |= parseTxIns(thisSTX, sud);
-   TIMER_STOP("parseTxIn");
 
    if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER && txIsMine)
    {

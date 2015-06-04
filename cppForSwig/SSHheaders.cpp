@@ -5,7 +5,7 @@ int SSHheaders::collisionCount = 0;
 mutex SSHheaders::keyAddressingMutex_;
 
 ////////////////////////////////////////////////////////////////////////////////
-thread SSHheaders::getSshHeaders(
+shared_ptr<vector<StoredScriptHistory*>> SSHheaders::getSshHeaders(
    shared_ptr<BatchThreadContainer> btc, unique_lock<mutex>& lock)
 {
    //if there is a parent SSHheader, we have to use that one
@@ -17,7 +17,7 @@ thread SSHheaders::getSshHeaders(
       lock = unique_lock<mutex>(parent->mu_);
       sshToModify_ = parent->sshToModify_;
       TIMER_STOP("getSSHHeadersLock");
-      return thread();
+      return nullptr;
    }
 
    lock = unique_lock<mutex>(mu_);
@@ -36,13 +36,14 @@ thread SSHheaders::getSshHeaders(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-thread SSHheaders::processSshHeaders(shared_ptr<BatchThreadContainer> btc,
+shared_ptr<vector<StoredScriptHistory*>> SSHheaders::processSshHeaders(
+   shared_ptr<BatchThreadContainer> btc,
    shared_ptr<SSHheaders> prevHeaders)
 {
    TIMER_START("prepareSSHheaders");
    sshToModify_.reset(new map<BinaryData, StoredScriptHistory>());
-   shared_ptr<vector<StoredScriptHistory*>> sshVec(
-      new vector<StoredScriptHistory*>());
+   shared_ptr<vector<StoredScriptHistory*>> sshVec = 
+      make_shared<vector<StoredScriptHistory*>>();
 
    if (prevHeaders != nullptr)
    {
@@ -87,7 +88,7 @@ thread SSHheaders::processSshHeaders(shared_ptr<BatchThreadContainer> btc,
             StoredScriptHistory& ssh = (*sshToModify_)[subssh.first];
             if (ssh.isInitialized())
                continue;
-           
+
             ssh.uniqueKey_ = subssh.first;
             sshVec->push_back(&ssh);
          }
@@ -98,12 +99,7 @@ thread SSHheaders::processSshHeaders(shared_ptr<BatchThreadContainer> btc,
 
    TIMER_STOP("prepareSSHheaders");
 
-   auto computeThread = [this](shared_ptr<vector<StoredScriptHistory*>> sshv)->void
-   { 
-      computeDBKeys(sshv); 
-   };
-
-   return thread(computeThread, sshVec);
+   return sshVec;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -154,6 +150,9 @@ void SSHheaders::grabExistingSSHHeaders(vector<StoredScriptHistory*>& sshVec)
 void SSHheaders::computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> sshVec)
 {
    TIMER_START("computeDBKeys");
+   if (sshVec == nullptr)
+      return;
+
    uint32_t i;
    vector<thread> vecTh;
 

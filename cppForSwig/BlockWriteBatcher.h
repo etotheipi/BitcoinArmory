@@ -302,6 +302,9 @@ struct PulledBlock : public DBBlock
             stx.txHash34_.push_back(move(opTxHashAndId));
          }
 
+         if (stx.txHash34_.size() == 0)
+            throw range_error("Block deserialization error: no txin found in tx");
+
          if (stx.txHash34_[0].startsWith(BtcUtils::EmptyHash_))
             stx.isCoinbase_ = true;
 
@@ -524,19 +527,19 @@ struct ProcessedBatchSerializer
    };
 
    map<uint32_t  , vector<SerializedSubSSH*>> keyedSubSshToApply_;
-   map<BinaryData, SerializedSubSSH>  subSshToApply_;
+   vector<map<BinaryData, SerializedSubSSH>>  subSshToApply_;
 
    map<BinaryData, set<BinaryData>> intermediarrySubSshKeysToDelete_;
 
-   map<BinaryData, BinaryWriter>    serializedSshToModify_;
-   map<BinaryData, BinaryWriter>    serializedStxOutToModify_;
-   map<BinaryData, BinaryWriter>    serializedSpentness_;
-   set<BinaryData>                  sshKeysToDelete_;
-   map<uint32_t, set<BinaryData>>   subSshKeysToDelete_;
-   set<BinaryData>                  spentnessToDelete_;
-   
-   map<BinaryData, BinaryData>      sshKeys_;
-   map<uint32_t, map<BinaryData, uint8_t>> prefixesToUpdate_;
+   vector<map<BinaryData, BinaryWriter>>  serializedSshToModify_;
+   map<BinaryData, BinaryWriter>          serializedStxOutToModify_;
+   map<BinaryData, BinaryWriter>          serializedSpentness_;
+   set<BinaryData>                        sshKeysToDelete_;
+   map<uint32_t, set<BinaryData>>         subSshKeysToDelete_;
+   set<BinaryData>                        spentnessToDelete_;
+   map<BinaryData, BinaryData>            sshKeys_;
+
+   vector<map<uint32_t, map<BinaryData, uint8_t>>> prefixesToUpdate_;
 
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
@@ -554,9 +557,18 @@ struct ProcessedBatchSerializer
 
    ////
    void serializeBatch(shared_ptr<BatchThreadContainer>);
-   void serializeSSH(shared_ptr<BatchThreadContainer>);
+   void updateSSH(shared_ptr<BatchThreadContainer>);
+   void updateSSHThread(
+      shared_ptr<BatchThreadContainer> btc, uint32_t tID);
    void serializeStxo(STXOS& stxos);
    void serializeSubSSH(shared_ptr<BatchThreadContainer>);
+   void serializeSubSSHThread(
+      shared_ptr<BatchThreadContainer> btc, uint32_t tID);
+   void finalizeSerialization(
+      shared_ptr<BatchThreadContainer> btc);
+   void serializeSSH(
+      shared_ptr<BatchThreadContainer> btc);
+
 
    void putSSH();
    void putSubSSH(uint32_t keyLength);

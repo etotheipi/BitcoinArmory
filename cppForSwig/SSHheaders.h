@@ -16,17 +16,21 @@ public:
       : nThreads_(nThreads), commitId_(commitId)
    {}
 
-   thread getSshHeaders(shared_ptr<BatchThreadContainer>,
-      unique_lock<mutex>&);
+   shared_ptr<vector<StoredScriptHistory*>> 
+      getSshHeaders(shared_ptr<BatchThreadContainer>,
+                    unique_lock<mutex>&);
    void buildSshHeadersFromSAF(const ScrAddrFilter& SAF);
    void processSshHeaders(vector<BinaryData>& scrAddrs);
+   void computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> saVec);
+                        
 
 private:
-   thread processSshHeaders(
-      shared_ptr<BatchThreadContainer>,
-      shared_ptr<SSHheaders>);
+   shared_ptr<vector<StoredScriptHistory*>>
+      processSshHeaders(
+         shared_ptr<BatchThreadContainer>, 
+         shared_ptr<SSHheaders>);
+
    void grabExistingSSHHeaders(vector<StoredScriptHistory*>& sshVec);
-   void computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> saVec);
    void fetchExistingSshHeaders(map<BinaryData, StoredScriptHistory>& sshMap,
       const vector<StoredScriptHistory*>& saVec,
       uint32_t threadId);
