@@ -654,8 +654,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          else:
             reply = QMessageBox.warning(self, tr('Insufficient Fee'), tr("""
                The fee you have specified (%s BTC) is insufficient for the 
-               size and priority of your transaction.  You must include at 
-               least %s BTC to send this transaction. 
+               size and priority of your transaction.  To ensure acceptance in
+               the network at least %s BTC is recommended to send this transaction. 
                <br><br> 
                Click Yes to use the higher fee of %s BTC.
                <br>
