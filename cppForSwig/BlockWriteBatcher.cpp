@@ -1093,7 +1093,8 @@ void ProcessedBatchSerializer::finalizeSerialization(
 
 ////////////////////////////////////////////////////////////////////////////////
 void ProcessedBatchSerializer::serializeBatch(
-   shared_ptr<BatchThreadContainer> btc)
+   shared_ptr<BatchThreadContainer> btc, 
+   unique_lock<mutex>* serializeLock)
 {
    if (isSerialized_)
       return;
@@ -1109,8 +1110,6 @@ void ProcessedBatchSerializer::serializeBatch(
    thread serThread = thread(serialize);
 
    {
-      unique_lock<mutex> setWriter(btc->serializeMutex_);
-
       TIMER_START("getSshHeaders");
       unique_lock<mutex> lock;
       auto newSSH = btc->sshHeaders_->getSshHeaders(btc, lock);
@@ -1127,6 +1126,7 @@ void ProcessedBatchSerializer::serializeBatch(
 
       btc->serializeCV_.notify_all();
 
+      serializeLock->unlock();
    }
 
    if (serThread.joinable())
@@ -1900,6 +1900,8 @@ void BlockBatchProcessor::commit()
 ////////////////////////////////////////////////////////////////////////////////
 void BlockBatchProcessor::serializeData(shared_ptr<BatchThreadContainer> bdc)
 {
+   unique_lock<mutex> serializeLock(bdc->serializeMutex_);
+
    {
       //This is the write queue bottleneck. The serialize thread will block
       //the process until there is less then 2 processed batch in the 
@@ -1927,7 +1929,7 @@ void BlockBatchProcessor::serializeData(shared_ptr<BatchThreadContainer> bdc)
          bdc->lowestBlockProcessed_;
    }
 
-   pbs->serializeBatch(bdc);
+   pbs->serializeBatch(bdc, &serializeLock);
 
    bdc->processedBatchSerializer_ = pbs;
    

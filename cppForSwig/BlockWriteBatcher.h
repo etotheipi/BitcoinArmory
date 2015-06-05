@@ -556,7 +556,8 @@ struct ProcessedBatchSerializer
    ProcessedBatchSerializer(ProcessedBatchSerializer&&);
 
    ////
-   void serializeBatch(shared_ptr<BatchThreadContainer>);
+   void serializeBatch(shared_ptr<BatchThreadContainer>,
+      unique_lock<mutex>* serializeLock);
    void updateSSH(shared_ptr<BatchThreadContainer>);
    void updateSSHThread(
       shared_ptr<BatchThreadContainer> btc, uint32_t tID);
