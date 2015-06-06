@@ -971,7 +971,7 @@ void ProcessedBatchSerializer::serializeSSH(
 
       for (auto& sshPair : *sshMap)
       {
-         shortKey = (uint32_t)(sshPair.first.getPtr() + 1);
+         shortKey = *(reinterpret_cast<const uint32_t*>(sshPair.first.getPtr() + 1));
          if (shortKey < rangeStart || shortKey > rangeEnd)
             continue;
 
@@ -1000,14 +1000,15 @@ void ProcessedBatchSerializer::serializeSSH(
       //save top prefix values for each key
       for (auto& topPrefix : btc->sshHeaders_->topPrefix_)
       {
-         uint32_t keySize = min(4, topPrefix.first.getSize() - 1);
-         memcpy(&shortKey, topPrefix.first.getPtr() + 1, keySize);
+         const BinaryData& bdPrefix = topPrefix.first;
+         int32_t keySize = min(4, (int)bdPrefix.getSize() - 1);
+         memcpy(&shortKey, bdPrefix.getPtr() + 1, keySize);
 
          if (shortKey < rangeStart || shortKey >= rangeEnd)
             continue;
 
-         auto& submap = prefixesToUpdate_[tID][topPrefix.first.getSize()];
-         submap[topPrefix.first] = topPrefix.second.first;
+         auto& submap = prefixesToUpdate_[tID][bdPrefix.getSize()];
+         submap[bdPrefix] = topPrefix.second.first;
       }
    };
 
