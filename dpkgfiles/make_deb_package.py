@@ -55,6 +55,7 @@ with open('armoryengine/ArmoryUtils.py') as f:
 
 pkgdir = 'armory-%s' % (vstr,)
 pkgdir_ = 'armory_%s' % (vstr,)
+pkgdirOrig = 'armory_%s-orig' % (vstr)
 
 if not vstr:
    print '***ERROR: Could not deduce version from ArmoryUtils.py. '
@@ -64,7 +65,7 @@ if not vstr:
 # Copy the correct control file (for 32-bit or 64-bit OS)
 osBits = platform.architecture()[0][:2]
 shutil.copy('dpkgfiles/control%s' % (osBits), 'dpkgfiles/control')
-dpkgfiles = ['control', 'copyright', 'postinst', 'postrm', 'rules']
+dpkgfiles = ['changelog', 'control', 'copyright', 'postinst', 'postrm', 'README.Debian', 'rules']
 
 
 # Start pseudo-bash-script
@@ -75,10 +76,10 @@ cd('..')
 execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir_)
-shutil.copytree(origDir, pkgdir)
-execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
+shutil.copytree(origDir, pkgdir, ignore=shutil.ignore_patterns('__pycache__'))
+execAndWait('tar -zcf %s.tar.gz %s' % (pkgdirOrig, pkgdir))
 cd(pkgdir)
-execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdir)
+execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdirOrig)
 for f in dpkgfiles:
    shutil.copy('dpkgfiles/%s' % f, 'debian/%s' % f)
 

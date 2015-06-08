@@ -1,0 +1,47 @@
+armory (0.93.2-1) precise quantal raring saucy trusty utopic vivid; urgency=low
+
+   - Fixed signing/broadcast failures on large transactions
+        Due to a signature padding issue, 1-in-256 signatures was failing
+        verification checks, leading Armory to abort the transaction.  This
+        was most frequently observed in large transactions with 100+ sigs.
+
+   - Fixed issue with multiple outgoing transactions
+        Creating and broadcasting multiple transactions sequentially was
+        causing issues when zero-confirmation change had to be used for
+        subsequent transactions.  
+
+   - Restored compatibility with Ubuntu 12.04 (GCC <4.7.3)
+        Introduction of C++11 advanced features into the BlockDataManager
+        in 0.93 made our Ubuntu builds incompatible with 12.04.  With this
+        release, building on 12.04 still requires a bit of work, but our
+        downloadable .deb packages installs on 12.04 again.  To build, see:
+        http://askubuntu.com/questions/113291/how-do-i-install-gcc-4-7
+
+   - Armory Daemon (armoryd) reliability fixes
+        A variety of reliability issues with armoryd were resolved,
+        primarily related to the new database and back-end introduced
+        in 0.93 (primarily getledger and getledgersimple).
+
+   - Multi-sig fee calculation fixed, warnings updated
+        Multi-signature transaction creation code was not
+        calculating and enforcing sane fees.  Many users inadvertantly
+        tried to send transactions with no chance of success, and with
+        no useful information when it did fail.  
+
+   - Uses floating fee estimation via RPC call in auto-bitcoind mode
+        When Armory is running Core in the background, it now uses
+        Core's floating fee estimation capability to recommend
+        acceptable fees to the user
+
+   - Deterministic Signing
+        Deterministic signing (RFC6979) was enabled by default in 0.93.1,
+        but the command-line arguments were not hooked up to be able to
+        disable it.  You can now use --enable-detsign or --disable-detsign
+        to force the selection.
+        
+   - Fix for lockbox change addresses
+        Lockbox transactions created with armoryd were sending change
+        back to the lockbox, but without P2SH.  This is harmless, and
+        Armory is smart enough to handle it gracefully, but unintended.
+
+ -- Alan Reiner <alan@bitcoinarmory.com>  Sun, 07 Jun 2015 23:00:03 -0400
