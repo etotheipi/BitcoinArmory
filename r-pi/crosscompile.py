@@ -9,18 +9,17 @@ TOOLS_PATH  = os.path.join(CROSSCOMPILEPATH, 'tools')
 PYROOT_PATH = os.path.join(CROSSCOMPILEPATH, 'pyroot')
 RPI_REPO    = 'git://github.com/raspberrypi/tools.git'
 
-# The following two files were valid as of 04 Jan, 2015.  You might need to
+# The following two files were valid as of 2015/06/08.  You might need to
 # update the links below by going to the base FTP dir and looking for the
 # latest version numbers to update the links below.  You can view the
 # directory listing in your browser:
 #
-#    http://archive.raspbian.org/raspbian/pool/main/p/python2.7/
+#    https://archive.raspbian.org/raspbian/pool/main/p/python2.7/
 #
-PY_ARMHF1   = 'http://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-dev_2.7.8-11_armhf.deb'
-PY_ARMHF2   = 'http://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-minimal_2.7.8-11_armhf.deb'
+PY_ARMHF1   = 'https://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-dev_2.7.10-2_armhf.deb'
+PY_ARMHF2   = 'https://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-minimal_2.7.10-2_armhf.deb'
 
 
-   
 if len(argv)==1 and not os.path.exists(TOOLS_PATH):
    print """ERROR: Must supply "setupcrosscompiler" or path to where it is setup.
    Use one of the following:  
@@ -41,7 +40,6 @@ else:
 
 if (DoSetup and len(argv)>2) or (not DoSetup and len(argv)>1):
    SetupPath = argv[-1]
-   
 
 
 def popen(cmdList, cwd=None):
@@ -121,5 +119,3 @@ popen(['make', 'CXX='+cxx,
 
 popen(['make', 'install', 'DESTDIR=%s'%instDir])
 popen(['tar','-zcf', targz, 'usr'], cwd=instDir)
-
-
