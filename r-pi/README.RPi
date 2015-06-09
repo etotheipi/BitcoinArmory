@@ -1,0 +1,12 @@
+Armory Raspberry Pi README
+(c) 2015 Armory Technologies, Inc.
+
+In order to compile for Raspberry Pi, the following commands must be run from
+the Armory root directory.
+
+python r-pi/crosscompile.py setupcrosscompiler
+python r-pi/crosscompile.py
+
+The final file (armory_<armory version>_raspbian-armhf.tar.gz) may be loaded
+onto a Raspberry Pi 1 or 2, unzipped, and executed or installed by running the
+"armory" command.
