@@ -58,13 +58,13 @@ script: |
       make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
     done
 
-    # Create pyrcc4 faketime wrapper
-    echo '#!/bin/bash' > ${WRAP_DIR}/pyrcc4
-    echo "REAL=${BASEPREFIX}/`echo '${HOSTS} | awk '{print $1;}''`/bin/pyrcc4" >> ${WRAP_DIR}/pyrcc4
-    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/pyrcc4
-    echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/pyrcc4
-    echo "\$REAL \$@" >> $WRAP_DIR/pyrcc4
-    chmod +x ${WRAP_DIR}/pyrcc4
+    # Create pyrcc5 faketime wrapper
+    echo '#!/bin/bash' > ${WRAP_DIR}/pyrcc5
+    echo "REAL=${BASEPREFIX}/`echo '${HOSTS} | awk '{print $1;}''`/bin/pyrcc5" >> ${WRAP_DIR}/pyrcc5
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/pyrcc5
+    echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/pyrcc5
+    echo "\$REAL \$@" >> $WRAP_DIR/pyrcc5
+    chmod +x ${WRAP_DIR}/pyrcc5
 
     for i in $HOSTS; do
       export PATH=/home/ubuntu/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin/:${BASEPREFIX}/${i}/bin:${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
