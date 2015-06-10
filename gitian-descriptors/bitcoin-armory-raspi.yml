@@ -1,0 +1,80 @@
+# This Gitian descriptor is currently untested.
+---
+name: "bitcoin-armory-raspi"
+enable_cache: true
+suites:
+- "trusty"
+architectures:
+- "amd64"
+packages:
+- "autoconf"
+- "automake"
+- "faketime"
+- "libtool"
+- "pkg-config"
+reference_datetime: "2013-06-01 00:00:00"
+remotes:
+- "url": "https://github.com/etotheipi/BitcoinArmory.git"
+  "dir": "BitcoinArmory"
+files: []
+script: |
+    HOSTS="arm-linux-gnueabihf"
+
+    export TZ=UTC
+
+    export GZIP="-9n"
+    export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+
+    WRAP_DIR=$HOME/wrapped
+    FAKETIME_PROGS="date ar ranlib nm strip"
+    mkdir -p ${WRAP_DIR}
+    if test -n "$GBUILD_CACHE_ENABLED"; then
+      export SOURCES_PATH=${GBUILD_COMMON_CACHE}
+      export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+      mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
+    fi
+
+    # Create global faketime wrappers
+    for prog in ${FAKETIME_PROGS}; do
+      echo '#!/bin/bash' > ${WRAP_DIR}/${prog}
+      echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
+      echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+      echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/${prog}
+      echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+      chmod +x ${WRAP_DIR}/${prog}
+    done
+    export PATH=${WRAP_DIR}:${PATH}
+
+    git clone https://github.com/raspberrypi/tools.git
+    wget https://archive.raspbian.org/raspbian/pool/main/p/python3.4/libpython3.4-dev_3.4.3-7_armhf.deb
+    wget https://archive.raspbian.org/raspbian/pool/main/p/python3.4/libpython3.4-minimal_3.4.3-7_armhf.deb
+    dpkg-deb -x libpython3.4-dev_3.4.3-7_armhf.deb .
+    dpkg-deb -x libpython3.4-minimal_3.4.3-7_armhf.deb .
+
+    cd BitcoinArmory
+    BASEPREFIX=`pwd`/depends    
+    ORIGPATH="$PATH"
+    for i in $HOSTS; do
+      make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
+    done
+
+    # Create pyrcc5 faketime wrapper
+    echo '#!/bin/bash' > ${WRAP_DIR}/pyrcc5
+    echo "REAL=${BASEPREFIX}/`echo '${HOSTS} | awk '{print $1;}''`/bin/pyrcc5" >> ${WRAP_DIR}/pyrcc5
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/pyrcc5
+    echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/pyrcc5
+    echo "\$REAL \$@" >> $WRAP_DIR/pyrcc5
+    chmod +x ${WRAP_DIR}/pyrcc5
+
+    for i in $HOSTS; do
+      export PATH=/home/ubuntu/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin/:${BASEPREFIX}/${i}/bin:${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+
+      ./autogen.sh
+      ./configure --prefix=${BASEPREFIX}/${i} --host ${i} --enable-gitian PYTHON_INCLUDES="-I/home/ubuntu/usr/include/python3.4m -I/home/ubuntu/usr/include" PYTHON_LIBS="-L/home/ubuntu/usr/lib/${i} -lpython3.4m"
+      make ${MAKEOPTS} STATIC_LINK=1
+      instDir = "armory_version_raspbian-armhf"
+      mkdir $instDir
+      make install DESTDIR=$instDir
+      cd $instDir
+      tar -zcf ${OUTDIR}/${instDir}.tar.gz usr
+    done
