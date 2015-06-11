@@ -460,13 +460,8 @@ void ZeroConfContainer::addRawTx(const BinaryData& rawTx, uint32_t txtime)
    Tx zcTx(rawTx);
    zcTx.setTxTime(txtime);
 
-   //grab container lock
-   while (lock_.fetch_or(1, memory_order_acquire));
-
+   unique_lock<mutex> lock(mu_);
    newZCMap_[ZCkey] = zcTx;
-
-   //release lock
-   lock_.store(0, memory_order_release);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -641,14 +636,13 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
 
    bool zcIsOurs = false;
 
-   //grab ZC container lock
-   while (lock_.fetch_or(1, memory_order_acquire));
+   unique_lock<mutex> lock(mu_);
 
    //copy new ZC map
    map<BinaryData, Tx> zcMap = newZCMap_;
 
-   //release lock
-   lock_.store(0, memory_order_release);
+   lock.unlock();
+
 
    LMDBEnv::Transaction tx;
    db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
@@ -707,15 +701,13 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
          writeNewZCthread.join();
       }
 
-      //grab ZC container lock
-      while (lock_.fetch_or(1, memory_order_acquire));
+      unique_lock<mutex> loopLock(mu_);
 
       //check if newZCMap_ doesnt have new Txn
       if (nProcessed >= newZCMap_.size())
       {
          //clear map and release lock
          newZCMap_.clear();
-         lock_.store(0, memory_order_release);
 
          //break out of the loop
          break;
@@ -734,8 +726,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
 
       zcMap = newZCMap_;
 
-      //reset counter and release lock
-      lock_.store(0, memory_order_release);
+      //reset counter
       nProcessed = 0;
    }
 
@@ -946,8 +937,6 @@ void ZeroConfContainer::clear()
    txioMap_.clear();
    newZCMap_.clear();
    newTxioMap_.clear();
-
-   lock_.store(0, memory_order_release);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -961,13 +950,26 @@ bool ZeroConfContainer::isTxOutSpentByZC(const BinaryData& dbkey)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-const map<BinaryData, TxIOPair>& ZeroConfContainer::getZCforScrAddr(
+const map<BinaryData, TxIOPair> ZeroConfContainer::getZCforScrAddr(
    BinaryData scrAddr) const
 {
    auto saIter = txioMap_.find(scrAddr);
 
    if (ITER_IN_MAP(saIter, txioMap_))
-      return saIter->second;
+   {
+      auto& zcMap = saIter->second;
+      map<BinaryData, TxIOPair> returnMap;
+
+      for (auto& zcPair : zcMap)
+      {
+         if (isTxOutSpentByZC(zcPair.second.getDBKeyOfOutput()))
+            continue;
+
+         returnMap.insert(zcPair);
+      }
+
+      return returnMap;
+   }
 
    return emptyTxioMap_;
 }

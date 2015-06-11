@@ -290,7 +290,7 @@ public:
    const map<BinaryData, TxIOPair>& getPreparedTxOutList(void) const
    { return utxos_.getUTXOs(); }
    
-   bool getMoreUTXOs(function<bool(BinaryData)> hasTxOutInZC);
+   bool getMoreUTXOs(function<bool(const BinaryData&)> hasTxOutInZC);
 
    uint64_t getLoadedTxOutsValue(void) const { return utxos_.getValue(); }
    uint32_t getLoadedTxOutsCount(void) const { return utxos_.getCount(); }

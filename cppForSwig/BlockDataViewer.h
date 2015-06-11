@@ -143,6 +143,9 @@ public:
    Tx                getTxByHash(BinaryData const & txHash) const;
    TxOut             getPrevTxOut(TxIn & txin) const;
    Tx                getPrevTx(TxIn & txin) const;
+
+   BinaryData        getTxHashForDbKey(const BinaryData& dbKey6) const
+   { return db_->getTxHashForLdbKey(dbKey6); }
    
    bool isTxMainBranch(const Tx &tx) const;
 
@@ -209,7 +212,7 @@ public:
    bool isTxOutSpentByZC(const BinaryData& dbKey) const
    { return zeroConfCont_.isTxOutSpentByZC(dbKey); }
 
-   const map<BinaryData, TxIOPair>& getZCutxoForScrAddr(
+   const map<BinaryData, TxIOPair> getZCutxoForScrAddr(
       const BinaryData& scrAddr) const
    { return zeroConfCont_.getZCforScrAddr(scrAddr); }
 
@@ -233,8 +236,16 @@ public:
    LedgerDelegate getLedgerDelegateForScrAddr(
       const BinaryData& wltID, const BinaryData& scrAddr);
 
+   TxOut getTxOutCopy(const BinaryData& txHash, uint16_t index) const;
+   Tx getSpenderTxForTxOut(uint32_t height, uint32_t txindex, uint16_t txoutid) const;
+
+   void flagRescanZC(bool flag)
+   { rescanZC_.store(flag, memory_order_release); }
+
+   bool getZCflag(void) const
+   { return rescanZC_.load(memory_order_acquire); }
+
 public:
-   bool rescanZC_    = false;
 
    //refresh notifications
    BDV_refresh refresh_ = BDV_dontRefresh;
@@ -242,6 +253,7 @@ public:
    mutex refreshLock_;
 
 private:
+   atomic<bool> rescanZC_;
 
    BlockDataManager_LevelDB* bdmPtr_;
    LMDBBlockDatabase*        db_;

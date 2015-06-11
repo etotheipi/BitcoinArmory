@@ -326,7 +326,6 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       self.bdm = bdm
       self.lastAlert = 0
       self.deferred_handshake   = forceDeferred(def_handshake)
-      self.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
 
       # All other methods will be regular callbacks:  we plan to have a very
       # static set of behaviors for each message type
@@ -344,12 +343,6 @@ class ArmoryClientFactory(ReconnectingClientFactory):
    #############################################################################
    def getProto(self):
       return self.proto
-
-   #############################################################################
-   def addTxToMemoryPool(self, pytx):
-      if self.bdm and not self.bdm.getState()==BDM_OFFLINE:
-         self.bdm.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
-      
 
 
    #############################################################################
@@ -1132,7 +1125,6 @@ class FakeClientFactory(ReconnectingClientFactory):
                 func_newBlock=(lambda x,y: None), \
                 func_inv=(lambda x: None)): pass
    def getProto(self): return None
-   def addTxToMemoryPool(self, pytx): pass
    def handshakeFinished(self, protoObj): pass
    def clientConnectionLost(self, connector, reason): pass
    def connectionFailed(self, protoObj, reason): pass

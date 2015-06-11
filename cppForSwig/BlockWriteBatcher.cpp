@@ -37,7 +37,7 @@ static void updateBlkDataHeader(
 // {hgt, dup, idx}
 StoredTxOut* BlockWriteBatcher::makeSureSTXOInMap(
             LMDBBlockDatabase* iface,
-            BinaryDataRef txHash, 
+            const BinaryData& txHash, 
             uint16_t txoId)
 {
    // Get the existing STX in RAM and move it to the stxo vector 
@@ -569,10 +569,24 @@ bool BlockWriteBatcher::parseTxIns(
             0);
 
       // update the txio in its subSSH
-      auto& txio = subssh.markTxOutSpent(stxoKey);
+      bool fixed = false;
+      const TxIOPair* txio = nullptr;
+      while (nullptr == (txio = subssh.markTxOutSpent(stxoKey)))
+      {
+         LOGERR << "missing txio! let's fix this";
+         subssh.markTxOutUnspent(stxoKey, dbUpdateSize_, 
+            stxoPtr->getValue(), stxoPtr->isCoinbase_, false);
+         fixed = true;
+      }
          
       //Mirror the spent txio at txin height
-      insertSpentTxio(txio, mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_);
+      insertSpentTxio(*txio, mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_);
+      
+      if (fixed)
+      {
+         TxIOPair& mirrorTxio = mirrorsubssh.txioMap_[stxoKey];
+         mirrorTxio.flagged = true;
+      }
    }
 
    return txIsMine;

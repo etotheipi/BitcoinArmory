@@ -385,7 +385,7 @@ private:
 
    StoredTxOut* makeSureSTXOInMap(
       LMDBBlockDatabase* iface,
-      BinaryDataRef txHash,
+      const BinaryData& txHash,
       uint16_t txoId);
 
    StoredTxOut* lookForUTXOInMap(const BinaryData& txHash, const uint16_t& txoId);

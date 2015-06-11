@@ -1854,19 +1854,20 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const TxIOPair& StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
+const TxIOPair* StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
 {
    TxIOPair * txioptr = findTxio(txOutKey8B);
    if(txioptr==NULL)
    {
       LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
-      throw runtime_error("missing txio!");
+      return nullptr;
+      //throw runtime_error("missing txio!");
    }
 
    txioptr->setUTXO(false);
    txioptr->flagged = true;
 
-   return *txioptr;
+   return txioptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -465,7 +465,7 @@ LedgerEntry ScrAddrObj::getFirstLedger() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool ScrAddrObj::getMoreUTXOs(function<bool(BinaryData)> spentByZC)
+bool ScrAddrObj::getMoreUTXOs(function<bool(const BinaryData&)> spentByZC)
 {
    return utxos_.fetchMoreUTXO(spentByZC);
 }
@@ -527,6 +527,8 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
 
    if (ignoreZc)
       return utxoVec;
+
+   LMDBEnv::Transaction tx(db_->dbEnv_[db_->getDbSelect(HISTORY)].get(), LMDB::ReadOnly);
 
    for (auto& txio : relevantTxIO_)
    {

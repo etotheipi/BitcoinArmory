@@ -23,6 +23,8 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 
    groups_.push_back(WalletGroup(this, saf_));
    groups_.push_back(WalletGroup(this, saf_));
+
+   flagRescanZC(false);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -145,7 +147,7 @@ void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
       txtime = (uint32_t)time(nullptr);
 
    zeroConfCont_.addRawTx(rawTx, txtime);
-   rescanZC_ = true;
+   flagRescanZC(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -270,16 +272,16 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
    {
       LMDBEnv::Transaction tx(db_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
-   TxRef txrefobj = db_->getTxRef(txhash);
+      TxRef txrefobj = db_->getTxRef(txhash);
 
-   if (!txrefobj.isNull())
-      return txrefobj.attached(db_).getTxCopy();
-   else
-   {
-      // It's not in the blockchain, but maybe in the zero-conf tx list
-      return zeroConfCont_.getTxByHash(txhash);
+      if (!txrefobj.isNull())
+         return txrefobj.attached(db_).getTxCopy();
+      else
+      {
+         // It's not in the blockchain, but maybe in the zero-conf tx list
+         return zeroConfCont_.getTxByHash(txhash);
+      }
    }
-}
    else
    {
       StoredTx stx;
@@ -716,6 +718,37 @@ uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
    }
 
    return blockchain().top().getBlockHeight() - 1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxOut BlockDataViewer::getTxOutCopy(
+   const BinaryData& txHash, uint16_t index) const
+{
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      
+
+   BinaryData bdkey;
+   db_->getStoredTx_byHash(txHash, nullptr, &bdkey);
+
+   if (bdkey.getSize() == 0)
+      return TxOut();
+
+   return db_->getTxOutCopy(bdkey, index);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+Tx BlockDataViewer::getSpenderTxForTxOut(uint32_t height, uint32_t txindex,
+   uint16_t txoutid) const
+{
+   StoredTxOut stxo;
+   db_->getStoredTxOut(stxo, height, txindex, txoutid);
+
+   if (!stxo.isSpent())
+      return Tx();
+
+   TxRef txref(stxo.spentByTxInKey_.getSliceCopy(0, 6));
+   return txref.attached(db_).getTxCopy();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

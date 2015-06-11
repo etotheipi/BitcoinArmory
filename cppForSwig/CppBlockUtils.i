@@ -109,6 +109,11 @@ namespace std
    $result = PyString_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
 }
 
+/* Convert C++(const BinaryDataRef) to Python(str) */
+%typemap(out) const BinaryDataRef
+{
+   $result = PyString_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
+}
 /******************************************************************************/
 /*
 // Convert Python(str) to C++(BinaryData const &) 
@@ -221,6 +226,29 @@ namespace std
 	$1 = &map_bd_vec_bd;
 }
 
+// Ubuntu 12.04 doesn't support C++11 without compiler & linker trickery. One
+// very tricky issue involves librt. clock_* calls, used by Armory, required
+// the rt library before GLIBC 2.17, at which point they were moved to libc.
+// Long story short, Ubuntu 12.04 can't compile C++11 by default (only GCC 4.6
+// is available by default, and a libstdc++ bug means GCC 4.7.3+ must be used),
+// and making a 12.04 build under later versions of Ubuntu (with static linking)
+// creates a hole due to glibc 2.17+ being present post-12.04. SWIG somehow gets
+// tripped up, as seen if linking Armory with the "-Wl,--no-undefined" flag. To
+// fix this, use timer_* calls, which remain in librt, to create a dummy call in
+// the SWIG-generated code that forces an rt link in SWIG. This marks librt as
+// "NEEDED" by the linker.
+//
+// The "-Wl,--no-as-needed" linker flag is a simpler alternative to adding this
+// code. The flag is brute force and causes bloat by adding unneeded libraries
+// if devs aren't careful. Therefore, it's not used.
+//
+// Finally, this code is compiled only for Linux. Targeting specific distros
+// requires too much effort. All Linux compilers will have to deal. :)
+%inline %{
+#if defined(__linux) || defined(__linux__)
+   void force_librt() { timer_create(CLOCK_REALTIME, NULL, NULL); }
+#endif
+%}
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"

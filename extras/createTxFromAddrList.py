@@ -87,7 +87,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    selectedUtxoList = PySelectCoins(utxoList, totalSpend, fee)
 
    print 'Checking that minimum required fee is satisfied for this tx...'
-   minValidFee = calcMinSuggestedFees(selectedUtxoList, totalSpend, fee, len(recipList))[1]
+   minValidFee = calcMinSuggestedFees(selectedUtxoList, totalSpend, fee, len(recipList))
 
    if minValidFee>fee:
       print '***WARNING:'

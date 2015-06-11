@@ -121,7 +121,7 @@ class UpgradeDownloader:
                   defaultFN += ".signed"
 
                dest = self.main.getFileSave(tr("Save File"), 
-                  [tr('Installers (*.exe, *.app, *.deb, *.tar.gz)')], 
+                  [tr('Installers (*.exe *.app *.deb *.tar.gz)')], 
                   defaultFilename=defaultFN)
 
                if len(dest)!=0:

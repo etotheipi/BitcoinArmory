@@ -3575,7 +3575,7 @@ class ArmoryMainWindow(QMainWindow):
                inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
                break
 
-      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)[1]
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)
 
       if minFee > 0:
          LOGDEBUG( 'Subtracting fee from Sweep-output')
@@ -3768,11 +3768,10 @@ class ArmoryMainWindow(QMainWindow):
 
                QMessageBox.warning(self, tr('Transaction Not Accepted'), tr("""
                   The transaction that you just executed, does not 
-                  appear to have been accepted by the Bitcoin network. 
-                  This can happen for a variety of reasons, but it is 
-                  usually due to a bug in the Armory software.  
-                  <br><br>On some occasions the transaction actually did succeed 
-                  and this message is the bug itself!  To confirm whether the 
+                  appear to have been accepted by the Bitcoin network yet. 
+                  This can happen for a variety of reasons.  
+                  <br><br>On some occasions the transaction actually will succeed 
+                  and this message is displayed prematurely.  To confirm whether the 
                   the transaction actually succeeded, you can try this direct link 
                   to %(blockexplorer)s:
                   <br><br>
@@ -3784,9 +3783,10 @@ class ArmoryMainWindow(QMainWindow):
                   If it <i>does</i> show up, then you do not need to do anything 
                   else -- it will show up in Armory as soon as it receives one
                   confirmation. 
-                  <br><br>If the transaction did fail, please consider 
-                  reporting this error the the Armory developers.  
-                  From the main window, go to "<i>Help</i>" and select 
+                  <br><br>If the transaction did fail, it is likely because the fee
+                  is too low. Try again with a higher fee.
+                  
+                  If the problem persists, go to "<i>Help</i>" and select 
                   "<i>Submit Bug Report</i>".  Or use "<i>File</i>" -> 
                   "<i>Export Log File</i>" and then attach it to a support 
                   ticket at 
@@ -3800,7 +3800,7 @@ class ArmoryMainWindow(QMainWindow):
          # on the network and process it, and check to see if the Tx was seen.
          # We may change this setup in the future, but for now....
          reactor.callLater(3, sendGetDataMsg)
-         reactor.callLater(7, checkForTxInBDM)
+         reactor.callLater(15, checkForTxInBDM)
 
 
    #############################################################################

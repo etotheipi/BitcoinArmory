@@ -353,11 +353,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not txObj:
          raise InvalidTransaction, "file does not contain a valid tx"
       if not txObj.verifySigsAllInputs():
-         raise IncompleteTransaction, "transaction is needs more signatures"
+         raise IncompleteTransaction, "transaction needs more signatures"
 
       pytx = txObj.getSignedPyTx()
-
+      newTxHash = pytx.getHash()
+      
+      def sendGetDataMsg():
+         msg = PyMessage('getdata')
+         msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
+         self.NetworkingFactory.sendMessage(msg)
+      
       self.NetworkingFactory.sendTx(pytx)
+      reactor.callLater(3, sendGetDataMsg)
+            
       return pytx.getHashHex(BIGENDIAN)
 
 
@@ -1305,8 +1313,21 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # which entries we'll get.
          tx_count = int(tx_count)
          from_tx = int(from_tx)
-         ledgerEntries = ledgerWlt.getTxLedger()
-         sz = len(ledgerEntries)
+
+         sz = 0
+         pageId = 0
+         ledgerEntries = []
+         try:
+            while sz < from_tx + tx_count:
+               ledgerVector = ledgerWlt.getHistoryPageAsVector(pageId)
+               for entry in reversed(ledgerVector):
+                  ledgerEntries.append(entry)
+               
+               sz = len(ledgerEntries)
+               pageId = pageId + 1
+         except:
+            pass
+         
          lower = min(sz, from_tx)
          upper = min(sz, from_tx+tx_count)
          txSet = set([])
@@ -1329,7 +1350,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                cppHead = None
 
             if cppHead is None or not cppHead.isInitialized():
-               LOGERROR('Header pointer is not available!')
+               LOGERROR('Header pointer is not available! Probably trying'
+                        ' to get a block header for a ZC.')
                headHashBin = ''
                headHashHex = ''
                headtime    = 0
@@ -1401,14 +1423,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             # Get the address & amount from each TxIn.
             myinputs, otherinputs = [], []
             for iin in range(cppTx.getNumTxIn()):
-               sender = TheBDM.bdv().getSenderScrAddr(cppTx.getTxInCopy(iin))
-               val    = TheBDM.bdv().getSentValue(cppTx.getTxInCopy(iin))
-               addTo  = (myinputs if ledgerWlt.hasScrAddress(sender) else \
-                         otherinputs)
-               addTo.append( {'address': scrAddr_to_displayStr(sender, \
-                                                            self.serverWltMap, \
-                                                   self.serverLBMap.values()), \
-                              'amount':  AmountToJSON(val)} )
+               try:
+                  sender = TheBDM.bdv().getSenderScrAddr(cppTx.getTxInCopy(iin))
+                  val    = TheBDM.bdv().getSentValue(cppTx.getTxInCopy(iin))
+                  addTo  = (myinputs if ledgerWlt.hasScrAddress(sender) else \
+                            otherinputs)
+                  addTo.append( {'address': scrAddr_to_displayStr(sender, \
+                                                               self.serverWltMap, \
+                                                      self.serverLBMap.values()), \
+                                 'amount':  AmountToJSON(val)} )
+               except:
+                  addTo = otherinputs
+                  addTo.append( {'address': 'unknown',
+                                 'amount':  'unknown'})
 
             # Get the address & amount from each TxOut.
             myoutputs, otheroutputs = [], []
@@ -2008,7 +2035,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                              self.convLBDictToList())
             outputPairs.append( [ustxScr['Script'], totalChange] )
          else:
-            outputPairs.append( [lbox.binScript, totalChange] )
+            outputPairs.append( [script_to_p2sh_script(lbox.binScript), totalChange] )
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
