@@ -13,12 +13,12 @@ from ArmoryEncryption import NULLSBD
 from CppBlockUtils import HDWalletCrypto, CryptoECDSA
 import re
 
-# First "official" version will be 1. 0 is the prototype version.
-BTCAID_PKS_VERSION = 0
-BTCAID_CS_VERSION = 0
-BTCAID_PKRP_VERSION = 0
-BTCAID_SRP_VERSION = 0
-BTCAID_PR_VERSION = 0
+# First "official" version is 1. 0 was a prototype version.
+BTCAID_PKS_VERSION = 1
+BTCAID_CS_VERSION = 1
+BTCAID_PKRP_VERSION = 1
+BTCAID_SRP_VERSION = 1
+BTCAID_PR_VERSION = 1
 
 BTCAID_PAYLOAD_TYPE = enum('PublicKeySource', 'ConstructedScript', 'InvalidRec')
 ESCAPECHAR  = '\xff'
@@ -949,24 +949,35 @@ class ConstructedScript(object):
 class PublicKeyRelationshipProof(object):
    """
    This defines the actual data that proves how multipliers relate to an
-   accompanying public key.
+   accompanying public key. The public key list is optional but all entries must
+   be populated with, at the very least, 0 to indicate an empty VAR_STR.
    """
 
    #############################################################################
    def __init__(self):
-      self.version  = BTCAID_PKRP_VERSION
-      self.multList = []
+      self.version    = BTCAID_PKRP_VERSION
+      self.multList   = []
+      self.pubKeyList = []
 
 
    #############################################################################
-   @VerifyArgTypes(multList = [str, unicode],
-                   ver      = int)
-   def initialize(self, multList, ver=BTCAID_PKRP_VERSION):
+   @VerifyArgTypes(multList   = [str, unicode],
+                   pubKeyList = [str, unicode],
+                   ver        = int)
+   def initialize(self, multList, pkList=None, ver=BTCAID_PKRP_VERSION):
       """
       Set all PKRP values.
       """
-      self.multList = multList
-      self.version  = ver
+      self.multList   = multList
+      self.version    = ver
+
+      if pkList is None:
+         ctr = len(multList)
+         while ctr > 0:
+            self.pubKeyList.append('')
+            ctr -= 1
+      else:
+         self.pubKeyList = pkList
 
 
    #############################################################################
@@ -979,8 +990,10 @@ class PublicKeyRelationshipProof(object):
       bp = BinaryPacker()
       bp.put(UINT8,  self.version)
       bp.put(VAR_INT, len(self.multList), width=1)
-      for keyList2 in self.multList:
-         bp.put(VAR_STR, keyList2)
+      for multListObj in self.multList:
+         bp.put(VAR_STR, multListObj)
+      for keyListObj in self.pubKeyList:
+         bp.put(VAR_STR, keyListObj)
 
       return bp.getBinaryString()
 
@@ -988,6 +1001,7 @@ class PublicKeyRelationshipProof(object):
    #############################################################################
    def unserialize(self, serData):
       inMultList = []
+      inPKList = []
       inner      = BinaryUnpacker(serData)
       inVer      = inner.get(UINT8)
       inNumMults = inner.get(VAR_INT, 1)
@@ -998,12 +1012,19 @@ class PublicKeyRelationshipProof(object):
          inMultList.append(nextMult)
          k += 1
 
+      k = 0
+      while k < inNumMults:
+         nextPK = inner.get(VAR_STR)
+         inPKList.append(nextPK)
+         k += 1
+
       if not inVer == BTCAID_PKRP_VERSION:
          # In the future we will make this more of a warning, not error
          raise VersionError('PKRP version does not match the loaded version')
 
       self.__init__()
       self.initialize(inMultList,
+                      inPKList,
                       inVer)
 
       return self

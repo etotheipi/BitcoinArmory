@@ -30,46 +30,45 @@ BIP32MasterPubKey2_D1Hash160 = hex_to_binary(
 
 # PKS serializations based on BIP32MasterPubKey2.
 PKS1Chksum_Uncomp_v0 = hex_to_binary(
-   "00004041 04cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
+   "01004041 04cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
    "5bd6ace4 a77bd330 5d363c26 f82c1e41 c667e4b3 561c06c6 0a2104d2 b548e6dd"
-   "059056aa 513a6dee 2c")
+   "059056aa 519ce423 3b")
 PKS1NoChksum_Comp_v0 = hex_to_binary(
-   "00000221 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
+   "01000221 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
    "5bd6ace4 a7")
 
 # CS serializations based on BIP32MasterPubKey2.
 CS1Chksum_Uncomp_v0 = hex_to_binary(
-   "00000206 76a9ff01 88ac0145 00000441 04cbcaa9 c98c877a 26977d00 825c956a"
+   "01000206 76a9ff01 88ac0145 01000441 04cbcaa9 c98c877a 26977d00 825c956a"
    "238e8ddd fbd322cc e4f74b0b 5bd6ace4 a77bd330 5d363c26 f82c1e41 c667e4b3"
-   "561c06c6 0a2104d2 b548e6dd 059056aa 51142038 ce")
+   "561c06c6 0a2104d2 b548e6dd 059056aa 51a7e7c4 42")
 CS1Chksum_Comp_v0 = hex_to_binary(
-   "00000206 76a9ff01 88ac0125 00000621 03cbcaa9 c98c877a 26977d00 825c956a"
+   "01000206 76a9ff01 88ac0125 00000621 03cbcaa9 c98c877a 26977d00 825c956a"
    "238e8ddd fbd322cc e4f74b0b 5bd6ace4 a744677b 26")
 CS1NoChksum_Comp_v0 = hex_to_binary(
-   "00000006 76a9ff01 88ac0125 00000621 03cbcaa9 c98c877a 26977d00 825c956a"
+   "01000006 76a9ff01 88ac0125 00000621 03cbcaa9 c98c877a 26977d00 825c956a"
    "238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7")
 CS2Chksum_Comp_v0 = hex_to_binary( # Multisig
-   "00000305 52ff0252 ae022500 00022103 cbcaa9c9 8c877a26 977d0082 5c956a23"
-   "8e8dddfb d322cce4 f74b0b5b d6ace4a7 25000002 2102fc9e 5af0ac8d 9b3cecfe"
-   "2a888e21 17ba3d08 9d858588 6c9c826b 6b22a98d 12ea87d6 e378")
+   "01000305 52ff0252 ae022501 00022103 cbcaa9c9 8c877a26 977d0082 5c956a23"
+   "8e8dddfb d322cce4 f74b0b5b d6ace4a7 25010002 2102fc9e 5af0ac8d 9b3cecfe"
+   "2a888e21 17ba3d08 9d858588 6c9c826b 6b22a98d 12ea89e2 5fe9")
 
 # PKRP serializations based on BIP32MasterPubKey2.
 PKRP1_v0 = hex_to_binary(
-   "00012060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
-   "f811e0")
+   "01012060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
+   "f811e000")
 PKRP2_v0 = hex_to_binary(
-   "00022060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
+   "01022060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
    "f811e020 60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0 a914e1ef"
-   "a7f811e0")
-
+   "a7f811e0 0000")
 # SRP serializations based on BIP32MasterPubKey2.
 SRP1_v0 = hex_to_binary(
-   "00012300 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-   "e1efa7f8 11e0")
+   "01012401 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
+   "e1efa7f8 11e000")
 SRP2_v0 = hex_to_binary(
-   "00022300 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-   "e1efa7f8 11e02300 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456"
-   "23d0a914 e1efa7f8 11e0")
+   "01022401 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
+   "e1efa7f8 11e00024 01012060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4"
+   "5623d0a9 14e1efa7 f811e000")
 
 # PR serializations based on BIP32MasterPubKey2.
 daneName1 = "pksrec1.btcshop.com"
@@ -77,16 +76,16 @@ daneName2 = "pksrec2.btcshop.com"
 unvalidatedScript1 = hex_to_binary(
    "76a95a61 ff8eb7aa ca3010db 97ebda76 121610b7 809688ac")
 PR1_v0 = hex_to_binary(
-   "00000001 541876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1370"
-   "6b737265 63312e62 74637368 6f702e63 6f6d2600 01230001 2060e373 9cc2c395"
-   "0b7c4d7f 32cc503e 13b996d0 f7a45623 d0a914e1 efa7f811 e0")
+   "01000001 551876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1370"
+   "6b737265 63312e62 74637368 6f702e63 6f6d2701 01240101 2060e373 9cc2c395"
+   "0b7c4d7f 32cc503e 13b996d0 f7a45623 d0a914e1 efa7f811 e000")
 PR2_v0 = hex_to_binary(
-   "00000002 a81876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1876"
+   "01000002 aa1876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1876"
    "a95a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13 706b7372 6563312e"
-   "62746373 686f702e 636f6d13 706b7372 6563312e 62746373 686f702e 636f6d26"
-   "00012300 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-   "e1efa7f8 11e02600 01230001 2060e373 9cc2c395 0b7c4d7f 32cc503e 13b996d0"
-   "f7a45623 d0a914e1 efa7f811 e0")
+   "62746373 686f702e 636f6d13 706b7372 6563312e 62746373 686f702e 636f6d27"
+   "01012401 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
+   "e1efa7f8 11e00027 01012401 012060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996"
+   "d0f7a456 23d0a914 e1efa7f8 11e000")
 
 ### TODO: Place this stuff where it belongs when it's time!
 # TxOutscript validator. From ArmoryUtils.py:512?
@@ -209,8 +208,8 @@ class SRPClassTests(unittest.TestCase):
                        binary_to_hex(SRP2_v0))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      srp1_unser = PublicKeyRelationshipProof().unserialize(SRP1_v0)
-      srp2_unser = PublicKeyRelationshipProof().unserialize(SRP2_v0)
+      srp1_unser = ScriptRelationshipProof().unserialize(SRP1_v0)
+      srp2_unser = ScriptRelationshipProof().unserialize(SRP2_v0)
       stringSRP1_unser = srp1_unser.serialize()
       stringSRP2_unser = srp2_unser.serialize()
       self.assertEqual(binary_to_hex(stringSRP1_unser),
@@ -231,7 +230,7 @@ class PRClassTests(unittest.TestCase):
 
       # 1 TxOut script.
       pr1 = PaymentRequest()
-      pr1.initialize([unvalidatedScript1], [daneName1], [srp1.serialize()], 0)
+      pr1.initialize([unvalidatedScript1], [daneName1], [srp1.serialize()])
       stringPR1 = pr1.serialize()
       self.assertEqual(binary_to_hex(stringPR1),
                        binary_to_hex(PR1_v0))
@@ -241,8 +240,7 @@ class PRClassTests(unittest.TestCase):
       pr2 = PaymentRequest()
       pr2.initialize([unvalidatedScript1, unvalidatedScript1],
                      [daneName1, daneName1],
-                     [srp1.serialize(), srp1.serialize()],
-                     0)
+                     [srp1.serialize(), srp1.serialize()])
       stringPR2 = pr2.serialize()
       self.assertEqual(binary_to_hex(stringPR2),
                        binary_to_hex(PR2_v0))
