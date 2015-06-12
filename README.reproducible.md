@@ -1,5 +1,12 @@
 #Armory Reproducible Build Documentation
 
+##Introduction
+
+Gitian is just one method for achieving reproducible builds. Armory uses Gitian
+for OS X and Windows, but uses the Debian Reproducible Build Toolchain for
+Debian packages. Armory does not support the RPM builds, but provides
+instructions for doing RPM builds.
+
 ##Gitian
 
 Gitian is the build system that Bitcoin Core uses for reproducible builds.
@@ -11,13 +18,14 @@ The following steps will allow you to build Armory reproducibly using Gitian.
 
 1. Obtain gitian-tools from [Devrandom's GitHub][Devrandom's GitHub].
 2. Run `bin/make-base-vm --suite trusty`. Armory uses Ubuntu Trusty as the OS
-   of the VM to build in.
-3. Run `bin/gbuild --commit BitcoinArmory=autotools-gitian ../BitcoinArmory/gitian-descriptors/bitcoin-armory-osx.yml`. The commit option is optional and
+   of the VM to build in. Add `--lxc` if using LXC.
+3. If using LXC, run `export USE_LXC=1`.
+4. Run `bin/gbuild --commit BitcoinArmory=autotools-gitian ../BitcoinArmory/gitian-descriptors/bitcoin-armory-osx.yml`. The commit option is optional and
    specifies a Git tag, branch name, or commit hash. By default it is master.
-   The command ends with the path to the appropriate yaml file in the Armory
+   The command ends with the path to the appropriate YAML file in the Armory
    source tree. In this case, the OS X Gitian descriptor is used to indicate
    that we want to build for OS X.
-4. TODO: Include instructions about signing and verifying.
+5. TODO: Include instructions about signing and verifying.
 
 Note that the OS X build requires you have the Mac SDK. See
 [fetch and build inputs][fetch and build inputs].
@@ -80,6 +88,7 @@ tested on OS X and Linux as the build machines.
 For OS X:
 
     cd path-to-armory-source
+    ./autogen.sh
     ./configure
     make Armory.app
 
@@ -136,7 +145,17 @@ You may need to install build dependencies if the configure script finishes
 with errors. After installing the build dependencies, rerun the configure
 script.
 
-At this point, you should have a _CppBlockUtils.pyd file in the root of the
+The build dependencies you may potentially need are python3
+(python3 package in Debian), swig (swig package in Debian), and
+pyrcc5 (pyqt5-dev-tools package in Debian).
+
+You can also get downloads from the following URLs:
+
+* [python3](https://www.python.org/downloads/)
+* [swig](http://www.swig.org/download.html)
+* [pyrcc5 (as part of PyQt5)](http://www.riverbankcomputing.com/software/pyqt/download5)
+
+At this point, you should have a \_CppBlockUtils.pyd file in the root of the
 Armory source tree. You should be able to transfer the entire source tree over
 to a Windows machine and run `python ArmoryQt.py` from the command window as
 long as you have all the dependencies installed, such as Python.
