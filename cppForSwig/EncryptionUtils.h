@@ -583,11 +583,11 @@ public:
 
    // Get a child key based off a list of multipliers/addends.
    SecureBinaryData getChildKeyFromOps(SecureBinaryData const& parKey,
-                                       vector<SecureBinaryData>& mathOps);
+                                       SecureBinaryData const& mathOps);
 
    // Same as above but using BinaryData objects which are SWIG friendly
    BinaryData getChildKeyFromOps_SWIG(BinaryData parKey,
-                                      const vector<BinaryData>& mathOps);
+                                      BinaryData const& mathOps);
 
    // BIP32: Add multipliers modulo curve order to create one multiplier.
    SecureBinaryData addModMults(const vector<SecureBinaryData>& mathOps);

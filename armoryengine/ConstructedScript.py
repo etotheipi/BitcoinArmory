@@ -48,36 +48,36 @@ except:
 ################################################################################
 class MultiplierProof(object):
    """
-   Simply a list of 32-byte multipliers, and a 4-byte fingerprint of both the
-   root key where the mults will be applied, and the resultant key. The four
-   bytes aren't meant to be cryptographically strong, just data that helps
-   reduce unnecessary computation. These objects are obtained from C++.
+   Simply a 32-byte multiplier and a 4-byte fingerprint of both the root key
+   where the multiplier will be applied, and the resultant key. The four bytes
+   aren't meant to be cryptographically strong, just data that helps reduce
+   unnecessary computation. These objects are obtained from C++.
    """
 
    #############################################################################
    def __init__(self, isNull=None, srcFinger4=None, dstFinger4=None,
-                multList=None):
+                multiplier=None):
       self.isNull      = None   # If static, stealth, etc, no mult list
-      self.srcFinger4  = None   # Just the first 4B of hash256(root pub key)
-      self.dstFinger4  = None   # Just the first 4B of hash256(result pub key)
-      self.rawMultList = []     # List of 32-byte LE multipliers
+      self.srcFinger4  = None   # Just the 1st 4B of BE hash256(root pub key)
+      self.dstFinger4  = None   # Just the 1st 4B of BE hash256(result pub key)
+      self.multiplier  = None   # 32-byte BE multiplier
 
       if isNull is not None:
-         self.initialize(isNull, srcFinger4, dstFinger4, multList)
+         self.initialize(isNull, srcFinger4, dstFinger4, multiplier)
 
 
    #############################################################################
    def initialize(self, isNull=None, srcFinger4=None, dstFinger4=None,
-                  multList=None):
+                  multiplier=None):
       self.isNull = isNull
       if isNull:
          self.srcFinger4  = None
          self.dstFinger4  = None
-         self.rawMultList = []
+         self.multiplier  = None
       else:
          self.srcFinger4  = srcFinger4
          self.dstFinger4  = dstFinger4
-         self.rawMultList = multList[:]
+         self.multiplier  = multiplier
 
 
    #############################################################################
@@ -92,8 +92,7 @@ class MultiplierProof(object):
          bp.put(BINARY_CHUNK, self.srcFinger4, widthBytes= 4)
          bp.put(BINARY_CHUNK, self.dstFinger4, widthBytes= 4)
          bp.put(VAR_INT, len(self.rawMultList))
-         for mult in self.rawMultList:
-            bp.put(BINARY_CHUNK,  mult,  widthBytes=32)
+         bp.put(BINARY_CHUNK, self.multiplier, widthBytes=32)
 
       return bp.getBinaryString()
 
@@ -110,11 +109,9 @@ class MultiplierProof(object):
          dstFinger4B = bu.get(BINARY_CHUNK, 4)
          numMult  = bu.get(VAR_INT)
 
-         multList = []
-         for m in numMult:
-            multList.append( bu.get(BINARY_CHUNK, 32))
+         multiplier.append(bu.get(BINARY_CHUNK, 32))
 
-         self.initialize(False, srcFinger4B, dstFinger4B, multList)
+         self.initialize(False, srcFinger4B, dstFinger4B, multiplier)
 
       return self
 
@@ -187,7 +184,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
    sbdChainCode = SecureBinaryData(binChaincode)
    extPubKeyObj = Cpp.ExtendedKey(sbdPublicKey, sbdChainCode)
 
-   # Prepare the output multiplier list
+   # Prepare the output multiplier container
    binMultList = []
 
    # Derive the children
@@ -206,11 +203,14 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
       # Append multiplier to list
       binMultList.append(sbdMultiplier.toBinStr())
 
+   # Get the final multiplier.
+   finalMult = addMultsModECOrder(binMultList)
+
    finalPubKey = extPubKeyObj.getPublicKey().toBinStr()
-   proofObject = MultiplierProof(isNull=False,
-                                srcFinger4=hash256(startPubKey)[:4],
-                                dstFinger4=hash256(finalPubKey)[:4],
-                                multList=binMultList)
+   proofObject = MultiplierProof(False,
+                                 hash256(startPubKey)[:4],
+                                 hash256(finalPubKey)[:4],
+                                 finalMult)
 
    return finalPubKey, proofObject
 
@@ -285,7 +285,7 @@ def ApplyProofToRootKey(startPubKey, multProofObj, expectFinalPub=None):
       raise KeyDataError('Source fingerprint of proof does not match root pub')
 
    finalPubKey = HDWalletCrypto().getChildKeyFromOps_SWIG(startPubKey,
-                                                          multProofObj.rawMultList)
+                                                          multProofObj.multiplier)
 
    if len(finalPubKey) == 0:
       raise KeyDataError('Key derivation failed - Elliptic curve violations')

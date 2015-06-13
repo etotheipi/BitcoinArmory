@@ -1939,7 +1939,7 @@ bool HDWalletCrypto::childKeyDerivPub(SecureBinaryData const& multiplier,
 
    // Multiply base point by the multiplier to get an intermediate key. Don't
    // proceed if at the point of infinity. This is extremely unlikely.
-	// NB: BIP32 doesn't seem to require using the next child #.
+   // NB: BIP32 doesn't seem to require using the next child #.
    if(!(CryptoECDSA().ECMultiplyPoint(multiplier, ecGenX, ecGenY, newPub)))
    {
       LOGERR << "Multiplication derived the point at infinity for the public "
@@ -2008,7 +2008,7 @@ bool HDWalletCrypto::childKeyDerivPrv(SecureBinaryData const& addend,
    {
       LOGERR << "Addition derived the point at infinity for the private key! "
          << "Try again with the next child number.";
-		retVal = false;
+      retVal = false;
     }
     else
     {
@@ -2034,8 +2034,9 @@ bool HDWalletCrypto::childKeyDerivPrv(SecureBinaryData const& addend,
 // OUTPUT: None
 // RETURN: The child key (33 or 65 bytes, or 0 bytes if a key couldn't be
 //         successfully derived (extremely unlikely). (SecureBinaryData)
-SecureBinaryData HDWalletCrypto::getChildKeyFromOps(SecureBinaryData const& parKey,
-                                                    vector<SecureBinaryData>& mathOps)
+SecureBinaryData HDWalletCrypto::getChildKeyFromOps(
+                                                 SecureBinaryData const& parKey,
+                                             SecureBinaryData const& multiplier)
 {
    assert(parKey.getSize() == 33 || parKey.getSize() == 65);
 
@@ -2043,54 +2044,43 @@ SecureBinaryData HDWalletCrypto::getChildKeyFromOps(SecureBinaryData const& parK
                      parKey.getSize() == 33) ? true : false;
    SecureBinaryData retKey(0);
    SecureBinaryData nextKey = parKey;
-   vector<SecureBinaryData>::iterator it = mathOps.begin();
    bool success = true;
 
    if(parKey[0] == 0x00) // Private parent
    {
-      while(success && (it != mathOps.end()))
+      assert(multiplier.getSize() == 32);
+      success = childKeyDerivPrv(multiplier,
+                                 const_cast<const SecureBinaryData&>(nextKey),
+                                 ecOrder_BE,
+                                 retKey);
+      if(success)
       {
-         assert(it->getSize() == 32);
-         success = childKeyDerivPrv(*it,
-                                    const_cast<const SecureBinaryData&>(nextKey),
-                                    ecOrder_BE,
-                                    retKey);
-         if(success)
-         {
-            nextKey = retKey;
-         }
-         else
-         {
-            LOGERR << "Multiplier " << it->toHexStr() << " led to a point at "
-               << "infinity. The final private key cannot be derived.";
-            retKey = SecureBinaryData(0);
-            break;
-         }
-         ++it;
+         nextKey = retKey;
+      }
+      else
+      {
+         LOGERR << "Multiplier " << multiplier.toHexStr() << " led to a point "
+            << "at infinity. The final private key cannot be derived.";
+         retKey = SecureBinaryData(0);
       }
    }
    else               // Public parent
    {
-      while(success && (it != mathOps.end()))
+      assert(multiplier.getSize() == 32);
+      success = childKeyDerivPub(multiplier,
+                                 const_cast<const SecureBinaryData&>(nextKey),
+                                 ecGenX_BE,
+                                 ecGenY_BE,
+                                 retKey);
+      if(success)
       {
-         assert(it->getSize() == 32);
-         success = childKeyDerivPub(*it,
-                                    const_cast<const SecureBinaryData&>(nextKey),
-                                    ecGenX_BE,
-                                    ecGenY_BE,
-                                    retKey);
-         if(success)
-         {
-            nextKey = retKey;
-         }
-         else
-         {
-            LOGERR << "Addend " << it->toHexStr() << " led to a point at "
-               << "infinity. The final public key cannot be derived.";
-            retKey = SecureBinaryData(0);
-            break;
-         }
-         ++it;
+         nextKey = retKey;
+      }
+      else
+      {
+         LOGERR << "Multiplier " << multiplier.toHexStr() << " led to a point "
+            << "at infinity. The final public key cannot be derived.";
+         retKey = SecureBinaryData(0);
       }
    }
 
@@ -2105,23 +2095,19 @@ SecureBinaryData HDWalletCrypto::getChildKeyFromOps(SecureBinaryData const& parK
 
 // Same as above but using BinaryData objects which are SWIG friendly
 BinaryData HDWalletCrypto::getChildKeyFromOps_SWIG(BinaryData parKey,
-                                              const vector<BinaryData>& mathOps)
+                                                   BinaryData const& multiplier)
 {
    SecureBinaryData sbdParKey(parKey);
-   vector<SecureBinaryData> sbdOpsVect;
-   for(uint32_t i=0; i<mathOps.size(); i++)
-   {
-      sbdOpsVect.push_back(SecureBinaryData(mathOps[i]));
-   }
-
-   return getChildKeyFromOps(sbdParKey, sbdOpsVect).getRawCopy();
+   SecureBinaryData sbdMathOps(multiplier);
+   return getChildKeyFromOps(sbdParKey, sbdMathOps).getRawCopy();
 }
 
 
 // Function that takes an incoming SecureBinaryData buffer and creates a master
 // ExtendedKey object. BIP32 requires the seed to be 16-64 bytes long, with 32
 // recommended.
-ExtendedKey HDWalletCrypto::convertSeedToMasterKey(SecureBinaryData const & seed)
+ExtendedKey HDWalletCrypto::convertSeedToMasterKey(
+                                                  SecureBinaryData const & seed)
 {
    assert(seed.getSize() >= 16 && seed.getSize() <= 64);
 

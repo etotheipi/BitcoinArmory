@@ -280,42 +280,10 @@ class DerivationTests(unittest.TestCase):
 
       # Now, let's confirm that we can add the multipliers into one multiplier
       # and get the same final key as if we got children one at a time.
-      finalMult1 = HDWalletCrypto().addModMults_SWIG(multProof1.rawMultList)
-      finalMultList1 = []
-      finalMultList1.append(finalMult1)
       final1CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
                                                           sbdPubKey1.toBinStr(),
-                                                                 finalMultList1)
+                                                          multProof1.multiplier)
       self.assertEqual(final1, final1CombMults)
-
-      # Now, let's confirm that we can add the multipliers into two different
-      # multipliers (1 & 2+3, or 1+2 & 3) and get the same final key as if we
-      # got children one at a time.
-      # (1 & 2+3)
-      listY1 = []
-      listZ1 = []
-      listY1.append(multProof1.rawMultList[1])
-      listY1.append(multProof1.rawMultList[2])
-      tempMult1 = HDWalletCrypto().addModMults_SWIG(listY1)
-      listZ1.append(multProof1.rawMultList[0])
-      listZ1.append(tempMult1)
-      temp1CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
-                                                          sbdPubKey1.toBinStr(),
-                                                                listZ1)
-      self.assertEqual(final1, temp1CombMults)
-
-      # (1+2 & 3)
-      listY2 = []
-      listZ2 = []
-      listY2.append(multProof1.rawMultList[0])
-      listY2.append(multProof1.rawMultList[1])
-      tempMult2 = HDWalletCrypto().addModMults_SWIG(listY2)
-      listZ2.append(tempMult2)
-      listZ2.append(multProof1.rawMultList[2])
-      temp2CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
-                                                          sbdPubKey1.toBinStr(),
-                                                                listZ2)
-      self.assertEqual(final1, temp2CombMults)
 
       # Confirm that we can get the 1st derived key from the BIP32 test vector's
       # second key.
@@ -333,12 +301,9 @@ class DerivationTests(unittest.TestCase):
 
       # Now, let's confirm that we can add the multipliers into one multiplier
       # and get the same final key as if we got children one at a time.
-      finalMult2 = HDWalletCrypto().addModMults_SWIG(multProof2.rawMultList)
-      finalMultList2 = []
-      finalMultList2.append(finalMult2)
       final2CombMults = HDWalletCrypto().getChildKeyFromOps_SWIG(
                                                           sbdPubKey2.toBinStr(),
-                                                                 finalMultList2)
+                                                          multProof2.multiplier)
       self.assertEqual(finalPub2, final2CombMults)
 
 if __name__ == "__main__":
