@@ -1,8 +1,8 @@
 # Pretty much taken verbatim from Bitcoin Core
-package=openssl
+package=native_openssl
 $(package)_version=1.0.1m
 $(package)_download_path=https://www.openssl.org/source
-$(package)_file_name=$(package)-$($(package)_version).tar.gz
+$(package)_file_name=openssl-$($(package)_version).tar.gz
 $(package)_sha256_hash=095f0b7b09116c0c5526422088058dc7e6e000aa14d22acca6a4e2babcdfef74
 
 define $(package)_set_vars
@@ -11,16 +11,37 @@ $(package)_config_opts=--prefix=$(host_prefix) --openssldir=$(host_prefix)/etc/o
 $(package)_config_opts+=no-krb5 no-camellia no-capieng no-cast no-cms no-dtls1 no-gost no-gmp no-heartbeats no-idea no-jpake no-md2
 $(package)_config_opts+=no-mdc2 no-rc5 no-rdrand no-rfc3779 no-rsax no-sctp no-seed no-sha0 no-static_engine no-whirlpool no-rc2 no-rc4 no-ssl2 no-ssl3
 $(package)_config_opts+=$($(package)_cflags) $($(package)_cppflags)
-$(package)_config_opts_linux=-fPIC
-$(package)_config_opts_x86_64_linux=linux-x86_64
-$(package)_config_opts_i686_linux=linux-generic32
-$(package)_config_opts_arm_linux=linux-generic32
-$(package)_config_opts_aarch64_linux=linux-generic64
-$(package)_config_opts_mipsel_linux=linux-generic32
-$(package)_config_opts_mips_linux=linux-generic32
-$(package)_config_opts_x86_64_darwin=darwin64-x86_64-cc
-$(package)_config_opts_x86_64_mingw32=mingw64
-$(package)_config_opts_i686_mingw32=mingw
+
+ifeq ($(build_os),linux)
+$(package)_config_opts+=-fPIC
+ifeq ($(build_arch),x86_64)
+$(package)_config_opts+=linux-x86_64
+else ifeq ($(build_arch),i686)
+$(package)_config_opts+=linux-generic32
+else ifeq ($(build_arch),arm)
+$(package)_config_opts+=linux-generic32
+else ifeq ($(build_arch),aarch64)
+$(package)_config_opts+=linux-generic64
+else ifeq ($(build_arch),mipsel)
+$(package)_config_opts+=linux-generic32
+else ifeq ($(build_arch),mips)
+$(package)_config_opts+=linux-generic32
+endif
+endif
+
+ifeq ($(build_os),darwin)
+ifeq ($(build_arch),x86_64)
+$(package)_config_opts+=darwin64-x86_64-cc
+endif
+endif
+
+ifeq ($(build_os),mingw32)
+ifeq ($(build_arch),x86_64)
+$(package)_config_opts+=mingw64
+else ifeq ($(build_arch),i686)
+$(package)_config_opts+=mingw
+endif
+endif
 endef
 
 define $(package)_preprocess_cmds
@@ -37,7 +58,7 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) INSTALL_PREFIX=$($(package)_staging_dir) -j1 install_sw
+  $(MAKE) INSTALL_PREFIX=$($(package)_staging_prefix_dir) -j1 install_sw
 endef
 
 define $(package)_postprocess_cmds
