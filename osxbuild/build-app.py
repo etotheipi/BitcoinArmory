@@ -29,8 +29,8 @@ libpngVer    = '1.6.16'
 libpngVerAlt = '1'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
-sipVer       = '4.16.7' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+sipVer       = '4.16.8' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer      = '4.11.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 webkitRev    = '175335'
 appNopeVer   = '0.1.0'
 LOGFILE      = 'build-app.log.txt'
@@ -366,7 +366,7 @@ distfiles.append( [ "Webkit-for-Qt", \
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    'ec467c1ca9f9ead16be869eccc2e7cae72750d56' ] )
+                    '0dd2463e5e1fc564c399889fc72baa67c35fcaab' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
@@ -382,7 +382,7 @@ distfiles.append( [ "zope", \
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    '8c53254b38686e5366d74eba81f02f9611f39166' ] )
+                    'c319f273e40afe68a2e65ff2b9c01e0d43e980f7' ] )
 
 #distfiles.append( [ 'appnope', \
 #                    "appnope-%s.tar.gz" % appNopeVer, \
