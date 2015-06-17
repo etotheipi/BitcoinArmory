@@ -1,0 +1,18 @@
+diff -urN a/setup.py b/setup.py
+--- a/setup.py	2014-10-11 14:20:41.346098700 +0100
++++ b/setup.py	2014-10-11 14:20:43.085198200 +0100
+@@ -806,10 +806,13 @@
+ 
+         if (ssl_incs is not None and
+             ssl_libs is not None):
++            _ssl_libs = ['ssl', 'crypto']
++            if host_platform.startswith(('mingw', 'win')):
++                _ssl_libs += ['ws2_32']
+             exts.append( Extension('_ssl', ['_ssl.c'],
+                                    include_dirs = ssl_incs,
+                                    library_dirs = ssl_libs,
+-                                   libraries = ['ssl', 'crypto'],
++                                   libraries = _ssl_libs,
+                                    depends = ['socketmodule.h']), )
+         else:
+             missing.append('_ssl')

@@ -1,0 +1,29 @@
+diff -urN a/Lib/distutils/command/install.py b/Lib/distutils/command/install.py
+--- a/Lib/distutils/command/install.py	2014-10-11 14:23:01.084091300 +0100
++++ b/Lib/distutils/command/install.py	2014-10-11 14:23:03.761244400 +0100
+@@ -20,10 +20,10 @@
+ HAS_USER_SITE = True
+ 
+ WINDOWS_SCHEME = {
+-    'purelib': '$base/Lib/site-packages',
+-    'platlib': '$base/Lib/site-packages',
+-    'headers': '$base/Include/$dist_name',
+-    'scripts': '$base/Scripts',
++    'purelib': '$base/lib/python$py_version_short/site-packages',
++    'platlib': '$base/lib/python$py_version_short/site-packages',
++    'headers': '$base/include/python$py_version_short$abiflags/$dist_name',
++    'scripts': '$base/bin',
+     'data'   : '$base',
+ }
+ 
+@@ -50,8 +50,8 @@
+     INSTALL_SCHEMES['nt_user'] = {
+         'purelib': '$usersite',
+         'platlib': '$usersite',
+-        'headers': '$userbase/Python$py_version_nodot/Include/$dist_name',
+-        'scripts': '$userbase/Scripts',
++        'headers': '$userbase/include/python$py_version_short$abiflags/$dist_name',
++        'scripts': '$userbase/bin',
+         'data'   : '$userbase',
+         }
+ 

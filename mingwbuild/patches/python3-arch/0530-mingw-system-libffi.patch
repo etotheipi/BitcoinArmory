@@ -1,0 +1,64 @@
+From 461aa7426a9f93bdfb3fb8f6e309ae2c379bbff4 Mon Sep 17 00:00:00 2001
+From: Ray Donnelly <mingw.android@gmail.com>
+Date: Fri, 20 Feb 2015 17:01:56 +0000
+Subject: [PATCH] mingw-w64: ctypes/ffi build fixes
+
+1. Prevent export of DllGetClassObject and DllCanUnloadNow in _ctypes import lib
+2. Don't compile src/dlmalloc.c for Windows
+3. Use forward slashes for ffi_{build,src}dir
+---
+ Modules/_ctypes/libffi/fficonfig.py.in | 4 ++++
+ setup.py                               | 8 ++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/Modules/_ctypes/libffi/fficonfig.py.in b/Modules/_ctypes/libffi/fficonfig.py.in
+index d102498..0277c64 100644
+--- a/Modules/_ctypes/libffi/fficonfig.py.in
++++ b/Modules/_ctypes/libffi/fficonfig.py.in
+@@ -23,6 +23,7 @@ ffi_platforms = {
+     'FRV': ['src/frv/eabi.S', 'src/frv/ffi.c'],
+     'S390': ['src/s390/sysv.S', 'src/s390/ffi.c'],
+     'X86_64': ['src/x86/ffi64.c', 'src/x86/unix64.S', 'src/x86/ffi.c', 'src/x86/sysv.S'],
++    'X86_WIN64': ['src/x86/ffi.c', 'src/x86/win64.S'],
+     'SH': ['src/sh/sysv.S', 'src/sh/ffi.c'],
+     'SH64': ['src/sh64/sysv.S', 'src/sh64/ffi.c'],
+     'PA': ['src/pa/linux.S', 'src/pa/ffi.c'],
+@@ -30,6 +31,9 @@ ffi_platforms = {
+     'PA_HPUX': ['src/pa/hpux32.S', 'src/pa/ffi.c'],
+ }
+ 
++ffi_target = '@TARGET@'
++if ffi_target not in ['X86_WIN32', 'X86_WIN64']:
++    ffi_sources += 'src/dlmalloc.c'
+ ffi_sources += ffi_platforms['@TARGET@']
+ 
+ ffi_cflags = '@CFLAGS@'
+diff --git a/setup.py b/setup.py
+index 4622d11..5491b8b 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1880,6 +1880,10 @@ class PyBuildExt(build_ext):
+         return True
+ 
+     def configure_ctypes(self, ext):
++        if host_platform == 'win32':
++            ext.libraries.extend(['ole32', 'oleaut32', 'uuid'])
++            ext.export_symbols.extend(['DllGetClassObject PRIVATE',
++                                       'DllCanUnloadNow PRIVATE'])
+         if not self.use_system_libffi:
+             if host_platform == 'darwin':
+                 return self.configure_ctypes_darwin(ext)
+@@ -1904,6 +1908,10 @@ class PyBuildExt(build_ext):
+                 if not self.verbose:
+                     config_args.append("-q")
+ 
++                if host_platform == 'win32':
++                    table = str.maketrans('\\', '/')
++                    ffi_builddir = ffi_builddir.translate(table)
++                    ffi_srcdir = ffi_srcdir.translate(table)
+                 # Pass empty CFLAGS because we'll just append the resulting
+                 # CFLAGS to Python's; -g or -O2 is to be avoided.
+                 cmd = "cd %s && env CFLAGS='' '%s/configure' %s" \
+-- 
+2.3.0
+

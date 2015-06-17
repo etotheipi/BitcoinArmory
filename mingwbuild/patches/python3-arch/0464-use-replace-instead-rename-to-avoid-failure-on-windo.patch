@@ -1,0 +1,12 @@
+diff -urN a/setup.py b/setup.py
+--- a/setup.py	2014-10-11 14:20:55.673918200 +0100
++++ b/setup.py	2014-10-11 14:20:58.333070300 +0100
+@@ -2211,7 +2211,7 @@
+             else:
+                 newfilename = filename + minoronly
+             log.info('renaming {} to {}'.format(filename, newfilename))
+-            os.rename(filename, newfilename)
++            os.replace(filename, newfilename)
+             newoutfiles.append(newfilename)
+             if filename in updated_files:
+                 newupdated_files.append(newfilename)

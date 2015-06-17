@@ -1,0 +1,11 @@
+Instructions to build Python 3 for Windows with build_py3.sh script
+
+1) Place the Python 3 source in mingwbuild/src. Currently, the expected name
+   is "Python-3.4.3".
+
+2) Build libcryptopp.a in it's normal location in the Armory source tree.
+
+3) Copy all the cpp and cxx files from cppForSwig into
+   mingwbuild/src/Python-3.4.3/Modules.
+
+4) Run build_py3.sh from the mingwbuild directory.

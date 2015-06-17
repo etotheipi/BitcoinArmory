@@ -1,0 +1,14 @@
+diff -urN a/Lib/ctypes/__init__.py b/Lib/ctypes/__init__.py
+--- a/Lib/ctypes/__init__.py	2014-10-11 14:23:12.496744100 +0100
++++ b/Lib/ctypes/__init__.py	2014-10-11 14:23:15.025888700 +0100
+@@ -431,7 +431,9 @@
+ cdll = LibraryLoader(CDLL)
+ pydll = LibraryLoader(PyDLL)
+ 
+-if _os.name in ("nt", "ce"):
++if _os.name == "nt" and _sys.version.find('GCC') >= 0:
++    pythonapi = PyDLL("libpython%d.%d%s.dll" % (_sys.version_info[:2] + (_sys.abiflags,)), None)
++elif _os.name in ("nt", "ce"):
+     pythonapi = PyDLL("python dll", None, _sys.dllhandle)
+ elif _sys.platform == "cygwin":
+     pythonapi = PyDLL("libpython%d.%d.dll" % _sys.version_info[:2])

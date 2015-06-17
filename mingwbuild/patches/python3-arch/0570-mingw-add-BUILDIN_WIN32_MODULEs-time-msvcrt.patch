@@ -1,0 +1,12 @@
+diff -urN a/Modules/Setup.config.in b/Modules/Setup.config.in
+--- a/Modules/Setup.config.in	2014-10-11 14:21:42.640604600 +0100
++++ b/Modules/Setup.config.in	2014-10-11 14:21:44.587716000 +0100
+@@ -17,6 +17,8 @@
+ 
+ # build-in modules for windows platform:
+ @USE_WIN32_MODULE@winreg ../PC/winreg.c
++@USE_WIN32_MODULE@time timemodule.c
++@USE_WIN32_MODULE@msvcrt ../PC/msvcrtmodule.c
+ 
+ # The rest of the modules previously listed in this file are built
+ # by the setup.py script in Python 2.1 and later.

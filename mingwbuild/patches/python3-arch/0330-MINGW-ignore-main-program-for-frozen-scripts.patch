@@ -1,0 +1,32 @@
+diff -urN a/configure.ac b/configure.ac
+--- a/configure.ac	2014-10-11 14:19:57.869612000 +0100
++++ b/configure.ac	2014-10-11 14:20:00.517763500 +0100
+@@ -4935,6 +4935,16 @@
+     ;;
+ esac
+ 
++dnl Python interpreter main program for frozen scripts
++AC_SUBST(PYTHON_OBJS_FROZENMAIN)
++PYTHON_OBJS_FROZENMAIN="Python/frozenmain.o"
++case $host in
++  *-*-mingw*)
++    dnl 'PC/frozen_dllmain.c' - not yet
++    PYTHON_OBJS_FROZENMAIN=
++    ;;
++esac
++
+ AC_SUBST(SRCDIRS)
+ SRCDIRS="Parser Grammar Objects Python Modules Mac"
+ case $host in
+diff -urN a/Makefile.pre.in b/Makefile.pre.in
+--- a/Makefile.pre.in	2014-10-11 14:19:57.869612000 +0100
++++ b/Makefile.pre.in	2014-10-11 14:20:00.519763600 +0100
+@@ -362,7 +362,7 @@
+ 		Python/codecs.o \
+ 		Python/dynamic_annotations.o \
+ 		Python/errors.o \
+-		Python/frozenmain.o \
++		@PYTHON_OBJS_FROZENMAIN@ \
+ 		Python/future.o \
+ 		Python/getargs.o \
+ 		Python/getcompiler.o \

@@ -1,0 +1,40 @@
+diff -urN a/configure.ac b/configure.ac
+--- a/configure.ac	2014-10-11 14:23:08.591520700 +0100
++++ b/configure.ac	2014-10-11 14:23:11.191669400 +0100
+@@ -2496,10 +2496,19 @@
+ fi
+ 
+ # check if we need libintl for locale functions
++case $host in
++  *-*-mingw*)
++  dnl Native windows build don't use libintl (see _localemodule.c).
++  dnl Also we don't like setup.py to add "intl" library to the list
++  dnl when build _locale module.
++  ;;
++  *)
+ AC_CHECK_LIB(intl, textdomain,
+ 	[AC_DEFINE(WITH_LIBINTL, 1,
+ 	[Define to 1 if libintl is needed for locale functions.])
+         LIBS="-lintl $LIBS"])
++  ;;
++esac
+ 
+ # checks for system dependent C++ extensions support
+ case "$ac_sys_system" in
+diff -urN a/Modules/_localemodule.c b/Modules/_localemodule.c
+--- a/Modules/_localemodule.c	2014-10-11 14:23:09.473571200 +0100
++++ b/Modules/_localemodule.c	2014-10-11 14:23:11.193669500 +0100
+@@ -11,6 +11,13 @@
+ 
+ #define PY_SSIZE_T_CLEAN
+ #include "Python.h"
++#ifdef __MINGW32__
++/* The header libintl.h and library libintl may exist on mingw host.
++ * To be compatible with MSVC build we has to undef some defines.
++ */
++#undef HAVE_LIBINTL_H
++#undef HAVE_BIND_TEXTDOMAIN_CODESET
++#endif
+ 
+ #include <stdio.h>
+ #include <locale.h>

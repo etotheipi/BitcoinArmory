@@ -1,0 +1,31 @@
+diff -urN a/Lib/site.py b/Lib/site.py
+--- a/Lib/site.py	2014-10-11 14:21:07.163575400 +0100
++++ b/Lib/site.py	2014-10-11 14:21:10.032739500 +0100
+@@ -267,6 +267,12 @@
+             USER_SITE = get_path('purelib', 'osx_framework_user')
+             return USER_SITE
+ 
++    if sys.platform == 'win32':
++        from sysconfig import _POSIX_BUILD
++        if _POSIX_BUILD:
++            USER_SITE = get_path('purelib', 'posix_user')
++            return USER_SITE
++
+     USER_SITE = get_path('purelib', '%s_user' % os.name)
+     return USER_SITE
+ 
+@@ -298,12 +304,13 @@
+     if prefixes is None:
+         prefixes = PREFIXES
+ 
++    from sysconfig import _POSIX_BUILD
+     for prefix in prefixes:
+         if not prefix or prefix in seen:
+             continue
+         seen.add(prefix)
+ 
+-        if os.sep == '/':
++        if _POSIX_BUILD:
+             sitepackages.append(os.path.join(prefix, "lib",
+                                         "python" + sys.version[:3],
+                                         "site-packages"))

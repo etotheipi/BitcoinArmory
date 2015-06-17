@@ -1,0 +1,13 @@
+diff -urN a/configure.ac b/configure.ac
+--- a/configure.ac	2014-10-11 14:22:27.451167600 +0100
++++ b/configure.ac	2014-10-11 14:22:30.021314600 +0100
+@@ -4779,7 +4779,9 @@
+ 
+ # first curses header check
+ ac_save_cppflags="$CPPFLAGS"
++if test yes != "$cross_compiling"; then
+ CPPFLAGS="$CPPFLAGS -I/usr/include/ncursesw"
++fi
+ 
+ AC_CHECK_HEADERS(curses.h ncurses.h)
+ 

@@ -1,0 +1,12 @@
+diff -urN a/setup.py b/setup.py
+--- a/setup.py	2014-10-11 14:20:02.180858600 +0100
++++ b/setup.py	2014-10-11 14:20:04.365983600 +0100
+@@ -1250,7 +1250,7 @@
+             missing.append('_gdbm')
+ 
+         # Unix-only modules
+-        if host_platform != 'win32':
++        if not host_platform.startswith(('mingw', 'win')):
+             # Steen Lumholt's termios module
+             exts.append( Extension('termios', ['termios.c']) )
+             # Jeremy Hylton's rlimit interface

@@ -1,0 +1,16 @@
+diff -urN a/Lib/distutils/cygwinccompiler.py b/Lib/distutils/cygwinccompiler.py
+--- a/Lib/distutils/cygwinccompiler.py	2014-10-11 14:23:31.343822100 +0100
++++ b/Lib/distutils/cygwinccompiler.py	2014-10-11 14:23:33.915969200 +0100
+@@ -305,9 +305,9 @@
+             raise CCompilerError(
+                 'Cygwin gcc cannot be used with --compiler=mingw32')
+ 
+-        self.set_executables(compiler='gcc -O -Wall',
+-                             compiler_so='gcc -mdll -O -Wall',
+-                             compiler_cxx='g++ -O -Wall',
++        self.set_executables(compiler='gcc -O2 -Wall',
++                             compiler_so='gcc -mdll -O2 -Wall',
++                             compiler_cxx='g++ -O2 -Wall',
+                              linker_exe='gcc',
+                              linker_so='%s %s %s'
+                                         % (self.linker_dll, shared_option,

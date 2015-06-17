@@ -1,0 +1,12 @@
+diff -urN a/Modules/python.c b/Modules/python.c
+--- a/Modules/python.c	2014-10-11 14:19:24.163684200 +0100
++++ b/Modules/python.c	2014-10-11 14:19:25.838780000 +0100
+@@ -7,7 +7,7 @@
+ #include <floatingpoint.h>
+ #endif
+ 
+-#ifdef MS_WINDOWS
++#if defined(MS_WINDOWS) && !defined(__MINGW32__)
+ int
+ wmain(int argc, wchar_t **argv)
+ {

@@ -1,0 +1,21 @@
+diff -urN a/Python/sysmodule.c b/Python/sysmodule.c
+--- a/Python/sysmodule.c	2014-10-11 14:23:38.797248400 +0100
++++ b/Python/sysmodule.c	2014-10-11 14:23:41.349394300 +0100
+@@ -26,7 +26,7 @@
+ #include <windows.h>
+ #endif /* MS_WINDOWS */
+ 
+-#ifdef MS_COREDLL
++#if defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)
+ extern void *PyWin_DLLhModule;
+ /* A string loaded from the DLL at startup: */
+ extern const char *PyWin_DLLVersionString;
+@@ -1733,7 +1733,7 @@
+                         PyUnicode_FromString("little"));
+ #endif
+ 
+-#ifdef MS_COREDLL
++#if defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)
+     SET_SYS_FROM_STRING("dllhandle",
+                         PyLong_FromVoidPtr(PyWin_DLLhModule));
+     SET_SYS_FROM_STRING("winver",

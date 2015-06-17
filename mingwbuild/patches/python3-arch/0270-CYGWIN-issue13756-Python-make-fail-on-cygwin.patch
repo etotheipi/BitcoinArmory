@@ -1,0 +1,27 @@
+diff -urN a/Makefile.pre.in b/Makefile.pre.in
+--- a/Makefile.pre.in	2014-10-11 14:19:35.004304200 +0100
++++ b/Makefile.pre.in	2014-10-11 14:19:37.772462500 +0100
+@@ -635,9 +635,9 @@
+ 	$(LN) -fsn Versions/Current/$(PYTHONFRAMEWORK) $(PYTHONFRAMEWORKDIR)/$(PYTHONFRAMEWORK)
+ 	$(LN) -fsn Versions/Current/Resources $(PYTHONFRAMEWORKDIR)/Resources
+ 
+-# This rule builds the Cygwin Python DLL and import library if configured
++# This rule builds the Python DLL and import library if configured
+ # for a shared core library; otherwise, this rule is a noop.
+-$(DLLLIBRARY) libpython$(VERSION).dll.a: $(LIBRARY_OBJS)
++$(DLLLIBRARY) libpython$(LDVERSION).dll.a: $(LIBRARY_OBJS)
+ 	if test -n "$(DLLLIBRARY)"; then \
+ 		$(LDSHARED) -Wl,--out-implib=$@ -o $(DLLLIBRARY) $^ \
+ 			$(LIBS) $(MODLIBS) $(SYSLIBS) $(LDLAST); \
+diff -urN a/Modules/makesetup b/Modules/makesetup
+--- a/Modules/makesetup	2014-10-11 14:19:35.863353300 +0100
++++ b/Modules/makesetup	2014-10-11 14:19:37.774462700 +0100
+@@ -91,7 +91,7 @@
+ 	 else
+ 	 	ExtraLibDir='$(LIBPL)'
+ 	 fi
+-	 ExtraLibs="-L$ExtraLibDir -lpython\$(VERSION)";;
++	 ExtraLibs="-L$ExtraLibDir -lpython\$(LDVERSION)";;
+ esac
+ 
+ # Main loop

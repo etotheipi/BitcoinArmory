@@ -1,0 +1,16 @@
+diff -urN a/Modules/posixmodule.c b/Modules/posixmodule.c
+--- a/Modules/posixmodule.c	2014-10-11 14:23:43.199500200 +0100
++++ b/Modules/posixmodule.c	2014-10-11 14:23:45.146611500 +0100
+@@ -1444,10 +1444,10 @@
+ 
+     if(!SetCurrentDirectoryW(path))
+         return FALSE;
+-    result = GetCurrentDirectoryW(Py_ARRAY_LENGTH(new_path), new_path);
++    result = GetCurrentDirectoryW(Py_ARRAY_LENGTH(_new_path), new_path);
+     if (!result)
+         return FALSE;
+-    if (result > Py_ARRAY_LENGTH(new_path)) {
++    if (result > Py_ARRAY_LENGTH(_new_path)) {
+         new_path = PyMem_RawMalloc(result * sizeof(wchar_t));
+         if (!new_path) {
+             SetLastError(ERROR_OUTOFMEMORY);

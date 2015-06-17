@@ -1,0 +1,11 @@
+diff -urN a/Makefile.pre.in b/Makefile.pre.in
+--- a/Makefile.pre.in	2014-10-11 14:21:49.602002800 +0100
++++ b/Makefile.pre.in	2014-10-11 14:21:52.301157100 +0100
+@@ -1071,6 +1071,7 @@
+ 	if test -f $(LDLIBRARY) && test "$(PYTHONFRAMEWORKDIR)" = "no-framework" ; then \
+ 		if test -n "$(DLLLIBRARY)" ; then \
+ 			$(INSTALL_SHARED) $(DLLLIBRARY) $(DESTDIR)$(BINDIR); \
++			mkdir -p $(DESTDIR)$(LIBPL); $(INSTALL_SHARED) $(LDLIBRARY) $(DESTDIR)$(LIBPL); \
+ 		else \
+ 			$(INSTALL_SHARED) $(LDLIBRARY) $(DESTDIR)$(LIBDIR)/$(INSTSONAME); \
+ 			if test $(LDLIBRARY) != $(INSTSONAME); then \
