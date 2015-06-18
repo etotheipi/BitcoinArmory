@@ -1,0 +1,9 @@
+*.pdy
+bin/
+build/
+include/
+lib/
+man/
+qt-*/
+share/
+src/
