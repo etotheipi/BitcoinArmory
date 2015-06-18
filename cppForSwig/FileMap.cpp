@@ -195,26 +195,37 @@ void BlockFileAccessor::dropFileMap(uint32_t fnum)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockFileAccessor::prefetchThread(BlockFileAccessor* bfaPtr)
 {
-   if (bfaPtr == nullptr)
-      return;
-
-   unique_lock<mutex> lock(bfaPtr->prefetchMu_);
-
-   while (bfaPtr->runThread_)
+   try
    {
+      if (bfaPtr == nullptr)
+         return;
+
+      unique_lock<mutex> lock(bfaPtr->prefetchMu_);
+
+      while (bfaPtr->runThread_)
       {
-         unique_lock<mutex> bfaLock(bfaPtr->mu_);
-
-         if (bfaPtr->prefetchFileNum_ != UINT32_MAX)
          {
-            shared_ptr<FileMap> fm(
-               new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
+            unique_lock<mutex> bfaLock(bfaPtr->mu_);
 
-            bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+            if (bfaPtr->prefetchFileNum_ != UINT32_MAX)
+            {
+               shared_ptr<FileMap> fm(
+                  new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
+
+               bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+            }
          }
-      }
 
-      bfaPtr->prefetchCV_.wait(lock);
+         bfaPtr->prefetchCV_.wait(lock);
+      }
+   }
+   catch (exception &e)
+   {
+      LOGERR << e.what();
+   }
+   catch (...)
+   {
+      LOGERR << "error in prefetchThread()";
    }
 }
 

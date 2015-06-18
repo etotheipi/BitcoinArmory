@@ -252,18 +252,18 @@ struct PulledBlock : public DBBlock
 
       thisHash_ = bh.getThisHash();
 
-      for (uint32_t tx = 0; tx<nTx; tx++)
+      for (uint32_t tx = 0; tx < nTx; tx++)
       {
          PulledTx & stx = stxMap_[tx];
-         
+
          // We're going to have to come back to the beginning of the tx, later
          uint32_t txStart = brr.getPosition();
 
          // Read a regular tx and then convert it
          const uint8_t* ptr = brr.getCurrPtr();
          vector<size_t> txOutIndexes;
-         size_t txSize = BtcUtils::TxCalcLength(ptr, brr.getSizeRemaining(), 
-                                                &stx.txInIndexes_, &txOutIndexes);
+         size_t txSize = BtcUtils::TxCalcLength(ptr, brr.getSizeRemaining(),
+            &stx.txInIndexes_, &txOutIndexes);
          numBytes_ += txSize;
          BtcUtils::getHash256(ptr, txSize, stx.thisHash_);
 
@@ -281,7 +281,7 @@ struct PulledBlock : public DBBlock
             stx.dataCopy_.setRef(stx.bdDataCopy_);
          }
 
-         stx.numTxOut_ = txOutIndexes.size() -1;
+         stx.numTxOut_ = txOutIndexes.size() - 1;
 
          stx.blockHeight_ = blockHeight_;
          stx.duplicateID_ = duplicateID_;
@@ -331,6 +331,12 @@ struct PulledBlock : public DBBlock
 
          // Sitting at the nLockTime, 4 bytes before the end
          brr.advance(4);
+      }
+
+      if (brr.getSizeRemaining() > 0)
+      {
+         throw runtime_error("Block deserialization error: "
+            "deser size did not match block size in header");
       }
    }
 };

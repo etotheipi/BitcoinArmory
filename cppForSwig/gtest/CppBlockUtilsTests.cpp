@@ -7802,6 +7802,87 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockDir, HeadersFirstEmptyBlock)
+{
+   BlockDataManagerConfig config;
+   config.armoryDbType = ARMORY_DB_BARE;
+   config.pruneType = DB_PRUNE_NONE;
+   config.blkFileLocation = blkdir_;
+   config.levelDBLocation = ldbdir_;
+
+   config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
+   config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+   config.magicBytes = READHEX(MAINNET_MAGIC_BYTES);
+
+   setBlocks({ "0", "1", "2", "4", "3", "5" }, blk0dat_);
+
+   //get rid of block data on the 3rd block
+   FILE *blk0 = fopen(blk0dat_.c_str(), "r+b");
+   fseek(blk0, 2895, SEEK_SET);
+   char data = 0;
+   fwrite(&data, 1, 1800, blk0);
+   fclose(blk0);
+
+   BlockDataManager_LevelDB bdm(config);
+   bdm.openDatabase();
+
+   const std::vector<BinaryData> scraddrs
+   {
+      TestChain::scrAddrA,
+      TestChain::scrAddrB,
+      TestChain::scrAddrC
+   };
+
+   BlockDataViewer bdv(&bdm);
+   BtcWallet& wlt = *bdv.registerWallet(scraddrs, "wallet1", false);
+
+   bdm.doInitialSyncOnLoad(nullProgress);
+   bdv.scanWallets();
+
+   const ScrAddrObj* scrObj;
+   scrObj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+   scrObj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   //balance shouldn't have changed
+   scrObj = wlt.getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt.getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+   scrObj = wlt.getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   //add block data for block 3 and update
+   FILE* blk3 = fopen("../reorgTest/blk_3.dat", "rb");
+   blk0 = fopen(blk0dat_.c_str(), "r+b");
+   uint8_t* blk3data = (uint8_t*)malloc(1917);
+   fread(blk3data, 1917, 1, blk3);
+   fseek(blk0, 2895, SEEK_SET);
+   fwrite(blk3data +88, 1917 - 88, 1, blk0);
+   fclose(blk0);
+   fclose(blk3);
+   free(blk3data);
+
+   bdm.readBlkFileUpdate();
+   bdv.scanWallets();
+
+   //balance should be up to block #5
+   scrObj = wlt.getScrAddrObjByKey(scraddrs[0]);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt.getScrAddrObjByKey(scraddrs[1]);
+   EXPECT_EQ(scrObj->getFullBalance(), 70 * COIN);
+   scrObj = wlt.getScrAddrObjByKey(scraddrs[2]);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockDir, AddBlockWhileUpdating)
 {
    BlockDataManagerConfig config;

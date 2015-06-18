@@ -90,6 +90,19 @@ class FoundAllBlocksException {};
 
 class debug_replay_blocks {};
 
+class BadBlockException
+{
+public:
+   BadBlockException(uint32_t fnum, size_t offset)
+      : lastValidFileNum_(fnum),
+      lastValidOffset_(offset)
+   { }
+
+   uint32_t lastValidFileNum_ = 0;
+   size_t lastValidOffset_ = 0;
+};
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
@@ -219,7 +232,8 @@ private:
    pair<BlockFilePosition, vector<BlockHeader*> >
       loadBlockHeadersStartingAt(
          ProgressReporter &prog,
-         const BlockFilePosition &fileAndOffset
+         const BlockFilePosition &fileAndOffset,
+         bool verifyIntegrity
       );
    
    void deleteHistories(void);

@@ -26,7 +26,7 @@
 void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
 {
    if (size < HEADER_SIZE)
-      throw BlockDeserializingException();
+      throw BlockDeserializingException("block header is too small");
    dataCopy_.copyFrom(ptr, HEADER_SIZE);
    BtcUtils::getHash256(dataCopy_.getPtr(), HEADER_SIZE, thisHash_);
    difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( 

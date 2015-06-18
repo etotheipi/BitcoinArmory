@@ -149,81 +149,88 @@ void SSHheaders::grabExistingSSHHeaders(vector<StoredScriptHistory*>& sshVec)
 ////////////////////////////////////////////////////////////////////////////////
 void SSHheaders::computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> sshVec)
 {
-   TIMER_START("computeDBKeys");
-   if (sshVec == nullptr)
-      return;
-
-   uint32_t i;
-   vector<thread> vecTh;
-
-   uint32_t curNThreads = nThreads_;
-   if (nThreads_ > 0)
-      curNThreads--;
-
-   //Create keys for new SSH headers. We will run a loop on all remaining
-   //new keys as long as they collide.
-
-   vector<map<BinaryData, pair<uint8_t, uint32_t>>> topPrefixes;
-   topPrefixes.resize(nThreads_);
-
-   vector<StoredScriptHistory*> unknownSshVec;
-   for (auto sshPtr : *sshVec)
+   try
    {
-      if (sshPtr->keyLength_ == 0)
-      {
-         unknownSshVec.push_back(sshPtr);
-      }
-   }
+      TIMER_START("computeDBKeys");
+      if (sshVec == nullptr)
+         return;
 
-   *sshVec = move(unknownSshVec);
-   
-   auto processNewSshThread = [&sshVec, &topPrefixes, this](uint32_t tId)->void
-   { this->fetchSshHeaders(*sshToModify_, *sshVec, topPrefixes[tId], tId); };
+      uint32_t i;
+      vector<thread> vecTh;
 
-   bool haveCollision = true;
-   while (haveCollision)
-   {
-      TIMER_START("getNewKeys");
-      haveCollision = false;
-      topPrefixes.clear();
+      uint32_t curNThreads = nThreads_;
+      if (nThreads_ > 0)
+         curNThreads--;
+
+      //Create keys for new SSH headers. We will run a loop on all remaining
+      //new keys as long as they collide.
+
+      vector<map<BinaryData, pair<uint8_t, uint32_t>>> topPrefixes;
       topPrefixes.resize(nThreads_);
 
-      vecTh.clear();
-      for (i = 0; i < curNThreads; i++)
-         vecTh.push_back(thread(processNewSshThread, i + 1));
-
-      processNewSshThread(0);
-
-      for (i = 0; i < curNThreads; i++)
-         if (vecTh[i].joinable())
-            vecTh[i].join();
-
-      TIMER_STOP("getNewKeys");
-
-      //check for key collisions
-      *sshVec = checkForSubKeyCollisions(*sshVec);
-
-      if (sshVec->size() > 0)
+      vector<StoredScriptHistory*> unknownSshVec;
+      for (auto sshPtr : *sshVec)
       {
-         haveCollision = true;
-         collisionCount++;
+         if (sshPtr->keyLength_ == 0)
+         {
+            unknownSshVec.push_back(sshPtr);
+         }
       }
 
-      //unify top prefixes
-      for (auto& prefixMap : topPrefixes)
+      *sshVec = move(unknownSshVec);
+
+      auto processNewSshThread = [&sshVec, &topPrefixes, this](uint32_t tId)->void
+      { this->fetchSshHeaders(*sshToModify_, *sshVec, topPrefixes[tId], tId); };
+
+      bool haveCollision = true;
+      while (haveCollision)
       {
-         for (auto& prefix : prefixMap)
+         TIMER_START("getNewKeys");
+         haveCollision = false;
+         topPrefixes.clear();
+         topPrefixes.resize(nThreads_);
+
+         vecTh.clear();
+         for (i = 0; i < curNThreads; i++)
+            vecTh.push_back(thread(processNewSshThread, i + 1));
+
+         processNewSshThread(0);
+
+         for (i = 0; i < curNThreads; i++)
+            if (vecTh[i].joinable())
+               vecTh[i].join();
+
+         TIMER_STOP("getNewKeys");
+
+         //check for key collisions
+         *sshVec = checkForSubKeyCollisions(*sshVec);
+
+         if (sshVec->size() > 0)
          {
-            auto& pr = topPrefix_[prefix.first];
-            if (pr.first < prefix.second.first)
+            haveCollision = true;
+            collisionCount++;
+         }
+
+         //unify top prefixes
+         for (auto& prefixMap : topPrefixes)
+         {
+            for (auto& prefix : prefixMap)
             {
-               pr = prefix.second;
+               auto& pr = topPrefix_[prefix.first];
+               if (pr.first < prefix.second.first)
+               {
+                  pr = prefix.second;
+               }
             }
          }
       }
-   }
 
-   TIMER_STOP("computeDBKeys");
+      TIMER_STOP("computeDBKeys");
+   }
+   catch (exception &e)
+   {
+      LOGERR << e.what();
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -289,92 +296,99 @@ void SSHheaders::fetchSshHeaders(
    map<BinaryData, pair<uint8_t, uint32_t>>& prefixes,
    uint32_t tId) const
 {
-   uint32_t distribute = 0;
-   for (uint32_t i = tId; i < sshVec.size(); i+=nThreads_)
+   try
    {
-      auto& ssh = *sshVec[i];
-      if (ssh.keyLength_ > 0 && ssh.dbPrefix_ > 0)
-         continue;
-
-      ssh.keyLength_ = SUBSSHDB_PREFIX_MIN + (distribute % nThreads_);
-      distribute++;
-
-      auto checkForPrefix = [&ssh, &prefixes, this](BinaryData &key)->int
+      uint32_t distribute = 0;
+      for (uint32_t i = tId; i < sshVec.size(); i += nThreads_)
       {
-         auto localPrefix = prefixes.find(key);
-         if (localPrefix != prefixes.end())
-         {
-            if (localPrefix->second.first == 0xFF)
-            {
-               //we have this prefix but the address space is used up,
-               //increment key size and try again
-               ssh.keyLength_++;
-               return 0;
-            }
-            else //(localPrefix->second.first != 0)
-            {
-               localPrefix->second.first++;
-               localPrefix->second.second = commitId_;
-               ssh.dbPrefix_ = localPrefix->second.first;
-               ssh.keyLength_ = key.getSize();
-
-               return 1;
-            }
-         }
-
-         //else check if we have a top prefix for this key in SSHheaders
-         auto mainPrefix = topPrefix_.find(key);
-         if (mainPrefix != topPrefix_.end())
-         {
-            if (mainPrefix->second.first == 0xFF)
-            {
-               ssh.keyLength_++;
-               return 0;
-            }
-            else//(mainPrefix->second.first != 0)
-            {
-               uint8_t newPrefix = mainPrefix->second.first + 1;
-               ssh.dbPrefix_ = newPrefix;
-               ssh.keyLength_ = key.getSize();
-
-               prefixes[key] = make_pair(newPrefix, commitId_);
-               return 1;
-            }
-         }
-
-         return -1;
-      };
-
-      while (1)
-      {
-         BinaryData key = ssh.getSubKey();
-         key.getPtr()[0] = 0;
-
-         //check if we have a top prefix in local container
-         int gotPrefix = checkForPrefix(key);
-         if (gotPrefix == 1)
-            break;
-         else if (gotPrefix == 0)
+         auto& ssh = *sshVec[i];
+         if (ssh.keyLength_ > 0 && ssh.dbPrefix_ > 0)
             continue;
 
-         //otherwise, grab it from the DB, update prefix 
-         BinaryData keyFromDB =
-            BlockWriteBatcher::iface_->getSubSSHKey(
-               ssh.uniqueKey_, ssh.keyLength_);
-         uint8_t newPrefix = keyFromDB.getPtr()[0] +1;
-         keyFromDB.getPtr()[0] = 0;
+         ssh.keyLength_ = SUBSSHDB_PREFIX_MIN + (distribute % nThreads_);
+         distribute++;
 
-         gotPrefix = checkForPrefix(keyFromDB);
-         if (gotPrefix == 1)
-            break;
-         else if (gotPrefix == -1)
+         auto checkForPrefix = [&ssh, &prefixes, this](BinaryData &key)->int
          {
-            prefixes[keyFromDB] = make_pair(newPrefix, commitId_);
-            ssh.dbPrefix_ = newPrefix;
-            ssh.keyLength_ = keyFromDB.getSize();
-            break;
+            auto localPrefix = prefixes.find(key);
+            if (localPrefix != prefixes.end())
+            {
+               if (localPrefix->second.first == 0xFF)
+               {
+                  //we have this prefix but the address space is used up,
+                  //increment key size and try again
+                  ssh.keyLength_++;
+                  return 0;
+               }
+               else //(localPrefix->second.first != 0)
+               {
+                  localPrefix->second.first++;
+                  localPrefix->second.second = commitId_;
+                  ssh.dbPrefix_ = localPrefix->second.first;
+                  ssh.keyLength_ = key.getSize();
+
+                  return 1;
+               }
+            }
+
+            //else check if we have a top prefix for this key in SSHheaders
+            auto mainPrefix = topPrefix_.find(key);
+            if (mainPrefix != topPrefix_.end())
+            {
+               if (mainPrefix->second.first == 0xFF)
+               {
+                  ssh.keyLength_++;
+                  return 0;
+               }
+               else//(mainPrefix->second.first != 0)
+               {
+                  uint8_t newPrefix = mainPrefix->second.first + 1;
+                  ssh.dbPrefix_ = newPrefix;
+                  ssh.keyLength_ = key.getSize();
+
+                  prefixes[key] = make_pair(newPrefix, commitId_);
+                  return 1;
+               }
+            }
+
+            return -1;
+         };
+
+         while (1)
+         {
+            BinaryData key = ssh.getSubKey();
+            key.getPtr()[0] = 0;
+
+            //check if we have a top prefix in local container
+            int gotPrefix = checkForPrefix(key);
+            if (gotPrefix == 1)
+               break;
+            else if (gotPrefix == 0)
+               continue;
+
+            //otherwise, grab it from the DB, update prefix 
+            BinaryData keyFromDB =
+               BlockWriteBatcher::iface_->getSubSSHKey(
+               ssh.uniqueKey_, ssh.keyLength_);
+            uint8_t newPrefix = keyFromDB.getPtr()[0] + 1;
+            keyFromDB.getPtr()[0] = 0;
+
+            gotPrefix = checkForPrefix(keyFromDB);
+            if (gotPrefix == 1)
+               break;
+            else if (gotPrefix == -1)
+            {
+               prefixes[keyFromDB] = make_pair(newPrefix, commitId_);
+               ssh.dbPrefix_ = newPrefix;
+               ssh.keyLength_ = keyFromDB.getSize();
+               break;
+            }
          }
       }
+   }
+   catch (exception &e)
+   {
+      LOGERR << e.what();
    }
 }
 
