@@ -1489,6 +1489,8 @@ void BlockDataManager_LevelDB::loadDiskState(
             blkDataPosition_.first = fnum;
             blkDataPosition_.second = offset + size;
 
+            blockchain_.rewind(topScannedBlockHash);
+
             break;
          }
 
@@ -2161,6 +2163,5 @@ void BlockDataManager_LevelDB::repairBlockDataDB(
    LOGINFO << "BLKDATA DB was repaired successfully";
 
 }
-
 
 // kate: indent-width 3; replace-tabs on;

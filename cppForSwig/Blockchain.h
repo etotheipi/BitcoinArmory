@@ -89,6 +89,8 @@ public:
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
    void putNewBareHeaders(LMDBBlockDatabase *db);
 
+   void rewind(const BinaryData& hash);
+
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);
    /////////////////////////////////////////////////////////////////////////////

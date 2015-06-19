@@ -38,7 +38,8 @@ FileMap::FileMap(FileMap&& fm)
    fnum_ = fm.fnum_;
    fm.filemap_ = nullptr;
    
-   fetch_ = fm.fetch_;
+   fetch_.store(fm.fetch_.load(memory_order_relaxed), 
+      memory_order_relaxed);
 }
 
 
@@ -138,7 +139,7 @@ shared_ptr<FileMap>& BlockFileAccessor::getFileMap(uint32_t fnum)
       mapIter = result.first;
    }
 
-   if (mapIter->second->fetch_ != FETCH_ACCESSED && 
+   if (mapIter->second->fetch_.load(memory_order_relaxed) != FETCH_ACCESSED && 
        prefetch_ != PREFETCH_NONE)
    {
       //signal the prefetch thread to grab the next file
@@ -164,7 +165,7 @@ shared_ptr<FileMap>& BlockFileAccessor::getFileMap(uint32_t fnum)
    }
 
    cv_.notify_all();
-   mapIter->second->fetch_ = FETCH_ACCESSED;
+   mapIter->second->fetch_.store(FETCH_ACCESSED, memory_order_release);
    return mapIter->second;
 }
 
@@ -226,8 +227,11 @@ void BlockFileAccessor::cleanupThread(BlockFileAccessor* bfaPtr)
 
          while (mapIter != bfaPtr->blkMaps_.end())
          {
-            if (mapIter->second->lastSeenCumulated_ + threshold_ <
-               lastSeen)
+            if (mapIter->second->fetch_.load(memory_order_relaxed) == 
+                FETCH_ACCESSED 
+                &&
+                mapIter->second->lastSeenCumulated_ + threshold_ <
+                lastSeen)
             {
                if (mapIter->second.use_count() == 1)
                {

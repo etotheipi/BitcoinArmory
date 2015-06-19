@@ -425,3 +425,40 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
    //so clean up the container
    newlyParsedBlocks_.clear();
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void Blockchain::rewind(const BinaryData& hash)
+{
+   //delete all blocks on main chain past hash and reorg chain.
+   //repeat until hash is the top block on main chain
+   
+   while (1)
+   {
+      //list blocks past hash
+      BlockHeader* header = &getHeaderByHash(hash);
+      vector<BinaryData> hashToDel;
+      try
+      {
+         while (1)
+         {
+            header = &getHeaderByHash(header->getNextHash());
+            hashToDel.push_back(header->getThisHash());
+         }
+      }
+      catch (range_error &e)
+      {
+         //got at the end of the current chain
+      }
+
+      //delete them
+      for (auto& toDel : hashToDel)
+         headerMap_.erase(toDel);
+
+      forceOrganize();
+      if (top().getThisHash() == hash)
+         return;
+
+      LOGWARN << "Attempted to rewind blockchain but did "
+         "not end up with expected top block";
+   }
+}

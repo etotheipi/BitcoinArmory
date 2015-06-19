@@ -35,7 +35,7 @@ class FileMap
 
 private:
    std::atomic<uint64_t> lastSeenCumulated_;
-   FILEMAP_FETCH fetch_ = FETCH_NONE;
+   std::atomic<FILEMAP_FETCH> fetch_ = FETCH_NONE;
 
 public:
    uint8_t* filemap_ = nullptr;
