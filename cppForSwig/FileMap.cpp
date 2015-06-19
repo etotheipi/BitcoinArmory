@@ -25,7 +25,7 @@ FileMap::FileMap(BlkFile& blk)
    close(fd);
 #endif
 
-   fetch_ = FETCH_FETCHED;
+   fetch_.store(FETCH_FETCHED, memory_order_release);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
