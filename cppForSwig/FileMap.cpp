@@ -188,14 +188,16 @@ void BlockFileAccessor::prefetchThread(BlockFileAccessor* bfaPtr)
 
       while (bfaPtr->runThread_)
       {
-         unique_lock<mutex> bfaLock(bfaPtr->globalMutex_);
-
-         if (bfaPtr->prefetchFileNum_ != UINT32_MAX)
          {
-            shared_ptr<FileMap> fm(
-               new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
+            unique_lock<mutex> bfaLock(bfaPtr->globalMutex_);
 
-            bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+            if (bfaPtr->prefetchFileNum_ != UINT32_MAX)
+            {
+               shared_ptr<FileMap> fm(
+                  new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
+
+               bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+            }
          }
 
          bfaPtr->cv_.wait(prefetchLock);
