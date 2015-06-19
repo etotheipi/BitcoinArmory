@@ -538,63 +538,65 @@ BinaryData BlockWriteBatcher::scanBlocks(
    forceUpdateSSH_ = forceUpdateSSH;
    
    BinaryData bd = applyBlocksToDB(prog, scf);
+   if (abs((int)startBlock - (int)endBlock) > 500)
+   {
+      double timeElapsed = TIMER_READ_SEC("feedSleep");
+      LOGWARN << "--- feedSleep: " << timeElapsed << " s";
 
-   double timeElapsed = TIMER_READ_SEC("feedSleep");
-   LOGWARN << "--- feedSleep: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("workers");
+      LOGWARN << "--- workers: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("workers");
-   LOGWARN << "--- workers: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("writeStxo");
+      LOGWARN << "--- writeStxo: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("writeStxo_grabMutex");
+      LOGWARN << "--- writeStxo_grabMutex: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("writeStxo");
-   LOGWARN << "--- writeStxo: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("writeStxo_grabMutex");
-   LOGWARN << "--- writeStxo_grabMutex: " << timeElapsed << " s";
-   
-   timeElapsed = TIMER_READ_SEC("waitingOnSerThread");
-   LOGWARN << "--- waitingOnSerThread: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("waitForDataToWrite");
-   LOGWARN << "--- waitForDataToWrite: " << timeElapsed << " s";
-   
-   
-   timeElapsed = TIMER_READ_SEC("checkForCollisions");
-   LOGWARN << "--- checkForCollisions: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("getExistingKeys");
-   LOGWARN << "--- getExistingKeys: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("getNewKeys");
-   LOGWARN << "--- getNewKeys: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("getSSHHeadersLock");
-   LOGWARN << "--- getSSHHeadersLock: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("computeDBKeys");
-   LOGWARN << "--- computeDBKeys: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("getSshHeaders");
-   LOGWARN << "--- getSshHeaders: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("finalizeSerialization");
-   LOGWARN << "--- finalizeSerialization: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("waitingOnSerThread");
+      LOGWARN << "--- waitingOnSerThread: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("waitForDataToWrite");
+      LOGWARN << "--- waitForDataToWrite: " << timeElapsed << " s";
 
 
-   
-   timeElapsed = TIMER_READ_SEC("serializeBatch");
-   LOGWARN << "--- serializeBatch: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("updateSSH");
-   LOGWARN << "--- updateSSH: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("serializeSubSsh");
-   LOGWARN << "--- serializeSubSsh: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("waitOnSSHser");
-   LOGWARN << "--- waitOnSSHser: " << timeElapsed << " s";
-   
-   
-   timeElapsed = TIMER_READ_SEC("waitOnWriteThread");
-   LOGWARN << "--- waitOnWriteThread: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("checkForCollisions");
+      LOGWARN << "--- checkForCollisions: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("getExistingKeys");
+      LOGWARN << "--- getExistingKeys: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("getNewKeys");
+      LOGWARN << "--- getNewKeys: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("getSSHHeadersLock");
+      LOGWARN << "--- getSSHHeadersLock: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("computeDBKeys");
+      LOGWARN << "--- computeDBKeys: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("getSshHeaders");
+      LOGWARN << "--- getSshHeaders: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("finalizeSerialization");
+      LOGWARN << "--- finalizeSerialization: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("putSSH");
-   LOGWARN << "--- putSSH: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("putSTX");
-   LOGWARN << "--- putSTX: " << timeElapsed << " s";
 
-   timeElapsed = TIMER_READ_SEC("getnextfeed");
-   LOGWARN << "--- getnextfeed: " << timeElapsed << " s";
-   timeElapsed = TIMER_READ_SEC("inControlThread");
-   LOGWARN << "--- inControlThread: " << timeElapsed << " s";
+
+      timeElapsed = TIMER_READ_SEC("serializeBatch");
+      LOGWARN << "--- serializeBatch: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("updateSSH");
+      LOGWARN << "--- updateSSH: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("serializeSubSsh");
+      LOGWARN << "--- serializeSubSsh: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("waitOnSSHser");
+      LOGWARN << "--- waitOnSSHser: " << timeElapsed << " s";
+
+
+      timeElapsed = TIMER_READ_SEC("waitOnWriteThread");
+      LOGWARN << "--- waitOnWriteThread: " << timeElapsed << " s";
+
+      timeElapsed = TIMER_READ_SEC("putSSH");
+      LOGWARN << "--- putSSH: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("putSTX");
+      LOGWARN << "--- putSTX: " << timeElapsed << " s";
+
+      timeElapsed = TIMER_READ_SEC("getnextfeed");
+      LOGWARN << "--- getnextfeed: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("inControlThread");
+      LOGWARN << "--- inControlThread: " << timeElapsed << " s";
+   }
 
    return bd;
 }

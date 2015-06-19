@@ -325,7 +325,8 @@ public:
          const BinaryDataRef &,
          const BlockFilePosition &pos,
          uint32_t blksize
-      )> &blockDataCallback
+      )> &blockDataCallback,
+      bool verbose = false
    ) const
    {
       if (startAt.first == blkFiles_->size())
@@ -340,6 +341,8 @@ public:
       {
          while (startAt.first < blkFiles_->size())
          {
+            if(verbose)
+               LOGINFO << "parsing headers in file " << startAt.first;
             finishOffset = readRawBlocksFromFile(
                bfa,
                startAt.first, 
@@ -982,7 +985,8 @@ pair<BlockFilePosition, vector<BlockHeader*>>
    BlockFilePosition position;
    try
    {
-      position = readBlockHeaders_->readHeaders(fileAndOffset, blockHeaderCallback);
+      position = readBlockHeaders_->readHeaders(fileAndOffset, blockHeaderCallback,
+         !verifyIntegrity);
    }
    catch (BadBlockException &e)
    {

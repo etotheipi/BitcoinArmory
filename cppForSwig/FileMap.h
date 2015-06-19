@@ -69,13 +69,13 @@ private:
    static const uint64_t threshold_ = 50 * 1024 * 1024LL;
    uint64_t nextThreshold_ = threshold_;
 
-   mutex mu_;
+   mutex globalMutex_;
    BFA_PREFETCH prefetch_;
 
    //prefetch thread members
-   std::thread tID_;
-   std::mutex prefetchMu_;
-   std::condition_variable prefetchCV_;
+   std::thread prefetchTID_, cleanupTID_;
+   std::mutex prefetchMutex_;
+   std::condition_variable cv_;
 
    bool runThread_ = true;
    uint32_t prefetchFileNum_ = UINT32_MAX;
@@ -94,6 +94,7 @@ public:
    void dropFileMap(uint32_t fnum);
 
    static void prefetchThread(BlockFileAccessor* bfaPtr);
+   static void cleanupThread(BlockFileAccessor* bfaPtr);
 };
 
 #endif
