@@ -1671,7 +1671,11 @@ shared_ptr<PulledBlock> BlockDataBatchLoader::getNextBlock(
    unique_lock<mutex>* mu)
 {
    if (!isHeightValid(*this, currentHeight_))
+   {
+      LOGINFO << "height " << currentHeight_ << " exceeds scan range, "
+         "ending scan";
       return nullptr;
+   }
 
    shared_ptr<PulledBlock> blk;
    PullBlockThread& pullThread = pullThreads_[currentHeight_ % nThreads_];
@@ -1789,6 +1793,7 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
             "Refer to your log file for more details on the error.");
 
          BlockWriteBatcher::criticalError(errorMessage);*/
+         LOGERR << "hit interruption marker from pull threads";
          hasData_ = false;
          return;
       }
