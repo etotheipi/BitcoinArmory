@@ -413,12 +413,17 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
 /////////////////////////////////////////////////////////////////////////////
 void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
-   for (auto& block : newlyParsedBlocks_)
    {
-      StoredHeader sbh;
-      sbh.createFromBlockHeader(*block);
-      uint8_t dup = db->putBareHeader(sbh, true);
-      block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      LMDBEnv::Transaction tx;
+      db->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
+
+      for (auto& block : newlyParsedBlocks_)
+      {
+         StoredHeader sbh;
+         sbh.createFromBlockHeader(*block);
+         uint8_t dup = db->putBareHeader(sbh, true);
+         block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      }
    }
 
    //once commited to the DB, they aren't considered new anymore, 

@@ -384,7 +384,7 @@ void PullBlockThread::pullThread(
          }
 
          shared_ptr<PulledBlock> pb = make_shared<PulledBlock>();
-         pb->fmp_.prev_ = &prevFileMap;
+         pb->fmp_.prev_ = prevFileMap;
          if (!pullBlockAtIter(*pb, ldbIter, db, blockData->BFA_))
          {
             unique_lock<mutex> assignLock(pullThr.assignLock_);

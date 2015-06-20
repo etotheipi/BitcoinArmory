@@ -56,7 +56,7 @@ public:
 struct FileMapContainer
 {
    std::shared_ptr<FileMap> current_;
-   std::shared_ptr<FileMap>* prev_ = nullptr;
+   std::shared_ptr<FileMap> prev_;
 };
 
 class BlockFileAccessor
@@ -90,7 +90,7 @@ public:
    void getRawBlock(BinaryDataRef& bdr, uint32_t fnum, uint64_t offset,
       uint32_t size, FileMapContainer* fmpPtr = nullptr);
 
-   shared_ptr<FileMap>& getFileMap(uint32_t fnum);
+   shared_ptr<FileMap> getFileMap(uint32_t fnum);
    void dropFileMap(uint32_t fnum);
 
    static void prefetchThread(BlockFileAccessor* bfaPtr);

@@ -105,26 +105,25 @@ BlockFileAccessor::~BlockFileAccessor()
 void BlockFileAccessor::getRawBlock(BinaryDataRef& bdr, uint32_t fnum,
    uint64_t offset, uint32_t size, FileMapContainer* fmpPtr)
 {
-   shared_ptr<FileMap>* fmptr = nullptr;
+   shared_ptr<FileMap> fmptr;
    if (fmpPtr != nullptr &&
-      fmpPtr->prev_ != nullptr &&
-      *fmpPtr->prev_ != nullptr)
+      fmpPtr->prev_ != nullptr)
    {
-      if ((*(fmpPtr->prev_))->fnum_ == fnum)
+      if (fmpPtr->prev_->fnum_ == fnum)
          fmptr = fmpPtr->prev_;
    }
 
    if (fmptr == nullptr)
-      fmptr = &getFileMap(fnum);
+      fmptr = getFileMap(fnum);
 
-   (*fmptr)->getRawBlock(bdr, offset, size, lastSeenCumulative_);
+   fmptr->getRawBlock(bdr, offset, size, lastSeenCumulative_);
 
    if (fmpPtr != nullptr)
-      fmpPtr->current_ = *fmptr;
+      fmpPtr->current_ = fmptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<FileMap>& BlockFileAccessor::getFileMap(uint32_t fnum)
+shared_ptr<FileMap> BlockFileAccessor::getFileMap(uint32_t fnum)
 {
    unique_lock<mutex> lock(globalMutex_);
 
@@ -193,10 +192,14 @@ void BlockFileAccessor::prefetchThread(BlockFileAccessor* bfaPtr)
 
             if (bfaPtr->prefetchFileNum_ != UINT32_MAX)
             {
-               shared_ptr<FileMap> fm(
-                  new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
+               auto mapIter = bfaPtr->blkMaps_.find(bfaPtr->prefetchFileNum_);
+               if (mapIter == bfaPtr->blkMaps_.end())
+               {
+                  shared_ptr<FileMap> fm(
+                     new FileMap((*bfaPtr->blkFiles_)[bfaPtr->prefetchFileNum_]));
 
-               bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+                  bfaPtr->blkMaps_[bfaPtr->prefetchFileNum_] = fm;
+               }
             }
          }
 
