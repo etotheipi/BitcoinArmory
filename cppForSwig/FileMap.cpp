@@ -220,10 +220,11 @@ void BlockFileAccessor::prefetchThread(BlockFileAccessor* bfaPtr)
 void BlockFileAccessor::cleanupThread(BlockFileAccessor* bfaPtr)
 {
    //clean up maps that haven't been used for a while
-
+      
+   
+   unique_lock<mutex> lock(bfaPtr->globalMutex_);
    while (bfaPtr->runThread_)
    {
-      unique_lock<mutex> lock(bfaPtr->globalMutex_);
       uint64_t lastSeen = bfaPtr->lastSeenCumulative_.load(memory_order_relaxed);
 
       if (lastSeen >= bfaPtr->nextThreshold_)

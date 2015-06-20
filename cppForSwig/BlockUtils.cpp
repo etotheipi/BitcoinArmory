@@ -1458,6 +1458,20 @@ void BlockDataManager_LevelDB::loadDiskState(
 
          if (topScannedHeader == nullptr)
          {
+            if (config_.armoryDbType != ARMORY_DB_SUPER &&
+               scrAddrData_->numScrAddr() == 0)
+            {
+               //we will hit this spot if there was no address
+               //registered in fullnode
+               break;
+            }
+            else if (scanFrom >= blockchain_.top().getBlockHeight())
+            {
+               //supernode skips scans if the scan height matches or
+               //exceeds the top header height
+               break;
+            }
+
             //critical message to UI
             //LOGERR
             //shutdown
