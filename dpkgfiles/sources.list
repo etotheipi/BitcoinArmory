@@ -1,0 +1,11 @@
+#------------------------------------------------------------------------------#
+#                            OFFICIAL UBUNTU REPOS                             #
+#------------------------------------------------------------------------------#
+
+
+###### Ubuntu Main Repos
+deb http://archive.ubuntu.com/ubuntu/ precise main universe 
+
+###### Ubuntu Update Repos
+deb http://archive.ubuntu.com/ubuntu/ precise-security main universe 
+deb http://archive.ubuntu.com/ubuntu/ precise-updates main universe 
