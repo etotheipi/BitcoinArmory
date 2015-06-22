@@ -263,7 +263,10 @@ bool BlockDataBatchLoader::isHeightValid(BlockDataBatchLoader& blockBatch,
    int32_t hgt)
 {
    if (blockBatch.terminate_.load(memory_order_acquire) == true)
+   {
+      LOGERR << "flagged for termination";
       return false;
+   }
 
    if (blockBatch.startBlock_ <= blockBatch.endBlock_)
       return hgt <= (int)blockBatch.endBlock_;
@@ -640,13 +643,12 @@ bool PullBlockThread::pullBlockAtIter(PulledBlock& pb, LDBIter& iter,
    }
    catch (...)
    {
-      LOGERR << "unknown error grabbing block " <<
-         pb.blockHeight_ << "|" << pb.duplicateID_ <<
-         " in file #" << fnum << ", offset: " << offset <<
-         ", with a size of " << size << " bytes";
-      
-      return false;
    }
+
+   LOGERR << "unknown error grabbing block " <<
+      pb.blockHeight_ << "|" << pb.duplicateID_ <<
+      " in file #" << fnum << ", offset: " << offset <<
+      ", with a size of " << size << " bytes";
 
    return false;
 }
@@ -1629,6 +1631,8 @@ BlockDataBatchLoader::BlockDataBatchLoader(BlockWriteBatcher *bwbPtr,
 
    pullThreads_.resize(nThreads_);
 
+   terminate_.store(false, memory_order_relaxed);
+
    if (prevLoader != nullptr)
    {
       /***If the ctor is provided a previous loader, let's bootstrap this
@@ -1671,11 +1675,7 @@ shared_ptr<PulledBlock> BlockDataBatchLoader::getNextBlock(
    unique_lock<mutex>* mu)
 {
    if (!isHeightValid(*this, currentHeight_))
-   {
-      LOGINFO << "height " << currentHeight_ << " exceeds scan range, "
-         "ending scan";
       return nullptr;
-   }
 
    shared_ptr<PulledBlock> blk;
    PullBlockThread& pullThread = pullThreads_[currentHeight_ % nThreads_];
@@ -1781,7 +1781,10 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
       block = blockBatch.getNextBlock(&scanLock);
 
       if (block == nullptr)
+      {
+         LOGINFO << "exhausted block queue";
          break;
+      }
 
       //check if next block is valid
       if (block == blockBatch.interruptBlock_)
