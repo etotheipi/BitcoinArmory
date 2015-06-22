@@ -1,0 +1,48 @@
+Instructions for using make_deb_package.py outside of Gitian
+
+
+1) We use cowbuilder to build in a chroot, so you need to prepare a chroot with
+   cowbuilder first (instructions from the Debian reproducible build project):
+
+      sudo cowbuilder --create --distribution codename --basepath /var/cache/pbuilder/base-reproducible.cow
+      sudo cowbuilder --login --save-after-exec --basepath /var/cache/pbuilder/base-reproducible.cow
+      echo 'deb http://reproducible.alioth.debian.org/debian/ ./' > /etc/apt/sources.list.d/reproducible.list
+      apt-get install busybox
+      busybox wget -O- http://reproducible.alioth.debian.org/reproducible.gpg | apt-key add -
+      apt-get purge busybox
+      apt-key fingerprint | grep '49B6 5747 36D0 B637 CC37  01EA 5DB7 CA67 EA59 A31F' || { echo 'Something is wrong' && exit 1; }
+      apt-get update
+      apt-get upgrade
+      # next two lines required only for static linking
+      apt-get install libstdc++-4.8-pic # may vary based on version of libstdc++
+      ln -s /usr/lib/gcc/x86_64-linux-gnu/4.8/libstdc++_pic.a /usr/lib/x86_64-linux-gnu/libstdc++.a # may vary based on the chroot's triplet and the version of libstdc++
+      exit 0
+
+   The above instructions install the Debian reproducible build toolchain in
+   the chroot. You replace codename with the actual codename of the
+   distribution you are using (sid, jessie, wheezy, trusty, precise). You can
+   also change the name of the chroot from base-reproducible to whatever you
+   like.
+
+2) Make sure you have libfaketime installed on the machine you are running the
+   make_deb_package.py script from (not the chroot).
+
+3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow 64 1 1 0"
+   from the Armory root directory. Alternatively, run "make deb" after having
+   run "./configure". The first parameter is the filename for the chroot in
+   /var/cache/pbuilder/. The second parameter is 32 or 64 to indicate what
+   is the bitness of the package we are building. The third parameter is 1 or 0
+   to indicate whether to build with static libstdc++ or not. The fourth
+   parameter is 1 or 0 to indicate whether or not to include the prebuilt deb
+   package of the dependencies. The fifth parameter is 1 or 0 to indicate
+   whether or not to build the dependencies from source.
+
+4) You should find the results of the build in ../armory-build/. Doing the same
+   type of build twice will overwrite the previous results (amd64 and amd64 or
+   i386 and i386). However, you can do amd64 and then i386 without the i386
+   build overwriting the amd64 build result and the other way around.
+
+Note: These instructions have been tested on a Debian Jessie host.
+
+Note: Specify --architecture i386 to the "cowbuilder --create" command for a
+      32-bit chroot for building 32-bit deb packages.
