@@ -264,7 +264,7 @@ bool BlockDataBatchLoader::isHeightValid(BlockDataBatchLoader& blockBatch,
 {
    if (blockBatch.terminate_.load(memory_order_acquire) == true)
    {
-      LOGERR << "flagged for termination";
+      //LOGINFO << "flagged for termination";
       return false;
    }
 
@@ -2117,7 +2117,7 @@ void BlockBatchProcessor::writeThread()
 
          commitedId_.fetch_add(1, memory_order_release);
          commitObject->writeTime_ = clock() - commitObject->writeTime_;
-         //commitObject->processor_->adjustThreadCount(commitObject);
+         commitObject->processor_->adjustThreadCount(commitObject);
 
          thread cleanup(cleanUpThread, commitObject);
          if (cleanup.joinable())
