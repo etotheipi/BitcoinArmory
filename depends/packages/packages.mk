@@ -1,6 +1,6 @@
 # zip is currently broken. Add it back to packages when it is fixed.
-packages:=openssl pyqt5 python3 twisted
-native_packages := native_pcre native_psutil native_python3 native_rsync native_sip native_swig native_zlib native_zope.interface
+packages:=openssl pyqt4 python2 twisted
+native_packages := native_pcre native_psutil native_python2 native_rsync native_sip native_swig native_zlib native_zope.interface
 
 qt_native_packages = native_protobuf
 qt_packages = qrencode protobuf

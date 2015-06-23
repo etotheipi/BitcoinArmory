@@ -15,6 +15,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
+  export PKG_CONFIG_PATH=$(host_prefix)/lib/pkgconfig && \
   $($(package)_autoconf)
 endef
 
