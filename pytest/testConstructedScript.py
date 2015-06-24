@@ -76,14 +76,14 @@ unvalidatedScript1 = hex_to_binary(
       "76a95a61 ff8eb7aa ca3010db 97ebda76 121610b7 809688ac")
 PR1_v0 = hex_to_binary(
       "01000001 551876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1370"
-      "6b737265 63312e62 74637368 6f702e63 6f6d2701 01240102 0160e373 9cc2c395"
+      "6b737265 63312e62 74637368 6f702e63 6f6d2701 01240102 2060e373 9cc2c395"
       "0b7c4d7f 32cc503e 13b996d0 f7a45623 d0a914e1 efa7f811 e000")
 PR2_v0 = hex_to_binary(
       "01000002 aa1876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1876"
       "a95a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13 706b7372 6563312e"
       "62746373 686f702e 636f6d13 706b7372 6563312e 62746373 686f702e 636f6d27"
-      "01012401 020160e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-      "e1efa7f8 11e00027 01012401 020160e3 739cc2c3 950b7c4d 7f32cc50 3e13b996"
+      "01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
+      "e1efa7f8 11e00027 01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996"
       "d0f7a456 23d0a914 e1efa7f8 11e000")
 
 ### TODO: Place this stuff where it belongs when it's time!
@@ -210,7 +210,7 @@ class PRClassTests(unittest.TestCase):
    # formed and can be correctly formed.
    def testSerialization(self):
       pkrp1 = PublicKeyRelationshipProof()
-      pkrp1.initialize([BIP32MasterPubKey2Multiplier])
+      pkrp1.initialize(BIP32MasterPubKey2Multiplier)
       srp1 = ScriptRelationshipProof()
       srp1.initialize([pkrp1])
 
