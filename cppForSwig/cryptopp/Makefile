@@ -10,7 +10,8 @@ RANLIB = ranlib
 CP = cp
 MKDIR = mkdir
 EGREP = egrep
-UNAME = $(shell uname)
+# JB: UNAME comes from cppForSwig/Makefile
+#UNAME = $(shell uname)
 ISX86 = $(shell uname -m | $(EGREP) -c "i.86|x86|i86|amd64")
 
 # Default prefix for make install
@@ -36,7 +37,6 @@ IS_SUN_CC = $(shell $(CXX) -V 2>&1 | $(EGREP) -c "CC: Sun")
 GAS210_OR_LATER = $(shell echo "" | $(AS) -v 2>&1 | $(EGREP) -c "GNU assembler version (2\.[1-9][0-9]|[3-9])")
 GAS217_OR_LATER = $(shell echo "" | $(AS) -v 2>&1 | $(EGREP) -c "GNU assembler version (2\.1[7-9]|2\.[2-9]|[3-9])")
 GAS219_OR_LATER = $(shell echo "" | $(AS) -v 2>&1 | $(EGREP) -c "GNU assembler version (2\.19|2\.[2-9]|[3-9])")
-XCOMPILE = $(shell $(CXX) --version 2>&1 | $(EGREP) -c "crosstool-NG")
 ISMINGW = $(shell $(CXX) --version 2>&1 | $(EGREP) -c "mingw")
 
 ifneq ($(GCC42_OR_LATER),0)
@@ -68,11 +68,7 @@ else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
 else
-ifeq ($(XCOMPILE),0)
 CXXFLAGS += -mpclmul -mssse3 -maes -msse4
-else
-CXXFLAGS +=
-endif
 endif
 
 endif
@@ -102,9 +98,12 @@ endif
 endif
 
 ifeq ($(UNAME),Darwin)
-AR = libtool
-ARFLAGS = -static -o
-CXX = c++
+# JB: Fix this so c++ is used if compiling natively
+#AR = libtool
+#ARFLAGS = -static -o
+#CXX = c++
+CXX = clang++
+CXXFLAGS += -I/usr/include/c++/v1
 IS_GCC2 = $(shell $(CXX) -v 2>&1 | $(EGREP) -c gcc-932)
 ifeq ($(IS_GCC2),1)
 CXXFLAGS += -fno-coalesce-templates -fno-coalesce-static-vtables
@@ -119,7 +118,7 @@ endif
 
 # ARMORY - If using clang outside OS X for some reason, disable ASM.
 # http://llvm.org/bugs/show_bug.cgi?id=18916
-ifeq ($(CXX),clang++)
+ifneq (,$(findstring clang++,$(CXX)))
 CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
 endif
 
