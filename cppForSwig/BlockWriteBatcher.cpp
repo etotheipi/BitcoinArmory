@@ -54,14 +54,12 @@ void insertSpentTxio(
 ////////////////////////////////////////////////////////////////////////////////
 ARMORY_DB_TYPE BlockWriteBatcher::armoryDbType_;
 LMDBBlockDatabase* BlockWriteBatcher::iface_;
-ScrAddrFilter* BlockWriteBatcher::scrAddrFilter_;
-function<void(string)> BlockWriteBatcher::criticalError_;
 
 ////////////////////////////////////////////////////////////////////////////////
 BlockWriteBatcher::BlockWriteBatcher(
    const BlockDataManagerConfig &config,
    LMDBBlockDatabase* iface,
-   ScrAddrFilter& sca, 
+   const ScrAddrFilter& sca, 
    bool undo)
    : undo_(undo)
 {
@@ -127,6 +125,8 @@ void BlockWriteBatcher::prepareSshHeaders(BlockBatchProcessor& bbp,
    
    if (bbp.sshHeaders_ != nullptr)
       return;
+   
+   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
 
    bbp.sshHeaders_.reset(new SSHheaders(1, 0));
    bbp.sshHeaders_->buildSshHeadersFromSAF(
@@ -508,7 +508,7 @@ BinaryData BlockWriteBatcher::applyBlocksToDB(ProgressFilter &progress,
    catch (...)
    {      
       string errorMessage("Scan thread encountered an unkonwn error");
-      criticalError_(errorMessage);
+      throw runtime_error(errorMessage);
    }
    
    return BinaryData();
@@ -534,7 +534,8 @@ BinaryData BlockWriteBatcher::scanBlocks(
    //creating new SSH keys. If several scanning threads were to take place, 
    //it could possibly result in key collision, as scan threads are not aware
    //of each others' state
-   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
+   if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+      unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
 
    startBlock_ = startBlock;
    endBlock_ = endBlock;
@@ -1481,7 +1482,7 @@ StoredTxOut* STXOS::lookForUTXOInMap(const BinaryData& hashAndId,
          if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER)
          {
             const BinaryData& scrAddr = stxoIter->second->getScrAddress();
-            if (!BlockWriteBatcher::scrAddrFilter_->hasScrAddress(scrAddr))
+            if (!bwbPtr_->hasScrAddress(scrAddr))
                return nullptr;
          }
 
@@ -1618,7 +1619,7 @@ void STXOS::writeStxoToDB(shared_ptr<STXOS> stxos)
 BlockDataBatchLoader::BlockDataBatchLoader(BlockWriteBatcher *bwbPtr, 
    uint32_t nthreads, 
    shared_ptr<BlockDataBatchLoader> prevLoader) :
-   bwbPtr_(bwbPtr), scrAddrFilter_(*BlockWriteBatcher::scrAddrFilter_),
+   bwbPtr_(bwbPtr), scrAddrFilter_(*bwbPtr->scrAddrFilter_),
    BFA_(BlockWriteBatcher::iface_->getBlkFiles(), getPrefetchMode()),
       nThreads_(nthreads)
 {
@@ -1782,7 +1783,7 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
 
       if (block == nullptr)
       {
-         LOGINFO << "exhausted block queue";
+         //LOGINFO << "exhausted block queue";
          break;
       }
 
@@ -1872,7 +1873,7 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
 ////////////////////////////////////////////////////////////////////////////////
 BlockBatchProcessor::BlockBatchProcessor(
    BlockWriteBatcher* const bwbPtr, bool undo)
-   : bwbPtr_(bwbPtr), undo_(undo)
+   : bwbPtr_(bwbPtr), undo_(undo), stxos_(bwbPtr)
 {
    if (bwbPtr == nullptr)
       throw runtime_error(
@@ -2222,7 +2223,8 @@ void BlockBatchProcessor::adjustThreadCount(
 BatchThreadContainer::BatchThreadContainer(BlockBatchProcessor* bdpPtr,
    shared_ptr<BlockDataBatch> bdb)
    : processor_(bdpPtr), 
-   undo_(bdpPtr->undo_), commitId_(bdpPtr->commitId_++)
+   undo_(bdpPtr->undo_), commitId_(bdpPtr->commitId_++),
+   commitStxos_(bdpPtr->bwbPtr_)
 {
    for (uint32_t i = 0; i < bdb->nWorkers_; i++)
    {
@@ -2241,6 +2243,12 @@ BatchThreadContainer::BatchThreadContainer(BlockBatchProcessor* bdpPtr,
 ////////////////////////////////////////////////////////////////////////////////
 //// BlockDataThread
 ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataThread::hasScrAddress(const BinaryData& scrAddr) const
+{ 
+   return container_->processor_->bwbPtr_->hasScrAddress(scrAddr); 
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 StoredSubHistory& BlockDataThread::makeSureSubSSHInMap(
    const BinaryData& uniqKey,
@@ -2460,7 +2468,7 @@ bool BlockDataThread::parseTxOuts(
 
       if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER)
       {
-         if (!BlockWriteBatcher::scrAddrFilter_->hasScrAddress(uniqKey))
+         if (!hasScrAddress(uniqKey))
             continue;
 
          auto height =
@@ -2507,7 +2515,7 @@ bool BlockDataThread::parseTxOuts(
             {
                //do not maintain multisig activity on related scrAddr unless
                //in supernode
-               if (!BlockWriteBatcher::scrAddrFilter_->hasScrAddress(uniqKey))
+               if (!hasScrAddress(uniqKey))
                   continue;
             }
 
@@ -2604,8 +2612,7 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
 
       if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER)
       {
-         if (!BlockWriteBatcher::scrAddrFilter_->hasScrAddress(
-            sudStxo.getScrAddress()))
+         if (!hasScrAddress(sudStxo.getScrAddress()))
             continue;
       }
 
@@ -2676,7 +2683,7 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
          BinaryData uniqKey = stxo->getScrAddress();
          if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER)
          {
-            if (!BlockWriteBatcher::scrAddrFilter_->hasScrAddress(uniqKey))
+            if (!hasScrAddress(uniqKey))
                continue;
          }
 
@@ -2701,7 +2708,7 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
 
                if (BlockWriteBatcher::armoryDbType_ != ARMORY_DB_SUPER)
                {
-                  if (!BlockWriteBatcher::scrAddrFilter_->hasScrAddress(uniqKey))
+                  if (!hasScrAddress(uniqKey))
                      continue;
                }
 

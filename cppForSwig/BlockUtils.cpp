@@ -1107,11 +1107,6 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    // Start scanning and timer
    BlockWriteBatcher blockWrites(config_, iface_, scrAddrData);
 
-   auto errorLambda = [this](string str)->void
-   {  criticalError_ = str;
-      this->notifyMainThread(); };
-   blockWrites.setCriticalErrorLambda(errorLambda);
-
    if (blk1 > blockchain_.top().getBlockHeight())
       blk1 = blockchain_.top().getBlockHeight();
    

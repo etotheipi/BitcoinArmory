@@ -178,7 +178,7 @@ public:
 
    void clear(void);
 
-   bool hasScrAddress(const BinaryData & sa)
+   bool hasScrAddress(const BinaryData & sa) const
    { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
 
    void getScrAddrCurrentSyncState();

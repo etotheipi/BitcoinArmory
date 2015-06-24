@@ -422,7 +422,7 @@ private:
 
    const uint32_t nThreads_;
 
-   ScrAddrFilter& scrAddrFilter_;
+   const ScrAddrFilter& scrAddrFilter_;
 
    BlockFileAccessor BFA_;
    vector<PullBlockThread> pullThreads_;
@@ -614,13 +614,17 @@ struct STXOS
    mutex writeMutex_;
    thread committhread_;
 
+   const BlockWriteBatcher* bwbPtr_;
+
    ///
-   STXOS(void) 
+   STXOS(const BlockWriteBatcher* bwbPtr) : 
+      bwbPtr_(bwbPtr)
    { 
       utxoMapBackup_.reset(new map<BinaryData, shared_ptr<StoredTxOut>>());
    }
 
-   STXOS(STXOS& parent)
+   STXOS(STXOS& parent) :
+      bwbPtr_(parent.bwbPtr_)
    {
       parent_ = &parent;
       utxoMapBackup_ = parent.utxoMapBackup_;
@@ -675,6 +679,8 @@ private:
       const BinaryData& hgtX);
    StoredScriptHistory& makeSureSSHInMap(
       const BinaryData& uniqKey);
+
+   bool hasScrAddress(const BinaryData& scrAddr) const;
 
 private:
 
@@ -825,21 +831,19 @@ class BlockWriteBatcher
 
 public:
    BlockWriteBatcher(const BlockDataManagerConfig &config, 
-      LMDBBlockDatabase* iface, ScrAddrFilter&, bool undo=false);
+      LMDBBlockDatabase* iface, const ScrAddrFilter&, bool undo=false);
    
    BinaryData scanBlocks(ProgressFilter &prog, 
       uint32_t startBlock, uint32_t endBlock, ScrAddrFilter& sca,
       bool forceUpdateFromHeight=false);
    
-   void setCriticalErrorLambda(function<void(string)> lbd) 
-   { criticalError_ = lbd; }
-   static void criticalError(string msg)
-   { criticalError_(msg); }
-
    void setThreadCounts(
       uint32_t nReaders, uint32_t nWorkers, uint32_t nWriters) const;
    
    shared_ptr<BlockDataBatch> popBatch();
+
+   bool hasScrAddress(const BinaryData& scrAddr) const
+   { return scrAddrFilter_->hasScrAddress(scrAddr); }
 
 private:
    void prepareSshHeaders(BlockBatchProcessor&, const ScrAddrFilter&);
@@ -850,7 +854,6 @@ private:
       uint32_t height, uint8_t dup,
       BlockFileAccessor& bfa);
 
-private:
    void insertSpentTxio(
       const TxIOPair& txio,
             StoredSubHistory& inHgtSubSsh,
@@ -863,7 +866,6 @@ private:
 public:
    static ARMORY_DB_TYPE armoryDbType_;
    static LMDBBlockDatabase* iface_;
-   static ScrAddrFilter* scrAddrFilter_;
 
    /***
    controls the amount of threads per task:
@@ -885,12 +887,10 @@ public:
    mutable atomic<uint32_t> nWriters_;
 
 private:
-   //to report back fatal errors to the main thread
-   static function<void(string)> criticalError_;
-
-   ////
    const bool undo_;
 
+   const ScrAddrFilter* scrAddrFilter_;
+   
    uint32_t startBlock_;
    uint32_t endBlock_;
    bool forceUpdateSSH_;
