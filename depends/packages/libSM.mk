@@ -11,6 +11,7 @@ define $(package)_set_vars
 endef
 
 define $(package)_config_cmds
+  export PKG_CONFIG_PATH=$(host_prefix)/lib/pkgconfig:$(host_prefix)/share/pkgconfig && \
   $($(package)_autoconf)
 endef
 
