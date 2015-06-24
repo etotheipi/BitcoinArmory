@@ -2034,7 +2034,7 @@ bool HDWalletCrypto::childKeyDerivPrv(SecureBinaryData const& addend,
 // OUTPUT: None
 // RETURN: The child key (33 or 65 bytes, or 0 bytes if a key couldn't be
 //         successfully derived (extremely unlikely). (SecureBinaryData)
-SecureBinaryData HDWalletCrypto::getChildKeyFromOps(
+SecureBinaryData HDWalletCrypto::getChildKeyFromMult(
                                                  SecureBinaryData const& parKey,
                                              SecureBinaryData const& multiplier)
 {
@@ -2094,12 +2094,12 @@ SecureBinaryData HDWalletCrypto::getChildKeyFromOps(
 
 
 // Same as above but using BinaryData objects which are SWIG friendly
-BinaryData HDWalletCrypto::getChildKeyFromOps_SWIG(BinaryData parKey,
-                                                   BinaryData const& multiplier)
+BinaryData HDWalletCrypto::getChildKeyFromMult_SWIG(BinaryData parKey,
+                                                    BinaryData const& multiplier)
 {
    SecureBinaryData sbdParKey(parKey);
    SecureBinaryData sbdMathOps(multiplier);
-   return getChildKeyFromOps(sbdParKey, sbdMathOps).getRawCopy();
+   return getChildKeyFromMult(sbdParKey, sbdMathOps).getRawCopy();
 }
 
 

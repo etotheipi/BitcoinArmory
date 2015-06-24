@@ -57,10 +57,10 @@ class MultiplierProof(object):
    #############################################################################
    def __init__(self, isNull=None, srcFinger4=None, dstFinger4=None,
                 multiplier=None):
-      self.isNull      = None   # If static, stealth, etc, no mult list
-      self.srcFinger4  = None   # Just the 1st 4B of BE hash256(root pub key)
-      self.dstFinger4  = None   # Just the 1st 4B of BE hash256(result pub key)
-      self.multiplier  = None   # 32-byte BE multiplier
+      self.isNull      = None   # If static, stealth, etc., this can be ignored.
+      self.srcFinger4  = None   # Just the 1st 4B of BE hash256(root pub key).
+      self.dstFinger4  = None   # Just the 1st 4B of BE hash256(result pub key).
+      self.multiplier  = None   # 32-byte BE multiplier.
 
       if isNull is not None:
          self.initialize(isNull, srcFinger4, dstFinger4, multiplier)
@@ -91,7 +91,6 @@ class MultiplierProof(object):
       if not self.isNull:
          bp.put(BINARY_CHUNK, self.srcFinger4, widthBytes= 4)
          bp.put(BINARY_CHUNK, self.dstFinger4, widthBytes= 4)
-         bp.put(VAR_INT, len(self.rawMultList))
          bp.put(BINARY_CHUNK, self.multiplier, widthBytes=32)
 
       return bp.getBinaryString()
@@ -107,7 +106,6 @@ class MultiplierProof(object):
       else:
          srcFinger4B = bu.get(BINARY_CHUNK, 4)
          dstFinger4B = bu.get(BINARY_CHUNK, 4)
-         numMult  = bu.get(VAR_INT)
 
          multiplier.append(bu.get(BINARY_CHUNK, 32))
 
@@ -204,7 +202,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
       binMultList.append(sbdMultiplier.toBinStr())
 
    # Get the final multiplier.
-   finalMult = addMultsModECOrder(binMultList)
+   finalMult = HDWalletCrypto().addModMults_SWIG(binMultList)
 
    finalPubKey = extPubKeyObj.getPublicKey().toBinStr()
    proofObject = MultiplierProof(False,
@@ -284,8 +282,8 @@ def ApplyProofToRootKey(startPubKey, multProofObj, expectFinalPub=None):
    if not hash256(startPubKey)[:4] == multProofObj.srcFinger4:
       raise KeyDataError('Source fingerprint of proof does not match root pub')
 
-   finalPubKey = HDWalletCrypto().getChildKeyFromOps_SWIG(startPubKey,
-                                                          multProofObj.multiplier)
+   finalPubKey = HDWalletCrypto().getChildKeyFromMult_SWIG(startPubKey,
+                                                        multProofObj.multiplier)
 
    if len(finalPubKey) == 0:
       raise KeyDataError('Key derivation failed - Elliptic curve violations')
@@ -390,7 +388,6 @@ class PublicKeySource(object):
    @isStatic:        rawSource is just a single public key
    @useCompr:        use compressed or uncompressed version of pubkey
    @useHash160:      pubKey should be hashed before being placed in a script
-   @isStealth:       rawSource is intended to be used as an sx address
    @isUserKey:       user should insert their own key in this slot
    @useExternal:     rawSource is actually a link to another pubkey source
    @isChksumPresent: A four-byte checksum is included.
@@ -401,7 +398,6 @@ class PublicKeySource(object):
       self.version         = BTCAID_PKS_VERSION
       self.isStatic        = False
       self.useHash160      = False
-      self.isStealth       = False
       self.isUserKey       = False
       self.isExternalSrc   = False
       self.isChksumPresent = True
@@ -422,10 +418,9 @@ class PublicKeySource(object):
       flags.setBit(15, self.isStatic)
       flags.setBit(14, len(self.rawSource) == 33)
       flags.setBit(13, self.useHash160)
-      flags.setBit(12, self.isStealth)
-      flags.setBit(11, self.isUserKey)
-      flags.setBit(10, self.isExternalSrc)
-      flags.setBit(9, self.isChksumPresent)
+      flags.setBit(12, self.isUserKey)
+      flags.setBit(11, self.isExternalSrc)
+      flags.setBit(10, self.isChksumPresent)
 
       inner = BinaryPacker()
       inner.put(UINT8,   self.version)
@@ -437,14 +432,13 @@ class PublicKeySource(object):
    #############################################################################
    @VerifyArgTypes(isStatic   = bool,
                    use160     = bool,
-                   isSx       = bool,
                    isUser     = bool,
                    isExt      = bool,
                    src        = [str, unicode],
                    chksumPres = bool,
                    ver        = int)
-   def initialize(self, isStatic, use160, isSx, isUser, isExt, src,
-                  chksumPres, ver=BTCAID_PKS_VERSION):
+   def initialize(self, isStatic, use160, isUser, isExt, src, chksumPres,
+                  ver=BTCAID_PKS_VERSION):
       """
       Set all PKS values.
       """
@@ -457,7 +451,6 @@ class PublicKeySource(object):
       self.version         = ver
       self.isStatic        = isStatic
       self.useHash160      = use160
-      self.isStealth       = isSx
       self.isUserKey       = isUser
       self.isExternalSrc   = isExt
       self.isChksumPresent = chksumPres
@@ -521,9 +514,8 @@ class PublicKeySource(object):
                       inFlags.getBit(13),
                       inFlags.getBit(12),
                       inFlags.getBit(11),
-                      inFlags.getBit(10),
                       inRawSrc,
-                      inFlags.getBit(9),
+                      inFlags.getBit(10),
                       inVer)
 
       return self
@@ -545,17 +537,13 @@ class PublicKeySource(object):
       elif self.isStatic:
          # The final key (e.g., vanity address) is already in the SRP object.
          finalKeyData = self.rawSource
-      elif self.isStealth:
-         # Use stealth data to generate an address. (See sx binary for an
-         # example.) Do nothing for now.
-         pass
       else:
          for pkrp in inPKRPList:
             # Get the final public key. If necessary, compress it and/or apply
             # Hash160 to it.
-            finalKeyData = HDWalletCrypto().getChildKeyFromOps_SWIG(
-                                                       self.rawSource,
-                                                       pkrp.multList)
+            finalKeyData = HDWalletCrypto().getChildKeyFromMult_SWIG(
+                                                                 self.rawSource,
+                                                                  pkrp.multList)
             # May need a self.useCompressed flag or something similar eventually.
             if len(self.rawSource) == 33:
                secFinalKeyData = SecureBinaryData(finalKeyData)
@@ -566,6 +554,15 @@ class PublicKeySource(object):
 
       # We're done! Return the key data.
       return finalKeyData
+
+
+   #############################################################################
+   # Verify that a record is valid.
+   def isValid(self):
+      recState = False
+
+      # Certain flags force other flags to be ignored. This must be enforced.
+      # TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO
 
 
 ################################################################################
@@ -749,7 +746,6 @@ class ConstructedScript(object):
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
                      use160     = True,
-                     isSx       = False,
                      isUser     = False,
                      isExt      = False,
                      src        = binRootPubKey,
@@ -773,7 +769,6 @@ class ConstructedScript(object):
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
                      use160     = hash160,
-                     isSx       = False,
                      isUser     = False,
                      isExt      = False,
                      src        = binRootPubKey,
@@ -817,7 +812,6 @@ class ConstructedScript(object):
          pks = PublicKeySource()
          pks.initialize(isStatic   = False,
                         use160     = False,
-                        isSx       = False,
                         isUser     = False,
                         isExt      = False,
                         src        = rootPub,
@@ -865,7 +859,6 @@ class ConstructedScript(object):
          pks = PublicKeySource()
          pks.initialize(isStatic   = False,
                         use160     = False,
-                        isSx       = False,
                         isUser     = False,
                         isExt      = False,
                         src        = rootPub,
@@ -955,76 +948,73 @@ class PublicKeyRelationshipProof(object):
 
    #############################################################################
    def __init__(self):
-      self.version    = BTCAID_PKRP_VERSION
-      self.multList   = []
-      self.pubKeyList = []
+      self.version      = BTCAID_PKRP_VERSION
+      self.multiplier   = None
+      self.finalKey     = None
+      self.multUsed     = True
+      self.finalKeyUsed = False
 
 
    #############################################################################
-   @VerifyArgTypes(multList   = [str, unicode],
-                   pubKeyList = [str, unicode],
-                   ver        = int)
-   def initialize(self, multList, pkList=None, ver=BTCAID_PKRP_VERSION):
+   @VerifyArgTypes(multiplier   = [str, unicode],
+                   finalKey     = [str, unicode],
+                   multUsed     = bool,
+                   finalKeyUsed = bool,
+                   ver          = int)
+   def initialize(self, multiplier, finalKeyUsed=False, multUsed=True,
+                  finalKey='', ver=BTCAID_PKRP_VERSION):
       """
       Set all PKRP values.
       """
-      self.multList   = multList
-      self.version    = ver
+      self.multiplier   = multiplier
+      self.finalKey     = finalKey
+      self.multUsed     = multUsed
+      self.finalKeyUsed = finalKeyUsed
+      self.version      = ver
 
-      if pkList is None:
-         ctr = len(multList)
-         while ctr > 0:
-            self.pubKeyList.append('')
-            ctr -= 1
-      else:
-         self.pubKeyList = pkList
-
+      # NEED TO ADD CODE THAT CHECKS VALUES AND SUCH.
+      # TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO
 
    #############################################################################
    def isInitialized(self):
-      return not (self.multList is None or len(self.multList) == 0)
+      return not (self.multiplier is None and self.finalKey is None)
 
 
    #############################################################################
    def serialize(self):
+      # In BitSet, higher numbers are less significant bits.
+      # e.g., To get 0x0002, set bit 14 to True (1).
+      # NB: For now, the compression relies on if the raw source is compressed.
+      flags = BitSet(8)
+      flags.setBit(7, self.finalKeyUsed)
+      flags.setBit(6, self.multUsed)
+
       bp = BinaryPacker()
-      bp.put(UINT8,  self.version)
-      bp.put(VAR_INT, len(self.multList), width=1)
-      for multListObj in self.multList:
-         bp.put(VAR_STR, multListObj)
-      for keyListObj in self.pubKeyList:
-         bp.put(VAR_STR, keyListObj)
+      bp.put(UINT8,   self.version)
+      bp.put(BITSET,  flags, width=1)
+      bp.put(VAR_STR, self.multiplier)
+      bp.put(VAR_STR, self.finalKey)
 
       return bp.getBinaryString()
 
 
    #############################################################################
    def unserialize(self, serData):
-      inMultList = []
-      inPKList = []
       inner      = BinaryUnpacker(serData)
       inVer      = inner.get(UINT8)
-      inNumMults = inner.get(VAR_INT, 1)
-
-      k = 0
-      while k < inNumMults:
-         nextMult = inner.get(VAR_STR)
-         inMultList.append(nextMult)
-         k += 1
-
-      k = 0
-      while k < inNumMults:
-         nextPK = inner.get(VAR_STR)
-         inPKList.append(nextPK)
-         k += 1
+      inFlags    = inner.get(BITSET, 1)
+      inMult     = inner.get(VAR_STR)
+      inFinalKey = inner.get(VAR_STR)
 
       if not inVer == BTCAID_PKRP_VERSION:
          # In the future we will make this more of a warning, not error
          raise VersionError('PKRP version does not match the loaded version')
 
       self.__init__()
-      self.initialize(inMultList,
-                      inPKList,
+      self.initialize(inMult,
+                      inFlags.getBit(7),
+                      inFlags.getBit(6),
+                      inFinalKey,
                       inVer)
 
       return self

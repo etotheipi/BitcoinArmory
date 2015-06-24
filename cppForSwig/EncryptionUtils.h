@@ -582,12 +582,12 @@ public:
    ExtendedKey convertSeedToMasterKey(SecureBinaryData const& seed);
 
    // Get a child key based off a list of multipliers/addends.
-   SecureBinaryData getChildKeyFromOps(SecureBinaryData const& parKey,
-                                       SecureBinaryData const& mathOps);
+   SecureBinaryData getChildKeyFromMult(SecureBinaryData const& parKey,
+                                        SecureBinaryData const& multiplier);
 
    // Same as above but using BinaryData objects which are SWIG friendly
-   BinaryData getChildKeyFromOps_SWIG(BinaryData parKey,
-                                      BinaryData const& mathOps);
+   BinaryData getChildKeyFromMult_SWIG(BinaryData parKey,
+                                       BinaryData const& multiplier);
 
    // BIP32: Add multipliers modulo curve order to create one multiplier.
    SecureBinaryData addModMults(const vector<SecureBinaryData>& mathOps);
