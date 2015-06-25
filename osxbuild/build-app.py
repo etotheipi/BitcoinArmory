@@ -361,7 +361,7 @@ distfiles.append( [ "Qt", \
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "c8db972c03953d0d3ef89c7e67ce4a2e46dd9c36" ] )
+                    "cd9903f7fd65e64dc616a95e6b20ed6f19d7fb8e" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
