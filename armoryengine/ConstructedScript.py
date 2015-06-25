@@ -579,13 +579,13 @@ class PublicKeySource(object):
       recState = True
 
       # Certain flags force other flags to be ignored. This must be enforced.
-      if self.isExternalSrc == True and (self.isUserKey == True or
-                                         self.isStatic == True):
+      if (self.isExternalSrc == True and (self.isUserKey == True or
+                                         self.isStatic == True)):
          recState = False
-      else if self.isUserKey == True and self.isStatic == True:
+      elif (self.isUserKey == True and self.isStatic == True):
          recState = False
 
-      if recState = False:
+      if recState == False:
          LOGINFO('PKS record has incompatible flag settings. Record is invalid.')
 
       return recState
@@ -1015,7 +1015,7 @@ class PublicKeyRelationshipProof(object):
       if self.multUsed == False and self.finalKeyUsed == False:
          recState = False
 
-      if recState = False:
+      if recState == False:
          LOGINFO('PKRP record has incompatible flag settings. Record is invalid.')
 
       return recState
