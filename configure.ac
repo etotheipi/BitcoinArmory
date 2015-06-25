@@ -60,9 +60,17 @@ AC_ARG_ENABLE([debug],
 dnl Define variables
 AM_PATH_PYTHON([2.7])
 
-PYTHON_INCLUDES=`$PYTHON-config --includes`
-PYTHON_LIBS=`$PYTHON-config --libs`
+AC_ARG_VAR([PYTHON_INCLUDES], [Python includes (-I/usr/include/python2.7 -I/usr/include/$host/python2.7])
 
+if test "x$PYTHON_INCLUDES" = "x" ; then
+    PYTHON_INCLUDES=`$PYTHON-config --includes`
+fi
+
+AC_ARG_VAR([PYTHON_LIBS], [Python libraries (-lpython2.7)])
+
+if test "x$PYTHON_LIBS" = "x" ; then
+    PYTHON_LIBS=`$PYTHON-config --libs`
+fi
 
 dnl Make variables available to Makefiles
 AC_SUBST(PYTHON_INCLUDES)
