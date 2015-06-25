@@ -14,37 +14,37 @@ clean-local:
 	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
 
 install-data-local:
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/share/applications
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/share/armory/img
-	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(PREFIX)/share/armory/
-	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
-	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
-	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
+	$(MKDIR_P) $(DESTDIR)$(datarootdir)/applications
+	$(MKDIR_P) $(DESTDIR)$(datarootdir)/armory/img
+	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(datarootdir)/armory/
+	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(datarootdir)/applications/armory.desktop
+	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(datarootdir)/applications/armoryoffline.desktop
+	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(datarootdir)/applications/armorytestnet.desktop
 
 install-exec-local:
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/extras
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/ui
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/pytest
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/lib/armory/urllib3
-	$(MKDIR_P) $(DESTDIR)$(PREFIX)/bin
-	$(SED) "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
-	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
-	cp *.py *.so README.md $(DESTDIR)$(PREFIX)/lib/armory/
-	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
-	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
-	cp bitcoinrpc_jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
-	cp -R txjsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
-	cp -R txjsonrpc/web/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
-	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
-	cp pytest/*.py $(DESTDIR)$(PREFIX)/lib/armory/pytest
-	cp -R urllib3/* $(DESTDIR)$(PREFIX)/lib/armory/urllib3
-	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
-	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
-	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/extras
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/bitcoinrpc_jsonrpc
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/txjsonrpc
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/txjsonrpc/web
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/ui
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/pytest
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/BitTornado/BT1
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/urllib3
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(SED) "s: /usr/lib: $(libdir):g" < dpkgfiles/armory > $(DESTDIR)$(bindir)/armory
+	chmod +x $(DESTDIR)$(bindir)/armory
+	cp *.py *.so README.md $(DESTDIR)$(libdir)/armory/
+	rsync -rupE armoryengine $(DESTDIR)$(libdir)/armory/
+	cp extras/*.py $(DESTDIR)$(libdir)/armory/extras
+	cp bitcoinrpc_jsonrpc/*.py $(DESTDIR)$(libdir)/armory/bitcoinrpc_jsonrpc
+	cp -R txjsonrpc/*.py $(DESTDIR)$(libdir)/armory/txjsonrpc
+	cp -R txjsonrpc/web/*.py $(DESTDIR)$(libdir)/armory/txjsonrpc/web
+	cp ui/*.py $(DESTDIR)$(libdir)/armory/ui
+	cp pytest/*.py $(DESTDIR)$(libdir)/armory/pytest
+	cp -R urllib3/* $(DESTDIR)$(libdir)/armory/urllib3
+	cp BitTornado/*.py $(DESTDIR)$(libdir)/armory/BitTornado
+	cp BitTornado/BT1/*.py $(DESTDIR)$(libdir)/armory/BitTornado/BT1
+	cp default_bootstrap.torrent $(DESTDIR)$(libdir)/armory
 
 all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
