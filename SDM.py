@@ -433,6 +433,7 @@ class SatoshiDaemonManager(object):
 
       else:
          # In case this was a downloaded copy, make sure we traverse to bin/64 dir
+         searchPaths.extend([os.path.join(p, 'bin') for p in extraSearchPaths])
          if SystemSpecs.IsX64:
             searchPaths.extend([os.path.join(p, 'bin/64') for p in extraSearchPaths])
          else:
