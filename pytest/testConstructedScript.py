@@ -98,15 +98,15 @@ class PKSClassTests(unittest.TestCase):
    def testSerialization(self):
       # PKS1 with a checksum & uncompressed key.
       pks1ChksumPres = PublicKeySource()
-      pks1ChksumPres.initialize(False, False, False, False, BIP32MasterPubKey2,
-                                True)
+      pks1ChksumPres.initialize(False, False, False, False, False,
+                                BIP32MasterPubKey2, True)
       stringPKS1ChksumPres = pks1ChksumPres.serialize()
       self.assertEqual(binary_to_hex(stringPKS1ChksumPres),
                        binary_to_hex(PKS1Chksum_Uncomp_v0))
 
       # PKS1 without a checksum & with a compressed key.
       pks1NoChksum = PublicKeySource()
-      pks1NoChksum.initialize(False, False, False, False,
+      pks1NoChksum.initialize(False, True, False, False, False,
                               BIP32MasterPubKey2Comp, False)
       stringPKS1NoChksum = pks1NoChksum.serialize()
       self.assertEqual(binary_to_hex(stringPKS1NoChksum),
@@ -263,13 +263,6 @@ class DerivationTests(unittest.TestCase):
                                        finalPub1)
       self.assertEqual(final1, finalPub1)
       self.assertEqual(final1, final1_alt)
-
-      # Now, let's confirm that we can add the multipliers into one multiplier
-      # and get the same final key as if we got children one at a time.
-      final1CombMults = HDWalletCrypto().getChildKeyFromMult_SWIG(
-                                                          sbdPubKey1.toBinStr(),
-                                                          multProof1.multiplier)
-      self.assertEqual(final1, final1CombMults)
 
       # Confirm that we can get the 1st derived key from the BIP32 test vector's
       # second key.

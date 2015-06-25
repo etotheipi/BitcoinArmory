@@ -157,7 +157,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
    Inputs:
       startPubKey:   python string, 33-byte compressed public key
       binChaincode:  python string, 32-byte chaincode
-      indexList:     python list of UINT32s, anything >0x7fffffff is hardened
+      indexList:     python list of UINT32s, anything >0x7fffffff not allowed
 
    Output: [finalPubKey, proofObject]
 
@@ -188,7 +188,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
    # Derive the children
    for childIndex in indexList:
       if (childIndex & 0x80000000) > 0:
-         raise ChildDeriveError('Cannot generate proofs along hardened paths')
+         raise BadInputError('Cannot generate proofs along hardened paths')
 
       # Pass in a NULL SecureBinaryData object as a reference
       sbdMultiplier = NULLSBD()
@@ -210,7 +210,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
                                  hash256(finalPubKey)[:4],
                                  finalMult)
 
-   return finalPubKey, proofObject
+   return (finalPubKey, proofObject)
 
 
 ################################################################################
@@ -400,6 +400,7 @@ class PublicKeySource(object):
       self.useHash160      = False
       self.isUserKey       = False
       self.isExternalSrc   = False
+      self.useCompr        = False
       self.isChksumPresent = True
       self.rawSource       = None
 
@@ -410,13 +411,19 @@ class PublicKeySource(object):
 
 
    #############################################################################
+   def getFlags(self):
+      return (self.isStatic, self.useCompr, self.useHash160, self.isUserKey,
+             self.isExternalSrc, self.isChksumPresent)
+
+
+   #############################################################################
    def getDataNoChecksum(self):
       # In BitSet, higher numbers are less significant bits.
       # e.g., To get 0x0002, set bit 14 to True (1).
       # NB: For now, the compression relies on if the raw source is compressed.
       flags = BitSet(16)
       flags.setBit(15, self.isStatic)
-      flags.setBit(14, len(self.rawSource) == 33)
+      flags.setBit(14, self.useCompr)
       flags.setBit(13, self.useHash160)
       flags.setBit(12, self.isUserKey)
       flags.setBit(11, self.isExternalSrc)
@@ -431,14 +438,15 @@ class PublicKeySource(object):
 
    #############################################################################
    @VerifyArgTypes(isStatic   = bool,
+                   useCompr   = bool,
                    use160     = bool,
                    isUser     = bool,
                    isExt      = bool,
                    src        = [str, unicode],
                    chksumPres = bool,
                    ver        = int)
-   def initialize(self, isStatic, use160, isUser, isExt, src, chksumPres,
-                  ver=BTCAID_PKS_VERSION):
+   def initialize(self, isStatic, useCompr, use160, isUser, isExt, src,
+                  chksumPres, ver=BTCAID_PKS_VERSION):
       """
       Set all PKS values.
       """
@@ -448,8 +456,12 @@ class PublicKeySource(object):
       if isExt != isinstance(src, unicode):
          raise UnicodeError('Must use str for reg srcs, unicode for external')
 
+      if useCompr == False and len(src) == 33:
+         raise BadInputError('Must mark a compressed key as compressed')
+
       self.version         = ver
       self.isStatic        = isStatic
+      self.useCompr        = useCompr
       self.useHash160      = use160
       self.isUserKey       = isUser
       self.isExternalSrc   = isExt
@@ -503,7 +515,7 @@ class PublicKeySource(object):
          dataChunk  = inData.getBinaryString()[:-4]
          compChksum = computeChecksum(dataChunk)
          if chksum != compChksum:
-            raise DataError('PKS record checksum does not match real checksum')
+            raise BadInputError('PKS record checksum does not match real checksum')
 
       if not inVer == BTCAID_PKS_VERSION:
          # In the future we will make this more of a warning, not error
@@ -511,6 +523,7 @@ class PublicKeySource(object):
 
       self.__init__()
       self.initialize(inFlags.getBit(15),
+                      inFlags.getBit(14),
                       inFlags.getBit(13),
                       inFlags.getBit(12),
                       inFlags.getBit(11),
@@ -522,7 +535,7 @@ class PublicKeySource(object):
 
 
    #############################################################################
-   # Logic for generating the final key data is here.
+   # Logic for generating the final key data based on PKS data is here.
    def generateKeyData(self, inPKRPList):
       finalKeyData = None
 
@@ -535,7 +548,7 @@ class PublicKeySource(object):
          # User somehow provides their own key data. Do nothing for now.
          pass
       elif self.isStatic:
-         # The final key (e.g., vanity address) is already in the SRP object.
+         # The final key (e.g., vanity address) is already present.
          finalKeyData = self.rawSource
       else:
          for pkrp in inPKRPList:
@@ -544,11 +557,12 @@ class PublicKeySource(object):
             finalKeyData = HDWalletCrypto().getChildKeyFromMult_SWIG(
                                                                  self.rawSource,
                                                                   pkrp.multList)
-            # May need a self.useCompressed flag or something similar eventually.
-            if len(self.rawSource) == 33:
+
+            if self.useCompr:
                secFinalKeyData = SecureBinaryData(finalKeyData)
                finalKeyDataSBD = CryptoECDSA().CompressPoint(secFinalKeyData)
                finalKeyData = finalKeyDataSBD.toBinStr()
+               self.useCompr = True
             if self.useHash160:
                finalKeyData = hash160(finalKeyData)
 
@@ -557,12 +571,24 @@ class PublicKeySource(object):
 
 
    #############################################################################
-   # Verify that a record is valid.
+   # Verify that a PKS record is valid.
    def isValid(self):
-      recState = False
+      """
+      Verify that a PKS record is valid.
+      """
+      recState = True
 
       # Certain flags force other flags to be ignored. This must be enforced.
-      # TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO
+      if self.isExternalSrc == True and (self.isUserKey == True or
+                                         self.isStatic == True):
+         recState = False
+      else if self.isUserKey == True and self.isStatic == True:
+         recState = False
+
+      if recState = False:
+         LOGINFO('PKS record has incompatible flag settings. Record is invalid.')
+
+      return recState
 
 
 ################################################################################
@@ -745,6 +771,7 @@ class ConstructedScript(object):
 
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
+                     useCompr   = (len(binRootPubKey) == 33),
                      use160     = True,
                      isUser     = False,
                      isExt      = False,
@@ -768,6 +795,7 @@ class ConstructedScript(object):
 
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
+                     useCompr   = (len(binRootPubKey) == 33),
                      use160     = hash160,
                      isUser     = False,
                      isExt      = False,
@@ -811,6 +839,7 @@ class ConstructedScript(object):
       for rootPub in binRootList:
          pks = PublicKeySource()
          pks.initialize(isStatic   = False,
+                        useCompr   = (len(rootPub) == 33),
                         use160     = False,
                         isUser     = False,
                         isExt      = False,
@@ -858,6 +887,7 @@ class ConstructedScript(object):
       for rootPub in binRootList:
          pks = PublicKeySource()
          pks.initialize(isStatic   = False,
+                        useCompr   = (len(rootPub) == 33),
                         use160     = False,
                         isUser     = False,
                         isExt      = False,
@@ -906,7 +936,7 @@ class ConstructedScript(object):
          dataChunk  = inData.getBinaryString()[:-4]
          compChksum = computeChecksum(dataChunk)
          if chksum != compChksum:
-            raise DataError('CS record checksum does not match real checksum')
+            raise BadInputError('CS record checksum does not match real checksum')
 
       if not inVer == BTCAID_CS_VERSION:
          # In the future we will make this more of a warning, not error
@@ -972,8 +1002,25 @@ class PublicKeyRelationshipProof(object):
       self.finalKeyUsed = finalKeyUsed
       self.version      = ver
 
-      # NEED TO ADD CODE THAT CHECKS VALUES AND SUCH.
-      # TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO TO DO
+
+   #############################################################################
+   # Verify that a PKRP record is valid.
+   def isValid(self):
+      """
+      Verify that a PKRP record is valid.
+      """
+      recState = True
+
+      # At least one flag must be set.
+      if self.multUsed == False and self.finalKeyUsed == False:
+         recState = False
+
+      if recState = False:
+         LOGINFO('PKRP record has incompatible flag settings. Record is invalid.')
+
+      return recState
+
+
 
    #############################################################################
    def isInitialized(self):
