@@ -377,18 +377,10 @@ public:
    void getNextBlock(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void getBlock(BlockHeader & bh,
-      vector<Tx> & txList,
-      LMDB::Iterator* iter = NULL,
-      bool ignoreMerkle = true);
-
-
-   /////////////////////////////////////////////////////////////////////////////
    void loadAllStoredHistory(void);
 
    map<HashString, BlockHeader> getHeaderMap(void);
    BinaryData getRawHeader(BinaryData const & headerHash);
-   //bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
    map<uint32_t, uint32_t> getSSHSummary(BinaryDataRef scrAddrStr,
       uint32_t endBlock);

@@ -1467,11 +1467,37 @@ void BlockDataManager_LevelDB::loadDiskState(
                break;
             }
 
-            //critical message to UI
-            //LOGERR
-            //shutdown
-            LOGERR << "shouldnt get to this line";
-            return;
+            //If we got this far, it's possible the first block batch failed
+            //to scan. Let's see if there was any blocks scanned and try to
+            //fix block data from there.
+               
+            {
+               //pull last scanned blockhash from sdbi
+               StoredDBInfo sdbi;
+               LMDBEnv::Transaction tx;
+               iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+               iface_->getStoredDBInfo(HISTORY, sdbi);
+               topScannedBlockHash = sdbi.topScannedBlkHash_;
+
+               try
+               {
+                  topScannedHeader =
+                     &blockchain_.getHeaderByHash(topScannedBlockHash);
+               }
+               catch (range_error&)
+               {
+               }
+            }
+
+
+            if (topScannedHeader == nullptr)
+            {
+               //critical message to UI
+               //LOGERR
+               //shutdown
+               LOGERR << "could not resolve top scanned block hash, aborting";
+               return;
+            }
          }
 
          if (topScannedHeader->getBlockHeight() + 500 >
@@ -1523,6 +1549,7 @@ void BlockDataManager_LevelDB::loadDiskState(
                LMDBEnv::Transaction blktx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
                for (uint32_t i = checkFrom; i <= currentTop; i++)
                {
+                  //check dupID
                   dupId = iface_->getValidDupIDForHeight(i);
                   if (dupId == UINT8_MAX)
                   {
@@ -1531,10 +1558,25 @@ void BlockDataManager_LevelDB::loadDiskState(
                      continue;
                   }
 
+                  //check block data pointer in DB
                   auto blockKey = DBUtils::getBlkMetaKey(i, dupId);
                   auto blockData = iface_->getValueNoCopy(BLKDATA, blockKey);
                   if (blockData.getSize() == 0)
+                  {
                      missingBlocks.insert(i);
+                     continue;
+                  }
+
+                  //unserialize full block
+                  try
+                  {
+                     StoredHeader sbh;
+                     iface_->getStoredHeader(sbh, i, dupId);
+                  }
+                  catch (BlockDeserializingException &e)
+                  {
+                     missingBlocks.insert(i);
+                  }
                }
             }
 
@@ -2144,6 +2186,16 @@ void BlockDataManager_LevelDB::repairBlockDataDB(
          iface_->beginDBTransaction(&tx, BLKDATA, LMDB::ReadWrite);
 
          BinaryRefReader brr(blockdata);
+         StoredHeader sbh;
+         try
+         {
+            sbh.unserializeFullBlock(brr, true, false);
+         }
+         catch (BlockDeserializingException &)
+         {
+            return;
+         }
+
          addRawBlockToDB(brr, pos.first, pos.second, true);
 
          missingBlocksByHash.erase(hashIter);
