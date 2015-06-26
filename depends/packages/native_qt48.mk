@@ -20,8 +20,13 @@ $(package)_config_opts += -no-xmlpatterns -no-multimedia -no-phonon -no-scriptto
 $(package)_config_opts += -no-phonon-backend -no-webkit -no-javascript-jit -no-script
 $(package)_config_opts += -no-svg -no-libjpeg -no-libtiff -no-libpng -no-libmng -no-qt3support -no-opengl
 
-$(package)_config_opts_x86_64_linux  += -platform linux-g++-64
-$(package)_config_opts_i686_linux  = -platform linux-g++-32
+ifeq ($(build_os),linux)
+ifeq ($(build_arch),x86_64)
+$(package)_config_opts  += -platform linux-g++-64
+else ifeq ($(build_arch),i686)
+$(package)_config_opts  += -platform linux-g++-32
+endif
+endif
 $(package)_build_env  = QT_RCC_TEST=1
 endef
 
