@@ -6,7 +6,7 @@ $(package)_sha256_hash=8b14dd91b52862e09b8e6a963507b74bc2580787d171feda197badfa7
 $(package)_dependencies=native_freetype native_dbus native_libX11 native_xproto native_libXext native_libICE native_libSM
 
 define $(package)_set_vars
-$(package)_config_opts  = -prefix $(host_prefix)/qt-native -headerdir $(host_prefix)/qt-native/include/qt4 -bindir $(build_prefix)/bin
+$(package)_config_opts  = -prefix $(build_prefix) -headerdir $(build_prefix)/include/qt4 -bindir $(build_prefix)/bin
 $(package)_config_opts += -release -no-separate-debug-info -opensource -confirm-license
 $(package)_config_opts += -stl -qt-zlib
 
