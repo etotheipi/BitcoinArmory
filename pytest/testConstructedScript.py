@@ -131,7 +131,7 @@ class PKSClassTests(unittest.TestCase):
                        binary_to_hex(PKS1NoChksum_Comp_v0))
 
       # Are various PKS structures valid?
-      # (NB: Bad checksum test is a slight hack. unserialize() auto-checksums.
+      # (NB: Bad checksum test is a slight hack. Direct editing works best.)
       pks1BadChksum = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v0)
       pks1BadChksum.checksum = b'\xde\xad\xbe\xef'
       pks1BadFlag1  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v0_FlagClash1)
