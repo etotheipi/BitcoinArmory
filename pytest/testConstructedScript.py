@@ -30,13 +30,21 @@ BIP32MasterPubKey2Multiplier = hex_to_binary(
 BIP32MasterPubKey2_D1Hash160 = hex_to_binary(
       "5a61ff8e b7aaca30 10db97eb da761216 10b78096")
 
-# PKS serializations based on BIP32MasterPubKey2.
+# Valid PKS serializations based on BIP32MasterPubKey2.
 PKS1Chksum_Uncomp_v0 = hex_to_binary(
       "01002041 04cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
       "5bd6ace4 a77bd330 5d363c26 f82c1e41 c667e4b3 561c06c6 0a2104d2 b548e6dd"
       "059056aa 511ff749 e6")
 PKS1NoChksum_Comp_v0 = hex_to_binary(
       "01000221 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
+      "5bd6ace4 a7")
+
+# Valid PKS serializations based on BIP32MasterPubKey2.
+PKS1NoChksum_Comp_v0_FlagClash1 = hex_to_binary(
+      "01000921 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
+      "5bd6ace4 a7")
+PKS1NoChksum_Comp_v0_FlagClash2 = hex_to_binary(
+      "01001821 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
       "5bd6ace4 a7")
 
 # CS serializations based on BIP32MasterPubKey2.
@@ -122,6 +130,23 @@ class PKSClassTests(unittest.TestCase):
       self.assertEqual(binary_to_hex(stringPKS1NoChksum_unser),
                        binary_to_hex(PKS1NoChksum_Comp_v0))
 
+      # Are various PKS structures valid?
+      # (NB: Bad checksum test is a slight hack. unserialize() auto-checksums.
+      pks1BadChksum = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v0)
+      pks1BadChksum.checksum = b'\xde\xad\xbe\xef'
+      pks1BadFlag1  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v0_FlagClash1)
+      pks1BadFlag2  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v0_FlagClash2)
+      pksIsValid = pks1ChksumPres.isValid()
+      self.assertEqual(pksIsValid, True)
+      pksIsValid = pks1NoChksum.isValid()
+      self.assertEqual(pksIsValid, True)
+      pksIsValid = pks1BadChksum.isValid()
+      self.assertEqual(pksIsValid, False)
+      pksIsValid = pks1BadFlag1.isValid()
+      self.assertEqual(pksIsValid, False)
+      pksIsValid = pks1BadFlag2.isValid()
+      self.assertEqual(pksIsValid, False)
+
 
 ################################################################################
 class CSClassTests(unittest.TestCase):
@@ -169,6 +194,8 @@ class PKRPClassTests(unittest.TestCase):
       stringPKRP1_unser = pkrp1_unser.serialize()
       self.assertEqual(binary_to_hex(stringPKRP1_unser),
                        binary_to_hex(PKRP1_v0))
+
+      # TO DO: ADD isValid() TESTS. NEED SOME BROKEN EXAMPLES ABOVE.
 
 
 ################################################################################

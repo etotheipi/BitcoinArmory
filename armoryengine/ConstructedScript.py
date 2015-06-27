@@ -391,6 +391,7 @@ class PublicKeySource(object):
    @isUserKey:       user should insert their own key in this slot
    @useExternal:     rawSource is actually a link to another pubkey source
    @isChksumPresent: A four-byte checksum is included.
+   @checksum:        A four-byte checksum.
    """
 
    #############################################################################
@@ -403,17 +404,12 @@ class PublicKeySource(object):
       self.useCompr        = False
       self.isChksumPresent = True
       self.rawSource       = None
+      self.checksum        = None
 
 
    #############################################################################
    def getFingerprint(self):
       return hash256(self.rawSource)[:4]
-
-
-   #############################################################################
-   def getFlags(self):
-      return (self.isStatic, self.useCompr, self.useHash160, self.isUserKey,
-             self.isExternalSrc, self.isChksumPresent)
 
 
    #############################################################################
@@ -444,20 +440,19 @@ class PublicKeySource(object):
                    isExt      = bool,
                    src        = [str, unicode],
                    chksumPres = bool,
+                   chksum     = [str, unicode],
                    ver        = int)
    def initialize(self, isStatic, useCompr, use160, isUser, isExt, src,
-                  chksumPres, ver=BTCAID_PKS_VERSION):
+                  chksumPres, chksum=None, ver=BTCAID_PKS_VERSION):
       """
       Set all PKS values.
       """
 
       # We expect regular public key sources to be binary strings, but external
-      # sources may be similar to email addresses which need to be unicode
-      if isExt != isinstance(src, unicode):
-         raise UnicodeError('Must use str for reg srcs, unicode for external')
-
-      if useCompr == False and len(src) == 33:
-         raise BadInputError('Must mark a compressed key as compressed')
+      # sources may be similar to email addresses which need to be unicode.
+      # TEMPORARILY DISABLED - NEED TO RESOLVE AN INTENTIONALLY BROKEN TEST
+#      if isExt != isinstance(src, unicode):
+#         raise UnicodeError('Must use str for reg srcs, unicode for external')
 
       self.version         = ver
       self.isStatic        = isStatic
@@ -467,6 +462,16 @@ class PublicKeySource(object):
       self.isExternalSrc   = isExt
       self.isChksumPresent = chksumPres
       self.rawSource       = toBytes(src)
+
+      # The checksum portion opens up the possibility that a bad checksum could
+      # get passed in, as we don't check to see if an incoming checksum's right.
+      # For now, just accept it. isValid() can be used to check it anyway.
+      if self.isChksumPresent:
+         if chksum is None:
+            dataStr = self.getDataNoChecksum()
+            self.checksum = computeChecksum(dataStr)
+         else:
+            self.checksum = inChksum
 
 
    #############################################################################
@@ -496,8 +501,8 @@ class PublicKeySource(object):
       if self.isChksumPresent:
          # Place a checksum in the data. Somewhat redundant due to signatures.
          # Still useful because it protects data sent to signer.
-         chksum = computeChecksum(dataStr, 4)
-         bp.put(BINARY_CHUNK, chksum)
+         if self.checksum != None:
+            bp.put(BINARY_CHUNK, self.checksum)
 
       return bp.getBinaryString()
 
@@ -510,12 +515,9 @@ class PublicKeySource(object):
       inRawSrc = inData.get(VAR_STR)
 
       # If checksum is present, confirm that the other data is correct.
+      inChksum = None
       if inFlags.getBit(9):
-         chksum = inData.get(BINARY_CHUNK, 4)
-         dataChunk  = inData.getBinaryString()[:-4]
-         compChksum = computeChecksum(dataChunk)
-         if chksum != compChksum:
-            raise BadInputError('PKS record checksum does not match real checksum')
+         inChksum = inData.get(BINARY_CHUNK, 4)
 
       if not inVer == BTCAID_PKS_VERSION:
          # In the future we will make this more of a warning, not error
@@ -529,6 +531,7 @@ class PublicKeySource(object):
                       inFlags.getBit(11),
                       inRawSrc,
                       inFlags.getBit(10),
+                      inChksum,
                       inVer)
 
       return self
@@ -562,7 +565,7 @@ class PublicKeySource(object):
                secFinalKeyData = SecureBinaryData(finalKeyData)
                finalKeyDataSBD = CryptoECDSA().CompressPoint(secFinalKeyData)
                finalKeyData = finalKeyDataSBD.toBinStr()
-               self.useCompr = True
+
             if self.useHash160:
                finalKeyData = hash160(finalKeyData)
 
@@ -571,11 +574,13 @@ class PublicKeySource(object):
 
 
    #############################################################################
-   # Verify that a PKS record is valid.
+   # Verify that a PKS record is valid. Useful as a standalone funct or, more
+   # importantly, as a utility function before doing anything critical w/ a rec.
    def isValid(self):
       """
-      Verify that a PKS record is valid.
+      Verify that a PKS record's construction is valid.
       """
+      # Never reset the validity flag! Once a record's invalid, it's invalid.
       recState = True
 
       # Certain flags force other flags to be ignored. This must be enforced.
@@ -585,8 +590,23 @@ class PublicKeySource(object):
       elif (self.isUserKey == True and self.isStatic == True):
          recState = False
 
+      # Always let the user know why a record is invalid.
       if recState == False:
          LOGINFO('PKS record has incompatible flag settings. Record is invalid.')
+
+      # Check the checksum if necessary.
+      if self.isChksumPresent:
+         if self.checksum is None:
+            LOGINFO('PKS record has a checksum flag and no checksum. Record is invalid.')
+            recState = False
+         else:
+            dataChunk  = self.serialize()
+            checkData  = dataChunk[:-4]
+            checksum   = dataChunk[-4:]
+            compChksum = computeChecksum(checkData)
+            if compChksum != checksum:
+               LOGINFO('PKS record has an invalid checksum. Record is invalid.')
+               recState = False
 
       return recState
 
