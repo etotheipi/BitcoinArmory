@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
@@ -43,9 +45,15 @@ def signAssertFile(wltPath, assertFile):
    doSignFile(assertFile, '%s.sig' % assertFile)
 
 if __name__=='__main__':
-   assertFile = sys.argv[1]
-   wltCode = raw_input('Enter your Armory wallet code (e.g. CeL6h2HD): ')
-   signAddress = raw_input('Enter an address in the wallet with which to sign: ')
+   parser = argparse.ArgumentParser(description='sign using ECDSA')
+   parser.add_argument('-u' dest='signer', type=str,
+           help='wallet code and address in form code/address')
+   parser.add_argument('assert_path', type=str,
+           help='path to assert file to be signed')
+   args = parser.parse_args()
+   assertFile = args['assert_path']
+   wltCode = args['signer'].split('/')[0]
+   signAddress = args['signer'].split('/')[1]
    wltPath = os.path.join(os.path.expanduser('~'), '.armory',
            'armory_%s_.wallet' % wltCode)
    if not os.path.exists(wltPath):
