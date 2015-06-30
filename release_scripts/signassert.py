@@ -13,7 +13,8 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from armoryengine.ALL import *
+from armoryengine.PyBtcWallet import *
+from armoryengine.ArmoryUtils import CLI_OPTIONS, CLI_ARGS
 from jasvet import ASv1CS, readSigBlock, verifySignature
 
 def signAssertFile(wltPath, assertFile):
@@ -45,15 +46,12 @@ def signAssertFile(wltPath, assertFile):
    doSignFile(assertFile, '%s.sig' % assertFile)
 
 if __name__=='__main__':
-   parser = argparse.ArgumentParser(description='sign using ECDSA')
-   parser.add_argument('-u' dest='signer', type=str,
-           help='wallet code and address in form code/address')
-   parser.add_argument('assert_path', type=str,
-           help='path to assert file to be signed')
-   args = parser.parse_args()
-   assertFile = args['assert_path']
-   wltCode = args['signer'].split('/')[0]
-   signAddress = args['signer'].split('/')[1]
+   if not CLI_ARGS:
+      print 'Must supply assert path'
+      exit(1)
+   assertFile = CLI_ARGS[0]
+   wltCode = CLI_OPTIONS.signer.split('/')[0]
+   signAddress = CLI_OPTIONS.signer.split('/')[1]
    wltPath = os.path.join(os.path.expanduser('~'), '.armory',
            'armory_%s_.wallet' % wltCode)
    if not os.path.exists(wltPath):
