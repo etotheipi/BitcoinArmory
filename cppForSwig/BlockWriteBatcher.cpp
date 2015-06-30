@@ -2570,7 +2570,7 @@ void BlockDataThread::prepareUndoData(
          // Above we checked the block to be undone is full, but we
          // still need to make sure the prevTx we just fetched has our data.
          StoredTx prevStx;
-         if(!BlockWriteBatcher::iface_->getStoredTx(prevStx, BinaryData(prevHash)))
+         if(!BlockWriteBatcher::iface_->getStoredTx(prevStx, prevHash))
          {
             if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
             {

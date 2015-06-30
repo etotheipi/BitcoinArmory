@@ -2682,6 +2682,22 @@ bool LMDBBlockDatabase::getStoredTx( StoredTx & stx,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getStoredTx(StoredTx & stx,
+   BinaryDataRef txHashOrDBKey) const
+{
+   uint32_t sz = txHashOrDBKey.getSize();
+   if (sz == 32)
+      return getStoredTx_byHash(txHashOrDBKey, &stx);
+   else if (sz == 6 || sz == 7)
+      return getStoredTx_byDBKey(stx, txHashOrDBKey);
+   else
+   {
+      LOGERR << "Unrecognized input string: " << txHashOrDBKey.toHexStr();
+      return false;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTx_byDBKey( StoredTx & stx,
                                           BinaryDataRef dbKey) const
 {

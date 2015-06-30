@@ -471,6 +471,9 @@ public:
    bool getStoredTx(StoredTx & stx,
       BinaryData& txHashOrDBKey) const;
 
+   bool getStoredTx(StoredTx & stx,
+      BinaryDataRef txHashOrDBKey) const;
+
    bool getStoredTx_byDBKey(StoredTx & stx,
       BinaryDataRef dbKey) const;
 
