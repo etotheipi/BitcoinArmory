@@ -938,8 +938,8 @@ class SatoshiDaemonManager(object):
    def callJSON(self, func, *args):
       state = self.getSDMState()
       if not state in ('BitcoindReady', 'BitcoindSynchronizing'):
-         LOGERROR('Called callJSON(%s, %s)', func, str(args))
-         LOGERROR('Current SDM state: %s', state)
+         LOGWARN('Called callJSON(%s, %s)', func, str(args))
+         LOGWARN('Current SDM state: %s', state)
          raise self.BitcoindError, 'callJSON while %s'%state
 
       return self.proxy.__getattr__(func)(*args)

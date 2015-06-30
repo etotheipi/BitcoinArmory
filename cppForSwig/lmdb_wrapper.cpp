@@ -2667,7 +2667,7 @@ StoredTxHints LMDBBlockDatabase::getHintsForTxHash(BinaryDataRef txHash) const
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getStoredTx( StoredTx & stx,
-                                  BinaryDataRef txHashOrDBKey) const
+                                  BinaryData& txHashOrDBKey) const
 {
    uint32_t sz = txHashOrDBKey.getSize();
    if(sz == 32)
@@ -2777,7 +2777,7 @@ bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
 // when we mark a transaction/block valid, we need to make sure all the hints
 // lists have the correct one in front.  Luckily, the TXHINTS entries are tiny 
 // and the number of modifications to make for each reorg is small.
-bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
+bool LMDBBlockDatabase::getStoredTx_byHash(const BinaryData& txHash,
                                            StoredTx* stx,
                                            BinaryData *DBkey) const
 {
@@ -2844,7 +2844,8 @@ bool LMDBBlockDatabase::getStoredTx_byHash(BinaryDataRef txHash,
    return false;
 }
 
-bool LMDBBlockDatabase::getStoredTx_byHashSuper(BinaryDataRef txHash,
+////////////////////////////////////////////////////////////////////////////////
+bool LMDBBlockDatabase::getStoredTx_byHashSuper(const BinaryData& txHash,
    StoredTx* stx,
    BinaryData *DBkey) const
 {

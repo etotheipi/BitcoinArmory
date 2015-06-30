@@ -469,15 +469,15 @@ public:
       BinaryDataRef dbKey) const;
 
    bool getStoredTx(StoredTx & stx,
-      BinaryDataRef txHashOrDBKey) const;
+      BinaryData& txHashOrDBKey) const;
 
    bool getStoredTx_byDBKey(StoredTx & stx,
       BinaryDataRef dbKey) const;
 
-   bool getStoredTx_byHash(BinaryDataRef txHash,
+   bool getStoredTx_byHash(const BinaryData& txHash,
       StoredTx* stx = nullptr,
       BinaryData* DBkey = nullptr) const;
-   bool getStoredTx_byHashSuper(BinaryDataRef txHash,
+   bool getStoredTx_byHashSuper(const BinaryData& txHash,
       StoredTx* stx = nullptr,
       BinaryData* DBkey = nullptr) const;
 

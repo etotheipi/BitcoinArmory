@@ -600,10 +600,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       
          if self.lbox is None:
             minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValPairs))[1]
+                                             len(scriptValPairs))
          else:
             minFee = calcMinSuggestedFeesHackMS(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValPairs))[1]
+                                             len(scriptValPairs))
 
 
       if minFee > 99*MIN_RELAY_TX_FEE:
@@ -624,34 +624,57 @@ class SendBitcoinsFrame(ArmoryFrame):
 
          if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
-            self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
-            QMessageBox.warning(self, tr('Insufficient Balance'), tr("""
-               The required transaction fee causes this transaction to exceed 
-               your balance.  In order to send this transaction, you will be 
-               required to pay a fee of <b>%s BTC</b>. 
-               <br><br>
-               Please go back and adjust the value of your transaction, not 
-               to exceed a total of <b>%s BTC</b> (the necessary fee has 
-               been entered into the form, so you can use the "MAX" button 
-               to enter the remaining balance for a recipient).""") % \
-               (minFeeStr, newBalStr), QMessageBox.Ok)
-            return
-
-         reply = QMessageBox.warning(self, tr('Insufficient Fee'), tr("""
-            The fee you have specified (%s BTC) is insufficient for the 
-            size and priority of your transaction.  You must include at 
-            least %s BTC to send this transaction. 
-            <br><br> 
-            Do you agree to the fee of %s BTC?""") % \
-            (usrFeeStr, minFeeStr, minFeeStr), \
-            QMessageBox.Yes | QMessageBox.Cancel)
-
-         if reply == QMessageBox.Cancel:
-            return False
-         if reply == QMessageBox.No:
-            pass
-         elif reply == QMessageBox.Yes:
-            fee = long(minFee)
+            reply = QMessageBox.warning(self, tr('Insufficient Balance'), tr("""
+               The fee you have specified (%s BTC) is insufficient for the 
+               size and priority of your transaction.
+               The suggested transaction fee causes this transaction to exceed 
+               your balance.  In order to send this transaction with the
+               suggested fee of <b>%s BTC</b>, you will have to go back
+               and adjust the amount that you are sending.
+               <br><br> 
+               Click Yes to use the higher fee of %s BTC.
+               <br>
+               Click No to use the original fee of %s BTC.
+               <br> 
+               Click Cancel to cancel this transaction.""") % \
+               (usrFeeStr, minFeeStr, minFeeStr, usrFeeStr), \
+               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+   
+            if reply == QMessageBox.Cancel:
+               # Return to the transaction dialog with original fee
+               return False
+            if reply == QMessageBox.No:
+               # Continue with the original fee
+               pass
+            elif reply == QMessageBox.Yes:
+               # return to transaction and populate the fee box with
+               # the higher transaction fee.
+               self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
+               return False
+         else:
+            reply = QMessageBox.warning(self, tr('Insufficient Fee'), tr("""
+               The fee you have specified (%s BTC) is insufficient for the 
+               size and priority of your transaction.  To ensure acceptance in
+               the network at least %s BTC is recommended to send this transaction. 
+               <br><br> 
+               Click Yes to use the higher fee of %s BTC.
+               <br>
+               Click No to use the original fee of %s BTC.
+               <br> 
+               Click Cancel to cancel this transaction.""") % \
+               (usrFeeStr, minFeeStr, minFeeStr, usrFeeStr), \
+               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+   
+            if reply == QMessageBox.Cancel:
+               # Return to the transaction dialog with original fee
+               return False
+            if reply == QMessageBox.No:
+               # Continue with the original fee
+               pass
+            elif reply == QMessageBox.Yes:
+               # Continue with the higher fee.
+               self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
+               fee = long(minFee)
 
 
       # Warn user of excessive fee specified
