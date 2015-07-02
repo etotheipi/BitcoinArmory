@@ -526,8 +526,9 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    }
 
    //start a RO txn to grab the txouts from DB
-   LMDBEnv::Transaction tx;
+   LMDBEnv::Transaction tx, zcTx;
    db->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
+   db->beginDBTransaction(&zcTx, ZEROCONF, LMDB::ReadOnly);
 
    vector<UnspentTxOut> utxoList;
    uint32_t blk = bdvPtr_->getTopBlockHeight();

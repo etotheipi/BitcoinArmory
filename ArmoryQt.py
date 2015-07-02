@@ -3728,18 +3728,24 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('Transaction sent to Satoshi client...!')
 
 
-         def sendGetDataMsg():
+         def sendGetDataMsg(val):
             msg = PyMessage('getdata')
             msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
-            self.NetworkingFactory.sendMessage(msg)
+            self.SingletonConnectedNetworkingFactory.sendMessage(msg)
+            val = val +1
+            reactorCallLater(0.5, checkForTxInBDM, val)
 
-         def checkForTxInBDM():
+         def checkForTxInBDM(val):
             # The sleep/delay makes sure we have time to receive a response
             # but it also gives the user a chance to SEE the change to their
             # balance occur.  In some cases, that may be more satisfying than
             # just seeing the updated balance when they get back to the main
             # screen
             if not TheBDM.bdv().getTxByHash(newTxHash).isInitialized():
+               if val < 10:
+                  reactorCallLater(0.5, sendGetDataMsg, val)
+                  return
+               
                LOGERROR('Transaction was not accepted by the Satoshi client')
                LOGERROR('Raw transaction:')
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
@@ -3784,8 +3790,7 @@ class ArmoryMainWindow(QMainWindow):
          # Send the Tx after a short delay, give the system time to see the Tx
          # on the network and process it, and check to see if the Tx was seen.
          # We may change this setup in the future, but for now....
-         reactor.callLater(3, sendGetDataMsg)
-         reactor.callLater(15, checkForTxInBDM)
+         reactorCallLater(0.5, sendGetDataMsg, 0)
 
 
    #############################################################################
