@@ -532,7 +532,7 @@ struct ProcessedBatchSerializer
       map<BinaryData, BinaryWriter> subSshMap_;
    };
 
-   map<uint32_t  , vector<SerializedSubSSH*>> keyedSubSshToApply_;
+   map<uint32_t, vector<SerializedSubSSH*>> keyedSubSshToApply_;
    vector<map<BinaryData, SerializedSubSSH>>  subSshToApply_;
 
    map<BinaryData, set<BinaryData>> intermediarrySubSshKeysToDelete_;

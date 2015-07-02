@@ -176,11 +176,10 @@ void ScrAddrFilter::scanScrAddrThread()
 
    BinaryData topScannedBlockHash;
    {
-      LMDBEnv::Transaction tx;
-      lmdb_->beginDBTransaction(&tx, HEADERS, LMDB::ReadOnly);
-      StoredHeader sbh;
-      lmdb_->getBareHeader(sbh, endBlock);
-      topScannedBlockHash = sbh.thisHash_;
+      //grab top scanned block from sdbi
+      StoredDBInfo sdbi;
+      lmdb_->getStoredDBInfo(HISTORY, sdbi);
+      topScannedBlockHash = sdbi.topScannedBlkHash_;
    }
 
    if(doScan_ == false)

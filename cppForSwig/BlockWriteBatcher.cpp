@@ -125,12 +125,36 @@ void BlockWriteBatcher::prepareSshHeaders(BlockBatchProcessor& bbp,
    
    if (bbp.sshHeaders_ != nullptr)
       return;
-   
-   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
 
-   bbp.sshHeaders_.reset(new SSHheaders(1, 0));
-   bbp.sshHeaders_->buildSshHeadersFromSAF(
-      saf);
+   {
+      unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
+
+      bbp.sshHeaders_.reset(new SSHheaders(1, 0));
+      bbp.sshHeaders_->buildSshHeadersFromSAF(
+         saf);
+
+      //write prefixes to DB
+      map<uint16_t, vector<const BinaryData*>> prefixByLength;
+      for (auto& prefix : bbp.sshHeaders_->topPrefix_)
+         prefixByLength[prefix.first.getSize()].push_back(&prefix.first);
+
+      for (auto& keys : prefixByLength)
+      {
+         LMDBEnv::Transaction prefixTx;
+         iface_->beginSubSSHDBTransaction(
+            prefixTx, keys.first, LMDB::ReadWrite);
+
+         BinaryData prefixVal(1);
+
+         for (auto prefixKey : keys.second)
+         {
+            auto& prefixData = bbp.sshHeaders_->topPrefix_[*prefixKey];
+            prefixVal.getPtr()[0] = prefixData.first;
+
+            iface_->putValue(keys.first, *prefixKey, prefixVal);
+         }
+      }
+   }
    
    uint32_t utxoCount=0;
    LMDBEnv::Transaction tx;

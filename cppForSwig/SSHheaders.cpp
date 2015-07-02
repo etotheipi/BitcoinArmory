@@ -411,7 +411,6 @@ void SSHheaders::buildSshHeadersFromSAF(const ScrAddrFilter& SAF)
       sshVec->push_back(&sshIter.first->second);
    }
 
-   //needs reworked for the new key fetch/CD
    grabExistingSSHHeaders(*sshVec);
    computeDBKeys(sshVec);
 }

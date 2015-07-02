@@ -2014,29 +2014,43 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
 
    for (const auto& scrAddr : saVec)
    {
-      LDBIter ldbIter = iface_->getIterator(HISTORY);
+      //grab the key from history, reset entry but for subssh dbkey
+      //delete all subssh entries
+      
+      StoredScriptHistory ssh;
+      iface_->getStoredScriptHistorySummary(ssh, scrAddr);
 
-      if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, scrAddr))
+      if (ssh.keyLength_ == 0)
+         continue;
+      auto dbKey = ssh.getSubKey();
+      ssh.alreadyScannedUpToBlk_ = 0;
+      ssh.totalUnspent_ = 0;
+      ssh.totalTxioCount_ = 0;
+      iface_->putStoredScriptHistorySummary(ssh);
+
+      LMDBEnv::Transaction subTx;
+      iface_->beginSubSSHDBTransaction(
+         subTx, ssh.keyLength_, LMDB::ReadWrite);
+      LDBIter ldbIter = iface_->getSubSSHIterator(ssh.keyLength_);
+
+      if (!ldbIter.seekToStartsWith(dbKey))
          continue;
 
       do
       {
          BinaryData key = ldbIter.getKey();
 
-         if (key.getSliceRef(1, 21) != scrAddr)
+         if (key.getSliceRef(0, ssh.keyLength_) != dbKey)
             break;
 
          if (key.getSize() == 0)
             break;
 
-         if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
-            break;
-
          keysToDelete.push_back(key);
-      } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+      } while (ldbIter.advanceAndRead());
 
       for (const auto& keyToDel : keysToDelete)
-         iface_->deleteValue(HISTORY, keyToDel);
+         iface_->deleteValue(ssh.keyLength_, keyToDel);
    }
 }
 
