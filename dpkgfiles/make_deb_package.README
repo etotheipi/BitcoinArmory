@@ -2,9 +2,12 @@ Instructions for using make_deb_package.py outside of Gitian
 
 
 1) We use cowbuilder to build in a chroot, so you need to prepare a chroot with
-   cowbuilder first (instructions from the Debian reproducible build project):
+   cowbuilder first (instructions from the Debian reproducible build project).
+   Note that the second line causes you to enter the chroot and be presented
+   with a root shell. Then the rest of the lines should be entered on that root
+   shell prompt.
 
-      sudo cowbuilder --create --distribution codename --basepath /var/cache/pbuilder/base-reproducible.cow
+      sudo cowbuilder --create --distribution codename --components "main universe" --basepath /var/cache/pbuilder/base-reproducible.cow
       sudo cowbuilder --login --save-after-exec --basepath /var/cache/pbuilder/base-reproducible.cow
       echo 'deb http://reproducible.alioth.debian.org/debian/ ./' > /etc/apt/sources.list.d/reproducible.list
       apt-get install busybox
