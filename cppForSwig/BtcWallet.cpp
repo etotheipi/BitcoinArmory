@@ -726,7 +726,7 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, 
-   bool reorg, const map<BinaryData, vector<BinaryData> >& invalidatedZCKeys)
+   bool reorg, const set<BinaryData>& invalidatedZCKeys)
 {
    if (startBlock < endBlock)
    {
@@ -780,16 +780,10 @@ void BtcWallet::reset()
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::purgeZeroConfTxIO(
-   const map<BinaryData, vector<BinaryData> >& invalidatedTxIO)
+   const set<BinaryData>& invalidatedTxIO)
 {
-   for (auto& txioVec : invalidatedTxIO)
-   {
-      map<BinaryData, ScrAddrObj>::iterator scrAddr = 
-	      scrAddrMap_.find(txioVec.first);
-
-      if (scrAddr != scrAddrMap_.end())
-         scrAddr->second.purgeZC(txioVec.second);
-   }
+   for (auto& sa : scrAddrMap_)
+      sa.second.purgeZC(invalidatedTxIO);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

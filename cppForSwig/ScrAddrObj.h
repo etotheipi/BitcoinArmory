@@ -248,7 +248,7 @@ public:
 
    void scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
       function<bool(const BinaryData&)>);
-   void purgeZC(const vector<BinaryData>& invalidatedTxOutKeys);
+   void purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 

@@ -311,7 +311,7 @@ public:
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;
 
-   map<BinaryData, vector<BinaryData> > purge(
+   set<BinaryData> purge(
       function<bool(const BinaryData&)>);
 
    const map<HashString, map<BinaryData, TxIOPair> >& 

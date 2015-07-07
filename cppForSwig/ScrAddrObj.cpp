@@ -148,32 +148,43 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::purgeZC(const vector<BinaryData>& invalidatedTxOutKeys)
+void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
 {
-   for (auto zc : invalidatedTxOutKeys)
+   auto txioIter = relevantTxIO_.begin();
+   while (txioIter != relevantTxIO_.end())
    {
-      auto txioIter = relevantTxIO_.find(zc);
+      auto& txio = txioIter->second;
 
-      if (ITER_IN_MAP(txioIter, relevantTxIO_))
+      if (txio.hasTxInZC())
       {
-         TxIOPair& txio = txioIter->second;
+         auto& txref = txio.getTxRefOfInput();
+         auto keyIter = invalidatedTxOutKeys.find(txref.getDBKey());
 
-         if (txio.hasTxInZC())
+         if (keyIter != invalidatedTxOutKeys.end())
          {
             //since the txio has a ZC txin, there is a scrAddr ledger entry for that key
-            ledger_->erase(txio.getTxRefOfInput().getDBKey());
-            
+            ledger_->erase(txref.getDBKey());
+
             txio.setTxIn(BinaryData(0));
             txio.setTxHashOfInput(BinaryData(0));
          }
+      }
 
-         if (txio.hasTxOutZC())
+      if (txio.hasTxOutZC())
+      {
+         auto& txref = txio.getTxRefOfOutput();
+         auto keyIter = invalidatedTxOutKeys.find(txref.getDBKey());
+
+         if (keyIter != invalidatedTxOutKeys.end())
          {
             //purged ZC chain, remove the TxIO
-            relevantTxIO_.erase(txioIter);
-            ledger_->erase(zc.getSliceRef(0, 6));
+            relevantTxIO_.erase(txioIter++);
+            ledger_->erase(*keyIter);
+            continue;
          }
       }
+
+      ++txioIter;
    }
 }
 

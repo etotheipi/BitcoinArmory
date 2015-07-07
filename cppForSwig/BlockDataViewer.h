@@ -310,7 +310,7 @@ public:
    void pprintRegisteredWallets(void) const;
 
    void purgeZeroConfPool(
-      const map<BinaryData, vector<BinaryData> >& invalidatedTxIOKeys);
+      const set<BinaryData>& invalidatedTxIOKeys);
 
    const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
 
@@ -328,7 +328,7 @@ private:
 
    void merge();
    void scanWallets(uint32_t, uint32_t, bool,
-      map<BinaryData, vector<BinaryData> >);
+      set<BinaryData>);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 

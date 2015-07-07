@@ -213,7 +213,7 @@ private:
    bool scanWallet(uint32_t startBlock,
       uint32_t endBlock,
       bool reorg,
-      const map<BinaryData, vector<BinaryData> >& invalidatedZCKeys);
+      const set<BinaryData>& invalidatedZCKeys);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
@@ -223,7 +223,7 @@ private:
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
    void purgeZeroConfTxIO(
-      const map<BinaryData, vector<BinaryData> >& invalidatedTxIO);
+      const set<BinaryData>& invalidatedTxIO);
 
    void updateWalletLedgersFromTxio(map<BinaryData, LedgerEntry>& le,
       const map<BinaryData, TxIOPair>& txioMap,

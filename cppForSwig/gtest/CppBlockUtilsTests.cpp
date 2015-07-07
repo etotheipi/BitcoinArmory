@@ -151,6 +151,25 @@ static void nullProgress(unsigned, double, unsigned, unsigned)
 
 }
 
+static BinaryData getRawTxFromBlkFile(int fNum, int txId)
+{
+   std::stringstream fpath;
+   fpath << "../reorgTest/blk_" << fNum << ".dat";
+   
+   std::ifstream i(fpath.str(), std::ios::binary);
+   i.seekg(0, std::ios::end);
+   auto fsize = i.tellg();
+   i.seekg(0, std::ios::beg);
+
+   BinaryData binData;
+   binData.resize(fsize);
+   i.read(binData.getCharPtr(), fsize);
+   
+   StoredHeader sbh;
+   sbh.unserializeFullBlock(binData.getRef(), true, true);
+   return sbh.getSerializedTx(txId);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Test any custom Crypto++ code we've written.
 // Deterministic signing vectors taken from RFC6979. (NOT TRUE JUST YET!)
@@ -8373,83 +8392,67 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    wlt->addScrAddress(TestChain::scrAddrE);
 
-   //copy the first 3 blocks
-   setBlocks({ "0", "1", "2" }, blk0dat_);
+   //copy the first 4 blocks
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
    //enable ZC after the initial sync
    theBDV->enableZeroConf();
 
    theBDV->scanWallets();
-
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
-   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
-
    const ScrAddrObj* scrObj;
-   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
-   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrObj->getFullBalance(), 55*COIN);
-   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrObj->getFullBalance(),  0*COIN);
 
-   uint64_t fullBalance = wlt->getFullBalance();
-   uint64_t spendableBalance = wlt->getSpendableBalance(3);
-   uint64_t unconfirmedBalance = wlt->getUnconfirmedBalance(3);
-   EXPECT_EQ(fullBalance, 105 * COIN);
-   EXPECT_EQ(spendableBalance, 5 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 105 * COIN);
+   //add 4th block
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   theBDV->scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
+
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+
+   auto fullBalance = wlt->getFullBalance();
+   auto spendableBalance = wlt->getSpendableBalance(4);
+   auto unconfirmedBalance = wlt->getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 65 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
 
    //add ZC
-   BinaryData rawZC(259);
-   FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
-   fread(rawZC.getPtr(), 259, 1, ff);
-   fclose(ff);
-
-   BinaryData ZChash = READHEX(TestChain::zcTxHash256);
+   BinaryData rawZC = getRawTxFromBlkFile(5, 1);
+   BinaryData ZChash = BtcUtils::getHash256(rawZC);
 
    theBDV->addNewZeroConfTx(rawZC, 1300000000, false);
+   BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
+   zcKey.append(WRITE_UINT32_LE(0));
    theBDV->parseNewZeroConfTx();
    theBDV->scanWallets();
+
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrObj->getFullBalance(), 75*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrObj->getFullBalance(),  10*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
 
    fullBalance = wlt->getFullBalance();
    spendableBalance = wlt->getSpendableBalance(4);
    unconfirmedBalance = wlt->getUnconfirmedBalance(4);
-   EXPECT_EQ(fullBalance, 135 * COIN);
-   EXPECT_EQ(spendableBalance, 5 * COIN);
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 35 * COIN);
    EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
-   //check ledger for ZC
-   LedgerEntry le = wlt->getLedgerEntryForTx(ZChash);
+   auto le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
-   EXPECT_EQ(le.getValue(),  3000000000);
+   EXPECT_EQ(le.getValue(), 3000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
-
-   BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
-   zcKey.append(WRITE_UINT32_LE(0));
-
-   {
-      //pull ZC from DB, verify it's carrying the proper data
-      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
-      StoredTx zcStx;
-
-      EXPECT_EQ(iface_->getStoredZcTx(zcStx, zcKey), true);
-      EXPECT_EQ(zcStx.thisHash_, ZChash);
-      EXPECT_EQ(zcStx.numBytes_, TestChain::zcTxSize);
-      EXPECT_EQ(zcStx.fragBytes_, 190);
-      EXPECT_EQ(zcStx.numTxOut_, 2);
-      EXPECT_EQ(zcStx.stxoMap_.begin()->second.getValue(), 10 * COIN);
-
-      //check ZChash in DB
-      EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
-   }
 
    //restart bdm
    theBDV->unregisterWallet("wallet1");
@@ -8464,52 +8467,33 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
+   wlt->addScrAddress(TestChain::scrAddrE);
+
    TheBDM.doInitialSyncOnLoad(nullProgress);
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
-   //add 4th block
-   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   TheBDM.readBlkFileUpdate();
-   theBDV->scanWallets();
-
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
-
+   //should get same balance as pre BDM reset, meaning the BDM still
+   //sees the ZC after a restart
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
-   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
-   EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
 
    fullBalance = wlt->getFullBalance();
-   spendableBalance = wlt->getSpendableBalance(5);
-   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
+   spendableBalance = wlt->getSpendableBalance(4);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 165 * COIN);
    EXPECT_EQ(spendableBalance, 35 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
    le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
-   EXPECT_EQ(le.getValue(),  3000000000);
+   EXPECT_EQ(le.getValue(), 3000000000);
    EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
 
-   //The BDM was recycled, but the ZC is still live, and the mempool should 
-   //have reloaded it. Pull from DB and verify
-   {
-      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
-      StoredTx zcStx2;
-
-      EXPECT_EQ(iface_->getStoredZcTx(zcStx2, zcKey), true);
-      EXPECT_EQ(zcStx2.thisHash_, ZChash);
-      EXPECT_EQ(zcStx2.numBytes_, TestChain::zcTxSize);
-      EXPECT_EQ(zcStx2.fragBytes_, 190);
-      EXPECT_EQ(zcStx2.numTxOut_, 2);
-      EXPECT_EQ(zcStx2.stxoMap_.begin()->second.getValue(), 10 * COIN);
-   }
-   
    //add 5th block
    setBlocks({ "0", "1", "2", "3", "4" }, blk0dat_);
 
@@ -8523,7 +8507,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
-   EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
    EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
 
@@ -8532,16 +8516,17 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    unconfirmedBalance = wlt->getUnconfirmedBalance(5);
    EXPECT_EQ(fullBalance, 120 * COIN);
    EXPECT_EQ(spendableBalance, 40 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 120 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 90 * COIN);
 
    {
+      //pull ZC from DB, verify it's carrying the proper data
       LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadOnly);
       StoredTx zcStx3;
 
       EXPECT_EQ(iface_->getStoredZcTx(zcStx3, zcKey), true);
       EXPECT_EQ(zcStx3.thisHash_, ZChash);
       EXPECT_EQ(zcStx3.numBytes_, TestChain::zcTxSize);
-      EXPECT_EQ(zcStx3.fragBytes_, 190); // Not sure how Python can get this value
+      EXPECT_EQ(zcStx3.fragBytes_, 190); // Not sure how Python can get this value <- unserialization meta data, Python isn't mean to see this
       EXPECT_EQ(zcStx3.numTxOut_, 2);
       EXPECT_EQ(zcStx3.stxoMap_.begin()->second.getValue(), 10 * COIN);
    }
@@ -8564,11 +8549,11 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
 
    fullBalance = wlt->getFullBalance();
-   spendableBalance = wlt->getSpendableBalance(5);
-   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
-   EXPECT_EQ(fullBalance, 140 * COIN);
-   EXPECT_EQ(spendableBalance, 40 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 140 * COIN);
+   spendableBalance = wlt->getSpendableBalance(6);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(6);
+   EXPECT_EQ(fullBalance, 170 * COIN);
+   EXPECT_EQ(spendableBalance, 70 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 170 * COIN);
 
    le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1231009513);
@@ -8577,6 +8562,198 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    //Tx is now in a block, ZC should be gone from DB
    {
+      LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadWrite);
+      StoredTx zcStx4;
+
+      EXPECT_EQ(iface_->getStoredZcTx(zcStx4, zcKey), false);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load3Blocks_SpendChange_TestLedgers)
+{
+   /***
+   Spend a ZC change then add blocks one at at time, checking balance in 
+   ledgers. First ZC will be from Block #3 tx #4, second from block #5 tx #1.
+   ***/
+
+   //grab the raw tx from blocks to be used as ZC
+   auto rawZC1 = getRawTxFromBlkFile(3, 4);
+   auto rawZC2 = getRawTxFromBlkFile(5, 1);
+   BinaryData ZCHash1 = BtcUtils::getHash256(rawZC1);
+   BinaryData ZCHash2 = BtcUtils::getHash256(rawZC2);
+
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
+
+   wlt->addScrAddress(TestChain::scrAddrE);
+
+   //copy the first 3 blocks
+   setBlocks({ "0", "1", "2" }, blk0dat_);
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+
+   //enable ZC after the initial sync
+   theBDV->enableZeroConf();
+
+   theBDV->scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
+
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   uint64_t fullBalance = wlt->getFullBalance();
+   uint64_t spendableBalance = wlt->getSpendableBalance(3);
+   uint64_t unconfirmedBalance = wlt->getUnconfirmedBalance(3);
+   EXPECT_EQ(fullBalance, 105 * COIN);
+   EXPECT_EQ(spendableBalance, 5 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 105 * COIN);
+
+   //add ZC
+   theBDV->addNewZeroConfTx(rawZC1, 1300000000, false);
+   theBDV->addNewZeroConfTx(rawZC2, 1400000000, false);
+   theBDV->parseNewZeroConfTx();
+   theBDV->scanWallets();
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(3);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(3);
+   EXPECT_EQ(fullBalance, 105 * COIN);
+   EXPECT_EQ(spendableBalance, 0 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 50 * COIN);
+
+   //check ledger for ZC
+   LedgerEntry le = wlt->getLedgerEntryForTx(ZCHash1);
+   EXPECT_EQ(le.getTxTime(), 1300000000);
+   EXPECT_EQ(le.getValue(), 5500000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   le = wlt->getLedgerEntryForTx(ZCHash1);
+   EXPECT_EQ(le.getTxTime(), 1300000000);
+   EXPECT_EQ(le.getValue(), 5500000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   le = wlt->getLedgerEntryForTx(ZCHash2);
+   EXPECT_EQ(le.getTxTime(), 1400000000);
+   EXPECT_EQ(le.getValue(), 3000000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   //add 4th block
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   theBDV->scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
+
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(5);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 35 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+
+   le = wlt->getLedgerEntryForTx(ZCHash1);
+   EXPECT_EQ(le.getTxTime(), 1231008309);
+   EXPECT_EQ(le.getValue(), 5500000000);
+   EXPECT_EQ(le.getBlockNum(), 3);
+
+   le = wlt->getLedgerEntryForTx(ZCHash2);
+   EXPECT_EQ(le.getTxTime(), 1400000000);
+   EXPECT_EQ(le.getValue(), 3000000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   //add 5th block
+   setBlocks({ "0", "1", "2", "3", "4" }, blk0dat_);
+
+   TheBDM.readBlkFileUpdate();
+   theBDV->scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash4);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash4).isMainBranch());
+
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(5);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
+   EXPECT_EQ(fullBalance, 120 * COIN);
+   EXPECT_EQ(spendableBalance, 40 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 90 * COIN);
+
+   le = wlt->getLedgerEntryForTx(ZCHash2);
+   EXPECT_EQ(le.getTxTime(), 1400000000);
+   EXPECT_EQ(le.getValue(), 3000000000);
+   EXPECT_EQ(le.getBlockNum(), UINT32_MAX);
+
+   //add 6th block
+   setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
+
+   TheBDM.readBlkFileUpdate();
+   theBDV->scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
+
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(5);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(5);
+   EXPECT_EQ(fullBalance, 170 * COIN);
+   EXPECT_EQ(spendableBalance, 70 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 170 * COIN);
+
+   le = wlt->getLedgerEntryForTx(ZCHash2);
+   EXPECT_EQ(le.getTxTime(), 1231009513);
+   EXPECT_EQ(le.getValue(), 3000000000);
+   EXPECT_EQ(le.getBlockNum(), 5);
+
+   //Tx is now in a block, ZC should be gone from DB
+   {
+      BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
+      zcKey.append(WRITE_UINT32_BE(1));
+
       LMDBEnv::Transaction dbtx(iface_->dbEnv_[ZEROCONF].get(), LMDB::ReadWrite);
       StoredTx zcStx4;
 
