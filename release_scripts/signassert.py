@@ -24,10 +24,15 @@ def signAssertFile(wltPath, assertFile):
       exit(1)
 
    print 'Must unlock wallet to sign the assert file...'
+   passcnt = 0
    while True:
       passwd = SecureBinaryData(getpass.getpass('Wallet passphrase: '))
       if not wlt.verifyPassphrase(passwd):
          print 'Invalid passphrase!'
+         if passcnt == 2:
+            print 'Too many password attempts. Exiting.'
+            exit(1)
+         passcnt += 1
          continue
       break
 
@@ -38,7 +43,11 @@ def signAssertFile(wltPath, assertFile):
 
    def doSignFile(inFile, outFile):
       with open(inFile, 'rb') as f:
-         sigBlock = ASv1CS(addrObj.binPrivKey32_Plain.toBinStr(), f.read())
+         try:
+            sigBlock = ASv1CS(addrObj.binPrivKey32_Plain.toBinStr(), f.read())
+         except:
+            print 'Error with call to sigBlock'
+            exit(1)
 
       with open(outFile, 'wb') as f:
          f.write(sigBlock)
@@ -47,7 +56,8 @@ def signAssertFile(wltPath, assertFile):
 
 if __name__=='__main__':
    if not CLI_ARGS:
-      print 'Must supply assert path'
+      print ('Must supply assert path (typically something like '
+             'gitian-builder/sigs/name/release/signer/name-build.assert)')
       exit(1)
    assertFile = CLI_ARGS[0]
    wltCode = CLI_OPTIONS.signer.split('/')[0]
@@ -62,8 +72,16 @@ if __name__=='__main__':
    print ''
    print 'Verifying file'
    with open('%s.sig' % assertFile) as f:
-      sig,msg = readSigBlock(f.read())
-      addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
-      print 'Sign addr for:', '%s.sig' % assertFile, addrB58
+      try:
+         sig,msg = readSigBlock(f.read())
+      except:
+         print 'Error with call to readSigBlock'
+         exit(1)
+      try:
+         addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
+      except:
+         print 'Error with call to verifySignature'
+         exit(1)
+      print 'The address used to sign %s.sig was %s' % (assertFile, addrB58)
 
    print 'Done!'

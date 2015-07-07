@@ -132,7 +132,7 @@ parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=Non
 parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 
 # signassert.py arguments
-parser.add_option("-u", "--signer", dest="signer", type="str", help="Wallet code and address in form code/address")
+parser.add_option("-u", "--signer", dest="signer", type="str", help="Wallet ID and address in form ID/address")
 
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
