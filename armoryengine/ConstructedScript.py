@@ -20,6 +20,11 @@ BTCAID_PKRP_VERSION = 1
 BTCAID_SRP_VERSION = 1
 BTCAID_PR_VERSION = 1
 
+# From the PMTA RFC draft
+PAYASSOC_ADDR = 0  # Sec. 2.1.5
+PAYNET_TBTC   = 1  # Sec. 2.1.1 - Testnet
+PAYNET_BTC    = 2  # Sec. 2.1.1 - Mainnet
+
 BTCAID_PAYLOAD_TYPE = enum('PublicKeySource', 'ConstructedScript', 'InvalidRec')
 ESCAPECHAR  = '\xff'
 ESCESC      = '\x00'
@@ -1260,5 +1265,102 @@ class PaymentRequest(object):
                       daneReqNames,
                       srpList,
                       inVer)
+
+      return self
+
+
+################################################################################
+class PMTARecord(object):
+   """
+   The representation of a payment association (PMTA) DNS record. From Sec. 2.1
+   of the draft:
+
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Payment Network Selector      | Preference                    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | URI String Length             | URI String                    /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               /
+   /                                                               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Data Type     | Payment Association Data                      /
+   +-+-+-+-+-+-+-+-+                                               /
+   /                                                               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   """
+   def __init__(self):
+      self.payNetSel    = PAYNET_TBTC
+      self.preference   = 0
+      self.uriStr       = ''
+      self.dataType     = PAYASSOC_ADDR
+      self.payAssocData = ''
+
+
+   #############################################################################
+   @VerifyArgTypes(inPayNet       = int,
+                   inPref         = int,
+                   inURIStr       = [str, unicode],
+                   inPayAssocData = [str, unicode])
+   def initialize(self, inPayNet, inPref, inURIStr, inPayAssocData):
+      self.payNetSel    = inPayNet
+      self.preference   = inPref
+      self.uriStr       = inURIStr
+      self.payAssocData = inPayAssocData
+
+
+   #############################################################################
+   # NB: There are some discrepancies in the initial draft. Go off the diagram
+   # for now and get clarification ASAP.
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(UINT16,       self.payNetSel)
+      bp.put(UINT16,       self.preference)
+      bp.put(UINT16,       self.uriStr.len())
+      if self.uriStr.len() > 0 and self.uriStr.len() <= 65535:
+         bp.put(BINARY_CHUNK, self.uriStr)
+      elif self.uriStr.len() > 65535:
+         LOGERROR('The URI string (%d bytes) is too large' % self.uriStr.len())
+      bp.put(UINT8,        self.dataType)
+      bp.put(BINARY_CHUNK, self.payAssocData)
+
+      return bp.getBinaryString()
+
+
+   #############################################################################
+   def unserialize(self, serData):
+      inURIStr       = ''
+      bu             = makeBinaryUnpacker(serData)
+      inPayNet       = bu.get(UINT16)
+      inPref         = bu.get(UINT16)
+      inURIStrLen    = bu.get(UINT16)
+      if inURIStrLen > 0 and inURIStrLen <= 65535:
+         inURIStr = bu.get(BINARY_CHUNK)
+      inDataType     = bu.get(UINT8)
+      inPayAssocData = bu.get(BINARY_CHUNK)
+
+      # Validate data
+      dataOkay = True
+      if inPayNet != PAYNET_TBTC or inPayNet != PAYNET_BTC:
+         LOGERROR('Payment network type (%d) is wrong' % inPayNet)
+         dataOkay = False
+      if inURIStrLen > 65535:
+         LOGERROR('The incoming URI string (%d bytes) is too large' %
+                  inURIStrLen)
+         dataOkay = False
+      if inDataType != PAYASSOC_ADDR:
+         LOGERROR('Payment association type (%d) is wrong' % inDataType)
+         dataOkay = False
+      ################ FUNCTION TO BE WRITTEN
+      if validatePayAssocData(inPayAssocData) == False:
+         LOGERROR('Payment association data is incorrectly formatted')
+         dataOkay = False
+
+      if dataOkay == True:
+         self.__init__()
+         self.initialize(inPayNet,
+                         inPref,
+                         inURIStr,
+                         inPayAssocData)
 
       return self
