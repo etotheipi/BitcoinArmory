@@ -23,21 +23,22 @@ def signAssertFile(wltPath, assertFile):
       print 'Supplied wallet does not have the correct signing key'
       exit(1)
 
-   print 'Must unlock wallet to sign the assert file...'
-   passcnt = 0
-   while True:
-      passwd = SecureBinaryData(getpass.getpass('Wallet passphrase: '))
-      if not wlt.verifyPassphrase(passwd):
-         print 'Invalid passphrase!'
-         if passcnt == 2:
-            print 'Too many password attempts. Exiting.'
-            exit(1)
-         passcnt += 1
-         continue
-      break
+   if wlt.useEncryption and wlt.isLocked:
+      print 'Must unlock wallet to sign the assert file...'
+      passcnt = 0
+      while True:
+         passwd = SecureBinaryData(getpass.getpass('Wallet passphrase: '))
+         if not wlt.verifyPassphrase(passwd):
+            print 'Invalid passphrase!'
+            if passcnt == 2:
+               print 'Too many password attempts. Exiting.'
+               exit(1)
+            passcnt += 1
+            continue
+         break
 
-   wlt.unlock(securePassphrase=passwd)
-   passwd.destroy()
+      wlt.unlock(securePassphrase=passwd)
+      passwd.destroy()
 
    addrObj = wlt.getAddrByHash160(addrStr_to_hash160(signAddress)[1])
 
