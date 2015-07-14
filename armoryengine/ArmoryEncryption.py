@@ -29,7 +29,7 @@ def stretchIV(iv, sz):
 
 
 def calcEKeyID(rawKey):
-   # We use _HMAC instead of regular checksum, solely because it's designed
+   # We use HMAC instead of regular checksum, solely because it's designed
    # for hashing secrets, though I don't think it's really necessary here
    # (especially for a truncated hash).
    if isinstance(rawKey, SecureBinaryData):
@@ -309,6 +309,7 @@ class ArmoryCryptInfo(object):
       aci.ivSource    = bu.get(BINARY_CHUNK, 8)
       return aci
 
+
    ############################################################################
    @VerifyArgTypes(keyData=[SecureBinaryData, list, tuple, None],
                    ivData=[SecureBinaryData, None])
@@ -543,7 +544,6 @@ class ArmoryCryptInfo(object):
          keyStr = 'NO_SRC'
 
       return '[%s|%s|%s|%s]' % (algoStr, kdfStr, keyStr, ivStr)
-
 
 
 
@@ -1265,6 +1265,250 @@ class MultiPwdEncryptionKey(EncryptionKey):
       return self.unlock(sbdUnlockObjs, kdfObjList=kdfObjList, justVerify=True)
 
 
+   #############################################################################
+   def getPlainFragList(self, sbdUnlockObjs, kdfObjList=None):
+      origFrags = []
+      try:
+         ###########
+         # Check KDFs and unlock wallet
+         if kdfObjList is None:
+            kdfObjList = self.kdfRefList
+
+         if not self.unlock(sbdUnlockObjs, kdfObjList=kdfObjList):
+            raise PassphraseError('Not all passwords/frags valid')
+
+
+         ###########
+         # We know the pwds/frags were correct or unlock() would've failed
+         # Now we can re-decrypt some frags and verify new frags match
+         origFrags = []
+         for i in range(self.N):
+            unlockObjType,unlockData = sbdUnlockObjs[i]
+            if unlockObjType==MPEK_FRAG_TYPE.NONE:
+               origFrags.append(NULLSBD())
+            elif unlockObjType==MPEK_FRAG_TYPE.PASSWORD:
+               ysbd = self.einfos[i].decrypt(self.efrags[i],
+                                             unlockData,
+                                             kdfObj=kdfObjList[i])
+               origFrags.append(ysbd)
+            elif unlockObjType==MPEK_FRAG_TYPE.PLAINFRAG:
+               origFrags.append(unlockData.copy())
+            elif unlockObjType==MPEK_FRAG_TYPE.FRAGKEY:
+               # This object is the output of the KDF(password)
+               # This requires us to sidestep the einfo object, which
+               # wasn't designed to allow post-KDF inputs.
+               rawACI = ArmoryCryptInfo(NULLKDF,
+                                        self.einfos[i].encryptAlgo,
+                                        'RAWKEY32',
+                                        self.einfos[i].ivSource)
+               pfrag = rawACI.decrypt(self.efrags[i], unlockData, kdfObjList[i])
+               origFrags.append(pfrag)
+
+
+         ###########
+         # Re-frag the master key
+         keysz = self.masterKeyPlain.getSize()
+         refrags = SplitSecret(self.masterKeyPlain.toBinStr(), self.M, self.N, keysz)
+         refrags = [SecureBinaryData(pair[1]) for pair in refrags]
+
+
+         ###########
+         # Now check that all supplied pwds/frags match the new frags
+         for i in range(self.N):
+            if origFrags[i].getSize() == 0:
+               continue
+
+            if not refrags[i] == origFrags[i]:
+               raise KeyDataError('New frags of master key do not match!')
+
+         return refrags
+      finally:
+         for f in origFrags:
+            f.destroy()
+         origFrags = None
+         self.lock()
+
+
+   #############################################################################
+   def getFragEncryptionKey(self, fragIndex, sbdUnlockObjs, kdfObjList=None):
+      """
+      This method returns the output of the password for the given frag index
+      passed through the proper KDF.  This means that not only does the wallet
+      need to be unlocked, one of the unlock objects needs to be the password!
+      """
+      unlockType,sbdPassword = sbdUnlockObjs[fragIndex]
+      if not unlockType==MPEK_FRAG_TYPE.PASSWORD:
+         raise EncryptionError('Cannot get ekey for frag without password')
+
+      plainFrags = []
+      try:
+         # This will throw an error if the unlock list is invalid
+         plainFrags = self.getPlainFragList(sbdUnlockObjs, kdfObjList)
+
+         fkey = self.kdfRefList[fragIndex].execKDF(sbdUnlockObjs[fragIndex][1])
+
+         # Test that the frag-key actually works:
+         rawACI = ArmoryCryptInfo(NULLKDF,
+                                  self.einfos[fragIndex].encryptAlgo,
+                                  'RAWKEY32',
+                                  self.einfos[fragIndex].ivSource)
+         recryptFrag = rawACI.encrypt(plainFrags[fragIndex], fkey)
+
+         if not recryptFrag == self.efrags[fragIndex]:
+            raise EncryptionError('Re-encrypted fragment does not match')
+
+         return fkey
+
+      finally:
+         for f in plainFrags:
+            f.destroy()
+         plainFrags = []
+
+
+
+   #############################################################################
+   def getFragID_X(self, i):
+      baseStr =  binary_to_base58(hash256(self.efrags[i].toBinStr()))[:5]
+      return baseStr + '-%d' % (i+1)
+
+   #############################################################################
+   def getFragID_Y(self, i):
+      return binary_to_base58(self.mkeyID)[:5] + '-%d' % (i+1)
+
+   #############################################################################
+   def getKeyfileName(self, ftype, i, wltID=''):
+      if wltID:
+         wltID += '-'
+
+      if ftype.lower()=='x':
+         return 'X-keyfile-%s%s.xkey' % (wltID, self.getFragID_X(i))
+      else:
+         return 'Y-keyfile-%s%s.ykey' % (wltID, self.getFragID_Y(i))
+
+
+   #############################################################################
+   @VerifyArgTypes(kdfObjList=[list, tuple, dict, None])
+   def unlock(self, sbdUnlockObjs, kdfObjList=None, justVerify=False):
+      """
+      NOTE:  You can actually pass in a map of KDF objects (indexed by KDF ID),
+      and this function will fill the kdf list for you
+
+      We use "sbdUnlockObjs" instead of "passwords" because we might be
+      passing in some raw fragments, not encrypted with a password.  This
+      would be used in the event that some users forgot their password
+      and are using backup data (saved at password-creation time).  This is
+      NOT the master key fragments, but instead fragments of the encryption
+      key used to encrypt the master key.
+
+      So, if we have a 3-of-5 multi-pwd key, and two users enter passwords
+      and one has a raw fragment, sbdUnlockObjs looks like the following:
+
+         [ [MPEK_FRAG_TYPE.PASSWORD,    SBD('mySup3rS3curePwd')]
+           [MPEK_FRAG_TYPE.NONE,        ''                     ]
+           [MPEK_FRAG_TYPE.NONE,        ''                     ]
+           [MPEK_FRAG_TYPE.PASSWORD,    SBD('password1')       ]
+           [MPEK_FRAG_TYPE.PLAINFRAG,   SBD(<raw32bytefrag>)   ] ]
+      """
+      LOGDEBUG('Unlocking multi-encrypt key %s', binary_to_hex(self.ekeyID))
+
+      if self.M==0 or self.N==0:
+         raise BadInputError('Multi-encrypt master key not initialized')
+
+
+      ###########
+      # Make sure all the KDFs are available and IDs match
+      if kdfObjList is None:
+         if len(self.kdfRefList) < self.N:
+            raise KdfError('Insufficient KDFs to unlock multi-pwd key')
+         kdfRefs = self.kdfRefList[:]
+      elif isinstance(kdfObjList, (tuple,list)):
+         kdfRefs = kdfObjList[:]
+      else:  # must be dict since VerifyArgTypes would stop everything else
+         kdfRefs = []
+         for i in range(self.N):
+            thisKdf = kdfObjList.get(self.einfos[i].kdfObjID, None)
+            if thisKdf is None:
+               raise KdfError('Missing at least one KDF in multi pwd key')
+            kdfRefs.append(thisKdf)
+
+      for i in range(self.N):
+         if not kdfRefs[i].getKdfID() == self.einfos[i].kdfObjID:
+            raise KdfError('KDF #%d ID does not match expected!' % i)
+
+
+      ###########
+      # Count the total number of available passwords and plain/backup frags
+      if len(sbdUnlockObjs) < self.N:
+         raise PassphraseError('Must provide N-size list of pwds, with empties')
+
+      npwd = 0
+      for i in range(self.N):
+         npwd += 0 if sbdUnlockObjs[i][0]==MPEK_FRAG_TYPE.NONE else 1
+
+      if npwd < self.M:
+         raise PassphraseError('Insufficient pwds/frags to decrypt master key')
+
+      ###########
+      # Use passwords to decrypt fragments, reconstruct key from frags
+      try:
+         pfrags = []
+         for i in range(self.N):
+            ptype,sbdData = sbdUnlockObjs[i]
+
+            # X-values are actaully 1-indexed, so add one
+            xvalBin = int_to_binary(i+1, endOut=BIGENDIAN)
+
+            if ptype==MPEK_FRAG_TYPE.PLAINFRAG:
+               pfrags.append([xvalBin, sbdData.toBinStr()])
+            elif ptype==MPEK_FRAG_TYPE.PASSWORD:
+               ysbd = self.einfos[i].decrypt(self.efrags[i],
+                                             sbdData,
+                                             kdfObj=kdfRefs[i])
+               pfrags.append([xvalBin, ysbd.toBinStr()])
+            elif ptype==MPEK_FRAG_TYPE.FRAGKEY:
+               # This object is the output of the KDF(password)
+               # This requires us to sidestep the einfo object, which
+               # wasn't designed to allow post-KDF inputs.
+               rawACI = ArmoryCryptInfo(None,
+                                        self.einfos[i].encryptAlgo,
+                                        'RAWKEY32',
+                                        self.einfos[i].ivSource)
+               ysbd = rawACI.decrypt(self.efrags[i], sbdData)
+               pfrags.append([xvalBin, ysbd.toBinStr()])
+
+
+
+         # Reconstruct the master encryption key from the decrypted fragments
+         lenFirstYvalue = len(pfrags[0][1])
+         self.masterKeyPlain = SecureBinaryData( \
+                           ReconstructSecret(pfrags, self.M, lenFirstYvalue))
+
+         if not calcEKeyID(self.masterKeyPlain)==self.ekeyID:
+            LOGERROR('Not all passphrases correct.')
+            self.masterKeyPlain.destroy()
+            return False
+
+         if justVerify:
+            self.masterKeyPlain.destroy()
+         else:
+            self.relockAtTime = RightNow() + self.lockTimeout
+
+      except:
+         LOGEXCEPT('Failed to unlock wallet')
+         self.masterKeyPlain.destroy()
+         return False
+      finally:
+         # Always clear the decrypted fragments
+         pfrags = None
+
+      return True
+
+
+   #############################################################################
+   def lock(self):
+      LOGDEBUG('Locking encryption key %s', binary_to_hex(self.ekeyID))
+      self.masterKeyPlain.destroy()
+      return True
 
 
    #############################################################################
@@ -1411,6 +1655,78 @@ class MultiPwdEncryptionKey(EncryptionKey):
       return self
 
 
+   #############################################################################
+   def changeSomePasswords(self, oldPwds, newPwds, kdfList=None, newLabels=None):
+      """
+      This might be used in the situation that one or more of the pwd-holders
+      forgets their password.  As long as there's still M people who know their
+      password, they can reset any/all of the passwords
+
+      As before, the old password list still must have N elements, but only
+      M of them need to be non-empty.  This is because the index in the
+      password list is the X-value used for SSS reconstruction.
+
+      NOTE:  It's strictly possible to change just one password without
+             needing M passwords to unlock the master key, as long as we
+             know that one password.  We would simply decrypt
+             the one fragment and re-encrypt with the new password.  But
+             this can't be done safely, because we've guaranteed that there
+             is no way to detect if a single password is correct.  If the
+             person enters their old password incorrectly, the decrypted
+             fragment is incorrect, and we will end up encrypting an
+             incorrect fragment.  Therefore, we force having M signatures
+             present to change any passphrases.
+
+
+      oldPwds has the standard unlock form:  fragtype-pwd pairs:
+         [ [MPEK_FRAG_TYPE.PASSWORD,    SBD('mySup3rS3curePwd')]
+           [MPEK_FRAG_TYPE.NONE,        ''                     ]
+           [MPEK_FRAG_TYPE.NONE,        ''                     ]
+           [MPEK_FRAG_TYPE.PASSWORD,    SBD('password1')       ]
+           [MPEK_FRAG_TYPE.PLAINFRAG,   SBD(<raw32bytefrag>)   ] ]
+
+      newPwds is just a raw list of SecureBinaryData objects, with NULLSBD
+      objects for passwords we don't want to change.  As long as enough
+      passwords/frags are provided to decrypt the master key, then any
+      passwords can be changed, even those that weren't entered.
+
+      Since we are unlocking some fragments, we can use those fragments
+      to double-check that regenerated/re-encrypted fragments are correct.
+      They are calculated deterministically, but it doesn't hurt to add
+      some extra checks.
+      """
+      if kdfList is None:
+         kdfList = self.kdfRefList
+
+      sbdFragList = []
+      try:
+         sbdFragList = self.getPlainFragList(oldPwds, kdfList)
+
+         ###########
+         # Re-encrypt any frags for which newPwds[i] is non-empty.  It's okay
+         # to keep the same encryption and kdfs as before.  The only "issue"
+         # is that if one person "changes" their password to the same password,
+         # then the # encrypted fragment will be the same as the previous since
+         # the KDF salt and encryption IVs are also the same.  Someone tracking
+         # the encrypted frags will know that the password wasn't really
+         # changed.  This is not a meaningful issue.
+         for i in range(self.N):
+            if newPwds[i].getSize() > 0:
+               self.efrags[i].destroy()
+               self.efrags[i] = self.einfos[i].encrypt(sbdFragList[i],
+                                                       newPwds[i],
+                                                       kdfObj=kdfList[i])
+
+         ###########
+         # Update any labels if necessary
+         if not newLabels is None:
+            self.labels = newLabels[:]
+
+      finally:
+         for f in sbdFragList:
+            f.destroy()
+         sbdFragList = None
+         self.lock()
 
 
    #############################################################################
@@ -1476,4 +1792,6 @@ class MultiPwdEncryptionKey(EncryptionKey):
                                  preGenKey=self.masterKeyPlain)
       finally:
          self.lock()
+
+
 

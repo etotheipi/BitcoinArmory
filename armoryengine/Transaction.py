@@ -971,7 +971,9 @@ class UnsignedTxInput(AsciiSerializable):
 
 
    #############################################################################
-   def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=ENABLE_DETSIGN):
+   def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1, DetSign=None):
+      if DetSign is None:
+         DetSign = getDeterministicSigFlag()
       derSig = self.createTxSignature(pytx, sbdPrivKey, hashcode, DetSign)
       uncompressedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey)
       compressedPub = CryptoECDSA().CompressPoint(uncompressedPub)

@@ -427,15 +427,15 @@ public:
    //           generation process)
    SecureBinaryData ComputeChainedPrivateKey(
                            SecureBinaryData const & binPrivKey,
-                           SecureBinaryData const & chaincode,
+                           SecureBinaryData const & chainCode,
                            SecureBinaryData binPubKey=SecureBinaryData(),
                            SecureBinaryData* computedMultiplier=NULL);
-                               
+
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
    SecureBinaryData ComputeChainedPublicKey(
                            SecureBinaryData const & binPubKey,
-                           SecureBinaryData const & chaincode,
+                           SecureBinaryData const & chainCode,
                            SecureBinaryData* multiplierOut=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -592,12 +592,16 @@ public:
    ExtendedKey convertSeedToMasterKey(SecureBinaryData const& seed);
 
    // Get a child key based off a list of multipliers/addends.
-   SecureBinaryData getChildKeyFromOps(SecureBinaryData const& parKey,
-                                       vector<SecureBinaryData>& mathOps);
+   SecureBinaryData getChildKeyFromMult(SecureBinaryData const& parKey,
+                                        SecureBinaryData const& multiplier);
 
    // Same as above but using BinaryData objects which are SWIG friendly
-   BinaryData getChildKeyFromOps_SWIG(BinaryData parKey,
-                                      const vector<BinaryData>& mathOps);
+   BinaryData getChildKeyFromMult_SWIG(BinaryData parKey,
+                                       BinaryData const& multiplier);
+
+   // BIP32: Add multipliers modulo curve order to create one multiplier.
+   SecureBinaryData addModMults(const vector<SecureBinaryData>& mathOps);
+   BinaryData addModMults_SWIG(const vector<BinaryData>& mathOps);
 
    ~HDWalletCrypto();
 

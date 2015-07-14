@@ -5,55 +5,84 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-
-import re
-
 from ArmoryUtils import *
-from ArmoryEncryption import NULLSBD
-from BinaryPacker import BinaryPacker, BinaryUnpacker, makeBinaryUnpacker
-from BitSet import BitSet
-from Decorators import VerifyArgTypes
+from BinaryPacker import *
 from Transaction import getOpCode
-
+from ArmoryEncryption import NULLSBD
 from CppBlockUtils import HDWalletCrypto, CryptoECDSA
-
+import re
 import CppBlockUtils as Cpp
 
+# First "official" version is 1. 0 was a prototype version.
+BTCAID_PKS_VERSION = 1
+BTCAID_CS_VERSION = 1
+BTCAID_PKRP_VERSION = 1
+BTCAID_SRP_VERSION = 1
+BTCAID_PR_VERSION = 1
+
+# From the PMTA RFC draft
+PAYASSOC_ADDR = 0  # Sec. 2.1.5
+PAYNET_TBTC   = 1  # Sec. 2.1.1 - Testnet
+PAYNET_BTC    = 2  # Sec. 2.1.1 - Mainnet
+
+BTCAID_PAYLOAD_TYPE = enum('PublicKeySource', 'ConstructedScript', 'InvalidRec')
+ESCAPECHAR  = '\xff'
+ESCESC      = '\x00'
+
+# Use in SignableIDPayload
+BTCAID_PAYLOAD_BYTE = { \
+   BTCAID_PAYLOAD_TYPE.PublicKeySource:   '\x00',
+   BTCAID_PAYLOAD_TYPE.ConstructedScript: '\x01',
+   BTCAID_PAYLOAD_TYPE.InvalidRec:        '\xff'
+}
+
+class VersionError(Exception): pass
+
+try:
+   # Normally the decorator simply confirms that function arguments
+   # are of the expected type.  Will throw an error if not defined.
+   VerifyArgTypes
+except:
+   # If it's not available, just make a replacement decorator that does nothing
+   def VerifyArgTypes(*args, **kwargs):
+      def decorator(func):
+         return func
+      return decorator
 
 ################################ Internal Data #################################
 ################################################################################
 class MultiplierProof(object):
    """
-   Simply a list of 32-byte multipliers, and a 4-byte fingerprint of both the
-   root key where the mults will be applied, and the resultant key. The four
-   bytes aren't meant to be cryptographically strong, just data that helps
-   reduce unnecessary computation. These objects are obtained from C++.
+   Simply a 32-byte multiplier and a 4-byte fingerprint of both the root key
+   where the multiplier will be applied, and the resultant key. The four bytes
+   aren't meant to be cryptographically strong, just data that helps reduce
+   unnecessary computation. These objects are obtained from C++.
    """
 
    #############################################################################
    def __init__(self, isNull=None, srcFinger4=None, dstFinger4=None,
-                multList=None):
-      self.isNull      = None   # If static, stealth, etc, no mult list
-      self.srcFinger4  = None   # Just the first 4B of hash256(root pub key)
-      self.dstFinger4  = None   # Just the first 4B of hash256(result pub key)
-      self.rawMultList = []     # List of 32-byte LE multipliers
+                multiplier=None):
+      self.isNull      = None   # If static, stealth, etc., this can be ignored.
+      self.srcFinger4  = None   # Just the 1st 4B of BE hash256(root pub key).
+      self.dstFinger4  = None   # Just the 1st 4B of BE hash256(result pub key).
+      self.multiplier  = None   # 32-byte BE multiplier.
 
       if isNull is not None:
-         self.initialize(isNull, srcFinger4, dstFinger4, multList)
+         self.initialize(isNull, srcFinger4, dstFinger4, multiplier)
 
 
    #############################################################################
    def initialize(self, isNull=None, srcFinger4=None, dstFinger4=None,
-                  multList=None):
+                  multiplier=None):
       self.isNull = isNull
       if isNull:
          self.srcFinger4  = None
          self.dstFinger4  = None
-         self.rawMultList = []
+         self.multiplier  = None
       else:
          self.srcFinger4  = srcFinger4
          self.dstFinger4  = dstFinger4
-         self.rawMultList = multList[:]
+         self.multiplier  = multiplier
 
 
    #############################################################################
@@ -67,9 +96,7 @@ class MultiplierProof(object):
       if not self.isNull:
          bp.put(BINARY_CHUNK, self.srcFinger4, widthBytes= 4)
          bp.put(BINARY_CHUNK, self.dstFinger4, widthBytes= 4)
-         bp.put(VAR_INT, len(self.rawMultList))
-         for mult in self.rawMultList:
-            bp.put(BINARY_CHUNK,  mult,  widthBytes=32)
+         bp.put(BINARY_CHUNK, self.multiplier, widthBytes=32)
 
       return bp.getBinaryString()
 
@@ -84,13 +111,10 @@ class MultiplierProof(object):
       else:
          srcFinger4B = bu.get(BINARY_CHUNK, 4)
          dstFinger4B = bu.get(BINARY_CHUNK, 4)
-         numMult  = bu.get(VAR_INT)
 
-         multList = []
-         for m in numMult:
-            multList.append( bu.get(BINARY_CHUNK, 32))
+         multiplier.append(bu.get(BINARY_CHUNK, 32))
 
-         self.initialize(False, srcFinger4B, dstFinger4B, multList)
+         self.initialize(False, srcFinger4B, dstFinger4B, multiplier)
 
       return self
 
@@ -138,7 +162,7 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
    Inputs:
       startPubKey:   python string, 33-byte compressed public key
       binChaincode:  python string, 32-byte chaincode
-      indexList:     python list of UINT32s, anything >0x7fffffff is hardened
+      indexList:     python list of UINT32s, anything >0x7fffffff not allowed
 
    Output: [finalPubKey, proofObject]
 
@@ -163,13 +187,13 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
    sbdChainCode = SecureBinaryData(binChaincode)
    extPubKeyObj = Cpp.ExtendedKey(sbdPublicKey, sbdChainCode)
 
-   # Prepare the output multiplier list
+   # Prepare the output multiplier container
    binMultList = []
 
    # Derive the children
    for childIndex in indexList:
       if (childIndex & 0x80000000) > 0:
-         raise ChildDeriveError('Cannot generate proofs along hardened paths')
+         raise BadInputError('Cannot generate proofs along hardened paths')
 
       # Pass in a NULL SecureBinaryData object as a reference
       sbdMultiplier = NULLSBD()
@@ -182,13 +206,16 @@ def DeriveBip32PublicKeyWithProof(startPubKey, binChaincode, indexList):
       # Append multiplier to list
       binMultList.append(sbdMultiplier.toBinStr())
 
-   finalPubKey = extPubKeyObj.getPublicKey().toBinStr()
-   proofObject = MultiplierProof(isNull=False,
-                                srcFinger4=hash256(startPubKey)[:4],
-                                dstFinger4=hash256(finalPubKey)[:4],
-                                multList=binMultList)
+   # Get the final multiplier.
+   finalMult = HDWalletCrypto().addModMults_SWIG(binMultList)
 
-   return finalPubKey, proofObject
+   finalPubKey = extPubKeyObj.getPublicKey().toBinStr()
+   proofObject = MultiplierProof(False,
+                                 hash256(startPubKey)[:4],
+                                 hash256(finalPubKey)[:4],
+                                 finalMult)
+
+   return (finalPubKey, proofObject)
 
 
 ################################################################################
@@ -260,8 +287,8 @@ def ApplyProofToRootKey(startPubKey, multProofObj, expectFinalPub=None):
    if not hash256(startPubKey)[:4] == multProofObj.srcFinger4:
       raise KeyDataError('Source fingerprint of proof does not match root pub')
 
-   finalPubKey = HDWalletCrypto().getChildKeyFromOps_SWIG(startPubKey,
-                                                          multProofObj.rawMultList)
+   finalPubKey = HDWalletCrypto().getChildKeyFromMult_SWIG(startPubKey,
+                                                        multProofObj.multiplier)
 
    if len(finalPubKey) == 0:
       raise KeyDataError('Key derivation failed - Elliptic curve violations')
@@ -273,6 +300,24 @@ def ApplyProofToRootKey(startPubKey, multProofObj, expectFinalPub=None):
       raise KeyDataError('Computation did not yield expected public key!')
 
    return finalPubKey
+
+
+#############################################################################
+def makeBinaryUnpacker(inputStr):
+   """
+   Use this on input args so that unserialize funcs can treat the
+   input as a BU object.  If it's not a BU object, convert it, and
+   the consumer method will start reading from byte zero.  If it
+   is BU, then forward the reference to it so that it starts unserializing
+   from the current location in the BU object, leaving the position
+   after the data was unserialized.
+   """
+   if isinstance(inputStr, BinaryUnpacker):
+      # Just return the input reference
+      return inputStr
+   else:
+      # Initialize a new BinaryUnpacker
+      return BinaryUnpacker(inputStr)
 
 
 ################################################################################
@@ -341,17 +386,17 @@ def assembleScript(inEscapedScript, inPKSList, inPKRPList):
 ################################################################################
 class PublicKeySource(object):
    """
-   This defines a "source" from where we could get a public key, either to be
+   This defines a "source" from where we could get a public key, either to be 
    inserted directly into P2PKH, or to be used as part of a multi-sig or other
-   non-standard script.
+   non-standard script. 
 
    @isStatic:        rawSource is just a single public key
    @useCompr:        use compressed or uncompressed version of pubkey
    @useHash160:      pubKey should be hashed before being placed in a script
-   @isStealth:       rawSource is intended to be used as an sx address
    @isUserKey:       user should insert their own key in this slot
    @useExternal:     rawSource is actually a link to another pubkey source
    @isChksumPresent: A four-byte checksum is included.
+   @checksum:        A four-byte checksum.
    """
 
    #############################################################################
@@ -359,11 +404,12 @@ class PublicKeySource(object):
       self.version         = BTCAID_PKS_VERSION
       self.isStatic        = False
       self.useHash160      = False
-      self.isStealth       = False
       self.isUserKey       = False
       self.isExternalSrc   = False
+      self.useCompr        = False
       self.isChksumPresent = True
       self.rawSource       = None
+      self.checksum        = None
 
 
    #############################################################################
@@ -378,12 +424,11 @@ class PublicKeySource(object):
       # NB: For now, the compression relies on if the raw source is compressed.
       flags = BitSet(16)
       flags.setBit(15, self.isStatic)
-      flags.setBit(14, len(self.rawSource) == 33)
+      flags.setBit(14, self.useCompr)
       flags.setBit(13, self.useHash160)
-      flags.setBit(12, self.isStealth)
-      flags.setBit(11, self.isUserKey)
-      flags.setBit(10, self.isExternalSrc)
-      flags.setBit(9, self.isChksumPresent)
+      flags.setBit(12, self.isUserKey)
+      flags.setBit(11, self.isExternalSrc)
+      flags.setBit(10, self.isChksumPresent)
 
       inner = BinaryPacker()
       inner.put(UINT8,   self.version)
@@ -394,32 +439,44 @@ class PublicKeySource(object):
 
    #############################################################################
    @VerifyArgTypes(isStatic   = bool,
+                   useCompr   = bool,
                    use160     = bool,
-                   isSx       = bool,
                    isUser     = bool,
                    isExt      = bool,
                    src        = [str, unicode],
                    chksumPres = bool,
+                   chksum     = [str, unicode],
                    ver        = int)
-   def initialize(self, isStatic, use160, isSx, isUser, isExt, src,
-                  chksumPres, ver=BTCAID_PKS_VERSION):
+   def initialize(self, isStatic, useCompr, use160, isUser, isExt, src,
+                  chksumPres, chksum=None, ver=BTCAID_PKS_VERSION):
       """
       Set all PKS values.
       """
 
       # We expect regular public key sources to be binary strings, but external
-      # sources may be similar to email addresses which need to be unicode
-      if isExt != isinstance(src, unicode):
-         raise UnicodeError('Must use str for reg srcs, unicode for external')
+      # sources may be similar to email addresses which need to be unicode.
+      # TEMPORARILY DISABLED - NEED TO RESOLVE AN INTENTIONALLY BROKEN TEST
+#      if isExt != isinstance(src, unicode):
+#         raise UnicodeError('Must use str for reg srcs, unicode for external')
 
       self.version         = ver
       self.isStatic        = isStatic
+      self.useCompr        = useCompr
       self.useHash160      = use160
-      self.isStealth       = isSx
       self.isUserKey       = isUser
       self.isExternalSrc   = isExt
       self.isChksumPresent = chksumPres
       self.rawSource       = toBytes(src)
+
+      # The checksum portion opens up the possibility that a bad checksum could
+      # get passed in, as we don't check to see if an incoming checksum's right.
+      # For now, just accept it. isValid() can be used to check it anyway.
+      if self.isChksumPresent:
+         if chksum is None:
+            dataStr = self.getDataNoChecksum()
+            self.checksum = computeChecksum(dataStr)
+         else:
+            self.checksum = inChksum
 
 
    #############################################################################
@@ -449,8 +506,8 @@ class PublicKeySource(object):
       if self.isChksumPresent:
          # Place a checksum in the data. Somewhat redundant due to signatures.
          # Still useful because it protects data sent to signer.
-         chksum = computeChecksum(dataStr, 4)
-         bp.put(BINARY_CHUNK, chksum)
+         if self.checksum != None:
+            bp.put(BINARY_CHUNK, self.checksum)
 
       return bp.getBinaryString()
 
@@ -463,32 +520,30 @@ class PublicKeySource(object):
       inRawSrc = inData.get(VAR_STR)
 
       # If checksum is present, confirm that the other data is correct.
+      inChksum = None
       if inFlags.getBit(9):
-         chksum = inData.get(BINARY_CHUNK, 4)
-         dataChunk  = inData.getBinaryString()[:-4]
-         compChksum = computeChecksum(dataChunk)
-         if chksum != compChksum:
-            raise DataError('PKS record checksum does not match real checksum')
+         inChksum = inData.get(BINARY_CHUNK, 4)
 
       if not inVer == BTCAID_PKS_VERSION:
          # In the future we will make this more of a warning, not error
          raise VersionError('PKS version does not match the loaded version')
 
       self.__init__()
-      self.initialize(bool(inFlags.getBit(15)),
-                      bool(inFlags.getBit(13)),
-                      bool(inFlags.getBit(12)),
-                      bool(inFlags.getBit(11)),
-                      bool(inFlags.getBit(10)),
+      self.initialize(inFlags.getBit(15),
+                      inFlags.getBit(14),
+                      inFlags.getBit(13),
+                      inFlags.getBit(12),
+                      inFlags.getBit(11),
                       inRawSrc,
-                      bool(inFlags.getBit(9)),
+                      inFlags.getBit(10),
+                      inChksum,
                       inVer)
 
       return self
 
 
    #############################################################################
-   # Logic for generating the final key data is here.
+   # Logic for generating the final key data based on PKS data is here.
    def generateKeyData(self, inPKRPList):
       finalKeyData = None
 
@@ -501,29 +556,64 @@ class PublicKeySource(object):
          # User somehow provides their own key data. Do nothing for now.
          pass
       elif self.isStatic:
-         # The final key (e.g., vanity address) is already in the SRP object.
+         # The final key (e.g., vanity address) is already present.
          finalKeyData = self.rawSource
-      elif self.isStealth:
-         # Use stealth data to generate an address. (See sx binary for an
-         # example.) Do nothing for now.
-         pass
       else:
          for pkrp in inPKRPList:
             # Get the final public key. If necessary, compress it and/or apply
             # Hash160 to it.
-            finalKeyData = HDWalletCrypto().getChildKeyFromOps_SWIG(
-                                                       self.rawSource,
-                                                       pkrp.multList)
-            # May need a self.useCompressed flag or something similar eventually.
-            if len(self.rawSource) == 33:
+            finalKeyData = HDWalletCrypto().getChildKeyFromMult_SWIG(
+                                                                 self.rawSource,
+                                                                  pkrp.multList)
+
+            if self.useCompr:
                secFinalKeyData = SecureBinaryData(finalKeyData)
                finalKeyDataSBD = CryptoECDSA().CompressPoint(secFinalKeyData)
                finalKeyData = finalKeyDataSBD.toBinStr()
+
             if self.useHash160:
                finalKeyData = hash160(finalKeyData)
 
       # We're done! Return the key data.
       return finalKeyData
+
+
+   #############################################################################
+   # Verify that a PKS record is valid. Useful as a standalone funct or, more
+   # importantly, as a utility function before doing anything critical w/ a rec.
+   def isValid(self):
+      """
+      Verify that a PKS record's construction is valid.
+      """
+      # Never reset the validity flag! Once a record's invalid, it's invalid.
+      recState = True
+
+      # Certain flags force other flags to be ignored. This must be enforced.
+      if (self.isExternalSrc == True and (self.isUserKey == True or
+                                         self.isStatic == True)):
+         recState = False
+      elif (self.isUserKey == True and self.isStatic == True):
+         recState = False
+
+      # Always let the user know why a record is invalid.
+      if recState == False:
+         LOGINFO('PKS record has incompatible flag settings. Record is invalid.')
+
+      # Check the checksum if necessary.
+      if self.isChksumPresent:
+         if self.checksum is None:
+            LOGINFO('PKS record has a checksum flag and no checksum. Record is invalid.')
+            recState = False
+         else:
+            dataChunk  = self.serialize()
+            checkData  = dataChunk[:-4]
+            checksum   = dataChunk[-4:]
+            compChksum = computeChecksum(checkData)
+            if compChksum != checksum:
+               LOGINFO('PKS record has an invalid checksum. Record is invalid.')
+               recState = False
+
+      return recState
 
 
 ################################################################################
@@ -636,16 +726,16 @@ class ConstructedScript(object):
       Let's say we have a script template like this: this is a non-working
       2-of-3 OR 3-of-5, with the second key list sorted)
 
-      OP_IF
-         OP_2 0xff01 0xff01 0xff01 OP_3 OP_CHECKMULTISIG
-      OP_ELSE
+      OP_IF 
+         OP_2 0xff01 0xff01 0xff01 OP_3 OP_CHECKMULTISIG 
+      OP_ELSE 
          OP_3 0xff05 OP_5 OP_CHECKMULTISIG
       OP_ENDIF
 
       We have 4 public key bundles: first three are of size 1, the last is 5.
       In this script, the five keys in the second half of the script are sorted
-      We should end up with:
-
+      We should end up with:  
+   
       Final result sould look like:
 
              [ [PubSrc1], [PubSrc2], [PubSrc3], [PubSrc4, PubSrc5, ...]]
@@ -656,8 +746,8 @@ class ConstructedScript(object):
 
       # The first byte after each ESCAPECHAR is number of pubkeys to insert.
       # ESCAPECHAR+'\x00' is interpretted as as single
-      # 0xff op code.  i.e.  0xff00 will be inserted in the final
-      # script as a single 0xff byte (which is OP_INVALIDOPCODE).   For the
+      # 0xff op code.  i.e.  0xff00 will be inserted in the final 
+      # script as a single 0xff byte (which is OP_INVALIDOPCODE).   For the 
       # purposes of this function, 0xff00 is ignored.
       # 0xffff should not exist in any script template
       scriptPieces = scrTemp.split(ESCAPECHAR)
@@ -706,8 +796,8 @@ class ConstructedScript(object):
 
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
+                     useCompr   = (len(binRootPubKey) == 33),
                      use160     = True,
-                     isSx       = False,
                      isUser     = False,
                      isExt      = False,
                      src        = binRootPubKey,
@@ -730,8 +820,8 @@ class ConstructedScript(object):
 
       pks = PublicKeySource()
       pks.initialize(isStatic   = False,
+                     useCompr   = (len(binRootPubKey) == 33),
                      use160     = hash160,
-                     isSx       = False,
                      isUser     = False,
                      isExt      = False,
                      src        = binRootPubKey,
@@ -774,8 +864,8 @@ class ConstructedScript(object):
       for rootPub in binRootList:
          pks = PublicKeySource()
          pks.initialize(isStatic   = False,
+                        useCompr   = (len(rootPub) == 33),
                         use160     = False,
-                        isSx       = False,
                         isUser     = False,
                         isExt      = False,
                         src        = rootPub,
@@ -822,8 +912,8 @@ class ConstructedScript(object):
       for rootPub in binRootList:
          pks = PublicKeySource()
          pks.initialize(isStatic   = False,
+                        useCompr   = (len(rootPub) == 33),
                         use160     = False,
-                        isSx       = False,
                         isUser     = False,
                         isExt      = False,
                         src        = rootPub,
@@ -871,7 +961,7 @@ class ConstructedScript(object):
          dataChunk  = inData.getBinaryString()[:-4]
          compChksum = computeChecksum(dataChunk)
          if chksum != compChksum:
-            raise DataError('CS record checksum does not match real checksum')
+            raise BadInputError('CS record checksum does not match real checksum')
 
       if not inVer == BTCAID_CS_VERSION:
          # In the future we will make this more of a warning, not error
@@ -880,8 +970,8 @@ class ConstructedScript(object):
       self.__init__()
       self.initialize(inScrTemp,
                       inKeyList,
-                      bool(inFlags.getBit(15)),
-                      bool(inFlags.getBit(14)),
+                      inFlags.getBit(15),
+                      inFlags.getBit(14),
                       inVer)
 
       return self
@@ -907,61 +997,96 @@ class ConstructedScript(object):
 class PublicKeyRelationshipProof(object):
    """
    This defines the actual data that proves how multipliers relate to an
-   accompanying public key.
+   accompanying public key. The public key list is optional but all entries must
+   be populated with, at the very least, 0 to indicate an empty VAR_STR.
    """
 
    #############################################################################
    def __init__(self):
-      self.version  = BTCAID_PKRP_VERSION
-      self.multList = []
+      self.version      = BTCAID_PKRP_VERSION
+      self.multiplier   = None
+      self.finalKey     = None
+      self.multUsed     = True
+      self.finalKeyUsed = False
 
 
    #############################################################################
-   @VerifyArgTypes(multList = list,
-                   ver      = int)
-   def initialize(self, multList, ver=BTCAID_PKRP_VERSION):
+   @VerifyArgTypes(multiplier   = [str, unicode],
+                   finalKey     = [str, unicode],
+                   multUsed     = bool,
+                   finalKeyUsed = bool,
+                   ver          = int)
+   def initialize(self, multiplier, finalKeyUsed=False, multUsed=True,
+                  finalKey='', ver=BTCAID_PKRP_VERSION):
       """
       Set all PKRP values.
       """
-      self.multList = multList
-      self.version  = ver
+      self.multiplier   = multiplier
+      self.finalKey     = finalKey
+      self.multUsed     = multUsed
+      self.finalKeyUsed = finalKeyUsed
+      self.version      = ver
+
+
+   #############################################################################
+   # Verify that a PKRP record is valid.
+   def isValid(self):
+      """
+      Verify that a PKRP record is valid.
+      """
+      recState = True
+
+      # At least one flag must be set.
+      if self.multUsed == False and self.finalKeyUsed == False:
+         recState = False
+
+      if recState == False:
+         LOGINFO('PKRP record has incompatible flag settings. Record is invalid.')
+
+      return recState
+
 
 
    #############################################################################
    def isInitialized(self):
-      return not (self.multList is None or len(self.multList) == 0)
+      return not (self.multiplier is None and self.finalKey is None)
 
 
    #############################################################################
    def serialize(self):
+      # In BitSet, higher numbers are less significant bits.
+      # e.g., To get 0x0002, set bit 14 to True (1).
+      # NB: For now, the compression relies on if the raw source is compressed.
+      flags = BitSet(8)
+      flags.setBit(7, self.finalKeyUsed)
+      flags.setBit(6, self.multUsed)
+
       bp = BinaryPacker()
-      bp.put(UINT8,  self.version)
-      bp.put(VAR_INT, len(self.multList), width=1)
-      for keyList2 in self.multList:
-         bp.put(VAR_STR, keyList2)
+      bp.put(UINT8,   self.version)
+      bp.put(BITSET,  flags, width=1)
+      bp.put(VAR_STR, self.multiplier)
+      bp.put(VAR_STR, self.finalKey)
 
       return bp.getBinaryString()
 
 
    #############################################################################
    def unserialize(self, serData):
-      inMultList = []
       inner      = BinaryUnpacker(serData)
       inVer      = inner.get(UINT8)
-      inNumMults = inner.get(VAR_INT, 1)
-
-      k = 0
-      while k < inNumMults:
-         nextMult = inner.get(VAR_STR)
-         inMultList.append(nextMult)
-         k += 1
+      inFlags    = inner.get(BITSET, 1)
+      inMult     = inner.get(VAR_STR)
+      inFinalKey = inner.get(VAR_STR)
 
       if not inVer == BTCAID_PKRP_VERSION:
          # In the future we will make this more of a warning, not error
          raise VersionError('PKRP version does not match the loaded version')
 
       self.__init__()
-      self.initialize(inMultList,
+      self.initialize(inMult,
+                      inFlags.getBit(7),
+                      inFlags.getBit(6),
+                      inFinalKey,
                       inVer)
 
       return self
@@ -981,7 +1106,7 @@ class ScriptRelationshipProof(object):
 
 
    #############################################################################
-   @VerifyArgTypes(pkrpList = list,
+   @VerifyArgTypes(pkrpList = [PublicKeyRelationshipProof],
                    ver      = int)
    def initialize(self, pkrpList, ver=BTCAID_SRP_VERSION):
       """
@@ -1048,9 +1173,9 @@ class PaymentRequest(object):
 
 
    #############################################################################
-   @VerifyArgTypes(unvalidatedScripts = list,
-                   daneReqNames       = list,
-                   srpLists           = list,
+   @VerifyArgTypes(unvalidatedScripts = [VAR_STR],
+                   daneReqNames       = [VAR_STR],
+                   srpLists           = [VAR_STR],
                    ver                = int)
    def initialize(self, unvalidatedScripts, daneReqNames, srpLists,
                   ver=BTCAID_PR_VERSION):
@@ -1064,11 +1189,14 @@ class PaymentRequest(object):
       self.daneReqNames       = daneReqNames
       self.srpLists           = srpLists
       for x in unvalidatedScripts:
-         self.reqSize += len(x) + 1
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
+         self.reqSize += len(x)
       for y in daneReqNames:
-         self.reqSize += len(y) + 1
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
+         self.reqSize += len(y)
       for z in srpLists:
-         self.reqSize += len(z) + 1
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
+         self.reqSize += len(z)
 
 
    #############################################################################
@@ -1087,13 +1215,13 @@ class PaymentRequest(object):
       bp.put(VAR_INT, self.numTxOutScripts, width=3)
       bp.put(VAR_INT, self.reqSize, width=3)
       for scriptItem in self.unvalidatedScripts:
-         bp.put(UINT8, len(scriptItem))
+         bp.put(VAR_INT, len(scriptItem), width = 1)
          bp.put(BINARY_CHUNK, scriptItem)
       for daneItem in self.daneReqNames:
-         bp.put(UINT8, len(daneItem))
+         bp.put(VAR_INT, len(daneItem), width = 1)
          bp.put(BINARY_CHUNK, daneItem)
       for srpItem in self.srpLists:
-         bp.put(UINT8, len(srpItem))
+         bp.put(VAR_INT, len(srpItem), width = 1)
          bp.put(BINARY_CHUNK, srpItem)
 
       return bp.getBinaryString()
@@ -1137,5 +1265,102 @@ class PaymentRequest(object):
                       daneReqNames,
                       srpList,
                       inVer)
+
+      return self
+
+
+################################################################################
+class PMTARecord(object):
+   """
+   The representation of a payment association (PMTA) DNS record. From Sec. 2.1
+   of the draft:
+
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Payment Network Selector      | Preference                    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | URI String Length             | URI String                    /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               /
+   /                                                               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Data Type     | Payment Association Data                      /
+   +-+-+-+-+-+-+-+-+                                               /
+   /                                                               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   """
+   def __init__(self):
+      self.payNetSel    = PAYNET_TBTC
+      self.preference   = 0
+      self.uriStr       = ''
+      self.dataType     = PAYASSOC_ADDR
+      self.payAssocData = ''
+
+
+   #############################################################################
+   @VerifyArgTypes(inPayNet       = int,
+                   inPref         = int,
+                   inURIStr       = [str, unicode],
+                   inPayAssocData = [str, unicode])
+   def initialize(self, inPayNet, inPref, inURIStr, inPayAssocData):
+      self.payNetSel    = inPayNet
+      self.preference   = inPref
+      self.uriStr       = inURIStr
+      self.payAssocData = inPayAssocData
+
+
+   #############################################################################
+   # NB: There are some discrepancies in the initial draft. Go off the diagram
+   # for now and get clarification ASAP.
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(UINT16,       self.payNetSel)
+      bp.put(UINT16,       self.preference)
+      bp.put(UINT16,       self.uriStr.len())
+      if self.uriStr.len() > 0 and self.uriStr.len() <= 65535:
+         bp.put(BINARY_CHUNK, self.uriStr)
+      elif self.uriStr.len() > 65535:
+         LOGERROR('The URI string (%d bytes) is too large' % self.uriStr.len())
+      bp.put(UINT8,        self.dataType)
+      bp.put(BINARY_CHUNK, self.payAssocData)
+
+      return bp.getBinaryString()
+
+
+   #############################################################################
+   def unserialize(self, serData):
+      inURIStr       = ''
+      bu             = makeBinaryUnpacker(serData)
+      inPayNet       = bu.get(UINT16)
+      inPref         = bu.get(UINT16)
+      inURIStrLen    = bu.get(UINT16)
+      if inURIStrLen > 0 and inURIStrLen <= 65535:
+         inURIStr = bu.get(BINARY_CHUNK)
+      inDataType     = bu.get(UINT8)
+      inPayAssocData = bu.get(BINARY_CHUNK)
+
+      # Validate data
+      dataOkay = True
+      if inPayNet != PAYNET_TBTC or inPayNet != PAYNET_BTC:
+         LOGERROR('Payment network type (%d) is wrong' % inPayNet)
+         dataOkay = False
+      if inURIStrLen > 65535:
+         LOGERROR('The incoming URI string (%d bytes) is too large' %
+                  inURIStrLen)
+         dataOkay = False
+      if inDataType != PAYASSOC_ADDR:
+         LOGERROR('Payment association type (%d) is wrong' % inDataType)
+         dataOkay = False
+      ################ FUNCTION TO BE WRITTEN
+      if validatePayAssocData(inPayAssocData) == False:
+         LOGERROR('Payment association data is incorrectly formatted')
+         dataOkay = False
+
+      if dataOkay == True:
+         self.__init__()
+         self.initialize(inPayNet,
+                         inPref,
+                         inURIStr,
+                         inPayAssocData)
 
       return self

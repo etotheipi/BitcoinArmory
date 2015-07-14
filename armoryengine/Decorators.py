@@ -98,7 +98,6 @@ def catchErrsForJSON(func):
          return rv
    return inner
 
-
 ################################################################################
 # Enforce Argument Types -- Decorator factory (for a decorator with args)
 def VerifyArgTypes(**typemap):

@@ -23,5 +23,3 @@ class confirmPRValidity(unittest.TestCase):
       self.assertEqual(valResult, 1)
 
 
-if __name__ == "__main__":
-   unittest.main()

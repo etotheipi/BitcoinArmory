@@ -11593,7 +11593,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
    // -> private child case.
    ExtendedKey parentKey1(seedKey1, seedCC1);
    unsigned int s1 = 0;
-   vector<SecureBinaryData> addend1Vector;
 
    for(vector<uint32_t>::iterator it1 = set1ChildNum.begin();
        it1 != set1ChildNum.end(); ++it1)
@@ -11637,10 +11636,9 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
       // don't have consecutive non-hardened multipliers, unfortunately.)
       if(addend1.getSize() != 0)
       {
-         addend1Vector.push_back(addend1);
-         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromOps(
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
                                                             parentKey1.getKey(),
-                                                            addend1Vector);
+                                                            addend1);
          if(childMultKey.getSize() > 0)
          {
             EXPECT_EQ(childKey1.getKey().toHexStr(), childMultKey.toHexStr());
@@ -11649,8 +11647,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
          {
             ASSERT_TRUE(0); // Is there a better way to intentionally kill the test?
          }
-
-         addend1Vector.clear();
       }
 
       parentKey1 = childKey1;
@@ -11661,7 +11657,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
    // -> private child case.
    ExtendedKey parentKey2(seedKey2, seedCC2);
    unsigned int s2 = 0;
-   vector<SecureBinaryData> addend2Vector;
 
    for(vector<uint32_t>::iterator it2 = set2ChildNum.begin();
        it2 != set2ChildNum.end(); ++it2)
@@ -11705,10 +11700,9 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
       // don't have consecutive non-hardened multipliers, unfortunately.)
       if(addend2.getSize() != 0)
       {
-         addend2Vector.push_back(addend2);
-         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromOps(
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
                                                             parentKey2.getKey(),
-                                                            addend2Vector);
+                                                            addend2);
          if(childMultKey.getSize() > 0)
          {
             EXPECT_EQ(childKey2.getKey().toHexStr(), childMultKey.toHexStr());
@@ -11717,8 +11711,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
          {
             ASSERT_TRUE(0); // Is there a better way to intentionally kill the test?
          }
-
-         addend2Vector.clear();
       }
 
       parentKey2 = childKey2;
@@ -11737,11 +11729,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
    for(vector<uint32_t>::iterator itPub1 = set1ChildNum.begin();
        itPub1 != set1ChildNum.end(); ++itPub1)
    {
-      // We don't have a test vector with multiple, sequential, non-hardened
-      // public keys. So, to test if multipliers can be used to derive public
-      // keys, we'll just test one at a time.
-      vector<SecureBinaryData> multiplier1Vector;
-
       // Taken from isHardened() (EncryptionUtils.cpp). If not hardened, perform
       // a full check.
       SecureBinaryData multiplier1;
@@ -11759,7 +11746,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
          tempPrvKey1 = HDWalletCrypto().childKeyDeriv(tempPrvKey1,
                                                       *itPub1,
                                                       &multiplier1);
-         multiplier1Vector.push_back(multiplier1);
       }
       else
       {
@@ -11794,13 +11780,13 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
       EXPECT_TRUE(checkKey.isPub());
       EXPECT_FALSE(checkKey.isPrv());
       EXPECT_FALSE(checkKey.isMaster());
-      EXPECT_EQ(set1CompPubKey[sPub1].toHexStr(), retKey1.toHexStr());
-      EXPECT_EQ(set1PubKey[sPub1].toHexStr(), retPubKey1.toHexStr());
-      EXPECT_EQ(set1CC[sPub1].toHexStr(), retChaincode1.toHexStr());
-      EXPECT_EQ(set1ID[sPub1].toHexStr(), testID1.toHexStr());
-      EXPECT_EQ(set1FP[sPub1].toHexStr(), testFP1.toHexStr());
-      EXPECT_EQ(set1ParFP[sPub1].toHexStr(), testParFP1.toHexStr());
-      EXPECT_EQ(set1CompPubKey[sPub1].toHexStr(), testCompPub1.toHexStr());
+      EXPECT_EQ(set1CompPubKey[sPub1], retKey1);
+      EXPECT_EQ(set1PubKey[sPub1], retPubKey1);
+      EXPECT_EQ(set1CC[sPub1], retChaincode1);
+      EXPECT_EQ(set1ID[sPub1], testID1);
+      EXPECT_EQ(set1FP[sPub1], testFP1);
+      EXPECT_EQ(set1ParFP[sPub1], testParFP1);
+      EXPECT_EQ(set1CompPubKey[sPub1], testCompPub1);
       EXPECT_EQ(verPub, testVer1);
       EXPECT_EQ(set1Depth[sPub1], testDepth1);
       EXPECT_EQ(*itPub1, testChildNum1);
@@ -11809,9 +11795,9 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
       // Check the multiplier.
       if(multiplier1.getSize() != 0)
       {
-         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromOps(
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
                                                  multParKey.getPublicKey(false),
-                                                 multiplier1Vector);
+                                                 multiplier1);
 
          if(childMultKey.getSize() > 0)
          {
@@ -11837,11 +11823,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
    for(vector<uint32_t>::iterator itPub2 = set2ChildNum.begin();
        itPub2 != set2ChildNum.end(); ++itPub2)
    {
-      // We don't have a test vector with multiple, sequential, non-hardened
-      // public keys. So, to test if multipliers can be used to derive public
-      // keys, we'll just test one at a time.
-      vector<SecureBinaryData> multiplier2Vector;
-      
       // Taken from isHardened() (EncryptionUtils.cpp). If not hardened, perform
       // a full check.
       SecureBinaryData multiplier2;
@@ -11858,7 +11839,6 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
          checkKey = childPubKey2;
          parentExtKey2 = childPubKey2;
          tempPrvKey2 = HDWalletCrypto().childKeyDeriv(tempPrvKey2, *itPub2);
-         multiplier2Vector.push_back(multiplier2);
       }
       else
       {
@@ -11892,13 +11872,13 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
       EXPECT_TRUE(checkKey.isPub());
       EXPECT_FALSE(checkKey.isPrv());
       EXPECT_FALSE(checkKey.isMaster());
-      EXPECT_EQ(set2CompPubKey[sPub2].toHexStr(), retKey2.toHexStr());
-      EXPECT_EQ(set2PubKey[sPub2].toHexStr(), retPubKey2.toHexStr());
-      EXPECT_EQ(set2CC[sPub2].toHexStr(), retChaincode2.toHexStr());
-      EXPECT_EQ(set2ID[sPub2].toHexStr(), testID2.toHexStr());
-      EXPECT_EQ(set2FP[sPub2].toHexStr(), testFP2.toHexStr());
-      EXPECT_EQ(set2ParFP[sPub2].toHexStr(), testParFP2.toHexStr());
-      EXPECT_EQ(set2CompPubKey[sPub2].toHexStr(), testCompPub2.toHexStr());
+      EXPECT_EQ(set2CompPubKey[sPub2], retKey2);
+      EXPECT_EQ(set2PubKey[sPub2], retPubKey2);
+      EXPECT_EQ(set2CC[sPub2], retChaincode2);
+      EXPECT_EQ(set2ID[sPub2], testID2);
+      EXPECT_EQ(set2FP[sPub2], testFP2);
+      EXPECT_EQ(set2ParFP[sPub2], testParFP2);
+      EXPECT_EQ(set2CompPubKey[sPub2], testCompPub2);
       EXPECT_EQ(verPub, testVer2);
       EXPECT_EQ(set2Depth[sPub2], testDepth2);
       EXPECT_EQ(*itPub2, testChildNum2);
@@ -11907,9 +11887,9 @@ TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
       // Check the multiplier.
       if(multiplier2.getSize() != 0)
       {
-         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromOps(
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
                                                  multParKey.getPublicKey(false),
-                                                 multiplier2Vector);
+                                                 multiplier2);
 
          if(childMultKey.getSize() > 0)
          {

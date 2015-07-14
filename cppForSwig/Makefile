@@ -68,22 +68,6 @@ ifneq ($(OS),Windows_NT)
     endif
 endif
 
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -threads
-SWIG_INC     +=
-
-# rt library used for glibc <2.17. Safe to include for Linux but not OS X.
-# Place at the end due to link order concerns involving Ubuntu 12.04.
-ifneq ($(OS),Windows_NT)
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Linux)
-        LDLIBS += -lrt
-    endif
-endif
-
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES) -std=c++11
-
 # each .o file depends on all .h files
 ALL_HEADERS_FOUND=$(wildcard *.h)
 ALL_HEADERS=$(filter-out CppBlockUtils_wrap.h,$(ALL_HEADERS_FOUND))

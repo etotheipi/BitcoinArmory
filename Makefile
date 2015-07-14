@@ -20,8 +20,8 @@ endif
 	rm -f qrc_img_resources.py
 	rm -f _CppBlockUtils.so
 	rm -f cppForSwig/cryptopp/a.out
-	rm -f *.pyc BitTornado/*.pyc bitcoinrpc_jsonrpc/*.pyc ui/*.pyc
-	rm -f armoryengine/*.pyc dialogs/*.pyc BitTornado/BT1/*.pyc
+	rm -f *.pyc bitcoinrpc_jsonrpc/*.pyc ui/*.pyc
+	rm -f armoryengine/*.pyc dialogs/*.pyc
 	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
 
 install : all
@@ -32,7 +32,6 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
@@ -49,9 +48,6 @@ install : all
 	cp pytest/*.py $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	cp -r urllib3/* $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
-	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
-	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
-	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop

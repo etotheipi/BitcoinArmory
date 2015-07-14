@@ -92,6 +92,7 @@
 import base64
 import inspect
 import sys
+import getdns
 
 from collections import defaultdict
 
@@ -153,6 +154,70 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       if getBDM().getState() != BDM_BLOCKCHAIN_READY:
          raise BlockchainNotReady('Wallet is not loaded yet. Currently %s'
                                   % getBDM().getState())
+
+   #############################################################################
+   # Utility function that takes an email address, gets a PMTA record based on
+   # the address, and returns the address found within.
+   @catchErrsForJSON
+   def jsonrpc_getdanerecfromdns(self, inAddr):
+      """
+      DESCRIPTION:
+      Function that gets a BTCA record from DNS. Prototype.
+      PARAMETRS:
+      inAddr - Email address with a record in DNS.
+      RETURN:
+      A string with the Bitcoin address associated with the email address.
+      """
+      # Code basically stolen from wallet2.0-dns:dnssec_dane/getDANERec.py and
+      # then slightly enhanced. This WILL require more work later!
+
+      # For now, assume record name is an email address. Use the SMIME record format,
+      # where the username is hashed using SHA224. Also, assume domain is searched.
+      retDict = {}
+      userAddr = ''
+      recordUser, recordDomain = inAddr.split('@', 1)
+      sha224Res = sha224(recordUser)
+      daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
+
+      # Go out and get the DANE record.
+      pmtaRecType, daneRec = getDANERecord(daneReqName)
+      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+         # HACK HACK HACK: Just assume we have a PKS record that is static and
+         # has a Hash160 value.
+         pksRec = PublicKeySource().unserialize(daneRec)
+
+         # Convert Hash160 to Bitcoin address.
+         if daneRec != None:
+            userAddr = hash160_to_addrStr(pksRec.rawSource, ADDRBYTE)
+
+      else:
+         raise InvalidDANESearchParam(inAddr + " has no DANE record")
+
+      retDict['BTC Address'] = userAddr
+      return retDict
+
+
+   #############################################################################
+   @catchErrsForJSON
+   def jsonrpc_getreceivedfromsigner(self, *sigBlock):
+      """
+      DESCRIPTION:
+      Verify that a message (RFC 2440: clearsign or Base64) has been signed by
+      a Bitcoin address and get the amount of coins sent to the current wallet
+      by the message's signer.
+      PARAMETERS:
+      sigBlock - Message with the RFC 2440 message to be verified. The message
+                 must be enclosed in quotation marks.
+      RETURN:
+      A dictionary with verified message and the amount of money sent to the
+      current wallet by the signer.
+      """
+      retDict = {}
+
+      # We must deal with a quirk. Non-escaped spaces (i.e., spaces that aren't
+      # \u0020) will cause the CL parser to split the sig into multiple lines.
+      # We need to combine the lines. (NB: Strip the final space too!)
+      signedMsg = (''.join((str(piece) + ' ') for piece in sigBlock))[:-1]
 
 
    #############################################################################

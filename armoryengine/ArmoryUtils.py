@@ -101,6 +101,7 @@ def readVersionInt(verInt):
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
  
+
 ################################################################################
 def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
    LOGINFO('Executing popen: %s', str(cmd))
@@ -145,6 +146,7 @@ def removeIfExists(*args):
    for fileName in args:
       if os.path.exists(fileName):
          os.remove(fileName)
+
 
 ################################################################################
 def deleteBitcoindDBs():
