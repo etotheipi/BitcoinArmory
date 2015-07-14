@@ -133,6 +133,9 @@ parser.add_option("--verbosity", dest="verbosity", default=None, type="int", hel
 parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 
+# signassert.py arguments
+parser.add_option("-u", "--signer", dest="signer", type="str", help="Wallet ID and address in form ID/address")
+
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 BASE16CHARS  = '0123456789abcdefABCDEF'
