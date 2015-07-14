@@ -157,7 +157,7 @@ void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
 
       if (txio.hasTxInZC())
       {
-         auto& txref = txio.getTxRefOfInput();
+         auto txref = txio.getTxRefOfInput();
          auto keyIter = invalidatedTxOutKeys.find(txref.getDBKey());
 
          if (keyIter != invalidatedTxOutKeys.end())
@@ -172,7 +172,7 @@ void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
 
       if (txio.hasTxOutZC())
       {
-         auto& txref = txio.getTxRefOfOutput();
+         auto txref = txio.getTxRefOfOutput();
          auto keyIter = invalidatedTxOutKeys.find(txref.getDBKey());
 
          if (keyIter != invalidatedTxOutKeys.end())
