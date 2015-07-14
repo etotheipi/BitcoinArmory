@@ -14,7 +14,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from armoryengine.PyBtcWallet import *
-from armoryengine.ArmoryUtils import CLI_OPTIONS, CLI_ARGS
+from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, CLI_OPTIONS, CLI_ARGS
 from jasvet import ASv1CS, readSigBlock, verifySignature
 
 def signAssertFile(wltPath, assertFile):
@@ -63,8 +63,7 @@ if __name__=='__main__':
    assertFile = CLI_ARGS[0]
    wltCode = CLI_OPTIONS.signer.split('/')[0]
    signAddress = CLI_OPTIONS.signer.split('/')[1]
-   wltPath = os.path.join(os.path.expanduser('~'), '.armory',
-           'armory_%s_.wallet' % wltCode)
+   wltPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % wltCode)
    if not os.path.exists(wltPath):
       print 'Wallet file was not found (%s)' % wltPath
       exit(1)
