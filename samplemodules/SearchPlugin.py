@@ -5,8 +5,8 @@ from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
    makeVertFrame
 from armoryengine.ArmoryUtils import addrStr_to_hash160, LOGINFO,\
    BadAddressError, binary_to_hex, coin2str, isLikelyDataType, DATATYPE,\
-   hex_to_binary, ph, BIGENDIAN
-from armoryengine.BDM import TheBDM
+   hex_to_binary, BIGENDIAN
+from armoryengine.BDM import getBDM
 from armoryengine.Transaction import PyTx
 from qtdialogs import DlgAddressInfo, DlgDispTxInfo
 
@@ -35,7 +35,7 @@ class PluginObject(object):
                   txFound = False
                   for entry in walletLedger:
                      if entry.getTxHash() ==  txHashToFind:
-                        cppTx = TheBDM.getTxByHash(txHashToFind)
+                        cppTx = getBDM().getTxByHash(txHashToFind)
                         serializedCppTx = cppTx.serialize()
                         pytx = PyTx().unserialize(serializedCppTx)
                         DlgDispTxInfo(pytx, wlt, self.main, self.main).exec_()

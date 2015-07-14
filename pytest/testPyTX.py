@@ -6,21 +6,12 @@ Created on Aug 4, 2013
 import sys
 sys.path.append('..')
 import unittest
-from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
-   ONE_BTC
-from armoryengine.BinaryUnpacker import BinaryUnpacker
+from armoryengine.ALL import *
 from armoryengine.Block import PyBlock
-from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.Script import PyScriptProcessor
-from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
-   PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent,\
-   PyCreateAndSignTx_old
-from pytest.Tiab import TiabTest
-
 
 
 # Unserialize an reserialize
-tx1raw = hex_to_binary( \
+tx1raw = hex_to_binary(
    '01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d'
    'd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e'
    '3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6'
@@ -29,7 +20,7 @@ tx1raw = hex_to_binary( \
    '9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000'
    '00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008'
    '000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
-tx2raw = hex_to_binary( \
+tx2raw = hex_to_binary(
    '0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144'
    'a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff'
    '6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
@@ -39,7 +30,7 @@ tx2raw = hex_to_binary( \
    '0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb'
    '02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
 
-multiTx1raw = hex_to_binary( \
+multiTx1raw = hex_to_binary(
    '0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
    'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
    'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
@@ -54,7 +45,7 @@ multiTx1raw = hex_to_binary( \
    '981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
    '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
 
-multiTx2raw = hex_to_binary( \
+multiTx2raw = hex_to_binary(
    '0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
    'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
    'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
@@ -70,7 +61,7 @@ multiTx2raw = hex_to_binary( \
    '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
 
    # Here's a full block, which we should be able to parse and process
-hexBlock = ( \
+hexBlock = (
     '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
     '604d91b9b7541a4ecfbb0a1a64f1ade70301000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804cfbb0a1a'
     '02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061'
@@ -112,8 +103,24 @@ tx2Fake = PyTx().unserialize(hex_to_binary( (
 
 ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
-class PyTXTest(TiabTest):
+class mockUTXO(object):
+
+   def __init__(self, txhash, outindex):
+      self.txhash = hex_to_binary(txhash)
+      self.outindex = outindex
+
+   def getTxHash(self):
+      return self.txhash
+
+   def getTxOutIndex(self):
+      return self.outindex
+
+
+class PyTXTest(unittest.TestCase):
    
+   def setUp(self):
+      useMainnet()
+
    def testMinimizeDERSignaturePadding(self):
       multiTx1  = PyTx().unserialize(multiTx1raw)
       paddingMinimizedMulti1, newTxMulti1 = multiTx1.minimizeDERSignaturePadding()
@@ -160,8 +167,12 @@ class PyTXTest(TiabTest):
       self.assertEqual(blk.blockHeader.merkleRoot, blk.blockData.merkleRoot)
    
    def testCreateTx(self):
-      addrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa' * 32))
-      addrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb' * 32)) 
+      prvA = SecureBinaryData('\xaa' * 32)
+      addrA = ArmoryImportedKeyPair()
+      addrA.initializeFromPrivKey(prvA)
+      prvB = SecureBinaryData('\xbb' * 32)
+      addrB = ArmoryImportedKeyPair()
+      addrB.initializeFromPrivKey(prvB)
 
       # This TxIn will be completely ignored, so it can contain garbage
       txinA = PyTxIn()
@@ -203,7 +214,11 @@ class PyTXTest(TiabTest):
       
       self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))
       # Creating transaction to send coins from A to B
-      tx2 = PyCreateAndSignTx_old( [[ addrA, tx1, 0 ]],  [[addrB, 50*ONE_BTC]])
+      pubKeyMap = { addrA.getScrAddr(): addrA.sbdPublicKey33.toBinStr() }
+      ustxi = UnsignedTxInput(tx1.serialize(), 0, pubKeyMap=pubKeyMap)
+      script = scrAddr_to_script(addrB.getScrAddr())
+      dtxo = DecoratedTxOut(script, 50*ONE_BTC)
+      tx2 = PyCreateAndSignTx( [ustxi], [dtxo], [addrA])
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())
@@ -214,52 +229,6 @@ class PyTXTest(TiabTest):
       psp.setTxObjects(tx1Fake, tx2Fake, 0)
       self.assertTrue(psp.verifyTransactionValid())
       
-   def test2of2MultiSigTx(self):
-      tx1 = PyTx().unserialize(hex_to_binary('010000000189a0022c8291b4328338ec95179612b8ebf72067051de019a6084fb97eae0ebe000000004a4930460221009627882154854e3de066943ba96faba02bb8b80c1670a0a30d0408caa49f03df022100b625414510a2a66ebb43fffa3f4023744695380847ee1073117ec90cb60f2c8301ffffffff0210c18d0000000000434104a701496f10db6aa8acbb6a7aa14d62f4925f8da03de7f0262010025945f6ebcc3efd55b6aa4bc6f811a0dc1bbdd2644bdd81c8a63766aa11f650cd7736bbcaf8ac001bb7000000000043526b006b7dac7ca914fc1243972b59c1726735d3c5cca40e415039dce9879a6c936b7dac7ca914375dd72e03e7b5dbb49f7e843b7bef4a2cc2ce9e879a6c936b6c6ca200000000'))
-      tx2 = PyTx().unserialize(hex_to_binary('01000000011c9608650a912be7fa88eecec664e6fbfa4b676708697fa99c28b3370005f32d01000000fd1701483045022017462c29efc9158cf26f2070d444bb2b087b8a0e6287a9274fa36fad30c46485022100c6d4cc6cd504f768389637df71c1ccd452e0691348d0f418130c31da8cc2a6e8014104e83c1d4079a1b36417f0544063eadbc44833a992b9667ab29b4ff252d8287687bad7581581ae385854d4e5f1fcedce7de12b1aec1cb004cabb2ec1f3de9b2e60493046022100fdc7beb27de0c3a53fbf96df7ccf9518c5fe7873eeed413ce17e4c0e8bf9c06e022100cc15103b3c2e1f49d066897fe681a12e397e87ed7ee39f1c8c4a5fef30f4c2c60141047cf315904fcc2e3e2465153d39019e0d66a8aaec1cec1178feb10d46537427239fd64b81e41651e89b89fefe6a23561d25dddc835395dd3542f83b32a1906aebffffffff01c0d8a700000000001976a914fc1243972b59c1726735d3c5cca40e415039dce988ac00000000'))
-      # Verify 2-of-2 tx from Testnet
-      psp = PyScriptProcessor()
-      psp.setTxObjects(tx1, tx2, 0)
-      self.assertTrue(psp.verifyTransactionValid())
-      
-   def test2of3MultiSigTx(self):
-      tx1 = PyTx().unserialize(hex_to_binary('010000000371c06e0639dbe6bc35e6f948da4874ae69d9d91934ec7c5366292d0cbd5f97b0010000008a47304402200117cdd3ec6259af29acea44db354a6f57ac10d8496782033f5fe0febfd77f1b02202ceb02d60dbb43e6d4e03e5b5fbadc031f8bbb3c6c34ad307939947987f600bf01410452d63c092209529ca2c75e056e947bc95f9daffb371e601b46d24377aaa3d004ab3c6be2d6d262b34d736b95f3b0ef6876826c93c4077d619c02ebd974c7facdffffffffa65aa866aa7743ec05ba61418015fc32ecabd99886732056f1d4454c8f762bf8000000008c493046022100ea0a9b41c9372837e52898205c7bebf86b28936a3ee725672d0ca8f434f876f0022100beb7243a51fbc0997e55cb519d3b9cbd59f7aba68d80ba1e8adbb53443cda3c00141043efd1ca3cffc50638031281d227ff347a3a27bc145e2f846891d29f87bc068c27710559c4d9cd71f7e9e763d6e2753172406eb1ed1fadcaf9a8972b4270f05b4ffffffffd866d14151ee1b733a2a7273f155ecb25c18303c31b2c4de5aa6080aef2e0006000000008b483045022052210f95f6b413c74ce12cfc1b14a36cb267f9fa3919fa6e20dade1cd570439f022100b9e5b325f312904804f043d06c6ebc8e4b1c6cd272856c48ab1736b9d562e10c01410423fdddfe7e4d70d762dd6596771e035f4b43d54d28c2231be1102056f81f067914fe4fb6fd6e3381228ee5587ddd2028c846025741e963d9b1d6cf2c2dea0dbcffffffff0210ef3200000000004341048a33e9fd2de28137574cc69fe5620199abe37b7d08a51c528876fe6c5fa7fc28535f5a667244445e79fffc9df85ec3d79d77693b1f37af0e2d7c1fa2e7113a48acc0d454070000000061526b006b7dac7ca9143cd1def404e12a85ead2b4d3f5f9f817fb0d46ef879a6c936b7dac7ca9146a4e7d5f798e90e84db9244d4805459f87275943879a6c936b7dac7ca914486efdd300987a054510b4ce1148d4ad290d911e879a6c936b6c6ca200000000'))
-      tx2 = PyTx().unserialize(hex_to_binary('01000000012f654d4d1d7246d1a824c5b6c5177c0b5a1983864579aabb88cabd5d05e032e201000000fda0014730440220151ad44e7f78f9e0c4a3f2135c19ca3de8dbbb7c58893db096c0c5f1573d5dec02200724a78c3fa5f153103cb46816df46eb6cfac3718038607ddec344310066161e01410459fd82189b81772258a3fc723fdda900eb8193057d4a573ee5ad39e26b58b5c12c4a51b0edd01769f96ed1998221daf0df89634a7137a8fa312d5ccc95ed8925483045022100ca34834ece5925cff6c3d63e2bda6b0ce0685b18f481c32e70de9a971e85f12f0220572d0b5de0cf7b8d4e28f4914a955e301faaaa42f05feaa1cc63b45f938d75d9014104ce6242d72ee67e867e6f8ec434b95fcb1889c5b485ec3414df407e11194a7ce012eda021b68f1dd124598a9b677d6e7d7c95b1b7347f5c5a08efa628ef0204e1483045022074e01e8225e8c4f9d0b3f86908d42a61e611f406e13817d16240f94f52f49359022100f4c768dd89c6435afd3834ae2c882465ade92d7e1cc5c2c2c3d8d25c41b3ea61014104ce66c9f5068b715b62cc1622572cd98a08812d8ca01563045263c3e7af6b997e603e8e62041c4eb82dfd386a3412c34c334c34eb3c76fb0e37483fc72323f807ffffffff01b0ad5407000000001976a9146a4e7d5f798e90e84db9244d4805459f8727594388ac00000000'))
-      # Verify 2-of-3 tx from Testnet
-      psp = PyScriptProcessor()
-      psp.setTxObjects(tx1, tx2, 0)
-      self.assertTrue(psp.verifyTransactionValid())
-            
-   def testMultiSig(self):
-      tx1 = PyTx().unserialize(hex_to_binary('0100000001845ad165bdc0f9b5829cf5a594c4148dfd89e24756303f3a8dabeb597afa589b010000008b483045022063c233df8efa3d1885e069e375a8eabf16b23475ef21bdc9628a513ee4caceb702210090a102c7b602043e72b34a154d495ac19b3b9e42acb962c399451f2baead8f4c014104b38f79037ad25b84a564eaf53ede93dec70b35216e6682aa71a47cefa2996ec49acfbb0a8730577c62ef9a7cc20c740aaaaee75419bef9640a4216c2b49c42d3ffffffff02000c022900000000434104c08c0a71ccbe838403e3870aa1ab871b0ab3a6014b0ba41f6df2b9aefea73134ecaa0b27797620e402a33799e9047f86519d9e43bbd504cf753c293752933f4fac406f40010000000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae00000000'))
-      tx2 = PyTx().unserialize(hex_to_binary('0100000001bb664ff716b9dfc831bcc666c1767f362ad467fcfbaf4961de92e45547daab8701000000fd190100493046022100d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6022100900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca460008776614401473044022071fef8ac0aa6318817dbd242bf51fb5b75be312aa31ecb44a0afe7b49fcf840302204c223179a383bb6fcb80312ac66e473345065f7d9136f9662d867acf96c12a42015241048c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac4104b68ef7d8f24d45e1771101e269c0aacf8d3ed7ebe12b65521712bba768ef53e1e84fff3afbee360acea0d1f461c013557f71d426ac17a293c5eebf06e468253e00ffffffff0280969800000000001976a9140817482d2e97e4be877efe59f4bae108564549f188ac7015a7000000000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae00000000'))
-      # OP_CHECKMULTISIG from Testnet
-      psp = PyScriptProcessor()
-      psp.setTxObjects(tx1, tx2, 0)
-      self.assertTrue(psp.verifyTransactionValid())
-      
-   '''
-   def testMultiSigAddrExtraction(self):
-      script1 = hex_to_binary('4104b54b5fc1917945fff64785d4baaca66a9704e9ed26002f51f53763499643321fbc047683a62be16e114e25404ce6ffdcf625a928002403402bf9f01e5cbd5f3dad4104f576e534f9bbf6d7c5f186ff4c6e0c5442c2755314bdee62fbc656f94d6cbf32c5eb3522da21cf9f954133000ffccb20dbfec030737640cc3315ce09619210d0ac')
-      expectedBtcAddrList1 = ['1KmV9FdKJEFFCHydZUZGdBL9uKq2T9JUm8','13maaQeK5qSPjHwnHhwNUtNKruK3qYLwvv']              
-      self.verifyMultiSigAddrExtraction(script1, expectedBtcAddrList1)
-      
-      script2 = hex_to_binary('537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae')
-      expectedBtcAddrList2 = ['1ChwTs5Dmh6y9iDh4pjWyu2X6nAhjre7SV','1G2i31fxRqaoXBfYMuE4YKb9x96uYcHeQ','12Tg96ZPSYc3P2g5c9c4znFFH2whriN9NQ']
-      self.verifyMultiSigAddrExtraction(script2, expectedBtcAddrList2)
-
-      script3 = hex_to_binary('527a7651a269527a829178a914731cdb75c88a01cbb96729888f726b3b9f29277a879b69527a829178a914e9b4261c6122f8957683636548923acc069e8141879b6952ae')
-      expectedBtcAddrList3 = ['1BVfH6iKT1s8fYEVSj39QkJrPqCKN4hv2m','1NJiFfFPZ177Pv96Yt4FCNZFEumyL2eKmt']
-      self.verifyMultiSigAddrExtraction(script3, expectedBtcAddrList3)
-   '''
-   
-   def verifyMultiSigAddrExtraction(self, scr, expectedBtcAddrList):
-      addrList = getMultisigScriptInfo(scr)[2]
-      btcAddrList = []
-      for a in addrList:
-         btcAddrList.append(PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr())
-      self.assertEqual(btcAddrList, expectedBtcAddrList)
-
    def testUnpackUnserializePyOutPoint(self):
       outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
       self.assertEqual(outpoint.txHash, hex_to_binary('00'*32))
@@ -277,24 +246,53 @@ class PyTXTest(TiabTest):
       print "PyOutPoint PPrint Test. Expect all 0s: "
       outpoint.pprint()
    
-   '''
-   Does not pass because fromCpp is missing
-   def testCreateCppFromCppPyOutPoint(self):
-      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
-      outpointFromCpp = PyOutPoint().fromCpp(outpoint.createCpp())
-      self.assertEqual(outpoint.txHash, outpointFromCpp.txHash)
-      self.assertEqual(outpoint.txOutIndex, outpointFromCpp.txOutIndex)
-   '''
    def testBogusBlockComponent(self):
       class TestBlockComponent(BlockComponent):
          pass
       testBlkComp =  TestBlockComponent()
       self.assertRaises(NotImplementedError, testBlkComp.serialize)  
       self.assertRaises(NotImplementedError, testBlkComp.unserialize)  
+
+   def testDeterministicTxOrdering(self):
+      rawIns = [ 
+         ("0e53ec5dfb2cb8a71fec32dc9a634a35b7e24799295ddd5278217822e0b31f57",0),
+         ("26aa6e6d8b9e49bb0630aac301db6757c02e3619feb4ee0eea81eb1672947024",1),
+         ("28e0fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2",0),
+         ("381de9b9ae1a94d9c17f6a08ef9d341a5ce29e2e60c36a52d333ff6203e58d5d",1),
+         ("3b8b2f8efceb60ba78ca8bba206a137f14cb5ea4035e761ee204302d46b98de2",0),
+         ("402b2c02411720bf409eff60d05adad684f135838962823f3614cc657dd7bc0a",1),
+         ("54ffff182965ed0957dba1239c27164ace5a73c9b62a660c74b7b7f15ff61e7a",1),
+         ("643e5f4e66373a57251fb173151e838ccd27d279aca882997e005016bb53d5aa",0),
+         ("6c1d56f31b2de4bfc6aaea28396b333102b1f600da9c6d6149e96ca43f1102b1",1),
+         ("7a1de137cbafb5c70405455c49c5104ca3057a1f1243e6563bb9245c9c88c191",0),
+         ("7d037ceb2ee0dc03e82f17be7935d238b35d1deabf953a892a4507bfbeeb3ba4",1),
+         ("a5e899dddb28776ea9ddac0a502316d53a4a3fca607c72f66c470e0412e34086",0),
+         ("b4112b8f900a7ca0c8b0e7c4dfad35c6be5f6be46b3458974988e1cdb2fa61b8",0),
+         ("bafd65e3c7f3f9fdfdc1ddb026131b278c3be1af90a4a6ffa78c4658f9ec0c85",0),
+         ("de0411a1e97484a2804ff1dbde260ac19de841bebad1880c782941aca883b4e9",1),
+         ("f0a130a84912d03c1d284974f563c5949ac13f8342b8112edff52971599e6a45",0),
+         ("f320832a9d2e2452af63154bc687493484a0e7745ebd3aaf9ca19eb80834ad60",0),
+      ]
+      rawOuts = [
+         ("76a9144a5fba237213a062f6f57978f796390bdcf8d01588ac", 400057456),
+         ("76a9145be32612930b8323add2212a4ec03c1562084f8488ac", 40000000000),
+      ]
+      ins = [mockUTXO(*x) for x in rawIns]
+      outs = [(hex_to_binary(x[0]), x[1]) for x in rawOuts]
+      setDeterministicTxOrderingFlag(False)
+      reorderInputsAndOutputs(ins, outs)
+      for i, inp in enumerate(ins):
+         if binary_to_hex(inp.getTxHash()) != rawIns[i][0]:
+            break
+      else:
+         self.assertTrue(False)
+
+      setDeterministicTxOrderingFlag(True)
+      reorderInputsAndOutputs(ins, outs)
+      for i, inp in enumerate(ins):
+         self.assertEqual(binary_to_hex(inp.getTxHash()), rawIns[i][0])
+      for i, out in enumerate(outs):
+         self.assertEqual(binary_to_hex(out[0]), rawOuts[i][0])
+      setDeterministicTxOrderingFlag(False)
    
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
-
-# Running tests with "python <module name>" will NOT work for any Armory tests
-# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
-# if __name__ == "__main__":
-#    unittest.main()

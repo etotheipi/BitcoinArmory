@@ -23,7 +23,7 @@ from CppBlockUtils import SecureBinaryData
 from armoryengine.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError, \
    WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO, hash160_to_p2pkhash_script,\
    CPP_TXOUT_STDSINGLESIG, scrAddr_to_hash160
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import getBDM
 from armoryengine.CoinSelection import calcMinSuggestedFees, PySelectCoins
 from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from qtdefines import GETFONT, tr
@@ -241,18 +241,18 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
       print ustx.serializeAscii()
    finally:
-      TheBDM.beginCleanShutdown()
+      getBDM().beginCleanShutdown()
    return pytx
 
 def setupTheBDM():
-   TheBDM.setBlocking(True)
-   if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+   getBDM().setBlocking(True)
+   if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
       masterWallet.registerWallet()
-      TheBDM.setOnlineMode(True)
+      getBDM().setOnlineMode(True)
       # Only executed on the first call if blockchain not loaded yet.
       LOGINFO('Blockchain loading')
-      while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         LOGINFO('Blockchain Not Ready Yet %s' % TheBDM.getState())
+      while not getBDM().getState()==BDM_BLOCKCHAIN_READY:
+         LOGINFO('Blockchain Not Ready Yet %s' % getBDM().getState())
          time.sleep(2)
 # Sweep all of the funds from the imported addrs back to a
 # new addrin the master wallet

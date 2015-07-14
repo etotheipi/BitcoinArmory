@@ -18,11 +18,11 @@ from jasvet import ASv1CS, readSigBlock, verifySignature
 
 def signAnnounceFiles(wltPath):
    
-   if len(CLI_ARGS)<1:
+   if len(getCommandLineArgs())<1:
       print 'Must specify a wallet file containing the signing key'
       exit(1)
    
-   wltPath = CLI_ARGS[0]
+   wltPath = getCommandLineArgs()[0]
    if not os.path.exists(wltPath):
       print 'Wallet file was not found (%s)' % wltPath
       exit(1)
@@ -37,9 +37,9 @@ def signAnnounceFiles(wltPath):
    ################################################################################
    ################################################################################
    # We may need to compute some installer hashes
-   doComputeDLLinks = (len(CLI_ARGS)>1)
+   doComputeDLLinks = (len(getCommandLineArgs())>1)
    if doComputeDLLinks:
-      instDir = CLI_ARGS[1]
+      instDir = getCommandLineArgs()[1]
       if not os.path.exists(instDir):
          print 'Installers dir does not exist!'
          exit(1)
@@ -87,7 +87,7 @@ def signAnnounceFiles(wltPath):
             
    
    ###
-   if CLI_OPTIONS.testAnnounceCode:
+   if getTestAnnounceFlag():
       signAddress  = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
       announceName = 'testannounce.txt'
       pathPrefix   = 'https://s3.amazonaws.com/bitcoinarmory-testing/'
@@ -218,7 +218,7 @@ def signAnnounceFiles(wltPath):
          continue
       with open(os.path.join(outDir, fname), 'rb') as f:
          sig,msg = readSigBlock(f.read())
-         addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
+         addrB58 = verifySignature(sig, msg, 'v1', ord(getAddrByte()))
          print 'Sign addr for:', vals[0].ljust(longestID+3), addrB58
       
    

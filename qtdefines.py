@@ -5,52 +5,31 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
+import gettext
+import random
 import struct
+import urllib
+
 from tempfile import mkstemp
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-import urllib
+
+from armoryengine.ArmoryUtils import *
 
 from armorycolors import Colors, htmlColor
-from armoryengine.ArmoryUtils import *
-from armoryengine.BinaryUnpacker import *
-from armoryengine.MultiSigUtils import *
 
-import gettext
-
-SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-USERMODE        = enum('Standard', 'Advanced', 'Expert')
-SATOSHIMODE     = enum('Auto', 'User')
-NETWORKMODE     = enum('Offline', 'Full', 'Disconnected')
-WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
-WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
-                       'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
-MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
-MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
-DASHBTNS        = enum('Close', 'Browse', 'Install', 'Instruct', 'Settings')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_PLAIN  = QFrame.Box | QFrame.Plain
 STYLE_STYLED = QFrame.StyledPanel | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
-VERTICAL = 'vertical'
-HORIZONTAL = 'horizontal'
-CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
-BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
-PRIVACY_URL = 'https://bitcoinarmory.com/privacy-policy'
-# For announcements handling
-ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
-if CLI_OPTIONS.testAnnounceCode:
-   HTTP_ANNOUNCE_FILE = \
-      'https://s3.amazonaws.com/bitcoinarmory-testing/testannounce.txt'
-else:
-   HTTP_ANNOUNCE_FILE = 'https://bitcoinarmory.com/atiannounce.txt'
 
 # Keep track of dialogs and wizard that are executing
 runningDialogsList = []
+
+MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
 
 def AddToRunningDialogsList(func):
    def wrapper(*args, **kwargs):
@@ -134,25 +113,25 @@ def VLINE(style=QFrame.Plain):
 def GETFONT(ftype, sz=10, bold=False, italic=False):
    fnt = None
    if ftype.lower().startswith('fix'):
-      if OS_WINDOWS:
+      if isWindows():
          fnt = QFont("Courier", sz)
-      elif OS_MACOSX:
+      elif isMac():
          fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    elif ftype.lower().startswith('var'):
-      if OS_MACOSX:
+      if isMac():
          fnt = QFont("Lucida Grande", sz)
       else:
          fnt = QFont("Verdana", sz)
-      #if OS_WINDOWS:
+      #if isWindows():
          #fnt = QFont("Tahoma", sz)
       #else: 
          #fnt = QFont("Sans", sz)
    elif ftype.lower().startswith('money'):
-      if OS_WINDOWS:
+      if isWindows():
          fnt = QFont("Courier", sz)
-      elif OS_MACOSX:
+      elif isMac():
          fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
@@ -175,9 +154,6 @@ def UnicodeErrorBox(parent):
       'Please use only letters found '
       'on an English(US) keyboard.  This will be fixed in an upcoming '
       'release'), QMessageBox.Ok)
-
-
-
 
 #######
 def UserModeStr(mode):
@@ -243,18 +219,15 @@ def relaxedSizeNChar(obj, nChar):
 
 #############################################################################
 def determineWalletType(wlt, wndw):
-   if wlt.watchingOnly:
+   if wlt.isWatchOnly:
       if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
          return [WLTTYPES.Offline, tr('Offline')]
       else:
          return [WLTTYPES.WatchOnly, tr('Watching-Only')]
-   elif wlt.useEncryption:
+   elif wlt.useEncryption():
       return [WLTTYPES.Crypt, tr('Encrypted')]
    else:
       return [WLTTYPES.Plain, tr('No Encryption')]
-
-
-
 
 
 #############################################################################
@@ -286,8 +259,6 @@ def initialColResize(tblViewObj, sizeList):
       tblViewObj.horizontalHeader().resizeSection(c, pct*szRemain)
 
    tblViewObj.horizontalHeader().setStretchLastSection(True)
-
-
 
 
 class QRichLabel(QLabel):
@@ -326,7 +297,6 @@ class QRichLabel(QLabel):
       
    def setItalic(self):
       self.setText('<i>' + self.text() + '</i>')
-
 
 
 class QMoneyLabel(QRichLabel):
@@ -655,9 +625,6 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame, condenseMargins=Fa
    frm.setLayout(frmLayout)
    return frm
    
-
-def addFrame(widget, style=STYLE_SUNKEN, condenseMargins=False):
-   return makeLayoutFrame(HORIZONTAL, [widget], style, condenseMargins)
    
 def makeVertFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
    return makeLayoutFrame(VERTICAL, widgetList, style, condenseMargins)
@@ -678,8 +645,6 @@ def QImageLabel(imgfn, size=None, stretch='NoStretch'):
    lbl.setPixmap(px)
    return lbl
    
-
-
 
 def restoreTableView(qtbl, hexBytes):
    try:
@@ -713,9 +678,6 @@ def saveTableView(qtbl):
    first = int_to_hex(nCol)
    rest  = [int_to_hex(s, widthBytes=2) for s in sz]
    return 'ff' + first + ''.join(rest)
-
-
-
 
 
 ################################################################################
@@ -756,7 +718,7 @@ class ArmoryDialog(QDialog):
       self.setFont(GETFONT('var'))
       self.setWindowFlags(Qt.Window)
 
-      if USE_TESTNET:
+      if getTestnetFlag():
          self.setWindowTitle(tr('Armory - Bitcoin Wallet Management [TESTNET] ' + self.__class__.__name__))
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
@@ -886,10 +848,6 @@ class DlgInflatedQR(ArmoryDialog):
       self.showFullScreen()
       
 
-
-
-
-
 # Pure-python BMP creator taken from:
 #
 #     http://pseentertainmentcorp.com/smf/index.php?topic=2034.0
@@ -992,32 +950,14 @@ def createBitmap(imgMtrx2D, writeToFile=-1, returnBinary=True):
          return False
       
 
-
-def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
-                           ffilter=[]):
-
-   types = list(ffilter)
-   types.append('All files (*)')
-   typesStr = ';; '.join(types)
-   if not OS_MACOSX:
-      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
-         title, ARMORY_HOME_DIR, typesStr))
-   else:
-      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
-         title, ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog))
-
-   if fullPath:
-      qObj.setText( fullPath)
-   
-
 def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
-   initPath = ARMORY_HOME_DIR
+   initPath = getArmoryHomeDir()
    currText = unicode(qObj.text()).strip()
    if len(currText)>0:
       if os.path.exists(currText):
          initPath = currText
     
-   if not OS_MACOSX:
+   if not isMac():
       fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath))
    else:
       fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath, \

@@ -252,6 +252,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mainnet", action="store_true", default=False,
                         help="connect to mainnet")
+    parser.add_argument("--wallet", action="store", default=None,
+                        help="wallet to set as active")
     parser.add_argument("--lockbox", action="store", default=None,
                         help="Comma-separated list of wallets to use for an m-of-n lockbox to receive payment. There should be n elements.")
     parser.add_argument("-m", action="store", type=int, default=2,
@@ -272,5 +274,11 @@ if __name__ == "__main__":
                 print "%s is not a valid wallet to create a lockbox" % lockbox
                 sys.exit()
             lockbox_args.append(lockbox)
+
+    if options.wallet:
+        data = armoryd_request("setactivewallet", [options.wallet])
+        if data.endswith("does not exist."):
+            print data
+            sys.exit()
 
     socketio.run(app,host="0.0.0.0")

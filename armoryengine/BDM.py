@@ -5,37 +5,16 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-import Queue
-import os.path
-import random
+import os
 import threading
-import traceback
 
-from armoryengine.ArmoryUtils import *
+from ArmoryOptions import *
+from ArmoryLog import LOGINFO, LOGERROR
 from SDM import SatoshiDaemonManager
-from armoryengine.Timer import TimeThisFunction
+from Timer import TimeThisFunction
+
 import CppBlockUtils as Cpp
-from armoryengine.BinaryPacker import UINT64
 
-
-BDM_OFFLINE = 'Offline'
-BDM_UNINITIALIZED = 'Uninitialized'
-BDM_BLOCKCHAIN_READY = 'BlockChainReady'
-BDM_SCANNING = 'Scanning'
-
-FINISH_LOAD_BLOCKCHAIN_ACTION = 'FinishLoadBlockchain'   
-NEW_ZC_ACTION = 'newZC'
-NEW_BLOCK_ACTION = 'newBlock'
-REFRESH_ACTION = 'refresh'
-STOPPED_ACTION = 'stopped'
-WARNING_ACTION = 'warning'
-SCAN_ACTION = 'StartedWalletScan'
-
-def newTheBDM(isOffline=False):
-   global TheBDM
-   if TheBDM:
-      TheBDM.beginCleanShutdown()
-   TheBDM = BlockDataManager(isOffline=isOffline)
 
 class PySide_CallBack(Cpp.BDM_CallBack):
    def __init__(self, bdm):
@@ -55,8 +34,8 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          
          if action == Cpp.BDMAction_Ready:
             act = FINISH_LOAD_BLOCKCHAIN_ACTION
-            TheBDM.topBlockHeight = block
-            TheBDM.setState(BDM_BLOCKCHAIN_READY)
+            _SINGLETON_BDM.topBlockHeight = block
+            _SINGLETON_BDM.setState(BDM_BLOCKCHAIN_READY)
          elif action == Cpp.BDMAction_ZC:
             act = NEW_ZC_ACTION
             castArg = Cpp.BtcUtils_cast_to_LedgerVector(arg)
@@ -65,7 +44,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             act = NEW_BLOCK_ACTION
             castArg = Cpp.BtcUtils_cast_to_int(arg)
             arglist.append(castArg)
-            TheBDM.topBlockHeight = block
+            _SINGLETON_BDM.topBlockHeight = block
          elif action == Cpp.BDMAction_Refresh:
             act = REFRESH_ACTION
             castArg = Cpp.BtcUtils_cast_to_BinaryDataVector(arg)
@@ -81,7 +60,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             argstr = Cpp.BtcUtils_cast_to_string_vec(arg)
             arglist.append(argstr)
             
-         listenerList = TheBDM.getListenerList()
+         listenerList = _SINGLETON_BDM.getListenerList()
          for cppNotificationListener in listenerList:
             cppNotificationListener(act, arglist)
       except:
@@ -99,7 +78,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
             self.bdm.progressNumeric = progressNumeric
          else:
             progInfo = [walletVec, prog]
-            for cppNotificationListener in TheBDM.getListenerList():
+            for cppNotificationListener in _SINGLETON_BDM.getListenerList():
                cppNotificationListener('progress', progInfo)
                
       except:
@@ -137,14 +116,14 @@ class BDM_Inject(Cpp.BDM_Inject):
       
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
-   return (time0, TheBDM.getTopBlockHeight())
+   return (time0, _SINGLETON_BDM.getTopBlockHeight())
 
-# Make TheBDM act like it's a singleton. Always use the global singleton TheBDM
+# Make _SINGLETON_BDM act like it's a singleton. Always use the global singleton _SINGLETON_BDM
 # instance that exists in this module regardless of the instance that passed as self
 def ActLikeASingletonBDM(func):
    def inner(*args, **kwargs):
-      if TheBDM and len(args) > 0:
-         newArgs = (TheBDM,) + args[1:]
+      if _SINGLETON_BDM and len(args) > 0:
+         newArgs = (_SINGLETON_BDM,) + args[1:]
          return func(*newArgs, **kwargs)
       else:
          return func(*args, **kwargs)
@@ -163,14 +142,15 @@ class BlockDataManager(object):
       self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
       
-      self.armoryDBDir = ""
+      self.btcdir = getBitcoinHomeDir()
+      self.armoryDBDir = getArmoryDatabaseDir()
 
       #dbType
       self.dbType = Cpp.ARMORY_DB_BARE
-      if ENABLE_SUPERNODE:
+      if getSupernodeFlag():
          self.dbType = Cpp.ARMORY_DB_SUPER      
       
-      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True));
+      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig(forInit=True))
 
       # Flags
       self.aboutToRescan = False
@@ -181,14 +161,10 @@ class BlockDataManager(object):
       
       if isOffline == True: self.bdmState = BDM_OFFLINE
       else: self.bdmState = BDM_UNINITIALIZED
-
-      self.btcdir = BTC_HOME_DIR
-      self.armoryDBDir = ARMORY_DB_DIR
       self.lastPctLoad = 0
-      
+
       self.topBlockHeight = 0
       self.cppNotificationListenerList = []
-   
    
    #############################################################################
    @ActLikeASingletonBDM
@@ -294,14 +270,14 @@ class BlockDataManager(object):
    #############################################################################   
    @ActLikeASingletonBDM
    def bdmMode(self):
-      if CLI_OPTIONS.rebuild:
+      if getRebuildFlag():
          mode = 2
-      elif CLI_OPTIONS.rescan:
+      elif getRescanFlag():
          mode = 1
       else:
          mode = 0
          
-      if CLI_OPTIONS.clearMempool:
+      if getClearMempoolFlag():
          mode += 4
       return mode
       
@@ -309,12 +285,12 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def bdmConfig(self, forInit=False):
 
-      blkdir = ""
-      
-      if forInit == False:
-      # Check for the existence of the Bitcoin-Qt directory         
+      if forInit:
+         blkdir = os.path.join(self.btcdir, 'blocks')
+      else:
+         # Check for the existence of the Bitcoin-Qt directory         
          if not os.path.exists(self.btcdir):
-            raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
+            raise FileExistsError('Directory does not exist: %s' % self.btcdir)
    
          blkdir = os.path.join(self.btcdir, 'blocks')
          blk1st = os.path.join(blkdir, 'blk00000.dat')
@@ -327,7 +303,7 @@ class BlockDataManager(object):
       blockdir = blkdir
       armoryDBDir = self.armoryDBDir
       
-      if OS_WINDOWS:
+      if isWindows():
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
          if isinstance(self.armoryDBDir, unicode):
@@ -338,10 +314,9 @@ class BlockDataManager(object):
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.blkFileLocation = blockdir
       bdmConfig.levelDBLocation = armoryDBDir
-      bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
-      bdmConfig.setGenesisTxHash(GENESIS_TX_HASH)
-      bdmConfig.setMagicBytes(MAGIC_BYTES)
-
+      bdmConfig.setGenesisBlockHash(getGenesisBlockHash())
+      bdmConfig.setGenesisTxHash(getGenesisTxHash())
+      bdmConfig.setMagicBytes(getMagicBytes())
       return bdmConfig
 
    #############################################################################
@@ -394,49 +369,56 @@ class BlockDataManager(object):
             func(args)
       self.registerCppNotification(bdmCallback)
       
+
+_SINGLETON_BDM, _SINGLETON_SDM = None, None
+
+def getBDM():
+   if _SINGLETON_BDM is None:
+      raise RuntimeError("Initialize the BDM first.")
+   return _SINGLETON_BDM
+
+def getSDM():
+   if _SINGLETON_SDM is None:
+      raise RuntimeError("Initialize the SDM first.")
+   return _SINGLETON_SDM
+
+def reloadBDM(isOffline=False):
+   global _SINGLETON_BDM
+   if _SINGLETON_BDM:
+      _SINGLETON_BDM.beginCleanShutdown()
+   _SINGLETON_BDM = BlockDataManager(isOffline=isOffline)
    
 ################################################################################
-# Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
-# running 
-TheBDM = None
-TheSDM = None
-if CLI_OPTIONS.offline:
-   LOGINFO('Armory loaded in offline-mode.  Will not attempt to load ')
-   LOGINFO('blockchain without explicit command to do so.')
-   TheBDM = BlockDataManager(isOffline=True)
+# Make _SINGLETON_BDM reference the asyncrhonous BlockDataManager wrapper if we
+# are running 
+def initializeBDM():
+   global _SINGLETON_BDM, _SINGLETON_SDM
+   if getOfflineFlag():
+      LOGINFO('Armory loaded in offline-mode.  Will not attempt to load ')
+      LOGINFO('blockchain without explicit command to do so.')
+      _SINGLETON_BDM = BlockDataManager(isOffline=True)
 
-   # Also create the might-be-needed SatoshiDaemonManager
-   TheSDM = SatoshiDaemonManager()
+      # Also create the might-be-needed SatoshiDaemonManager
+      _SINGLETON_SDM = SatoshiDaemonManager()
+   else:
+      # NOTE:  "_SINGLETON_BDM" is sometimes used in the C++ code to reference
+      #        the singleton BlockDataManager_LevelDB class object.  Here, 
+      #        "_SINGLETON_BDM" refers to a python BlockDataManagerThead class 
+      #        object that wraps the C++ version.  It implements some of 
+      #        it's own methods, and then passes through anything it 
+      #        doesn't recognize to the C++ object.
+      LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
+      LOGINFO('Blockchain operations will happen in the background.  ')
+      LOGINFO('Devs: check _SINGLETON_BDM.getState() before asking for data.')
+      LOGINFO('Registering addresses during rescans will queue them for ')
+      LOGINFO('inclusion after the current scan is completed.')
+      _SINGLETON_BDM = BlockDataManager(isOffline=False)
 
-else:
-   # NOTE:  "TheBDM" is sometimes used in the C++ code to reference the
-   #        singleton BlockDataManager_LevelDB class object.  Here, 
-   #        "TheBDM" refers to a python BlockDataManagerThead class 
-   #        object that wraps the C++ version.  It implements some of 
-   #        it's own methods, and then passes through anything it 
-   #        doesn't recognize to the C++ object.
-   LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
-   LOGINFO('Blockchain operations will happen in the background.  ')
-   LOGINFO('Devs: check TheBDM.getState() before asking for data.')
-   LOGINFO('Registering addresses during rescans will queue them for ')
-   LOGINFO('inclusion after the current scan is completed.')
-   TheBDM = BlockDataManager(isOffline=False)
-
-   cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   cpplf = cppLogFile
-   if OS_WINDOWS and isinstance(cppLogFile, unicode):
-      cpplf = cppLogFile.encode('utf8')
-   Cpp.StartCppLogging(cpplf, 4)
-   Cpp.EnableCppLogStdOut()    
-
-   #LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
-
-   # Also load the might-be-needed SatoshiDaemonManager
-   TheSDM = SatoshiDaemonManager()
-
-
-# Put the import at the end to avoid circular reference problem
-from armoryengine.MultiSigUtils import MultiSigLockbox
-from armoryengine.Transaction import PyTx
-
-# kate: indent-width 3; replace-tabs on;
+      cppLogFile = getArmoryCppLogFile()
+      cpplf = cppLogFile
+      if isWindows() and isinstance(cppLogFile, unicode):
+         cpplf = cppLogFile.encode('utf8')
+      Cpp.StartCppLogging(cpplf, 4)
+      Cpp.EnableCppLogStdOut()    
+      # Also load the might-be-needed SatoshiDaemonManager
+      _SINGLETON_SDM = SatoshiDaemonManager()

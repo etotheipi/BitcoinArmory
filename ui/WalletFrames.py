@@ -9,10 +9,10 @@
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
 
-from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
-from qtdefines import * #@UnusedWildImport
+from armoryengine.ArmoryOptions import *
+from armoryengine.BDM import getBDM
 
-WALLET_DATA_ENTRY_FIELD_WIDTH = 60
+from qtdefines import * #@UnusedWildImport
 
 
 class LockboxSelectFrame(ArmoryFrame):
@@ -61,7 +61,7 @@ class LockboxSelectFrame(ArmoryFrame):
       self.dispDescr = QRichLabel(dispDescr)
       self.dispDescr.setWordWrap(True)
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      bal = self.cppWlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+      bal = self.cppWlt.getSpendableBalance(getBDM().getTopBlockHeight(), getIgnoreZCFlag())
       self.dispBal = QMoneyLabel(bal, wBold=True)
       self.dispBal.setTextFormat(Qt.RichText)
 
@@ -130,10 +130,14 @@ class SelectWalletFrame(ArmoryFrame):
                continue
 
             self.displayIDs.append(wltID)
+            name = wlt.getLabel()
+            if name is None:
+               name = ''
+            
             if self.doVerticalLayout:
-               self.walletComboBox.addItem(wlt.labelName)
+               self.walletComboBox.addItem(name)
             else:
-               self.walletListBox.addItem(QListWidgetItem(wlt.labelName))
+               self.walletListBox.addItem(QListWidgetItem(name))
          
             if wltID == firstSelect:
                selectedWltIndex = wltItems
@@ -266,11 +270,11 @@ class SelectWalletFrame(ArmoryFrame):
          wlt = self.main.walletMap[wltID]
                
          self.dispID.setText(wltID)
-         self.dispName.setText(wlt.labelName)
-         self.dispDescr.setText(wlt.labelDescr)
+         self.dispName.setText(wlt.getLabel())
+         self.dispDescr.setText(wlt.getDescription())
          self.selectedID = wltID
          
-         if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
+         if not getBDM().getState() == BDM_BLOCKCHAIN_READY:
             self.dispBal.setText('-' * 12)
          else:
             bal = wlt.getBalance('Spendable')
@@ -299,22 +303,22 @@ class SelectWalletFrame(ArmoryFrame):
       fullBal = wlt.getBalance('Spendable')
       if useAllAddr:
          self.dispID.setText(wlt.uniqueIDB58)
-         self.dispName.setText(wlt.labelName)
-         self.dispDescr.setText(wlt.labelDescr)
+         self.dispName.setText(wlt.getLabel())
+         self.dispDescr.setText(wlt.getDescription())
          if fullBal == 0:
             self.dispBal.setText('0.0', color='TextRed', bold=True)
          else:
             self.dispBal.setValueText(fullBal, wBold=True)
       else:
          self.dispID.setText(wlt.uniqueIDB58 + '*')
-         self.dispName.setText(wlt.labelName + '*')
+         self.dispName.setText(wlt.getLabel() + '*')
          self.dispDescr.setText('*Coin Control Subset*', color='TextBlue', bold=True)
          self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextBlue')
          rawValTxt = str(self.dispBal.text())
          self.dispBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
                                     (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
-      if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
+      if not getBDM().getState() == BDM_BLOCKCHAIN_READY:
          self.dispBal.setText('(available when online)', color='DisableFG')
       self.repaint()
       if self.coinControlCallback:
@@ -322,21 +326,33 @@ class SelectWalletFrame(ArmoryFrame):
 
 
 
-
-
 # Container for controls used in configuring a wallet to be added to any
 # dialog or wizard. Currently it is only used the create wallet wizard.
-# Just has Name and Description
+# Just has WalletFile, Name and Description
 # Advanced options have just been moved to their own frame to be used in 
 # the restore wallet dialog as well.
 class NewWalletFrame(ArmoryFrame):
 
    def __init__(self, parent, main, initLabel=''):
       super(NewWalletFrame, self).__init__(parent, main)
+      self.comboFile = QComboBox()
+      self.comboFile.addItem("[Create a new file]")
+      seen = {}
+      for wltID in self.main.walletIDList:
+         wlt = self.main.walletMap[wltID]
+         fileID = wlt.wltFileRef.uniqueIDB58
+         LOGERROR("file id is %s for %s" % (fileID, wltID))
+         if seen.get(fileID) is None:
+            self.comboFile.addItem(fileID)
+         seen[fileID] = True
+      lblFile = QLabel("&File:")
+      lblFile.setBuddy(self.comboFile)
+
       self.editName = QLineEdit()
       self.editName.setMinimumWidth(tightSizeNChar(self.editName,\
                                  WALLET_DATA_ENTRY_FIELD_WIDTH)[0])
       self.editName.setText(initLabel)
+
       lblName = QLabel("Wallet &name:")
       lblName.setBuddy(self.editName)
 
@@ -353,10 +369,11 @@ class NewWalletFrame(ArmoryFrame):
       newWalletTabs = QTabWidget()
       
       #### Basic Tab
+      fileFrame = makeHorizFrame([lblFile, STRETCH, self.comboFile])
       nameFrame = makeHorizFrame([lblName, STRETCH, self.editName])
       descriptionFrame = makeHorizFrame([lblDescription,
                                          STRETCH, self.editDescription])
-      basicQTab = makeVertFrame([nameFrame, descriptionFrame, STRETCH])
+      basicQTab = makeVertFrame([fileFrame, nameFrame, descriptionFrame, STRETCH])
       newWalletTabs.addTab(basicQTab, "Configure")
       
       # Fork watching-only wallet
@@ -382,6 +399,14 @@ class NewWalletFrame(ArmoryFrame):
 
    def getDescription(self):
       return str(self.editDescription.toPlainText())
+
+   def getFile(self):
+      s = str(self.comboFile.currentText())
+      if s == '[Create a new file]':
+         return None
+      else:
+         return s
+
 
 class AdvancedOptionsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel=''):
@@ -776,7 +801,7 @@ class WalletBackupFrame(ArmoryFrame):
    def setWallet(self, wlt):
       self.wlt = wlt
       wltID = wlt.uniqueIDB58
-      wltName = wlt.labelName
+      wltName = wlt.getLabel()
       self.hasImportedAddr = self.wlt.hasAnyImported()
       # Highlight imported-addr feature if their wallet contains them
       pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
@@ -956,10 +981,9 @@ class WalletBackupFrame(ArmoryFrame):
          from qtdialogs import DlgProgress
          unlockProgress = DlgProgress(self, self.main, HBar=1,
                                       Title="Unlocking Wallet")
-         unlockProgress.exec_(self.wlt.unlock, 
-                              securePassphrase=SecureBinaryData( \
-                              self.passphrase),
-                              Progress=unlockProgress.UpdateHBar)
+         unlockProgress.exec_(
+            self.wlt.unlock, SecureBinaryData(self.passphrase),
+            Progress=unlockProgress.UpdateHBar)
          
       if self.optPaperBackupOne.isChecked():
          isBackupCreated = OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
@@ -971,7 +995,7 @@ class WalletBackupFrame(ArmoryFrame):
       elif self.optDigitalBackupCrypt.isChecked():
          isBackupCreated = self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
       elif self.optIndivKeyListTop.isChecked():
-         if self.wlt.useEncryption and self.wlt.isLocked:
+         if self.wlt.useEncryption() and self.wlt.isLocked():
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
             if not dlg.exec_():
                if self.main.usermode == USERMODE.Expert:
@@ -1019,6 +1043,10 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
                Use the "<i>Import or Restore Wallet</i>" button in the
                upper-right corner"""))
       lbtnForkWlt = QPushButton('Create Watching-Only Copy')
+      
+      # TODO implement Watching Only Wallet with BIP-32
+      # Then enable this button
+      lbtnForkWlt.setEnabled(False)
       self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
       layout = QVBoxLayout()
       layout.addWidget(summaryText)
@@ -1027,20 +1055,22 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
       
    
    def forkOnlineWallet(self):
-      currPath = self.wlt.walletPath
+      currPath = self.wlt.wltFileRef.walletPath
       pieces = os.path.splitext(currPath)
       currPath = pieces[0] + '.watchonly' + pieces[1]
 
       saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
                                       defaultFilename=currPath)
-      if not saveLoc.endswith('.wallet'):
-         saveLoc += '.wallet'
-      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
-                             '(Watching-Only) ' + self.wlt.labelDescr)   
+      if not saveLoc.endswith('.wlt'):
+         saveLoc += '.wlt'
+
+      # TODO: make the watch-only thing work
+      #self.wlt.forkOnlineWallet(saveLoc, self.wlt.getLabel(), \
+      #                       '(Watching-Only) ' + self.wlt.getDescription())   
    
    def setWallet(self, wlt):
       self.wlt = wlt
       
 # Need to put circular imports at the end of the script to avoid an import deadlock
-from qtdialogs import CLICKED, DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
-   QRadioButtonBackupCtr, OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList
+from qtdialogs import DlgCoinControl, QRadioButtonBackupCtr, \
+   OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList

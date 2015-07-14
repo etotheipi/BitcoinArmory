@@ -5,20 +5,20 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from armoryengine.ArmoryUtils import UNINITIALIZED, UnitializedBlockDataError, \
-   hash256, LITTLEENDIAN, BIGENDIAN, binary_switchEndian, binary_to_hex, \
-   binaryBits_to_difficulty
-from armoryengine.BDM import TheBDM
-from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.Transaction import BlockComponent, indent, PyTx
-from armoryengine.BinaryPacker import BinaryPacker, UINT32, BINARY_CHUNK, \
-   VAR_INT
+from ArmoryUtils import binary_to_hex, binaryBits_to_difficulty, \
+   binary_switchEndian, hash256
+from BDM import getBDM
+from BinaryPacker import BinaryPacker, BinaryUnpacker
+from Constants import *
+from Exceptions import *
+from Transaction import BlockComponent, indent, PyTx
 
 
 
 ################################################################################
 #  Block Information
 ################################################################################
+
 class PyBlockHeader(BlockComponent):
    def __init__(self):
       self.version      = 1
@@ -41,7 +41,7 @@ class PyBlockHeader(BlockComponent):
 
    def serialize(self):
       if self.version == UNINITIALIZED:
-         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
+         raise UninitializedBlockDataError('PyBlockHeader object not initialized!')
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
       binOut.put(BINARY_CHUNK, self.prevBlkHash)
@@ -69,7 +69,7 @@ class PyBlockHeader(BlockComponent):
 
    def getHash(self, endian=LITTLEENDIAN):
       if self.version == UNINITIALIZED:
-         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
+         raise UninitializedBlockDataError('PyBlockHeader object not initialized!')
       if len(self.theHash) < 32:
          self.theHash = hash256(self.serialize())
       outHash = self.theHash
@@ -79,21 +79,21 @@ class PyBlockHeader(BlockComponent):
 
    def getHashHex(self, endian=LITTLEENDIAN):
       if self.version == UNINITIALIZED:
-         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
+         raise UninitializedBlockDataError('PyBlockHeader object not initialized!')
       if len(self.theHash) < 32:
          self.theHash = hash256(self.serialize())
       return binary_to_hex(self.theHash, endian)
 
    def getDifficulty(self):
       if self.diffBits == UNINITIALIZED:
-         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
+         raise UninitializedBlockDataError('PyBlockHeader object not initialized!')
       self.intDifficult = binaryBits_to_difficulty(self.diffBits)
       return self.intDifficult
-   
+
    def fetchCpp(self):
       """ Convert a raw blockheader with no context, to a C++ BlockHeader """
-      return TheBDM.getHeaderByHash(self.getHash())
-      
+      return getBDM().getHeaderByHash(self.getHash())
+
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
@@ -135,7 +135,7 @@ class PyBlockData(object):
 
    def serialize(self):
       if self.numTx == UNINITIALIZED:
-         raise UnitializedBlockDataError, 'PyBlockData object not initialized!'
+         raise UninitializedBlockDataError('PyBlockData object not initialized!')
       binOut = BinaryPacker()
       binOut.put(VAR_INT, self.numTx)
       for tx in self.txList:

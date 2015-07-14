@@ -230,7 +230,7 @@ os.remove(hashpath)
 sys.path.append('/usr/lib/armory')
 from armoryengine.ALL import PyBtcWallet, binary_to_hex, hex_to_binary, \
                              SecureBinaryData, addrStr_to_hash160, sha256, \
-                             ADDRBYTE
+                             getAddrByte
 from jasvet import ASv1CS, readSigBlock, verifySignature
    
 origDLFile   = os.path.join(srcAnnounce, 'dllinks.txt')
@@ -378,7 +378,7 @@ for fname,vals in fileMappings.iteritems():
       continue
    with open(os.path.join(dstAnnounce, fname), 'rb') as f:
       sig,msg = readSigBlock(f.read())
-      addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
+      addrB58 = verifySignature(sig, msg, 'v1', ord(getAddrByte()))
       print 'Sign addr for:', vals[0].ljust(longestID+3), addrB58
    
 

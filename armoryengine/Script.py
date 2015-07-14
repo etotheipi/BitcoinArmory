@@ -10,11 +10,9 @@
 # SCRIPTING!
 #
 ################################################################################
-from armoryengine.ArmoryUtils import *
-from armoryengine.BinaryPacker import UINT8, BINARY_CHUNK, UINT16, UINT32
-from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.Timer import TimeThisFunction
-from armoryengine.Transaction import *
+from ArmoryUtils import *
+from BinaryPacker import BinaryUnpacker
+from Timer import TimeThisFunction
 
 
 def convertScriptToOpStrings(binScript):
@@ -72,15 +70,8 @@ def convertScriptToOpStrings(binScript):
    return opList;
 
 
-def pprintScript(binScript, nIndent=0):
-   indstr = indent*nIndent
-   print indstr + 'Script:'
-   opList = convertScriptToOpStrings(binScript)
-   for op in opList:
-      print indstr + indent + op
-
 def scriptPushData(binObj):
-   sz = len(binObj) 
+   sz = len(binObj)
    if sz <= 76:
       lenByte = int_to_binary(sz, widthBytes=1)
       return lenByte+binObj
@@ -92,37 +83,6 @@ def scriptPushData(binObj):
       return '\x4d' + lenBytes + binObj
    else:
       InvalidScriptError('Cannot use PUSHDATA for len(obj)>65536')
-
-class ScriptBuilder(object):
-   def __init__(self):
-      self.opList = []
-
-   def addOpCode(self, opStr):
-      self.opList.append(getOpCode(opStr))
-      
-   def pushData(self, data):
-      if data.startswith('OP_'):
-         LOGWARN('Looks like you accidentally called pushData instead of addOpCode')
-         LOGWARN('Pushing data: ' + data)
-      self.opList.append(scriptPushData(data))
-
-   def getBinaryScript(self):
-      return ''.join(self.opList)
-
-   def getHexScript(self):
-      return binary_to_hex(''.join(self.opList))
-
-   def getHumanScript(self):
-      # Human-readable
-      return ' '.join(convertScriptToOpStrings(self.getBinaryScript()))
-      
-
-TX_INVALID = 0
-OP_NOT_IMPLEMENTED = 1
-OP_DISABLED = 2
-SCRIPT_STACK_SIZE_ERROR = 3
-SCRIPT_ERROR = 4
-SCRIPT_NO_ERROR = 5
 
 
 class PyScriptProcessor(object):
@@ -278,7 +238,8 @@ class PyScriptProcessor(object):
       txCopy.inputs[txInIndex].binScript = subscript
 
       # 9. Prepare the signature and public key
-      senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
+      senderAddr = ArmoryImportedKeyPair()
+      senderAddr.initializeFromPubKey(SecureBinaryData(binPubKey))
       binHashCode = int_to_binary(hashtype, widthBytes=4)
       toHash = txCopy.serialize() + binHashCode
 
@@ -434,6 +395,8 @@ class PyScriptProcessor(object):
          if not stackSizeAtLeast(6): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-6] )
          stack.append( stack[-6] )
+         del stack[-7]
+         del stack[-7]
       elif opcode == OP_2SWAP:
          if not stackSizeAtLeast(4): return SCRIPT_STACK_SIZE_ERROR
          x4 = stack.pop()
@@ -479,10 +442,8 @@ class PyScriptProcessor(object):
       elif opcode == OP_1SUB:
          stack[-1] -= 1
       elif opcode == OP_2MUL:
-         stack[-1] *= 2
          return OP_DISABLED
       elif opcode == OP_2DIV:
-         stack[-1] /= 2
          return OP_DISABLED
       elif opcode == OP_NEGATE:
          stack[-1] *= -1
@@ -688,4 +649,5 @@ class PyScriptProcessor(object):
 
 
 # Putting this at the end because of the circular dependency
-from armoryengine.PyBtcAddress import PyBtcAddress
+from ArmoryKeyPair import ArmoryImportedKeyPair
+from Transaction import PyTx

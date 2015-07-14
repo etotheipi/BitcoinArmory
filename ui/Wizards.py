@@ -8,16 +8,17 @@
 
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from armoryengine.ArmoryUtils import USE_TESTNET
-from ui.WalletFrames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
-   WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame
-from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
+
+from armoryengine.ALL import *
+
+from qtdialogs import DlgProgress, DlgUnlockWallet
+from qtdefines import tr, AddToRunningDialogsList, GETFONT
+
+from ui.WalletFrames import NewWalletFrame, SetPassphraseFrame, \
+   VerifyPassphraseFrame, WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame
+from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame, \
    ReviewOfflineTxFrame
-from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
-from armoryengine.PyBtcWallet import PyBtcWallet
-from CppBlockUtils import SecureBinaryData
-from armoryengine.BDM import TheBDM, BDM_OFFLINE, BDM_UNINITIALIZED
-from qtdialogs import DlgProgress
+
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -32,7 +33,7 @@ class ArmoryWizard(QWizard):
       self.setWindowFlags(Qt.Window)
       # Need to adjust the wizard frame size whenever the page changes.
       self.connect(self, SIGNAL('currentIdChanged(int)'), self.fitContents)
-      if USE_TESTNET:
+      if getTestnetFlag():
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
@@ -80,31 +81,43 @@ class WalletWizard(ArmoryWizard):
       
       # Page 1: Create Wallet
       self.walletCreationPage = WalletCreationPage(self)
-      self.addPage(self.walletCreationPage)
+      self.walletCreationPageId = self.addPage(self.walletCreationPage)
       
+      # TODO: when selecting an existing file, page 2&3 should be unlocking
+      #       the file.
       # Page 2: Set Passphrase
       self.setPassphrasePage = SetPassphrasePage(self)
-      self.addPage(self.setPassphrasePage)
+      self.setPassphrasePageId = self.addPage(self.setPassphrasePage)
       
       # Page 3: Verify Passphrase
       self.verifyPassphrasePage = VerifyPassphrasePage(self)
-      self.addPage(self.verifyPassphrasePage)
+      self.verifyPassphrasePageId = self.addPage(self.verifyPassphrasePage)
       
       # Page 4: Create Paper Backup
       self.walletBackupPage = WalletBackupPage(self)
-      self.addPage(self.walletBackupPage)
+      self.walletBackupPageId = self.addPage(self.walletBackupPage)
       
       # Page 5: Create Watching Only Wallet -- but only if expert, or offline
       self.hasCWOWPage = False
-      if self.main.usermode==USERMODE.Expert or TheBDM.getState() == BDM_OFFLINE:
+      if self.main.usermode==USERMODE.Expert or getBDM().getState() == BDM_OFFLINE:
          self.hasCWOWPage = True
          self.createWOWPage = CreateWatchingOnlyWalletPage(self)
-         self.addPage(self.createWOWPage)
+         self.createWOWPageId = self.addPage(self.createWOWPage)
 
       self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
                             QWizard.NextButton,
                             QWizard.FinishButton])
+
+   def nextId(self, *args, **kwargs):
+      if self.currentPage() == self.walletCreationPage:
+         fileRoot = self.getFileRoot()
+         if self.isNewWalletFile():
+            return self.setPassphrasePageId
+         else:
+            return self.createWOWPageId
+      return super(ArmoryWizard, self).nextId(*args, **kwargs)
+
 
    def initializePage(self, *args, **kwargs):
 
@@ -112,9 +125,25 @@ class WalletWizard(ArmoryWizard):
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
       elif self.hasCWOWPage and self.currentPage() == self.createWOWPage:
+         # Make sure a new wallet isn't already created a new wallet
+         # if it is skip the next conditional block because this
+         # must be for a new wallet file/root seed and is already created
+         # Otherwise the user chose to generate a wallet from an existing
+         # root seed and reached the screen directly from the Creation Page
+         if not self.newWallet:
+            self.createNewWalletFromWizard()
+            # If the user failed to unlock the root seed the previous method
+            # will bail out early so this one should too
+            if not self.newWallet:
+               return
          self.createWOWPage.pageFrame.setWallet(self.newWallet)
-         
-      if self.currentPage() == self.walletBackupPage:
+         # If we got here it must be a wallet derived from a
+         # pre-existing root. No need to allow the user to go
+         # back. The only that could be done is create a watching only
+         # wallet file
+         self.setButtonLayout([QWizard.Stretch,
+                                QWizard.FinishButton])
+      elif self.currentPage() == self.walletBackupPage:
          self.createNewWalletFromWizard()
          self.walletBackupPage.pageFrame.setPassphrase(
                   self.setPassphrasePage.pageFrame.getPassphrase())         
@@ -135,7 +164,8 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.NextButton,
                                 QWizard.FinishButton])
    def done(self, event):
-      if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
+      if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated and \
+         self.isNewWalletFile():
          reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""<qt>
                You have not made a backup for your new wallet.  You only have 
                to make a backup of your wallet <u>one time</u> to protect 
@@ -155,28 +185,58 @@ class WalletWizard(ArmoryWizard):
       return super(WalletWizard, self).done(event)
              
    def createNewWalletFromWizard(self):
-      self.newWallet = PyBtcWallet().createNewWallet( \
-                     securePassphrase=self.setPassphrasePage.pageFrame.getPassphrase(), \
-                     kdfTargSec=self.walletCreationPage.pageFrame.getKdfSec(), \
-                     kdfMaxMem=self.walletCreationPage.pageFrame.getKdfBytes(), \
-                     shortLabel=self.walletCreationPage.pageFrame.getName(), \
-                     longLabel=self.walletCreationPage.pageFrame.getDescription(), \
-                     doRegisterWithBDM=False, \
-                     extraEntropy=self.main.getExtraEntropyForKeyGen())
+      fileRoot = self.getFileRoot()
+      name = self.walletCreationPage.pageFrame.getName()
+      description = self.walletCreationPage.pageFrame.getDescription()
+      pwd = SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase())
 
-      self.newWallet.unlock(securePassphrase=
-               SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
-      # We always want to fill the address pool, right away.  
-      fillPoolProgress = DlgProgress(self, self.main, HBar=1, \
-                                     Title="Creating Wallet") 
-      fillPoolProgress.exec_(self.newWallet.fillAddressPool, doRegister=False,
-                             Progress=fillPoolProgress.UpdateHBar)
+      if fileRoot and fileRoot.useEncryption() and fileRoot.isLocked():
+         # Target wallet is encrypted...
+         unlockdlg = DlgUnlockWallet(fileRoot, self, self.main, 'Unlock File to Create Wallet')
+         if not unlockdlg.exec_():
+            QMessageBox.critical(self, 'File is Locked', \
+               'Cannot create wallet without unlocking file!', \
+               QMessageBox.Ok)
+            return
+         self.newWallet = fileRoot.createNewWallet(name, description)
+      else:
+         entropy = self.main.getExtraEntropyForKeyGen()
+         walletFile = ArmoryWalletFile.CreateWalletFile_SinglePwd(
+            name, pwd, sbdExtraEntropy=entropy)
+         root = walletFile.topLevelRoots[0]
+         self.newWallet = root.getAllWallets()[0]
+         self.newWallet.setLabel(name)
+         self.newWallet.setDescription(description)
+
+      self.newWallet.wltFileRef.fsyncUpdates()
+      newWltID = self.newWallet.uniqueIDB58
 
       # Reopening from file helps make sure everything is correct -- don't
       # let the user use a wallet that triggers errors on reading it
-      wltpath = self.newWallet.walletPath
-      walletFromDisk = PyBtcWallet().readWalletFile(wltpath)
-      self.main.addWalletToApplication(walletFromDisk, walletIsNew=True)
+      wltpath = self.newWallet.wltFileRef.walletPath
+      walletFileFromDisk = ArmoryWalletFile.ReadWalletFile(wltpath)
+      rootFromDisk = walletFileFromDisk.topLevelRoots[0]
+      for wallet in rootFromDisk.getAllWallets():
+         isNew = wallet.uniqueIDB58 == newWltID
+         self.main.addWalletToApplication(wallet, walletIsNew=isNew)
+
+   def getFileRoot(self):
+      fileID = self.walletCreationPage.pageFrame.getFile()
+      if fileID:
+         walletFile = None
+         for wlt in self.main.walletMap.values():
+            if wlt.wltFileRef.uniqueIDB58 == fileID:
+               walletFile = wlt.wltFileRef
+               break
+         else:
+            raise RuntimeError("Cannot find file with ID %s" % fileID)
+         root = walletFile.topLevelRoots[0]
+         return root
+      else:
+         return None
+      
+   def isNewWalletFile(self):
+      return not self.getFileRoot()
    
    def cleanupPage(self, *args, **kwargs):
       if self.hasCWOWPage and self.currentPage() == self.createWOWPage:
@@ -321,7 +381,7 @@ class TxWizard(ArmoryWizard):
       self.accept()
       
    def updateOnSelectWallet(self, wlt):
-      if wlt.watchingOnly:
+      if wlt.isWatchOnly:
          self.setButtonLayout([QWizard.CancelButton,
                             QWizard.BackButton,
                             QWizard.Stretch,

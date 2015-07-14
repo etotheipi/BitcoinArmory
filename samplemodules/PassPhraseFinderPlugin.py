@@ -1,5 +1,7 @@
-from operator import add, mul
 import os
+import time
+
+from operator import add, mul
 
 from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget, \
    QLineEdit, QAbstractTableModel, QModelIndex, Qt, QVariant, QTableView, QIcon,\
@@ -7,7 +9,7 @@ from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget, \
    QListWidgetItem, QMessageBox, QString
 
 from CppBlockUtils import SecureBinaryData
-from armoryengine.ArmoryUtils import RightNow, script_to_addrStr, \
+from armoryengine.ArmoryUtils import script_to_addrStr, \
    addrStr_to_hash160, enum, isASCII, PyBackgroundThread
 from armoryengine.PyBtcWallet import PyBtcWallet
 from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
@@ -533,7 +535,7 @@ class PassPhraseFinder(object):
          QMessageBox.warning(self.main, tr('Invalid'), tr("""
             No segment orderings have been specified."""), QMessageBox.Ok)
       passPhraseCount = self.countPassPhrases(segList, segOrdList)
-      startTime = RightNow()
+      startTime = time.time()
       found = False
       result = None
       outputLine = ''
@@ -552,7 +554,7 @@ class PassPhraseFinder(object):
             found = True
             break
          elif i%100==0:
-            telapsed = (RightNow() - startTime)/3600.
+            telapsed = (time.time() - startTime)/3600.
             outputCallback( ('\n%d/%d passphrases tested... (%0.1f hours so far)'%(i,passPhraseCount,telapsed)).rjust(40))
          outputLine += p
          if i % 10 == 9:

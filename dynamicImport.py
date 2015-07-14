@@ -10,6 +10,8 @@ import sys
 from armoryengine.ArmoryUtils import *
 from zipfile import ZipFile
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
+
+
 PY_EXTENSION = '.py'
 ZIP_EXTENSION = '.zip'
 SIG_EXTENSION = '.sig'
@@ -78,7 +80,7 @@ def signZipFile(zipFilePath, propertiesDictionary=None):
    dataToSignSBD = SecureBinaryData(dataToSign)
    # get the privKeySBD
    privKeySBD = None
-   signature = CryptoECDSA().SignData(dataToSignSBD, privKeySBD, ENABLE_DETSIGN)
+   signature = CryptoECDSA().SignData(dataToSignSBD, privKeySBD, getDeterministicSigFlag())
    # Write the Signature to signature.txt
    # rename the source Zip file to inner.zip
    # Create a new Zip File with the original name of the source zip file

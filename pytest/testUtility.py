@@ -1,11 +1,14 @@
 import sys
 sys.path.append('..')
-from armoryengine.ALL import *
-from jasvet import *
 import unittest
+
+from armoryengine.ALL import *
 
 
 class UtilsTester(unittest.TestCase):
+
+   def setUp(self):
+      useMainnet()
 
    def testConversion(self):
       b = b'\x01\x02\x03'
@@ -69,7 +72,7 @@ class UtilsTester(unittest.TestCase):
 
    def testSigningKey(self):
       a160 = hash160(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
-      addr = hash160_to_addrStr(a160, b'\x00')
+      addr = hash160_to_addrStr(a160)
       
       self.assertEqual(addr, ARMORY_INFO_SIGN_ADDR)
 

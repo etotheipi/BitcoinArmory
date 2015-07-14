@@ -8,7 +8,7 @@ from utilities.BinaryPacker import BINARY_CHUNK, UINT32, VAR_INT
 from collections import namedtuple
 
 import os
-from armoryengine import BTC_HOME_DIR
+from armoryengine.ALL import *BTC_HOME_DIR
 
 n = 10
 def getLastTwoFiles():

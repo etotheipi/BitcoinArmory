@@ -5,15 +5,15 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from armoryengine.ArmoryUtils import *
-from armoryengine.Transaction import *
-from armoryengine.Script import *
+from ArmoryUtils import *
+from AsciiSerialize import AsciiSerializable
+from BinaryPacker import BinaryPacker, BinaryUnpacker
+from WalletEntry import WalletEntry
 
-MULTISIG_VERSION = 1
 
 ################################################################################
 #
-# Multi-signature transactions are going to require a ton of different 
+# Multi-signature transactions are going to require a ton of different
 # primitives to be both useful and safe for escrow.  All primitives should
 # have an ASCII-armored-esque form for transmission through email or text
 # file, as well as binary form for when file transfer is guaranteed
@@ -21,7 +21,7 @@ MULTISIG_VERSION = 1
 # Until Armory implements BIP 32, these utilities are more suited to
 # low-volume use cases, such as one-time escrow, or long-term savings
 # using multi-device authentication.  Multi-signature *wallets* which
-# behave like regular wallets but spit out P2SH addresses and usable 
+# behave like regular wallets but spit out P2SH addresses and usable
 # in every day situations -- those will have to wait for Armory's new
 # wallet format.
 #
@@ -32,14 +32,14 @@ MULTISIG_VERSION = 1
 #                  names and emails associated with each public key.
 #
 #
-# 
-#     
-#                  
+#
+#
+#
 ################################################################################
 """
 Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 
-   Create or access existing wallet on each of three computers. 
+   Create or access existing wallet on each of three computers.
 
    Online computer will create the lockbox - needs one public key from its
    own wallet, and one from each offline wallet.  Can have both WO wallets
@@ -51,31 +51,16 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
    User will fund the lockbox from an existing offline wallet with lots of
    money.  He does not need to use the special funding procedure, which is
    only needed if there's multiple people involved with less than full trust.
-   
+
    Creates the transaction as usual, but uses the "lockbox" button for the
-   recipient instead of normal address.  The address line will show the 
-   lockbox ID and short description.  
+   recipient instead of normal address.  The address line will show the
+   lockbox ID and short description.
 
    Will save the lockbox and the offline transaction to the USB drive
 
 """
 
-LOCKBOXIDSIZE = 8
-PROMIDSIZE = 4
-LBPREFIX, LBSUFFIX = 'Lockbox[Bare:', ']'
-LBP2SHPREFIX = 'Lockbox['
 
-#############################################################################
-def getRecipStr(decoratedTxOut):
-   if decoratedTxOut.scriptType in CPP_TXOUT_HAS_ADDRSTR:
-      return script_to_addrStr(decoratedTxOut.binScript)
-   elif decoratedTxOut.scriptType == CPP_TXOUT_MULTISIG:
-      lbID = calcLockboxID(decoratedTxOut.binScript)
-      return 'Multisig %d-of-%d (%s)' % \
-         (decoratedTxOut.multiInfo['M'], decoratedTxOut.multiInfo['N'], lbID)
-   else:
-      return ''
-   
 ################################################################################
 def calcLockboxID(script=None, scraddr=None):
    # ScrAddr is "Script/Address" and for multisig it is 0xfe followed by
@@ -96,7 +81,7 @@ def calcLockboxID(script=None, scraddr=None):
       LOGERROR('ScrAddr is not a multisig script!')
       return None
 
-   hashedData = hash160(MAGIC_BYTES + scraddr)
+   hashedData = hash160(getMagicBytes() + scraddr)
    return binary_to_base58(hashedData)[1:9]
 
 
@@ -161,7 +146,7 @@ def writeLockboxesFile(inLockboxes, lbFilePath, append=False):
    if append:
       writeMode = 'a'
 
-   # Do all the serializing and bail-on-error before opening the file 
+   # Do all the serializing and bail-on-error before opening the file
    # for writing, or we might delete it all by accident
    textOut = '\n\n'.join([lb.serializeAscii() for lb in inLockboxes]) + '\n'
    with open(lbFilePath, writeMode) as f:
@@ -200,7 +185,7 @@ def readLockboxesFile(lbFilePath):
             pos = allData.find(startMark, pos+1)
       except:
          LOGEXCEPT('Error reading lockboxes file')
-         shutil.copy(lbFilePath, lbFilePath+'.%d.bak'% long(RightNow()))
+         shutil.copy(lbFilePath, lbFilePath+'.%d.bak'% long(time.time()))
 
    return retLBList
 
@@ -212,12 +197,12 @@ def getLockboxFilePaths():
    lbPaths = []
 
    # Return the multisig file path.
-   if os.path.isfile(MULTISIG_FILE):
-      lbPaths.append(MULTISIG_FILE)
+   if os.path.isfile(getMultiSigFile()):
+      lbPaths.append(getMultiSigFile())
 
    # For now, no standalone lockboxes will be returned. Maybe later....
-   #for f in os.listdir(ARMORY_HOME_DIR):
-   #   fullPath = os.path.join(ARMORY_HOME_DIR, f)
+   #for f in os.listdir(getArmoryHomeDir()):
+   #   fullPath = os.path.join(getArmoryHomeDir(), f)
    #   if os.path.isfile(fullPath) and not fullPath.endswith('lockbox.txt'):
    #      lbPaths.append(fullPath)
 
@@ -234,16 +219,17 @@ def isMofNNonStandardToSpend(m, n):
           (n > 4 and m > 2) or \
           (n > 5 and m > 1) or \
            n > 6
-          
-################################################################################
-################################################################################
-class MultiSigLockbox(AsciiSerializable):
 
+################################################################################
+################################################################################
+class MultiSigLockbox(AsciiSerializable, WalletEntry):
+
+   FILECODE  = 'LOCKBOX_'  # for WalletEntry class
    OBJNAME   = 'Lockbox'
    BLKSTRING = 'LOCKBOX'
    EMAILSUBJ = 'Armory Lockbox Definition - %s'
    EMAILBODY = """
-               The chunk of text below is a complete lockbox definition 
+               The chunk of text below is a complete lockbox definition
                needed to track the balance of this multi-sig lockbox, as well
                as create signatures for proposed spending transactions.  Open
                the Lockbox Manager, click "Import Lockbox" in the first row,
@@ -252,35 +238,37 @@ class MultiSigLockbox(AsciiSerializable):
                it rescan if this lockbox has already been used."""
 
    #############################################################################
-   def __init__(self, name=None, descr=None, M=None, N=None, dPubKeys=None, 
+   def __init__(self, name=None, descr=None, M=None, N=None, dPubKeys=None,
                                      createDate=None, version=MULTISIG_VERSION):
-      
+
+      super(MultiSigLockbox, self).__init__()
+
       self.version     = MULTISIG_VERSION
       self.shortName   = toUnicode(name)
       self.longDescr   = toUnicode(descr)
-      self.createDate  = long(RightNow()) if createDate is None else createDate
-      self.magicBytes  = MAGIC_BYTES
+      self.createDate  = long(time.time()) if createDate is None else createDate
+      self.magicBytes  = getMagicBytes()
       self.uniqueIDB58 = None
       self.asciiID     = None
-      
+
       #UI member for rescans
-      self.isEnabled   = True
+      self.isDisabled  = False
 
       if (M is not None) and (N is not None) and (dPubKeys is not None):
          self.setParams(name, descr, M, N, dPubKeys, createDate, version)
 
    #############################################################################
    def registerLockbox(self, addressList, isNew=False):
-      return TheBDM.registerLockbox(self.uniqueIDB58, addressList, isNew)
-      
-      
+      return getBDM().registerLockbox(self.uniqueIDB58, addressList, isNew)
+
+
    #############################################################################
-   def setParams(self, name, descr, M, N, dPubKeys, createDate=None, 
+   def setParams(self, name, descr, M, N, dPubKeys, createDate=None,
                                                    version=MULTISIG_VERSION):
-      
-      
+
+
       self.version = version
-      self.magicBytes = MAGIC_BYTES
+      self.magicBytes = getMagicBytes()
 
       self.shortName = name
       self.longDescr = toUnicode(descr)
@@ -302,14 +290,14 @@ class MultiSigLockbox(AsciiSerializable):
       self.uniqueIDB58  = calcLockboxID(script)
       self.opStrList    = convertScriptToOpStrings(script)
       self.asciiID = self.uniqueIDB58 # need a common member name in all classes
-      
-      
+
+
    #############################################################################
    def serialize(self):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
-      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(BINARY_CHUNK, getMagicBytes())
       bp.put(UINT64,       self.createDate)
       bp.put(VAR_STR,      toBytes(self.shortName))
       bp.put(VAR_STR,      toBytes(self.longDescr))
@@ -322,7 +310,7 @@ class MultiSigLockbox(AsciiSerializable):
 
 
    #############################################################################
-   # In the final stages of lockbox design, I changed up the serialization 
+   # In the final stages of lockbox design, I changed up the serialization
    # format for lockboxes, and decided to see how easy it was to transition
    # using the version numbers.   Here's the old unserialize version, modified
    # to map the old data to the new format.  ArmoryQt will read all the
@@ -345,17 +333,17 @@ class MultiSigLockbox(AsciiSerializable):
          boxComms[i] = toUnicode(bu.get(VAR_STR))
 
       # Check the magic bytes of the lockbox match
-      if not boxMagic == MAGIC_BYTES and not skipMagicCheck:
+      if not boxMagic == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
 
-      
+
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
       # (unfortunately, for mixed network testing, the lockbox ID is the
-      #  hash of the script & the MAGIC_BYTES, which means we need to
+      #  hash of the script & the getMagicBytes(), which means we need to
       #  skip checking the ID if we are skipping MAGIC)
       if expectID and not calcLockboxID(boxScript) == expectID and not skipMagicCheck:
          LOGERROR('ID on lockbox block does not match script')
@@ -363,7 +351,7 @@ class MultiSigLockbox(AsciiSerializable):
 
 
       # Now we switch to the new setParams method
-      M,N,a160s,pubs = getMultisigScriptInfo(boxScript) 
+      M,N,a160s,pubs = getMultisigScriptInfo(boxScript)
       dPubKeys = [DecoratedPublicKey(pub, com) for pub,com in zip(pubs,boxComms)]
 
       # No need to read magic bytes -- already checked & bailed if incorrect
@@ -390,7 +378,7 @@ class MultiSigLockbox(AsciiSerializable):
 
       dPubKeys = []
       for i in range(N):
-         dPubKeys.append(DecoratedPublicKey().unserialize(bu.get(VAR_STR), 
+         dPubKeys.append(DecoratedPublicKey().unserialize(bu.get(VAR_STR),
                                                 skipMagicCheck=skipMagicCheck))
 
 
@@ -401,13 +389,13 @@ class MultiSigLockbox(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not lboxMagic == MAGIC_BYTES and not skipMagicCheck:
+      if not lboxMagic == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    Lockbox Magic: ' + binary_to_hex(lboxMagic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
 
-      
+
       binPubKeys = [p.binPubKey for p in dPubKeys]
       lboxScript = pubkeylist_to_multisig_script(binPubKeys, M)
 
@@ -425,27 +413,22 @@ class MultiSigLockbox(AsciiSerializable):
       return self
 
 
-
-
    #############################################################################
    def toJSONMap(self):
       outjson = {}
-      outjson['version']      = self.version
-      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
-      outjson['id']           = self.asciiID
+      outjson['version']     = self.version
+      outjson['magicbytes']  = binary_to_hex(getMagicBytes())
+      outjson['id']          = self.asciiID
+      outjson['name']        = self.shortName
+      outjson['description'] = self.longDescr
+      outjson['M']           = self.M
+      outjson['N']           = self.N
+      outjson['pubkeylist']  = [dpk.toJSONMap() for dpk in self.dPubKeys]
 
-      outjson['lboxname'] =  self.shortName
-      outjson['lboxdescr'] =  self.longDescr
-      outjson['M'] = self.M
-      outjson['N'] = self.N
-
-      outjson['pubkeylist'] = [dpk.toJSONMap() for dpk in self.dPubKeys]
-
-      outjson['a160list'] = [binary_to_hex(hash160(p.binPubKey)) \
-                             for p in self.dPubKeys]
-      outjson['addrstrs'] = [hash160_to_addrStr(hex_to_binary(a)) \
-                             for a in outjson['a160list']]
-
+      outjson['a160list']    = [binary_to_hex(hash160(p.binPubKey))
+                                for p in self.dPubKeys]
+      outjson['addrstrs']    = [hash160_to_addrStr(hex_to_binary(a))
+                                for a in outjson['a160list']]
       outjson['txoutscript'] = binary_to_hex(self.binScript)
       outjson['p2shscript']  = binary_to_hex(scrAddr_to_script(self.p2shScrAddr))
       outjson['p2shaddr']    = scrAddr_to_addrStr(self.p2shScrAddr)
@@ -456,10 +439,10 @@ class MultiSigLockbox(AsciiSerializable):
 
    #############################################################################
    def fromJSONMap(self, jsonMap, skipMagicCheck=False):
-      ver   = jsonMap['version'] 
+      ver   = jsonMap['version']
       magic = hex_to_binary(jsonMap['magicbytes'])
       uniq  = jsonMap['id']
-   
+
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
          LOGWARN('Unserializing Lockbox of different version')
@@ -467,17 +450,17 @@ class MultiSigLockbox(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES and not skipMagicCheck:
+      if not magic == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
 
-      name   = jsonMap['lboxname']
-      descr  = jsonMap['lboxdescr']
+      name   = jsonMap['name']
+      descr  = jsonMap['description']
       M      = jsonMap['M']
       N      = jsonMap['N']
-      
+
       pubs = []
       for i in range(N):
          pubs.append(DecoratedPublicKey().fromJSONMap(jsonMap['pubkeylist'][i], skipMagicCheck))
@@ -510,7 +493,7 @@ class MultiSigLockbox(AsciiSerializable):
 
    #############################################################################
    def pprintOneLine(self):
-      print 'LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58, 
+      print 'LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58,
          self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName)
 
 
@@ -524,13 +507,13 @@ class MultiSigLockbox(AsciiSerializable):
          p2shScript = self.binScript
 
       return DecoratedTxOut(dtxoScript, value, p2shScript)
-      
+
 
 
    ################################################################################
    def makeFundingTxFromPromNotes(self, promList):
       ustxiAccum = []
-      
+
       totalPay = sum([prom.dtxoTarget.value for prom in promList])
       totalFee = sum([prom.feeAmt for prom in promList])
 
@@ -549,7 +532,7 @@ class MultiSigLockbox(AsciiSerializable):
          if prom.dtxoChange and prom.dtxoChange.value > 0:
             dtxoAccum.append(prom.dtxoChange)
             totalChange += prom.dtxoChange.value
-      
+
       if not totalPay + totalFee == totalInputs - totalChange:
          raise ValueError('Promissory note values do not add up correctly')
 
@@ -560,7 +543,7 @@ class MultiSigLockbox(AsciiSerializable):
    def makeSpendingTx(self, rawFundTxIdxPairs, dtxoList, feeAmt):
 
       ustxiAccum = []
-      
+
       # Errors with the change values should've been caught in setParams
       totalInputs = 0
       anyP2SH = False
@@ -585,7 +568,7 @@ class MultiSigLockbox(AsciiSerializable):
                raise InvalidScriptError('P2SH input does not match lockbox')
             p2shSubscript = self.binScript
             anyP2SH = True
-            
+
 
          ustxiAccum.append(UnsignedTxInput(rawTx, txoIdx, p2shSubscript))
          totalInputs += txoValue
@@ -609,7 +592,7 @@ class MultiSigLockbox(AsciiSerializable):
          dtxoAccum.append( DecoratedTxOut(txoScript, changeAmt, p2shScript))
 
       return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
-      
+
 
 ################################################################################
 ################################################################################
@@ -620,8 +603,8 @@ class DecoratedPublicKey(AsciiSerializable):
    EMAILSUBJ = 'Armory Public Key for Lockbox Creation - %s'
    EMAILBODY = """
                The chunk of text below is a public key that can be imported
-               into the lockbox creation window in Armory.  
-               Open the lockbox manager, 
+               into the lockbox creation window in Armory.
+               Open the lockbox manager,
                click on "Create Lockbox", and then use the "Import" button
                next to the address book button.  Copy the following text
                into the box, including the first and last lines."""
@@ -630,10 +613,10 @@ class DecoratedPublicKey(AsciiSerializable):
    EQ_ATTRS_SIMPLE = ['version', 'binPubKey', 'keyComment', 'wltLocator',
                       'pubKeyID', 'asciiID', 'authMethod', 'authData']
 
-                      
+
 
    #############################################################################
-   def __init__(self, binPubKey=None, keyComment=None, wltLoc=None, 
+   def __init__(self, binPubKey=None, keyComment=None, wltLoc=None,
                                              authMethod=None, authData=None):
       self.version    = MULTISIG_VERSION
       self.binPubKey  = binPubKey
@@ -653,10 +636,10 @@ class DecoratedPublicKey(AsciiSerializable):
    #############################################################################
    def setParams(self, binPubKey, keyComment=None, wltLoc=None, authMethod=None,
                                       authData=None, version=MULTISIG_VERSION):
-      
+
       # Set params will only overwrite with non-None data
       self.binPubKey = binPubKey
-      
+
       if keyComment is not None:
          self.keyComment = toUnicode(keyComment)
 
@@ -674,7 +657,7 @@ class DecoratedPublicKey(AsciiSerializable):
       pubkeyAddr = hash160_to_addrStr(hash160(binPubKey))
       self.pubKeyID = pubkeyAddr[:12]
       self.asciiID = self.pubKeyID # need a common member name in all classes
-      
+
 
 
    #############################################################################
@@ -686,7 +669,7 @@ class DecoratedPublicKey(AsciiSerializable):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
-      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(BINARY_CHUNK, getMagicBytes())
       bp.put(VAR_STR,      self.binPubKey)
       bp.put(VAR_STR,      toBytes(self.keyComment))
       bp.put(VAR_STR,      self.wltLocator)
@@ -697,7 +680,7 @@ class DecoratedPublicKey(AsciiSerializable):
    #############################################################################
    def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
       ustxiList = []
-      
+
       bu = BinaryUnpacker(rawData)
       version     = bu.get(UINT32)
       magicBytes  = bu.get(BINARY_CHUNK, 4)
@@ -709,12 +692,12 @@ class DecoratedPublicKey(AsciiSerializable):
       authData    = NullAuthData().unserialize(authDataStr)
 
       # Check the magic bytes of the lockbox match
-      if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
+      if not magicBytes == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    PubKey Magic: ' + binary_to_hex(magicBytes))
-         LOGERROR('    Armory Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
-      
+
       if not version==MULTISIG_VERSION:
          LOGWARN('Unserializing LB pubkey of different version')
          LOGWARN('   PubKey  Version: %d' % version)
@@ -734,24 +717,24 @@ class DecoratedPublicKey(AsciiSerializable):
    def toJSONMap(self):
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
+      outjson['magicbytes']   = binary_to_hex(getMagicBytes())
       outjson['id']           = self.asciiID
 
       outjson['pubkeyhex']  = binary_to_hex(self.binPubKey)
       outjson['keycomment'] = self.keyComment
       outjson['wltLocator'] = binary_to_hex(self.wltLocator)
       outjson['authmethod'] = self.authMethod # we expect plaintext
-      outjson['authdata']   = binary_to_hex(self.authData.serialize()) 
-      
+      outjson['authdata']   = binary_to_hex(self.authData.serialize())
+
       return outjson
 
 
    #############################################################################
    def fromJSONMap(self, jsonMap, skipMagicCheck=False):
-      ver   = jsonMap['version'] 
-      magic = jsonMap['magicbytes'] 
+      ver   = jsonMap['version']
+      magic = jsonMap['magicbytes']
       uniq  = jsonMap['id']
-   
+
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
          LOGWARN('Unserializing DPK of different version')
@@ -759,12 +742,12 @@ class DecoratedPublicKey(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES and not skipMagicCheck:
+      if not magic == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
-   
+
 
       pub  = hex_to_binary(jsonMap['pubkeyhex'])
       comm =               jsonMap['keycomment']
@@ -775,21 +758,21 @@ class DecoratedPublicKey(AsciiSerializable):
       authobj = NullAuthData().unserialize(data)
 
       self.setParams(pub, comm, loc, meth, authobj)
-      
+
       return self
 
 
    #############################################################################
    def pprint(self):
       print 'pprint of DecoratedPublicKey is not implemented'
-      
+
 
 
 
 
 
 ################################################################################
-def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None, 
+def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
                         dtxoChange=None, prom=None):
 
    if prom:
@@ -799,15 +782,15 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
       dtxoChange = prom.dtxoChange
 
    if not ustxiList:
-      LOGERROR("Empty ustxiList in computePromissoryID")
+      LOGERROR("_empty ustxiList in computePromissoryID")
       return None
 
    outptList = sorted([ustxi.outpoint.serialize() for ustxi in ustxiList])
-   targStr  = dtxoTarget.binScript 
+   targStr  = dtxoTarget.binScript
    targStr += int_to_binary(dtxoTarget.value, widthBytes=8)
    targStr += dtxoChange.binScript if dtxoChange else ''
    return binary_to_base58(hash256(''.join(outptList) + targStr))[:8]
-   
+
 
 
 ################################################################################
@@ -818,12 +801,12 @@ class MultiSigPromissoryNote(AsciiSerializable):
    BLKSTRING = 'PROMISSORY'
    EMAILSUBJ = 'Armory Promissory Note for Simulfunding - %s'
    EMAILBODY = """
-               The chunk of text below describes how this wallet will 
+               The chunk of text below describes how this wallet will
                contribute to a simulfunding transaction.  In the lockbox
-               manager, go to "Merge Promissory Notes" and then click on 
-               "Import Promissory Note."  Copy and paste the block of text 
-               into the import box, including the first and last lines.  
-               You should receive a block of text like this from each party 
+               manager, go to "Merge Promissory Notes" and then click on
+               "Import Promissory Note."  Copy and paste the block of text
+               into the import box, including the first and last lines.
+               You should receive a block of text like this from each party
                funding this transaction."""
 
 
@@ -834,7 +817,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
 
 
    #############################################################################
-   def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 
+   def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None,
                                     dtxoChange=None, promLabel=None,
                                     version=MULTISIG_VERSION):
       self.version     = MULTISIG_VERSION
@@ -846,20 +829,20 @@ class MultiSigPromissoryNote(AsciiSerializable):
       self.asciiID     = None
       self.promLabel   = promLabel if promLabel else ''
 
-      # We MIGHT use this object to simultaneously promise funds AND 
-      # provide a key to include in the target multisig lockbox (which would 
+      # We MIGHT use this object to simultaneously promise funds AND
+      # provide a key to include in the target multisig lockbox (which would
       # save a round of exchanging data, if the use-case allows it)
       self.lockboxKey = ''
 
       if dtxoTarget is not None:
-         self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxInputs, 
+         self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxInputs,
                                                    promLabel, version)
 
 
    #############################################################################
    def setParams(self, dtxoTarget=None, feeAmt=None, dtxoChange=None,
                     ustxInputs=None, promLabel=None, version=MULTISIG_VERSION):
-      
+
       # Set params will only overwrite with non-None data
       if dtxoTarget is not None:
          self.dtxoTarget = dtxoTarget
@@ -878,7 +861,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
 
       # Compute some other data members
       self.version = version
-      self.magicBytes = MAGIC_BYTES
+      self.magicBytes = getMagicBytes()
 
       self.promID  = computePromissoryID(prom=self)
       self.asciiID = self.promID  # need a common member name in all classes
@@ -898,18 +881,18 @@ class MultiSigPromissoryNote(AsciiSerializable):
       elif changeAmt < 0:
          LOGERROR('Insufficient prom inputs for payAmt and feeAmt')
          LOGERROR('Total inputs: %s', coin2strNZS(totalInputs))
-         LOGERROR('(Amt, Fee)=(%s,%s)', coin2strNZS(self.dtxoTarget.value), 
+         LOGERROR('(Amt, Fee)=(%s,%s)', coin2strNZS(self.dtxoTarget.value),
                                               coin2strNZS(self.feeAmt))
          raise ValueError('Insufficient prom inputs for pay & fee')
 
 
    #############################################################################
    def setLockboxKey(self, binPubKey):
-      keyPair = [binPubKey[0], len(binPubKey)] 
+      keyPair = [binPubKey[0], len(binPubKey)]
       if not keyPair in [['\x02', 33], ['\x03', 33], ['\x04', 65]]:
          LOGERROR('Invalid public key supplied')
          return False
-      
+
       if keyPair[0] == '\x04':
          if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(binPubKey)):
             LOGERROR('Invalid public key supplied')
@@ -917,8 +900,8 @@ class MultiSigPromissoryNote(AsciiSerializable):
 
       self.lockboxKey = binPubKey[:]
       return True
-      
-      
+
+
    #############################################################################
    def serialize(self):
 
@@ -933,7 +916,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
-      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(BINARY_CHUNK, getMagicBytes())
       bp.put(VAR_STR,      self.dtxoTarget.serialize())
       bp.put(VAR_STR,      serChange)
       bp.put(UINT64,       self.feeAmt)
@@ -949,7 +932,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
    #############################################################################
    def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
       ustxiList = []
-      
+
       bu = BinaryUnpacker(rawData)
       version     = bu.get(UINT32)
       magicBytes  = bu.get(BINARY_CHUNK, 4)
@@ -959,12 +942,12 @@ class MultiSigPromissoryNote(AsciiSerializable):
       numUSTXI    = bu.get(VAR_INT)
 
       # Check the magic bytes of the lockbox match
-      if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
+      if not magicBytes == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    PromNote Magic: ' + binary_to_hex(magicBytes))
-         LOGERROR('    Armory   Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory   Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
-      
+
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR), skipMagicCheck=skipMagicCheck) )
 
@@ -987,7 +970,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
 
       if len(lockboxKey)>0:
          self.setLockboxKey(lockboxKey)
-      
+
 
       return self
 
@@ -1000,12 +983,12 @@ class MultiSigPromissoryNote(AsciiSerializable):
    def toJSONMap(self, lite=False):
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
+      outjson['magicbytes']   = binary_to_hex(getMagicBytes())
       outjson['id']           = self.asciiID
 
       #bp = BinaryPacker()
       #bp.put(UINT32,       self.version)
-      #bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      #bp.put(BINARY_CHUNK, getMagicBytes())
       #bp.put(VAR_STR,      self.dtxoTarget.serialize())
       #bp.put(VAR_STR,      serChange)
       #bp.put(UINT64,       self.feeAmt)
@@ -1027,7 +1010,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
       outjson['numinputs'] = len(self.ustxInputs)
       outjson['promlabel'] = self.promLabel
       outjson['lbpubkey'] = self.lockboxKey
-      
+
       if not lite:
          outjson['inputs'] = []
          for ustxi in self.ustxInputs:
@@ -1038,10 +1021,10 @@ class MultiSigPromissoryNote(AsciiSerializable):
 
    #############################################################################
    def fromJSONMap(self, jsonMap, skipMagicCheck=False):
-      ver   = jsonMap['version'] 
-      magic = jsonMap['magicbytes'] 
+      ver   = jsonMap['version']
+      magic = jsonMap['magicbytes']
       uniq  = jsonMap['id']
-   
+
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
          LOGWARN('Unserializing Lockbox of different version')
@@ -1049,10 +1032,10 @@ class MultiSigPromissoryNote(AsciiSerializable):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES and not skipMagicCheck:
+      if not magic == getMagicBytes() and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
-         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(getMagicBytes()))
          raise NetworkIDError('Network magic bytes mismatch')
 
 
@@ -1068,12 +1051,12 @@ class MultiSigPromissoryNote(AsciiSerializable):
       inputs = []
       for i in range(nin):
          inputs.append(UnsignedTxInput().fromJSONMap(jsonMap['inputs'][i], skipMagicCheck))
-         
+
       lbl = jsonMap['promlabel']
       self.setParams(targ, fee, chng, inputs, lbl)
-      
+
       return self
-      
+
 
 
 
@@ -1093,5 +1076,10 @@ class MultiSigPromissoryNote(AsciiSerializable):
       print '   LB Key Info :', self.promLabel
 
 
+
+
 # Resolve circular dependencies here.
-from armoryengine.UserAddressUtils import getDisplayStringForScript
+from BDM import getBDM
+from Script import convertScriptToOpStrings
+from Transaction import NullAuthData, getTxOutScriptType, UnsignedTxInput, DecoratedTxOut, UNSIGNED_TX_VERSION, UnsignedTransaction
+from UserAddressUtils import getDisplayStringForScript

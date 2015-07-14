@@ -13,12 +13,12 @@ sys.path.append('..')
 from armoryengine.ALL import *
 
 # Check that user actually supplied a wallet file
-if len(CLI_ARGS) < 1:
+if len(getCommandLineArgs()) < 1:
    print 'Must supply path to wallet file as first argument!'
    exit(1)
 
 # Check that wallet file exists
-walletPath = CLI_ARGS[0]
+walletPath = getCommandLineArgs()[0]
 if not os.path.exists(walletPath):
    print 'Wallet file does not exist: "%s"' % walletPath
    exit(1)
@@ -42,15 +42,15 @@ def listUTXOs(*args):
    cvShutdown.acquire(); cvShutdown.notify_all(); cvShutdown.release()
    
 
-# Register the method to be called when TheBDM is done loading the blockchain
-TheBDM.RegisterEventForSignal(listUTXOs, FINISH_LOAD_BLOCKCHAIN_ACTION)
+# Register the method to be called when getBDM() is done loading the blockchain
+getBDM().RegisterEventForSignal(listUTXOs, FINISH_LOAD_BLOCKCHAIN_ACTION)
 
 # Register our wallet with the BDM before we attempt to load the blockchain
 # The BDM will make sure the history is up to date before signaling our callback
 wlt.registerWallet(isNew=False)
 
 # Now start the BDM.  It will load & update databases, emit signals when ready
-TheBDM.goOnline()
+getBDM().goOnline()
 
 '''
 The BDM runs on its own thread and will signal our callback when a new event 

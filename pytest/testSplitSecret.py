@@ -5,17 +5,12 @@ Created on Aug 4, 2013
 '''
 import sys
 sys.path.append('..')
-from pytest.Tiab import TiabTest
 
 from random import shuffle
 import unittest
 
-from armoryengine.ArmoryUtils import FiniteField, FiniteFieldError, SplitSecret, \
-   hex_to_binary, RightNow, binary_to_hex, ReconstructSecret
+from armoryengine.ALL import *
 
-
-sys.argv.append('--nologging')
-sys.argv.append('--nologging')
 
 TEST_A = 200
 TEST_B = 100
@@ -35,8 +30,14 @@ TEST_MULT_VECT_RESULT3 = [[7, 10], [15, 22], [23, 34]]
 TEST_MULT_VECT_RESULT4 = [[248, 5, 249], [6, 241, 4], [248, 5, 249]]
 TEST_MULT_VECT_RESULT5 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
-class SplitSecretTest(TiabTest):
+WLT_ID = 'abcdeabcd'
+FRAG_ID = '2z1Wz3'
 
+class SplitSecretTest(unittest.TestCase):
+
+   def setUp(self):
+      useMainnet()
+      setLogDisableFlag(True)
 
    def testFiniteFieldTest(self):
       ff1 = FiniteField(1)
@@ -73,11 +74,11 @@ class SplitSecretTest(TiabTest):
 
    
    def callSplitSecret(self, secretHex, M, N, nbytes=1):
-      secret = hex_to_binary(secretHex)
+      secret = SecureBinaryData(hex_to_binary(secretHex))
       print '\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex)
-      tstart = RightNow() 
+      tstart = time.time() 
       out = SplitSecret(secret, M, N)
-      tsplit = RightNow() - tstart
+      tsplit = time.time() - tstart
       print 'Fragments:'
       for i in range(len(out)):
          x = binary_to_hex(out[i][0])
@@ -87,15 +88,40 @@ class SplitSecretTest(TiabTest):
       print 'Reconstructing secret from various subsets of fragments...'
       for i in range(10):
          shuffle(out)
-         tstart = RightNow()
+         tstart = time.time()
          reconstruct = ReconstructSecret(out, M, nbytes)
-         trecon += RightNow() - tstart
+         trecon += time.time() - tstart
          print '   The reconstructed secret is:', binary_to_hex(reconstruct)
          self.assertEqual(binary_to_hex(reconstruct), secretHex)
       print 'Splitting secret took: %0.5f sec' % tsplit
       print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
 
-# Running tests with "python <module name>" will NOT work for any Armory tests
-# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
-# if __name__ == "__main__":
-#    unittest.main()
+
+   def testCreateTestingSubsets(self):
+      self.assertRaises(KeyDataError, createTestingSubsets, [], 2)
+      self.assertEqual(createTestingSubsets([0,1], 2)[0], False)
+      self.assertEqual(createTestingSubsets([0,1,2], 2)[0], False)
+      self.assertEqual(createTestingSubsets(range(7), 5)[0], True)
+
+   def testTestReconstructSecrets(self):
+      secret = hex_to_binary('9f')
+      frags = {x[0]:x for x in SplitSecret(secret, 2, 3)}
+      result = testReconstructSecrets(frags, 2)
+      self.assertEqual(result[0], False)
+      self.assertTrue(all([i[1] == secret for i in result[1]]))
+
+   def testComputeFragIDBase58(self):
+      result = ComputeFragIDBase58(2, WLT_ID)
+      self.assertEqual(result, FRAG_ID)
+
+   def testComputeFragIDLineHex(self):
+      result = ComputeFragIDLineHex(2, 1, WLT_ID, True, True)
+      self.assertEqual(result, '8202 6162 6364 6561')
+
+   def testReadFragIDLineBin(self):
+      result = ReadFragIDLineBin('\x02\x01' + WLT_ID)
+      self.assertEqual(result[0], 2)
+      self.assertEqual(result[1], 1)
+      self.assertEqual(result[2], WLT_ID)
+      self.assertEqual(result[3], False)
+      self.assertEqual(result[4], FRAG_ID + '-#1')

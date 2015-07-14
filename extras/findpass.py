@@ -7,9 +7,9 @@ import sys
 sys.argv.append('--nologging')
 from sys import path, argv
 import os
+import time
 
 from armoryengine.PyBtcWallet import PyBtcWallet
-from armoryengine.ArmoryUtils import RightNow
 from CppBlockUtils import SecureBinaryData
 from operator import add, mul
 # Give an upper limit for any method to return
@@ -156,7 +156,7 @@ class PasswordFinder(object):
       if len(segOrdList) == 0:
          segOrdList = [range(len(segList))]
       passwordCount = self.countPasswords(segList, segOrdList)
-      startTime = RightNow()
+      startTime = time.time()
       found = False
       result = None
       for i,p in enumerate(self.passwordGenerator(segList, segOrdList)):
@@ -177,7 +177,7 @@ class PasswordFinder(object):
             result = p
             break
          elif i%100==0:
-               telapsed = (RightNow() - startTime)/3600.
+               telapsed = (time.time() - startTime)/3600.
                print ('%d/%d passphrases tested... (%0.1f hours so far)'%(i,passwordCount,telapsed)).rjust(40)
          print p,
          if i % 10 == 9:

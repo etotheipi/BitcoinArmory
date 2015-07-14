@@ -14,11 +14,6 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 
-LOCKBOXCOLS = enum('ID', 'MSType', 'CreateDate', 'LBName', \
-                   'Key0', 'Key1', 'Key2', 'Key3', 'Key4', \
-                   'NumTx', 'Balance', 'UnixTime')
-
-
 class LockboxDisplayModel(QAbstractTableModel):
 
    def __init__(self, main, allLockboxes, dateFormat=DEFAULT_DATE_FORMAT):
@@ -53,7 +48,7 @@ class LockboxDisplayModel(QAbstractTableModel):
       lwlt = self.main.cppLockboxWltMap[lbID]
 
       nTx, bal = 0, 0
-      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if getBDM().getState()==BDM_BLOCKCHAIN_READY:
          nTx = lwlt.getWltTotalTxnCount()
          bal = lwlt.getFullBalance()
 
@@ -77,14 +72,14 @@ class LockboxDisplayModel(QAbstractTableModel):
          elif col==LOCKBOXCOLS.Key4: 
             return QVariant(self.getKeyDisp(lbox, 4))
          elif col==LOCKBOXCOLS.NumTx: 
-            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)') 
             return QVariant(nTx)
          elif col==LOCKBOXCOLS.Balance: 
-            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)') 
             
-            if lbox.isEnabled == True:
+            if not lbox.isDisabled:
                return QVariant(coin2str(bal, maxZeros=2))
             
             scanStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[lbID])
@@ -133,7 +128,7 @@ class LockboxDisplayModel(QAbstractTableModel):
          
          rowFlag = Qt.ItemIsEnabled | Qt.ItemIsSelectable
          
-         if lbox.isEnabled is False:      
+         if lbox.isDisabled:      
             return Qt.ItemFlags()      
             
          return rowFlag      
@@ -173,12 +168,12 @@ class LockboxDisplayProxy(QSortFilterProxyModel):
          tRight = getDouble(idxRight, COL.UnixTime)
          return (tLeft<tRight)
       elif thisCol==COL.NumTx:
-         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         if getBDM().getState()==BDM_BLOCKCHAIN_READY:
             ntxLeft  = getInt(idxLeft,  COL.NumTx)
             ntxRight = getInt(idxRight, COL.NumTx)
             return (ntxLeft < ntxRight)
       elif thisCol==COL.Balance:
-         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         if getBDM().getState()==BDM_BLOCKCHAIN_READY:
             btcLeft  = getDouble(idxLeft,  COL.Balance)
             btcRight = getDouble(idxRight, COL.Balance)
             return (abs(btcLeft) < abs(btcRight))

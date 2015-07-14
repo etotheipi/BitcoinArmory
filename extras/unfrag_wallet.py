@@ -3,7 +3,7 @@ import os
 import getpass
 path.append('..')
 
-from armoryengine import *
+from armoryengine.ALL import *
 
 if '--testnet' in argv:
    i = argv.index('--testnet')

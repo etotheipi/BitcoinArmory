@@ -24,7 +24,7 @@ def traceTransactionByhash(txHash):
    print 'Tracing history for transaction: ' + txHash
    
    #get the transaction
-   Tx = TheBDM.bdv().getTxByHash(hex_to_binary(txHash, endIn=BIGENDIAN, endOut=LITTLEENDIAN))
+   Tx = getBDM().bdv().getTxByHash(hex_to_binary(txHash, endIn=BIGENDIAN, endOut=LITTLEENDIAN))
    
    #print Tx data:
    print 'Transaction is #' + str(Tx.getBlockTxIndex()) + ' in block #' +\
@@ -36,7 +36,7 @@ def traceTransactionByhash(txHash):
       
       TxIn = Tx.getTxInCopy(i)
       outpoint = TxIn.getOutPoint()
-      TxOut = TheBDM.bdv().getTxOutCopy(outpoint.getTxHash(), outpoint.getTxOutIndex())
+      TxOut = getBDM().bdv().getTxOutCopy(outpoint.getTxHash(), outpoint.getTxOutIndex())
       
       
       print '   TxIn #' + str(i) + ':'
@@ -54,7 +54,7 @@ def traceTransactionByhash(txHash):
    for i in range (0, Tx.getNumTxOut()):
       
       TxOut = Tx.getTxOutCopy(i)
-      spenderTx = TheBDM.bdv().getSpenderTxForTxOut(Tx.getBlockHeight(), Tx.getBlockTxIndex(), i)
+      spenderTx = getBDM().bdv().getSpenderTxForTxOut(Tx.getBlockHeight(), Tx.getBlockTxIndex(), i)
       isSpent = False
       if spenderTx.isInitialized():
          isSpent = True
@@ -95,21 +95,21 @@ def BDM_callback(signal, args):
       print 'BDM is ready!'
       print ''
 
-      traceTransactionByhash(CLI_ARGS[0])
+      traceTransactionByhash(getCommandLineArgs()[0])
 
 ################################################################################
 ################################################################################
 ################################################################################
 
 #Register the BDM callback
-TheBDM.registerCppNotification(BDM_callback)
+getBDM().registerCppNotification(BDM_callback)
 
 # Register our wallet with the BDM.
 # Pass False during registration because we don't know if the wallet is new. 
 # The BDM will make sure the history is up to date before signaling our callback
 
 #Now start the BDM
-TheBDM.goOnline()
+getBDM().goOnline()
 
 '''
 The BDM runs on its own thread and will signal our callback when a new event 

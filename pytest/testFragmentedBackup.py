@@ -1,15 +1,14 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
 import sys
 sys.path.append('..')
-from pytest.Tiab import TiabTest
-from armoryengine.ArmoryUtils import SplitSecret, binary_to_hex, ReconstructSecret,\
-   FiniteFieldError
+from armoryengine.ArmoryUtils import binary_to_hex, FiniteFieldError, useMainnet
+from armoryengine.FiniteField import SplitSecret, ReconstructSecret
 import itertools
 import unittest
 
@@ -30,10 +29,10 @@ def splitSecretToFragmentMap(splitSecret):
    return fragMap
 
 
-class Test(TiabTest):
+class Test(unittest.TestCase):
 
    def setUp(self):
-      pass
+      useMainnet()
       
    def tearDown(self):
       pass

@@ -8,8 +8,11 @@
 from PyQt4.Qt import *
 from PyQt4.QtGui import *
 from PyQt4.QtNetwork import *
+
+from armoryengine.Announce import *
+
 from qtdefines import *
-from armoryengine.parseAnnounce import *
+
 
 class UpgradeDownloader:
    def __init__(self, parent, main):
@@ -153,7 +156,7 @@ class UpgradeDownloader:
                         (htmlColor("TextGreen"), dest), \
                         QMessageBox.Ok)
                   else:
-                     if OS_LINUX and \
+                     if isLinux() and \
                         self.packageName=='Satoshi' and \
                         dest.endswith('tar.gz'):
                         linuxUnpackFile = dest
@@ -180,7 +183,7 @@ class UpgradeDownloader:
             If you modified your settings to run Bitcoin Core manually, 
             click "No" then extract the downloaded file and manually start
             bitcoin-qt or bitcoind in from the extracted "bin/%d" 
-            directory.""") % (64 if SystemSpecs.IsX64 else 32), \
+            directory.""") % (64 if getX64Flag() else 32), \
             QMessageBox.Yes | QMessageBox.No)
 
          if reply==QMessageBox.Yes:
@@ -379,7 +382,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
-      trueBits = '64' if SystemSpecs.IsX64 else '32'
+      trueBits = '64' if getX64Flag() else '32'
       selectBits = self.itemData(self.osarch)[:2]
       if showPackage and not trueBits==selectBits:
          QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
@@ -449,31 +452,31 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
 
    def selectMyOs(self):
-      osVar = OS_VARIANT
+      osVar = getOSVariant()
       if isinstance(osVar, (list,tuple)):
          osVar = osVar[0]
 
       osIndex = 0
-      if OS_WINDOWS:
+      if isWindows():
          osIndex = self.findCmbData(self.os, tr("Windows"))
-      elif OS_LINUX:
+      elif isLinux():
          if osVar.lower() in ('debian', 'linuxmint', 'ubuntu'):
             osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
          else:
             osIndex = self.findCmbData(self.os, tr('Linux'))
-      elif OS_MACOSX:
+      elif isMac():
          osIndex = self.findCmbData(self.os, tr('MacOSX'))
 
       self.os.setCurrentIndex(osIndex)
       self.cascadeOsVer() # signals don't go through for some reason
 
       osverIndex = 0
-      if OS_WINDOWS:
+      if isWindows():
          win_ver = platform.win32_ver()[0]
          osverIndex = self.findCmbData(self.osver, win_ver, True)
-      elif OS_LINUX:
-         osverIndex = self.findCmbData(self.osver, OS_VARIANT[1], True)
-      elif OS_MACOSX:
+      elif isLinux():
+         osverIndex = self.findCmbData(self.osver, getOSVariant()[1], True)
+      elif isMac():
          mac_ver = platform.mac_ver()[0]
          osverIndex = self.findCmbData(self.osver, mac_ver, nonenotfound=True)
          if osverIndex is None:

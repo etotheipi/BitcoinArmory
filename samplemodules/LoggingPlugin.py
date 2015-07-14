@@ -1,7 +1,7 @@
 from PyQt4.Qt import QPushButton, SIGNAL, QTextEdit, QScrollArea, QTabWidget
 
-from armoryengine.ArmoryUtils import getLastBytesOfFile, ARMORY_LOG_FILE,\
-   ARMCPP_LOG_FILE
+from armoryengine.ArmoryUtils import getLastBytesOfFile, getArmoryLogFile, \
+   getArmoryCppLogFile
 from qtdefines import QRichLabel, makeHorizFrame, GETFONT, relaxedSizeNChar, \
    makeVertFrame
 from PyQt4 import QtGui
@@ -19,9 +19,9 @@ class PluginObject(object):
 
 
       def updateLogDisplay():
-         self.pyLogTextDisplay.setText(getLastBytesOfFile(ARMORY_LOG_FILE))
+         self.pyLogTextDisplay.setText(getLastBytesOfFile(getArmoryLogFile()))
          self.pyLogTextDisplay.moveCursor(QtGui.QTextCursor.End)
-         self.cppLogTextDisplay.setText(getLastBytesOfFile(ARMCPP_LOG_FILE))
+         self.cppLogTextDisplay.setText(getLastBytesOfFile(getArmoryCppLogFile()))
          self.cppLogTextDisplay.moveCursor(QtGui.QTextCursor.End)
 
       lblHeader    = QRichLabel(tr("""<b>Log File Display</b>"""), doWrap=False)

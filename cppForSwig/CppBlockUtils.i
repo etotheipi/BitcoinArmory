@@ -201,6 +201,7 @@ namespace std
 	$result = thisList;
 }
 
+/******************************************************************************/
 // Convert Python(dict{str:list[str]}) to C++(map<BinaryData, vector<BinaryData>) 
 %typemap(in) const std::map<BinaryData, std::vector<BinaryData> >& (std::map<BinaryData, std::vector<BinaryData> > map_bd_vec_bd)
 {
@@ -263,5 +264,3 @@ namespace std
 %include "BlockDataManagerConfig.h"
 %include "BDM_mainthread.h"
 %include "bdmenums.h"
-
-

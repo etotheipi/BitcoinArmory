@@ -7,19 +7,16 @@ import sys
 sys.path.append('..')
 import hashlib
 import locale
-from random import shuffle
+import os
+import tempfile
 import time
 import unittest
 
-
-from armoryengine.ArmoryUtils import *
-from armoryengine.BinaryPacker import *
-from armoryengine.BinaryUnpacker import *
-import armoryengine.ArmoryUtils
 from armoryengine import ArmoryUtils
+from armoryengine.ALL import *
+from armoryengine.ArmorySettings import SettingsFile
+from armoryengine.BitSet import BitSet
 
-
-#sys.argv.append('--nologging')
 
 UNICODE_STRING = u'unicode string'
 NON_ASCII_STRING = '\xff\x00 Non-ASCII string \xff\x00'
@@ -31,6 +28,163 @@ LONG_TEST_NUMBER = 98753178900
 ################################################################################
 class ArmoryEngineTest(unittest.TestCase):
 
+
+   #############################################################################
+   def setUp(self):
+      useMainnet()
+      initializeOptions()
+      self.tmpdir = tempfile.mkdtemp("armory_engineutils")
+      setArmoryHomeDir(self.tmpdir)
+
+
+   #############################################################################
+   def tearDown(self):
+      shutil.rmtree(self.tmpdir)
+
+
+   #############################################################################
+   def testSwitch(self):
+      useMainnet()
+      # set the rpc port back to the default
+      ARMORY_OPTIONS.satoshiPort = DEFAULT
+      self.assertFalse(getTestnetFlag())
+      self.assertEqual(getBitcoinPort(), 8333)
+      self.assertEqual(getAddrByte(), '\x00')
+      useTestnet()
+      self.assertTrue(getTestnetFlag())
+      self.assertEqual(getBitcoinPort(), 18333)
+      self.assertEqual(getAddrByte(), '\x6f')
+      useMainnet()
+      self.assertFalse(getTestnetFlag())
+      self.assertEqual(getBitcoinPort(), 8333)
+      self.assertEqual(getAddrByte(), '\x00')
+
+
+   #############################################################################
+   def testPrintArmoryInfo(self):
+      result = getPrintableArmoryInfo()
+      self.assertTrue(getArmoryHomeDir() in result)
+      self.assertTrue(getOS() in result)
+
+
+   #############################################################################
+   def testLog(self):
+      for func in (LOGDEBUG, LOGINFO, LOGWARN, LOGERROR, LOGEXCEPT, LOGCRIT):
+         func("test")
+         self.assertRaises(TypeError, func, "some string %s", "toomany", "args")
+      LOGPPRINT(PayloadVerack())
+      LOGRAWDATA('03000000fd1bc6371eae1a73fcd78f8ef3f9b273b4224d570711e68351cd')
+
+
+   #############################################################################
+   def testGetExecDir(self):
+      self.assertTrue(GetExecDir() in os.path.realpath(__file__))
+
+   #############################################################################
+   def testSatoshiIsAvailable(self):
+      self.assertFalse(satoshiIsAvailable(port=9999))
+
+   #############################################################################
+   def testMakeSixteenBytesEasy(self):
+      self.assertRaises(ValueError, makeSixteenBytesEasy, '')
+      text = "hellotherejoseph"
+      self.assertEqual(makeSixteenBytesEasy(text),
+                       'jwjh juju jnkg jwjh  kdjh jrjn kfjh kajw  dejt')
+
+   #############################################################################
+   def testSecondsToHumanTime(self):
+      outputs = { 1: 'second', 60: 'minute', 3600: 'hour', 86400: 'day',
+                  7*86400: 'week', 31*86400: 'month', 365*86400: 'year',}
+      for seconds, human in outputs.items():
+         self.assertEqual(secondsToHumanTime(seconds), '1 %s' % human)
+         self.assertEqual(secondsToHumanTime(1.5*seconds), '1.5 %ss' % human)
+         self.assertEqual(secondsToHumanTime(2*seconds), '2 %ss' % human)
+
+   #############################################################################
+   def testBytesToHumanSize(self):
+      outputs = {2**10:'kB', 2**20:'MB', 2**30:'GB', 2**40:'TB',
+                 2**50:'PB'}
+      self.assertEqual(bytesToHumanSize(10), "10 bytes")
+      for b, human in outputs.items():
+         self.assertEqual(bytesToHumanSize(b), "1.0 %s" % human)
+
+   #############################################################################
+   def testCreateQRMatrix(self):
+      data = createBitcoinURI('2MuKNwPm3cxwB4L473ZwowttqpfD5stqdSg',
+                              0.1, "test(this)")
+      self.assertEqual(CreateQRMatrix(data, 'H')[1], 49)
+
+   #############################################################################
+   def testEstimateCumulativeBlockSize(self):
+      self.assertEqual(EstimateCumulativeBlockchainSize(0), 285)
+      self.assertEqual(EstimateCumulativeBlockchainSize(100800), 60605119)
+      self.assertTrue(EstimateCumulativeBlockchainSize(170000) > 100000000)
+      self.assertTrue(EstimateCumulativeBlockchainSize(400000) > 42000000000)
+
+   #############################################################################
+   def testGetBlockID(self):
+      asciiText = ["=====LOCKBOX-12345678===========\n",
+                  "ckhc3hqhhuih7gGGOUT78hweds\n",
+                  "================================\n",
+                  "=====LOCKBOX-AbCdEfGh===========\n",
+                  "ckhc3hqhhuih7gGGOUT78hweds\n",]
+
+      self.assertEqual(getBlockID(asciiText, 'LOCKBOX'),
+                       ['-12345678', '-AbCdEfGh'])
+
+   #############################################################################
+   def testGetLastBytesOfFile(self):
+      filename = b"test.file"
+      f = open(filename, b"wb")
+      f.write("hello")
+      f.close()
+      self.assertEqual(getLastBytesOfFile(filename,3), "llo")
+
+   #############################################################################
+   def testHardcodedKeyMask(self):
+      params = HardcodedKeyMaskParams()
+      secret = "\x00"
+      self.assertEqual(len(params), 8)
+      securePrint = params['FUNC_PWD'](secret)
+      self.assertEqual(securePrint.getSize(), 11)
+      self.assertTrue(params['FUNC_CHKPWD'](securePrint))
+      maskKey = params['FUNC_KDF'](securePrint)
+      data = SecureBinaryData('a')
+      masked = params['FUNC_MASK'](data, ekey=maskKey)
+      self.assertEqual(masked.getSize(), data.getSize())
+      unmasked = params['FUNC_UNMASK'](masked, ekey=maskKey)
+      self.assertEqual(unmasked.getSize(), data.getSize())
+      # TODO the unmasked version should be the same as the original
+      # make that test work
+
+   #############################################################################
+   def testSettingsFile(self):
+      fileName = 'settings.test'
+      sf = SettingsFile(fileName)
+      sf.set('a','b')
+      sf.pprint()
+      self.assertTrue(sf.hasSetting('a'))
+      self.assertFalse(sf.hasSetting('1'))
+      self.assertEqual(sf.get('a'), 'b')
+      sf.extend('a','c')
+      self.assertEqual(sf.getSettingOrSetDefault('a', 'd'), ['b','c'])
+      self.assertEqual(len(sf.getAllSettings()), 1)
+      self.assertEqual(sf.getSettingOrSetDefault('z', 'd'), 'd')
+      self.assertEqual(sf.get('a'), ['b','c'])
+      sf.delete('z')
+      sf2 = SettingsFile(fileName)
+      self.assertEqual(sf2.get('a'), ['b','c'])
+      removeIfExists(fileName)
+
+   #############################################################################
+   def testIsInternetAvailable(self):
+      self.assertEqual(isInternetAvailable(), INTERNET_STATUS.Available)
+
+
+   #############################################################################
+   def testCalcWalletID(self):
+      wid = 'BWrVHaTU'
+      self.assertEqual(calcWalletID('\x00' * 16), wid)
 
    #############################################################################
    def testIsASCII(self):
@@ -49,10 +203,6 @@ class ArmoryEngineTest(unittest.TestCase):
       self.assertEqual(toUnicode(ASCII_STRING), unicode(ASCII_STRING, 'utf-8'))
       self.assertEqual(toUnicode(UNICODE_STRING), UNICODE_STRING)
       self.assertEqual(toUnicode(5),unicode(5))
-
-   #############################################################################
-   def testToPreferred(self):
-      self.assertEqual(toPreferred(ASCII_STRING), toUnicode(ASCII_STRING).encode(locale.getpreferredencoding()))
 
    #############################################################################
    def testLenBytes(self):
@@ -94,21 +244,6 @@ class ArmoryEngineTest(unittest.TestCase):
       blockhashBEDifficulty = 3.6349e-48
       allF        = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
-      self.callTestFunction('ubtc_to_floatStr', '12.05600000', 1205600000)
-      self.callTestFunction('floatStr_to_ubtc', 1205600000, '12.056')
-      self.callTestFunction('float_to_btc', 1205600000, 12.056)
-
-      self.callTestFunction('packVarInt', ['A',1], 65)
-      self.callTestFunction('packVarInt', ['\xfd\xff\x00', 3], 255)
-      self.callTestFunction('packVarInt', ['\xfe\x00\x00\x01\x00', 5], 65536)
-      self.callTestFunction('packVarInt', ['\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00', 9], 10**12)
-
-      self.callTestFunction('unpackVarInt', [65,1], 'A')
-      self.callTestFunction('unpackVarInt', [255, 3], '\xfd\xff\x00')
-      self.callTestFunction('unpackVarInt', [65536, 5], '\xfe\x00\x00\x01\x00')
-      self.callTestFunction('unpackVarInt', [10**12, 9], '\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00')
-
-
       data   = hex_to_binary('11' + 'aa'*31)
       dataBE = hex_to_binary('11' + 'aa'*31, endIn=LITTLEENDIAN, endOut=BIGENDIAN)
       dataE1 = hex_to_binary('11' + 'aa'*30 + 'ab')
@@ -148,14 +283,13 @@ class ArmoryEngineTest(unittest.TestCase):
 
       miniKey  = 'S4b3N3oGqDqR5jNuxEvDwf'
       miniPriv = hex_to_binary('0c28fca386c7a227600b2fe50b7cae11ec86d3bf1fbe471be89827e19d72aa1d')
-      self.callTestFunction('decodeMiniPrivateKey', miniPriv, miniKey)
+      self.callTestFunction('_decodeMiniPrivateKey', miniPriv, miniKey)
 
       self.callTestFunction('coin2str','            0.0000', 0, 4)
 
       self.callTestFunction('coin2str','          987.5318', LONG_TEST_NUMBER, 4)
       self.callTestFunction('coin2str','987.53178900', LONG_TEST_NUMBER, 8, False)
       self.callTestFunction('coin2str','987.5317890000', LONG_TEST_NUMBER, 12, False, 10)
-      self.callTestFunction('coin2strNZ','      987.531789  ', LONG_TEST_NUMBER)
       self.callTestFunction('coin2strNZS','987.531789', LONG_TEST_NUMBER)
       self.callTestFunction('coin2str_approx','      988       ', LONG_TEST_NUMBER)
       self.callTestFunction('coin2str_approx','     -988       ', LONG_TEST_NUMBER * -1)
@@ -183,74 +317,6 @@ class ArmoryEngineTest(unittest.TestCase):
       self.assertAlmostEqual(expectedOutput, actualOutput, 4, \
          '\n\t' + '___Inputs___:' + str(args) + '\n\t' + '___ExpOut___:' + \
          str(expectedOutput) + '\n\t' + '___ActOut___:' + str(actualOutput))
-
-
-   #############################################################################
-   def testPluralsBasic(self):
-      ##### Test the basic replacePlurals function
-      strIn     = 'Hello my @{kitty|2 kitties}@.  I love you@{| guys}@!'
-      strOut    = ['','','']
-      strOut[1] = 'Hello my kitty.  I love you!'
-      strOut[2] = 'Hello my 2 kitties.  I love you guys!'
-
-      # Test singular
-      for i in range(1,3):
-         replOut = replacePlurals(strIn, i)
-         self.assertEqual(replOut, strOut[i])
-
-         replOut = replacePlurals(strIn, i, i)
-         self.assertEqual(replOut, strOut[i])
-
-
-      noStr = 'No replacements'
-      self.assertEqual( replacePlurals(noStr), noStr)
-
-
-      # Not enough arguments
-      self.assertRaises(IndexError, replacePlurals, strIn)
-      self.assertRaises(IndexError, replacePlurals, strIn + ' @{A cat|many cats}@', 1,1)
-
-      # Too many arguments
-      self.assertRaises(TypeError, replacePlurals, strIn, 1,1,1)
-
-      # No format specifiers
-      self.assertRaises(TypeError, replacePlurals, noStr, 1)
-
-
-
-   #############################################################################
-   def testFormatWithPlurals(self):
-      ##### Test the formatWithPlurals function
-      strIn     = 'Hello my @{kitty|%d kitties}@.  I love you@{| guys}@!'
-      strOut    = ['','','','','']
-      strOut[1] = 'Hello my kitty.  I love you!'
-      strOut[2] = 'Hello my 2 kitties.  I love you guys!'
-      strOut[3] = 'Hello my kitty.  I love you guys!'
-      strOut[4] = 'Hello my 2 kitties.  I love you!'
-
-      ## Test singular
-      for i in range(1,3):
-         replOut = formatWithPlurals(strIn, i, i)
-         self.assertEqual(replOut, strOut[i])
-
-         replOut = formatWithPlurals(strIn, [i], [i])
-         self.assertEqual(replOut, strOut[i])
-
-         replOut = formatWithPlurals(strIn, [i], [i, i])
-         self.assertEqual(replOut, strOut[i])
-
-         replOut = formatWithPlurals(strIn, i, [i])
-         self.assertEqual(replOut, strOut[i])
-
-         replOut = formatWithPlurals(strIn, i, [i, i])
-         self.assertEqual(replOut, strOut[i])
-
-
-      replOut = formatWithPlurals(strIn, 2, [1,2])
-      self.assertEqual(replOut, strOut[3])
-
-      replOut = formatWithPlurals(strIn, 2, [2,1])
-      self.assertEqual(replOut, strOut[4])
 
 
    #############################################################################
@@ -374,12 +440,12 @@ class ArmoryEngineTest(unittest.TestCase):
       addrStrBad = '1JqaKdBsruwgGcZkiVCNU2DBh56DHBsEb1'
 
       prefix, a160 = addrStr_to_hash160(addrStr00)
-      self.assertEqual(prefix, ADDRBYTE)
+      self.assertEqual(prefix, getAddrByte())
       self.assertEqual(a160, hashVal)
       self.assertFalse(addrStr_is_p2sh(addrStr00))
 
       prefix, a160 = addrStr_to_hash160(addrStr05)
-      self.assertEqual(prefix, P2SHBYTE)
+      self.assertEqual(prefix, getP2SHByte())
       self.assertEqual(a160, hashVal)
       self.assertTrue(addrStr_is_p2sh(addrStr05))
 
@@ -512,6 +578,10 @@ class ArmoryEngineTest(unittest.TestCase):
 class BinaryPackerUnpackerTest(unittest.TestCase):
 
    #############################################################################
+   def setUp(self):
+      useMainnet()
+
+   #############################################################################
    def testBinaryUnpacker(self):
       ts = '\xff\xff\xff'
       bu = BinaryUnpacker(ts)
@@ -578,7 +648,284 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
       self.assertRaises(UnpackerError, bu.get, UNKNOWN_TYPE)
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)
 
-# Running tests with "python <module name>" will NOT work for any Armory tests
-# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
-# if __name__ == "__main__":
-#    unittest.main()
+
+################################################################################
+class BitSetTests(unittest.TestCase):
+
+   #############################################################################
+   def setUp(self):
+      useMainnet()
+
+   #############################################################################
+   def testBitSets(self):
+      bs = BitSet()
+      self.assertEqual(bs.getNumBits(), 0)
+      self.assertEqual(len(bs), 0)
+      self.assertEqual(bs.toInteger(), 0)
+      self.assertEqual(bs.toBitString(), '')
+      self.assertEqual(bs.toBinaryString(), '')
+
+      bs = BitSet(0)
+      self.assertEqual(bs.getNumBits(), 0)
+      self.assertEqual(bs.toInteger(), 0)
+      self.assertEqual(bs.toBitString(), '')
+      
+      bs = BitSet(1)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 0)
+      self.assertEqual(bs.toBitString(), '00000000')
+      self.assertEqual(bs.toBinaryString(), '\x00')
+      
+      bs = BitSet(7)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 0)
+      self.assertEqual(bs.toBitString(), '00000000')
+
+      bs = BitSet(8)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 0)
+      self.assertEqual(bs.toBitString(), '00000000')
+
+      bs = BitSet(9)
+      self.assertEqual(bs.getNumBits(), 16)
+      self.assertEqual(bs.toInteger(), 0)
+      self.assertEqual(bs.toBitString(), '00000000'*2)
+      self.assertEqual(bs.toBinaryString(), '\x00\x00')
+
+      bs = BitSet.CreateFromInteger(9)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(len(bs), 8)
+      self.assertEqual(bs.toInteger(), 9)
+      self.assertEqual(bs.toBitString(), '00001001')
+
+      bs = BitSet.CreateFromInteger(9, 14)
+      self.assertEqual(bs.getNumBits(), 16)
+      self.assertEqual(len(bs), 16)
+      self.assertEqual(bs.toInteger(), 9)
+      self.assertEqual(bs.toBitString(), '0000000000001001')
+
+      bs = BitSet.CreateFromInteger(9, 16)
+      self.assertEqual(bs.getNumBits(), 16)
+      self.assertEqual(bs.toInteger(), 9)
+      self.assertEqual(bs.toBitString(), '0000000000001001')
+      self.assertEqual(bs.toBinaryString(), '\x00\x09')
+
+      bs = BitSet.CreateFromInteger(1, 40)
+      self.assertEqual(bs.getNumBits(), 40)
+      self.assertEqual(bs.toInteger(), 1)
+      self.assertEqual(bs.toBitString(), '0'*39 + '1')
+      self.assertEqual(bs.toBinaryString(), '\x00\x00\x00\x00\x01')
+
+
+      bs = BitSet.CreateFromInteger(9)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 9)
+      self.assertEqual(bs.toBitString(), '00001001')
+      self.assertEqual(bs.getBit(0), 0)
+      bs.setBit(0, 1)
+      self.assertEqual(bs.getBit(0), 1)
+      self.assertEqual(bs.toBitString(), '10001001')
+      self.assertEqual(bs.toInteger(), 137)
+      self.assertEqual(bs.getBit(7), 1)
+      bs.setBit(7, 1)
+      self.assertEqual(bs.getBit(7), 1)
+      self.assertEqual(bs.toBitString(), '10001001')
+      self.assertEqual(bs.toInteger(), 137)
+      bs.setBit(7, 0)
+      self.assertEqual(bs.getBit(7), 0)
+      self.assertEqual(bs.toBitString(), '10001000')
+      self.assertEqual(bs.toInteger(), 136)
+      bs.setBit(1, 1)
+      self.assertEqual(bs.toBitString(), '11001000')
+      self.assertEqual(bs.toInteger(), 200)
+      for i in range(8):
+         self.assertEqual(int('11001000'[i]), bs.getBit(i))
+      self.assertRaises(IndexError, bs.setBit, 9, 1)
+
+      self.assertEqual(bs.toBinaryString(), '\xc8')
+
+
+      # Test Reset functions
+      bs = BitSet.CreateFromInteger(9)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 9)
+      self.assertEqual(bs.toBitString(), '00001001')
+      bs.reset()
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(),  0)
+      self.assertEqual(bs.toBitString(), '00000000')
+      self.assertEqual(bs.toBinaryString(), '\x00')
+      bs.reset(1)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(),  255)
+      self.assertEqual(bs.toBitString(), '11111111')
+      self.assertEqual(bs.toBinaryString(), '\xff')
+      bs.reset(False)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(),  0)
+      self.assertEqual(bs.toBitString(), '00000000')
+      self.assertEqual(bs.toBinaryString(), '\x00')
+      bs.reset(True)
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(),  255)
+      self.assertEqual(bs.toBitString(), '11111111')
+      self.assertEqual(bs.toBinaryString(), '\xff')
+
+      # Test reading bit strings
+      bs = BitSet.CreateFromBitString('11001000')
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 200)
+      self.assertEqual(bs.toBitString(), '11001000')
+      self.assertEqual(bs.getBit(0), 1)
+      self.assertEqual(bs.getBit(2), 0)
+
+      bs = BitSet.CreateFromBitString('00000001 11001000')
+      self.assertEqual(bs.getNumBits(), 16)
+      self.assertEqual(bs.toInteger(), 456)
+      self.assertEqual(bs.toBitString(), '0000000111001000')
+      self.assertEqual(bs.getBit(0), 0)
+      self.assertEqual(bs.getBit(7), 1)
+      self.assertEqual(bs.getBit(8), 1)
+
+      bs = BitSet.CreateFromBitString('00000001 1100100')
+      self.assertEqual(bs.getNumBits(), 16)
+      self.assertEqual(bs.toInteger(), 456)
+      self.assertEqual(bs.toBitString(), '0000000111001000')
+      self.assertEqual(bs.getBit(0), 0)
+      self.assertEqual(bs.getBit(7), 1)
+      self.assertEqual(bs.getBit(8), 1)
+
+      # Test reading binary strings
+      bs = BitSet.CreateFromBinaryString('\xc8')
+      self.assertEqual(bs.getNumBits(), 8)
+      self.assertEqual(bs.toInteger(), 200)
+      self.assertEqual(bs.toBitString(), '11001000')
+      self.assertEqual(bs.toBinaryString(), '\xc8')
+      self.assertEqual(bs.getBit(0), 1)
+      self.assertEqual(bs.getBit(2), 0)
+
+
+      bs = BitSet.CreateFromBinaryString('\x01\xc8')
+      self.assertEqual(bs.getNumBits(), 16)
+      self.assertEqual(bs.toInteger(), 456)
+      self.assertEqual(bs.toBitString(), '0000000111001000')
+      self.assertEqual(bs.toBinaryString(), '\x01\xc8')
+      self.assertEqual(bs.getBit(0), 0)
+      self.assertEqual(bs.getBit(7), 1)
+      self.assertEqual(bs.getBit(8), 1)
+
+
+      # Test copy operations
+      bs1 = BitSet.CreateFromBitString('11110000 11110001')
+      self.assertEqual(bs1.getNumBits(), 16)
+      self.assertEqual(bs1.toInteger(), 61681)
+
+      bs2 = bs1.copy()
+      self.assertEqual(bs2.getNumBits(), 16)
+      self.assertEqual(bs2.toInteger(), 61681)
+      self.assertEqual(bs2.toBitString(), '1111000011110001')
+
+      bs3 = bs1.copy(newSize=8)
+      self.assertEqual(bs3.getNumBits(), 8)
+      self.assertEqual(bs3.toInteger(), 240)
+      self.assertEqual(bs3.toBitString(), '11110000')
+
+      bs4 = bs3.copy(newSize=32)
+      self.assertEqual(bs4.getNumBits(), 32)
+      self.assertEqual(bs4.toInteger(), 240<<24)
+      self.assertEqual(bs4.toBitString(), '11110000' + '0'*24)
+
+      # Test slicing
+      bs1 = BitSet.CreateFromBitString('11110000 11110001 01010101')
+      bs2 = bs1.getSlice( 0, 8)
+      bs3 = bs1.getSlice( 8, 8)
+      bs4 = bs1.getSlice(16, 8)
+      bs5 = bs1.getSlice( 8,16)
+      bs6 = bs1.getSlice( 5, 8)
+
+      self.assertEqual(bs2.toBitString(),  '11110000')
+      self.assertEqual(bs3.toBitString(),  '11110001')
+      self.assertEqual(bs4.toBitString(),  '01010101')
+      self.assertEqual(bs5.toBitString(),  '1111000101010101')
+      self.assertEqual(bs6.toBitString(),  '00011110')
+      
+
+      # Test binary packer/unpacker methods
+      bs = BitSet.CreateFromBitString('11110000 11110001 01010101')
+      self.assertEqual(bs.toBinaryString(), '\xf0\xf1\x55')
+      bp = BinaryPacker()
+      bp.put(UINT8,  255)
+      bp.put(BITSET, bs, 3)
+      bp.put(BINARY_CHUNK, '\x2a')
+      self.assertEqual(bp.getBinaryString(), '\xff\xf0\xf1\x55\x2a')
+      bu = BinaryUnpacker(bp.getBinaryString())
+      self.assertEqual(bu.get(UINT8), 255)
+      newBS = bu.get(BITSET, 3)
+      self.assertEqual(bu.get(BINARY_CHUNK, 1), '\x2a')
+      self.assertEqual(newBS.getNumBits(), 24)
+      self.assertEqual(newBS.toBinaryString(), '\xf0\xf1\x55')
+
+      bs = BitSet.CreateFromBitString('11110000 11110001 01010101')
+      self.assertEqual(bs.toBinaryString(), '\xf0\xf1\x55')
+      bp = BinaryPacker()
+      self.assertRaises(PackerError, bp.put, BITSET, bs, 2)
+
+      bs = BitSet.CreateFromBitString('11110000 11110001 01010101')
+      self.assertEqual(bs.toBinaryString(), '\xf0\xf1\x55')
+      bp = BinaryPacker()
+      bp.put(BITSET, bs, 5)
+      self.assertEqual(bp.getBinaryString(), '\xf0\xf1\x55\x00\x00')
+
+
+
+################################################################################
+class ParsePrivKeyTests(unittest.TestCase):
+
+   #############################################################################
+   def setUp(self):
+      useMainnet()
+
+   #############################################################################
+   def testParseKeys(self):
+
+      # This is from the BIP32 test vectors
+      addrStr = '19Q2WoS5hSS6T8GjhK8KZLMgmWaq4neXrh'
+      privHex = 'edb2e14f9ee77d26dd93b4ecede8d16ed408ce149b6cd80b0715a2d911a0afea'
+      privWIF = 'L5BmPijJjrKbiUfG4zbiFKNqkvuJ8usooJmzuD7Z8dkRoTThYnAT'
+      xprvB58 = ('xprv9uHRZZhk6KAJC1avXpDAp4MDc3sQKNxDiPvvkX8Br5ngLNv1TxvUxt4cV1rG'
+                 'L5hj6KCesnDYUhd7oWgT11eZG7XnxHrnYeSvkzY7d2bhkJ7')
+      xprvHex = ('0488ade4013442193e8000000047fdacbd0f1097043b78c63c20c34ef4ed9a11'
+                 '1d980047ad16282c7ae623614100edb2e14f9ee77d26dd93b4ecede8d16ed408'
+                 'ce149b6cd80b0715a2d911a0afea')
+      pubkHex = '035a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56'
+      xpubB58 = ('xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhw'
+                 'BZeNK1VTsfTFUHCdrfp1bgwQ9xv5ski8PX9rL2dZXvgGDnw')
+      xpubHex = ('0488b21e013442193e8000000047fdacbd0f1097043b78c63c20c34ef4ed9a11'
+                 '1d980047ad16282c7ae6236141035a784662a4a20a65bf6aab9ae98a6c068a81'
+                 'c52e4b032c0fb5400c706cfccc56')
+
+
+      # Will return 32-byte binary of "privHex" var above
+      privHex33  = privHex + '01'
+      privBin33  = hex_to_binary(privHex33)
+      privWIFHex = binary_to_hex(base58_to_binary(privWIF))
+      privXprv58 = xprvB58
+
+      self.assertEqual(parsePrivateKeyData(privHex33, privkeybyte='\x80')[0],  privBin33)
+      self.assertEqual(parsePrivateKeyData(privWIF, privkeybyte='\x80')[0],    privBin33)
+      self.assertEqual(parsePrivateKeyData(privWIFHex, privkeybyte='\x80')[0], privBin33)
+      self.assertEqual(parsePrivateKeyData(privXprv58, privkeybyte='\x80')[0], privBin33)
+      
+      # This is from the wiki page on mini private keys used in Casascius coins
+      miniStr  = 'S6c56bnXQiBjk9mqSYE7ykVQ7NzrRy'
+      miniPriv = '4c7a9640c72dc2099f23715d0c8a0d8a35f8906e3cab61dd3f78b67bf887c9ab'
+      miniWIF  = '5JPy8Zg7z4P7RSLsiqcqyeAF1935zjNUdMxcDeVrtU1oarrgnB7'
+      miniAddr = '1CciesT23BNionJeXrbxmjc7ywfiyM4oLW'
+
+      miniBin = hex_to_binary(miniPriv)
+
+      self.assertEqual(parsePrivateKeyData(miniStr, privkeybyte='\x80')[0],   miniBin)
+      self.assertEqual(parsePrivateKeyData(miniPriv, privkeybyte='\x80')[0],  miniBin)
+      self.assertEqual(parsePrivateKeyData(miniWIF, privkeybyte='\x80')[0],   miniBin)
+
+      self.assertEqual(len(parsePrivateKeyData('5HpHagT65TZzG1PH3CSu63k8DbpvD8s5ip4nEB3kEsreAnchuDf', privkeybyte='\x80')[0]), 32)

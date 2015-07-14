@@ -1,10 +1,10 @@
 from sys import path
 path.append('..')
 
-from armoryengine import *
+from armoryengine.ALL import *
 
-TheBDM.setBlocking(True)
-TheBDM.setOnlineMode(True)
+getBDM().setBlocking(True)
+getBDM().setOnlineMode(True)
 
 if not os.path.exists('testmultiblock'):
    os.mkdir('testmultiblock')
@@ -28,7 +28,7 @@ openfiles    = [[trip[0], trip[1], open(trip[2],'wb')] for trip in fout]
 
 # Assume we are only reading into blk000000.dat, no split
 for h in range(120):
-   head = TheBDM.getHeaderByHeight(h)
+   head = getBDM().getHeaderByHeight(h)
    blk = head.serializeWholeBlock(MAGIC_BYTES, True)
    for i,trip in enumerate(openfiles):
       start,end,theFile = trip

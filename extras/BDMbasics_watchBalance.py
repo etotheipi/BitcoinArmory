@@ -23,12 +23,12 @@ sys.path.append('..') # this is for when the script is run in the extras dir
 from armoryengine.ALL import *
 
 # Check that user actually supplied a wallet file
-if len(CLI_ARGS) < 1:
+if len(getCommandLineArgs()) < 1:
    print 'Must supply path to wallet file as first argument!'
    exit(1)
 
 # Check that wallet file exists
-walletPath = CLI_ARGS[0]
+walletPath = getCommandLineArgs()[0]
 if not os.path.exists(walletPath):
    print 'Wallet file does not exist: "%s"' % walletPath
    exit(1)
@@ -39,7 +39,7 @@ wlt = PyBtcWallet().readWalletFile(walletPath)
 ################################################################################
 def printWalletBalance(args):
    # If any args, it's because this is a NEW_BLOCK_ACTION with a new top block
-   print 'Current top block:', TheBDM.getTopBlockHeight()
+   print 'Current top block:', getBDM().getTopBlockHeight()
 
    # Print all three types of balances you can query for a wallet
    for balType in ['full', 'spendable', 'unconfirmed']:
@@ -51,8 +51,8 @@ def printWalletBalance(args):
 
 ################################################################################
 #Register the BDM callback
-TheBDM.RegisterEventForSignal(printWalletBalance, FINISH_LOAD_BLOCKCHAIN_ACTION)
-TheBDM.RegisterEventForSignal(printWalletBalance, NEW_BLOCK_ACTION)
+getBDM().RegisterEventForSignal(printWalletBalance, FINISH_LOAD_BLOCKCHAIN_ACTION)
+getBDM().RegisterEventForSignal(printWalletBalance, NEW_BLOCK_ACTION)
 
 # Register our wallet with the BDM.
 # Pass False during registration because we don't know if the wallet is new. 
@@ -60,7 +60,7 @@ TheBDM.RegisterEventForSignal(printWalletBalance, NEW_BLOCK_ACTION)
 wlt.registerWallet(isNew=False)
 
 #Now start the BDM
-TheBDM.goOnline()
+getBDM().goOnline()
 
 '''
 The BDM runs on its own thread and will signal our callback when a new event 

@@ -1,12 +1,14 @@
-from armoryengine.PyBtcWallet import (PyBtcWallet, WLT_DATATYPE_KEYDATA, \
+import os
+import random
+import sys
+import time
+
+from CppBlockUtils import SecureBinaryData
+from armoryengine.ArmoryUtils import (binary_to_base58, getAddrByte)
+from armoryengine.BinaryPacker import *
+from armoryengine.PyBtcWallet import (PyBtcWallet, WLT_DATATYPE_KEYDATA,
                                       WLT_UPDATE_ADD)
 
-import os
-import sys
-from CppBlockUtils import SecureBinaryData
-from armoryengine.ArmoryUtils import (binary_to_base58, RightNow, ADDRBYTE)
-from armoryengine.BinaryPacker import *
-import random
 
 ###############################################################################
 def createNewWallet(wlt, rootEntry, newWalletFilePath, withEncrypt, 
@@ -46,14 +48,14 @@ def createNewWallet(wlt, rootEntry, newWalletFilePath, withEncrypt,
       # is based not only on the private key, BUT ALSO THE CHAIN CODE
       wlt.useEncryption = withEncrypt
       wlt.addrMap['ROOT'] = rootAddr
-      wlt.uniqueIDBin = (ADDRBYTE + str(random.getrandbits(48))[:5])[::-1]
+      wlt.uniqueIDBin = (getAddrByte() + str(random.getrandbits(48))[:5])[::-1]
       wlt.uniqueIDB58 = binary_to_base58(wlt.uniqueIDBin)
       wlt.labelName  = ''
       wlt.labelDescr  = ''
       wlt.lastComputedChainAddr160 = rootAddr
       wlt.lastComputedChainIndex  = 0
       wlt.highestUsedChainIndex   = 0
-      wlt.wltCreateDate = long(RightNow())
+      wlt.wltCreateDate = long(time.time())
       wlt.kdf = kdfParam
 
       # We don't have to worry about atomic file operations when

@@ -6,8 +6,41 @@
 #                                                                              #
 ################################################################################
 
-from ArmoryUtils import makeAsciiBlock, readAsciiBlock
-from armoryengine.ArmoryUtils import LOGERROR, UnserializeError
+import base64
+
+from ArmoryUtils import LOGERROR, UnserializeError
+
+
+################################################################################
+def makeAsciiBlock(binStr, headStr='', wid=64, newline='\n'):
+   # Convert the raw chunk of binary data
+   b64Data = base64.b64encode(binStr)
+   sz = len(b64Data)
+   firstLine = '=====%s' % headStr
+   lines = [firstLine.ljust(wid, '=')]
+   lines.extend([b64Data[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
+   lines.append("="*wid)
+   return newline.join(lines)
+
+
+################################################################################
+def readAsciiBlock(ablock, headStr=''):
+   headStr = ''
+   rawData = None
+
+   # Contiue only if we actually get data.
+   if len(ablock) > 0:
+      lines = ablock.strip().split()
+      if not lines[0].startswith('=====%s' % headStr) or \
+         not lines[-1].startswith('======'):
+         LOGERROR('Attempting to unserialize something not an ASCII block')
+         return lines[0].strip('='), None
+
+      headStr = lines[0].strip('=')
+      rawData = base64.b64decode(''.join(lines[1:-1]))
+
+   return (headStr, rawData)
+
 
 class AsciiSerializable(object):
    """

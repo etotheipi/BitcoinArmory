@@ -46,7 +46,7 @@ def tweakColor(qcolor, op, tweaks):
    multiplying or adding scalars to the various channels.
    """
    if len(tweaks) != 3:
-      raise InvalidColor, 'Must supply list or tuple of RGB tweaks'
+      raise InvalidColor('Must supply list or tuple of RGB tweaks')
    
    # Determine what the "tweaks" list/tuple means
    tweakChannel = lambda x,mod: x  # identity
@@ -64,7 +64,7 @@ def tweakColor(qcolor, op, tweaks):
          returnColor = min(returnColor, 255)
          return int(max(returnColor, 0))
    else:
-      raise InvalidColor, 'Invalid color operation: "%s"' % op
+      raise InvalidColor('Invalid color operation: "%s"' % op)
 
    r,g,b = qcolor.red(), qcolor.green(), qcolor.blue()
    r = tweakChannel(r, tweaks[0])
@@ -139,7 +139,6 @@ else:
 Colors.ToolTipQ         = Colors.LBtnNormalFG
 
 
-
 ################################################################################
 def htmlColor(name):
    """ 
@@ -154,9 +153,7 @@ def htmlColor(name):
       bstr = hex(b)[2:].rjust(2, '0')
       return '#%s%s%s' % (rstr, gstr, bstr)
    except:
-      raise InvalidColor, 'Invalid color: ' + name
-
-
+      raise InvalidColor('Invalid color: ' + name)
 
 if __name__== "__main__":
 
@@ -174,6 +171,3 @@ if __name__== "__main__":
       print str(qc.green()).rjust(3),
       print str(qc.blue()).rjust(3),
       print '\t(%s)' % htmlColor(name)
-
-
-

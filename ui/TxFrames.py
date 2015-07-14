@@ -9,17 +9,18 @@
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
 
-from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import * #@UnusedWildImport
+
+from armoryengine.ArmoryOptions import *
+from armoryengine.BDM import getBDM
 from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from armoryengine.Script import convertScriptToOpStrings
-from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
+from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees, \
    calcMinSuggestedFeesHackMS, PyUnspentTxOut
+from armoryengine.MultiSigUtils import calcLockboxID, readLockboxEntryStr, \
+   createLockboxEntryStr, isBareLockbox, isP2SHLockbox
+
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
-from armoryengine.MultiSigUtils import \
-      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
-   isP2SHLockbox
-from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH
  
 
 
@@ -155,7 +156,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          Click this button to copy a "bitcoin:" link directly into Armory."""))
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
       fromFrameList = [self.frmSelectedWlt]
-      if not USE_TESTNET:
+      if not getTestnetFlag():
          btnDonate = QPushButton("Donate to Armory Developers!")
          ttipDonate = self.main.createToolTipWidget(\
             'Making this software was a lot of work.  You can give back '
@@ -264,7 +265,7 @@ class SendBitcoinsFrame(ArmoryFrame):
            loadCount % donateFreq == (donateFreq-1) and \
            not loadCount == lastPestering and \
            not dnaaDonate and \
-           not USE_TESTNET:
+           not getTestnetFlag():
          result = MsgBoxWithDNAA(self, self.main, MSGBOX.Question, 'Please donate!', tr("""
             <i>Armory</i> is the result of thousands of hours of development 
             by very talented coders.  Yet, this software 
@@ -332,7 +333,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       address field, such as a lockbox ID
       """
       if label is not None:
-         self.wlt.setComment(addr160, label)
+         addr = self.wlt.getAddress(hash160_to_scrAddr(addr160))
+         addr.setLabel(label)
 
       lastIsEmpty = True
       for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
@@ -363,7 +365,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def setWallet(self, wlt, isDoubleClick=False):
       self.wlt = wlt
       self.wltID = wlt.uniqueIDB58 if wlt else None
-      if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
+      if not getBDM().getState() == BDM_BLOCKCHAIN_READY:
          self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       if self.main.usermode == USERMODE.Expert:
          # Pre-set values based on settings
@@ -398,8 +400,8 @@ class SendBitcoinsFrame(ArmoryFrame):
             self.radioFeedback.setChecked(True)
       # If there is a unsigned then we have a send button and unsigned checkbox to update
       if self.createUnsignedTxCallback:
-         self.unsignedCheckbox.setChecked(wlt.watchingOnly)
-         self.unsignedCheckbox.setEnabled(not wlt.watchingOnly)
+         self.unsignedCheckbox.setChecked(wlt.isWatchOnly)
+         self.unsignedCheckbox.setEnabled(not wlt.isWatchOnly)
          self.unsignedCheckBoxUpdate()
       if self.selectWltCallback:
          self.selectWltCallback(wlt)
@@ -426,7 +428,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       isSendToNonStandardLockbox = False
       for row in range(len(self.widgetTable)):
          # Verify validity of address strings
-         addrStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
+         addrStr = unicode(self.widgetTable[row]['QLE_ADDR'].text()).strip().encode(errors='replace')
          self.widgetTable[row]['QLE_ADDR'].setText(addrStr) # overwrite w/ stripped
          addrIsValid = True
          addrList.append(addrStr)
@@ -455,14 +457,14 @@ class SendBitcoinsFrame(ArmoryFrame):
          for row in range(len(self.widgetTable)):
             try:
                atype, a160 = addrStr_to_hash160(addrList[row]) 
-               if atype == -1 or not atype in [ADDRBYTE,P2SHBYTE]:
+               if atype == -1 or not atype in [getAddrByte(),getP2SHByte()]:
                   net = 'Unknown Network'
                   if NETWORKS.has_key(addrList[row][0]):
                      net = NETWORKS[addrList[row][0]]
                   QMessageBox.warning(self, tr('Wrong Network!'), tr("""
                      Address %d is for the wrong network!  You are on the <b>%s</b>
                      and the address you supplied is for the the <b>%s</b>!""") % \
-                     (row+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                     (row+1, NETWORKS[getAddrByte()], net), QMessageBox.Ok)
             except:
                pass
 
@@ -473,8 +475,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalSend = 0
       for row in range(len(self.widgetTable)):
          try:
-            recipStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
-            valueStr = str(self.widgetTable[row]['QLE_AMT'].text()).strip()
+            recipStr = unicode(self.widgetTable[row]['QLE_ADDR'].text()).strip().encode(errors='replace')
+            valueStr = unicode(self.widgetTable[row]['QLE_AMT'].text()).strip().encode(errors='replace')
             value = str2coin(valueStr, negAllowed=False)
             if value == 0:
                QMessageBox.critical(self, 'Zero Amount', \
@@ -724,9 +726,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Keep a copy of the originally-sorted list for display
       origSVPairs = scriptValPairs[:]
 
-      # Anonymize the outputs
-      random.shuffle(scriptValPairs)
-
+      # change tx ordering for security
+      reorderInputsAndOutputs(utxoSelect, scriptValPairs)
 
       # In order to create the USTXI objects, need to make we supply a
       # map of public keys that can be included
@@ -752,14 +753,13 @@ class SendBitcoinsFrame(ArmoryFrame):
             scrType = getTxOutScriptType(utxo.getScript())
             if scrType in CPP_TXOUT_STDSINGLESIG:
                scrAddr = utxo.getRecipientScrAddr()
-               a160 = scrAddr_to_hash160(scrAddr)[1]
-               addrObj = self.wlt.getAddrByHash160(a160)
+               addrObj = self.wlt.getAddress(scrAddr)
                if addrObj:
-                  pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+                  pubKeyMap[scrAddr] = addrObj.sbdPublicKey33.toBinStr()
 
          # Now create the unsigned USTX
-         ustx = UnsignedTransaction().createFromTxOutSelection( \
-                                       utxoSelect, scriptValPairs, pubKeyMap)
+         ustx = UnsignedTransaction().createFromTxOutSelection(
+            utxoSelect, scriptValPairs, pubKeyMap)
 
       #ustx.pprint()
 
@@ -784,23 +784,19 @@ class SendBitcoinsFrame(ArmoryFrame):
             self.createUnsignedTxCallback(ustx)
          else:
             try:
-               if self.wlt.isLocked:
-                  Passphrase = None  
-                  
+               if self.wlt.isLocked():
                   unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+
                   if unlockdlg.exec_():
                      if unlockdlg.Accepted == 1:
-                        Passphrase = unlockdlg.securePassphrase.copy()
                         unlockdlg.securePassphrase.destroy()
-                     
-                  if Passphrase is None or self.wlt.kdf is None:
-                     QMessageBox.critical(self.parent(), 'Wallet is Locked', \
-                        'Cannot sign transaction while your wallet is locked. ', \
+
+                  if self.wlt.isLocked():
+                     QMessageBox.critical(
+                        self.parent(), 'Wallet is Locked',
+                        'Cannot sign transaction while your wallet is locked. ',
                         QMessageBox.Ok)
                      return
-                  else:
-                     self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
-                     Passphrase.destroy()                                     
                
                self.wlt.mainWnd = self.main
                self.wlt.parent = self
@@ -818,7 +814,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                ustxSigned = self.wlt.signUnsignedTx(ustx)
                finalTx = ustxSigned.getSignedPyTx()
                if len(commentStr) > 0:
-                  self.wlt.setComment(finalTx.getHash(), commentStr)
+                  self.wlt.setTxComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)
             except:
                LOGEXCEPT('Problem sending transaction!')
@@ -840,7 +836,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         return cppWlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+         return cppWlt.getSpendableBalance(getBDM().getTopBlockHeight(), getIgnoreZCFlag())
          
          
 
@@ -855,7 +851,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             for a160 in self.sourceAddrList:
                # Trying to avoid a swig bug involving iteration over vector<> types
                cppAddr = self.wlt.getCppAddr(a160)
-               utxos = cppAddr.getSpendableTxOutList(IGNOREZC)
+               utxos = cppAddr.getSpendableTxOutList(getIgnoreZCFlag())
                for i in range(len(utxos)):
                   utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
             return utxoList
@@ -865,7 +861,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         txoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
+         txoList = cppWlt.getSpendableTxOutListForValue(totalSend, getIgnoreZCFlag())
          pyUtxoList = []
          for i in range(len(txoList)):
             pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i])
@@ -886,10 +882,10 @@ class SendBitcoinsFrame(ArmoryFrame):
          # Default behavior for regular wallets is 'NewAddr', but for lockboxes
          # the default behavior is "Feedback" (send back to the original addr
          if self.lbox is None:
-            changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
+            changeAddr = self.wlt.getNextChangeAddress()
+            changeAddrStr = changeAddr.getAddrStr()
             changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
             changeScript  = scrAddr_to_script(addrStr_to_scrAddr(changeAddrStr))
-            self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
          else:
             changeScript  = script_to_p2sh_script(self.lbox.binScript)
 
@@ -938,7 +934,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                r += 1
                continue
 
-            amtStr = str(self.widgetTable[r]['QLE_AMT'].text()).strip()
+            amtStr = unicode(self.widgetTable[r]['QLE_AMT'].text()).strip().encode(errors='replace')
             if len(amtStr) > 0:
                totalOther += str2coin(amtStr)
             r += 1
@@ -1295,7 +1291,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
       dpid = self.ustx.uniqueIDB58
-      suffix = ('' if OS_WINDOWS else '.unsigned.tx')
+      suffix = ('' if isWindows() else '.unsigned.tx')
       toSave = self.main.getFileSave(\
                       'Save Unsigned Transaction', \
                       ['Armory Transactions (*.unsigned.tx)'], \
@@ -1614,7 +1610,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          ##### 1
          if self.wlt:
             self.infoLbls[0][2].setText(self.wlt.uniqueIDB58)
-            self.infoLbls[1][2].setText(self.wlt.labelName)
+            self.infoLbls[1][2].setText(self.wlt.getLabel())
          else:
             self.infoLbls[0][2].setText('[[ Unrelated ]]')
             self.infoLbls[1][2].setText('')
@@ -1665,7 +1661,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          return
 
 
-      if self.wlt and self.wlt.watchingOnly:
+      if self.wlt and self.wlt.isWatchOnly:
          QMessageBox.warning(self, 'No Private Keys!', \
             'This transaction refers one of your wallets, but that wallet '
             'is a watching-only wallet.  Therefore, private keys are '
@@ -1707,7 +1703,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
 
-      if self.wlt.useEncryption and self.wlt.isLocked:
+      if self.wlt.useEncryption() and self.wlt.isLocked():
          Passphrase = None  
 
          unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
@@ -1726,7 +1722,6 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             Passphrase.destroy()                                              
 
       newUstx = self.wlt.signUnsignedTx(self.ustxObj)
-      self.wlt.advanceHighestIndex()
       self.txtUSTX.setText(newUstx.serializeAscii())
       self.ustxObj = newUstx
 
@@ -1812,7 +1807,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          f.write(str(self.txtUSTX.toPlainText()))
          f.close()
          if not newSaveFile == self.fileLoaded:
-            os.remove(self.fileLoaded)
+            removeIfExists(self.fileLoaded)
          self.fileLoaded = newSaveFile
          QMessageBox.information(self, 'Transaction Saved!', \
             'Your transaction has been saved to the following location:'
@@ -1834,11 +1829,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       defaultFilename = ''
       if not self.ustxObj == None:
          if self.enoughSigs and self.sigsValid:
-            suffix = '' if OS_WINDOWS else '.signed.tx'
+            suffix = '' if isWindows() else '.signed.tx'
             defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
             ffilt = 'Transactions (*.signed.tx *.unsigned.tx)'
          else:
-            suffix = '' if OS_WINDOWS else '.unsigned.tx'
+            suffix = '' if isWindows() else '.unsigned.tx'
             defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
             ffilt = 'Transactions (*.unsigned.tx *.signed.tx)'
       filename = self.main.getFileSave('Save Transaction', \
@@ -1878,7 +1873,6 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
-from qtdialogs import CLICKED, DlgConfirmSend, DlgUriCopyAndPaste, \
-         DlgUnlockWallet, extractTxInfo, DlgDispTxInfo, NO_CHANGE, STRETCH
-
+from qtdialogs import DlgConfirmSend, DlgUriCopyAndPaste, DlgUnlockWallet, \
+   extractTxInfo, DlgDispTxInfo
 

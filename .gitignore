@@ -31,9 +31,16 @@ osxbuild/env
 /cppForSwig/Release/*
 /cppForSwig/swigwin/*
 /cppForSwig/pypaths.txt
+/cppForSwig/gtest/CppBlockUtilsTests
+/cppForSwig/gtest/*.gcda
+/cppForSwig/gtest/*.gcno
+/cppForSwig/gtest/cppTestsLog.txt
+/cppForSwig/gtest/gtest.a
 
 /pytest/*.bin
 /pytest/mytxfile
+/pytest/*.csv
+/pytest/tempwallets
 
 /*.exe
 
@@ -69,3 +76,10 @@ osxbuild/env
 /armory_*_raspbian-armhf*
 
 /dpkgfiles/control
+
+*test_transaction.tx
+*pprint*.csv
+*.coverage
+pytest/fetchedFiles/
+pytest/htmlcov
+*/tmp/

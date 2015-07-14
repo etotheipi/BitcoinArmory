@@ -49,6 +49,8 @@
 #include <assert.h>
 
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
+#include "cryptlib.h"
+#include "osrng.h"
 #include "log.h"
 
 #define DEFAULT_BUFFER_SIZE 32*1048576
@@ -247,11 +249,26 @@ public:
       return (*this);
    }
 
+
    /////////////////////////////////////////////////////////////////////////////
    BinaryData & append(BinaryDataRef const & bd2);
 
+
    /////////////////////////////////////////////////////////////////////////////
    BinaryData & append(uint8_t const * str, size_t sz);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData & append(uint8_t const byte, uint32_t sz)
+   {
+      for(uint32_t x = 0; x < sz; ++x)
+      {
+         append(byte);
+      }
+
+      return *this;
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData & append(uint8_t byte)
@@ -260,6 +277,8 @@ public:
       return (*this);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData XOR(uint8_t xorValue);
 
    /////////////////////////////////////////////////////////////////////////////
    int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0);
@@ -533,6 +552,7 @@ public:
       return out;
    }
 
+   // For some reason, this doesn't work for A-F (0x41-46), only a-f & 0-9.
    /////////////////////////////////////////////////////////////////////////////
    void createFromHex(string const & str)
    {
@@ -563,6 +583,30 @@ public:
    }
 
 
+   // Can remove this method if we don't have crypto++ linked
+   static BinaryData GenerateRandom(size_t numBytes)
+   {
+      static CryptoPP::AutoSeededRandomPool prng;
+      BinaryData randData(numBytes);
+      prng.GenerateBlock(randData.getPtr(), numBytes);
+      return randData;
+   }
+
+
+   // Absorb a binary file's data into a new BinaryData object
+   int32_t readBinaryFile(string filename)
+   {
+      ifstream is(OS_TranslatePath(filename.c_str()), ios::in | ios::binary );
+      if( !is.is_open() )
+         return -1;
+
+      data_.resize(getSize());
+      is.read((char*)getPtr(), getSize());
+      return getSize();
+   }
+
+   BinaryData  copy() const { return BinaryData(getPtr(), getSize());}
+
    // For deallocating all the memory that is currently used by this BD
    void clear(void) { data_.clear(); }
 
@@ -572,7 +616,6 @@ public:
 private:
    vector<uint8_t> data_;
 
-private:
    void alloc(size_t sz) 
    { 
       if(sz != getSize())
@@ -1698,6 +1741,4 @@ struct BinaryDataHash
       return *reinterpret_cast<const size_t*>(y);
    }
 };
-
-
 #endif

@@ -8,7 +8,7 @@
 import os
 import sys
 sys.path.append('..')
-from armoryengine import *
+from armoryengine.ALL import *
 
 
 print '*'*80

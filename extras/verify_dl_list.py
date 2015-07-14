@@ -3,7 +3,7 @@ sys.path.append('..')
 sys.path.append('/usr/share/armory')
 
 import os
-from armoryengine import *
+from armoryengine.ALL import *
 
 
 def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):

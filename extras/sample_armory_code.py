@@ -1,10 +1,10 @@
 import sys
-from armoryengine.BDM import BDM_BLOCKCHAIN_READY, TheBDM
-from armoryengine.ArmoryUtils import RightNow
+import time
+from armoryengine.BDM import BDM_BLOCKCHAIN_READY, getBDM
 sys.path.append('..')
 sys.path.append('.')
 
-from armoryengine import *
+from armoryengine.ALL import *
 from math import sqrt
 from time import sleep
 
@@ -43,47 +43,47 @@ if run_WalletCreate:
 ################################################################################
 if run_LoadBlockchain_Async:
    """
-   By setting blocking=False, most calls to TheBDM will return immediately,
+   By setting blocking=False, most calls to getBDM() will return immediately,
    after queuing the BDM to execute the operation in the background.  You have
    to check back later to see when it's done.  However, even when blocking is
    false, any functions that return data must block so the data can be 
    returned.  If you are in asynchronous mode, and don't want to ever wait 
-   for anything, always check TheBDM.getState()==BDM_BLOCKCHAIN_READY before
+   for anything, always check getBDM().getState()==BDM_BLOCKCHAIN_READY before
    requesting data that will force blocking.
    """
-   start = RightNow()
-   TheBDM.setBlocking(False)
-   TheBDM.setOnlineMode(True)
+   start = time.time()
+   getBDM().setBlocking(False)
+   getBDM().setOnlineMode(True)
    sleep(2)
    print 'Waiting for blockchain loading to finish',
-   while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+   while not getBDM().getState()==BDM_BLOCKCHAIN_READY:
       print '.',
       sys.stdout.flush()
       sleep(2)
-   print 'Loading blockchain took %0.1f sec' % (RightNow() - start)
+   print 'Loading blockchain took %0.1f sec' % (time.time() - start)
 
-   topBlock = TheBDM.getTopBlockHeight()
+   topBlock = getBDM().getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
-   TheBDM.blockchain().top().pprint()
+   getBDM().blockchain().top().pprint()
 
 ################################################################################
 if run_LoadBlockchain_Block:
-   start = RightNow()
-   TheBDM.setBlocking(True)
-   TheBDM.setOnlineMode(True)
+   start = time.time()
+   getBDM().setBlocking(True)
+   getBDM().setOnlineMode(True)
    # The setOnlineMode should block until blockchain loading is complete
-   print 'Loading blockchain took %0.1f sec' % (RightNow() - start)
+   print 'Loading blockchain took %0.1f sec' % (time.time() - start)
 
-   topBlock = TheBDM.getTopBlockHeight()
+   topBlock = getBDM().getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
-   TheBDM.blockchain().top().pprint()
+   getBDM().blockchain().top().pprint()
 
 
 ################################################################################
 if run_WalletRescan:
    print 'Inducing a rescan by adding a new address and requesting...'
    cppWallet.addAddress_1_( hex_to_binary('0cdcd0f388a31b11ff11b1d8d7a9f978b37bc7af') )
-   TheBDM.scanBlockchainForTx(cppWallet)
+   getBDM().scanBlockchainForTx(cppWallet)
 
    print '\n\nBalance of this wallet:', coin2str(cppWallet.getSpendableBalance())
    print 'Unspent outputs:'
@@ -103,7 +103,7 @@ if run_DiffChangeList:
    print '\n\n'
    print '-'*80
    print 'Now for something completely different...'
-   start = RightNow()
+   start = time.time()
    print '\n\nCollect all difficulty changes...'
    print 'Block'.rjust(10), 'Difficulty'.rjust(14), '\t', 'Date'
    prevDiff = 0
@@ -111,7 +111,7 @@ if run_DiffChangeList:
    minDiff = maxDiff
    minDiffBlk = hex_to_int('ff'*32)
    for h in xrange(0,topBlock+1):
-      header = TheBDM.blockchain().getHeaderByHeight(h)
+      header = getBDM().blockchain().getHeaderByHeight(h)
       currDiff = header.getDifficulty()
       thisHash = header.getThisHash()
       thisDiff = binary_to_int(thisHash);
@@ -127,14 +127,14 @@ if run_DiffChangeList:
       prevDiff = currDiff
 
    from math import log
-   print 'Took %0.1f seconds to collect difficulty list' % (RightNow()-start)
+   print 'Took %0.1f seconds to collect difficulty list' % (time.time()-start)
    print '\nBlock with the lowest difficulty:'
    print '   Block Num:      ', minDiffBlk
    print '   Block Hash:     ', int_to_hex(minDiff, 32, BIGENDIAN)
    print '   Equiv Difficult:', maxDiff/(minDiff * 2**32)
    print '   Equiv Diff bits:', log(maxDiff/minDiff)/log(2)
    print '   Block Header (hex): '
-   print '      ', binary_to_hex(TheBDM.blockchain().getHeaderByHeight(minDiffBlk).serialize())
+   print '      ', binary_to_hex(getBDM().blockchain().getHeaderByHeight(minDiffBlk).serialize())
 
 
 ################################################################################
@@ -145,7 +145,7 @@ if run_CumulativeSize:
       if h%10000 == 0:
          print '\tAccumulated %d blocks' % h
    
-      header = TheBDM.blockchain().getHeaderByHeight(h)
+      header = getBDM().blockchain().getHeaderByHeight(h)
       cumul += header.getBlockSize()
       if (h%2016==0) or h+1>=topBlock:
          f.write('%d %d\n' % (h,cumul))
@@ -157,14 +157,14 @@ if run_CumulativeSize:
 
 ################################################################################
 if run_UniqueAddresses:
-   start = RightNow()
+   start = time.time()
    allAddr = set()
    totalTxOutEver = 0
    for h in xrange(0,topBlock+1):
       if h%10000 == 0:
          print '\tScanned %d blocks' % h
    
-      header = TheBDM.blockchain().getHeaderByHeight(h)
+      header = getBDM().blockchain().getHeaderByHeight(h)
       txList = header.getTxRefPtrList()
       for txref in txList:
          tx = txref.getTxCopy()
@@ -175,7 +175,7 @@ if run_UniqueAddresses:
                totalTxOutEver += 1
    
    
-   print 'Took %0.1f seconds to count all addresses' % (RightNow()-start)
+   print 'Took %0.1f seconds to count all addresses' % (time.time()-start)
    print 'There are %d unique addresses in the blockchain!' % len(allAddr)
    print 'There are %d standard TxOuts in all blocks' % totalTxOutEver
 
@@ -245,7 +245,7 @@ if run_SatoshiDice:
       btcIn, btcOut = 0,0
       
       for i in range(tx.getNumTxIn()):
-         btcIn += TheBDM.getSentValue(tx.getTxIn(i))
+         btcIn += getBDM().getSentValue(tx.getTxIn(i))
       for i in range(tx.getNumTxOut()):
          btcOut += tx.getTxOut(i).getValue()
       return (btcIn - btcOut)
@@ -300,7 +300,7 @@ if run_SatoshiDice:
          if h%10000 == 0:
             print '\tSearched %d blocks' % h
    
-         header = TheBDM.blockchain().getHeaderByHeight(h)
+         header = getBDM().blockchain().getHeaderByHeight(h)
          txList = header.getTxRefPtrList()
 
          for txref in txList:
@@ -333,7 +333,7 @@ if run_SatoshiDice:
                      betLos = betAmt * diceLoseMultMap[diceAddr]
 
                      firstTxIn = tx.getTxIn(0)
-                     bettorAddr = TheBDM.getSenderAddr20(firstTxIn)
+                     bettorAddr = getBDM().getSenderAddr20(firstTxIn)
    
                      ## Create the serialized OutPoint, store the tx
                      outpointStr = txHash + int_to_binary(nout, widthBytes=4)
@@ -405,7 +405,7 @@ if run_SatoshiDice:
       unacctBTC += betAmt
 
 
-   print 'Results:', unixTimeToFormatStr(RightNow())
+   print 'Results:', unixTimeToFormatStr(time.time())
    print ''
    print 'Address'.rjust(10),
    print 'Target'.rjust(8),

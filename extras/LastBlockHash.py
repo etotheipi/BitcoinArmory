@@ -1,6 +1,6 @@
 import sys
 sys.argv.append('--nologging')
-from armoryengine import BTC_HOME_DIR
+from armoryengine.ALL import *BTC_HOME_DIR
 
 from utilities.ArmoryUtils import binary_to_int, LITTLEENDIAN, sha256, \
    binary_to_hex, BIGENDIAN

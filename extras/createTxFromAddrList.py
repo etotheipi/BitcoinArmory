@@ -9,7 +9,7 @@
 import sys
 sys.path.append('..')
 sys.path.append('.')
-from armoryengine import *
+from armoryengine.ALL import *
 from getpass import getpass
 
 
@@ -32,7 +32,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    retrieved from the walletObj
    """
    
-   if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+   if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
       # Only executed on the first call if blockchain not loaded yet.
       print '\nLoading blockchain...'
       BDM_LoadBlockchainFile()  # can add optional arg for blk0001.dat location

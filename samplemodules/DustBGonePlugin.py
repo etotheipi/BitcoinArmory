@@ -18,7 +18,7 @@ from qtdefines import QRichLabel, makeHorizFrame, GETFONT, tightSizeNChar, \
 from armoryengine.Transaction import SIGHASH_NONE, SIGHASH_ANYONECANPAY,\
    PyCreateAndSignTx, PyTx, UnsignedTxInput
 from qtdialogs import DlgUnlockWallet
-from armoryengine.BDM import TheBDM
+from armoryengine.BDM import getBDM
 
 
 DUSTCOLS = enum('chainIndex', 'AddrStr', 'Btc', )
@@ -54,7 +54,7 @@ class PluginObject(object):
             utxiList = []
             for utxo in self.dustTableModel.dustTxOutlist:
                # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
-               rawTx = TheBDM.getTxByHash(utxo.getTxHash()).serialize()
+               rawTx = getBDM().getTxByHash(utxo.getTxHash()).serialize()
                a160 = CheckHash160(utxo.getRecipientScrAddr())
                for pyAddr in self.dustTableModel.wlt.addrMap.values():
                   if a160 == pyAddr.getAddr160():

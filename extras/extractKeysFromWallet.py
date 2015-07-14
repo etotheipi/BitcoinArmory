@@ -20,7 +20,7 @@
 from sys import argv, path
 path.append('..')
 path.append('.')
-from armoryengine import *
+from armoryengine.ALL import *
 from CppBlockUtils import *
 
 

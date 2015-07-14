@@ -5,14 +5,15 @@
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
 
 import ast
+import time
 import urllib2
 
 from PyQt4.Qt import QPushButton, SIGNAL, Qt, QLineEdit, QTableWidget, \
    QGridLayout, QSpacerItem, QWidget, QScrollArea, QTableWidgetItem
 
 from armorycolors import htmlColor
-from armoryengine.ArmoryUtils import RightNow, secondsToHumanTime, coin2str
-from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
+from armoryengine.ArmoryUtils import secondsToHumanTime, coin2str
+from armoryengine.BDM import getBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import makeHorizFrame, makeVertFrame, STYLE_PLAIN, QRichLabel, \
    GETFONT
 
@@ -30,6 +31,7 @@ class PluginObject(object):
 
    tabName = 'Exchange Rates'
    maxVersion = '0.93.99'
+   exposeFunctions = {}
    
    #############################################################################
    def __init__(self, main):
@@ -52,6 +54,11 @@ class PluginObject(object):
 
       self.btnUpdate = QPushButton(tr('Check Now'))
       self.main.connect(self.btnUpdate, SIGNAL('clicked()'), self.checkUpdatePrice)
+
+
+      self.exposeFunctions['GetBuyPrice'] = lambda: self.fetchFormattedPrice(urlBuy)
+      self.exposeFunctions['GetSellPrice'] = lambda: self.fetchFormattedPrice(urlSell)
+      
 
       ##########################################################################
       ##### A calculator for converting prices between USD and BTC
@@ -177,7 +184,7 @@ class PluginObject(object):
          self.lblBuyPrice.setText( '<b><font color="%s">$%s</font> / BTC</b>' % \
                                            (htmlColor('TextBlue'), self.lastBuyStr))
       
-         self.lastPriceFetch = RightNow()
+         self.lastPriceFetch = time.time()
 
          self.updateLastTimeStr()
          self.updateWalletTable()
@@ -190,7 +197,7 @@ class PluginObject(object):
 
    #############################################################################
    def updateLastTimeStr(self):
-      secs = RightNow() - self.lastPriceFetch
+      secs = time.time() - self.lastPriceFetch
       tstr = 'Less than 1 min'
       if secs > 60:
          tstr = secondsToHumanTime(secs)
@@ -206,10 +213,10 @@ class PluginObject(object):
    def injectHeartbeatAlwaysFunc(self):
       # Check the price every 60 seconds, update widgets
       self.updateLastTimeStr()
-      if RightNow() < self.lastPriceFetch+60:
+      if time.time() < self.lastPriceFetch+60:
          return
 
-      self.lastPriceFetch = RightNow()
+      self.lastPriceFetch = time.time()
       self.checkUpdatePrice() 
 
 
@@ -242,7 +249,7 @@ class PluginObject(object):
       for wltID,wltObj in self.main.walletMap.iteritems():
          wltValueBTC = '(...)'
          wltValueUSD = '(...)'
-         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         if getBDM().getState()==BDM_BLOCKCHAIN_READY:
             convertVal = float(self.lastSellStr.replace(',',''))
             wltBal = wltObj.getBalance('Total')
             wltValueBTC = coin2str(wltBal, maxZeros=2)

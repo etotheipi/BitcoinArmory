@@ -5,16 +5,21 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from armoryengine.ArmoryUtils import *
-from armoryengine.BinaryUnpacker import *
-from armoryengine.BDM import *
-from armoryengine.CoinSelection import *
-from armoryengine.Networking import *
-from armoryengine.PyBtcWallet import *
-from armoryengine.Script import *
+from ArmoryEncryption import *
+from ArmoryKeyPair import *
+from ArmoryUtils import *
+from ArmoryWallet import *
+from BDM import *
+from BackgroundThread import *
+from BinaryPacker import *
+from CoinSelection import *
+from ConstructedScript import *
+from FiniteField import *
+from MultiSigUtils import *
+from Networking import *
+from Script import *
 from SDM import *
-from armoryengine.Timer import *
-from armoryengine.Transaction import *
-from armoryengine.MultiSigUtils import *
-from armoryengine.UserAddressUtils import *
-
+from Timer import *
+from Transaction import *
+from UserAddressUtils import *
+from WalletEntry import *

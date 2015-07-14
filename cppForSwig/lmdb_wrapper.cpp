@@ -1428,7 +1428,6 @@ void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript,
                                          uint32_t      blockCreated)
 {
    BinaryData uniqKey = BtcUtils::getTxOutScrAddr(rawScript);
-   // bool       isMulti = BtcUtils::isMultisigScript(rawScript);
 
    StoredScriptHistory ssh;
    getStoredScriptHistory(ssh, uniqKey);
@@ -1556,7 +1555,6 @@ uint8_t LMDBBlockDatabase::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
    for(uint8_t i=0; i<numDup; i++)
    {
       uint8_t dup8 = brrHgts.get_uint8_t(); 
-      // BinaryDataRef thisHash = brrHgts.get_BinaryDataRef(lenEntry-1);
       if((dup8 & 0x80) > 0)
          return (dup8 & 0x7f);
    }

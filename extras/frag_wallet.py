@@ -1,7 +1,7 @@
 from sys import path,argv
 path.append('..')
 
-from armoryengine import *
+from armoryengine.ALL import *
 import getpass
 
 print ''
@@ -130,7 +130,7 @@ pieces = SplitSecret(dataOut, M, N)
 
 for f in range(N):
    wltID = wlt.uniqueIDB58
-   dateStr = unixTimeToFormatStr(RightNow())
+   dateStr = unixTimeToFormatStr(time.time())
    fname = 'wallet_%s_frag%d_need_%d.txt' % (wltID, f+1, M)
    with open(fname, 'w') as fout:
       fout.write('Wallet ID:   %s\n' % wltID)

@@ -7,9 +7,11 @@
 ################################################################################
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from qtdefines import tr, QRichLabel, ArmoryDialog
-from armoryengine.parseAnnounce import *
+
+from armoryengine.Announce import *
+
 from armorycolors import htmlColor
+from qtdefines import tr, QRichLabel, ArmoryDialog
 
 
 class VerifyOfflinePackageDialog(ArmoryDialog):
@@ -118,7 +120,7 @@ class VerifyOfflinePackageDialog(ArmoryDialog):
 
             if os.path.exists(newFile):
                LOGINFO('Removing original file: ' + self.fromfile)
-               os.remove(self.fromfile)
+               removeIfExists(self.fromfile)
 
             QMessageBox.warning(self, tr('Saved!'), tr("""
                The installer was successfully extracted and saved to the

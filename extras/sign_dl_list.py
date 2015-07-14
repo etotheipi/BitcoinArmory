@@ -4,7 +4,7 @@ sys.path.append('/usr/share/armory')
 
 import getpass
 import os
-from armoryengine import *
+from armoryengine.ALL import *
 # Use the parseDownloadList from verify script
 from verify_dl_list import *
 

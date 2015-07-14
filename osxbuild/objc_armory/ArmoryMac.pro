@@ -19,8 +19,8 @@
 # also has extra flags to enable C++11 support, as SIP doesn't have a
 # macx-clang-libc++ option like Qt. (macx-g++ is all it can muster for now.)
 # NB: The "version" values must be updated alongside build-app.py!!!
-QTVER = 4.8.6
-SIPVER = 4.16.5
+QTVER = 4.8.7
+SIPVER = 4.16.7
 PYVER = 2.7.9
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}

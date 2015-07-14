@@ -60,27 +60,23 @@
 import math
 import random
 
-from armoryengine.ArmoryUtils import CheckHash160, binary_to_hex, coin2str, \
-   hash160_to_addrStr, ONE_BTC, CENT, int_to_binary, MIN_RELAY_TX_FEE, MIN_TX_FEE
-from armoryengine.Timer import TimeThisFunction
-from armoryengine.Transaction import *
-import BDM
-from bitcoinrpc_jsonrpc.authproxy import JSONRPCException
-
+from ArmoryUtils import *
+from Timer import TimeThisFunction
+from Transaction import *
 
 
 ################################################################################
 # These would normally be defined by C++ and fed in, but I've recreated
 # the C++ class here... it's really just a container, anyway
 #
-# TODO:  LevelDB upgrade: had to upgrade this class to use arbitrary 
+# TODO:  LevelDB upgrade: had to upgrade this class to use arbitrary
 #        ScrAddress "notation", even though everything else on the python
 #        side expects pure hash160 values.  For now, it looks like it can
-#        handle arbitrary scripts, but the CheckHash160() calls will 
+#        handle arbitrary scripts, but the CheckHash160() calls will
 #        (correctly) throw errors if you don't.  We can upgrade this in
 #        the future.
 class PyUnspentTxOut(object):
-   def __init__(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
+   def __init__(self, scrAddr=None, txHash=None, txoIdx=None, val=None,
                                              numConf=None, fullScript=None):
 
       self.initialize(scrAddr, txHash, txoIdx, val, numConf, fullScript)
@@ -99,7 +95,7 @@ class PyUnspentTxOut(object):
       return self
 
    #############################################################################
-   def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
+   def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None,
                                               numConf=None, fullScript=None):
       self.scrAddr    = scrAddr
       self.txHash     = txHash
@@ -167,7 +163,7 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
 
 ################################################################################
 # Sorting currently implemented in C++, but we implement a different kind, here
-def PySortCoins(unspentTxOutInfo, sortMethod=1):
+def _pySortCoins(unspentTxOutInfo, sortMethod=1):
    """
    Here we define a few different ways to sort a list of unspent TxOut objects.
    Most of them are simple, some are more complex.  In particular, the last
@@ -178,7 +174,7 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    a few different ways to sort coins so that the SelectCoins algorithms has
    a variety of different inputs to play with.  Each sorting method is useful
    for some types of unspent-TxOut lists, so as long as we have one good
-   sort, the PyEvalCoinSelect method will pick it out.
+   sort, the _pyEvalCoinSelect method will pick it out.
 
    As a precaution we send all the zero-confirmation UTXO's to the back
    of the list, so that they will only be used if absolutely necessary.
@@ -227,7 +223,7 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       finalSortedList.extend(zeroConfirm)
       return finalSortedList
    if sortMethod in (5, 6, 7):
-      utxoSorted = PySortCoins(unspentTxOutInfo, 1)
+      utxoSorted = _pySortCoins(unspentTxOutInfo, 1)
       if len(utxoSorted) == 0:
          return utxoSorted
       # Rotate the top 1,2 or 3 elements to the bottom of the list
@@ -246,7 +242,7 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       utxosNoZC.extend(filter(lambda a: a.getNumConfirm()==0, unspentTxOutInfo))
       return utxosNoZC
    if sortMethod==9:
-      utxoSorted = PySortCoins(unspentTxOutInfo, 1)
+      utxoSorted = _pySortCoins(unspentTxOutInfo, 1)
       sz = len(filter(lambda a: a.getNumConfirm()!=0, utxoSorted))
       # swap 1/3 of the values at random
       topsz = int(min(max(round(sz/3), 5), sz))
@@ -257,17 +253,11 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       return utxoSorted
 
 
-
-
 ################################################################################
 # Now we try half a dozen different selection algorithms
 ################################################################################
-
-
-
-################################################################################
-def PySelectCoins_SingleInput_SingleValue( \
-                                    unspentTxOutInfo, targetOutVal, minFee=0):
+def _pySelectCoins_SingleInput_SingleValue(
+      unspentTxOutInfo, targetOutVal, minFee=0):
    """
    This method should usually be called with a small number added to target val
    so that a tx can be constructed that has room for user to add some extra fee
@@ -304,8 +294,8 @@ def PySelectCoins_SingleInput_SingleValue( \
       return [bestMatchUtxo]
 
 ################################################################################
-def PySelectCoins_MultiInput_SingleValue( \
-                                    unspentTxOutInfo, targetOutVal, minFee=0):
+def _pySelectCoins_MultiInput_SingleVlaue(
+      unspentTxOutInfo, targetOutVal, minFee=0):
    """
    This method should usually be called with a small number added to target val
    so that a tx can be constructed that has room for user to add some extra fee
@@ -328,8 +318,8 @@ def PySelectCoins_MultiInput_SingleValue( \
 
 
 ################################################################################
-def PySelectCoins_SingleInput_DoubleValue( \
-                                    unspentTxOutInfo, targetOutVal, minFee=0):
+def _pySelectCoins_SingleInput_DoubleValue(
+      unspentTxOutInfo, targetOutVal, minFee=0):
    """
    We will look for a single input that is within 30% of the target
    In case the tx value is tiny rel to the fee: the minTarget calc
@@ -363,8 +353,8 @@ def PySelectCoins_SingleInput_DoubleValue( \
       return [bestUTXO]
 
 ################################################################################
-def PySelectCoins_MultiInput_DoubleValue( \
-                                    unspentTxOutInfo, targetOutVal, minFee=0):
+def _pySelectCoins_MultiInput_DoubleValue(
+      unspentTxOutInfo, targetOutVal, minFee=0):
 
    idealTarget = 2.0 * targetOutVal
    minTarget   = long(0.80 * idealTarget)
@@ -388,10 +378,8 @@ def PySelectCoins_MultiInput_DoubleValue( \
    return outList
 
 
-
-
 ################################################################################
-def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
+def _getSelectCoinScores(utxoSelectList, targetOutVal, minFee):
    """
    Define a metric for scoring the output of SelectCoints.  The output of
    this method is a tuple of scores which identify a few different factors
@@ -424,7 +412,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    addrSet = set()
    noZeroConf = 1
    for utxo in utxoSelectList:
-      
+
       addrSet.add(script_to_scrAddr(utxo.getScript()))
       if utxo.getNumConfirm() == 0:
          noZeroConf = 0
@@ -557,33 +545,11 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
 
 
 ################################################################################
-# We define default preferences for weightings.  Weightings are used to
-# determine the "priorities" for ranking various SelectCoins results
-# By setting the weights to different orders of magnitude, you are essentially
-# defining a sort-order:  order by FactorA, then sub-order by FactorB...
-################################################################################
-# TODO:  ADJUST WEIGHTING!
-IDX_ALLOWFREE   = 0
-IDX_NOZEROCONF  = 1
-IDX_PRIORITY    = 2
-IDX_NUMADDR     = 3
-IDX_TXSIZE      = 4
-IDX_OUTANONYM   = 5
-WEIGHTS = [None]*6
-WEIGHTS[IDX_ALLOWFREE]  =  100000
-WEIGHTS[IDX_NOZEROCONF] = 1000000  # let's avoid zero-conf if possible
-WEIGHTS[IDX_PRIORITY]   =      50
-WEIGHTS[IDX_NUMADDR]    =  100000
-WEIGHTS[IDX_TXSIZE]     =     100
-WEIGHTS[IDX_OUTANONYM]  =      30
-
-
-################################################################################
-def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
+def _pyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    """
    Use a specified set of weightings and sub-scores for a unspentTxOut list,
    to assign an absolute "fitness" of this particular selection.  The goal of
-   getSelectCoinsScores() is to produce weighting-agnostic subscores -- then
+   _getSelectCoinScores() is to produce weighting-agnostic subscores -- then
    this method applies the weightings to these scores to get a final answer.
 
    If list A has a higher score than list B, then it's a better selection for
@@ -594,7 +560,7 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    option of coin-selection profiles -- such as "max anonymity", "min fee",
    "balanced", etc).
    """
-   scores = getSelectCoinsScores(utxoSelectList, targetOutVal, minFee)
+   scores = _getSelectCoinScores(utxoSelectList, targetOutVal, minFee)
    if scores==-1:
       return -1
 
@@ -634,15 +600,15 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
 
    # Start with the intelligent solutions with different sortings
    for sortMethod in range(8):
-      diffSortList = PySortCoins(unspentTxOutInfo, sortMethod)
-      selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList, targExact,  minFee ))
-      selectLists.append(PySelectCoins_MultiInput_SingleValue(  diffSortList, targExact,  minFee ))
-      selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList, targMargin, minFee ))
-      selectLists.append(PySelectCoins_MultiInput_SingleValue(  diffSortList, targMargin, minFee ))
-      selectLists.append(PySelectCoins_SingleInput_DoubleValue( diffSortList, targExact,  minFee ))
-      selectLists.append(PySelectCoins_MultiInput_DoubleValue(  diffSortList, targExact,  minFee ))
-      selectLists.append(PySelectCoins_SingleInput_DoubleValue( diffSortList, targMargin, minFee ))
-      selectLists.append(PySelectCoins_MultiInput_DoubleValue(  diffSortList, targMargin, minFee ))
+      diffSortList = _pySortCoins(unspentTxOutInfo, sortMethod)
+      selectLists.append(_pySelectCoins_SingleInput_SingleValue( diffSortList, targExact,  minFee ))
+      selectLists.append(_pySelectCoins_MultiInput_SingleVlaue(  diffSortList, targExact,  minFee ))
+      selectLists.append(_pySelectCoins_SingleInput_SingleValue( diffSortList, targMargin, minFee ))
+      selectLists.append(_pySelectCoins_MultiInput_SingleVlaue(  diffSortList, targMargin, minFee ))
+      selectLists.append(_pySelectCoins_SingleInput_DoubleValue( diffSortList, targExact,  minFee ))
+      selectLists.append(_pySelectCoins_MultiInput_DoubleValue(  diffSortList, targExact,  minFee ))
+      selectLists.append(_pySelectCoins_SingleInput_DoubleValue( diffSortList, targMargin, minFee ))
+      selectLists.append(_pySelectCoins_MultiInput_DoubleValue(  diffSortList, targMargin, minFee ))
 
    # Throw in a couple random solutions, maybe we get lucky
    # But first, make a copy before in-place shuffling
@@ -651,16 +617,16 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    #utxos = list(unspentTxOutInfo)
    for method in range(8,10):
       for i in range(numRand):
-         utxos = PySortCoins(unspentTxOutInfo, method)
-         selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targExact,  minFee))
-         selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targExact,  minFee))
-         selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targMargin, minFee))
-         selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targMargin, minFee))
+         utxos = _pySortCoins(unspentTxOutInfo, method)
+         selectLists.append(_pySelectCoins_MultiInput_SingleVlaue(utxos, targExact,  minFee))
+         selectLists.append(_pySelectCoins_MultiInput_DoubleValue(utxos, targExact,  minFee))
+         selectLists.append(_pySelectCoins_MultiInput_SingleVlaue(utxos, targMargin, minFee))
+         selectLists.append(_pySelectCoins_MultiInput_DoubleValue(utxos, targMargin, minFee))
 
-   # Now we define PyEvalCoinSelect as our sorting metric, and find the best solution
-   scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, targetOutVal, minFee)
+   # Now we define _pyEvalCoinSelect as our sorting metric, and find the best solution
+   scoreFunc = lambda ulist: _pyEvalCoinSelect(ulist, targetOutVal, minFee)
    finalSelection = max(selectLists, key=scoreFunc)
-   SCORES = getSelectCoinsScores(finalSelection, targetOutVal, minFee)
+   SCORES = _getSelectCoinScores(finalSelection, targetOutVal, minFee)
    if len(finalSelection)==0:
       return []
 
@@ -694,9 +660,9 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
       utxoSmallToLarge = sorted(unspentTxOutInfo, key=getPriority)
       utxoSmToLgIDs = [getUtxoID(utxo) for utxo in utxoSmallToLarge]
       finalSelectIDs = [getUtxoID(utxo) for utxo in finalSelection]
-      
+
       for other in utxoSmallToLarge:
-         
+
          # Skip it if it is already selected
          if getUtxoID(other) in finalSelectIDs:
             continue
@@ -704,7 +670,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
          # We only consider UTXOs that won't link any new addresses together
          if not utxoToScrAddr(other) in alreadyUsedAddr:
             continue
-         
+
          # Avoid zero-conf inputs altogether
          if other.getNumConfirm() == 0:
             continue
@@ -713,7 +679,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
          if getPriority(other) > ONE_BTC*144:
             continue
 
-         finalSelection.append(other) 
+         finalSelection.append(other)
          if len(finalSelection)>=IDEAL_NUM_INPUTS:
             break
    return finalSelection
@@ -759,7 +725,7 @@ def estimatePriority():
    return int(result)
 
 ################################################################################
-def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee, 
+def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee,
                                                          numRecipients):
    """
    This is a hack, because the calcMinSuggestedFees below assumes standard
@@ -790,8 +756,7 @@ def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee,
       return 0
 
    return suggestedFee
-   
-      
+
 
 ################################################################################
 def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
@@ -811,7 +776,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
    when it actually is not.
    """
 
-   # TODO: this should be updated to accommodate the non-constant 
+   # TODO: this should be updated to accommodate the non-constant
    #       TxOut/TxIn size given that it now accepts P2SH and Multisig
 
    if len(selectCoinsResult)==0:
@@ -841,44 +806,10 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
    return suggestedFee
 
 
-
-
-################################################################################
-def approxTxInSizeForTxOut(utxoScript, lboxList=None):
-   """
-   Since this is always used for fee estimation, we overestimate the size to
-   be conservative.  However, if this is P2SH, we won't have a clue what the
-   hashed script is, so unless we find it in our lockbox map, we assume the 
-   max-max which is 1,650 bytes.
-
-   Otherwise the TxIn is always:
-      PrevTxHash(32), PrevTxOutIndex(4), Script(_), Sequence(4)
-   """
-
-   scrType = getTxOutScriptType(utxoScript)
-   if scrType == CPP_TXOUT_STDHASH160:
-      return 180
-   elif scrType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
-      return 110
-   elif scrType == CPP_TXOUT_MULTISIG:
-      M,N,a160s,pubs = getMultisigScriptInfo(utxoScript)
-      return M*70 + 40
-   elif scrType == CPP_TXOUT_P2SH and not lboxList is None:
-      scrAddr = script_to_scrAddr(utxoScript)
-      for lbox in lboxList:
-         if scrAddr == lbox.p2shScrAddr:
-            M,N,a160s,pubs = getMultisigScriptInfo(lbox.binScript)
-            return M*70 + 40
-
-   # If we got here, we didn't identify it at all.  Assume max for TxIn
-   return 1650
-
-
-
 ################################################################################
 # I needed a new function that was going to be as accurate as possible for
 # arbitrary coin selections (and recipient lists).  However, this doesn't
-# work in all places tat the old coin selection algo was used, so I am 
+# work in all places tat the old coin selection algo was used, so I am
 # leaving those calls alone and simply defining this for new methods that
 # have access to full UTXOs scripts and scriptValPairs.
 def calcMinSuggestedFeesNew(selectCoinsResult, scriptValPairs, preSelectedFee,
@@ -898,7 +829,7 @@ def calcMinSuggestedFeesNew(selectCoinsResult, scriptValPairs, preSelectedFee,
    when it actually is not.
    """
 
-   # TODO: this should be updated to accommodate the non-constant 
+   # TODO: this should be updated to accommodate the non-constant
    #       TxOut/TxIn size given that it now accepts P2SH and Multisig
 
    targetOutVal = long( sum([rv[1] for rv in scriptValPairs]) )

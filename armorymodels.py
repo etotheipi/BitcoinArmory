@@ -6,10 +6,11 @@
 #                                                                              #
 ################################################################################
 
-from os import path
 import os
 import platform
 import sys
+
+from copy import deepcopy
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -17,26 +18,7 @@ from PyQt4.QtGui import *
 from CppBlockUtils import *
 from armoryengine.ALL import *
 from qtdefines import *
-from armoryengine.MultiSigUtils import calcLockboxID
-from copy import deepcopy
 
-sys.path.append('..')
-sys.path.append('../cppForSwig')
-
-
-
-WLTVIEWCOLS = enum('Visible', 'ID', 'Name', 'Secure', 'Bal')
-LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
-                   'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
-ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
-ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
-
-TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
-                               'ScrType', 'Sequence', 'Script', 'AddrStr')
-TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script', 'AddrStr')
-PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
-
-PAGE_LOAD_OFFSET = 10
 
 class AllWalletsDispModel(QAbstractTableModel):
    
@@ -50,38 +32,46 @@ class AllWalletsDispModel(QAbstractTableModel):
       return len(self.main.walletMap)
 
    def columnCount(self, index=QModelIndex()):
-      return 5
+      return 6
 
    def data(self, index, role=Qt.DisplayRole):
-      bdmState = TheBDM.getState()
+      bdmState = getBDM().getState()
       COL = WLTVIEWCOLS
       row,col = index.row(), index.column()
       wlt = self.main.walletMap[self.main.walletIDList[row]]
       wltID = wlt.uniqueIDB58
+      fileID = wlt.wltFileRef.uniqueIDB58
 
       if role==Qt.DisplayRole:
          if col==COL.Visible:
             return self.main.walletVisibleList[row]
+         elif col==COL.FileID: 
+            return QVariant(fileID)
          elif col==COL.ID: 
             return QVariant(wltID)
          elif col==COL.Name: 
-            return QVariant(wlt.labelName.ljust(32))
+            label = wlt.getLabel()
+            if label:
+               label = label.ljust(32)
+            else:
+               label = ''
+            return QVariant(label)
          elif col==COL.Secure: 
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          elif col==COL.Bal:
             if not bdmState==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
-            if wlt.isEnabled == True:
+            if wlt.isDisabled:
+               dispStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[wltID])
+               return QVariant(dispStr)
+            else:
                bal = wlt.getBalance('Total')
                if bal==-1:
                   return QVariant('(...)') 
                else:
                   dispStr = coin2str(bal, maxZeros=2)
                   return QVariant(dispStr)
-            else:
-               dispStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[wltID])
-               return QVariant(dispStr)
             
       elif role==Qt.TextAlignmentRole:
          if col in (COL.ID, COL.Name):
@@ -110,7 +100,7 @@ class AllWalletsDispModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['', tr('ID'), tr('Wallet Name'), tr('Security'), tr('Balance')]
+      colLabels = ['', tr('File ID'), tr('Wallet ID'), tr('Wallet Name'), tr('Security'), tr('Balance')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])
@@ -123,7 +113,7 @@ class AllWalletsDispModel(QAbstractTableModel):
          
          rowFlag = Qt.ItemIsEnabled | Qt.ItemIsSelectable
          
-         if wlt.isEnabled is False:      
+         if wlt.isDisabled:      
             return Qt.ItemFlags()      
             
          return rowFlag
@@ -336,11 +326,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
       else:
          wtype = WLTTYPES.WatchOnly
 
-      #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
-                         # 'WltName', 'Comment', 'Amount', 'isOther', 
-                         # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
-                         # 'DoubleSpend')
-
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
@@ -366,7 +351,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
             return QVariant(Colors.TextSomeConfirm)
          
          if col==COL.Amount:
-            #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
             toSelf = rowData[COL.toSelf]
             if toSelf:
                return QVariant(Colors.Mid)
@@ -459,7 +443,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          try:
             newLedger = self.ledgerDelegate.getHistoryPage(self.bottomPage.id +1)
             toTable = self.convertLedger(newLedger)
-         except:
+         except Exception as e:
             return 0       
          
          self.previousOffset = -len(self.topPage.table)
@@ -487,7 +471,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          try:
             newLedger = self.ledgerDelegate.getHistoryPage(self.topPage.id -1)
             toTable = self.convertLedger(newLedger)
-         except:
+         except Exception as e:
             return 0
          
          self.previousOffset = len(self.topPage.table)
@@ -511,7 +495,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
    def reset(self, hard=False):
       #if either top or current page is index 0, update it
       #also if any of the pages has no ledger, pull and convert it
-      
       if hard == True:
          self.topPage.id = -1
          self.topPage.table = []
@@ -527,7 +510,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             newLedger = self.ledgerDelegate.getHistoryPage(self.topPage.id)
             toTable = self.convertLedger(newLedger)
             self.topPage.table = toTable 
-         except:
+         except Exception as e:
             pass
          
       if self.currentPage.id == 0 or len(self.currentPage.table) == 0:
@@ -535,7 +518,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             newLedger = self.ledgerDelegate.getHistoryPage(self.currentPage.id)
             toTable = self.convertLedger(newLedger)
             self.currentPage.table = toTable 
-         except:
+         except Exception as e:
             pass
                
       if len(self.bottomPage.table) == 0:
@@ -543,7 +526,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             newLedger = self.ledgerDelegate.getHistoryPage(self.bottomPage.id)
             toTable = self.convertLedger(newLedger)
             self.bottomPage.table = toTable 
-         except:
+         except Exception as e:
             pass
       
       self.ledger = []
@@ -568,7 +551,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       blockReturn = 0
       
       for leID in range(0, len(self.ledger)):
-         block = TheBDM.getTopBlockHeight() - self.ledger[leID][0] -1
+         block = getBDM().getTopBlockHeight() - self.ledger[leID][0] -1
          diff = abs(block - blk)
          if blockDiff >= diff :
             blockDiff = diff
@@ -694,7 +677,7 @@ class ArmoryBlockAndDateSelector():
       self.Block = block
       
       try:
-         self.Date = TheBDM.bdv().getBlockTimeByHeight(block)
+         self.Date = getBDM().bdv().getBlockTimeByHeight(block)
          datefmt = self.main.getPreferredDateFormat()
          dateStr = unixTimeToFormatStr(self.Date, datefmt)
       except:
@@ -774,7 +757,7 @@ class ArmoryBlockAndDateSelector():
       try:
          blk = int(self.edtBlock.text())         
          self.Block = self.ledgerDelegate.getBlockInVicinity(blk)
-         self.Date = TheBDM.bdv().getBlockTimeByHeight(self.Block)
+         self.Date = getBDM().bdv().getBlockTimeByHeight(self.Block)
       except:
          pass
       
@@ -788,7 +771,7 @@ class ArmoryBlockAndDateSelector():
          ddate = self.calendarDlg.calendarWidget.selectedDate().toPyDate()
          self.Date = int(time.mktime(ddate.timetuple()))
          
-         self.Block = TheBDM.bdv().getClosestBlockHeightForTime(self.Date)
+         self.Block = getBDM().bdv().getClosestBlockHeightForTime(self.Date)
       except:         
          pass
       
@@ -906,7 +889,7 @@ class ArmoryTableView(QTableView):
               / float(self.verticalScrollBar().maximum())
               
          leID = int(ratio * float(self.ledgerModel.rowCount()))
-         block = TheBDM.getTopBlockHeight() - self.ledgerModel.ledger[leID][0] +1               
+         block = getBDM().getTopBlockHeight() - self.ledgerModel.ledger[leID][0] +1               
          self.BlockAndDateSelector.updateLabel(block)
       except:
          pass
@@ -1051,20 +1034,19 @@ class WalletAddrDispModel(QAbstractTableModel):
    def filterAddrList(self):
       addrList = self.wlt.getLinearAddrList()
 
-      if self.notEmpty and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if self.notEmpty and getBDM().getState()==BDM_BLOCKCHAIN_READY:
          hasBalance = lambda a: (self.wlt.getAddrBalance(a.getAddr160(), 'Full')>0)
          addrList = filter(hasBalance, addrList)
 
       if self.noChange:
-         notChange = lambda a: (self.wlt.getCommentForAddress(a.getAddr160()) != CHANGE_ADDR_DESCR_STRING)
+         notChange = lambda a: (not a.isChange())
          addrList = filter(notChange, addrList)
 
-      if self.usedOnly and TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(Hash160ToScrAddr(a.getAddr160())))
+      if self.usedOnly and getBDM().getState()==BDM_BLOCKCHAIN_READY:
+         isUsed = lambda a: (self.wlt.getAddrTotalTxnCount(hash160_to_scrAddr(a.getAddr160())))
          addrList = filter(isUsed, addrList)
          
-      self.addr160List = [a.getAddr160() for a in addrList]
-
+      self.scrAddrList = [a.getScrAddr() for a in addrList]
 
    @TimeThisFunction
    def reset(self):
@@ -1074,7 +1056,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          
 
    def rowCount(self, index=QModelIndex()):
-      return len(self.addr160List)
+      return len(self.scrAddrList)
 
    def columnCount(self, index=QModelIndex()):
       return 5
@@ -1082,34 +1064,36 @@ class WalletAddrDispModel(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       COL = ADDRESSCOLS
       row,col = index.row(), index.column()
-      if row>=len(self.addr160List):
+      if row>=len(self.scrAddrList):
          return QVariant('')
-      addr = self.wlt.addrMap[self.addr160List[row]]
+      addr = self.wlt.getAddress(self.scrAddrList[row])
+      isChange = addr.isChange()
       addr160 = addr.getAddr160()
       addrB58 = addr.getAddrStr()
-      chainIdx = addr.chainIndex+1  # user must get 1-indexed
+      indexVector = addr.getIndexVector()  # user must get 1-indexed
       if role==Qt.DisplayRole:
          if col==COL.Address: 
             return QVariant( addrB58 )
          if col==COL.Comment: 
-            if addr160 in self.wlt.commentsMap:
-               return QVariant( self.wlt.commentsMap[addr160] )
-            else:
-               return QVariant('')
+            return QVariant( addr.getLabel() )
          if col==COL.NumTx: 
-            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('n/a')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(hash160_to_scrAddr(addr160))
+            # TODO - Fix getTxioCountFromSSH - It returns 0 for a change address with a balance
             return QVariant( cppAddr.getTxioCountFromSSH())
          if col==COL.ChainIdx:
-            if self.wlt.addrMap[addr160].chainIndex==-2:
-               return QVariant('Imported')
+            if addr.isImported():
+               return QVariant(tr('Imported'))
             else:
-               return QVariant(chainIdx)
+               if isChange:
+                  return QVariant('Change-%d' % (indexVector[0]+1))
+               else:
+                  return QVariant(indexVector[0]+1)
          if col==COL.Balance: 
-            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(hash160_to_scrAddr(addr160))
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment, COL.ChainIdx):
@@ -1117,26 +1101,24 @@ class WalletAddrDispModel(QAbstractTableModel):
          elif col in (COL.NumTx,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Balance,):
-            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
             else:
                return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
-            if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(Colors.Foreground)
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(hash160_to_scrAddr(addr160))
             val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
          try:
-            hasTx = self.wlt.cppWallet.getAddrTotalTxnCount(Hash160ToScrAddr(addr160))>0
+            hasTx = self.wlt.cppWallet.getAddrTotalTxnCount(hash160_to_scrAddr(addr160))>0
          except:
             hasTx = False
             
-         cmt = str(self.index(index.row(),COL.Comment).data().toString())
-         isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 
          if col==COL.Balance:
             return GETFONT('Fixed',bold=hasTx)
@@ -1157,16 +1139,15 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant('<u></u>The order that this address was '
                                'generated in this wallet')
-         cmt = str(self.index(index.row(),COL.Comment).data().toString())
-         if cmt==CHANGE_ADDR_DESCR_STRING:
+         if isChange:
             return QVariant('This address was created by Armory to '
                             'receive change-back-to-self from an oversized '
                             'transaction.')
       elif role==Qt.BackgroundColorRole:
-         if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+         if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
 
-         cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+         cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(hash160_to_scrAddr(addr160))
          val = cppAddr.getFullBalance()
          if val>0:
             return QVariant( Colors.SlightGreen )
@@ -1204,22 +1185,37 @@ class WalletAddrSortProxy(QSortFilterProxyModel):
    def lessThan(self, idxLeft, idxRight):
       COL = ADDRESSCOLS
       thisCol  = self.sortColumn()
-      strLeft  = str(self.sourceModel().data(idxLeft).toString())
-      strRight = str(self.sourceModel().data(idxRight).toString())
+      leftString  = str(self.sourceModel().data(idxLeft).toString())
+      rightString = str(self.sourceModel().data(idxRight).toString())
       if thisCol==COL.Address:
-         return (strLeft.lower() < strRight.lower())
+         return (leftString.lower() < rightString.lower())
       elif thisCol==COL.Comment:
-         return (strLeft < strRight)
+         return (leftString < rightString)
       elif thisCol==COL.Balance:
-         return (float(strLeft.strip()) < float(strRight.strip()))
+         return (float(leftString.strip()) < float(rightString.strip()))
       elif thisCol==COL.ChainIdx:
-         left = -2 if strLeft =='Imported' else int(strLeft)
-         rght = -2 if strRight=='Imported' else int(strRight)
-         return (left<rght)
+         leftRankPair = self.rankChainIndexString(leftString)
+         rightRankPair = self.rankChainIndexString(rightString)
+         result = leftRankPair[0]<rightRankPair[0] or \
+            leftRankPair[0]==rightRankPair[0] and \
+            leftRankPair[1]<rightRankPair[1]
+         return result
       else:
          return super(WalletAddrSortProxy, self).lessThan(idxLeft, idxRight)
-         
-
+   
+   # Rank the following options in order:
+   # Lowest - Imported
+   # Middle - external addresses
+   # Highest - change addresses
+   def rankChainIndexString(self, indexString):
+      if indexString == 'Imported':
+         result = [0,0]
+      elif indexString.startswith('Change-'):
+         result = [2, int(indexString[7:])]
+      else:
+         result = [1, int(indexString)]
+      return result
+   
 ################################################################################
 class TxInDispModel(QAbstractTableModel):
    def __init__(self,  pytx, txinListFromBDM=None, main=None):
@@ -1494,6 +1490,7 @@ class SentToAddrBookModel(QAbstractTableModel):
       wltID    = self.main.getWalletForAddr160(addr160)
       txList   = self.addrBook[row][1]
       numSent  = len(txList)
+      # TODO make this compatible with wallet 2.0
       comment  = self.wlt.getCommentForTxList(addr160, txList)
       
       #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
@@ -1612,5 +1609,4 @@ class PromissoryCollectModel(QAbstractTableModel):
             return QVariant(colLabels[section])
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-
 

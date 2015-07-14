@@ -5,10 +5,11 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html
 #
 ################################################################################
-from armoryengine.ArmoryUtils import *
-from armoryengine.MultiSigUtils import readLockboxEntryStr, calcLockboxID, \
+from ArmoryUtils import *
+from MultiSigUtils import readLockboxEntryStr, calcLockboxID, \
                                        isBareLockbox, isP2SHLockbox
-from armoryengine.Transaction import getTxOutScriptType, getMultisigScriptInfo
+from Transaction import getTxOutScriptType, getMultisigScriptInfo
+
 
 #############################################################################
 def getScriptForUserString(userStr, wltMap, lboxList):
@@ -18,7 +19,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
    context other than the GUI.
 
    The user has entered a string in one of the following ways:
-      
+
       18cnJQ493jnZn99A3QnHggkl832   (addr str)
       3Hgz4nmKasE32W3drXx719cBnM3   (P2SH str)
       Lockbox[Abcd1234]             (Lockbox: P2SH)
@@ -45,7 +46,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
    def getWltIDForScrAddr(scrAddr, walletMap):
       for iterID,iterWlt in walletMap.iteritems():
-         if iterWlt.hasScrAddr(scrAddr):
+         if iterWlt.hasScrAddress(scrAddr):
             return iterID
       return None
 
@@ -65,7 +66,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
             if iterLbox.uniqueIDB58 == parsedLboxID:
                outScript = iterLbox.binScript
                if isP2SHLockbox(userStr):
-                  outScript = script_to_p2sh_script(iterLbox.binScript) 
+                  outScript = script_to_p2sh_script(iterLbox.binScript)
                lboxID = parsedLboxID
                hasAddrInIt = False
                break
@@ -75,7 +76,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
          # This might be a public key. Confirm it's valid before proceeding.
          if isValidPK(userStr, True):
             sbdKey = SecureBinaryData(hex_to_binary(userStr))
-            a160 = sbdKey.getHash160()
+            a160 = sbdKey.getHash160().toBinStr()
             outScript = hash160_to_p2pkhash_script(a160)
             hasAddrInIt = False
 
@@ -100,12 +101,12 @@ def getScriptForUserString(userStr, wltMap, lboxList):
       # Caller might be expecting to see None, instead of '' (empty string)
       wltID  = None if not wltID  else wltID
       lboxID = None if not lboxID else lboxID
-      return {'Script': outScript, 
-              'WltID':  wltID, 
-              'LboxID': lboxID, 
+      return {'Script': outScript,
+              'WltID':  wltID,
+              'LboxID': lboxID,
               'ShowID': hasAddrInIt}
    except:
-      #LOGEXCEPT('Invalid user string entered')
+      LOGEXCEPT('Invalid user string entered')
       return {'Script': None,
               'WltID':  None,
               'LboxID': None,
@@ -114,14 +115,14 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
 
 ################################################################################
-def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256, 
-                              doBold=0, prefIDOverAddr=False, 
+def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
+                              doBold=0, prefIDOverAddr=False,
                               lblTrunc=12, lastTrunc=12):
    """
    NOTE: This was originally in ArmoryQt.py, but we really needed this to be
-   more widely accessible.  And it's easier to test when this is in ArmoryUtils.  
+   more widely accessible.  And it's easier to test when this is in ArmoryUtils.
    Yes, I realize that it's awkward that we have wltMap {WltID-->Wallet} but
-   we have a lboxList [Lbox0, Lbox1, ...].  I will have to standardize the 
+   we have a lboxList [Lbox0, Lbox1, ...].  I will have to standardize the
    member names and lookup structures.
 
    We have a script and want to show the user something useful about it.
@@ -133,7 +134,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
    on identifying participants of a multi-sig transaction.  It almost
    works here, but we need one that's more general.
 
-   Consider a 3-of-5 lockbox with ID Abcd1234z and label 
+   Consider a 3-of-5 lockbox with ID Abcd1234z and label
    "My long-term savings super-secure" and p2sh address 2m83zQr9981pmKnrSwa32
 
                    10        20        30        40        50        60        70
@@ -147,15 +148,15 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
    256   Wallet "LabelLabelLabelLabelLabelLabel" (1j93CnrAA3xn...)
    256   Wallet "LabelLabelLabelLabelLabelLabel" (Abcd1234z)
     50   Wallet "LabelLabelLa..." (1j93CnrAA3xn...)
-    35   Wallet "LabelLabelLa..." 
+    35   Wallet "LabelLabelLa..."
 
    So we will always show the type and the label (possibly truncated).  If
    we can show the ID or Addr (whichever is preferred) we will do so, otherwise
-   it gets left out.   If our truncation leaves the string too short, we 
-   usually try to add back in a few chars.  It's not perfect, but it seems to 
+   it gets left out.   If our truncation leaves the string too short, we
+   usually try to add back in a few chars.  It's not perfect, but it seems to
    work reliably.
 
-   The doBold arg indicates that we want to add html bold tags around the 
+   The doBold arg indicates that we want to add html bold tags around the
    first N parts of the return.  This is applied after the length calculations
    are performed, as bolding will have a very small impact on width
    """
@@ -164,12 +165,12 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
       LOGERROR('getDisplayStringForScript() req at least 32 bytes output')
       return None
 
-   scriptType = getTxOutScriptType(binScript) 
+   scriptType = getTxOutScriptType(binScript)
    scrAddr = script_to_scrAddr(binScript)
 
    wlt = None
    for iterID,iterWlt in wltMap.iteritems():
-      if iterWlt.hasScrAddr(scrAddr):
+      if iterWlt.hasScrAddress(scrAddr):
          wlt = iterWlt
          break
 
@@ -178,7 +179,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
       searchScrAddr = scrAddr
       if scriptType==CPP_TXOUT_MULTISIG:
          searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
-         
+
       for iterLbox in lboxList:
          if searchScrAddr == iterLbox.p2shScrAddr:
             lbox = iterLbox
@@ -191,7 +192,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
 
    if wlt is not None:
       strType = 'Wallet:'
-      strLabel = wlt.labelName
+      strLabel = wlt.getLabel()
       addrStr = None
       if scriptType in CPP_TXOUT_HAS_ADDRSTR:
          addrStr = scrAddr_to_addrStr(scrAddr)
@@ -235,8 +236,8 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
          strLast  = ' (%s)' % truncateStr(strLast,lastTrunc) if lenLast>0 else ''
       elif lenType + lenLabelTrunc + lenLastTrunc <= maxChars:
          extraChars = maxChars - (lenType + lenLabelTrunc + lenLastTrunc)
-         lblTrunc += extraChars/2 
-         lastTrunc += extraChars/2 
+         lblTrunc += extraChars/2
+         lastTrunc += extraChars/2
          strLabel = ' "%s"' % truncateStr(strLabel, lblTrunc)
          strLast  = ' (%s)' % truncateStr(strLast, lastTrunc) if lenLast>0 else ''
       elif lenType + lenLabel <= maxChars:

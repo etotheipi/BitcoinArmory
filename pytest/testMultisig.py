@@ -6,15 +6,9 @@ Created on Aug 4, 2013
 import sys
 import textwrap
 sys.path.append('..')
-#from pytest.Tiab import TiabTest
 import unittest
-from armoryengine.ArmoryUtils import *
-from armoryengine.Transaction import PyTx, UnsignedTxInput, DecoratedTxOut,\
-   UnsignedTransaction, TXIN_SIGSTAT, NullAuthData
-from armoryengine.Script import convertScriptToOpStrings
-from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
-   MultiSigLockbox, MultiSigPromissoryNote, DecoratedPublicKey
-
+from armoryengine.ALL import *
+from armoryengine.Block import PyBlock
 
 
 def normalizeAddrStr(astr):
@@ -126,6 +120,8 @@ class MSUtilsTest(unittest.TestCase):
 
    
    def setUp(self):
+      useMainnet()
+      setDeterministicSigFlag(False)
       self.tx1 = PyTx().unserialize(tx1raw)
       self.tx2 = PyTx().unserialize(tx2raw)
       self.tx1hash = hex_to_binary( \
@@ -408,6 +404,11 @@ class MSUtilsTest(unittest.TestCase):
 #    Unsigned Transaction Input
 #    Decorated Transaction Output
 class LockboxRelatedObjectsTest(unittest.TestCase):
+
+   def setUp(self):
+      useMainnet()
+
+
    @classmethod
    def setUpClass(self):
       global serMap
@@ -826,7 +827,9 @@ class LockboxRelatedObjectsTest(unittest.TestCase):
       self.assertEqual(result.uniqueIDB58, 'NaVk9y4Y')
 
 class PubKeyBlockTest(unittest.TestCase):
+
    def setUp(self):
+      useMainnet()
       self.binPubKey = hex_to_binary( \
          '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
            '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
@@ -881,7 +884,6 @@ class PubKeyBlockTest(unittest.TestCase):
 
 
 
-   """
    def testMinimizeDERSignaturePadding(self):
       multiTx1  = PyTx().unserialize(multiTx1raw)
       paddingMinimizedMulti1, newTxMulti1 = multiTx1.minimizeDERSignaturePadding()
@@ -928,8 +930,12 @@ class PubKeyBlockTest(unittest.TestCase):
       self.assertEqual(blk.blockHeader.merkleRoot, blk.blockData.merkleRoot)
    
    def testCreateTx(self):
-      addrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa' * 32))
-      addrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb' * 32)) 
+      prvA = SecureBinaryData('\xaa' * 32)
+      addrA = ArmoryImportedKeyPair()
+      addrA.initializeFromPrivKey(prvA)
+      prvB = SecureBinaryData('\xbb' * 32)
+      addrB = ArmoryImportedKeyPair()
+      addrB.initializeFromPrivKey(prvB)
 
       # This TxIn will be completely ignored, so it can contain garbage
       txinA = PyTxIn()
@@ -944,17 +950,11 @@ class PubKeyBlockTest(unittest.TestCase):
       txoutA = PyTxOut()
       txoutA.value = 50 * ONE_BTC
       txoutA.binScript = '\x76\xa9\x14' + addrA.getAddr160() + '\x88\xac'
-      # Test pprint
-      #print '\nTest pretty print PyTxIn, expect PrevTXHash all 0s'
-      #testTxIn.pprint()
-   
+
       # test binary unpacker in unserialize
       testTxOut = PyTxOut().unserialize(txoutA.serialize())
       self.assertEqual(txoutA.getScript(), testTxOut.getScript())
       self.assertEqual(txoutA.value, testTxOut.getValue())
-      # Test pprint
-      #print '\nTest pretty print PyTxOut'
-      #testTxOut.pprint()
       
       tx1 = PyTx()
       tx1.version    = 1
@@ -966,22 +966,24 @@ class PubKeyBlockTest(unittest.TestCase):
       tx1hash = tx1.getHash()
       recipientList = tx1.makeRecipientsList()
       self.assertEqual(len(recipientList), 1)
-      self.assertEqual(recipientList[0][0], TXOUT_SCRIPT_STANDARD)
       self.assertEqual(recipientList[0][1], 50 * ONE_BTC)
       
       self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))
       # Creating transaction to send coins from A to B
-      tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*ONE_BTC]])
+      pubKeyMap = { addrA.getScrAddr(): addrA.sbdPublicKey33.toBinStr() }
+      ustxi = UnsignedTxInput(tx1.serialize(), 0, pubKeyMap=pubKeyMap)
+      script = scrAddr_to_script(addrB.getScrAddr())
+      dtxo = DecoratedTxOut(script, 50*ONE_BTC)
+      tx2 = PyCreateAndSignTx( [ustxi], [dtxo], [addrA])
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())
-      
    
    def testVerifyTxFromFakeBlockChain(self):
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1Fake, tx2Fake, 0)
       self.assertTrue(psp.verifyTransactionValid())
-      
+
    def test2of2MultiSigTx(self):
       tx1 = PyTx().unserialize(hex_to_binary('010000000189a0022c8291b4328338ec95179612b8ebf72067051de019a6084fb97eae0ebe000000004a4930460221009627882154854e3de066943ba96faba02bb8b80c1670a0a30d0408caa49f03df022100b625414510a2a66ebb43fffa3f4023744695380847ee1073117ec90cb60f2c8301ffffffff0210c18d0000000000434104a701496f10db6aa8acbb6a7aa14d62f4925f8da03de7f0262010025945f6ebcc3efd55b6aa4bc6f811a0dc1bbdd2644bdd81c8a63766aa11f650cd7736bbcaf8ac001bb7000000000043526b006b7dac7ca914fc1243972b59c1726735d3c5cca40e415039dce9879a6c936b7dac7ca914375dd72e03e7b5dbb49f7e843b7bef4a2cc2ce9e879a6c936b6c6ca200000000'))
       tx2 = PyTx().unserialize(hex_to_binary('01000000011c9608650a912be7fa88eecec664e6fbfa4b676708697fa99c28b3370005f32d01000000fd1701483045022017462c29efc9158cf26f2070d444bb2b087b8a0e6287a9274fa36fad30c46485022100c6d4cc6cd504f768389637df71c1ccd452e0691348d0f418130c31da8cc2a6e8014104e83c1d4079a1b36417f0544063eadbc44833a992b9667ab29b4ff252d8287687bad7581581ae385854d4e5f1fcedce7de12b1aec1cb004cabb2ec1f3de9b2e60493046022100fdc7beb27de0c3a53fbf96df7ccf9518c5fe7873eeed413ce17e4c0e8bf9c06e022100cc15103b3c2e1f49d066897fe681a12e397e87ed7ee39f1c8c4a5fef30f4c2c60141047cf315904fcc2e3e2465153d39019e0d66a8aaec1cec1178feb10d46537427239fd64b81e41651e89b89fefe6a23561d25dddc835395dd3542f83b32a1906aebffffffff01c0d8a700000000001976a914fc1243972b59c1726735d3c5cca40e415039dce988ac00000000'))
@@ -1005,63 +1007,5 @@ class PubKeyBlockTest(unittest.TestCase):
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())
-      
-   def testMultiSigAddrExtraction(self):
-      script1 = hex_to_binary('4104b54b5fc1917945fff64785d4baaca66a9704e9ed26002f51f53763499643321fbc047683a62be16e114e25404ce6ffdcf625a928002403402bf9f01e5cbd5f3dad4104f576e534f9bbf6d7c5f186ff4c6e0c5442c2755314bdee62fbc656f94d6cbf32c5eb3522da21cf9f954133000ffccb20dbfec030737640cc3315ce09619210d0ac')
-      expectedBtcAddrList1 = ['1KmV9FdKJEFFCHydZUZGdBL9uKq2T9JUm8','13maaQeK5qSPjHwnHhwNUtNKruK3qYLwvv']              
-      self.verifyMultiSigAddrExtraction(script1, expectedBtcAddrList1)
-      
-      script2 = hex_to_binary('537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae')
-      expectedBtcAddrList2 = ['1ChwTs5Dmh6y9iDh4pjWyu2X6nAhjre7SV','1G2i31fxRqaoXBfYMuE4YKb9x96uYcHeQ','12Tg96ZPSYc3P2g5c9c4znFFH2whriN9NQ']
-      self.verifyMultiSigAddrExtraction(script2, expectedBtcAddrList2)
-
-      script3 = hex_to_binary('527a7651a269527a829178a914731cdb75c88a01cbb96729888f726b3b9f29277a879b69527a829178a914e9b4261c6122f8957683636548923acc069e8141879b6952ae')
-      expectedBtcAddrList3 = ['1BVfH6iKT1s8fYEVSj39QkJrPqCKN4hv2m','1NJiFfFPZ177Pv96Yt4FCNZFEumyL2eKmt']
-      self.verifyMultiSigAddrExtraction(script3, expectedBtcAddrList3)
-   
-   def verifyMultiSigAddrExtraction(self, scr, expectedBtcAddrList):
-      addrList = getMultisigScriptInfo(scr)[2]
-      btcAddrList = []
-      for a in addrList:
-         btcAddrList.append(PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr())
-      self.assertEqual(btcAddrList, expectedBtcAddrList)
-
-   def testUnpackUnserializePyOutPoint(self):
-      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
-      self.assertEqual(outpoint.txHash, hex_to_binary('00'*32))
-      self.assertEqual(outpoint.txOutIndex, 0)
-   
-   def testCopyPyOutPoint(self):
-      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
-      outpointCopy = outpoint.copy()
-      self.assertEqual(outpoint.txHash, outpointCopy.txHash)
-      self.assertEqual(outpoint.txOutIndex, outpointCopy.txOutIndex)
-   
-   def testPPrintPyOutPoint(self):
-      # No return value - Should just print 0s
-      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
-      #print "PyOutPoint PPrint Test. Expect all 0s: "
-      #outpoint.pprint()
-   
-   '''
-   Does not pass because fromCpp is missing
-   def testCreateCppFromCppPyOutPoint(self):
-      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
-      outpointFromCpp = PyOutPoint().fromCpp(outpoint.createCpp())
-      self.assertEqual(outpoint.txHash, outpointFromCpp.txHash)
-      self.assertEqual(outpoint.txOutIndex, outpointFromCpp.txOutIndex)
-   '''
-   def testBogusBlockComponent(self):
-      class TestBlockComponent(BlockComponent):
-         pass
-      testBlkComp =  TestBlockComponent()
-      self.assertRaises(NotImplementedError, testBlkComp.serialize)  
-      self.assertRaises(NotImplementedError, testBlkComp.unserialize)  
    
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
-   """
-
-# Running tests with "python <module name>" will NOT work for any Armory tests
-# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
-# if __name__ == "__main__":
-#    unittest.main()

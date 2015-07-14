@@ -5,25 +5,26 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
+import cStringIO
+import textwrap
+import webbrowser
+
 from PyQt4.Qt import *
 from PyQt4.QtGui import *
 from PyQt4.QtNetwork import *
-from qtdefines import *
-from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
-                      DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-                      DlgDispTxInfo, STRETCH
+
 from armoryengine.ALL import *
+
 from armorymodels import *
 from armorycolors import *
-from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
-   createLockboxEntryStr, readLockboxEntryStr, isMofNNonStandardToSpend
-from ui.MultiSigModels import \
-            LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
-import webbrowser
-from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
-                                    pprintUnspentTxOutList
-import cStringIO
-import textwrap
+from qtdefines import *
+from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
+                      DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment, \
+                      DlgDispTxInfo
+
+from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy
+
+
 
 #############################################################################
 class DlgLockboxEditor(ArmoryDialog):
@@ -72,7 +73,7 @@ class DlgLockboxEditor(ArmoryDialog):
                                                                openMoreInfo)
 
 
-      self.createDate = long(RightNow())
+      self.createDate = long(time.time())
       self.loadedID = None
       self.comboM = QComboBox()
       self.comboN = QComboBox()
@@ -528,7 +529,7 @@ class DlgLockboxEditor(ArmoryDialog):
          # Finally, throw a warning if the comment is not set 
          strComment = str(self.widgetMap[i]['LBL_NAME'].text()).strip()
          if len(strComment)==0 and not acceptedBlankComment:
-            reply =QMessageBox.warning(self, tr('Empty Name/ID Field'), tr(""" 
+            reply =QMessageBox.warning(self, tr('_empty Name/ID Field'), tr(""" 
                You did not specify a comment/label for one or more 
                public keys.  Other devices/parties may not be able to 
                identify them.  If this is a multi-party
@@ -570,9 +571,9 @@ class DlgLockboxEditor(ArmoryDialog):
             if not reply==QMessageBox.Ok:
                return
             else:
-               self.createDate = long(RightNow())
+               self.createDate = long(time.time())
       
-      if not USE_TESTNET and isMofNNonStandardToSpend(currM, currN):
+      if not getTestnetFlag() and isMofNNonStandardToSpend(currM, currN):
          reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
             If you are running any Bitcoin Core version earlier than 0.9.3
             all spending transactions from this lockbox
@@ -636,7 +637,7 @@ class DlgLockboxManager(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgLockboxManager, self).__init__(parent, main)
 
-      #if not USE_TESTNET:
+      #if not getTestnetFlag():
          #QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
             #Multi-signature transactions are an 
             #<b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
@@ -772,7 +773,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
 
 
-      self.tabbedDisplay.setTabEnabled(2, TheBDM.getState()==BDM_BLOCKCHAIN_READY)
+      self.tabbedDisplay.setTabEnabled(2, getBDM().getState()==BDM_BLOCKCHAIN_READY)
 
 
       splitter = QSplitter()
@@ -1299,9 +1300,11 @@ class DlgLockboxManager(ArmoryDialog):
          lbox = self.main.allLockboxes[self.main.lockboxIDMap[lboxId]]
          for a160 in lbox.a160List:
             wltID = self.main.getWalletForAddr160(a160)
-            if len(wltID)>0:
-               self.main.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
-         self.main.walletListChanged()
+            if len(wltID):
+               wlt = self.main.walletMap[wltID]
+               wlt.setTxComment(hex_to_binary(txHash), newComment)
+               wlt.wltFileRef.fsyncUpdates()
+         self.main.lockboxLedgModel.reset()
 
    #############################################################################
    def dblClickLedger(self, index):
@@ -1318,8 +1321,8 @@ class DlgLockboxManager(ArmoryDialog):
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
-      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         cppTx = TheBDM.getTxByHash(txHashBin)
+      if getBDM().getState()==BDM_BLOCKCHAIN_READY:
+         cppTx = getBDM().getTxByHash(txHashBin)
          if cppTx.isInitialized():
             pytx = PyTx().unserialize(cppTx.serialize())
 
@@ -1354,13 +1357,8 @@ class DlgLockboxManager(ArmoryDialog):
       txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
-      if USE_TESTNET:
-         blkExploreTitle = 'View on blockexplorer.com'
-         blkExploreURL   = 'http://blockexplorer.com/testnet/tx/%s' % txHash
-      else:
-         blkExploreTitle = 'View on blockchain.info'
-         blkExploreURL   = 'https://blockchain.info/tx/%s' % txHash
-
+      blkExploreTitle = 'View on %s' % getBlockExplorer()
+      blkExploreURL = getBlockExplorerTxURL() % txHash
 
       actViewTx     = menu.addAction("View Details")
       actViewBlkChn = menu.addAction(blkExploreTitle)
@@ -1400,15 +1398,15 @@ class DlgLockboxManager(ArmoryDialog):
 
       if True:  actionCopyAddr    = menu.addAction("Copy P2SH address")
       if True:  actionShowQRCode  = menu.addAction("Display address QR code")
-      if not USE_TESTNET:
-         actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
+      if not getTestnetFlag():
+         actionBlkChnInfo  = menu.addAction("View address on %s" % getBlockExplorer())
       else:
          actionBlkChnInfo = None
       if True:  actionReqPayment  = menu.addAction("Request payment to this lockbox")
       if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
       if True:  actionCopyBalance = menu.addAction("Copy balance")
       if True:  actionRemoveLB    = menu.addAction("Delete Lockbox")
-      if ENABLE_SUPERNODE is False:  
+      if not getSupernodeFlag():
          actionRescanLB    = menu.addAction("Rescan Lockbox")
 
       selectedIndexes = self.lboxView.selectedIndexes()
@@ -1432,7 +1430,7 @@ class DlgLockboxManager(ArmoryDialog):
          if action == actionCopyAddr:
             clippy = p2shAddr
          elif action == actionBlkChnInfo:
-            urlToOpen = BLOCKEXPLORE_URL_ADDR % p2shAddr
+            urlToOpen = getBlockExplorerAddrURL() % p2shAddr
             try:
                import webbrowser
                webbrowser.open(urlToOpen)
@@ -1442,7 +1440,7 @@ class DlgLockboxManager(ArmoryDialog):
                   this address on %s, please copy and paste 
                   the following URL into your browser: 
                   <br><br>
-                  <a href="%s">%s</a>""") % (BLOCKEXPLORE_NAME, urlToOpen, 
+                  <a href="%s">%s</a>""") % (getBlockExplorer(), urlToOpen, 
                   urlToOpen), QMessageBox.Ok)
             return
          elif action == actionShowQRCode:
@@ -1450,8 +1448,8 @@ class DlgLockboxManager(ArmoryDialog):
             return
          elif action == actionReqPayment:
             if not self.main.getSettingOrSetDefault('DNAA_P2SHCompatWarn', False):
-               oldStartChar = "'m' or 'n'" if USE_TESTNET else "'1'"
-               newStartChar = "'2'"        if USE_TESTNET else "'3'"
+               oldStartChar = "'m' or 'n'" if getTestnetFlag() else "'1'"
+               newStartChar = "'2'"        if getTestnetFlag() else "'3'"
                reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, tr('Compatibility Warning'), 
                   tr("""You are about to request payment to a "P2SH" address 
                   which is the format used for receiving to multi-signature
@@ -1524,7 +1522,7 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def updateButtonDisable(self):
       noSelection = (self.getSelectedLBID() is None)
-      isOffline = (not TheBDM.getState()==BDM_BLOCKCHAIN_READY)
+      isOffline = (not getBDM().getState()==BDM_BLOCKCHAIN_READY)
 
       """
       # Removed all these when we added the dashboard tab
@@ -1838,11 +1836,11 @@ class DlgLockboxManager(ArmoryDialog):
    def changeLBFilter(self):
       lbIDList = []
       for lb in self.main.allLockboxes:
-         if lb.isEnabled:
+         if not lb.isDisabled:
             lbIDList.append(lb.uniqueIDB58)
             
       self.main.currentLBPage = 0      
-      TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
+      getBDM().bdv().updateLockboxesLedgerFilter(lbIDList)
 
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):
@@ -1925,7 +1923,7 @@ class DlgSpendFromLockbox(ArmoryDialog):
       btnReview = QPushButton(tr("Review and Sign"))
       btnCancel = QPushButton(tr("Cancel"))
 
-      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if getBDM().getState()==BDM_BLOCKCHAIN_READY:
          lblCreate = QRichLabel(tr("""
             I am creating a new proposed spending transaction and will pass
             it to each party or device that needs to sign it"""))
@@ -2020,7 +2018,7 @@ class DlgSimulfundSelect(ArmoryDialog):
       btnReview  = QPushButton(tr('Sign Simulfunding Transaction'))
       btnCancel  = QPushButton(tr("Cancel"))
 
-      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if getBDM().getState()==BDM_BLOCKCHAIN_READY:
          lblCreate = QRichLabel(tr("""
             Create a commitment to a simulfunding transaction"""))
       else:
@@ -2917,9 +2915,10 @@ class DlgMultiSpendReview(ArmoryDialog):
    def doSignForInput(self, idStr, keyIdx):
       ib = self.inputBundles[idStr]
       wltID, a160 = ib.wltSignRightNow[keyIdx]
+      scrAddr = hash160_to_scrAddr(a160)
       wlt = self.main.walletMap[wltID]
       pytx = self.ustx.pytxObj
-      if wlt.useEncryption and wlt.isLocked:
+      if wlt.useEncryption() and wlt.isLocked():
          dlg = DlgUnlockWallet(wlt, self, self.main, 'Sign Lockbox')
          if not dlg.exec_():
             QMessageBox.critical(self, 'Wallet is locked',
@@ -2930,13 +2929,14 @@ class DlgMultiSpendReview(ArmoryDialog):
       if ib.lockbox:
          # If a lockbox, all USTXIs require the same signing key
          for ustxi in ib.ustxiList:
-            addrObj = wlt.getAddrByHash160(a160)
+            addrObj = wlt.getAddress(scrAddr)
             ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
       else:
          # Not lockboxes... may have to access multiple keys in wallet
          for ustxi in ib.ustxiList:
             a160 = CheckHash160(ustxi.scrAddrs[0])
-            addrObj = wlt.getAddrByHash160(a160)
+            scrAddr = hash160_to_scrAddr(a160)
+            addrObj = wlt.getAddress(scrAddr)
             ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
 
       self.evalSigStat()
@@ -3289,7 +3289,7 @@ class DlgCreatePromNote(ArmoryDialog):
          wltID = self.main.getWalletForAddr160(addrStr_to_hash160(addrText)[1])
          if wltID:
             wlt = self.main.walletMap[wltID]
-            dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
+            dispStr = '%s (%s)' % (wlt.getLabel(), wlt.uniqueIDB58)
             self.lblTargetID.setVisible(True)
             self.lblTargetID.setText(dispStr, color='TextBlue')
             return
@@ -3305,7 +3305,7 @@ class DlgCreatePromNote(ArmoryDialog):
    def doContinue(self):
 
 
-      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
          LOGERROR('Blockchain not avail for creating prom note')
          QMessageBox.critical(self, tr('Blockchain Not Available'), tr("""
             The blockchain has become unavailable since you opened this
@@ -3419,7 +3419,7 @@ class DlgCreatePromNote(ArmoryDialog):
       changeAmt = sumTxOutList(utxoSelect) - (valueAmt + feeAmt)
       dtxoChange = None
       if changeAmt > 0:
-         changeAddr160 = wlt.getNextUnusedAddress().getAddr160()
+         changeAddr160 = wlt.getNextChangeAddress().getAddr160()
          changeScript = hash160_to_p2pkhash_script(changeAddr160)
          dtxoChange = DecoratedTxOut(changeScript, changeAmt)
       else:
@@ -3431,7 +3431,7 @@ class DlgCreatePromNote(ArmoryDialog):
          utxo = utxoSelect[i]
          txHash = utxo.getTxHash()
          txoIdx = utxo.getTxOutIndex()
-         cppTx = TheBDM.getTxByHash(txHash)
+         cppTx = getBDM().getTxByHash(txHash)
          if not cppTx.isInitialized():
             LOGERROR('UTXO was supplied for which we could not find prev Tx')
             QMessageBox.warning(self, tr('Transaction Not Found'), tr("""
@@ -3443,8 +3443,8 @@ class DlgCreatePromNote(ArmoryDialog):
 
          rawTx = cppTx.serialize()
          utxoScrAddr = utxo.getRecipientScrAddr()
-         aobj = wlt.getAddrByHash160(CheckHash160(utxoScrAddr))
-         pubKeys = {utxoScrAddr: aobj.binPublicKey65.toBinStr()}
+         aobj = wlt.getAddress(utxoScrAddr)
+         pubKeys = {utxoScrAddr: aobj.sbdPublicKey33.toBinStr()}
          ustxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKeys))
          
 
@@ -3659,7 +3659,7 @@ class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
    def createPromAdd(self):
-      if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+      if not getBDM().getState()==BDM_BLOCKCHAIN_READY:
          QMessageBox.warning(self, tr("Not Online"), tr("""
             Armory is currently in offline mode and cannot create any 
             transactions or promissory notes.  You can only merge 

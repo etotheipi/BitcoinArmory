@@ -1,14 +1,8 @@
 import sys
 sys.path.append('..')
 import unittest
-from pytest.Tiab import TiabTest
 
-from CppBlockUtils import SecureBinaryData, CryptoECDSA
-from armoryengine.ArmoryUtils import *
-from armoryengine.MultiSigUtils import calcLockboxID
-from armoryengine.Transaction import getTxOutScriptType
-from armoryengine.UserAddressUtils import getDisplayStringForScript, \
-   getScriptForUserString
+from armoryengine.ALL import *
 
 
 ################################################################################
@@ -18,7 +12,10 @@ class MockWallet(object):
       self.uniqueIDB58 = wltID
       self.scrAddr = scrAddr
 
-   def hasScrAddr(self, scraddr):
+   def getLabel(self):
+      return self.labelName
+
+   def hasScrAddress(self, scraddr):
       return scraddr==self.scrAddr
       
 
@@ -39,7 +36,7 @@ class MockLockbox(object):
          raise BadAddressError('Must initialize [mocked] lbox with MS or P2SH')
 
 ################################################################################
-class ScriptToDispStrTest(TiabTest):
+class ScriptToDispStrTest(unittest.TestCase):
    """
    I know, these are not real unit tests!   The problem here is that it's going
    to take a ton of time to prepare the 300 different test outputs, and it's 
@@ -50,6 +47,8 @@ class ScriptToDispStrTest(TiabTest):
    Once this method is settled down, we can make it a real unit test
    """
    def setUp(self):
+      useMainnet()
+
       self.pubKeyList    = [self.makePubKey(a) for a in ['\xbb','\xaa','\xcc']]
       self.binScriptMS   = pubkeylist_to_multisig_script(self.pubKeyList, 2) 
       self.binScriptP2PK = pubkey_to_p2pk_script(self.pubKeyList[0])
@@ -85,7 +84,7 @@ class ScriptToDispStrTest(TiabTest):
                [self.binScriptNonStd,   '2NEF6nBRNhSDcsZu8UB877nnqwCWdKXbZXq']]
 
       
-      self.maxLengthTestList = [256, 60, 58, 54, 45, 32]
+      self.maxLengthTestList = [256, 60, 58, 54, 49, 32] 
 
    #############################################################################
    def makePubKey(self, byte):
@@ -175,13 +174,15 @@ class ScriptToDispStrTest(TiabTest):
 
 
 ################################################################################
-class UserAddressToScript(TiabTest):
+class UserAddressToScript(unittest.TestCase):
    """
    Test a bunch of different strings that the user could enter, and check
    the output of getScriptForUserString(), with and without relevant wallets
    loaded/available
    """
    def setUp(self):
+      useMainnet()
+
       self.pubKeyList    = [self.makePubKey(a) for a in ['\xaa','\x33','\x44']]
       self.binScriptMS   = pubkeylist_to_multisig_script(self.pubKeyList, 2) 
       self.binScriptP2PK = pubkey_to_p2pk_script(self.pubKeyList[0])
@@ -189,7 +190,6 @@ class UserAddressToScript(TiabTest):
       self.binScriptP2PKH = hash160_to_p2pkhash_script(self.p2pkHash160)
       self.binScriptP2SH_MS = script_to_p2sh_script(self.binScriptMS)
       self.binScriptNonStd = '\x01'*25
-
 
       pubKeyCompr = '\x02' + '\xaa'*32
       self.binScriptP2PKCompr = pubkey_to_p2pk_script(pubKeyCompr)
@@ -217,14 +217,14 @@ class UserAddressToScript(TiabTest):
 
 
       # When all wallets and lockboxes are avail, these will all be recognized
-      self.validInputStrings = [ \
-         'n4TMVYp9BX4yDtjqPgJHrnRPu7zdZ2aLGj',
-         '2N1j5GnC97dXRprEzbQVJJAYXMqCsffdX29',
+      self.validInputStrings = [
+         '1PwQCVjANVdiSnGDg7Kv2sD538PviHm9fi',
+         '3AAsD3G7WB25d4cSvGsRgDZG9Uzhri8rt8',
          'Lockbox[%s]' % self.lboxID,
          'Lockbox[Bare:%s]' % self.lboxID,
          binary_to_hex(self.pubKeyList[0]),
          binary_to_hex(pubKeyCompr)]   # a compressed key
-         
+
       # Now a few others that should fail to return useful info
       self.badInputStrings = [ \
          'mpduARVk95R9EXDtbb54fZG1VVQ4CWZmY6',   # bad checksum on addr
@@ -459,7 +459,9 @@ class UserAddressToScript(TiabTest):
          self.assertEqual(scrInfo['WltID'], None)
          self.assertEqual(scrInfo['LboxID'], None)
 
-# Running tests with "python <module name>" will NOT work for any Armory tests
-# You must run tests with "python -m unittest <module name>" or run all tests with "python -m unittest discover"
-# if __name__ == "__main__":
-#    unittest.main()
+
+   #############################################################################
+   def testErrors(self):
+      result = getDisplayStringForScript(None, None, None, 16)
+      self.assertEqual(result, None)
+

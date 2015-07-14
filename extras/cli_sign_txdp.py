@@ -3,7 +3,7 @@ import sys
 sys.path.append('..')
 sys.path.append('.')
 
-from armoryengine import *
+from armoryengine.ALL import *
 import getpass
 from sys import argv
 import os
