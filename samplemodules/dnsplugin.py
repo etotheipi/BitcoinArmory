@@ -12,9 +12,8 @@ import getdns
 from PyQt4.Qt import QPushButton, SIGNAL, Qt, QLineEdit, QTableWidget, \
    QGridLayout, QSpacerItem, QWidget, QScrollArea, QTableWidgetItem
 from armorycolors import htmlColor
-from armoryengine.ArmoryUtils import RightNow, secondsToHumanTime, coin2str, \
+from armoryengine.ArmoryUtils import secondsToHumanTime, coin2str, \
                                  sha224, binary_to_hex, hash160_to_addrStr, LOGERROR
-from armoryengine.BDM import TheBDM, BDM_BLOCKCHAIN_READY
 from qtdefines import makeHorizFrame, makeVertFrame, STYLE_PLAIN, QRichLabel, \
                                 GETFONT
 from binascii import hexlify
