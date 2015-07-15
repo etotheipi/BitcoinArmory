@@ -10,6 +10,8 @@ from qtdefines import QRichLabel, makeVertFrame, makeHorizFrame, GETFONT,\
    relaxedSizeNChar, VERTICAL
 from qtdialogs import createAddrBookButton
 from ui.WalletFrames import SelectWalletFrame
+from armoryengine.BDM import getBDM
+from twisted.internet import reactor
 
 
 class PluginObject(object):
@@ -74,12 +76,28 @@ class PluginObject(object):
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(pluginFrame)
-      
+
+      # When this plugin is created, the BDM isn't ready. This means the
+      # selected wallet won't be able to show the balance. Ideally, the "inject"
+      # mechanism from the BDM would be used to update everything once the BDM
+      # is ready. For now, it really can't be done. So, we do something ugly:
+      # use Twisted to keep checking whether or not the BDM is ready.
+      reactor.callLater(1,  self.checkBDM)
+
+
    def setWallet(self, wlt, isDoubleClick=False):
       self.wlt = wlt
-      
-      
+
+
+   # Place any code here that must be executed once the BDM is ready. It uses
+   # polling, which is ugly but works for now.
+   def checkBDM(self):
+      if not getBDM().getState() == BDM_BLOCKCHAIN_READY:
+         reactor.callLater(1,  self.fixUpdate)
+      else:
+         self.frmSelectedWlt.updateOnWalletChange()
+
+
    #############################################################################
    def getTabToDisplay(self):
       return self.tabToDisplay
-
