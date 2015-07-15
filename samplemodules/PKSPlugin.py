@@ -1,12 +1,11 @@
-# This is a sample plugin file that will be used to create a new tab 
-# in the Armory main window.  All plugin files (such as this one) will 
+# This is a sample plugin file that will be used to create a new tab
+# in the Armory main window.  All plugin files (such as this one) will
 # be injected with the globals() from ArmoryQt.py, which includes pretty
-# much all of Bitcoin & Armory related stuff that you need.  So this 
+# much all of Bitcoin & Armory related stuff that you need.  So this
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
-from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit,\
+from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
    QTextEdit
-
-from qtdefines import QRichLabel, makeVertFrame, makeHorizFrame, GETFONT,\
+from qtdefines import QRichLabel, makeVertFrame, makeHorizFrame, GETFONT, \
    relaxedSizeNChar, VERTICAL
 from qtdialogs import createAddrBookButton
 from ui.WalletFrames import SelectWalletFrame
@@ -15,14 +14,12 @@ from twisted.internet import reactor
 
 
 class PluginObject(object):
-
    # PKS is a place holder - As are all labels in this dialog
    tabName = 'PKS'
    maxVersion = '0.99'
-   
+
    #############################################################################
    def __init__(self, main):
-
       self.main = main
       self.wlt = None
 
@@ -45,19 +42,23 @@ class PluginObject(object):
       self.paymentRequestTextArea.setReadOnly(True)
       self.clearButton     = QPushButton('Clear')
 
+      # Qt GUI calls must occur on the main thread. We need to update the wallet
+      # once the BDM is ready. So, we register a signal with the main thread
+      # that can be used to call a function.
+      self.main.connect(self.main, SIGNAL('cppNotify'), self.UpdateWallet)
 
       def pksAction():
          print "PKS Button Press"
 
       def dnssecButton():
          print "PKS & DNSSEC Button Press"
-         
-      def paymentRequestAction():
+
+               def paymentRequestAction():
          self.paymentRequestTextArea.setText("<Payment Request Blob>")
-         
+
       def clearTextArea():
          self.paymentRequestTextArea.setText('')
-         
+
       self.main.connect(self.pksButton, SIGNAL('clicked()'), pksAction)
       self.main.connect(self.pksButton, SIGNAL('clicked()'), dnssecButton)
       self.main.connect(self.paymentRequestButton, SIGNAL('clicked()'), paymentRequestAction)
@@ -84,14 +85,17 @@ class PluginObject(object):
    def setWallet(self, wlt, isDoubleClick=False):
       self.wlt = wlt
 
+   # Updates the wallet balance on startup.
+   def UpdateWallet(self, action, arg):
+      self.frmSelectedWlt.updateOnWalletChange()
+
 
    # Place any code here that must be executed once the BDM is ready. For now,
-   # the only thing we do is update the wallet so that the balance is visible in
-   # the wallet window. (It'll be blank otherwise until a new wallet's chosen.)
+   # the only thing we do is emit a signal so that the GUI can be updated by the
+   # main thread (Qt GUI requirement), which updates the wallet balance.
    def handleNotification(self, action, args):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
-         self.frmSelectedWlt.updateOnWalletChange()
-
+         self.main.emit(SIGNAL('cppNotify'), action, arg)
 
    #############################################################################
    def getTabToDisplay(self):
