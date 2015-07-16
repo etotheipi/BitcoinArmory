@@ -11,7 +11,7 @@ from qtdialogs import createAddrBookButton
 from ui.WalletFrames import SelectWalletFrame
 from armoryengine.BDM import getBDM
 from twisted.internet import reactor
-
+from armoryengine.ArmoryOptions import getTestnetFlag
 
 class PluginObject(object):
    # PKS is a place holder - As are all labels in this dialog
@@ -31,7 +31,7 @@ class PluginObject(object):
                      VERTICAL,
                      selectWltCallback=self.setWallet)
       self.pksButton     = QPushButton('Save PKS')
-      self.dnssecButton     = QPushButton('Save PKS & DNSSEC')
+      self.dnssecButton     = QPushButton('Save PKS && PMTA')
       self.paymentRequestButton     = QPushButton('Payment Request')
       paymentRequestLabel = QLabel('Payment Request:')
       self.paymentRequestTextArea = QTextEdit()
@@ -49,29 +49,32 @@ class PluginObject(object):
 
       def pksAction():
          print "PKS Button Press"
+         self.savePKSFile()
 
       def dnssecButton():
-         print "PKS & DNSSEC Button Press"
+         print "PKS & PMTA Button Press"
+         self.savePKSFile()
+         self.savePMTAFile()
 
-               def paymentRequestAction():
+      def paymentRequestAction():
          self.paymentRequestTextArea.setText("<Payment Request Blob>")
 
       def clearTextArea():
          self.paymentRequestTextArea.setText('')
 
       self.main.connect(self.pksButton, SIGNAL('clicked()'), pksAction)
-      self.main.connect(self.pksButton, SIGNAL('clicked()'), dnssecButton)
+      self.main.connect(self.dnssecButton, SIGNAL('clicked()'), dnssecButton)
       self.main.connect(self.paymentRequestButton, SIGNAL('clicked()'), paymentRequestAction)
       self.main.connect(self.clearButton, SIGNAL('clicked()'), clearTextArea)
 
-      pluginFrame = makeVertFrame( [headerLabel,
-                     makeHorizFrame([addressLabel, 'Stretch']),
-                     makeHorizFrame([self.frmSelectedWlt, 'Stretch']),
-                     makeHorizFrame([self.pksButton, self.dnssecButton, self.paymentRequestButton, 'Stretch']),
-                     paymentRequestLabel,
-                     makeHorizFrame([self.paymentRequestTextArea,'Stretch']),
-                     makeHorizFrame([self.clearButton, 'Stretch']),
-                    'Stretch'])
+      pluginFrame = makeVertFrame([headerLabel,
+                                   makeHorizFrame([addressLabel, 'Stretch']),
+                                   makeHorizFrame([self.frmSelectedWlt, 'Stretch']),
+                                   makeHorizFrame([self.pksButton, self.dnssecButton, self.paymentRequestButton, 'Stretch']),
+                                   paymentRequestLabel,
+                                   makeHorizFrame([self.paymentRequestTextArea,'Stretch']),
+                                   makeHorizFrame([self.clearButton, 'Stretch']),
+                                   'Stretch'])
 
       # Now set the scrollarea widget to the layout
       self.tabToDisplay = QScrollArea()
@@ -82,8 +85,67 @@ class PluginObject(object):
       getBDM().registerCppNotification(self.handleNotification)
 
 
+   def savePKSFile(self):
+         defName = 'armory_%s.pks' % self.wlt.uniqueIDB58
+         filePath = unicode(self.main.getFileSave(defaultFilename = defName))
+
+         if not len(filePath)>0:
+            print 'NOTHING SAVED!'
+            return
+         else:
+            sbdPublicKey33 = SecureBinaryData(self.wlt.sbdPublicKey33)
+            sbdPublicKey65 = CryptoECDSA().UncompressPoint(sbdPublicKey33);
+
+            pathdir = os.path.dirname(filePath)
+            pathfn  = os.path.basename(filePath)
+
+            if not os.path.exists(pathdir):
+               raise FileExistsError('Path for new wlt does not exist: %s', pathdir)
+
+            if os.path.exists(filePath):
+               raise FileExistsError('File already exists, will not overwrite')
+
+            myPKS = PublicKeySource()
+            myPKS.initialize(False, False, False, False, False, sbdPublicKey65.toBinStr(), False)
+            with open(filePath, 'wb') as newWltFile:
+               newWltFile.write(myPKS.serialize())
+            return myPKS
+
+
+   def savePMTAFile(self):
+         defName = 'armory_%s.pmta' % self.wlt.uniqueIDB58
+         payNet = PAYNET_BTC
+         if getTestnetFlag():
+            payNet = PAYNET_TBTC
+
+         filePath = unicode(self.main.getFileSave(defaultFilename = defName))
+         if not len(filePath)>0:
+            print 'NOTHING SAVED!'
+            return
+         else:
+            sbdPublicKey33 = SecureBinaryData(self.wlt.sbdPublicKey33)
+            sbdPublicKey65 = CryptoECDSA().UncompressPoint(sbdPublicKey33);
+
+            pathdir = os.path.dirname(filePath)
+            pathfn  = os.path.basename(filePath)
+
+            if not os.path.exists(pathdir):
+               raise FileExistsError('Path for new wlt does not exist: %s', pathdir)
+
+            if os.path.exists(filePath):
+               raise FileExistsError('File already exists, will not overwrite')
+
+            with open(filePath, 'wb') as newWltFile:
+               myPKS = PublicKeySource()
+               myPKS.initialize(False, False, False, False, False, sbdPublicKey65.toBinStr(), True)
+               myPMTA = PMTARecord()
+               myPMTA.initialize(myPKS.serialize(), payNet)
+               newWltFile.write(myPMTA.serialize())
+
+
    def setWallet(self, wlt, isDoubleClick=False):
       self.wlt = wlt
+
 
    # Updates the wallet balance on startup.
    def UpdateWallet(self, action, arg):
@@ -96,6 +158,7 @@ class PluginObject(object):
    def handleNotification(self, action, args):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          self.main.emit(SIGNAL('cppNotify'), action, arg)
+
 
    #############################################################################
    def getTabToDisplay(self):

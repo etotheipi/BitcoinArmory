@@ -1298,15 +1298,16 @@ class PMTARecord(object):
 
 
    #############################################################################
-   @VerifyArgTypes(inPayNet       = int,
+   @VerifyArgTypes(inPayAssocData = [str, unicode],
+                   inPayNet       = int,
                    inPref         = int,
-                   inURIStr       = [str, unicode],
-                   inPayAssocData = [str, unicode])
-   def initialize(self, inPayNet, inPref, inURIStr, inPayAssocData):
+                   inURIStr       = [str, unicode])
+   def initialize(self, inPayAssocData, inPayNet=PAYNET_TBTC, inPref=0,
+                  inURIStr=''):
+      self.payAssocData = inPayAssocData
       self.payNetSel    = inPayNet
       self.preference   = inPref
       self.uriStr       = inURIStr
-      self.payAssocData = inPayAssocData
 
 
    #############################################################################
@@ -1316,10 +1317,10 @@ class PMTARecord(object):
       bp = BinaryPacker()
       bp.put(UINT16,       self.payNetSel)
       bp.put(UINT16,       self.preference)
-      bp.put(UINT16,       self.uriStr.len())
-      if self.uriStr.len() > 0 and self.uriStr.len() <= 65535:
+      bp.put(UINT16,       len(self.uriStr))
+      if len(self.uriStr) > 0 and len(self.uriStr) <= 65535:
          bp.put(BINARY_CHUNK, self.uriStr)
-      elif self.uriStr.len() > 65535:
+      elif len(self.uriStr) > 65535:
          LOGERROR('The URI string (%d bytes) is too large' % self.uriStr.len())
       bp.put(UINT8,        self.dataType)
       bp.put(BINARY_CHUNK, self.payAssocData)
