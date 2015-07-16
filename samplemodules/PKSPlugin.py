@@ -45,7 +45,7 @@ class PluginObject(object):
       # Qt GUI calls must occur on the main thread. We need to update the wallet
       # once the BDM is ready. So, we register a signal with the main thread
       # that can be used to call a function.
-      self.main.connect(self.main, SIGNAL('cppNotify'), self.UpdateWallet)
+      self.main.connect(self.main, SIGNAL('pluginNotify'), self.UpdateWallet)
 
       def pksAction():
          print "PKS Button Press"
@@ -82,7 +82,7 @@ class PluginObject(object):
       self.tabToDisplay.setWidget(pluginFrame)
 
       # Register a BDM callback that can be called when the BDM is ready.
-      getBDM().registerCppNotification(self.handleNotification)
+      TheBDM.registerCppNotification(self.handleNotification)
 
 
    def savePKSFile(self):
@@ -148,7 +148,7 @@ class PluginObject(object):
 
 
    # Updates the wallet balance on startup.
-   def UpdateWallet(self, action, arg):
+   def UpdateWallet(self):
       self.frmSelectedWlt.updateOnWalletChange()
 
 
@@ -157,7 +157,7 @@ class PluginObject(object):
    # main thread (Qt GUI requirement), which updates the wallet balance.
    def handleNotification(self, action, args):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
-         self.main.emit(SIGNAL('cppNotify'), action, arg)
+         self.main.emit(SIGNAL('pluginNotify'))
 
 
    #############################################################################
