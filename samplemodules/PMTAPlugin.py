@@ -143,7 +143,7 @@ class PluginObject(object):
             return
          else:
             # Start with the wallet's uncompressed root key.
-            sbdPubKey33 = SecureBinaryData(self.wlt.sbdPubKey33)
+            sbdPubKey33 = SecureBinaryData(self.wlt.sbdPublicKey33)
             sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
 
             pathdir = os.path.dirname(filePath)

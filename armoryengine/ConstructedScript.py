@@ -1315,9 +1315,9 @@ class PMTARecord(object):
    # for now and get clarification ASAP.
    def serialize(self):
       bp = BinaryPacker()
-      bp.put(UINT16,       self.payNetSel)
-      bp.put(UINT16,       self.preference)
-      bp.put(UINT16,       len(self.uriStr))
+      bp.put(UINT16,       self.payNetSel, endianness = BIGENDIAN)
+      bp.put(UINT16,       self.preference, endianness = BIGENDIAN)
+      bp.put(UINT16,       len(self.uriStr), endianness = BIGENDIAN)
       if len(self.uriStr) > 0 and len(self.uriStr) <= 65535:
          bp.put(BINARY_CHUNK, self.uriStr)
       elif len(self.uriStr) > 65535:
