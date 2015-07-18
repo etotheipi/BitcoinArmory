@@ -1423,6 +1423,7 @@ class PMTARecord(object):
    # for now and get clarification ASAP.
    def serialize(self):
       bp = BinaryPacker()
+
       bp.put(UINT16,       self.payNetSel, endianness = BIGENDIAN)
       bp.put(UINT16,       self.preference, endianness = BIGENDIAN)
       bp.put(UINT16,       len(self.uriStr), endianness = BIGENDIAN)
@@ -1440,17 +1441,17 @@ class PMTARecord(object):
    def unserialize(self, serData):
       inURIStr       = ''
       bu             = makeBinaryUnpacker(serData)
-      inPayNet       = bu.get(UINT16)
-      inPref         = bu.get(UINT16)
-      inURIStrLen    = bu.get(UINT16)
+      inPayNet       = bu.get(UINT16, endianness = BIGENDIAN)
+      inPref         = bu.get(UINT16, endianness = BIGENDIAN)
+      inURIStrLen    = bu.get(UINT16, endianness = BIGENDIAN)
       if inURIStrLen > 0 and inURIStrLen <= 65535:
-         inURIStr = bu.get(BINARY_CHUNK)
+         inURIStr = bu.get(BINARY_CHUNK, inURIStrLen)
       inDataType     = bu.get(UINT8)
-      inPayAssocData = bu.get(BINARY_CHUNK)
+      inPayAssocData = bu.get(BINARY_CHUNK, bu.getRemainingSize())
 
       # Validate data
       dataOkay = True
-      if inPayNet != PAYNET_TBTC or inPayNet != PAYNET_BTC:
+      if inPayNet != PAYNET_TBTC and inPayNet != PAYNET_BTC:
          LOGERROR('Payment network type (%d) is wrong' % inPayNet)
          dataOkay = False
       if inURIStrLen > 65535:
@@ -1461,15 +1462,15 @@ class PMTARecord(object):
          LOGERROR('Payment association type (%d) is wrong' % inDataType)
          dataOkay = False
       ################ FUNCTION TO BE WRITTEN
-      if validatePayAssocData(inPayAssocData) == False:
-         LOGERROR('Payment association data is incorrectly formatted')
-         dataOkay = False
+#      if validatePayAssocData(inPayAssocData) == False:
+#         LOGERROR('Payment association data is incorrectly formatted')
+#         dataOkay = False
 
       if dataOkay == True:
          self.__init__()
-         self.initialize(inPayNet,
+         self.initialize(inPayAssocData,
+                         inPayNet,
                          inPref,
-                         inURIStr,
-                         inPayAssocData)
+                         inURIStr)
 
       return self

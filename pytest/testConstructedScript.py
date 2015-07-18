@@ -62,6 +62,8 @@ CS2Chksum_Comp_v1 = hex_to_binary( # Multisig
       "8e8dddfb d322cce4 f74b0b5b d6ace4a7 25010002 2102fc9e 5af0ac8d 9b3cecfe"
       "2a888e21 17ba3d08 9d858588 6c9c826b 6b22a98d 12ea89e2 5fe9")
 
+# Invalid CS serializations. NEED TO ADD SOME.
+
 # Valid PKRP serializations based on BIP32MasterPubKey2.
 PKRP1_v1 = hex_to_binary(
       "01022060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
@@ -97,6 +99,47 @@ PR2_v1 = hex_to_binary(
       "01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
       "e1efa7f8 11e00027 01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996"
       "d0f7a456 23d0a914 e1efa7f8 11e000")
+
+# Valid PMTA serializations including previously used, valid PKS and CS records. ADD DATA TYPE
+PMTA_PKS1Chksum_Uncomp_v1 = hex_to_binary(
+      "00010000 00000001 00204104 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb"
+      "d322cce4 f74b0b5b d6ace4a7 7bd3305d 363c26f8 2c1e41c6 67e4b356 1c06c60a"
+      "2104d2b5 48e6dd05 9056aa51 1ff749e6")
+PMTA_PKS1NoChksum_Comp_v1 = hex_to_binary(
+      "0002ffff 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
+PMTA_CS1Chksum_Comp_v1 = hex_to_binary(
+      "0001abba 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 0676a9ff 0188ac01"
+      "25010006 2103cbca a9c98c87 7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b"
+      "0b5bd6ac e4a7f823 227a")
+PMTA_CS1NoChksum_Comp_v1 = hex_to_binary(
+      "00020002 00000001 00000676 a9ff0188 ac012501 00062103 cbcaa9c9 8c877a26"
+      "977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
+
+# Inalid PMTA serializations.
+PMTA_BadPayNet = hex_to_binary(
+      "0200000d 00000001 00000676 a9ff0188 ac012501 00062103 cbcaa9c9 8c877a26"
+      "977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
+PMTA_BadDataType = hex_to_binary(
+      "00010000 00000101 00000676 a9ff0188 ac012501 00062103 cbcaa9c9 8c877a26"
+      "977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
+PMTA_BadURILen1 = hex_to_binary(
+      "0002ffff 00006874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
+PMTA_BadURILen2 = hex_to_binary(
+      "0002ffff 002d6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
+PMTA_BadURILen3 = hex_to_binary(
+      "0002ffff 002f6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
+PMTA_PKS1NoChksum_Comp_v1_FlagClash1 = hex_to_binary(
+      "00010000 00000001 00092103 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb"
+      "d322cce4 f74b0b5b d6ace4a7")
 
 ### TODO: Place this stuff where it belongs when it's time!
 # TxOutscript validator. From ArmoryUtils.py:512?
@@ -341,7 +384,88 @@ class PRClassTests(unittest.TestCase):
 #class PMTAClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
-#   def testSerialization(self):
+   def testSerialization(self):
+      # Create PMTA with a checksummed PKS.
+      pks1ChksumPres = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v1)
+      pmta1 = PMTARecord()
+      pmta1.initialize(pks1ChksumPres.serialize(), PAYNET_TBTC, 0, '')
+      stringPMTA1 = pmta1.serialize()
+      self.assertEqual(binary_to_hex(stringPMTA1),
+                       binary_to_hex(PMTA_PKS1Chksum_Uncomp_v1))
+
+      # Create PMTA with a non-checksummed PKS.
+      pks1NoChksumPres = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1)
+      pmta2 = PMTARecord()
+      pmta2.initialize(pks1NoChksumPres.serialize(), PAYNET_BTC, 65535,
+                       'https://www.bitcoinarmory.com/payment_info.txt')
+      stringPMTA2 = pmta2.serialize()
+      self.assertEqual(binary_to_hex(stringPMTA2),
+                       binary_to_hex(PMTA_PKS1NoChksum_Comp_v1))
+
+      # Create PMTA with a checksummed CS.
+      cs1ChksumPres = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
+      pmta3 = PMTARecord()
+      pmta3.initialize(cs1ChksumPres.serialize(), PAYNET_TBTC, 43962,
+                       'https://www.bitcoinarmory.com/payment_info.txt')
+      stringPMTA3 = pmta3.serialize()
+      self.assertEqual(binary_to_hex(stringPMTA3),
+                       binary_to_hex(PMTA_CS1Chksum_Comp_v1))
+
+      # Create PMTA with a non-checksummed CS.
+      cs1NoChksumPres = ConstructedScript().unserialize(CS1NoChksum_Comp_v1)
+      pmta4 = PMTARecord()
+      pmta4.initialize(cs1NoChksumPres.serialize(), PAYNET_BTC, 2, '')
+      stringPMTA4 = pmta4.serialize()
+      self.assertEqual(binary_to_hex(stringPMTA4),
+                       binary_to_hex(PMTA_CS1NoChksum_Comp_v1))
+
+      # Unserialize and re-serialize to confirm unserialize works.
+      pmta1_unser = PMTARecord().unserialize(PMTA_PKS1Chksum_Uncomp_v1)
+      pmta2_unser = PMTARecord().unserialize(PMTA_PKS1NoChksum_Comp_v1)
+      pmta3_unser = PMTARecord().unserialize(PMTA_CS1Chksum_Comp_v1)
+      pmta4_unser = PMTARecord().unserialize(PMTA_CS1NoChksum_Comp_v1)
+      stringPMTA1_unser = pmta1_unser.serialize()
+      stringPMTA2_unser = pmta2_unser.serialize()
+      stringPMTA3_unser = pmta3_unser.serialize()
+      stringPMTA4_unser = pmta4_unser.serialize()
+      self.assertEqual(binary_to_hex(stringPMTA1_unser),
+                       binary_to_hex(PMTA_PKS1Chksum_Uncomp_v1))
+      self.assertEqual(binary_to_hex(stringPMTA2_unser),
+                       binary_to_hex(PMTA_PKS1NoChksum_Comp_v1))
+      self.assertEqual(binary_to_hex(stringPMTA3_unser),
+                       binary_to_hex(PMTA_CS1Chksum_Comp_v1))
+      self.assertEqual(binary_to_hex(stringPMTA4_unser),
+                       binary_to_hex(PMTA_CS1NoChksum_Comp_v1))
+
+      # Check PMTA validity.
+      pmtaIsValid = pmta1_unser.isValid()
+      self.assertEqual(pmtaIsValid, True)
+      pmtaIsValid = pmta2_unser.isValid()
+      self.assertEqual(pmtaIsValid, True)
+      pmtaIsValid = pmta3_unser.isValid()
+      self.assertEqual(pmtaIsValid, True)
+      pmtaIsValid = pmta4_unser.isValid()
+      self.assertEqual(pmtaIsValid, True)
+      badPMTA1 = PMTARecord().unserialize(PMTA_BadPayNet)
+      pmtaIsValid = badPMTA1.isValid()
+      self.assertEqual(pmtaIsValid, False)
+      badPMTA2 = PMTARecord().unserialize(PMTA_BadDataType)
+      pmtaIsValid = badPMTA2.isValid()
+      self.assertEqual(pmtaIsValid, False)
+      badPMTA3 = PMTARecord().unserialize(PMTA_BadURILen1)
+      pmtaIsValid = badPMTA3.isValid()
+      self.assertEqual(pmtaIsValid, False)
+      badPMTA4 = PMTARecord().unserialize(PMTA_BadURILen2)
+      pmtaIsValid = badPMTA4.isValid()
+      self.assertEqual(pmtaIsValid, False)
+      badPMTA5 = PMTARecord().unserialize(PMTA_BadURILen3)
+      pmtaIsValid = badPMTA5.isValid()
+      self.assertEqual(pmtaIsValid, False)
+
+      # Uncomment once internal data is checked.
+#      badPMTA6 = PMTARecord().unserialize(PMTA_PKS1NoChksum_Comp_v1_FlagClash1)
+#      pmtaIsValid = badPMTA6.isValid()
+#      self.assertEqual(pmtaIsValid, False)
 
 
 ################################################################################
