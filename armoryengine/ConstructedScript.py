@@ -445,10 +445,10 @@ class PublicKeySource(object):
                    isExt      = bool,
                    src        = [str, unicode],
                    chksumPres = bool,
-                   chksum     = [str, unicode],
+                   inChksum   = [str, unicode],
                    ver        = int)
    def initialize(self, isStatic, useCompr, use160, isUser, isExt, src,
-                  chksumPres, chksum=None, ver=BTCAID_PKS_VERSION):
+                  chksumPres, inChksum=None, ver=BTCAID_PKS_VERSION):
       """
       Set all PKS values.
       """
@@ -472,7 +472,7 @@ class PublicKeySource(object):
       # get passed in, as we don't check to see if an incoming checksum's right.
       # For now, just accept it. isValid() can be used to check it anyway.
       if self.isChksumPresent:
-         if chksum is None:
+         if inChksum is None:
             dataStr = self.getDataNoChecksum()
             self.checksum = computeChecksum(dataStr)
          else:
@@ -495,51 +495,6 @@ class PublicKeySource(object):
          return toUnicode(self.rawSource)
       else:
          return self.rawSource
-
-
-   #############################################################################
-   def serialize(self):
-      bp = BinaryPacker()
-      dataStr = self.getDataNoChecksum()
-      bp.put(BINARY_CHUNK, dataStr)
-
-      if self.isChksumPresent:
-         # Place a checksum in the data. Somewhat redundant due to signatures.
-         # Still useful because it protects data sent to signer.
-         if self.checksum != None:
-            bp.put(BINARY_CHUNK, self.checksum)
-
-      return bp.getBinaryString()
-
-
-   #############################################################################
-   def unserialize(self, serData):
-      inData   = BinaryUnpacker(serData)
-      inVer    = inData.get(UINT8)
-      inFlags  = inData.get(BITSET, 2)
-      inRawSrc = inData.get(VAR_STR)
-
-      # If checksum is present, confirm that the other data is correct.
-      inChksum = None
-      if inFlags.getBit(9):
-         inChksum = inData.get(BINARY_CHUNK, 4)
-
-      if not inVer == BTCAID_PKS_VERSION:
-         # In the future we will make this more of a warning, not error
-         raise VersionError('PKS version does not match the loaded version')
-
-      self.__init__()
-      self.initialize(inFlags.getBit(15),
-                      inFlags.getBit(14),
-                      inFlags.getBit(13),
-                      inFlags.getBit(12),
-                      inFlags.getBit(11),
-                      inRawSrc,
-                      inFlags.getBit(10),
-                      inChksum,
-                      inVer)
-
-      return self
 
 
    #############################################################################
@@ -588,21 +543,27 @@ class PublicKeySource(object):
       # Never reset the validity flag! Once a record's invalid, it's invalid.
       recState = True
 
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_PKS_VERSION:
+         LOGINFO('PKS record version is wrong. Record is invalid.')
+         recState = False
+
       # Certain flags force other flags to be ignored. This must be enforced.
       if (self.isExternalSrc == True and (self.isUserKey == True or
                                          self.isStatic == True)):
+         LOGINFO('PKS record cannot have external flag and the user and/or ' \
+                 'static flag. Record is invalid.')
          recState = False
       elif (self.isUserKey == True and self.isStatic == True):
+         LOGINFO('PKS record cannot have user and static flags. Record is ' \
+                 'invalid.')
          recState = False
-
-      # Always let the user know why a record is invalid.
-      if recState == False:
-         LOGINFO('PKS record has incompatible flag settings. Record is invalid.')
 
       # Check the checksum if necessary.
       if self.isChksumPresent:
          if self.checksum is None:
-            LOGINFO('PKS record has a checksum flag and no checksum. Record is invalid.')
+            LOGINFO('PKS record has a checksum flag and no checksum. Record ' \
+                    'is invalid.')
             recState = False
          else:
             dataChunk  = self.serialize()
@@ -614,6 +575,51 @@ class PublicKeySource(object):
                recState = False
 
       return recState
+
+
+   #############################################################################
+   def serialize(self):
+      bp = BinaryPacker()
+      dataStr = self.getDataNoChecksum()
+      bp.put(BINARY_CHUNK, dataStr)
+
+      if self.isChksumPresent:
+         # Place a checksum in the data. Somewhat redundant due to signatures.
+         # Still useful because it protects data sent to signer.
+         if self.checksum != None:
+            bp.put(BINARY_CHUNK, self.checksum)
+
+      return bp.getBinaryString()
+
+
+   #############################################################################
+   def unserialize(self, serData):
+      inData   = BinaryUnpacker(serData)
+      inVer    = inData.get(UINT8)
+      inFlags  = inData.get(BITSET, 2)
+      inRawSrc = inData.get(VAR_STR)
+
+      # If checksum is present, confirm that the other data is correct.
+      inChksum = None
+      if inFlags.getBit(9):
+         inChksum = inData.get(BINARY_CHUNK, 4)
+
+      if not inVer == BTCAID_PKS_VERSION:
+         # In the future we will make this more of a warning, not error
+         raise VersionError('PKS version does not match the loaded version')
+
+      self.__init__()
+      self.initialize(inFlags.getBit(15),
+                      inFlags.getBit(14),
+                      inFlags.getBit(13),
+                      inFlags.getBit(12),
+                      inFlags.getBit(11),
+                      inRawSrc,
+                      inFlags.getBit(10),
+                      inChksum,
+                      inVer)
+
+      return self
 
 
 ################################################################################
@@ -674,6 +680,7 @@ class ConstructedScript(object):
       self.useP2SH         = None
       self.pubKeyBundles   = []
       self.isChksumPresent = True
+      self.checksum        = None
 
 
    #############################################################################
@@ -681,8 +688,9 @@ class ConstructedScript(object):
                    pubSrcs    = [list, tuple],
                    useP2SH    = bool,
                    chksumPres = bool,
+                   inChksum   = [str, unicode],
                    ver        = int)
-   def initialize(self, scrTemp, pubSrcs, useP2SH, chksumPres,
+   def initialize(self, scrTemp, pubSrcs, useP2SH, chksumPres, inChksum=None,
                   ver=BTCAID_CS_VERSION):
       self.version         = ver
       self.useP2SH         = useP2SH
@@ -690,6 +698,16 @@ class ConstructedScript(object):
       self.pubKeyBundles   = []
 
       self.setTemplateAndPubKeySrcs(scrTemp, pubSrcs)
+
+      # The checksum portion opens up the possibility that a bad checksum could
+      # get passed in, as we don't check to see if an incoming checksum's right.
+      # For now, just accept it. isValid() can be used to check it anyway.
+      if self.isChksumPresent:
+         if inChksum is None:
+            dataStr = self.getDataNoChecksum()
+            self.checksum = computeChecksum(dataStr)
+         else:
+            self.checksum = inChksum
 
 
    #############################################################################
@@ -926,6 +944,38 @@ class ConstructedScript(object):
 
 
    #############################################################################
+   # Verify that a CS record is valid. Useful as a standalone funct or, more
+   # importantly, as a utility function before doing anything critical w/ a rec.
+   def isValid(self):
+      """
+      Verify that a CS record's construction is valid.
+      """
+      # Never reset the validity flag! Once a record's invalid, it's invalid.
+      recState = True
+
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_CS_VERSION:
+         LOGINFO('CS record version is wrong. Record is invalid.')
+         recState = False
+
+      if self.isChksumPresent:
+         if self.checksum is None:
+            LOGINFO('CS record has a checksum flag and no checksum. Record ' \
+                    'is invalid.')
+            recState = False
+         else:
+            dataChunk  = self.serialize()
+            checkData  = dataChunk[:-4]
+            checksum   = dataChunk[-4:]
+            compChksum = computeChecksum(checkData)
+            if compChksum != checksum:
+               LOGINFO('CS record has an invalid checksum. Record is invalid.')
+               recState = False
+
+      return recState
+
+
+   #############################################################################
    def serialize(self):
       bp = BinaryPacker()
       dataStr = self.getDataNoChecksum()
@@ -934,8 +984,8 @@ class ConstructedScript(object):
       if self.isChksumPresent:
          # Place a checksum in the data. Somewhat redundant due to signatures.
          # Still useful because it protects data sent to signer.
-         chksum = computeChecksum(dataStr, 4)
-         bp.put(BINARY_CHUNK, chksum)
+         if self.checksum != None:
+            bp.put(BINARY_CHUNK, self.checksum)
 
       return bp.getBinaryString()
 
@@ -956,12 +1006,10 @@ class ConstructedScript(object):
          inKeyList.append(pks)
          k += 1
 
+      # If checksum is present, confirm that the other data is correct.
+      inChksum = None
       if inFlags.getBit(14):
-         chksum = inData.get(BINARY_CHUNK, 4)
-         dataChunk  = inData.getBinaryString()[:-4]
-         compChksum = computeChecksum(dataChunk)
-         if chksum != compChksum:
-            raise BadInputError('CS record checksum does not match real checksum')
+         inChksum = inData.get(BINARY_CHUNK, 4)
 
       if not inVer == BTCAID_CS_VERSION:
          # In the future we will make this more of a warning, not error
@@ -972,6 +1020,7 @@ class ConstructedScript(object):
                       inKeyList,
                       inFlags.getBit(15),
                       inFlags.getBit(14),
+                      inChksum,
                       inVer)
 
       return self
@@ -1029,6 +1078,11 @@ class PublicKeyRelationshipProof(object):
 
 
    #############################################################################
+   def isInitialized(self):
+      return not (self.multiplier is None and self.finalKey is None)
+
+
+   #############################################################################
    # Verify that a PKRP record is valid.
    def isValid(self):
       """
@@ -1036,20 +1090,18 @@ class PublicKeyRelationshipProof(object):
       """
       recState = True
 
-      # At least one flag must be set.
-      if self.multUsed == False and self.finalKeyUsed == False:
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_PKRP_VERSION:
+         LOGINFO('PKRP record version is wrong. Record is invalid.')
          recState = False
 
-      if recState == False:
-         LOGINFO('PKRP record has incompatible flag settings. Record is invalid.')
+      # At least one flag must be set.
+      if self.multUsed == False and self.finalKeyUsed == False:
+         LOGINFO('PKRP record must have either a multiplier or final key. ' \
+                 'Record is invalid.')
+         recState = False
 
       return recState
-
-
-
-   #############################################################################
-   def isInitialized(self):
-      return not (self.multiplier is None and self.finalKey is None)
 
 
    #############################################################################
@@ -1119,6 +1171,22 @@ class ScriptRelationshipProof(object):
    #############################################################################
    def isInitialized(self):
       return not (self.pkrpList is None or len(self.pkrpList) == 0)
+
+
+   #############################################################################
+   # Verify that an SRP record is valid.
+   def isValid(self):
+      """
+      Verify that a SRP record is valid.
+      """
+      recState = True
+
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_SRP_VERSION:
+         LOGINFO('SRP record version is wrong. Record is invalid.')
+         recState = False
+
+      return recState
 
 
    #############################################################################
@@ -1203,6 +1271,22 @@ class PaymentRequest(object):
    def isInitialized(self):
       return not (self.unvalidatedScripts is None or
                   len(self.unvalidatedScripts) == 0)
+
+
+   #############################################################################
+   # Verify that a PR record is valid.
+   def isValid(self):
+      """
+      Verify that a PR record is valid.
+      """
+      recState = True
+
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_PR_VERSION:
+         LOGINFO('PR record version is wrong. Record is invalid.')
+         recState = False
+
+      return recState
 
 
    #############################################################################
@@ -1308,6 +1392,30 @@ class PMTARecord(object):
       self.payNetSel    = inPayNet
       self.preference   = inPref
       self.uriStr       = inURIStr
+
+
+   #############################################################################
+   # Verify that a PMTA record is valid.
+   def isValid(self):
+      """
+      Verify that a PMTA record is valid.
+      """
+      recState = True
+
+      if not (self.payNetSel == PAYNET_BTC or self.payNetSel == PAYNET_TBTC):
+         LOGINFO('PMTA preference value is invalid.')
+         recState = False
+      if self.preference < 0 or self.preference > 65535:
+         LOGINFO('PMTA payment network is invalid.')
+         recState = False
+      if self.payAssocData == '':
+         LOGINFO('PMTA payment association data is empty.')
+         recState = False
+
+      # We also need a way to check whether the payment association data (i.e.,
+      # a PKS or CS record) is valid and.
+
+      return recState
 
 
    #############################################################################
