@@ -536,7 +536,10 @@ class PublicKeySource(object):
    #############################################################################
    # Verify that a PKS record is valid. Useful as a standalone funct or, more
    # importantly, as a utility function before doing anything critical w/ a rec.
-   def isValid(self):
+   # INPUT:  A boolean indicating if logs should be written.
+   # OUTPUT: None
+   # RETURN: A boolean indicating if the record is valid.
+   def isValid(self, printToLog):
       """
       Verify that a PKS record's construction is valid.
       """
@@ -545,25 +548,29 @@ class PublicKeySource(object):
 
       # The version needs to be valid. For now, it needs to be 1.
       if self.version != BTCAID_PKS_VERSION:
-         LOGINFO('PKS record version is wrong. Record is invalid.')
+         if printToLog == True:
+            LOGINFO('PKS record version is wrong. Record is invalid.')
          recState = False
 
       # Certain flags force other flags to be ignored. This must be enforced.
       if (self.isExternalSrc == True and (self.isUserKey == True or
                                          self.isStatic == True)):
-         LOGINFO('PKS record cannot have external flag and the user and/or ' \
-                 'static flag. Record is invalid.')
+         if printToLog == True:
+            LOGINFO('PKS record cannot have external flag and the user ' \
+                    'and/or static flag. Record is invalid.')
          recState = False
       elif (self.isUserKey == True and self.isStatic == True):
-         LOGINFO('PKS record cannot have user and static flags. Record is ' \
-                 'invalid.')
+         if printToLog == True:
+            LOGINFO('PKS record cannot have user and static flags. Record is ' \
+                    'invalid.')
          recState = False
 
       # Check the checksum if necessary.
       if self.isChksumPresent:
          if self.checksum is None:
-            LOGINFO('PKS record has a checksum flag and no checksum. Record ' \
-                    'is invalid.')
+            if printToLog == True:
+               LOGINFO('PKS record has a checksum flag and no checksum. ' \
+                       'Record is invalid.')
             recState = False
          else:
             dataChunk  = self.serialize()
@@ -571,7 +578,9 @@ class PublicKeySource(object):
             checksum   = dataChunk[-4:]
             compChksum = computeChecksum(checkData)
             if compChksum != checksum:
-               LOGINFO('PKS record has an invalid checksum. Record is invalid.')
+               if printToLog == True:
+                  LOGINFO('PKS record has an invalid checksum. Record is ' \
+                          'invalid.')
                recState = False
 
       return recState
@@ -946,7 +955,10 @@ class ConstructedScript(object):
    #############################################################################
    # Verify that a CS record is valid. Useful as a standalone funct or, more
    # importantly, as a utility function before doing anything critical w/ a rec.
-   def isValid(self):
+   # INPUT:  A boolean indicating if logs should be written.
+   # OUTPUT: None
+   # RETURN: A boolean indicating if the record is valid.
+   def isValid(self, printToLog):
       """
       Verify that a CS record's construction is valid.
       """
@@ -955,13 +967,15 @@ class ConstructedScript(object):
 
       # The version needs to be valid. For now, it needs to be 1.
       if self.version != BTCAID_CS_VERSION:
-         LOGINFO('CS record version is wrong. Record is invalid.')
+         if printToLog == True:
+            LOGINFO('CS record version is wrong. Record is invalid.')
          recState = False
 
       if self.isChksumPresent:
          if self.checksum is None:
-            LOGINFO('CS record has a checksum flag and no checksum. Record ' \
-                    'is invalid.')
+            if printToLog == True:
+               LOGINFO('CS record has a checksum flag and no checksum. ' \
+                       'Record is invalid.')
             recState = False
          else:
             dataChunk  = self.serialize()
@@ -969,7 +983,9 @@ class ConstructedScript(object):
             checksum   = dataChunk[-4:]
             compChksum = computeChecksum(checkData)
             if compChksum != checksum:
-               LOGINFO('CS record has an invalid checksum. Record is invalid.')
+               if printToLog == True:
+                  LOGINFO('CS record has an invalid checksum. Record is ' \
+                          'invalid.')
                recState = False
 
       return recState
@@ -1395,6 +1411,36 @@ class PMTARecord(object):
 
 
    #############################################################################
+   # Verify that PMTA payment association data is valid.
+   # INPUT:  Payment association data to scan.
+   # OUTPUT: None
+   # RETURN: A boolean indicating if the data is valid.
+   def validatePayAssocData(self, paData):
+      dataIsValid = False
+
+      # Check the data against PKS and, if necessary, CS. Note that incorrectly
+      # formatted data will often cause a formatting error to be thrown. Because
+      # we want to try both PKS and CS objects, we'll catch errors and ignore
+      # them so that we can try both objects if necessary.
+      try:
+         tryPKS = PublicKeySource().unserialize(paData)
+         if tryPKS.isValid(False) == True:
+            dataIsValid = True
+      except:
+         pass
+
+      if dataIsValid == False:
+         try:
+            tryCS = ConstructedScript().unserialize(paData)
+            if tryCS.isValid() == True:
+               dataIsValid = True
+         except:
+            pass
+
+      return dataIsValid
+
+
+   #############################################################################
    # Verify that a PMTA record is valid.
    def isValid(self):
       """
@@ -1405,15 +1451,18 @@ class PMTARecord(object):
       if not (self.payNetSel == PAYNET_BTC or self.payNetSel == PAYNET_TBTC):
          LOGINFO('PMTA preference value is invalid.')
          recState = False
+
       if self.preference < 0 or self.preference > 65535:
          LOGINFO('PMTA payment network is invalid.')
          recState = False
+
       if self.payAssocData == '':
          LOGINFO('PMTA payment association data is empty.')
          recState = False
-
-      # We also need a way to check whether the payment association data (i.e.,
-      # a PKS or CS record) is valid and.
+      else:
+         if self.validatePayAssocData(self.payAssocData) == False:
+            LOGINFO('PMTA payment association data is invalid.')
+            recState = False
 
       return recState
 
@@ -1454,17 +1503,14 @@ class PMTARecord(object):
       if inPayNet != PAYNET_TBTC and inPayNet != PAYNET_BTC:
          LOGERROR('Payment network type (%d) is wrong' % inPayNet)
          dataOkay = False
-      if inURIStrLen > 65535:
-         LOGERROR('The incoming URI string (%d bytes) is too large' %
-                  inURIStrLen)
-         dataOkay = False
+
       if inDataType != PAYASSOC_ADDR:
          LOGERROR('Payment association type (%d) is wrong' % inDataType)
          dataOkay = False
-      ################ FUNCTION TO BE WRITTEN
-#      if validatePayAssocData(inPayAssocData) == False:
-#         LOGERROR('Payment association data is incorrectly formatted')
-#         dataOkay = False
+
+      if self.validatePayAssocData(inPayAssocData) == False:
+         LOGINFO('PMTA payment association data is invalid.')
+         dataOkay = False
 
       if dataOkay == True:
          self.__init__()

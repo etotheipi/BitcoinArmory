@@ -186,17 +186,17 @@ class PKSClassTests(unittest.TestCase):
       pks1BadVer.version = 100
       pks1BadFlag1  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1_FlagClash1)
       pks1BadFlag2  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1_FlagClash2)
-      pksIsValid = pks1ChksumPres.isValid()
+      pksIsValid = pks1ChksumPres.isValid(False)
       self.assertEqual(pksIsValid, True)
-      pksIsValid = pks1NoChksum.isValid()
+      pksIsValid = pks1NoChksum.isValid(False)
       self.assertEqual(pksIsValid, True)
-      pksIsValid = pks1BadChksum.isValid()
+      pksIsValid = pks1BadChksum.isValid(False)
       self.assertEqual(pksIsValid, False)
-      pksIsValid = pks1BadVer.isValid()
+      pksIsValid = pks1BadVer.isValid(False)
       self.assertEqual(pksIsValid, False)
-      pksIsValid = pks1BadFlag1.isValid()
+      pksIsValid = pks1BadFlag1.isValid(False)
       self.assertEqual(pksIsValid, False)
-      pksIsValid = pks1BadFlag2.isValid()
+      pksIsValid = pks1BadFlag2.isValid(False)
       self.assertEqual(pksIsValid, False)
 
 
@@ -238,17 +238,17 @@ class CSClassTests(unittest.TestCase):
       cs1BadChksum_Comp.checksum = b'\xde\xad\xbe\xef'
       cs1BadVer           = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
       cs1BadVer.version   = 255
-      csIsValid = cs1ChksumPres.isValid()
+      csIsValid = cs1ChksumPres.isValid(False)
       self.assertEqual(csIsValid, True)
-      csIsValid = cs2ChksumPres.isValid()
+      csIsValid = cs2ChksumPres.isValid(False)
       self.assertEqual(csIsValid, True)
-      csIsValid = cs1NoChksum_Comp.isValid()
+      csIsValid = cs1NoChksum_Comp.isValid(False)
       self.assertEqual(csIsValid, True)
-      csIsValid = cs1BadChksum_Uncomp.isValid()
+      csIsValid = cs1BadChksum_Uncomp.isValid(False)
       self.assertEqual(csIsValid, False)
-      csIsValid = cs1BadChksum_Comp.isValid()
+      csIsValid = cs1BadChksum_Comp.isValid(False)
       self.assertEqual(csIsValid, False)
-      csIsValid = cs1BadVer.isValid()
+      csIsValid = cs1BadVer.isValid(False)
       self.assertEqual(csIsValid, False)
 
 
@@ -461,11 +461,9 @@ class PRClassTests(unittest.TestCase):
       badPMTA5 = PMTARecord().unserialize(PMTA_BadURILen3)
       pmtaIsValid = badPMTA5.isValid()
       self.assertEqual(pmtaIsValid, False)
-
-      # Uncomment once internal data is checked.
-#      badPMTA6 = PMTARecord().unserialize(PMTA_PKS1NoChksum_Comp_v1_FlagClash1)
-#      pmtaIsValid = badPMTA6.isValid()
-#      self.assertEqual(pmtaIsValid, False)
+      badPMTA6 = PMTARecord().unserialize(PMTA_PKS1NoChksum_Comp_v1_FlagClash1)
+      pmtaIsValid = badPMTA6.isValid()
+      self.assertEqual(pmtaIsValid, False)
 
 
 ################################################################################
