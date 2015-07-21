@@ -226,6 +226,105 @@ os.remove(hashpath)
 
 ################################################################################
 ################################################################################
+# Now verify multisig signatures before proceeding
+sys.path.append('/usr/lib/armory')
+from armoryengine.ALL import ADDRBYTE
+from jasvet import readSigBlock, verifySignature
+import urllib2
+import json
+import yaml # for assert file
+import deb822 # for buildinfo file
+
+# require valid signatures from threshold number out of total signers
+signers = ['ID/address', 'ID/address', 'ID/address', 'ID/address', 'ID/address']
+# Test signers that Joseph used
+#signers = ['LQmcPbkT/16veukrL1HicqY3VTN6qr2CgCtHVWCfNqt',
+#        'CeL6h2HD/19a5u6SMbGcj78Z78eXgRAUwBCZfiUW7ge',
+#        '14ra4Vd1/1Atcipo4vzCArFtxpbL6iLWbWZ3TFyotzK']
+threshold = 2
+
+for pkgName, pkgInfo in masterPkgList.iteritems():
+   print ''
+   print 'Verifying signatures for %s' % pkgName
+   hashDict = {}
+   sigCnt = 0
+   for signer in signers:
+      hashDict[signer] = []
+      print ''
+      print 'Verifying signature for signer %s' % signer
+      sigFile = os.path.join(inDir, 'armoryreproduciblesigs',
+              topVerStr, pkgInfo['OSNameLink'], signer,
+              'bitcoin-armory-%s-build%s.sig' % (pkgInfo['GitianName'],
+                  pkgInfo['GitianExt']))
+      print 'Accessing signature in file %s' % sigFile
+      try:
+         signature = open(sigFile).read()
+      except:
+         print 'Signature file does not exist'
+         continue
+      sig, msg = readSigBlock(signature)
+      addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
+      if addrB58 == signer.split('/')[1]:
+         print 'Signature verified successfully for %s' % signer
+         # Remove "- " PGP message escaping
+         lines = msg.split('\n')
+         for idx, line in enumerate(lines):
+            if line[0:2] == '- ':
+               lines[idx] = line[2:]
+         msg = '\n'.join(lines)
+         
+         # Gitian YAML assert file parsing for hash
+         if pkgInfo['GitianExt'] == '.assert':
+            yaml.add_constructor(u'!omap',
+                    yaml.constructor.SafeConstructor.construct_yaml_omap)
+            msgYaml = yaml.load(msg)
+            msgHashes = msgYaml[0][1].split('\n')[:-1]
+            for msgHash in msgHashes:
+               hashDict[signer].append(msgHash.split('  ')[0])
+
+         # Debian buildinfo file parsing for hash
+         if pkgInfo['GitianExt'] == '.buildinfo':
+            for paragraph in deb822.Deb822.iter_paragraphs(msg):
+               for item in paragraph.items():
+                  if item[0] == 'Checksums-Sha256':
+                     lines = item[1].split('\n')
+                     for line in lines:
+                        line = line.strip()
+                        if line[-3:] == 'deb' and line[-4:-3] == '.':
+                           hashDict[signer].append(line.split(' ')[0])
+
+         # Continue with code common to both assert and buildinfo files
+         try:
+            for idx in range(len(hashDict[signer])):
+               if hashDict[signer][idx] == hashDict[oldSigner][idx]:
+                  print 'Hash match for %s and %s' % (signer, oldSigner)
+                  oldSigner = signer
+                  sigCnt += 1
+               else:
+                  print 'Hash mismatch for %s and %s.' % (signer, oldSigner)
+         except:
+            # First time, so no oldSigner yet.
+            print ('Did not compare hash for signer %s, because this is the'
+                   ' first signer with a valid signature.') % signer
+            oldSigner = signer
+            sigCnt += 1
+            continue
+      else:
+         print 'Signature was not successfully verified for %s' % signer
+   if sigCnt < threshold:
+      print ''
+      print ('The number of valid signatures necessary to continue was not'
+             ' met. Please run the script again with enough signatures'
+             ' available in the signature repo from GitHub.')
+      exit(1)
+
+   print ''
+   print 'Signature threshold was met to continue signing process'
+
+
+
+################################################################################
+################################################################################
 # Now update the announcements (require armoryengine)
 sys.path.append('/usr/lib/armory')
 from armoryengine.ALL import PyBtcWallet, binary_to_hex, hex_to_binary, \

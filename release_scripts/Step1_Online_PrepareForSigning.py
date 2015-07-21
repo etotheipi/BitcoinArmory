@@ -19,7 +19,8 @@ from release_settings import getReleaseParams, getMasterPackageList
 
 masterPkgList = getMasterPackageList()
 
-CLONE_URL = 'https://github.com/etotheipi/BitcoinArmory.git'
+MAIN_CLONE_URL = 'https://github.com/etotheipi/BitcoinArmory.git'
+SIGS_CLONE_URL = 'https://github.com/etotheipi/armoryreproduciblesigs.git'
 
 if len(argv)<3:
    import textwrap
@@ -42,10 +43,11 @@ outDir  = argv[3] if len(argv)>3 else './exportToOffline'
 annSrc  = argv[4] if len(argv)>4 else './unsignedannounce'
 shaCore = argv[5] if len(argv)>5 else None
 
-instDst  = os.path.join(outDir, 'installers')
-cloneDir = os.path.join(outDir, 'BitcoinArmory')
-rscrDir  = os.path.join(outDir, 'release_scripts')
-annDst   = os.path.join(outDir, 'unsignedannounce')
+instDst      = os.path.join(outDir, 'installers')
+mainCloneDir = os.path.join(outDir, 'BitcoinArmory')
+sigsCloneDir = os.path.join(outDir, 'armoryreproduciblesigs')
+rscrDir      = os.path.join(outDir, 'release_scripts')
+annDst       = os.path.join(outDir, 'unsignedannounce')
 
 if os.path.exists(outDir):
    shutil.rmtree(outDir)
@@ -78,7 +80,8 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
       execAndWait(['scp', '-P', str(port), hostPath, copyTo])
 
 
-execAndWait(['git', 'clone', CLONE_URL, cloneDir])
+execAndWait(['git', 'clone', MAIN_CLONE_URL, mainCloneDir])
+execAndWait(['git', 'clone', SIGS_CLONE_URL, sigsCloneDir])
 shutil.copytree('../release_scripts', rscrDir)
 shutil.copytree(annSrc, annDst)
 
