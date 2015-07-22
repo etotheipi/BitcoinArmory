@@ -1,0 +1,24 @@
+This README contains information about the use of reproducible builds in the
+Armory release process.
+
+The reproducible build integration into the release process caused the step 2
+release script to require a couple of extra Python modules. PyYAML is required
+to parse the YAML in the assert files that are output by Gitian. PyYAML allows
+us to import yaml. The python-debian package is required to parse the buildinfo
+file that is output by the Debian Reproducible Build process. That package
+allows us to import deb822. Some relevant links are below:
+
+https://packages.debian.org/jessie/python-debian
+https://pypi.python.org/pypi/python-debian
+http://packages.ubuntu.com/trusty/python-debian
+https://packages.debian.org/jessie/python-yaml
+https://pypi.python.org/pypi/PyYAML
+http://packages.ubuntu.com/trusty/python-yaml
+
+The repo that contains the gathered signatures is located at the following URL:
+
+https://github.com/armorytech/armory-reproducible
+
+The test version of that repo is:
+
+https://github.com/armorytech/armory-reproducible-test
