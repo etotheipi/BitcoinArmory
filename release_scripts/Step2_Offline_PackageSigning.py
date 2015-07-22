@@ -236,23 +236,26 @@ import yaml # for assert file
 import deb822 # for buildinfo file
 
 # require valid signatures from threshold number out of total signers
-signers = ['ID/address', 'ID/address', 'ID/address', 'ID/address', 'ID/address']
+signers = ['ID/address', 'ID/address', 'ID/address', 'ID/address',
+           'ID/address', 'ID/address']
+# Each weight corresponds to a signer in signers
+weights = [2, 1, 1, 1, 1, 1]
 # Test signers that Joseph used
 #signers = ['LQmcPbkT/16veukrL1HicqY3VTN6qr2CgCtHVWCfNqt',
 #        'CeL6h2HD/19a5u6SMbGcj78Z78eXgRAUwBCZfiUW7ge',
 #        '14ra4Vd1/1Atcipo4vzCArFtxpbL6iLWbWZ3TFyotzK']
-threshold = 2
+threshold = 4
 
 for pkgName, pkgInfo in masterPkgList.iteritems():
    print ''
    print 'Verifying signatures for %s' % pkgName
    hashDict = {}
    sigCnt = 0
-   for signer in signers:
+   for i, signer in enumerate(signers):
       hashDict[signer] = []
       print ''
       print 'Verifying signature for signer %s' % signer
-      sigFile = os.path.join(inDir, 'armoryreproduciblesigs',
+      sigFile = os.path.join(inDir, 'armory-reproducible-test',
               topVerStr, pkgInfo['OSNameLink'], signer,
               'bitcoin-armory-%s-build%s.sig' % (pkgInfo['GitianName'],
                   pkgInfo['GitianExt']))
@@ -266,7 +269,7 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
       addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
       if addrB58 == signer.split('/')[1]:
          print 'Signature verified successfully for %s' % signer
-         # Remove "- " PGP message escaping
+         # Remove "- " PGP message escaping (from RFC 2440)
          lines = msg.split('\n')
          for idx, line in enumerate(lines):
             if line[0:2] == '- ':
@@ -297,29 +300,35 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
          try:
             for idx in range(len(hashDict[signer])):
                if hashDict[signer][idx] == hashDict[oldSigner][idx]:
-                  print 'Hash match for %s and %s' % (signer, oldSigner)
+                  print 'Hash match for signers %s and %s' % (signer, oldSigner)
                   oldSigner = signer
-                  sigCnt += 1
+                  sigCnt += weights[i]
                else:
-                  print 'Hash mismatch for %s and %s.' % (signer, oldSigner)
+                  print ('Hash mismatch for signers %s and %s. Signature does'
+                         ' not count as valid.') % (signer, oldSigner)
          except:
             # First time, so no oldSigner yet.
             print ('Did not compare hash for signer %s, because this is the'
-                   ' first signer with a valid signature.') % signer
+                   ' first signer with a valid signature. Signature is'
+                   ' considered valid and counts towards meeting'
+                   ' threshold.') % signer
             oldSigner = signer
-            sigCnt += 1
+            sigCnt += weights[i]
             continue
       else:
-         print 'Signature was not successfully verified for %s' % signer
+         print 'Signature was not successfully verified for signer %s' % signer
    if sigCnt < threshold:
       print ''
       print ('The number of valid signatures necessary to continue was not'
-             ' met. Please run the script again with enough signatures'
-             ' available in the signature repo from GitHub.')
+             ' met. Please run the script again after obtaining enough'
+             ' signatures from the Armory signature repo on GitHub. The'
+             ' signature threshold is %s of %s valid signatures.') % (
+                     threshold, len(signers))
       exit(1)
 
    print ''
-   print 'Signature threshold was met to continue signing process'
+   print ('Signature threshold was met (%s of %s). Signing process will now'
+          ' continue.') % (threshold, len(signers))
 
 
 

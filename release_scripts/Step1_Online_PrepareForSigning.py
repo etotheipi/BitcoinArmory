@@ -20,7 +20,7 @@ from release_settings import getReleaseParams, getMasterPackageList
 masterPkgList = getMasterPackageList()
 
 MAIN_CLONE_URL = 'https://github.com/etotheipi/BitcoinArmory.git'
-SIGS_CLONE_URL = 'https://github.com/etotheipi/armoryreproduciblesigs.git'
+SIGS_CLONE_URL = 'https://github.com/armorytechetotheipi/armory-reproducible-test.git'
 
 if len(argv)<3:
    import textwrap
@@ -45,7 +45,7 @@ shaCore = argv[5] if len(argv)>5 else None
 
 instDst      = os.path.join(outDir, 'installers')
 mainCloneDir = os.path.join(outDir, 'BitcoinArmory')
-sigsCloneDir = os.path.join(outDir, 'armoryreproduciblesigs')
+sigsCloneDir = os.path.join(outDir, 'armory-reproducible-test')
 rscrDir      = os.path.join(outDir, 'release_scripts')
 annDst       = os.path.join(outDir, 'unsignedannounce')
 
