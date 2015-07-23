@@ -13,7 +13,7 @@ from armoryengine.ArmoryUtils import LOGERROR
 from armoryengine.ConstructedScript import PublicKeySource, ConstructedScript, \
    ScriptRelationshipProof, PublicKeyRelationshipProof, BTCAID_PR_VERSION, \
    BTCAID_PAYLOAD_TYPE
-from pytest.testConstructedScript import PKS1NoChksum_Comp_v0, CS1Chksum_Comp_v0
+from pytest.testConstructedScript import PKS1NoChksum_Comp_v1, CS1Chksum_Comp_v1
 
 # Function that takes a wallet ID payment request and validates it. This is the
 # entry function that launches all the steps required to regenerate all the
@@ -100,10 +100,10 @@ def getDANERecord(daneRecName, desiredRecType=None):
    # BIP32 test vector. Any code that doesn't account for this will fail.
    if desiredRecType != None:
       if desiredRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
-         retRec = PublicKeySource().unserialize(PKS1NoChksum_Comp_v0)
+         retRec = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1)
          retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
       elif desiredRecType == BTCAID_PAYLOAD_TYPE.ConstructedScript:
-         retRec = ConstructedScript().unserialize(CS1Chksum_Comp_v0)
+         retRec = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
          retType = BTCAID_PAYLOAD_TYPE.ConstructedScript
       else:
          LOGERROR('Wrong BTCA record type requested.')
