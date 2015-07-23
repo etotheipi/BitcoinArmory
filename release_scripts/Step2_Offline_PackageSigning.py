@@ -299,14 +299,13 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
 
          # Continue with code common to both assert and buildinfo files
          try:
-            for idx in range(len(hashDict[signer])):
-               if hashDict[signer][idx] == hashDict[oldSigner][idx]:
-                  print 'Hash match for signers %s and %s' % (signer, oldSigner)
-                  oldSigner = signer
-                  sigCnt += weights[i]
-               else:
-                  print ('Hash mismatch for signers %s and %s. Signature does'
-                         ' not count as valid.') % (signer, oldSigner)
+            if hashDict[signer][0] == hashDict[oldSigner][0]:
+               print 'Hash match for signers %s and %s' % (signer, oldSigner)
+               oldSigner = signer
+               sigCnt += weights[i]
+            else:
+               print ('Hash mismatch for signers %s and %s. Signature does'
+                      ' not count as valid.') % (signer, oldSigner)
          except:
             # First time, so no oldSigner yet.
             print ('Did not compare hash for signer %s, because this is the'
