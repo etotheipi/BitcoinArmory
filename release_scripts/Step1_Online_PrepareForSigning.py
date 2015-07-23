@@ -20,7 +20,7 @@ from release_settings import getReleaseParams, getMasterPackageList
 masterPkgList = getMasterPackageList()
 
 MAIN_CLONE_URL = 'https://github.com/etotheipi/BitcoinArmory.git'
-SIGS_CLONE_URL = 'https://github.com/armorytechetotheipi/armory-reproducible-test.git'
+SIGS_CLONE_URL = 'https://github.com/armorytech/armory-reproducible-test.git'
 
 if len(argv)<3:
    import textwrap
