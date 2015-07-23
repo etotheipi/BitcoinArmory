@@ -234,6 +234,7 @@ import urllib2
 import json
 import yaml # for assert file
 import deb822 # for buildinfo file
+from hashlib import sha256
 
 # require valid signatures from threshold number out of total signers
 signers = ['ID/address', 'ID/address', 'ID/address', 'ID/address',
@@ -327,8 +328,22 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
       exit(1)
 
    print ''
-   print ('Signature threshold was met (%s of %s). Signing process will now'
-          ' continue.') % (threshold, len(signers))
+   f = open(getSrcPath(pkgName), 'rb')
+   with f:
+      fileHash = '%s' % sha256(f.read()).hexdigest()
+   if fileHash == hashDict[oldSigner][0]:
+      print ('File hash matches the hash of the file that was built by'
+             ' the signers.')
+   else:
+      print ('File hash does not match the hash of the file that was built by'
+             ' the signers. Please ensure the hashes match before trying again.')
+      exit(1)
+
+   print ''
+   print ('Signature threshold was met (%s of %s) and the hash of the file to'
+          ' be signed matches the hashes obtained during the Gitian or Debian'
+          ' build process. Signing process will now continue.') % (
+                  threshold, len(signers))
 
 
 
