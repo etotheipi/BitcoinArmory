@@ -247,6 +247,8 @@ weights = [2, 1, 1, 1, 1, 1]
 #        '14ra4Vd1/1Atcipo4vzCArFtxpbL6iLWbWZ3TFyotzK']
 threshold = 4
 
+# sigCnt is a weight count of the number of valid signatures (also hashes are
+# checked). hashDict maps signers to a list of hashes for that signer.
 for pkgName, pkgInfo in masterPkgList.iteritems():
    print ''
    print 'Verifying signatures for %s' % pkgName
@@ -279,11 +281,14 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
          
          # Gitian YAML assert file parsing for hash
          if pkgInfo['GitianExt'] == '.assert':
+            # Need to treat !omap as !!omap to deal with Psych lib issue
             yaml.add_constructor(u'!omap',
                     yaml.constructor.SafeConstructor.construct_yaml_omap)
             msgYaml = yaml.load(msg)
+            # Get list of hashes from assert file
             msgHashes = msgYaml[0][1].split('\n')[:-1]
             for msgHash in msgHashes:
+               # The two spaces in split are intentional.
                hashDict[signer].append(msgHash.split('  ')[0])
 
          # Debian buildinfo file parsing for hash
@@ -294,14 +299,25 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
                      lines = item[1].split('\n')
                      for line in lines:
                         line = line.strip()
+                        # There are multiple files. We only care about the
+                        # deb file, so look for the file with .deb extension.
                         if line[-3:] == 'deb' and line[-4:-3] == '.':
                            hashDict[signer].append(line.split(' ')[0])
 
          # Continue with code common to both assert and buildinfo files
+         
+         # Except block initializes oldSigner on first valid signature.
+         # Then try block runs for each subsequent valid signature.
          try:
+            # Use index 0, because we are currently assuming there is one
+            # file in the reproducible build output. We are comparing the
+            # hash for the current signer to the hash of the signer of the
+            # last valid signature. By "chaining" together these comparisons,
+            # we are able to determine that they are all mutually equivalent.
             if hashDict[signer][0] == hashDict[oldSigner][0]:
                print 'Hash match for signers %s and %s' % (signer, oldSigner)
                oldSigner = signer
+               # weights[i] corresponds to the weight for signer at index i
                sigCnt += weights[i]
             else:
                print ('Hash mismatch for signers %s and %s. Signature does'
@@ -313,6 +329,7 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
                    ' considered valid and counts towards meeting'
                    ' threshold.') % signer
             oldSigner = signer
+            # weights[i] corresponds to the weight for signer at index i
             sigCnt += weights[i]
             continue
       else:
@@ -330,6 +347,8 @@ for pkgName, pkgInfo in masterPkgList.iteritems():
    f = open(getSrcPath(pkgName), 'rb')
    with f:
       fileHash = '%s' % sha256(f.read()).hexdigest()
+   # Use index 0, because we are currently just assuming a single file is
+   # coming in from the reproducible build process.
    if fileHash == hashDict[oldSigner][0]:
       print ('File hash matches the hash of the file that was built by'
              ' the signers.')
