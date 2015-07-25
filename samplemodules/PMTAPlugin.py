@@ -35,6 +35,7 @@ class PluginObject(object):
       self.pmtaButton     = QPushButton('Save PMTA Record')
       self.payReqButton   = QPushButton('Payment Request')
       self.addIDButton    = QPushButton('Save Wallet ID')
+      self.exportIDButton = QPushButton('Export Wallet ID')
       payReqLabel         = QLabel('Payment Request:')
       self.payReqTextArea = QTextEdit()
       self.payReqTextArea.setFont(GETFONT('Fixed', 8))
@@ -83,16 +84,43 @@ class PluginObject(object):
                                 QMessageBox.Ok)
          else:
             self.main.setWltSetting(self.wlt.uniqueIDB58, 'dnsID', wltDNSID)
+            QMessageBox.information(self.main, 'ID Saved', 'ID is saved.',
+                                    QMessageBox.Ok)
+
+      # Action for when the export DNS wallet ID button is pressed.
+      def exportIDAction():
+         if (str(self.inID.displayText()) != '') and \
+            (str(self.inID.displayText()) !=
+             self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')):
+            QMessageBox.warning(self.main, 'ID Not Saved',
+                                'DNS wallet ID must be saved first.',
+                                QMessageBox.Ok)
+         elif str(self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')) == '':
+            QMessageBox.warning(self.main, 'ID Not Saved',
+                                'DNS wallet ID must be saved first.',
+                                QMessageBox.Ok)
+         else:
+            # We need to preserve the email address-like string that is the
+            # wallet ID. Two periods after the string is guaranteed to be
+            # invalid for an email address, so we'll use that.
+            expStr = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID') + \
+                     '..' + self.pksB58Line.displayText()
+            QMessageBox.information(self.main, 'Exportable DNS Wallet ID',
+                                'The exportable DNS ID for wallet %s is %s' %
+                                (self.wlt.uniqueIDB58, expStr),
+                                QMessageBox.Ok)
+
 
       # Action for when the clear text button is pressed.
       def clearTextArea():
          self.payReqTextArea.setText('')
 
-      self.main.connect(self.pksButton,    SIGNAL('clicked()'), pksAction)
-      self.main.connect(self.pmtaButton,   SIGNAL('clicked()'), pmtaAction)
-      self.main.connect(self.payReqButton, SIGNAL('clicked()'), prAction)
-      self.main.connect(self.addIDButton,  SIGNAL('clicked()'), addIDAction)
-      self.main.connect(self.clearButton,  SIGNAL('clicked()'), clearTextArea)
+      self.main.connect(self.pksButton,      SIGNAL('clicked()'), pksAction)
+      self.main.connect(self.pmtaButton,     SIGNAL('clicked()'), pmtaAction)
+      self.main.connect(self.payReqButton,   SIGNAL('clicked()'), prAction)
+      self.main.connect(self.addIDButton,    SIGNAL('clicked()'), addIDAction)
+      self.main.connect(self.exportIDButton, SIGNAL('clicked()'), exportIDAction)
+      self.main.connect(self.clearButton,    SIGNAL('clicked()'), clearTextArea)
 
       # ID stuff
       idLabel = QLabel('Public Wallet ID: ')
@@ -133,6 +161,7 @@ class PluginObject(object):
                                                    self.pmtaButton,
                                                    self.payReqButton,
                                                    self.addIDButton,
+                                                   self.exportIDButton,
                                                    'Stretch']),
                                    payReqLabel,
                                    makeHorizFrame([self.payReqTextArea,
@@ -170,6 +199,10 @@ class PluginObject(object):
             # Write the PKS record to the file, then return the record.
             with open(filePath, 'wb') as newWltFile:
                newWltFile.write(myPKS.serialize())
+            QMessageBox.information(self.main, 'PKS File Saved',
+                                    'PKS file is saved.', QMessageBox.Ok)
+
+      return myPKS
 
 
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
@@ -200,33 +233,38 @@ class PluginObject(object):
    # RETURN: Final PMTA record (PMTARecord)
    def savePMTAFile(self, isStatic = False, useCompr = False, use160 = False,
                     isUser = False, isExt = False, chksumPres = True):
-         defName = 'armory_%s.pmta' % self.wlt.uniqueIDB58
-         payNet = PAYNET_BTC
-         if getTestnetFlag():
-            payNet = PAYNET_TBTC
+      myPMTA = None
 
-         filePath = unicode(self.main.getFileSave(defaultFilename = defName))
-         if not len(filePath) > 0:
-            return
-         else:
-            # Start with the wallet's uncompressed root key.
-            sbdPubKey33 = SecureBinaryData(self.wlt.sbdPublicKey33)
-            sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
+      defName = 'armory_%s.pmta' % self.wlt.uniqueIDB58
+      payNet = PAYNET_BTC
+      if getTestnetFlag():
+         payNet = PAYNET_TBTC
 
-            pathdir = os.path.dirname(filePath)
-            if not os.path.exists(pathdir):
-               raise FileExistsError('Path for new PKS record does not ' \
-                                     'exist: %s', pathdir)
+      filePath = unicode(self.main.getFileSave(defaultFilename = defName))
+      if not len(filePath) > 0:
+         return myPMTA
+      else:
+         # Start with the wallet's uncompressed root key.
+         sbdPubKey33 = SecureBinaryData(self.wlt.sbdPublicKey33)
+         sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
 
-            # Write the PMTA record to the file, then return the record.
-            myPMTA = PMTARecord()
-            with open(filePath, 'wb') as newWltFile:
-               myPKS = PublicKeySource()
-               myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
-                                sbdPubKey65.toBinStr(), chksumPres)
-               myPMTA.initialize(myPKS.serialize(), payNet)
-               newWltFile.write(myPMTA.serialize())
-            return myPMTA
+         pathdir = os.path.dirname(filePath)
+         if not os.path.exists(pathdir):
+            raise FileExistsError('Path for new PKS record does not ' \
+                                  'exist: %s', pathdir)
+
+         # Write the PMTA record to the file, then return the record.
+         myPMTA = PMTARecord()
+         with open(filePath, 'wb') as newWltFile:
+            myPKS = PublicKeySource()
+            myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
+                             sbdPubKey65.toBinStr(), chksumPres)
+            myPMTA.initialize(myPKS.serialize(), payNet)
+            newWltFile.write(myPMTA.serialize())
+            QMessageBox.information(self.main, 'PMTA File Saved',
+                                    'PMTA file is saved.', QMessageBox.Ok)
+
+      return myPMTA
 
 
    # Validate an email address. Necessary to ensure that the DNS wallet ID is
