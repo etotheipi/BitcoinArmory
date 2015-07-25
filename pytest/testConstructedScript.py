@@ -317,7 +317,7 @@ class SRPClassTests(unittest.TestCase):
                        binary_to_hex(SRP2_v1))
 
       # Are various SRP structures valid?
-      # (NB: Bad version test is a slight hacks because the unserialize code
+      # (NB: Bad version test is a slight hack because the unserialize code
       # correctly fails. Direct editing works best.)
       srp1_BadVersion = ScriptRelationshipProof().unserialize(SRP1_v1)
       srp1_BadVersion.version = 16
@@ -359,11 +359,11 @@ class PRClassTests(unittest.TestCase):
       # Unserialize and re-serialize to confirm unserialize works.
       pr1_unser = PaymentRequest().unserialize(PR1_v1)
       pr2_unser = PaymentRequest().unserialize(PR2_v1)
-      stringPR1_unser = pr1_unser.serialize()
-      stringPR2_unser = pr2_unser.serialize()
-      self.assertEqual(binary_to_hex(stringPR1),
+      stringPR1_ser = pr1_unser.serialize()
+      stringPR2_ser = pr2_unser.serialize()
+      self.assertEqual(binary_to_hex(stringPR1_ser),
                        binary_to_hex(PR1_v1))
-      self.assertEqual(binary_to_hex(stringPR2),
+      self.assertEqual(binary_to_hex(stringPR2_ser),
                        binary_to_hex(PR2_v1))
 
       # Are various PR structures valid?
@@ -381,7 +381,7 @@ class PRClassTests(unittest.TestCase):
 
 ################################################################################
 ########## TO BE COMPLETED
-#class PMTAClassTests(unittest.TestCase):
+class PMTAClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
    def testSerialization(self):
