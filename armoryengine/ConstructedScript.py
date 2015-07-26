@@ -1253,15 +1253,18 @@ class PaymentRequest(object):
       self.reqSize            = 0
       self.unvalidatedScripts = None
       self.daneReqNames       = None
-      self.srpLists           = None
+      self.srpList            = None
+      self.satoshiList        = None
+      self.checksum           = None
 
 
    #############################################################################
    @VerifyArgTypes(unvalidatedScripts = [VAR_STR],
                    daneReqNames       = [VAR_STR],
-                   srpLists           = [VAR_STR],
+                   srpList            = [VAR_STR],
+                   satoshiList        = [VAR_INT],
                    ver                = int)
-   def initialize(self, unvalidatedScripts, daneReqNames, srpLists,
+   def initialize(self, unvalidatedScripts, daneReqNames, srpList, satoshiList,
                   ver=BTCAID_PR_VERSION):
       """
       Set all PR values.
@@ -1271,21 +1274,30 @@ class PaymentRequest(object):
       self.reqSize            = 0
       self.unvalidatedScripts = unvalidatedScripts
       self.daneReqNames       = daneReqNames
-      self.srpLists           = srpLists
-      for x in unvalidatedScripts:
+      self.srpList            = srpList
+      self.satoshiList        = satoshiList
+      for w in unvalidatedScripts:
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
+         self.reqSize += len(w)
+      for x in daneReqNames:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(x)
-      for y in daneReqNames:
+      for y in srpList:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(y)
-      for z in srpLists:
-         self.reqSize += packVarInt(self.numTxOutScripts)[1]
-         self.reqSize += len(z)
+      for z in satoshiList:
+         self.reqSize += packVarInt(z)[1]
+      self.reqSize += 4
+
+      # Get a data string that can be used to calculate the checksum.
+      bp = BinaryPacker()
+      dataStr = self.getDataNoChecksum()
+      self.checksum = hash256(dataStr)[:4]
 
 
    #############################################################################
    def isInitialized(self):
-      return not (self.unvalidatedScripts is None or
+      return not (self.unvalidatedScripts == None or
                   len(self.unvalidatedScripts) == 0)
 
 
@@ -1306,7 +1318,7 @@ class PaymentRequest(object):
 
 
    #############################################################################
-   def serialize(self):
+   def getDataNoChecksum(self):
       flags = BitSet(16)
 
       bp = BinaryPacker()
@@ -1320,9 +1332,25 @@ class PaymentRequest(object):
       for daneItem in self.daneReqNames:
          bp.put(VAR_INT, len(daneItem), width = 1)
          bp.put(BINARY_CHUNK, daneItem)
-      for srpItem in self.srpLists:
+      for srpItem in self.srpList:
          bp.put(VAR_INT, len(srpItem), width = 1)
          bp.put(BINARY_CHUNK, srpItem)
+      for satoshiItem in self.satoshiList:
+         bp.put(VAR_INT, satoshiItem)
+
+      return bp.getBinaryString()
+
+
+   #############################################################################
+   def serialize(self):
+      # Get everything except the checksum.
+      bp = BinaryPacker()
+      dataStr = self.getDataNoChecksum()
+      bp.put(BINARY_CHUNK, dataStr)
+
+      # Place a checksum in the data.
+      checksum4 = hash256(dataStr)[:4]
+      bp.put(BINARY_CHUNK, checksum4)
 
       return bp.getBinaryString()
 
@@ -1332,38 +1360,38 @@ class PaymentRequest(object):
       unvalidatedScripts = []
       daneReqNames       = []
       srpList            = []
+      satoshiList        = []
+
       bu                 = makeBinaryUnpacker(serData)
       inVer              = bu.get(UINT8)
+      if inVer != BTCAID_PR_VERSION:
+         # In the future we will make this more of a warning, not error
+         raise VersionError('PR version does not match the loaded version')
       inFlags            = bu.get(BITSET, 2)
       inNumTxOutScripts  = bu.get(VAR_INT)
       inReqSize          = bu.get(VAR_INT)
 
-      k = 0
-      while k < inNumTxOutScripts:
+      for k in range(0, inNumTxOutScripts):
          nextScript = bu.get(VAR_STR)
          unvalidatedScripts.append(nextScript)
-         k += 1
-
-      l = 0
-      while l < inNumTxOutScripts:
+      for l in range(0, inNumTxOutScripts):
          daneName = bu.get(VAR_STR)
          daneReqNames.append(daneName)
-         l += 1
-
-      m = 0
-      while m < inNumTxOutScripts:
+      for m in range(0, inNumTxOutScripts):
          nextSRPItem = bu.get(VAR_STR)
          srpList.append(nextSRPItem)
-         m += 1
+      for n in range(0, inNumTxOutScripts):
+         nextSatoshiVal = bu.get(VAR_INT)
+         satoshiList.append(nextSatoshiVal)
 
-      if not inVer == BTCAID_PR_VERSION:
-         # In the future we will make this more of a warning, not error
-         raise VersionError('PR version does not match the loaded version')
-
+      # Ignore the checksum. Instead, go straight to creating a new PR object.
+      # The checksum will be re-calculated as a possible corruption check (i.e.,
+      # compare the original PR to the new PR.)
       self.__init__()
       self.initialize(unvalidatedScripts,
                       daneReqNames,
                       srpList,
+                      satoshiList,
                       inVer)
 
       return self
