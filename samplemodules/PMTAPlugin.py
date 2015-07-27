@@ -43,7 +43,6 @@ class PluginObject(object):
       h                   = int(12 * 8.2)
       self.payReqTextArea.setMinimumWidth(w)
       self.payReqTextArea.setMinimumHeight(h)
-      self.payReqTextArea.setReadOnly(True)
       self.clearButton    = QPushButton('Clear')
 
       # Qt GUI calls must occur on the main thread. We need to update the frame
@@ -64,7 +63,48 @@ class PluginObject(object):
       # Action for when the payment request button is pressed.
       def prAction():
          # TO BE COMPLETED
-         self.payReqTextArea.setText("<Payment Request Blob>")
+         # What we want to do is take the incoming PR Base58 string, decode it,
+         # verify that it's valid, and open a pre-filled "Send Bitcoins" dialog.
+         # Verfication includes checking DNS first and then checking the Armory
+         # ID store (see the ID store plugin) if the record's not on DNS.
+
+         # Decode the PR and confirm that it's valid.
+         # NB: The text below is a Base58 form of PR1_v1. TEST PURPOSES ONLY!!!
+         self.payReqTextArea.setText('FkWcQucpgf82CxRUhJWZ5mRRNuwhopXSqtf7jLhaNRLUHg4nKthtSwWfVWSXnWBaFGy7qoh42JAyLWCgczxUjFbxs3CuSeHnxAbg8Hxj6vB3xASUJ7A9kqPcRVVJeW4gh7BRFpBhiRLjB')
+         prRawBin = base58_to_binary(str(self.payReqTextArea.toPlainText()))
+         prFinal = PaymentRequest().unserialize(prRawBin)
+         if prFinal.isValid() is False:
+            QMessageBox.warning(self.main, 'Invalid Payment Request',
+                                'Payment Request is invalid. Please confirm ' \
+                                'that the text is complete and not corrupted.',
+                                QMessageBox.Ok)
+         else:
+            # If the PR is valid, go through the following steps. All steps,
+            # unless otherwise noted, are inside a loop based on the # of
+            # unvalidated TxOut scripts listed in the record.
+            #  1) Check DNS first.
+            # 2a) If we get a DNS record, create TxOut using it & matching SRP.
+            # 2b) If we don't get a DNS record, just use the unvalidated info.
+            #     (In a prod env, the user would have an option. For now....)
+            #  3) Generate a "Send Bitcoins" dialog using the appropriate info.
+
+            # FOR NOW, DNS IS IGNORED. COME BACK LATER.
+
+            # For now, this ONLY SUPPORTS ONE TxOut! Hacks may be required to
+            # support multiple outputs. The nature of said hacks is TBD. Until
+            # then, only the final TxOut will be seen.
+            #
+            # Also, there appears to be a bug in Armory SW. In dns-demo, you can
+            # set the address in the "Send Bitcoins" dialog. Here, you can't.
+            # The failure appears to originate in the SendBitcoinsFrame class.
+            # makeRecipFrame() is apparently supposed to grab an address and
+            # pass it along somehow. Instead, createAddressEntryWidgets
+            # (ArmoryQt.py) has an empty initString var, which causes a failure.
+            dlgInfo = {}
+            for t in range(0, prFinal.numTxOutScripts):
+               dlgInfo['address'] = \
+                                script_to_addrStr(prFinal.unvalidatedScripts[t])
+            DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
 
       # Action for when the add DNS wallet ID button is pressed.
       def addIDAction():
@@ -177,6 +217,25 @@ class PluginObject(object):
       getBDM().registerCppNotification(self.handleBDMNotification)
 
 
+   # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
+   # on the incoming wallet.
+   # INPUT:  The wallet used to generate the PKS record (ABEK_StdWallet)
+   #         PKS-related flags (bool) - See armoryengine/ConstructedScript.py
+   # OUTPUT: None
+   # RETURN: Final PKS record (PKSRecord)
+   def getWltPKS(self, inWlt, isStatic = False, useCompr = False,
+                 use160 = False, isUser = False, isExt = False,
+                 chksumPres = False):
+      # Start with the wallet's uncompressed root key.
+      sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
+      sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
+
+      myPKS = PublicKeySource()
+      myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
+                       sbdPubKey65.toBinStr(), chksumPres)
+      return myPKS
+
+
    # Call for when we want to save a binary PKS record to a file. By default,
    # all PKS flags will be false.
    # INPUT:  PKS-related flags (bool) - See armoryengine/ConstructedScript.py
@@ -197,30 +256,17 @@ class PluginObject(object):
             myPKS = getWltPKS(self.wlt, isStatic, useCompr, use160, isUser,
                               isExt, sbdPubKey65.toBinStr(), chksumPres)
             # Write the PKS record to the file, then return the record.
-            with open(filePath, 'wb') as newWltFile:
-               newWltFile.write(myPKS.serialize())
-            QMessageBox.information(self.main, 'PKS File Saved',
-                                    'PKS file is saved.', QMessageBox.Ok)
+            try:
+               with open(filePath, 'wb') as newWltFile:
+                  newWltFile.write(binary_to_base58(myPKS.serialize()))
+               QMessageBox.information(self.main, 'PKS File Saved',
+                                       'PKS file is saved.', QMessageBox.Ok)
+            except EnvironmentError:
+               QMessageBox.warning(self.main, 'PKS File Save Failed',
+                                   'PKS file save failed. Please check your ' \
+                                   'file system.', QMessageBox.Ok)
+               myPKS = None
 
-      return myPKS
-
-
-   # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
-   # on the incoming wallet.
-   # INPUT:  The wallet used to generate the PKS record (ABEK_StdWallet)
-   #         PKS-related flags (bool) - See armoryengine/ConstructedScript.py
-   # OUTPUT: None
-   # RETURN: Final PKS record (PKSRecord)
-   def getWltPKS(self, inWlt, isStatic = False, useCompr = False,
-                 use160 = False, isUser = False, isExt = False,
-                 chksumPres = False):
-      # Start with the wallet's uncompressed root key.
-      sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
-      sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
-
-      myPKS = PublicKeySource()
-      myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
-                       sbdPubKey65.toBinStr(), chksumPres)
       return myPKS
 
 
@@ -255,14 +301,20 @@ class PluginObject(object):
 
          # Write the PMTA record to the file, then return the record.
          myPMTA = PMTARecord()
-         with open(filePath, 'wb') as newWltFile:
-            myPKS = PublicKeySource()
-            myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
-                             sbdPubKey65.toBinStr(), chksumPres)
-            myPMTA.initialize(myPKS.serialize(), payNet)
-            newWltFile.write(myPMTA.serialize())
-            QMessageBox.information(self.main, 'PMTA File Saved',
-                                    'PMTA file is saved.', QMessageBox.Ok)
+         try:
+            with open(filePath, 'wb') as newWltFile:
+               myPKS = PublicKeySource()
+               myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
+                                sbdPubKey65.toBinStr(), chksumPres)
+               myPMTA.initialize(myPKS.serialize(), payNet)
+               newWltFile.write(binary_to_base58(myPMTA.serialize()))
+               QMessageBox.information(self.main, 'PMTA File Saved',
+                                       'PMTA file is saved.', QMessageBox.Ok)
+         except EnvironmentError:
+            QMessageBox.warning(self.main, 'PKS File Save Failed',
+                                'PKS file save failed. Please check your ' \
+                                'file system.', QMessageBox.Ok)
+            myPMTA = None
 
       return myPMTA
 
@@ -272,7 +324,9 @@ class PluginObject(object):
    # of the (ridiculously long) regex expression. It does not appear to have any
    # licensing restrictions. Using Python's bult-in email.utils.parseaddr would
    # be much cleaner. Unfortunately, it permits a lot of strings that are valid
-   # under RFC 822 but not valid for the wider Internet.
+   # under RFC 822 but are not valid email addresses. It may be worthwhile to
+   # add validate_email (https://github.com/syrusakbary/validate_email) to the
+   # Armory source tree eventually and just remove this regex abomination.
    # INPUT:  A string with an email address to validate.
    # OUTPUT: None
    # RETURN: A boolean indicating if the email address is valid.
