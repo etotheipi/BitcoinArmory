@@ -48,15 +48,15 @@ PKS1NoChksum_Comp_v1_FlagClash2 = hex_to_binary(
 
 # Valid CS serializations based on BIP32MasterPubKey2.
 CS1Chksum_Uncomp_v1 = hex_to_binary(
-      "01000206 76a9ff01 88ac0145 01000441 04cbcaa9 c98c877a 26977d00 825c956a"
-      "238e8ddd fbd322cc e4f74b0b 5bd6ace4 a77bd330 5d363c26 f82c1e41 c667e4b3"
-      "561c06c6 0a2104d2 b548e6dd 059056aa 51a7e7c4 42")
+      "01000207 76a914ff 0188ac01 45010004 4104cbca a9c98c87 7a26977d 00825c95"
+      "6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a77bd3 305d363c 26f82c1e 41c667e4"
+      "b3561c06 c60a2104 d2b548e6 dd059056 aa518688 3438")
 CS1Chksum_Comp_v1 = hex_to_binary(
-      "01000206 76a9ff01 88ac0125 01000621 03cbcaa9 c98c877a 26977d00 825c956a"
-      "238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7f82322 7a")
+      "01000207 76a914ff 0188ac01 25010006 2103cbca a9c98c87 7a26977d 00825c95"
+      "6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7f823 227a")
 CS1NoChksum_Comp_v1 = hex_to_binary(
-      "01000006 76a9ff01 88ac0125 01000621 03cbcaa9 c98c877a 26977d00 825c956a"
-      "238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7")
+      "01000007 76a914ff 0188ac01 25010006 2103cbca a9c98c87 7a26977d 00825c95"
+      "6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
 CS2Chksum_Comp_v1 = hex_to_binary( # Multisig
       "01000305 52ff0252 ae022501 00022103 cbcaa9c9 8c877a26 977d0082 5c956a23"
       "8e8dddfb d322cce4 f74b0b5b d6ace4a7 25010002 2102fc9e 5af0ac8d 9b3cecfe"
@@ -87,19 +87,22 @@ SRP2_v1 = hex_to_binary(
 daneName1 = "pksrec1.btcshop.com"
 daneName2 = "pksrec2.btcshop.com"
 unvalidatedScript1 = hex_to_binary(
-      "76a95a61 ff8eb7aa ca3010db 97ebda76 121610b7 809688ac")
+      "76a9145a 61ff8eb7 aaca3010 db97ebda 76121610 b7809688 ac")
+
+# REMINDER: ADD A BAD UNVALIDATED SCRIPT BY REMOVING 0x14 FROM THE SCRIPT ABOVE. USE TO CREATE TESTS THAT CHECK SCRIPTS
+
 PR1_v1 = hex_to_binary(
-      "01000001 621876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1370"
-      "6b737265 63312e62 74637368 6f702e63 6f6d2701 01240102 2060e373 9cc2c395"
-      "0b7c4d7f 32cc503e 13b996d0 f7a45623 d0a914e1 efa7f811 e000ff00 40075af0"
-      "750700eb a75f09")
+      "01000001 631976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13"
+      "706b7372 6563312e 62746373 686f702e 636f6d27 01012401 022060e3 739cc2c3"
+      "950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914 e1efa7f8 11e000ff 0040075a"
+      "f0750700 8d85118a")
 PR2_v1 = hex_to_binary(
-      "01000002 b61876a9 5a61ff8e b7aaca30 10db97eb da761216 10b78096 88ac1876"
-      "a95a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13 706b7372 6563312e"
-      "62746373 686f702e 636f6d13 706b7372 6563312e 62746373 686f702e 636f6d27"
-      "01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-      "e1efa7f8 11e00027 01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996"
-      "d0f7a456 23d0a914 e1efa7f8 11e000fe 00e1f505 fd361516 75a3bb")
+      "01000002 b81976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac19"
+      "76a9145a 61ff8eb7 aaca3010 db97ebda 76121610 b7809688 ac13706b 73726563"
+      "312e6274 6373686f 702e636f 6d13706b 73726563 312e6274 6373686f 702e636f"
+      "6d270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0"
+      "a914e1ef a7f811e0 00270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13"
+      "b996d0f7 a45623d0 a914e1ef a7f811e0 00fe00e1 f505fd36 15ee3e07 6f")
 
 # Valid PMTA serializations including previously used, valid PKS and CS records. ADD DATA TYPE
 PMTA_PKS1Chksum_Uncomp_v1 = hex_to_binary(
@@ -112,20 +115,20 @@ PMTA_PKS1NoChksum_Comp_v1 = hex_to_binary(
       "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
 PMTA_CS1Chksum_Comp_v1 = hex_to_binary(
       "0001abba 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
-      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 0676a9ff 0188ac01"
-      "25010006 2103cbca a9c98c87 7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b"
-      "0b5bd6ac e4a7f823 227a")
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 0776a914 ff0188ac"
+      "01250100 062103cb caa9c98c 877a2697 7d00825c 956a238e 8dddfbd3 22cce4f7"
+      "4b0b5bd6 ace4a7f8 23227a")
 PMTA_CS1NoChksum_Comp_v1 = hex_to_binary(
-      "00020002 00000001 00000676 a9ff0188 ac012501 00062103 cbcaa9c9 8c877a26"
-      "977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
+      "00020002 00000001 00000776 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a"
+      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7")
 
 # Inalid PMTA serializations.
 PMTA_BadPayNet = hex_to_binary(
-      "0200000d 00000001 00000676 a9ff0188 ac012501 00062103 cbcaa9c9 8c877a26"
-      "977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
+      "0200000d 00000001 00000676 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a"
+      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4a7")
 PMTA_BadDataType = hex_to_binary(
-      "00010000 00000101 00000676 a9ff0188 ac012501 00062103 cbcaa9c9 8c877a26"
-      "977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
+      "00010000 00000101 00000676 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a"
+      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7")
 PMTA_BadURILen1 = hex_to_binary(
       "0002ffff 00006874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
       "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"

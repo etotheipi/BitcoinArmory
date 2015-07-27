@@ -648,6 +648,7 @@ def getP2PKHStr(useActualKeyHash, keyData=None):
    templateStr  = ''
    templateStr += getOpCode('OP_DUP')
    templateStr += getOpCode('OP_HASH160')
+   templateStr += '\x14'
    templateStr += templateStrKeyData
    templateStr += getOpCode('OP_EQUALVERIFY')
    templateStr += getOpCode('OP_CHECKSIG')
@@ -1276,6 +1277,8 @@ class PaymentRequest(object):
       self.daneReqNames       = daneReqNames
       self.srpList            = srpList
       self.satoshiList        = satoshiList
+
+      # Set the request size.
       for w in unvalidatedScripts:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(w)
