@@ -24,6 +24,7 @@
    #include "leveldb_windows_port\win32_posix\win32_posix.h"
 #else
    #include <fcntl.h>
+   #include <sys/stat.h>
 #endif
 
 #define BYTES_PER_TXOUT 500

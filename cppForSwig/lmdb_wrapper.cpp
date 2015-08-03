@@ -3996,7 +3996,8 @@ void LMDBBlockDatabase::computeSshDBConfigValues(ARMORY_DB_TYPE dbType)
       maxBatchBuffer_ = 4;
       
       size_t mem = getTotalSystemMemory() / 2;
-      mem = min(1024 * 1024 * 1024LL, mem);
+      size_t baseMem = 1024*1024*1024ULL;
+      mem = min(baseMem, mem);
 
       uint32_t txPerBatch = 
          mem / (maxBatchBuffer_ * (BYTES_PER_TXOUT + BYTES_PER_TXIN));
