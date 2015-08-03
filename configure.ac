@@ -60,7 +60,7 @@ AC_ARG_ENABLE([debug],
 dnl Define variables
 AM_PATH_PYTHON([2.7])
 
-AC_ARG_VAR([PYTHON_INCLUDES], [Python includes (-I/usr/include/python2.7 -I/usr/include/$host/python2.7])
+AC_ARG_VAR([PYTHON_INCLUDES], [Python includes (-I/usr/include/python2.7 -I/usr/include/$host/python2.7)])
 
 if test "x$PYTHON_INCLUDES" = "x" ; then
     PYTHON_INCLUDES=`$PYTHON-config --includes`
