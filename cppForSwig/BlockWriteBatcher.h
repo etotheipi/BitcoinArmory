@@ -24,23 +24,7 @@ class StoredScriptHistory;
 struct BlockDataManagerConfig;
 class ProgressFilter;
 
-#if defined(_DEBUG) || defined(DEBUG )
-//use a tiny update thresholds to trigger multiple commit threads for 
-//unit tests in debug builds
-static const uint64_t BYTES_PER_BATCH = 300;
-static const uint32_t TXOUT_PER_BATCH = 5;
-#else
-static const uint64_t BYTES_PER_BATCH = 50 * 1024 * 1024;
-static const uint32_t TXOUT_PER_BATCH = 150000;
-#endif
-
-#define MAX_BATCH_BUFFER 3
-
-
-/*
- This class accumulates changes to write to the database,
- and will do so when it gets to a certain threshold
-*/
+#define MODIFIED_SSH_THRESHOLD 500
 
 struct PulledTx : public DBTx
 {
@@ -333,11 +317,17 @@ struct PulledBlock : public DBBlock
          brr.advance(4);
       }
 
+      /*
+      This is actually not a valid marker of bad block data, some blocks have 
+      less data than the advertized height in raw data (after the magic word 
+      and before the actual block), as can be verified by computing the merkle 
+      root
+
       if (brr.getSizeRemaining() > 0)
       {
          throw runtime_error("Block deserialization error: "
             "deser size did not match block size in header");
-      }
+      }*/
    }
 };
 
@@ -532,20 +522,17 @@ struct ProcessedBatchSerializer
       map<BinaryData, BinaryWriter> subSshMap_;
    };
 
-   map<uint32_t, vector<SerializedSubSSH*>> keyedSubSshToApply_;
-   vector<map<BinaryData, SerializedSubSSH>>  subSshToApply_;
-
-   map<BinaryData, set<BinaryData>> intermediarrySubSshKeysToDelete_;
-
-   vector<map<BinaryData, BinaryWriter>>  serializedSshToModify_;
+   map<uint32_t, map<uint32_t, vector<SerializedSubSSH*>>>  keyedSubSshToApply_;
+   map<uint32_t, map<uint32_t, set<BinaryData>>>            subSshKeysToDelete_;
+   vector<map<uint32_t, set<BinaryData>>>                   sshKeysToDelete_;
+   vector<map<BinaryData, SerializedSubSSH>>                subSshToApply_;
+   vector<map<uint32_t, map<BinaryData, BinaryWriter>>>     serializedSshToModify_;
+   
    map<BinaryData, BinaryWriter>          serializedStxOutToModify_;
    map<BinaryData, BinaryWriter>          serializedSpentness_;
-   set<BinaryData>                        sshKeysToDelete_;
-   map<uint32_t, set<BinaryData>>         subSshKeysToDelete_;
+   
    set<BinaryData>                        spentnessToDelete_;
-   map<BinaryData, BinaryData>            sshKeys_;
-
-   vector<map<uint32_t, map<BinaryData, uint8_t>>> prefixesToUpdate_;
+   map<BinaryData, set<BinaryData>>       intermediarrySubSshKeysToDelete_;
 
    //Fullnode only
    map<BinaryData, BinaryWriter> serializedTxCountAndHash_;
@@ -557,7 +544,35 @@ struct ProcessedBatchSerializer
    bool isSerialized_ = false;
 
    ////
-   ProcessedBatchSerializer(void) {}
+   ProcessedBatchSerializer(void) 
+   {
+   }
+
+   ~ProcessedBatchSerializer()
+   {
+      auto subsshcleanup = [this](uint32_t tID)->void
+      {
+         subSshToApply_[tID].clear();
+      };
+
+      auto sshcleanup = [this](uint32_t tID)->void
+      {
+         serializedSshToModify_[tID].clear();
+      };
+
+      vector<thread> cleanupThreads;
+      for (uint32_t i = 0; i < subSshToApply_.size(); i++)
+         cleanupThreads.push_back(thread(subsshcleanup, i));
+
+      for (uint32_t i = 0; i < serializedSshToModify_.size(); i++)
+         cleanupThreads.push_back(thread(sshcleanup, i));
+
+      for (auto& thr : cleanupThreads)
+      {
+         if (thr.joinable())
+            thr.join();
+      }
+   }
 
    ProcessedBatchSerializer(ProcessedBatchSerializer&&);
 
@@ -577,8 +592,8 @@ struct ProcessedBatchSerializer
       shared_ptr<BatchThreadContainer> btc);
 
 
-   void putSSH();
-   void putSubSSH(uint32_t keyLength);
+   void putSSH(uint32_t nWriters);
+   void putSubSSH(uint32_t keyLength, uint32_t threadCount);
    void putSTX();
    void deleteEmptyKeys();
    void updateSDBI();
@@ -845,10 +860,13 @@ public:
    bool hasScrAddress(const BinaryData& scrAddr) const
    { return scrAddrFilter_->hasScrAddress(scrAddr); }
 
+   void rescanSSH();
+
 private:
    void prepareSshHeaders(BlockBatchProcessor&, const ScrAddrFilter&);
 
    BinaryData applyBlocksToDB(ProgressFilter &progress, ScrAddrFilter& scf);
+   void updateSSH(const BinaryData& topBlockHash, bool forceReset, bool versbose);
    
    bool pullBlockFromDB(PulledBlock& pb,
       uint32_t height, uint8_t dup,
@@ -885,9 +903,10 @@ public:
    mutable atomic<uint32_t> nReaders_;
    mutable atomic<uint32_t> nWorkers_;
    mutable atomic<uint32_t> nWriters_;
+   
+   const bool undo_;
 
 private:
-   const bool undo_;
 
    const ScrAddrFilter* scrAddrFilter_;
    
@@ -896,8 +915,16 @@ private:
    bool forceUpdateSSH_;
 
    /***
+   Supernode only:
+   Keep track of all modified SSH if less than 500 blocks are scanned to speed up 
+   updateSSH processing.
+   ***/
+   map<uint32_t, map<uint32_t, set<BinaryData>>> modifiedSSH_;
+   bool trackSSH_ = false;
+
+   /***
    The batches the readers thread load are put in this vector for the process
-   for the process thread to grab. The vector is MAX_BATCH_BUFFER and behaves
+   thread to grab. The vector is MAX_BATCH_BUFFER large and behaves
    like a FIFO queue.
    ***/
    vector<shared_ptr<BlockDataBatch>> batchVector_;

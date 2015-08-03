@@ -539,7 +539,7 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
    if (ignoreZc)
       return utxoVec;
 
-   LMDBEnv::Transaction tx(db_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+   LMDBEnv::Transaction tx(db_->dbEnv_[SSH].get(), LMDB::ReadOnly);
 
    for (auto& txio : relevantTxIO_)
    {

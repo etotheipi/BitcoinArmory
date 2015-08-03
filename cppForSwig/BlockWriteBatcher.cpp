@@ -47,6 +47,9 @@ void insertSpentTxio(
    
    if (!txOutKey.startsWith(inHgtSubSsh.hgtX_))
       inHgtSubSsh.txioCount_++;
+
+   if (txio.flagged_)
+      mirrorTxio.setIsFromSameTx();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +70,7 @@ BlockWriteBatcher::BlockWriteBatcher(
    armoryDbType_ = iface_->armoryDbType();
    scrAddrFilter_ = &sca;
 
-   batchVector_.resize(MAX_BATCH_BUFFER);
+   batchVector_.resize(iface->maxBatchBuffer());
 
    if (undo)
    {
@@ -83,27 +86,28 @@ BlockWriteBatcher::BlockWriteBatcher(
 
    if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
    {
-      //for supernode, split workers and writers evenly, round up writers
-      //only 1 reader is enough
-      uint32_t totalThr = totalThreadCount_ - 1;
-      uint32_t workers = totalThr / 2;
+      int32_t readers = totalThreadCount_ / 5;
+      if (readers < 1)
+         readers = 1;
+
+      int32_t workers = totalThreadCount_;
       if (workers < 1)
          workers = 1;
 
-      int32_t writers = totalThr - (int32_t)workers;
+      int32_t writers = totalThreadCount_;
       if (writers < 1)
          writers = 1;
 
-      setThreadCounts(1, workers, writers);
+      setThreadCounts(readers, workers, writers);
    }
    else
    {
       //50% workers, 1 writer, rest as readers
-      int32_t workers = totalThreadCount_ / 2;
+      int32_t workers = totalThreadCount_;
       if (workers < 1)
          workers = 1;
 
-      int32_t readers = totalThreadCount_ - 1 - workers;
+      int32_t readers = totalThreadCount_;
       if (readers < 1)
          readers = 1;
 
@@ -115,10 +119,15 @@ BlockWriteBatcher::BlockWriteBatcher(
 void BlockWriteBatcher::prepareSshHeaders(BlockBatchProcessor& bbp, 
    const ScrAddrFilter& saf)
 {
-   //In fullnode, the sshToModify_ container is not wiped after each commit.
-   //Instead, all SSH for tracked scrAddr, since we know they're the onyl one
-   //that will get any traffic, and in order to update all alreadyScannedUpToBlk_
-   //members each commit
+   /***
+   In fullnode, the sshToModify_ container is not wiped after each commit.
+   Instead, it keeps all SSH for tracked scrAddr in RAM, since we know they're 
+   the only one that need scanned. Also, top scanned height is on a per scrAddr
+   basis in fullnode: we only scan a subset of addresses so we can't rely on the
+   DB wide top scanned height to determine if a scrAddr is up to date. Thus each 
+   corresponding SSH needs its alreadyScannedUpToBlk_ member updated every commit,
+   whether its actual transaction history changed for that commit or not.
+   ***/
 
    if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
       return;
@@ -126,39 +135,12 @@ void BlockWriteBatcher::prepareSshHeaders(BlockBatchProcessor& bbp,
    if (bbp.sshHeaders_ != nullptr)
       return;
 
-   {
-      unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
-
-      bbp.sshHeaders_.reset(new SSHheaders(1, 0));
-      bbp.sshHeaders_->buildSshHeadersFromSAF(
-         saf);
-
-      //write prefixes to DB
-      map<uint16_t, vector<const BinaryData*>> prefixByLength;
-      for (auto& prefix : bbp.sshHeaders_->topPrefix_)
-         prefixByLength[prefix.first.getSize()].push_back(&prefix.first);
-
-      for (auto& keys : prefixByLength)
-      {
-         LMDBEnv::Transaction prefixTx;
-         iface_->beginSubSSHDBTransaction(
-            prefixTx, keys.first, LMDB::ReadWrite);
-
-         BinaryData prefixVal(1);
-
-         for (auto prefixKey : keys.second)
-         {
-            auto& prefixData = bbp.sshHeaders_->topPrefix_[*prefixKey];
-            prefixVal.getPtr()[0] = prefixData.first;
-
-            iface_->putValue(keys.first, *prefixKey, prefixVal);
-         }
-      }
-   }
+   bbp.sshHeaders_.reset(new SSHheaders(1, 0));
+   bbp.sshHeaders_->buildSshHeadersFromSAF(saf);
    
    uint32_t utxoCount=0;
    LMDBEnv::Transaction tx;
-   iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   iface_->beginDBTransaction(tx, SSH, LMDB::ReadOnly);
 
    auto& sshMap = bbp.sshHeaders_->sshToModify_;
 
@@ -169,11 +151,15 @@ void BlockWriteBatcher::prepareSshHeaders(BlockBatchProcessor& bbp,
       if (ssh.totalTxioCount_ != 0)
       {
          StoredScriptHistory tempSSH = ssh;
-         BinaryData subKey = ssh.getSubKey();
-         LMDBEnv::Transaction subtx;
-         iface_->beginSubSSHDBTransaction(subtx, ssh.keyLength_, LMDB::ReadOnly);
+         BinaryData subKey = ssh.getSubKey(true);
+         auto shard = iface_->getShard(subKey);
+         auto depth = iface_->getDepth(subKey);
 
-         LDBIter dbIter = iface_->getSubSSHIterator(ssh.keyLength_);
+         LMDBEnv::Transaction subtx;
+         iface_->beginSubSSHDBTransaction(
+            subtx, shard, depth, LMDB::ReadOnly);
+
+         LDBIter dbIter = iface_->getSubSSHIterator(shard, depth);
          dbIter.seekTo(subKey);
 
          iface_->readStoredScriptHistoryAtIter(dbIter, tempSSH, 0, UINT32_MAX);
@@ -206,7 +192,7 @@ void BlockWriteBatcher::prepareSshHeaders(BlockBatchProcessor& bbp,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockWriteBatcher::pushBatch(shared_ptr<BlockDataBatch> batch)
 {
-   uint32_t topId = topBatch_ % MAX_BATCH_BUFFER;
+   uint32_t topId = topBatch_ % iface_->maxBatchBuffer();
    
    batch->chargeSleep_ = clock();
    unique_lock<mutex> lock(batchLock_);
@@ -230,7 +216,7 @@ void BlockWriteBatcher::pushBatch(shared_ptr<BlockDataBatch> batch)
 shared_ptr<BlockDataBatch> BlockWriteBatcher::popBatch()
 {
    shared_ptr<BlockDataBatch> batch;
-   uint32_t currentId = currentBatch_ % MAX_BATCH_BUFFER;
+   uint32_t currentId = currentBatch_ % iface_->maxBatchBuffer();
 
    //grab the feed lock, assign the feed ptr locally and check if it's valid
    unique_lock<mutex> lock(batchLock_);
@@ -322,18 +308,16 @@ uint32_t BlockDataBatchLoader::getTopHeight(
 BinaryData BlockDataBatchLoader::getTopHash(
    BlockDataBatchLoader& lbd, PulledBlock& pb)
 {
-   if (lbd.startBlock_ <= lbd.endBlock_)
+   if (!lbd.bwbPtr_->undo_)
       return pb.thisHash_;
 
    uint32_t height = pb.blockHeight_ - 1;
-   uint8_t dup = BlockWriteBatcher::iface_->getValidDupIDForHeight(height);
-   BinaryData dbKey = DBUtils::getBlkDataKey(height, dup);
-
+   
    LMDBEnv::Transaction tx;
-   BlockWriteBatcher::iface_->beginDBTransaction(&tx, HEADERS, LMDB::ReadOnly);
+   BlockWriteBatcher::iface_->beginDBTransaction(tx, HEADERS, LMDB::ReadOnly);
    
    StoredHeader sbh;
-   BlockWriteBatcher::iface_->getBareHeader(sbh, dbKey);
+   BlockWriteBatcher::iface_->getBareHeader(sbh, height);
    return sbh.thisHash_;
 }
 
@@ -378,7 +362,7 @@ void PullBlockThread::pullThread(
       }
 
       while (pullThr.bufferLoad_.load(memory_order_acquire)
-         < BYTES_PER_BATCH / blockData->nThreads_ ||
+         < db->bytesPerBatch() / blockData->nThreads_ ||
          (pullThr.block_ != nullptr && 
           pullThr.block_->nextBlock_ == nullptr))
       {
@@ -558,15 +542,61 @@ BinaryData BlockWriteBatcher::scanBlocks(
    //creating new SSH keys. If several scanning threads were to take place, 
    //it could possibly result in key collision, as scan threads are not aware
    //of each others' state
-   if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
-      unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
 
    startBlock_ = startBlock;
    endBlock_ = endBlock;
+
+   if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+   {
+      int32_t sshThreshold = endBlock_ - startBlock_;
+      if (startBlock_ > 0 && !undo_ && sshThreshold <= MODIFIED_SSH_THRESHOLD)
+         trackSSH_ = true;
+   }
+
    forceUpdateSSH_ = forceUpdateSSH;
+
+   bool verbose = (abs((int)startBlock_ - (int)endBlock_) > 500);
    
-   BinaryData bd = applyBlocksToDB(prog, scf);
-   if (abs((int)startBlock - (int)endBlock) > 500)
+   BinaryData topScannedHash = applyBlocksToDB(prog, scf);
+   
+   if (armoryDbType_ == ARMORY_DB_SUPER)
+   {
+      StoredHeader sbh;
+      {
+         if (topScannedHash.getSize() == 32)
+         {
+            LMDBEnv::Transaction tx(
+               iface_->dbEnv_[HEADERS].get(), LMDB::ReadOnly);
+            iface_->getBareHeader(sbh, topScannedHash);
+         }
+      }
+
+      if (!undo_)
+      {
+         if (sbh.blockHeight_ == endBlock_)
+            updateSSH(topScannedHash, false, verbose);
+      }
+      else
+      {
+         if (sbh.blockHeight_ == endBlock_ -1)
+         {
+            //update shard SDBIs to the highest scanned block hash
+            for (uint32_t i = 0; i < iface_->nShards(); i++)
+            {
+               LMDBEnv::Transaction sshtx;
+               iface_->beginShardTransaction(sshtx, i, LMDB::ReadWrite);
+
+               StoredDBInfo sdbi;
+               iface_->getStoredDBInfo(i, sdbi);
+
+               sdbi.topScannedBlkHash_ = topScannedHash;
+               iface_->putStoredDBInfo(i, sdbi);
+            }
+         }
+      }
+   }
+
+   if (verbose)
    {
       double timeElapsed = TIMER_READ_SEC("feedSleep");
       LOGWARN << "--- feedSleep: " << timeElapsed << " s";
@@ -604,8 +634,6 @@ BinaryData BlockWriteBatcher::scanBlocks(
 
       timeElapsed = TIMER_READ_SEC("serializeBatch");
       LOGWARN << "--- serializeBatch: " << timeElapsed << " s";
-      timeElapsed = TIMER_READ_SEC("updateSSH");
-      LOGWARN << "--- updateSSH: " << timeElapsed << " s";
       timeElapsed = TIMER_READ_SEC("serializeSubSsh");
       LOGWARN << "--- serializeSubSsh: " << timeElapsed << " s";
       timeElapsed = TIMER_READ_SEC("waitOnSSHser");
@@ -624,9 +652,31 @@ BinaryData BlockWriteBatcher::scanBlocks(
       LOGWARN << "--- getnextfeed: " << timeElapsed << " s";
       timeElapsed = TIMER_READ_SEC("inControlThread");
       LOGWARN << "--- inControlThread: " << timeElapsed << " s";
+
+
+      timeElapsed = TIMER_READ_SEC("cleanup");
+      LOGWARN << "--- cleanup: " << timeElapsed << " s";
+      timeElapsed = TIMER_READ_SEC("finishCleanup");
+      LOGWARN << "--- finishCleanup: " << timeElapsed << " s";
    }
 
-   return bd;
+   return topScannedHash;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::rescanSSH()
+{
+   if (armoryDbType_ != ARMORY_DB_SUPER)
+   {
+      LOGWARN << "rescanSSH is only available for supernode";
+      return;
+
+   }
+
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(SSH, sdbi);
+   
+   updateSSH(sdbi.topScannedBlkHash_, true, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -696,6 +746,263 @@ bool BlockWriteBatcher::pullBlockFromDB(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::updateSSH(
+   const BinaryData& topBlockHash, bool forceReset, bool verbose)
+{
+   auto updatessh = [&forceReset, &topBlockHash, this](uint32_t shard)->void
+   {
+      auto writeSSH = 
+         [&shard, this](uint32_t depth,
+                     map<BinaryData, BinaryWriter>& serMap)->void
+      {
+         LMDBEnv::Transaction sshtx;
+         iface_->beginShardTransaction(sshtx, shard, LMDB::ReadWrite);
+
+         for (auto& serssh : serMap)
+            iface_->putValue(shard, serssh.first, serssh.second.getDataRef());
+
+         serMap.clear();
+      };
+
+      //look at the shard sdbi, figure out the last scanned block
+      uint32_t lastScannedHeight = 0;
+      bool reset = true;
+
+      if (!forceReset)
+      {
+         StoredDBInfo sdbi;
+         iface_->getStoredDBInfo(shard, sdbi);
+         if (sdbi.topScannedBlkHash_ != BtcUtils::EmptyHash() && sdbi.topScannedBlkHash_.getSize() > 0)
+         {
+            LMDBEnv::Transaction headersTx;
+            iface_->beginDBTransaction(headersTx, HEADERS, LMDB::ReadOnly);
+
+            StoredHeader sbh;
+            if (iface_->getBareHeader(sbh, sdbi.topScannedBlkHash_))
+            {
+               if (iface_->getValidDupIDForHeight(sbh.blockHeight_) == sbh.duplicateID_)
+               {
+                  lastScannedHeight = sbh.blockHeight_;
+                  reset = false;
+               }
+            }
+         }
+      }
+
+      BinaryData lastScannedHgtx;
+      if (!reset)
+      {
+         auto dupid = iface_->getValidDupIDForHeight(lastScannedHeight);
+         lastScannedHgtx = DBUtils::heightAndDupToHgtx(lastScannedHeight, dupid);
+      }
+
+      //loop through all subssh depth for the given shard to
+      //tally up balance and txio count
+      for (uint32_t depth = 0; depth < iface_->subSshDepth(); depth++)
+      {
+         StoredScriptHistory currentSsh;
+         map<BinaryData, BinaryWriter> serializedSshMap;
+
+         LMDBEnv::Transaction subsshtx;
+         iface_->beginSubSSHDBTransaction(subsshtx, shard, depth, LMDB::ReadOnly);
+         LDBIter subIter = iface_->getSubSSHIterator(shard, depth);
+         if (!subIter.isValid())
+            continue;
+
+         set<BinaryData> emptySet;
+         set<BinaryData>* setPtr = &emptySet;
+         auto mapIter = modifiedSSH_.find(shard);
+         if (mapIter != modifiedSSH_.end())
+            setPtr = &mapIter->second[depth];
+
+         auto setIter = setPtr->begin();
+
+         auto getNextKey = [&reset, &setIter, setPtr, this](LDBIter& dbiter)->BinaryData
+         {
+            BinaryData scrAddr(0);
+
+            if (trackSSH_ && !reset)
+            {
+               if (setIter != setPtr->end())
+               {
+                  scrAddr = *setIter;
+                  ++setIter;
+               }
+            }
+            else
+            {
+               auto keyref = dbiter.getKeyRef();
+               if (keyref.getSize() > 4)
+                  scrAddr = keyref.getSliceCopy(0, keyref.getSize() - 4);
+            }
+
+            return scrAddr;
+         };
+
+
+
+         auto serSSH = [&getNextKey, &writeSSH, &subIter, 
+                        &shard, &depth, &reset, &currentSsh,
+                        &lastScannedHeight, &lastScannedHgtx, &serializedSshMap]
+            (void)->bool
+         {
+            //new ssh, we are done with the previous one
+            //serialize the current ssh
+            if (currentSsh.isInitialized())
+            {
+               auto& bw = serializedSshMap[currentSsh.getDBKey(true)];
+               currentSsh.serializeDBValue(bw, armoryDbType_, DB_PRUNE_NONE);
+
+               if (serializedSshMap.size() >= 100000)
+               {
+                  //write current batch of serialized ssh
+                  writeSSH(depth, serializedSshMap);
+               }
+            }
+
+            //prepare the new ssh
+            if (!subIter.isValid())
+               return false;
+
+            auto keyRef = subIter.getKeyRef();
+            auto keySize = keyRef.getSize();
+            if (keySize < 4)
+               return false;
+
+            BinaryData scrAddrStr;
+
+            while (1)
+            {
+               scrAddrStr = getNextKey(subIter);
+               if (scrAddrStr.getSize() == 0)
+                  return false;
+
+               if (keyRef.startsWith(scrAddrStr))
+               {
+                  auto iterHeight = DBUtils::hgtxToHeight(keyRef.getSliceRef(-4, 4));
+                  if (iterHeight > lastScannedHeight)
+                     break;
+               }
+
+               BinaryData newKey = scrAddrStr;
+               newKey.append(lastScannedHgtx);
+
+               subIter.resetReaders();
+               if (!subIter.seekTo(newKey))
+                  return false;
+
+               keyRef = subIter.getKeyRef();
+               if (keyRef.startsWith(scrAddrStr))
+                  break;
+
+               keySize = keyRef.getSize();
+               if (keySize < 4)
+                  return false;
+            }
+
+            currentSsh = StoredScriptHistory();
+            if (!reset)
+               iface_->getStoredScriptHistorySummary(currentSsh, scrAddrStr);
+            currentSsh.uniqueKey_ = scrAddrStr;
+
+            return true;
+         };
+
+         {
+            //initialize
+            subIter.seekToFirst();
+            if (!serSSH())
+               continue;
+         }
+
+         do
+         {
+            BinaryDataRef keyRef = subIter.getKeyRef();
+            if (!keyRef.startsWith(currentSsh.uniqueKey_))
+            {
+               if (!serSSH())
+                  break;
+            }
+
+            keyRef = subIter.getKeyRef();
+            StoredSubHistory subssh;
+            subssh.unserializeDBKey(keyRef);
+            subssh.unserializeDBValue(subIter.getValueReader());
+
+            if (subssh.height_ <= currentSsh.alreadyScannedUpToBlk_ &&
+                currentSsh.alreadyScannedUpToBlk_ != 0)
+               continue;
+
+            if (subssh.dupID_ != iface_->getValidDupIDForHeight(subssh.height_))
+               continue;
+
+            for (auto& txio : subssh.txioMap_)
+            {
+               if (!txio.second.hasTxIn())
+               {
+                  if (!txio.second.isMultisig())
+                     currentSsh.totalUnspent_ += txio.second.getValue();
+               }
+               else
+               {
+                  if (!txio.second.isFromSameTx())
+                     currentSsh.totalUnspent_ -= txio.second.getValue();
+                  else
+                     currentSsh.totalTxioCount_++;
+               }
+            }
+               
+            currentSsh.totalTxioCount_ += subssh.txioCount_;
+            currentSsh.alreadyScannedUpToBlk_ = subssh.height_;
+         }
+         while (subIter.advanceAndRead());
+
+         serSSH();
+         writeSSH(depth, serializedSshMap);
+
+      }
+         
+      {
+         //update SDBI in shard
+         LMDBEnv::Transaction sshtx;
+         iface_->beginShardTransaction(sshtx, shard, LMDB::ReadWrite);
+
+         StoredDBInfo sdbi;
+         iface_->getStoredDBInfo(shard, sdbi);
+         sdbi.topScannedBlkHash_ = topBlockHash;
+
+         BinaryWriter bw;
+         sdbi.serializeDBValue(bw);
+         iface_->putValue(shard, StoredDBInfo::getDBKey(), bw.getDataRef());
+      }
+   };
+
+   if (verbose)
+   {
+      TIMER_START("updatessh");
+      LOGINFO << "updating SSH";
+   }
+
+   vector<thread> threads;
+   for (uint32_t i = 1; i < iface_->nShards(); i++)
+      threads.push_back(thread(updatessh, i));
+   updatessh(0);
+
+   for (auto& thr : threads)
+   {
+      if (thr.joinable())
+         thr.join();
+   }
+
+   if (verbose)
+   {
+      TIMER_STOP("updatessh");
+      double timeElapsed = TIMER_READ_SEC("updatessh");
+      LOGWARN << "updated SSH in " << timeElapsed << " s";
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /// ProcessedBatchSerializer
 ////////////////////////////////////////////////////////////////////////////////
 void ProcessedBatchSerializer::updateSSHThread(
@@ -703,11 +1010,11 @@ void ProcessedBatchSerializer::updateSSHThread(
 {
    try
    {
-      uint32_t rangeStep = UINT32_MAX / btc->dataBatch_->nWriters_;
-      uint32_t rangeStart = rangeStep * tID;
-      uint32_t rangeEnd = rangeStep * (tID + 1);
+      uint64_t rangeStep = UINT32_MAX / btc->dataBatch_->nWriters_;
+      uint64_t rangeStart = rangeStep * tID;
+      uint64_t rangeEnd = rangeStep * (tID + 1);
       if (tID + 1 == btc->dataBatch_->nWriters_)
-         rangeEnd = UINT32_MAX;
+         rangeEnd = 0x0000000100000000;
 
       uint32_t intKey;
       auto dbType = BlockWriteBatcher::armoryDbType_;
@@ -774,7 +1081,10 @@ void ProcessedBatchSerializer::updateSSHThread(
             }
          }
 
-         ssh.alreadyScannedUpToBlk_ = btc->highestBlockProcessed_;
+         if (!btc->processor_->bwbPtr_->undo_)
+            ssh.alreadyScannedUpToBlk_ = btc->highestBlockProcessed_;
+         else
+            ssh.alreadyScannedUpToBlk_ = btc->processor_->bwbPtr_->endBlock_ - 1;
       }
    }
    catch (exception &e)
@@ -840,11 +1150,11 @@ void ProcessedBatchSerializer::serializeStxo(STXOS& stxos)
 void ProcessedBatchSerializer::serializeSubSSHThread(
    shared_ptr<BatchThreadContainer> btc, uint32_t tID)
 {
-   uint32_t rangeStep = UINT32_MAX / btc->dataBatch_->nWriters_;
-   uint32_t rangeStart = rangeStep * tID;
-   uint32_t rangeEnd = rangeStep * (tID + 1);
+   uint64_t rangeStep = UINT32_MAX / btc->dataBatch_->nWriters_;
+   uint64_t rangeStart = rangeStep * tID;
+   uint64_t rangeEnd = rangeStep * (tID + 1);
    if (tID + 1 == btc->dataBatch_->nWriters_)
-      rangeEnd = UINT32_MAX;
+      rangeEnd = 0x0000000100000000;
 
    uint32_t first4;
    auto& subsshtoapply = subSshToApply_[tID];
@@ -857,15 +1167,12 @@ void ProcessedBatchSerializer::serializeSubSSHThread(
 
       for (auto& sshPair : subsshMap)
       {
-         memcpy(&first4, sshPair.first.getPtr() + 1, 4);
+         first4 = *(reinterpret_cast<const uint32_t*>(sshPair.first.getPtr() + 1));
 
          if (first4 < rangeStart || first4 >= rangeEnd)
             continue;
 
          uint32_t keysize = sshPair.first.getSize();
-         BinaryData subkey(keysize + 4);
-         memcpy(subkey.getPtr(), sshPair.first.getPtr(), keysize);
-
          auto& serializedSubSSH = subsshtoapply[sshPair.first];
          auto& submap = serializedSubSSH.subSshMap_;
 
@@ -875,29 +1182,25 @@ void ProcessedBatchSerializer::serializeSubSSHThread(
 
             if (subssh.txioMap_.size() != 0)
             {
+               BinaryWriter bw; // = submap[subsshPair.first];
+               bw.put_var_int(subssh.txioCount_);
+               
+               uint32_t addedTxioCount = 0;
                for (auto& txioPair : subssh.txioMap_)
                {
-                  BinaryData txioKey = txioPair.second.serializeDbKey();
-                  BinaryWriter& bw = submap[txioKey];
+                  if (!txioPair.second.isUTXO() &&
+                     !txioPair.second.hasTxIn())
+                     continue;
 
-                  //do we already have a serialized txio for this key?
-                  if (bw.getSize() != 0)
-                  {
-                     //is this txio a UTXO?
-                     if (txioPair.second.isUTXO())
-                        continue;
-
-                     bw.reset();
-                  }
+                  //BinaryData txioKey = txioPair.second.serializeDbKey();
+                  //BinaryWriter& bw = submap[txioKey];
 
                   txioPair.second.serializeDbValue(bw);
+                  addedTxioCount++;
                }
 
-               if (subssh.txioCount_ > 0)
-               {
-                  BinaryWriter &bw = submap[subsshPair.first];
-                  bw.put_var_int(subssh.txioCount_);
-               }
+               if (addedTxioCount != 0)
+                  submap[subsshPair.first] = bw;
             }
             else
             {
@@ -1010,18 +1313,19 @@ void ProcessedBatchSerializer::serializeSSH(
       if (nthreads < 1)
          nthreads = 1;
 
-      auto serializeThread = [&nthreads, &btc, this](uint32_t tID)->void
+      auto serializeThread = [&nthreads, &btc, this](uint32_t tID)
       {
          try
          {
-            uint32_t rangeStep = UINT32_MAX / nthreads;
-            uint32_t rangeStart = rangeStep * tID;
-            uint32_t rangeEnd = rangeStep * (tID + 1);
+            uint64_t rangeStep = UINT32_MAX / nthreads;
+            uint64_t rangeStart = rangeStep * tID;
+            uint64_t rangeEnd = rangeStep * (tID + 1);
             if (tID + 1 == nthreads)
-               rangeEnd = UINT32_MAX;
+               rangeEnd = 0x0000000100000000;
             uint32_t shortKey;
 
             auto dbType = BlockWriteBatcher::armoryDbType_;
+            auto db = BlockWriteBatcher::iface_;
             auto pruneType = DB_PRUNE_NONE;
 
             auto& sshMap = btc->sshHeaders_->sshToModify_;
@@ -1029,7 +1333,7 @@ void ProcessedBatchSerializer::serializeSSH(
             for (auto& sshPair : *sshMap)
             {
                shortKey = *(reinterpret_cast<const uint32_t*>(sshPair.first.getPtr() + 1));
-               if (shortKey < rangeStart || shortKey > rangeEnd)
+               if (shortKey < rangeStart || shortKey >= rangeEnd)
                   continue;
 
                BinaryData sshKey;
@@ -1041,31 +1345,25 @@ void ProcessedBatchSerializer::serializeSSH(
                {
                   if (ssh.totalTxioCount_ > 0)
                   {
-                     BinaryWriter& bw = serializedSshToModify_[tID][sshKey];
+                     auto& shard = 
+                        serializedSshToModify_[tID][db->getShard(sshPair.first)];
+                     BinaryWriter& bw = shard[sshKey];
                      ssh.serializeDBValue(bw, dbType, pruneType);
                   }
                   else
-                     sshKeysToDelete_.insert(sshKey);
+                  {
+                     auto& shard =
+                        sshKeysToDelete_[tID][db->getShard(sshPair.first)];
+                     shard.insert(sshKey);
+                  }
                }
                else
                {
-                  BinaryWriter& bw = serializedSshToModify_[tID][sshKey];
+                  auto& shard =
+                     serializedSshToModify_[tID][db->getShard(sshPair.first)];
+                  BinaryWriter& bw = shard[sshKey];
                   ssh.serializeDBValue(bw, dbType, pruneType);
                }
-            }
-
-            //save top prefix values for each key
-            for (auto& topPrefix : btc->sshHeaders_->topPrefix_)
-            {
-               const BinaryData& bdPrefix = topPrefix.first;
-               int32_t keySize = min(4, (int)bdPrefix.getSize() - 1);
-               memcpy(&shortKey, bdPrefix.getPtr() + 1, keySize);
-
-               if (shortKey < rangeStart || shortKey >= rangeEnd)
-                  continue;
-
-               auto& submap = prefixesToUpdate_[tID][bdPrefix.getSize()];
-               submap[bdPrefix] = topPrefix.second.first;
             }
          }
          catch (exception &e)
@@ -1079,7 +1377,7 @@ void ProcessedBatchSerializer::serializeSSH(
       };
 
       serializedSshToModify_.resize(nthreads);
-      prefixesToUpdate_.resize(nthreads);
+      sshKeysToDelete_.resize(nthreads);
 
       vector<thread> threadVec;
       for (uint32_t i = 1; i < nthreads; i++)
@@ -1108,52 +1406,53 @@ void ProcessedBatchSerializer::finalizeSerialization(
 {
    TIMER_START("finalizeSerialization");
 
+   auto db = BlockWriteBatcher::iface_;
+   auto trackssh = btc->processor_->bwbPtr_->trackSSH_;
+   auto& modifiedSSH = btc->processor_->bwbPtr_->modifiedSSH_;
+
    auto serializeSSH = [&btc, this](void)->void
    { this->serializeSSH(btc); };
    thread finishSSHThread(serializeSSH);
 
-   for (auto& ssh : *btc->sshHeaders_->sshToModify_)
-      sshKeys_[ssh.first] = ssh.second.getSubKey();
-
    //set ssh key for each subssh entry
+   //auto& sshToModify = btc->sshHeaders_->sshToModify_;
    for (auto& subsshtoapply : subSshToApply_)
    {
       for (auto& serSubSsh : subsshtoapply)
       {
-         auto keyIter = sshKeys_.find(serSubSsh.first);
-         if (keyIter == sshKeys_.end())
-            continue;
+         auto shard = db->getShard(serSubSsh.first);
+         auto depth = db->getDepth(serSubSsh.first);
+         serSubSsh.second.sshKey_ = serSubSsh.first;
 
-         auto& key = keyIter->second;
-         size_t keySize = key.getSize();
-         serSubSsh.second.sshKey_ = key;
+         auto& subsshmap = keyedSubSshToApply_[shard];
+         subsshmap[depth].push_back(&serSubSsh.second);
 
-         BinaryData subKey(keySize + 8);
-         keyedSubSshToApply_[keySize].push_back(&serSubSsh.second);
+         if (trackssh)
+            modifiedSSH[shard][depth].insert(serSubSsh.first);
       }
    }
 
    for (auto& ktdSet : intermediarrySubSshKeysToDelete_)
    {
-      auto& sshkey = sshKeys_[ktdSet.first];
+      auto& sshkey = ktdSet.first;
       size_t keySize = sshkey.getSize();
 
-      auto& subset = subSshKeysToDelete_[keySize];
+      auto& subset = subSshKeysToDelete_[db->getShard(ktdSet.first)];
       BinaryData subKey(keySize + 8);
-      memcpy(subKey.getPtr(), sshkey.getPtr(), keySize);
+      memcpy(subKey.getPtr(), sshkey.getPtr(), sshkey.getSize());
 
       for (auto& ktd : ktdSet.second)
       {
          if (ktd.getSize() == 8)
          {
             memcpy(subKey.getPtr() + keySize, ktd.getPtr(), 8);
-            subset.insert(subKey);
+            subset[db->getDepth(ktdSet.first)].insert(subKey);
          }
          else
          {
             BinaryData ktdbd(sshkey);
             ktdbd.append(ktd);
-            subset.insert(ktdbd);
+            subset[db->getDepth(ktdSet.first)].insert(ktdbd);
          }
       }
    }
@@ -1193,14 +1492,7 @@ void ProcessedBatchSerializer::serializeBatch(
          auto newSSH = btc->sshHeaders_->getSshHeaders(btc, lock);
          TIMER_STOP("getSshHeaders");
 
-         auto getNewSSHKeys = [&btc, &newSSH](void)->void
-         { btc->sshHeaders_->computeDBKeys(newSSH); };
-
-         thread getNewSSHKeysThread(getNewSSHKeys);
          updateSSH(btc);
-
-         if (getNewSSHKeysThread.joinable())
-            getNewSSHKeysThread.join();
 
          btc->serializeCV_.notify_all();
 
@@ -1225,23 +1517,52 @@ void ProcessedBatchSerializer::serializeBatch(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ProcessedBatchSerializer::putSSH()
+void ProcessedBatchSerializer::putSSH(uint32_t nWriters)
 {
-   LMDBEnv::Transaction tx;
    auto db = BlockWriteBatcher::iface_;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
 
-   auto putThread = [this](uint32_t keyLength)->void
-   { this->putSubSSH(keyLength); };
+   auto putThread = [&nWriters, this](uint32_t keyLength)->void
+   { this->putSubSSH(keyLength, 200); };
 
    vector<thread> subSshThreads;
-   for (auto& submap : keyedSubSshToApply_)
-      subSshThreads.push_back(thread(putThread, submap.first));
+   for (auto& subsshmap : keyedSubSshToApply_)
+      subSshThreads.push_back(thread(putThread, subsshmap.first));
 
-   for (auto& sshMap : serializedSshToModify_)
+   uint32_t nsshwriters = nWriters;
+   vector<thread> sshThreads;
+   auto putsshthread = [&nsshwriters, &db, this](uint32_t shard)->void
    {
-      for (auto& sshPair : sshMap)
-         db->putValue(HISTORY, sshPair.first, sshPair.second.getData());
+      while (shard < db->nShards())
+      {
+         LMDBEnv::Transaction tx;
+         db->beginShardTransaction(tx, shard, LMDB::ReadWrite);
+
+         for (auto& shardMap : serializedSshToModify_)
+         {
+            auto shardIter = shardMap.find(shard);
+            if (shardIter == shardMap.end())
+               continue;
+
+            for (auto& sshPair : shardIter->second)
+               db->putValue(shard, sshPair.first, sshPair.second.getData());
+         }
+
+         shard += nsshwriters;
+      }
+   };
+
+   auto dur = clock();
+   {
+      for (uint32_t i = 1; i < nsshwriters; i++)
+         sshThreads.push_back(thread(putsshthread, i));
+
+      putsshthread(0);
+
+      for (auto& thr : sshThreads)
+      {
+         if (thr.joinable())
+            thr.join();
+      }
    }
 
    for (auto& writeThread : subSshThreads)
@@ -1250,48 +1571,71 @@ void ProcessedBatchSerializer::putSSH()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ProcessedBatchSerializer::putSubSSH(uint32_t keyLength)
+void ProcessedBatchSerializer::putSubSSH(
+   uint32_t keyLength, uint32_t threadCount)
 {
+   uint32_t length = keyLength;
+   auto db = BlockWriteBatcher::iface_;
+   
    try
    {
-      LMDBEnv::Transaction subsshtx;
-      auto db = BlockWriteBatcher::iface_;
-
-      db->beginSubSSHDBTransaction(subsshtx,
-         keyLength, LMDB::ReadWrite);
-
-      //update prefixes
-      BinaryData prefixVal(1);
-      for (auto& prefixV : prefixesToUpdate_)
+      while (length < db->nShards())
       {
-         auto& prefixMap = prefixV[keyLength];
-
-         for (auto& prefix : prefixMap)
+         //put subssh data
+         auto submapIter = keyedSubSshToApply_.find(length);
+         if (submapIter == keyedSubSshToApply_.end())
          {
-            prefixVal.getPtr()[0] = prefix.second;
-            db->putValue(keyLength, prefix.first, prefixVal);
+            length += threadCount;
+            continue;
          }
-      }
+            
+         auto& subsshmap = submapIter->second;
 
-      //put subssh data
-      auto& subsshvec = keyedSubSshToApply_[keyLength];
-
-      vector<uint8_t> subkey(keyLength + 16);
-      for (auto subsshentry : subsshvec)
-      {
-         //copy prefix in key object
-         memcpy(&subkey[0], subsshentry->sshKey_.getPtr(), keyLength);
-
-         for (auto& subssh : subsshentry->subSshMap_)
+         auto putdepthmap = 
+            [&db, &length, &subsshmap, this](uint32_t depth)
          {
-            //copy hgtx in key object
-            memcpy(&subkey[0] + keyLength,
-               subssh.first.getPtr(), subssh.first.getSize());
+            vector<uint8_t> subkey(1000);
 
-            db->putValue(keyLength,
-               BinaryDataRef(&subkey[0], keyLength + subssh.first.getSize()),
-               subssh.second.getData());
-         }
+            auto subsshvecIter = subsshmap.find(depth);
+            if (subsshvecIter != subsshmap.end())
+            {
+               auto& subsshvec = subsshvecIter->second;
+
+               LMDBEnv::Transaction depthtx;
+               db->beginSubSSHDBTransaction(
+                  depthtx, length, depth, LMDB::ReadWrite);
+
+               for (auto& subsshentry : subsshvec)
+               {
+                  //copy prefix in key object
+                  auto keySize = subsshentry->sshKey_.getSize();
+                  memcpy(&subkey[0],
+                     subsshentry->sshKey_.getPtr(),
+                     keySize);
+
+                  for (auto& subssh : subsshentry->subSshMap_)
+                  {
+                     //copy hgtx in key object
+                     memcpy(&subkey[0] + keySize,
+                        subssh.first.getPtr(), subssh.first.getSize());
+
+                     db->putValue(length, depth,
+                        BinaryDataRef(&subkey[0], keySize + subssh.first.getSize()),
+                        subssh.second.getData());
+                  }
+               }
+            }
+         };
+
+         vector<thread> subsshthreads;
+         for (auto& depthi : subsshmap)
+            subsshthreads.push_back(thread(putdepthmap, depthi.first));
+
+         for (auto& thr : subsshthreads)
+            if (thr.joinable())
+               thr.join();
+
+         length += threadCount;
       }
    }
    catch (exception &e)
@@ -1331,10 +1675,10 @@ void ProcessedBatchSerializer::putSTX()
       return;
    
    {
-      LMDBEnv::Transaction tx(db->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(db->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
       for (auto& txCount : serializedTxCountAndHash_)
-         db->putValue(HISTORY, txCount.first, txCount.second.getData());
+         db->putValue(SSH, txCount.first, txCount.second.getData());
 
       ////
       LMDBEnv::Transaction txHints(db->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
@@ -1349,22 +1693,33 @@ void ProcessedBatchSerializer::deleteEmptyKeys()
    auto db = BlockWriteBatcher::iface_;
    
    {
-      LMDBEnv::Transaction tx;
-      db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+      for (auto& ktdMap : sshKeysToDelete_)
+      {
+         for (auto& ktdSet : ktdMap)
+         {
+            LOGINFO << "deleting keys";
+            LMDBEnv::Transaction tx;
+            db->beginShardTransaction(tx, ktdSet.first, LMDB::ReadWrite);
 
-      for (auto& toDel : sshKeysToDelete_)
-         db->deleteValue(HISTORY, toDel.getRef());
+            for (auto& toDel : ktdSet.second)
+               db->deleteValue(ktdSet.first, toDel.getRef());
+         }
+      }
    }
 
    for (auto& subset : subSshKeysToDelete_)
    {
       uint32_t keySize = subset.first;
 
-      LMDBEnv::Transaction subtx;
-      db->beginSubSSHDBTransaction(subtx, keySize, LMDB::ReadWrite);
+      for (auto& depthset : subset.second)
+      {
+         auto& depth = depthset.first;
+         LMDBEnv::Transaction subtx;
+         db->beginSubSSHDBTransaction(subtx, keySize, depth, LMDB::ReadWrite);
 
-      for (auto& ktd : subset.second)
-         db->deleteValue(keySize, ktd.getRef());
+         for (auto& ktd : depthset.second)
+            db->deleteValue(keySize, depth, ktd.getRef());
+      }
    }
 }
 
@@ -1374,10 +1729,10 @@ void ProcessedBatchSerializer::updateSDBI()
    auto db = BlockWriteBatcher::iface_;
 
    LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   db->beginDBTransaction(tx, SSH, LMDB::ReadWrite);
 
    StoredDBInfo sdbi;
-   db->getStoredDBInfo(HISTORY, sdbi);
+   db->getStoredDBInfo(SSH, sdbi);
    if (!sdbi.isInitialized())
       LOGERR << "How do we have invalid SDBI in applyMods?";
    else
@@ -1389,7 +1744,7 @@ void ProcessedBatchSerializer::updateSDBI()
       if (topBlockHash_ != BtcUtils::EmptyHash_)
          sdbi.topScannedBlkHash_ = topBlockHash_;
 
-      db->putStoredDBInfo(HISTORY, sdbi);
+      db->putStoredDBInfo(SSH, sdbi);
    }
 }
 
@@ -1404,10 +1759,8 @@ ProcessedBatchSerializer::ProcessedBatchSerializer(
    subSshKeysToDelete_              = move(dtc.subSshKeysToDelete_);
    serializedSpentness_             = move(dtc.serializedSpentness_);
    spentnessToDelete_               = move(dtc.spentnessToDelete_);
-   sshKeys_                         = move(dtc.sshKeys_);
    subSshToApply_                   = move(dtc.subSshToApply_);
    intermediarrySubSshKeysToDelete_ = move(dtc.intermediarrySubSshKeysToDelete_);
-   prefixesToUpdate_                = move(dtc.prefixesToUpdate_);
    
    //Fullnode only
    serializedTxCountAndHash_ = move(dtc.serializedTxCountAndHash_);
@@ -1586,7 +1939,7 @@ thread STXOS::commitStxo(shared_ptr<BatchThreadContainer> btc)
 
    for (auto& threadData : btc->threads_)
    {
-      toCommit->stxoToUpdate_.insert(toCommit->stxoToUpdate_.end(),
+      btc->commitStxos_.stxoToUpdate_.insert(btc->commitStxos_.stxoToUpdate_.end(),
          std::make_move_iterator(threadData->stxos_.stxoToUpdate_.begin()), 
          std::make_move_iterator(threadData->stxos_.stxoToUpdate_.end()));
    }
@@ -1607,8 +1960,10 @@ thread STXOS::commitStxo(shared_ptr<BatchThreadContainer> btc)
    on the write mutex
    ***/
    
-   thread committhread(writeStxoToDB, toCommit);
-   return committhread;
+   //thread committhread(writeStxoToDB, toCommit);
+   //return committhread;
+
+   return thread();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1764,7 +2119,7 @@ void BlockDataBatchLoader::wakePullThreadsIfNecessary()
    for (uint32_t i = 0; i < nThreads_; i++)
    {
       if (pullThreads_[i].bufferLoad_.load(memory_order_consume) <
-         BYTES_PER_BATCH / (nThreads_ * 2))
+         BlockWriteBatcher::iface_->bytesPerBatch() / (nThreads_ * 2))
       {
          /***
          Buffer is running low. Try to take ownership of the blockData
@@ -1786,16 +2141,19 @@ void BlockDataBatchLoader::wakePullThreadsIfNecessary()
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
 {
+   auto db = BlockWriteBatcher::iface_;
+
    shared_ptr<PulledBlock> block;
    shared_ptr<PulledBlock> lastValidBlock;
 
    unique_lock<mutex> scanLock(blockBatch.pullLock_);
 
-   size_t sizePerThread = BYTES_PER_BATCH / nWorkers_;
+   size_t sizePerThread = db->bytesPerBatch() / nWorkers_;
 
    totalSizeInBytes_ = 0;
    uint32_t i = 0, lowestBlockHeight = UINT32_MAX;
    uint32_t txoutCount = 0;
+   uint32_t txinCount = 0;
 
    batchStxos_ = make_shared<map<BinaryData, shared_ptr<StoredTxOut>>>();
 
@@ -1814,13 +2172,6 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
       //check if next block is valid
       if (block == blockBatch.interruptBlock_)
       {
-         /*string errorMessage("The scanning process "
-            "interrupted unexpectedly, Armory will now shutdown. "
-            "You will have to proceed to \"Help -> Rebuild and Rescan\" "
-            "on the next start. If the error persists, contact support. "
-            "Refer to your log file for more details on the error.");
-
-         BlockWriteBatcher::criticalError(errorMessage);*/
          LOGERR << "hit interruption marker from pull threads";
          hasData_ = false;
          return;
@@ -1834,31 +2185,16 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
 
       uint32_t blockSize = block->numBytes_;
       for (auto& tx : block->stxMap_)
-         txoutCount += tx.second.numTxOut_;
-
-      
-      uint32_t rotation = 0;
-      while (rotation < nWorkers_)
       {
-         uint32_t currThread = (i + rotation) % nWorkers_;
-
-         if (blockPackets_[currThread].byteSize_ < sizePerThread)
-         {
-            blockPackets_[currThread].blocks_.push_back(block);
-            blockPackets_[currThread].byteSize_ += blockSize;
-            break;
-         }
-
-         rotation++;
+         txoutCount += tx.second.numTxOut_;
+         txinCount += tx.second.txInIndexes_.size() - 1;
       }
 
-      if (rotation > nWorkers_)
       {
          uint32_t currThread = i % nWorkers_;
 
          blockPackets_[currThread].blocks_.push_back(block);
          blockPackets_[currThread].byteSize_ += blockSize;
-         break;
       }
 
       //fill up feed stxo container
@@ -1871,8 +2207,8 @@ void BlockDataBatch::chargeBatch(BlockDataBatchLoader& blockBatch)
       }
 
       totalSizeInBytes_ += block->numBytes_;
-      if (totalSizeInBytes_ >= BYTES_PER_BATCH ||
-         txoutCount > TXOUT_PER_BATCH)
+      if (txoutCount > db->txOutPerBatch() ||
+         txinCount > db->txInPerBatch())
          break;
 
       i++;
@@ -2032,7 +2368,7 @@ void BlockBatchProcessor::serializeData(shared_ptr<BatchThreadContainer> bdc)
          //any point in time.
          TIMER_START("waitOnWriteThread");
          unique_lock<mutex> lock(writeMutex_);
-         if (writeMap_.size() >= MAX_BATCH_BUFFER)
+         if (writeMap_.size() >= bwbPtr_->iface_->maxBatchBuffer())
             writeCV_.wait(lock);
          TIMER_STOP("waitOnWriteThread");
       }
@@ -2076,10 +2412,39 @@ void BlockBatchProcessor::writeThread()
    {
       try
       {
-         btc->threads_.clear();
-         btc->processedBatchSerializer_.reset();
+         auto cleanUpBatch = [&btc](void)->void
+         {
+            btc->dataBatch_.reset();
+         };
+
+         //TIMER_START("cleanup");
+         auto cleanUpBDT = [&btc](uint32_t tID)->void
+         {
+            btc->threads_[tID].reset();
+         };
+
+         vector<thread> bdtThr;
+         for (uint32_t i = 0; i < btc->threads_.size(); i++)
+            bdtThr.push_back(thread(cleanUpBDT, i));
+
+         thread batchThr(cleanUpBatch);
+
+         //TIMER_START("finishCleanup");
          btc->sshHeaders_.reset();
-         btc->dataBatch_.reset();
+         btc->processedBatchSerializer_.reset();
+         //TIMER_STOP("finishCleanup");
+         
+         for (auto& thr : bdtThr)
+         {
+            if (thr.joinable())
+               thr.join();
+         }
+
+         if (batchThr.joinable())
+            batchThr.join();
+
+         btc->threads_.clear();
+         //TIMER_STOP("cleanup");
       }
       catch (exception &e)
       {
@@ -2115,7 +2480,7 @@ void BlockBatchProcessor::writeThread()
             TIMER_STOP("waitForDataToWrite");
          }
 
-         //nullptr marks the bottom of the write list
+         //nullptr marks the end of the write list
          if (commitObject == nullptr)
             return;
 
@@ -2123,14 +2488,23 @@ void BlockBatchProcessor::writeThread()
          //to push the next processed batch in the write queue.
          writeCV_.notify_all();
 
+         auto putstx = [&commitObject]()->void
+         {
+            TIMER_START("putSTX");
+            commitObject->processedBatchSerializer_->putSTX();
+            TIMER_STOP("putSTX");
+         };
+         
+         thread putstxThread(putstx);
          commitObject->writeTime_ = clock();
+
          TIMER_START("putSSH");
-         commitObject->processedBatchSerializer_->putSSH();
+         commitObject->processedBatchSerializer_->putSSH(
+            commitObject->dataBatch_->nWriters_);
          TIMER_STOP("putSSH");
 
-         TIMER_START("putSTX");
-         commitObject->processedBatchSerializer_->putSTX();
-         TIMER_STOP("putSTX");
+         if (putstxThread.joinable())
+            putstxThread.join();
 
          commitObject->processedBatchSerializer_->deleteEmptyKeys();
 
@@ -2141,6 +2515,7 @@ void BlockBatchProcessor::writeThread()
          lastScannedBlockHash_ = commitObject->topScannedBlockHash_;
 
          commitedId_.fetch_add(1, memory_order_release);
+
          commitObject->writeTime_ = clock() - commitObject->writeTime_;
          commitObject->processor_->adjustThreadCount(commitObject);
 
@@ -2169,6 +2544,9 @@ void BlockBatchProcessor::adjustThreadCount(
    possible.
    ***/
 
+   if (bwbPtr_->undo_)
+      return;
+
    uint32_t nreaders = btc->dataBatch_->nReaders_;
    uint32_t nworkers = btc->dataBatch_->nWorkers_;
    uint32_t nwriters = btc->dataBatch_->nWriters_;
@@ -2184,7 +2562,7 @@ void BlockBatchProcessor::adjustThreadCount(
 
    if (cumulatedCount_ != 10)
       return;
-
+   
    uint64_t totalTime = 
       cumulatedReadTime_ + cumulatedWorkTime_ + cumulatedWriteTime_;
 
@@ -2214,14 +2592,24 @@ void BlockBatchProcessor::adjustThreadCount(
    if (newWriterCount == 0)
       newWriterCount = 1;
 
-  /* LOGINFO << " &&&&&&&&& cumulatedReadTime: " << (float)cumulatedReadTime_ / (float)CLOCKS_PER_SEC << "s";
-   LOGINFO << " &&&&&&&&& cumulatedWorkTime: " << (float)cumulatedWorkTime_ / (float)CLOCKS_PER_SEC << "s";
-   LOGINFO << " &&&&&&&&& cumulatedWriteTime: " << (float)cumulatedWriteTime_ / (float)CLOCKS_PER_SEC << "s";
-   */
    cumulatedReadTime_  = 0;
    cumulatedWorkTime_  = 0;
    cumulatedWriteTime_ = 0;
    cumulatedCount_     = 0;
+
+   if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
+   {
+      newReaderCount = totalThreadCount / 5;
+      newWorkerCount = totalThreadCount;
+      newWriterCount = totalThreadCount;
+   }
+   else
+   {
+      newReaderCount = totalThreadCount;
+      newWorkerCount = totalThreadCount;
+      newWriterCount = 1;
+
+   }
 
    if (newWorkerCount != nworkers || 
        newWriterCount != nwriters || 
@@ -2502,7 +2890,6 @@ bool BlockDataThread::parseTxOuts(
          txIsMine = true;
       }
 
-
       StoredSubHistory& subssh = 
          makeSureSubSSHInMap_IgnoreDB(uniqKey, hgtX);
 
@@ -2622,7 +3009,7 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
    shared_ptr<PulledBlock> pb)
 {
    LMDBEnv::Transaction txHistory(
-      BlockWriteBatcher::iface_->dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+      BlockWriteBatcher::iface_->dbEnv_[SSH].get(), LMDB::ReadOnly);
    LMDBEnv::Transaction txSpentness(
       BlockWriteBatcher::iface_->dbEnv_[SPENTNESS].get(), LMDB::ReadOnly);
 
@@ -2655,16 +3042,16 @@ void BlockDataThread::processUndoData(StoredUndoData & sud,
       BinaryData uniqKey = stxoPtr->getScrAddress();
 
       BinaryData hgtX = stxoPtr->getHgtX();
-      StoredSubHistory& subssh =
+/*      StoredSubHistory& subssh =
          makeSureSubSSHInMap(uniqKey, hgtX);
 
-      // Readd the unspent at TxOut hgtX TxIOPair in the StoredScriptHistory
+      // Read the unspent at TxOut hgtX TxIOPair in the StoredScriptHistory
       subssh.markTxOutUnspent(
          stxoPtr->getDBKey(false),
          stxoPtr->getValue(),
          stxoPtr->isCoinbase_,
          false, false
-         );
+         );*/
 
       auto& ssh = makeSureSSHInMap(uniqKey);
       ssh.totalUnspent_ += stxoPtr->getValue();

@@ -121,6 +121,9 @@ public:
 
    bool isUTXO(void) const { return isUTXO_; }
    void setUTXO(bool val) { isUTXO_ = val; }
+   
+   bool isFromSameTx(void) const { return isFromSameTx_; }
+   void setIsFromSameTx(void) { isFromSameTx_ = true; }
 
    void setScrAddrLambda(function < const BinaryData&(void) > func)
    { getScrAddr_ = func; }
@@ -128,7 +131,7 @@ public:
    const BinaryData& getScrAddr(void) const
    { return getScrAddr_(); }
 
-   void unserialize(const BinaryDataRef& key, const BinaryDataRef& val);
+   void unserialize(const BinaryDataRef& val);
    BinaryData serializeDbKey(void) const;
    void serializeDbValue(BinaryWriter& bw) const;
 
@@ -150,6 +153,7 @@ private:
    bool      isTxOutFromSelf_ = false;
    bool      isFromCoinbase_;
    bool      isMultisig_;
+   bool      isFromSameTx_ = false;
 
    //mainly for ZC ledgers. Could replace the need for a blockchain 
    //object to build scrAddrObj ledgers.

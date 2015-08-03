@@ -40,6 +40,8 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
    topBlkHgt_    = brr.get_uint32_t();
    appliedToHgt_ = brr.get_uint32_t();
    brr.get_BinaryData(topBlkHash_, 32);
+   nShards_ = brr.get_uint32_t();
+   subSshDepth_ = brr.get_uint32_t();
 
    armoryVer_  =                 bitunpack.getBits(4);
    armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
@@ -62,6 +64,8 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    bw.put_uint32_t(topBlkHgt_); // top blk height
    bw.put_uint32_t(appliedToHgt_); // top blk height
    bw.put_BinaryData(topBlkHash_);
+   bw.put_uint32_t(nShards_);
+   bw.put_uint32_t(subSshDepth_);
 
    if (topScannedBlkHash_.getSize())
       bw.put_BinaryData(topScannedBlkHash_);
@@ -237,7 +241,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       if(brr.getSizeRemaining() < nBytes)
       {
          LOGERR << "Not enough bytes remaining in BRR to read block";
-         return;
+         throw BlockDeserializingException();
       }
    }
 
@@ -258,7 +262,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
    if(dataCopy_.getSize() != HEADER_SIZE)
    {
       LOGERR << "Unserializing header did not produce 80-byte object!";
-      return;
+      throw BlockDeserializingException();
    }
    
    if (numBytes_ > brr.getSize())
@@ -1301,20 +1305,12 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    (void)pruneType;
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
    (void)txoListType;
-
-   dbPrefix_ = brr.get_uint8_t();
-   keyLength_ = brr.get_uint8_t();
    
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    totalTxioCount_ = brr.get_var_int();
-
-   // We shouldn't end up with empty SSH's, but should catch it just in case
-   if(totalTxioCount_==0)
-      return;
-   
-   subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
 
+   subHistMap_.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1328,10 +1324,6 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bitpack.putBits((uint16_t)pruneType,               2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
-
-   //
-   bw.put_uint8_t(dbPrefix_);
-   bw.put_uint8_t(keyLength_);
    
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
@@ -1366,19 +1358,12 @@ BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredScriptHistory::getSubKey() const
+BinaryData StoredScriptHistory::getSubKey(bool reset) const
 {
-   if (keyLength_ == 0 || keyLength_ > uniqueKey_.getSize())
-      throw range_error("bad ssh key length");
+   if (uniqueKey_.getSize() == 0)
+      throw range_error("invalid subssh key length");
 
-   BinaryData key(keyLength_);
-   key.getPtr()[0] = dbPrefix_;
-
-   memcpy(key.getPtr() + 1,
-      uniqueKey_.getPtr() +1,
-      keyLength_ -1);
-
-   return key;
+   return uniqueKey_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1637,6 +1622,14 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
    }
 
    txioCount_ = (uint32_t)(brr.get_var_int());
+   
+   while (brr.getSizeRemaining() > 0)
+   {
+      uint8_t packetsize = brr.get_uint8_t();
+      TxIOPair txio;
+      txio.unserialize(brr.get_BinaryDataRef(packetsize));
+      txioMap_[txio.getDBKeyOfOutput()] = txio;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

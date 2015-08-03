@@ -83,6 +83,14 @@ typedef enum
    BDM_ready
 }BDM_state;
 
+typedef enum
+{
+   init_normal,
+   init_rescan,
+   init_rebuild,
+   init_rescanSSH
+}BDM_init;
+
 class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
@@ -208,6 +216,7 @@ public:
    void doRebuildDatabases(const ProgressCallback &progress);
    void doInitialSyncOnLoad(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rescan(const ProgressCallback &progress);
+   void doInitialSyncOnLoad_RescanSSH(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rebuild(const ProgressCallback &progress);
    
    // for testing only
@@ -221,7 +230,7 @@ public:
 private:
    void loadDiskState(
       const ProgressCallback &progress,
-      bool doRescan=false
+      BDM_init init = init_normal
    );
    void loadBlockData(
       ProgressReporter &prog,
@@ -239,9 +248,12 @@ private:
    void deleteHistories(void);
 
    void addRawBlockToDB(BinaryRefReader & brr, 
-      uint16_t fnum, uint64_t offset, bool updateDupID = true);
+      uint16_t fnum, uint64_t offset, bool updateDupID = true, 
+      bool force = false);
    uint32_t findFirstBlockToScan(void);
    void findFirstBlockToApply(void);
+
+   void rescanSSH(ProgressReporter &prog);
 
 public:
 

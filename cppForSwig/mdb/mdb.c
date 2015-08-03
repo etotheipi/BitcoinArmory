@@ -585,7 +585,7 @@ typedef uint16_t	 indx_t;
 	 *	the size explicitly using #mdb_env_set_mapsize().
 	 */
 #define DEFAULT_MAPSIZE	8 * 1024LL
-#define MAX_MAPSIZE_INCEREMENT	32*1024*1024
+#define MAX_MAPSIZE_INCEREMENT	256*1024*1024
 
 /**	@defgroup readers	Reader Lock Table
  *	Readers don't acquire any locks for their data access. Instead, they
@@ -4031,6 +4031,9 @@ mdb_env_set_mapsize(MDB_env *env, size_t size)
       if (i == DEFAULT_READERS)
       {
          printf("\n\ntried to enlarge map, but got MDB_READERS_FULL!\n\n");
+         printf("\nDB is: ");
+         printf(env->me_path);
+         printf("\n");
          return MDB_READERS_FULL;
       }
 
@@ -4278,7 +4281,7 @@ mdb_env_reader_dest(void *ptr)
  *	in a single process, for now. They can override this if needed.
  */
 #ifndef MAX_TLS_KEYS
-#define MAX_TLS_KEYS	64
+#define MAX_TLS_KEYS	512
 #endif
 static pthread_key_t mdb_tls_keys[MAX_TLS_KEYS];
 static int mdb_tls_nkeys;

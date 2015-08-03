@@ -298,6 +298,8 @@ class BlockDataManager(object):
          mode = 2
       elif CLI_OPTIONS.rescan:
          mode = 1
+      elif CLI_OPTIONS.sshRescan:
+         mode = 3
       else:
          mode = 0
          

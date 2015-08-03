@@ -4270,12 +4270,11 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    ssh.uniqueKey_ = READHEX("00""1234abcde1234abcde1234abcdefff1234abcdef");
    ssh.version_ = 1;
    ssh.alreadyScannedUpToBlk_ = 65535;
-   ssh.keyLength_ = 4;
 
    /////////////////////////////////////////////////////////////////////////////
    // Empty SSH (shouldn't be written in supernode, should be in full node)
    BinaryData expect, expSub1, expSub2;
-   expect = READHEX("0400""0004""ffff0000""00""0000000000000000");
+   expect = READHEX("0400""ffff0000""00""0000000000000000");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -4286,14 +4285,14 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    txio0.setMultisig(false);
    ssh.insertTxio(txio0);
 
-   expect = READHEX("0400""0004""ffff0000""01""0100000000000000");
+   expect = READHEX("0400""ffff0000""01""0100000000000000");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
 
    /////////////////////////////////////////////////////////////////////////////
    // Added a second one, different subSSH
    TxIOPair txio1(READHEX("00010000""0002""0002"), READ_UINT64_HEX_LE("0002000000000000"));
    ssh.insertTxio(txio1);
-   expect  = READHEX("0400""0004""ffff0000""02""0102000000000000");
+   expect  = READHEX("0400""ffff0000""02""0102000000000000");
    expSub1 = READHEX("01""00""0100000000000000""0001""0001");
    expSub2 = READHEX("01""00""0002000000000000""0002""0002");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
@@ -4304,7 +4303,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Added another TxIO to the second subSSH
    TxIOPair txio2(READHEX("00010000""0004""0004"), READ_UINT64_HEX_LE("0000030000000000"));
    ssh.insertTxio(txio2);
-   expect  = READHEX("0400""0004""ffff0000""03""0102030000000000");
+   expect  = READHEX("0400""ffff0000""03""0102030000000000");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("02"
@@ -4319,7 +4318,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // equivalent to marking it spent, but we are DB-mode-agnostic here, testing
    // just the base insert/erase operations)
    ssh.eraseTxio(txio1);
-   expect  = READHEX("0400""0004""ffff0000""02""0100030000000000");
+   expect  = READHEX("0400""ffff0000""02""0100030000000000");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
@@ -4334,7 +4333,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    TxIOPair txio3(READHEX("00010000""0006""0006"), READ_UINT64_HEX_LE("0000000400000000"));
    txio3.setMultisig(true);
    ssh.insertTxio(txio3);
-   expect  = READHEX("0400""0004""ffff0000""03""0100030000000000");
+   expect  = READHEX("0400""ffff0000""03""0100030000000000");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("02"
@@ -4347,7 +4346,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    /////////////////////////////////////////////////////////////////////////////
    // Remove the multisig
    ssh.eraseTxio(txio3);
-   expect  = READHEX("0400""0004""ffff0000""02""0100030000000000");
+   expect  = READHEX("0400""ffff0000""02""0100030000000000");
    expSub1 = READHEX("01"
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
@@ -4360,7 +4359,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Remove a full subSSH (it shouldn't be deleted, though, that will be done
    // by BlockUtils in a post-processing step
    ssh.eraseTxio(txio0);
-   expect  = READHEX("0400""0004""ffff0000""01""0000030000000000");
+   expect  = READHEX("0400""ffff0000""01""0000030000000000");
    expSub1 = READHEX("00");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
@@ -4389,7 +4388,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
 
    /////////////////////////////////////////////////////////////////////////////
    ssh = sshorig;
-   toUnser = READHEX("0400""0004""ffff0000""00");
+   toUnser = READHEX("0400""ffff0000""00""0000000000000000");
    ssh.unserializeDBKey(DBPREF + uniq);
    ssh.unserializeDBValue(toUnser);
 
@@ -4400,7 +4399,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
 
    /////////////////////////////////////////////////////////////////////////////
    ssh = sshorig;
-   toUnser = READHEX("0400""0004""ffff0000""01""0100000000000000");
+   toUnser = READHEX("0400""ffff0000""01""0100000000000000");
    ssh.unserializeDBKey(DBPREF + uniq);
    ssh.unserializeDBValue(toUnser);
    BinaryData txioKey = hgtX0 + READHEX("00010001");
@@ -4408,202 +4407,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
    EXPECT_EQ(   ssh.totalTxioCount_, 1);
    EXPECT_EQ(   ssh.totalUnspent_, READ_UINT64_HEX_LE("0100000000000000"));
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Test reading a subSSH and merging it with the regular SSH
-   ssh = sshorig;
-   subssh1 = StoredSubHistory();
-
-   ssh.unserializeDBKey(DBPREF + uniq);
-   ssh.unserializeDBValue(READHEX("0400""0004""ffff0000""02""0000030400000000"));
-   subssh1.unserializeDBKey(DBPREF + uniq + hgtX0);
-   subssh1.unserializeDBValue(READHEX("02"
-                                        "00""0000030000000000""0004""0004"
-                                        "00""0000000400000000""0006""0006"));
-
-   BinaryData last4_0 = READHEX("0004""0004");
-   BinaryData last4_1 = READHEX("0006""0006");
-   BinaryData txio0key = hgtX0 + last4_0;
-   BinaryData txio1key = hgtX0 + last4_1;
-   uint64_t val0 = READ_UINT64_HEX_LE("0000030000000000");
-   uint64_t val1 = READ_UINT64_HEX_LE("0000000400000000");
-
-   // Unmerged, so SSH doesn't have the subSSH as part of it yet.
-   /*EXPECT_EQ(   ssh.subHistMap_.size(), 0);
-   EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
-   EXPECT_EQ(   ssh.totalTxioCount_, 2);
-   EXPECT_EQ(   ssh.totalUnspent_, READ_UINT64_HEX_LE("0000030400000000"));
-
-   EXPECT_EQ(   subssh1.uniqueKey_,  uniq);
-   EXPECT_EQ(   subssh1.hgtX_,       hgtX0);
-   EXPECT_EQ(   subssh1.txioMap_.size(), 2);
-   ASSERT_NE(   subssh1.txioMap_.find(txio0key), subssh1.txioMap_.end());
-   ASSERT_NE(   subssh1.txioMap_.find(txio1key), subssh1.txioMap_.end());
-   EXPECT_EQ(   subssh1.txioMap_[txio0key].getValue(), val0);
-   EXPECT_EQ(   subssh1.txioMap_[txio1key].getValue(), val1);
-   EXPECT_EQ(   subssh1.txioMap_[txio0key].getDBKeyOfOutput(), txio0key);
-   EXPECT_EQ(   subssh1.txioMap_[txio1key].getDBKeyOfOutput(), txio1key);
-
-   ssh.mergeSubHistory(subssh1);
-   EXPECT_EQ(   ssh.subHistMap_.size(), 1);
-   ASSERT_NE(   ssh.subHistMap_.find(hgtX0), ssh.subHistMap_.end());
-
-   StoredSubHistory & subref = ssh.subHistMap_[hgtX0];
-   EXPECT_EQ(   subref.uniqueKey_, uniq);
-   EXPECT_EQ(   subref.hgtX_,      hgtX0);
-   EXPECT_EQ(   subref.txioMap_.size(), 2);
-   ASSERT_NE(   subref.txioMap_.find(txio0key), subref.txioMap_.end());
-   ASSERT_NE(   subref.txioMap_.find(txio1key), subref.txioMap_.end());
-   EXPECT_EQ(   subref.txioMap_[txio0key].getValue(), val0);
-   EXPECT_EQ(   subref.txioMap_[txio1key].getValue(), val1);
-   EXPECT_EQ(   subref.txioMap_[txio0key].getDBKeyOfOutput(), txio0key);
-   EXPECT_EQ(   subref.txioMap_[txio1key].getDBKeyOfOutput(), txio1key);*/
-   
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Try it with two sub-SSHs and a multisig object
-   //ssh = sshorig;
-   //subssh1 = StoredSubHistory();
-   //subssh2 = StoredSubHistory();
-   //expSub1 = READHEX("01"
-                       //"00""0100000000000000""0001""0001");
-   //expSub2 = READHEX("02"
-                       //"00""0000030000000000""0004""0004"
-                       //"10""0000000400000000""0006""0006");
 }
-
-////////////////////////////////////////////////////////////////////////////////
-/*
-TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
-{
-   DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
-   StoredScriptHistory ssh;
-
-   BinaryData a160 = READHEX("aabbccdd11223344aabbccdd11223344aabbccdd"); 
-
-   BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
-   BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
-   BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
-   BinaryData dbKey3 = READHEX("02e078""0f""0030""0003");
-   BinaryData dbKey4 = READHEX("02e078""0f""0030""0009");
-   BinaryData dbKey5 = READHEX("02e078""0f""00a0""0008");
-
-   uint32_t hgt = READ_UINT32_HEX_BE("0001e078");
-   uint32_t dup = READ_UINT8_HEX_BE("0f");
-
-   TxIOPair txio0(dbKey0, 10*COIN);
-   TxIOPair txio1(dbKey1, 11*COIN);
-   TxIOPair txio2(dbKey2, 12*COIN);
-   TxIOPair txio3(dbKey3, 13*COIN);
-
-   txio0.setFromCoinbase(true);
-   txio0.setTxOutFromSelf(false);
-   txio0.setMultisig(false);
-
-   txio1.setFromCoinbase(false);
-   txio1.setTxOutFromSelf(true);
-   txio1.setMultisig(false);
-
-   txio2.setFromCoinbase(false);
-   txio2.setTxOutFromSelf(false);
-   txio2.setMultisig(true);
-
-   txio3.setFromCoinbase(false);
-   txio3.setTxOutFromSelf(false);
-   txio3.setMultisig(true);
-
-   //BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
-   //BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
-   //BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
-   //BinaryData dbKey3 = READHEX("02e078""0f""0030""0003");
-   //BinaryData dbKey4 = READHEX("02e078""0f""0030""0009");
-   //BinaryData dbKey5 = READHEX("02e078""0f""00a0""0008");
-
-   // First test, only one TxIO, stored in base SSH object
-   BinaryData expect_ssh1 = READHEX(
-      "0400""ffffffff"
-      "01"
-         "40""00ca9a3b00000000""01e0780f0007""0001")
-
-
-   // First test, only one TxIO, stored in base SSH object
-   BinaryData expectSSH_ssh2 = READHEX(
-      "0480""ffffffff""02""00752b7d00000000")
-   BinaryData expectSSH_ssh2sub1 = READHEX(
-      "02"
-         "00""00ca9a3b00000000""0007""0001"
-         "00""00ab904100000000""0009""0005");
-
-
-   BinaryData expectSSH_bothspent = READHEX(
-      "0400""ffffffff"
-      "02"
-         "60""00ca9a3b00000000""01e0780f0007""0001""01e0780f00a00008"
-         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_bothunspent = READHEX(
-      "0400""ffffffff"
-      "02"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-         "80""0065cd1d00000000""01e0780f0009""0005"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_afterrm = READHEX(
-      "0400""ffffffff"
-      "01"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-  
-   // Mark the second one spent (from same block as it was created)
-   txio1.setTxIn(dbKey4);
-
-   // In order for for these tests to work properly, the TxIns and TxOuts need
-   // to look like they're in the main branch.  Se we set the valid dupID vals
-   // so that txio.hasTxInInMain() and txio.hasTxOutInMain() both pass
-   LSMWrapper::GetInterfacePtr()->setValidDupIDForHeight(hgt,dup);
-
-   ssh.uniqueKey_ = HASH160PREFIX + a160;
-   ssh.version_ = 1;
-   ssh.alreadyScannedUpToBlk_ = UINT32_MAX;
-
-   ssh.markTxOutUnspent(txio0);
-
-   // Check the initial state matches expectations
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
-
-   ssh.insertTxio(txio1);
-   // Mark the first output spent (second one was already marked spent)
-   ssh.markTxOutSpent( dbKey0, dbKey5);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_bothspent);
-
-   // Undo the last operation
-   ssh.markTxOutUnspent(dbKey0);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
-
-
-   ssh.markTxOutUnspent(dbKey1);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_bothunspent);
-
-   ssh.markTxOutSpent( dbKey1, dbKey2);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
-
-
-   ssh.eraseTxio(dbKey1);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_afterrm);
-
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -4921,7 +4725,7 @@ protected:
          return false;
       }
 
-      fromDB = iface_->getAllDatabaseEntries(HISTORY);
+      fromDB = iface_->getAllDatabaseEntries(SSH);
       if(fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
       {
          LOGERR << "BLKDATA DB not the correct size";
@@ -5012,13 +4816,18 @@ protected:
          config_.armoryDbType,
          config_.pruneType);
 
-      LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
+
+      BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+      BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("03100000");
-      BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
+      BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_+zeros_+zeros_;
+      BinaryData val1 = magic_ + flags + zeros_ + zeros_ + ghash_ + 
+         nshards + subsshdepth;
       addOutPairH(DBINFO, val0);
-      addOutPairB(DBINFO, val0);
+      addOutPairB(DBINFO, val1);
 
       return iface_->databasesAreOpen();
    }
@@ -5069,22 +4878,27 @@ TEST_F(LMDBTest, OpenClose)
    EXPECT_EQ(READHEX(MAINNET_GENESIS_HASH_HEX), iface_->getTopBlockHash(HEADERS));
                           
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
+   KVLIST BList = iface_->getAllDatabaseEntries(SSH);
 
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
    BinaryData flags = READHEX("03100000");
 
+   BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+   BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
+
    for(uint32_t i=0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ + 
+                nshards + subsshdepth);
    }
 
    for(uint32_t i=0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+                nshards + subsshdepth);
    }
                          
    iface_->closeDatabases();
@@ -5120,18 +4934,23 @@ TEST_F(LMDBTest, OpenCloseOpenNominal)
    ASSERT_TRUE(iface_->databasesAreOpen());
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
+   KVLIST BList = iface_->getAllDatabaseEntries(SSH);
 
-   for(uint32_t i=0; i<HList.size(); i++)
+   BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+   BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
+
+   for (uint32_t i = 0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth);
    }
 
    for(uint32_t i=0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth);
    }
                          
    iface_->closeDatabases();
@@ -5152,46 +4971,52 @@ TEST_F(LMDBTest, PutGetDelete)
 
    ASSERT_TRUE(iface_->databasesAreOpen());
    
+   BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+   BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
+
    LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
    BinaryData PREFIX = WRITE_UINT8_BE((uint8_t)TXDATA);
-   BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
+   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + 
+      ghash_ + zeros_ + zeros_;
+   BinaryData val1 = magic_ + flags + zeros_ + zeros_ + 
+      ghash_ + nshards + subsshdepth;
    BinaryData commonValue = READHEX("abcd1234");
    BinaryData keyAB = READHEX("0000");
    BinaryData nothing = BinaryData(0);
 
    addOutPairH(DBINFO,         val0);
-   addOutPairB(DBINFO,         val0);
+   addOutPairB(DBINFO,         val1);
    addOutPairB(         keyAB, commonValue);
    addOutPairB(PREFIX + keyAB, commonValue);
 
    ASSERT_TRUE( compareKVListRange(0,1, 0,1));
 
-   iface_->putValue(HISTORY, keyAB, commonValue);
+   iface_->putValue(SSH, keyAB, commonValue);
    ASSERT_TRUE( compareKVListRange(0,1, 0,2));
 
-   iface_->putValue(HISTORY, DB_PREFIX_TXDATA, keyAB, commonValue);
+   iface_->putValue(SSH, DB_PREFIX_TXDATA, keyAB, commonValue);
    ASSERT_TRUE( compareKVListRange(0,1, 0,3));
 
    // Now test a bunch of get* methods
-   ASSERT_EQ(iface_->getValueNoCopy(      HISTORY, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DB_PREFIX_DBINFO, nothing), val0);
-   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DBINFO), val0);
-   ASSERT_EQ(iface_->getValueRef(   HISTORY, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueRef(   HISTORY, TXDATA, keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueReader(HISTORY, PREFIX + keyAB).getRawRef(), commonValue);
-   ASSERT_EQ(iface_->getValueReader(HISTORY, TXDATA, keyAB).getRawRef(), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(SSH, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(SSH, DB_PREFIX_DBINFO, nothing), val1);
+   ASSERT_EQ(iface_->getValueNoCopy(SSH, DBINFO), val1);
+   ASSERT_EQ(iface_->getValueRef(SSH, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueRef(SSH, TXDATA, keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueReader(SSH, PREFIX + keyAB).getRawRef(), commonValue);
+   ASSERT_EQ(iface_->getValueReader(SSH, TXDATA, keyAB).getRawRef(), commonValue);
 
-   iface_->deleteValue(HISTORY, DB_PREFIX_TXDATA, keyAB);
+   iface_->deleteValue(SSH, DB_PREFIX_TXDATA, keyAB);
    ASSERT_TRUE( compareKVListRange(0,1, 0,2));
 
-   iface_->deleteValue(HISTORY, PREFIX + keyAB);
+   iface_->deleteValue(SSH, PREFIX + keyAB);
    ASSERT_TRUE( compareKVListRange(0,1, 0,1));
 
-   iface_->deleteValue(HISTORY, PREFIX + keyAB);
+   iface_->deleteValue(SSH, PREFIX + keyAB);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5286,7 +5111,7 @@ TEST_F(LMDBTest, PutFullBlockNoTx)
    
    ASSERT_TRUE(standardOpenDBs());
    LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
    addOutPairH( sbh_HH_key, sbh_HH_val);
    addOutPairH( sbh_HG_key, sbh_HG_val);
@@ -5323,7 +5148,7 @@ TEST_F(LMDBTest, PutGetBareHeader)
 
    ASSERT_TRUE(standardOpenDBs());
    LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
    uint8_t sdup = iface_->putBareHeader(sbh);
    EXPECT_EQ(sdup, 0);
@@ -5632,7 +5457,7 @@ TEST_F(LMDBTest, PutGetStoredTxHints)
 TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
    ///////////////////////////////////////////////////////////////////////////
    // A whole bunch of setup stuff we need for SSH operations to work right
@@ -5660,10 +5485,10 @@ TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
          "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
          "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
          "0000");
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey0, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey1, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey2, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey3, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey0, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey1, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey2, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey3, RAWTX);
 
    TxIOPair txio0(dbkey0, val0);
    TxIOPair txio1(dbkey1, val1);
@@ -5683,7 +5508,6 @@ TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
    uint32_t blk = READ_UINT32_HEX_LE("ffff0000");
    sshorig.alreadyScannedUpToBlk_ = blk;
    sshorig.version_  = 1;
-   sshorig.keyLength_ = 4;
 
    /////////////////////////////////////////////////////////////////////////////
    // Haven't actually done anything yet...
@@ -5694,7 +5518,7 @@ TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
 
    /////////////////////////////////////////////////////////////////////////////
    // An empty SSH -- this shouldn't happen in production, but test it anyway
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -5706,7 +5530,7 @@ TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
    ssh = sshorig;
    ssh.insertTxio(txio0);
 
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -5732,7 +5556,7 @@ TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
    ssh.insertTxio(txio0);
    ssh.insertTxio(txio1);
 
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -5763,7 +5587,7 @@ TEST_F(LMDBTest, DISABLED_PutGetStoredScriptHistory)
    ssh.insertTxio(txio1);
    ssh.insertTxio(txio3);
 
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -6117,7 +5941,7 @@ protected:
          return false;
       }
 
-      fromDB = iface_->getAllDatabaseEntries(HISTORY);
+      fromDB = iface_->getAllDatabaseEntries(SSH);
       if (fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
       {
          LOGERR << "BLKDATA DB not the correct size";
@@ -6264,11 +6088,17 @@ protected:
 
       dbTx = new LMDBEnv::Transaction(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
+      BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+      BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
+
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("04100000");
-      BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_;
+      BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_ + 
+         zeros_ + zeros_;
+      BinaryData val1 = magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth;
       addOutPairH(DBINFO, val0);
-      addOutPairB(DBINFO, val0);
+      addOutPairB(DBINFO, val1);
 
       return iface_->databasesAreOpen();
    }
@@ -6320,22 +6150,27 @@ TEST_F(LMDBTest_Super, OpenClose)
    EXPECT_EQ(READHEX(MAINNET_GENESIS_HASH_HEX), iface_->getTopBlockHash(HEADERS));
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
+   KVLIST BList = iface_->getAllDatabaseEntries(SSH);
 
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
    BinaryData flags = READHEX("04100000");
 
+   BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+   BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
+
    for (uint32_t i = 0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first, READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth);
    }
 
    for (uint32_t i = 0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first, READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth);
    }
 
    iface_->closeDatabases();
@@ -6371,18 +6206,23 @@ TEST_F(LMDBTest_Super, OpenCloseOpenNominal)
    ASSERT_TRUE(iface_->databasesAreOpen());
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
+   KVLIST BList = iface_->getAllDatabaseEntries(SSH);
+
+   BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+   BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
 
    for (uint32_t i = 0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first, READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth);
    }
 
    for (uint32_t i = 0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first, READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_ +
+         nshards + subsshdepth);
    }
 
    iface_->closeDatabases();
@@ -6469,46 +6309,52 @@ TEST_F(LMDBTest_Super, PutGetDelete)
       config_.pruneType);
 
    ASSERT_TRUE(iface_->databasesAreOpen());
-   LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
+   
+   BinaryData nshards = WRITE_UINT32_LE(iface_->nShards());
+   BinaryData subsshdepth = WRITE_UINT32_LE(iface_->subSshDepth());
 
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
    BinaryData PREFIX = WRITE_UINT8_BE((uint8_t)TXDATA);
-   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_;
+   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_ + 
+      zeros_ + zeros_;
+   BinaryData val1 = magic_ + flags + zeros_ + zeros_ + ghash_ +
+      nshards + subsshdepth;
    BinaryData commonValue = READHEX("abcd1234");
    BinaryData keyAB = READHEX("0000");
    BinaryData nothing = BinaryData(0);
 
    addOutPairH(DBINFO, val0);
 
-   addOutPairB(DBINFO, val0);
+   addOutPairB(DBINFO, val1);
    addOutPairB(keyAB, commonValue);
    addOutPairB(PREFIX + keyAB, commonValue);
 
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 1));
 
-   iface_->putValue(HISTORY, keyAB, commonValue);
+   iface_->putValue(SSH, keyAB, commonValue);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 2));
 
-   iface_->putValue(HISTORY, DB_PREFIX_TXDATA, keyAB, commonValue);
+   iface_->putValue(SSH, DB_PREFIX_TXDATA, keyAB, commonValue);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 3));
 
    // Now test a bunch of get* methods
-   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DB_PREFIX_DBINFO, nothing), val0);
-   ASSERT_EQ(iface_->getValueNoCopy(HISTORY, DBINFO), val0);
-   ASSERT_EQ(iface_->getValueRef(HISTORY, PREFIX + keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueRef(HISTORY, TXDATA, keyAB), commonValue);
-   ASSERT_EQ(iface_->getValueReader(HISTORY, PREFIX + keyAB).getRawRef(), commonValue);
-   ASSERT_EQ(iface_->getValueReader(HISTORY, TXDATA, keyAB).getRawRef(), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(SSH, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueNoCopy(SSH, DB_PREFIX_DBINFO, nothing), val1);
+   ASSERT_EQ(iface_->getValueNoCopy(SSH, DBINFO), val1);
+   ASSERT_EQ(iface_->getValueRef(SSH, PREFIX + keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueRef(SSH, TXDATA, keyAB), commonValue);
+   ASSERT_EQ(iface_->getValueReader(SSH, PREFIX + keyAB).getRawRef(), commonValue);
+   ASSERT_EQ(iface_->getValueReader(SSH, TXDATA, keyAB).getRawRef(), commonValue);
 
-   iface_->deleteValue(HISTORY, DB_PREFIX_TXDATA, keyAB);
+   iface_->deleteValue(SSH, DB_PREFIX_TXDATA, keyAB);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 2));
 
-   iface_->deleteValue(HISTORY, PREFIX + keyAB);
+   iface_->deleteValue(SSH, PREFIX + keyAB);
    ASSERT_TRUE(compareKVListRange(0, 1, 0, 1));
 
-   iface_->deleteValue(HISTORY, PREFIX + keyAB);
+   iface_->deleteValue(SSH, PREFIX + keyAB);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6591,6 +6437,17 @@ TEST_F(LMDBTest_Super, PutFullTxNoOuts)
    LMDBEnv::Transaction txheaders(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
    LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
 
+   expectOutB_.clear();
+   expectOutH_.clear();
+
+   BinaryData DBINFO = StoredDBInfo().getDBKey();
+   BinaryData flags = READHEX("04100000");
+   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_ +
+      zeros_ + zeros_;
+   addOutPairH(DBINFO, val0);
+   addOutPairB(DBINFO, val0);
+
+
    StoredTx stx;
    stx.createFromTx(rawTxUnfrag_);
    stx.setKeyData(123000, 15, 7);
@@ -6601,7 +6458,7 @@ TEST_F(LMDBTest_Super, PutFullTxNoOuts)
 
    iface_->putStoredTx(stx, false);
    addOutPairB(stxKey, stxVal);
-   EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 1));
+   EXPECT_TRUE(compareKVListRangeBlkData(0, 1, 0, 2));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6618,6 +6475,17 @@ TEST_F(LMDBTest_Super, PutFullTx)
       "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac");
 
    ASSERT_TRUE(standardOpenDBs());
+
+   expectOutB_.clear();
+   expectOutH_.clear();
+
+   BinaryData DBINFO = StoredDBInfo().getDBKey();
+   BinaryData flags = READHEX("04100000");
+   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_ +
+      zeros_ + zeros_;
+   addOutPairH(DBINFO, val0);
+   addOutPairB(DBINFO, val0);
+
    LMDBEnv::Transaction txheaders(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
    LMDBEnv::Transaction txhints(iface_->dbEnv_[TXHINTS].get(), LMDB::ReadWrite);
 
@@ -6757,6 +6625,16 @@ TEST_F(LMDBTest_Super, PutGetBareHeader)
 TEST_F(LMDBTest_Super, PutFullBlock)
 {
    ASSERT_TRUE(standardOpenDBs());
+
+   expectOutB_.clear();
+   expectOutH_.clear();
+
+   BinaryData DBINFO = StoredDBInfo().getDBKey();
+   BinaryData flags = READHEX("04100000");
+   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + ghash_ +
+      zeros_ + zeros_;
+   addOutPairH(DBINFO, val0);
+   addOutPairB(DBINFO, val0);
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
@@ -7018,7 +6896,7 @@ TEST_F(LMDBTest_Super, PutGetStoredTxHints)
 TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction txheaders(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txheaders(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
    ///////////////////////////////////////////////////////////////////////////
    // A whole bunch of setup stuff we need for SSH operations to work right
@@ -7046,10 +6924,10 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
       "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
       "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
       "0000");
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey0, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey1, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey2, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey3, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey0, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey1, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey2, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey3, RAWTX);
 
    TxIOPair txio0(dbkey0, val0);
    TxIOPair txio1(dbkey1, val1);
@@ -7069,7 +6947,6 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
    uint32_t blk = READ_UINT32_HEX_LE("ffff0000");
    sshorig.alreadyScannedUpToBlk_ = blk;
    sshorig.version_ = 1;
-   sshorig.keyLength_ = 4;
 
    /////////////////////////////////////////////////////////////////////////////
    // Haven't actually done anything yet...
@@ -7080,7 +6957,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
 
    /////////////////////////////////////////////////////////////////////////////
    // An empty SSH -- this shouldn't happen in production, but test it anyway
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -7092,7 +6969,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
    ssh = sshorig;
    ssh.insertTxio(txio0);
 
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -7118,7 +6995,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
    ssh.insertTxio(txio0);
    ssh.insertTxio(txio1);
 
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -7149,7 +7026,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
    ssh.insertTxio(txio1);
    ssh.insertTxio(txio3);
 
-   iface_->putStoredScriptHistory(ssh);
+   iface_->putStoredScriptHistorySummary(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
@@ -7821,7 +7698,7 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockDir, HeadersFirstEmptyBlock)
+TEST_F(BlockDir, DISABLED_HeadersFirstEmptyBlock)
 {
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
@@ -10091,7 +9968,7 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsSuper, Load5Blocks)
+TEST_F(BlockUtilsSuper, Load6Blocks)
 {
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
@@ -10284,38 +10161,10 @@ TEST_F(BlockUtilsSuper, Load5Blocks_ReloadBDM)
    EXPECT_EQ(ssh.totalTxioCount_, 2);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
+TEST_F(BlockUtilsSuper, Load5Blocks_RescanSSH)
 {
-   // Copy only the first four blocks.  Will copy the full file next to test
-   // readBlkFileUpdate method on non-reorg blocks.
-   setBlocks({ "0", "1", "2"}, blk0dat_);
    TheBDM.doInitialSyncOnLoad(nullProgress);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
-   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
-
-   appendBlocks({ "3"}, blk0dat_);
-   TheBDM.readBlkFileUpdate();
-
-   appendBlocks({ "5"}, blk0dat_);
-   TheBDM.readBlkFileUpdate();
-
-   delete theBDM;
-   theBDM = new BlockDataManager_LevelDB(config_);
-
-   theBDM->openDatabase();
-   iface_ = theBDM->getIFace();
-
-   theBDM->doInitialSyncOnLoad(nullProgress);
-
-   appendBlocks({ "4" }, blk0dat_);
-
-   TheBDM.readBlkFileUpdate();
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
 
    StoredScriptHistory ssh;
 
@@ -10369,65 +10218,93 @@ TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
    EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
 
+   theBDM->doInitialSyncOnLoad_RescanSSH(nullProgress);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrA);
+   EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 1);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
+   EXPECT_EQ(ssh.getScriptBalance(), 70 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 230 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 14);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrC);
+   EXPECT_EQ(ssh.getScriptBalance(), 20 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 75 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 8);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrD);
+   EXPECT_EQ(ssh.getScriptBalance(), 65 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 65 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrE);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 30 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 5);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrF);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 45 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 7);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 5 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 15 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 25 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 3);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddr);
+   EXPECT_EQ(ssh.getScriptBalance(), 30 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 40 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 4);
+
+   iface_->getStoredScriptHistory(ssh, TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
+   EXPECT_EQ(ssh.totalTxioCount_, 2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsSuper, DISABLED_RepairMissingTxio)
+TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
-   setBlocks({ "0", "1", "2" }, blk0dat_);
+   setBlocks({ "0", "1", "2"}, blk0dat_);
    TheBDM.doInitialSyncOnLoad(nullProgress);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash2).isMainBranch());
-
-   appendBlocks({ "3" }, blk0dat_);
+   
+   appendBlocks({ "3"}, blk0dat_);
    TheBDM.readBlkFileUpdate();
 
-   //grab a ssh and delete some utxos
-   StoredScriptHistory ssh;
-   iface_->getStoredScriptHistory(ssh, TestChain::scrAddrB);
-
-   for (auto& subssh : ssh.subHistMap_)
-   {
-      auto txioIter = subssh.second.txioMap_.begin();
-
-      while (txioIter != subssh.second.txioMap_.end())
-      {
-         if (txioIter->second.isUTXO() && 
-             !txioIter->second.isMultisig())
-         {
-            ssh.totalTxioCount_--;
-            ssh.totalUnspent_ -= txioIter->second.getValue();
-            subssh.second.txioMap_.erase(txioIter++);
-         }
-         else
-            ++txioIter;
-      }
-   }
-
-   //delete the keys
-   auto delKeysThread = [&ssh, this](void)->void
-   { 
-      LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-
-      iface_->putStoredScriptHistory(ssh);
-   };
-
-   thread delKeysTID(delKeysThread);
-   delKeysTID.join();
-
-   appendBlocks({ "5" }, blk0dat_);
+   appendBlocks({ "5"}, blk0dat_);
    TheBDM.readBlkFileUpdate();
+
+   delete theBDM;
+   theBDM = new BlockDataManager_LevelDB(config_);
+
+   theBDM->openDatabase();
+   iface_ = theBDM->getIFace();
+
+   theBDM->doInitialSyncOnLoad(nullProgress);
 
    appendBlocks({ "4" }, blk0dat_);
-   TheBDM.readBlkFileUpdate();
 
+   TheBDM.readBlkFileUpdate();
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash5).isMainBranch());
 
+
+   StoredScriptHistory ssh;
    iface_->getStoredScriptHistory(ssh, TestChain::scrAddrA);
    EXPECT_EQ(ssh.getScriptBalance(), 50 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 50 * COIN);
@@ -10483,8 +10360,6 @@ TEST_F(BlockUtilsSuper, DISABLED_RepairMissingTxio)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 {
-//    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
-//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
 
@@ -11485,7 +11360,6 @@ GTEST_API_ int main(int argc, char **argv)
 
    testing::InitGoogleTest(&argc, argv);
    int exitCode = RUN_ALL_TESTS();
-   
    FLUSHLOG();
    CLEANUPLOG();
 

@@ -306,7 +306,7 @@ void TxIn::unserialize_checked(uint8_t const * ptr,
       throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, numBytes);
 
-   if (dataCopy_.getSize()-36 < 1)
+   if (dataCopy_.getSize() < 37)
       throw BlockDeserializingException();
    scriptOffset_ = 36 + BtcUtils::readVarIntLength(getPtr()+36);
 

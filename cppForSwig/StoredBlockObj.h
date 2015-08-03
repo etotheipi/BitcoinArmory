@@ -62,20 +62,13 @@ enum DB_SELECT
 {
    HEADERS,
    BLKDATA,
-   HISTORY,
+   SSH,
    STXO,
    SPENTNESS,
    TXHINTS,
    ZEROCONF,
    COUNT
 };
-
-#define SUBSSHDB_PREFIX_MAX 16
-#ifdef DEBUG
-#define SUBSSHDB_PREFIX_MIN 1
-#else
-#define SUBSSHDB_PREFIX_MIN 2
-#endif
 
 enum TX_SERIALIZE_TYPE
 {
@@ -251,6 +244,8 @@ public:
    uint32_t        armoryVer_=ARMORY_DB_VERSION;
    ARMORY_DB_TYPE  armoryType_=ARMORY_DB_WHATEVER;
    DB_PRUNE_TYPE   pruneType_=DB_PRUNE_WHATEVER;
+   uint32_t        nShards_=0;
+   uint32_t        subSshDepth_ = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -652,7 +647,7 @@ public:
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
-   BinaryData    getSubKey() const;
+   BinaryData    getSubKey(bool reset=false) const;
    SCRIPT_PREFIX getScriptType(void) const;
 
    void pprintOneLine(uint32_t indent=3);
@@ -672,17 +667,15 @@ public:
    void insertTxio(const TxIOPair& txio);
    void eraseTxio(const TxIOPair& txio);
 
-
    /////
-   BinaryData     uniqueKey_;  // includes the prefix byte!
+   BinaryData           uniqueKey_;  // includes the prefix byte!
+   //mutable BinaryData   subSshKey_;
+
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
    uint64_t       totalTxioCount_;
-   uint64_t       totalUnspent_;
+   int64_t       totalUnspent_;
    
-   uint8_t        dbPrefix_ = 0;
-   uint8_t        keyLength_ = 0;
-
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.
    // We always stored them in RAM using the StoredSubHistory 

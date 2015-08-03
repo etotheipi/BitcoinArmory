@@ -415,7 +415,7 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
    {
       LMDBEnv::Transaction tx;
-      db->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
+      db->beginDBTransaction(tx, HEADERS, LMDB::ReadWrite);
 
       for (auto& block : newlyParsedBlocks_)
       {
@@ -450,7 +450,7 @@ void Blockchain::rewind(const BinaryData& hash)
             hashToDel.push_back(header->getThisHash());
          }
       }
-      catch (range_error &e)
+      catch (range_error&)
       {
          //got at the end of the current chain
       }

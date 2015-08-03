@@ -18,8 +18,6 @@
 
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
-   LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
@@ -29,7 +27,15 @@ void ScrAddrFilter::getScrAddrCurrentSyncState()
 void ScrAddrFilter::getScrAddrCurrentSyncState(
    BinaryData const & scrAddr)
 {
+   if (scrAddr.getSize() == 0)
+      return;
+
+   uint32_t shard = lmdb_->getShard(scrAddr);
+
    //grab SSH for scrAddr
+   LMDBEnv::Transaction tx;
+   lmdb_->beginShardTransaction(tx, shard, LMDB::ReadOnly);
+   
    StoredScriptHistory ssh;
    lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
 
@@ -42,10 +48,12 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
    //LMDBBlockDatabase::Batch batch(db, BLKDATA);
    LOGWARN << "Updating SSH last scanned";
-   LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
    for (const auto scrAddrPair : scrAddrMap_)
    {
+      uint32_t shard = lmdb_->getShard(scrAddrPair.first);
+      LMDBEnv::Transaction tx;
+      lmdb_->beginShardTransaction(tx, shard, LMDB::ReadWrite);
+
       StoredScriptHistory ssh;
       lmdb_->getStoredScriptHistorySummary(ssh, scrAddrPair.first);
       if (!ssh.isInitialized())
@@ -53,7 +61,7 @@ void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 
       ssh.alreadyScannedUpToBlk_ = height;
 
-      lmdb_->putStoredScriptHistory(ssh);
+      lmdb_->putStoredScriptHistorySummary(ssh);
    }
 }
 
@@ -178,7 +186,7 @@ void ScrAddrFilter::scanScrAddrThread()
    {
       //grab top scanned block from sdbi
       StoredDBInfo sdbi;
-      lmdb_->getStoredDBInfo(HISTORY, sdbi);
+      lmdb_->getStoredDBInfo(SSH, sdbi);
       topScannedBlockHash = sdbi.topScannedBlkHash_;
    }
 
@@ -430,16 +438,13 @@ void ScrAddrFilter::buildSSHKeys()
       scrAddrs.push_back(sa.first);
    }
 
-   //we may create new ssh keys, need the lock first.
-   unique_lock<mutex> addressingLock(SSHheaders::keyAddressingMutex_);
-
-   //let the SSHheaders object handle the key creation and collision detection
+   //let the SSHheaders object handle the key creation
    sshHeaders.processSshHeaders(scrAddrs);
    
    //write the initialized SSHs to DB, the scanning process will grab them from
    //the DB when needed
    LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   lmdb_->beginDBTransaction(tx, SSH, LMDB::ReadWrite);
    for (auto& ssh : *sshHeaders.sshToModify_)
    {
       lmdb_->putStoredScriptHistorySummary(ssh.second);
@@ -530,7 +535,7 @@ set<BinaryData> ZeroConfContainer::purge(
    vector<BinaryData> keysToWrite, keysToDelete;
 
    LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   db_->beginDBTransaction(tx, SSH, LMDB::ReadOnly);
    auto zcIter = txMap_.begin();
 
    //parse ZCs anew
@@ -629,7 +634,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
 
 
    LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, ZEROCONF, LMDB::ReadOnly);
+   db_->beginDBTransaction(tx, ZEROCONF, LMDB::ReadOnly);
 
    while (1)
    {
@@ -1032,7 +1037,7 @@ void ZeroConfContainer::loadZeroConfMempool(
    //RW tx afterwards
    {
       LMDBEnv::Transaction tx;
-      db_->beginDBTransaction(&tx, ZEROCONF, LMDB::ReadOnly);
+      db_->beginDBTransaction(tx, ZEROCONF, LMDB::ReadOnly);
       LDBIter dbIter(db_->getIterator(ZEROCONF));
 
       if (!dbIter.seekToStartsWith(DB_PREFIX_ZCDATA))

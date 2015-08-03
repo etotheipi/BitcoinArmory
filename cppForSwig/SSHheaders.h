@@ -21,7 +21,6 @@ public:
                     unique_lock<mutex>&);
    void buildSshHeadersFromSAF(const ScrAddrFilter& SAF);
    void processSshHeaders(vector<BinaryData>& scrAddrs);
-   void computeDBKeys(shared_ptr<vector<StoredScriptHistory*>> saVec);
                         
 
 private:
@@ -34,20 +33,11 @@ private:
    void fetchExistingSshHeaders(map<BinaryData, StoredScriptHistory>& sshMap,
       const vector<StoredScriptHistory*>& saVec,
       uint32_t threadId);
-   void fetchSshHeaders(map<BinaryData, StoredScriptHistory>& sshMap,
-      const vector<StoredScriptHistory*>& saVec,
-      map<BinaryData, pair<uint8_t, uint32_t>>& prefixes,
-      uint32_t tId) const;
-   vector<StoredScriptHistory*> checkForSubKeyCollisions(
-      vector<StoredScriptHistory*>&);
 
    ///////
 public:
    shared_ptr<map<BinaryData, StoredScriptHistory> > sshToModify_;
-   map<BinaryData, pair<uint8_t, uint32_t>> topPrefix_;
    mutex mu_;
-   static int collisionCount;
-   static mutex keyAddressingMutex_;
    const uint32_t nThreads_;
 
 private:

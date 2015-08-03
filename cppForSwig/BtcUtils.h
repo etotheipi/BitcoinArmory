@@ -768,12 +768,15 @@ public:
       BinaryRefReader brr(ptr, size);  
       
       if (brr.getSizeRemaining() < 4)
-         throw BlockDeserializingException();
+         throw BlockDeserializingException("tx is < 4 bytes");
       // Tx Version;
       brr.advance(4);
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
+      if (nIn > UINT16_MAX)
+         throw BlockDeserializingException("nIn > UINT16_MAX");
+
       if(offsetsIn != NULL)
       {
          offsetsIn->resize(nIn+1);
@@ -793,6 +796,9 @@ public:
 
       // Now extract the TxOut list
       uint32_t nOut = (uint32_t)brr.get_var_int();
+      if (nOut > UINT16_MAX)
+         throw BlockDeserializingException("nOut > UINT16_MAX");
+
       if(offsetsOut != NULL)
       {
          offsetsOut->resize(nOut+1);

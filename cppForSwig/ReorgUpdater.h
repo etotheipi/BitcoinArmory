@@ -196,7 +196,7 @@ private:
    {
       //create a readwrite tx to update the dupIDs
       LMDBEnv::Transaction tx;
-      iface_->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
+      iface_->beginDBTransaction(tx, HEADERS, LMDB::ReadWrite);
 
       BlockHeader* thisHeaderPtr = branchPtr_;
 

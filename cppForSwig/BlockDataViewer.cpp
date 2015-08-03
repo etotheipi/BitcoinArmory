@@ -725,7 +725,7 @@ TxOut BlockDataViewer::getTxOutCopy(
    const BinaryData& txHash, uint16_t index) const
 {
    LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   db_->beginDBTransaction(tx, SSH, LMDB::ReadOnly);
       
 
    BinaryData bdkey;

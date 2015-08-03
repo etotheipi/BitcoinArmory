@@ -10,8 +10,9 @@ FileMap::FileMap(BlkFile& blk)
       throw std::runtime_error("failed to open file");
 
    mapsize_ = blk.filesize;
-   filemap_ = (uint8_t*)malloc(mapsize_);
-   _read(fd, filemap_, mapsize_);
+   filemap_ = make_shared <vector<uint8_t>>();
+   filemap_->resize(blk.filesize);
+   _read(fd, &(*filemap_.get())[0], mapsize_);
    _close(fd);
 #else
    int fd = open(blk.path.c_str(), O_RDONLY);
@@ -19,8 +20,9 @@ FileMap::FileMap(BlkFile& blk)
       throw std::runtime_error("failed to open file");
 
    mapsize_ = blk.filesize;
-   filemap_ = (uint8_t*)malloc(mapsize_);
-   read(fd, filemap_, mapsize_);
+   filemap_ = make_shared <vector<uint8_t>>();
+   filemap_->resize(blk.filesize);
+   read(fd, &(*filemap_.get())[0], mapsize_);
 
    close(fd);
 #endif
@@ -46,17 +48,14 @@ FileMap::FileMap(FileMap&& fm)
 ////////////////////////////////////////////////////////////////////////////////
 FileMap::~FileMap()
 {
-   if (filemap_ != nullptr)
-      free(filemap_);
-
-   filemap_ = nullptr;
+   filemap_.reset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void FileMap::getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
-   std::atomic<uint64_t>& lastSeenCumulative)
+   std::atomic<uint64_t>& lastSeenCumulative) const
 {
-   bdr.setRef(filemap_ + offset, size);
+   bdr.setRef(getMapPtr(offset), size);
 
    lastSeenCumulated_.store(
       lastSeenCumulative.fetch_add(size, std::memory_order_relaxed) + size,

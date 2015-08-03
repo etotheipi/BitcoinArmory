@@ -328,6 +328,7 @@ TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
    this->txtime_ = rhs.txtime_;
 
    this->isUTXO_ = rhs.isUTXO_;
+   this->isFromSameTx_ = rhs.isFromSameTx_;
 
    return *this;
 }
@@ -351,11 +352,12 @@ TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
    this->txtime_ = toMove.txtime_;
 
    this->isUTXO_ = toMove.isUTXO_;
+   this->isFromSameTx_ = toMove.isFromSameTx_;
 
    return *this;
 }
 
-void TxIOPair::unserialize(const BinaryDataRef& key, const BinaryDataRef& val)
+void TxIOPair::unserialize(const BinaryDataRef& val)
 {
    BinaryRefReader brr(val);
 
@@ -365,12 +367,17 @@ void TxIOPair::unserialize(const BinaryDataRef& key, const BinaryDataRef& val)
    bool isSpent      = bitunpack.getBit();
    isMultisig_       = bitunpack.getBit();
    isUTXO_           = bitunpack.getBit();
+   isFromSameTx_     = bitunpack.getBit();
 
    // We always include the 8-byte value
    amount_ = brr.get_uint64_t();
 
+   setTxOut(val.getSliceRef(9, 8));
+   if (val.getSize() == 25)
+      setTxIn(val.getSliceRef(17, 8));
+
    //the key always carries the full txout ref
-   if (!isSpent)
+   /*if (!isSpent)
       setTxOut(key);
    else
    {
@@ -383,7 +390,7 @@ void TxIOPair::unserialize(const BinaryDataRef& key, const BinaryDataRef& val)
       
       //last 8 bytes carry the txin key
       setTxIn(txinKey);
-   }
+   }*/
 }
 
 BinaryData TxIOPair::serializeDbKey(void) const
@@ -399,6 +406,13 @@ BinaryData TxIOPair::serializeDbKey(void) const
 
 void TxIOPair::serializeDbValue(BinaryWriter& bw) const
 {
+   uint8_t sersize = 17; //bit pack + amount + txout key
+
+   if (hasTxIn())
+      sersize += 8;
+
+   bw.put_uint8_t(sersize);
+
    BitPacker<uint8_t> bitpacker;
 
    bitpacker.putBit(isTxOutFromSelf_);
@@ -406,13 +420,15 @@ void TxIOPair::serializeDbValue(BinaryWriter& bw) const
    bitpacker.putBit(hasTxIn());
    bitpacker.putBit(isMultisig_);
    bitpacker.putBit(isUTXO_);
+   bitpacker.putBit(isFromSameTx_);
 
    bw.put_BitPacker(bitpacker);
    bw.put_uint64_t(amount_);
 
+   bw.put_BinaryData(getDBKeyOfOutput());
+
    if (hasTxIn())
    {
-      //has a txin, val will be the txout full key
-      bw.put_BinaryData(getDBKeyOfOutput());
+      bw.put_BinaryData(getDBKeyOfInput());
    }
 }

@@ -290,7 +290,7 @@ public:
 
    LMDBEnv() { }
    ~LMDBEnv();
-
+   
    // open a database by filename
    void open(const char *filename);
    bool isOpen() { return (dbenv != nullptr); }

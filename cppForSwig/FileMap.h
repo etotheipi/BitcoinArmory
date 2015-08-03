@@ -34,23 +34,27 @@ class FileMap
    friend class BlockFileAccessor;
 
 private:
-   std::atomic<uint64_t> lastSeenCumulated_;
-   std::atomic<FILEMAP_FETCH> fetch_;
+   mutable atomic<uint64_t> lastSeenCumulated_;
+   atomic<FILEMAP_FETCH> fetch_;
+   
+   shared_ptr<vector<uint8_t>> filemap_;
 
 public:
-   uint8_t* filemap_ = nullptr;
    uint64_t mapsize_ = 0;
    uint16_t fnum_;
 
 private:
    FileMap(FileMap&& fm);
-
+   
 public:
    FileMap(BlkFile& blk);
    ~FileMap(void);
 
    void getRawBlock(BinaryDataRef& bdr, uint64_t offset, uint32_t size,
-      std::atomic<uint64_t>& lastSeenCumulative);
+      std::atomic<uint64_t>& lastSeenCumulative) const;
+
+   const uint8_t* getMapPtr(size_t offset) const
+   { return &(*filemap_.get())[0] + offset; }
 };
 
 struct FileMapContainer

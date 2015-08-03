@@ -26,6 +26,8 @@
    #include <fcntl.h>
 #endif
 
+#define BYTES_PER_TXOUT 500
+#define BYTES_PER_TXIN  1000
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -33,16 +35,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define STD_READ_OPTS       leveldb::ReadOptions()
-#define STD_WRITE_OPTS      leveldb::WriteOptions()
-
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
-
-#define DEFAULT_LDB_BLOCK_SIZE 32*1024
-
-// Use this to create iterators that are intended for bulk scanning
-// It's actually that the ReadOptions::fill_cache arg needs to be false
-#define BULK_SCAN false
 
 class BlockHeader;
 class Tx;
@@ -258,12 +251,21 @@ public:
    void closeDatabases(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void beginDBTransaction(LMDBEnv::Transaction* tx, 
+   void beginDBTransaction(LMDBEnv::Transaction& tx, 
       DB_SELECT db, LMDB::Mode mode) const
    {
-      *tx = move(LMDBEnv::Transaction(dbEnv_[db].get(), mode));
+      tx = move(LMDBEnv::Transaction(dbEnv_[db].get(), mode));
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   void beginShardTransaction(LMDBEnv::Transaction& tx,
+      uint32_t shard, LMDB::Mode mode) const
+   {
+      tx = move(LMDBEnv::Transaction(sshShardsEnv_[shard].get(), mode));
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
    ARMORY_DB_TYPE getDbType(void) const { return armoryDbType_; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -286,9 +288,15 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   LDBIter getSubSSHIterator(uint32_t db) const
+   LDBIter getSubSSHIterator(uint32_t db, uint32_t depth) const
    {
-      return subSSHDBs_[db].begin();
+      return subSSHDBs_[db][depth]->begin();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   LDBIter getShardIterator(uint32_t shard) const
+   {
+      return sshShardsDB_[shard]->begin();
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -299,7 +307,10 @@ public:
                                  BinaryDataRef keyWithPrefix) const;
    BinaryDataRef getValueNoCopy(DB_SELECT db, DB_PREFIX pref, 
                                  BinaryDataRef key) const;
-   BinaryDataRef getValueNoCopy(uint32_t subsshdb, BinaryDataRef key) const;
+   BinaryDataRef getValueNoCopy(uint32_t subsshdb, uint32_t depth,
+      BinaryDataRef keyWithPrefix) const;
+   BinaryDataRef getValueNoCopy(uint32_t shard, 
+      BinaryDataRef keyWithPreifx) const;
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -324,14 +335,16 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
-   void putValue(uint32_t subsshdb, BinaryDataRef key, BinaryDataRef value);
+   void putValue(uint32_t subsshdb, uint32_t depth, BinaryDataRef key, BinaryDataRef value);
+   void putValue(uint32_t shard, BinaryDataRef key, BinaryDataRef value);
    void putValue(DB_SELECT db, BinaryData const & key, BinaryData const & value);
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
-   void deleteValue(DB_SELECT db, BinaryDataRef key);
-   void deleteValue(uint32_t db, BinaryDataRef key);
+   void deleteValue(DB_SELECT db, BinaryDataRef keyWithPrefix);
+   void deleteValue(uint32_t shard, BinaryDataRef keyWithPrefix);
+   void deleteValue(uint32_t db, uint32_t depth, BinaryDataRef key);
    void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
    
    // Move the iterator in DB to the lowest entry with key >= inputKey
@@ -356,18 +369,6 @@ public:
    void readAllHeaders(
       const function<void(const BlockHeader&, uint32_t, uint8_t)> &callback
    );
-
-   /////////////////////////////////////////////////////////////////////////////
-   // When we're not in supernode mode, we're going to need to track only 
-   // specific addresses.  We will keep a list of those addresses here.
-   // UINT32_MAX for the "scannedUpToBlk" arg means that this address is totally
-   // new and does not require a rescan.  If you don't know when the scraddress
-   // was created, use 0.  Or if you know something, you can supply it.  Though
-   // in many cases, we will just do a full rescan if it's not totally new.
-   void addRegisteredScript(BinaryDataRef rawScript,
-      uint32_t      scannedUpToBlk = UINT32_MAX);
-
-
 
    /////////////////////////////////////////////////////////////////////////////
    bool startBlkDataIteration(LDBIter & iter, DB_PREFIX prefix);
@@ -407,6 +408,10 @@ public:
    void putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi);
    bool getStoredDBInfo(
       DB_SELECT db, StoredDBInfo & sdbi, bool warn = true) const;
+
+   void putStoredDBInfo(uint32_t shard, StoredDBInfo const & sdbi);
+   bool getStoredDBInfo(
+      uint32_t shard, StoredDBInfo & sdbi, bool warn = true) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // BareHeaders are those int the HEADERS DB with no blockdta associated
@@ -517,10 +522,7 @@ public:
    bool getUnspentTxOut(StoredTxOut & stxo,
       const BinaryData& DBkey, bool getRawTx=true) const;
 
-
-   void putStoredScriptHistory(StoredScriptHistory & ssh);
    void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
-   void putStoredSubHistory(StoredSubHistory & subssh);
 
    bool getStoredScriptHistory(StoredScriptHistory & ssh,
       BinaryDataRef scrAddrStr,
@@ -530,22 +532,15 @@ public:
    bool getStoredSubHistoryAtHgtX(StoredSubHistory& subssh,
       const BinaryData& scrAddrStr, const BinaryData& hgtX) const;
 
-   void getStoredScriptHistorySummary(StoredScriptHistory & ssh,
+   bool getStoredScriptHistorySummary(StoredScriptHistory & ssh,
       BinaryDataRef scrAddrStr) const;
 
    void getStoredScriptHistoryByRawScript(
       StoredScriptHistory & ssh,
       BinaryDataRef rawScript) const;
 
-   // This method breaks from the convention I've used for getting/putting 
-   // stored objects, because we never really handle Sub-SSH objects directly,
-   // but we do need to harness them.  This method could be renamed to
-   // "getPartialScriptHistory()" ... it reads the main 
-   // sub-SSH from DB and adds it to the supplied regular-SSH.
-   bool fetchStoredSubHistory(StoredScriptHistory & ssh,
-      BinaryData hgtX,
-      bool createIfDNE = false,
-      bool forceReadAndMerge = false);
+   void getUTXOflag(StoredScriptHistory & ssh) const;
+   void getUTXOflag(StoredSubHistory & subssh) const;
 
    // This could go in StoredBlockObj if it didn't need to lookup DB data
    bool     getFullUTXOMapForSSH(StoredScriptHistory & ssh,
@@ -655,22 +650,35 @@ public:
    shared_ptr<vector<BlkFile>> getBlkFiles(void) const
    { return blkFiles_; }
 
-   BinaryData getSubSSHKey(BinaryDataRef uniqKey, uint8_t keyLength) const;
-     
-   void beginSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, LMDB::Mode) const;
+   uint32_t getShard(const BinaryData& scrAddr) const;
+   uint32_t getDepth(const BinaryData& scrAddr) const;
+
+   void beginSubSSHDBTransaction(LMDBEnv::Transaction&, uint32_t, uint32_t, LMDB::Mode) const;
+
+   uint32_t nShards(void) const { return nShards_; }
+   uint32_t subSshDepth(void) const { return subSshDepth_; }
+   uint32_t bytesPerBatch(void) const { return bytesPerBatch_; }
+   uint32_t txOutPerBatch(void) const { return txOutPerBatch_; }
+   uint32_t txInPerBatch(void) const { return txInPerBatch_; }
+   uint32_t maxBatchBuffer(void) const { return maxBatchBuffer_; }
+
+   static size_t getTotalSystemMemory();
+
 
 private:
    string baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
    string dbHeadersFilename() const { return baseDir_ + "/headers"; }
-   string dbHistoryFilename() const { return baseDir_ + "/history"; }
-   string dbSubsshFilename() const { return baseDir_ + "/subssh"; }
+   string dbSshFilename() const { return baseDir_ + "/ssh"; }
    string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
    string dbStxoFilename() const { return baseDir_ + "/stxo"; }
    string dbZeroconfFilename() const { return baseDir_ + "/zeroconf"; }
    string dbSpentnessFilename() const { return baseDir_ + "/spentness"; }
 
-   string getSubSSHDBFile(uint32_t prefixLength) const;
+   string getSubSSHDBFile(uint32_t prefixLength, uint32_t depth) const;
+   string getSshShardFile(uint32_t shardId) const;
+
+   void computeSshDBConfigValues(ARMORY_DB_TYPE dbType);
 
    BinaryData genesisBlkHash_;
    BinaryData genesisTxHash_;
@@ -678,6 +686,14 @@ private:
 
    ARMORY_DB_TYPE armoryDbType_;
    DB_PRUNE_TYPE dbPruneType_;
+
+   uint32_t nShards_ = 0;
+   uint32_t subSshDepth_ = 0;
+
+   uint32_t txOutPerBatch_ = 0;
+   uint32_t txInPerBatch_ = 0;
+   uint32_t bytesPerBatch_ = 0;
+   uint32_t maxBatchBuffer_ = 0;
 
 public:
 
@@ -706,8 +722,10 @@ private:
    shared_ptr<vector<BlkFile>> blkFiles_;
    
    //sub ssh dbs
-   mutable LMDBEnv subSSHDBEnv_[SUBSSHDB_PREFIX_MAX];
-   mutable LMDB subSSHDBs_[SUBSSHDB_PREFIX_MAX];
+   mutable vector<vector<shared_ptr<LMDBEnv>>> subSSHDBEnv_;
+   mutable vector<vector<shared_ptr<LMDB>>> subSSHDBs_;
+   mutable vector<shared_ptr<LMDBEnv>> sshShardsEnv_;
+   mutable vector<shared_ptr<LMDB>> sshShardsDB_;
 };
 
 #endif
