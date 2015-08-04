@@ -155,7 +155,7 @@ public:
       return (*blkFiles_)[fnum].filesizeCumul;
    }
    
-   // find the location of the first block that is not in @p bc
+   // find the location of the first block that is not in bc
    BlockFilePosition findFirstUnrecognizedBlockHeader(
       Blockchain &bc
    ) 
@@ -1655,14 +1655,18 @@ void BlockDataManager_LevelDB::loadBlockData(
    );
 
    uint64_t totalOffset=0;
+   BinaryData blockHash;
    
    const auto blockCallback
-      = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, uint32_t blksize)
+      = [&] (const BinaryData &blockdata, const BlockFilePosition &pos, 
+             uint32_t blksize)
       {
          LMDBEnv::Transaction (iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
          BinaryRefReader brr(blockdata);
-         addRawBlockToDB(brr, pos.first, pos.second, updateDupID);
+         BinaryData bh = addRawBlockToDB(brr, pos.first, pos.second, updateDupID);
+         if (bh.getSize() == 32)
+            blockHash = bh;
          
          totalOffset += blksize;
          progfilter.advance(
@@ -1673,8 +1677,16 @@ void BlockDataManager_LevelDB::loadBlockData(
    LOGINFO << "Loading block data... file "
       << blkDataPosition_.first << " offset " << blkDataPosition_.second;
    blkDataPosition_ = readBlockHeaders_->readRawBlocks(iface_,
-      blkDataPosition_, stopAt, blockCallback
-   );
+      blkDataPosition_, stopAt, blockCallback);
+
+   if (blockHash.getSize() == 32)
+   {
+      LMDBEnv::Transaction tx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
+      StoredDBInfo sdbi;
+      iface_->getStoredDBInfo(SSH, sdbi);
+      sdbi.topBlkHash_ = blockHash;
+      iface_->putStoredDBInfo(SSH, sdbi);
+   }
 }
 
 uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
@@ -1905,11 +1917,12 @@ bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
    
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
-void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
+BinaryData BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    uint16_t fnum, uint64_t offset, bool updateDupID, bool force)
 {
    SCOPED_TIMER("addRawBlockToDB");
 
+   BinaryData blockHash;
    BinaryDataRef first4 = brr.get_BinaryDataRef(4);
 
    // Skip magic bytes and block sz if exist, put ptr at beginning of header
@@ -1971,7 +1984,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
       catch (range_error&)
       {
          LOGWARN << "Header not on main chain, skiping addRawBlockToDB"; 
-         return;
+         return BinaryData();
       }
 
       sbh.blockHeight_ = bh->getBlockHeight();
@@ -1984,7 +1997,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
       if (sbh.blockHeight_ == UINT32_MAX || sbh.duplicateID_ == UINT8_MAX)
       {
          LOGWARN << "Header not on main chain, skiping addRawBlockToDB";
-         return;
+         return BinaryData();
       }
 
       //make sure this block is not already in the DB
@@ -1992,10 +2005,11 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
       if (valRef.getSize() > 0 && !force)
       {
          LOGWARN << "Block is already in BLKDATA, skipping addRawBlockToDB";
-         return;
+         return BinaryData();
       }
 
       iface_->putStoredHeader(sbh, fnum, offset, true, updateDupID, true);
+      blockHash = bh->getThisHash();
    }
    else
    {
@@ -2006,14 +2020,21 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
       }
       catch (BlockDeserializingException &)
       {
-         return;
+         return BinaryData();
       }*/
 
-      auto getBH = [this](const BinaryData& hash)->const BlockHeader&
-      { return this->blockchain_.getHeaderByHash(hash); };
+      auto getBH = [&blockHash, this](const BinaryData& hash)->const BlockHeader&
+      { 
+         const BlockHeader& bh = this->blockchain_.getHeaderByHash(hash); 
+         if (bh.isMainBranch())
+            blockHash = hash;
+         return bh;
+      };
       
       iface_->putRawBlockData(brr, fnum, offset, getBH);
    }
+
+   return blockHash;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

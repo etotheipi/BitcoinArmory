@@ -247,7 +247,7 @@ private:
    
    void deleteHistories(void);
 
-   void addRawBlockToDB(BinaryRefReader & brr, 
+   BinaryData addRawBlockToDB(BinaryRefReader & brr, 
       uint16_t fnum, uint64_t offset, bool updateDupID = true, 
       bool force = false);
    uint32_t findFirstBlockToScan(void);
