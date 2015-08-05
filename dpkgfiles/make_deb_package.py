@@ -107,7 +107,7 @@ cd('..')
 execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir_)
-shutil.copytree(origDir, pkgdir)
+shutil.copytree(origDir, pkgdir, ignore=shutil.ignore_patterns('depends'))
 
 faketimePath = find('libfaketime.so.1', '/usr/lib')
 faketimeVars = 'export LD_PRELOAD=%s; export FAKETIME="2013-06-01 00:00:00";' % faketimePath
