@@ -69,3 +69,4 @@ osxbuild/env
 /armory_*_raspbian-armhf*
 
 /dpkgfiles/control
+/dpkgfiles/rules
