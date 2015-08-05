@@ -12,6 +12,13 @@
 #include <list>
 #include <vector>
 #include <set>
+#ifdef __APPLE__
+#ifdef TARGET_OS_MAC
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+#endif
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
@@ -4039,16 +4046,25 @@ void LMDBBlockDatabase::computeSshDBConfigValues(ARMORY_DB_TYPE dbType)
 ////////////////////////////////////////////////////////////////////////////////
 size_t LMDBBlockDatabase::getTotalSystemMemory()
 {
+   size_t retMem;
 #ifndef WIN32
+#ifdef __APPLE__
+#ifdef TARGET_OS_MAC
+   size_t len = sizeof(mem);
+   sysctlbyname("hw.memsize", (uint64_t)&retMem, &len, NULL, 0);
+#endif
+#else
    long pages = sysconf(_SC_PHYS_PAGES);
    long page_size = sysconf(_SC_PAGE_SIZE);
-   return pages * page_size;
+   retMem = pages * page_size;
+#endif
 #else
    MEMORYSTATUSEX status;
    status.dwLength = sizeof(status);
    GlobalMemoryStatusEx(&status);
-   return status.ullTotalPhys;
+   retMem = status.ullTotalPhys;
 #endif
+   return retMem;
 }
 
 /*
