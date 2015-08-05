@@ -9,11 +9,15 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+export DEB_CPPFLAGS_MAINT_STRIP=-Wdate-time
+
 %:
 	dh $@ --with autoreconf
 
 override_dh_auto_configure:
 	dh_auto_configure -- --enable-static-link
+
+override_dh_auto_clean:
 
 override_dh_auto_build:
 	make PYVER=python2.7
