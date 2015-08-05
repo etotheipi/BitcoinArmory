@@ -2517,7 +2517,7 @@ void BlockBatchProcessor::writeThread()
          commitedId_.fetch_add(1, memory_order_release);
 
          commitObject->writeTime_ = clock() - commitObject->writeTime_;
-         commitObject->processor_->adjustThreadCount(commitObject);
+         //commitObject->processor_->adjustThreadCount(commitObject);
 
          thread cleanup(cleanUpThread, commitObject);
          if (cleanup.joinable())
@@ -2600,6 +2600,8 @@ void BlockBatchProcessor::adjustThreadCount(
    if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
    {
       newReaderCount = totalThreadCount / 5;
+      if (newReaderCount < 1)
+         newReaderCount = 1;
       newWorkerCount = totalThreadCount;
       newWriterCount = totalThreadCount;
    }
