@@ -70,7 +70,7 @@ class PluginObject(object):
 
          # Decode the PR and confirm that it's valid.
          # NB: The text below is a Base58 form of PR1_v1. TEST PURPOSES ONLY!!!
-         self.payReqTextArea.setText('FkWcQucpgf82CxRUhJWZ5mRRNuwhopXSqtf7jLhaNRLUHg4nKthtSwWfVWSXnWBaFGy7qoh42JAyLWCgczxUjFbxs3CuSeHnxAbg8Hxj6vB3xASUJ7A9kqPcRVVJeW4gh7BRFpBhiRLjB')
+         self.payReqTextArea.setText('h858t6j6fEGK7jMpGDV4mPQVAbX4xM4HnSRsYiXH5awbK2wYi3NXPEaLrqepQK3qmEm6sAepUaEiG5DZcfDLWuv1BstHsrjaAkdeYWY1tFkDhPknb6A3tgatSdm')
          prRawBin = base58_to_binary(str(self.payReqTextArea.toPlainText()))
          prFinal = PaymentRequest().unserialize(prRawBin)
          if prFinal.isValid() is False:

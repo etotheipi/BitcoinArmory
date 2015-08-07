@@ -92,17 +92,16 @@ unvalidatedScript1 = hex_to_binary(
 # REMINDER: ADD A BAD UNVALIDATED SCRIPT BY REMOVING 0x14 FROM THE SCRIPT ABOVE. USE TO CREATE TESTS THAT CHECK SCRIPTS
 
 PR1_v1 = hex_to_binary(
-      "01000001 631976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13"
+      "01000001 561976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13"
       "706b7372 6563312e 62746373 686f702e 636f6d27 01012401 022060e3 739cc2c3"
-      "950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914 e1efa7f8 11e000ff 0040075a"
-      "f0750700 8d85118a")
+      "950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914 e1efa7f8 11e000")
 PR2_v1 = hex_to_binary(
-      "01000002 b81976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac19"
+      "01000002 ac1976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac19"
       "76a9145a 61ff8eb7 aaca3010 db97ebda 76121610 b7809688 ac13706b 73726563"
       "312e6274 6373686f 702e636f 6d13706b 73726563 312e6274 6373686f 702e636f"
       "6d270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0"
       "a914e1ef a7f811e0 00270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13"
-      "b996d0f7 a45623d0 a914e1ef a7f811e0 00fe00e1 f505fd36 15ee3e07 6f")
+      "b996d0f7 a45623d0 a914e1ef a7f811e0 00")
 
 # Valid PMTA serializations including previously used, valid PKS and CS records. ADD DATA TYPE
 PMTA_PKS1Chksum_Uncomp_v1 = hex_to_binary(
@@ -344,24 +343,18 @@ class PRClassTests(unittest.TestCase):
       srp1.initialize([pkrp1])
 
       # 1 TxOut script.
-      satoshi1Amt = 2100000000000000 # 0xFF000775F05A074000
       pr1 = PaymentRequest()
-      pr1.initialize([unvalidatedScript1], [daneName1], [srp1.serialize()],
-                     [satoshi1Amt])
+      pr1.initialize([unvalidatedScript1], [daneName1], [srp1.serialize()])
       stringPR1 = pr1.serialize()
       self.assertEqual(binary_to_hex(stringPR1),
                        binary_to_hex(PR1_v1))
 
-      # 2 TxOut scripts. Both scripts are the same except for the payment
-      # amounts. This test just confirms that the serialization code works for
-      # multiple TxOut scripts.
-      satoshi2Amt = 100000000  # 0xFE05F5E100
-      satoshi3Amt = 5430 # 0xFD1536
+      # 2 TxOut scripts. Both scripts are the same. This test just confirms that
+      # the serialization code works for multiple TxOut scripts.
       pr2 = PaymentRequest()
       pr2.initialize([unvalidatedScript1, unvalidatedScript1],
                      [daneName1, daneName1],
-                     [srp1.serialize(), srp1.serialize()],
-                     [satoshi2Amt, satoshi3Amt])
+                     [srp1.serialize(), srp1.serialize()])
       stringPR2 = pr2.serialize()
       self.assertEqual(binary_to_hex(stringPR2),
                        binary_to_hex(PR2_v1))

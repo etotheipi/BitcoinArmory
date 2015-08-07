@@ -1255,17 +1255,14 @@ class PaymentRequest(object):
       self.unvalidatedScripts = None
       self.daneReqNames       = None
       self.srpList            = None
-      self.satoshiList        = None
-      self.checksum           = None
 
 
    #############################################################################
    @VerifyArgTypes(unvalidatedScripts = [VAR_STR],
                    daneReqNames       = [VAR_STR],
                    srpList            = [VAR_STR],
-                   satoshiList        = [VAR_INT],
                    ver                = int)
-   def initialize(self, unvalidatedScripts, daneReqNames, srpList, satoshiList,
+   def initialize(self, unvalidatedScripts, daneReqNames, srpList,
                   ver=BTCAID_PR_VERSION):
       """
       Set all PR values.
@@ -1276,26 +1273,17 @@ class PaymentRequest(object):
       self.unvalidatedScripts = unvalidatedScripts
       self.daneReqNames       = daneReqNames
       self.srpList            = srpList
-      self.satoshiList        = satoshiList
 
       # Set the request size.
-      for w in unvalidatedScripts:
-         self.reqSize += packVarInt(self.numTxOutScripts)[1]
-         self.reqSize += len(w)
-      for x in daneReqNames:
+      for x in unvalidatedScripts:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(x)
-      for y in srpList:
+      for y in daneReqNames:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(y)
-      for z in satoshiList:
-         self.reqSize += packVarInt(z)[1]
-      self.reqSize += 4
-
-      # Get a data string that can be used to calculate the checksum.
-      bp = BinaryPacker()
-      dataStr = self.getDataNoChecksum()
-      self.checksum = hash256(dataStr)[:4]
+      for z in srpList:
+         self.reqSize += packVarInt(self.numTxOutScripts)[1]
+         self.reqSize += len(z)
 
 
    #############################################################################
@@ -1321,7 +1309,7 @@ class PaymentRequest(object):
 
 
    #############################################################################
-   def getDataNoChecksum(self):
+   def serialize(self):
       flags = BitSet(16)
 
       bp = BinaryPacker()
@@ -1338,22 +1326,6 @@ class PaymentRequest(object):
       for srpItem in self.srpList:
          bp.put(VAR_INT, len(srpItem), width = 1)
          bp.put(BINARY_CHUNK, srpItem)
-      for satoshiItem in self.satoshiList:
-         bp.put(VAR_INT, satoshiItem)
-
-      return bp.getBinaryString()
-
-
-   #############################################################################
-   def serialize(self):
-      # Get everything except the checksum.
-      bp = BinaryPacker()
-      dataStr = self.getDataNoChecksum()
-      bp.put(BINARY_CHUNK, dataStr)
-
-      # Place a checksum in the data.
-      checksum4 = hash256(dataStr)[:4]
-      bp.put(BINARY_CHUNK, checksum4)
 
       return bp.getBinaryString()
 
@@ -1363,7 +1335,6 @@ class PaymentRequest(object):
       unvalidatedScripts = []
       daneReqNames       = []
       srpList            = []
-      satoshiList        = []
 
       bu                 = makeBinaryUnpacker(serData)
       inVer              = bu.get(UINT8)
@@ -1383,18 +1354,11 @@ class PaymentRequest(object):
       for m in range(0, inNumTxOutScripts):
          nextSRPItem = bu.get(VAR_STR)
          srpList.append(nextSRPItem)
-      for n in range(0, inNumTxOutScripts):
-         nextSatoshiVal = bu.get(VAR_INT)
-         satoshiList.append(nextSatoshiVal)
 
-      # Ignore the checksum. Instead, go straight to creating a new PR object.
-      # The checksum will be re-calculated as a possible corruption check (i.e.,
-      # compare the original PR to the new PR.)
       self.__init__()
       self.initialize(unvalidatedScripts,
                       daneReqNames,
                       srpList,
-                      satoshiList,
                       inVer)
 
       return self
