@@ -5,6 +5,7 @@ import shutil
 import platform
 import time
 import argparse
+import glob
 from hashlib import sha256
 from subprocess import Popen, PIPE
 
@@ -114,7 +115,9 @@ faketimeVars = 'export LD_PRELOAD=%s; export FAKETIME="2013-06-01 00:00:00";' % 
 
 execAndWait('%s tar -zcf %s.tar.gz %s' % (faketimeVars, pkgdir, pkgdir))
 cd(pkgdir)
-execAndWait('%s export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % (faketimeVars, pkgdir))
+# piping yes into dh_make causes us to automatically move past the prompt
+# to verify that the data is what we expect it to be
+execAndWait('%s export DEBFULLNAME="Armory Technologies, Inc."; yes | dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % (faketimeVars, pkgdir))
 for f in dpkgfiles:
    execAndWait('%s cp dpkgfiles/%s debian/%s' % (faketimeVars, f, f))
 
@@ -123,114 +126,45 @@ execAndWait('%s pdebuild --pbuilder cowbuilder --use-pdebuild-internal --archite
 
 # Download deb packages of dependencies for offline bundle
 if args.depends:
-    cd('..')
+    cd('dpkgfiles')
+    execAndWait('mkdir packages')
+    cd('packages')
+    # apt/dpkg require a lot of specific directories/files to function
+    execAndWait('mkdir parts')
+    execAndWait('mkdir -p var/lib/apt/lists/partial')
+    execAndWait('mkdir -p var/cache/apt/archives/partial')
+    execAndWait('mkdir -p var/lib/dpkg')
+    execAndWait('touch var/lib/dpkg/status')
+    # remove any debs left over from last time, because this is just our
+    # temporary working directory
+    execAndWait('rm -f *.deb')
+
+    depends = ['libqt4-designer', 'libqt4-help', 'libqt4-scripttools',
+            'libqt4-test', 'libqtassistantclient4', 'libqtwebkit4',
+            'python-psutil', 'python-pyasn1', 'python-qt4', 'python-sip',
+            'python-twisted', 'python-twisted-conch', 'python-twisted-lore',
+            'python-twisted-mail', 'python-twisted-news',
+            'python-twisted-runner', 'python-twisted-words']
+    execAndWait('apt-get -c etc/apt.conf update')
+    for deb in depends:
+        execAndWait('apt-get -c etc/apt.conf download %s:%s' % (deb, arch))
+    
+    print 'All dependency debs were downloaded'
+    packageDir = pwd()
+    cd('../..')
     execAndWait('mkdir armory-offline-debs')
     cd('armory-offline-debs')
-    libqt4Designer = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/q/qt4-x11/libqt4-designer_4.8.1-0ubuntu4.8_%s.deb' % arch,
-            'sha256sumamd64': '6bcfdd045a042ca67598da09b149f8a538da06f988b253ee8ad77ebb2c25c684',
-            'sha256sumi386': '3187602fe2caffe8b99ec25afea31e3124fb0b673776e2c6fc7ecf34a9472550'
-    }
-    libqt4Help = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/q/qt4-x11/libqt4-help_4.8.1-0ubuntu4.8_%s.deb' % arch,
-            'sha256sumamd64': '0750806746c700214aa0ec9919e54a3e79040b1ba69dcffd9ddf064fd8d7896b',
-            'sha256sumi386': '2f62648fe1b6e7598c45cfb937eb732e3d8c9fade9515a3bc774971c212b0e93'
-    }
-    libqt4Scripttools = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/q/qt4-x11/libqt4-scripttools_4.8.1-0ubuntu4.8_%s.deb' % arch,
-            'sha256sumamd64': 'a2f7979ed82127074f23097969396e77e27d078ceb2ded9f04f2f643d4569a4e',
-            'sha256sumi386': 'c3e5745afa9a11689498782f77b7e7a60989edced28120ee63822c246ffe6b72'
-    }
-    libqt4Test = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/q/qt4-x11/libqt4-test_4.8.1-0ubuntu4.8_%s.deb' % arch,
-            'sha256sumamd64': '28a2c091958c674045d5a0db0be2517e272b70ee597b08ad7d00e442e7052653',
-            'sha256sumi386': '9b9af35d6f2cf0c7a83bff7e509b5451aa6764be23a5679f7ddbd8cd31f90986'
-    }
-    libqtassistantclient4 = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/q/qt-assistant-compat/libqtassistantclient4_4.6.3-3ubuntu2_%s.deb' % arch,
-            'sha256sumamd64': '7eefa219cf83ab2eaa2feb84c25a29b9708aa461a7cea581b14a7a1a20d243b4',
-            'sha256sumi386': 'dc7e4828bb4468ebf8694acf886c63a253be65bf65df07fd507fe5bb6a040953'
-    }
-    libqtwebkit4 = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/q/qtwebkit-source/libqtwebkit4_2.2.1-1ubuntu4_%s.deb' % arch,
-            'sha256sumamd64': 'f34556c72a69cbd5b9153b8a74cecdafa43029d916fb64504783fdef8b8a7e83',
-            'sha256sumi386': '288a47e75800969c28bdcd384821985c3d105ac61a912199125b1400d9f383e0'
-    }
-    pythonPsutil = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/universe/p/python-psutil/python-psutil_0.4.1-1ubuntu1_%s.deb' % arch,
-            'sha256sumamd64': '73c2534493ce3aa366d93a70b1758b5f39325f63057b0085135f102c3520b194',
-            'sha256sumi386': 'aa32bc47812e58b74477242fe87a4156c3f7a71d72a4b88a93e437a951f8d085'
-    }
-    pythonPyasn1 = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/p/pyasn1/python-pyasn1_0.0.11a-1ubuntu1_all.deb',
-            'sha256sumamd64': '89cf843ccce0845b69716f8612422af8b4e566d128c407031cb0560f237f5dc8',
-            'sha256sumi386': '89cf843ccce0845b69716f8612422af8b4e566d128c407031cb0560f237f5dc8'
-    }
-    pythonQt4 = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/p/python-qt4/python-qt4_4.9.1-2ubuntu1_%s.deb' % arch,
-            'sha256sumamd64': '0c828a4a9da29f2dd7954af47dc2376075a28eb6179c644bd6f59cc85317109e',
-            'sha256sumi386': 'b764bed5f987c9512a38569838876be8d1b46a91c487b56f075a049c147b7de2'
-    }
-    pythonSip = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/s/sip4/python-sip_4.13.2-1_%s.deb' % arch,
-            'sha256sumamd64': '76d8184c8e2ed97f1520cc9478c80143b603bcefd7b538652b784ab02dbd4b07',
-            'sha256sumi386': '4051a770745e18953a993409eedb23b8cce2d1cba67105e52da1717f4dd533fc'
-    }
-    pythonTwisted = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted/python-twisted_11.1.0-1ubuntu2_all.deb',
-            'sha256sumamd64': '680b6e4b5d1267c8d055c845129c379f9ab47f1c5e0d589266b5432317c627c7',
-            'sha256sumi386': '680b6e4b5d1267c8d055c845129c379f9ab47f1c5e0d589266b5432317c627c7'
-    }
-    pythonTwistedConch = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted-conch/python-twisted-conch_11.1.0-1_all.deb',
-            'sha256sumamd64': '222edf6328c8a6de721a47e1743f0a552dc18b582ffb5592e35a46c1b92a301e',
-            'sha256sumi386': '222edf6328c8a6de721a47e1743f0a552dc18b582ffb5592e35a46c1b92a301e'
-    }
-    pythonTwistedLore = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted-lore/python-twisted-lore_11.1.0-1_all.deb',
-            'sha256sumamd64': '1a6412eb813f1043df25a29ac586385baa672b8b8d0b2d1463c76ae85ee3a7f3',
-            'sha256sumi386': '1a6412eb813f1043df25a29ac586385baa672b8b8d0b2d1463c76ae85ee3a7f3'
-    }
-    pythonTwistedMail = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted-mail/python-twisted-mail_11.1.0-1_all.deb',
-            'sha256sumamd64': '9ec78d0a31f1e7a6abb0b768da4cb17b7488e9213d682dc49da63f101783fb21',
-            'sha256sumi386': '9ec78d0a31f1e7a6abb0b768da4cb17b7488e9213d682dc49da63f101783fb21'
-    }
-    pythonTwistedNews = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted-news/python-twisted-news_11.1.0-1_all.deb',
-            'sha256sumamd64': '1f54c0051aeb62941d156a739c7d72ac824c64121da57148aba25f5eac4520b7',
-            'sha256sumi386': '1f54c0051aeb62941d156a739c7d72ac824c64121da57148aba25f5eac4520b7'
-    }
-    pythonTwistedRunner = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted-runner/python-twisted-runner_11.1.0-1_%s.deb' % arch,
-            'sha256sumamd64': '7ccdb539b0a9b7b7f0d50c4c64ba253d7b3f93a96404d1f2c445d8d2057916f7',
-            'sha256sumi386': '7ccdb539b0a9b7b7f0d50c4c64ba253d7b3f93a96404d1f2c445d8d2057916f7'
-    }
-    pythonTwistedWords = {
-            'url': 'http://mirrors.kernel.org/ubuntu/pool/main/t/twisted-words/python-twisted-words_11.1.0-1_all.deb',
-            'sha256sumamd64': 'e6a740c4937db0940e109636c773d8dc2049faaa856001480a501c1fcca7d8c8',
-            'sha256sumi386': 'e6a740c4937db0940e109636c773d8dc2049faaa856001480a501c1fcca7d8c8'
-    }
-    depends = [libqt4Designer, libqt4Help, libqt4Scripttools, libqt4Test,
-            libqtassistantclient4, libqtwebkit4, pythonPsutil, pythonPyasn1,
-            pythonQt4, pythonSip, pythonTwisted, pythonTwistedConch,
-            pythonTwistedLore, pythonTwistedMail, pythonTwistedNews,
-            pythonTwistedRunner, pythonTwistedWords]
-    for deb in depends:
-        fname = deb['url'].rsplit('/', 1)[1]
-        execAndWait('rm -f %s' % fname)
-        execAndWait('wget %s' % deb['url'])
-        if sha256sum(fname) == deb['sha256sum%s' % arch]:
-            print '%s was downloaded and verified successfully' % fname
-        else:
-            execAndWait('rm -f %s' % fname)
-            print '%s was not verified successfully' % fname
-            print 'Exiting due to verification error'
-            exit(1)
-    print 'All dependency debs were successfully downloaded and verified'
+    # clear out all packages except for those of the arch we aren't building
+    # because we will be copying over those that are all and those that are
+    # of the arch we are building
+    execAndWait('rm -f *{all,%s}.deb' % arch)
+    for f in glob.glob(os.path.join(packageDir, '*.deb')):
+       shutil.copy(f, '.')
     cd('..')
     execAndWait('mkdir OfflineBundle')
     execAndWait('cp armory-build/armory-build %s-1_%s.deb OfflineBundle' % (pkgdir_, arch))
+    # we just want to copy over the all packages and those for the arch we
+    # are building
     execAndWait('cp armory-offline-debs/*{all,%s}.deb OfflineBundle' % arch)
     execAndWait('tar -zcvf %s_offline_ubuntu-%s.tar.gz OfflineBundle' % (pkgdir_, args.bitness))
 

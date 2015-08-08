@@ -70,3 +70,5 @@ osxbuild/env
 
 /dpkgfiles/control
 /dpkgfiles/rules
+/dpkgfiles/packages/*
+!/dpkgfiles/packages/etc/
