@@ -13,12 +13,13 @@ from qtdefines import * #@UnusedWildImport
 
 from armoryengine.ArmoryOptions import *
 from armoryengine.BDM import getBDM
-from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
+from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType,\
+   reorderInputsAndOutputs
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees, \
    calcMinSuggestedFeesHackMS, PyUnspentTxOut
 from armoryengine.MultiSigUtils import calcLockboxID, readLockboxEntryStr, \
-   createLockboxEntryStr, isBareLockbox, isP2SHLockbox
+   createLockboxEntryStr, isBareLockbox, isP2SHLockbox, isMofNNonStandardToSpend
 
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
  
