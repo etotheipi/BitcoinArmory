@@ -136,5 +136,8 @@ case $host in
         ;;
 esac
 
+dnl if necessary, check for clock_gettime in librt and add it to LIBS
+AC_SEARCH_LIBS([clock_gettime], [rt])
+
 AC_CONFIG_FILES([Makefile cppForSwig/Makefile])
 AC_OUTPUT
