@@ -3,16 +3,14 @@
 # be injected with the globals() from ArmoryQt.py, which includes pretty
 # much all of Bitcoin & Armory related stuff that you need.  So this
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
-from PyQt4.Qt import *
-import re
-
-from armoryengine.BDM import getBDM
-from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
-   PAYNET_BTC, PAYNET_TBTC, PMTARecord
-from qtdefines import *
-from qtdialogs import DlgSendBitcoins, DlgWalletSelect
+from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
+   QTextEdit
+from qtdefines import QRichLabel, makeVertFrame, makeHorizFrame, GETFONT, \
+   relaxedSizeNChar, VERTICAL
 from ui.WalletFrames import SelectWalletFrame
-
+import re
+from armoryengine.BDM import getBDM
+from armoryengine.ArmoryOptions import getTestnetFlag
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
@@ -30,16 +28,9 @@ class PluginObject(object):
       # Set up the GUI.
       headerLabel    = QRichLabel(tr("<b>PMTA-related Functions</b>"""),
                                   doWrap=False)
-
-      def selectWalletAction():
-         self.selectWallet()
-            
-
-      self.btnWltSelect = QPushButton("Choose wallet")
-      self.main.connect(self.btnWltSelect, SIGNAL(CLICKED), selectWalletAction)
-      
-      self.selectedWltDisplay = QLabel('<No Wallet Selected>')
-      
+      addressLabel = QLabel('Choose wallet:')
+      self.frmSelectedWlt = SelectWalletFrame(main, main, VERTICAL,
+                                              selectWltCallback=self.setWallet)
       self.pksButton      = QPushButton('Save PKS Record')
       self.pmtaButton     = QPushButton('Save PMTA Record')
       self.payReqButton   = QPushButton('Payment Request')
@@ -114,7 +105,7 @@ class PluginObject(object):
                dlgInfo['address'] = \
                                 script_to_addrStr(prFinal.unvalidatedScripts[t])
             DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
-      
+
       # Action for when the add DNS wallet ID button is pressed.
       def addIDAction():
          # str() used so that we save the text to a file.
@@ -194,8 +185,9 @@ class PluginObject(object):
       # Create the frame and set the scrollarea widget to the layout.
       # self.tabToDisplay is required by the plugin framework.
       pluginFrame = makeVertFrame([headerLabel,
-                                   makeHorizFrame([self.btnWltSelect,
-                                                   self.selectedWltDisplay,
+                                   makeHorizFrame([addressLabel,
+                                                   'Stretch']),
+                                   makeHorizFrame([self.frmSelectedWlt,
                                                    'Stretch']),
                                    makeHorizFrame([pksB58Label,
                                                    self.pksB58Line,
@@ -223,24 +215,6 @@ class PluginObject(object):
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
-      
-   def selectWallet(self):
-      dlg = DlgWalletSelect(self.main, self.main, 'Choose wallet...', '')
-      if dlg.exec_():
-         self.selectedWltID = dlg.selectedID
-         self.wlt = self.main.walletMap[dlg.selectedID]
-         self.selectedWltDisplay.setText(self.wlt.getLabel() + ' (' + \
-                                         self.wlt.uniqueIDB58 + ')')
-         wltPKS = binary_to_base58(self.getWltPKS(self.wlt).serialize())
-         self.pksB58Line.setText(wltPKS)
-
-         # If it exists, get the DNS wallet ID.
-         wltDNSID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
-         self.inID.setText(wltDNSID)
-      else:
-         self.wlt = None
-         self.selectedWltDisplay.setText('<No Wallet Selected')
-         self.pksB58Line.setText('')
 
 
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
@@ -279,8 +253,8 @@ class PluginObject(object):
             raise FileExistsError('Path for new PMTA record does not ' \
                                   'exist: %s', pathdir)
          else:
-            myPKS = self.getWltPKS(self.wlt, isStatic, useCompr, use160, isUser,
-                              isExt, chksumPres)
+            myPKS = getWltPKS(self.wlt, isStatic, useCompr, use160, isUser,
+                              isExt, sbdPubKey65.toBinStr(), chksumPres)
             # Write the PKS record to the file, then return the record.
             try:
                with open(filePath, 'wb') as newWltFile:
@@ -363,9 +337,24 @@ class PluginObject(object):
 
       return validAddr
 
+
+   # Callback function for when the user selects a wallet. Be careful, as some
+   # objects (GUI objects, most likely) aren't acceptable, probably due to the
+   # function being called before Armory is ready to be displayed.
+   def setWallet(self, wlt):
+      self.wlt = wlt
+
+      # Signal doesn't work when first called. Probably due to Armory not being
+      # fully loaded just yet. This is acceptable.
+      self.main.emit(SIGNAL(''))
+
+
    # Function called when the "bdmReadyPMTA" signal is emitted. Updates the
    # wallet balance on startup.
    def bdmReady(self):
+      # Update wallet balance
+      self.frmSelectedWlt.updateOnWalletChange()
+
       # Get the PKS record and display it as a Base58-encoded string. Used only
       # for the initial string load.
       if self.wlt is not None:
