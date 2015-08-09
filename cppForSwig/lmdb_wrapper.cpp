@@ -2006,7 +2006,7 @@ bool LMDBBlockDatabase::readRawBlockInFile(BinaryData& bd,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
-   const BinaryData& dbKey) const
+   const BinaryData& dbKey, bool verbose) const
 {
    BinaryRefReader brr;
    if (dbKey.getSize() == 4)
@@ -2017,7 +2017,7 @@ bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
 
    if (brr.getSize() == 0)
    {
-      LOGERR << "Header height&dup is not in BLKDATA";
+      if(verbose) LOGERR << "Header height&dup is not in BLKDATA";
       return false;
    }
 
@@ -2030,11 +2030,11 @@ bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool LMDBBlockDatabase::getRawBlockFromFiles(BinaryData& bd,
-   uint32_t blockHgt, uint8_t blockDup) const
+   uint32_t blockHgt, uint8_t blockDup, bool verbose) const
 {
    BinaryData blkKey = DBUtils::getBlkMetaKey(blockHgt, blockDup);
 
-   return getRawBlockFromFiles(bd, blkKey);
+   return getRawBlockFromFiles(bd, blkKey, verbose);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2107,7 +2107,7 @@ bool LMDBBlockDatabase::getStoredHeader( StoredHeader & sbh,
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
       BinaryData bd;
-      if(!getRawBlockFromFiles(bd, blockHgt, blockDup))
+      if(!getRawBlockFromFiles(bd, blockHgt, blockDup, true))
       {
          LOGERR << "Header height&dup is not in BLKDATA";
          return false;
@@ -2605,7 +2605,7 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
       BinaryData bd;
-      if (!getRawBlockFromFiles(bd, ldbKey6B.getSliceRef(0, 4)))
+      if (!getRawBlockFromFiles(bd, ldbKey6B.getSliceRef(0, 4), true))
          return Tx();
 
       BinaryRefReader brr(bd);

@@ -418,6 +418,7 @@ public:
    {
       for (int32_t i = fnum; i > -1; i--)
       {
+         LOGINFO << "reading block file " << i;
          readRawBlocksFromFile(bfa, i, 0, 
             (*blkFiles_)[i].filesize, blockDataCallback);
       }
@@ -1498,14 +1499,20 @@ void BlockDataManager_LevelDB::loadDiskState(
                iface_->getStoredDBInfo(SSH, sdbi);
                topScannedBlockHash = sdbi.topScannedBlkHash_;
 
-               try
+               if (topScannedBlockHash != BtcUtils::EmptyHash() &&
+                  topScannedBlockHash.getSize() != 0)
                {
-                  topScannedHeader =
-                     &blockchain_.getHeaderByHash(topScannedBlockHash);
+                  try
+                  {
+                     topScannedHeader =
+                        &blockchain_.getHeaderByHash(topScannedBlockHash);
+                  }
+                  catch (range_error&)
+                  {
+                  }
                }
-               catch (range_error&)
-               {
-               }
+               else
+                  topScannedHeader = &blockchain_.getGenesisBlock();
             }
 
 
@@ -1519,33 +1526,40 @@ void BlockDataManager_LevelDB::loadDiskState(
             }
          }
 
-         if (topScannedHeader->getBlockHeight() + 500 >
+
+         if (topScannedHeader->getBlockHeight() + 100 >
             topBlockHeader->getBlockHeight())
          {
-            LOGWARN << "Issue is benign, moving on";
-            //set last known blockfile position
-            BinaryData blkKey = DBUtils::getBlkMetaKey(
-               topScannedHeader->getBlockHeight(),
-               topScannedHeader->getDuplicateID());
+            try
+            {
+               //set last known blockfile position
+               BinaryData blkKey = DBUtils::getBlkMetaKey(
+                  topScannedHeader->getBlockHeight(),
+                  topScannedHeader->getDuplicateID());
 
-            LMDBEnv::Transaction blkTx(
-               iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
+               LMDBEnv::Transaction blkTx(
+                  iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
 
-            BinaryDataRef bdr = iface_->getValueNoCopy(BLKDATA, blkKey);
-            if (bdr.getSize() != 16)
-               throw runtime_error("bad block meta value");
+               BinaryDataRef bdr = iface_->getValueNoCopy(BLKDATA, blkKey);
+               if (bdr.getSize() != 16)
+                  throw runtime_error("bad block meta value");
 
-            BinaryRefReader brr(bdr);
-            uint16_t fnum = brr.get_uint32_t();
-            uint64_t offset = brr.get_uint64_t();
-            uint32_t size = brr.get_uint32_t();
+               BinaryRefReader brr(bdr);
+               uint16_t fnum = brr.get_uint32_t();
+               uint64_t offset = brr.get_uint64_t();
+               uint32_t size = brr.get_uint32_t();
 
-            blkDataPosition_.first = fnum;
-            blkDataPosition_.second = offset + size;
+               blkDataPosition_.first = fnum;
+               blkDataPosition_.second = offset + size;
 
-            blockchain_.rewind(topScannedBlockHash);
+               blockchain_.rewind(topScannedBlockHash);
 
-            break;
+               LOGWARN << "Issue is benign, moving on";
+
+               break;
+            }
+            catch (...)
+            {}
          }
 
          //attempt repair
@@ -1562,7 +1576,7 @@ void BlockDataManager_LevelDB::loadDiskState(
             uint32_t checkFrom = topScannedHeader->getBlockHeight() +1;
 
             {
-               LOGINFO << "Checking dupIDs from " << checkFrom << " onward";
+               LOGINFO << "Checking dupIDs from block " << checkFrom << " onward";
                uint8_t dupId;
                uint32_t currentTop = topBlockHeader->getBlockHeight();
                LMDBEnv::Transaction blktx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
@@ -1580,7 +1594,7 @@ void BlockDataManager_LevelDB::loadDiskState(
                   //check block data pointer in DB
                   BinaryData blockdata;
                   
-                  if (!iface_->getRawBlockFromFiles(blockdata, i, dupId))
+                  if (!iface_->getRawBlockFromFiles(blockdata, i, dupId, false))
                   {
                      missingBlocks.insert(i);
                      continue;
