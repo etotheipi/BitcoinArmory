@@ -11,10 +11,11 @@ from subprocess import Popen, PIPE
 
 def execAndWait(cli_str):
    print '*** Executing:', cli_str[:60], '...'
-   process = Popen(cli_str, shell=True)
-   while process.poll() == None:
-      time.sleep(0.5)
+   process = Popen(cli_str, shell=True, stdout=PIPE)
+   result = process.communicate()[0]
+   retval = process.returncode
    print '*** Finished executing'
+   return (result, retval)
    
 
 def dir(path='.'):
@@ -39,6 +40,20 @@ def sha256sum(fname):
     f = open(fname, 'rb')
     with f:
         return '%s' % sha256(f.read()).hexdigest()
+
+def getDepends(deb):
+    exclusions = '--no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --no-pre-depends'
+    depends, retval = execAndWait('apt-cache -c etc/apt.conf depends --recurse %s %s | grep Depends | awk \'{print $2}\'' % (exclusions, deb))
+    depends = depends.split('\n')
+    # return list of non-virtual packages
+    return [x for x in depends if x and not x[0] == '<']
+
+def getDefaultPackages():
+    desktopPackages = getDepends('ubuntu-desktop')
+    # need to read suite from sources.list instead of hardcoding precise
+    basePackages, retval = execAndWait('debootstrap --print-debs precise temp.tar.gz 2>/dev/null')
+    basePackages = basePackages.split(' ')
+    return desktopPackages + basePackages
 
 
 
@@ -139,19 +154,28 @@ if args.depends:
     # temporary working directory
     execAndWait('rm -f *.deb')
 
-    depends = ['libqt4-designer', 'libqt4-help', 'libqt4-scripttools',
-            'libqt4-test', 'libqtassistantclient4', 'libqtwebkit4',
-            'python-psutil', 'python-pyasn1', 'python-qt4', 'python-sip',
-            'python-twisted', 'python-twisted-conch', 'python-twisted-lore',
-            'python-twisted-mail', 'python-twisted-news',
-            'python-twisted-runner', 'python-twisted-words']
-    execAndWait('apt-get -c etc/apt.conf update')
+    depends = ['swig', 'libqtcore4', 'python-qt4', 'python-twisted',
+            'python-psutil']
+    result, retval = execAndWait('apt-get -c etc/apt.conf update')
+    if retval != 0:
+       print 'apt-get update returned error %d' % retval
+       exit(1)
+    recursiveDepends = []
     for deb in depends:
-        execAndWait('apt-get -c etc/apt.conf download %s:%s' % (deb, arch))
+       recursiveDepends += getDepends(deb)
+    defaultPackages = getDefaultPackages()
+    recursiveDepends = [x for x in recursiveDepends if x not in defaultPackages]
+    # Ensure recursiveDepends only has each package once
+    recursiveDepends = list(set(recursiveDepends))
+    for deb in recursiveDepends:
+        result, retval = execAndWait('apt-get -c etc/apt.conf download %s:%s' % (deb, arch))
+        if retval != 0:
+           print 'apt-get download returned error %d' % retval
+           exit(1)
     
     print 'All dependency debs were downloaded'
     packageDir = pwd()
-    cd('../..')
+    cd('../../..')
     execAndWait('mkdir armory-offline-debs')
     cd('armory-offline-debs')
     # clear out all packages except for those of the arch we aren't building
@@ -161,6 +185,7 @@ if args.depends:
     for f in glob.glob(os.path.join(packageDir, '*.deb')):
        shutil.copy(f, '.')
     cd('..')
+    execAndWait('rm -rf OfflineBundle')
     execAndWait('mkdir OfflineBundle')
     execAndWait('cp armory-build/armory-build %s-1_%s.deb OfflineBundle' % (pkgdir_, arch))
     # we just want to copy over the all packages and those for the arch we
