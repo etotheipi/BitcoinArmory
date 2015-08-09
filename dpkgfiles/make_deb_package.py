@@ -58,13 +58,16 @@ def getDefaultPackages():
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('chroot', help='name of chroot (including .cow)')
-parser.add_argument('bitness', type=int, help='32-bit or 64-bit (32 or 64)')
-parser.add_argument('static', type=int, help='boolean for static build (0 or 1)')
-parser.add_argument('depends', type=int, help='boolean for whether to include'
-        + 'prebuilt dependency deb packages or not (0 or 1)')
-parser.add_argument('build_depends', metavar='build-depends', type=int, help='boolean for whether to'
-        + 'build dependencies or not (0 or 1)')
+parser.add_argument('--chroot', type=str, default='base-reproducible.cow',
+        help='name of chroot (including .cow) (defaults base-reproducible.cow)')
+parser.add_argument('--bitness', type=int, default=64, help='32-bit or 64-bit'
+        + '(32 or 64) (defaults 64)')
+parser.add_argument('--static', action='store_true', help='boolean for static'
+        + ' build (defaults false)')
+parser.add_argument('--depends', action='store_true', help='boolean for whether'
+        + ' to include prebuilt dependency deb packages or not (defaults false)')
+parser.add_argument('--build-depends', action='store_true', help='boolean for'
+        + ' whether to build dependencies or not (defaults false)')
 args = parser.parse_args()
 
 arch = {32: 'i386', 64: 'amd64'}[args.bitness]
