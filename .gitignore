@@ -72,3 +72,4 @@ osxbuild/env
 /dpkgfiles/rules
 /dpkgfiles/packages/*
 !/dpkgfiles/packages/etc/
+/dpkgfiles/*.desktop

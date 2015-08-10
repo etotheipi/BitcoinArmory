@@ -1,5 +1,8 @@
 SUBDIRS = cppForSwig
-PREFIX = @prefix@
+desktopdir = $(datarootdir)/applications
+desktop_DATA = dpkgfiles/armory.desktop dpkgfiles/armoryoffline.desktop \
+			  dpkgfiles/armorytestnet.desktop
+CLEANFILES = $(desktop_DATA)
 
 all:
 	$(MAKE) -C cppForSwig
@@ -17,9 +20,6 @@ install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(datarootdir)/applications
 	$(MKDIR_P) $(DESTDIR)$(datarootdir)/armory/img
 	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(datarootdir)/armory/
-	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(datarootdir)/applications/armory.desktop
-	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(datarootdir)/applications/armoryoffline.desktop
-	$(SED) "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(datarootdir)/applications/armorytestnet.desktop
 
 install-exec-local:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/extras
@@ -45,6 +45,10 @@ install-exec-local:
 	cp BitTornado/*.py $(DESTDIR)$(libdir)/armory/BitTornado
 	cp BitTornado/BT1/*.py $(DESTDIR)$(libdir)/armory/BitTornado/BT1
 	cp default_bootstrap.torrent $(DESTDIR)$(libdir)/armory
+
+dpkgfiles/%.desktop: dpkgfiles/%.desktop.in Makefile
+	sed -e 's,[@]bindir[@],$(bindir),g' < $< > $@
+	chmod +x $@
 
 all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
