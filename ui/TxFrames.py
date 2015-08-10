@@ -333,7 +333,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       injecting either fancy script types, or special keywords into the 
       address field, such as a lockbox ID
       """
-      if label is not None:
+      if label:
          addr = self.wlt.getAddress(hash160_to_scrAddr(addr160))
          addr.setLabel(label)
 
