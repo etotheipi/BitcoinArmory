@@ -2,6 +2,7 @@ LINK = $(CXX)
 
 PYTHON_INCLUDES=@PYTHON_INCLUDES@
 PYTHON_LIBS=@PYTHON_LIBS@
+MLDFLAGS=@MLDFLAGS@
 
 if TARGET_LINUX
 UNAME=Linux
@@ -18,6 +19,7 @@ endif
 # Export variables to make them available to cryptopp Makefile.
 export AR
 export CXX
+export MLDFLAGS
 export RANLIB
 export UNAME
 

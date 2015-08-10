@@ -75,6 +75,7 @@ fi
 dnl Make variables available to Makefiles
 AC_SUBST(PYTHON_INCLUDES)
 AC_SUBST(PYTHON_LIBS)
+AC_SUBST(MLDFLAGS)
 
 AM_CONDITIONAL([TARGET_LINUX], [test x$TARGET_OS = xlinux])
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
@@ -109,6 +110,9 @@ AC_PROG_SED
 
 dnl Check for C++11 strict conformance mode (-std=c++11)
 AX_CXX_COMPILE_STDCXX_11([noext])
+
+dnl Check for -m flags
+AX_APPEND_LINK_FLAGS([-mpclmul -mssse3 -maes -msse4], [MLDFLAGS])
 
 dnl Check for swig
 AX_PKG_SWIG(, [], [AC_MSG_ERROR([swig is required to build])])

@@ -67,14 +67,8 @@ CXXFLAGS += -DCRYPTOPP_DISABLE_SSSE3
 else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
-else
-ifeq ($(CXX),arm-linux-gnueabihf-g++)
-CXXFLAGS +=
-else
-CXXFLAGS += -mpclmul -mssse3 -maes -msse4
 endif
-
-endif
+CXXFLAGS += $(MLDFLAGS) # -mpclmul -mssse3 -maes -msse4 if compiler supports it
 
 endif
 ifeq ($(UNAME),SunOS)
