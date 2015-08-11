@@ -3,20 +3,18 @@
 # be injected with the globals() from ArmoryQt.py, which includes pretty
 # much all of Bitcoin & Armory related stuff that you need.  So this
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
-from PyQt4.Qt import *
-import re
-
+from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
+   QTextEdit
 from armoryengine.BDM import getBDM
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord
-from qtdefines import *
 from qtdialogs import DlgSendBitcoins, DlgWalletSelect
 from ui.WalletFrames import SelectWalletFrame
-
+import re
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
-   tabName = 'PMTA2'
+   tabName = 'PMTA Records'
    maxVersion = '0.99'
 
    # NB: As a general rule of thumb, it's wise to not rely on access to anything
@@ -33,7 +31,6 @@ class PluginObject(object):
 
       def selectWalletAction():
          self.selectWallet()
-            
 
       self.btnWltSelect = QPushButton("Choose wallet")
       self.main.connect(self.btnWltSelect, SIGNAL(CLICKED), selectWalletAction)
@@ -63,11 +60,19 @@ class PluginObject(object):
 
       # Action for when the PKS button is pressed.
       def pksAction():
-         self.savePKSFile()
+         if self.wlt != None:
+            self.savePKSFile()
+         else:
+            QMessageBox.warning(self.main, 'No Wallet Chosen',
+                                'Please choose a wallet.', QMessageBox.Ok)
 
       # Action for when the PMTA button is pressed.
       def pmtaAction():
-         self.savePMTAFile()
+         if self.wlt != None:
+            self.savePMTAFile()
+         else:
+            QMessageBox.warning(self.main, 'No Wallet Chosen',
+                                'Please choose a wallet.', QMessageBox.Ok)
 
       # Action for when the payment request button is pressed.
       def prAction():
@@ -96,19 +101,12 @@ class PluginObject(object):
             # 2b) If we don't get a DNS record, just use the unvalidated info.
             #     (In a prod env, the user would have an option. For now....)
             #  3) Generate a "Send Bitcoins" dialog using the appropriate info.
-
+            #
             # FOR NOW, DNS IS IGNORED. COME BACK LATER.
-
+            #
             # For now, this ONLY SUPPORTS ONE TxOut! Hacks may be required to
             # support multiple outputs. The nature of said hacks is TBD. Until
             # then, only the final TxOut will be seen.
-            #
-            # Also, there appears to be a bug in Armory SW. In dns-demo, you can
-            # set the address in the "Send Bitcoins" dialog. Here, you can't.
-            # The failure appears to originate in the SendBitcoinsFrame class.
-            # makeRecipFrame() is apparently supposed to grab an address and
-            # pass it along somehow. Instead, createAddressEntryWidgets
-            # (ArmoryQt.py) has an empty initString var, which causes a failure.
             dlgInfo = {}
             for t in range(0, prFinal.numTxOutScripts):
                dlgInfo['address'] = \
@@ -158,7 +156,6 @@ class PluginObject(object):
                                 'The exportable DNS ID for wallet %s is %s' %
                                 (self.wlt.uniqueIDB58, expStr),
                                 QMessageBox.Ok)
-
 
       # Action for when the clear text button is pressed.
       def clearTextArea():
@@ -223,7 +220,12 @@ class PluginObject(object):
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
-      
+
+
+   # Callback function for when the wallet selection button is clicked.
+   # INPUT:  None
+   # OUTPUT: None
+   # RETURN: None
    def selectWallet(self):
       dlg = DlgWalletSelect(self.main, self.main, 'Choose wallet...', '')
       if dlg.exec_():
@@ -239,7 +241,7 @@ class PluginObject(object):
          self.inID.setText(wltDNSID)
       else:
          self.wlt = None
-         self.selectedWltDisplay.setText('<No Wallet Selected')
+         self.selectedWltDisplay.setText('<No Wallet Selected>')
          self.pksB58Line.setText('')
 
 
@@ -362,6 +364,7 @@ class PluginObject(object):
          validAddr = False
 
       return validAddr
+
 
    # Function called when the "bdmReadyPMTA" signal is emitted. Updates the
    # wallet balance on startup.
