@@ -57,6 +57,12 @@ AC_ARG_ENABLE([debug],
     [enable_debug=$enableval],
     [enable_debug=no])
 
+# Specify Mac OS X SDK path
+AC_ARG_WITH([osx-sdk-path],
+    [AS_HELP_STRING([--with-osx-sdk-path=PATH],
+                    [specify path to OS X SDK directory])],
+    [osx_sdk_path=$withval])
+
 dnl Define variables
 AM_PATH_PYTHON([2.7])
 
@@ -135,6 +141,15 @@ case $host in
     *darwin*)
         dnl Check for sip executable and sip include path
         AX_SIP_DEVEL
+        case $build in
+            *linux*)
+                dnl Set CC and CXX as appropriate
+                CC="clang -target x86_64-apple-darwin11 -mmacosx-version-min=10.7 -isysroot $osx_sdk_path -mlinker-version=241.9"
+                CXX="clang++ -target x86_64-apple-darwin11 -mmacosx-version-min=10.7 -isysroot $osx_sdk_path -mlinker-version=241.9"
+                ;;
+            *)
+                ;;
+        esac
         ;;
     *)
         ;;

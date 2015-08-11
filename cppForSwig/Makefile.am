@@ -49,9 +49,6 @@ CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES)
 if TARGET_DARWIN
 CXXCPP += -stdlib=libc++
 LDLIBS += -lc++
-if BUILD_LINUX
-CXXCPP += -I/usr/include/c++/v1
-endif
 endif
 
 if TARGET_LINUX
