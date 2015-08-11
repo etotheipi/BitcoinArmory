@@ -4,6 +4,8 @@ desktop_DATA = dpkgfiles/armory.desktop dpkgfiles/armoryoffline.desktop \
 			  dpkgfiles/armorytestnet.desktop
 CLEANFILES = $(desktop_DATA)
 
+LANGUAGES = is
+
 ROOT_SO = _CppBlockUtils.so
 ROOT_PY = \
 	announcefetch.py armorycolors.py armoryd.py armorymodels.py \
@@ -113,6 +115,8 @@ install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(datarootdir)/applications
 	$(MKDIR_P) $(DESTDIR)$(datarootdir)/armory/img
 	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(datarootdir)/armory/
+	for i in $(LANGUAGES); do $(MKDIR_P) $(DESTDIR)$(datarootdir)/locale/$$i/LC_MESSAGES; \
+	   cp$$i.mo $(DESTDIR)$(datarootdir)/locale/$$i/LC_MESSAGES/armory.mo; done
 
 install-exec-local:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/extras
@@ -158,11 +162,17 @@ pytest: all
 
 test: gtest pytest
 
-mo: messages
-	$(MAKE) -C po mo
+po: $(patsubst %,po/%.po,$(LANGUAGES))
+mo: $(patsubst %,po/%.mo,$(LANGUAGES))
 
-messages: $(MESSAGES_PY)
-	xgettext -o po/messages.pot --from-code=UTF-8 -L Python -ktr $(MESSAGES_PY)
+po/%.po: po/messages.pot
+	msgmerge -U $@ $<
+
+po/%.mo: po/%.po po/messages.pot
+	msgfmt $< -o $@
+
+po/messages.pot: all $(MESSAGES_PY)
+	xgettext -o $@ --from-code=UTF-8 -L Python -ktr $(MESSAGES_PY)
 
 if TARGET_LINUX
 if BUILD_LINUX
