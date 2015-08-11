@@ -16,7 +16,7 @@ from ui.WalletFrames import SelectWalletFrame
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
-   tabName = 'ID Store'
+   tabName = 'Wallet ID Store'
    maxVersion = '0.99'
 
    # NB: As a general rule of thumb, it's wise to not rely on access to anything
@@ -41,11 +41,12 @@ class PluginObject(object):
          self.addWalletIDRecord()
 
       def clearIDRecordAction():
-         self.clearIDRecord()
+         self.clearUserInputs()
 
-      self.selectPKSButton = QPushButton("Select PKS from Wallet List")
-      self.enterPKSButton = QPushButton("Enter PKS")
+      self.selectPKSButton = QPushButton("Create Wallet ID Proof")
+      self.enterPKSButton = QPushButton("Enter Wallet ID Proof")
       self.addWalletIDRecordButton = QPushButton('Add Wallet ID Record')
+      self.addWalletIDRecordButton.setEnabled(False)
       self.clearButton    = QPushButton('Clear')
 
       self.main.connect(self.selectPKSButton, SIGNAL(CLICKED), selectPKSFromWalletAction)
@@ -54,10 +55,10 @@ class PluginObject(object):
       self.main.connect(self.clearButton, SIGNAL(CLICKED), clearIDRecordAction)
 
       idLabel = QLabel('Public Wallet ID: ')
-      self.inID = QLineEdit()
-      self.inID.setFont(GETFONT('Fixed'))
-      self.inID.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
-      self.inID.setAlignment(Qt.AlignLeft)
+      self.walletDNSID = QLineEdit()
+      self.walletDNSID.setFont(GETFONT('Fixed'))
+      self.walletDNSID.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
+      self.walletDNSID.setAlignment(Qt.AlignLeft)
       idTip = self.main.createToolTipWidget('An ID, in email address form, ' \
                                             'that will be associated with ' \
                                             'this wallet in a DNS record.')
@@ -69,7 +70,7 @@ class PluginObject(object):
       self.pksB58Line.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
       self.pksB58Line.setAlignment(Qt.AlignLeft)
       self.pksB58Line.setReadOnly(True)
-      pksB58Tip = self.main.createToolTipWidget('The wallet\'s PKS record, ' \
+      pksB58Tip = self.main.createToolTipWidget('The wallet\'s ID record, ' \
                                                 'Base58-encoded.')
 
       walletLabel = QLabel('Wallet Name: ')
@@ -101,7 +102,7 @@ class PluginObject(object):
                                                    self.selectedWltDisplay, 
                                                    'Stretch']),
                                    makeHorizFrame([idLabel,
-                                                   self.inID,
+                                                   self.walletDNSID,
                                                    idTip,
                                                    'Stretch']),
                                    makeHorizFrame([self.addWalletIDRecordButton,
@@ -116,7 +117,13 @@ class PluginObject(object):
    def enterPKS(self):
       dlg = DlgEnterPKS(self.main, self.main)
       if dlg.exec_():
-         self.selectedWltDisplay = "Unknown"
+         # TODO Add PKS validator
+         self.wlt = None
+         # TODO verify that no Wallet matches the string that entered
+         # before displaying unknown
+         self.selectedWltDisplay.setText("Unknown")
+         self.pksB58Line.setText(dlg.pksLineEdit.text())
+         self.addWalletIDRecordButton.setEnabled(True)
    
       
    def selectWallet(self):
@@ -130,12 +137,19 @@ class PluginObject(object):
          self.pksB58Line.setText(wltPKS)
 
          # If it exists, get the DNS wallet ID.
-         wltDNSID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
-         self.inID.setText(wltDNSID)
+         wltPublicID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
+         self.walletDNSID.setText(wltPublicID)
+         
+         self.addWalletIDRecordButton.setEnabled(True)
       else:
-         self.wlt = None
-         self.selectedWltDisplay.setText('<No Wallet Selected')
-         self.pksB58Line.setText('')
+         self.clearUserInputs()
+         self.addWalletIDRecordButton.setEnabled(False)
+
+   def clearUserInputs(self):
+      self.wlt = None
+      self.selectedWltDisplay.setText('')
+      self.pksB58Line.setText('')
+      self.walletDNSID.setText('')
 
    def showIDStoreContextMenu(self):
       menu = QMenu(self.idStoreTableView)
@@ -150,7 +164,8 @@ class PluginObject(object):
          self.deleteID(row)
                   
    def deleteID(self, idRow):
-      self.idStoreTableModel.removeID(idRow)
+      self.idStoreTableModel.removeRecord(idRow)
+
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
    # on the incoming wallet.
    # INPUT:  The wallet used to generate the PKS record (ABEK_StdWallet)
@@ -169,64 +184,43 @@ class PluginObject(object):
                        sbdPubKey65.toBinStr(), chksumPres)
       return myPKS
 
-   # Action for when the add DNS wallet ID button is pressed.
    def addWalletIDRecord(self):
-      # str() used so that we save the text to a file.
-      wltDNSID = str(self.inID.displayText())
+      wltPublicID = str(self.walletDNSID.displayText())
+      wltIDProof = str(self.pksB58Line.displayText())
+      
+      # Check for empty fields
+      if wltPublicID == '':
+         QMessageBox.warning(self.main, 'Public Wallet ID is missing',
+                             'Please enter the Public Wallet ID before adding the Wallet ID record.',
+                             QMessageBox.Ok)
 
+      elif wltIDProof == '':
+         QMessageBox.warning(self.main, 'Wallet ID Proof is missing',
+                             'Please provide the Wallet ID Proof before adding the Wallet ID record.',
+                             QMessageBox.Ok)
+         
+      elif self.idStoreTableModel.hasRecord(wltPublicID, wltIDProof):
+                  QMessageBox.warning(self.main, 'Wallet Record already Added',
+                             'This Wallet Record has already been added to the Wallet ID Store.',
+                             QMessageBox.Ok)
+                  
       # We'll allow a user to input a valid email address or enter no text at
       # all. To query DNS for a PMTA record, you must start with a string in
       # an external email address format, which is a tighter form of what's
       # allowed under RFC 822. We'll also let people enter blank text to
       # erase an address. This raises questions of how wallet IDs should be
       # handled in a production env. For now, the ID can change at will.
-      if (wltDNSID != '') and (self.validateEmailAddress(wltDNSID) == False):
+      elif (self.validateEmailAddress(wltPublicID) == False):
          QMessageBox.warning(self.main, 'Incorrect ID Formatting',
-                             'ID is not blank or in the form of an email ' \
+                             'ID not in the form of an email ' \
                              'address.',
                              QMessageBox.Ok)
       else:
-         self.main.setWltSetting(self.wlt.uniqueIDB58, 'dnsID', wltDNSID)
-         QMessageBox.information(self.main, 'ID Saved', 'ID is saved.',
-                                 QMessageBox.Ok)
-
-
-
-   # Call for when we want to save a binary PKS record to a file. By default,
-   # all PKS flags will be false.
-   # INPUT:  PKS-related flags (bool) - See armoryengine/ConstructedScript.py
-   # OUTPUT: None
-   # RETURN: Final PKS record (PKSRecord)
-   def savePKSFile(self, isStatic = False, useCompr = False, use160 = False,
-                   isUser = False, isExt = False, chksumPres = False):
-      defName = 'armory_%s.pks' % self.wlt.uniqueIDB58
-      filePath = unicode(self.main.getFileSave(defaultFilename = defName))
-      myPKS = None
-
-      if len(filePath) > 0:
-         pathdir = os.path.dirname(filePath)
-         if not os.path.exists(pathdir):
-            raise FileExistsError('Path for new PMTA record does not ' \
-                                  'exist: %s', pathdir)
-         else:
-            myPKS = self.getWltPKS(self.wlt, isStatic, useCompr, use160, isUser,
-                              isExt, chksumPres)
-            # Write the PKS record to the file, then return the record.
-            try:
-               with open(filePath, 'wb') as newWltFile:
-                  newWltFile.write(binary_to_base58(myPKS.serialize()))
-               QMessageBox.information(self.main, 'PKS File Saved',
-                                       'PKS file is saved.', QMessageBox.Ok)
-            except EnvironmentError:
-               QMessageBox.warning(self.main, 'PKS File Save Failed',
-                                   'PKS file save failed. Please check your ' \
-                                   'file system.', QMessageBox.Ok)
-               myPKS = None
-
-      return myPKS
-
-
-
+         wltName = str(self.selectedWltDisplay.text())
+         if self.wlt:
+            self.main.setWltSetting(self.wlt.uniqueIDB58, 'dnsID', wltPublicID)
+         self.idStoreTableModel.addRecord([wltPublicID, wltName, wltIDProof])
+         self.clearUserInputs()
 
    # Validate an email address. Necessary to ensure that the DNS wallet ID is
    # valid. http://www.ex-parrot.com/pdw/Mail-RFC822-Address.html is the source
@@ -256,9 +250,9 @@ class DlgEnterPKS(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgEnterPKS, self).__init__(parent, main)
 
-      pksLabel = QLabel("PKS:")
+      pksLabel = QLabel("Wallet ID Proof:")
       self.pksLineEdit = QLineEdit()
-      self.pksLineEdit.setMaxLength(32)
+      self.pksLineEdit.setMinimumWidth(300)
       pksLabel.setBuddy(self.pksLineEdit)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
@@ -272,23 +266,32 @@ class DlgEnterPKS(ArmoryDialog):
       layout.addWidget(buttonBox, 4, 0, 1, 2)
       self.setLayout(layout)
 
-      self.setWindowTitle('Enter PKS')
+      self.setWindowTitle('Enter Wallet ID Proof')
 
 IDSTORECOLS = enum('publicWalletID', 'walletLabel', 'pks')
+WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 ################################################################################
 class IDStoreDisplayModel(QAbstractTableModel):
    def __init__(self):
       super(IDStoreDisplayModel, self).__init__()
       self.idStoreList = []
+      self.loadIDStore()
       
-   def removeID(self, row):
+   def removeRecord(self, row):
       self.idStoreList.remove(self.idStoreList[row])
       self.reset()
+      self.saveIDStore()
+      
+   def addRecord(self, record):
+      self.idStoreList.append(record)
+      self.reset()
+      self.saveIDStore()
 
    def updateIDStoreList(self, idStoreList):
       self.idStoreList = []
       self.idStoreList.extend(idStoreList)
       self.reset()
+      self.saveIDStore()
 
    def rowCount(self, index=QModelIndex()):
       return len(self.idStoreList)
@@ -296,9 +299,47 @@ class IDStoreDisplayModel(QAbstractTableModel):
    def columnCount(self, index=QModelIndex()):
       return 3
 
+   # Save every cell in the table on it's own line
+   def saveIDStore(self):
+      idStoreFileName = os.path.join(getArmoryHomeDir(), WALLET_ID_STORE_FILENAME)
+      idStoreFile = open(idStoreFileName, 'w')
+      # Clear the old data
+      idStoreFile.truncate(0)
+      idStoreFieldList = []
+      for idRecord in self.idStoreList:
+         for field in idRecord:
+            idStoreFile.write(field + '\n')
+      idStoreFile.close()
+   
+   # Each line in the file is a cell in the table
+   def loadIDStore(self):
+      idStoreFileName = os.path.join(getArmoryHomeDir(), WALLET_ID_STORE_FILENAME)
+      if os.path.exists(idStoreFileName):
+         idStoreFile = open(idStoreFileName, 'r')
+         column = 0
+         row = 0
+         self.idStoreList = []
+         # put each line in it's own cell filling the table from
+         # left to right, and top to bottom
+         for line in idStoreFile:
+            if column == 0:
+               self.idStoreList.append([])
+            self.idStoreList[row].append(line[:line.index('\n')])
+            column += 1
+            if column == self.columnCount():
+               column = 0
+               row += 1
+         idStoreFile.close()
+               
+   def hasRecord(self, wltPublicID, wltIDProof):
+      for row in self.idStoreList:
+         if wltPublicID in row or wltIDProof in row:
+            return True
+      return False
+
    def data(self, index, role=Qt.DisplayRole):
       row,col = index.row(), index.column()
-      idStoreRecord = self.idStoreRecordList[row]
+      idStoreRecord = self.idStoreList[row]
       if role==Qt.DisplayRole:
          return QVariant(idStoreRecord[col])
       elif role==Qt.TextAlignmentRole:

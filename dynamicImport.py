@@ -139,7 +139,8 @@ def importModule(modulesDir, moduleName, injectLocals=None):
    sys.path = sys.path[:-1]
    currSysPath = '\x00'.join(sys.path)
 
-   print 'FIXME: HAD TO DISABLE SYS.PATH MODIFY DETECT FOR PMTA DEMO'
+   # No need to print FIXME a comment will do
+   # print 'FIXME: HAD TO DISABLE SYS.PATH MODIFY DETECT FOR PMTA DEMO'
    #if not currSysPath==prevSysPath:
       #print '***ERROR: Dynamically imported module messed with sys.path!'
       #print '        : Make sure your module does not modify sys.path'
@@ -212,7 +213,8 @@ def dynamicImportNoZip(inDir, moduleName, injectLocals=None):
    # Assume that sys.path was unmodified by the module
    sys.path = sys.path[:-1]
    currSysPath = '\x00'.join(sys.path)
-   print 'FIXME: HAD TO DISABLE SYS.PATH MODIFY DETECT FOR PMTA DEMO'
+   # No need to print FIXME a comment will do
+   # print 'FIXME: HAD TO DISABLE SYS.PATH MODIFY DETECT FOR PMTA DEMO'
    #if not currSysPath==prevSysPath:
       #print '***ERROR: Dynamically imported module messed with sys.path!'
       #print '        : Make sure your module does not modify sys.path'
