@@ -127,11 +127,12 @@ install-exec-local:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/BitTornado/BT1
 	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/urllib3/contrib
 	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/urllib3/packages/ssl_match_hostname
+	$(MKDIR_P) $(DESTDIR)$(libdir)/armory/armoryengine
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(SED) "s: /usr/lib: $(libdir):g" < dpkgfiles/armory > $(DESTDIR)$(bindir)/armory
 	chmod +x $(DESTDIR)$(bindir)/armory
 	cp $(ROOT_PY) $(ROOT_SO) README.md $(DESTDIR)$(libdir)/armory/
-	rsync -rupE armoryengine $(DESTDIR)$(libdir)/armory/
+	cp $(ARMORYENGINE_PY) $(DESTDIR)$(libdir)/armory/armoryengine
 	cp $(EXTRAS_PY) $(DESTDIR)$(libdir)/armory/extras
 	cp $(BITCOINRPC_JSONRPC_PY) $(DESTDIR)$(libdir)/armory/bitcoinrpc_jsonrpc
 	cp $(TXJSONRPC_PY) $(DESTDIR)$(libdir)/armory/txjsonrpc
