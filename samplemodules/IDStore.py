@@ -3,16 +3,15 @@
 # be injected with the globals() from ArmoryQt.py, which includes pretty
 # much all of Bitcoin & Armory related stuff that you need.  So this
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
-from PyQt4.Qt import *
+from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
+   QAbstractTableModel, QModelIndex, Qt
+from armoryengine.ConstructedScript import PublicKeySource
+from qtdefines import ArmoryDialog, enum
+from qtdialogs import DlgWalletSelect
 import re
 
-from armoryengine.BDM import getBDM
-from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
-   PAYNET_BTC, PAYNET_TBTC, PMTARecord
-from qtdefines import *
-from qtdialogs import DlgSendBitcoins, DlgWalletSelect
-from ui.WalletFrames import SelectWalletFrame
-
+IDSTORECOLS = enum('publicWalletID', 'pks')
+WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
@@ -28,15 +27,14 @@ class PluginObject(object):
       self.wlt = None
 
       # Set up the GUI.
-      headerLabel    = QRichLabel(tr("<b>ID Store</b>"""),
-                                  doWrap=False)
+      headerLabel = QRichLabel(tr("<b>ID Store</b>"""), doWrap=False)
 
       def enterPKSAction():
          self.enterPKS()
-         
+
       def selectPKSFromWalletAction():
          self.selectWallet()
-         
+
       def addWalletIDRecordAction():
          self.addWalletIDRecord()
 
@@ -62,9 +60,7 @@ class PluginObject(object):
       idTip = self.main.createToolTipWidget('An ID, in email address form, ' \
                                             'that will be associated with ' \
                                             'this wallet in a DNS record.')
-      
-      
-      self.selectedWltDisplay = QLabel('')
+
       self.pksB58Line = QLineEdit()
       self.pksB58Line.setFont(GETFONT('Fixed'))
       self.pksB58Line.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
@@ -73,8 +69,6 @@ class PluginObject(object):
       pksB58Tip = self.main.createToolTipWidget('The wallet\'s ID record, ' \
                                                 'Base58-encoded.')
 
-      walletLabel = QLabel('Wallet Name: ')
-      
       self.idStoreTableModel = IDStoreDisplayModel()
       self.idStoreTableView = QTableView()
       self.idStoreTableView.setModel(self.idStoreTableModel)
@@ -89,7 +83,7 @@ class PluginObject(object):
 
       self.idStoreTableView.customContextMenuRequested.connect(self.showIDStoreContextMenu)
       self.idStoreTableView.setContextMenuPolicy(Qt.CustomContextMenu)
-      
+
       # Create the frame and set the scrollarea widget to the layout.
       # self.tabToDisplay is required by the plugin framework.
       pluginFrame = makeVertFrame([headerLabel,
@@ -97,9 +91,6 @@ class PluginObject(object):
                                                    self.enterPKSButton,
                                                    self.pksB58Line,
                                                    pksB58Tip,
-                                                   'Stretch']),
-                                   makeHorizFrame([walletLabel,
-                                                   self.selectedWltDisplay, 
                                                    'Stretch']),
                                    makeHorizFrame([idLabel,
                                                    self.walletDNSID,
@@ -114,6 +105,7 @@ class PluginObject(object):
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(pluginFrame)
 
+
    def enterPKS(self):
       dlg = DlgEnterPKS(self.main, self.main)
       if dlg.exec_():
@@ -121,35 +113,33 @@ class PluginObject(object):
          self.wlt = None
          # TODO verify that no Wallet matches the string that entered
          # before displaying unknown
-         self.selectedWltDisplay.setText("Unknown")
          self.pksB58Line.setText(dlg.pksLineEdit.text())
          self.addWalletIDRecordButton.setEnabled(True)
-   
-      
+
+
    def selectWallet(self):
       dlg = DlgWalletSelect(self.main, self.main, 'Choose wallet...', '')
       if dlg.exec_():
          self.selectedWltID = dlg.selectedID
          self.wlt = self.main.walletMap[dlg.selectedID]
-         self.selectedWltDisplay.setText(self.wlt.getLabel() + ' (' + \
-                                         self.wlt.uniqueIDB58 + ')')
          wltPKS = binary_to_base58(self.getWltPKS(self.wlt).serialize())
          self.pksB58Line.setText(wltPKS)
 
          # If it exists, get the DNS wallet ID.
          wltPublicID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
          self.walletDNSID.setText(wltPublicID)
-         
+
          self.addWalletIDRecordButton.setEnabled(True)
       else:
          self.clearUserInputs()
          self.addWalletIDRecordButton.setEnabled(False)
 
+
    def clearUserInputs(self):
       self.wlt = None
-      self.selectedWltDisplay.setText('')
       self.pksB58Line.setText('')
       self.walletDNSID.setText('')
+
 
    def showIDStoreContextMenu(self):
       menu = QMenu(self.idStoreTableView)
@@ -159,12 +149,14 @@ class PluginObject(object):
       row = self.idStoreTableView.selectedIndexes()[0].row()
       deleteIDMenuItem = menu.addAction("Delete ID")
       action = menu.exec_(QCursor.pos())
-      
+
       if action == deleteIDMenuItem:
          self.deleteID(row)
-                  
+
+
    def deleteID(self, idRow):
       self.idStoreTableModel.removeRecord(idRow)
+
 
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
    # on the incoming wallet.
@@ -184,10 +176,11 @@ class PluginObject(object):
                        sbdPubKey65.toBinStr(), chksumPres)
       return myPKS
 
+
    def addWalletIDRecord(self):
       wltPublicID = str(self.walletDNSID.displayText())
       wltIDProof = str(self.pksB58Line.displayText())
-      
+
       # Check for empty fields
       if wltPublicID == '':
          QMessageBox.warning(self.main, 'Public Wallet ID is missing',
@@ -198,12 +191,12 @@ class PluginObject(object):
          QMessageBox.warning(self.main, 'Wallet ID Proof is missing',
                              'Please provide the Wallet ID Proof before adding the Wallet ID record.',
                              QMessageBox.Ok)
-         
+
       elif self.idStoreTableModel.hasRecord(wltPublicID, wltIDProof):
                   QMessageBox.warning(self.main, 'Wallet Record already Added',
                              'This Wallet Record has already been added to the Wallet ID Store.',
                              QMessageBox.Ok)
-                  
+
       # We'll allow a user to input a valid email address or enter no text at
       # all. To query DNS for a PMTA record, you must start with a string in
       # an external email address format, which is a tighter form of what's
@@ -216,11 +209,11 @@ class PluginObject(object):
                              'address.',
                              QMessageBox.Ok)
       else:
-         wltName = str(self.selectedWltDisplay.text())
          if self.wlt:
             self.main.setWltSetting(self.wlt.uniqueIDB58, 'dnsID', wltPublicID)
-         self.idStoreTableModel.addRecord([wltPublicID, wltName, wltIDProof])
+         self.idStoreTableModel.addRecord([wltPublicID, wltIDProof])
          self.clearUserInputs()
+
 
    # Validate an email address. Necessary to ensure that the DNS wallet ID is
    # valid. http://www.ex-parrot.com/pdw/Mail-RFC822-Address.html is the source
@@ -244,7 +237,8 @@ class PluginObject(object):
    # Function is required by the plugin framework.
    def getTabToDisplay(self):
       return self.tabToDisplay
-   
+
+
 ################################################################################
 class DlgEnterPKS(ArmoryDialog):
    def __init__(self, parent, main):
@@ -268,95 +262,112 @@ class DlgEnterPKS(ArmoryDialog):
 
       self.setWindowTitle('Enter Wallet ID Proof')
 
-IDSTORECOLS = enum('publicWalletID', 'walletLabel', 'pks')
-WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
+
 ################################################################################
 class IDStoreDisplayModel(QAbstractTableModel):
    def __init__(self):
       super(IDStoreDisplayModel, self).__init__()
-      self.idStoreList = []
+      self.idStoreList = []  # Has all the data. Pass in a 2D array.
+
+      # Load the wallet ID store. Uses SettingsFile as a way to easily parse the
+      # file.
+      self.walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                            WALLET_ID_STORE_FILENAME)
+      self.settings = SettingsFile(self.walletIDStorePath)
       self.loadIDStore()
-      
-   def removeRecord(self, row):
-      self.idStoreList.remove(self.idStoreList[row])
-      self.reset()
-      self.saveIDStore()
-      
-   def addRecord(self, record):
-      self.idStoreList.append(record)
-      self.reset()
-      self.saveIDStore()
 
-   def updateIDStoreList(self, idStoreList):
-      self.idStoreList = []
-      self.idStoreList.extend(idStoreList)
-      self.reset()
-      self.saveIDStore()
 
+### Mandatory, Qt-specific calls. ###
    def rowCount(self, index=QModelIndex()):
       return len(self.idStoreList)
 
-   def columnCount(self, index=QModelIndex()):
-      return 3
 
-   # Save every cell in the table on it's own line
-   def saveIDStore(self):
-      idStoreFileName = os.path.join(getArmoryHomeDir(), WALLET_ID_STORE_FILENAME)
-      idStoreFile = open(idStoreFileName, 'w')
-      # Clear the old data
-      idStoreFile.truncate(0)
-      idStoreFieldList = []
-      for idRecord in self.idStoreList:
-         for field in idRecord:
-            idStoreFile.write(field + '\n')
-      idStoreFile.close()
-   
-   # Each line in the file is a cell in the table
-   def loadIDStore(self):
-      idStoreFileName = os.path.join(getArmoryHomeDir(), WALLET_ID_STORE_FILENAME)
-      if os.path.exists(idStoreFileName):
-         idStoreFile = open(idStoreFileName, 'r')
-         column = 0
-         row = 0
-         self.idStoreList = []
-         # put each line in it's own cell filling the table from
-         # left to right, and top to bottom
-         for line in idStoreFile:
-            if column == 0:
-               self.idStoreList.append([])
-            self.idStoreList[row].append(line[:line.index('\n')])
-            column += 1
-            if column == self.columnCount():
-               column = 0
-               row += 1
-         idStoreFile.close()
-               
-   def hasRecord(self, wltPublicID, wltIDProof):
-      for row in self.idStoreList:
-         if wltPublicID in row or wltIDProof in row:
-            return True
-      return False
+   def columnCount(self, index=QModelIndex()):
+      return 2
+
 
    def data(self, index, role=Qt.DisplayRole):
+      retVal = QVariant()
+
       row,col = index.row(), index.column()
       idStoreRecord = self.idStoreList[row]
       if role==Qt.DisplayRole:
-         return QVariant(idStoreRecord[col])
+         retVal = QVariant(idStoreRecord[col])
       elif role==Qt.TextAlignmentRole:
-         return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
-         return QVariant(Colors.Foreground)
-      return QVariant()
+         retVal = QVariant(Colors.Foreground)
+
+      return retVal
+
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
+      retVal = QVariant()
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==IDSTORECOLS.publicWalletID: return QVariant('Public Wallet ID')
-            if section==IDSTORECOLS.walletLabel: return QVariant('Wallet Name')
-            if section==IDSTORECOLS.pks: return QVariant('Public Key Source')
+            if section==IDSTORECOLS.publicWalletID:
+               retVal = QVariant('Public Wallet ID')
+            if section==IDSTORECOLS.pks:
+               retVal = QVariant('Public Key Source')
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+            retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          else:
-            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            retVal = QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
+      return retVal
+
+
+### Armory-specific calls. ###
+   # A function that removes the data both from a particular row in a GUI and
+   # the matching entry in the ID store file.
+   # INPUT:  A row number matching the row in the GUI to remove. (int)
+   # OUTPUT: None
+   # RETURN: None
+   def removeRecord(self, row):
+      key = self.idStoreList[row][0]
+      self.idStoreList.remove(self.idStoreList[row])
+      self.reset() # Redraws the screen
+      self.settings.delete(key)
+
+
+   # A function that adds an entry to both the GUI and ID store file.
+   # INPUT:  An array with two entries: The wallet ID and the matching
+   #         Base58-encoded ID proof (PKS or CS record). ([str str])
+   # OUTPUT: None
+   # RETURN: None
+   def addRecord(self, record):
+      self.idStoreList.append(record)
+      self.reset() # Redraws the screen
+      self.settings.set(record[0], record[1])
+
+
+   # A function that loads the ID store file entries into the class and the GUI.
+   # INPUT:  None
+   # OUTPUT: None
+   # RETURN: None
+   def loadIDStore(self):
+      idDict = self.settings.getAllSettings()
+      column = 0
+      row = 0
+      self.idStoreList = []
+
+      # put each line in its own cell filling the table from left to right,
+      # and top to bottom
+      for key, value in idDict.iteritems():
+         self.idStoreList.append([key, value])
+         row += 1
+
+
+   # A function checking to see if a wallet ID or ID proof is already present.
+   # INPUT:  The wallet ID. (str)
+   #         The Base58-encoded wallet ID proof. (str)
+   # OUTPUT: None
+   # RETURN: None
+   def hasRecord(self, wltPublicID, wltIDProof):
+      retVal = False
+      for row in self.idStoreList:
+         if wltPublicID in row or wltIDProof in row:
+            retVal = True
+
+      return retVal
