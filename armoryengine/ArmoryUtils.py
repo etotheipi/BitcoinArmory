@@ -1547,9 +1547,9 @@ def _uriEncode(theStr):
 
 
 ################################################################################
-def createBitcoinURI(addr, amt=None, msg=None):
+def createBitcoinURI(addr, amt=None, msg=None, pmta=None):
    uriStr = 'bitcoin:%s' % addr
-   if amt or msg:
+   if amt or msg or pmta:
       uriStr += '?'
 
    if amt:
@@ -1560,6 +1560,13 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
    if msg:
       uriStr += 'label=%s' % _uriEncode(msg)
+
+   if (amt and pmta) or (msg and pmta):
+      uriStr += '&'
+
+   if pmta:
+#      uriStr += 'pmta=%s' % _uriEncode(pmta)
+      uriStr += 'pmta=%s' % pmta
 
    return uriStr
 

@@ -5,12 +5,15 @@
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
 from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
    QTextEdit
+from armoryengine.ArmoryUtils import parseBitcoinURI
 from armoryengine.BDM import getBDM
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord
 from qtdialogs import DlgSendBitcoins, DlgWalletSelect
 from ui.WalletFrames import SelectWalletFrame
 import re
+
+WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
@@ -56,7 +59,6 @@ class PluginObject(object):
       # we register a signal with the main thread that can be used to call an
       # associated function.
       self.main.connect(self.main, SIGNAL('bdmReadyPMTA'), self.bdmReady)
-      self.main.connect(self.main, SIGNAL('wltChangedPKS'), self.wltHasChanged)
 
       # Action for when the PKS button is pressed.
       def pksAction():
@@ -75,19 +77,19 @@ class PluginObject(object):
                                 'Please choose a wallet.', QMessageBox.Ok)
 
       # Action for when the payment request button is pressed.
+      # What we want to do is take the incoming Bitcoing URI w/ PMTA field,
+      # decode the proof, verify that it's valid (i.e., PKS/CS + PKRP/SRP =
+      # Supplied Bitcoin address), and open a pre-filled "Send Bitcoins" dialog.
+      # Verfication includes checking DNS first and then checking the Armory
+      # ID store (see the ID store plugin) if the record's not on DNS.
       def prAction():
-         # TO BE COMPLETED
-         # What we want to do is take the incoming PR Base58 string, decode it,
-         # verify that it's valid, and open a pre-filled "Send Bitcoins" dialog.
-         # Verfication includes checking DNS first and then checking the Armory
-         # ID store (see the ID store plugin) if the record's not on DNS.
-
-         # Decode the PR and confirm that it's valid.
-         # NB: The text below is a Base58 form of PR1_v1. TEST PURPOSES ONLY!!!
-         self.payReqTextArea.setText('h858t6j6fEGK7jMpGDV4mPQVAbX4xM4HnSRsYiXH5awbK2wYi3NXPEaLrqepQK3qmEm6sAepUaEiG5DZcfDLWuv1BstHsrjaAkdeYWY1tFkDhPknb6A3tgatSdm')
-         prRawBin = base58_to_binary(str(self.payReqTextArea.toPlainText()))
-         prFinal = PaymentRequest().unserialize(prRawBin)
-         if prFinal.isValid() is False:
+         # HACK: Supplying a hard-coded proof for debugging purposes.
+         # HACK: THE BASE58 DATA NEEDS TO BE REPLACED WITH A REAL PROOF!!!
+         self.payReqTextArea.setText('bitcoin:mokrWMifUTCBysucKZTZ7Uij8915VYcwWX?amount=10.5&pmta=x@x.com..aVYpkBuRQYgBf7Wn9aE8ATmYwV6b2o6jeMvj9KqQYqxkUgswNERoRYU1hSK58gDNhME6viPQYd3TvG5PaSnHbEiF72qp1')
+         uriData = parseBitcoinURI(str(self.payReqTextArea.toPlainText()))
+         pmtaData = uriData['pmta'].split('..')
+         pksFinal = PublicKeySource().unserialize(base58_to_binary(pmtaData[1]))
+         if pksFinal.isValid(False) is False:
             QMessageBox.warning(self.main, 'Invalid Payment Request',
                                 'Payment Request is invalid. Please confirm ' \
                                 'that the text is complete and not corrupted.',
@@ -98,21 +100,44 @@ class PluginObject(object):
             # unvalidated TxOut scripts listed in the record.
             #  1) Check DNS first.
             # 2a) If we get a DNS record, create TxOut using it & matching SRP.
-            # 2b) If we don't get a DNS record, just use the unvalidated info.
-            #     (In a prod env, the user would have an option. For now....)
-            #  3) Generate a "Send Bitcoins" dialog using the appropriate info.
-            #
-            # FOR NOW, DNS IS IGNORED. COME BACK LATER.
-            #
-            # For now, this ONLY SUPPORTS ONE TxOut! Hacks may be required to
-            # support multiple outputs. The nature of said hacks is TBD. Until
-            # then, only the final TxOut will be seen.
+            # 2b) If we don't get a DNS record, confirm that the received ID is
+            #     in the ID store.
+            #  3) If the ID is acceptable, apply the proof to get the final
+            #     address.
+            #  4) Confirm the derived address matches the provided address.
+            #  5) If the addresses match, generate a "Send Bitcoins" dialog
+            #     using the appropriate info.
+            resultRecord = None
+            resultType = ''
             dlgInfo = {}
-            for t in range(0, prFinal.numTxOutScripts):
-               dlgInfo['address'] = \
-                                script_to_addrStr(prFinal.unvalidatedScripts[t])
-            DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
-      
+            validRecords = True
+
+            # DNS IS IGNORED FOR NOW FOR DEBUGGING PURPOSES. COME BACK LATER.
+#            dnsResult = fetchPMTA(uriData['address'], resultRecord, resultType)
+            dnsResult = False
+            if not dnsResult:
+               # Verify that the received record matches the one in the ID
+               # store. If so, go ahead with the dialog.
+#               idFound = checkIDStore(uriData['pmta'])
+               idFound = True
+               if not idFound:
+                  validRecords = False
+
+            if validRecords:
+               # TO DO (Step 3): Derive & apply multipliers from attached PKRP.
+               # SRP would apply here if using a CS.
+
+               # TO DO (Step 4): Insert pop-up if derived address doesn't match
+               # the supplied address. Also, as a way to show this really works,
+               # insert a pop-up saying derivation worked. Wouldn't be done in a
+               # prod env either but it's great for a demo!
+
+               # TO DO (Step 5): Replace address w/ derived address as proof
+               # that everything worked out.
+               dlgInfo['address'] = uriData['address']
+               dlgInfo['amount'] = str(uriData['amount'])
+               DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
+
       # Action for when the add DNS wallet ID button is pressed.
       def addIDAction():
          # str() used so that we save the text to a file.
@@ -222,7 +247,7 @@ class PluginObject(object):
       getBDM().registerCppNotification(self.handleBDMNotification)
 
 
-   # Callback function for when the wallet selection button is clicked.
+   # Callback function for when the "Choose wallet" button is clicked.
    # INPUT:  None
    # OUTPUT: None
    # RETURN: None
@@ -367,7 +392,10 @@ class PluginObject(object):
 
 
    # Function called when the "bdmReadyPMTA" signal is emitted. Updates the
-   # wallet balance on startup.
+   # wallet balance display on startup.
+   # INPUT:  None
+   # OUTPUT: None
+   # RETURN: None
    def bdmReady(self):
       # Get the PKS record and display it as a Base58-encoded string. Used only
       # for the initial string load.
@@ -380,27 +408,60 @@ class PluginObject(object):
          self.inID.setText(wltDNSID)
 
 
-   # Function called when the "wltChangedPKS" signal is emitted. Updates the
-   # QLineEdit object showing the wallet's Base58-encoded PKS record.
-   def wltHasChanged(self):
-      if self.wlt is None:
-         self.pksB58Line.setText('')
-      else:
-         wltPKS = binary_to_base58(self.getWltPKS(self.wlt).serialize())
-         self.pksB58Line.setText(wltPKS)
-
-         # If it exists, get the DNS wallet ID.
-         wltDNSID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
-         self.inID.setText(wltDNSID)
-
-
    # Place any code here that must be executed when the BDM emits a signal. The
    # only thing we do is emit a signal so that the call updating the GUI can be
    # called by the main thread. (Qt GUI requirement, lest Armory crash due to a
-   # non-main thread updating the GUI. This updates wallet-related info.
+   # non-main thread updating the GUI.)
    def handleBDMNotification(self, action, args):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          self.main.emit(SIGNAL('bdmReadyPMTA'))
+
+
+   #############################################################################
+   # Code lifted from armoryd and mdified. Need to place in a common space....
+   # INPUT:  The ID used to search for the DNS record. (str)
+   # OUTPUT: The PKS/CS obtained from the DNS record. (PKS or CS)
+   #         A string indicating the return record type. (
+   # RETURN: Boolean indicating whether or not the DNS search succeeded.
+   def fetchPMTA(self, inAddr, resultRecord, resultType):
+      dnsSucceeded = False
+      resultRecord = None
+      resultType = ''
+      recordUser, recordDomain = inAddr.split('@', 1)
+      sha224Res = sha224(recordUser)
+      daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
+
+      # Go out and get the DANE record.
+      pmtaRecType, daneRec = getDANERecord(daneReqName)
+      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+         # HACK HACK HACK: Just assume we have a PKS record that is static and
+         # has a Hash160 value.
+         pksRec = PublicKeySource().unserialize(daneRec)
+
+         # Convert Hash160 to Bitcoin address. Make sure we get a PKS, which we
+         # won't if the checksum fails.
+         if daneRec != None and pksRec != None:
+            resultRecord = pksRec
+            resultType = 'PKS'
+         else:
+            raise InvalidDANESearchParam('PKS record is invalid.')
+
+         dnsSucceeded = True
+      else:
+         raise InvalidDANESearchParam(inAddr + " has no DANE record")
+
+      return dnsSucceeded
+
+
+   # Function that checks whether of not the wallet ID store has a given ID.
+   # INPUT:  The ID the user wishes to find. (str)
+   # OUTPUT: None
+   # RETURN: Boolean indicating whether or not the ID was found.
+   def checkIDStore(self, inRec):
+      walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                       WALLET_ID_STORE_FILENAME)
+      walletIDStore = SettingsFile(self.walletIDStorePath)
+      return walletIDStore.hasSetting(inRec.split('..')[0])
 
 
    # Function is required by the plugin framework.
