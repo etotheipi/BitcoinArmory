@@ -37,19 +37,20 @@ class PluginObject(object):
 
       self.btnWltSelect = QPushButton("Choose wallet")
       self.main.connect(self.btnWltSelect, SIGNAL(CLICKED), selectWalletAction)
-      
+
       self.selectedWltDisplay = QLabel('<No Wallet Selected>')
-      
-      self.pksButton      = QPushButton('Save PKS Record')
-      self.pmtaButton     = QPushButton('Save PMTA Record')
-      self.payReqButton   = QPushButton('Payment Request')
-      self.addIDButton    = QPushButton('Save Wallet ID')
-      self.exportIDButton = QPushButton('Export Wallet ID')
-      payReqLabel         = QLabel('Payment Request:')
-      self.payReqTextArea = QTextEdit()
+
+      self.pksButton        = QPushButton('Save PKS Record')
+      self.pmtaButton       = QPushButton('Save PMTA Record')
+      self.procPayReqButton = QPushButton('Process Payment Request')
+      self.genPayReqButton  = QPushButton('Generate Payment Request')
+      self.addIDButton      = QPushButton('Save Wallet ID')
+      self.exportIDButton   = QPushButton('Export Wallet ID')
+      payReqLabel           = QLabel('Payment Request:')
+      self.payReqTextArea   = QTextEdit()
       self.payReqTextArea.setFont(GETFONT('Fixed', 8))
-      w                   = relaxedSizeNChar(self.payReqTextArea, 68)[0]
-      h                   = int(12 * 8.2)
+      w                     = relaxedSizeNChar(self.payReqTextArea, 102)[0]
+      h                     = int(12 * 4.1)
       self.payReqTextArea.setMinimumWidth(w)
       self.payReqTextArea.setMinimumHeight(h)
       self.clearButton    = QPushButton('Clear')
@@ -76,20 +77,20 @@ class PluginObject(object):
             QMessageBox.warning(self.main, 'No Wallet Chosen',
                                 'Please choose a wallet.', QMessageBox.Ok)
 
-      # Action for when the payment request button is pressed.
+      # Action for when the "process payment request" button is pressed.
       # What we want to do is take the incoming Bitcoing URI w/ PMTA field,
       # decode the proof, verify that it's valid (i.e., PKS/CS + PKRP/SRP =
       # Supplied Bitcoin address), and open a pre-filled "Send Bitcoins" dialog.
       # Verfication includes checking DNS first and then checking the Armory
       # ID store (see the ID store plugin) if the record's not on DNS.
-      def prAction():
+      def procPRAction():
          # HACK: Supplying a hard-coded proof for debugging purposes.
          # HACK: THE BASE58 DATA NEEDS TO BE REPLACED WITH A REAL PROOF!!!
          self.payReqTextArea.setText('bitcoin:mokrWMifUTCBysucKZTZ7Uij8915VYcwWX?amount=10.5&pmta=x@x.com..aVYpkBuRQYgBf7Wn9aE8ATmYwV6b2o6jeMvj9KqQYqxkUgswNERoRYU1hSK58gDNhME6viPQYd3TvG5PaSnHbEiF72qp1')
          uriData = parseBitcoinURI(str(self.payReqTextArea.toPlainText()))
          pmtaData = uriData['pmta'].split('..')
-         pksFinal = PublicKeySource().unserialize(base58_to_binary(pmtaData[1]))
-         if pksFinal.isValid(False) is False:
+         pkrpFinal = PublicKeyRelationshipProof().unserialize(base58_to_binary(pmtaData[1]))
+         if pkrpFinal.isValid() is False:
             QMessageBox.warning(self.main, 'Invalid Payment Request',
                                 'Payment Request is invalid. Please confirm ' \
                                 'that the text is complete and not corrupted.',
@@ -138,6 +139,57 @@ class PluginObject(object):
                dlgInfo['amount'] = str(uriData['amount'])
                DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
 
+      # Action for when the "generate payment request" button is pressed.
+      # What we want to do is generate a new address for a BIP32 wallet, mark
+      # the address as used, get a multiplier that can be applied to the PKS/CS
+      # of the wallet, and use the multiplier to generate a Base58-encoded
+      # (i.e., PKRP/SRP record) that is then attached to a Bitcoin URI that can
+      # be read by Armory or other programs.
+      def genPRAction():
+         # Confirm that a wallet has actually been chosen and is BIP32-capable.
+         if not isinstance(self.wlt, ABEK_StdWallet):
+            if self.wlt == None:
+               QMessageBox.warning(self.main, 'No wallet selected',
+                                   'Please select a wallet which will ' \
+                                   'receive the coins.', QMessageBox.Ok)
+            else:
+               QMessageBox.warning(self.main, 'Wallet object is damaged',
+                                   'Please contact Armory.', QMessageBox.Ok)
+         else:
+            if showRecvCoinsWarningIfNecessary(self.wlt, self.main, self.main):
+               # DELETE EVENTUALLY
+               pass
+
+               # WARNING: CODE BELOW IS ROUGH AND COMMENTED OUT FOR NOW.
+               # Generate the new address and get its multiplier.
+               #self.newAddr = wlt.getNextReceivingAddress()
+               # Despite the name, we need to make sure the key's uncompressed.
+               #baseAddr = wlt.sbdPublicKey33
+               #if baseAddr.getSize() == 33:
+               #   baseAddr = CryptoECDSA().UncompressPoint(wlt.sbdPublicKey33)
+
+               # CALCULATE MULTIPLIER FOR ROOT, THEN EXT, THEN THE DERIVED KEY.
+               # SHOULD PROBABLY MOD ONE OF THE FUNCTS TO JUST RETURN THE MULT.
+               # NO POINT IN RECALCULATING EVERYTHING.
+               #self.newMult = ???
+
+               # Generate the PKRP using the multiplier.
+               #newPKRP = PublicKeyRelationshipProof().initialize(newMult)
+               #newPKRPB58 = binary_to_base58(newPKRP.serialize())
+
+               # For demo/debug purposes, show the resultant addr & multiplier.
+               # NEED TO FIX CERTAIN VALUES
+               #QMessageBox.warning(self.main, 'DEBUG INFORMATION',
+               #                    'Root address = %s\nDerived address = %s\n' \
+               #                    'Multiplier = %s' % (wlt.getRoot().getExtendedPubKey(),
+               #                                         self.newAddr.getAddrStr(),
+               #                                         binary_to_hex(newMult)),
+               #                    QMessageBox.Ok)
+
+               # Generate the PR. (Throw up a pop-up asking how many coins to pay?)
+               #dlg = DlgRequestPayment(self, self.main, addrStr)
+               #dlg.exec_()
+
       # Action for when the add DNS wallet ID button is pressed.
       def addIDAction():
          # str() used so that we save the text to a file.
@@ -160,7 +212,7 @@ class PluginObject(object):
                                     QMessageBox.Ok)
 
       # Action for when the export DNS wallet ID button is pressed.
-      def exportIDAction():
+      def expIDAction():
          if (str(self.inID.displayText()) != '') and \
             (str(self.inID.displayText()) !=
              self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')):
@@ -183,15 +235,16 @@ class PluginObject(object):
                                 QMessageBox.Ok)
 
       # Action for when the clear text button is pressed.
-      def clearTextArea():
+      def clearText():
          self.payReqTextArea.setText('')
 
-      self.main.connect(self.pksButton,      SIGNAL('clicked()'), pksAction)
-      self.main.connect(self.pmtaButton,     SIGNAL('clicked()'), pmtaAction)
-      self.main.connect(self.payReqButton,   SIGNAL('clicked()'), prAction)
-      self.main.connect(self.addIDButton,    SIGNAL('clicked()'), addIDAction)
-      self.main.connect(self.exportIDButton, SIGNAL('clicked()'), exportIDAction)
-      self.main.connect(self.clearButton,    SIGNAL('clicked()'), clearTextArea)
+      self.main.connect(self.pksButton,        SIGNAL('clicked()'), pksAction)
+      self.main.connect(self.pmtaButton,       SIGNAL('clicked()'), pmtaAction)
+      self.main.connect(self.procPayReqButton, SIGNAL('clicked()'), procPRAction)
+      self.main.connect(self.genPayReqButton,  SIGNAL('clicked()'), genPRAction)
+      self.main.connect(self.addIDButton,      SIGNAL('clicked()'), addIDAction)
+      self.main.connect(self.exportIDButton,   SIGNAL('clicked()'), expIDAction)
+      self.main.connect(self.clearButton,      SIGNAL('clicked()'), clearText)
 
       # ID stuff
       idLabel = QLabel('Public Wallet ID: ')
@@ -229,7 +282,8 @@ class PluginObject(object):
                                                    'Stretch']),
                                    makeHorizFrame([self.pksButton,
                                                    self.pmtaButton,
-                                                   self.payReqButton,
+                                                   self.procPayReqButton,
+                                                   self.genPayReqButton,
                                                    self.addIDButton,
                                                    self.exportIDButton,
                                                    'Stretch']),

@@ -8990,7 +8990,7 @@ class DlgExportTxHistory(ArmoryDialog):
 
 ################################################################################
 class DlgRequestPayment(ArmoryDialog):
-   def __init__(self, parent, main, recvAddr, amt=None, msg=''):
+   def __init__(self, parent, main, recvAddr, amt=None, msg='', pmta=None):
       super(DlgRequestPayment, self).__init__(parent, main)
 
 
@@ -9284,7 +9284,7 @@ class DlgRequestPayment(ArmoryDialog):
 
          errorIn = 'Inputs'
          # must have address, maybe have amount and/or message
-         self.rawURI = createBitcoinURI(addr, amt, msgStr)
+         self.rawURI = createBitcoinURI(addr, amt, msgStr, pmta)
       except:
          self.lblWarn.setText('<font color="red">Invalid %s</font>' % lastTry)
          self.btnCopyRaw.setEnabled(False)

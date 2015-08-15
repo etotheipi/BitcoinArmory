@@ -1070,8 +1070,8 @@ class PublicKeyRelationshipProof(object):
    #############################################################################
    def __init__(self):
       self.version      = BTCAID_PKRP_VERSION
-      self.multiplier   = None
-      self.finalKey     = None
+      self.multiplier   = ''
+      self.finalKey     = ''
       self.multUsed     = True
       self.finalKeyUsed = False
 
@@ -1096,7 +1096,7 @@ class PublicKeyRelationshipProof(object):
 
    #############################################################################
    def isInitialized(self):
-      return not (self.multiplier is None and self.finalKey is None)
+      return not (self.multiplier is '' and self.finalKey is '')
 
 
    #############################################################################
