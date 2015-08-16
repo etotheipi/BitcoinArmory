@@ -1,8 +1,44 @@
-SUBDIRS = cppForSwig
 desktopdir = $(datarootdir)/applications
 desktop_DATA = dpkgfiles/armory.desktop dpkgfiles/armoryoffline.desktop \
 			  dpkgfiles/armorytestnet.desktop
 CLEANFILES = $(desktop_DATA)
+
+PYTHON_INCLUDES=@PYTHON_INCLUDES@
+
+LINK = $(CXX)
+
+LDLIBS = -lpthread -Lmdb
+CPPFLAGS = $(ARMORY_CPPFLAGS) -IcppForSwig/cryptopp -IcppForSwig/mdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+CXXCPP = $(CPPFLAGS) $(PYTHON_INCLUDES)
+
+if TARGET_DARWIN
+LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
+LDLIBS += -lc++
+CXXCPP += -stdlib=libc++
+endif
+
+if TARGET_LINUX
+LDLIBS += -lrt
+endif
+
+CRYPTOPP_EXT = .a
+OBJS = cppForSwig/UniversalTimer.o cppForSwig/BinaryData.o \
+	cppForSwig/lmdb_wrapper.o cppForSwig/StoredBlockObj.o \
+	cppForSwig/BtcUtils.o cppForSwig/BlockObj.o cppForSwig/BlockUtils.o \
+	cppForSwig/EncryptionUtils.o cppForSwig/BtcWallet.o \
+	cppForSwig/LedgerEntry.o cppForSwig/ScrAddrObj.o cppForSwig/Blockchain.o \
+	cppForSwig/BlockWriteBatcher.o cppForSwig/BDM_mainthread.o \
+	cppForSwig/lmdbpp.o cppForSwig/BDM_supportClasses.o \
+	cppForSwig/BlockDataViewer.o cppForSwig/HistoryPager.o \
+	cppForSwig/Progress.o cppForSwig/libcryptopp$(CRYPTOPP_EXT) \
+	cppForSwig/mdb.o cppForSwig/midl.o cppForSwig/txio.o cppForSwig/FileMap.o \
+	cppForSwig/SSHheaders.o
+EVERY_HEADER = bdmenums.h BDM_mainthread.h BDM_supportClasses.h BinaryData.h \
+	Blockchain.h BlockDataManagerConfig.h BlockDataViewer.h BlockObj.h \
+	BlockUtils.h BlockWriteBatcher.h BtcUtils.h BtcWallet.h EncryptionUtils.h \
+	FileMap.h HistoryPager.h LedgerEntry.h lmdbpp.h lmdb_wrapper.h log.h \
+	OS_TranslatePath.h PartialMerkle.h Progress.h ReorgUpdater.h ScrAddrObj.h \
+	SSHheaders.h StoredBlockObj.h txio.h UniversalTimer.h util.h
 
 LANGUAGES = is
 
@@ -99,10 +135,10 @@ URLLIB3_PACKAGES_SSL_MATCH_HOSTNAME_PY = \
 	urllib3/packages/ssl_match_hostname/__init__.py
 MESSAGES_PY = $(ROOT_PY) $(ARMORYENGINE_PY) $(UI_PY)
 
-all:
-	$(MAKE) -C cppForSwig
+all: _CppBlockUtils.so qrc_img_resources.py
 
 clean-local:
+	$(MAKE) -C cppForSwig clean
 	rm -f CppBlockUtils.py
 	rm -f qrc_img_resources.py
 	rm -f _CppBlockUtils.so
@@ -151,6 +187,18 @@ install-exec-local:
 dpkgfiles/%.desktop: dpkgfiles/%.desktop.in Makefile
 	sed -e 's,[@]bindir[@],$(bindir),g' < $< > $@
 	chmod +x $@
+
+_CppBlockUtils.so: $(OBJS) cppForSwig/CppBlockUtils_wrap.o
+	$(LINK) -shared -fPIC $(LDFLAGS) $(CXXFLAGS) $(OBJS) cppForSwig/CppBlockUtils_wrap.o $(LDLIBS) -o $@
+
+$(OBJS):
+	$(MAKE) -C cppForSwig $(notdir $@)
+
+cppForSwig/CppBlockUtils_wrap.o:
+	$(MAKE) -C cppForSwig $(notdir $@)
+
+qrc_img_resources.py: imgList.xml
+	$(PYRCC4) -o $@ $<
 
 all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
