@@ -277,7 +277,7 @@ class IDStoreDisplayModel(QAbstractTableModel):
       self.loadIDStore()
 
 
-### Mandatory, Qt-specific calls. ###
+   ### Mandatory, Qt-specific calls. ###
    def rowCount(self, index=QModelIndex()):
       return len(self.idStoreList)
 
@@ -318,7 +318,7 @@ class IDStoreDisplayModel(QAbstractTableModel):
       return retVal
 
 
-### Armory-specific calls. ###
+   ### Armory-specific calls. ###
    # A function that removes the data both from a particular row in a GUI and
    # the matching entry in the ID store file.
    # INPUT:  A row number matching the row in the GUI to remove. (int)
