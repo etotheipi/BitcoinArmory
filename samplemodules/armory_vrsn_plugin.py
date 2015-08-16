@@ -4,16 +4,20 @@
 # much all of Bitcoin & Armory related stuff that you need.  So this
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
 from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
-   QTextEdit
+   QTextEdit, QAbstractTableModel, QModelIndex, Qt
 from armoryengine.ArmoryUtils import parseBitcoinURI
 from armoryengine.ArmoryLog import LOGERROR
 from armoryengine.BDM import getBDM
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord
 from qtdialogs import DlgSendBitcoins, DlgWalletSelect
+from qtdefines import tr, enum, initialColResize
 from ui.WalletFrames import SelectWalletFrame
-import re
 from collections import OrderedDict
+
+
+from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
+
 
 WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 DNSSEC_URL = "https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensions"
@@ -37,7 +41,7 @@ class PluginObject(object):
       self.wlt = None
 
       # Set up the GUI.
-      headerLabel  = QRichLabel(tr("""
+      lblHeader  = QRichLabel(tr("""
          <b>Wallet Identity Management Tools</b>
          <br><br>
          Armory and Verisign have co-developed a standard for creating 
@@ -51,37 +55,87 @@ class PluginObject(object):
          to your wallets.""") % DNSSEC_URL, doWrap=True)
 
 
-      self.modelOtherIDs = OtherWalletIDModel(self.main)
+      # Tracks and displays identities imported manually or from DNSSEC records
+      self.modelOtherIDs = OtherWalletIDModel()
       self.tableOtherIDs = QTableView()
       self.tableOtherIDs.setModel(self.modelOtherIDs)
+      self.tableOtherIDs.setSelectionBehavior(QTableView.SelectRows)
+      self.tableOtherIDs.setSelectionMode(QTableView.SingleSelection)
+      self.tableOtherIDs.setMinimumWidth(300)
+      initialColResize(self.tableOtherIDs, [0.99])
 
-
+      # View and manage identities for the wallets you have loaded.
       self.modelLocalIDs = LocalWalletIDModel(self.main)
       self.tableLocalIDs = QTableView()
       self.tableLocalIDs.setModel(self.modelLocalIDs)
+      self.tableLocalIDs.setSelectionBehavior(QTableView.SelectRows)
+      self.tableLocalIDs.setSelectionMode(QTableView.SingleSelection)
+      self.tableLocalIDs.setMinimumWidth(300)
+      initialColResize(self.tableLocalIDs, [0.20, 0.40, 0.40])
 
-      def selectWalletAction():
-         self.selectWallet()
+      self.main.connect(self.tableOtherIDs.selectionModel(), 
+                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), 
+                   self.otherIDclicked)
 
-      self.btnWltSelect = QPushButton("Choose wallet")
-      self.main.connect(self.btnWltSelect, SIGNAL(CLICKED), selectWalletAction)
+      self.main.connect(self.tableLocalIDs.selectionModel(), 
+                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), 
+                   self.localIDclicked)
 
-      self.selectedWltDisplay = QLabel('<No Wallet Selected>')
+      self.btnOther_Lookup    = QPushButton(tr("Lookup Identity")) 
+      self.btnOther_Manual    = QPushButton(tr("Manually Enter ID")) 
+      self.btnOther_Verify    = QPushButton(tr("Verify Payment Request"))
+      self.btnOther_Export    = QPushButton(tr("Export Selected ID"))
+      self.btnOther_Delete    = QPushButton(tr("Delete Selected ID"))
 
-      self.pksButton        = QPushButton('Save PKS Record')
-      self.pmtaButton       = QPushButton('Save PMTA Record')
-      self.procPayReqButton = QPushButton('Process Payment Request')
-      self.genPayReqButton  = QPushButton('Generate Payment Request')
-      self.addIDButton      = QPushButton('Save Wallet ID')
-      self.exportIDButton   = QPushButton('Export Wallet ID')
-      payReqLabel           = QLabel('Payment Request:')
-      self.payReqTextArea   = QTextEdit()
-      self.payReqTextArea.setFont(GETFONT('Fixed', 8))
-      w                     = relaxedSizeNChar(self.payReqTextArea, 102)[0]
-      h                     = int(12 * 4.1)
-      self.payReqTextArea.setMinimumWidth(w)
-      self.payReqTextArea.setMinimumHeight(h)
-      self.clearButton    = QPushButton('Clear')
+      frmOtherButtons = makeVertFrame([ self.btnOther_Lookup,
+                                    self.btnOther_Manual,
+                                    self.btnOther_Verify,
+                                    self.btnOther_Export,
+                                    self.btnOther_Delete,
+                                    STRETCH])
+      
+      self.btnLocal_SetHandle = QPushButton(tr("Set Handle")) 
+      self.btnLocal_Publish   = QPushButton(tr("Publish Identity"))
+      self.btnLocal_Export    = QPushButton(tr("Export Selected ID"))
+      self.btnLocal_Request   = QPushButton(tr("Request Payment to Selected"))
+
+      frmLocalButtons = makeVertFrame([ self.btnLocal_SetHandle,
+                                    self.btnLocal_Publish,
+                                    self.btnLocal_Export,
+                                    self.btnLocal_Request,
+                                    STRETCH])
+      
+      self.otherIDclicked(None)
+      self.localIDclicked(None)
+
+      lblHeadOther = QRichLabel(tr("<b>Known Wallet Identities</b>"))
+      lblHeadLocal = QRichLabel(tr("<b>Loaded Wallets</b>"))
+
+      layoutOther = QGridLayout()
+      layoutOther.addWidget(lblHeadOther,          0,0, 1,2)
+      layoutOther.addWidget(self.tableOtherIDs,    1,0, 1,1)
+      layoutOther.addWidget(frmOtherButtons,       1,1, 1,1)
+      frameOther = QFrame()
+      frameOther.setLayout(layoutOther)
+  
+
+      layoutLocal = QGridLayout()
+      layoutLocal.addWidget(lblHeadLocal,          0,0, 1,2)
+      layoutLocal.addWidget(self.tableLocalIDs,    1,0, 1,1)
+      layoutLocal.addWidget(frmLocalButtons,       1,1, 1,1)
+      frameLocal = QFrame()
+      frameLocal.setLayout(layoutLocal)
+
+       
+      layoutAll = QVBoxLayout()
+      layoutAll.addWidget(lblHeader)
+      layoutAll.addWidget(HLINE())
+      layoutAll.addWidget(frameOther)
+      layoutAll.addWidget(HLINE())
+      layoutAll.addWidget(frameLocal)
+      frameAll = QFrame()
+      frameAll.setLayout(layoutAll)
+      
 
       # Qt GUI calls must occur on the main thread. We need to update the frame
       # once the BDM is ready, so that the wallet balance is shown. To do this,
@@ -89,6 +143,7 @@ class PluginObject(object):
       # associated function.
       self.main.connect(self.main, SIGNAL('bdmReadyPMTA'), self.bdmReady)
 
+      '''
       # Action for when the PKS button is pressed.
       def pksAction():
          if self.wlt != None:
@@ -321,35 +376,53 @@ class PluginObject(object):
                                    makeHorizFrame([self.clearButton,
                                                    'Stretch']),
                                    'Stretch'])
+      '''
+
+      
+
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
-      self.tabToDisplay.setWidget(pluginFrame)
+      self.tabToDisplay.setWidget(frameAll)
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
 
 
-   # Callback function for when the "Choose wallet" button is clicked.
-   # INPUT:  None
-   # OUTPUT: None
-   # RETURN: None
-   def selectWallet(self):
-      dlg = DlgWalletSelect(self.main, self.main, 'Choose wallet...', '')
-      if dlg.exec_():
-         self.selectedWltID = dlg.selectedID
-         self.wlt = self.main.walletMap[dlg.selectedID]
-         self.selectedWltDisplay.setText(self.wlt.getLabel() + ' (' + \
-                                         self.wlt.uniqueIDB58 + ')')
-         wltPKS = binary_to_base58(self.getWltPKS(self.wlt).serialize())
-         self.pksB58Line.setText(wltPKS)
 
-         # If it exists, get the DNS wallet ID.
-         wltDNSID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
-         self.inID.setText(wltDNSID)
+   #############################################################################
+   def otherIDclicked(self, currIndex, prevIndex=None):
+      if prevIndex == currIndex:
+         return
+
+      if currIndex is None:
+         isValid = False
       else:
-         self.wlt = None
-         self.selectedWltDisplay.setText('<No Wallet Selected>')
-         self.pksB58Line.setText('')
+         qmi = currIndex.model().index(currIndex.row(), OTHER_ID_COLS.DnsHandle)
+         self.selectedOtherHandle = str(qmi.data().toString())
+         isValid = len(self.selectedOtherHandle) > 0
+
+      self.btnOther_Export.setEnabled(isValid)
+      self.btnOther_Delete.setEnabled(isValid)
+
+   #############################################################################
+   def localIDclicked(self, currIndex, prevIndex=None):
+      if prevIndex == currIndex:
+         return
+
+      if currIndex is None:
+         isValid = False
+      else:
+         qmi = currIndex.model().index(currIndex.row(), LOCAL_ID_COLS.WalletID)
+         self.selectedLocalWalletID = str(qmi.data().toString())
+         isValid = len(self.selectedLocalWalletID) > 0
+
+
+      self.btnLocal_SetHandle.setEnabled(isValid)
+      self.btnLocal_Publish.setEnabled(isValid)
+      self.btnLocal_Export.setEnabled(isValid)
+      self.btnLocal_Request.setEnabled(isValid)
+
+
 
 
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
@@ -454,6 +527,7 @@ class PluginObject(object):
       return myPMTA
 
 
+   #############################################################################
    # Validate an email address. Necessary to ensure that the DNS wallet ID is
    # valid. http://www.ex-parrot.com/pdw/Mail-RFC822-Address.html is the source
    # of the (ridiculously long) regex expression. It does not appear to have any
@@ -467,7 +541,7 @@ class PluginObject(object):
    # RETURN: A boolean indicating if the email address is valid.
    def validateEmailAddress(self, inAddr):
       validAddr = True
-      if not re.match(r'(?:(?:\r\n)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*)|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*:(?:(?:\r\n)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*)(?:,\s*(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*))*)?;\s*)', inAddr):
+      if not re.match(SuperLongEmailValidatorRegex, inAddr):
          validAddr = False
 
       return validAddr
@@ -481,6 +555,8 @@ class PluginObject(object):
    def bdmReady(self):
       # Get the PKS record and display it as a Base58-encoded string. Used only
       # for the initial string load.
+      pass
+      """
       if self.wlt is not None:
          wltPKS = binary_to_base58(self.getWltPKS(self.wlt).serialize())
          self.pksB58Line.setText(wltPKS)
@@ -488,6 +564,7 @@ class PluginObject(object):
          # If it exists, get the DNS wallet ID.
          wltDNSID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
          self.inID.setText(wltDNSID)
+      """
 
 
    # Place any code here that must be executed when the BDM emits a signal. The
@@ -574,7 +651,7 @@ class OtherWalletIDModel(QAbstractTableModel):
 
    #############################################################################
    def columnCount(self, index=QModelIndex()):
-      return 2
+      return 1
 
 
    #############################################################################
@@ -613,6 +690,10 @@ class OtherWalletIDModel(QAbstractTableModel):
 
    #############################################################################
    def readIdentityFile(self):
+      if not os.path.exists(self.walletIDStorePath):
+         self.identityMap = OrderedDict()
+         return
+         
       f = open(self.walletIDStorePath,'r')
       pairs = [l.strip().split() for l in f.readlines() if len(l.strip())>0]
       f.close()
@@ -685,7 +766,7 @@ class LocalWalletIDModel(QAbstractTableModel):
    #############################################################################
    def __init__(self, main):
       super(LocalWalletIDModel, self).__init__()
-         self.main = main
+      self.main = main
 
 
    #############################################################################
@@ -703,7 +784,6 @@ class LocalWalletIDModel(QAbstractTableModel):
       retVal = QVariant()
 
       row,col = index.row(), index.column()
-      idStoreRecord = self.idStoreList[row]
       wltID = self.main.wltIDList[row]
 
       if role==Qt.DisplayRole:
@@ -713,11 +793,7 @@ class LocalWalletIDModel(QAbstractTableModel):
             retVal = QVariant(self.main.walletMap[wltID].getLabel())
          elif col==LOCAL_ID_COLS.DnsHandle:
             dnsID = self.main.getWltSetting(wltID, 'dnsID')
-            if len(dnsID)==0:
-               retVal = QVariant('-----')
-            else:
-               retVal = QVariant(dnsID)
-
+            retVal = QVariant('' if len(dnsID)==0 else dnsID)
       elif role==Qt.TextAlignmentRole:
          retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
 
@@ -736,7 +812,7 @@ class LocalWalletIDModel(QAbstractTableModel):
                retVal = QVariant('Wallet ID')
             elif section==LOCAL_ID_COLS.WalletName:
                retVal = QVariant('Wallet Name')
-            elif section==LOCAL_ID_COLS.DnsHandle
+            elif section==LOCAL_ID_COLS.DnsHandle:
                retVal = QVariant('Wallet Handle')
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
