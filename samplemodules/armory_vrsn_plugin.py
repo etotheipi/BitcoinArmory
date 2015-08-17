@@ -61,7 +61,7 @@ class PluginObject(object):
       self.tableOtherIDs.setModel(self.modelOtherIDs)
       self.tableOtherIDs.setSelectionBehavior(QTableView.SelectRows)
       self.tableOtherIDs.setSelectionMode(QTableView.SingleSelection)
-      self.tableOtherIDs.setMinimumWidth(300)
+      self.tableOtherIDs.setMinimumWidth(400)
       initialColResize(self.tableOtherIDs, [0.99])
 
       # View and manage identities for the wallets you have loaded.
@@ -70,7 +70,7 @@ class PluginObject(object):
       self.tableLocalIDs.setModel(self.modelLocalIDs)
       self.tableLocalIDs.setSelectionBehavior(QTableView.SelectRows)
       self.tableLocalIDs.setSelectionMode(QTableView.SingleSelection)
-      self.tableLocalIDs.setMinimumWidth(300)
+      self.tableLocalIDs.setMinimumWidth(400)
       initialColResize(self.tableLocalIDs, [0.20, 0.40, 0.40])
 
       self.main.connect(self.tableOtherIDs.selectionModel(), 
@@ -108,15 +108,17 @@ class PluginObject(object):
       self.otherIDclicked(None)
       self.localIDclicked(None)
 
-      lblHeadOther = QRichLabel(tr("<b>Known Wallet Identities</b>"))
-      lblHeadLocal = QRichLabel(tr("<b>Loaded Wallets</b>"))
+      lblHeadOther = QRichLabel(tr("<b>Known Wallet Identities (Others)</b>"))
+      lblHeadLocal = QRichLabel(tr("<b>Loaded Wallets (Yours)</b>"))
 
       layoutOther = QGridLayout()
       layoutOther.addWidget(lblHeadOther,          0,0, 1,2)
       layoutOther.addWidget(self.tableOtherIDs,    1,0, 1,1)
       layoutOther.addWidget(frmOtherButtons,       1,1, 1,1)
-      frameOther = QFrame()
-      frameOther.setLayout(layoutOther)
+      frameOtherSub = QFrame()
+      frameOtherSub.setLayout(layoutOther)
+      frameOther = makeHorizFrame([frameOtherSub, STRETCH])
+      
   
 
       layoutLocal = QGridLayout()
@@ -391,7 +393,7 @@ class PluginObject(object):
 
    #############################################################################
    def otherIDclicked(self, currIndex, prevIndex=None):
-      if prevIndex == currIndex:
+      if prevIndex == currIndex and not currIndex is None:
          return
 
       if currIndex is None:
@@ -406,7 +408,7 @@ class PluginObject(object):
 
    #############################################################################
    def localIDclicked(self, currIndex, prevIndex=None):
-      if prevIndex == currIndex:
+      if prevIndex == currIndex and not currIndex is None:
          return
 
       if currIndex is None:
