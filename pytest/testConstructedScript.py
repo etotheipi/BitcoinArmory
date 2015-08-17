@@ -46,6 +46,8 @@ PKS1NoChksum_Comp_v1_FlagClash2 = hex_to_binary(
       "01001821 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
       "5bd6ace4 a7")
 
+########## ADD PKS RECORDS THAT DO NOT ALLOW FOR DIRECT PAYMENT ############
+
 # Valid CS serializations based on BIP32MasterPubKey2.
 CS1Chksum_Uncomp_v1 = hex_to_binary(
       "01000207 76a914ff 0188ac01 45010004 4104cbca a9c98c87 7a26977d 00825c95"
@@ -62,7 +64,9 @@ CS2Chksum_Comp_v1 = hex_to_binary( # Multisig
       "8e8dddfb d322cce4 f74b0b5b d6ace4a7 25010002 2102fc9e 5af0ac8d 9b3cecfe"
       "2a888e21 17ba3d08 9d858588 6c9c826b 6b22a98d 12ea89e2 5fe9")
 
-# Invalid CS serializations. NEED TO ADD SOME.
+################# Invalid CS serializations. NEED TO ADD SOME. ############
+
+############ RI serializations. NEED TO ADD SOME. ###################
 
 # Valid PKRP serializations based on BIP32MasterPubKey2.
 PKRP1_v1 = hex_to_binary(
@@ -82,6 +86,8 @@ SRP2_v1 = hex_to_binary(
       "01022401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
       "e1efa7f8 11e00024 01022060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4"
       "5623d0a9 14e1efa7 f811e000")
+
+############# Valid PTV serializations. NEED TO ADD SOME #####################
 
 # Valid PR serializations based on BIP32MasterPubKey2.
 daneName1 = "pksrec1.btcshop.com"
@@ -103,7 +109,8 @@ PR2_v1 = hex_to_binary(
       "a914e1ef a7f811e0 00270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13"
       "b996d0f7 a45623d0 a914e1ef a7f811e0 00")
 
-# Valid PMTA serializations including previously used, valid PKS and CS records. ADD DATA TYPE
+# Valid PMTA serializations including previously used, valid PKS and CS records.
+####################### NEED TO REVISE AS IS APPROPRIATE. ######################
 PMTA_PKS1Chksum_Uncomp_v1 = hex_to_binary(
       "00010000 00000001 00204104 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb"
       "d322cce4 f74b0b5b d6ace4a7 7bd3305d 363c26f8 2c1e41c6 67e4b356 1c06c60a"
@@ -157,7 +164,7 @@ class PKSClassTests(unittest.TestCase):
       # PKS1 with a checksum & uncompressed key.
       pks1ChksumPres = PublicKeySource()
       pks1ChksumPres.initialize(False, False, False, False, False,
-                                BIP32MasterPubKey2, True)
+                                BIP32MasterPubKey2, True, False)
       stringPKS1ChksumPres = pks1ChksumPres.serialize()
       self.assertEqual(binary_to_hex(stringPKS1ChksumPres),
                        binary_to_hex(PKS1Chksum_Uncomp_v1))
@@ -165,7 +172,7 @@ class PKSClassTests(unittest.TestCase):
       # PKS1 without a checksum & with a compressed key.
       pks1NoChksum = PublicKeySource()
       pks1NoChksum.initialize(False, True, False, False, False,
-                              BIP32MasterPubKey2Comp, False)
+                              BIP32MasterPubKey2Comp, False, False)
       stringPKS1NoChksum = pks1NoChksum.serialize()
       self.assertEqual(binary_to_hex(stringPKS1NoChksum),
                        binary_to_hex(PKS1NoChksum_Comp_v1))
@@ -490,6 +497,13 @@ class DerivationTests(unittest.TestCase):
                                        finalPub1)
       self.assertEqual(final1, finalPub1)
       self.assertEqual(final1, final1_alt)
+
+      # Confirm that we can apply the multiplier directly and get the correct
+      # final key.
+      final1ApplyMult = HDWalletCrypto().getChildKeyFromMult_SWIG(
+                                                          sbdPubKey1.toBinStr(),
+                                                          multProof1.multiplier)
+      self.assertEqual(finalPub1, final1ApplyMult)
 
       # Confirm that we can get the 1st derived key from the BIP32 test vector's
       # second key.

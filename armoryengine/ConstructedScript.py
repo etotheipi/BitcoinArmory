@@ -16,11 +16,13 @@ import CppBlockUtils as Cpp
 # First "official" version is 1. 0 was a prototype version.
 BTCAID_PKS_VERSION = 1
 BTCAID_CS_VERSION = 1
+BTCAID_RI_VERSION = 1
 BTCAID_PKRP_VERSION = 1
 BTCAID_SRP_VERSION = 1
+BTCAID_PTV_VERSION = 1
 BTCAID_PR_VERSION = 1
 
-# From the PMTA RFC draft
+# From the PMTA RFC draft (v0)
 PAYASSOC_ADDR = 0  # Sec. 2.1.5
 PAYNET_TBTC   = 1  # Sec. 2.1.1 - Testnet
 PAYNET_BTC    = 2  # Sec. 2.1.1 - Mainnet
@@ -386,30 +388,32 @@ def assembleScript(inEscapedScript, inPKSList, inPKRPList):
 ################################################################################
 class PublicKeySource(object):
    """
-   This defines a "source" from where we could get a public key, either to be 
+   This defines a "source" from where we could get a public key, either to be
    inserted directly into P2PKH, or to be used as part of a multi-sig or other
-   non-standard script. 
+   non-standard script.
 
-   @isStatic:        rawSource is just a single public key
-   @useCompr:        use compressed or uncompressed version of pubkey
-   @useHash160:      pubKey should be hashed before being placed in a script
-   @isUserKey:       user should insert their own key in this slot
-   @useExternal:     rawSource is actually a link to another pubkey source
-   @isChksumPresent: A four-byte checksum is included.
-   @checksum:        A four-byte checksum.
+   @isStatic:         rawSource is just a single public key
+   @useCompr:         use compressed or uncompressed version of pubkey
+   @useHash160:       pubKey should be hashed before being placed in a script
+   @isUserKey:        user should insert their own key in this slot
+   @useExternal:      rawSource is actually a link to another pubkey source
+   @isChksumPresent:  A four-byte checksum is included.
+   @disableDirectPay: No direct payments to anything derived from this PKS.
+   @checksum:         A four-byte checksum.
    """
 
    #############################################################################
    def __init__(self):
-      self.version         = BTCAID_PKS_VERSION
-      self.isStatic        = False
-      self.useHash160      = False
-      self.isUserKey       = False
-      self.isExternalSrc   = False
-      self.useCompr        = False
-      self.isChksumPresent = True
-      self.rawSource       = None
-      self.checksum        = None
+      self.version          = BTCAID_PKS_VERSION
+      self.isStatic         = False
+      self.useHash160       = False
+      self.isUserKey        = False
+      self.isExternalSrc    = False
+      self.useCompr         = False
+      self.isChksumPresent  = True
+      self.disableDirectPay = True
+      self.rawSource        = None
+      self.checksum         = None
 
 
    #############################################################################
@@ -429,6 +433,7 @@ class PublicKeySource(object):
       flags.setBit(12, self.isUserKey)
       flags.setBit(11, self.isExternalSrc)
       flags.setBit(10, self.isChksumPresent)
+      flags.setBit(9,  self.disableDirectPay)
 
       inner = BinaryPacker()
       inner.put(UINT8,   self.version)
@@ -445,10 +450,11 @@ class PublicKeySource(object):
                    isExt      = bool,
                    src        = [str, unicode],
                    chksumPres = bool,
+                   disDirPay  = bool,
                    inChksum   = [str, unicode],
                    ver        = int)
    def initialize(self, isStatic, useCompr, use160, isUser, isExt, src,
-                  chksumPres, inChksum=None, ver=BTCAID_PKS_VERSION):
+                  chksumPres, disDirPay, inChksum=None, ver=BTCAID_PKS_VERSION):
       """
       Set all PKS values.
       """
@@ -459,14 +465,15 @@ class PublicKeySource(object):
 #      if isExt != isinstance(src, unicode):
 #         raise UnicodeError('Must use str for reg srcs, unicode for external')
 
-      self.version         = ver
-      self.isStatic        = isStatic
-      self.useCompr        = useCompr
-      self.useHash160      = use160
-      self.isUserKey       = isUser
-      self.isExternalSrc   = isExt
-      self.isChksumPresent = chksumPres
-      self.rawSource       = toBytes(src)
+      self.version          = ver
+      self.isStatic         = isStatic
+      self.useCompr         = useCompr
+      self.useHash160       = use160
+      self.isUserKey        = isUser
+      self.isExternalSrc    = isExt
+      self.isChksumPresent  = chksumPres
+      self.disableDirectPay = disDirPay
+      self.rawSource        = toBytes(src)
 
       # The checksum portion opens up the possibility that a bad checksum could
       # get passed in, as we don't check to see if an incoming checksum's right.
@@ -610,7 +617,7 @@ class PublicKeySource(object):
 
       # If checksum is present, confirm that the other data is correct.
       inChksum = None
-      if inFlags.getBit(9):
+      if inFlags.getBit(10):
          inChksum = inData.get(BINARY_CHUNK, 4)
 
       if not inVer == BTCAID_PKS_VERSION:
@@ -625,6 +632,7 @@ class PublicKeySource(object):
                       inFlags.getBit(11),
                       inRawSrc,
                       inFlags.getBit(10),
+                      inFlags.getBit(9),
                       inChksum,
                       inVer)
 
@@ -829,7 +837,8 @@ class ConstructedScript(object):
                      isUser     = False,
                      isExt      = False,
                      src        = binRootPubKey,
-                     chksumPres = False)
+                     chksumPres = False,
+                     disDirPay  = False)
 
       cs = ConstructedScript()
       cs.initialize(templateStr, [pks], False, True)
@@ -853,7 +862,8 @@ class ConstructedScript(object):
                      isUser     = False,
                      isExt      = False,
                      src        = binRootPubKey,
-                     chksumPres = False)
+                     chksumPres = False,
+                     disDirPay  = False)
 
       cs = ConstructedScript()
       cs.initialize(self, templateStr, [pks], False)
@@ -897,7 +907,8 @@ class ConstructedScript(object):
                         isUser     = False,
                         isExt      = False,
                         src        = rootPub,
-                        chksumPres = False)
+                        chksumPres = False,
+                        disDirPay  = False)
          pksList.append(pks)
 
       cs = ConstructedScript()
@@ -945,7 +956,8 @@ class ConstructedScript(object):
                         isUser     = False,
                         isExt      = False,
                         src        = rootPub,
-                        chksumPres = False)
+                        chksumPres = False,
+                        disDirPay  = False)
          pksList.append(pks)
 
       cs = ConstructedScript()
@@ -1057,6 +1069,105 @@ class ConstructedScript(object):
                                    self.pubKeyBundles,
                                    inPKRPList)
       return finalScript
+
+
+################################################################################
+class ReceiverIdentity(object):
+   """
+   This defines the object that will actually insert a PKS or CS into a PMTA
+   record or an offline ID store.
+   """
+
+   #############################################################################
+   def __init__(self):
+      self.version = BTCAID_RI_VERSION
+      self.recType = 0
+      self.rec     = ''
+
+
+   #############################################################################
+   @VerifyArgTypes(recType = int,
+                   rec     = [str, unicode],
+                   ver     = int)
+   def initialize(self, recType, rec, ver=BTCAID_RI_VERSION):
+      """
+      Set all RI values.
+      """
+      self.recType = recType
+      self.rec     = rec
+      self.version = ver
+
+
+   #############################################################################
+   def isInitialized(self):
+      pass
+#      return not (self.multiplier is '' and self.finalKey is '')
+
+
+   #############################################################################
+   # Verify that an RI record is valid.
+   def isValid(self):
+      """
+      Verify that an RI record is valid.
+      """
+      pass
+      # WILL CHECK THE REC TYPE AND RUN REC THROUGH A VERIFIER.
+#      recState = True
+#
+#      # The version needs to be valid. For now, it needs to be 1.
+#      if self.version != BTCAID_RI_VERSION:
+#         LOGINFO('RI record version is wrong. Record is invalid.')
+#         recState = False
+#
+#      # At least one flag must be set.
+#      if self.multUsed == False and self.finalKeyUsed == False:
+#         LOGINFO('RI record must have either a multiplier or final key. ' \
+#                 'Record is invalid.')
+#         recState = False
+#
+#      return recState
+
+
+   #############################################################################
+   def serialize(self):
+      # In BitSet, higher numbers are less significant bits.
+      # e.g., To get 0x0002, set bit 14 to True (1).
+      # NB: For now, the compression relies on if the raw source is compressed.
+      pass
+#      flags = BitSet(8)
+#      flags.setBit(7, self.finalKeyUsed)
+#      flags.setBit(6, self.multUsed)
+#
+#      bp = BinaryPacker()
+#      bp.put(UINT8,   self.version)
+#      bp.put(BITSET,  flags, width=1)
+#      bp.put(VAR_STR, self.multiplier)
+#      bp.put(VAR_STR, self.finalKey)
+#
+#      return bp.getBinaryString()
+
+
+   #############################################################################
+   def unserialize(self, serData):
+      pass
+#      inner      = BinaryUnpacker(serData)
+#      inVer      = inner.get(UINT8)
+#      inFlags    = inner.get(BITSET, 1)
+#      inMult     = inner.get(VAR_STR)
+#      inFinalKey = inner.get(VAR_STR)
+#
+#      if not inVer == BTCAID_RI_VERSION:
+#         # In the future we will make this more of a warning, not error
+#         raise VersionError('RI version does not match the loaded version')
+#
+#      self.__init__()
+#      self.initialize(inMult,
+#                      inFlags.getBit(7),
+#                      inFlags.getBit(6),
+#                      inFinalKey,
+#                      inVer)
+#
+#      return self
 
 
 ################################################################################
@@ -1239,6 +1350,105 @@ class ScriptRelationshipProof(object):
                       inVer)
 
       return self
+
+
+################################################################################
+class PaymentTargetVerifier(object):
+   """
+   This defines the object that will actually insert a PKRP or SRP into a
+   payment request.
+   """
+
+   #############################################################################
+   def __init__(self):
+      self.version = BTCAID_PTV_VERSION
+      self.recType = 0
+      self.rec     = ''
+
+
+   #############################################################################
+   @VerifyArgTypes(recType = int,
+                   rec     = [str, unicode],
+                   ver     = int)
+   def initialize(self, recType, rec, ver=BTCAID_PTV_VERSION):
+      """
+      Set all PTV values.
+      """
+      self.recType = recType
+      self.rec     = rec
+      self.version = ver
+
+
+   #############################################################################
+   def isInitialized(self):
+      pass
+#      return not (self.multiplier is '' and self.finalKey is '')
+
+
+   #############################################################################
+   # Verify that a PTV record is valid.
+   def isValid(self):
+      """
+      Verify that a PTV record is valid.
+      """
+      pass
+      # WILL CHECK THE REC TYPE AND RUN REC THROUGH A VERIFIER.
+#      recState = True
+#
+#      # The version needs to be valid. For now, it needs to be 1.
+#      if self.version != BTCAID_PTV_VERSION:
+#         LOGINFO('PTV record version is wrong. Record is invalid.')
+#         recState = False
+#
+#      # At least one flag must be set.
+#      if self.multUsed == False and self.finalKeyUsed == False:
+#         LOGINFO('PTV record must have either a multiplier or final key. ' \
+#                 'Record is invalid.')
+#         recState = False
+#
+#      return recState
+
+
+   #############################################################################
+   def serialize(self):
+      # In BitSet, higher numbers are less significant bits.
+      # e.g., To get 0x0002, set bit 14 to True (1).
+      # NB: For now, the compression relies on if the raw source is compressed.
+      pass
+#      flags = BitSet(8)
+#      flags.setBit(7, self.finalKeyUsed)
+#      flags.setBit(6, self.multUsed)
+#
+#      bp = BinaryPacker()
+#      bp.put(UINT8,   self.version)
+#      bp.put(BITSET,  flags, width=1)
+#      bp.put(VAR_STR, self.multiplier)
+#      bp.put(VAR_STR, self.finalKey)
+#
+#      return bp.getBinaryString()
+
+
+   #############################################################################
+   def unserialize(self, serData):
+      pass
+#      inner      = BinaryUnpacker(serData)
+#      inVer      = inner.get(UINT8)
+#      inFlags    = inner.get(BITSET, 1)
+#      inMult     = inner.get(VAR_STR)
+#      inFinalKey = inner.get(VAR_STR)
+#
+#      if not inVer == BTCAID_PTV_VERSION:
+#         # In the future we will make this more of a warning, not error
+#         raise VersionError('PTV version does not match the loaded version')
+#
+#      self.__init__()
+#      self.initialize(inMult,
+#                      inFlags.getBit(7),
+#                      inFlags.getBit(6),
+#                      inFinalKey,
+#                      inVer)
+#
+#      return self
 
 
 ################################################################################
