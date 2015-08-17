@@ -14,18 +14,13 @@ from qtdialogs import DlgSendBitcoins, DlgWalletSelect
 from qtdefines import tr, enum, initialColResize
 from ui.WalletFrames import SelectWalletFrame
 from collections import OrderedDict
-
-
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
-
 
 WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 DNSSEC_URL = "https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensions"
 
-
 OTHER_ID_COLS = enum('DnsHandle')
 LOCAL_ID_COLS = enum('WalletID', 'WalletName', 'DnsHandle')
-
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
@@ -83,40 +78,42 @@ class PluginObject(object):
       self.tableLocalIDs.verticalHeader().hide()
       initialColResize(self.tableLocalIDs, [0.20, 0.40, 0.40])
 
-      self.main.connect(self.tableOtherIDs.selectionModel(), 
-                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), 
-                   self.otherIDclicked)
+      self.main.connect(self.tableOtherIDs.selectionModel(),
+                        SIGNAL('currentChanged(const QModelIndex &, ' \
+                                               'const QModelIndex &)'),
+                        self.otherIDclicked)
 
-      self.main.connect(self.tableLocalIDs.selectionModel(), 
-                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), 
-                   self.localIDclicked)
+      self.main.connect(self.tableLocalIDs.selectionModel(),
+                        SIGNAL('currentChanged(const QModelIndex &, ' \
+                                               'const QModelIndex &)'),
+                        self.localIDclicked)
 
-      self.btnOther_Lookup    = QPushButton(tr("Lookup Identity")) 
-      self.btnOther_Manual    = QPushButton(tr("Manually Enter ID")) 
+      self.btnOther_Lookup    = QPushButton(tr("Lookup Identity"))
+      self.btnOther_Manual    = QPushButton(tr("Manually Enter ID"))
       self.btnOther_Verify    = QPushButton(tr("Verify Payment Request"))
       self.btnOther_Export    = QPushButton(tr("Export Selected ID"))
       self.btnOther_Delete    = QPushButton(tr("Delete Selected ID"))
 
-      frmOtherButtons = makeVertFrame([ self.btnOther_Lookup,
-                                    self.btnOther_Manual,
-                                    self.btnOther_Verify,
-                                    self.btnOther_Export,
-                                    self.btnOther_Delete,
-                                    STRETCH])
-      
-      self.btnLocal_SetHandle = QPushButton(tr("Set Handle")) 
+      frmOtherButtons = makeVertFrame([self.btnOther_Lookup,
+                                       self.btnOther_Manual,
+                                       self.btnOther_Verify,
+                                       self.btnOther_Export,
+                                       self.btnOther_Delete,
+                                       STRETCH])
+
+      self.btnLocal_SetHandle = QPushButton(tr("Set Handle"))
       self.btnLocal_Publish   = QPushButton(tr("Publish Identity"))
       self.btnLocal_Export    = QPushButton(tr("Export Selected ID"))
       self.btnLocal_Request   = QPushButton(tr("Request Payment to Selected"))
 
-      frmLocalButtons = makeVertFrame([ self.btnLocal_SetHandle,
-                                    self.btnLocal_Publish,
-                                    self.btnLocal_Export,
-                                    self.btnLocal_Request,
-                                    STRETCH])
-      
-      self.otherIDclicked(None)
-      self.localIDclicked(None)
+      frmLocalButtons = makeVertFrame([self.btnLocal_SetHandle,
+                                       self.btnLocal_Publish,
+                                       self.btnLocal_Export,
+                                       self.btnLocal_Request,
+                                       STRETCH])
+
+#      self.otherIDclicked(None)
+#      self.localIDclicked(None)
 
       lblHeadOther = QRichLabel(tr("<b>Known Wallet Identities (Others)</b>"))
       lblHeadLocal = QRichLabel(tr("<b>Loaded Wallets (Yours)</b>"))
@@ -128,8 +125,6 @@ class PluginObject(object):
       frameOtherSub = QFrame()
       frameOtherSub.setLayout(layoutOther)
       frameOther = makeHorizFrame([frameOtherSub, STRETCH])
-      
-  
 
       layoutLocal = QGridLayout()
       layoutLocal.addWidget(lblHeadLocal,          0,0, 1,2)
@@ -138,7 +133,6 @@ class PluginObject(object):
       frameLocal = QFrame()
       frameLocal.setLayout(layoutLocal)
 
-       
       layoutAll = QVBoxLayout()
       layoutAll.addWidget(lblHeader)
       layoutAll.addWidget(HLINE())
@@ -147,13 +141,71 @@ class PluginObject(object):
       layoutAll.addWidget(frameLocal)
       frameAll = QFrame()
       frameAll.setLayout(layoutAll)
-      
 
       # Qt GUI calls must occur on the main thread. We need to update the frame
       # once the BDM is ready, so that the wallet balance is shown. To do this,
       # we register a signal with the main thread that can be used to call an
       # associated function.
       self.main.connect(self.main, SIGNAL('bdmReadyPMTA'), self.bdmReady)
+
+      # Perform a DNS lookup on a handle. The result, if found, will be added to
+      # the ID store.
+      def olAction():
+         # modelOtherIDs.addIdentity() should be sufficient once found.
+         pass
+
+      # Manually enter an ID and a Base58-encoded blob into a pop-up.
+      def omAction():
+         #
+         pass
+
+      # SHOULD PROBABLY RENAME THE ASSOCIATED BUTTON
+      # Paste in a proof and verify that the proof is accurate, then open a
+      # "Send Bitcoins" dialog that's filled in.
+      def ovAction():
+         #
+         pass
+
+      # Show an easy-to-copy-and-paste ID/blob combo.
+      def oeAction():
+         #
+         pass
+
+      # Delete the ID.
+      def odAction():
+         #
+         pass
+
+      # Issue a pop-up with the given wallet's ID, and let the user change it.
+      def lsAction():
+         #
+         pass
+
+      # Publish identity to Verisign for placement in DNSSEC.
+      def lpAction():
+         #
+         pass
+
+      # Show an easy-to-copy-and-paste ID/blob combo.
+      def leAction():
+         #
+         pass
+
+      # Generate a payment request.
+      def lrAction():
+         #
+         pass
+
+      self.main.connect(self.btnOther_Lookup, SIGNAL('clicked()'), olAction)
+      self.main.connect(self.btnOther_Manual, SIGNAL('clicked()'), omAction)
+      self.main.connect(self.btnOther_Verify, SIGNAL('clicked()'), ovAction)
+      self.main.connect(self.btnOther_Export, SIGNAL('clicked()'), oeAction)
+      self.main.connect(self.btnOther_Delete, SIGNAL('clicked()'), odAction)
+
+      self.main.connect(self.btnLocal_SetHandle, SIGNAL('clicked()'), lsAction)
+      self.main.connect(self.btnLocal_Publish,   SIGNAL('clicked()'), lpAction)
+      self.main.connect(self.btnLocal_Export,    SIGNAL('clicked()'), leAction)
+      self.main.connect(self.btnLocal_Request,   SIGNAL('clicked()'), lrAction)
 
       '''  # This is all old code from the PMTA plugin, which still needs to be
            # hooked up to the new plugin layout somehow.
@@ -391,15 +443,12 @@ class PluginObject(object):
                                    'Stretch'])
       '''
 
-      
-
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(frameAll)
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
-
 
 
    #############################################################################
@@ -429,13 +478,10 @@ class PluginObject(object):
          self.selectedLocalWalletID = str(qmi.data().toString())
          isValid = len(self.selectedLocalWalletID) > 0
 
-
       self.btnLocal_SetHandle.setEnabled(isValid)
       self.btnLocal_Publish.setEnabled(isValid)
       self.btnLocal_Export.setEnabled(isValid)
       self.btnLocal_Request.setEnabled(isValid)
-
-
 
 
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
@@ -641,9 +687,6 @@ class PluginObject(object):
       return self.tabToDisplay
 
 
-
-
-
 ################################################################################
 class OtherWalletIDModel(QAbstractTableModel):
 
@@ -706,13 +749,12 @@ class OtherWalletIDModel(QAbstractTableModel):
       if not os.path.exists(self.walletIDStorePath):
          self.identityMap = OrderedDict()
          return
-         
+
       f = open(self.walletIDStorePath,'r')
       pairs = [l.strip().split() for l in f.readlines() if len(l.strip())>0]
       f.close()
       self.identityMap = OrderedDict(pairs)
-      
-      
+
 
    #############################################################################
    def rewriteIdentityFile(self):
@@ -723,7 +765,7 @@ class OtherWalletIDModel(QAbstractTableModel):
          with open(tempFile, 'w') as f:
             for key,val in self.identityMap.iteritems():
                f.write('%s %s\n' % (key,val))
-   
+
          shutil.move(tempFile, mainFile)
       except:
          LOGEXCEPT('Failed to update identity file')
@@ -750,7 +792,7 @@ class OtherWalletIDModel(QAbstractTableModel):
    # RETURN: None
    def addIdentity(self, dnsHandle, base58Identity):
       if dnsHandle in self.identityMap and not doReplace:
-         LOGWARN('Handle is already in ID store.  Updating instead of adding')
+         LOGWARN('Handle is already in ID store. Updating instead of adding ')
          LOGWARN('DNS Handle: %s', dnsHandle)
 
       self.identityMap[dnsHandle] = base58Identity
@@ -761,7 +803,7 @@ class OtherWalletIDModel(QAbstractTableModel):
    #############################################################################
    def hasDnsHandle(self, wltDnsHandle):
       return (wltDnsHandle in self.identityMap)
-      
+
 
    #############################################################################
    def findIdentityObject(self, findObjB58):
@@ -770,7 +812,6 @@ class OtherWalletIDModel(QAbstractTableModel):
             return handle
       else:
          return None
-
 
 
 ################################################################################
@@ -834,9 +875,3 @@ class LocalWalletIDModel(QAbstractTableModel):
             retVal = QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
       return retVal
-
-
-
-
-
-
