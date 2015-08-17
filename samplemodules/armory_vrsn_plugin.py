@@ -54,6 +54,10 @@ class PluginObject(object):
          wallets, to give to others so that they will recognize payments 
          to your wallets.""") % DNSSEC_URL, doWrap=True)
 
+      w,h = tightSizeNChar(QTableView(), 45)
+      viewWidth  = 1.2*w
+      sectionSz  = 1.3*h
+      viewHeight = 4.4*sectionSz
 
       # Tracks and displays identities imported manually or from DNSSEC records
       self.modelOtherIDs = OtherWalletIDModel()
@@ -61,7 +65,10 @@ class PluginObject(object):
       self.tableOtherIDs.setModel(self.modelOtherIDs)
       self.tableOtherIDs.setSelectionBehavior(QTableView.SelectRows)
       self.tableOtherIDs.setSelectionMode(QTableView.SingleSelection)
-      self.tableOtherIDs.setMinimumWidth(400)
+      self.tableOtherIDs.setMinimumWidth(viewWidth)
+      self.tableOtherIDs.setMinimumHeight(6.5*sectionSz)
+      self.tableOtherIDs.verticalHeader().setDefaultSectionSize(sectionSz)
+      self.tableOtherIDs.verticalHeader().hide()
       initialColResize(self.tableOtherIDs, [0.99])
 
       # View and manage identities for the wallets you have loaded.
@@ -70,7 +77,10 @@ class PluginObject(object):
       self.tableLocalIDs.setModel(self.modelLocalIDs)
       self.tableLocalIDs.setSelectionBehavior(QTableView.SelectRows)
       self.tableLocalIDs.setSelectionMode(QTableView.SingleSelection)
-      self.tableLocalIDs.setMinimumWidth(400)
+      self.tableLocalIDs.setMinimumWidth(viewWidth)
+      self.tableLocalIDs.setMinimumHeight(6.5*sectionSz)
+      self.tableLocalIDs.verticalHeader().setDefaultSectionSize(sectionSz)
+      self.tableLocalIDs.verticalHeader().hide()
       initialColResize(self.tableLocalIDs, [0.20, 0.40, 0.40])
 
       self.main.connect(self.tableOtherIDs.selectionModel(), 
@@ -145,7 +155,8 @@ class PluginObject(object):
       # associated function.
       self.main.connect(self.main, SIGNAL('bdmReadyPMTA'), self.bdmReady)
 
-      '''
+      '''  # This is all old code from the PMTA plugin, which still needs to be
+           # hooked up to the new plugin layout somehow.
       # Action for when the PKS button is pressed.
       def pksAction():
          if self.wlt != None:
