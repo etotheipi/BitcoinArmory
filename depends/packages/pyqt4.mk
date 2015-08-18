@@ -19,7 +19,7 @@ endef
 define $(package)_config_cmds
   export QTDIR=$($(package)_prefix) && \
   export PATH="$($(package)_prefixbin):$($(package)_prefix)/native/bin/:${PATH}" && \
-  $($(package)_prefix)/native/bin/python configure-ng.py --confirm-license --qmake $($(package)_prefix)/native/bin/qmake --sip=$($(package)_prefix)/native/bin/sip --sip-incdir $($(package)_prefix)/native/include/python2.7/ --bindir=$($(package)_staging_prefix_dir)/bin --sysroot=$($(package)_prefix) --static --verbose
+  $($(package)_prefix)/native/bin/python configure-ng.py --confirm-license --qmake $($(package)_prefix)/native/bin/qmake --sip=$($(package)_prefix)/native/bin/sip --sip-incdir $($(package)_prefix)/native/include/python2.7/ --bindir=$($(package)_staging_prefix_dir)/bin --sysroot=$($(package)_prefix) --no-tools --static --verbose
 endef
 
 define $(package)_build_cmds
