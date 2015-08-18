@@ -5,7 +5,6 @@
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
 from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
    QTextEdit, QAbstractTableModel, QModelIndex, Qt
-from armoryengine.ArmoryUtils import parseBitcoinURI
 from armoryengine.ArmoryLog import LOGERROR
 from armoryengine.BDM import getBDM
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
@@ -193,8 +192,39 @@ class PluginObject(object):
 
       # Generate a payment request.
       def lrAction():
-         #
-         pass
+         # Get the new address and multiplier.
+         self.resAddr = None
+         self.resPos = 0
+         self.resMult = None
+         keyRes, self.resAddr, self.resPos, self.resMult = \
+                                                 self.getNewKeyAndMult(self.wlt)
+         if not keyRes:
+            LOGERROR('Attempt to generate a new key failed.')
+            QMessageBox.warning(self.main,
+                                'Address generation failed',
+                                'New address generation attempt failed.',
+                                QMessageBox.Ok)
+         elif self.resAddr == None:
+            LOGERROR('Resultant address is empty. This should not happen.')
+            QMessageBox.warning(self.main,
+                                'Address generated is empty',
+                                'New address generated is empty.',
+                                QMessageBox.Ok)
+         else:
+            # Generate the proper object.
+            finalAddr = self.resAddr.getAddrStr()
+            newPKRP = PublicKeyRelationshipProof()
+            newPKRP.initialize(self.resMult)
+            newPTV = PaymentTargetVerifier()
+            newPTV.initialize(newPKRP)
+            newPTVStr = binary_to_base58(newPTV.serialize())
+
+            # Put everything together and present it to the user.
+            # Right now, this dialog doesn't work. Dialog says the address is
+            # invalid and refuses to generate a QR code. We also need to pass in
+            # the Base58-encoded PTV somehow.
+#            dlg = DlgRequestPayment(self.main, self.main, finalAddr)
+#            dlg.exec_()
 
       self.main.connect(self.btnOther_Lookup, SIGNAL('clicked()'), olAction)
       self.main.connect(self.btnOther_Manual, SIGNAL('clicked()'), omAction)
@@ -476,6 +506,7 @@ class PluginObject(object):
       else:
          qmi = currIndex.model().index(currIndex.row(), LOCAL_ID_COLS.WalletID)
          self.selectedLocalWalletID = str(qmi.data().toString())
+         self.wlt = self.main.walletMap[self.selectedLocalWalletID]
          isValid = len(self.selectedLocalWalletID) > 0
 
       self.btnLocal_SetHandle.setEnabled(isValid)
@@ -680,6 +711,55 @@ class PluginObject(object):
                                        WALLET_ID_STORE_FILENAME)
       walletIDStore = SettingsFile(self.walletIDStorePath)
       return walletIDStore.hasSetting(inRec.split('..')[0])
+
+
+   # Function that takes a BIP 32 wallet, generates a new child key, and returns
+   # various values.
+   # INPUT:  Wallet from which a 2nd-level pub key is derived. (ABEK_StdWallet)
+   # OUTPUT: None
+   # RETURN: Boolean indicating whether or not the key was correctly derived.
+   #         The resultant address object. (ArmoryBip32ExtendedKey)
+   #         The 2nd level position of the public key. (int)
+   #         The multiplier (32 bytes minimum) that can get the root public key
+   #         to the derived key. (Binary string)
+   def getNewKeyAndMult(self, inWlt):
+      retVal  = False
+      outAddr = None
+      outPos  = 0
+      outMult = None
+
+      if inWlt == None:
+         LOGWARN('ERROR: No wallet selected. getNewKeyAndMult() will exit.')
+      else:
+         # Generate the new child address and get its position in the tree, then
+         # re-derive the child address and get a multiplier. For now, the code
+         # assumes the 1st level is 0 (i.e., these are non-change addresses).
+         nextChildNum = inWlt.external.lowestUnusedChild
+         newAddr = inWlt.getNextReceivingAddress()
+         finalPub1, multProof1 = DeriveBip32PublicKeyWithProof(
+                                                inWlt.sbdPublicKey33.toBinStr(),
+                                                  inWlt.sbdChaincode.toBinStr(),
+                                                              [0, nextChildNum])
+
+         # Ensure an apples-to-apples comparison before proceeding. Compress b/c
+         # it's less mathematically intensive than decompressing, and hex string
+         # comparison because Python doesn't like to compare SBD objs directly.
+         comp1 = CryptoECDSA().CompressPoint(newAddr.sbdPublicKey33)
+         comp2 = CryptoECDSA().CompressPoint(SecureBinaryData(finalPub1))
+         if comp1.toHexStr() != comp2.toHexStr():
+            LOGWARN('ERROR: For some reason, the new key (%s) at position %s ' \
+                    'does not match the derived key (%s) with multiplier %s. ' \
+                    'No key will be returned.' % (newAddr.sbdPublicKey33,
+                                                  nextChildNum,
+                                                  finalPub1,
+                                                  multProof1.multiplier))
+         else:
+            retVal  = True
+            outAddr = newAddr
+            outPos  = nextChildNum
+            outMult = multProof1.multiplier
+
+      return retVal, outAddr, outPos, outMult
 
 
    # Function is required by the plugin framework.

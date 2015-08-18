@@ -1363,26 +1363,30 @@ class PaymentTargetVerifier(object):
    def __init__(self):
       self.version = BTCAID_PTV_VERSION
       self.recType = 0
-      self.rec     = ''
+      self.rec     = None
 
 
    #############################################################################
-   @VerifyArgTypes(recType = int,
-                   rec     = [str, unicode],
-                   ver     = int)
-   def initialize(self, recType, rec, ver=BTCAID_PTV_VERSION):
+   @VerifyArgTypes(ver = int)
+   def initialize(self, rec, ver=BTCAID_PTV_VERSION):
       """
       Set all PTV values.
       """
-      self.recType = recType
-      self.rec     = rec
       self.version = ver
+      self.rec     = rec
+      if isinstance(rec, PublicKeyRelationshipProof):
+         self.recType = 0
+      elif isinstance(rec, ScriptRelationshipProof):
+         self.recType = 1
+      else:
+         LOGERROR('PaymentTargetVerifier received a record of type %s. PTV ' \
+                  'object is invalid.' % type(rec))
+         self.rec  = None
 
 
    #############################################################################
    def isInitialized(self):
-      pass
-#      return not (self.multiplier is '' and self.finalKey is '')
+      return not (self.rec is None)
 
 
    #############################################################################
@@ -1414,41 +1418,38 @@ class PaymentTargetVerifier(object):
       # In BitSet, higher numbers are less significant bits.
       # e.g., To get 0x0002, set bit 14 to True (1).
       # NB: For now, the compression relies on if the raw source is compressed.
-      pass
-#      flags = BitSet(8)
-#      flags.setBit(7, self.finalKeyUsed)
-#      flags.setBit(6, self.multUsed)
-#
-#      bp = BinaryPacker()
-#      bp.put(UINT8,   self.version)
-#      bp.put(BITSET,  flags, width=1)
-#      bp.put(VAR_STR, self.multiplier)
-#      bp.put(VAR_STR, self.finalKey)
-#
-#      return bp.getBinaryString()
+      bp = BinaryPacker()
+      bp.put(UINT8,   self.version)
+      bp.put(UINT8,   self.recType)
+      bp.put(VAR_STR, self.rec.serialize())
+
+      return bp.getBinaryString()
 
 
    #############################################################################
    def unserialize(self, serData):
-      pass
-#      inner      = BinaryUnpacker(serData)
-#      inVer      = inner.get(UINT8)
-#      inFlags    = inner.get(BITSET, 1)
-#      inMult     = inner.get(VAR_STR)
-#      inFinalKey = inner.get(VAR_STR)
-#
-#      if not inVer == BTCAID_PTV_VERSION:
-#         # In the future we will make this more of a warning, not error
-#         raise VersionError('PTV version does not match the loaded version')
-#
-#      self.__init__()
-#      self.initialize(inMult,
-#                      inFlags.getBit(7),
-#                      inFlags.getBit(6),
-#                      inFinalKey,
-#                      inVer)
-#
-#      return self
+      inner      = BinaryUnpacker(serData)
+      inVer      = inner.get(UINT8)
+      inRecType  = inner.get(UINT8)
+      inRecStr   = inner.get(VAR_STR)
+
+      if not inVer == BTCAID_PTV_VERSION:
+         # In the future we will make this more of a warning, not error
+         raise VersionError('PTV version does not match the loaded version')
+
+      inRec = None
+      if inRecType == 0:
+         inRec = PublicKeyRelationshipProof().unserialize(inRecStr)
+      elif inRecType == 1:
+         inRec = ScriptRelationshipProof().unserialize(inRecStr)
+      else:
+         raise BadInputError('Input type is invalid')
+
+      self.__init__()
+      self.initialize(inRec,
+                      inVer)
+
+      return self
 
 
 ################################################################################
