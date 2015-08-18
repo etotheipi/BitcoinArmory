@@ -3,17 +3,34 @@
 # be injected with the globals() from ArmoryQt.py, which includes pretty
 # much all of Bitcoin & Armory related stuff that you need.  So this
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
-from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
-   QTextEdit, QAbstractTableModel, QModelIndex, Qt
-from armoryengine.ArmoryLog import LOGERROR
-from armoryengine.BDM import getBDM
-from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
-   PAYNET_BTC, PAYNET_TBTC, PMTARecord
-from qtdialogs import DlgSendBitcoins, DlgWalletSelect
-from qtdefines import tr, enum, initialColResize
-from ui.WalletFrames import SelectWalletFrame
 from collections import OrderedDict
+import os
+import re
+import shutil
+
+from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
+   QTextEdit, QAbstractTableModel, QModelIndex, Qt, QTableView, QGridLayout, \
+   QFrame, QVBoxLayout, QMessageBox, QVariant, QDialogButtonBox
+
+from CppBlockUtils import SecureBinaryData, CryptoECDSA
+from armorycolors import Colors
+from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT
+from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir
+from armoryengine.ArmorySettings import SettingsFile
+from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex
+from armoryengine.BDM import getBDM
+from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
+   BTCAID_PAYLOAD_TYPE
+from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
+   PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
+   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof
+from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
+from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
+   makeVertFrame, makeHorizFrame, HLINE, ArmoryDialog
+from qtdialogs import DlgSendBitcoins, DlgWalletSelect
+from ui.WalletFrames import SelectWalletFrame
+
 
 WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 DNSSEC_URL = "https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensions"
@@ -87,28 +104,34 @@ class PluginObject(object):
                                                'const QModelIndex &)'),
                         self.localIDclicked)
 
-      self.btnOther_Lookup    = QPushButton(tr("Lookup Identity"))
-      self.btnOther_Manual    = QPushButton(tr("Manually Enter ID"))
-      self.btnOther_Verify    = QPushButton(tr("Verify Payment Request"))
-      self.btnOther_Export    = QPushButton(tr("Export Selected ID"))
-      self.btnOther_Delete    = QPushButton(tr("Delete Selected ID"))
+      self.btnOtherLookup = QPushButton(tr("Lookup Identity"))
+      self.btnOtherManual = QPushButton(tr("Manually Enter ID"))
+      self.btnOtherVerify = QPushButton(tr("Verify Payment Request"))
+      self.btnOtherExport = QPushButton(tr("Export Selected ID"))
+      self.btnOtherExport.setEnabled(False)
+      self.btnOtherDelete = QPushButton(tr("Delete Selected ID"))
+      self.btnOtherDelete.setEnabled(False)
 
-      frmOtherButtons = makeVertFrame([self.btnOther_Lookup,
-                                       self.btnOther_Manual,
-                                       self.btnOther_Verify,
-                                       self.btnOther_Export,
-                                       self.btnOther_Delete,
+      frmOtherButtons = makeVertFrame([self.btnOtherLookup,
+                                       self.btnOtherManual,
+                                       self.btnOtherVerify,
+                                       self.btnOtherExport,
+                                       self.btnOtherDelete,
                                        STRETCH])
 
-      self.btnLocal_SetHandle = QPushButton(tr("Set Handle"))
-      self.btnLocal_Publish   = QPushButton(tr("Publish Identity"))
-      self.btnLocal_Export    = QPushButton(tr("Export Selected ID"))
-      self.btnLocal_Request   = QPushButton(tr("Request Payment to Selected"))
+      self.btnLocalSetHandle = QPushButton(tr("Set Handle"))
+      self.btnLocalSetHandle.setEnabled(False)
+      self.btnLocalPublish = QPushButton(tr("Publish Identity"))
+      self.btnLocalPublish.setEnabled(False)
+      self.btnLocalExport = QPushButton(tr("Export Selected ID"))
+      self.btnLocalExport.setEnabled(False)
+      self.btnLocalRequest = QPushButton(tr("Request Payment to Selected"))
+      self.btnLocalRequest.setEnabled(False)
 
-      frmLocalButtons = makeVertFrame([self.btnLocal_SetHandle,
-                                       self.btnLocal_Publish,
-                                       self.btnLocal_Export,
-                                       self.btnLocal_Request,
+      frmLocalButtons = makeVertFrame([self.btnLocalSetHandle,
+                                       self.btnLocalPublish,
+                                       self.btnLocalExport,
+                                       self.btnLocalRequest,
                                        STRETCH])
 
 #      self.otherIDclicked(None)
@@ -149,14 +172,12 @@ class PluginObject(object):
 
       # Perform a DNS lookup on a handle. The result, if found, will be added to
       # the ID store.
-      def olAction():
-         # modelOtherIDs.addIdentity() should be sufficient once found.
-         pass
+      def otherWalletIdentityLookupAction():
+         self.otherWalletIdentityLookup()
 
-      # Manually enter an ID and a Base58-encoded blob into a pop-up.
-      def omAction():
-         #
-         pass
+      # Manually enter a handle and a Base58-encoded blob into a pop-up.
+      def enterWalletIdentityAction():
+         self.enterWalletIdentity()
 
       # SHOULD PROBABLY RENAME THE ASSOCIATED BUTTON
       # Paste in a proof and verify that the proof is accurate, then open a
@@ -166,14 +187,12 @@ class PluginObject(object):
          pass
 
       # Show an easy-to-copy-and-paste ID/blob combo.
-      def oeAction():
-         #
-         pass
-
+      def otherExportSelectedIDAction():
+         self.otherExportSelectedID()
+         
       # Delete the ID.
-      def odAction():
-         #
-         pass
+      def otherDeleteSelectedIDAction():
+         self.otherDeleteSelectedID()
 
       # Issue a pop-up with the given wallet's ID, and let the user change it.
       def lsAction():
@@ -226,252 +245,20 @@ class PluginObject(object):
 #            dlg = DlgRequestPayment(self.main, self.main, finalAddr)
 #            dlg.exec_()
 
-      self.main.connect(self.btnOther_Lookup, SIGNAL('clicked()'), olAction)
-      self.main.connect(self.btnOther_Manual, SIGNAL('clicked()'), omAction)
-      self.main.connect(self.btnOther_Verify, SIGNAL('clicked()'), ovAction)
-      self.main.connect(self.btnOther_Export, SIGNAL('clicked()'), oeAction)
-      self.main.connect(self.btnOther_Delete, SIGNAL('clicked()'), odAction)
+      self.main.connect(self.btnOtherLookup, SIGNAL('clicked()'),
+            otherWalletIdentityLookupAction)
+      self.main.connect(self.btnOtherManual, SIGNAL('clicked()'),
+            enterWalletIdentityAction)
+      self.main.connect(self.btnOtherVerify, SIGNAL('clicked()'), ovAction)
+      self.main.connect(self.btnOtherExport, SIGNAL('clicked()'),
+            otherExportSelectedIDAction)
+      self.main.connect(self.btnOtherDelete, SIGNAL('clicked()'),
+            otherDeleteSelectedIDAction)
 
-      self.main.connect(self.btnLocal_SetHandle, SIGNAL('clicked()'), lsAction)
-      self.main.connect(self.btnLocal_Publish,   SIGNAL('clicked()'), lpAction)
-      self.main.connect(self.btnLocal_Export,    SIGNAL('clicked()'), leAction)
-      self.main.connect(self.btnLocal_Request,   SIGNAL('clicked()'), lrAction)
-
-      '''  # This is all old code from the PMTA plugin, which still needs to be
-           # hooked up to the new plugin layout somehow.
-      # Action for when the PKS button is pressed.
-      def pksAction():
-         if self.wlt != None:
-            self.savePKSFile()
-         else:
-            QMessageBox.warning(self.main, 'No Wallet Chosen',
-                                'Please choose a wallet.', QMessageBox.Ok)
-
-      # Action for when the PMTA button is pressed.
-      def pmtaAction():
-         if self.wlt != None:
-            self.savePMTAFile()
-         else:
-            QMessageBox.warning(self.main, 'No Wallet Chosen',
-                                'Please choose a wallet.', QMessageBox.Ok)
-
-      # Action for when the "process payment request" button is pressed.
-      # What we want to do is take the incoming Bitcoing URI w/ PMTA field,
-      # decode the proof, verify that it's valid (i.e., PKS/CS + PKRP/SRP =
-      # Supplied Bitcoin address), and open a pre-filled "Send Bitcoins" dialog.
-      # Verfication includes checking DNS first and then checking the Armory
-      # ID store (see the ID store plugin) if the record's not on DNS.
-      def procPRAction():
-         # HACK: Supplying a hard-coded proof for debugging purposes.
-         # HACK: THE BASE58 DATA NEEDS TO BE REPLACED WITH A REAL PROOF!!!
-         self.payReqTextArea.setText('bitcoin:mokrWMifUTCBysucKZTZ7Uij8915VYcwWX?amount=10.5&pmta=x@x.com:aVYpkBuRQYgBf7Wn9aE8ATmYwV6b2o6jeMvj9KqQYqxkUgswNERoRYU1hSK58gDNhME6viPQYd3TvG5PaSnHbEiF72qp1')
-         uriData = parseBitcoinURI(str(self.payReqTextArea.toPlainText()))
-         pmtaData = uriData['pmta'].split(':')
-         pkrpFinal = PublicKeyRelationshipProof().unserialize(base58_to_binary(pmtaData[1]))
-         if pkrpFinal.isValid() is False:
-            QMessageBox.warning(self.main, 'Invalid Payment Request',
-                                'Payment Request is invalid. Please confirm ' \
-                                'that the text is complete and not corrupted.',
-                                QMessageBox.Ok)
-         else:
-            # If the PR is valid, go through the following steps. All steps,
-            # unless otherwise noted, are inside a loop based on the # of
-            # unvalidated TxOut scripts listed in the record.
-            #  1) Check DNS first.
-            # 2a) If we get a DNS record, create TxOut using it & matching SRP.
-            # 2b) If we don't get a DNS record, confirm that the received ID is
-            #     in the ID store.
-            #  3) If the ID is acceptable, apply the proof to get the final
-            #     address.
-            #  4) Confirm the derived address matches the provided address.
-            #  5) If the addresses match, generate a "Send Bitcoins" dialog
-            #     using the appropriate info.
-            resultRecord = None
-            resultType = ''
-            dlgInfo = {}
-            validRecords = True
-
-            # DNS IS IGNORED FOR NOW FOR DEBUGGING PURPOSES. COME BACK LATER.
-            #dnsResult = fetchPMTA(uriData['address'], resultRecord, resultType)
-            dnsResult = False
-            if not dnsResult:
-               # Verify that the received record matches the one in the ID
-               # store. If so, go ahead with the dialog.
-               #idFound = checkIDStore(uriData['pmta'])
-               idFound = True
-               if not idFound:
-                  validRecords = False
-
-            if validRecords:
-               # TO DO (Step 3): Derive & apply multipliers from attached PKRP.
-               # SRP would apply here if using a CS.
-
-               # TO DO (Step 4): Insert pop-up if derived address doesn't match
-               # the supplied address. Also, as a way to show this really works,
-               # insert a pop-up saying derivation worked. Wouldn't be done in a
-               # prod env either but it's great for a demo!
-
-               # TO DO (Step 5): Replace address w/ derived address as proof
-               # that everything worked out.
-               dlgInfo['address'] = uriData['address']
-               dlgInfo['amount'] = str(uriData['amount'])
-               DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
-
-      # Action for when the "generate payment request" button is pressed.
-      # What we want to do is generate a new address for a BIP32 wallet, mark
-      # the address as used, get a multiplier that can be applied to the PKS/CS
-      # of the wallet, and use the multiplier to generate a Base58-encoded
-      # (i.e., PKRP/SRP record) that is then attached to a Bitcoin URI that can
-      # be read by Armory or other programs.
-      def genPRAction():
-         # Confirm that a wallet has actually been chosen and is BIP32-capable.
-         if not isinstance(self.wlt, ABEK_StdWallet):
-            if self.wlt == None:
-               QMessageBox.warning(self.main, 'No wallet selected',
-                                   'Please select a wallet which will ' \
-                                   'receive the coins.', QMessageBox.Ok)
-            else:
-               QMessageBox.warning(self.main, 'Wallet object is damaged',
-                                   'Please contact Armory.', QMessageBox.Ok)
-         else:
-            if showRecvCoinsWarningIfNecessary(self.wlt, self.main, self.main):
-               # DELETE EVENTUALLY
-               pass
-
-               # WARNING: CODE BELOW IS ROUGH AND COMMENTED OUT FOR NOW.
-               # Generate the new address and get its multiplier.
-               #self.newAddr = wlt.getNextReceivingAddress()
-               # Despite the name, we need to make sure the key's uncompressed.
-               #baseAddr = wlt.sbdPublicKey33
-               #if baseAddr.getSize() == 33:
-               #   baseAddr = CryptoECDSA().UncompressPoint(wlt.sbdPublicKey33)
-
-               # CALCULATE MULTIPLIER FOR ROOT, THEN EXT, THEN THE DERIVED KEY.
-               # SHOULD PROBABLY MOD ONE OF THE FUNCTS TO JUST RETURN THE MULT.
-               # NO POINT IN RECALCULATING EVERYTHING.
-               #self.newMult = ???
-
-               # Generate the PKRP using the multiplier.
-               #newPKRP = PublicKeyRelationshipProof().initialize(newMult)
-               #newPKRPB58 = binary_to_base58(newPKRP.serialize())
-
-               # For demo/debug purposes, show the resultant addr & multiplier.
-               # NEED TO FIX CERTAIN VALUES
-               #QMessageBox.warning(self.main, 'DEBUG INFORMATION',
-               #                    'Root address = %s\nDerived address = %s\n' \
-               #                    'Multiplier = %s' % (wlt.getRoot().getExtendedPubKey(),
-               #                                         self.newAddr.getAddrStr(),
-               #                                         binary_to_hex(newMult)),
-               #                    QMessageBox.Ok)
-
-               # Generate the PR. (Throw up a pop-up asking how many coins to pay?)
-               #dlg = DlgRequestPayment(self, self.main, addrStr)
-               #dlg.exec_()
-
-      # Action for when the add DNS wallet ID button is pressed.
-      def addIDAction():
-         # str() used so that we save the text to a file.
-         wltDNSID = str(self.inID.displayText())
-
-         # We'll allow a user to input a valid email address or enter no text at
-         # all. To query DNS for a PMTA record, you must start with a string in
-         # an external email address format, which is a tighter form of what's
-         # allowed under RFC 822. We'll also let people enter blank text to
-         # erase an address. This raises questions of how wallet IDs should be
-         # handled in a production env. For now, the ID can change at will.
-         if (wltDNSID != '') and (self.validateEmailAddress(wltDNSID) == False):
-            QMessageBox.warning(self.main, 'Incorrect ID Formatting',
-                                'ID is not blank or in the form of an email ' \
-                                'address.',
-                                QMessageBox.Ok)
-         else:
-            self.main.setWltSetting(self.wlt.uniqueIDB58, 'dnsID', wltDNSID)
-            QMessageBox.information(self.main, 'ID Saved', 'ID is saved.',
-                                    QMessageBox.Ok)
-
-      # Action for when the export DNS wallet ID button is pressed.
-      def expIDAction():
-         if (str(self.inID.displayText()) != '') and \
-            (str(self.inID.displayText()) !=
-             self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')):
-            QMessageBox.warning(self.main, 'ID Not Saved',
-                                'DNS wallet ID must be saved first.',
-                                QMessageBox.Ok)
-         elif str(self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')) == '':
-            QMessageBox.warning(self.main, 'ID Not Saved',
-                                'DNS wallet ID must be saved first.',
-                                QMessageBox.Ok)
-         else:
-            # We need to preserve the email address-like string that is the
-            # wallet ID. Two periods after the string is guaranteed to be
-            # invalid for an email address, so we'll use that.
-            expStr = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID') + \
-                     '..' + self.pksB58Line.displayText()
-            QMessageBox.information(self.main, 'Exportable DNS Wallet ID',
-                                'The exportable DNS ID for wallet %s is %s' %
-                                (self.wlt.uniqueIDB58, expStr),
-                                QMessageBox.Ok)
-
-      # Action for when the clear text button is pressed.
-      def clearText():
-         self.payReqTextArea.setText('')
-
-      #self.main.connect(self.pksButton,        SIGNAL('clicked()'), pksAction)
-      #self.main.connect(self.pmtaButton,       SIGNAL('clicked()'), pmtaAction)
-      #self.main.connect(self.procPayReqButton, SIGNAL('clicked()'), procPRAction)
-      #self.main.connect(self.genPayReqButton,  SIGNAL('clicked()'), genPRAction)
-      #self.main.connect(self.addIDButton,      SIGNAL('clicked()'), addIDAction)
-      #self.main.connect(self.exportIDButton,   SIGNAL('clicked()'), expIDAction)
-      #self.main.connect(self.clearButton,      SIGNAL('clicked()'), clearText)
-
-      # ID stuff
-      idLabel = QLabel('Public Wallet ID: ')
-      self.inID = QLineEdit()
-      self.inID.setFont(GETFONT('Fixed'))
-      self.inID.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
-      self.inID.setAlignment(Qt.AlignLeft)
-      idTip = self.main.createToolTipWidget('An ID, in email address form, ' \
-                                            'that will be associated with ' \
-                                            'this wallet in a DNS record.')
-
-      # Base58 PKS stuff
-      pksB58Label = QLabel('PKS (Base 58): ')
-      self.pksB58Line = QLineEdit()
-      self.pksB58Line.setFont(GETFONT('Fixed'))
-      self.pksB58Line.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
-      self.pksB58Line.setAlignment(Qt.AlignLeft)
-      self.pksB58Line.setReadOnly(True)
-      pksB58Tip = self.main.createToolTipWidget('The wallet\'s PKS record, ' \
-                                                'Base58-encoded.')
-
-      # Create the frame and set the scrollarea widget to the layout.
-      # self.tabToDisplay is required by the plugin framework.
-      pluginFrame = makeVertFrame([headerLabel,
-                                   makeHorizFrame([self.btnWltSelect,
-                                                   self.selectedWltDisplay,
-                                                   'Stretch']),
-                                   makeHorizFrame([pksB58Label,
-                                                   self.pksB58Line,
-                                                   pksB58Tip,
-                                                   'Stretch']),
-                                   makeHorizFrame([idLabel,
-                                                   self.inID,
-                                                   idTip,
-                                                   'Stretch']),
-                                   makeHorizFrame([self.pksButton,
-                                                   self.pmtaButton,
-                                                   self.procPayReqButton,
-                                                   self.genPayReqButton,
-                                                   self.addIDButton,
-                                                   self.exportIDButton,
-                                                   'Stretch']),
-                                   payReqLabel,
-                                   makeHorizFrame([self.payReqTextArea,
-                                                   'Stretch']),
-                                   makeHorizFrame([self.clearButton,
-                                                   'Stretch']),
-                                   'Stretch'])
-      '''
+      self.main.connect(self.btnLocalSetHandle, SIGNAL('clicked()'), lsAction)
+      self.main.connect(self.btnLocalPublish,   SIGNAL('clicked()'), lpAction)
+      self.main.connect(self.btnLocalExport,    SIGNAL('clicked()'), leAction)
+      self.main.connect(self.btnLocalRequest,   SIGNAL('clicked()'), lrAction)
 
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
@@ -479,8 +266,41 @@ class PluginObject(object):
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
+   
+   #############################################################################
+   def otherWalletIdentityLookup(self):
+      dlg = LookupIdentityDialog(self.main, self.main)
+      if dlg.exec_():
+         # TODO add look up functionality - For now display a warning that
+         # it was not found
+         QMessageBox.warning(self.main, 'Wallet Handle Not Found',
+           'This Wallet Handle: %s could not be found in the Wallet ID Store.' \
+           % dlg.getWalletHandle(),
+           QMessageBox.Ok)
+   
+   #############################################################################
+   def enterWalletIdentity(self):
+      dlg = EnterWalletIdentityDialog(self.main, self.main)
+      if dlg.exec_():
+         self.modelOtherIDs.addIdentity(dlg.getWalletHandle(), dlg.getWalletPKS())
 
-
+   #############################################################################
+   def otherExportSelectedID(self):
+      row = self.tableOtherIDs.selectedIndexes()[0].row()
+      
+      dlg = ExportWalletIdentityDialog(self.main, self.main,
+            self.modelOtherIDs.getRowToExport(row))
+      if dlg.exec_():
+         pass
+         
+   #############################################################################
+   def otherDeleteSelectedID(self):
+      row = self.tableOtherIDs.selectedIndexes()[0].row()
+      self.modelOtherIDs.removeRecord(row)
+      self.btnOtherExport.setEnabled(False)
+      self.btnOtherDelete.setEnabled(False)
+      
+         
    #############################################################################
    def otherIDclicked(self, currIndex, prevIndex=None):
       if prevIndex == currIndex and not currIndex is None:
@@ -493,8 +313,8 @@ class PluginObject(object):
          self.selectedOtherHandle = str(qmi.data().toString())
          isValid = len(self.selectedOtherHandle) > 0
 
-      self.btnOther_Export.setEnabled(isValid)
-      self.btnOther_Delete.setEnabled(isValid)
+      self.btnOtherExport.setEnabled(isValid)
+      self.btnOtherDelete.setEnabled(isValid)
 
    #############################################################################
    def localIDclicked(self, currIndex, prevIndex=None):
@@ -509,10 +329,10 @@ class PluginObject(object):
          self.wlt = self.main.walletMap[self.selectedLocalWalletID]
          isValid = len(self.selectedLocalWalletID) > 0
 
-      self.btnLocal_SetHandle.setEnabled(isValid)
-      self.btnLocal_Publish.setEnabled(isValid)
-      self.btnLocal_Export.setEnabled(isValid)
-      self.btnLocal_Request.setEnabled(isValid)
+      self.btnLocalSetHandle.setEnabled(isValid)
+      self.btnLocalPublish.setEnabled(isValid)
+      self.btnLocalExport.setEnabled(isValid)
+      self.btnLocalRequest.setEnabled(isValid)
 
 
    # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
@@ -766,6 +586,92 @@ class PluginObject(object):
    def getTabToDisplay(self):
       return self.tabToDisplay
 
+################################################################################
+class ExportWalletIdentityDialog(ArmoryDialog):
+   def __init__(self, parent, main, walletHandleID):
+      super(ExportWalletIdentityDialog, self).__init__(parent, main)
+
+      walletHandleIDLabel = QLabel("Wallet Handle and Identy:")
+      walletHandleIDString = walletHandleID
+      self.walletHandleIDLineEdit = QLineEdit(walletHandleIDString)
+      self.walletHandleIDLineEdit.setMinimumWidth(500)
+      self.walletHandleIDLineEdit.setReadOnly(True)
+      walletHandleIDLabel.setBuddy(self.walletHandleIDLineEdit)
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+
+      layout = QGridLayout()
+      layout.addWidget(walletHandleIDLabel, 1, 0, 1, 1)
+      layout.addWidget(self.walletHandleIDLineEdit, 1, 1, 1, 1)
+      layout.addWidget(buttonBox, 4, 0, 1, 2)
+      self.setLayout(layout)
+
+      self.setWindowTitle('Wallet Handle and Identity')
+
+   
+################################################################################
+class LookupIdentityDialog(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(LookupIdentityDialog, self).__init__(parent, main)
+
+      walletHandleLabel = QLabel("Wallet Handle to lookup:")
+      self.walletHandleLineEdit = QLineEdit()
+      self.walletHandleLineEdit.setMinimumWidth(300)
+      walletHandleLabel.setBuddy(self.walletHandleLineEdit)
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+
+      layout = QGridLayout()
+      layout.addWidget(walletHandleLabel, 1, 0, 1, 1)
+      layout.addWidget(self.walletHandleLineEdit, 1, 1, 1, 1)
+      layout.addWidget(buttonBox, 4, 0, 1, 2)
+      self.setLayout(layout)
+
+      self.setWindowTitle('Look up Wallet Identity')
+      
+   def getWalletHandle(self):
+      return self.walletHandleLineEdit.text()
+
+################################################################################
+class EnterWalletIdentityDialog(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(EnterWalletIdentityDialog, self).__init__(parent, main)
+
+      walletHandleLabel = QLabel("Wallet Handle:")
+      self.walletHandleLineEdit = QLineEdit()
+      self.walletHandleLineEdit.setMinimumWidth(300)
+      walletHandleLabel.setBuddy(self.walletHandleLineEdit)
+
+      pksLabel = QLabel("Wallet Identity:")
+      self.pksLineEdit = QLineEdit()
+      self.pksLineEdit.setMinimumWidth(300)
+      pksLabel.setBuddy(self.pksLineEdit)
+
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+
+      layout = QGridLayout()
+      layout.addWidget(walletHandleLabel, 1, 0, 1, 1)
+      layout.addWidget(self.walletHandleLineEdit, 1, 1, 1, 1)
+      layout.addWidget(pksLabel, 2, 0, 1, 1)
+      layout.addWidget(self.pksLineEdit, 2, 1, 1, 1)
+      layout.addWidget(buttonBox, 5, 0, 1, 2)
+      self.setLayout(layout)
+
+      self.setWindowTitle('Enter Wallet Identity')
+      
+   def getWalletHandle(self):
+      return self.walletHandleLineEdit.text()
+   
+   def getWalletPKS(self):
+      return self.pksLineEdit.text()
 
 ################################################################################
 class OtherWalletIDModel(QAbstractTableModel):
@@ -779,16 +685,13 @@ class OtherWalletIDModel(QAbstractTableModel):
 
       self.readIdentityFile()
 
-
    #############################################################################
    def rowCount(self, index=QModelIndex()):
       return len(self.identityMap)
 
-
    #############################################################################
    def columnCount(self, index=QModelIndex()):
       return 1
-
 
    #############################################################################
    def data(self, index, role=Qt.DisplayRole):
@@ -806,7 +709,6 @@ class OtherWalletIDModel(QAbstractTableModel):
          retVal = QVariant(Colors.Foreground)
 
       return retVal
-
 
    #############################################################################
    def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -871,7 +773,7 @@ class OtherWalletIDModel(QAbstractTableModel):
    # OUTPUT: None
    # RETURN: None
    def addIdentity(self, dnsHandle, base58Identity):
-      if dnsHandle in self.identityMap and not doReplace:
+      if dnsHandle in self.identityMap:
          LOGWARN('Handle is already in ID store. Updating instead of adding ')
          LOGWARN('DNS Handle: %s', dnsHandle)
 
@@ -892,6 +794,10 @@ class OtherWalletIDModel(QAbstractTableModel):
             return handle
       else:
          return None
+   
+   def getRowToExport(self, row):
+      key = self.identityMap.keys()[row]
+      return key + ' ' + self.identityMap[key]
 
 
 ################################################################################
