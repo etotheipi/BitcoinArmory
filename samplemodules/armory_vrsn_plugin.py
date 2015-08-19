@@ -10,7 +10,8 @@ import shutil
 
 from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
    QTextEdit, QAbstractTableModel, QModelIndex, Qt, QTableView, QGridLayout, \
-   QFrame, QVBoxLayout, QMessageBox, QVariant, QDialogButtonBox, QApplication
+   QFrame, QVBoxLayout, QMessageBox, QVariant, QDialogButtonBox, QApplication, \
+   QSizePolicy
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armorycolors import Colors
@@ -24,7 +25,7 @@ from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
    BTCAID_PAYLOAD_TYPE, CLICKED
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
-   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof
+   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
@@ -38,6 +39,31 @@ DNSSEC_URL = "https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensio
 
 OTHER_ID_COLS = enum('DnsHandle')
 LOCAL_ID_COLS = enum('WalletID', 'WalletName', 'DnsHandle')
+
+
+# NOTE: I moved this out of the plug in object because it doesn't have
+# anything to do with the plug-in and does not reference "self" at all
+#
+# TODO: It's replicated in every PKS related plug-in. Make
+# this a utility function
+#
+# Function that creates and returns a PublicKeySource (PMTA/DNS) record based
+# on the incoming wallet.
+# INPUT:  The wallet used to generate the PKS record (ABEK_StdWallet)
+#         PKS-related flags (bool) - See armoryengine/ConstructedScript.py
+# OUTPUT: None
+# RETURN: Final PKS record (PKSRecord)
+def getWltPKS(inWlt, isStatic = False, useCompr = False,
+              use160 = False, isUser = False, isExt = False,
+              chksumPres = False):
+   # Start with the wallet's uncompressed root key.
+   sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
+   sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
+
+   myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
+                           sbdPubKey65.toBinStr(), False, chksumPres)
+   return myPKS
+
 
 # Class name is required by the plugin framework.
 class PluginObject(object):
@@ -188,6 +214,10 @@ class PluginObject(object):
          pass
 
       # Show an easy-to-copy-and-paste ID/blob combo.
+      def localExportSelectedIDAction():
+         self.localExportSelectedID()
+
+      # Show an easy-to-copy-and-paste ID/blob combo.
       def otherExportSelectedIDAction():
          self.otherExportSelectedID()
          
@@ -196,19 +226,14 @@ class PluginObject(object):
          self.otherDeleteSelectedID()
 
       # Issue a pop-up with the given wallet's ID, and let the user change it.
-      def lsAction():
-         #
-         pass
-
+      def setLocalWalletHandleAction():
+         self.setLocalWalletHandle()
+         
       # Publish identity to Verisign for placement in DNSSEC.
       def lpAction():
          #
          pass
 
-      # Show an easy-to-copy-and-paste ID/blob combo.
-      def leAction():
-         #
-         pass
 
       # Generate a payment request.
       def lrAction():
@@ -260,9 +285,11 @@ class PluginObject(object):
       self.main.connect(self.btnOtherDelete, SIGNAL('clicked()'),
             otherDeleteSelectedIDAction)
 
-      self.main.connect(self.btnLocalSetHandle, SIGNAL('clicked()'), lsAction)
+      self.main.connect(self.btnLocalSetHandle, SIGNAL('clicked()'),
+            setLocalWalletHandleAction)
       self.main.connect(self.btnLocalPublish,   SIGNAL('clicked()'), lpAction)
-      self.main.connect(self.btnLocalExport,    SIGNAL('clicked()'), leAction)
+      self.main.connect(self.btnLocalExport,    SIGNAL('clicked()'),
+            localExportSelectedIDAction)
       self.main.connect(self.btnLocalRequest,   SIGNAL('clicked()'), lrAction)
 
       self.tabToDisplay = QScrollArea()
@@ -271,7 +298,16 @@ class PluginObject(object):
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
-   
+      
+   #############################################################################
+   def setLocalWalletHandle(self):
+      row = self.tableLocalIDs.selectedIndexes()[0].row()
+      wltID = self.modelLocalIDs.getWltIDForRow(row)
+      dlg = SetWalletHandleDialog(self.main, self.main, wltID)
+      if dlg.exec_():
+         self.main.setWltSetting(wltID, 'dnsID', dlg.getWalletHandle())
+         self.tableLocalIDs.reset()
+
    #############################################################################
    def otherWalletIdentityLookup(self):
       dlg = LookupIdentityDialog(self.main, self.main)
@@ -297,7 +333,16 @@ class PluginObject(object):
             self.modelOtherIDs.getRowToExport(row))
       if dlg.exec_():
          pass
-         
+      
+   #############################################################################
+   def localExportSelectedID(self):
+      row = self.tableLocalIDs.selectedIndexes()[0].row()
+      
+      dlg = ExportWalletIdentityDialog(self.main, self.main,
+            self.modelLocalIDs.getRowToExport(row))
+      if dlg.exec_():
+         pass
+   
    #############################################################################
    def otherDeleteSelectedID(self):
       row = self.tableOtherIDs.selectedIndexes()[0].row()
@@ -338,25 +383,6 @@ class PluginObject(object):
       self.btnLocalPublish.setEnabled(isValid)
       self.btnLocalExport.setEnabled(isValid)
       self.btnLocalRequest.setEnabled(isValid)
-
-
-   # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
-   # on the incoming wallet.
-   # INPUT:  The wallet used to generate the PKS record (ABEK_StdWallet)
-   #         PKS-related flags (bool) - See armoryengine/ConstructedScript.py
-   # OUTPUT: None
-   # RETURN: Final PKS record (PKSRecord)
-   def getWltPKS(self, inWlt, isStatic = False, useCompr = False,
-                 use160 = False, isUser = False, isExt = False,
-                 chksumPres = False):
-      # Start with the wallet's uncompressed root key.
-      sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
-      sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
-
-      myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
-                              sbdPubKey65.toBinStr(), chksumPres)
-      return myPKS
-
 
    # Call for when we want to save a binary PKS record to a file. By default,
    # all PKS flags will be false.
@@ -600,6 +626,7 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       self.walletHandleIDLineEdit.setMinimumWidth(500)
       self.walletHandleIDLineEdit.setReadOnly(True)
       walletHandleIDLabel.setBuddy(self.walletHandleIDLineEdit)
+      self.walletHandleIDLineEdit.setCursorPosition(0)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
       self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
@@ -616,8 +643,8 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       self.connect(btnCopy, SIGNAL(CLICKED), copyWalletIDToClipboardAction)
       self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      copyButtonBox = makeHorizFrame([btnCopy, btnSave, self.lblCopied, STRETCH],
-            condenseMargins=True)
+      copyButtonBox = makeHorizFrame([btnCopy, btnSave, self.lblCopied,
+            STRETCH], condenseMargins=True)
 
       layout = QGridLayout()
       layout.addWidget(walletHandleIDLabel, 1, 0, 1, 1)
@@ -681,6 +708,60 @@ class LookupIdentityDialog(ArmoryDialog):
       return self.walletHandleLineEdit.text()
 
 ################################################################################
+class SetWalletHandleDialog(ArmoryDialog):
+   def __init__(self, parent, main, wltID):
+      super(SetWalletHandleDialog, self).__init__(parent, main)
+      wlt = main.walletMap[wltID]
+      
+      
+      wltIDLabel = QRichLabel("Wallet ID:", doWrap=False)
+      wltIDDisplayLabel = QRichLabel(wltID)
+      wltIDDisplayLabel.setSizePolicy(QSizePolicy.Preferred,
+            QSizePolicy.Preferred)
+      
+      wltNameLabel = QRichLabel("Name:", doWrap=False)
+      wltNameDisplayLabel = QRichLabel(wlt.getLabel())
+      wltNameDisplayLabel.setSizePolicy(QSizePolicy.Preferred,
+            QSizePolicy.Preferred)
+      
+      pksLabel = QLabel("Wallet Payment Verifier:")
+      pksStr = binary_to_base58(getWltPKS(wlt).serialize())
+      pksLineEdit = QLineEdit(pksStr)
+      pksLineEdit.setMinimumWidth(300)
+      pksLineEdit.setCursorPosition(0)
+      pksLineEdit.setReadOnly(True)
+      pksLabel.setBuddy(pksLineEdit)
+
+      walletHandleLabel = QLabel("Wallet Handle:")
+      wltHandle = main.getWltSetting(wltID, 'dnsID')
+      self.walletHandleLineEdit = QLineEdit(wltHandle)
+      self.walletHandleLineEdit.setMinimumWidth(300)
+      pksLineEdit.setCursorPosition(0)
+      walletHandleLabel.setBuddy(self.walletHandleLineEdit)
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+
+      layout = QGridLayout()
+      layout.addWidget(wltIDLabel, 1, 0, 1, 1)
+      layout.addWidget(wltIDDisplayLabel, 1, 1, 1, 1)
+      layout.addWidget(wltNameLabel, 2, 0, 1, 1)
+      layout.addWidget(wltNameDisplayLabel, 2, 1, 1, 1)
+      layout.addWidget(pksLabel, 3, 0, 1, 1)
+      layout.addWidget(pksLineEdit, 3, 1, 1, 1)
+      layout.addWidget(walletHandleLabel, 4, 0, 1, 1)
+      layout.addWidget(self.walletHandleLineEdit, 4, 1, 1, 1)
+      layout.addWidget(buttonBox, 6, 0, 1, 2)
+      self.setLayout(layout)
+
+      self.setWindowTitle('Enter Wallet Handle')
+      
+   def getWalletHandle(self):
+      return str(self.walletHandleLineEdit.text())
+
+################################################################################
 class EnterWalletIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
       super(EnterWalletIdentityDialog, self).__init__(parent, main)
@@ -690,7 +771,7 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       self.walletHandleLineEdit.setMinimumWidth(300)
       walletHandleLabel.setBuddy(self.walletHandleLineEdit)
 
-      pksLabel = QLabel("Wallet Identity:")
+      pksLabel = QLabel("Wallet Payment Verifier:")
       self.pksLineEdit = QLineEdit()
       self.pksLineEdit.setMinimumWidth(300)
       pksLabel.setBuddy(self.pksLineEdit)
@@ -709,7 +790,7 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       layout.addWidget(buttonBox, 5, 0, 1, 2)
       self.setLayout(layout)
 
-      self.setWindowTitle('Enter Wallet Identity')
+      self.setWindowTitle('Enter Wallet Payment Verifier')
       
    def getWalletHandle(self):
       return self.walletHandleLineEdit.text()
@@ -905,3 +986,18 @@ class LocalWalletIDModel(QAbstractTableModel):
             retVal = QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
       return retVal
+
+   #############################################################################
+   def getRowToExport(self, row):
+      wltID = self.main.wltIDList[row]
+      dnsID = self.main.getWltSetting(wltID, 'dnsID')
+      if not dnsID:
+         dnsID = '<None>'
+
+      wlt = self.main.walletMap[wltID]
+      pksStr = binary_to_base58(getWltPKS(wlt).serialize())
+      return dnsID + ' ' + pksStr
+   
+   #############################################################################
+   def getWltIDForRow(self, row):
+      return self.main.wltIDList[row]
