@@ -337,8 +337,7 @@ class PluginObject(object):
       sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
       sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
 
-      myPKS = PublicKeySource()
-      myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
+      myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
                        sbdPubKey65.toBinStr(), chksumPres)
       return myPKS
 
@@ -410,8 +409,7 @@ class PluginObject(object):
          myPMTA = PMTARecord()
          try:
             with open(filePath, 'wb') as newWltFile:
-               myPKS = PublicKeySource()
-               myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
+               myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
                                 sbdPubKey65.toBinStr(), chksumPres)
                myPMTA.initialize(myPKS.serialize(), payNet)
                newWltFile.write(binary_to_base58(myPMTA.serialize()))
@@ -490,7 +488,7 @@ class PluginObject(object):
       if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = PublicKeySource().unserialize(daneRec)
+         pksRec = decodePublicKeySource(daneRec)
 
          # Convert Hash160 to Bitcoin address. Make sure we get a PKS, which we
          # won't if the checksum fails.

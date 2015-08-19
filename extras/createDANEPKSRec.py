@@ -27,8 +27,7 @@ finalPub, multProof = DeriveBip32PublicKeyWithProof(sbdPubKey.toBinStr(),
 finalPubHash = hash160(finalPub)
 
 # Build the PKS - Make it static for the demo - Include the checksum
-pksScr = PublicKeySource()
-pksScr.initialize(True, False, False, False, False, finalPubHash, True)
+pksScr = PublicKeySource(True, False, False, False, False, finalPubHash, True)
 
 # Write to file
 danePKSBinFile = open('danePKS.bin','wb')

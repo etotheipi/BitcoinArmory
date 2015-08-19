@@ -184,7 +184,7 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = PublicKeySource().unserialize(daneRec)
+         pksRec = decodePublicKeySource(daneRec)
 
          # Convert Hash160 to Bitcoin address.
          if daneRec != None:
@@ -1232,7 +1232,7 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = PublicKeySource().unserialize(daneRec)
+         pksRec = decodePublicKeySource(daneRec)
 
          # Convert Hash160 to Bitcoin address.
          if daneRec != None:

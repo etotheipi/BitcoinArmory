@@ -171,8 +171,7 @@ class PluginObject(object):
       sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
       sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
 
-      myPKS = PublicKeySource()
-      myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
+      myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
                        sbdPubKey65.toBinStr(), chksumPres)
       return myPKS
 

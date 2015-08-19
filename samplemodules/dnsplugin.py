@@ -92,7 +92,7 @@ class PluginObject(object):
       if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = PublicKeySource().unserialize(daneRec)
+         pksRec = decodePublicKeySource(daneRec)
 
          # Convert Hash160 to Bitcoin address. Make sure we get a PKS, which we
          # won't if the checksum fails.

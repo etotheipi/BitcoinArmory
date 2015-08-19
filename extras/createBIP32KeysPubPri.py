@@ -31,8 +31,7 @@ finalPri = DeriveBip32PrivateKey(masterExtPrv.getKey().toBinStr(),
                                  sbdChain.toBinStr(), [92, 912, 937])
 
 # Build the PKS - Make it static for the demo - Include the checksum
-pksScr = PublicKeySource()
-pksScr.initialize(True, False, False, False, False, finalPubHash, True)
+pksScr = PublicKeySource(True, False, False, False, False, finalPubHash, True)
 
 # Write to file
 b58Res = hash_160_to_bc_address(hash160(finalPub), 111)

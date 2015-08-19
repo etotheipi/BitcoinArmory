@@ -100,7 +100,7 @@ def getDANERecord(daneRecName, desiredRecType=None):
    # BIP32 test vector. Any code that doesn't account for this will fail.
    if desiredRecType != None:
       if desiredRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
-         retRec = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1)
+         retRec = decodePublicKeySource(PKS1NoChksum_Comp_v1)
          retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
       elif desiredRecType == BTCAID_PAYLOAD_TYPE.ConstructedScript:
          retRec = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
