@@ -15,7 +15,7 @@ from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armorycolors import Colors
 from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT, LOGINFO
-from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir,\
+from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir, \
    isWindows
 from armoryengine.ArmorySettings import SettingsFile
 from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex
@@ -212,39 +212,43 @@ class PluginObject(object):
 
       # Generate a payment request.
       def lrAction():
-         # Get the new address and multiplier.
-         self.resAddr = None
-         self.resPos = 0
-         self.resMult = None
-         keyRes, self.resAddr, self.resPos, self.resMult = \
-                                                 self.getNewKeyAndMult(self.wlt)
-         if not keyRes:
-            LOGERROR('Attempt to generate a new key failed.')
+         if self.wlt == None:
             QMessageBox.warning(self.main,
-                                'Address generation failed',
-                                'New address generation attempt failed.',
-                                QMessageBox.Ok)
-         elif self.resAddr == None:
-            LOGERROR('Resultant address is empty. This should not happen.')
-            QMessageBox.warning(self.main,
-                                'Address generated is empty',
-                                'New address generated is empty.',
+                                'No Local Wallet Selected',
+                                'Please select a local wallet.',
                                 QMessageBox.Ok)
          else:
+            # Get the new address and multiplier.
+            self.resAddr = None
+            self.resPos = 0
+            self.resMult = None
+            keyRes, self.resAddr, self.resPos, self.resMult = \
+                                                 self.getNewKeyAndMult(self.wlt)
+            if not keyRes:
+               LOGERROR('Attempt to generate a new key failed.')
+               QMessageBox.warning(self.main,
+                                   'Address generation failed',
+                                   'New address generation attempt failed.',
+                                   QMessageBox.Ok)
+            elif self.resAddr == None:
+               LOGERROR('Resultant address is empty. This should not happen.')
+               QMessageBox.warning(self.main,
+                                   'Address generated is empty',
+                                   'New address generated is empty.',
+                                   QMessageBox.Ok)
+            else:
             # Generate the proper object.
-            finalAddr = self.resAddr.getAddrStr()
-            newPKRP = PublicKeyRelationshipProof()
-            newPKRP.initialize(self.resMult)
-            newPTV = PaymentTargetVerifier()
-            newPTV.initialize(newPKRP)
-            newPTVStr = binary_to_base58(newPTV.serialize())
+               finalAddr = self.resAddr.getAddrStr()
+               newPKRP = PublicKeyRelationshipProof(self.resMult)
+               newPTV = PaymentTargetVerifier(newPKRP)
+               newPTVStr = binary_to_base58(newPTV.serialize())
 
-            # Put everything together and present it to the user.
-            # Right now, this dialog doesn't work. Dialog says the address is
-            # invalid and refuses to generate a QR code. We also need to pass in
-            # the Base58-encoded PTV somehow.
-#            dlg = DlgRequestPayment(self.main, self.main, finalAddr)
-#            dlg.exec_()
+               # Put everything together and present it to the user.
+               # Right now, this dialog doesn't work. Dialog says the address is
+               # invalid and refuses to generate a QR code. We also need to pass
+               # in the Base58-encoded PTV somehow.
+#               dlg = DlgRequestPayment(self.main, self.main, finalAddr)
+#               dlg.exec_()
 
       self.main.connect(self.btnOtherLookup, SIGNAL('clicked()'),
             otherWalletIdentityLookupAction)
@@ -349,9 +353,8 @@ class PluginObject(object):
       sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
       sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
 
-      myPKS = PublicKeySource()
-      myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
-                       sbdPubKey65.toBinStr(), chksumPres)
+      myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
+                              sbdPubKey65.toBinStr(), chksumPres)
       return myPKS
 
 
@@ -419,13 +422,12 @@ class PluginObject(object):
                                   'exist: %s', pathdir)
 
          # Write the PMTA record to the file, then return the record.
-         myPMTA = PMTARecord()
          try:
             with open(filePath, 'wb') as newWltFile:
-               myPKS = PublicKeySource()
-               myPKS.initialize(isStatic, useCompr, use160, isUser, isExt,
-                                sbdPubKey65.toBinStr(), chksumPres)
-               myPMTA.initialize(myPKS.serialize(), payNet)
+               myPKS = PublicKeySource(isStatic, useCompr, use160, isUser,
+                                       isExt, sbdPubKey65.toBinStr(),
+                                       chksumPres)
+               myPMTA = PMTARecord(myPKS.serialize(), payNet)
                newWltFile.write(binary_to_base58(myPMTA.serialize()))
                QMessageBox.information(self.main, 'PMTA File Saved',
                                        'PMTA file is saved.', QMessageBox.Ok)
@@ -594,19 +596,20 @@ class ExportWalletIdentityDialog(ArmoryDialog):
 
       walletHandleIDLabel = QLabel("Wallet Handle and Identity:")
       self.walletHandleIDLineEdit = QLineEdit(walletHandleID)
+
       self.walletHandleIDLineEdit.setMinimumWidth(500)
       self.walletHandleIDLineEdit.setReadOnly(True)
       walletHandleIDLabel.setBuddy(self.walletHandleIDLineEdit)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
       self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
-      
+
       def saveWalletIDFileAction():
          self.saveWalletIDFile()
-      
+
       def copyWalletIDToClipboardAction():
          self.copyWalletIDToClipboard()
-      
+
       btnSave = QPushButton('Save as file...')
       self.connect(btnSave, SIGNAL(CLICKED), saveWalletIDFileAction)
       btnCopy = QPushButton('Copy to clipboard')
@@ -615,7 +618,7 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       copyButtonBox = makeHorizFrame([btnCopy, btnSave, self.lblCopied, STRETCH],
             condenseMargins=True)
-      
+
       layout = QGridLayout()
       layout.addWidget(walletHandleIDLabel, 1, 0, 1, 1)
       layout.addWidget(self.walletHandleIDLineEdit, 1, 1, 1, 1)
@@ -649,7 +652,8 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       except IOError:
          LOGEXCEPT('Failed to save file: %s', toSave)
          pass
-      
+
+
 ################################################################################
 class LookupIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):

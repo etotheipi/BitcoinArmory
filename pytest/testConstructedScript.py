@@ -162,24 +162,22 @@ class PKSClassTests(unittest.TestCase):
    # formed and can be correctly formed.
    def testSerialization(self):
       # PKS1 with a checksum & uncompressed key.
-      pks1ChksumPres = PublicKeySource()
-      pks1ChksumPres.initialize(False, False, False, False, False,
-                                BIP32MasterPubKey2, True, False)
+      pks1ChksumPres = PublicKeySource(False, False, False, False, False,
+                                       BIP32MasterPubKey2, True, False)
       stringPKS1ChksumPres = pks1ChksumPres.serialize()
       self.assertEqual(binary_to_hex(stringPKS1ChksumPres),
                        binary_to_hex(PKS1Chksum_Uncomp_v1))
 
       # PKS1 without a checksum & with a compressed key.
-      pks1NoChksum = PublicKeySource()
-      pks1NoChksum.initialize(False, True, False, False, False,
-                              BIP32MasterPubKey2Comp, False, False)
+      pks1NoChksum = PublicKeySource(False, True, False, False, False,
+                                     BIP32MasterPubKey2Comp, False, False)
       stringPKS1NoChksum = pks1NoChksum.serialize()
       self.assertEqual(binary_to_hex(stringPKS1NoChksum),
                        binary_to_hex(PKS1NoChksum_Comp_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      pks1ChksumPres_unser = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v1)
-      pks1NoChksum_unser = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1)
+      pks1ChksumPres_unser = decodePublicKeySource(PKS1Chksum_Uncomp_v1)
+      pks1NoChksum_unser = decodePublicKeySource(PKS1NoChksum_Comp_v1)
       stringPKS1Chksum_unser = pks1ChksumPres_unser.serialize()
       stringPKS1NoChksum_unser = pks1NoChksum_unser.serialize()
       self.assertEqual(binary_to_hex(stringPKS1Chksum_unser),
@@ -190,12 +188,12 @@ class PKSClassTests(unittest.TestCase):
       # Are various PKS structures valid?
       # (NB: Bad checksum and version tests are slight hacks because the
       # unserialize code correctly fails. Direct editing works best.)
-      pks1BadChksum = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v1)
+      pks1BadChksum = decodePublicKeySource(PKS1Chksum_Uncomp_v1)
       pks1BadChksum.checksum = b'\xde\xad\xbe\xef'
-      pks1BadVer = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v1)
+      pks1BadVer = decodePublicKeySource(PKS1Chksum_Uncomp_v1)
       pks1BadVer.version = 100
-      pks1BadFlag1  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1_FlagClash1)
-      pks1BadFlag2  = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1_FlagClash2)
+      pks1BadFlag1  = decodePublicKeySource(PKS1NoChksum_Comp_v1_FlagClash1)
+      pks1BadFlag2  = decodePublicKeySource(PKS1NoChksum_Comp_v1_FlagClash2)
       pksIsValid = pks1ChksumPres.isValid(False)
       self.assertEqual(pksIsValid, True)
       pksIsValid = pks1NoChksum.isValid(False)
@@ -216,21 +214,21 @@ class CSClassTests(unittest.TestCase):
    # formed and can be correctly formed.
    def testSerialization(self):
       # CS1 w/ a checksum - Pre-built P2PKH
-      cs1ChksumPres = ConstructedScript().StandardP2PKHConstructed(BIP32MasterPubKey2)
+      cs1ChksumPres = StandardP2PKHConstructed(BIP32MasterPubKey2)
       stringCS1ChksumPres = cs1ChksumPres.serialize()
       self.assertEqual(binary_to_hex(stringCS1ChksumPres),
                        binary_to_hex(CS1Chksum_Uncomp_v1))
 
       # CS2 w/ a checksum - Pre-built multisig
       testKeyList = [BIP32MasterPubKey2Comp, BIP32MasterPubKey2Comp_D1]
-      cs2ChksumPres = ConstructedScript().StandardMultisigConstructed(2, testKeyList)
+      cs2ChksumPres = StandardMultisigConstructed(2, testKeyList)
       stringCS2ChksumPres = cs2ChksumPres.serialize()
       self.assertEqual(binary_to_hex(stringCS2ChksumPres),
                        binary_to_hex(CS2Chksum_Comp_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      cs1ChksumPres_unser = ConstructedScript().unserialize(CS1Chksum_Uncomp_v1)
-      cs2ChksumPres_unser = ConstructedScript().unserialize(CS2Chksum_Comp_v1)
+      cs1ChksumPres_unser = decodeConstructedScript(CS1Chksum_Uncomp_v1)
+      cs2ChksumPres_unser = decodeConstructedScript(CS2Chksum_Comp_v1)
       stringCS1Chksum_unser = cs1ChksumPres_unser.serialize()
       stringCS2Chksum_unser = cs2ChksumPres_unser.serialize()
       self.assertEqual(binary_to_hex(stringCS1Chksum_unser),
@@ -241,12 +239,12 @@ class CSClassTests(unittest.TestCase):
       # Are various CS structures valid?
       # (NB: Bad checksum and version tests are slight hacks because the
       # unserialize code correctly fails. Direct editing works best.)
-      cs1NoChksum_Comp   = ConstructedScript().unserialize(CS1NoChksum_Comp_v1)
-      cs1BadChksum_Uncomp = ConstructedScript().unserialize(CS1Chksum_Uncomp_v1)
+      cs1NoChksum_Comp   = decodeConstructedScript(CS1NoChksum_Comp_v1)
+      cs1BadChksum_Uncomp = decodeConstructedScript(CS1Chksum_Uncomp_v1)
       cs1BadChksum_Uncomp.checksum = b'\xde\xad\xbe\xef'
-      cs1BadChksum_Comp   = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
+      cs1BadChksum_Comp   = decodeConstructedScript(CS1Chksum_Comp_v1)
       cs1BadChksum_Comp.checksum = b'\xde\xad\xbe\xef'
-      cs1BadVer           = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
+      cs1BadVer           = decodeConstructedScript(CS1Chksum_Comp_v1)
       cs1BadVer.version   = 255
       csIsValid = cs1ChksumPres.isValid(False)
       self.assertEqual(csIsValid, True)
@@ -268,14 +266,13 @@ class PKRPClassTests(unittest.TestCase):
    # formed and can be correctly formed.
    def testSerialization(self):
       # 1 multiplier.
-      pkrp1 = PublicKeyRelationshipProof()
-      pkrp1.initialize(BIP32MasterPubKey2Multiplier)
+      pkrp1 = PublicKeyRelationshipProof(BIP32MasterPubKey2Multiplier)
       stringPKRP1 = pkrp1.serialize()
       self.assertEqual(binary_to_hex(stringPKRP1),
                        binary_to_hex(PKRP1_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      pkrp1_unser = PublicKeyRelationshipProof().unserialize(PKRP1_v1)
+      pkrp1_unser = decodePublicKeyRelationshipProof(PKRP1_v1)
       stringPKRP1_unser = pkrp1_unser.serialize()
       self.assertEqual(binary_to_hex(stringPKRP1_unser),
                        binary_to_hex(PKRP1_v1))
@@ -283,9 +280,9 @@ class PKRPClassTests(unittest.TestCase):
       # Are various PKRP structures valid?
       # (NB: Bad version test is a slight hacks because the unserialize code
       # correctly fails. Direct editing works best.)
-      pkrp1_BadVersion = PublicKeyRelationshipProof().unserialize(PKRP1_v1)
+      pkrp1_BadVersion = decodePublicKeyRelationshipProof(PKRP1_v1)
       pkrp1_BadVersion.version = 13
-      pkrp1_FlagClash1 = PublicKeyRelationshipProof().unserialize(PKRP1_v1_FlagClash1)
+      pkrp1_FlagClash1 = decodePublicKeyRelationshipProof(PKRP1_v1_FlagClash1)
       pkrpIsValid = pkrp1.isValid()
       self.assertEqual(pkrpIsValid, True)
       pkrpIsValid = pkrp1_BadVersion.isValid()
@@ -300,25 +297,22 @@ class SRPClassTests(unittest.TestCase):
    # formed and can be correctly formed.
    def testSerialization(self):
       # 1 PKRP.
-      pkrp1 = PublicKeyRelationshipProof()
-      pkrp1.initialize(BIP32MasterPubKey2Multiplier)
-      srp1 = ScriptRelationshipProof()
-      srp1.initialize([pkrp1])
+      pkrp1 = PublicKeyRelationshipProof(BIP32MasterPubKey2Multiplier)
+      srp1 = ScriptRelationshipProof([pkrp1])
       stringSRP1 = srp1.serialize()
       self.assertEqual(binary_to_hex(stringSRP1),
                        binary_to_hex(SRP1_v1))
 
       # 2 PKRPs. Both PKRPs are the same. This test just confirms that the
       # serialization code works for multiple PKRPs.
-      srp2 = ScriptRelationshipProof()
-      srp2.initialize([pkrp1, pkrp1])
+      srp2 = ScriptRelationshipProof([pkrp1, pkrp1])
       stringSRP2 = srp2.serialize()
       self.assertEqual(binary_to_hex(stringSRP2),
                        binary_to_hex(SRP2_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      srp1_unser = ScriptRelationshipProof().unserialize(SRP1_v1)
-      srp2_unser = ScriptRelationshipProof().unserialize(SRP2_v1)
+      srp1_unser = decodeScriptRelationshipProof(SRP1_v1)
+      srp2_unser = decodeScriptRelationshipProof(SRP2_v1)
       stringSRP1_unser = srp1_unser.serialize()
       stringSRP2_unser = srp2_unser.serialize()
       self.assertEqual(binary_to_hex(stringSRP1_unser),
@@ -329,7 +323,7 @@ class SRPClassTests(unittest.TestCase):
       # Are various SRP structures valid?
       # (NB: Bad version test is a slight hack because the unserialize code
       # correctly fails. Direct editing works best.)
-      srp1_BadVersion = ScriptRelationshipProof().unserialize(SRP1_v1)
+      srp1_BadVersion = decodeScriptRelationshipProof(SRP1_v1)
       srp1_BadVersion.version = 16
       srpIsValid = srp1.isValid()
       self.assertEqual(srpIsValid, True)
@@ -344,31 +338,28 @@ class PRClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
    def testSerialization(self):
-      pkrp1 = PublicKeyRelationshipProof()
-      pkrp1.initialize(BIP32MasterPubKey2Multiplier)
-      srp1 = ScriptRelationshipProof()
-      srp1.initialize([pkrp1])
+      pkrp1 = PublicKeyRelationshipProof(BIP32MasterPubKey2Multiplier)
+      srp1 = ScriptRelationshipProof([pkrp1])
 
       # 1 TxOut script.
-      pr1 = PaymentRequest()
-      pr1.initialize([unvalidatedScript1], [daneName1], [srp1.serialize()])
+      pr1 = PaymentRequest([unvalidatedScript1], [daneName1],
+                           [srp1.serialize()])
       stringPR1 = pr1.serialize()
       self.assertEqual(binary_to_hex(stringPR1),
                        binary_to_hex(PR1_v1))
 
       # 2 TxOut scripts. Both scripts are the same. This test just confirms that
       # the serialization code works for multiple TxOut scripts.
-      pr2 = PaymentRequest()
-      pr2.initialize([unvalidatedScript1, unvalidatedScript1],
-                     [daneName1, daneName1],
-                     [srp1.serialize(), srp1.serialize()])
+      pr2 = PaymentRequest([unvalidatedScript1, unvalidatedScript1],
+                           [daneName1, daneName1],
+                           [srp1.serialize(), srp1.serialize()])
       stringPR2 = pr2.serialize()
       self.assertEqual(binary_to_hex(stringPR2),
                        binary_to_hex(PR2_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      pr1_unser = PaymentRequest().unserialize(PR1_v1)
-      pr2_unser = PaymentRequest().unserialize(PR2_v1)
+      pr1_unser = decodePaymentRequest(PR1_v1)
+      pr2_unser = decodePaymentRequest(PR2_v1)
       stringPR1_ser = pr1_unser.serialize()
       stringPR2_ser = pr2_unser.serialize()
       self.assertEqual(binary_to_hex(stringPR1_ser),
@@ -379,7 +370,7 @@ class PRClassTests(unittest.TestCase):
       # Are various PR structures valid?
       # (NB: Bad version test is a slight hacks because the unserialize code
       # correctly fails. Direct editing works best.)
-      pr1_BadVersion = PaymentRequest().unserialize(PR1_v1)
+      pr1_BadVersion = decodePaymentRequest(PR1_v1)
       pr1_BadVersion.version = 160
       prIsValid = pr1.isValid()
       self.assertEqual(prIsValid, True)
@@ -396,44 +387,40 @@ class PMTAClassTests(unittest.TestCase):
    # formed and can be correctly formed.
    def testSerialization(self):
       # Create PMTA with a checksummed PKS.
-      pks1ChksumPres = PublicKeySource().unserialize(PKS1Chksum_Uncomp_v1)
-      pmta1 = PMTARecord()
-      pmta1.initialize(pks1ChksumPres.serialize(), PAYNET_TBTC, 0, '')
+      pks1ChksumPres = decodePublicKeySource(PKS1Chksum_Uncomp_v1)
+      pmta1 = PMTARecord(pks1ChksumPres.serialize(), PAYNET_TBTC, 0, '')
       stringPMTA1 = pmta1.serialize()
       self.assertEqual(binary_to_hex(stringPMTA1),
                        binary_to_hex(PMTA_PKS1Chksum_Uncomp_v1))
 
       # Create PMTA with a non-checksummed PKS.
-      pks1NoChksumPres = PublicKeySource().unserialize(PKS1NoChksum_Comp_v1)
-      pmta2 = PMTARecord()
-      pmta2.initialize(pks1NoChksumPres.serialize(), PAYNET_BTC, 65535,
+      pks1NoChksumPres = decodePublicKeySource(PKS1NoChksum_Comp_v1)
+      pmta2 = PMTARecord(pks1NoChksumPres.serialize(), PAYNET_BTC, 65535,
                        'https://www.bitcoinarmory.com/payment_info.txt')
       stringPMTA2 = pmta2.serialize()
       self.assertEqual(binary_to_hex(stringPMTA2),
                        binary_to_hex(PMTA_PKS1NoChksum_Comp_v1))
 
       # Create PMTA with a checksummed CS.
-      cs1ChksumPres = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
-      pmta3 = PMTARecord()
-      pmta3.initialize(cs1ChksumPres.serialize(), PAYNET_TBTC, 43962,
+      cs1ChksumPres = decodeConstructedScript(CS1Chksum_Comp_v1)
+      pmta3 = PMTARecord(cs1ChksumPres.serialize(), PAYNET_TBTC, 43962,
                        'https://www.bitcoinarmory.com/payment_info.txt')
       stringPMTA3 = pmta3.serialize()
       self.assertEqual(binary_to_hex(stringPMTA3),
                        binary_to_hex(PMTA_CS1Chksum_Comp_v1))
 
       # Create PMTA with a non-checksummed CS.
-      cs1NoChksumPres = ConstructedScript().unserialize(CS1NoChksum_Comp_v1)
-      pmta4 = PMTARecord()
-      pmta4.initialize(cs1NoChksumPres.serialize(), PAYNET_BTC, 2, '')
+      cs1NoChksumPres = decodeConstructedScript(CS1NoChksum_Comp_v1)
+      pmta4 = PMTARecord(cs1NoChksumPres.serialize(), PAYNET_BTC, 2, '')
       stringPMTA4 = pmta4.serialize()
       self.assertEqual(binary_to_hex(stringPMTA4),
                        binary_to_hex(PMTA_CS1NoChksum_Comp_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      pmta1_unser = PMTARecord().unserialize(PMTA_PKS1Chksum_Uncomp_v1)
-      pmta2_unser = PMTARecord().unserialize(PMTA_PKS1NoChksum_Comp_v1)
-      pmta3_unser = PMTARecord().unserialize(PMTA_CS1Chksum_Comp_v1)
-      pmta4_unser = PMTARecord().unserialize(PMTA_CS1NoChksum_Comp_v1)
+      pmta1_unser = decodePMTARecord(PMTA_PKS1Chksum_Uncomp_v1)
+      pmta2_unser = decodePMTARecord(PMTA_PKS1NoChksum_Comp_v1)
+      pmta3_unser = decodePMTARecord(PMTA_CS1Chksum_Comp_v1)
+      pmta4_unser = decodePMTARecord(PMTA_CS1NoChksum_Comp_v1)
       stringPMTA1_unser = pmta1_unser.serialize()
       stringPMTA2_unser = pmta2_unser.serialize()
       stringPMTA3_unser = pmta3_unser.serialize()
@@ -456,24 +443,18 @@ class PMTAClassTests(unittest.TestCase):
       self.assertEqual(pmtaIsValid, True)
       pmtaIsValid = pmta4_unser.isValid()
       self.assertEqual(pmtaIsValid, True)
-      badPMTA1 = PMTARecord().unserialize(PMTA_BadPayNet)
-      pmtaIsValid = badPMTA1.isValid()
-      self.assertEqual(pmtaIsValid, False)
-      badPMTA2 = PMTARecord().unserialize(PMTA_BadDataType)
-      pmtaIsValid = badPMTA2.isValid()
-      self.assertEqual(pmtaIsValid, False)
-      badPMTA3 = PMTARecord().unserialize(PMTA_BadURILen1)
-      pmtaIsValid = badPMTA3.isValid()
-      self.assertEqual(pmtaIsValid, False)
-      badPMTA4 = PMTARecord().unserialize(PMTA_BadURILen2)
-      pmtaIsValid = badPMTA4.isValid()
-      self.assertEqual(pmtaIsValid, False)
-      badPMTA5 = PMTARecord().unserialize(PMTA_BadURILen3)
-      pmtaIsValid = badPMTA5.isValid()
-      self.assertEqual(pmtaIsValid, False)
-      badPMTA6 = PMTARecord().unserialize(PMTA_PKS1NoChksum_Comp_v1_FlagClash1)
-      pmtaIsValid = badPMTA6.isValid()
-      self.assertEqual(pmtaIsValid, False)
+      badPMTA1 = decodePMTARecord(PMTA_BadPayNet)
+      self.assertEqual(badPMTA1, None)
+      badPMTA2 = decodePMTARecord(PMTA_BadDataType)
+      self.assertEqual(badPMTA2, None)
+      badPMTA3 = decodePMTARecord(PMTA_BadURILen1)
+      self.assertEqual(badPMTA3, None)
+      badPMTA4 = decodePMTARecord(PMTA_BadURILen2)
+      self.assertEqual(badPMTA4, None)
+      badPMTA5 = decodePMTARecord(PMTA_BadURILen3)
+      self.assertEqual(badPMTA5, None)
+      badPMTA6 = decodePMTARecord(PMTA_PKS1NoChksum_Comp_v1_FlagClash1)
+      self.assertEqual(badPMTA6, None)
 
 
 ################################################################################
