@@ -10,17 +10,18 @@ import shutil
 
 from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
    QTextEdit, QAbstractTableModel, QModelIndex, Qt, QTableView, QGridLayout, \
-   QFrame, QVBoxLayout, QMessageBox, QVariant, QDialogButtonBox
+   QFrame, QVBoxLayout, QMessageBox, QVariant, QDialogButtonBox, QApplication
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armorycolors import Colors
-from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT
-from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir
+from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT, LOGINFO
+from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir,\
+   isWindows
 from armoryengine.ArmorySettings import SettingsFile
 from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex
 from armoryengine.BDM import getBDM
 from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
-   BTCAID_PAYLOAD_TYPE
+   BTCAID_PAYLOAD_TYPE, CLICKED
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
    PaymentTargetVerifier, DeriveBip32PublicKeyWithProof
@@ -591,25 +592,64 @@ class ExportWalletIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main, walletHandleID):
       super(ExportWalletIdentityDialog, self).__init__(parent, main)
 
-      walletHandleIDLabel = QLabel("Wallet Handle and Identy:")
-      walletHandleIDString = walletHandleID
-      self.walletHandleIDLineEdit = QLineEdit(walletHandleIDString)
+      walletHandleIDLabel = QLabel("Wallet Handle and Identity:")
+      self.walletHandleIDLineEdit = QLineEdit(walletHandleID)
       self.walletHandleIDLineEdit.setMinimumWidth(500)
       self.walletHandleIDLineEdit.setReadOnly(True)
       walletHandleIDLabel.setBuddy(self.walletHandleIDLineEdit)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
       self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
-
+      
+      def saveWalletIDFileAction():
+         self.saveWalletIDFile()
+      
+      def copyWalletIDToClipboardAction():
+         self.copyWalletIDToClipboard()
+      
+      btnSave = QPushButton('Save as file...')
+      self.connect(btnSave, SIGNAL(CLICKED), saveWalletIDFileAction)
+      btnCopy = QPushButton('Copy to clipboard')
+      self.connect(btnCopy, SIGNAL(CLICKED), copyWalletIDToClipboardAction)
+      self.lblCopied = QRichLabel('  ')
+      self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      copyButtonBox = makeHorizFrame([btnCopy, btnSave, self.lblCopied, STRETCH],
+            condenseMargins=True)
+      
       layout = QGridLayout()
       layout.addWidget(walletHandleIDLabel, 1, 0, 1, 1)
       layout.addWidget(self.walletHandleIDLineEdit, 1, 1, 1, 1)
-      layout.addWidget(buttonBox, 4, 0, 1, 2)
+      layout.addWidget(copyButtonBox, 2, 0, 1, 2)
+      layout.addWidget(buttonBox, 5, 0, 1, 2)
       self.setLayout(layout)
 
       self.setWindowTitle('Wallet Handle and Identity')
 
-   
+   def copyWalletIDToClipboard(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(self.walletHandleIDLineEdit.text()))
+      self.lblCopied.setText('<i>Copied!</i>')
+
+   def saveWalletIDFile(self):
+      # Use the first 6 characters of the PKS
+      handleIDStr = str(self.walletHandleIDLineEdit.text())
+      idSegment = handleIDStr[handleIDStr.rfind(' '):]
+      if len(idSegment) > 6:
+         idSegment = idSegment[:6]
+      toSave = self.main.getFileSave(\
+                      'Save Wallet ID in a File', \
+                      ['Armory Transactions (*.pks)'], \
+                      'WalletID_%s.pks' % idSegment)
+      LOGINFO('Saving unsigned tx file: %s', toSave)
+      try:
+         theFile = open(toSave, 'w')
+         theFile.write(str(self.walletHandleIDLineEdit.text()))
+         theFile.close()
+      except IOError:
+         LOGEXCEPT('Failed to save file: %s', toSave)
+         pass
+      
 ################################################################################
 class LookupIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
