@@ -1565,8 +1565,7 @@ def createBitcoinURI(addr, amt=None, msg=None, pmta=None):
       uriStr += '&'
 
    if pmta:
-#      uriStr += 'pmta=%s' % _uriEncode(pmta)
-      uriStr += 'pmta=%s' % pmta
+      uriStr += 'pmta=%s' % _uriEncode(binary_to_base58(pmta.serialize()))
 
    return uriStr
 

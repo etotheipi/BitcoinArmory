@@ -220,7 +220,7 @@ class PluginObject(object):
       # Show an easy-to-copy-and-paste ID/blob combo.
       def otherExportSelectedIDAction():
          self.otherExportSelectedID()
-         
+
       # Delete the ID.
       def otherDeleteSelectedIDAction():
          self.otherDeleteSelectedID()
@@ -228,18 +228,18 @@ class PluginObject(object):
       # Issue a pop-up with the given wallet's ID, and let the user change it.
       def setLocalWalletHandleAction():
          self.setLocalWalletHandle()
-         
+
       # Publish identity to Verisign for placement in DNSSEC.
       def publishIdentityAction():
          QMessageBox.warning(self.main,
                                 'Publish Identity',
                                 'Functionality is TBD.',
                                 QMessageBox.Ok)
-      
+
       # Generate a payment request.
       def generatePaymentRequestAction():
          self.generatePaymentRequest()
-         
+
       self.main.connect(self.btnOtherLookup, SIGNAL('clicked()'),
             otherWalletIdentityLookupAction)
       self.main.connect(self.btnOtherManual, SIGNAL('clicked()'),
@@ -266,8 +266,8 @@ class PluginObject(object):
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
-      
-      
+
+
    #############################################################################
    def generatePaymentRequest(self):
       if self.wlt == None:
@@ -299,24 +299,23 @@ class PluginObject(object):
             finalAddr = self.resAddr.getAddrStr()
             newPKRP = PublicKeyRelationshipProof(self.resMult)
             newPTV = PaymentTargetVerifier(newPKRP)
-            newPTVStr = binary_to_base58(newPTV.serialize())
 
             # Put everything together and present it to the user.
             # Right now, this dialog doesn't work. Dialog says the address is
             # invalid and refuses to generate a QR code. We also need to pass
             # in the Base58-encoded PTV somehow.
-            dlg = DlgRequestPayment(self.main, self.main, finalAddr)
+            dlg = DlgRequestPayment(self.main, self.main, finalAddr,
+                                    pmta = newPTV)
             dlg.exec_()
-   
+
+
    #############################################################################
    def verifyPaymentRequest(self):
       dlg = VerifyPaymentRequestDialog(self.main, self.main)
       if dlg.exec_():
-         # HACK: Supplying a hard-coded proof for debugging purposes.
-         # HACK: THE BASE58 DATA NEEDS TO BE REPLACED WITH A REAL PROOF!!!
-         # self.payReqTextArea.setText('bitcoin:mokrWMifUTCBysucKZTZ7Uij8915VYcwWX?amount=10.5&pmta=x@x.com..aVYpkBuRQYgBf7Wn9aE8ATmYwV6b2o6jeMvj9KqQYqxkUgswNERoRYU1hSK58gDNhME6viPQYd3TvG5PaSnHbEiF72qp1')
          uriData = parseBitcoinURI(str(dlg.paymentRequestLineEdit.text()))
          pmtaData = uriData['pmta'].split('..')
+
          # TODO: Specify Multiplier
          multiplier = None
          pkrpFinal = PublicKeyRelationshipProof(multiplier)
@@ -372,6 +371,7 @@ class PluginObject(object):
                DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
          self.tableLocalIDs.reset()
 
+
    #############################################################################
    def setLocalWalletHandle(self):
       row = self.tableLocalIDs.selectedIndexes()[0].row()
@@ -380,6 +380,7 @@ class PluginObject(object):
       if dlg.exec_():
          self.main.setWltSetting(wltID, 'dnsID', dlg.getWalletHandle())
          self.tableLocalIDs.reset()
+
 
    #############################################################################
    def otherWalletIdentityLookup(self):
@@ -391,12 +392,14 @@ class PluginObject(object):
            'This Wallet Handle: %s could not be found in the Wallet ID Store.' \
            % dlg.getWalletHandle(),
            QMessageBox.Ok)
-   
+
+
    #############################################################################
    def enterWalletIdentity(self):
       dlg = EnterWalletIdentityDialog(self.main, self.main)
       if dlg.exec_():
          self.modelOtherIDs.addIdentity(dlg.getWalletHandle(), dlg.getWalletPKS())
+
 
    #############################################################################
    def otherExportSelectedID(self):
@@ -406,7 +409,8 @@ class PluginObject(object):
             self.modelOtherIDs.getRowToExport(row))
       if dlg.exec_():
          pass
-      
+
+
    #############################################################################
    def localExportSelectedID(self):
       row = self.tableLocalIDs.selectedIndexes()[0].row()
@@ -415,15 +419,16 @@ class PluginObject(object):
             self.modelLocalIDs.getRowToExport(row))
       if dlg.exec_():
          pass
-   
+
+
    #############################################################################
    def otherDeleteSelectedID(self):
       row = self.tableOtherIDs.selectedIndexes()[0].row()
       self.modelOtherIDs.removeRecord(row)
       self.btnOtherExport.setEnabled(False)
       self.btnOtherDelete.setEnabled(False)
-      
-         
+
+
    #############################################################################
    def otherIDclicked(self, currIndex, prevIndex=None):
       if prevIndex == currIndex and not currIndex is None:
@@ -438,6 +443,7 @@ class PluginObject(object):
 
       self.btnOtherExport.setEnabled(isValid)
       self.btnOtherDelete.setEnabled(isValid)
+
 
    #############################################################################
    def localIDclicked(self, currIndex, prevIndex=None):
@@ -456,6 +462,7 @@ class PluginObject(object):
       self.btnLocalPublish.setEnabled(isValid)
       self.btnLocalExport.setEnabled(isValid)
       self.btnLocalRequest.setEnabled(isValid)
+
 
    # Call for when we want to save a binary PKS record to a file. By default,
    # all PKS flags will be false.
@@ -688,6 +695,7 @@ class PluginObject(object):
    def getTabToDisplay(self):
       return self.tabToDisplay
 
+
 ################################################################################
 class ExportWalletIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main, walletHandleID):
@@ -753,6 +761,7 @@ class ExportWalletIdentityDialog(ArmoryDialog):
          LOGEXCEPT('Failed to save file: %s', toSave)
          pass
 
+
 ################################################################################
 class VerifyPaymentRequestDialog(ArmoryDialog):
    def __init__(self, parent, main):
@@ -775,9 +784,12 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
       self.setLayout(layout)
 
       self.setWindowTitle('Verify Payment Request')
-      
+
+
    def getWalletHandle(self):
       return self.walletHandleLineEdit.text()
+
+
 ################################################################################
 class LookupIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
@@ -804,23 +816,23 @@ class LookupIdentityDialog(ArmoryDialog):
    def getWalletHandle(self):
       return self.walletHandleLineEdit.text()
 
+
 ################################################################################
 class SetWalletHandleDialog(ArmoryDialog):
    def __init__(self, parent, main, wltID):
       super(SetWalletHandleDialog, self).__init__(parent, main)
       wlt = main.walletMap[wltID]
-      
-      
+
       wltIDLabel = QRichLabel("Wallet ID:", doWrap=False)
       wltIDDisplayLabel = QRichLabel(wltID)
       wltIDDisplayLabel.setSizePolicy(QSizePolicy.Preferred,
             QSizePolicy.Preferred)
-      
+
       wltNameLabel = QRichLabel("Name:", doWrap=False)
       wltNameDisplayLabel = QRichLabel(wlt.getLabel())
       wltNameDisplayLabel.setSizePolicy(QSizePolicy.Preferred,
             QSizePolicy.Preferred)
-      
+
       pksLabel = QLabel("Wallet Payment Verifier:")
       pksStr = binary_to_base58(getWltPKS(wlt).serialize())
       pksLineEdit = QLineEdit(pksStr)
@@ -854,9 +866,10 @@ class SetWalletHandleDialog(ArmoryDialog):
       self.setLayout(layout)
 
       self.setWindowTitle('Enter Wallet Handle')
-      
+
    def getWalletHandle(self):
       return str(self.walletHandleLineEdit.text())
+
 
 ################################################################################
 class EnterWalletIdentityDialog(ArmoryDialog):
@@ -873,7 +886,6 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       self.pksLineEdit.setMinimumWidth(300)
       pksLabel.setBuddy(self.pksLineEdit)
 
-
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
       self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
@@ -888,12 +900,15 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       self.setLayout(layout)
 
       self.setWindowTitle('Enter Wallet Payment Verifier')
-      
+
+
    def getWalletHandle(self):
       return self.walletHandleLineEdit.text()
-   
+
+
    def getWalletPKS(self):
       return self.pksLineEdit.text()
+
 
 ################################################################################
 class OtherWalletIDModel(QAbstractTableModel):
@@ -907,13 +922,16 @@ class OtherWalletIDModel(QAbstractTableModel):
 
       self.readIdentityFile()
 
+
    #############################################################################
    def rowCount(self, index=QModelIndex()):
       return len(self.identityMap)
 
+
    #############################################################################
    def columnCount(self, index=QModelIndex()):
       return 1
+
 
    #############################################################################
    def data(self, index, role=Qt.DisplayRole):
@@ -931,6 +949,7 @@ class OtherWalletIDModel(QAbstractTableModel):
          retVal = QVariant(Colors.Foreground)
 
       return retVal
+
 
    #############################################################################
    def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -1084,6 +1103,7 @@ class LocalWalletIDModel(QAbstractTableModel):
 
       return retVal
 
+
    #############################################################################
    def getRowToExport(self, row):
       wltID = self.main.wltIDList[row]
@@ -1094,7 +1114,8 @@ class LocalWalletIDModel(QAbstractTableModel):
       wlt = self.main.walletMap[wltID]
       pksStr = binary_to_base58(getWltPKS(wlt).serialize())
       return dnsID + ' ' + pksStr
-   
+
+
    #############################################################################
    def getWltIDForRow(self, row):
       return self.main.wltIDList[row]

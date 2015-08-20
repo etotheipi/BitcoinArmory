@@ -9001,6 +9001,10 @@ class DlgRequestPayment(ArmoryDialog):
       else:
          raise BadAddressError('Unrecognized address input')
 
+      # PMTA record (PaymentTargetVerifier object)
+      self.pmta = None
+      if pmta:
+         self.pmta = pmta
 
       # Amount
       self.edtAmount = QLineEdit()
@@ -9009,7 +9013,6 @@ class DlgRequestPayment(ArmoryDialog):
       if amt:
          self.edtAmount.setText(coin2str(amt, maxZeros=0))
 
-
       # Message:
       self.edtMessage = QLineEdit()
       self.edtMessage.setMaxLength(128)
@@ -9017,8 +9020,6 @@ class DlgRequestPayment(ArmoryDialog):
          self.edtMessage.setText(msg[:128])
 
       self.edtMessage.setCursorPosition(0)
-
-
 
       # Address:
       self.edtAddress = QLineEdit()
@@ -9216,7 +9217,6 @@ class DlgRequestPayment(ArmoryDialog):
          self.restoreGeometry(geom)
       self.setMinimumSize(750, 500)
 
-
    def saveLinkText(self):
       linktext = str(self.edtLinkText.text()).strip()
       if len(linktext) > 0:
@@ -9258,10 +9258,8 @@ class DlgRequestPayment(ArmoryDialog):
 
    #############################################################################
    def setLabels(self):
-
       lastTry = ''
       try:
-         # The
          lastTry = 'Amount'
          amtStr = str(self.edtAmount.text()).strip()
          if len(amtStr) == 0:
@@ -9283,8 +9281,8 @@ class DlgRequestPayment(ArmoryDialog):
             raise
 
          errorIn = 'Inputs'
-         # must have address, maybe have amount and/or message
-         self.rawURI = createBitcoinURI(addr, amt, msgStr, pmta)
+         # must have address, maybe have amount and/or message and/or PMTA
+         self.rawURI = createBitcoinURI(addr, amt, msgStr, self.pmta)
       except:
          self.lblWarn.setText('<font color="red">Invalid %s</font>' % lastTry)
          self.btnCopyRaw.setEnabled(False)
