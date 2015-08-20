@@ -19,7 +19,8 @@ from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT, LOGINFO
 from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir, \
    isWindows
 from armoryengine.ArmorySettings import SettingsFile
-from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex
+from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex,\
+   parseBitcoinURI, base58_to_binary
 from armoryengine.BDM import getBDM
 from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
    BTCAID_PAYLOAD_TYPE, CLICKED
@@ -209,9 +210,8 @@ class PluginObject(object):
       # SHOULD PROBABLY RENAME THE ASSOCIATED BUTTON
       # Paste in a proof and verify that the proof is accurate, then open a
       # "Send Bitcoins" dialog that's filled in.
-      def ovAction():
-         #
-         pass
+      def verifyPaymentRequestAction():
+         self.verifyPaymentRequest()
 
       # Show an easy-to-copy-and-paste ID/blob combo.
       def localExportSelectedIDAction():
@@ -230,9 +230,11 @@ class PluginObject(object):
          self.setLocalWalletHandle()
          
       # Publish identity to Verisign for placement in DNSSEC.
-      def lpAction():
-         #
-         pass
+      def publishIdentityAction():
+         QMessageBox.warning(self.main,
+                                'Publish Identity',
+                                'Functionality is TBD.',
+                                QMessageBox.Ok)
       
       # Generate a payment request.
       def generatePaymentRequestAction():
@@ -242,7 +244,8 @@ class PluginObject(object):
             otherWalletIdentityLookupAction)
       self.main.connect(self.btnOtherManual, SIGNAL('clicked()'),
             enterWalletIdentityAction)
-      self.main.connect(self.btnOtherVerify, SIGNAL('clicked()'), ovAction)
+      self.main.connect(self.btnOtherVerify, SIGNAL('clicked()'),
+            verifyPaymentRequestAction)
       self.main.connect(self.btnOtherExport, SIGNAL('clicked()'),
             otherExportSelectedIDAction)
       self.main.connect(self.btnOtherDelete, SIGNAL('clicked()'),
@@ -250,7 +253,8 @@ class PluginObject(object):
 
       self.main.connect(self.btnLocalSetHandle, SIGNAL('clicked()'),
             setLocalWalletHandleAction)
-      self.main.connect(self.btnLocalPublish,   SIGNAL('clicked()'), lpAction)
+      self.main.connect(self.btnLocalPublish,   SIGNAL('clicked()'),
+            publishIdentityAction)
       self.main.connect(self.btnLocalExport,    SIGNAL('clicked()'),
             localExportSelectedIDAction)
       self.main.connect(self.btnLocalRequest,   SIGNAL('clicked()'),
@@ -303,7 +307,71 @@ class PluginObject(object):
             # in the Base58-encoded PTV somehow.
             dlg = DlgRequestPayment(self.main, self.main, finalAddr)
             dlg.exec_()
-      
+   
+   #############################################################################
+   def verifyPaymentRequest(self):
+      dlg = VerifyPaymentRequestDialog(self.main, self.main)
+      if dlg.exec_():
+         # HACK: Supplying a hard-coded proof for debugging purposes.
+         # HACK: THE BASE58 DATA NEEDS TO BE REPLACED WITH A REAL PROOF!!!
+         # self.payReqTextArea.setText('bitcoin:mokrWMifUTCBysucKZTZ7Uij8915VYcwWX?amount=10.5&pmta=x@x.com..aVYpkBuRQYgBf7Wn9aE8ATmYwV6b2o6jeMvj9KqQYqxkUgswNERoRYU1hSK58gDNhME6viPQYd3TvG5PaSnHbEiF72qp1')
+         uriData = parseBitcoinURI(str(dlg.paymentRequestLineEdit.text()))
+         pmtaData = uriData['pmta'].split('..')
+         # TODO: Specify Multiplier
+         multiplier = None
+         pkrpFinal = PublicKeyRelationshipProof(multiplier)
+         # This method PublicKeyRelationshipProof class
+         # no longer exists: unserialize(base58_to_binary(pmtaData[1]))
+         if pkrpFinal.isValid() is False:
+            QMessageBox.warning(self.main, 'Invalid Payment Request',
+                                'Payment Request is invalid. Please confirm ' \
+                                'that the text is complete and not corrupted.',
+                                QMessageBox.Ok)
+         else:
+            # If the PR is valid, go through the following steps. All steps,
+            # unless otherwise noted, are inside a loop based on the # of
+            # unvalidated TxOut scripts listed in the record.
+            #  1) Check DNS first.
+            # 2a) If we get a DNS record, create TxOut using it & matching SRP.
+            # 2b) If we don't get a DNS record, confirm that the received ID is
+            #     in the ID store.
+            #  3) If the ID is acceptable, apply the proof to get the final
+            #     address.
+            #  4) Confirm the derived address matches the provided address.
+            #  5) If the addresses match, generate a "Send Bitcoins" dialog
+            #     using the appropriate info.
+            resultRecord = None
+            resultType = ''
+            dlgInfo = {}
+            validRecords = True
+
+            # DNS IS IGNORED FOR NOW FOR DEBUGGING PURPOSES. COME BACK LATER.
+#            dnsResult = fetchPMTA(uriData['address'], resultRecord, resultType)
+            dnsResult = False
+            if not dnsResult:
+               # Verify that the received record matches the one in the ID
+               # store. If so, go ahead with the dialog.
+#               idFound = checkIDStore(uriData['pmta'])
+               idFound = True
+               if not idFound:
+                  validRecords = False
+
+            if validRecords:
+               # TO DO (Step 3): Derive & apply multipliers from attached PKRP.
+               # SRP would apply here if using a CS.
+
+               # TO DO (Step 4): Insert pop-up if derived address doesn't match
+               # the supplied address. Also, as a way to show this really works,
+               # insert a pop-up saying derivation worked. Wouldn't be done in a
+               # prod env either but it's great for a demo!
+
+               # TO DO (Step 5): Replace address w/ derived address as proof
+               # that everything worked out.
+               dlgInfo['address'] = uriData['address']
+               dlgInfo['amount'] = str(uriData['amount'])
+               DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
+         self.tableLocalIDs.reset()
+
    #############################################################################
    def setLocalWalletHandle(self):
       row = self.tableLocalIDs.selectedIndexes()[0].row()
@@ -685,7 +753,31 @@ class ExportWalletIdentityDialog(ArmoryDialog):
          LOGEXCEPT('Failed to save file: %s', toSave)
          pass
 
+################################################################################
+class VerifyPaymentRequestDialog(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(VerifyPaymentRequestDialog, self).__init__(parent, main)
 
+      paymentRequestLabel = QLabel("Payment Request to Verify:")
+      self.paymentRequestLineEdit = QLineEdit()
+      self.paymentRequestLineEdit.setMinimumWidth(300)
+      paymentRequestLabel.setBuddy(self.paymentRequestLineEdit)
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+
+      layout = QGridLayout()
+      layout.addWidget(paymentRequestLabel, 1, 0, 1, 1)
+      layout.addWidget(self.paymentRequestLineEdit, 1, 1, 1, 1)
+      layout.addWidget(buttonBox, 4, 0, 1, 2)
+      self.setLayout(layout)
+
+      self.setWindowTitle('Verify Payment Request')
+      
+   def getWalletHandle(self):
+      return self.walletHandleLineEdit.text()
 ################################################################################
 class LookupIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
