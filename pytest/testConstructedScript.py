@@ -10,146 +10,167 @@ from armoryengine.ConstructedScript import *
 
 ############# Various constants we wish to use throughout the tests.
 # Master key derived from the 2nd BIP32 test vector + child key 0.
-BIP32MasterPubKey2        = hex_to_binary(
-   "04 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7"
-   "   7bd3305d 363c26f8 2c1e41c6 67e4b356 1c06c60a 2104d2b5 48e6dd05 9056aa51")
-BIP32MasterPubKey2Comp    = hex_to_binary(
-   "03 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7")
-BIP32MasterPubKey2_D1     = hex_to_binary(
-   "04 fc9e5af0 ac8d9b3c ecfe2a88 8e2117ba 3d089d85 85886c9c 826b6b22 a98d12ea"
-   "   67a50538 b6f7d8b5 f7a1cc65 7efd267c de8cc1d8 c0451d13 40a0fb36 42777544")
-BIP32MasterPubKey2Comp_D1 = hex_to_binary(
-   "02 fc9e5af0 ac8d9b3c ecfe2a88 8e2117ba 3d089d85 85886c9c 826b6b22 a98d12ea")
-BIP32MasterChainCode2     = hex_to_binary(
-   "   60499f80 1b896d83 179a4374 aeb7822a aeaceaa0 db1f85ee 3e904c4d efbd9689")
+strBIP32MasterPubKey2        = \
+   "04 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7" \
+   "   7bd3305d 363c26f8 2c1e41c6 67e4b356 1c06c60a 2104d2b5 48e6dd05 9056aa51"
+BIP32MasterPubKey2        = hex_to_binary(strBIP32MasterPubKey2)
+strBIP32MasterPubKey2Comp    = \
+   "03 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb d322cce4 f74b0b5b d6ace4a7"
+BIP32MasterPubKey2Comp    = hex_to_binary(strBIP32MasterPubKey2Comp)
+strBIP32MasterPubKey2_D1     = \
+   "04 fc9e5af0 ac8d9b3c ecfe2a88 8e2117ba 3d089d85 85886c9c 826b6b22 a98d12ea" \
+   "   67a50538 b6f7d8b5 f7a1cc65 7efd267c de8cc1d8 c0451d13 40a0fb36 42777544"
+BIP32MasterPubKey2_D1     = hex_to_binary(strBIP32MasterPubKey2_D1)
+strBIP32MasterPubKey2Comp_D1 = \
+   "02 fc9e5af0 ac8d9b3c ecfe2a88 8e2117ba 3d089d85 85886c9c 826b6b22 a98d12ea"
+BIP32MasterPubKey2Comp_D1 = hex_to_binary(strBIP32MasterPubKey2Comp_D1)
+strBIP32MasterChainCode2     = \
+   "   60499f80 1b896d83 179a4374 aeb7822a aeaceaa0 db1f85ee 3e904c4d efbd9689"
+BIP32MasterChainCode2     = hex_to_binary(strBIP32MasterChainCode2)
 
 # Data related to BIP32MasterPubKey2.
-BIP32MasterPubKey2Multiplier = hex_to_binary(
-      "60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0 a914e1ef a7f811e0")
-BIP32MasterPubKey2_D1Hash160 = hex_to_binary(
-      "5a61ff8e b7aaca30 10db97eb da761216 10b78096")
+strBIP32MasterPubKey2Multiplier = \
+      "60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0 a914e1ef a7f811e0"
+BIP32MasterPubKey2Multiplier = hex_to_binary(strBIP32MasterPubKey2Multiplier)
+strBIP32MasterPubKey2_D1Hash160 = \
+      "5a61ff8e b7aaca30 10db97eb da761216 10b78096"
+BIP32MasterPubKey2_D1Hash160 = hex_to_binary(strBIP32MasterPubKey2_D1Hash160)
 
 # Valid PKS serializations based on BIP32MasterPubKey2.
-PKS1Chksum_Uncomp_v1 = hex_to_binary(
-      "01002041 04cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
-      "5bd6ace4 a77bd330 5d363c26 f82c1e41 c667e4b3 561c06c6 0a2104d2 b548e6dd"
-      "059056aa 511ff749 e6")
-PKS1NoChksum_Comp_v1 = hex_to_binary(
-      "01000221 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
-      "5bd6ace4 a7")
+strPKS1Chksum_Uncomp_v1 = \
+      "01002041" + strBIP32MasterPubKey2 + "1ff749e6"
+PKS1Chksum_Uncomp_v1 = hex_to_binary(strPKS1Chksum_Uncomp_v1)
+strPKS1NoChksum_Comp_v1 = \
+      "01000221" + strBIP32MasterPubKey2Comp
+PKS1NoChksum_Comp_v1 = hex_to_binary(strPKS1NoChksum_Comp_v1)
 
 # Invalid PKS serializations based on BIP32MasterPubKey2.
-PKS1NoChksum_Comp_v1_FlagClash1 = hex_to_binary(
-      "01000921 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
-      "5bd6ace4 a7")
-PKS1NoChksum_Comp_v1_FlagClash2 = hex_to_binary(
-      "01001821 03cbcaa9 c98c877a 26977d00 825c956a 238e8ddd fbd322cc e4f74b0b"
-      "5bd6ace4 a7")
+strPKS1NoChksum_Comp_v1_FlagClash1 = \
+      "01000921" + strBIP32MasterPubKey2Comp
+PKS1NoChksum_Comp_v1_FlagClash1 = hex_to_binary(strPKS1NoChksum_Comp_v1_FlagClash1)
+strPKS1NoChksum_Comp_v1_FlagClash2 = \
+      "01001821" + strBIP32MasterPubKey2Comp
+PKS1NoChksum_Comp_v1_FlagClash2 = hex_to_binary(strPKS1NoChksum_Comp_v1_FlagClash2)
 
 ########## ADD PKS RECORDS THAT DO NOT ALLOW FOR DIRECT PAYMENT ############
 
 # Valid CS serializations based on BIP32MasterPubKey2.
-CS1Chksum_Uncomp_v1 = hex_to_binary(
-      "01000207 76a914ff 0188ac01 45010004 4104cbca a9c98c87 7a26977d 00825c95"
-      "6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a77bd3 305d363c 26f82c1e 41c667e4"
-      "b3561c06 c60a2104 d2b548e6 dd059056 aa518688 3438")
-CS1Chksum_Comp_v1 = hex_to_binary(
-      "01000207 76a914ff 0188ac01 25010006 2103cbca a9c98c87 7a26977d 00825c95"
-      "6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7f823 227a")
-CS1NoChksum_Comp_v1 = hex_to_binary(
-      "01000007 76a914ff 0188ac01 25010006 2103cbca a9c98c87 7a26977d 00825c95"
-      "6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
-CS2Chksum_Comp_v1 = hex_to_binary( # Multisig
-      "01000305 52ff0252 ae022501 00022103 cbcaa9c9 8c877a26 977d0082 5c956a23"
-      "8e8dddfb d322cce4 f74b0b5b d6ace4a7 25010002 2102fc9e 5af0ac8d 9b3cecfe"
-      "2a888e21 17ba3d08 9d858588 6c9c826b 6b22a98d 12ea89e2 5fe9")
+strCS1Chksum_Uncomp_v1 = \
+      "01000207 76a914ff 0188ac01 45010004 41" + strBIP32MasterPubKey2 + \
+      "86883438"
+CS1Chksum_Uncomp_v1 = hex_to_binary(strCS1Chksum_Uncomp_v1)
+strCS1Chksum_Comp_v1 = \
+      "01000207 76a914ff 0188ac01 25010006 21" + \
+      strBIP32MasterPubKey2Comp + "f823 227a"
+CS1Chksum_Comp_v1 = hex_to_binary(strCS1Chksum_Comp_v1)
+strCS1NoChksum_Comp_v1 = \
+      "01000007 76a914ff 0188ac01 25010006 21" + strBIP32MasterPubKey2Comp
+CS1NoChksum_Comp_v1 = hex_to_binary(strCS1NoChksum_Comp_v1)
+strCS2Chksum_Comp_v1 = \
+      "01000305 52ff0252 ae022501 000221" + strBIP32MasterPubKey2Comp + \
+      "25010002 21" + strBIP32MasterPubKey2Comp_D1 + "89e25fe9"
+CS2Chksum_Comp_v1 = hex_to_binary(strCS2Chksum_Comp_v1) # Multisig
 
 ################# Invalid CS serializations. NEED TO ADD SOME. ############
 
 ############ RI serializations. NEED TO ADD SOME. ###################
+# Valid RI serializations based on previously created records.
+Valid_RI_PKS_Base = "0100"
+#RI_
 
 # Valid PKRP serializations based on BIP32MasterPubKey2.
-PKRP1_v1 = hex_to_binary(
-      "01022060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
-      "f811e000")
+strPKRPMult = \
+      "60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0 a914e1ef a7f811e0"
+strPKRP1_v1 = \
+      "010220" + strPKRPMult + "00"
+PKRP1_v1 = hex_to_binary(strPKRP1_v1)
 
 # Invalid PKRP serializations based on BIP32MasterPubKey2.
-PKRP1_v1_FlagClash1 = hex_to_binary(
-      "01002060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4 5623d0a9 14e1efa7"
-      "f811e000")
+strPKRP1_v1_FlagClash1 = \
+      "010020" + strPKRPMult + "00"
+PKRP1_v1_FlagClash1 = hex_to_binary(strPKRP1_v1_FlagClash1)
 
 # Valid SRP serializations based on BIP32MasterPubKey2.
-SRP1_v1 = hex_to_binary(
-      "01012401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-      "e1efa7f8 11e000")
-SRP2_v1 = hex_to_binary(
-      "01022401 022060e3 739cc2c3 950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914"
-      "e1efa7f8 11e00024 01022060 e3739cc2 c3950b7c 4d7f32cc 503e13b9 96d0f7a4"
-      "5623d0a9 14e1efa7 f811e000")
+strSRP1_v1 = \
+      "010124" + strPKRP1_v1
+SRP1_v1 = hex_to_binary(strSRP1_v1)
+strSRP2_v1 = \
+      "010224" + strPKRP1_v1 + "24" + strPKRP1_v1
+SRP2_v1 = hex_to_binary(strSRP2_v1)
 
 ############# Valid PTV serializations. NEED TO ADD SOME #####################
 
 # Valid PR serializations based on BIP32MasterPubKey2.
-daneName1 = "pksrec1.btcshop.com"
-daneName2 = "pksrec2.btcshop.com"
-unvalidatedScript1 = hex_to_binary(
-      "76a9145a 61ff8eb7 aaca3010 db97ebda 76121610 b7809688 ac")
+daneName1    = "pksrec1.btcshop.com"
+daneName1Hex = "706b7372 6563312e 62746373 686f702e 636f6d"
+daneName2    = "pksrec2.btcshop.com"
+daneName2Hex = "706b7372 6563322e 62746373 686f702e 636f6d"
+strUnvalidatedScript1 = \
+      "76a9145a 61ff8eb7 aaca3010 db97ebda 76121610 b7809688 ac"
+unvalidatedScript1 = hex_to_binary(strUnvalidatedScript1)
 
 # REMINDER: ADD A BAD UNVALIDATED SCRIPT BY REMOVING 0x14 FROM THE SCRIPT ABOVE. USE TO CREATE TESTS THAT CHECK SCRIPTS
-
-PR1_v1 = hex_to_binary(
-      "01000001 561976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac13"
-      "706b7372 6563312e 62746373 686f702e 636f6d27 01012401 022060e3 739cc2c3"
-      "950b7c4d 7f32cc50 3e13b996 d0f7a456 23d0a914 e1efa7f8 11e000")
-PR2_v1 = hex_to_binary(
-      "01000002 ac1976a9 145a61ff 8eb7aaca 3010db97 ebda7612 1610b780 9688ac19"
-      "76a9145a 61ff8eb7 aaca3010 db97ebda 76121610 b7809688 ac13706b 73726563"
-      "312e6274 6373686f 702e636f 6d13706b 73726563 312e6274 6373686f 702e636f"
-      "6d270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0"
-      "a914e1ef a7f811e0 00270101 24010220 60e3739c c2c3950b 7c4d7f32 cc503e13"
-      "b996d0f7 a45623d0 a914e1ef a7f811e0 00")
+strPR1_v1 = \
+      "01000001 5619" + strUnvalidatedScript1 +    "13" + daneName1Hex + \
+      "27" + strSRP1_v1
+PR1_v1 = hex_to_binary(strPR1_v1)
+strPR2_v1 = \
+      "01000002 ac19" + strUnvalidatedScript1 +    "19" + \
+      strUnvalidatedScript1 +    "13" + daneName1Hex +      "13" + \
+      daneName1Hex +    "27" + strSRP1_v1 +        "27" + strSRP1_v1
+PR2_v1 = hex_to_binary(strPR2_v1)
 
 # Valid PMTA serializations including previously used, valid PKS and CS records.
 ####################### NEED TO REVISE AS IS APPROPRIATE. ######################
-PMTA_PKS1Chksum_Uncomp_v1 = hex_to_binary(
-      "00010000 00000001 00204104 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb"
-      "d322cce4 f74b0b5b d6ace4a7 7bd3305d 363c26f8 2c1e41c6 67e4b356 1c06c60a"
-      "2104d2b5 48e6dd05 9056aa51 1ff749e6")
-PMTA_PKS1NoChksum_Comp_v1 = hex_to_binary(
-      "0002ffff 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
-      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
-      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
-PMTA_CS1Chksum_Comp_v1 = hex_to_binary(
-      "0001abba 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
-      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 0776a914 ff0188ac"
-      "01250100 062103cb caa9c98c 877a2697 7d00825c 956a238e 8dddfbd3 22cce4f7"
-      "4b0b5bd6 ace4a7f8 23227a")
-PMTA_CS1NoChksum_Comp_v1 = hex_to_binary(
-      "00020002 00000001 00000776 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a"
-      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7")
+strPMTA_PKS1Chksum_Uncomp_v1 = \
+      "00010000 00000001 00204104 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb" \
+      "d322cce4 f74b0b5b d6ace4a7 7bd3305d 363c26f8 2c1e41c6 67e4b356 1c06c60a" \
+      "2104d2b5 48e6dd05 9056aa51 1ff749e6"
+PMTA_PKS1Chksum_Uncomp_v1 = hex_to_binary(strPMTA_PKS1Chksum_Uncomp_v1)
+strPMTA_PKS1NoChksum_Comp_v1 = \
+      "0002ffff 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e" \
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87" \
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7"
+PMTA_PKS1NoChksum_Comp_v1 = hex_to_binary(strPMTA_PKS1NoChksum_Comp_v1)
+strPMTA_CS1Chksum_Comp_v1 = \
+      "0001abba 002e6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e" \
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 0776a914 ff0188ac" \
+      "01250100 062103cb caa9c98c 877a2697 7d00825c 956a238e 8dddfbd3 22cce4f7" \
+      "4b0b5bd6 ace4a7f8 23227a"
+PMTA_CS1Chksum_Comp_v1 = hex_to_binary(strPMTA_CS1Chksum_Comp_v1)
+strPMTA_CS1NoChksum_Comp_v1 = \
+      "00020002 00000001 00000776 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a" \
+      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7"
+PMTA_CS1NoChksum_Comp_v1 = hex_to_binary(strPMTA_CS1NoChksum_Comp_v1)
 
 # Inalid PMTA serializations.
-PMTA_BadPayNet = hex_to_binary(
-      "0200000d 00000001 00000676 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a"
-      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4a7")
-PMTA_BadDataType = hex_to_binary(
-      "00010000 00000101 00000676 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a"
-      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7")
-PMTA_BadURILen1 = hex_to_binary(
-      "0002ffff 00006874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
-      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
-      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
-PMTA_BadURILen2 = hex_to_binary(
-      "0002ffff 002d6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
-      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
-      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
-PMTA_BadURILen3 = hex_to_binary(
-      "0002ffff 002f6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e"
-      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87"
-      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7")
-PMTA_PKS1NoChksum_Comp_v1_FlagClash1 = hex_to_binary(
-      "00010000 00000001 00092103 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb"
-      "d322cce4 f74b0b5b d6ace4a7")
+strPMTA_BadPayNet = \
+      "0200000d 00000001 00000676 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a" \
+      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4a7"
+PMTA_BadPayNet = hex_to_binary(strPMTA_BadPayNet)
+strPMTA_BadDataType = \
+      "00010000 00000101 00000676 a914ff01 88ac0125 01000621 03cbcaa9 c98c877a" \
+      "26977d00 825c956a 238e8ddd fbd322cc e4f74b0b 5bd6ace4 a7"
+PMTA_BadDataType = hex_to_binary(strPMTA_BadDataType)
+strPMTA_BadURILen1 = \
+      "0002ffff 00006874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e" \
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87" \
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7"
+PMTA_BadURILen1 = hex_to_binary(strPMTA_BadURILen1)
+strPMTA_BadURILen2 = \
+      "0002ffff 002d6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e" \
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87" \
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7"
+PMTA_BadURILen2 = hex_to_binary(strPMTA_BadURILen2)
+PMTA_BadURILen3 = \
+      "0002ffff 002f6874 7470733a 2f2f7777 772e6269 74636f69 6e61726d 6f72792e" \
+      "636f6d2f 7061796d 656e745f 696e666f 2e747874 00010002 2103cbca a9c98c87" \
+      "7a26977d 00825c95 6a238e8d ddfbd322 cce4f74b 0b5bd6ac e4a7"
+PMTA_BadURILen3 = hex_to_binary(PMTA_BadURILen3)
+strPMTA_PKS1NoChksum_Comp_v1_FlagClash1 = \
+      "00010000 00000001 00092103 cbcaa9c9 8c877a26 977d0082 5c956a23 8e8dddfb" \
+      "d322cce4 f74b0b5b d6ace4a7"
+PMTA_PKS1NoChksum_Comp_v1_FlagClash1 = hex_to_binary(strPMTA_PKS1NoChksum_Comp_v1_FlagClash1)
 
 ### TODO: Place this stuff where it belongs when it's time!
 # TxOutscript validator. From ArmoryUtils.py:512?

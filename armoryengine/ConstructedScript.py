@@ -457,11 +457,6 @@ class PublicKeySource(object):
 
 
    #############################################################################
-   def isInitialized(self):
-      return not (self.rawSource is None or len(self.rawSource) == 0)
-
-
-   #############################################################################
    def getRawSource(self):
       """
       If this is an external source, then the rawSource might be a unicode
@@ -559,6 +554,11 @@ class PublicKeySource(object):
                   LOGINFO('PKS record has an invalid checksum. Record is ' \
                           'invalid.')
                recState = False
+
+      if (self.rawSource is None or len(self.rawSource) == 0):
+         if printToLog == True:
+            LOGINFO('PKS record has no source material. Record is invalid.')
+         recState = False
 
       return recState
 
@@ -1016,22 +1016,18 @@ class ReceiverIdentity(object):
    """
 
    #############################################################################
-   @VerifyArgTypes(recType = int,
-                   rec     = [str, unicode],
-                   ver     = int)
-   def __init__(self, recType, rec, ver=BTCAID_RI_VERSION):
+   @VerifyArgTypes(ver = int)
+   def __init__(self, rec, ver=BTCAID_RI_VERSION):
       """
       Set all RI values.
       """
-      self.recType = recType
-      self.rec     = rec
       self.version = ver
-
-
-   #############################################################################
-   def isInitialized(self):
-      pass
-#      return not (self.multiplier is '' and self.finalKey is '')
+      self.rec     = rec
+      if not (isinstance(rec, PublicKeySource) or 
+              isinstance(rec, ConstructedScript)):
+         LOGERROR('ReceiverIdentity received a record of type %s. PTV object ' \
+                  'is invalid.' % type(rec))
+         self.rec  = None
 
 
    #############################################################################
@@ -1040,64 +1036,62 @@ class ReceiverIdentity(object):
       """
       Verify that an RI record is valid.
       """
-      pass
-      # WILL CHECK THE REC TYPE AND RUN REC THROUGH A VERIFIER.
-#      recState = True
-#
-#      # The version needs to be valid. For now, it needs to be 1.
-#      if self.version != BTCAID_RI_VERSION:
-#         LOGINFO('RI record version is wrong. Record is invalid.')
-#         recState = False
-#
-#      # At least one flag must be set.
-#      if self.multUsed == False and self.finalKeyUsed == False:
-#         LOGINFO('RI record must have either a multiplier or final key. ' \
-#                 'Record is invalid.')
-#         recState = False
-#
-#      return recState
+      recState = False
+
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_RI_VERSION:
+         LOGINFO('RI record version is wrong. Record is invalid.')
+
+      # At least one flag must be set.
+      if isinstance(self.rec, PublicKeySource):
+         if self.rec.isValid() == False:
+            LOGINFO('RI record has an invalid PublicKeySource. Record is ' \
+                    'invalid.')
+         else:
+            recState = True
+      elif isinstance(rec, ConstructedScript):
+         if self.rec.isValid() == False:
+            LOGINFO('RI record has an invalid ConstructedScript. Record is ' \
+                    'invalid.')
+         else:
+            recState = True
+      else:
+         LOGINFO('RI record has no receiver information. Record is invalid.')
+
+      return recState
 
 
    #############################################################################
    def serialize(self):
-      # In BitSet, higher numbers are less significant bits.
-      # e.g., To get 0x0002, set bit 14 to True (1).
-      # NB: For now, the compression relies on if the raw source is compressed.
-      pass
-#      flags = BitSet(8)
-#      flags.setBit(7, self.finalKeyUsed)
-#      flags.setBit(6, self.multUsed)
-#
-#      bp = BinaryPacker()
-#      bp.put(UINT8,   self.version)
-#      bp.put(BITSET,  flags, width=1)
-#      bp.put(VAR_STR, self.multiplier)
-#      bp.put(VAR_STR, self.finalKey)
-#
-#      return bp.getBinaryString()
+      bp = BinaryPacker()
+      bp.put(UINT8,   self.version)
+      bp.put(UINT8,   self.recType)
+      bp.put(VAR_STR, self.rec.serialize())
+
+      return bp.getBinaryString()
 
 
 #############################################################################
 def decodeReceiverIdentity(serData):
-   pass
-#      inner      = BinaryUnpacker(serData)
-#      inVer      = inner.get(UINT8)
-#      inFlags    = inner.get(BITSET, 1)
-#      inMult     = inner.get(VAR_STR)
-#      inFinalKey = inner.get(VAR_STR)
-#
-#      if not inVer == BTCAID_RI_VERSION:
-#         # In the future we will make this more of a warning, not error
-#         raise VersionError('RI version does not match the loaded version')
-#
-#      self.__init__()
-#      self.initialize(inMult,
-#                      inFlags.getBit(7),
-#                      inFlags.getBit(6),
-#                      inFinalKey,
-#                      inVer)
-#
-#      return self
+   inner     = BinaryUnpacker(serData)
+   inVer     = inner.get(UINT8)
+   inRecType = inner.get(UINT8)
+   inRecStr  = inner.get(VAR_STR)
+
+   if not inVer == BTCAID_RI_VERSION:
+      # In the future we will make this more of a warning, not error
+      raise VersionError('RI version does not match the loaded version')
+
+   inRec = None
+   if inRecType == 0:
+      inRec = decodePublicKeySource(inRecStr)
+   elif inRecType == 1:
+      inRec = decodeConstructedScript(inRecStr)
+   else:
+      raise BadInputError('Input type is invalid')
+
+   return PaymentTargetVerifier(inRec,
+                                inVer)
 
 
 ################################################################################
@@ -1127,11 +1121,6 @@ class PublicKeyRelationshipProof(object):
 
 
    #############################################################################
-   def isInitialized(self):
-      return not (self.multiplier is '' and self.finalKey is '')
-
-
-   #############################################################################
    # Verify that a PKRP record is valid.
    def isValid(self):
       """
@@ -1146,8 +1135,12 @@ class PublicKeyRelationshipProof(object):
 
       # At least one flag must be set.
       if self.multUsed == False and self.finalKeyUsed == False:
-         LOGINFO('PKRP record must have either a multiplier or final key. ' \
+         LOGINFO('PKRP flags must indicate either a multiplier or final key. ' \
                  'Record is invalid.')
+         recState = False
+
+      if (self.multiplier is '' and self.finalKey is ''):
+         LOGINFO('PKRP record has no key material. Record is invalid.')
          recState = False
 
       return recState
@@ -1209,11 +1202,6 @@ class ScriptRelationshipProof(object):
 
 
    #############################################################################
-   def isInitialized(self):
-      return not (self.pkrpList is None or len(self.pkrpList) == 0)
-
-
-   #############################################################################
    # Verify that an SRP record is valid.
    def isValid(self):
       """
@@ -1224,6 +1212,10 @@ class ScriptRelationshipProof(object):
       # The version needs to be valid. For now, it needs to be 1.
       if self.version != BTCAID_SRP_VERSION:
          LOGINFO('SRP record version is wrong. Record is invalid.')
+         recState = False
+
+      if (self.pkrpList is None or len(self.pkrpList) == 0):
+         LOGINFO('SRP record has no PKRP records. Record is invalid.')
          recState = False
 
       return recState
@@ -1276,19 +1268,11 @@ class PaymentTargetVerifier(object):
       """
       self.version = ver
       self.rec     = rec
-      if isinstance(rec, PublicKeyRelationshipProof):
-         self.recType = 0
-      elif isinstance(rec, ScriptRelationshipProof):
-         self.recType = 1
-      else:
+      if not (isinstance(rec, PublicKeyRelationshipProof) or \
+              isinstance(rec, ScriptRelationshipProof)):
          LOGERROR('PaymentTargetVerifier received a record of type %s. PTV ' \
                   'object is invalid.' % type(rec))
          self.rec  = None
-
-
-   #############################################################################
-   def isInitialized(self):
-      return not (self.rec is None)
 
 
    #############################################################################
@@ -1297,22 +1281,29 @@ class PaymentTargetVerifier(object):
       """
       Verify that a PTV record is valid.
       """
-      pass
-      # WILL CHECK THE REC TYPE AND RUN REC THROUGH A VERIFIER.
-#      recState = True
-#
-#      # The version needs to be valid. For now, it needs to be 1.
-#      if self.version != BTCAID_PTV_VERSION:
-#         LOGINFO('PTV record version is wrong. Record is invalid.')
-#         recState = False
-#
-#      # At least one flag must be set.
-#      if self.multUsed == False and self.finalKeyUsed == False:
-#         LOGINFO('PTV record must have either a multiplier or final key. ' \
-#                 'Record is invalid.')
-#         recState = False
-#
-#      return recState
+      recState = False
+
+      # The version needs to be valid. For now, it needs to be 1.
+      if self.version != BTCAID_PTV_VERSION:
+         LOGINFO('PTV record version is wrong. Record is invalid.')
+
+      # At least one flag must be set.
+      if isinstance(self.rec, PublicKeyRelationshipProof):
+         if self.rec.isValid() == False:
+            LOGINFO('PTV record has an invalid PublicKeyRelationshipProof. ' \
+                    'Record is invalid.')
+         else:
+            recState = True
+      elif isinstance(rec, ScriptRelationshipProof):
+         if self.rec.isValid() == False:
+            LOGINFO('PTV record has an invalid ScriptRelationshipProof. ' \
+                    'Record is invalid.')
+         else:
+            recState = True
+      else:
+         LOGINFO('PTV record has no target information. Record is invalid.')
+
+      return recState
 
 
    #############################################################################
@@ -1320,9 +1311,17 @@ class PaymentTargetVerifier(object):
       # In BitSet, higher numbers are less significant bits.
       # e.g., To get 0x0002, set bit 14 to True (1).
       # NB: For now, the compression relies on if the raw source is compressed.
+      recType = -1
+      if isinstance(self.rec, PublicKeyRelationshipProof):
+         recType = 0
+      elif isinstance(self.rec, ScriptRelationshipProof):
+         recType = 1
+      else:
+         raise BadInputError('Input record type is invalid')
+
       bp = BinaryPacker()
       bp.put(UINT8,   self.version)
-      bp.put(UINT8,   self.recType)
+      bp.put(UINT8,   recType)
       bp.put(VAR_STR, self.rec.serialize())
 
       return bp.getBinaryString()
@@ -1387,12 +1386,6 @@ class PaymentRequest(object):
 
 
    #############################################################################
-   def isInitialized(self):
-      return not (self.unvalidatedScripts == None or
-                  len(self.unvalidatedScripts) == 0)
-
-
-   #############################################################################
    # Verify that a PR record is valid.
    def isValid(self):
       """
@@ -1403,6 +1396,10 @@ class PaymentRequest(object):
       # The version needs to be valid. For now, it needs to be 1.
       if self.version != BTCAID_PR_VERSION:
          LOGINFO('PR record version is wrong. Record is invalid.')
+         recState = False
+
+      if (self.unvalidatedScripts == None or len(self.unvalidatedScripts) == 0):
+         LOGINFO('PR record has no scripts. Record is invalid.')
          recState = False
 
       return recState
