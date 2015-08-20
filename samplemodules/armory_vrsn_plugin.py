@@ -30,7 +30,7 @@ from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
    makeVertFrame, makeHorizFrame, HLINE, ArmoryDialog
-from qtdialogs import DlgSendBitcoins, DlgWalletSelect
+from qtdialogs import DlgSendBitcoins, DlgWalletSelect, DlgRequestPayment
 from ui.WalletFrames import SelectWalletFrame
 
 
@@ -233,48 +233,11 @@ class PluginObject(object):
       def lpAction():
          #
          pass
-
-
+      
       # Generate a payment request.
-      def lrAction():
-         if self.wlt == None:
-            QMessageBox.warning(self.main,
-                                'No Local Wallet Selected',
-                                'Please select a local wallet.',
-                                QMessageBox.Ok)
-         else:
-            # Get the new address and multiplier.
-            self.resAddr = None
-            self.resPos = 0
-            self.resMult = None
-            keyRes, self.resAddr, self.resPos, self.resMult = \
-                                                 self.getNewKeyAndMult(self.wlt)
-            if not keyRes:
-               LOGERROR('Attempt to generate a new key failed.')
-               QMessageBox.warning(self.main,
-                                   'Address generation failed',
-                                   'New address generation attempt failed.',
-                                   QMessageBox.Ok)
-            elif self.resAddr == None:
-               LOGERROR('Resultant address is empty. This should not happen.')
-               QMessageBox.warning(self.main,
-                                   'Address generated is empty',
-                                   'New address generated is empty.',
-                                   QMessageBox.Ok)
-            else:
-            # Generate the proper object.
-               finalAddr = self.resAddr.getAddrStr()
-               newPKRP = PublicKeyRelationshipProof(self.resMult)
-               newPTV = PaymentTargetVerifier(newPKRP)
-               newPTVStr = binary_to_base58(newPTV.serialize())
-
-               # Put everything together and present it to the user.
-               # Right now, this dialog doesn't work. Dialog says the address is
-               # invalid and refuses to generate a QR code. We also need to pass
-               # in the Base58-encoded PTV somehow.
-#               dlg = DlgRequestPayment(self.main, self.main, finalAddr)
-#               dlg.exec_()
-
+      def generatePaymentRequestAction():
+         self.generatePaymentRequest()
+         
       self.main.connect(self.btnOtherLookup, SIGNAL('clicked()'),
             otherWalletIdentityLookupAction)
       self.main.connect(self.btnOtherManual, SIGNAL('clicked()'),
@@ -290,7 +253,8 @@ class PluginObject(object):
       self.main.connect(self.btnLocalPublish,   SIGNAL('clicked()'), lpAction)
       self.main.connect(self.btnLocalExport,    SIGNAL('clicked()'),
             localExportSelectedIDAction)
-      self.main.connect(self.btnLocalRequest,   SIGNAL('clicked()'), lrAction)
+      self.main.connect(self.btnLocalRequest,   SIGNAL('clicked()'),
+            generatePaymentRequestAction)
 
       self.tabToDisplay = QScrollArea()
       self.tabToDisplay.setWidgetResizable(True)
@@ -298,6 +262,47 @@ class PluginObject(object):
 
       # Register the BDM callback for when the BDM sends signals.
       getBDM().registerCppNotification(self.handleBDMNotification)
+      
+      
+   #############################################################################
+   def generatePaymentRequest(self):
+      if self.wlt == None:
+         QMessageBox.warning(self.main,
+                             'No Local Wallet Selected',
+                             'Please select a local wallet.',
+                             QMessageBox.Ok)
+      else:
+         # Get the new address and multiplier.
+         self.resAddr = None
+         self.resPos = 0
+         self.resMult = None
+         keyRes, self.resAddr, self.resPos, self.resMult = \
+                                              self.getNewKeyAndMult(self.wlt)
+         if not keyRes:
+            LOGERROR('Attempt to generate a new key failed.')
+            QMessageBox.warning(self.main,
+                                'Address generation failed',
+                                'New address generation attempt failed.',
+                                QMessageBox.Ok)
+         elif self.resAddr == None:
+            LOGERROR('Resultant address is empty. This should not happen.')
+            QMessageBox.warning(self.main,
+                                'Address generated is empty',
+                                'New address generated is empty.',
+                                QMessageBox.Ok)
+         else:
+         # Generate the proper object.
+            finalAddr = self.resAddr.getAddrStr()
+            newPKRP = PublicKeyRelationshipProof(self.resMult)
+            newPTV = PaymentTargetVerifier(newPKRP)
+            newPTVStr = binary_to_base58(newPTV.serialize())
+
+            # Put everything together and present it to the user.
+            # Right now, this dialog doesn't work. Dialog says the address is
+            # invalid and refuses to generate a QR code. We also need to pass
+            # in the Base58-encoded PTV somehow.
+            dlg = DlgRequestPayment(self.main, self.main, finalAddr)
+            dlg.exec_()
       
    #############################################################################
    def setLocalWalletHandle(self):
