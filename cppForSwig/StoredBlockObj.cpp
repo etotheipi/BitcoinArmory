@@ -1835,7 +1835,6 @@ void StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B)
    TxIOPair& txio = txioMap_[txOutKey8B];
 
    txio.setUTXO(false);
-   txio.flagged_ = !txio.flagged_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

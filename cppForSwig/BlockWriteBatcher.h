@@ -318,10 +318,10 @@ struct PulledBlock : public DBBlock
       }
 
       /*
-      This is actually not a valid marker of bad block data, some blocks have 
-      less data than the advertized height in raw data (after the magic word 
-      and before the actual block), as can be verified by computing the merkle 
-      root
+      This is actually not a valid marker of bad block data, some blocks are 
+      shorter than the advertized length in raw data (after the magic word 
+      and before the actual block). Only calculating the merkle root can
+      guarantee the block data is sound.
 
       if (brr.getSizeRemaining() > 0)
       {
