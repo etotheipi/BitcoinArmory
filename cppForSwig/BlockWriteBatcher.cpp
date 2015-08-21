@@ -88,8 +88,6 @@ BlockWriteBatcher::BlockWriteBatcher(
          totalThreadCount_ = 1;
    }
 
-   totalThreadCount_ = 1;
-
    if (BlockWriteBatcher::armoryDbType_ == ARMORY_DB_SUPER)
    {
       int32_t readers = totalThreadCount_ / 5;

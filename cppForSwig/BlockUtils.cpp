@@ -2080,13 +2080,18 @@ void BlockDataManager_LevelDB::wipeScrAddrsSSH(const vector<BinaryData>& saVec)
          continue;
 
       auto dbKey = ssh.getSubKey();
-      ssh.alreadyScannedUpToBlk_ = 0;
-      ssh.totalUnspent_ = 0;
-      ssh.totalTxioCount_ = 0;
-      iface_->putStoredScriptHistorySummary(ssh);
-
       auto shard = iface_->getShard(scrAddr);
       auto depth = iface_->getDepth(scrAddr);
+
+      {
+         LMDBEnv::Transaction sshtx;
+         iface_->beginShardTransaction(sshtx, shard, LMDB::ReadWrite);
+         ssh.alreadyScannedUpToBlk_ = 0;
+         ssh.totalUnspent_ = 0;
+         ssh.totalTxioCount_ = 0;
+         iface_->putStoredScriptHistorySummary(ssh);
+      }
+
       LMDBEnv::Transaction subTx;
       iface_->beginSubSSHDBTransaction(
          subTx, shard, depth, LMDB::ReadWrite);
