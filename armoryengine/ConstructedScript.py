@@ -1041,31 +1041,39 @@ class ReceiverIdentity(object):
       # The version needs to be valid. For now, it needs to be 1.
       if self.version != BTCAID_RI_VERSION:
          LOGINFO('RI record version is wrong. Record is invalid.')
-
-      # At least one flag must be set.
-      if isinstance(self.rec, PublicKeySource):
-         if self.rec.isValid() == False:
-            LOGINFO('RI record has an invalid PublicKeySource. Record is ' \
-                    'invalid.')
-         else:
-            recState = True
-      elif isinstance(rec, ConstructedScript):
-         if self.rec.isValid() == False:
-            LOGINFO('RI record has an invalid ConstructedScript. Record is ' \
-                    'invalid.')
-         else:
-            recState = True
       else:
-         LOGINFO('RI record has no receiver information. Record is invalid.')
+         # At least one flag must be set.
+         if isinstance(self.rec, PublicKeySource):
+            if self.rec.isValid(False) == False:
+               LOGINFO('RI record has an invalid PublicKeySource. Record is ' \
+                       'invalid.')
+            else:
+               recState = True
+         elif isinstance(self.rec, ConstructedScript):
+            if self.rec.isValid(False) == False:
+               LOGINFO('RI record has an invalid ConstructedScript. Record ' \
+                       'is invalid.')
+            else:
+               recState = True
+         else:
+            LOGINFO('RI record has no receiver information. Record is invalid.')
 
       return recState
 
 
    #############################################################################
    def serialize(self):
+      recType = -1
+      if isinstance(self.rec, PublicKeySource):
+         recType = 0
+      elif isinstance(self.rec, ConstructedScript):
+         recType = 1
+      else:
+         raise BadInputError('Input record type is invalid')
+
       bp = BinaryPacker()
       bp.put(UINT8,   self.version)
-      bp.put(UINT8,   self.recType)
+      bp.put(UINT8,   recType)
       bp.put(VAR_STR, self.rec.serialize())
 
       return bp.getBinaryString()
@@ -1090,8 +1098,7 @@ def decodeReceiverIdentity(serData):
    else:
       raise BadInputError('Input type is invalid')
 
-   return PaymentTargetVerifier(inRec,
-                                inVer)
+   return ReceiverIdentity(inRec, inVer)
 
 
 ################################################################################
@@ -1286,31 +1293,28 @@ class PaymentTargetVerifier(object):
       # The version needs to be valid. For now, it needs to be 1.
       if self.version != BTCAID_PTV_VERSION:
          LOGINFO('PTV record version is wrong. Record is invalid.')
-
-      # At least one flag must be set.
-      if isinstance(self.rec, PublicKeyRelationshipProof):
-         if self.rec.isValid() == False:
-            LOGINFO('PTV record has an invalid PublicKeyRelationshipProof. ' \
-                    'Record is invalid.')
-         else:
-            recState = True
-      elif isinstance(rec, ScriptRelationshipProof):
-         if self.rec.isValid() == False:
-            LOGINFO('PTV record has an invalid ScriptRelationshipProof. ' \
-                    'Record is invalid.')
-         else:
-            recState = True
       else:
-         LOGINFO('PTV record has no target information. Record is invalid.')
+         # At least one flag must be set.
+         if isinstance(self.rec, PublicKeyRelationshipProof):
+            if self.rec.isValid() == False:
+               LOGINFO('PTV record has an invalid ' \
+                       'PublicKeyRelationshipProof. Record is invalid.')
+            else:
+               recState = True
+         elif isinstance(self.rec, ScriptRelationshipProof):
+            if self.rec.isValid() == False:
+               LOGINFO('PTV record has an invalid ScriptRelationshipProof. ' \
+                       'Record is invalid.')
+            else:
+               recState = True
+         else:
+            LOGINFO('PTV record has no target information. Record is invalid.')
 
       return recState
 
 
    #############################################################################
    def serialize(self):
-      # In BitSet, higher numbers are less significant bits.
-      # e.g., To get 0x0002, set bit 14 to True (1).
-      # NB: For now, the compression relies on if the raw source is compressed.
       recType = -1
       if isinstance(self.rec, PublicKeyRelationshipProof):
          recType = 0

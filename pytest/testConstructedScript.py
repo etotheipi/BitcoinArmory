@@ -38,7 +38,7 @@ BIP32MasterPubKey2_D1Hash160 = hex_to_binary(strBIP32MasterPubKey2_D1Hash160)
 
 # Valid PKS serializations based on BIP32MasterPubKey2.
 strPKS1Chksum_Uncomp_v1 = \
-      "01002041" + strBIP32MasterPubKey2 + "1ff749e6"
+      "01002041" + strBIP32MasterPubKey2 +         "1ff749e6"
 PKS1Chksum_Uncomp_v1 = hex_to_binary(strPKS1Chksum_Uncomp_v1)
 strPKS1NoChksum_Comp_v1 = \
       "01000221" + strBIP32MasterPubKey2Comp
@@ -61,22 +61,29 @@ strCS1Chksum_Uncomp_v1 = \
 CS1Chksum_Uncomp_v1 = hex_to_binary(strCS1Chksum_Uncomp_v1)
 strCS1Chksum_Comp_v1 = \
       "01000207 76a914ff 0188ac01 25010006 21" + \
-      strBIP32MasterPubKey2Comp + "f823 227a"
+      strBIP32MasterPubKey2Comp +         "f823227a"
 CS1Chksum_Comp_v1 = hex_to_binary(strCS1Chksum_Comp_v1)
 strCS1NoChksum_Comp_v1 = \
       "01000007 76a914ff 0188ac01 25010006 21" + strBIP32MasterPubKey2Comp
 CS1NoChksum_Comp_v1 = hex_to_binary(strCS1NoChksum_Comp_v1)
 strCS2Chksum_Comp_v1 = \
       "01000305 52ff0252 ae022501 000221" + strBIP32MasterPubKey2Comp + \
-      "25010002 21" + strBIP32MasterPubKey2Comp_D1 + "89e25fe9"
+      "25010002 21" + strBIP32MasterPubKey2Comp_D1 +        "89e25fe9"
 CS2Chksum_Comp_v1 = hex_to_binary(strCS2Chksum_Comp_v1) # Multisig
 
 ################# Invalid CS serializations. NEED TO ADD SOME. ############
 
-############ RI serializations. NEED TO ADD SOME. ###################
 # Valid RI serializations based on previously created records.
 Valid_RI_PKS_Base = "0100"
-#RI_
+Valid_RI_CS_Base  = "0101"
+strRI_PKS1Chksum_Uncomp_v1 = Valid_RI_PKS_Base + \
+                             int_to_hex(len(PKS1Chksum_Uncomp_v1), endOut=BIGENDIAN) + \
+                             strPKS1Chksum_Uncomp_v1
+RI_PKS1Chksum_Uncomp_v1 = hex_to_binary(strRI_PKS1Chksum_Uncomp_v1)
+strRI_CS2Chksum_Comp_v1 = Valid_RI_CS_Base + \
+                          int_to_hex(len(CS2Chksum_Comp_v1), endOut=BIGENDIAN) + \
+                          strCS2Chksum_Comp_v1
+RI_CS2Chksum_Comp_v1 = hex_to_binary(strRI_CS2Chksum_Comp_v1)
 
 # Valid PKRP serializations based on BIP32MasterPubKey2.
 strPKRPMult = \
@@ -98,7 +105,17 @@ strSRP2_v1 = \
       "010224" + strPKRP1_v1 + "24" + strPKRP1_v1
 SRP2_v1 = hex_to_binary(strSRP2_v1)
 
-############# Valid PTV serializations. NEED TO ADD SOME #####################
+# Valid PTV serializations based on previously created records.
+Valid_PTV_PKRP_Base = "0100"
+Valid_PTV_SRP_Base  = "0101"
+strPTV_PKRP1_v1 = Valid_PTV_PKRP_Base + \
+                  int_to_hex(len(PKRP1_v1), endOut=BIGENDIAN) + \
+                  strPKRP1_v1
+PTV_PKRP1_v1 = hex_to_binary(strPTV_PKRP1_v1)
+strPTV_SRP2_v1 = Valid_PTV_SRP_Base + \
+                 int_to_hex(len(SRP2_v1), endOut=BIGENDIAN) + \
+                 strSRP2_v1
+PTV_SRP2_v1 = hex_to_binary(strPTV_SRP2_v1)
 
 # Valid PR serializations based on BIP32MasterPubKey2.
 daneName1    = "pksrec1.btcshop.com"
@@ -282,6 +299,54 @@ class CSClassTests(unittest.TestCase):
 
 
 ################################################################################
+class RIClassTests(unittest.TestCase):
+   # Use serialize/unserialize to confirm that the data struct is correctly
+   # formed and can be correctly formed.
+   def testSerialization(self):
+      # PKS1 with a checksum & uncompressed key.
+      pks1ChksumPres = decodePublicKeySource(PKS1Chksum_Uncomp_v1)
+      ri1_PKS = ReceiverIdentity(pks1ChksumPres)
+      stringRI1_PKS = ri1_PKS.serialize()
+      self.assertEqual(binary_to_hex(stringRI1_PKS),
+                       binary_to_hex(RI_PKS1Chksum_Uncomp_v1))
+
+      # CS2 w/ a checksum - Pre-built multisig
+      cs2ChksumPres = decodeConstructedScript(CS2Chksum_Comp_v1)
+      ri2_CS = ReceiverIdentity(cs2ChksumPres)
+      stringRI2_CS = ri2_CS.serialize()
+      self.assertEqual(binary_to_hex(stringRI2_CS),
+                       binary_to_hex(RI_CS2Chksum_Comp_v1))
+
+      # Unserialize and re-serialize to confirm unserialize works.
+      ri1_PKS_unser = decodeReceiverIdentity(RI_PKS1Chksum_Uncomp_v1)
+      stringRI1_PKS_unser = ri1_PKS_unser.serialize()
+      self.assertEqual(binary_to_hex(stringRI1_PKS_unser),
+                       binary_to_hex(RI_PKS1Chksum_Uncomp_v1))
+
+      ri2_CS_unser = decodeReceiverIdentity(RI_CS2Chksum_Comp_v1)
+      stringRI2_CS_unser = ri2_CS_unser.serialize()
+      self.assertEqual(binary_to_hex(stringRI2_CS_unser),
+                       binary_to_hex(RI_CS2Chksum_Comp_v1))
+
+
+      # Are various RI structures valid?
+      # (NB: These tests are slight hacks because the unserialize code raises
+      # errors. Direct editing works best.)
+      riIsValid = ri1_PKS.isValid()
+      self.assertEqual(riIsValid, True)
+      riIsValid = ri2_CS.isValid()
+      self.assertEqual(riIsValid, True)
+      ri1_PKS_Inv = ri1_PKS
+      ri1_PKS_Inv.version = 2
+      riIsValid = ri1_PKS_Inv.isValid()
+      self.assertEqual(riIsValid, False)
+      ri2_CS_Inv = ri2_CS
+      ri2_CS_Inv.rec = decodeScriptRelationshipProof(SRP1_v1)
+      riIsValid = ri2_CS_Inv.isValid()
+      self.assertEqual(riIsValid, False)
+
+
+################################################################################
 class PKRPClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
@@ -352,6 +417,54 @@ class SRPClassTests(unittest.TestCase):
       self.assertEqual(srpIsValid, True)
       srpIsValid = srp1_BadVersion.isValid()
       self.assertEqual(srpIsValid, False)
+
+
+################################################################################
+class PTVClassTests(unittest.TestCase):
+   # Use serialize/unserialize to confirm that the data struct is correctly
+   # formed and can be correctly formed.
+   def testSerialization(self):
+      # PKRP1
+      pkrp1 = decodePublicKeyRelationshipProof(PKRP1_v1)
+      ptv1_PKRP = PaymentTargetVerifier(pkrp1)
+      stringPTV1_PKRP = ptv1_PKRP.serialize()
+      self.assertEqual(binary_to_hex(stringPTV1_PKRP),
+                       binary_to_hex(PTV_PKRP1_v1))
+
+      # SRP2 - Pre-built multisig
+      srp2 = decodeScriptRelationshipProof(SRP2_v1)
+      ptv2_SRP = PaymentTargetVerifier(srp2)
+      stringPTV2_SRP = ptv2_SRP.serialize()
+      self.assertEqual(binary_to_hex(stringPTV2_SRP),
+                       binary_to_hex(PTV_SRP2_v1))
+
+      # Unserialize and re-serialize to confirm unserialize works.
+      ptv1_PKRP_unser = decodePaymentTargetVerifier(PTV_PKRP1_v1)
+      stringPTV1_PKRP_unser = ptv1_PKRP_unser.serialize()
+      self.assertEqual(binary_to_hex(stringPTV1_PKRP_unser),
+                       binary_to_hex(PTV_PKRP1_v1))
+
+      ptv2_SRP_unser = decodePaymentTargetVerifier(PTV_SRP2_v1)
+      stringPTV2_SRP_unser = ptv2_SRP_unser.serialize()
+      self.assertEqual(binary_to_hex(stringPTV2_SRP_unser),
+                       binary_to_hex(PTV_SRP2_v1))
+
+
+      # Are various RI structures valid?
+      # (NB: These tests are slight hacks because the unserialize code raises
+      # errors. Direct editing works best.)
+      ptvIsValid = ptv1_PKRP.isValid()
+      self.assertEqual(ptvIsValid, True)
+      ptvIsValid = ptv2_SRP.isValid()
+      self.assertEqual(ptvIsValid, True)
+      ptv1_PKRP_Inv = ptv1_PKRP
+      ptv1_PKRP_Inv.version = 2
+      ptvIsValid = ptv1_PKRP_Inv.isValid()
+      self.assertEqual(ptvIsValid, False)
+      ptv2_SRP_Inv = ptv2_SRP
+      ptv2_SRP_Inv.rec = decodeConstructedScript(CS2Chksum_Comp_v1)
+      ptvIsValid = ptv2_SRP_Inv.isValid()
+      self.assertEqual(ptvIsValid, False)
 
 
 ################################################################################
