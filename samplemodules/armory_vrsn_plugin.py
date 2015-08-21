@@ -42,15 +42,12 @@ OTHER_ID_COLS = enum('DnsHandle')
 LOCAL_ID_COLS = enum('WalletID', 'WalletName', 'DnsHandle')
 
 
-# NOTE: I moved this out of the plug in object because it doesn't have
-# anything to do with the plug-in and does not reference "self" at all
-#
-# TODO: It's replicated in every PKS related plug-in. Make
-# this a utility function
-#
 # Function that creates and returns a PublicKeySource (PMTA/DNS) record based
 # on the incoming wallet.
-# INPUT:  The wallet used to generate the PKS record (ABEK_StdWallet)
+#
+# TODO: Place this function elsewhere.
+#
+# INPUT:  The wallet used to generate the PKS record (SettingsFile)
 #         PKS-related flags (bool) - See armoryengine/ConstructedScript.py
 # OUTPUT: None
 # RETURN: Final PKS record (PKSRecord)
@@ -64,6 +61,39 @@ def getWltPKS(inWlt, isStatic = False, useCompr = False,
    myPKS = PublicKeySource(isStatic, useCompr, use160, isUser, isExt,
                            sbdPubKey65.toBinStr(), False, chksumPres)
    return myPKS
+
+
+# Function that takes an incoming wallet ID and gets the contents of the
+# entry, if one exists, of the wallet ID entry.
+# store file.
+#
+# TODO: Place this function elsewhere.
+#
+# INPUT:  The file handle of the wallet ID store file (ABEK_StdWallet)
+#         Wallet ID (str)
+# OUTPUT: None
+# RETURN: The walllet ID data, in Base58 form (str)
+def getWalletIDData(fileHandle, walletID):
+   # Sometimes we need to settings specific to individual wallets -- we will
+   # prefix the settings name with the wltID.
+   if not fileHandle.hasSetting(walletID):
+      setWalletIDData(fileHandle, walletID, '')
+
+   return fileHandle.get(walletID)
+
+
+# Function that takes an incoming wallet ID and sets the ID's data entry in
+# the wallet ID store file.
+#
+# TODO: Place this function elsewhere.
+#
+# INPUT:  The file handle of the wallet ID store file (ABEK_StdWallet)
+#         Wallet ID (str)
+#         Wallet ID, in Base58-encoded form (str)
+# OUTPUT: None
+# RETURN: The walllet ID data, in Base58 form (str)
+def setWalletIDData(fileHandle, walletID, walletIDData):
+   fileHandle.set(walletID, walletIDData)
 
 
 # Class name is required by the plugin framework.
@@ -162,8 +192,9 @@ class PluginObject(object):
                                        self.btnLocalRequest,
                                        STRETCH])
 
-#      self.otherIDclicked(None)
-#      self.localIDclicked(None)
+      walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                       WALLET_ID_STORE_FILENAME)
+      self.walletIDStore = SettingsFile(walletIDStorePath)
 
       lblHeadOther = QRichLabel(tr("<b>Known Wallet Identities (Others)</b>"))
       lblHeadLocal = QRichLabel(tr("<b>Loaded Wallets (Yours)</b>"))
@@ -318,10 +349,10 @@ class PluginObject(object):
 
          # TODO: Specify Multiplier
          multiplier = None
-         pkrpFinal = PublicKeyRelationshipProof(multiplier)
+         ptv = decodePaymentTargetVerifier(pmtaData[1])
          # This method PublicKeyRelationshipProof class
          # no longer exists: unserialize(base58_to_binary(pmtaData[1]))
-         if pkrpFinal.isValid() is False:
+         if ptv.isValid() is False:
             QMessageBox.warning(self.main, 'Invalid Payment Request',
                                 'Payment Request is invalid. Please confirm ' \
                                 'that the text is complete and not corrupted.',
@@ -350,14 +381,15 @@ class PluginObject(object):
             if not dnsResult:
                # Verify that the received record matches the one in the ID
                # store. If so, go ahead with the dialog.
-#               idFound = checkIDStore(uriData['pmta'])
-               idFound = True
+               idFound, resultRecord = getIDFromStore(uriData['pmta'])
                if not idFound:
                   validRecords = False
 
             if validRecords:
-               # TO DO (Step 3): Derive & apply multipliers from attached PKRP.
-               # SRP would apply here if using a CS.
+               # TO DO (Step 3): Derive & apply multipliers from attached PTV.
+#               finalAddress = HDWalletCrypto().getChildKeyFromMult_SWIG(
+#                                                          sbdPubKey1.toBinStr(),
+#                                                          multProof1.multiplier)
 
                # TO DO (Step 4): Insert pop-up if derived address doesn't match
                # the supplied address. Also, as a way to show this really works,
@@ -378,7 +410,7 @@ class PluginObject(object):
       wltID = self.modelLocalIDs.getWltIDForRow(row)
       dlg = SetWalletHandleDialog(self.main, self.main, wltID)
       if dlg.exec_():
-         self.main.setWltSetting(wltID, 'dnsID', dlg.getWalletHandle())
+         setWalletIDData(self.walletIDStore, wltID, dlg.getWalletHandle())
          self.tableLocalIDs.reset()
 
 
@@ -566,24 +598,12 @@ class PluginObject(object):
       return validAddr
 
 
-   # Function called when the "bdmReadyPMTA" signal is emitted. Updates the
-   # wallet balance display on startup.
+   # Function called when the "bdmReadyPMTA" signal is emitted. Not used.
    # INPUT:  None
    # OUTPUT: None
    # RETURN: None
    def bdmReady(self):
-      # Get the PKS record and display it as a Base58-encoded string. Used only
-      # for the initial string load.
       pass
-      """
-      if self.wlt is not None:
-         wltPKS = binary_to_base58(self.getWltPKS(self.wlt).serialize())
-         self.pksB58Line.setText(wltPKS)
-
-         # If it exists, get the DNS wallet ID.
-         wltDNSID = self.main.getWltSetting(self.wlt.uniqueIDB58, 'dnsID')
-         self.inID.setText(wltDNSID)
-      """
 
 
    # Place any code here that must be executed when the BDM emits a signal. The
@@ -635,65 +655,72 @@ class PluginObject(object):
    # INPUT:  The ID the user wishes to find. (str)
    # OUTPUT: None
    # RETURN: Boolean indicating whether or not the ID was found.
-   def checkIDStore(self, inRec):
+   #         The record found in the ID store, if it exists.
+   def getIDFromStore(self, inRec):
       walletIDStorePath = os.path.join(getArmoryHomeDir(),
                                        WALLET_ID_STORE_FILENAME)
       walletIDStore = SettingsFile(self.walletIDStorePath)
-      return walletIDStore.hasSetting(inRec.split('..')[0])
 
+      returnRecord = None
+      recordFound = walletIDStore.hasSetting(inRec.split('..')[0])
+      if recordFound:
+         walletIDStore.get(returnRecord)
 
-   # Function that takes a BIP 32 wallet, generates a new child key, and returns
-   # various values.
-   # INPUT:  Wallet from which a 2nd-level pub key is derived. (ABEK_StdWallet)
-   # OUTPUT: None
-   # RETURN: Boolean indicating whether or not the key was correctly derived.
-   #         The resultant address object. (ArmoryBip32ExtendedKey)
-   #         The 2nd level position of the public key. (int)
-   #         The multiplier (32 bytes minimum) that can get the root public key
-   #         to the derived key. (Binary string)
-   def getNewKeyAndMult(self, inWlt):
-      retVal  = False
-      outAddr = None
-      outPos  = 0
-      outMult = None
-
-      if inWlt == None:
-         LOGWARN('ERROR: No wallet selected. getNewKeyAndMult() will exit.')
-      else:
-         # Generate the new child address and get its position in the tree, then
-         # re-derive the child address and get a multiplier. For now, the code
-         # assumes the 1st level is 0 (i.e., these are non-change addresses).
-         nextChildNum = inWlt.external.lowestUnusedChild
-         newAddr = inWlt.getNextReceivingAddress()
-         finalPub1, multProof1 = DeriveBip32PublicKeyWithProof(
-                                                inWlt.sbdPublicKey33.toBinStr(),
-                                                  inWlt.sbdChaincode.toBinStr(),
-                                                              [0, nextChildNum])
-
-         # Ensure an apples-to-apples comparison before proceeding. Compress b/c
-         # it's less mathematically intensive than decompressing, and hex string
-         # comparison because Python doesn't like to compare SBD objs directly.
-         comp1 = CryptoECDSA().CompressPoint(newAddr.sbdPublicKey33)
-         comp2 = CryptoECDSA().CompressPoint(SecureBinaryData(finalPub1))
-         if comp1.toHexStr() != comp2.toHexStr():
-            LOGWARN('ERROR: For some reason, the new key (%s) at position %s ' \
-                    'does not match the derived key (%s) with multiplier %s. ' \
-                    'No key will be returned.' % (newAddr.sbdPublicKey33,
-                                                  nextChildNum,
-                                                  finalPub1,
-                                                  multProof1.multiplier))
-         else:
-            retVal  = True
-            outAddr = newAddr
-            outPos  = nextChildNum
-            outMult = multProof1.multiplier
-
-      return retVal, outAddr, outPos, outMult
+      return recordFound, returnRecord
 
 
    # Function is required by the plugin framework.
    def getTabToDisplay(self):
       return self.tabToDisplay
+
+
+# Utility function that takes a BIP 32 wallet, generates a new child key, and
+# returns various values.
+# INPUT:  Wallet from which a 2nd-level pub key is derived. (ABEK_StdWallet)
+# OUTPUT: None
+# RETURN: Boolean indicating whether or not the key was correctly derived.
+#         The resultant address object. (ArmoryBip32ExtendedKey)
+#         The 2nd level position of the public key. (int)
+#         The multiplier (32 bytes minimum) that can get the root public key
+#         to the derived key. (Binary string)
+def getNewKeyAndMult(self, inWlt):
+   retVal  = False
+   outAddr = None
+   outPos  = 0
+   outMult = None
+
+   if inWlt == None:
+      LOGWARN('ERROR: No wallet selected. getNewKeyAndMult() will exit.')
+   else:
+      # Generate the new child address and get its position in the tree, then
+      # re-derive the child address and get a multiplier. For now, the code
+      # assumes the 1st level is 0 (i.e., these are non-change addresses).
+      nextChildNum = inWlt.external.lowestUnusedChild
+      newAddr = inWlt.getNextReceivingAddress()
+      finalPub1, multProof1 = DeriveBip32PublicKeyWithProof(
+                                                inWlt.sbdPublicKey33.toBinStr(),
+                                                  inWlt.sbdChaincode.toBinStr(),
+                                                              [0, nextChildNum])
+
+      # Ensure an apples-to-apples comparison before proceeding. Compress b/c
+      # it's less mathematically intensive than decompressing, and hex string
+      # comparison b/c Python doesn't like to compare SBD objs directly.
+      comp1 = CryptoECDSA().CompressPoint(newAddr.sbdPublicKey33)
+      comp2 = CryptoECDSA().CompressPoint(SecureBinaryData(finalPub1))
+      if comp1.toHexStr() != comp2.toHexStr():
+         LOGWARN('ERROR: For some reason, the new key (%s) at position %s ' \
+                 'does not match the derived key (%s) with multiplier %s. ' \
+                 'No key will be returned.' % (newAddr.sbdPublicKey33,
+                                               nextChildNum,
+                                               finalPub1,
+                                               multProof1.multiplier))
+      else:
+         retVal  = True
+         outAddr = newAddr
+         outPos  = nextChildNum
+         outMult = multProof1.multiplier
+
+   return retVal, outAddr, outPos, outMult
 
 
 ################################################################################
@@ -736,11 +763,13 @@ class ExportWalletIdentityDialog(ArmoryDialog):
 
       self.setWindowTitle('Wallet Handle and Identity')
 
+
    def copyWalletIDToClipboard(self):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(str(self.walletHandleIDLineEdit.text()))
       self.lblCopied.setText('<i>Copied!</i>')
+
 
    def saveWalletIDFile(self):
       # Use the first 6 characters of the PKS
@@ -823,6 +852,10 @@ class SetWalletHandleDialog(ArmoryDialog):
       super(SetWalletHandleDialog, self).__init__(parent, main)
       wlt = main.walletMap[wltID]
 
+      walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                       WALLET_ID_STORE_FILENAME)
+      walletIDStore = SettingsFile(walletIDStorePath)
+
       wltIDLabel = QRichLabel("Wallet ID:", doWrap=False)
       wltIDDisplayLabel = QRichLabel(wltID)
       wltIDDisplayLabel.setSizePolicy(QSizePolicy.Preferred,
@@ -842,7 +875,7 @@ class SetWalletHandleDialog(ArmoryDialog):
       pksLabel.setBuddy(pksLineEdit)
 
       walletHandleLabel = QLabel("Wallet Handle:")
-      wltHandle = main.getWltSetting(wltID, 'dnsID')
+      wltHandle = getWalletIDData(walletIDStore, wltID)
       self.walletHandleLineEdit = QLineEdit(wltHandle)
       self.walletHandleLineEdit.setMinimumWidth(300)
       pksLineEdit.setCursorPosition(0)
@@ -974,7 +1007,7 @@ class OtherWalletIDModel(QAbstractTableModel):
          return
 
       f = open(self.walletIDStorePath,'r')
-      pairs = [l.strip().split() for l in f.readlines() if len(l.strip())>0]
+      pairs = [l.strip().split('|') for l in f.readlines() if len(l.strip())>0]
       f.close()
       self.identityMap = OrderedDict(pairs)
 
@@ -1035,10 +1068,10 @@ class OtherWalletIDModel(QAbstractTableModel):
             return handle
       else:
          return None
-   
+
    def getRowToExport(self, row):
       key = self.identityMap.keys()[row]
-      return key + ' ' + self.identityMap[key]
+      return key + '..' + self.identityMap[key]
 
 
 ################################################################################
@@ -1048,6 +1081,9 @@ class LocalWalletIDModel(QAbstractTableModel):
    def __init__(self, main):
       super(LocalWalletIDModel, self).__init__()
       self.main = main
+      walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                       WALLET_ID_STORE_FILENAME)
+      self.walletIDStore = SettingsFile(walletIDStorePath)
 
 
    #############################################################################
@@ -1073,7 +1109,7 @@ class LocalWalletIDModel(QAbstractTableModel):
          elif col==LOCAL_ID_COLS.WalletName:
             retVal = QVariant(self.main.walletMap[wltID].getLabel())
          elif col==LOCAL_ID_COLS.DnsHandle:
-            dnsID = self.main.getWltSetting(wltID, 'dnsID')
+            dnsID = getWalletIDData(self.walletIDStore, wltID)
             retVal = QVariant('' if len(dnsID)==0 else dnsID)
       elif role==Qt.TextAlignmentRole:
          retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1107,13 +1143,13 @@ class LocalWalletIDModel(QAbstractTableModel):
    #############################################################################
    def getRowToExport(self, row):
       wltID = self.main.wltIDList[row]
-      dnsID = self.main.getWltSetting(wltID, 'dnsID')
+      dnsID = getWalletIDData(self.walletIDStore, wltID)
       if not dnsID:
          dnsID = '<None>'
 
       wlt = self.main.walletMap[wltID]
       pksStr = binary_to_base58(getWltPKS(wlt).serialize())
-      return dnsID + ' ' + pksStr
+      return dnsID + '..' + pksStr
 
 
    #############################################################################
