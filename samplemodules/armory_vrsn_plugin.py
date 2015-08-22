@@ -63,37 +63,53 @@ def getWltPKS(inWlt, isStatic = False, useCompr = False,
    return myPKS
 
 
-# Function that takes an incoming wallet ID and gets the contents of the
-# entry, if one exists, of the wallet ID entry.
-# store file.
-#
-# TODO: Place this function elsewhere.
+# Function that takes an incoming key type and key ID, and uses them to get data
+# from the wallet ID store file.
 #
 # INPUT:  The file handle of the wallet ID store file (ABEK_StdWallet)
-#         Wallet ID (str)
+#         Key type (str)
+#         Key ID (str)
+#         Default key ID (str - optional)
 # OUTPUT: None
-# RETURN: The walllet ID data, in Base58 form (str)
-def getWalletIDData(fileHandle, walletID):
+# RETURN: The key ID data (str)
+def getWalletSetting(fileHandle, keyType, keyID, defaultValue=''):
    # Sometimes we need to settings specific to individual wallets -- we will
    # prefix the settings name with the wltID.
-   if not fileHandle.hasSetting(walletID):
-      setWalletIDData(fileHandle, walletID, '')
+   wltPropName = '%s..%s' % (keyType, keyID)
+   if fileHandle.hasSetting(wltPropName):
+      return fileHandle.get(wltPropName)
+   else:
+      if not defaultValue=='':
+         setWalletSetting(fileHandle, keyType, keyID, defaultValue)
+      return defaultValue
 
-   return fileHandle.get(walletID)
 
-
-# Function that takes an incoming wallet ID and sets the ID's data entry in
-# the wallet ID store file.
-#
-# TODO: Place this function elsewhere.
+# Function that takes an incoming key type and key ID, and uses them to set data
+# in the wallet ID store file.
 #
 # INPUT:  The file handle of the wallet ID store file (ABEK_StdWallet)
-#         Wallet ID (str)
-#         Wallet ID, in Base58-encoded form (str)
+#         Key type (str)
+#         Key ID (str)
+#         Key value (str)
 # OUTPUT: None
-# RETURN: The walllet ID data, in Base58 form (str)
-def setWalletIDData(fileHandle, walletID, walletIDData):
-   fileHandle.set(walletID, walletIDData)
+# RETURN: None
+def setWalletSetting(fileHandle, keyType, keyID, value):
+   wltPropName = '%s..%s' % (keyType, keyID)
+   fileHandle.set(wltPropName, value)
+
+
+# Function that takes an incoming key type and key ID, and uses them to delete
+# data from the wallet ID store file.
+#
+# INPUT:  The file handle of the wallet ID store file (ABEK_StdWallet)
+#         Key type (str)
+#         Key ID (str)
+#         Key value (str)
+# OUTPUT: None
+# RETURN: None
+def delWalletSetting(fileHandle, keyType, keyID):
+   wltPropName = '%s..%s' % (keyType, keyID)
+   fileHandle.delete(wltPropName)
 
 
 # Class name is required by the plugin framework.
@@ -129,7 +145,7 @@ class PluginObject(object):
       viewHeight = 4.4*sectionSz
 
       # Tracks and displays identities imported manually or from DNSSEC records
-      self.modelOtherIDs = OtherWalletIDModel()
+      self.modelOtherIDs = OtherWalletIDModel(self.main)
       self.tableOtherIDs = QTableView()
       self.tableOtherIDs.setModel(self.modelOtherIDs)
       self.tableOtherIDs.setSelectionBehavior(QTableView.SelectRows)
@@ -410,7 +426,10 @@ class PluginObject(object):
       wltID = self.modelLocalIDs.getWltIDForRow(row)
       dlg = SetWalletHandleDialog(self.main, self.main, wltID)
       if dlg.exec_():
-         setWalletIDData(self.walletIDStore, wltID, dlg.getWalletHandle())
+         setWalletSetting(self.walletIDStore, 'wallet', wltID,
+                          dlg.getWalletHandle())
+         setWalletSetting(self.walletIDStore, 'handle', dlg.getWalletHandle(),
+                          dlg.getWalletRIRecord())
          self.tableLocalIDs.reset()
 
 
@@ -434,21 +453,23 @@ class PluginObject(object):
 
 
    #############################################################################
+   # FIX: Settle on export format
    def otherExportSelectedID(self):
       row = self.tableOtherIDs.selectedIndexes()[0].row()
-      
+
       dlg = ExportWalletIdentityDialog(self.main, self.main,
-            self.modelOtherIDs.getRowToExport(row))
+                                       self.modelOtherIDs.getRowToExport(row))
       if dlg.exec_():
          pass
 
 
    #############################################################################
+   # FIX: Settle on export format
    def localExportSelectedID(self):
       row = self.tableLocalIDs.selectedIndexes()[0].row()
-      
+
       dlg = ExportWalletIdentityDialog(self.main, self.main,
-            self.modelLocalIDs.getRowToExport(row))
+                                       self.modelLocalIDs.getRowToExport(row))
       if dlg.exec_():
          pass
 
@@ -868,17 +889,17 @@ class SetWalletHandleDialog(ArmoryDialog):
 
       pksLabel = QLabel("Wallet Payment Verifier:")
       pksStr = binary_to_base58(getWltPKS(wlt).serialize())
-      pksLineEdit = QLineEdit(pksStr)
-      pksLineEdit.setMinimumWidth(300)
-      pksLineEdit.setCursorPosition(0)
-      pksLineEdit.setReadOnly(True)
-      pksLabel.setBuddy(pksLineEdit)
+      self.riLineEdit = QLineEdit(pksStr)
+      self.riLineEdit.setMinimumWidth(300)
+      self.riLineEdit.setCursorPosition(0)
+      self.riLineEdit.setReadOnly(True)
+      pksLabel.setBuddy(self.riLineEdit)
 
       walletHandleLabel = QLabel("Wallet Handle:")
-      wltHandle = getWalletIDData(walletIDStore, wltID)
+      wltHandle = getWalletSetting(walletIDStore, 'wallet', wltID)
       self.walletHandleLineEdit = QLineEdit(wltHandle)
       self.walletHandleLineEdit.setMinimumWidth(300)
-      pksLineEdit.setCursorPosition(0)
+      self.riLineEdit.setCursorPosition(0)
       walletHandleLabel.setBuddy(self.walletHandleLineEdit)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
@@ -892,7 +913,7 @@ class SetWalletHandleDialog(ArmoryDialog):
       layout.addWidget(wltNameLabel, 2, 0, 1, 1)
       layout.addWidget(wltNameDisplayLabel, 2, 1, 1, 1)
       layout.addWidget(pksLabel, 3, 0, 1, 1)
-      layout.addWidget(pksLineEdit, 3, 1, 1, 1)
+      layout.addWidget(self.riLineEdit, 3, 1, 1, 1)
       layout.addWidget(walletHandleLabel, 4, 0, 1, 1)
       layout.addWidget(self.walletHandleLineEdit, 4, 1, 1, 1)
       layout.addWidget(buttonBox, 6, 0, 1, 2)
@@ -902,6 +923,10 @@ class SetWalletHandleDialog(ArmoryDialog):
 
    def getWalletHandle(self):
       return str(self.walletHandleLineEdit.text())
+
+
+   def getWalletRIRecord(self):
+      return str(self.riLineEdit.text())
 
 
 ################################################################################
@@ -947,11 +972,13 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 class OtherWalletIDModel(QAbstractTableModel):
 
    #############################################################################
-   def __init__(self):
+   def __init__(self, main):
       super(OtherWalletIDModel, self).__init__()
+      self.main = main
       self.identityMap = OrderedDict()
-      self.walletIDStorePath = os.path.join(getArmoryHomeDir(),
-                                            WALLET_ID_STORE_FILENAME)
+      walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                       WALLET_ID_STORE_FILENAME)
+      self.walletIDStore = SettingsFile(walletIDStorePath)
 
       self.readIdentityFile()
 
@@ -1002,29 +1029,28 @@ class OtherWalletIDModel(QAbstractTableModel):
 
    #############################################################################
    def readIdentityFile(self):
-      if not os.path.exists(self.walletIDStorePath):
+      if not self.walletIDStore:
          self.identityMap = OrderedDict()
          return
 
-      f = open(self.walletIDStorePath,'r')
-      pairs = [l.strip().split('|') for l in f.readlines() if len(l.strip())>0]
-      f.close()
-      self.identityMap = OrderedDict(pairs)
+      # Get a list of all the wallet handles.
+      walletHandleDict = {}
+      for key, value in self.walletIDStore.settingsMap.iteritems():
+         if key.find('handle..') != -1:
+            walletHandleDict[key.split('..')[1]] = value
 
+      # Get the handles used by wallets by looping through the wallet handle
+      # list again. Probably not the most efficient route but it works.
+      for key, value in self.walletIDStore.settingsMap.iteritems():
+         if key.find('wallet..') != -1:
+            if value in walletHandleDict:
+               del walletHandleDict[value]
 
-   #############################################################################
-   def rewriteIdentityFile(self):
-      mainFile = os.path.join(getArmoryHomeDir(), WALLET_ID_STORE_FILENAME)
-      tempFile = mainFile + '.temp'
-
-      try:
-         with open(tempFile, 'w') as f:
-            for key,val in self.identityMap.iteritems():
-               f.write('%s %s\n' % (key,val))
-
-         shutil.move(tempFile, mainFile)
-      except:
-         LOGEXCEPT('Failed to update identity file')
+      # Write the "other" handle list and use it to set up the ID map.
+      otherHandleList = []
+      for key, value in walletHandleDict.iteritems():
+         otherHandleList.append([key, value])
+      self.identityMap = OrderedDict(otherHandleList)
 
 
    #############################################################################
@@ -1036,7 +1062,7 @@ class OtherWalletIDModel(QAbstractTableModel):
    def removeRecord(self, row):
       key = self.identityMap.keys()[row]
       del self.identityMap[key]
-      self.rewriteIdentityFile()
+      delWalletSetting(self.walletIDStore, 'handle', key)
       self.reset()
 
 
@@ -1052,7 +1078,7 @@ class OtherWalletIDModel(QAbstractTableModel):
          LOGWARN('DNS Handle: %s', dnsHandle)
 
       self.identityMap[dnsHandle] = base58Identity
-      self.rewriteIdentityFile()
+      setWalletSetting(self.walletIDStore, 'handle', dnsHandle, base58Identity)
       self.reset() # Redraws the screen
 
 
@@ -1109,7 +1135,7 @@ class LocalWalletIDModel(QAbstractTableModel):
          elif col==LOCAL_ID_COLS.WalletName:
             retVal = QVariant(self.main.walletMap[wltID].getLabel())
          elif col==LOCAL_ID_COLS.DnsHandle:
-            dnsID = getWalletIDData(self.walletIDStore, wltID)
+            dnsID = getWalletSetting(self.walletIDStore, 'wallet', wltID)
             retVal = QVariant('' if len(dnsID)==0 else dnsID)
       elif role==Qt.TextAlignmentRole:
          retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1141,15 +1167,18 @@ class LocalWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
+   # FIX: Need to put in a better way to supply data. The current setup is for debugging purposes.
    def getRowToExport(self, row):
-      wltID = self.main.wltIDList[row]
-      dnsID = getWalletIDData(self.walletIDStore, wltID)
-      if not dnsID:
-         dnsID = '<None>'
+      retStr = ''
 
-      wlt = self.main.walletMap[wltID]
-      pksStr = binary_to_base58(getWltPKS(wlt).serialize())
-      return dnsID + '..' + pksStr
+      wltID = self.main.wltIDList[row]
+      dnsID = getWalletSetting(self.walletIDStore, 'wallet', wltID)
+      if dnsID:
+         wlt = self.main.walletMap[wltID]
+         pksStr = binary_to_base58(getWltPKS(wlt).serialize())
+         retStr = dnsID + '..' + pksStr
+
+      return retStr
 
 
    #############################################################################
