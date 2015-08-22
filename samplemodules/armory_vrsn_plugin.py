@@ -328,7 +328,7 @@ class PluginObject(object):
          self.resPos = 0
          self.resMult = None
          keyRes, self.resAddr, self.resPos, self.resMult = \
-                                              self.getNewKeyAndMult(self.wlt)
+                                                      getNewKeyAndMult(self.wlt)
          if not keyRes:
             LOGERROR('Attempt to generate a new key failed.')
             QMessageBox.warning(self.main,
@@ -704,7 +704,7 @@ class PluginObject(object):
 #         The 2nd level position of the public key. (int)
 #         The multiplier (32 bytes minimum) that can get the root public key
 #         to the derived key. (Binary string)
-def getNewKeyAndMult(self, inWlt):
+def getNewKeyAndMult(inWlt):
    retVal  = False
    outAddr = None
    outPos  = 0
