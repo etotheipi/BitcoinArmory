@@ -18,7 +18,6 @@ from armorycolors import Colors
 from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT, LOGINFO
 from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir, \
    isWindows
-from armoryengine.ArmorySettings import SettingsFile
 from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex,\
    parseBitcoinURI, base58_to_binary
 from armoryengine.BDM import getBDM
@@ -26,7 +25,8 @@ from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
    BTCAID_PAYLOAD_TYPE, CLICKED
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
-   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource
+   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource,\
+   decodePaymentTargetVerifier
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
@@ -142,7 +142,6 @@ class PluginObject(object):
       w,h = tightSizeNChar(QTableView(), 45)
       viewWidth  = 1.2*w
       sectionSz  = 1.3*h
-      viewHeight = 4.4*sectionSz
 
       # Tracks and displays identities imported manually or from DNSSEC records
       self.modelOtherIDs = OtherWalletIDModel(self.main)
@@ -360,7 +359,7 @@ class PluginObject(object):
    def verifyPaymentRequest(self):
       dlg = VerifyPaymentRequestDialog(self.main, self.main)
       if dlg.exec_():
-         uriData = parseBitcoinURI(str(dlg.paymentRequestLineEdit.text()))
+         uriData = parseBitcoinURI(dlg.getPaymentRequest())
          pmtaData = uriData['pmta'].split('..')
 
          # TODO: Specify Multiplier
@@ -449,7 +448,7 @@ class PluginObject(object):
    def enterWalletIdentity(self):
       dlg = EnterWalletIdentityDialog(self.main, self.main)
       if dlg.exec_():
-         self.modelOtherIDs.addIdentity(dlg.getWalletHandle(), dlg.getWalletPKS())
+         self.modelOtherIDs.addIdentity(dlg.getWalletHandle(), dlg.getWalletRIRecord())
 
 
    #############################################################################
@@ -484,18 +483,11 @@ class PluginObject(object):
 
    #############################################################################
    def otherIDclicked(self, currIndex, prevIndex=None):
-      if prevIndex == currIndex and not currIndex is None:
+      if prevIndex == currIndex:
          return
 
-      if currIndex is None:
-         isValid = False
-      else:
-         qmi = currIndex.model().index(currIndex.row(), OTHER_ID_COLS.DnsHandle)
-         self.selectedOtherHandle = str(qmi.data().toString())
-         isValid = len(self.selectedOtherHandle) > 0
-
-      self.btnOtherExport.setEnabled(isValid)
-      self.btnOtherDelete.setEnabled(isValid)
+      self.btnOtherExport.setEnabled(not currIndex is None)
+      self.btnOtherDelete.setEnabled(not currIndex is None)
 
 
    #############################################################################
@@ -504,17 +496,19 @@ class PluginObject(object):
          return
 
       if currIndex is None:
-         isValid = False
+         canSetWalletHandle = False
       else:
-         qmi = currIndex.model().index(currIndex.row(), LOCAL_ID_COLS.WalletID)
-         self.selectedLocalWalletID = str(qmi.data().toString())
-         self.wlt = self.main.walletMap[self.selectedLocalWalletID]
-         isValid = len(self.selectedLocalWalletID) > 0
+         selectedLocalWalletID = self.modelLocalIDs.getWltIDForRow(currIndex.row())
+         self.wlt = self.main.walletMap[selectedLocalWalletID]
+         canSetWalletHandle = True
+         dnsHandle = self.modelLocalIDs.getWltHandleForRow(currIndex.row())
+         hasWalletHandle = len(dnsHandle) > 0
 
-      self.btnLocalSetHandle.setEnabled(isValid)
-      self.btnLocalPublish.setEnabled(isValid)
-      self.btnLocalExport.setEnabled(isValid)
-      self.btnLocalRequest.setEnabled(isValid)
+      # hasWalletHandle is True only when canSetWalletHandle is True
+      self.btnLocalSetHandle.setEnabled(canSetWalletHandle)
+      self.btnLocalPublish.setEnabled(hasWalletHandle)
+      self.btnLocalExport.setEnabled(hasWalletHandle)
+      self.btnLocalRequest.setEnabled(hasWalletHandle)
 
 
    # Call for when we want to save a binary PKS record to a file. By default,
@@ -599,25 +593,6 @@ class PluginObject(object):
       return myPMTA
 
 
-   #############################################################################
-   # Validate an email address. Necessary to ensure that the DNS wallet ID is
-   # valid. http://www.ex-parrot.com/pdw/Mail-RFC822-Address.html is the source
-   # of the (ridiculously long) regex expression. It does not appear to have any
-   # licensing restrictions. Using Python's bult-in email.utils.parseaddr would
-   # be much cleaner. Unfortunately, it permits a lot of strings that are valid
-   # under RFC 822 but are not valid email addresses. It may be worthwhile to
-   # add validate_email (https://github.com/syrusakbary/validate_email) to the
-   # Armory source tree eventually and just remove this regex abomination.
-   # INPUT:  A string with an email address to validate.
-   # OUTPUT: None
-   # RETURN: A boolean indicating if the email address is valid.
-   def validateEmailAddress(self, inAddr):
-      validAddr = True
-      if not re.match(SuperLongEmailValidatorRegex, inAddr):
-         validAddr = False
-
-      return validAddr
-
 
    # Function called when the "bdmReadyPMTA" signal is emitted. Not used.
    # INPUT:  None
@@ -694,6 +669,56 @@ class PluginObject(object):
    def getTabToDisplay(self):
       return self.tabToDisplay
 
+
+
+#############################################################################
+# Validate an email address. Necessary to ensure that the DNS wallet ID is
+# valid. http://www.ex-parrot.com/pdw/Mail-RFC822-Address.html is the source
+# of the (ridiculously long) regex expression. It does not appear to have any
+# licensing restrictions. Using Python's bult-in email.utils.parseaddr would
+# be much cleaner. Unfortunately, it permits a lot of strings that are valid
+# under RFC 822 but are not valid email addresses. It may be worthwhile to
+# add validate_email (https://github.com/syrusakbary/validate_email) to the
+# Armory source tree eventually and just remove this regex abomination.
+# INPUT:  A string with an email address to validate.
+# OUTPUT: None
+# RETURN: A boolean indicating if the email address is valid.
+def validateWalletHandle(inAddr):
+   return True if re.match(SuperLongEmailValidatorRegex, inAddr) else False
+
+#############################################################################
+# TODO: provide Wallet Payment Verifier - validation logic
+def validateWalletPaymentVerifier(walletPaymentVerifier):
+   return len(walletPaymentVerifier)>0
+
+#############################################################################
+# TODO: provide Wallet Payment Verifier - validation logic
+def validatePaymentRequest(paymentRequest):
+   result = False
+   try:
+      uriData = parseBitcoinURI(paymentRequest)
+      pmtaData = uriData['pmta'].split('..')
+      
+      # Payment Request must be key value mapping separated by '..'
+      if len(pmtaData) == 2:
+         # Assume the first entry is a Wallet Handle
+         result = validateWalletHandle(pmtaData[0])
+         
+         # TODO: Consolidate validator code. The following 
+         # validation occurs later in
+         # verifyPaymentRequest in the plug-in main window
+         # ptv = decodePaymentTargetVerifier(pmtaData[1])
+         # This method PublicKeyRelationshipProof class
+         # no longer exists: unserialize(base58_to_binary(pmtaData[1]))
+         # if ptv.isValid() is False:
+         #    QMessageBox.warning(self.main, 'Invalid Payment Request',
+         #                       'Payment Request is invalid. Please confirm ' \
+         #                      'that the text is complete and not corrupted.',
+         #                      QMessageBox.Ok)
+   except:
+      # Return False, and caller will display warning dialog
+      pass
+   return result
 
 # Utility function that takes a BIP 32 wallet, generates a new child key, and
 # returns various values.
@@ -824,7 +849,11 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
-      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      
+      def validateAndAcceptAction():
+         self.validateAndAccept()
+         
+      self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
       layout = QGridLayout()
@@ -835,9 +864,16 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
 
       self.setWindowTitle('Verify Payment Request')
 
+   def validateAndAccept(self):
+      if not validateWalletHandle(self.getPaymentRequest()):
+         QMessageBox.warning(self.main, 'Invalid Payment Request',
+                             'You have entered an Invalid Payment Request.',
+                             QMessageBox.Ok)
+      else:
+         self.accept()
 
-   def getWalletHandle(self):
-      return self.walletHandleLineEdit.text()
+   def getPaymentRequest(self):
+      return str(self.paymentRequestLineEdit.text())
 
 
 ################################################################################
@@ -852,7 +888,11 @@ class LookupIdentityDialog(ArmoryDialog):
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
-      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      
+      def validateAndAcceptAction():
+         self.validateAndAccept()
+         
+      self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
       layout = QGridLayout()
@@ -862,9 +902,20 @@ class LookupIdentityDialog(ArmoryDialog):
       self.setLayout(layout)
 
       self.setWindowTitle('Look up Wallet Identity')
-      
+   
+   def validateAndAccept(self):
+      if not validateWalletHandle(self.getWalletHandle()):
+         QMessageBox.warning(self.main, 'Invalid Wallet Handle',
+                             'You have entered an Invalid Wallet Handle ' \
+                             'To continue enter a Wallet Handle that is in ' \
+                             'the same format as an email address.',
+                             QMessageBox.Ok)
+      else:
+         self.accept()
+       
+
    def getWalletHandle(self):
-      return self.walletHandleLineEdit.text()
+      return str(self.walletHandleLineEdit.text())
 
 
 ################################################################################
@@ -904,7 +955,11 @@ class SetWalletHandleDialog(ArmoryDialog):
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
-      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      
+      def validateAndAcceptAction():
+         self.validateAndAccept()
+         
+      self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
       layout = QGridLayout()
@@ -921,10 +976,21 @@ class SetWalletHandleDialog(ArmoryDialog):
 
       self.setWindowTitle('Enter Wallet Handle')
 
+   def validateAndAccept(self):
+      if not validateWalletHandle(self.getWalletHandle()):
+         QMessageBox.warning(self.main, 'Invalid Wallet Handle',
+                             'You have entered an Invalid Wallet Handle ' \
+                             'To continue enter a Wallet Handle that is in ' \
+                             'the same format as an email address.',
+                             QMessageBox.Ok)
+      else:
+         self.accept()
+       
+
    def getWalletHandle(self):
       return str(self.walletHandleLineEdit.text())
 
-
+   # RI = Receiver Identity
    def getWalletRIRecord(self):
       return str(self.riLineEdit.text())
 
@@ -940,32 +1006,52 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       walletHandleLabel.setBuddy(self.walletHandleLineEdit)
 
       pksLabel = QLabel("Wallet Payment Verifier:")
-      self.pksLineEdit = QLineEdit()
-      self.pksLineEdit.setMinimumWidth(300)
-      pksLabel.setBuddy(self.pksLineEdit)
+      self.riLineEdit = QLineEdit()
+      self.riLineEdit.setMinimumWidth(300)
+      pksLabel.setBuddy(self.riLineEdit)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
-      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      
+      def validateAndAcceptAction():
+         self.validateAndAccept()
+      
+      self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
       layout = QGridLayout()
       layout.addWidget(walletHandleLabel, 1, 0, 1, 1)
       layout.addWidget(self.walletHandleLineEdit, 1, 1, 1, 1)
       layout.addWidget(pksLabel, 2, 0, 1, 1)
-      layout.addWidget(self.pksLineEdit, 2, 1, 1, 1)
+      layout.addWidget(self.riLineEdit, 2, 1, 1, 1)
       layout.addWidget(buttonBox, 5, 0, 1, 2)
       self.setLayout(layout)
 
       self.setWindowTitle('Enter Wallet Payment Verifier')
 
+   def validateAndAccept(self):
+      if not validateWalletHandle(self.getWalletHandle()):
+         QMessageBox.warning(self.main, 'Invalid Wallet Handle',
+                             'You have entered an Invalid Wallet Handle ' \
+                             'To continue enter a Wallet Handle that is in ' \
+                             'the same format as an email address.',
+                             QMessageBox.Ok)
+      elif not validateWalletPaymentVerifier(self.getWalletRIRecord()):
+         # TODO: Fill in this text that describes what is valid',
+         QMessageBox.warning(self.main, 'Invalid Wallet Payment Verifier',
+               'You have entered an Invalid Wallet Payment Verifier.',
+                QMessageBox.Ok)
+
+      else:
+         self.accept()
+       
 
    def getWalletHandle(self):
-      return self.walletHandleLineEdit.text()
-
-
-   def getWalletPKS(self):
-      return self.pksLineEdit.text()
+      return str(self.walletHandleLineEdit.text())
+   
+   # RI = Receiver Identity
+   def getWalletRIRecord(self):
+      return str(self.riLineEdit.text())
 
 
 ################################################################################
@@ -1099,7 +1185,6 @@ class OtherWalletIDModel(QAbstractTableModel):
       key = self.identityMap.keys()[row]
       return key + '..' + self.identityMap[key]
 
-
 ################################################################################
 class LocalWalletIDModel(QAbstractTableModel):
 
@@ -1184,3 +1269,8 @@ class LocalWalletIDModel(QAbstractTableModel):
    #############################################################################
    def getWltIDForRow(self, row):
       return self.main.wltIDList[row]
+   
+   #############################################################################
+   def getWltHandleForRow(self, row):
+      wltID = self.main.wltIDList[row]
+      return getWalletSetting(self.walletIDStore, 'wallet', wltID)
