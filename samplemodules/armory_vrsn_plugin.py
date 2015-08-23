@@ -696,7 +696,8 @@ def validateWalletPaymentVerifier(walletPaymentVerifier, main):
 
    # If the string we receive is a bad encode, just drop any raised errors.
    try:
-      receiverIdentityObj = decodeReceiverIdentity(walletPaymentVerifier)
+      receiverIdentityObj = \
+              decodeReceiverIdentity(base58_to_binary(walletPaymentVerifier))
       validRIObj = receiverIdentityObj.isValid()
    except:
       pass
@@ -1058,6 +1059,8 @@ class EnterWalletIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
       super(EnterWalletIdentityDialog, self).__init__(parent, main)
 
+      self.main = main
+
       walletHandleLabel = QLabel("Wallet Handle:")
       self.walletHandleLineEdit = QLineEdit()
       self.walletHandleLineEdit.setMinimumWidth(300)
@@ -1096,7 +1099,8 @@ class EnterWalletIdentityDialog(ArmoryDialog):
                              'continue, enter a Wallet Handle that is in ' \
                              'the same format as an email address.',
                              QMessageBox.Ok)
-      elif not validateWalletPaymentVerifier(self.getWalletRIRecord()):
+      elif not validateWalletPaymentVerifier(self.getWalletRIRecord(),
+                                             self.main):
          # TODO: Fill in this text that describes what is valid',
          QMessageBox.warning(self.main, 'Invalid Wallet Payment Verifier',
                              'You have entered an invalid Wallet Payment ' \
