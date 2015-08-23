@@ -10,77 +10,12 @@
 import getdns
 from binascii import hexlify
 from armoryengine.ArmoryUtils import LOGERROR
+from armoryengine.Constants import BTCAID_PAYLOAD_TYPE
 from armoryengine.ConstructedScript import PublicKeySource, ConstructedScript, \
-   ScriptRelationshipProof, PublicKeyRelationshipProof, BTCAID_PR_VERSION, \
-   BTCAID_PAYLOAD_TYPE
+   ScriptRelationshipProof, PublicKeyRelationshipProof, BTCAID_PR_VERSION
 from pytest.testConstructedScript import PKS1NoChksum_Comp_v1, CS1Chksum_Comp_v1
 
-# Function that takes a wallet ID payment request and validates it. This is the
-# entry function that launches all the steps required to regenerate all the
-# TxOut scripts for the requested payment.
-#
-# INPUT:  A PaymentRequest object received from elsewhere.
-# OUTPUT: None
-# RETURN: -1 if an error prevented validation from completing, 0 if the
-#         generated script didn't match the unvalidated script, and 1 if the
-#         generated and unvalidated scripts match.
-def validatePaymentRequest(inPayReq):
-   retCode = -1
-   ctr = 0
-
-   # Use the number of TxOut requests as our guide. The number of list entries
-   # MUST match the number of TxOut requests. If they don't, something's wrong.
-   # Also, while we're here, let's go ahead and check for all other fatal errors.
-   if inPayReq.version != BTCAID_PR_VERSION:
-      print 'Payment Request validation fails: Incorrect version'
-   elif inPayReq.numTxOutScripts > 65535:
-      print 'Payment Request validation fails: Too many TxOuts'
-   elif inPayReq.reqSize > 65535:
-      print 'Payment Request validation fails: Request is too large'
-   elif inPayReq.numTxOutScripts != len(inPayReq.unvalidatedScripts):
-      print 'Payment Request validation fails: TxOut script template amount mismatch'
-   elif inPayReq.numTxOutScripts != len(inPayReq.daneReqNames):
-      print 'Payment Request validation fails: DANE name amount mismatch'
-   elif inPayReq.numTxOutScripts != len(inPayReq.srpLists):
-      print 'Payment Request validation fails: SRP amount mismatch'
-   else:
-      while ctr < inPayReq.numTxOutScripts:
-         # Get the DANE record.
-         # HACK ALERT: This call is a hack for now. Will change very soon.
-         recType, daneReq = getDANERecord(inPayReq.daneReqNames[ctr],
-                                          BTCAID_PAYLOAD_TYPE.ConstructedScript)
-
-         # Have the record type recreate the script. If we receive a PKS, assume
-         # a P2PKH record must be created. If we receive a CS, generate whatever
-         # resides in the CS.
-         # NOTE: If functions share the same name across classes, it's ideal for
-         # the prototypes to match too!
-         finalKey = None
-         finalScript = None
-         if recType == BTCAID_PAYLOAD_TYPE.InvalidRec:
-            print 'Payment Request validation fails: DANE record is invalid.'
-         else:
-            if recType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
-               # Get key and then generate a P2PKH TxOut script from it.
-               finalKey = daneReq.generateKeyData(inPayReq.srpLists[ctr].pkrpList)
-               retCode = 1
-            elif recType == BTCAID_PAYLOAD_TYPE.ConstructedScript:
-               finalScript = daneReq.generateScript(inPayReq.srpLists[ctr])
-               if inPayReq.unvalidatedScripts[ctr] != finalScript:
-                  retCode = 0
-               else:
-                  retCode = 1
-
-         # We're done.
-         ctr += 1
-
-   return retCode
-
-
 # Function that obtains a DANE record for a given record name.
-# WARNING: For now, this is a placeholder that will return one of two pre-built
-# records. Once proper DNS code has been written, actual records will be pulled
-# down. The logic will be as follows:
 # - Use getdns-python-bindings to get the DANE record for the given name.
 # - Process the DANE header (TBD) as needed. This will include information like
 #   the payment network, the wallet ID record type (PKS or CS), etc.
@@ -90,70 +25,57 @@ def validatePaymentRequest(inPayReq):
 #         record is desired (BTCA_PAYLOAD_TYPE - TEMPORARY - ONLY USED BY
 #         PLACEHOLDER CODE)
 # OUTPUT: None
-# RETURN: An enum indicating the returned record type, and the returned record.
-def getDANERecord(daneRecName, desiredRecType=None):
+# RETURN: The serialized PMTA record obtained from DANE. (binary str)
+#         The returned record type. (enum)
+def getDANERecord(daneRecName):
    retType = BTCAID_PAYLOAD_TYPE.InvalidRec
    retRec = None
 
-   # TO BE USED ONLY FOR TEST CASES!!!
-   # For now, it returns a PKS or CS based on the second master pub key from the
-   # BIP32 test vector. Any code that doesn't account for this will fail.
-   if desiredRecType != None:
-      if desiredRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
-         retRec = decodePublicKeySource(PKS1NoChksum_Comp_v1)
-         retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
-      elif desiredRecType == BTCAID_PAYLOAD_TYPE.ConstructedScript:
-         retRec = ConstructedScript().unserialize(CS1Chksum_Comp_v1)
-         retType = BTCAID_PAYLOAD_TYPE.ConstructedScript
-      else:
-         LOGERROR('Wrong BTCA record type requested.')
+   # Assume PMTA record type = 65337
+   GETDNS_RRTYPE_PMTA = 65337
 
+   # Go out and grab the record that we're querying.
+   # Allow insecure records to be returned for now. Some people are unable to
+   # retrieve secure records.
+   ctx = getdns.Context()
+#   secExt = { "dnssec_return_only_secure": getdns.GETDNS_EXTENSION_TRUE }
+   results = ctx.general(name = daneRecName,
+                         request_type = GETDNS_RRTYPE_PMTA)
+#                         request_type = GETDNS_RRTYPE_PMTA,
+#                         extensions = secExt)
+   status = results['status']
+
+   # Deep dive to extract the data we want.
+   daneRec = None
+   if status == getdns.GETDNS_RESPSTATUS_GOOD:
+      for reply in results['replies_tree']:
+         for rr in reply['answer']:
+            if rr['type'] == GETDNS_RRTYPE_PMTA:
+               # HACK HACK HACK: Rec type & format are set for a demo.
+               # Must fix later!!!
+               rdata = rr['rdata']
+               print 'DEBUG: PMTAname=%s' % rr['name']
+               print 'DEBUG: type=%d' % rr['type']
+               print 'DEBUG: class=%d' % rr['class']
+               print 'DEBUG: rdata_raw=%s\n\n' % hexlify(rdata['rdata_raw'])
+               retRec = rdata['rdata_raw']
+               retType = BTCAID_PAYLOAD_TYPE.PMTA
+            elif rr['type'] == getdns.GETDNS_RRTYPE_RRSIG:
+               rdata = rr['rdata']
+               print 'DEBUG: name=%s' % rr['name']
+               print 'DEBUG: type=%d' % rr['type']
+               print 'DEBUG: class=%d' % rr['class']
+               print 'DEBUG: signers_name=%s' % rdata['signers_name']
+               print 'DEBUG: signature_expiration=%s' % rdata['signature_expiration']                  
+               print 'DEBUG: algorithm=%d' % rdata['algorithm']
+               print 'DEBUG: type_covered=%d' % rdata['type_covered']
+               print 'DEBUG: labels=%d' % rdata['labels']
+               print 'DEBUG: key_tag=%d' % rdata['key_tag']
+               print 'DEBUG: original_ttl=%d' % rdata['original_ttl']
+               print 'DEBUG: signature=%s' % hexlify(rdata['signature'])
+               print 'DEBUG: signature_inception=%d' % rdata['signature_inception']
+               print 'DEBUG: rdata_raw=%s\n\n' % hexlify(rdata['rdata_raw'])
    else:
-      # Assume PMTA record type = 65337
-      GETDNS_RRTYPE_PMTA = 65337
+      LOGERROR("getdns: failed looking up PMTA record, code: %d" % status)
 
-      # Go out and grab the record that we're querying.
-      # Allow insecure records to be returned for now. Some people are unable to
-      # retrieve secure records.
-      ctx = getdns.Context()
-#      secExt = { "dnssec_return_only_secure": getdns.GETDNS_EXTENSION_TRUE }
-      results = ctx.general(name = daneRecName,
-                            request_type = GETDNS_RRTYPE_PMTA)
-#                            request_type = GETDNS_RRTYPE_PMTA,
-#                            extensions = secExt)
-      status = results['status']
-
-      # Deep dive to extract the data we want.
-      daneRec = None
-      if status == getdns.GETDNS_RESPSTATUS_GOOD:
-         for reply in results['replies_tree']:
-            for rr in reply['answer']:
-               if rr['type'] == GETDNS_RRTYPE_PMTA:
-                  # HACK HACK HACK: Rec type & format are set for a demo.
-                  # Must fix later!!!
-                  rdata = rr['rdata']
-                  print 'DEBUG: PMTAname=%s' % rr['name']
-                  print 'DEBUG: type=%d' % rr['type']
-                  print 'DEBUG: class=%d' % rr['class']
-                  print 'DEBUG: rdata_raw=%s\n\n' % hexlify(rdata['rdata_raw'])
-                  retRec = rdata['rdata_raw']
-                  retType = BTCAID_PAYLOAD_TYPE.PublicKeySource
-               elif rr['type'] == getdns.GETDNS_RRTYPE_RRSIG:
-                  rdata = rr['rdata']
-                  print 'DEBUG: name=%s' % rr['name']
-                  print 'DEBUG: type=%d' % rr['type']
-                  print 'DEBUG: class=%d' % rr['class']
-                  print 'DEBUG: signers_name=%s' % rdata['signers_name']
-                  print 'DEBUG: signature_expiration=%s' % rdata['signature_expiration']                  
-                  print 'DEBUG: algorithm=%d' % rdata['algorithm']
-                  print 'DEBUG: type_covered=%d' % rdata['type_covered']
-                  print 'DEBUG: labels=%d' % rdata['labels']
-                  print 'DEBUG: key_tag=%d' % rdata['key_tag']
-                  print 'DEBUG: original_ttl=%d' % rdata['original_ttl']
-                  print 'DEBUG: signature=%s' % hexlify(rdata['signature'])
-                  print 'DEBUG: signature_inception=%d' % rdata['signature_inception']
-                  print 'DEBUG: rdata_raw=%s\n\n' % hexlify(rdata['rdata_raw'])
-      else:
-         LOGERROR("getdns: failed looking up PMTA record, code: %d" % status)
-
-   return retType, retRec
+   return retRec, retType

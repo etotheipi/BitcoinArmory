@@ -180,8 +180,8 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
 
       # Go out and get the DANE record.
-      pmtaRecType, daneRec = getDANERecord(daneReqName)
-      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+      daneRec = getDANERecord(daneReqName)
+      if daneRec != None:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
          pksRec = decodePublicKeySource(daneRec)
@@ -1228,8 +1228,8 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
 
       # Go out and get the DANE record.
-      pmtaRecType, daneRec = getDANERecord(daneReqName)
-      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+      daneRec = getDANERecord(daneReqName)
+      if daneRec != None:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
          pksRec = decodePublicKeySource(daneRec)

@@ -27,17 +27,6 @@ PAYASSOC_ADDR = 0  # Sec. 2.1.5
 PAYNET_TBTC   = 1  # Sec. 2.1.1 - Testnet
 PAYNET_BTC    = 2  # Sec. 2.1.1 - Mainnet
 
-BTCAID_PAYLOAD_TYPE = enum('PublicKeySource', 'ConstructedScript', 'InvalidRec')
-ESCAPECHAR  = '\xff'
-ESCESC      = '\x00'
-
-# Use in SignableIDPayload
-BTCAID_PAYLOAD_BYTE = { \
-   BTCAID_PAYLOAD_TYPE.PublicKeySource:   '\x00',
-   BTCAID_PAYLOAD_TYPE.ConstructedScript: '\x01',
-   BTCAID_PAYLOAD_TYPE.InvalidRec:        '\xff'
-}
-
 class VersionError(Exception): pass
 
 try:

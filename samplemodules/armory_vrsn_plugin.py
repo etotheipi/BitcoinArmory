@@ -413,7 +413,6 @@ class PluginObject(object):
                #  5) If the addresses match, generate a "Send Bitcoins" dialog
                #     using the appropriate info.
                resultRIRecord = None
-               resultType = ''
                dlgInfo = {}
                validRecords = True
                dnsResult = False
@@ -423,11 +422,21 @@ class PluginObject(object):
                # NOTE: For now, DANE code runs only on Linux. Any other OS must
                # use the local ID store.
                if isLinux():
-                  dnsResult, resultType, resultRIRecord = fetchPMTA(pmtaData[0])
-               if not dnsResult:
+                  dnsResult, resultPMTARecord = fetchPMTA(pmtaData[0])
+
+               if dnsResult:
+                   # Process the PMTA record as needed. For now, we basically
+                   # yank out the ReceiverIdentity record, mainly because the
+                   # PMTA record format is set to change.
+                   riObj = \
+                         decodeReceiverIdentity(resultPMTARecord.inPayAssocData)
+                   resultRIRecord = riObj.serialize()
+               else:
                   # Verify that the received record matches the one in the ID
                   # store. If so, go ahead with the dialog.
                   riFound, resultRIRecord = getRIFromStore(pmtaData[0])
+                  if riFound:
+                     resultRIRecord = base58_to_binary(resultRIRecord)
                   if not riFound:
                      validRecords = False
 
@@ -438,7 +447,7 @@ class PluginObject(object):
                   # Verify that the URI address matches the derived address.
                   # NOTE: The code assumes a standard Bitcoin address. Support
                   # will need to be expanded eventually.
-                  riObj = decodeReceiverIdentity(base58_to_binary(resultRIRecord))
+                  riObj = decodeReceiverIdentity(resultRIRecord)
                   rootAddr, rootKey = processReceiverIdentity(riObj, True)
                   finalDerivedKey = HDWalletCrypto().getChildKeyFromMult_SWIG(
                                                                         rootKey,
@@ -466,6 +475,12 @@ class PluginObject(object):
                      dlgInfo['amount'] = str(uriData['amount'])
                      dlgInfo['message'] = uriData['label']
                      DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
+               else:
+                     QMessageBox.warning(self.main, 'Payment Request Invalid',
+                                         'Recipient %s has no valid payment ' \
+                                         'information. Please make sure the ' \
+                                         'recipient is correct.' % pmtaData[0],
+                                         QMessageBox.Ok)
 
          self.modelLocalIDs.reset()
 
@@ -583,41 +598,36 @@ class PluginObject(object):
 # INPUT:  The ID used to search for the DNS record. (str)
 # OUTPUT: None
 # RETURN: Boolean indicating whether or not the DNS search succeeded.
-#         The record type. Empty if no record. (str)
-#         The serialized ReceiverIdentity record obtained from the DNS record
-#         for the searched ID. None if no record exists.
+#         The serialized PMTA record obtained from the DNS record for the
+#         searched ID. None if no record exists.
 def fetchPMTA(inAddr):
    dnsSucceeded = False
    resultRecord = None
-   resultType = ''
    recordUser, recordDomain = inAddr.split('@', 1)
    sha224Res = sha224(recordUser)
    daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
 
    # Go out and get the DANE record.
    try:
-      pmtaRecType, daneRec = getDANERecord(daneReqName)
-      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+      daneRec, daneType = getDANERecord(daneReqName)
+      if daneType == BTCAID_PAYLOAD_TYPE.PMTA:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = decodePublicKeySource(daneRec)
+         pmtaRec = decodePMTARecord(daneRec)
 
          # Convert Hash160 to Bitcoin address. Make sure we get a PKS, which we
          # won't if the checksum fails.
-         if daneRec != None and pksRec != None:
-            resultRecord = pksRec
-            resultType = 'PKS'
+         if daneRec != None and pmtaRec != None:
+            resultRecord = pmtaRec
+            dnsSucceeded = pmtaRec.isValid()
          else:
-            raise InvalidDANESearchParam('PKS record is invalid.')
+            raise InvalidDANESearchParam('PMTA record not found.')
 
-         dnsSucceeded = True
-      else:
-         raise InvalidDANESearchParam(inAddr + " has no DANE record")
    except:
       LOGINFO('No DANE record found for %s - Revert to local ID store' %
               inAddr)
 
-   return dnsSucceeded, resultType, resultRecord
+   return dnsSucceeded, resultRecord
 
 
 # Function that processes ReceiverIdentity information as necessary.

@@ -207,15 +207,14 @@ BTCAID_PKRP_VERSION = 0
 BTCAID_SRP_VERSION = 0
 BTCAID_PR_VERSION = 0
 
-BTCAID_PAYLOAD_TYPE = enum('PublicKeySource', 'ConstructedScript', 'InvalidRec')
+BTCAID_PAYLOAD_TYPE = enum('PMTA', 'InvalidRec')
 ESCAPECHAR  = '\xff'
 ESCESC      = '\x00'
 
 # Use in SignableIDPayload
 BTCAID_PAYLOAD_BYTE = {
-   BTCAID_PAYLOAD_TYPE.PublicKeySource:   '\x00',
-   BTCAID_PAYLOAD_TYPE.ConstructedScript: '\x01',
-   BTCAID_PAYLOAD_TYPE.InvalidRec:        '\xff'
+   BTCAID_PAYLOAD_TYPE.PMTA:       '\x00',
+   BTCAID_PAYLOAD_TYPE.InvalidRec: '\xff'
 }
 
 ################################################################################
