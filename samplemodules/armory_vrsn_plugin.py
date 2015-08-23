@@ -17,7 +17,7 @@ from CppBlockUtils import SecureBinaryData, CryptoECDSA, HDWalletCrypto
 from armorycolors import Colors
 from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT, LOGINFO
 from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir, \
-   isWindows, getAddrByte
+   isWindows, getAddrByte, isLinux
 from armoryengine.ArmorySettings import SettingsFile
 from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex, \
    parseBitcoinURI, base58_to_binary, hash160_to_addrStr, hash160
@@ -31,6 +31,8 @@ from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    ConstructedScript, ReceiverIdentity
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
+if isLinux():
+   from dnssec_dane.daneHandler import getDANERecord
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
    makeVertFrame, makeHorizFrame, HLINE, ArmoryDialog
 from qtdialogs import DlgSendBitcoins, DlgWalletSelect, DlgRequestPayment
@@ -414,10 +416,14 @@ class PluginObject(object):
                resultType = ''
                dlgInfo = {}
                validRecords = True
-
-               # DNS IS IGNORED FOR NOW FOR DEBUGGING PURPOSES. COME BACK LATER.
-#               dnsResult = fetchPMTA(uriData['address'], resultRecord, resultType)
                dnsResult = False
+
+               # Check DNS/DANE first, then try the local ID store if there's
+               # no record found...
+               # NOTE: For now, DANE code runs only on Linux. Any other OS must
+               # use the local ID store.
+               if isLinux():
+                  dnsResult, resultType, resultRIRecord = fetchPMTA(pmtaData[0])
                if not dnsResult:
                   # Verify that the received record matches the one in the ID
                   # store. If so, go ahead with the dialog.
@@ -458,7 +464,7 @@ class PluginObject(object):
 
                      dlgInfo['address'] = uriData['address']
                      dlgInfo['amount'] = str(uriData['amount'])
-                     dlgInfo['label'] = uriData['label']
+                     dlgInfo['message'] = uriData['label']
                      DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
 
          self.modelLocalIDs.reset()
@@ -567,21 +573,29 @@ class PluginObject(object):
          self.main.emit(SIGNAL('bdmReadyPMTA'))
 
 
-   #############################################################################
-   # Code lifted from armoryd and mdified. Need to place in a common space....
-   # INPUT:  The ID used to search for the DNS record. (str)
-   # OUTPUT: The PKS/CS obtained from the DNS record. (PKS or CS)
-   #         A string indicating the return record type. (
-   # RETURN: Boolean indicating whether or not the DNS search succeeded.
-   def fetchPMTA(self, inAddr, resultRecord, resultType):
-      dnsSucceeded = False
-      resultRecord = None
-      resultType = ''
-      recordUser, recordDomain = inAddr.split('@', 1)
-      sha224Res = sha224(recordUser)
-      daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
+   # Function is required by the plugin framework.
+   def getTabToDisplay(self):
+      return self.tabToDisplay
 
-      # Go out and get the DANE record.
+
+#############################################################################
+# Code lifted from armoryd and mdified. Need to place in a common space....
+# INPUT:  The ID used to search for the DNS record. (str)
+# OUTPUT: None
+# RETURN: Boolean indicating whether or not the DNS search succeeded.
+#         The record type. Empty if no record. (str)
+#         The serialized ReceiverIdentity record obtained from the DNS record
+#         for the searched ID. None if no record exists.
+def fetchPMTA(inAddr):
+   dnsSucceeded = False
+   resultRecord = None
+   resultType = ''
+   recordUser, recordDomain = inAddr.split('@', 1)
+   sha224Res = sha224(recordUser)
+   daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
+
+   # Go out and get the DANE record.
+   try:
       pmtaRecType, daneRec = getDANERecord(daneReqName)
       if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
@@ -599,13 +613,11 @@ class PluginObject(object):
          dnsSucceeded = True
       else:
          raise InvalidDANESearchParam(inAddr + " has no DANE record")
+   except:
+      LOGINFO('No DANE record found for %s - Revert to local ID store' %
+              inAddr)
 
-      return dnsSucceeded
-
-
-   # Function is required by the plugin framework.
-   def getTabToDisplay(self):
-      return self.tabToDisplay
+   return dnsSucceeded, resultType, resultRecord
 
 
 # Function that processes ReceiverIdentity information as necessary.
@@ -1261,7 +1273,6 @@ class LocalWalletIDModel(QAbstractTableModel):
                                        WALLET_ID_STORE_FILENAME)
       self.walletIDStore = SettingsFile(walletIDStorePath)
 
-   set 
 
    #############################################################################
    def rowCount(self, index=QModelIndex()):
@@ -1332,6 +1343,7 @@ class LocalWalletIDModel(QAbstractTableModel):
 
       return retStr
 
+
    #############################################################################
    def setWltHandle(self, wltID, wltHandle, riRecord):
 
@@ -1341,15 +1353,19 @@ class LocalWalletIDModel(QAbstractTableModel):
                           riRecord)
          self.reset()
 
+
    #############################################################################
    def getWltIDForRow(self, row):
       return self.main.wltIDList[row]
+
 
    #############################################################################
    def getWltHandleForRow(self, row):
       wltID = self.main.wltIDList[row]
       return getWalletSetting(self.walletIDStore, 'wallet', wltID)
-  #############################################################################   
+
+
+  #############################################################################
    def getWltHandleForID(self, wltID):
-      getWalletSetting(self.walletIDStore, 'wallet',
+      return getWalletSetting(self.walletIDStore, 'wallet',
                                      wltID, False)
