@@ -13,20 +13,22 @@ from PyQt4.Qt import QPushButton, QScrollArea, SIGNAL, QLabel, QLineEdit, \
    QFrame, QVBoxLayout, QMessageBox, QVariant, QDialogButtonBox, QApplication, \
    QSizePolicy
 
-from CppBlockUtils import SecureBinaryData, CryptoECDSA
+from CppBlockUtils import SecureBinaryData, CryptoECDSA, HDWalletCrypto
 from armorycolors import Colors
 from armoryengine.ArmoryLog import LOGERROR, LOGWARN, LOGEXCEPT, LOGINFO
 from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir, \
-   isWindows
-from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex,\
-   parseBitcoinURI, base58_to_binary
+   isWindows, getAddrByte
+from armoryengine.ArmorySettings import SettingsFile
+from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex, \
+   parseBitcoinURI, base58_to_binary, hash160_to_addrStr, hash160
 from armoryengine.BDM import getBDM
 from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
    BTCAID_PAYLOAD_TYPE, CLICKED
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
-   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource,\
-   decodePaymentTargetVerifier, decodeReceiverIdentity
+   PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource, \
+   decodePaymentTargetVerifier, decodeReceiverIdentity, ScriptRelationshipProof, \
+   ConstructedScript, ReceiverIdentity
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
@@ -38,7 +40,7 @@ from ui.WalletFrames import SelectWalletFrame
 WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 DNSSEC_URL = "https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensions"
 
-OTHER_ID_COLS = enum('DnsHandle')
+OTHER_ID_COLS = enum('DnsHandle', 'AddrType' )
 LOCAL_ID_COLS = enum('WalletID', 'WalletName', 'DnsHandle')
 
 
@@ -144,7 +146,7 @@ class PluginObject(object):
          wallets, to give to others so that they will recognize payments 
          to your wallets.""") % DNSSEC_URL, doWrap=True)
 
-      w,h = tightSizeNChar(QTableView(), 45)
+      w,h = tightSizeNChar(QTableView(), 90)
       viewWidth  = 1.2*w
       sectionSz  = 1.3*h
 
@@ -158,7 +160,7 @@ class PluginObject(object):
       self.tableOtherIDs.setMinimumHeight(6.5*sectionSz)
       self.tableOtherIDs.verticalHeader().setDefaultSectionSize(sectionSz)
       self.tableOtherIDs.verticalHeader().hide()
-      initialColResize(self.tableOtherIDs, [0.99])
+      initialColResize(self.tableOtherIDs, [0.34, 0.65])
 
       # View and manage identities for the wallets you have loaded.
       self.modelLocalIDs = LocalWalletIDModel(self.main)
@@ -214,7 +216,6 @@ class PluginObject(object):
 
       walletIDStorePath = os.path.join(getArmoryHomeDir(),
                                        WALLET_ID_STORE_FILENAME)
-      self.walletIDStore = SettingsFile(walletIDStorePath)
 
       lblHeadOther = QRichLabel(tr("<b>Known Wallet Identities (Others)</b>"))
       lblHeadLocal = QRichLabel(tr("<b>Loaded Wallets (Yours)</b>"))
@@ -348,8 +349,7 @@ class PluginObject(object):
          else:
          # Generate the proper object.
             finalAddr = self.resAddr.getAddrStr()
-            payID = getWalletSetting(self.walletIDStore, 'wallet',
-                                     self.wlt.uniqueIDB58, False)
+            payID = self.modelLocalIDs.getWltHandleForID(self.wlt.uniqueIDB58)
             newPKRP = PublicKeyRelationshipProof(self.resMult)
             newPTV = PaymentTargetVerifier(newPKRP)
             finalPMTAStr = payID + '..' + binary_to_base58(newPTV.serialize())
@@ -461,7 +461,7 @@ class PluginObject(object):
                      dlgInfo['label'] = uriData['label']
                      DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
 
-         self.tableLocalIDs.reset()
+         self.modelLocalIDs.reset()
 
 
    #############################################################################
@@ -470,12 +470,7 @@ class PluginObject(object):
       wltID = self.modelLocalIDs.getWltIDForRow(row)
       dlg = SetWalletHandleDialog(self.main, self.main, wltID)
       if dlg.exec_():
-         setWalletSetting(self.walletIDStore, 'wallet', wltID,
-                          dlg.getWalletHandle())
-         setWalletSetting(self.walletIDStore, 'handle', dlg.getWalletHandle(),
-                          dlg.getWalletRIRecord())
-         self.tableLocalIDs.reset()
-
+         self.modelLocalIDs.setWltHandle(wltID, dlg.getWltHandle(), dlg.getWalletRIRecord())
 
    #############################################################################
    def otherWalletIdentityLookup(self):
@@ -485,7 +480,7 @@ class PluginObject(object):
          # it was not found
          QMessageBox.warning(self.main, 'Wallet Handle Not Found',
            'This Wallet Handle: %s could not be found in the Wallet ID Store.' \
-           % dlg.getWalletHandle(),
+           % dlg.getWltHandle(),
            QMessageBox.Ok)
 
 
@@ -493,7 +488,7 @@ class PluginObject(object):
    def enterWalletIdentity(self):
       dlg = EnterWalletIdentityDialog(self.main, self.main)
       if dlg.exec_():
-         self.modelOtherIDs.addIdentity(dlg.getWalletHandle(), dlg.getWalletRIRecord())
+         self.modelOtherIDs.addIdentity(dlg.getWltHandle(), dlg.getWalletRIRecord())
 
 
    #############################################################################
@@ -691,7 +686,7 @@ def validateWalletHandle(inAddr):
 
 #############################################################################
 # TODO: Check validation logic
-def validateWalletPaymentVerifier(walletPaymentVerifier, main):
+def validateWalletPaymentVerifier(walletPaymentVerifier):
    validRIObj = False
 
    # If the string we receive is a bad encode, just drop any raised errors.
@@ -956,7 +951,7 @@ class LookupIdentityDialog(ArmoryDialog):
 
    #############################################################################
    def validateAndAccept(self):
-      if not validateWalletHandle(self.getWalletHandle()):
+      if not validateWalletHandle(self.getWltHandle()):
          QMessageBox.warning(self.main, 'Invalid Wallet Handle',
                              'You have entered an Invalid Wallet Handle ' \
                              'To continue enter a Wallet Handle that is in ' \
@@ -967,7 +962,7 @@ class LookupIdentityDialog(ArmoryDialog):
 
 
    #############################################################################
-   def getWalletHandle(self):
+   def getWltHandle(self):
       return str(self.walletHandleLineEdit.text())
 
 
@@ -1033,7 +1028,7 @@ class SetWalletHandleDialog(ArmoryDialog):
 
    #############################################################################
    def validateAndAccept(self):
-      if not validateWalletHandle(self.getWalletHandle()):
+      if not validateWalletHandle(self.getWltHandle()):
          QMessageBox.warning(self.main, 'Invalid Wallet Handle',
                              'You have entered an Invalid Wallet Handle ' \
                              'To continue enter a Wallet Handle that is in ' \
@@ -1044,7 +1039,7 @@ class SetWalletHandleDialog(ArmoryDialog):
 
 
    #############################################################################
-   def getWalletHandle(self):
+   def getWltHandle(self):
       return str(self.walletHandleLineEdit.text())
 
 
@@ -1058,8 +1053,6 @@ class SetWalletHandleDialog(ArmoryDialog):
 class EnterWalletIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
       super(EnterWalletIdentityDialog, self).__init__(parent, main)
-
-      self.main = main
 
       walletHandleLabel = QLabel("Wallet Handle:")
       self.walletHandleLineEdit = QLineEdit()
@@ -1093,14 +1086,13 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 
    #############################################################################
    def validateAndAccept(self):
-      if not validateWalletHandle(self.getWalletHandle()):
+      if not validateWalletHandle(self.getWltHandle()):
          QMessageBox.warning(self.main, 'Invalid Wallet Handle',
                              'You have entered an invalid Wallet Handle. To ' \
                              'continue, enter a Wallet Handle that is in ' \
                              'the same format as an email address.',
                              QMessageBox.Ok)
-      elif not validateWalletPaymentVerifier(self.getWalletRIRecord(),
-                                             self.main):
+      elif not validateWalletPaymentVerifier(self.getWalletRIRecord()):
          # TODO: Fill in this text that describes what is valid',
          QMessageBox.warning(self.main, 'Invalid Wallet Payment Verifier',
                              'You have entered an invalid Wallet Payment ' \
@@ -1111,7 +1103,7 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 
 
    #############################################################################
-   def getWalletHandle(self):
+   def getWltHandle(self):
       return str(self.walletHandleLineEdit.text())
 
 
@@ -1143,9 +1135,8 @@ class OtherWalletIDModel(QAbstractTableModel):
 
    #############################################################################
    def columnCount(self, index=QModelIndex()):
-      return 1
-
-
+      return 2
+   
    #############################################################################
    def data(self, index, role=Qt.DisplayRole):
       retVal = QVariant()
@@ -1156,6 +1147,8 @@ class OtherWalletIDModel(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if col==OTHER_ID_COLS.DnsHandle:
             retVal = QVariant(keyList[row])
+         if col==OTHER_ID_COLS.AddrType:
+            retVal = ''
       elif role==Qt.TextAlignmentRole:
          retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
@@ -1171,6 +1164,8 @@ class OtherWalletIDModel(QAbstractTableModel):
          if orientation==Qt.Horizontal:
             if section==OTHER_ID_COLS.DnsHandle:
                retVal = QVariant('Wallet Handle')
+            elif  section==OTHER_ID_COLS.AddrType:
+               retVal = QVariant('Address Type')
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
             retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1266,6 +1261,7 @@ class LocalWalletIDModel(QAbstractTableModel):
                                        WALLET_ID_STORE_FILENAME)
       self.walletIDStore = SettingsFile(walletIDStorePath)
 
+   set 
 
    #############################################################################
    def rowCount(self, index=QModelIndex()):
@@ -1336,13 +1332,24 @@ class LocalWalletIDModel(QAbstractTableModel):
 
       return retStr
 
+   #############################################################################
+   def setWltHandle(self, wltID, wltHandle, riRecord):
+
+         setWalletSetting(self.walletIDStore, 'wallet', wltID,
+                          wltHandle)
+         setWalletSetting(self.walletIDStore, 'handle', wltHandle,
+                          riRecord)
+         self.reset()
 
    #############################################################################
    def getWltIDForRow(self, row):
       return self.main.wltIDList[row]
 
-
    #############################################################################
    def getWltHandleForRow(self, row):
       wltID = self.main.wltIDList[row]
       return getWalletSetting(self.walletIDStore, 'wallet', wltID)
+  #############################################################################   
+   def getWltHandleForID(self, wltID):
+      getWalletSetting(self.walletIDStore, 'wallet',
+                                     wltID, False)
