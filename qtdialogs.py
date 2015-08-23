@@ -9001,7 +9001,7 @@ class DlgRequestPayment(ArmoryDialog):
       else:
          raise BadAddressError('Unrecognized address input')
 
-      # PMTA record (PaymentTargetVerifier object)
+      # PMTA record (Payment Handle + '..' + serialized PaymentTargetVerifier)
       self.pmta = None
       if pmta:
          self.pmta = pmta

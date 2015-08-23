@@ -26,7 +26,7 @@ from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
    PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource,\
-   decodePaymentTargetVerifier
+   decodePaymentTargetVerifier, decodeReceiverIdentity
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
@@ -51,8 +51,8 @@ LOCAL_ID_COLS = enum('WalletID', 'WalletName', 'DnsHandle')
 #         PKS-related flags (bool) - See armoryengine/ConstructedScript.py
 # OUTPUT: None
 # RETURN: Final PKS record (PKSRecord)
-def getWltPKS(inWlt, isStatic = False, useCompr = False,
-              use160 = False, isUser = False, isExt = False,
+def getWltPKS(inWlt, isStatic = False, useCompr = True,
+              use160 = True, isUser = False, isExt = False,
               chksumPres = False):
    # Start with the wallet's uncompressed root key.
    sbdPubKey33 = SecureBinaryData(inWlt.sbdPublicKey33)
@@ -71,17 +71,22 @@ def getWltPKS(inWlt, isStatic = False, useCompr = False,
 #         Key ID (str)
 #         Default key ID (str - optional)
 # OUTPUT: None
-# RETURN: The key ID data (str)
-def getWalletSetting(fileHandle, keyType, keyID, defaultValue=''):
+# RETURN: The key ID data string, which is empty by default (str)
+def getWalletSetting(fileHandle, keyType, keyID, useDefaultValue=True,
+                     defaultValue=''):
+   retVal = ''
+
    # Sometimes we need to settings specific to individual wallets -- we will
    # prefix the settings name with the wltID.
    wltPropName = '%s..%s' % (keyType, keyID)
    if fileHandle.hasSetting(wltPropName):
-      return fileHandle.get(wltPropName)
-   else:
+      retVal = fileHandle.get(wltPropName)
+   elif useDefaultValue:
       if not defaultValue=='':
          setWalletSetting(fileHandle, keyType, keyID, defaultValue)
-      return defaultValue
+      retVal = defaultValue
+
+   return retVal
 
 
 # Function that takes an incoming key type and key ID, and uses them to set data
@@ -343,79 +348,119 @@ class PluginObject(object):
          else:
          # Generate the proper object.
             finalAddr = self.resAddr.getAddrStr()
+            payID = getWalletSetting(self.walletIDStore, 'wallet',
+                                     self.wlt.uniqueIDB58, False)
             newPKRP = PublicKeyRelationshipProof(self.resMult)
             newPTV = PaymentTargetVerifier(newPKRP)
+            finalPMTAStr = payID + '..' + binary_to_base58(newPTV.serialize())
 
             # Put everything together and present it to the user.
             # Right now, this dialog doesn't work. Dialog says the address is
             # invalid and refuses to generate a QR code. We also need to pass
             # in the Base58-encoded PTV somehow.
             dlg = DlgRequestPayment(self.main, self.main, finalAddr,
-                                    pmta = newPTV)
+                                    pmta = finalPMTAStr)
             dlg.exec_()
 
 
    #############################################################################
+   # NOTE: This is a large, unwieldy function. It should probably be refactored
+   # into multiple, smaller functions. One day....
    def verifyPaymentRequest(self):
+      # First, verify that the data we're receiving is correctly formatted. The
+      # data MUST be a Bitcoin URI with properly formatted data.
       dlg = VerifyPaymentRequestDialog(self.main, self.main)
       if dlg.exec_():
+         # It's now safe to extract the data, which has been confirmed as valid.
          uriData = parseBitcoinURI(dlg.getPaymentRequest())
          pmtaData = uriData['pmta'].split('..')
 
          # TODO: Specify Multiplier
          multiplier = None
-         ptv = decodePaymentTargetVerifier(pmtaData[1])
-         # This method PublicKeyRelationshipProof class
-         # no longer exists: unserialize(base58_to_binary(pmtaData[1]))
+         finalKey   = None
+         ptv = decodePaymentTargetVerifier(base58_to_binary(pmtaData[1]))
+
          if ptv.isValid() is False:
             QMessageBox.warning(self.main, 'Invalid Payment Request',
                                 'Payment Request is invalid. Please confirm ' \
                                 'that the text is complete and not corrupted.',
                                 QMessageBox.Ok)
          else:
-            # If the PR is valid, go through the following steps. All steps,
-            # unless otherwise noted, are inside a loop based on the # of
-            # unvalidated TxOut scripts listed in the record.
-            #  1) Check DNS first.
-            # 2a) If we get a DNS record, create TxOut using it & matching SRP.
-            # 2b) If we don't get a DNS record, confirm that the received ID is
-            #     in the ID store.
-            #  3) If the ID is acceptable, apply the proof to get the final
-            #     address.
-            #  4) Confirm the derived address matches the provided address.
-            #  5) If the addresses match, generate a "Send Bitcoins" dialog
-            #     using the appropriate info.
-            resultRecord = None
-            resultType = ''
-            dlgInfo = {}
-            validRecords = True
+            # FIX: For now, the code assumes the PTV contains a PKRP record. SRP
+            # support will come later.
+            if isinstance(ptv.rec, ScriptRelationshipProof):
+               pass # ERROR MSG
+            else:
+               # If we have a final key in the PKRP, the proof is optional. For
+               # now, we'll verify the proof anyway.
+               if ptv.rec.multUsed:
+                  multiplier = ptv.rec.multiplier
+               if ptv.rec.finalKeyUsed:
+                  finalKey = ptv.rec.finalKey
 
-            # DNS IS IGNORED FOR NOW FOR DEBUGGING PURPOSES. COME BACK LATER.
-#            dnsResult = fetchPMTA(uriData['address'], resultRecord, resultType)
-            dnsResult = False
-            if not dnsResult:
-               # Verify that the received record matches the one in the ID
-               # store. If so, go ahead with the dialog.
-               idFound, resultRecord = getIDFromStore(uriData['pmta'])
-               if not idFound:
-                  validRecords = False
+               # Go through the following steps. All steps, unless otherwise
+               # noted, are inside a loop based on the number of unvalidated
+               # TxOut scripts listed in the record.
+               #  1) Check DNS first.
+               # 2a) If we get a DNS record, save the accompanying RI record.
+               # 2b) If we don't get a DNS record, confirm that the ID is in the
+               #     ID store, and get the accompanying RI record.
+               #  3) If the ID is acceptable, apply the proof to get the final
+               #     address.
+               #  4) Confirm the derived address matches the provided address.
+               #  5) If the addresses match, generate a "Send Bitcoins" dialog
+               #     using the appropriate info.
+               resultRIRecord = None
+               resultType = ''
+               dlgInfo = {}
+               validRecords = True
 
-            if validRecords:
-               # TO DO (Step 3): Derive & apply multipliers from attached PTV.
-#               finalAddress = HDWalletCrypto().getChildKeyFromMult_SWIG(
-#                                                          sbdPubKey1.toBinStr(),
-#                                                          multProof1.multiplier)
+               # DNS IS IGNORED FOR NOW FOR DEBUGGING PURPOSES. COME BACK LATER.
+#               dnsResult = fetchPMTA(uriData['address'], resultRecord, resultType)
+               dnsResult = False
+               if not dnsResult:
+                  # Verify that the received record matches the one in the ID
+                  # store. If so, go ahead with the dialog.
+                  riFound, resultRIRecord = getRIFromStore(pmtaData[0])
+                  if not riFound:
+                     validRecords = False
 
-               # TO DO (Step 4): Insert pop-up if derived address doesn't match
-               # the supplied address. Also, as a way to show this really works,
-               # insert a pop-up saying derivation worked. Wouldn't be done in a
-               # prod env either but it's great for a demo!
+               if validRecords:
+                  # TODO: Need to properly handle the final key & multiplier.
+                  # The code currently plows ahead w/ the derivation.
 
-               # TO DO (Step 5): Replace address w/ derived address as proof
-               # that everything worked out.
-               dlgInfo['address'] = uriData['address']
-               dlgInfo['amount'] = str(uriData['amount'])
-               DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
+                  # Verify that the URI address matches the derived address.
+                  # NOTE: The code assumes a standard Bitcoin address. Support
+                  # will need to be expanded eventually.
+                  riObj = decodeReceiverIdentity(base58_to_binary(resultRIRecord))
+                  rootAddr, rootKey = processReceiverIdentity(riObj, True)
+                  finalDerivedKey = HDWalletCrypto().getChildKeyFromMult_SWIG(
+                                                                        rootKey,
+                                                                     multiplier)
+                  finalDerivedAddr = hash160_to_addrStr(hash160(finalDerivedKey),
+                                                        getAddrByte())
+
+                  # Insert pop-up if derived address doesn't match the supplied
+                  # address. Also, as a way to show this really works, insert a
+                  # pop-up saying derivation worked. Wouldn't be done in a prod
+                  # env but it's great for a demo!
+                  if uriData['address'] != finalDerivedAddr:
+                     QMessageBox.warning(self.main, 'Payment Request Invalid',
+                                         'The payment request could not be ' \
+                                         'verified. Please check the logs ' \
+                                         'and contact the intended payment ' \
+                                         'recipient.', QMessageBox.Ok)
+                  else:
+                     QMessageBox.information(self.main, 'Payment Request Valid',
+                                         'The payment request was verified! ' \
+                                         'You may now pay the recipient.',
+                                         QMessageBox.Ok)
+
+                     dlgInfo['address'] = uriData['address']
+                     dlgInfo['amount'] = str(uriData['amount'])
+                     dlgInfo['label'] = uriData['label']
+                     DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
+
          self.tableLocalIDs.reset()
 
 
@@ -495,9 +540,8 @@ class PluginObject(object):
       if prevIndex == currIndex and not currIndex is None:
          return
 
-      if currIndex is None:
-         canSetWalletHandle = False
-      else:
+      canSetWalletHandle = False
+      if currIndex is not None:
          selectedLocalWalletID = self.modelLocalIDs.getWltIDForRow(currIndex.row())
          self.wlt = self.main.walletMap[selectedLocalWalletID]
          canSetWalletHandle = True
@@ -647,28 +691,69 @@ class PluginObject(object):
       return dnsSucceeded
 
 
-   # Function that checks whether of not the wallet ID store has a given ID.
-   # INPUT:  The ID the user wishes to find. (str)
-   # OUTPUT: None
-   # RETURN: Boolean indicating whether or not the ID was found.
-   #         The record found in the ID store, if it exists.
-   def getIDFromStore(self, inRec):
-      walletIDStorePath = os.path.join(getArmoryHomeDir(),
-                                       WALLET_ID_STORE_FILENAME)
-      walletIDStore = SettingsFile(self.walletIDStorePath)
-
-      returnRecord = None
-      recordFound = walletIDStore.hasSetting(inRec.split('..')[0])
-      if recordFound:
-         walletIDStore.get(returnRecord)
-
-      return recordFound, returnRecord
-
-
    # Function is required by the plugin framework.
    def getTabToDisplay(self):
       return self.tabToDisplay
 
+
+# Function that processes ReceiverIdentity information as necessary.
+# INPUT:  A ReceiverIdentity record to process.
+#         A boolean indicating if the call is part of a direct payment chain.
+# OUTPUT: None
+# RETURN: A derived Bitcoin address. (addrStr)
+#         The root key, compressed or uncompressed based on flags. (binary str)
+def processReceiverIdentity(inRIRecord, directPayment):
+   returnAddr = ''
+   returnKey = None
+
+   # Get key from RI record and process the contents to get the root key
+   #material.
+   # FIX: For now, the code assumes the RI object contains PKS objects. CS
+   # support will be added later.
+   if isinstance(inRIRecord.rec, ConstructedScript):
+      pass # ERROR MSG
+   elif isinstance(inRIRecord.rec, PublicKeySource):
+      if directPayment and not inRIRecord.rec.disableDirectPay:
+         returnKey = inRIRecord.rec.rawSource
+         if inRIRecord.rec.isExternalSrc:
+            pass # Overrides all other flags. Not supported for now.
+         elif inRIRecord.rec.isStatic:
+            pass # Overrides all flags except isExternSec. Key material's final.
+         elif inRIRecord.rec.isUserKey:
+            pass # User supplies a key. Not supported for now.
+         else:
+            if inRIRecord.rec.useCompr:
+               secReturnKey = SecureBinaryData(returnKey)
+               secCompReturnKey = CryptoECDSA().CompressPoint(secReturnKey)
+               returnKey = secCompReturnKey.toBinStr()
+
+            if inRIRecord.rec.useHash160:
+               returnAddr = hash160_to_addrStr(hash160(returnKey), getAddrByte())
+   else:
+      # This shouldn't happen. Just in case....
+      LOGERROR('processReceiverIdentity got a bad ReceiverIdentity record.')
+
+   return returnAddr, returnKey
+
+
+# Function that checks whether of not the wallet ID store has a given ID.
+# INPUT:  The ID the user wishes to find. (str)
+# OUTPUT: None
+# RETURN: Boolean indicating whether or not the ID was found.
+#         The record found in the ID store, if it exists.
+def getRIFromStore(inRec):
+   recordFound = False
+
+   walletIDStorePath = os.path.join(getArmoryHomeDir(),
+                                    WALLET_ID_STORE_FILENAME)
+   walletIDStore = SettingsFile(walletIDStorePath)
+
+   returnRecord = getWalletSetting(walletIDStore, 'handle', inRec.split('..')[0],
+                                   False)
+   if returnRecord != '':
+      recordFound = True
+
+   return recordFound, returnRecord
 
 
 #############################################################################
@@ -686,39 +771,39 @@ class PluginObject(object):
 def validateWalletHandle(inAddr):
    return True if re.match(SuperLongEmailValidatorRegex, inAddr) else False
 
-#############################################################################
-# TODO: provide Wallet Payment Verifier - validation logic
-def validateWalletPaymentVerifier(walletPaymentVerifier):
-   return len(walletPaymentVerifier)>0
 
 #############################################################################
-# TODO: provide Wallet Payment Verifier - validation logic
-def validatePaymentRequest(paymentRequest):
-   result = False
+# TODO: Check validation logic
+def validateWalletPaymentVerifier(walletPaymentVerifier, main):
+   validRIObj = False
+
+   # If the string we receive is a bad encode, just drop any raised errors.
    try:
-      uriData = parseBitcoinURI(paymentRequest)
-      pmtaData = uriData['pmta'].split('..')
-      
-      # Payment Request must be key value mapping separated by '..'
-      if len(pmtaData) == 2:
-         # Assume the first entry is a Wallet Handle
-         result = validateWalletHandle(pmtaData[0])
-         
-         # TODO: Consolidate validator code. The following 
-         # validation occurs later in
-         # verifyPaymentRequest in the plug-in main window
-         # ptv = decodePaymentTargetVerifier(pmtaData[1])
-         # This method PublicKeyRelationshipProof class
-         # no longer exists: unserialize(base58_to_binary(pmtaData[1]))
-         # if ptv.isValid() is False:
-         #    QMessageBox.warning(self.main, 'Invalid Payment Request',
-         #                       'Payment Request is invalid. Please confirm ' \
-         #                      'that the text is complete and not corrupted.',
-         #                      QMessageBox.Ok)
+      receiverIdentityObj = decodeReceiverIdentity(walletPaymentVerifier)
+      validRIObj = receiverIdentityObj.isValid()
    except:
-      # Return False, and caller will display warning dialog
       pass
-   return result
+
+   return validRIObj
+
+
+#############################################################################
+# TODO: Check validation logic
+# INPUT:  Base58-serialized PaymentTargetVerifier object. (str)
+#         The window that spawned the plugin. (ArmoryMainWindow)
+# OUTPUT: None
+# RETURN: Boolean indicating whether or not validation was successful.
+def validatePaymentTargetVerifier(inPTV):
+   validPTVObj = False
+
+   try:
+      ptv = decodePaymentTargetVerifier(base58_to_binary(inPTV))
+      validPTVObj = ptv.isValid()
+   except:
+      pass
+
+   return validPTVObj
+
 
 # Utility function that takes a BIP 32 wallet, generates a new child key, and
 # returns various values.
@@ -810,6 +895,7 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       self.setWindowTitle('Wallet Handle and Identity')
 
 
+   #############################################################################
    def copyWalletIDToClipboard(self):
       clipb = QApplication.clipboard()
       clipb.clear()
@@ -817,6 +903,7 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       self.lblCopied.setText('<i>Copied!</i>')
 
 
+   #############################################################################
    def saveWalletIDFile(self):
       # Use the first 6 characters of the PKS
       handleIDStr = str(self.walletHandleIDLineEdit.text())
@@ -842,6 +929,8 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
    def __init__(self, parent, main):
       super(VerifyPaymentRequestDialog, self).__init__(parent, main)
 
+      self.main = main
+
       paymentRequestLabel = QLabel("Payment Request to Verify:")
       self.paymentRequestLineEdit = QLineEdit()
       self.paymentRequestLineEdit.setMinimumWidth(300)
@@ -856,22 +945,65 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
       self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
+      self.mainnetExample = 'bitcoin:18VEVEjWPKZABbpDPXBAQXdevpSk6nWY43?amount=1.43&label=Payment%20for%20Satoshi%27s%20miner%21&pmta=satoshin%40gmx.com..eteQcRSb1KJue4CBQiXzkbH4j3XZs9wG3mRXFt5qo8QQHtE9zvdV'
+      self.testnetExample = 'bitcoin:mpNcRprh3SXNMMrJj92bGorrVjCz5t8c7B?amount=1.43&label=Payment%20for%20Satoshi%27s%20miner%21&pmta=satoshin%40gmx.com..eteQcRRmCp1z4AhW5cuhYupJ7xf6jbbsPj35uvWtSFhxHHFfNzRd'
+      labelStr = 'Example:<BR>' + \
+                 (self.testnetExample if getTestnetFlag() else self.mainnetExample)
+      self.lblPayReqExample = QRichLabel(labelStr)
+      frmFeatDescr = makeVertFrame([self.lblPayReqExample])
+      self.lblPayReqExample.setMinimumHeight(tightSizeNChar(self, 10)[1] * 8)
+
       layout = QGridLayout()
       layout.addWidget(paymentRequestLabel, 1, 0, 1, 1)
       layout.addWidget(self.paymentRequestLineEdit, 1, 1, 1, 1)
+      layout.addWidget(frmFeatDescr, 2, 0, 1, 2)
       layout.addWidget(buttonBox, 4, 0, 1, 2)
       self.setLayout(layout)
 
       self.setWindowTitle('Verify Payment Request')
 
-   def validateAndAccept(self):
-      if not validateWalletHandle(self.getPaymentRequest()):
-         QMessageBox.warning(self.main, 'Invalid Payment Request',
-                             'You have entered an Invalid Payment Request.',
-                             QMessageBox.Ok)
-      else:
-         self.accept()
 
+   #############################################################################
+   # NOTE: This function only validates the input formatting. The actual
+   # validation of the underlying data must be done by any code calling this
+   # dialog.
+   def validateAndAccept(self):
+      # Make sure we have a Bitcoin URI before proceeding.
+      if not str.lower(self.getPaymentRequest()).startswith('bitcoin:'):
+         msgStr = 'Payment Request is not a Bitcoin URI. Please enter a Bitcoin ' \
+         'URI.\nExample: ' + \
+         (self.testnetExample if getTestnetFlag() else self.mainnetExample)
+         QMessageBox.warning(self.main, 'Invalid Payment Request',
+                             'You have entered an invalid Payment Request. ' \
+                             'Please check that you entered the data ' \
+                             'correctly.', QMessageBox.Ok)
+      else:
+         uriData = parseBitcoinURI(self.getPaymentRequest())
+         pmtaData = uriData['pmta'].split('..')
+
+      # Payment Request must be key value mapping separated by '..'
+         if len(pmtaData) != 2:
+            # Assume the first entry is a Wallet Handle
+            QMessageBox.warning(self.main, 'Invalid Payment Request',
+                                'You have entered an incorrect Payment ' \
+                                'Request. Please check that you entered the ' \
+                                'request correctly.', QMessageBox.Ok)
+
+         elif not validateWalletHandle(pmtaData[0]):
+            QMessageBox.warning(self.main, 'Invalid Payment Request Handle',
+                                'You have entered a broken Payment Request ' \
+                                'handle. Please check that you entered the ' \
+                                'handle correctly.', QMessageBox.Ok)
+         elif not validatePaymentTargetVerifier(pmtaData[1]):
+            QMessageBox.warning(self.main, 'Invalid Payment Request Data',
+                                'You have entered invalid Payment Request ' \
+                                'data. Please check that you entered the ' \
+                                'data correctly.', QMessageBox.Ok)
+         else:
+            self.accept()
+
+
+   #############################################################################
    def getPaymentRequest(self):
       return str(self.paymentRequestLineEdit.text())
 
@@ -902,7 +1034,9 @@ class LookupIdentityDialog(ArmoryDialog):
       self.setLayout(layout)
 
       self.setWindowTitle('Look up Wallet Identity')
-   
+
+
+   #############################################################################
    def validateAndAccept(self):
       if not validateWalletHandle(self.getWalletHandle()):
          QMessageBox.warning(self.main, 'Invalid Wallet Handle',
@@ -912,8 +1046,9 @@ class LookupIdentityDialog(ArmoryDialog):
                              QMessageBox.Ok)
       else:
          self.accept()
-       
 
+
+   #############################################################################
    def getWalletHandle(self):
       return str(self.walletHandleLineEdit.text())
 
@@ -939,8 +1074,10 @@ class SetWalletHandleDialog(ArmoryDialog):
             QSizePolicy.Preferred)
 
       pksLabel = QLabel("Wallet Payment Verifier:")
-      pksStr = binary_to_base58(getWltPKS(wlt).serialize())
-      self.riLineEdit = QLineEdit(pksStr)
+#      pksStr = binary_to_base58(getWltPKS(wlt).serialize())
+      riObj = ReceiverIdentity(getWltPKS(wlt))
+      riStr = binary_to_base58(riObj.serialize())
+      self.riLineEdit = QLineEdit(riStr)
       self.riLineEdit.setMinimumWidth(300)
       self.riLineEdit.setCursorPosition(0)
       self.riLineEdit.setReadOnly(True)
@@ -976,6 +1113,8 @@ class SetWalletHandleDialog(ArmoryDialog):
 
       self.setWindowTitle('Enter Wallet Handle')
 
+
+   #############################################################################
    def validateAndAccept(self):
       if not validateWalletHandle(self.getWalletHandle()):
          QMessageBox.warning(self.main, 'Invalid Wallet Handle',
@@ -985,11 +1124,14 @@ class SetWalletHandleDialog(ArmoryDialog):
                              QMessageBox.Ok)
       else:
          self.accept()
-       
 
+
+   #############################################################################
    def getWalletHandle(self):
       return str(self.walletHandleLineEdit.text())
 
+
+   #############################################################################
    # RI = Receiver Identity
    def getWalletRIRecord(self):
       return str(self.riLineEdit.text())
@@ -1029,26 +1171,31 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 
       self.setWindowTitle('Enter Wallet Payment Verifier')
 
+
+   #############################################################################
    def validateAndAccept(self):
       if not validateWalletHandle(self.getWalletHandle()):
          QMessageBox.warning(self.main, 'Invalid Wallet Handle',
-                             'You have entered an Invalid Wallet Handle ' \
-                             'To continue enter a Wallet Handle that is in ' \
+                             'You have entered an invalid Wallet Handle. To ' \
+                             'continue, enter a Wallet Handle that is in ' \
                              'the same format as an email address.',
                              QMessageBox.Ok)
       elif not validateWalletPaymentVerifier(self.getWalletRIRecord()):
          # TODO: Fill in this text that describes what is valid',
          QMessageBox.warning(self.main, 'Invalid Wallet Payment Verifier',
-               'You have entered an Invalid Wallet Payment Verifier.',
-                QMessageBox.Ok)
-
+                             'You have entered an invalid Wallet Payment ' \
+                             'Verifier. Please verify that the data was ' \
+                             'properly entered.', QMessageBox.Ok)
       else:
          self.accept()
-       
 
+
+   #############################################################################
    def getWalletHandle(self):
       return str(self.walletHandleLineEdit.text())
-   
+
+
+   #############################################################################
    # RI = Receiver Identity
    def getWalletRIRecord(self):
       return str(self.riLineEdit.text())
@@ -1181,9 +1328,12 @@ class OtherWalletIDModel(QAbstractTableModel):
       else:
          return None
 
+
+   #############################################################################
    def getRowToExport(self, row):
       key = self.identityMap.keys()[row]
       return key + '..' + self.identityMap[key]
+
 
 ################################################################################
 class LocalWalletIDModel(QAbstractTableModel):
@@ -1269,7 +1419,8 @@ class LocalWalletIDModel(QAbstractTableModel):
    #############################################################################
    def getWltIDForRow(self, row):
       return self.main.wltIDList[row]
-   
+
+
    #############################################################################
    def getWltHandleForRow(self, row):
       wltID = self.main.wltIDList[row]

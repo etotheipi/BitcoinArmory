@@ -1150,6 +1150,21 @@ class PublicKeyRelationshipProof(object):
          LOGINFO('PKRP record has no key material. Record is invalid.')
          recState = False
 
+      if (self.multUsed == True and len(self.multiplier) != 32):
+         LOGINFO('Multiplier is not 32 bytes long. Record is invalid.')
+         recState = False
+
+      if self.finalKeyUsed:
+         if (len(self.finalKey) == 33) and \
+            (self.finalKey[0] is not ['\x02', '\x03']):
+            LOGINFO('Final key is not a proper compressed key. Record is ' \
+                    'invalid.')
+            recState = False
+         elif (len(self.finalKey) == 65) and (self.finalKey[0] is not '\x04'):
+            LOGINFO('Final key is not a proper uncompressed key. Record is ' \
+                    'invalid.')
+            recState = False
+
       return recState
 
 
@@ -1338,7 +1353,7 @@ def decodePaymentTargetVerifier(serData):
    inRecType  = inner.get(UINT8)
    inRecStr   = inner.get(VAR_STR)
 
-   if not inVer == BTCAID_PTV_VERSION:
+   if inVer != BTCAID_PTV_VERSION:
       # In the future we will make this more of a warning, not error
       raise VersionError('PTV version does not match the loaded version')
 
