@@ -106,6 +106,8 @@ from txjsonrpc.web import jsonrpc
 from armoryengine.ALL import *
 from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.ArmorySettings import SettingsFile
+from armoryengine.ConstructedScript import decodePMTARecord, \
+   decodePublicKeySource
 from dnssec_dane.daneHandler import getDANERecord
 
 
@@ -180,11 +182,12 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
 
       # Go out and get the DANE record.
-      daneRec = getDANERecord(daneReqName)
-      if daneRec != None:
+      daneRec, pmtaRecType = getDANERecord(daneReqName)
+      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PMTA:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = decodePublicKeySource(daneRec)
+         pmtaRec = decodePMTARecord(daneRec)
+         pksRec = decodePublicKeySource(pmtaRec.inPayAssocData)
 
          # Convert Hash160 to Bitcoin address.
          if daneRec != None:
@@ -1228,11 +1231,12 @@ class ArmoryRPC(jsonrpc.JSONRPC):
       daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
 
       # Go out and get the DANE record.
-      daneRec = getDANERecord(daneReqName)
-      if daneRec != None:
+      daneRec, pmtaRecType = getDANERecord(daneReqName)
+      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PMTA:
          # HACK HACK HACK: Just assume we have a PKS record that is static and
          # has a Hash160 value.
-         pksRec = decodePublicKeySource(daneRec)
+         pmtaRec = decodePMTARecord(daneRec)
+         pksRec = decodePublicKeySource(pmtaRec.inPayAssocData)
 
          # Convert Hash160 to Bitcoin address.
          if daneRec != None:
