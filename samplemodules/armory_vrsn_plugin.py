@@ -555,89 +555,6 @@ class PluginObject(object):
       self.btnLocalRequest.setEnabled(hasWalletHandle)
 
 
-   # Call for when we want to save a binary PKS record to a file. By default,
-   # all PKS flags will be false.
-   # INPUT:  PKS-related flags (bool) - See armoryengine/ConstructedScript.py
-   # OUTPUT: None
-   # RETURN: Final PKS record (PKSRecord)
-   def savePKSFile(self, isStatic = False, useCompr = False, use160 = False,
-                   isUser = False, isExt = False, chksumPres = False):
-      defName = 'armory_%s.pks' % self.wlt.uniqueIDB58
-      filePath = unicode(self.main.getFileSave(defaultFilename = defName))
-      myPKS = None
-
-      if len(filePath) > 0:
-         pathdir = os.path.dirname(filePath)
-         if not os.path.exists(pathdir):
-            raise FileExistsError('Path for new PMTA record does not ' \
-                                  'exist: %s', pathdir)
-         else:
-            myPKS = self.getWltPKS(self.wlt, isStatic, useCompr, use160, isUser,
-                              isExt, chksumPres)
-            # Write the PKS record to the file, then return the record.
-            try:
-               with open(filePath, 'wb') as newWltFile:
-                  newWltFile.write(binary_to_base58(myPKS.serialize()))
-               QMessageBox.information(self.main, 'PKS File Saved',
-                                       'PKS file is saved.', QMessageBox.Ok)
-            except EnvironmentError:
-               QMessageBox.warning(self.main, 'PKS File Save Failed',
-                                   'PKS file save failed. Please check your ' \
-                                   'file system.', QMessageBox.Ok)
-               myPKS = None
-
-      return myPKS
-
-
-   # Call for when we want to save a binary PMTA record to a file. The PMTA
-   # record will include a PKS record for the currently selected wallet. By
-   # default, all PKS flags will be false, except for the flag adding a checksum
-   # to the PKS record.
-   # INPUT:  PKS-related flags (bool) - See armoryengine/ConstructedScript.py
-   # OUTPUT: None
-   # RETURN: Final PMTA record (PMTARecord)
-   def savePMTAFile(self, isStatic = False, useCompr = False, use160 = False,
-                    isUser = False, isExt = False, chksumPres = True):
-      myPMTA = None
-
-      defName = 'armory_%s.pmta' % self.wlt.uniqueIDB58
-      payNet = PAYNET_BTC
-      if getTestnetFlag():
-         payNet = PAYNET_TBTC
-
-      filePath = unicode(self.main.getFileSave(defaultFilename = defName))
-      if not len(filePath) > 0:
-         return myPMTA
-      else:
-         # Start with the wallet's uncompressed root key.
-         sbdPubKey33 = SecureBinaryData(self.wlt.sbdPublicKey33)
-         sbdPubKey65 = CryptoECDSA().UncompressPoint(sbdPubKey33)
-
-         pathdir = os.path.dirname(filePath)
-         if not os.path.exists(pathdir):
-            raise FileExistsError('Path for new PKS record does not ' \
-                                  'exist: %s', pathdir)
-
-         # Write the PMTA record to the file, then return the record.
-         try:
-            with open(filePath, 'wb') as newWltFile:
-               myPKS = PublicKeySource(isStatic, useCompr, use160, isUser,
-                                       isExt, sbdPubKey65.toBinStr(),
-                                       chksumPres)
-               myPMTA = PMTARecord(myPKS.serialize(), payNet)
-               newWltFile.write(binary_to_base58(myPMTA.serialize()))
-               QMessageBox.information(self.main, 'PMTA File Saved',
-                                       'PMTA file is saved.', QMessageBox.Ok)
-         except EnvironmentError:
-            QMessageBox.warning(self.main, 'PKS File Save Failed',
-                                'PKS file save failed. Please check your ' \
-                                'file system.', QMessageBox.Ok)
-            myPMTA = None
-
-      return myPMTA
-
-
-
    # Function called when the "bdmReadyPMTA" signal is emitted. Not used.
    # INPUT:  None
    # OUTPUT: None
@@ -1074,7 +991,6 @@ class SetWalletHandleDialog(ArmoryDialog):
             QSizePolicy.Preferred)
 
       pksLabel = QLabel("Wallet Payment Verifier:")
-#      pksStr = binary_to_base58(getWltPKS(wlt).serialize())
       riObj = ReceiverIdentity(getWltPKS(wlt))
       riStr = binary_to_base58(riObj.serialize())
       self.riLineEdit = QLineEdit(riStr)
@@ -1410,8 +1326,9 @@ class LocalWalletIDModel(QAbstractTableModel):
       dnsID = getWalletSetting(self.walletIDStore, 'wallet', wltID)
       if dnsID:
          wlt = self.main.walletMap[wltID]
-         pksStr = binary_to_base58(getWltPKS(wlt).serialize())
-         retStr = dnsID + '..' + pksStr
+         riObj = ReceiverIdentity(getWltPKS(wlt))
+         riStr = binary_to_base58(riObj.serialize())
+         retStr = dnsID + '..' + riStr
 
       return retStr
 
