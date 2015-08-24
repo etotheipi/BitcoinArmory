@@ -390,97 +390,81 @@ class PluginObject(object):
          else:
             # FIX: For now, the code assumes the PTV contains a PKRP record. SRP
             # support will come later.
-            if isinstance(ptv.rec, ScriptRelationshipProof):
-               pass # ERROR MSG
+
+            # Go through the following steps. All steps, unless otherwise
+            # noted, are inside a loop based on the number of unvalidated
+            # TxOut scripts listed in the record.
+            #  1) Check DNS first.
+            # 2a) If we get a DNS record, save the accompanying RI record.
+            # 2b) If we don't get a DNS record, confirm that the ID is in the
+            #     ID store, and get the accompanying RI record.
+            #  3) If the ID is acceptable, apply the proof to get the final
+            #     address.
+            #  4) Confirm the derived address matches the provided address.
+            #  5) If the addresses match, generate a "Send Bitcoins" dialog
+            #     using the appropriate info.
+            resultRIRecord = None
+            dlgInfo = {}
+            validRecords = True
+            dnsResult = False
+
+            # Check DNS/DANE first, then try the local ID store if there's
+            # no record found...
+            # NOTE: For now, DANE code runs only on Linux. Any other OS must
+            # use the local ID store.
+            if isLinux():
+               dnsResult, resultPMTARecord = fetchPMTA(pmtaData[0])
+
+            if dnsResult:
+                # Process the PMTA record as needed. For now, we basically
+                # yank out the ReceiverIdentity record, mainly because the
+                # PMTA record format is set to change.
+                riObj = decodeReceiverIdentity(resultPMTARecord.inPayAssocData)
+                resultRIRecord = riObj.serialize()
             else:
-               # If we have a final key in the PKRP, the proof is optional. For
-               # now, we'll verify the proof anyway.
-               if ptv.rec.multUsed:
-                  multiplier = ptv.rec.multiplier
-               if ptv.rec.finalKeyUsed:
-                  finalKey = ptv.rec.finalKey
+               # Verify that the received record matches the one in the ID
+               # store. If so, go ahead with the dialog.
+               riFound, resultRIRecord = getRIFromStore(pmtaData[0])
+               if riFound:
+                  resultRIRecord = base58_to_binary(resultRIRecord)
+               if not riFound:
+                  validRecords = False
 
-               # Go through the following steps. All steps, unless otherwise
-               # noted, are inside a loop based on the number of unvalidated
-               # TxOut scripts listed in the record.
-               #  1) Check DNS first.
-               # 2a) If we get a DNS record, save the accompanying RI record.
-               # 2b) If we don't get a DNS record, confirm that the ID is in the
-               #     ID store, and get the accompanying RI record.
-               #  3) If the ID is acceptable, apply the proof to get the final
-               #     address.
-               #  4) Confirm the derived address matches the provided address.
-               #  5) If the addresses match, generate a "Send Bitcoins" dialog
-               #     using the appropriate info.
-               resultRIRecord = None
-               dlgInfo = {}
-               validRecords = True
-               dnsResult = False
+            if validRecords:
+               # TODO: Need to properly handle the final key & multiplier.
+               # The code currently plows ahead w/ the derivation.
+               # Verify that the URI address matches the derived address.
+               # NOTE: The code assumes a standard Bitcoin address. Support
+               # will need to be expanded eventually.
+               riObj = decodeReceiverIdentity(resultRIRecord)
+               finalDerivedAddr = processReceiverIdentity(riObj, True, ptv)
 
-               # Check DNS/DANE first, then try the local ID store if there's
-               # no record found...
-               # NOTE: For now, DANE code runs only on Linux. Any other OS must
-               # use the local ID store.
-               if isLinux():
-                  dnsResult, resultPMTARecord = fetchPMTA(pmtaData[0])
-
-               if dnsResult:
-                   # Process the PMTA record as needed. For now, we basically
-                   # yank out the ReceiverIdentity record, mainly because the
-                   # PMTA record format is set to change.
-                   riObj = \
-                         decodeReceiverIdentity(resultPMTARecord.inPayAssocData)
-                   resultRIRecord = riObj.serialize()
+               # Insert pop-up if derived address doesn't match the supplied
+               # address. Also, as a way to show this really works, insert a
+               # pop-up saying derivation worked. Wouldn't be done in a prod
+               # env but it's great for a demo!
+               if uriData['address'] != finalDerivedAddr:
+                  QMessageBox.warning(self.main, 'Payment Request Invalid',
+                                      'The payment request could not be ' \
+                                      'verified. Please check the logs ' \
+                                      'and contact the intended payment ' \
+                                      'recipient.', QMessageBox.Ok)
                else:
-                  # Verify that the received record matches the one in the ID
-                  # store. If so, go ahead with the dialog.
-                  riFound, resultRIRecord = getRIFromStore(pmtaData[0])
-                  if riFound:
-                     resultRIRecord = base58_to_binary(resultRIRecord)
-                  if not riFound:
-                     validRecords = False
+                  QMessageBox.information(self.main, 'Payment Request Valid',
+                                      'The payment request was verified! ' \
+                                      'You may now pay the recipient.',
+                                      QMessageBox.Ok)
 
-               if validRecords:
-                  # TODO: Need to properly handle the final key & multiplier.
-                  # The code currently plows ahead w/ the derivation.
-
-                  # Verify that the URI address matches the derived address.
-                  # NOTE: The code assumes a standard Bitcoin address. Support
-                  # will need to be expanded eventually.
-                  riObj = decodeReceiverIdentity(resultRIRecord)
-                  rootAddr, rootKey = processReceiverIdentity(riObj, True)
-                  finalDerivedKey = HDWalletCrypto().getChildKeyFromMult_SWIG(
-                                                                        rootKey,
-                                                                     multiplier)
-                  finalDerivedAddr = hash160_to_addrStr(hash160(finalDerivedKey),
-                                                        getAddrByte())
-
-                  # Insert pop-up if derived address doesn't match the supplied
-                  # address. Also, as a way to show this really works, insert a
-                  # pop-up saying derivation worked. Wouldn't be done in a prod
-                  # env but it's great for a demo!
-                  if uriData['address'] != finalDerivedAddr:
-                     QMessageBox.warning(self.main, 'Payment Request Invalid',
-                                         'The payment request could not be ' \
-                                         'verified. Please check the logs ' \
-                                         'and contact the intended payment ' \
-                                         'recipient.', QMessageBox.Ok)
-                  else:
-                     QMessageBox.information(self.main, 'Payment Request Valid',
-                                         'The payment request was verified! ' \
-                                         'You may now pay the recipient.',
-                                         QMessageBox.Ok)
-
-                     dlgInfo['address'] = uriData['address']
-                     dlgInfo['amount'] = str(uriData['amount'])
-                     dlgInfo['message'] = uriData['label']
-                     DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
-               else:
-                     QMessageBox.warning(self.main, 'Payment Request Invalid',
-                                         'Recipient %s has no valid payment ' \
-                                         'information. Please make sure the ' \
-                                         'recipient is correct.' % pmtaData[0],
-                                         QMessageBox.Ok)
+                  dlgInfo['address'] = uriData['address']
+                  dlgInfo['amount'] = str(uriData['amount'])
+                  dlgInfo['message'] = uriData['label']
+                  DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
+            else:
+               QMessageBox.warning(self.main, 'Payment Request Invalid',
+                                   'Recipient %s has no valid payment ' \
+                                   'information. Please make sure the ' \
+                                   'recipient is correct.' % pmtaData[0],
+                                   QMessageBox.Ok)
 
          self.modelLocalIDs.reset()
 
@@ -634,41 +618,67 @@ def fetchPMTA(inAddr):
 # Function that processes ReceiverIdentity information as necessary.
 # INPUT:  A ReceiverIdentity record to process.
 #         A boolean indicating if the call is part of a direct payment chain.
+#         The PaymentTargetVerifier object for the ReceiverIdentity object.
 # OUTPUT: None
 # RETURN: A derived Bitcoin address. (addrStr)
-#         The root key, compressed or uncompressed based on flags. (binary str)
-def processReceiverIdentity(inRIRecord, directPayment):
-   returnAddr = ''
-   returnKey = None
+def processReceiverIdentity(inRIRecord, directPayment, inPTVRecord):
+   finalDerivedAddr = ''
 
    # Get key from RI record and process the contents to get the root key
    #material.
    # FIX: For now, the code assumes the RI object contains PKS objects. CS
    # support will be added later.
    if isinstance(inRIRecord.rec, ConstructedScript):
-      pass # ERROR MSG
-   elif isinstance(inRIRecord.rec, PublicKeySource):
-      if directPayment and not inRIRecord.rec.disableDirectPay:
-         returnKey = inRIRecord.rec.rawSource
-         if inRIRecord.rec.isExternalSrc:
-            pass # Overrides all other flags. Not supported for now.
-         elif inRIRecord.rec.isStatic:
-            pass # Overrides all flags except isExternSec. Key material's final.
-         elif inRIRecord.rec.isUserKey:
-            pass # User supplies a key. Not supported for now.
-         else:
-            if inRIRecord.rec.useCompr:
-               secReturnKey = SecureBinaryData(returnKey)
-               secCompReturnKey = CryptoECDSA().CompressPoint(secReturnKey)
-               returnKey = secCompReturnKey.toBinStr()
+      if not isinstance(inPTVRecord.rec, ScriptRelationshipProof):
+         pass # ERROR MSG
+      else:
+         finalData = inRIRecord.rec.generateScript(inPTVRecord.rec)
 
-            if inRIRecord.rec.useHash160:
-               returnAddr = hash160_to_addrStr(hash160(returnKey), getAddrByte())
+         # For now, we only support P2SH in this case.
+         if inRIRecord.rec.useP2SH:
+            tmpAddr = script_to_scrAddr(script_to_p2sh_script(finalData))
+            finalDerivedAddr = scrAddr_to_addrStr(tmpAddr)
+         else:
+            finalDerivedAddr = scrAddr_to_addrStr(finalData, getAddrByte()) # This is technically an error case.
+
+   elif isinstance(inRIRecord.rec, PublicKeySource):
+      if not isinstance(inPTVRecord.rec, PublicKeyRelationshipProof):
+         pass # ERROR msg
+      else:
+         # If we have a final key in the PKRP, the proof is optional. For
+         # now, we'll verify the proof anyway.
+         if inPTVRecord.rec.multUsed:
+            multiplier = inPTVRecord.rec.multiplier
+         if inPTVRecord.rec.finalKeyUsed:
+            finalKey = inPTVRecord.rec.finalKey
+
+         if directPayment and not inRIRecord.rec.disableDirectPay:
+            returnKey = inRIRecord.rec.rawSource
+            if inRIRecord.rec.isExternalSrc:
+               pass # Overrides all other flags. Not supported for now.
+            elif inRIRecord.rec.isStatic:
+               pass # Overrides all flags except isExternSec. Key material's final.
+            elif inRIRecord.rec.isUserKey:
+               pass # User supplies a key. Not supported for now.
+            else:
+               if inRIRecord.rec.useCompr:
+                  secReturnKey = SecureBinaryData(returnKey)
+                  secCompReturnKey = CryptoECDSA().CompressPoint(secReturnKey)
+                  returnKey = secCompReturnKey.toBinStr()
+
+               # Apply the multiplier.
+               returnKey = HDWalletCrypto().getChildKeyFromMult_SWIG(returnKey,
+                                                                     multiplier)
+
+               if inRIRecord.rec.useHash160:
+                  finalDerivedAddr = hash160_to_addrStr(hash160(returnKey),
+                                                        getAddrByte())
+
    else:
       # This shouldn't happen. Just in case....
       LOGERROR('processReceiverIdentity got a bad ReceiverIdentity record.')
 
-   return returnAddr, returnKey
+   return finalDerivedAddr
 
 
 # Function that checks whether of not the wallet ID store has a given ID.

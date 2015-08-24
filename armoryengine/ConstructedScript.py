@@ -310,8 +310,18 @@ def escapeFF(inputStr):
 
 
 ################################################################################
-def assembleScript(inEscapedScript, inPKSList, inPKRPList):
+# A function that creates a final script from an escaped script and key list.
+# The function isn't CS-specific because there may be instances where
+# outsiders want to access the function using data not in a CS object (e.g.,
+# apply SRP to keys and then get a derived multisig script).
+# INPUT:  Script
+#         Keys
+#         SRP object (optional)
+# OUTPUT: None
+# RETURN: Assembled script  (binary str)
+def assembleScript(inEscapedScript, inKeyList, inSRPObj = None):
    # Steps:
+   # Perform necessary validity checks.
    # Take binary string and split based on 0xff, which is removed.
    # Grab & remove 1st byte of string on the right.
    # - If byte = 0x00, place 0xff at the end of the string on the left.
@@ -320,43 +330,65 @@ def assembleScript(inEscapedScript, inPKSList, inPKRPList):
    #   Insert the key at the end of the string on the left.
    # Reassemble all the strings in the original order.
    # Return the resulting string.
+   finalScript = ''
 
-   # Use a bytearray to treat the incoming binary data as a string. Split
-   # whenever 0xff is encountered. Save the 1st one and then iterate over the
-   # others, if any exist. This is where keys will be inserted and escaped 0xff
-   # characters restored.
-   numProcessedKeys = 0
-   scriptArray = bytes(inEscapedScript)
-   scriptArrayList = scriptArray.split('\xff')
-   finalScriptList = []
-   finalScriptList.append(scriptArrayList[0])
+   if (inSRPObj != None) and (len(inSRPObj.pkrpList) != len(inKeyList)):
+      LOGERROR('assembleScript - Number of keys doesn\'t match number of ' \
+               'SRP object entries.')
+   else:
+      # Use a bytearray to treat the incoming binary data as a string. Split
+      # whenever 0xff is encountered. Save the 1st one and then iterate over the
+      # others, if any exist. This is where keys will be inserted and escaped 0xff
+      # characters restored.
+      numProcessedKeys = 0
+      scriptArray = bytes(inEscapedScript)
+      scriptArrayList = scriptArray.split('\xff')
+      finalKeyList = []
+      finalScriptList = []
+      finalScriptList.append(scriptArrayList[0])
 
-   for fragment in scriptArrayList[1:]:
-      if fragment[0] == '\x00':
-         # Fix up escaped 0xff and save.
-         finalScript.append('\xff')
-         if len(fragment) > 1:
-            finalScript.append(fragment[1:])
-      else:
-         # Remove but keep 1st byte
-         numKeys = binary_to_int(fragment[0])
-         keyList = []
-         for innerPKSList in inPKSList:
-            for innerPKSItem in innerPKSList:
-               genKey = innerPKSItem.generateKeyData(inPKRPList[numProcessedKeys])
-               keyList.append(genKey)
+      for fragment in scriptArrayList[1:]:
+         if fragment[0] == '\x00':
+            # Fix up escaped 0xff and save.
+            finalScriptList.append('\xff')
+            if len(fragment) > 1:
+               finalScriptList.append(fragment[1:])
+         else:
+            # Remove but keep 1st byte
+            numKeys = binary_to_int(fragment[0])
+            keyList = []
 
-         # Sort keys lexicographically and insert into the script before
-         # inserting the rest of the original fragment.
-         # !!!DISABLED!!! Assume only one key coming in for now.
-#         keyList.sort()
-         for key in keyList:
-            finalScriptList.append(key)
-         if len(fragment) > 1:
-            finalScriptList.append(fragment[1:])
+            # Get the final keys from the key list and PKRP objects.
+            # We must sort the keys and PKRP objects together. While unlikely &
+            # foolish, the PKRP objects could have a mix of multipliers & final
+            # keys. We need to plan for that.
+            endIdx = numProcessedKeys + numKeys
+            decorated = \
+               [[pk,pkrp] for pk,pkrp in zip(inKeyList[numProcessedKeys:endIdx],
+                                    inSRPObj.pkrpList[numProcessedKeys:endIdx])]
+            decorSort  = sorted(decorated, key=lambda pair: pair[0])
+            for i, pair in enumerate(decorSort):
+               if pair[1].rec.multUsed:
+                  multiplier = pair[1].rec.multiplier
+                  finalDerivedKey = HDWalletCrypto().getChildKeyFromMult_SWIG(
+                                                                        pair[0],
+                                                                     multiplier)
+               elif pair[1].rec.finalKeyUsed:
+                  finalDerivedKey = pair[1].rec.finalKey
+               keyList.append(finalDerivedKey)
+
+            # Advance counter and add to final script list.
+            numProcessedKeys += numKeys
+            for key in keyList:
+               finalScriptList.append(key)
+            if len(fragment) > 1:
+               finalScriptList.append(fragment[1:])
+
+      # We're done!
+      finalScript = ''.join(finalScriptList)
 
    # We're done! Return the final script.
-   return ''.join(finalScriptList)
+   return finalScript
 
 
 ################################ External Data #################################
@@ -807,16 +839,14 @@ class ConstructedScript(object):
    #############################################################################
    # Logic for generating the final script.
    def generateScript(self, inSRPData):
-      inPKRPList = []
 
       # Get the PKRPs from the SRP array passed in.
       curSRP = decodeScriptRelationshipProof(inSRPData)
-      inPKRPList.append(curSRP.pkrpList)
 
       # Generate and return the final script.
       finalScript = assembleScript(self.scriptTemplate,
                                    self.pubKeyBundles,
-                                   inPKRPList)
+                                   curSRP)
       return finalScript
 
 
