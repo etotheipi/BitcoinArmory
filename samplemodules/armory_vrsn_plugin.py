@@ -20,7 +20,8 @@ from armoryengine.ArmoryOptions import getTestnetFlag, getArmoryHomeDir, \
    isWindows, getAddrByte, isLinux
 from armoryengine.ArmorySettings import SettingsFile
 from armoryengine.ArmoryUtils import binary_to_base58, sha224, binary_to_hex, \
-   parseBitcoinURI, base58_to_binary, hash160_to_addrStr, hash160
+   parseBitcoinURI, base58_to_binary, hash160_to_addrStr, hash160, \
+   script_to_scrAddr, script_to_p2sh_script, scrAddr_to_addrStr
 from armoryengine.BDM import getBDM
 from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
    BTCAID_PAYLOAD_TYPE, CLICKED
@@ -28,15 +29,17 @@ from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
    PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
    PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource, \
    decodePaymentTargetVerifier, decodeReceiverIdentity, ScriptRelationshipProof, \
-   ConstructedScript, ReceiverIdentity
+   ConstructedScript, ReceiverIdentity, decodePMTARecord
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
-if isLinux():
-   from dnssec_dane.daneHandler import getDANERecord
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
    makeVertFrame, makeHorizFrame, HLINE, ArmoryDialog
 from qtdialogs import DlgSendBitcoins, DlgWalletSelect, DlgRequestPayment
 from ui.WalletFrames import SelectWalletFrame
+
+
+if isLinux():
+   from dnssec_dane.daneHandler import getDANERecord
 
 
 WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
@@ -177,14 +180,14 @@ class PluginObject(object):
       initialColResize(self.tableLocalIDs, [0.20, 0.40, 0.40])
 
       self.main.connect(self.tableOtherIDs.selectionModel(),
-                        SIGNAL('currentChanged(const QModelIndex &, ' \
-                                               'const QModelIndex &)'),
-                        self.otherIDclicked)
+                        SIGNAL('selectionChanged(const QItemSelection &, ' \
+                                               'const QItemSelection &)'),
+                        self.otherIDSelectionChanged)
 
       self.main.connect(self.tableLocalIDs.selectionModel(),
-                        SIGNAL('currentChanged(const QModelIndex &, ' \
-                                               'const QModelIndex &)'),
-                        self.localIDclicked)
+                        SIGNAL('selectionChanged(const QItemSelection &, ' \
+                                               'const QItemSelection &)'),
+                        self.localIDSelectionChanged)
 
       self.btnOtherLookup = QPushButton(tr("Lookup Identity"))
       self.btnOtherManual = QPushButton(tr("Manually Enter ID"))
@@ -528,33 +531,29 @@ class PluginObject(object):
 
 
    #############################################################################
-   def otherIDclicked(self, currIndex, prevIndex=None):
-      if prevIndex == currIndex:
-         return
-
-      self.btnOtherExport.setEnabled(not currIndex is None)
-      self.btnOtherDelete.setEnabled(not currIndex is None)
-
+   def otherIDSelectionChanged(self, selected, deselected):
+      self.btnOtherExport.setEnabled(selected.count() > 0)
+      self.btnOtherDelete.setEnabled(selected.count() > 0)
 
    #############################################################################
-   def localIDclicked(self, currIndex, prevIndex=None):
-      if prevIndex == currIndex and not currIndex is None:
-         return
-
-      canSetWalletHandle = False
-      if currIndex is not None:
-         selectedLocalWalletID = self.modelLocalIDs.getWltIDForRow(currIndex.row())
+   def localIDSelectionChanged(self, selected, deselected):
+      if selected.count() > 0:
+         
+         selectedRow = selected.indexes()[0].row()
+         selectedLocalWalletID = self.modelLocalIDs.getWltIDForRow(selectedRow)
          self.wlt = self.main.walletMap[selectedLocalWalletID]
-         canSetWalletHandle = True
-         dnsHandle = self.modelLocalIDs.getWltHandleForRow(currIndex.row())
-         hasWalletHandle = len(dnsHandle) > 0
+         walletHandle = self.modelLocalIDs.getWltHandleForRow(selectedRow)
+         hasWalletHandle = len(walletHandle) > 0
 
-      # hasWalletHandle is True only when canSetWalletHandle is True
-      self.btnLocalSetHandle.setEnabled(canSetWalletHandle)
-      self.btnLocalPublish.setEnabled(hasWalletHandle)
-      self.btnLocalExport.setEnabled(hasWalletHandle)
-      self.btnLocalRequest.setEnabled(hasWalletHandle)
-
+         self.btnLocalSetHandle.setEnabled(True)
+         self.btnLocalPublish.setEnabled(hasWalletHandle)
+         self.btnLocalExport.setEnabled(hasWalletHandle)
+         self.btnLocalRequest.setEnabled(hasWalletHandle)
+      elif deselected.count() > 0:
+         self.btnLocalSetHandle.setEnabled(False)
+         self.btnLocalPublish.setEnabled(False)
+         self.btnLocalExport.setEnabled(False)
+         self.btnLocalRequest.setEnabled(False)
 
    # Function called when the "bdmReadyPMTA" signal is emitted. Not used.
    # INPUT:  None
