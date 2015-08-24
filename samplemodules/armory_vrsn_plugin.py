@@ -190,7 +190,7 @@ class PluginObject(object):
                         self.localIDSelectionChanged)
 
       self.btnOtherLookup = QPushButton(tr("Lookup Identity"))
-      self.btnOtherManual = QPushButton(tr("Manually Enter ID"))
+      self.btnOtherManual = QPushButton(tr("Import Wallet ID"))
       self.btnOtherVerify = QPushButton(tr("Verify Payment Request"))
       self.btnOtherExport = QPushButton(tr("Export Selected ID"))
       self.btnOtherExport.setEnabled(False)
@@ -208,7 +208,7 @@ class PluginObject(object):
       self.btnLocalSetHandle.setEnabled(False)
       self.btnLocalPublish = QPushButton(tr("Publish Identity"))
       self.btnLocalPublish.setEnabled(False)
-      self.btnLocalExport = QPushButton(tr("Export Selected ID"))
+      self.btnLocalExport = QPushButton(tr("Export Selected Wallet ID"))
       self.btnLocalExport.setEnabled(False)
       self.btnLocalRequest = QPushButton(tr("Request Payment to Selected"))
       self.btnLocalRequest.setEnabled(False)
@@ -907,18 +907,16 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
       self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
-      self.mainnetExample = 'bitcoin:18VEVEjWPKZABbpDPXBAQXdevpSk6nWY43?amount=1.43&label=Payment%20for%20Satoshi%27s%20miner%21&pmta=satoshin%40gmx.com..eteQcRSb1KJue4CBQiXzkbH4j3XZs9wG3mRXFt5qo8QQHtE9zvdV'
-      self.testnetExample = 'bitcoin:mpNcRprh3SXNMMrJj92bGorrVjCz5t8c7B?amount=1.43&label=Payment%20for%20Satoshi%27s%20miner%21&pmta=satoshin%40gmx.com..eteQcRRmCp1z4AhW5cuhYupJ7xf6jbbsPj35uvWtSFhxHHFfNzRd'
-      labelStr = 'Example:<BR>' + \
+      self.mainnetExample = 'bitcoin:18VEVEj...o8QQHtE9zvdV'
+      self.testnetExample = 'bitcoin:mpNcRpr...SFhxHHFfNzRd'
+      labelStr = 'Example: ' + \
                  (self.testnetExample if getTestnetFlag() else self.mainnetExample)
       self.lblPayReqExample = QRichLabel(labelStr)
-      frmFeatDescr = makeVertFrame([self.lblPayReqExample])
-      self.lblPayReqExample.setMinimumHeight(tightSizeNChar(self, 10)[1] * 8)
 
       layout = QGridLayout()
       layout.addWidget(paymentRequestLabel, 1, 0, 1, 1)
       layout.addWidget(self.paymentRequestLineEdit, 1, 1, 1, 1)
-      layout.addWidget(frmFeatDescr, 2, 0, 1, 2)
+      layout.addWidget(self.lblPayReqExample, 2, 0, 1, 2)
       layout.addWidget(buttonBox, 4, 0, 1, 2)
       self.setLayout(layout)
 
@@ -1102,16 +1100,13 @@ class SetWalletHandleDialog(ArmoryDialog):
 class EnterWalletIdentityDialog(ArmoryDialog):
    def __init__(self, parent, main):
       super(EnterWalletIdentityDialog, self).__init__(parent, main)
+      
+      walletHandleIDLabel = QLabel("Wallet Handle and Identity:")
+      self.walletHandleIDLineEdit = QLineEdit()
+      self.walletHandleIDLineEdit.setMinimumWidth(500)
+      walletHandleIDLabel.setBuddy(self.walletHandleIDLineEdit)
 
-      walletHandleLabel = QLabel("Wallet Handle:")
-      self.walletHandleLineEdit = QLineEdit()
-      self.walletHandleLineEdit.setMinimumWidth(300)
-      walletHandleLabel.setBuddy(self.walletHandleLineEdit)
-
-      pksLabel = QLabel("Wallet Payment Verifier:")
-      self.riLineEdit = QLineEdit()
-      self.riLineEdit.setMinimumWidth(300)
-      pksLabel.setBuddy(self.riLineEdit)
+      self.walletHandleIDLineEdit.setCursorPosition(0)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
@@ -1121,18 +1116,49 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       
       self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+      
+      def readWalletIDFileAction():
+         self.readWalletIDFile()
+
+      def copyWalletIDFromClipboardAction():
+         self.copyWalletIDFromClipboard()
+
+      btnRead = QPushButton('Read from file...')
+      self.connect(btnRead, SIGNAL(CLICKED), readWalletIDFileAction)
+      btnCopy = QPushButton('Copy to clipboard')
+      self.connect(btnCopy, SIGNAL(CLICKED), copyWalletIDFromClipboardAction)
+      copyButtonBox = makeHorizFrame([btnCopy, btnRead, STRETCH], condenseMargins=True)
 
       layout = QGridLayout()
-      layout.addWidget(walletHandleLabel, 1, 0, 1, 1)
-      layout.addWidget(self.walletHandleLineEdit, 1, 1, 1, 1)
-      layout.addWidget(pksLabel, 2, 0, 1, 1)
-      layout.addWidget(self.riLineEdit, 2, 1, 1, 1)
+      layout.addWidget(walletHandleIDLabel, 1, 0, 1, 1)
+      layout.addWidget(self.walletHandleIDLineEdit, 1, 1, 1, 1)
+      layout.addWidget(copyButtonBox, 2, 0, 1, 2)
       layout.addWidget(buttonBox, 5, 0, 1, 2)
       self.setLayout(layout)
 
-      self.setWindowTitle('Enter Wallet Payment Verifier')
+      self.setWindowTitle('Wallet Handle and Identity')
 
 
+   #############################################################################
+   def copyWalletIDFromClipboard(self):
+      clipb = QApplication.clipboard()
+      self.walletHandleIDLineEdit.setText(clipb.text())
+      self.walletHandleIDLineEdit.setCursorPosition(0)
+      
+   #############################################################################
+   def readWalletIDFile(self):
+      fn = self.main.getFileLoad(tr('Read Wallet ID File'), 
+                                 ffilter=[tr('Extended Pubkey Files (*.pks)')])
+      if os.path.exists(fn):
+         # Read in the data.
+         # Protip: readlines() leaves in '\n'. read().splitlines() nukes '\n'.
+         loadFile = open(fn, 'rb')
+         fileLines = loadFile.read().splitlines()
+         loadFile.close()
+         if len(fileLines) > 0:
+            self.walletHandleIDLineEdit.setText(fileLines[0])
+            self.walletHandleIDLineEdit.setCursorPosition(0)
+   
    #############################################################################
    def validateAndAccept(self):
       if not validateWalletHandle(self.getWltHandle()):
@@ -1153,15 +1179,14 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 
    #############################################################################
    def getWltHandle(self):
-      return str(self.walletHandleLineEdit.text())
-
+      dataArray = str(self.walletHandleIDLineEdit.text()).split('..')
+      return dataArray[0] if len(dataArray) == 2 else ''
 
    #############################################################################
-   # RI = Receiver Identity
    def getWalletRIRecord(self):
-      return str(self.riLineEdit.text())
-
-
+      dataArray = str(self.walletHandleIDLineEdit.text()).split('..')
+      return dataArray[1] if len(dataArray) == 2 else ''
+   
 ################################################################################
 class OtherWalletIDModel(QAbstractTableModel):
 
