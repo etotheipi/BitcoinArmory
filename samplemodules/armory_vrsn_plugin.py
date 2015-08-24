@@ -491,7 +491,8 @@ class PluginObject(object):
       wltID = self.modelLocalIDs.getWltIDForRow(row)
       dlg = SetWalletHandleDialog(self.main, self.main, wltID)
       if dlg.exec_():
-         self.modelLocalIDs.setWltHandle(wltID, dlg.getWltHandle(), dlg.getWalletRIRecord())
+         self.modelLocalIDs.setWltHandle(wltID, dlg.getWltHandle(),
+                                         dlg.getWalletRIRecord())
 
    #############################################################################
    def otherWalletIdentityLookup(self):
@@ -787,6 +788,23 @@ def getNewKeyAndMult(inWlt):
          outMult = multProof1.multiplier
 
    return retVal, outAddr, outPos, outMult
+
+
+# Utility function that checks the ReceiverIdentity record of a given wallet
+# handle and determines if the associated address is of a given type.
+# INPUT:  The wallet ID store file. (ArmorySettings)
+#         The wallet handle to check. (str)
+# OUTPUT: None
+# RETURN: The address type. (str)
+def getAddressType(walletIDStore, walletHandle):
+   retType = 'Unknown'
+
+   handleRecord = getWalletSetting(walletIDStore, 'handle', walletHandle, False)
+   if handleRecord != '':
+      riRecord = decodeReceiverIdentity(base58_to_binary(handleRecord))
+      retType = riRecord.getAddressType()
+
+   return retType
 
 
 ################################################################################
@@ -1158,7 +1176,8 @@ class OtherWalletIDModel(QAbstractTableModel):
    #############################################################################
    def columnCount(self, index=QModelIndex()):
       return 2
-   
+
+
    #############################################################################
    def data(self, index, role=Qt.DisplayRole):
       retVal = QVariant()
@@ -1170,7 +1189,7 @@ class OtherWalletIDModel(QAbstractTableModel):
          if col==OTHER_ID_COLS.DnsHandle:
             retVal = QVariant(keyList[row])
          if col==OTHER_ID_COLS.AddrType:
-            retVal = ''
+            retVal = getAddressType(self.walletIDStore, keyList[row])
       elif role==Qt.TextAlignmentRole:
          retVal = QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:

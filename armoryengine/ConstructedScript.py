@@ -10,6 +10,8 @@ from BinaryPacker import *
 from Transaction import getOpCode
 from ArmoryEncryption import NULLSBD
 from CppBlockUtils import HDWalletCrypto, CryptoECDSA
+from armoryengine.Constants import OP_CHECKSIG, OP_CHECKMULTISIG, OP_DUP, \
+   OP_HASH160, OP_EQUAL
 import re
 import CppBlockUtils as Cpp
 
@@ -1066,6 +1068,31 @@ class ReceiverIdentity(object):
       bp.put(VAR_STR, self.rec.serialize())
 
       return bp.getBinaryString()
+
+
+   #############################################################################
+   # Code that checks the internal records and returns an address type based on
+   # the record type and/or scripts inside the records.
+   def getAddressType(self):
+      retAddrType = 'Exotic'
+
+      # NOTE: This code is a bit simple right now. It makes several assumptions
+      # that should hold up in general. 
+      if isinstance(self.rec, PublicKeySource):
+         retAddrType = 'Single'
+      elif isinstance(self.rec, ConstructedScript):
+         if (binary_to_int(self.rec.scriptTemplate[0]) == OP_DUP) and \
+            (binary_to_int(self.rec.scriptTemplate[-1]) == OP_CHECKSIG):
+            retAddrType = 'Single'
+         elif (binary_to_int(self.rec.scriptTemplate[0]) == OP_HASH160) and \
+              (binary_to_int(self.rec.scriptTemplate[-1]) == OP_EQUAL):
+            retAddrType = 'P2SH'
+         elif (binary_to_int(self.rec.scriptTemplate[-1]) == OP_CHECKMULTISIG):
+            numM = binary_to_int(self.rec.scriptTemplate[0]) - 80
+            numN = binary_to_int(self.rec.scriptTemplate[-2]) - 80
+            retAddrType = 'Multisig (%d-of-%d)' % (numM, numN)
+
+      return retAddrType
 
 
 #############################################################################
