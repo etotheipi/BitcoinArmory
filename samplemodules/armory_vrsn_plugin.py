@@ -466,6 +466,8 @@ class PluginObject(object):
                   if 'label' in uriData:
                      dlgInfo['message'] = uriData['label']
 
+                  dlgInfo['verifiedhandle'] = pmtaData[0]
+
                   DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
             else:
                QMessageBox.warning(self.main, 'Payment Request Invalid',

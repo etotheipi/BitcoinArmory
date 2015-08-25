@@ -255,6 +255,13 @@ class SendBitcoinsFrame(ArmoryFrame):
          amount = prefill.get('amount','')
          message = prefill.get('message','')
          label = prefill.get('label','')
+
+         verhandle = prefill.get('verifiedhandle', None)
+         if verhandle: 
+            verhandle = '<font color="%s">Verified Identity: %s</font>' % \
+                           (htmlColor('TextGreen'), verhandle)
+
+         
          if prefill.get('lockbox',''):
             plainStr = createLockboxEntryStr(prefill.get('lockbox',''))
             self.addOneRecipient(None, amount, message, None, plainStr)
@@ -262,9 +269,11 @@ class SendBitcoinsFrame(ArmoryFrame):
             addrStr = prefill.get('address','')
             atype, addr160 = addrStr_to_hash160(addrStr)
             if atype == getAddrByte():
-               self.addOneRecipient(addr160, amount, message, label)
+               self.addOneRecipient(addr160, amount, message, label, 
+                                                    autoDetectInitText=verhandle)
             else:
-               self.addOneRecipient(None, amount, message, label, plainText=addrStr)
+               self.addOneRecipient(None, amount, message, label, 
+                                 plainText=addrStr, autoDetectInitText=verhandle)
 
       elif not self.main == None and \
            loadCount % donateFreq == (donateFreq-1) and \
@@ -331,7 +340,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       
 
    #############################################################################
-   def addOneRecipient(self, addr160, amt, msg, label=None, plainText=None):
+   def addOneRecipient(self, addr160, amt, msg, label=None, plainText=None, 
+                                             autoDetectInitText=None):
       """
       plainText arg can be used, and will override addr160.  It is for 
       injecting either fancy script types, or special keywords into the 
@@ -361,6 +371,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.widgetTable[-1]['QLE_AMT'].setCursorPosition(0)
       self.widgetTable[-1]['QLE_COMM'].setText(msg)
       self.widgetTable[-1]['QLE_COMM'].setCursorPosition(0)
+      
+      if autoDetectInitText:
+         self.widgetTable[-1]['LBL_DETECT'].setText(autoDetectInitText)
+         self.widgetTable[-1]['LBL_DETECT'].setVisible(True)
 
 
    #############################################################################
