@@ -882,7 +882,7 @@ class ExportWalletIdentityDialog(ArmoryDialog):
       toSave = self.main.getFileSave('Save Wallet ID Data in a File',
                                      ['Wallet ID Data (*.wid)'],
                                      filename)
-      LOGINFO('Saving unsigned tx file: %s', toSave)
+      LOGINFO('Saving wallet ID data file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
          theFile.write(str(self.walletHandleIDLineEdit.text()))
