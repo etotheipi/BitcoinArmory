@@ -149,9 +149,13 @@ class PluginObject(object):
          wallets, to give to others so that they will recognize payments 
          to your wallets.""") % DNSSEC_URL, doWrap=True)
 
-      w,h = tightSizeNChar(QTableView(), 90)
-      viewWidth  = 1.2*w
-      sectionSz  = 1.3*h
+      w,h = tightSizeNChar(QTableView(), 70)
+      viewWidthLocal  = 1.2*w
+      sectionSzLocal  = 1.3*h
+
+      w,h = tightSizeNChar(QTableView(), 50)
+      viewWidthOther  = 1.2*w
+      sectionSzOther  = 1.3*h
 
       # Tracks and displays identities imported manually or from DNSSEC records
       self.modelOtherIDs = OtherWalletIDModel(self.main)
@@ -159,9 +163,9 @@ class PluginObject(object):
       self.tableOtherIDs.setModel(self.modelOtherIDs)
       self.tableOtherIDs.setSelectionBehavior(QTableView.SelectRows)
       self.tableOtherIDs.setSelectionMode(QTableView.SingleSelection)
-      self.tableOtherIDs.setMinimumWidth(viewWidth)
-      self.tableOtherIDs.setMinimumHeight(6.5*sectionSz)
-      self.tableOtherIDs.verticalHeader().setDefaultSectionSize(sectionSz)
+      self.tableOtherIDs.setMinimumWidth(viewWidthOther)
+      self.tableOtherIDs.setMinimumHeight(6.5*sectionSzOther)
+      self.tableOtherIDs.verticalHeader().setDefaultSectionSize(sectionSzOther)
       self.tableOtherIDs.verticalHeader().hide()
       initialColResize(self.tableOtherIDs, [0.34, 0.65])
 
@@ -171,9 +175,9 @@ class PluginObject(object):
       self.tableLocalIDs.setModel(self.modelLocalIDs)
       self.tableLocalIDs.setSelectionBehavior(QTableView.SelectRows)
       self.tableLocalIDs.setSelectionMode(QTableView.SingleSelection)
-      self.tableLocalIDs.setMinimumWidth(viewWidth)
-      self.tableLocalIDs.setMinimumHeight(6.5*sectionSz)
-      self.tableLocalIDs.verticalHeader().setDefaultSectionSize(sectionSz)
+      self.tableLocalIDs.setMinimumWidth(viewWidthLocal)
+      self.tableLocalIDs.setMinimumHeight(6.5*sectionSzLocal)
+      self.tableLocalIDs.verticalHeader().setDefaultSectionSize(sectionSzLocal)
       self.tableLocalIDs.verticalHeader().hide()
       initialColResize(self.tableLocalIDs, [0.20, 0.40, 0.40])
 
@@ -443,14 +447,25 @@ class PluginObject(object):
                                       'recipient.', QMessageBox.Ok)
                else:
                   # Pop-up necessary only for demo purposes?
-                  QMessageBox.information(self.main, 'Payment Request Valid',
-                                      'The payment request was verified! ' \
-                                      'You may now pay the recipient.',
-                                      QMessageBox.Ok)
+                  MsgBoxCustom(MSGBOX.Good, tr('Verification Success'), tr("""
+                     The identity of the payment request was successfully verified!
+                     <br><br>
+                     <b>Receiver Handle:</b> %s
+                     <br>
+                     <b>Verified Address:</b> %s
+                     <br><br>
+                     The "Send Bitcoins" dialog will now open with the verified
+                     address already entered, along with any other information 
+                     contained in the payment request.""") % \
+                     (pmtaData[0], uriData['address']))
 
                   dlgInfo['address'] = uriData['address']
-                  dlgInfo['amount'] = str(uriData['amount'])
-                  dlgInfo['message'] = uriData['label']
+                  if 'amount' in uriData:
+                     dlgInfo['amount'] = str(uriData['amount'])
+                  
+                  if 'label' in uriData:
+                     dlgInfo['message'] = uriData['label']
+
                   DlgSendBitcoins(self.wlt, self.main, self.main, dlgInfo).exec_()
             else:
                QMessageBox.warning(self.main, 'Payment Request Invalid',
@@ -939,7 +954,7 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
                                 'Request. Please check that you entered the ' \
                                 'request correctly.', QMessageBox.Ok)
 
-         elif not validateWalletHandle(pmtaData[0]):
+         elif not validateWalletHandle(pmtaData[0].strip()):
             QMessageBox.warning(self.main, 'Invalid Payment Request Handle',
                                 'You have entered a broken Payment Request ' \
                                 'handle. Please check that you entered the ' \
@@ -955,7 +970,7 @@ class VerifyPaymentRequestDialog(ArmoryDialog):
 
    #############################################################################
    def getPaymentRequest(self):
-      return str(self.paymentRequestLineEdit.text())
+      return str(self.paymentRequestLineEdit.text()).strip()
 
 
 ################################################################################
@@ -1000,7 +1015,7 @@ class LookupIdentityDialog(ArmoryDialog):
 
    #############################################################################
    def getWltHandle(self):
-      return str(self.walletHandleLineEdit.text())
+      return str(self.walletHandleLineEdit.text()).strip()
 
 
 ################################################################################
@@ -1077,13 +1092,13 @@ class SetWalletHandleDialog(ArmoryDialog):
 
    #############################################################################
    def getWltHandle(self):
-      return str(self.walletHandleLineEdit.text())
+      return str(self.walletHandleLineEdit.text()).strip()
 
 
    #############################################################################
    # RI = Receiver Identity
    def getWalletRIRecord(self):
-      return str(self.riLineEdit.text())
+      return str(self.riLineEdit.text()).strip()
 
 
 ################################################################################
@@ -1172,13 +1187,13 @@ class EnterWalletIdentityDialog(ArmoryDialog):
    #############################################################################
    def getWltHandle(self):
       dataArray = str(self.walletHandleIDLineEdit.text()).split('..')
-      return dataArray[0] if len(dataArray) == 2 else ''
+      return dataArray[0].strip() if len(dataArray) == 2 else ''
 
 
    #############################################################################
    def getWalletRIRecord(self):
       dataArray = str(self.walletHandleIDLineEdit.text()).split('..')
-      return dataArray[1] if len(dataArray) == 2 else ''
+      return dataArray[1].strip() if len(dataArray) == 2 else ''
 
 
 ################################################################################

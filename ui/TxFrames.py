@@ -259,8 +259,12 @@ class SendBitcoinsFrame(ArmoryFrame):
             plainStr = createLockboxEntryStr(prefill.get('lockbox',''))
             self.addOneRecipient(None, amount, message, None, plainStr)
          else:
-            atype, addr160 = addrStr_to_hash160(prefill.get('address',''))
-            self.addOneRecipient(addr160, amount, message, label)
+            addrStr = prefill.get('address','')
+            atype, addr160 = addrStr_to_hash160(addrStr)
+            if atype == getAddrByte():
+               self.addOneRecipient(addr160, amount, message, label)
+            else:
+               self.addOneRecipient(None, amount, message, label, plainText=addrStr)
 
       elif not self.main == None and \
            loadCount % donateFreq == (donateFreq-1) and \
