@@ -314,8 +314,8 @@ def escapeFF(inputStr):
 # The function isn't CS-specific because there may be instances where
 # outsiders want to access the function using data not in a CS object (e.g.,
 # apply SRP to keys and then get a derived multisig script).
-# INPUT:  Script
-#         Keys
+# INPUT:  An escaped script forming the basis of the final script. (binary str)
+#         A list of the base keys. (binary str)
 #         SRP object (optional)
 # OUTPUT: None
 # RETURN: Assembled script  (binary str)
@@ -368,13 +368,13 @@ def assembleScript(inEscapedScript, inKeyList, inSRPObj = None):
                                     inSRPObj.pkrpList[numProcessedKeys:endIdx])]
             decorSort  = sorted(decorated, key=lambda pair: pair[0])
             for i, pair in enumerate(decorSort):
-               if pair[1].rec.multUsed:
-                  multiplier = pair[1].rec.multiplier
+               if pair[1].multUsed:
+                  multiplier = pair[1].multiplier
                   finalDerivedKey = HDWalletCrypto().getChildKeyFromMult_SWIG(
                                                                         pair[0],
                                                                      multiplier)
-               elif pair[1].rec.finalKeyUsed:
-                  finalDerivedKey = pair[1].rec.finalKey
+               elif pair[1].finalKeyUsed:
+                  finalDerivedKey = pair[1].finalKey
                keyList.append(finalDerivedKey)
 
             # Advance counter and add to final script list.
@@ -526,6 +526,18 @@ class PublicKeySource(object):
 
       # We're done! Return the key data.
       return finalKeyData
+
+
+   #############################################################################
+   def getKeyDataNoHash(self):
+      retKey = self.rawSource
+
+      if self.useCompr:
+         secFinalKeyData = SecureBinaryData(retKey)
+         finalKeyDataSBD = CryptoECDSA().CompressPoint(secFinalKeyData)
+         retKey = finalKeyDataSBD.toBinStr()
+
+      return retKey
 
 
    #############################################################################
@@ -692,7 +704,7 @@ class ConstructedScript(object):
       self.version         = ver
       self.useP2SH         = useP2SH
       self.isChksumPresent = chksumPres
-      self.pubKeyBundles   = []
+      self.pksBundles   = []
 
       self.setTemplateAndPubKeySrcs(scrTemp, pubSrcs)
 
@@ -719,15 +731,19 @@ class ConstructedScript(object):
       inner.put(UINT8,   self.version)
       inner.put(BITSET,  flags, width = 2)
       inner.put(VAR_STR, self.scriptTemplate)
-      inner.put(UINT8,   sum(len(keyList) for keyList in self.pubKeyBundles)) # Fix?
-      for keyItem in self.pubKeyBundles:
-         for keyItem2 in keyItem:
-            inner.put(VAR_STR, keyItem2.serialize())
+      inner.put(UINT8,   sum(len(pksList) for pksList in self.pksBundles)) # Fix?
+      for curPKSList in self.pksBundles:
+         for curPKSObj in curPKSList:
+            inner.put(VAR_STR, curPKSObj.serialize())
 
       return inner.getBinaryString()
 
 
    #############################################################################
+   # INPUT:  An escaped script. (binary str)
+   #         A list of PublicKeySource objects to include in the CS.
+   # OUTPUT: None
+   # RETURN: None
    def setTemplateAndPubKeySrcs(self, scrTemp, pubSrcs):
       """
       Inputs:
@@ -735,7 +751,7 @@ class ConstructedScript(object):
          pubSrcs:  flat list of PublicKeySource objects
 
       Outputs:
-         Sets member vars self.scriptTemplate and self.pubKeyBundles
+         Sets member vars self.scriptTemplate and self.pksBundles
          pubkeyBundles will be a list-of-lists as described below.
 
       Let's say we have a script template like this: this is a non-working
@@ -785,7 +801,7 @@ class ConstructedScript(object):
 
       self.scriptTemplate = scrTemp
       self.pubKeySrcList  = pubSrcs[:]
-      self.pubKeyBundles  = []
+      self.pksBundles  = []
 
       # Slice up the pubkey src list into the bundles. Key order doesn't matter
       # as long as the keys line up alongside the escaped bytes. Multisig keys
@@ -793,7 +809,7 @@ class ConstructedScript(object):
       idx = 0
       for sz in escapedBytes:
          if sz > 0:
-            self.pubKeyBundles.append( self.pubKeySrcList[idx:idx+sz] )
+            self.pksBundles.append( self.pubKeySrcList[idx:idx+sz] )
             idx += sz
 
 
@@ -838,14 +854,24 @@ class ConstructedScript(object):
 
    #############################################################################
    # Logic for generating the final script.
+   # INPUT:  Serialized SRP data. (binary str)
+   # OUTPUT: None
+   # RETURN: The final, unescaped script. (binary str)
    def generateScript(self, inSRPData):
 
       # Get the PKRPs from the SRP array passed in.
       curSRP = decodeScriptRelationshipProof(inSRPData)
 
+      # Get the list of keys from the internal PKS objects.
+      scriptKeyList = []
+      for curPKSList in self.pksBundles: # List of grouped PKS objects
+         for curPKS in curPKSList:       # Actual PKS objects
+            curKey = curPKS.getKeyDataNoHash()
+            scriptKeyList.append(curKey)
+
       # Generate and return the final script.
       finalScript = assembleScript(self.scriptTemplate,
-                                   self.pubKeyBundles,
+                                   scriptKeyList,
                                    curSRP)
       return finalScript
 
@@ -868,18 +894,16 @@ class ConstructedScript(object):
 #############################################################################
 def decodeConstructedScript(serData):
    inKeyList = []
-#   bu = makeBinaryUnpacker(serData)  # Need to incorporate somehow?
    inData    = BinaryUnpacker(serData)
    inVer     = inData.get(UINT8)
    inFlags   = inData.get(BITSET, 2)
    inScrTemp = inData.get(VAR_STR)
    inNumKeys = inData.get(UINT8)
-   k = 0
-   while k < inNumKeys:
+
+   for k in range(0, inNumKeys):
       nextKey = inData.get(VAR_STR)
       pks = decodePublicKeySource(nextKey)
       inKeyList.append(pks)
-      k += 1
 
    # If checksum is present, confirm that the other data is correct.
    inChksum = None

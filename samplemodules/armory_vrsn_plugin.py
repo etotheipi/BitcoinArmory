@@ -37,10 +37,8 @@ from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
 from qtdialogs import DlgSendBitcoins, DlgWalletSelect, DlgRequestPayment
 from ui.WalletFrames import SelectWalletFrame
 
-
 if isLinux():
    from dnssec_dane.daneHandler import getDANERecord
-
 
 WALLET_ID_STORE_FILENAME = 'Wallet_DNS_ID_Store.txt'
 DNSSEC_URL = "https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensions"
@@ -369,8 +367,9 @@ class PluginObject(object):
 
 
    #############################################################################
-   # NOTE: This is a large, unwieldy function. It should probably be refactored
-   # into multiple, smaller functions. One day....
+   # Function that takes a payment request (URI format) and verifies it. The URI
+   # must have the data in a "pmta" tag (<handle>..<PTV record>). Example:
+   #bitcoin:mgybaHzS9KgdR3qQ64gMrRd72Jfy5t1TbK?amount=1.43&label=Pay%20up.&pmta=satoshin%40gmx.com..eteQcRRvfX77Av7SAGmmkjZdNJLSWQbZ9QVRSktJgw1CMwhv1aM5
    def verifyPaymentRequest(self):
       # First, verify that the data we're receiving is correctly formatted. The
       # data MUST be a Bitcoin URI with properly formatted data.
@@ -380,7 +379,7 @@ class PluginObject(object):
          uriData = parseBitcoinURI(dlg.getPaymentRequest())
          pmtaData = uriData['pmta'].split('..')
 
-         # TODO: Specify Multiplier
+         # Grab the PaymentTargetVerifier from the URI.
          multiplier = None
          finalKey   = None
          ptv = decodePaymentTargetVerifier(base58_to_binary(pmtaData[1]))
@@ -391,18 +390,15 @@ class PluginObject(object):
                                 'that the text is complete and not corrupted.',
                                 QMessageBox.Ok)
          else:
-            # FIX: For now, the code assumes the PTV contains a PKRP record. SRP
-            # support will come later.
-
             # Go through the following steps. All steps, unless otherwise
             # noted, are inside a loop based on the number of unvalidated
             # TxOut scripts listed in the record.
-            #  1) Check DNS first.
+            #  1) Check DNS/DANE first.
             # 2a) If we get a DNS record, save the accompanying RI record.
             # 2b) If we don't get a DNS record, confirm that the ID is in the
             #     ID store, and get the accompanying RI record.
-            #  3) If the ID is acceptable, apply the proof to get the final
-            #     address.
+            #  3) If the ID is acceptable, process the RI & PTV records to get
+            #     the final payment address.
             #  4) Confirm the derived address matches the provided address.
             #  5) If the addresses match, generate a "Send Bitcoins" dialog
             #     using the appropriate info.
@@ -411,8 +407,6 @@ class PluginObject(object):
             validRecords = True
             dnsResult = False
 
-            # Check DNS/DANE first, then try the local ID store if there's
-            # no record found...
             # NOTE: For now, DANE code runs only on Linux. Any other OS must
             # use the local ID store.
             if isLinux():
@@ -426,7 +420,7 @@ class PluginObject(object):
                 resultRIRecord = riObj.serialize()
             else:
                # Verify that the received record matches the one in the ID
-               # store. If so, go ahead with the dialog.
+               # store. If so, go ahead and grab the ReceiverIdentity record.
                riFound, resultRIRecord = getRIFromStore(pmtaData[0])
                if riFound:
                   resultRIRecord = base58_to_binary(resultRIRecord)
@@ -434,18 +428,13 @@ class PluginObject(object):
                   validRecords = False
 
             if validRecords:
-               # TODO: Need to properly handle the final key & multiplier.
-               # The code currently plows ahead w/ the derivation.
                # Verify that the URI address matches the derived address.
-               # NOTE: The code assumes a standard Bitcoin address. Support
-               # will need to be expanded eventually.
+               # NOTE: The code assumes usage of standard Bitcoin addresses,
+               # including P2SH as necessary (e.g., mandatory P2SH for
+               # multisig). Support will need to be expanded eventually.
                riObj = decodeReceiverIdentity(resultRIRecord)
                finalDerivedAddr = processReceiverIdentity(riObj, True, ptv)
 
-               # Insert pop-up if derived address doesn't match the supplied
-               # address. Also, as a way to show this really works, insert a
-               # pop-up saying derivation worked. Wouldn't be done in a prod
-               # env but it's great for a demo!
                if uriData['address'] != finalDerivedAddr:
                   QMessageBox.warning(self.main, 'Payment Request Invalid',
                                       'The payment request could not be ' \
@@ -453,6 +442,7 @@ class PluginObject(object):
                                       'and contact the intended payment ' \
                                       'recipient.', QMessageBox.Ok)
                else:
+                  # Pop-up necessary only for demo purposes?
                   QMessageBox.information(self.main, 'Payment Request Valid',
                                       'The payment request was verified! ' \
                                       'You may now pay the recipient.',
@@ -535,6 +525,7 @@ class PluginObject(object):
       self.btnOtherExport.setEnabled(selected.count() > 0)
       self.btnOtherDelete.setEnabled(selected.count() > 0)
 
+
    #############################################################################
    def localIDSelectionChanged(self, selected, deselected):
       if selected.count() > 0:
@@ -554,6 +545,7 @@ class PluginObject(object):
          self.btnLocalPublish.setEnabled(False)
          self.btnLocalExport.setEnabled(False)
          self.btnLocalRequest.setEnabled(False)
+
 
    # Function called when the "bdmReadyPMTA" signal is emitted. Not used.
    # INPUT:  None
@@ -625,13 +617,11 @@ def processReceiverIdentity(inRIRecord, directPayment, inPTVRecord):
 
    # Get key from RI record and process the contents to get the root key
    #material.
-   # FIX: For now, the code assumes the RI object contains PKS objects. CS
-   # support will be added later.
    if isinstance(inRIRecord.rec, ConstructedScript):
       if not isinstance(inPTVRecord.rec, ScriptRelationshipProof):
          pass # ERROR MSG
       else:
-         finalData = inRIRecord.rec.generateScript(inPTVRecord.rec)
+         finalData = inRIRecord.rec.generateScript(inPTVRecord.rec.serialize())
 
          # For now, we only support P2SH in this case.
          if inRIRecord.rec.useP2SH:
@@ -1110,13 +1100,13 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
-      
+
       def validateAndAcceptAction():
          self.validateAndAccept()
-      
+
       self.connect(buttonBox, SIGNAL('accepted()'), validateAndAcceptAction)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
-      
+
       def readWalletIDFileAction():
          self.readWalletIDFile()
 
@@ -1144,7 +1134,8 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       clipb = QApplication.clipboard()
       self.walletHandleIDLineEdit.setText(clipb.text())
       self.walletHandleIDLineEdit.setCursorPosition(0)
-      
+
+
    #############################################################################
    def readWalletIDFile(self):
       fn = self.main.getFileLoad(tr('Read Wallet ID File'), 
@@ -1158,7 +1149,8 @@ class EnterWalletIdentityDialog(ArmoryDialog):
          if len(fileLines) > 0:
             self.walletHandleIDLineEdit.setText(fileLines[0])
             self.walletHandleIDLineEdit.setCursorPosition(0)
-   
+
+
    #############################################################################
    def validateAndAccept(self):
       if not validateWalletHandle(self.getWltHandle()):
@@ -1182,11 +1174,13 @@ class EnterWalletIdentityDialog(ArmoryDialog):
       dataArray = str(self.walletHandleIDLineEdit.text()).split('..')
       return dataArray[0] if len(dataArray) == 2 else ''
 
+
    #############################################################################
    def getWalletRIRecord(self):
       dataArray = str(self.walletHandleIDLineEdit.text()).split('..')
       return dataArray[1] if len(dataArray) == 2 else ''
-   
+
+
 ################################################################################
 class OtherWalletIDModel(QAbstractTableModel):
 
