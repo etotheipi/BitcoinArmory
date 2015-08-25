@@ -506,7 +506,6 @@ class PluginObject(object):
 
 
    #############################################################################
-   # FIX: Settle on export format
    def otherExportSelectedID(self):
       row = self.tableOtherIDs.selectedIndexes()[0].row()
 
@@ -517,7 +516,6 @@ class PluginObject(object):
 
 
    #############################################################################
-   # FIX: Settle on export format
    def localExportSelectedID(self):
       row = self.tableLocalIDs.selectedIndexes()[0].row()
 
@@ -722,14 +720,18 @@ def validateWalletHandle(inAddr):
 
 
 #############################################################################
-# TODO: Check validation logic
-def validateWalletPaymentVerifier(walletPaymentVerifier):
+# Take a wallet's ReceiverIdentity record and verify that the record is
+# valid.
+# INPUT:  Base58-serialized ReceiverIdentity record.
+# OUTPUT: None
+# RETURN: Boolean indicating whether or not validation was successful.
+def validateWalletIdentity(walletRI):
    validRIObj = False
 
    # If the string we receive is a bad encode, just drop any raised errors.
    try:
       receiverIdentityObj = \
-              decodeReceiverIdentity(base58_to_binary(walletPaymentVerifier))
+              decodeReceiverIdentity(base58_to_binary(walletRI))
       validRIObj = receiverIdentityObj.isValid()
    except:
       pass
@@ -738,14 +740,15 @@ def validateWalletPaymentVerifier(walletPaymentVerifier):
 
 
 #############################################################################
-# TODO: Check validation logic
+# Take a decodePaymentTargetVerifier record from a payment request (probably
+# originating from a URI) and verify that the record
 # INPUT:  Base58-serialized PaymentTargetVerifier object. (str)
-#         The window that spawned the plugin. (ArmoryMainWindow)
 # OUTPUT: None
 # RETURN: Boolean indicating whether or not validation was successful.
 def validatePaymentTargetVerifier(inPTV):
    validPTVObj = False
 
+   # If the string we receive is a bad encode, just drop any raised errors.
    try:
       ptv = decodePaymentTargetVerifier(base58_to_binary(inPTV))
       validPTVObj = ptv.isValid()
@@ -872,15 +875,13 @@ class ExportWalletIdentityDialog(ArmoryDialog):
 
    #############################################################################
    def saveWalletIDFile(self):
-      # Use the first 6 characters of the PKS
+      # Use the username of the wallet identity in the file name.
       handleIDStr = str(self.walletHandleIDLineEdit.text())
-      idSegment = handleIDStr[handleIDStr.rfind(' '):]
-      if len(idSegment) > 6:
-         idSegment = idSegment[:6]
-      toSave = self.main.getFileSave(\
-                      'Save Wallet ID in a File', \
-                      ['Armory Transactions (*.pks)'], \
-                      'WalletID_%s.pks' % idSegment)
+      usernameSegment = handleIDStr.split('@')[0]
+      filename = 'WalletID_%s.wid' % usernameSegment
+      toSave = self.main.getFileSave('Save Wallet ID Data in a File',
+                                     ['Wallet ID Data (*.wid)'],
+                                     filename)
       LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
@@ -1153,8 +1154,8 @@ class EnterWalletIdentityDialog(ArmoryDialog):
 
    #############################################################################
    def readWalletIDFile(self):
-      fn = self.main.getFileLoad(tr('Read Wallet ID File'), 
-                                 ffilter=[tr('Extended Pubkey Files (*.pks)')])
+      fn = self.main.getFileLoad(tr('Read Wallet ID File'),
+                                 ffilter=[tr('Wallet ID Data (*.wid)')])
       if os.path.exists(fn):
          # Read in the data.
          # Protip: readlines() leaves in '\n'. read().splitlines() nukes '\n'.
@@ -1174,8 +1175,7 @@ class EnterWalletIdentityDialog(ArmoryDialog):
                              'continue, enter a Wallet Handle that is in ' \
                              'the same format as an email address.',
                              QMessageBox.Ok)
-      elif not validateWalletPaymentVerifier(self.getWalletRIRecord()):
-         # TODO: Fill in this text that describes what is valid',
+      elif not validateWalletIdentity(self.getWalletRIRecord()):
          QMessageBox.warning(self.main, 'Invalid Wallet Payment Verifier',
                              'You have entered an invalid Wallet Payment ' \
                              'Verifier. Please verify that the data was ' \
@@ -1222,6 +1222,7 @@ class OtherWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
+   # Get data from the model.
    def data(self, index, role=Qt.DisplayRole):
       retVal = QVariant()
       row,col = index.row(), index.column()
@@ -1242,6 +1243,7 @@ class OtherWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
+   # Set the model header data.
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       retVal = QVariant()
       if role==Qt.DisplayRole:
@@ -1357,6 +1359,7 @@ class LocalWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
+   # Get data from the model.
    def data(self, index, role=Qt.DisplayRole):
       retVal = QVariant()
 
@@ -1381,6 +1384,7 @@ class LocalWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
+   # Set the model header data.
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       retVal = QVariant()
       if role==Qt.DisplayRole:
@@ -1401,13 +1405,15 @@ class LocalWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
-   # FIX: Need to put in a better way to supply data. The current setup is for debugging purposes.
+   # Export the local wallet handle and the receiver identity to the user.
    def getRowToExport(self, row):
       retStr = ''
 
       wltID = self.main.wltIDList[row]
       dnsID = getWalletSetting(self.walletIDStore, 'wallet', wltID)
       if dnsID:
+         # Note that, for now, the local wallets are hard-coded to return a PKS
+         # record. More options need to be added eventually.
          wlt = self.main.walletMap[wltID]
          riObj = ReceiverIdentity(getWltPKS(wlt))
          riStr = binary_to_base58(riObj.serialize())
@@ -1417,12 +1423,10 @@ class LocalWalletIDModel(QAbstractTableModel):
 
 
    #############################################################################
+   # Set the local wallet handle and the receiver identity data.
    def setWltHandle(self, wltID, wltHandle, riRecord):
-
-         setWalletSetting(self.walletIDStore, 'wallet', wltID,
-                          wltHandle)
-         setWalletSetting(self.walletIDStore, 'handle', wltHandle,
-                          riRecord)
+         setWalletSetting(self.walletIDStore, 'wallet', wltID, wltHandle)
+         setWalletSetting(self.walletIDStore, 'handle', wltHandle, riRecord)
          self.reset()
 
 
@@ -1439,5 +1443,4 @@ class LocalWalletIDModel(QAbstractTableModel):
 
   #############################################################################
    def getWltHandleForID(self, wltID):
-      return getWalletSetting(self.walletIDStore, 'wallet',
-                                     wltID, False)
+      return getWalletSetting(self.walletIDStore, 'wallet', wltID, False)
