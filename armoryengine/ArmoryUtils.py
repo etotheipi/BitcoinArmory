@@ -1455,6 +1455,11 @@ def formatWithPlurals(txt, replList=None, pluralList=None):
 #  -- ScrAddr strings (A unique identifier used by the DB)
 ################################################################################
 
+
+################################################################################
+def getAddrByte():
+   return '\x6f' if USE_TESTNET else '\x00'
+
 ################################################################################
 # Convert a 20-byte hash to a "pay-to-public-key-hash" script to be inserted
 # into a TxOut script
