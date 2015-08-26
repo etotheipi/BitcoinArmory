@@ -328,7 +328,7 @@ TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
    this->txtime_ = rhs.txtime_;
 
    this->isUTXO_ = rhs.isUTXO_;
-   this->isFromSameTx_ = rhs.isFromSameTx_;
+   this->isFromSameBlock_ = rhs.isFromSameBlock_;
 
    return *this;
 }
@@ -352,7 +352,7 @@ TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
    this->txtime_ = toMove.txtime_;
 
    this->isUTXO_ = toMove.isUTXO_;
-   this->isFromSameTx_ = toMove.isFromSameTx_;
+   this->isFromSameBlock_ = toMove.isFromSameBlock_;
 
    return *this;
 }
@@ -367,7 +367,7 @@ void TxIOPair::unserialize(const BinaryDataRef& val)
    bool isSpent      = bitunpack.getBit();
    isMultisig_       = bitunpack.getBit();
    isUTXO_           = bitunpack.getBit();
-   isFromSameTx_     = bitunpack.getBit();
+   isFromSameBlock_     = bitunpack.getBit();
 
    // We always include the 8-byte value
    amount_ = brr.get_uint64_t();
@@ -420,7 +420,7 @@ void TxIOPair::serializeDbValue(BinaryWriter& bw) const
    bitpacker.putBit(hasTxIn());
    bitpacker.putBit(isMultisig_);
    bitpacker.putBit(isUTXO_);
-   bitpacker.putBit(isFromSameTx_);
+   bitpacker.putBit(isFromSameBlock_);
 
    bw.put_BitPacker(bitpacker);
    bw.put_uint64_t(amount_);

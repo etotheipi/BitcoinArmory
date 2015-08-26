@@ -440,9 +440,9 @@ public:
       uint16_t fnum, uint64_t offset, uint32_t blocksize) const;
 
    bool getRawBlockFromFiles(BinaryData& bd,
-      uint32_t blockHgt, uint8_t blockDup) const;
+      uint32_t blockHgt, uint8_t blockDup, bool verbose) const;
    bool getRawBlockFromFiles(BinaryData& bd,
-      const BinaryData& dbKey) const;
+      const BinaryData& dbKey, bool verbose) const;
    bool getRawBlockFromFiles(BinaryData& bd,
       LDBIter& ldbIter) const;
 

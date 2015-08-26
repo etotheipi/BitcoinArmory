@@ -444,9 +444,10 @@ void ScrAddrFilter::buildSSHKeys()
    //write the initialized SSHs to DB, the scanning process will grab them from
    //the DB when needed
    LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(tx, SSH, LMDB::ReadWrite);
    for (auto& ssh : *sshHeaders.sshToModify_)
    {
+      auto shard = lmdb_->getShard(ssh.first);
+      lmdb_->beginShardTransaction(tx, shard, LMDB::ReadWrite);
       lmdb_->putStoredScriptHistorySummary(ssh.second);
    }
 }

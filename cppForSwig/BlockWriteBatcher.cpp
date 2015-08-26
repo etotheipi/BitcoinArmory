@@ -34,22 +34,26 @@ static void updateBlkDataHeader(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void insertSpentTxio(
-   const TxIOPair& txio,
+void createSpentTxio(
    StoredSubHistory& inHgtSubSsh,
-   const BinaryData& txOutKey, 
-   const BinaryData& txInKey)
-{
-   auto& mirrorTxio = inHgtSubSsh.txioMap_[txOutKey];
+   const BinaryData& txOutKey,
+   const BinaryData& txInKey,
+   uint64_t val,
+   bool isCoinbase)
 
-   mirrorTxio = txio;
-   mirrorTxio.setTxIn(txInKey);
-   
+{
+   auto& spentTxio = inHgtSubSsh.txioMap_[txOutKey];
+
+   spentTxio.setTxOut(txOutKey);
+   spentTxio.setTxIn(txInKey);
+   spentTxio.setValue(val);
+   spentTxio.setFromCoinbase(isCoinbase);
+   spentTxio.setMultisig(false);
+
    if (!txOutKey.startsWith(inHgtSubSsh.hgtX_))
       inHgtSubSsh.txioCount_++;
-
-   if (txio.flagged_)
-      mirrorTxio.setIsFromSameTx();
+   else
+      spentTxio.setIsFromSameBlock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -945,7 +949,7 @@ void BlockWriteBatcher::updateSSH(
                }
                else
                {
-                  if (!txio.second.isFromSameTx())
+                  if (!txio.second.isFromSameBlock())
                      currentSsh.totalUnspent_ -= txio.second.getValue();
                   else
                      currentSsh.totalTxioCount_++;
@@ -1058,7 +1062,7 @@ void ProcessedBatchSerializer::updateSSHThread(
                         {
                            if (!txio.isMultisig())
                            {
-                              if (txio.isUTXO() || txio.flagged_)
+                              if (txio.isUTXO())
                               {
                                  ssh.totalUnspent_ += txio.getValue();
                                  ssh.totalTxioCount_++;
@@ -1069,7 +1073,7 @@ void ProcessedBatchSerializer::updateSSHThread(
                         }
                         else
                         {
-                           if (!txio.flagged_)
+                           if (!txio.isFromSameBlock())
                               ssh.totalUnspent_ -= txio.getValue();
                            else
                               ssh.totalTxioCount_++;
@@ -1522,7 +1526,7 @@ void ProcessedBatchSerializer::putSSH(uint32_t nWriters)
    auto db = BlockWriteBatcher::iface_;
 
    auto putThread = [&nWriters, this](uint32_t keyLength)->void
-   { this->putSubSSH(keyLength, 200); };
+   { this->putSubSSH(keyLength, nWriters); };
 
    vector<thread> subSshThreads;
    for (auto& subsshmap : keyedSubSshToApply_)
@@ -2838,30 +2842,15 @@ bool BlockDataThread::parseTxIns(
       stxoPtr->spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
       stxoPtr->spentness_ = TXOUT_SPENT;
 
-      ////// Now update the SSH to show this TxIOPair was spent
-      // Same story as stxToModify above, except this will actually create a new
-      // SSH if it doesn't exist in the map or the DB
+      //create ssh
       BinaryData& hgtX = stxoPtr->getHgtX();
-
-      StoredSubHistory& subssh = 
-         makeSureSubSSHInMap_IgnoreDB(uniqKey, hgtX);
-
       StoredSubHistory& mirrorsubssh =
          makeSureSubSSHInMap_IgnoreDB(
             uniqKey, stxoPtr->spentByTxInKey_.getSliceRef(0, 4));
 
-      // update the txio in its subSSH
-      auto& txio = subssh.txioMap_[stxoKey];
-      if (txio.getValue() == 0)
-      {
-         subssh.markTxOutUnspent(stxoKey, stxoPtr->getValue(),
-            stxoPtr->isCoinbase_, false, false);
-         txio.flagged_ = true;
-      }
-      subssh.markTxOutSpent(stxoKey);
-
-      //Mirror the spent txio at txin height
-      insertSpentTxio(txio, mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_);
+      //create spent txio at txin height
+      createSpentTxio(mirrorsubssh, stxoKey, stxoPtr->spentByTxInKey_,
+         stxoPtr->getValue(), stxoPtr->isCoinbase_);
    }
 
    return txIsMine;
