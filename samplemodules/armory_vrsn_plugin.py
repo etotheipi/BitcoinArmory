@@ -464,7 +464,7 @@ class PluginObject(object):
                      dlgInfo['amount'] = str(uriData['amount'])
                   
                   if 'label' in uriData:
-                     dlgInfo['message'] = uriData['label']
+                     dlgInfo['label'] = uriData['label']
 
                   dlgInfo['verifiedhandle'] = pmtaData[0]
 

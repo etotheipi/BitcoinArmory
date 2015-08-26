@@ -347,7 +347,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       injecting either fancy script types, or special keywords into the 
       address field, such as a lockbox ID
       """
-      if label:
+      if label and addr160:
          addr = self.wlt.getAddress(hash160_to_scrAddr(addr160))
          addr.setLabel(label)
 
