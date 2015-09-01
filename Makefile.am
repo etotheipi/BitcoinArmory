@@ -18,7 +18,7 @@ CXXCPP += -stdlib=libc++
 endif
 
 if TARGET_LINUX
-LDLIBS += $(LIBS)
+LDLIBS += -lrt
 endif
 
 CRYPTOPP_EXT = .a
