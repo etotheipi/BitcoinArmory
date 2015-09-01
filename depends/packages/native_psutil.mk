@@ -7,9 +7,9 @@ $(package)_dependencies=native_python2
 $(package)_build_env=CC="$($(package)_cc)" LD="$($(package)_cc)" CFLAGS="$($(package)_cflags)"
 
 define $(package)_build_cmds
-  $($(package)_prefixbin)/python setup.py build
+  $($(package)_prefixbin)/python2 setup.py build
 endef
 
 define $(package)_stage_cmds
-  $($(package)_prefixbin)/python setup.py install --root=$($(package)_staging_dir) --prefix=$($(package)_prefix)
+  $($(package)_prefixbin)/python2 setup.py install --root=$($(package)_staging_dir) --prefix=$($(package)_prefix)
 endef

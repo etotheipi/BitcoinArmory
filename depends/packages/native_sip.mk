@@ -12,7 +12,7 @@ define $(package)_set_vars
 endef
 
 define $(package)_config_cmds
-  $($(package)_prefixbin)/python configure.py $($(package)_config_opts)
+  $($(package)_prefixbin)/python2 configure.py $($(package)_config_opts)
 endef
 
 define $(package)_build_cmds

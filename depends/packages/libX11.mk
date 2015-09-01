@@ -8,7 +8,6 @@ $(package)_dependencies=libxcb xtrans xextproto xproto
 
 define $(package)_set_vars
 $(package)_config_opts=--disable-xkb --disable-static
-$(package)_config_opts_linux=--with-pic
 endef
 
 define $(package)_config_cmds

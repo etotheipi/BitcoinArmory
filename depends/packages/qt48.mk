@@ -3,7 +3,7 @@ $(package)_version=4.8.6
 $(package)_download_path=http://download.qt.io/archive/qt/4.8/$($(package)_version)
 $(package)_file_name=qt-everywhere-opensource-src-$($(package)_version).tar.gz
 $(package)_sha256_hash=8b14dd91b52862e09b8e6a963507b74bc2580787d171feda197badfa7034032c
-$(package)_dependencies=openssl freetype dbus libX11 xproto libXext libICE libSM
+$(package)_dependencies=freetype dbus libX11 xproto libXext libICE libSM
 
 define $(package)_set_vars
 $(package)_config_opts  = -prefix $(host_prefix) -headerdir $(host_prefix)/include/qt4 -bindir $(build_prefix)/bin
@@ -13,7 +13,7 @@ $(package)_config_opts += -stl -qt-zlib
 $(package)_config_opts += -nomake examples -nomake tests -nomake translations -nomake demos -nomake docs
 $(package)_config_opts += -no-audio-backend -no-glib -no-nis -no-cups -no-iconv -no-gif -no-pch
 $(package)_config_opts += -no-xkb -no-xrender -no-xrandr -no-xfixes -no-xcursor -no-xinerama -no-xsync -no-xinput -no-mitshm -no-xshape
-$(package)_config_opts += -no-libtiff -no-fontconfig -openssl-linked
+$(package)_config_opts += -no-libtiff -no-fontconfig -no-openssl
 $(package)_config_opts += -no-sql-db2 -no-sql-ibase -no-sql-oci -no-sql-tds -no-sql-mysql
 $(package)_config_opts += -no-sql-odbc -no-sql-psql -no-sql-sqlite -no-sql-sqlite2
 $(package)_config_opts += -no-xmlpatterns -no-multimedia -no-phonon -no-scripttools -no-declarative
@@ -36,7 +36,7 @@ define $(package)_config_cmds
   export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
   export PKG_CONFIG_PATH=$(host_prefix)/share/pkgconfig  && \
   export CPATH=$(host_prefix)/include && \
-  OPENSSL_LIBS='-L$(host_prefix)/lib -lssl -lcrypto' ./configure $($(package)_config_opts)
+  ./configure $($(package)_config_opts)
 endef
 
 define $(package)_build_cmds
