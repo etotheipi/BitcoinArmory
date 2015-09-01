@@ -48,6 +48,7 @@ script: |
 
     tar -C ${BUILD_DIR} -xf ${BUILD_DIR}/tools.tar.gz
     export PATH="${BUILD_DIR}/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin/:$PATH"
+    export PKG_CONFIG=arm-linux-gnueabihf-pkg-config-real
 
     cd BitcoinArmory
     BASEPREFIX=`pwd`/depends    
