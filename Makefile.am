@@ -226,14 +226,18 @@ po/messages.pot: all $(MESSAGES_PY)
 if TARGET_LINUX
 if BUILD_LINUX
 deb: all
-	@while [ -z "$$AMD64_CHROOT" ]; do \
-		read -r -p "Name of amd64 chroot: " AMD64_CHROOT; \
-	done && \
-	while [ -z "$$I386_CHROOT" ]; do \
-		read -r -p "Name of i386 chroot: " I386_CHROOT; \
-	done && \
-	python dpkgfiles/make_deb_package.py $$AMD64_CHROOT 64 1 1 0 && \
-	python dpkgfiles/make_deb_package.py $$I386_CHROOT 32 1 1 0
+	@read -r -p "Name of amd64 chroot: " AMD64_CHROOT && \
+	read -r -p "Name of i386 chroot: " I386_CHROOT && \
+	if [ ! -z "$$AMD64_CHROOT" ]; then \
+		python dpkgfiles/make_deb_package.py --chroot $$AMD64_CHROOT --static --depends; \
+	else \
+		echo "Skipping amd64 build, because you did not enter a name for the chroot."; \
+	fi && \
+	if [ ! -z "$$I386_CHROOT" ]; then \
+		python dpkgfiles/make_deb_package.py --chroot $$I386_CHROOT --bitness 32 --static --depends; \
+	else \
+		echo "Skipping i386 build, because you did not enter a name for the chroot."; \
+	fi
 endif
 endif
 
