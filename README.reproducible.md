@@ -72,6 +72,24 @@ path. So you can just run `armory`.
 RPM packages are not officially supported. They are a convenience to users.
 Read [rpmfiles/armory.spec.README](rpmfiles/armory.spec.README) for more info.
 
+##Raspberry Pi
+
+###Reproducible
+
+The Raspberry Pi reproducible build system uses Gitian. Refer to the Gitian
+instructions and use gitian-descriptors/bitcoin-armory-raspi.yml as the Gitian
+descriptor.
+
+###Non-reproducible
+
+First, make sure the the [Raspberry Pi toolchain][Raspberry Pi toolchain] is
+on your PATH. The specific path from that repository that you should add to
+your PATH is `arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin`.
+Then follow the Linux instructions, but use `--host arm-linux-gnueabihf` when
+calling the configure script.
+
+#FUTURE DIRECTIONS (DO NOT USE)
+
 ##OS X
 
 ###Reproducible
@@ -94,14 +112,13 @@ For OS X:
 
 For Linux:
 
-    # install cctools-port, TODO: add instructions for installing cctools-port
+    # install cctools-port (https://github.com/theuni/cctools-port)
     echo -e '#!/bin/sh\nexit 0' > /usr/local/bin/x86_64-apple-darwin11-dsymutil
     mv /usr/local/bin/x86_64-apple-darwin11-ld /usr/bin/
     cd path-to-armory-source
     ./autogen.sh
     ./configure --host=x86_64-apple-darwin11 \
-                CC="clang -target x86_64-apple-darwin11 -mmacosx-version-min=10.7 --sysroot /usr/share/MacOSX10.9.sdk -mlinker-version=241.9" \
-                CXX="clang++ -target x86_64-apple-darwin11 -mmacosx-version-min=10.7 --sysroot /usr/share/MacOSX10.9.sdk -mlinker-version=241.9"
+                --with-osx-sdk-path=/usr/share/MacOSX10.9.sdk
     make Armory.app
 
 In either case, you should be left with an Armory.app in osxbuild that will run
@@ -121,12 +138,6 @@ The new reproducible build system does not currently support Windows builds.
 Work is being done to make a single static exe that includes everything needed
 to run Armory on a Windows machine without requiring the end use to install
 Python or anything else. Just double-click on the exe and Armory pops up.
-
-Right now we need to be able to build Twisted linked against the Python that
-we build. But there is an [issue with Wine][Wine Issue] that is preventing us
-from being able to build Twisted from a Linux machine. We want to be able to
-do the entire build from the same Linux machine, so the Windows build is halted
-until the Wine issue is resolved.
 
 ###Non-reproducible
 
@@ -163,5 +174,5 @@ long as you have all the dependencies installed, such as Python.
 [Devrandom's GitHub]: https://github.com/devrandom/gitian-builder
 [fetch and build inputs]: https://github.com/bitcoin/bitcoin/blob/master/doc/release-process.md#fetch-and-build-inputs-first-time-or-when-dependency-versions-change
 [seed cache]: https://github.com/bitcoin/bitcoin/blob/master/doc/release-process.md#optional-seed-the-gitian-sources-cache
-[Wine Issue]: https://bugs.winehq.org/show_bug.cgi?id=38747
 [Debian Toolchain]: https://wiki.debian.org/ReproducibleBuilds/ExperimentalToolchain
+[Raspberry Pi toolchain]: https://github.com/raspberrypi/tools
