@@ -43,22 +43,22 @@ It is recommended that you read the instructions fully before beginning.
    The above instructions install the Debian reproducible build toolchain in
    the chroot. You replace codename with the actual codename of the
    distribution you are using (sid, jessie, wheezy, trusty, precise, etc.).
-   Replace your-preferred-mirror.com to the URL of an actual mirror (e.g.
+   Replace your-preferred-mirror.com with the URL of an actual mirror (e.g.
    us.archive.ubuntu.com or mirrors.kernel.org). You can also change the name
    of the chroot from base-reproducible to whatever you like.
 
 2) Make sure you have libfaketime installed on the machine you are running the
    make_deb_package.py script from (not the chroot).
 
-3) Run "python dpkgfiles/make_deb_package.py base-reproducible.cow 64 1 1 0"
+3) Run "python dpkgfiles/make_deb_package.py --chroot base-reproducible.cow --bitness 64 --static --depends"
    from the Armory root directory. Alternatively, run "make deb" after having
    run "./configure". The first parameter is the filename for the chroot in
    /var/cache/pbuilder/. The second parameter is 32 or 64 to indicate what
-   is the bitness of the package we are building. The third parameter is 1 or 0
-   to indicate whether to build with static libstdc++ or not. The fourth
-   parameter is 1 or 0 to indicate whether or not to include the prebuilt deb
-   package of the dependencies. The fifth parameter is 1 or 0 to indicate
-   whether or not to build the dependencies from source.
+   is the bitness of the package we are building. The third parameter is
+   --static to build with static libstdc++. The fourth parameter is --depends
+   to include the prebuilt deb package of the dependencies as downloaded from
+   Ubuntu. The fifth parameter is --build-depends to build the dependencies
+   from source. The --build-depends parameter doesn't currently work.
 
 4) You should find the results of the build in ../armory-build/. Doing the same
    type of build twice will overwrite the previous results (amd64 and amd64 or
