@@ -73,3 +73,25 @@ osxbuild/env
 /dpkgfiles/packages/*
 !/dpkgfiles/packages/etc/
 /dpkgfiles/*.desktop
+
+# Autotools
+/Makefile
+/Makefile.in
+/cppForSwig/Makefile
+/cppForSwig/Makefile.in
+/autom4te.cache
+/aclocal.m4
+/build-aux/ar-lib
+/build-aux/compile
+/build-aux/config.guess
+/build-aux/config.sub
+/build-aux/install-sh
+/build-aux/missing
+/compile
+/config.log
+/config.status
+/configure
+/depcomp
+/install-sh
+/missing
+/stamp-h1
