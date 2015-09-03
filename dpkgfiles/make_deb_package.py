@@ -67,8 +67,13 @@ parser.add_argument('--static', action='store_true', help='boolean for static'
 parser.add_argument('--depends', action='store_true', help='boolean for whether'
         + ' to include prebuilt dependency deb packages or not (defaults false)')
 parser.add_argument('--build-depends', action='store_true', help='boolean for'
-        + ' whether to build dependencies or not (defaults false)')
+        + ' whether to build dependencies or not (defaults false) (currently'
+        + ' not supported)')
 args = parser.parse_args()
+
+if args.build_depends:
+   print '***ERROR: Building dependencies isn\'t currently supported!'
+   exit(1)
 
 arch = {32: 'i386', 64: 'amd64'}[args.bitness]
 
