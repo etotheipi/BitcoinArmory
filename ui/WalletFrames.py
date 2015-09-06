@@ -1029,7 +1029,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
    def forkOnlineWallet(self):
       currPath = self.wlt.walletPath
       pieces = os.path.splitext(currPath)
-      currPath = pieces[0] + '.watchonly' + pieces[1]
+      currPath = pieces[0] + '_WatchOnly' + pieces[1]
 
       saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
                                       defaultFilename=currPath)

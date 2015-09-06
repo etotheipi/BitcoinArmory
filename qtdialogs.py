@@ -2182,38 +2182,6 @@ class DlgWalletDetails(ArmoryDialog):
       if dlg.exec_():
          pass  # Once executed, we're done.
 
-
-   #############################################################################
-   def saveWalletCopy(self):
-      fn = 'armory_%s_.wallet' % self.wlt.uniqueIDB58
-      if self.wlt.watchingOnly:
-         fn = 'armory_%s.watchonly.wallet' % self.wlt.uniqueIDB58
-      savePath = self.main.getFileSave(defaultFilename=fn)
-      if len(savePath) > 0:
-         self.wlt.writeFreshWalletFile(savePath)
-         self.main.statusBar().showMessage(\
-            'Successfully copied wallet to ' + savePath, 10000)
-
-
-#   def recoverPwd(self):
-#      passwordFinder = PasswordFinder(wallet=self.wlt)
-
-
-
-
-   # A possible way to remove an existing layout
-   # def setLayout(self, layout):
-       # self.clearLayout()
-       # QWidget.setLayout(self, layout)
-   #
-   # def clearLayout(self):
-       # if self.layout() is not None:
-           # old_layout = self.layout()
-           # for i in reversed(range(old_layout.count())):
-               # old_layout.itemAt(i).widget().setParent(None)
-           # import sip
-           # sip.delete(old_layout)
-
    #############################################################################
    def setWltDetailsFrame(self):
       dispCrypto = self.wlt.useEncryption and (self.usermode == USERMODE.Advanced or \
@@ -11520,15 +11488,21 @@ class DlgExpWOWltData(ArmoryDialog):
    # watch-only wallet to a file.
    def clickedExpWlt(self):
       currPath = self.wlt.walletPath
-      pieces = os.path.splitext(currPath)
-      currPath = pieces[0] + '.watchonly' + pieces[1]
+      if not self.wlt.watchingOnly:
+         pieces = os.path.splitext(currPath)
+         currPath = pieces[0] + '_WatchOnly' + pieces[1]
 
       saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
                                       defaultFilename=currPath)
       if not saveLoc.endswith('.wallet'):
          saveLoc += '.wallet'
-      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
+      
+      if not self.wlt.watchingOnly:
+         self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
                                 '(Watching-Only) ' + self.wlt.labelDescr)
+      else:
+         self.wlt.writeFreshWalletFile(saveLoc)
+         
 
 
    # The function that is executed when the user wants to save the watch-only

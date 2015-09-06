@@ -718,7 +718,7 @@ class PyBtcWallet(object):
          # This was really only needed when we were putting name in filename
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_.WatchOnly.wallet' % self.uniqueIDB58
+         newName = 'armory_%s_WatchOnly.wallet' % self.uniqueIDB58
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       # Start writing the wallet.
@@ -1323,6 +1323,8 @@ class PyBtcWallet(object):
       """
       Make a copy of this wallet that contains no private key data
       """
+      # TODO: Fix logic, says aborting but continues with method.
+      # Decide on and implement correct functionality.
       if not self.addrMap['ROOT'].hasPrivKey():
          LOGWARN('This wallet is already void of any private key data!')
          LOGWARN('Aborting wallet fork operation.')

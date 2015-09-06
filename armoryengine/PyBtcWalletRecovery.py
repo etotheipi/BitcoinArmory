@@ -1264,7 +1264,7 @@ class PyBtcWalletRecovery(object):
                              Progress, returnError):
       self.newwalletPath = os.path.join(os.path.dirname(toRecover.walletPath), 
                            'armory_%s_RECOVERED%s.wallet' % \
-                           (toRecover.uniqueIDB58, '.watchonly' \
+                           (toRecover.uniqueIDB58, '_WatchOnly' \
                             if self.WO else ''))
       
       if os.path.exists(self.newwalletPath):
@@ -1277,11 +1277,13 @@ class PyBtcWalletRecovery(object):
       try:
          if not self.WO:
             RecoveredWallet = PyBtcWallet()
+            withEncrypt = SecurePassphrase != None
             RecoveredWallet.createNewWallet( \
                            newWalletFilePath=self.newwalletPath, \
                            securePassphrase=SecurePassphrase, \
                            plainRootKey=rootAddr.binPrivKey32_Plain, \
                            chaincode=rootAddr.chaincode, \
+                           withEncrypt=withEncrypt, \
                            #not registering with the BDM, 
                            #so no addresses are computed
                            doRegisterWithBDM=False, \
@@ -1719,9 +1721,9 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
             os.makedirs(corruptFolder)
 
          logsToCopy = ['armorylog.txt', 'armorycpplog.txt', 'multipliers.txt']
-         wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '.watchonly')
+         wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '_WatchOnly')
          wltLogName  = 'armory_%s_LOGFILE_%s.log' % \
-                                 (wltID, '.watchonly' if fixer.WO else '')
+                                 (wltID, '_WatchOnly' if fixer.WO else '')
    
          corruptWltPath = os.path.join(corruptFolder, wltCopyName)
          recoverLogPath = os.path.join(corruptFolder, wltLogName)
