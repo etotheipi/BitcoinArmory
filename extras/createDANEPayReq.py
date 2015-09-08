@@ -33,15 +33,15 @@ daneReqName = sha224Res + '._pmta.' + recordDomain
 bp2 = BinaryPacker()
 bp2.put(VAR_STR, daneReqName)
 
-# Create a PKRP (make multipliers)
-pkrpItem = PublicKeyRelationshipProof()
-pkrpItem.initialize(multProof.rawMultList)
-pkrpList = []
-pkrpList.append(pkrpItem)
-srpItem = ScriptRelationshipProof()
-srpItem.initialize(pkrpList)
+# Create a PKV (make multipliers)
+pkvItem = PublicKeyVerifier()
+pkvItem.initialize(multProof.rawMultList)
+pkvList = []
+pkvList.append(pkvItem)
+ptvItem = PaymentTargetVerifier()
+ptvItem.initialize(pkvList)
 bp3 = BinaryPacker()
-bp3.put(VAR_STR, srpItem.serialize())
+bp3.put(VAR_STR, ptvItem.serialize())
 
 prItem = PaymentRequest()
 bp1List = []

@@ -200,12 +200,13 @@ STOPPED_ACTION = 'stopped'
 WARNING_ACTION = 'warning'
 SCAN_ACTION = 'StartedWalletScan'
 
-# First "official" version will be 1. 0 is the prototype version.
-BTCAID_PKS_VERSION = 0
-BTCAID_CS_VERSION = 0
-BTCAID_PKRP_VERSION = 0
-BTCAID_SRP_VERSION = 0
-BTCAID_PR_VERSION = 0
+# First "official" version is 1. 0 was a prototype version.
+BTCAID_CS_VERSION  = 1
+BTCAID_PKS_VERSION = 1
+BTCAID_PKV_VERSION = 1
+BTCAID_PR_VERSION  = 1
+BTCAID_RI_VERSION  = 1
+BTCAID_PTV_VERSION = 1
 
 BTCAID_PAYLOAD_TYPE = enum('PMTA', 'InvalidRec')
 ESCAPECHAR  = '\xff'

@@ -26,10 +26,10 @@ from armoryengine.BDM import getBDM
 from armoryengine.Constants import STRETCH, FINISH_LOAD_BLOCKCHAIN_ACTION, \
    BTCAID_PAYLOAD_TYPE, CLICKED
 from armoryengine.ConstructedScript import PaymentRequest, PublicKeySource, \
-   PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyRelationshipProof, \
+   PAYNET_BTC, PAYNET_TBTC, PMTARecord, PublicKeyVerifier, \
    PaymentTargetVerifier, DeriveBip32PublicKeyWithProof, decodePublicKeySource, \
-   decodePaymentTargetVerifier, decodeReceiverIdentity, ScriptRelationshipProof, \
-   ConstructedScript, ReceiverIdentity, decodePMTARecord
+   decodePaymentTargetVerifier, decodeReceiverIdentity, ConstructedScript, \
+   ReceiverIdentity, decodePMTARecord
 from armoryengine.Exceptions import FileExistsError, InvalidDANESearchParam
 from armoryengine.ValidateEmailRegEx import SuperLongEmailValidatorRegex
 from qtdefines import tr, enum, initialColResize, QRichLabel, tightSizeNChar, \
@@ -357,8 +357,8 @@ class PluginObject(object):
          # Generate the proper object.
             finalAddr = self.resAddr.getAddrStr()
             payID = self.modelLocalIDs.getWltHandleForID(self.wlt.uniqueIDB58)
-            newPKRP = PublicKeyRelationshipProof(self.resMult)
-            newPTV = PaymentTargetVerifier(newPKRP)
+            newPKV = PublicKeyVerifier(self.resMult)
+            newPTV = PaymentTargetVerifier([newPKV])
             finalPMTAStr = payID + '..' + binary_to_base58(newPTV.serialize())
 
             # Put everything together and present it to the user.
@@ -631,39 +631,44 @@ def processReceiverIdentity(inRIRecord, directPayment, inPTVRecord):
    finalDerivedAddr = ''
 
    # Get key from RI record and process the contents to get the root key
-   #material.
+   # material.
    if isinstance(inRIRecord.rec, ConstructedScript):
-      if not isinstance(inPTVRecord.rec, ScriptRelationshipProof):
-         pass # ERROR MSG
-      else:
-         finalData = inRIRecord.rec.generateScript(inPTVRecord.rec.serialize())
+      finalData = inRIRecord.rec.generateScript(inPTVRecord.serialize())
 
-         # For now, we only support P2SH in this case.
-         if inRIRecord.rec.useP2SH:
-            tmpAddr = script_to_scrAddr(script_to_p2sh_script(finalData))
-            finalDerivedAddr = scrAddr_to_addrStr(tmpAddr)
-         else:
-            finalDerivedAddr = scrAddr_to_addrStr(finalData, getAddrByte()) # This is technically an error case.
+      # For now, we only support P2SH in this case.
+      if inRIRecord.rec.useP2SH:
+         tmpAddr = script_to_scrAddr(script_to_p2sh_script(finalData))
+         finalDerivedAddr = scrAddr_to_addrStr(tmpAddr)
+      else:
+         # This is technically an error case for now. This case needs to be
+         # handled eventually.
+         LOGERROR('For now, ConstructedScript records must use P2SH.')
 
    elif isinstance(inRIRecord.rec, PublicKeySource):
-      if not isinstance(inPTVRecord.rec, PublicKeyRelationshipProof):
-         pass # ERROR msg
+      if len(inPTVRecord.pksBundles) != 1:
+         LOGERROR('A PTV record must have only one PKV entry for a PKS record.')
       else:
          # If we have a final key in the PKRP, the proof is optional. For
          # now, we'll verify the proof anyway.
-         if inPTVRecord.rec.multUsed:
-            multiplier = inPTVRecord.rec.multiplier
-         if inPTVRecord.rec.finalKeyUsed:
-            finalKey = inPTVRecord.rec.finalKey
+         inPKSRecord = inPTVRecord.pksBundles[0]
+         if inPKSRecord.multUsed:
+            multiplier = inPKSRecord.multiplier
+         if inPKSRecord.finalKeyUsed:
+            finalKey = inPKSRecord.finalKey
 
          if directPayment and not inRIRecord.rec.disableDirectPay:
             returnKey = inRIRecord.rec.rawSource
             if inRIRecord.rec.isExternalSrc:
-               pass # Overrides all other flags. Not supported for now.
+               # Overrides all other flags. External source contains the final
+               # PKS record. Not supported for now.
+               pass 
             elif inRIRecord.rec.isStatic:
-               pass # Overrides all flags except isExternSec. Key material's final.
+               # Overrides all flags except isExternalSrc. Key material's final.
+               # Not supported for now.
+               pass
             elif inRIRecord.rec.isUserKey:
-               pass # User supplies a key. Not supported for now.
+               # User supplies a key. Not supported for now.
+               pass
             else:
                if inRIRecord.rec.useCompr:
                   secReturnKey = SecureBinaryData(returnKey)
@@ -722,12 +727,12 @@ def validateWalletHandle(inAddr):
 
 
 #############################################################################
-# Take a wallet's ReceiverIdentity record and verify that the record is
-# valid.
+# Take a ReceiverIdentity record, from a wallet or other object, and verify
+# that the ReceiverIdentity is valid.
 # INPUT:  Base58-serialized ReceiverIdentity record.
 # OUTPUT: None
 # RETURN: Boolean indicating whether or not validation was successful.
-def validateWalletIdentity(walletRI):
+def validateReceiverIdentity(walletRI):
    validRIObj = False
 
    # If the string we receive is a bad encode, just drop any raised errors.
@@ -736,7 +741,8 @@ def validateWalletIdentity(walletRI):
               decodeReceiverIdentity(base58_to_binary(walletRI))
       validRIObj = receiverIdentityObj.isValid()
    except:
-      pass
+      LOGERROR('Error raised while trying to validate a ReceiverIdentity ' \
+               'object.')
 
    return validRIObj
 
@@ -755,7 +761,8 @@ def validatePaymentTargetVerifier(inPTV):
       ptv = decodePaymentTargetVerifier(base58_to_binary(inPTV))
       validPTVObj = ptv.isValid()
    except:
-      pass
+      LOGERROR('Error raised while trying to validate a ' \
+               'PaymentTargetVerifier object.')
 
    return validPTVObj
 
@@ -1177,7 +1184,7 @@ class EnterWalletIdentityDialog(ArmoryDialog):
                              'continue, enter a Wallet Handle that is in ' \
                              'the same format as an email address.',
                              QMessageBox.Ok)
-      elif not validateWalletIdentity(self.getWalletRIRecord()):
+      elif not validateReceiverIdentity(self.getWalletRIRecord()):
          QMessageBox.warning(self.main, 'Invalid Wallet Payment Verifier',
                              'You have entered an invalid Wallet Payment ' \
                              'Verifier. Please verify that the data was ' \

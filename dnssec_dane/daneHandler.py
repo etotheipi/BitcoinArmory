@@ -11,9 +11,6 @@ import getdns
 from binascii import hexlify
 from armoryengine.ArmoryUtils import LOGERROR
 from armoryengine.Constants import BTCAID_PAYLOAD_TYPE
-from armoryengine.ConstructedScript import PublicKeySource, ConstructedScript, \
-   ScriptRelationshipProof, PublicKeyRelationshipProof, BTCAID_PR_VERSION
-from pytest.testConstructedScript import PKS1NoChksum_Comp_v1, CS1Chksum_Comp_v1
 
 # Function that obtains a DANE record for a given record name.
 # - Use getdns-python-bindings to get the DANE record for the given name.

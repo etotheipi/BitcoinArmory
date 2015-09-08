@@ -85,37 +85,37 @@ strRI_CS2Chksum_Comp_v1 = Valid_RI_CS_Base + \
                           strCS2Chksum_Comp_v1
 RI_CS2Chksum_Comp_v1 = hex_to_binary(strRI_CS2Chksum_Comp_v1)
 
-# Valid PKRP serializations based on BIP32MasterPubKey2.
-strPKRPMult = \
+# Valid PKV serializations based on BIP32MasterPubKey2.
+strPKVMult = \
       "60e3739c c2c3950b 7c4d7f32 cc503e13 b996d0f7 a45623d0 a914e1ef a7f811e0"
-strPKRP1_v1 = \
-      "010220" + strPKRPMult + "00"
-PKRP1_v1 = hex_to_binary(strPKRP1_v1)
+strPKV1_v1 = \
+      "010220" + strPKVMult + "00"
+PKV1_v1 = hex_to_binary(strPKV1_v1)
 
-# Invalid PKRP serializations based on BIP32MasterPubKey2.
-strPKRP1_v1_FlagClash1 = \
-      "010020" + strPKRPMult + "00"
-PKRP1_v1_FlagClash1 = hex_to_binary(strPKRP1_v1_FlagClash1)
+# Invalid PKV serializations based on BIP32MasterPubKey2.
+strPKV1_v1_FlagClash1 = \
+      "010020" + strPKVMult + "00"
+PKV1_v1_FlagClash1 = hex_to_binary(strPKV1_v1_FlagClash1)
 
-# Valid SRP serializations based on BIP32MasterPubKey2.
-strSRP1_v1 = \
-      "010124" + strPKRP1_v1
-SRP1_v1 = hex_to_binary(strSRP1_v1)
-strSRP2_v1 = \
-      "010224" + strPKRP1_v1 + "24" + strPKRP1_v1
-SRP2_v1 = hex_to_binary(strSRP2_v1)
+# Valid PTV serializations based on BIP32MasterPubKey2.
+strPTV1_v1 = \
+      "010124" + strPKV1_v1
+PTV1_v1 = hex_to_binary(strPTV1_v1)
+strPTV2_v1 = \
+      "010224" + strPKV1_v1 + "24" + strPKV1_v1
+PTV2_v1 = hex_to_binary(strPTV2_v1)
 
 # Valid PTV serializations based on previously created records.
-Valid_PTV_PKRP_Base = "0100"
-Valid_PTV_SRP_Base  = "0101"
-strPTV_PKRP1_v1 = Valid_PTV_PKRP_Base + \
-                  int_to_hex(len(PKRP1_v1), endOut=BIGENDIAN) + \
-                  strPKRP1_v1
-PTV_PKRP1_v1 = hex_to_binary(strPTV_PKRP1_v1)
-strPTV_SRP2_v1 = Valid_PTV_SRP_Base + \
-                 int_to_hex(len(SRP2_v1), endOut=BIGENDIAN) + \
-                 strSRP2_v1
-PTV_SRP2_v1 = hex_to_binary(strPTV_SRP2_v1)
+#Valid_PTV_PKV_Base = "0100"
+#Valid_PTV_SRP_Base  = "0101"
+#strPTV_PKV1_v1 = Valid_PTV_PKV_Base + \
+#                  int_to_hex(len(PKV1_v1), endOut=BIGENDIAN) + \
+#                  strPKV1_v1
+#PTV_PKV1_v1 = hex_to_binary(strPTV_PKV1_v1)
+#strPTV_SRP2_v1 = Valid_PTV_SRP_Base + \
+#                 int_to_hex(len(SRP2_v1), endOut=BIGENDIAN) + \
+#                 strSRP2_v1
+#PTV_SRP2_v1 = hex_to_binary(strPTV_SRP2_v1)
 
 # Valid PR serializations based on BIP32MasterPubKey2.
 daneName1    = "pksrec1.btcshop.com"
@@ -129,12 +129,12 @@ unvalidatedScript1 = hex_to_binary(strUnvalidatedScript1)
 # REMINDER: ADD A BAD UNVALIDATED SCRIPT BY REMOVING 0x14 FROM THE SCRIPT ABOVE. USE TO CREATE TESTS THAT CHECK SCRIPTS
 strPR1_v1 = \
       "01000001 5619" + strUnvalidatedScript1 +    "13" + daneName1Hex + \
-      "27" + strSRP1_v1
+      "27" + strPTV1_v1
 PR1_v1 = hex_to_binary(strPR1_v1)
 strPR2_v1 = \
       "01000002 ac19" + strUnvalidatedScript1 +    "19" + \
       strUnvalidatedScript1 +    "13" + daneName1Hex +      "13" + \
-      daneName1Hex +    "27" + strSRP1_v1 +        "27" + strSRP1_v1
+      daneName1Hex +    "27" + strPTV1_v1 +        "27" + strPTV1_v1
 PR2_v1 = hex_to_binary(strPR2_v1)
 
 # Valid PMTA serializations including previously used, valid PKS and CS records.
@@ -341,82 +341,40 @@ class RIClassTests(unittest.TestCase):
       riIsValid = ri1_PKS_Inv.isValid()
       self.assertEqual(riIsValid, False)
       ri2_CS_Inv = ri2_CS
-      ri2_CS_Inv.rec = decodeScriptRelationshipProof(SRP1_v1)
+      ri2_CS_Inv.rec = decodePaymentTargetVerifier(PTV1_v1)
       riIsValid = ri2_CS_Inv.isValid()
       self.assertEqual(riIsValid, False)
 
 
 ################################################################################
-class PKRPClassTests(unittest.TestCase):
+class PKVClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
    def testSerialization(self):
       # 1 multiplier.
-      pkrp1 = PublicKeyRelationshipProof(BIP32MasterPubKey2Multiplier)
-      stringPKRP1 = pkrp1.serialize()
-      self.assertEqual(binary_to_hex(stringPKRP1),
-                       binary_to_hex(PKRP1_v1))
+      pkv1 = PublicKeyVerifier(BIP32MasterPubKey2Multiplier)
+      stringPKV1 = pkv1.serialize()
+      self.assertEqual(binary_to_hex(stringPKV1),
+                       binary_to_hex(PKV1_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      pkrp1_unser = decodePublicKeyRelationshipProof(PKRP1_v1)
-      stringPKRP1_unser = pkrp1_unser.serialize()
-      self.assertEqual(binary_to_hex(stringPKRP1_unser),
-                       binary_to_hex(PKRP1_v1))
+      pkv1_unser = decodePublicKeyVerifier(PKV1_v1)
+      stringPKV1_unser = pkv1_unser.serialize()
+      self.assertEqual(binary_to_hex(stringPKV1_unser),
+                       binary_to_hex(PKV1_v1))
 
-      # Are various PKRP structures valid?
+      # Are various PKV structures valid?
       # (NB: Bad version test is a slight hacks because the unserialize code
       # correctly fails. Direct editing works best.)
-      pkrp1_BadVersion = decodePublicKeyRelationshipProof(PKRP1_v1)
-      pkrp1_BadVersion.version = 13
-      pkrp1_FlagClash1 = decodePublicKeyRelationshipProof(PKRP1_v1_FlagClash1)
-      pkrpIsValid = pkrp1.isValid()
-      self.assertEqual(pkrpIsValid, True)
-      pkrpIsValid = pkrp1_BadVersion.isValid()
-      self.assertEqual(pkrpIsValid, False)
-      pkrpIsValid = pkrp1_FlagClash1.isValid()
-      self.assertEqual(pkrpIsValid, False)
-
-
-################################################################################
-class SRPClassTests(unittest.TestCase):
-   # Use serialize/unserialize to confirm that the data struct is correctly
-   # formed and can be correctly formed.
-   def testSerialization(self):
-      # 1 PKRP.
-      pkrp1 = PublicKeyRelationshipProof(BIP32MasterPubKey2Multiplier)
-      srp1 = ScriptRelationshipProof([pkrp1])
-      stringSRP1 = srp1.serialize()
-      self.assertEqual(binary_to_hex(stringSRP1),
-                       binary_to_hex(SRP1_v1))
-
-      # 2 PKRPs. Both PKRPs are the same. This test just confirms that the
-      # serialization code works for multiple PKRPs.
-      srp2 = ScriptRelationshipProof([pkrp1, pkrp1])
-      stringSRP2 = srp2.serialize()
-      self.assertEqual(binary_to_hex(stringSRP2),
-                       binary_to_hex(SRP2_v1))
-
-      # Unserialize and re-serialize to confirm unserialize works.
-      srp1_unser = decodeScriptRelationshipProof(SRP1_v1)
-      srp2_unser = decodeScriptRelationshipProof(SRP2_v1)
-      stringSRP1_unser = srp1_unser.serialize()
-      stringSRP2_unser = srp2_unser.serialize()
-      self.assertEqual(binary_to_hex(stringSRP1_unser),
-                       binary_to_hex(SRP1_v1))
-      self.assertEqual(binary_to_hex(stringSRP2_unser),
-                       binary_to_hex(SRP2_v1))
-
-      # Are various SRP structures valid?
-      # (NB: Bad version test is a slight hack because the unserialize code
-      # correctly fails. Direct editing works best.)
-      srp1_BadVersion = decodeScriptRelationshipProof(SRP1_v1)
-      srp1_BadVersion.version = 16
-      srpIsValid = srp1.isValid()
-      self.assertEqual(srpIsValid, True)
-      srpIsValid = srp2.isValid()
-      self.assertEqual(srpIsValid, True)
-      srpIsValid = srp1_BadVersion.isValid()
-      self.assertEqual(srpIsValid, False)
+      pkv1_BadVersion = decodePublicKeyVerifier(PKV1_v1)
+      pkv1_BadVersion.version = 13
+      pkv1_FlagClash1 = decodePublicKeyVerifier(PKV1_v1_FlagClash1)
+      pkvIsValid = pkv1.isValid()
+      self.assertEqual(pkvIsValid, True)
+      pkvIsValid = pkv1_BadVersion.isValid()
+      self.assertEqual(pkvIsValid, False)
+      pkvIsValid = pkv1_FlagClash1.isValid()
+      self.assertEqual(pkvIsValid, False)
 
 
 ################################################################################
@@ -424,46 +382,40 @@ class PTVClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
    def testSerialization(self):
-      # PKRP1
-      pkrp1 = decodePublicKeyRelationshipProof(PKRP1_v1)
-      ptv1_PKRP = PaymentTargetVerifier(pkrp1)
-      stringPTV1_PKRP = ptv1_PKRP.serialize()
-      self.assertEqual(binary_to_hex(stringPTV1_PKRP),
-                       binary_to_hex(PTV_PKRP1_v1))
+      # 1 PKV.
+      pkv1 = PublicKeyVerifier(BIP32MasterPubKey2Multiplier)
+      ptv1 = PaymentTargetVerifier([pkv1])
+      stringPTV1 = ptv1.serialize()
+      self.assertEqual(binary_to_hex(stringPTV1),
+                       binary_to_hex(PTV1_v1))
 
-      # SRP2 - Pre-built multisig
-      srp2 = decodeScriptRelationshipProof(SRP2_v1)
-      ptv2_SRP = PaymentTargetVerifier(srp2)
-      stringPTV2_SRP = ptv2_SRP.serialize()
-      self.assertEqual(binary_to_hex(stringPTV2_SRP),
-                       binary_to_hex(PTV_SRP2_v1))
+      # 2 PKVs. Both PKVs are the same. This test just confirms that the
+      # serialization code works for multiple PKVs.
+      ptv2 = PaymentTargetVerifier([pkv1, pkv1])
+      stringPTV2 = ptv2.serialize()
+      self.assertEqual(binary_to_hex(stringPTV2),
+                       binary_to_hex(PTV2_v1))
 
       # Unserialize and re-serialize to confirm unserialize works.
-      ptv1_PKRP_unser = decodePaymentTargetVerifier(PTV_PKRP1_v1)
-      stringPTV1_PKRP_unser = ptv1_PKRP_unser.serialize()
-      self.assertEqual(binary_to_hex(stringPTV1_PKRP_unser),
-                       binary_to_hex(PTV_PKRP1_v1))
+      ptv1_unser = decodePaymentTargetVerifier(PTV1_v1)
+      ptv2_unser = decodePaymentTargetVerifier(PTV2_v1)
+      stringPTV1_unser = ptv1_unser.serialize()
+      stringPTV2_unser = ptv2_unser.serialize()
+      self.assertEqual(binary_to_hex(stringPTV1_unser),
+                       binary_to_hex(PTV1_v1))
+      self.assertEqual(binary_to_hex(stringPTV2_unser),
+                       binary_to_hex(PTV2_v1))
 
-      ptv2_SRP_unser = decodePaymentTargetVerifier(PTV_SRP2_v1)
-      stringPTV2_SRP_unser = ptv2_SRP_unser.serialize()
-      self.assertEqual(binary_to_hex(stringPTV2_SRP_unser),
-                       binary_to_hex(PTV_SRP2_v1))
-
-
-      # Are various RI structures valid?
-      # (NB: These tests are slight hacks because the unserialize code raises
-      # errors. Direct editing works best.)
-      ptvIsValid = ptv1_PKRP.isValid()
+      # Are various PTV structures valid?
+      # (NB: Bad version test is a slight hack because the unserialize code
+      # correctly fails. Direct editing works best.)
+      ptv1_BadVersion = decodePaymentTargetVerifier(PTV1_v1)
+      ptv1_BadVersion.version = 16
+      ptvIsValid = ptv1.isValid()
       self.assertEqual(ptvIsValid, True)
-      ptvIsValid = ptv2_SRP.isValid()
+      ptvIsValid = ptv2.isValid()
       self.assertEqual(ptvIsValid, True)
-      ptv1_PKRP_Inv = ptv1_PKRP
-      ptv1_PKRP_Inv.version = 2
-      ptvIsValid = ptv1_PKRP_Inv.isValid()
-      self.assertEqual(ptvIsValid, False)
-      ptv2_SRP_Inv = ptv2_SRP
-      ptv2_SRP_Inv.rec = decodeConstructedScript(CS2Chksum_Comp_v1)
-      ptvIsValid = ptv2_SRP_Inv.isValid()
+      ptvIsValid = ptv1_BadVersion.isValid()
       self.assertEqual(ptvIsValid, False)
 
 
@@ -472,12 +424,12 @@ class PRClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.
    def testSerialization(self):
-      pkrp1 = PublicKeyRelationshipProof(BIP32MasterPubKey2Multiplier)
-      srp1 = ScriptRelationshipProof([pkrp1])
+      pkv1 = PublicKeyVerifier(BIP32MasterPubKey2Multiplier)
+      ptv1 = PaymentTargetVerifier([pkv1])
 
       # 1 TxOut script.
       pr1 = PaymentRequest([unvalidatedScript1], [daneName1],
-                           [srp1.serialize()])
+                           [ptv1.serialize()])
       stringPR1 = pr1.serialize()
       self.assertEqual(binary_to_hex(stringPR1),
                        binary_to_hex(PR1_v1))
@@ -486,7 +438,7 @@ class PRClassTests(unittest.TestCase):
       # the serialization code works for multiple TxOut scripts.
       pr2 = PaymentRequest([unvalidatedScript1, unvalidatedScript1],
                            [daneName1, daneName1],
-                           [srp1.serialize(), srp1.serialize()])
+                           [ptv1.serialize(), ptv1.serialize()])
       stringPR2 = pr2.serialize()
       self.assertEqual(binary_to_hex(stringPR2),
                        binary_to_hex(PR2_v1))
@@ -515,7 +467,6 @@ class PRClassTests(unittest.TestCase):
 
 
 ################################################################################
-########## TO BE COMPLETED
 class PMTAClassTests(unittest.TestCase):
    # Use serialize/unserialize to confirm that the data struct is correctly
    # formed and can be correctly formed.

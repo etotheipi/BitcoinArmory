@@ -11,18 +11,10 @@ from Transaction import getOpCode
 from ArmoryEncryption import NULLSBD
 from CppBlockUtils import HDWalletCrypto, CryptoECDSA
 from armoryengine.Constants import OP_CHECKSIG, OP_CHECKMULTISIG, OP_DUP, \
-   OP_HASH160, OP_EQUAL
+   OP_HASH160, OP_EQUAL, BTCAID_CS_VERSION, BTCAID_CS_VERSION, \
+   BTCAID_PKV_VERSION, BTCAID_PR_VERSION, BTCAID_PTV_VERSION, BTCAID_RI_VERSION
 import re
 import CppBlockUtils as Cpp
-
-# First "official" version is 1. 0 was a prototype version.
-BTCAID_PKS_VERSION = 1
-BTCAID_CS_VERSION = 1
-BTCAID_RI_VERSION = 1
-BTCAID_PKRP_VERSION = 1
-BTCAID_SRP_VERSION = 1
-BTCAID_PTV_VERSION = 1
-BTCAID_PR_VERSION = 1
 
 # From the PMTA RFC draft (v0)
 PAYASSOC_ADDR = 0  # Sec. 2.1.5
@@ -313,28 +305,28 @@ def escapeFF(inputStr):
 # A function that creates a final script from an escaped script and key list.
 # The function isn't CS-specific because there may be instances where
 # outsiders want to access the function using data not in a CS object (e.g.,
-# apply SRP to keys and then get a derived multisig script).
+# apply PTV to keys and then get a derived multisig script).
 # INPUT:  An escaped script forming the basis of the final script. (binary str)
 #         A list of the base keys. (binary str)
-#         SRP object (optional)
+#         PTV object (optional)
 # OUTPUT: None
 # RETURN: Assembled script  (binary str)
-def assembleScript(inEscapedScript, inKeyList, inSRPObj = None):
+def assembleScript(inEscapedScript, inKeyList, inPTVObj = None):
    # Steps:
    # Perform necessary validity checks.
    # Take binary string and split based on 0xff, which is removed.
    # Grab & remove 1st byte of string on the right.
    # - If byte = 0x00, place 0xff at the end of the string on the left.
-   # - Else, confirm # equals the # of PKS & SRP entries.
-   #   For each entry, get the public key and apply the SRP.
+   # - Else, confirm # equals the # of PKS & PTV entries.
+   #   For each entry, get the public key and apply the PTV.
    #   Insert the key at the end of the string on the left.
    # Reassemble all the strings in the original order.
    # Return the resulting string.
    finalScript = ''
 
-   if (inSRPObj != None) and (len(inSRPObj.pkrpList) != len(inKeyList)):
+   if (inPTVObj != None) and (len(inPTVObj.pkvList) != len(inKeyList)):
       LOGERROR('assembleScript - Number of keys doesn\'t match number of ' \
-               'SRP object entries.')
+               'PTV object entries.')
    else:
       # Use a bytearray to treat the incoming binary data as a string. Split
       # whenever 0xff is encountered. Save the 1st one and then iterate over the
@@ -358,14 +350,14 @@ def assembleScript(inEscapedScript, inKeyList, inSRPObj = None):
             numKeys = binary_to_int(fragment[0])
             keyList = []
 
-            # Get the final keys from the key list and PKRP objects.
-            # We must sort the keys and PKRP objects together. While unlikely &
-            # foolish, the PKRP objects could have a mix of multipliers & final
+            # Get the final keys from the key list and PKV objects.
+            # We must sort the keys and PKV objects together. While unlikely &
+            # foolish, the PKV objects could have a mix of multipliers & final
             # keys. We need to plan for that.
             endIdx = numProcessedKeys + numKeys
             decorated = \
-               [[pk,pkrp] for pk,pkrp in zip(inKeyList[numProcessedKeys:endIdx],
-                                    inSRPObj.pkrpList[numProcessedKeys:endIdx])]
+               [[pk,pkv] for pk,pkv in zip(inKeyList[numProcessedKeys:endIdx],
+                                    inPTVObj.pkvList[numProcessedKeys:endIdx])]
             decorSort  = sorted(decorated, key=lambda pair: pair[0])
             for i, pair in enumerate(decorSort):
                if pair[1].multUsed:
@@ -494,7 +486,7 @@ class PublicKeySource(object):
 
    #############################################################################
    # Logic for generating the final key data based on PKS data is here.
-   def generateKeyData(self, inPKRPList):
+   def generateKeyData(self, inPKVList):
       finalKeyData = None
 
       # The logic determining the final key data is found here. This is really
@@ -509,12 +501,12 @@ class PublicKeySource(object):
          # The final key (e.g., vanity address) is already present.
          finalKeyData = self.rawSource
       else:
-         for pkrp in inPKRPList:
+         for pkv in inPKVList:
             # Get the final public key. If necessary, compress it and/or apply
             # Hash160 to it.
             finalKeyData = HDWalletCrypto().getChildKeyFromMult_SWIG(
                                                                  self.rawSource,
-                                                                  pkrp.multList)
+                                                                  pkv.multList)
 
             if self.useCompr:
                secFinalKeyData = SecureBinaryData(finalKeyData)
@@ -854,13 +846,13 @@ class ConstructedScript(object):
 
    #############################################################################
    # Logic for generating the final script.
-   # INPUT:  Serialized SRP data. (binary str)
+   # INPUT:  Serialized PTV data. (binary str)
    # OUTPUT: None
    # RETURN: The final, unescaped script. (binary str)
-   def generateScript(self, inSRPData):
+   def generateScript(self, inPTVData):
 
-      # Get the PKRPs from the SRP array passed in.
-      curSRP = decodeScriptRelationshipProof(inSRPData)
+      # Get the PKVs from the PTV array passed in.
+      curPTV = decodePaymentTargetVerifier(inPTVData)
 
       # Get the list of keys from the internal PKS objects.
       scriptKeyList = []
@@ -872,7 +864,7 @@ class ConstructedScript(object):
       # Generate and return the final script.
       finalScript = assembleScript(self.scriptTemplate,
                                    scriptKeyList,
-                                   curSRP)
+                                   curPTV)
       return finalScript
 
 
@@ -1172,7 +1164,7 @@ def decodeReceiverIdentity(serData):
 
 
 ################################################################################
-class PublicKeyRelationshipProof(object):
+class PublicKeyVerifier(object):
    """
    This defines the actual data that proves how multipliers relate to an
    accompanying public key. The public key list is optional but all entries must
@@ -1186,9 +1178,9 @@ class PublicKeyRelationshipProof(object):
                    finalKeyUsed = bool,
                    ver          = int)
    def __init__(self, multiplier, finalKeyUsed=False, multUsed=True,
-                finalKey='', ver=BTCAID_PKRP_VERSION):
+                finalKey='', ver=BTCAID_PKV_VERSION):
       """
-      Set all PKRP values.
+      Set all PKV values.
       """
       self.multiplier   = multiplier
       self.finalKey     = finalKey
@@ -1198,26 +1190,26 @@ class PublicKeyRelationshipProof(object):
 
 
    #############################################################################
-   # Verify that a PKRP record is valid.
+   # Verify that a PKV record is valid.
    def isValid(self):
       """
-      Verify that a PKRP record is valid.
+      Verify that a PKV record is valid.
       """
       recState = True
 
       # The version needs to be valid. For now, it needs to be 1.
-      if self.version != BTCAID_PKRP_VERSION:
-         LOGINFO('PKRP record version is wrong. Record is invalid.')
+      if self.version != BTCAID_PKV_VERSION:
+         LOGINFO('PKV record version is wrong. Record is invalid.')
          recState = False
 
       # At least one flag must be set.
       if self.multUsed == False and self.finalKeyUsed == False:
-         LOGINFO('PKRP flags must indicate either a multiplier or final key. ' \
+         LOGINFO('PKV flags must indicate either a multiplier or final key. ' \
                  'Record is invalid.')
          recState = False
 
       if (self.multiplier is '' and self.finalKey is ''):
-         LOGINFO('PKRP record has no key material. Record is invalid.')
+         LOGINFO('PKV record has no key material. Record is invalid.')
          recState = False
 
       if (self.multUsed == True and len(self.multiplier) != 32):
@@ -1257,57 +1249,57 @@ class PublicKeyRelationshipProof(object):
 
 
 #############################################################################
-def decodePublicKeyRelationshipProof(serData):
+def decodePublicKeyVerifier(serData):
    inner      = BinaryUnpacker(serData)
    inVer      = inner.get(UINT8)
    inFlags    = inner.get(BITSET, 1)
    inMult     = inner.get(VAR_STR)
    inFinalKey = inner.get(VAR_STR)
 
-   if not inVer == BTCAID_PKRP_VERSION:
+   if not inVer == BTCAID_PKV_VERSION:
       # In the future we will make this more of a warning, not error
-      raise VersionError('PKRP version does not match the loaded version')
+      raise VersionError('PKV version does not match the loaded version')
 
-   return PublicKeyRelationshipProof(inMult,
-                                     inFlags.getBit(7),
-                                     inFlags.getBit(6),
-                                     inFinalKey,
-                                     inVer)
+   return PublicKeyVerifier(inMult,
+                            inFlags.getBit(7),
+                            inFlags.getBit(6),
+                            inFinalKey,
+                            inVer)
 
 
 ################################################################################
-class ScriptRelationshipProof(object):
+class PaymentTargetVerifier(object):
    """
    This defines the actual data that proves how multipliers relate to an
    accompanying script.
    """
 
    #############################################################################
-   @VerifyArgTypes(pkrpList = [PublicKeyRelationshipProof],
+   @VerifyArgTypes(pkvList = [PublicKeyVerifier],
                    ver      = int)
-   def __init__(self, pkrpList, ver=BTCAID_SRP_VERSION):
+   def __init__(self, pkvList, ver=BTCAID_PTV_VERSION):
       """
-      Set all SRP values.
+      Set all PTV values.
       """
-      self.pkrpList = pkrpList
+      self.pkvList = pkvList
       self.version  = ver
 
 
    #############################################################################
-   # Verify that an SRP record is valid.
+   # Verify that an PTV record is valid.
    def isValid(self):
       """
-      Verify that a SRP record is valid.
+      Verify that a PTV record is valid.
       """
       recState = True
 
       # The version needs to be valid. For now, it needs to be 1.
-      if self.version != BTCAID_SRP_VERSION:
-         LOGINFO('SRP record version is wrong. Record is invalid.')
+      if self.version != BTCAID_PTV_VERSION:
+         LOGINFO('PTV record version is wrong. Record is invalid.')
          recState = False
 
-      if (self.pkrpList is None or len(self.pkrpList) == 0):
-         LOGINFO('SRP record has no PKRP records. Record is invalid.')
+      if (self.pkvList is None or len(self.pkvList) == 0):
+         LOGINFO('PTV record has no PKV records. Record is invalid.')
          recState = False
 
       return recState
@@ -1317,126 +1309,32 @@ class ScriptRelationshipProof(object):
    def serialize(self):
       bp = BinaryPacker()
       bp.put(UINT8,  self.version)
-      bp.put(VAR_INT, len(self.pkrpList), width = 1)
-      for pkrpItem in self.pkrpList:
-         bp.put(VAR_STR, pkrpItem.serialize())  # Revise this???
-
-      return bp.getBinaryString()
-
-
-#############################################################################
-def decodeScriptRelationshipProof(serData):
-   pkrpList = []
-   inner      = BinaryUnpacker(serData)
-   inVer      = inner.get(UINT8)
-   inNumPKRPs = inner.get(VAR_INT, 1)
-
-   k = 0
-   while k < inNumPKRPs:
-      nextPKRP = decodePublicKeyRelationshipProof(inner.get(VAR_STR))
-      pkrpList.append(nextPKRP)
-      k += 1
-
-   if not inVer == BTCAID_SRP_VERSION:
-      # In the future we will make this more of a warning, not error
-      raise VersionError('SRP version does not match the loaded version')
-
-   return ScriptRelationshipProof(pkrpList,
-                                  inVer)
-
-
-################################################################################
-class PaymentTargetVerifier(object):
-   """
-   This defines the object that will actually insert a PKRP or SRP into a
-   payment request.
-   """
-
-   #############################################################################
-   @VerifyArgTypes(ver = int)
-   def __init__(self, rec, ver=BTCAID_PTV_VERSION):
-      """
-      Set all PTV values.
-      """
-      self.version = ver
-      self.rec     = rec
-      if not (isinstance(rec, PublicKeyRelationshipProof) or \
-              isinstance(rec, ScriptRelationshipProof)):
-         LOGERROR('PaymentTargetVerifier received a record of type %s. PTV ' \
-                  'object is invalid.' % type(rec))
-         self.rec  = None
-
-
-   #############################################################################
-   # Verify that a PTV record is valid.
-   def isValid(self):
-      """
-      Verify that a PTV record is valid.
-      """
-      recState = False
-
-      # The version needs to be valid. For now, it needs to be 1.
-      if self.version != BTCAID_PTV_VERSION:
-         LOGINFO('PTV record version is wrong. Record is invalid.')
-      else:
-         # At least one flag must be set.
-         if isinstance(self.rec, PublicKeyRelationshipProof):
-            if self.rec.isValid() == False:
-               LOGINFO('PTV record has an invalid ' \
-                       'PublicKeyRelationshipProof. Record is invalid.')
-            else:
-               recState = True
-         elif isinstance(self.rec, ScriptRelationshipProof):
-            if self.rec.isValid() == False:
-               LOGINFO('PTV record has an invalid ScriptRelationshipProof. ' \
-                       'Record is invalid.')
-            else:
-               recState = True
-         else:
-            LOGINFO('PTV record has no target information. Record is invalid.')
-
-      return recState
-
-
-   #############################################################################
-   def serialize(self):
-      recType = -1
-      if isinstance(self.rec, PublicKeyRelationshipProof):
-         recType = 0
-      elif isinstance(self.rec, ScriptRelationshipProof):
-         recType = 1
-      else:
-         raise BadInputError('Input record type is invalid')
-
-      bp = BinaryPacker()
-      bp.put(UINT8,   self.version)
-      bp.put(UINT8,   recType)
-      bp.put(VAR_STR, self.rec.serialize())
+      bp.put(VAR_INT, len(self.pkvList), width = 1)
+      for pkvItem in self.pkvList:
+         bp.put(VAR_STR, pkvItem.serialize())  # Revise this???
 
       return bp.getBinaryString()
 
 
 #############################################################################
 def decodePaymentTargetVerifier(serData):
+   pkvList = []
    inner      = BinaryUnpacker(serData)
    inVer      = inner.get(UINT8)
-   inRecType  = inner.get(UINT8)
-   inRecStr   = inner.get(VAR_STR)
+   inNumPKVs = inner.get(VAR_INT, 1)
 
-   if inVer != BTCAID_PTV_VERSION:
+   k = 0
+   while k < inNumPKVs:
+      nextPKV = decodePublicKeyVerifier(inner.get(VAR_STR))
+      pkvList.append(nextPKV)
+      k += 1
+
+   if not inVer == BTCAID_PTV_VERSION:
       # In the future we will make this more of a warning, not error
       raise VersionError('PTV version does not match the loaded version')
 
-   inRec = None
-   if inRecType == 0:
-      inRec = decodePublicKeyRelationshipProof(inRecStr)
-   elif inRecType == 1:
-      inRec = decodeScriptRelationshipProof(inRecStr)
-   else:
-      raise BadInputError('Input type is invalid')
-
-   return PaymentTargetVerifier(inRec,
-                                inVer)
+   return PaymentTargetVerifier(pkvList,
+                                  inVer)
 
 
 ################################################################################
@@ -1448,9 +1346,9 @@ class PaymentRequest(object):
    #############################################################################
    @VerifyArgTypes(unvalidatedScripts = [VAR_STR],
                    daneReqNames       = [VAR_STR],
-                   srpList            = [VAR_STR],
+                   ptvList            = [VAR_STR],
                    ver                = int)
-   def __init__(self, unvalidatedScripts, daneReqNames, srpList,
+   def __init__(self, unvalidatedScripts, daneReqNames, ptvList,
                 ver=BTCAID_PR_VERSION):
       """
       Set all PR values.
@@ -1460,7 +1358,7 @@ class PaymentRequest(object):
       self.reqSize            = 0
       self.unvalidatedScripts = unvalidatedScripts
       self.daneReqNames       = daneReqNames
-      self.srpList            = srpList
+      self.ptvList            = ptvList
 
       # Set the request size.
       for x in unvalidatedScripts:
@@ -1469,7 +1367,7 @@ class PaymentRequest(object):
       for y in daneReqNames:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(y)
-      for z in srpList:
+      for z in ptvList:
          self.reqSize += packVarInt(self.numTxOutScripts)[1]
          self.reqSize += len(z)
 
@@ -1509,9 +1407,9 @@ class PaymentRequest(object):
       for daneItem in self.daneReqNames:
          bp.put(VAR_INT, len(daneItem), width = 1)
          bp.put(BINARY_CHUNK, daneItem)
-      for srpItem in self.srpList:
-         bp.put(VAR_INT, len(srpItem), width = 1)
-         bp.put(BINARY_CHUNK, srpItem)
+      for ptvItem in self.ptvList:
+         bp.put(VAR_INT, len(ptvItem), width = 1)
+         bp.put(BINARY_CHUNK, ptvItem)
 
       return bp.getBinaryString()
 
@@ -1520,7 +1418,7 @@ class PaymentRequest(object):
 def decodePaymentRequest(serData):
    unvalidatedScripts = []
    daneReqNames       = []
-   srpList            = []
+   ptvList            = []
 
    bu                 = makeBinaryUnpacker(serData)
    inVer              = bu.get(UINT8)
@@ -1538,12 +1436,12 @@ def decodePaymentRequest(serData):
       daneName = bu.get(VAR_STR)
       daneReqNames.append(daneName)
    for m in range(0, inNumTxOutScripts):
-      nextSRPItem = bu.get(VAR_STR)
-      srpList.append(nextSRPItem)
+      nextPTVItem = bu.get(VAR_STR)
+      ptvList.append(nextPTVItem)
 
    return PaymentRequest(unvalidatedScripts,
                          daneReqNames,
-                         srpList,
+                         ptvList,
                          inVer)
 
 
