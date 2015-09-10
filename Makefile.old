@@ -6,10 +6,10 @@ DESTDIR=
 UNAME_S := $(shell uname -s)
 
 all:
-	$(MAKE) -C cppForSwig
+	$(MAKE) -C cppForSwig -f Makefile.old
 
 clean :
-	$(MAKE) -C cppForSwig clean
+	$(MAKE) -C cppForSwig -f Makefile.old clean
 	rm -f osxbuild/build-app.log.txt
 	rm -f osxbuild/armory_*.tar.gz
 ifeq ($(UNAME_S),Darwin)

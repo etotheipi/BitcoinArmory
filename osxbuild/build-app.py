@@ -18,20 +18,19 @@ from tempfile import mkstemp
 # Set some constants up front
 minOSXVer    = '10.7'
 osxName      = 'Yosemite'
-pythonVer    = '2.7.9'  # NB: ArmoryMac.pro must also be kept up to date!!!
+pythonVer    = '2.7.10'  # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer   = '2.7'
-setToolVer   = '10.2.1'
-pipVer       = '6.0.3'
-psutilVer    = '2.1.3'
-zopeVer      = '4.1.1'
-twistedVer   = '14.0.2'
-libpngVer    = '1.6.15'
-qtVerDate    = '2015-02-16-4'
+setToolVer   = '18.3.1'
+pipVer       = '7.1.2'
+psutilVer    = '3.2.1'
+zopeVer      = '4.1.2'
+twistedVer   = '15.4.0'
+libpngVer    = '1.6.18'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
-sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev    = '175335'
+sipVer       = '4.16.9' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer      = '4.11.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev    = '188413'
 appNopeVer   = '0.1.0'
 LOGFILE      = 'build-app.log.txt'
 LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
@@ -304,33 +303,33 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "3172f6e957713c2d9fca462cc16068222fd1b9d3" ] )
+                    "ee5a50c5562e7448f037d35fdedc18d95c748b9e" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
                     "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "09da3f767e40d1451cac97af59afd99802c77076" ] )
+                    "0e673ff59b3259bc8af3260ca2b82b4ac7d8d390" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
                     "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-                    "67d4affd83ee2f3514ac1386bee59f10f672517c" ] )
+                    "9eb9ea19b630412bc2b2b587fc6bbbee71950a96" ] )
 
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
                     "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
-                    "aae4725eb33cf56d4480bc60f50c147870d607ba" ] )
+                    "7741b34e6f64c296ab132741b00e70763ed1fd7b" ] )
 
 distfiles.append( [ 'Twisted', \
                     "Twisted-%s.tar.bz2" % twistedVer, \
                     "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
-                    "b908dc0d117a782d2becc83fbb906ba4311f3351" ] )
+                    "eb3607f58ac3d046fa38f513e15a68544f038c58" ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
                     "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "059d99d0321a8519252ae860667237a838d2a557" ] )
+                    "https://bintray.com/artifact/download/homebrew/bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
+                    "c3b377098c8bb8801dd8dc5250c02a527ef20b04" ] )
 
 # Skipping Git for now.
 #distfiles.append( [ "Qt-git", \
@@ -352,27 +351,24 @@ distfiles.append( [ 'libpng', \
 # Pre-packaged source can lag a bit but provides for more consistent user
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
-                    #"qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    "qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
-                    #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
-                    #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
-                    "9c1e2f3135bc4a36c5d24c1a3c3c640637041c92" ] )
+                    "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
+                    "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
+                    "76aef40335c0701e5be7bb3a9101df5d22fe3666" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "c8db972c03953d0d3ef89c7e67ce4a2e46dd9c36" ] )
+                    "e944ded194fb45d4da076f50742de9f14de2a36b" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    'd5d7b6765de8634eccf48a250dbd915f01b2a771' ] )
+                    'c0a09aa63523293c5ca39444746b1cef1253a0c5' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
                     "https://pypi.python.org/packages/source/z/zope.interface/zope.interface-%s.tar.gz" % zopeVer, \
-                    '20a9284429e29eb8cc63eee5ed686c257c01b1fc' ] )
+                    '6d940ecd621df0437ee9deb17d03ba105c13f07f' ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
@@ -383,7 +379,7 @@ distfiles.append( [ "zope", \
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    '8c53254b38686e5366d74eba81f02f9611f39166' ] )
+                    'c319f273e40afe68a2e65ff2b9c01e0d43e980f7' ] )
 
 #distfiles.append( [ 'appnope', \
 #                    "appnope-%s.tar.gz" % appNopeVer, \
@@ -464,11 +460,9 @@ def compile_qt():
    # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
-   #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-%s' % (qtVer, qtVerDate))
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-   #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-%s.tar.gz' % (qtVer, qtVerDate))
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
    #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
@@ -686,10 +680,14 @@ def compile_armory():
    armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
    armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
    pydir = path.join(APPDIR, 'Contents/MacOS/py')
+   sipDir = path.join(PYPREFIX, 'share/sip')
+   pyBinDir = path.join(PYPREFIX, 'bin')
    currentDir = os.getcwd()
    os.chdir("..")
    execAndWait('python update_version.py')
    os.chdir(currentDir)
+   execAndWait('./autogen.sh', cwd='..')
+   execAndWait('PATH=%s:$PATH; ./configure --prefix=/usr' % pyBinDir, cwd='..')
    execAndWait('make all', cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
@@ -708,11 +706,6 @@ def compile_objc_library():
               '-P -g -c . -I ../workspace/unpackandbuild/PyQt-mac-gpl-%s/sip' % pyQtVer
    execAndWait('../workspace/unpackandbuild/sip-%s/sipgen/sip %s ./ArmoryMac.sip' % (sipVer, sipFlags), cwd=OBJCDIR)
    execAndWait('../workspace/unpackandbuild/qt-everywhere-opensource-src-%s/bin/qmake ArmoryMac.pro' % qtVer, cwd=OBJCDIR)
-   # For some reason, qmake mangles LFLAGS when LFLAGS is built. The exact cause
-   # is unknown but probably has to do with a conf file included in
-   # mkspecs/unsupported/macx-clang-libc++/qmake.conf. Patch the output for now.
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), \
-               cwd=OBJCDIR)
    execAndWait('make', cwd=OBJCDIR)
 
 
