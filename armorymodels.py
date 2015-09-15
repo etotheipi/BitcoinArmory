@@ -1260,7 +1260,9 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
-            if ustx is None:
+            if len(script) == 0:
+               self.dispTable[-1].append("") 
+            elif ustx is None:
                self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
                isSigned = ustx.ustxInputs[i].evaluateSigningStatus().allSigned

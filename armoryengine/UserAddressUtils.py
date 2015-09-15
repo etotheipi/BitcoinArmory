@@ -281,6 +281,8 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
          dispStr += ' [%s]' % addrStr
       elif len(dispStr) + lastTrunc + 6 <= maxChars:
          dispStr += ' [%s...]' % addrStr[:lastTrunc]
+   elif len(binScript) == 0:
+      dispStr = 'Unknown Input' 
    else:
       addrStr = script_to_addrStr(script_to_p2sh_script(binScript))
       dispStr = 'Non-Standard: %s' % addrStr

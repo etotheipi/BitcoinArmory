@@ -130,7 +130,6 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
 void BlockWriteBatcher::resetSshHeader(
    StoredScriptHistory& ssh, const BinaryData& uniqKey) const
 {
-   //iface_->getStoredScriptHistorySummary(ssh, uniqKey);
    ssh.uniqueKey_ = uniqKey;
    ssh.alreadyScannedUpToBlk_ = 0;
    ssh.totalTxioCount_ = 0;
