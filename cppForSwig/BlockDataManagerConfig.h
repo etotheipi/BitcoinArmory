@@ -54,6 +54,8 @@ struct BlockDataManagerConfig
    }
    
    BlockDataManagerConfig();
+   BlockDataManagerConfig(const BlockDataManagerConfig& in);
+   BlockDataManagerConfig& operator=(const BlockDataManagerConfig& in);
    void selectNetwork(const string &netname);
 };
 

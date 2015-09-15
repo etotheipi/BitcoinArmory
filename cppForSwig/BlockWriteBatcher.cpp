@@ -127,10 +127,14 @@ StoredTxOut* BlockWriteBatcher::lookForUTXOInMap(const BinaryData& txHash,
    return nullptr;
 }
 ////////////////////////////////////////////////////////////////////////////////
-void BlockWriteBatcher::getSshHeader(
+void BlockWriteBatcher::resetSshHeader(
    StoredScriptHistory& ssh, const BinaryData& uniqKey) const
 {
-   iface_->getStoredScriptHistorySummary(ssh, uniqKey);
+   //iface_->getStoredScriptHistorySummary(ssh, uniqKey);
+   ssh.uniqueKey_ = uniqKey;
+   ssh.alreadyScannedUpToBlk_ = 0;
+   ssh.totalTxioCount_ = 0;
+   ssh.totalUnspent_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +214,7 @@ StoredScriptHistory& BlockWriteBatcher::makeSureSSHInMap(
    auto& ssh = (*sshToModify_)[uniqKey];
    if (!ssh.isInitialized())
    {
-      getSshHeader(ssh, uniqKey);
+      iface_->getStoredScriptHistorySummary(ssh, uniqKey);
       ssh.uniqueKey_ = uniqKey;
    }
 
@@ -809,7 +813,7 @@ void BlockWriteBatcher::prepareSshToModify(const ScrAddrFilter& sasd)
    for (auto saPair : sasd.getScrAddrMap())
    {
       auto& ssh = (*sshToModify_)[saPair.first];
-      getSshHeader(ssh, saPair.first);
+      iface_->getStoredScriptHistorySummary(ssh, saPair.first);
 
       if (ssh.totalTxioCount_ != 0)
       {
@@ -1228,8 +1232,8 @@ map<BinaryData, StoredScriptHistory>& BlockWriteBatcher::getSSHMap(
    for (auto& scrAddr : subsshMap)
    {
       auto& ssh = (*sshToModify_)[scrAddr.first];
-      if (ssh.alreadyScannedUpToBlk_ == 0)
-         getSshHeader(ssh, scrAddr.first);
+      if (ssh.alreadyScannedUpToBlk_ != 0)
+         resetSshHeader(ssh, scrAddr.first);
    }
 
    return *sshToModify_;

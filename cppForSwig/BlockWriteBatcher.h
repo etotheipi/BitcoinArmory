@@ -419,7 +419,7 @@ private:
       const BinaryData& txOutKey,
       const BinaryData& txInKey);
 
-   void getSshHeader(StoredScriptHistory& ssh, const BinaryData& uniqKey) const;
+   void resetSshHeader(StoredScriptHistory& ssh, const BinaryData& uniqKey) const;
 
 private:
 

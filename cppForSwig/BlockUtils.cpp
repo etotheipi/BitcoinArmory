@@ -711,6 +711,30 @@ BlockDataManagerConfig::BlockDataManagerConfig()
    pruneType = DB_PRUNE_NONE;
 }
 
+BlockDataManagerConfig::BlockDataManagerConfig(const BlockDataManagerConfig& in)
+{
+   *this = in;
+}
+
+BlockDataManagerConfig& BlockDataManagerConfig::operator=(
+   const BlockDataManagerConfig& in)
+{
+   if (this != &in)
+   {
+      armoryDbType = ARMORY_DB_BARE;
+      pruneType = DB_PRUNE_NONE;
+
+      blkFileLocation = in.blkFileLocation;
+      levelDBLocation = in.levelDBLocation;
+
+      genesisBlockHash = in.genesisBlockHash;
+      genesisTxHash = in.genesisTxHash;
+      magicBytes = in.magicBytes;
+   }
+
+   return *this;
+}
+
 void BlockDataManagerConfig::selectNetwork(const string &netname)
 {
    if(netname == "Main")
