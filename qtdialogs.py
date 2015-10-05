@@ -1670,7 +1670,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       if adv:               optLayout.addWidget(createVBoxSeparator())
 
-      if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
+      if adv:   optLayout.addWidget(lbtnImportA)
       if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
       # if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
 
@@ -2984,6 +2984,8 @@ class DlgImportAddress(ArmoryDialog):
          self.radioSweep = QRadioButton('Sweep any funds owned by this address '
                                          'into your wallet\n'
                                          'Select this option if someone else gave you this key')
+         if self.wlt.watchingOnly:
+            self.radioImport.setEnabled(False)
          self.radioSweep.setChecked(True)
       else:
          if TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):

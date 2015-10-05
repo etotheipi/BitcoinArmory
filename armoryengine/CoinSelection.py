@@ -796,20 +796,6 @@ def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee,
 ################################################################################
 def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
                          numRecipients):
-   """
-   Returns two fee options:  one for relay, one for include-in-block.
-   In general, relay fees are required to get your block propagated
-   (since most nodes are Satoshi clients), but there's no guarantee
-   it will be included in a block -- though I'm sure there's plenty
-   of miners out there will include your tx for sub-standard fee.
-   However, it's virtually guaranteed that a miner will accept a fee
-   equal to the second return value from this method.
-
-   We have to supply the fee that was used in the selection algorithm,
-   so that we can figure out how much change there will be.  Without
-   this information, we might accidentally declare a tx to be freeAllow
-   when it actually is not.
-   """
 
    # TODO: this should be updated to accommodate the non-constant 
    #       TxOut/TxIn size given that it now accepts P2SH and Multisig
@@ -831,11 +817,14 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
       return suggestedFee
    # Compute raw priority of tx
    prioritySum = 0
+   pprintUnspentTxOutList(selectCoinsResult)
    for utxo in selectCoinsResult:
       prioritySum += utxo.getValue() * utxo.getNumConfirm()
    prioritySum = prioritySum / numBytes
 
-   if(prioritySum >= estimatePriority() and numBytes < 10000):
+   # Do not assume free if estimatePriority is -1
+   estimatedPriority = estimatePriority()
+   if estimatedPriority > -1 and prioritySum >= estimatedPriority and numBytes < 10000:
       return 0
 
    return suggestedFee
