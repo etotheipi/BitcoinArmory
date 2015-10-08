@@ -37,7 +37,6 @@ void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
    difficultySum_ = -1;
    isMainBranch_ = false;
    isOrphan_ = true;
-   //txPtrList_ = vector<TxRef*>(0);
    numTx_ = UINT32_MAX;
 }
 
@@ -856,7 +855,6 @@ UnspentTxOut::UnspentTxOut(void) :
    txHeight_(0),
    value_(0),
    script_(BinaryData(0)),
-   numConfirm_(0),
    isMultisigRef_(false)
 {
    // Nothing to do here
@@ -870,7 +868,6 @@ void UnspentTxOut::init(LMDBBlockDatabase *db, TxOut & txout, uint32_t blkNum, b
    txHeight_   = txout.getParentHeight();
    value_      = txout.getValue();
    script_     = txout.getScript();
-   updateNumConfirm(blkNum);
    isMultisigRef_ = isMulti;
 }
 
@@ -882,13 +879,12 @@ BinaryData UnspentTxOut::getRecipientScrAddr(void) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t UnspentTxOut::updateNumConfirm(uint32_t currBlkNum)
+uint32_t UnspentTxOut::getNumConfirm(uint32_t currBlkNum) const
 {
-   if(txHeight_ == UINT32_MAX)
-      numConfirm_ = 0;
-   else
-      numConfirm_ = currBlkNum - txHeight_ + 1;
-   return numConfirm_;
+   if (txHeight_ == UINT32_MAX)
+      throw runtime_error("uninitiliazed UnspentTxOut");
+   
+   return currBlkNum - txHeight_ + 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -897,7 +893,7 @@ bool UnspentTxOut::CompareNaive(UnspentTxOut const & uto1,
 {
    float val1 = (float)uto1.getValue();
    float val2 = (float)uto2.getValue();
-   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+   return (val1*uto1.txHeight_ < val2*uto2.txHeight_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -906,7 +902,7 @@ bool UnspentTxOut::CompareTech1(UnspentTxOut const & uto1,
 {
    float val1 = pow((float)uto1.getValue(), 1.0f/3.0f);
    float val2 = pow((float)uto2.getValue(), 1.0f/3.0f);
-   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+   return (val1*uto1.txHeight_ < val2*uto2.txHeight_);
 
 }
 
@@ -916,7 +912,7 @@ bool UnspentTxOut::CompareTech2(UnspentTxOut const & uto1,
 {
    float val1 = pow(log10((float)uto1.getValue()) + 5, 5);
    float val2 = pow(log10((float)uto2.getValue()) + 5, 5);
-   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+   return (val1*uto1.txHeight_ < val2*uto2.txHeight_);
 
 }
 
@@ -926,7 +922,7 @@ bool UnspentTxOut::CompareTech3(UnspentTxOut const & uto1,
 {
    float val1 = pow(log10((float)uto1.getValue()) + 5, 4);
    float val2 = pow(log10((float)uto2.getValue()) + 5, 4);
-   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+   return (val1*uto1.txHeight_ < val2*uto2.txHeight_);
 }
 
 
@@ -947,37 +943,12 @@ void UnspentTxOut::sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType)
 ////////////////////////////////////////////////////////////////////////////////
 void UnspentTxOut::pprintOneLine(uint32_t currBlk)
 {
-   updateNumConfirm(currBlk);
    printf(" Tx:%s:%02d   BTC:%0.3f   nConf:%04d\n",
              txHash_.copySwapEndian().getSliceCopy(0,8).toHexStr().c_str(),
              txOutIndex_,
              value_/1e8,
-             numConfirm_);
+             getNumConfirm(currBlk));
 }
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-/*
-RegisteredScrAddr::RegisteredScrAddr(BtcAddress const & addrObj, 
-                                     int32_t blkCreated)
-{
-   uniqueKey_ = addrObj.getAddrStr20();
-   addrType_ = 0x00;
-
-   if(blkCreated<0)
-      blkCreated = addrObj.getFirstBlockNum();
-
-   blkCreated_            = blkCreated;
-   alreadyScannedUpToBlk_ = blkCreated;
-}
-*/
-
-
-
-
 
 // kate: indent-width 3; replace-tabs on;
 

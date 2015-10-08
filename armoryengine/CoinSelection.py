@@ -90,7 +90,7 @@ class PyUnspentTxOut(object):
    def createFromCppUtxo(self, cppUtxo):
       scrAddr= cppUtxo.getRecipientScrAddr()
       val    = cppUtxo.getValue()
-      conf   = cppUtxo.getNumConfirm()
+      conf   = cppUtxo.getNumConfirm(TheBDM.getTopBlockHeight())
       txHash = cppUtxo.getTxHash()
       txoIdx = cppUtxo.getTxOutIndex()
       script = cppUtxo.getScript()

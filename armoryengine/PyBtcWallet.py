@@ -417,7 +417,12 @@ class PyBtcWallet(object):
       """
       
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         return self.cppWallet.getSpendableTxOutListForValue(valToSpend, IGNOREZC);
+         from CoinSelection import PyUnspentTxOut
+         utxos = self.cppWallet.getSpendableTxOutListForValue(valToSpend, IGNOREZC)
+         utxoList = []
+         for i in range(len(utxos)):
+            utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+         return utxoList
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -439,7 +444,12 @@ class PyBtcWallet(object):
       #return full set of unspent TxOuts
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          #calling this with no value argument will return the full UTXO list
-         return self.cppWallet.getSpendableTxOutListForValue(IGNOREZC);
+         from CoinSelection import PyUnspentTxOut
+         utxos = self.cppWallet.getSpendableTxOutListForValue(IGNOREZC)
+         utxoList = []
+         for i in range(len(utxos)):
+            utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+         return utxoList         
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []

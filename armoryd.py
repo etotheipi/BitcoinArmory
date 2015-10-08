@@ -447,7 +447,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
       utxoList = self.curWlt.getFullUTXOList()
-      utxoOutList = {}
       curTxOut = 0
       totBal = 0
       utxoOutList = []
@@ -459,7 +458,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             curTxOutStr = 'utxo%05d' % curTxOut
             utxoVal = AmountToJSON(u.getValue())
-            curUTXODict['txid'] = binary_to_hex(u.getOutPoint().getTxHash(), \
+            curUTXODict['txid'] = binary_to_hex(u.getTxHash(), \
                                                 BIGENDIAN, LITTLEENDIAN)
             curUTXODict['vout'] = u.getTxOutIndex()
             try:
@@ -563,8 +562,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                curUTXODict['address']  = ''
             curUTXODict['scriptPubKey'] = binary_to_hex(u.getScript())
             curUTXODict['amount'] = utxoVal
-            curUTXODict['confirmations'] = u.getNumConfirm()
-            curUTXODict['priority'] = utxoVal * u.getNumConfirm()
+            curUTXODict['confirmations'] = u.getNumConfirm(TheBDM.getTopBlockHeight())
+            curUTXODict['priority'] = utxoVal * u.getNumConfirm(TheBDM.getTopBlockHeight())
 
             utxoEntries.append(curUTXODict)
             totalTxOuts += 1

@@ -697,7 +697,6 @@ public:
    uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
    uint64_t     getValue(void)  const      { return value_;      }
    uint64_t     getTxHeight(void)  const   { return txHeight_;   }
-   uint32_t     getNumConfirm(void) const  { return numConfirm_; }
    uint32_t     isMultisigRef(void) const  { return isMultisigRef_; }
 
    OutPoint getOutPoint(void) const { return OutPoint(txHash_, txOutIndex_); }
@@ -705,7 +704,7 @@ public:
    BinaryData const & getScript(void) const      { return script_;     }
    BinaryData   getRecipientScrAddr(void) const;
 
-   uint32_t   updateNumConfirm(uint32_t currBlknum);
+   uint32_t   getNumConfirm(uint32_t currBlknum) const;
    void pprintOneLine(uint32_t currBlk=UINT32_MAX);
 
 
@@ -734,7 +733,6 @@ public:
    uint32_t   txHeight_;
    uint64_t   value_;
    BinaryData script_;
-   uint32_t   numConfirm_;
    bool       isMultisigRef_;
 
    // This can be set and used as part of a compare function:  if you want
