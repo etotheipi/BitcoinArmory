@@ -3724,18 +3724,19 @@ class ArmoryMainWindow(QMainWindow):
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
-         modified, newTx = pytx.minimizeDERSignaturePadding()
-         if modified and withOldSigWarning:
-            reply = QMessageBox.warning(self, 'Old signature format detected', \
-                 'The transaction that you are about to execute '
-                 'has been signed with an older version Bitcoin Armory '
-                 'that has added unnecessary padding to the signature. '
-                 'If you are running version Bitcoin 0.8.2 or later the unnecessary '
-                 'the unnecessary signature padding will not be broadcast. '
-                 'Note that removing the unnecessary padding will change the hash value '
-                 'of the transaction. Do you want to remove the unnecessary padding?', QMessageBox.Yes | QMessageBox.No)
-            if reply == QMessageBox.Yes:
-               pytx = newTx
+         if withOldSigWarning:
+            modified, newTx = pytx.minimizeDERSignaturePadding()
+            if modified:
+               reply = QMessageBox.warning(self, 'Old signature format detected', \
+                    'The transaction that you are about to execute '
+                    'has been signed with an older version Bitcoin Armory '
+                    'that has added unnecessary padding to the signature. '
+                    'If you are running version Bitcoin 0.8.2 or later the unnecessary '
+                    'the unnecessary signature padding will not be broadcast. '
+                    'Note that removing the unnecessary padding will change the hash value '
+                    'of the transaction. Do you want to remove the unnecessary padding?', QMessageBox.Yes | QMessageBox.No)
+               if reply == QMessageBox.Yes:
+                  pytx = newTx
          LOGRAWDATA(pytx.serialize(), logging.INFO)
          LOGPPRINT(pytx, logging.INFO)
          newTxHash = pytx.getHash()

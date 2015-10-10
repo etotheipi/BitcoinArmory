@@ -529,6 +529,9 @@ class PyTxIn(BlockComponent):
 
    def getScript(self):
       return self.binScript
+   
+   def isP2SH(self):
+      return len(self.binScript) > 0 and binary_to_int(self.binScript[0]) == 0
 
    def serialize(self):
       binOut = BinaryPacker()
@@ -575,6 +578,9 @@ class PyTxIn(BlockComponent):
    # Either on the offline Armory installation which may not have been upgraded
    # or on a previous installation of Armory on this computer.
    def minimizeDERSignaturePadding(self):
+      # Do not try to this on P2SH
+      if self.isP2SH():
+         return False, self
       rsLen = binary_to_int(self.binScript[2:3])
       rLen = binary_to_int(self.binScript[4:5])
       rBin = self.binScript[5:5+rLen]
