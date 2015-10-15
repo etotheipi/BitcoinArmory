@@ -2969,11 +2969,15 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 ################################################################################
 def createDERSigFromRS(rBin, sBin):
-   # Remove all leading zero-bytes (why didn't we use lstrip() here?)
-   while rBin[0]=='\x00':
-      rBin = rBin[1:]
-   while sBin[0]=='\x00':
-      sBin = sBin[1:]
+   # Remove all leading zero-bytes
+   rBin = rBin.lstrip('\x00')
+   sBin = sBin.lstrip('\x00')
+
+   # assure that s is the low value so that tx is not malleable (BIP62)
+   sInt = binary_to_int(sBin, BIGENDIAN)
+   if sInt >  SECP256K1_ORDER / 2:
+      sInt = SECP256K1_ORDER - sInt
+      sBin = int_to_binary(sInt, widthBytes=32, endOut=BIGENDIAN)
 
    if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
    if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
