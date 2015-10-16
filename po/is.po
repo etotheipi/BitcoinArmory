@@ -7194,7 +7194,7 @@ msgstr ""
 #: ui/WalletFrames.py:835
 msgid ""
 "\n"
-"               View and export invidivual addresses strings,\n"
+"               View and export individual addresses strings,\n"
 "               public keys and/or private keys contained in your wallet.\n"
 "               This is useful for exporting your private keys to be imported "
 "into\n"
