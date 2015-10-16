@@ -833,7 +833,7 @@ class WalletBackupFrame(ArmoryFrame):
                by far</b> the most common reason users lose coins!  Having
                at least one paper backup is recommended.""")
          txtIndivKeys = tr("""
-               View and export invidivual addresses strings,
+               View and export individual addresses strings,
                public keys and/or private keys contained in your wallet.
                This is useful for exporting your private keys to be imported into
                another wallet app or service.
