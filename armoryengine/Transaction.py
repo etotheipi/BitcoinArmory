@@ -530,7 +530,7 @@ class PyTxIn(BlockComponent):
    def getScript(self):
       return self.binScript
    
-   def isP2SH(self):
+   def isMultiSigScript(self):
       return len(self.binScript) > 0 and binary_to_int(self.binScript[0]) == 0
 
    def serialize(self):
@@ -573,23 +573,56 @@ class PyTxIn(BlockComponent):
       result = ''.join([result, '\n',  indstr2 + 'Seq:       ', str(self.intSeq)])
       return result
 
+   
+   def createDERSigFromSegment(self, segment):
+      rLen = binary_to_int(segment[2:3])
+      rBin = segment[3:3+rLen]
+      sLen = binary_to_int(segment[4+rLen:5+rLen])
+      sBin = segment[5+rLen:5+rLen+sLen]
+      return createDERSigFromRS(rBin, sBin)
+
+   # Return true if the first 2 bytes of this segment are what
+   # you expect for a multi-sig sigatnure
+   def hasAnotherSig(self, segment):
+      return len(segment) > 1 and binary_to_int(segment[0]) in [71,72,73] and \
+            binary_to_int(segment[1]) == 48 # Expected DER sig header byte
+   
+      
    # Before broadcasting a transaction make sure that the script is canonical
    # This TX could have been signed by an older version of the software.
    # Either on the offline Armory installation which may not have been upgraded
    # or on a previous installation of Armory on this computer.
    def minimizeDERSignaturePadding(self):
-      # Do not try to this on P2SH
-      if self.isP2SH():
-         return False, self
-      rsLen = binary_to_int(self.binScript[2:3])
-      rLen = binary_to_int(self.binScript[4:5])
-      rBin = self.binScript[5:5+rLen]
-      sLen = binary_to_int(self.binScript[6+rLen:7+rLen])
-      sBin = self.binScript[7+rLen:7+rLen+sLen]
-      sigScript = createDERSigFromRS(rBin, sBin)
-      newBinScript = int_to_binary(len(sigScript)+1) + sigScript + self.binScript[3+rsLen:]
-      paddingRemoved = newBinScript != self.binScript
+      paddingRemoved = False
       newTxIn = self.copy()
+      newBinScript = newTxIn.binScript
+      # Do not try to this on P2SH
+      if self.isMultiSigScript():
+         sigScriptList = []
+         # Multi-sig - skip the leading 0x00
+         currentSigOffset = 1
+         # Expect true on first pass or else there are no signatures
+         while len(self.binScript)>currentSigOffset and \
+                self.hasAnotherSig(self.binScript[currentSigOffset:]):
+            sigScriptLength = binary_to_int(self.binScript[currentSigOffset])
+            sigScript = self.createDERSigFromSegment(self.binScript[currentSigOffset+2:])
+            sigScriptList.append(sigScript)
+            # Add 1 for the hash Code
+            currentSigOffset += sigScriptLength + 1
+         newBinScript = int_to_binary(0)
+         for sigScript in sigScriptList:
+            newBinScript = newBinScript + \
+                              int_to_binary(len(sigScript)+1) + \
+                              sigScript + \
+                              int_to_binary(1)
+         if len(self.binScript)>currentSigOffset:
+            newBinScript = newBinScript + self.binScript[currentSigOffset:]
+      # Must be P2PKH or P2PK
+      else:
+         rsLen = binary_to_int(self.binScript[2:3])
+         sigScript = self.createDERSigFromSegment(self.binScript[2:])
+         newBinScript = int_to_binary(len(sigScript)+1) + sigScript + self.binScript[3+rsLen:]
+      paddingRemoved = newBinScript != self.binScript
       newTxIn.binScript = newBinScript
       return paddingRemoved, newTxIn
 

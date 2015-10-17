@@ -3105,7 +3105,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          finalTx = self.ustx.getSignedPyTx(doVerifySigs=False)
          
 
-      self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
+      self.main.broadcastTransaction(finalTx)
       try:
          self.parent.tabbedDisplay.setCurrentIndex(2)
       except:

@@ -331,8 +331,8 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(result['message'], TEST_MESSAGE)
       self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
 
-
-
+   # Requires Supernode
+   @SkipTest
    def  testReceivedfromsigner(self):
       clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), \
                                  TEST_MESSAGE)
@@ -342,7 +342,8 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(result2['amount'], 0)
 
 
-
+   # Requires Supernode
+   @SkipTest
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_getreceivedfromaddress(TIAB_WLT_3_ADDR_3)
       self.assertEqual(result, 0)

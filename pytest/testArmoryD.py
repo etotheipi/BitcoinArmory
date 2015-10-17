@@ -106,6 +106,8 @@ class ArmoryDTest(TiabTest):
       self.jsonServer.jsonrpc_importprivkey(binary_to_hex(self.privKey2.toBinStr()))
       self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
 
+   # Requires Supernode
+   @SkipTest
    def testGettxout(self):
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 0)
       self.assertEquals(txOut['value'],TX_ID1_OUTPUT0_VALUE)
@@ -118,6 +120,8 @@ class ArmoryDTest(TiabTest):
       result = self.jsonServer.jsonrpc_getreceivedbyaddress(testAddr)
       self.assertEqual(result, 0)
       
+   # Requires Supernode
+   @SkipTest
    def testGetrawtransaction(self):
       actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
       pyTx = PyTx().unserialize(hex_to_binary(actualRawTx))
