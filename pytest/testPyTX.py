@@ -305,52 +305,7 @@ multiSigTx7of7Input1 = hex_to_binary( (
 ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
 class PyTXTest(TiabTest):
-   
-   def testMinimizeDERSignaturePadding(self):
-      multiTx1  = PyTx().unserialize(multiTx1raw)
-      paddingMinimizedMulti1, newTxMulti1 = multiTx1.minimizeDERSignaturePadding()
-      self.assertEqual(multiTx1.inputs[0].binScript, newTxMulti1.inputs[0].binScript)
-      self.assertEqual(expectedMultiTxInput1, newTxMulti1.inputs[1].binScript)
-      self.assertEqual(expectedMultiTxInput2, newTxMulti1.inputs[2].binScript)
-      self.assertEqual(multiTx1.inputs[3].binScript, newTxMulti1.inputs[3].binScript)
-      self.assertTrue(paddingMinimizedMulti1)
-      
-      txString = multiTx1.toString()
-      self.assertTrue(len(txString)> 0)
-      
-      multiTx2  = PyTx().unserialize(multiTx2raw)
-      paddingMinimizedMulti2, newTxMulti2 = multiTx2.minimizeDERSignaturePadding()
-      self.assertEqual(multiTx2.inputs[0].binScript, newTxMulti2.inputs[0].binScript)
-      self.assertEqual(expectedMultiTxInput1, newTxMulti2.inputs[1].binScript)
-      self.assertEqual(expectedMultiTxInput2, newTxMulti2.inputs[2].binScript)
-      # Added 1 extra byte of padding
-      self.assertEqual(len(multiTx2.inputs[3].binScript)-1, len(newTxMulti2.inputs[3].binScript))
-      self.assertTrue(paddingMinimizedMulti2)
-      
-      tx1  = PyTx().unserialize(tx1raw)
-      paddingMinimized1, newTx1 = tx1.minimizeDERSignaturePadding()
-      self.assertEqual(txInput0, newTx1.inputs[0].binScript)
-      self.assertTrue(paddingMinimized1)
-      tx2  = PyTx().unserialize(tx2raw)
-      paddingMinimized2, newTx2 = tx2.minimizeDERSignaturePadding()
-      # Old tx had 2 extra bytes of padding one each on the r and s
-      self.assertEqual(len(tx2.inputs[0].binScript)-2, len(newTx2.inputs[0].binScript))
-      self.assertTrue(paddingMinimized2)
-      
-      # Test with Multi-Sig
-      multiSigTx2of3  = PyTx().unserialize(multiSig2of3)
-      isPaddingMinimized2of3, newMultiSigTx2of3 = multiSigTx2of3.minimizeDERSignaturePadding()
-      self.assertEqual(multiSigTx2of3Input0, multiSigTx2of3.inputs[0].binScript)
-      self.assertEqual(multiSigTx2of3Input1, multiSigTx2of3.inputs[1].binScript)
-      self.assertTrue(paddingMinimized1)
-      
-            # Test with Multi-Sig
-      multiSigTx7of7  = PyTx().unserialize(multiSig7of7)
-      isPaddingMinimized2of3, newMultiSigTx7of7 = multiSigTx7of7.minimizeDERSignaturePadding()
-      self.assertEqual(multiSigTx7of7Input0, multiSigTx7of7.inputs[0].binScript)
-      self.assertEqual(multiSigTx7of7Input1, multiSigTx7of7.inputs[1].binScript)
-      self.assertTrue(paddingMinimized1)
-      
+ 
    def testSerializeUnserialize(self):
       tx1 = PyTx().unserialize(tx1raw)
       tx2 = PyTx().unserialize(BinaryUnpacker(tx2raw))
