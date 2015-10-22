@@ -817,7 +817,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
       return suggestedFee
    # Compute raw priority of tx
    prioritySum = 0
-   pprintUnspentTxOutList(selectCoinsResult)
+   # pprintUnspentTxOutList(selectCoinsResult)
    for utxo in selectCoinsResult:
       prioritySum += utxo.getValue() * utxo.getNumConfirm()
    prioritySum = prioritySum / numBytes
