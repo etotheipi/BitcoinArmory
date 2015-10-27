@@ -1148,7 +1148,7 @@ class UnsignedTxInput(AsciiSerializable):
          sig = self.signatures[i]
          if sig:
             rBin, sBin = getRSFromDERSig(sig)
-            hashCode = sig[-1:]
+            hashCode = sig[-1]
             # Don't forget to tack on the one-byte hashcode
             newSig = createDERSigFromRS(rBin, sBin) + hashCode
             if newSig != sig:

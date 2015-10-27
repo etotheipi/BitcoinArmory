@@ -2977,7 +2977,7 @@ def createDERSigFromRS(rBin, sBin):
    sInt = binary_to_int(sBin, BIGENDIAN)
    if sInt >  SECP256K1_ORDER / 2:
       sInt = SECP256K1_ORDER - sInt
-      sBin = int_to_binary(sInt, widthBytes=32, endOut=BIGENDIAN)
+      sBin = int_to_binary(sInt, endOut=BIGENDIAN)
 
    if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
    if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
