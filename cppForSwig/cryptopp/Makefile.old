@@ -11,7 +11,9 @@ CP = cp
 MKDIR = mkdir
 EGREP = egrep
 # JB: UNAME comes from cppForSwig/Makefile
-#UNAME = $(shell uname)
+ifeq ($(UNAME),)
+UNAME = $(shell uname)
+endif
 ISX86 = $(shell uname -m | $(EGREP) -c "i.86|x86|i86|amd64")
 
 # Default prefix for make install
@@ -67,8 +69,9 @@ CXXFLAGS += -DCRYPTOPP_DISABLE_SSSE3
 else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
+else
+CXXFLAGS += -mpclmul -mssse3 -maes -msse4
 endif
-CXXFLAGS += $(MLDFLAGS) # -mpclmul -mssse3 -maes -msse4 if compiler supports it
 
 endif
 ifeq ($(UNAME),SunOS)
