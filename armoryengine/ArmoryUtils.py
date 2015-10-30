@@ -3776,5 +3776,5 @@ def isInternetAvailable(forceOnline = False):
 def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
    return isInternetAvailable(forceOnline=CLI_OPTIONS.forceOnline) != \
                 INTERNET_STATUS.Unavailable and \
-      satoshiIsAvailable() and \
+      (CLI_OPTIONS.offline or satoshiIsAvailable()) and \
       os.path.exists(os.path.join(btcdir, 'blocks'))
