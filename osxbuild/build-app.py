@@ -464,11 +464,11 @@ def compile_qt():
    # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
-   #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-%s' % (qtVer, qtVerDate))
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+   #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-%s' % (qtVer, qtVerDate))
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-   #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-%s.tar.gz' % (qtVer, qtVerDate))
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-%s.tar.gz' % (qtVer, qtVerDate))
    #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
