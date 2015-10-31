@@ -17,7 +17,7 @@ from tempfile import mkstemp
 
 # Set some constants up front
 minOSXVer    = '10.7'
-osxName      = 'Yosemite'
+osxName      = 'ElCapitan'
 pythonVer    = '2.7.9'  # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer   = '2.7'
 setToolVer   = '10.2.1'
@@ -31,7 +31,7 @@ qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
 sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev    = '175335'
+webkitRev    = '191838'
 appNopeVer   = '0.1.0'
 LOGFILE      = 'build-app.log.txt'
 LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
@@ -352,17 +352,17 @@ distfiles.append( [ 'libpng', \
 # Pre-packaged source can lag a bit but provides for more consistent user
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
-                    #"qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    "qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
-                    #"http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    "http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
+                    "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
+                    #"qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
+                    "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
+                    #"http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
                     #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
-                    "9c1e2f3135bc4a36c5d24c1a3c3c640637041c92" ] )
+                    "76aef40335c0701e5be7bb3a9101df5d22fe3666" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "c8db972c03953d0d3ef89c7e67ce4a2e46dd9c36" ] )
+                    "dea8ccead40a77b71887caaa58572577f467e584" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
@@ -506,6 +506,9 @@ def compile_qt():
    # Completed bug fixes for modal windows.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
                cwd=qtBuildDir)
+   # This API is deprecated
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qpaintengine_mac.patch'), \
+               cwd=qtBuildDir)
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
@@ -558,6 +561,8 @@ def install_qt():
             removetree(dst)
          copytree(src, dst)
 
+      if not os.path.exists(qtBinDir):
+         os.makedirs(qtBinDir)
       with open(qtconf, 'w') as f:
          f.write('[Paths]\nPrefix = %s' % qtInstDir)
    
