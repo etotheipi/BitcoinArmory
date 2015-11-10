@@ -35,7 +35,7 @@ are executed from a terminal (aka command line) window.
 
 (8) To avoid runtime issues (e.g., "ImportError: No module named pkg_resources")
     when attempting to run builds on other machines/VMs, make sure $PYTHONPATH
-    is empty. In addition, try not to have any "brew"ed Python or Qt modules
+    is empty. In addition, try not to have any "brew"ed libpng, Python or Qt modules
     installed. Any of the above could lead to unpredictable behavior.
 
 (9) If running a beta version of Xcode, the build tools will need to point to
