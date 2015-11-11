@@ -85,13 +85,15 @@ for i in range(len(walletBytes)):
                print ' NOT_FOUND ',
             else:
                privKeyDict[addrStr] = (pubkeyHex, privkeyHex)
-               print ' FOUND ',
+               print ' FOUND: ', encodePrivKeyBase58(hex_to_binary(privkeyHex)),
       except:
          raise
          
+encodePrivKeyBase58
+
 for k,v in privKeyDict.iteritems():
-   keyout.write('\nAddrStr : %s:\nPubX(BE): %s\nPubY(BE): %s\nPriv(BE): %s' % \
-                           (k,v[0][2:2+64],v[0][2+64:2+64+64],v[1]))
+   keyout.write('\nAddrStr : %s:\nPubX(BE): %s\nPubY(BE): %s\nPriv(BE): %s\nPriv58: %s' % \
+                           (k, v[0][2:2+64], v[0][2+64:2+64+64], v[1], encodePrivKeyBase58(hex_to_binary(v[1]))))
 
 for k,v in pubKeyDict.iteritems():
    pubout.write('\n%s:\n\tPubKey: %s' % (k,pretty(v)))
