@@ -1,0 +1,26 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+
+Torrent info hash: cb7caf0b4c0ee266cce5fbd8f8ba3903f5efa82e
+Torrent magnet link:
+magnet:?xt=urn:btih:cb7caf0b4c0ee266cce5fbd8f8ba3903f5efa82e&dn=bootstrap.dat&tr=udp://tracker.openbittorrent.com:80&tr=udp://tracker.publicbt.com:80&tr=udp://tracker.ccc.de:80&tr=udp://tracker.istole.it:80
+
+Block height: 295000
+Filename: bootstrap.dat
+Byte size: 17522056398
+SHA1: 78a4b41ba7ed823c78cd9ca81a6de393c0ccc226
+SHA256: f451257f4e22e83dd49756b368b5b97dc1f92d31fa6dc114a0a9a69442490f4c
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.22 (Darwin)
+Comment: GPGTools - http://gpgtools.org
+
+iQEcBAEBCgAGBQJTTBXaAAoJEL8a4JGi25zKLdAH/325k2O2bgaw24xeAT/huOqV
+3+b9p4CZJJm6jDUoqGv2AbZ/dKNeKdU1b5dhKwbmlH2j65udeG9nScaiDgsxYEWM
+pYf/7zfxAxzBuY15ILi9iHRXfeVrNgFMtrQZAvLEaejDV04zvMRTslSqZ0eZg8Mn
+M6tfbJqsrpQY5kamuZMg3zvXHIimzXyvnBV2A0M+fPo7b7s2hi20cyQ7nbkKTsbw
+0gujASpHGusCZbmjDcS/O9GIqCoyQwrq+3uTdY2ZmLhSwxTW4Ey8rHm1vyW1VVQQ
+tjAAPS+t6XxQwxW4oSLwbppmMv9FB4SS7b9sgNJ5ENH6Bdz1zpgtH0mVSHNdafs=
+=6CHB
+-----END PGP SIGNATURE-----

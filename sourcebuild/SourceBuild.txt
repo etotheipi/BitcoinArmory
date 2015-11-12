@@ -1,0 +1,114 @@
+This file addresses those distributions of Linux and strains of BSD
+not addressed by the main instructions for installing Bitcoin Armory
+(i.e. any system which is not Debian, Ubuntu or other Debian
+derivatives).  It assumes that your system already has the GNU
+development tools (make, gcc, etc.)  installed, along with a later
+build of either Python 2.6 or 2.7.  It also assumes that you possess
+the necessary privileges to install software on the system (i.e. root
+or sudo).
+
+Examples will be given for Slackware 14.1 since any system which is
+not Slackware can use the same files to compile relevant parts from
+source (which is what Slackware's packaging system does anyway).
+
+1)  Crypto++:  Check that it is not already installed on your system.
+
+    Red Hat/CentOS/Fedora users:  yum list cryptopp
+    Slackware:  ls /var/log/packages/ | grep -i cryptopp
+
+If it is not already installed.  The Red Hat brigade can try: yum
+install cryptopp, but it may depend on the repositories available.
+
+For Slackware get the source and the build scripts from
+slackbuilds.org:
+
+    http://www.cryptopp.com/#download
+    http://slackbuilds.org/repository/14.1/libraries/cryptopp/
+
+Extract the build scripts somewhere in /tmp/ and follow the
+instructions on the slackbuilds.org site for preparing a package.
+This one should just work.  The result will be a Slackware package,
+cryptopp-5.6.2-i486-l_SBo.txz in the /tmp directory.  Install it:
+
+    installpkg /tmp/cryptopp-5.6.2-i486-l_SBo.txz
+
+If it didn't build, or your using Red Hat and it wasn't in the
+repositories, or your on BSD, Solaris or some even more obscure branch
+of UNIX-like system, copy the cryptopp562.zip file to /usr/local/src
+and unzip it.  change to the directory it creates and run the make
+install dance:
+
+    ./configure --prefix=/usr/local
+    make
+    [make check or make test]  # optional
+    make install
+
+
+2) SWIG will probably already be available on most systems, it is
+   installed by default on Slackware.  It appears to be part of
+   standard Red Hat systems too, at least as far back as RHEL 5.0.  In
+   the event that you are using a system that lacks it, the configure,
+   make and make install dance will work here too.
+
+    Downoad it:  http://www.swig.org/download.html
+    Extract in /usr/local/src
+    ./configure --prefix=/usr/local
+    make
+    make install
+
+
+3) PyQt from Riverbank Computing may already be on some systems.
+   Slackware 14.1 has it in a standard install and Red Hat appears to
+   have older versions available.  If your system does not include
+   PyQt, go to the Riverbank website and follow their instructions for
+   installing PyQt 4.
+
+    http://www.riverbankcomputing.co.uk/software/pyqt/download
+
+
+4) Everything else can be easily installed within Python itself with
+   the aide of PIP:
+
+   https://pip.pypa.io/en/latest/installing.html
+
+Download the get-pip.py file and then as root run:
+
+   python get-pip.py
+
+PIP will install setuptools if it is not already available.
+
+
+5) With PIP installed, as root (or through sudo) install Twisted:
+
+   [sudo] pip install twisted
+
+This will retrieve Twisted from https://pypi.python.org along with all
+its dependencies (including zope.interface) and install them in the
+Python's path (site-packages).
+
+
+6) Install qt4reactor with PIP:
+
+   [sudo] pip install qt4reactor
+
+
+7) Install psutil with PIP:
+
+   [sudo] pip install psutil
+
+
+8) Optionally install py2exe and/or py2exe2msi and/or PyInstaller
+   (with pywin32 if using with Windows).  All of which can be
+   installed with PIP except for py2exe for Python 2.x.
+
+   http://www.py2exe.org/
+   pip install py2exe2msi
+   pip install pyinstaller
+   http://sourceforge.net/projects/pywin32/files/
+
+
+9) Learn to love PIP, your dependency resolution for all things
+   Pythonic.  More information on PIP is available here:
+
+   https://pip.pypa.io/en/latest/installing.html
+
