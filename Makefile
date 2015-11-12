@@ -1,8 +1,8 @@
 # All the actual Makefiles are deeper in the directory tree.  
 # I am just calling them, here.
 
-PREFIX=/usr
-DESTDIR=
+PREFIX?=/usr
+DESTDIR?=
 UNAME_S := $(shell uname -s)
 
 all:
