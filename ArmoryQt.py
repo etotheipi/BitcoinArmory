@@ -2307,7 +2307,7 @@ class ArmoryMainWindow(QMainWindow):
          try:
             self.InstanceListener = ArmoryListenerFactory(self.bringArmoryToFront, \
                                                           uriClick_partial )
-            reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener)
+            reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener, 1, '127.0.0.1')
          except twisted.internet.error.CannotListenError:
             LOGWARN('Socket already occupied!  This must be a duplicate Armory')
             QMessageBox.warning(self, tr('Already Open'), tr("""
