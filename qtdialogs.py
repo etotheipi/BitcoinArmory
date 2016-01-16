@@ -1887,6 +1887,12 @@ class DlgWalletDetails(ArmoryDialog):
 
    #############################################################################
    def showContextMenu(self, pos):
+      try:
+          idx = self.wltAddrView.selectedIndexes()[0]
+      except IndexError:
+          # Nothing was selected for a context menu to act upon.  Return.
+          return
+
       menu = QMenu(self.wltAddrView)
       std = (self.main.usermode == USERMODE.Standard)
       adv = (self.main.usermode == USERMODE.Advanced)
@@ -1900,9 +1906,7 @@ class DlgWalletDetails(ArmoryDialog):
       if dev:   actionCopyPubKey  = menu.addAction("Copy Raw Public Key (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
-      idx = self.wltAddrView.selectedIndexes()[0]
       action = menu.exec_(QCursor.pos())
-
 
       # Get data on a given row, easily
       def getModelStr(col):
