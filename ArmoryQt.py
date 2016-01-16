@@ -6374,6 +6374,7 @@ class ArmoryMainWindow(QMainWindow):
       run every second, or whatever is specified in the nextBeatSec
       argument.
       """
+      from twisted.internet import reactor
 
       # Special heartbeat functions are for special windows that may need
       # to update every, say, every 0.1s
