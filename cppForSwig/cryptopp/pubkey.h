@@ -908,6 +908,7 @@ public:
 		{return params.GetSubgroupOrder().ByteCount();}
 	virtual size_t SLen(const DL_GroupParameters<T> &params) const
 		{return params.GetSubgroupOrder().ByteCount();}
+	virtual ~DL_ElgamalLikeSignatureAlgorithm() { }
 };
 
 //! interface for DL key agreement algorithms

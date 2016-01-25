@@ -22,6 +22,11 @@ ifeq ($(CXX),gcc)	# for some reason CXX is gcc on cygwin 1.1.4
 CXX = g++
 endif
 
+# Workaround for clang parsing issue.
+ifeq ($(CXX),clang++)
+CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
+endif
+
 ifeq ($(ISX86),1)
 
 GCC42_OR_LATER = $(shell $(CXX) -v 2>&1 | $(EGREP) -c "^gcc version (4.[2-9]|[5-9])")
@@ -38,7 +43,9 @@ ifeq ($(UNAME),Darwin)
 CXXFLAGS += -arch x86_64 -arch i386
 else
 #CXXFLAGS += -march=native
+ifeq ($(CXX),g++)
 CXXFLAGS += -mtune=generic
+endif
 endif
 endif
 
@@ -59,7 +66,10 @@ CXXFLAGS += -DCRYPTOPP_DISABLE_SSSE3
 else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
+else
+CXXFLAGS += -mpclmul -mssse3 -maes -msse4
 endif
+
 endif
 ifeq ($(UNAME),SunOS)
 CXXFLAGS += -Wa,--divide	# allow use of "/" operator
@@ -79,6 +89,7 @@ CXXFLAGS += -pipe
 endif
 
 ifeq ($(UNAME),Linux)
+CXXFLAGS += -std=c++11
 LDFLAGS += -pthread
 ifneq ($(shell uname -i | $(EGREP) -c "(_64|d64)"),0)
 M32OR64 = -m64
@@ -95,6 +106,10 @@ CXXFLAGS += -fno-coalesce-templates -fno-coalesce-static-vtables
 LDLIBS += -lstdc++
 LDFLAGS += -flat_namespace -undefined suppress -m
 endif
+
+# ARMORY - C++11 support is necessary in order to build the code.
+CXXFLAGS += -std=c++11 -stdlib=libc++
+LDFLAGS += -lc++
 endif
 
 ifeq ($(UNAME),SunOS)
@@ -126,7 +141,7 @@ OBJS = $(SRCS:.cpp=.o)
 TESTOBJS = bench.o bench2.o test.o validat1.o validat2.o validat3.o adhoc.o datatest.o regtest.o fipsalgt.o dlltest.o
 LIBOBJS = $(filter-out $(TESTOBJS),$(OBJS))
 
-DLLSRCS = algebra.cpp algparam.cpp asn.cpp basecode.cpp cbcmac.cpp channels.cpp cryptlib.cpp des.cpp dessp.cpp dh.cpp dll.cpp dsa.cpp ec2n.cpp eccrypto.cpp ecp.cpp eprecomp.cpp files.cpp filters.cpp fips140.cpp fipstest.cpp gf2n.cpp gfpcrypt.cpp hex.cpp hmac.cpp integer.cpp iterhash.cpp misc.cpp modes.cpp modexppc.cpp mqueue.cpp nbtheory.cpp oaep.cpp osrng.cpp pch.cpp pkcspad.cpp pubkey.cpp queue.cpp randpool.cpp rdtables.cpp rijndael.cpp rng.cpp rsa.cpp sha.cpp simple.cpp skipjack.cpp strciphr.cpp trdlocal.cpp
+DLLSRCS = algebra.cpp algparam.cpp asn.cpp basecode.cpp cbcmac.cpp channels.cpp cryptlib.cpp des.cpp dessp.cpp DetSign.cpp dh.cpp dll.cpp dsa.cpp ec2n.cpp eccrypto.cpp ecp.cpp eprecomp.cpp files.cpp filters.cpp fips140.cpp fipstest.cpp gf2n.cpp gfpcrypt.cpp hex.cpp hmac.cpp integer.cpp iterhash.cpp misc.cpp modes.cpp modexppc.cpp mqueue.cpp nbtheory.cpp oaep.cpp osrng.cpp pch.cpp pkcspad.cpp pubkey.cpp queue.cpp randpool.cpp rdtables.cpp rijndael.cpp rng.cpp rsa.cpp sha.cpp simple.cpp skipjack.cpp strciphr.cpp trdlocal.cpp
 DLLOBJS = $(DLLSRCS:.cpp=.export.o)
 LIBIMPORTOBJS = $(LIBOBJS:.o=.import.o)
 TESTIMPORTOBJS = $(TESTOBJS:.o=.import.o)

@@ -1,4 +1,6 @@
 import sys
+from armoryengine.BDM import BDM_BLOCKCHAIN_READY, TheBDM
+from armoryengine.ArmoryUtils import RightNow
 sys.path.append('..')
 sys.path.append('.')
 
@@ -27,7 +29,7 @@ if run_WalletCreate:
    print '\n\nCreating a new C++ wallet, add a few addresses...'
    cppWallet = Cpp.BtcWallet()
    cppWallet.addAddress_1_( hex_to_binary('11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31') )  # hash160 (hex)
-   cppWallet.addAddress_1_( addrStr_to_hash160('1EbAUHsitefy3rSECh8eK2fdAWTUbpVUDN') )   # addrStr
+   cppWallet.addAddress_1_( addrStr_to_hash160('1EbAUHsitefy3rSECh8eK2fdAWTUbpVUDN')[1] )   # addrStr
    cppWallet.addAddress_1_('\x1b~\xa7*\x85\t\x12\xb7=\xd4G\xf3\xbd\xc1\x00\xf1\x00\x8b\xde\xb0') # hash160 (bin)
 
    print 'Addresses in this wallet:'
@@ -35,7 +37,7 @@ if run_WalletCreate:
       print '\t', hash160_to_addrStr(cppWallet.getAddrByIndex(i).getAddrStr20())
 
    print '\n\nRegistering the wallet with the BlockDataManager & loading...'
-   TheBDM.registerWallet(cppWallet)
+   cppWallet.registerWallet()
 
 
 ################################################################################
@@ -46,7 +48,7 @@ if run_LoadBlockchain_Async:
    to check back later to see when it's done.  However, even when blocking is
    false, any functions that return data must block so the data can be 
    returned.  If you are in asynchronous mode, and don't want to ever wait 
-   for anything, always check TheBDM.getBDMState()=='BlockchainReady' before
+   for anything, always check TheBDM.getState()==BDM_BLOCKCHAIN_READY before
    requesting data that will force blocking.
    """
    start = RightNow()
@@ -54,7 +56,7 @@ if run_LoadBlockchain_Async:
    TheBDM.setOnlineMode(True)
    sleep(2)
    print 'Waiting for blockchain loading to finish',
-   while not TheBDM.getBDMState()=='BlockchainReady':
+   while not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       print '.',
       sys.stdout.flush()
       sleep(2)
@@ -62,7 +64,7 @@ if run_LoadBlockchain_Async:
 
    topBlock = TheBDM.getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
-   TheBDM.getTopBlockHeader().pprint()
+   TheBDM.blockchain().top().pprint()
 
 ################################################################################
 if run_LoadBlockchain_Block:
@@ -74,7 +76,7 @@ if run_LoadBlockchain_Block:
 
    topBlock = TheBDM.getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
-   TheBDM.getTopBlockHeader().pprint()
+   TheBDM.blockchain().top().pprint()
 
 
 ################################################################################
@@ -85,7 +87,7 @@ if run_WalletRescan:
 
    print '\n\nBalance of this wallet:', coin2str(cppWallet.getSpendableBalance())
    print 'Unspent outputs:'
-   unspentTxOuts = cppWallet.getSpendableTxOutList(topBlock)
+   unspentTxOuts = cppWallet.getSpendableTxOutList() #IGNOREZC isnt defined in this script
    for utxo in unspentTxOuts:
       utxo.pprintOneLine(topBlock)
 
@@ -109,7 +111,7 @@ if run_DiffChangeList:
    minDiff = maxDiff
    minDiffBlk = hex_to_int('ff'*32)
    for h in xrange(0,topBlock+1):
-      header = TheBDM.getHeaderByHeight(h)
+      header = TheBDM.blockchain().getHeaderByHeight(h)
       currDiff = header.getDifficulty()
       thisHash = header.getThisHash()
       thisDiff = binary_to_int(thisHash);
@@ -132,7 +134,7 @@ if run_DiffChangeList:
    print '   Equiv Difficult:', maxDiff/(minDiff * 2**32)
    print '   Equiv Diff bits:', log(maxDiff/minDiff)/log(2)
    print '   Block Header (hex): '
-   print '      ', binary_to_hex(TheBDM.getHeaderByHeight(minDiffBlk).serialize())
+   print '      ', binary_to_hex(TheBDM.blockchain().getHeaderByHeight(minDiffBlk).serialize())
 
 
 ################################################################################
@@ -143,7 +145,7 @@ if run_CumulativeSize:
       if h%10000 == 0:
          print '\tAccumulated %d blocks' % h
    
-      header = TheBDM.getHeaderByHeight(h)
+      header = TheBDM.blockchain().getHeaderByHeight(h)
       cumul += header.getBlockSize()
       if (h%2016==0) or h+1>=topBlock:
          f.write('%d %d\n' % (h,cumul))
@@ -162,7 +164,7 @@ if run_UniqueAddresses:
       if h%10000 == 0:
          print '\tScanned %d blocks' % h
    
-      header = TheBDM.getHeaderByHeight(h)
+      header = TheBDM.blockchain().getHeaderByHeight(h)
       txList = header.getTxRefPtrList()
       for txref in txList:
          tx = txref.getTxCopy()
@@ -222,7 +224,7 @@ if run_SatoshiDice:
    for line in httppage:
       if 'lessthan' in line and '1dice' in line:
          targ,addr,winr,mult,hous,rtrn   = extractLineData(line)
-         diceAddr                        = addrStr_to_hash160(addr)
+         diceAddr                        = addrStr_to_hash160(addr)[1]
          diceTargetMap[diceAddr]         = int(targ)
          dicePctWinMap[diceAddr]         = float(winr[:-1])/100.0
          diceWinMultMap[diceAddr]        = float(mult[:-1])
@@ -298,7 +300,7 @@ if run_SatoshiDice:
          if h%10000 == 0:
             print '\tSearched %d blocks' % h
    
-         header = TheBDM.getHeaderByHeight(h)
+         header = TheBDM.blockchain().getHeaderByHeight(h)
          txList = header.getTxRefPtrList()
 
          for txref in txList:

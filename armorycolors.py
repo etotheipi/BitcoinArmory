@@ -1,9 +1,9 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
+#                                                                              #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
 ################################################################################
 import sys
 from PyQt4.QtGui  import QColor, QPalette, QApplication
@@ -85,6 +85,11 @@ def luminance(qcolor):
 QAPP = QApplication(sys.argv)
 qpal = QAPP.palette()
 
+# workaround for https://bugs.launchpad.net/ubuntu/+source/qt4-x11/+bug/877236
+qpal.setColor(QPalette.ToolTipBase, qpal.color(QPalette.Window))
+qpal.setColor(QPalette.ToolTipText, qpal.color(QPalette.WindowText))
+QAPP.setPalette(qpal)
+
 # Some of the standard colors to be tweaked
 class ArbitraryStruct: pass
 Colors = ArbitraryStruct()
@@ -104,8 +109,9 @@ Colors.TextRed          = tweakColor(Colors.Foreground, '+', [+100,  -40,  -40])
 Colors.TextGreen        = tweakColor(Colors.Foreground, '+', [ -40, +100,  -40])
 Colors.TextBlue         = tweakColor(Colors.Foreground, '+', [ -40,  -40, +100])
 Colors.SlightRed        = tweakColor(Colors.Background, '*', [1.05, 0.95, 0.95])
-Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.92, 1.08, 0.92])
+Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.95, 1.05, 0.95])
 Colors.SlightBlue       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.05])
+Colors.SlightMoreBlue   = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.15])
 Colors.SlightBkgdDark   = tweakColor(Colors.Background, '*', [0.95, 0.95, 0.95])
 Colors.SlightBkgdLight  = tweakColor(Colors.Background, '*', [1.05, 1.05, 1.05])
 

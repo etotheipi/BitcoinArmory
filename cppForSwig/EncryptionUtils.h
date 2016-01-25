@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -66,6 +66,7 @@
 #include "modes.h"
 #include "eccrypto.h"
 #include "filters.h"
+#include "DetSign.h"
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -78,8 +79,9 @@
    // but, in practice, memory that has been VirtualLock'd almost never gets written to
    // the pagefile except in rare circumstances where memory is extremely low.
    #include <windows.h>
-   #define mlock(p, n) VirtualLock((p), (n));
-   #define munlock(p, n) VirtualUnlock((p), (n));
+   #include "leveldb_windows_port\win32_posix\mman.h"
+   //#define mlock(p, n) VirtualLock((p), (n));
+   //#define munlock(p, n) VirtualUnlock((p), (n));
 #else
    #include <sys/mman.h>
    #include <limits.h>
@@ -101,7 +103,7 @@
 // But as a safety check, we should probably put a cap
 // on how much memory the KDF can use -- 32 MB is good
 // If a KDF uses 32 MB of memory, it is undeniably easier
-// to computer on a CPU than a GPU.
+// to compute on a CPU than a GPU.
 #define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
 
 using namespace std;
@@ -109,18 +111,19 @@ using namespace std;
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
 // and also so it's easy to switch the AES MODE or PRNG, in one place
-#define UNSIGNED     ((CryptoPP::Integer::Signedness)(0))
-#define BTC_AES      CryptoPP::AES
-#define BTC_CFB_MODE CryptoPP::CFB_Mode
-#define BTC_CBC_MODE CryptoPP::CBC_Mode
-#define BTC_PRNG     CryptoPP::AutoSeededRandomPool
+#define UNSIGNED    ((CryptoPP::Integer::Signedness)(0))
+#define BTC_AES       CryptoPP::AES
+#define BTC_CFB_MODE  CryptoPP::CFB_Mode
+#define BTC_CBC_MODE  CryptoPP::CBC_Mode
+#define BTC_PRNG      CryptoPP::AutoSeededX917RNG<CryptoPP::AES>
 
-#define BTC_ECPOINT  CryptoPP::ECP::Point
-#define BTC_ECDSA    CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >
-#define BTC_PRIVKEY  CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::PrivateKey
-#define BTC_PUBKEY   CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::PublicKey
-#define BTC_SIGNER   CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::Signer 
-#define BTC_VERIFIER CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::Verifier
+#define BTC_ECPOINT   CryptoPP::ECP::Point
+#define BTC_ECDSA     CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>
+#define BTC_PRIVKEY   CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey
+#define BTC_PUBKEY    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey
+#define BTC_SIGNER    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Signer
+#define BTC_DETSIGNER CryptoPP::ECDSA_DetSign<CryptoPP::ECP, CryptoPP::SHA256>::DetSigner
+#define BTC_VERIFIER  CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Verifier
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +139,7 @@ public:
    // We want regular BinaryData, but page-locked and secure destruction
    SecureBinaryData(void) : BinaryData() 
                    { lockData(); }
-   SecureBinaryData(uint32_t sz) : BinaryData(sz) 
+   SecureBinaryData(size_t sz) : BinaryData(sz) 
                    { lockData(); }
    SecureBinaryData(BinaryData const & data) : BinaryData(data) 
                    { lockData(); }
@@ -186,7 +189,8 @@ public:
    // This would be a static method, as would be appropriate, except SWIG won't
    // play nice with static methods.  Instead, we will just use 
    // SecureBinaryData().GenerateRandom(32), etc
-   SecureBinaryData GenerateRandom(uint32_t numBytes);
+   SecureBinaryData GenerateRandom(uint32_t numBytes, 
+                              SecureBinaryData extraEntropy=SecureBinaryData());
 
    void lockData(void)
    {
@@ -314,7 +318,8 @@ public:
    CryptoECDSA(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
-   static BTC_PRIVKEY CreateNewPrivateKey(void);
+   static BTC_PRIVKEY CreateNewPrivateKey(
+                              SecureBinaryData extraEntropy=SecureBinaryData());
 
    /////////////////////////////////////////////////////////////////////////////
    static BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
@@ -341,12 +346,12 @@ public:
                                     BTC_PUBKEY  const & cppPubKey);
    
    /////////////////////////////////////////////////////////////////////////////
-   // For signing and verification, pass in original, UN-HASHED binary string
+   // For signing and verification, pass in original, UN-HASHED binary string.
+   // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    static SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                                    BTC_PRIVKEY const & cppPrivKey);
-   
-   
-   
+                                    BTC_PRIVKEY const & cppPrivKey,
+                                    const bool& detSign = true);
+
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    static bool VerifyData(SecureBinaryData const & binMessage, 
@@ -355,7 +360,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // For doing direct raw ECPoint operations... need the ECP object
-   static CryptoPP::ECP & Get_secp256k1_ECP(void);
+   static CryptoPP::ECP Get_secp256k1_ECP(void);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -364,23 +369,26 @@ public:
    // SWIG to take BTC_PUBKEY and BTC_PRIVKEY
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData GenerateNewPrivateKey(void);
+   SecureBinaryData GenerateNewPrivateKey(
+                              SecureBinaryData extraEntropy=SecureBinaryData());
    
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
 
    /////////////////////////////////////////////////////////////////////////////
-   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey65);
+   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey);
 
    /////////////////////////////////////////////////////////////////////////////
    bool CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
                              SecureBinaryData const & pubKey65);
 
    /////////////////////////////////////////////////////////////////////////////
-   // For signing and verification, pass in original, UN-HASHED binary string
+   // For signing and verification, pass in original, UN-HASHED binary string.
+   // For signing, k-value can use a PRNG or deterministic value (RFC 6979).
    SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                             SecureBinaryData const & binPrivKey);
-   
+                             SecureBinaryData const & binPrivKey,
+                             const bool& detSign = true);
+
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    bool VerifyData(SecureBinaryData const & binMessage, 
@@ -395,15 +403,21 @@ public:
    //           hurt to add some extra entropy/non-linearity to the chain
    //           generation process)
    SecureBinaryData ComputeChainedPrivateKey(
-                     SecureBinaryData const & binPrivKey,
-                     SecureBinaryData const & chainCode,
-                     SecureBinaryData binPubKey=SecureBinaryData());
+                           SecureBinaryData const & binPrivKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData binPubKey=SecureBinaryData(),
+                           SecureBinaryData* computedMultiplier=NULL);
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
-                                            SecureBinaryData const & chainCode);
+   SecureBinaryData ComputeChainedPublicKey(
+                           SecureBinaryData const & binPubKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData* multiplierOut=NULL);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // We need some direct access to Crypto++ math functions
+   SecureBinaryData InvMod(const SecureBinaryData& m);
 
    /////////////////////////////////////////////////////////////////////////////
    // Some standard ECC operations
@@ -434,17 +448,3 @@ public:
 
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -602,7 +602,7 @@ struct NewFixedDistanceDecoder
 	{
 		unsigned int codeLengths[32];
 		std::fill(codeLengths + 0, codeLengths + 32, 5);
-		std::auto_ptr<HuffmanDecoder> pDecoder(new HuffmanDecoder);
+		std::unique_ptr<HuffmanDecoder> pDecoder(new HuffmanDecoder);
 		pDecoder->Initialize(codeLengths, 32);
 		return pDecoder.release();
 	}

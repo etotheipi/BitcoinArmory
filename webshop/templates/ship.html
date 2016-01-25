@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Shipping Info{% endblock %}
+
+{% block header %}Shipping Info{% endblock %}
+
+{% block head %}
+<script>
+function updateAddress() {
+    // tell the server to update the address
+    var address = $("textarea").val();
+    $.ajax({
+        'url'  : '/address',
+        'type' : 'POST',
+        'data' : 'address=' + address
+    });
+}
+
+function updateEmail() {
+    // tell the server to update the address
+    var email = $("input").val();
+    $.ajax({
+        'url'  : '/email',
+        'type' : 'POST',
+        'data' : 'email=' + email
+    });
+}
+</script>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid breadcrumbBox text-center">
+  <ol class="breadcrumb">
+    <li><a href="/cart">Review</a></li>
+    <li class="active"><a href="/ship">Order</a></li>
+    <li><a>Payment</a></li>
+  </ol>
+</div>
+
+<div class="container text-center">
+  <div class="col-md-12 col-sm-12 text-left">
+    <ul>
+      <li class="row">
+	<span class="fieldlabel">Email (optional):</span>
+	<span class="field"><input type="text" onchange="updateEmail()" value="{{ ship.email }}"></span>
+      </li>
+      <li class="row">
+	<span class="fieldlabel">Full Name and Address:</span>
+	<span class="field"><textarea rows="5" onchange="updateAddress()">{{ ship.address }}</textarea></span>
+      </li>
+      <li class="row totals">
+	<span class="itemName">Total:</span>
+	<span class="price">{{total}} BTC</span>
+	<span class="order"> <a class="text-center" href="/pay">Pay</a></span>
+      </li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

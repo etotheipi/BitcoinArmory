@@ -1,28 +1,29 @@
 def licenseText():
    return """
 ********************************************************************************
-
-    Armory -- Bitcoin Client Software
-
-    Copyright (C) 2011-2013, Alan C. Reiner  <alan.reiner@gmail.com>
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as
-    published by the Free Software Foundation, either version 3 of the
-    License, or (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License <http://www.gnu.org/licenses/>
-    for more details.
-
+*                                                                              *
+*   Armory -- Advanced Bitcoin Wallet Software                                 *
+*                                                                              *
+*   Copyright (C) 2011-2015, Armory Technologies, Inc.                         *
+*                                                                              *
+*   This program is free software: you can redistribute it and/or modify       *
+*   it under the terms of the GNU Affero General Public License as             *
+*   published by the Free Software Foundation, either version 3 of the         *
+*   License, or (at your option) any later version.                            *
+*                                                                              *
+*   This program is distributed in the hope that it will be useful,            *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
+*   GNU Affero General Public License <http://www.gnu.org/licenses/>           *
+*   for more details.                                                          *
+*                                                                              *
 ********************************************************************************
-   
-    ***  If you wish to use this program or source code in a way not 
-         compliant with the AGPLv3, please contact me to work out an 
-         agreement for dual-licensing.   Contact information is at the top.
-
+*                                                                              *
+*   To use this software or source code in a way not compliant with the        *
+*   APGLv3, please contact us to discuss a dual-licensing agreement:           *
+*                                                                              *
+*                 licensing@bitcoinarmory.com                                  * 
+*                                                                              *
 ********************************************************************************
 
     This license applies to all works under this directory tree EXCEPT for:
@@ -31,12 +32,19 @@ def licenseText():
           cppForSwig/leveldb/*
           qtreactor4.py
           qrcodenative.py
+          jsonrpc/*
+          bittornado/*
+          osxbuild/objc_armory/ArmoryMac.h
+          osxbuild/objc_armory/macdockiconhandler.mm
+          osxbuild/objc_armory/macnotificationhandler.mm
     
     Everything in the cryptopp directory is considered public domain according 
     to http://www.cryptopp.com/ and included with the source distribution 
     as a convenience to the user.  The leveldb library has been included, 
     unmodified, in compliance with its license that can be found in the
-    cppForSwig/leveldb directory.
+    cppForSwig/leveldb directory.  Every listed file in objc_armory is also
+    subject to the MIT/X11 license, as described below and online
+    (http://www.opensource.org/licenses/mit-license.php).
 
 ********************************************************************************
 
@@ -255,4 +263,28 @@ IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY C
 If the disclaimer of warranty and limitation of liability provided above cannot be given local legal effect according to their terms, reviewing courts shall apply local law that most closely approximates an absolute waiver of all civil liability in connection with the Program, unless a warranty or assumption of liability accompanies a copy of the Program in return for a fee.
 
 END OF TERMS AND CONDITIONS
+
+
+********************************************************************************
+The MIT License (MIT)
+
+Copyright (c) 2011-2015 The Bitcoin Core developers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 """

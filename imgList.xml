@@ -2,6 +2,7 @@
 
 <RCC version="1.0">
    <qresource>
+      <file alias="MsgBox_critical24.png">img/MsgBox_critical24.png</file>
       <file alias="MsgBox_critical64.png">img/MsgBox_critical64.png</file>
       <file alias="MsgBox_error32.png">img/MsgBox_error32.png</file>
       <file alias="MsgBox_error64.png">img/MsgBox_error64.png</file>
@@ -26,6 +27,7 @@
       <file alias="armory_logo_h36.png">img/armory_logo_h36.png</file>
       <file alias="armory_logo_h48.png">img/armory_logo_h48.png</file>
       <file alias="armory_logo_h72.png">img/armory_logo_h72.png</file>
+      <file alias="armory_logo_h44.png">img/armory_logo_h44.png</file>
       <file alias="armory_logo_h56.png">img/armory_logo_h56.png</file>
       <file alias="armory_logo_white_text_h72.png">img/armory_logo_white_text_h72.png</file>
       <file alias="armory_logo_white_text_green_h72.png">img/armory_logo_white_text_green_h72.png</file>
@@ -80,6 +82,19 @@
       <file alias="folder-new-5.png">img/folder-new-5.png</file>
       <file alias="folder.png">img/folder.png</file>
       <file alias="folder24.png">img/folder24.png</file>
+      <file alias="frag1f.png">img/frag1f.png</file>
+      <file alias="frag2f.png">img/frag2f.png</file>
+      <file alias="frag3f.png">img/frag3f.png</file>
+      <file alias="frag4f.png">img/frag4f.png</file>
+      <file alias="frag5f.png">img/frag5f.png</file>
+      <file alias="frag6f.png">img/frag6f.png</file>
+      <file alias="frag7f.png">img/frag7f.png</file>
+      <file alias="frag8f.png">img/frag8f.png</file>
+      <file alias="keyhole_gray.png">img/keyhole_gray.png</file>
+      <file alias="keyhole_green.png">img/keyhole_green.png</file>
+      <file alias="keyhole_blue.png">img/keyhole_blue.png</file>
+      <file alias="keyhole_red.png">img/keyhole_red.png</file>
+      <file alias="keyhole_white.png">img/keyhole_white.png</file>
       <file alias="lockedIcon.png">img/lockedIcon.png</file>
       <file alias="loadicon_0.png">img/loadicon_0.png</file>
       <file alias="loadicon_1.png">img/loadicon_1.png</file>
@@ -100,6 +115,7 @@
       <file alias="preferences256.png">img/preferences256.png</file>
       <file alias="printer_icon.png">img/printer_icon.png</file>
       <file alias="process-stop-4.png">img/process-stop-4.png</file>
+      <file alias="red_X.png">img/red_X.png</file>
       <file alias="scroll_up_24.png">img/scroll_up_24.png</file>
       <file alias="scroll_down_24.png">img/scroll_down_24.png</file>
       <file alias="scroll_up_18.png">img/scroll_up_18.png</file>
@@ -108,6 +124,8 @@
       <file alias="splashlogo.png">img/splashlogo.png</file>
       <file alias="splashlogo_testnet.png">img/splashlogo_testnet.png</file>
       <file alias="unlockedIcon.png">img/unlockedIcon.png</file>
+      <file alias="visible.png">img/visible.png</file>
+      <file alias="visible2.png">img/visible2.png</file>
       <file alias="view-refresh-4.png">img/view-refresh-4.png</file>
       <file alias="wallet_16x12.png">img/wallet_16x12.png</file>
    </qresource>

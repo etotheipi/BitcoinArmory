@@ -94,7 +94,9 @@ VERSION 0.88
         since that version has a very wide hardware compatibility set.
 
 
+>>>>>>> backupcenter
 #-------------------------------------------------------------------------------
+#
 VERSION 0.87
    - Inflatable QR Codes Everywhere!
         QR codes added to multiple areas where addresses are displayed,

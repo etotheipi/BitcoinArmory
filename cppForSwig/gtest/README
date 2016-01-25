@@ -1,0 +1,14 @@
+(NOTE:  This is for Linux only, I have not tried it on Windows)
+
+This directory is for GoogleTest testing files.  At the time of this writing,
+there is only one source:  CppBlockUtilsTest.cpp.  The Makefile expects to 
+see GoogleTest version 1.6 unloaded three levels down and renamed as relative
+to this directory:
+
+   ../../../googletest
+
+In other words, this Makefile expects to find the gtest Makefile in: 
+
+   ../../../googletest/Makefile
+
+This was implemented and used on Ubuntu 12.10.  

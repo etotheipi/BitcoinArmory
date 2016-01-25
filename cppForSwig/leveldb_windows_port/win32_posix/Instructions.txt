@@ -1,0 +1,128 @@
+Porting leveldb to msvc11: LevelDB is mostly a POSIX project, that alone is quite the task to port on msvc11. On Windows, compiling POSIX projects can be achieved at little cost using MinGW and its GCC compiler. It becomes a different story with Microsoft's dedicated compiler.
+
+There's 2 ways to port LevelDB to unsupported POSIX OS's (read Windows): 
+1: Provide a full rewrite of the port and env classes with the OS's native system API
+
+2: Leave the source untouched redefine the POSIX calls to your own calls simulating the POSIX behavior with WinAPI calls.
+
+The goal of this port is to allow for a full build of the db with as little modification to the source as possible, allowing to quickly deploy LevelDB updates. For this purpose I picked the second solution. 
+
+The port comes with 2 packages: 
+
+a msvc11_port folder holding all the ported code:
+the mman port comes from: https://code.google.com/p/mman-win32/
+the dirent port is the courtesy of Kevlin Henney
+rest is from me besides snprint_C99, found on stackexchange, although it feels overkill (http://stackoverflow.com/questions/2915672/snprintf-and-visual-studio-2010). 
+
+I try to explain the why and hows of my code in comments. Ports I've taken from others are more or less commented. All questions regarding these should be directed to their respective authors.
+
+pthread_win32: a port of POSIX threads lib to win32, to be picked up 	here: ftp://sourceware.org/pub/pthreads-win32 LevelDB is based on 	pthread for its threading API, which naturally, isn't natively 	available on Windows. There are 3 solutions to this issue. First, 	rewrite the port class entirely. Second, redefine the calls to 	pthreads and redo them in WinAPI, what has been done with the 	other POSIX calls so far. However that's a much tought task. 	Third, be lazy and grab the prebuilt pthreads binaries for win32 	=P. Note that pthreads-win32 is a MinGW/GCC project, it won't 	build in msvc, but with the use extern "C", it yields msvc 	compatible DLLs and libs. If you wish to compile it yourself, go 	ahead and get MinGW.
+
+	Keep in mind that the solution picked implies you have to link all 	your projects with the pthread lib file and have the pthread dll 	sit in the folder with the .exe
+
+
+How to build this project, from an empty project and leveldb's source:
+
+#1 Add all the files found in the following folders to your project: 
+	leveldb/port
+	leveldb/util
+	leveldb/table 
+	leveldb/db 
+	(from the leveldb source)
+
+
+#2 After adding these files, remove from your project all .cc files with _test and _bench suffixes (any file with a main() declared, we're trying to build a library here). Get rid of anything that doesn't end with .cc or .h as well (README's and friends)
+
+#3 add the following folders to your include paths:
+	/msvc11_port 
+	/leveldb (the leveldb source root folder)
+	/leveldb/include
+
+#4 define following global compiler directives (in project>properties>pconfiguration properties>C/C++>preprocessor):
+	_CRT_SECURE_NO_wARNINGS
+	LEVELDB_PLATFORM_POSIX
+	LEVELDB_CSTDATOMIC_PRESENT
+	NOMINMAX
+
+#5 in atomic_pointer.h, look for these lines:
+	#ifdef LEVELDB_CSTDATOMIC_PRESENT
+
+	#include <cstdatomic>
+
+	#endif
+
+   Replace them with 
+	#ifdef LEVELDB_CSTDATOMIC_PRESENT
+	
+	#ifdef _WIN32
+		
+	#include <atomic>
+	
+	#elif 
+		
+	#include <cstdatomic>
+	
+	#endif
+	
+#endif
+
+
+#6 in port_posix.h, add these lines after #include <endian.h> #endif:
+	#ifdef _MSC_VER
+	
+	#include <win32_posix.h>
+	
+	#endif
+
+
+#7 add this line after the includes in c.cc
+	#define strdup _strdup
+
+#8 add win32_posix.cpp, mman.cpp and dirent_win32.cpp to the project, found in the msvc11_port folder
+
+#9 link the pthreads lib of your choice to the project: either pthreadVC2.lib or pthreadVCE2.lib. VC is pure C, VCE uses CXX standards. I'd presume VCE is faster. Note that only VC is available in x64. I used VC personally for my tests.
+
+#10 at this point you can build your project. You are now in front of a few choices, found in Properties > C/C++ > General -> Configuration Type:
+
+exe: you can add one of _test or _bench files back in to build an exe and test the db. I personally ran the benchmark and tests in db_test.cc in 32bit and 64bit to make sure the port was functional.
+
+static lib: This is your best choice. At this point you can simply build the lib and link it to your project. Keep in mind that with static libraries, the runtime library option you pick in your project has to match the one picked to build the lib. This option is found in Properties > C/C++ > Code Generation -> Runtime Library.
+
+2 choices are available: multi threaded (/MT) or multithreaded dll (/MD) (debug versions are meaningless at this point). If your lib was built with /MD, whatever project you're linking it to has to be built with /MD as well, same with /MT.
+
+dynamic lib (dll): This is a decent option however it's one that requires some editing the leveldb source: you'll have to prepend LEVELDB_EXPORT to all the classes and members you want in your dll, or they simply won't be exported. 
+
+How to figure out what you need? When you build your .exe, if the linker complains about unresolved external, there you have it. Now go back to the leveldb source, look for the symbol with the search function. Once you've found one, right click it and pick "Go To Definition". Now you can add LEVELDB_EXPORT in front of it.
+
+Note: for classes and structs, you have to add LEVELDB_EXPORTS between class/struct and the declaration, like this:
+	
+	'class myClass' becomes
+	'class LEVELDB_EXPORT myClass'
+
+Once you're done with that, add LEVELDB_DLL to global definitions in the leveldb project and DLL_BUILD into whatever project you're going to use this dll in.
+
+There's a workaround to this mess, with a .def file, but it's even more miserable: you have to write decorated names of the symbols you want in a .def file and feed it to the linker. Long story short, I have to setup an automated prebuild process to do it programatically, and that's too much work right now xD.
+
+/*** where's snappy at? ***/
+
+If you want to use snappy with leveldb, simply build it from source. Snappy doesn't use any system call so there's nothing else to do but to build it in msvc. You have a couple ways to do this: Either add snappy's code to your leveldb project and build everything on the go (you get some type redefinition bitching though) or, the way I recommend, is to build it as a static lib and link it to your leveldb project.
+
+Building it is straight forward: pick all files .cc and .h files in the snappy source folder, minues the ones ending in _test, pick static lib in the output, make sure it's the right CRT option (/MT or /MD) and proper architecture (x86 or x64), then just build it.
+
+You can grab snappy here: https://code.google.com/p/snappy/downloads/list
+
+/*** my shit won't work on WinXP! ***/
+
+Binaries compiled with msvc11 won't work on anything older than Vista. If you want a msvc build of LevelDB that compiles and runs on WinXP you have 2 options:
+
+1) Use the WinXP build tool for msvc11, which should be bundled with msvc11 express. You'll find it in Properties > C/C++ > General -> Platform Toolset
+
+If you don't have it, install msvc10 express, it comes with msvc9/10 binaries as well. Keep in mind that I have never tested this toolset, so I can't garantee the result.
+
+2) Grab and build leveldbwin https://code.google.com/p/leveldbwin/ 
+Note that it uses an old version of LevelDB, but you can always attempt to upgrade it on your own. It also needs ATL to build. You'll need a pay version of msvc 9 and above. Or, if you're using msvc10+ express, download and install ATL binaries from the Windows Driver Devellopement Kit 7.1 (WinDDK). Don't go for ver 8.0 and above as they don't come with ATL anymore.
+
+
+Have questions? Need help? Or just want to comment? Pm goatpig on the bitcoin forums (bitcointalk.org)
+
+

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -18,12 +18,6 @@
 //
 // Therefore, each timing adds about 4.5 microseconds of overhead to the code
 //
-// NOTE:  This class was originally used on a machine with no internet access
-//        or USB ports.  The code had to be printed, scanned and OCR'd.  While
-//        I have debugged the original code rigorously, there is no guarantees
-//        that this version of it is bug-free (I don't feel like exhaustively
-//        testing it again...)
-//
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _UNIVERSALTIMER_H_
 #define _UNIVERSALTIMER_H_
@@ -33,11 +27,17 @@
 #include <ctime>
 #include <iomanip>
 #include <string>
+#include "log.h"
+#include <atomic>
 
 // Use these #define's to wrap code blocks, not just a single function
 #define TIMER_START(NAME) UniversalTimer::instance().start(NAME)
 #define TIMER_RESTART(NAME) UniversalTimer::instance().restart(NAME)
 #define TIMER_STOP(NAME) UniversalTimer::instance().stop(NAME)
+
+/*#define TIMER_START(NAME)
+#define TIMER_RESTART(NAME)
+#define TIMER_STOP(NAME)*/
 
 // Same as above, but include a group name, so to group like objects
 #define TIMER_START_GROUP(GRPSTR,NAME) UniversalTimer::instance().start(NAME,GRPSTR)
@@ -71,7 +71,13 @@
 #define TIMER_READ_SEC(NAME) UniversalTimer::instance().read(NAME)
 
 // STARTS A TIMER THAT STOPS WHEN IT GOES OUT OF SCOPE
-#define SCOPED_TIMER(NAME) TimerToken TT(NAME)
+//#ifdef _DEBUG
+   //#define SCOPED_TIMER(NAME) TimerToken TimerWillStopOnDestruct(NAME)
+//#else
+   #define SCOPED_TIMER(NAME) 
+//#endif
+
+#define CLEANUP_ALL_TIMERS() UniversalTimer::cleanup()
 
 using namespace std;
 
@@ -79,6 +85,7 @@ class UniversalTimer
 {
 public:
    static UniversalTimer & instance(void);
+   static void cleanup(void);
    void init (string key, string grpstr="");
    void start (string key, string grpstr="");
    void restart (string key, string grpstr="");
@@ -94,6 +101,10 @@ public:
 protected:
    UniversalTimer(void) : most_recent_key_("") { }
 private:
+
+   static void lock(void);
+   static void unlock(void);
+
    class timer
    {
    public:
@@ -104,26 +115,28 @@ private:
          start_time_(0),
          stop_time_(0),
          accum_time_(0) { }
-      void start (void);
-      void restart(void);
-      void stop (void);
-      double read (void);
-      void reset (void);
+      void   start(void);
+      void   restart(void);
+      void   stop(void);
+      double read(void);
+      void   reset(void);
       double getPrev(void) { return prev_elapsed_; }
    private:
-      bool isRunning_;
+      bool    isRunning_;
       clock_t start_clock_;
       clock_t stop_clock_;
-      time_t start_time_;
-      time_t stop_time_;
-      double prev_elapsed_;
-      double accum_time_;
+      time_t  start_time_;
+      time_t  stop_time_;
+      double  prev_elapsed_;
+      double  accum_time_;
    };
    static UniversalTimer* theUT_;
    map<string, timer> call_timers_;
    map<string, int > call_count_;
    map<string, string> call_group_;
    string most_recent_key_;
+
+   static atomic<int32_t> lock_;
 };
 
 
@@ -142,10 +155,9 @@ public:
    { 
       timerName_ = name; 
       UniversalTimer::instance().start(timerName_);
-
-      #ifdef _DEBUG
-         cout << "Executing " << timerName_.c_str() << endl;
-      #endif
+#ifdef _DEBUG_FULL_VERBOSE
+	  LOGDEBUG3 << "Executing " << timerName_.c_str();
+#endif
    }
 
 
@@ -153,10 +165,10 @@ public:
    { 
       UniversalTimer::instance().stop(timerName_);
       lastTiming_ = UniversalTimer::instance().read(timerName_);
-      #ifdef _DEBUG
-         cout << "Finishing " << timerName_.c_str()
-              << "(" << lastTiming_*1000.0 << " ms)" << endl;
-      #endif
+#ifdef _DEBUG_FULL_VERBOSE
+	  LOGDEBUG3 << "Finishing " << timerName_.c_str()
+                << "(" << lastTiming_*1000.0 << " ms)";
+#endif
    }
 
 private: 

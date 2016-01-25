@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Armory {{product.nicename}}{% endblock %}
+
+{% block header %} Armory {{product.nicename}} {% endblock %}
+
+{% block head %}
+<script>
+function addCart() {
+    var quantity = $(".small").val();
+    $.ajax({
+        'url'  : '/add/{{product.name}}/' + quantity,
+        'type' : 'GET',
+        'success': function(data) {
+            $("#confirm").text("Added to cart");
+        }
+    });
+}
+</script>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+<h3> Armory {{ product.nicename }} </h3>
+  <p>{{ product.description }}</p>
+<p>
+<img src="{{ url_for('static', filename=product.img) }}"/>
+</p>
+
+Price: {{product.price}} BTC<br>
+
+<div id="confirm" style="color:green"><input type="text" class="small" value="1" onclick="$(this).select()"><button onclick="addCart()" style="color:black">Add To Cart</button></div>
+</div>
+{% endblock %}

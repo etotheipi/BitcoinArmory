@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -8,6 +8,8 @@
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
+
+BinaryData BinaryData::EmptyBinData_(0);
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData::BinaryData(BinaryDataRef const & bdRef) 
@@ -47,7 +49,7 @@ BinaryData & BinaryData::append(BinaryDataRef const & bd2)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
+BinaryData & BinaryData::append(uint8_t const * str, size_t sz)
 {
    BinaryDataRef appStr(str, sz);
    return append(appStr);
@@ -57,6 +59,9 @@ BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
 int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    int32_t finalAnswer = -1;
+   if(matchStr.getSize()==0)
+      return startPos;
+
    for(int32_t i=startPos; i<=(int32_t)getSize()-(int32_t)matchStr.getSize(); i++)
    {
       if(matchStr[0] != data_[i])
@@ -131,7 +136,7 @@ bool BinaryData::startsWith(BinaryData const & matchStr) const
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 {
-   uint32_t sz = matchStr.getSize();
+   size_t sz = matchStr.getSize();
    if(sz > getSize())
       return false;
    
@@ -144,7 +149,7 @@ bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::endsWith(BinaryData const & matchStr) const
 {
-   uint32_t sz = matchStr.getSize();
+   size_t sz = matchStr.getSize();
    if(sz > getSize())
       return false;
    
@@ -156,12 +161,12 @@ bool BinaryData::endsWith(BinaryData const & matchStr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
+BinaryDataRef BinaryData::getSliceRef(ssize_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = getSize() + start_pos;
 
-   if(start_pos + nChar > getSize())
+   if((size_t)start_pos + nChar > getSize())
    {
       cerr << "getSliceRef: Invalid BinaryData access" << endl;
       return BinaryDataRef();
@@ -170,12 +175,12 @@ BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData BinaryData::getSliceCopy(int32_t start_pos, uint32_t nChar) const
+BinaryData BinaryData::getSliceCopy(ssize_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = getSize() + start_pos;
 
-   if(start_pos + nChar > getSize())
+   if((size_t)start_pos + nChar > getSize())
    {
       cerr << "getSliceCopy: Invalid BinaryData access" << endl;
       return BinaryData();
@@ -200,7 +205,7 @@ uint64_t BinaryReader::get_var_int(uint8_t* nRead)
 uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
 {
    uint32_t nBytes;
-   uint64_t varInt = BtcUtils::readVarInt( bdRef_.getPtr() + pos_, &nBytes);
+   uint64_t varInt = BtcUtils::readVarInt( bdRef_.getPtr() + pos_, getSizeRemaining(), &nBytes);
    if(nRead != NULL)
       *nRead = nBytes;
    pos_ += nBytes;
@@ -213,12 +218,9 @@ bool BinaryData::operator==(BinaryDataRef const & bd2) const
 {
    if(getSize() != bd2.getSize())
       return false;
-   for(unsigned int i=0; i<getSize(); i++)
-      if( data_[i] != bd2[i])
-         return false;
-   return true;
-}
 
+   return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+}
 
 
 

@@ -1,23 +1,9 @@
-#! /usr/bin/python
-
-import os
-import time
-from subprocess import Popen, PIPE
-
-def execAndWait(cli_str):
-   print '\tEXEC:', cli_str
-   process = Popen(cli_str, shell=True)
-   while process.poll() == None:
-      time.sleep(0.01)
-
-execAndWait('xdg-desktop-menu  uninstall /usr/share/applications/armory.desktop')
-execAndWait('xdg-desktop-menu  uninstall /usr/share/applications/armorytestnet.desktop')
-execAndWait('xdg-desktop-menu  uninstall /usr/share/applications/armoryoffline.desktop')
-execAndWait('xdg-icon-resource uninstall --size 64 armoryicon')
-execAndWait('xdg-icon-resource uninstall --size 64 armorytestneticon')
-execAndWait('xdg-icon-resource uninstall --size 64 armoryofflineicon')
-
-# This doesn't work because it needs to be run as the current user
-#execAndWait('gconftool-2 --unset /desktop/gnome/url-handlers/bitcoin/command')
-#execAndWait('gconftool-2 -t bool -s /desktop/gnome/url-handlers/bitcoin/enabled false')
+#! /bin/bash
+set -e
+xdg-desktop-menu  uninstall /usr/share/applications/armory.desktop
+xdg-desktop-menu  uninstall /usr/share/applications/armorytestnet.desktop
+xdg-desktop-menu  uninstall /usr/share/applications/armoryoffline.desktop
+xdg-icon-resource uninstall --size 64 armoryicon
+xdg-icon-resource uninstall --size 64 armorytestneticon
+xdg-icon-resource uninstall --size 64 armoryofflineicon
 
