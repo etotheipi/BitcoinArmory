@@ -477,7 +477,7 @@ public:
 
    // We don't actually enforce these members.  They're solely for recording
    // the values that were unserialized with everything else, so that we can
-   // leter check that DB data matches what we were expecting
+   // later check that DB data matches what we were expecting
    uint32_t        unserArmVer_;
    uint32_t        unserBlkVer_;
    ARMORY_DB_TYPE  unserDbType_;
@@ -485,6 +485,9 @@ public:
    MERKLE_SER_TYPE unserMkType_;
    
    bool hasBlockHeader_=false;
+
+   size_t offset_;
+   uint16_t fileID_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

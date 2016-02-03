@@ -410,15 +410,54 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
 /////////////////////////////////////////////////////////////////////////////
 void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
+   unique_lock<mutex> lock(mu_);
+
+   //create transaction here to batch the write
+   LMDBEnv::Transaction tx;
+   db->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
+
    for (auto& block : newlyParsedBlocks_)
    {
       StoredHeader sbh;
       sbh.createFromBlockHeader(*block);
-      uint8_t dup = db->putBareHeader(sbh, true);
+      //don't update SDBI, we'll do it here once instead
+      uint8_t dup = db->putBareHeader(sbh, true, false);
       block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
    }
+
+   //update SDBI, keep within the batch transaction
+   StoredDBInfo sdbiH;
+   db->getStoredDBInfo(HEADERS, sdbiH);
+
+   if (top == nullptr)
+   {
+      LOGINFO << "No known top block, didn't update SDBI";
+      return;
+   }
+
+   if (topBlockPtr_->blockHeight_ >= sdbiH.topBlkHgt_)
+   {
+      sdbiH.topBlkHgt_ = topBlockPtr_->blockHeight_;
+      sdbiH.topBlkHash_ = topBlockPtr_->thisHash_;
+      db->putStoredDBInfo(HEADERS, sdbiH);
+   }
+
 
    //once commited to the DB, they aren't considered new anymore, 
    //so clean up the container
    newlyParsedBlocks_.clear();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void Blockchain::addBlocksInBulk(const map<HashString, BlockHeader>& bhMap)
+{
+   unique_lock<mutex> lock(mu_);
+
+   headerMap_.insert(bhMap.begin(), bhMap.end());
+
+   for (auto& header : bhMap)
+   {
+      auto headerIter = headerMap_.find(header.first);
+      newlyParsedBlocks_.push_back(&(headerIter->second));
+   }
 }

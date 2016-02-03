@@ -426,7 +426,8 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // BareHeaders are those int the HEADERS DB with no blockdta associated
-   uint8_t putBareHeader(StoredHeader & sbh, bool updateDupID = true);
+   uint8_t putBareHeader(StoredHeader & sbh, bool updateDupID = true,
+                         bool updateSDBI = true);
    bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup);
    bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt);
    bool    getBareHeader(StoredHeader & sbh, BinaryDataRef headHash);

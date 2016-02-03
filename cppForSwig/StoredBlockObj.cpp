@@ -424,6 +424,9 @@ BlockHeader DBBlock::getBlockHeaderCopy(void) const
    bh.setBlockSize(numBytes_);
    bh.setDuplicateID(duplicateID_);
 
+   bh.setBlockFileNum(fileID_);
+   bh.setBlockFileOffset(offset_);
+
    return bh;
 }
 
@@ -468,6 +471,8 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
       duplicateID_ = DBUtils::hgtxToDupID(hgtx);
       BtcUtils::getHash256(dataCopy_, thisHash_);
       numBytes_ = brr.get_uint32_t();
+      fileID_ = brr.get_uint16_t();
+      offset_ = brr.get_uint64_t();
    }
    else if(db==BLKDATA)
    {
@@ -524,6 +529,8 @@ void DBBlock::serializeDBValue(
       bw.put_BinaryData(dataCopy_);
       bw.put_BinaryData(hgtx);
       bw.put_uint32_t(numBytes_);
+      bw.put_uint16_t(fileID_);
+      bw.put_uint64_t(offset_);
    }
    else if(db==BLKDATA)
    {

@@ -1690,38 +1690,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    return prevTopBlk;
 }
 
-void BlockDataManager_LevelDB::loadBlockHeadersFromDB(const ProgressCallback &progress)
-{
-   LOGINFO << "Reading headers from db";
-   blockchain().clear();
-   
-   unsigned counter=0;
-   
-   const unsigned howManyBlocks = [&] () -> unsigned
-   {
-      const time_t btcEpoch = 1230963300; // genesis block ts
-      const time_t now = time(nullptr);
-      
-      // every ten minutes we get a block, how many blocks exist?
-      const unsigned blocks = (now-btcEpoch)/60/10;
-      return blocks;
-   }();
-   
-   ProgressCalculator calc(howManyBlocks);
-   
-   const auto callback= [&] (const BlockHeader &h, uint32_t height, uint8_t dup)
-   {
-      blockchain().addBlock(h.getThisHash(), h, height, dup);
-      calc.advance(counter++);
-      progress(BDMPhase_DBHeaders, calc.fractionCompleted(), calc.remainingSeconds(), counter);
-   };
-   
-   iface_->readAllHeaders(callback);
-   
-   LOGINFO << "Found " << blockchain().allHeaders().size() << " headers in db";
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup) const
 {

@@ -47,6 +47,8 @@ public:
    BlockHeader& addNewBlock(const HashString &blockhash, 
       const BlockHeader &block, bool suppressVerbose);
 
+   void addBlocksInBulk(const map<HashString, BlockHeader>&);
+
    ReorganizationState organize();
    ReorganizationState forceOrganize();
    ReorganizationState findReorgPointFromBlock(const BinaryData& blkHash);
@@ -104,6 +106,8 @@ private:
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;
    Blockchain(const Blockchain&); // not defined
+
+   mutex mu_;
 };
 
 #endif

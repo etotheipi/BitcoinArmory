@@ -1498,6 +1498,9 @@ void LMDBBlockDatabase::readAllHeaders(
       regHead.unserialize(sbh.dataCopy_);
       regHead.setBlockSize(sbh.numBytes_);
 
+      regHead.setBlockFileNum(sbh.fileID_);
+      regHead.setBlockFileOffset(sbh.offset_);
+
       if (sbh.thisHash_ != regHead.getThisHash())
       {
          LOGWARN << "Corruption detected: block header hash " <<
@@ -1674,7 +1677,8 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
 // (which actually calls this method as the first step)
 //
 // Returns the duplicateID of the header just inserted
-uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID)
+uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID,
+   bool updateSDBI)
 {
    SCOPED_TIMER("putBareHeader");
 
@@ -1760,11 +1764,15 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID)
    if(sbh.isMainBranch_)
    {
       setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_, updateDupID);
-      if(sbh.blockHeight_ >= sdbiH.topBlkHgt_)
+      if (updateSDBI)
       {
-         sdbiH.topBlkHgt_  = sbh.blockHeight_;
-         sdbiH.topBlkHash_ = sbh.thisHash_;
-         putStoredDBInfo(HEADERS, sdbiH);
+         getStoredDBInfo(HEADERS, sdbiH);
+         if (sbh.blockHeight_ >= sdbiH.topBlkHgt_)
+         {
+            sdbiH.topBlkHgt_ = sbh.blockHeight_;
+            sdbiH.topBlkHash_ = sbh.thisHash_;
+            putStoredDBInfo(HEADERS, sdbiH);
+         }
       }
    }
    return sbhDupID;
