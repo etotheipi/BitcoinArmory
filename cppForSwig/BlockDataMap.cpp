@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2016, goatpig.                                              //
 //  Distributed under the MIT license                                         //
-//  See LICENSE                                                               //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 

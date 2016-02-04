@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #ifndef LMDBPP_H
 #define LMDBPP_H
 

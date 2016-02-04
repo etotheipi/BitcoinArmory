@@ -2,12 +2,13 @@
 //                                                                            //
 //  Copyright (C) 2016, goatpig.                                              //
 //  Distributed under the MIT license                                         //
-//  See LICENSE                                                               //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "DatabaseBuilder.h"
 #include "BtcUtils.h"
+#include "BlockUtils.h"
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockFiles::detectAllBlockFiles()
@@ -32,6 +33,18 @@ void BlockFiles::detectAllBlockFiles()
 }
 
 /////////////////////////////////////////////////////////////////////////////
+DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles, 
+   BlockDataManager_LevelDB& bdm,
+   const ProgressCallback &progress)
+   : blockFiles_(blockFiles), db_(bdm.getIFace()),
+   blockchain_(bdm.blockchain()),
+   scrAddrFilter_(bdm.getScrAddrFilter()),
+   progress_(progress),
+   magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0)
+{}
+
+
+/////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()
 {
    //list all files in block data folder
@@ -39,10 +52,31 @@ void DatabaseBuilder::init()
 
    //read all blocks already in DB and populate blockchain
    topBlockOffset_ = loadBlockHeadersFromDB(progress_);
-   bc_.forceOrganize();
+   blockchain_.forceOrganize();
 
    //update db
-   updateDB(progress_);
+   updateBlocksInDB(progress_);
+
+   //blockchain object now has the longest chain, update the wallets history
+   //1) retrieve all tracked addresses from DB
+   scrAddrFilter_->getAllScrAddrInDB();
+
+   //2) determine from which block to start scanning
+   scrAddrFilter_->getScrAddrCurrentSyncState();
+   auto scanFrom = scrAddrFilter_->scanFrom();
+
+   while (1)
+   {
+      //3) scan it!
+      auto topScannedBlockHash = updateTransactionHistory(scanFrom);
+
+      //4) make sure the topScannedBlockHash matches the top block hash
+      //in the blockchain object
+      if (topScannedBlockHash == blockchain_.top().getThisHash())
+         break;
+
+      //if we got this far, the scan failed, we need to repair the DB
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -52,7 +86,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
    //TODO: preload the headers db file to speed process up
 
    LOGINFO << "Reading headers from db";
-   bc_.clear();
+   blockchain_.clear();
 
    unsigned counter = 0;
    BlockOffset topBlockOffet(0, 0);
@@ -71,7 +105,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
    const auto callback = [&](const BlockHeader &h, uint32_t height, uint8_t dup)
    {
-      bc_.addBlock(h.getThisHash(), h, height, dup);
+      blockchain_.addBlock(h.getThisHash(), h, height, dup);
 
       BlockOffset currblock(h.getBlockFileNum(), h.getOffset());
       if (currblock > topBlockOffet)
@@ -82,15 +116,15 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
          calc.fractionCompleted(), calc.remainingSeconds(), counter);
    };
 
-   db_.readAllHeaders(callback);
+   db_->readAllHeaders(callback);
 
-   LOGINFO << "Found " << bc_.allHeaders().size() << " headers in db";
+   LOGINFO << "Found " << blockchain_.allHeaders().size() << " headers in db";
 
    return topBlockOffet;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void DatabaseBuilder::updateDB(const ProgressCallback &progress)
+void DatabaseBuilder::updateBlocksInDB(const ProgressCallback &progress)
 {
    //TODO: squeeze in the progress callback
 
@@ -124,8 +158,8 @@ void DatabaseBuilder::updateDB(const ProgressCallback &progress)
 
    //done parsing new blocks, let's add them to the DB
 
-   bc_.organize();
-   bc_.putNewBareHeaders(&db_);
+   blockchain_.organize();
+   blockchain_.putNewBareHeaders(db_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -181,7 +215,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       bhmap.insert(make_pair(sbh.thisHash_, sbh.getBlockHeaderCopy()));
 
    //add in bulk
-   bc_.addBlocksInBulk(bhmap);
+   blockchain_.addBlocksInBulk(bhmap);
 
    return true;
 }
@@ -243,4 +277,23 @@ void DatabaseBuilder::parseBlockFile(
       fileMap += localProgress + thisBlkSize;
       progress += localProgress + thisBlkSize;
    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
+{
+   //Scan history
+   auto topScannedBlockHash = scanHistory(startHeight);
+
+   //update SSH with balance and txio count
+
+   //return the hash of the last scanned block
+   return topScannedBlockHash;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DatabaseBuilder::scanHistory(uint32_t scanHeight)
+{
+
 }

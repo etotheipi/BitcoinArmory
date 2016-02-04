@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2016, goatpig.                                              //
 //  Distributed under the MIT license                                         //
-//  See LICENSE                                                               //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -57,12 +57,12 @@ class DatabaseBuilder
 {
 private:
    BlockFiles& blockFiles_;
-   Blockchain& bc_;
-   LMDBBlockDatabase& db_;
+   Blockchain& blockchain_;
+   LMDBBlockDatabase* db_;
+   shared_ptr<ScrAddrFilter> scrAddrFilter_;
+
    const ProgressCallback progress_;
-
    const BinaryData magicBytes_;
-
    BlockOffset topBlockOffset_;
 
 private:
@@ -74,12 +74,11 @@ private:
       function<void(const uint8_t* data, size_t size, size_t offset)>);
 
 public:
-   DatabaseBuilder(BlockFiles& blockFiles, LMDBBlockDatabase& db,
-      Blockchain& bc, const ProgressCallback &progress)
-      : blockFiles_(blockFiles), db_(db), bc_(bc), progress_(progress),
-      magicBytes_(db_.getMagicBytes()), topBlockOffset_(0, 0)
-   {}
+   DatabaseBuilder(BlockFiles&, BlockDataManager_LevelDB&,
+      const ProgressCallback&);
 
    void init(void);
-   void updateDB(const ProgressCallback &progress);
+   void updateBlocksInDB(const ProgressCallback &progress);
+   BinaryData updateTransactionHistory(uint32_t startHeight);
+   BinaryData scanHistory(uint32_t startHeight);
 };

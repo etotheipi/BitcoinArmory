@@ -1,75 +1,9 @@
-This is a fork of Armory, found in repository: 
+Armory -- Bitcoin Wallet Software                                          
+Copyright (C) 2011-2015, Armory Technologies, Inc. 
+Copyright (C) 2016, goatpig
 
-All commmits up to and including 
-6bee73638959afca774df6470ed593b21f781c91 are the property
-of Armory Technologies Inc. (ATI) ATI reservers all right
-to the original code under the GNU Affero General Public 
-License, Version 3.
+Portion of the code is ATI's property, licensed under GNU Affero GPL Version 3
+Portion of the code is goatpig's property, licensed under the MIT license
 
-All new code stemming from commit 
-6bee73638959afca774df6470ed593b21f781c91 are the property
-of goatpig, under the MIT license:
-
-///////////////////////////////////////////////////////////
-/
-/  Armory -- Bitcoin Wallet Software
-/  Copyright (c) 2016, goatpig <moothecowlord@gmail.com>
-/  
-/  Permission is hereby granted, free of charge, to any 
-/  person obtaining a copy of this software and associated 
-/  documentation files (the "Software"), to deal in the 
-/  Software without restriction, including without 
-/  limitation the rights to use, copy, modify, merge, 
-/  publish, distribute, sublicense, and/or sell copies of 
-/  the Software, and to permit persons to whom the Software 
-/  is furnished to do so, subject to the following 
-/  conditions:
-/
-/  The above copyright notice and this permission notice 
-/  shall be included in all copies or substantial portions 
-/  of the Software.
-/
-/  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY 
-/  KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE 
-/  WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-/  PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS 
-/  OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR 
-/  OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT 
-/  OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH 
-/  THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-/
-///////////////////////////////////////////////////////////
-
-
-***********************************************************
-*                                                                              
-*   Armory -- Bitcoin Wallet Software                                          
-*                                                                              
-*   Copyright (C) 2011-2015, Armory Technologies, Inc.                      
-*                                                                              
-*   This program is free software: you can redistribute it and/or modify       
-*   it under the terms of the GNU Affero General Public License as             
-*   published by the Free Software Foundation, either version 3 of the         
-*   License, or (at your option) any later version.                            
-*                                                                              
-*   This program is distributed in the hope that it will be useful,            
-*   but WITHOUT ANY WARRANTY; without even the implied warranty of             
-*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              
-*   GNU Affero General Public License <http://www.gnu.org/licenses/>           
-*   for more details.                                                          
-*                                                                              
-***********************************************************
-*                                                                              
-*   Armory is licensed under the GNU Affero General Public License, Version 3. 
-*   Please see LICENSE.py for the full details of this license.                
-*                                                                              
-***********************************************************
-*                                                                              
-*   To use this software or source code in a way not compliant with the        
-*   APGLv3, please contact us to discuss a dual-licensing agreement:           
-*                                                                              
-*                 licensing@bitcoinarmory.com                                  
-*                                                                              
-***********************************************************
-
-
+See each individual code files to determine which licenses apply 
+For code files point directly here (LICENSE), see LICENSE-ATI

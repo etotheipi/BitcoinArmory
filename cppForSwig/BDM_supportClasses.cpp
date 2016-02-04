@@ -2,9 +2,15 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
 #include "BDM_supportClasses.h"
 #include "BlockUtils.h"
 #include "txio.h"
@@ -94,14 +100,15 @@ bool ScrAddrFilter::registerAddressBatch(
          //is ready by passing isNew as true. Pass a blank BinaryData for the 
          //top scanned block hash in this case, it will be ignored anyways      
          
-         while (mergeLock_.fetch_or(1, memory_order_acquire));
-         for (auto& batch : wltNAddrMap)
          {
-            for (auto& sa : batch.second)
-               scrAddrDataForSideScan_.scrAddrsToMerge_.insert({ sa, 0 });
-            mergeFlag_ = true;
+            unique_lock<mutex> lock(mergeLock_);
+            for (auto& batch : wltNAddrMap)
+            {
+               for (auto& sa : batch.second)
+                  scrAddrDataForSideScan_.scrAddrsToMerge_.insert({ sa, 0 });
+               mergeFlag_ = true;
+            }
          }
-         mergeLock_.store(0, memory_order_release);
 
          for (auto& batch : wltNAddrMap)
          {
@@ -266,8 +273,7 @@ void ScrAddrFilter::merge(const BinaryData& lastScannedBlkHash)
 
    if (root_)
    {
-      //grab merge lock
-      while (root_->mergeLock_.fetch_or(1, memory_order_acquire));
+      unique_lock<mutex> lock(root_->mergeLock_);
 
       //merge scrAddrMap_
       root_->scrAddrDataForSideScan_.lastScannedBlkHash_ = lastScannedBlkHash;
@@ -276,9 +282,6 @@ void ScrAddrFilter::merge(const BinaryData& lastScannedBlkHash)
 
       //set mergeFlag
       root_->mergeFlag_ = true;
-
-      //release merge lock
-      root_->mergeLock_.store(0, memory_order_release);
    }
 }
 
@@ -329,15 +332,12 @@ void ScrAddrFilter::checkForMerge()
       }
 
       //grab merge lock
-      while (mergeLock_.fetch_or(1, memory_order_acquire));
+      unique_lock<mutex> lock(mergeLock_);
 
       scrAddrMap_.insert(sca->scrAddrMap_.begin(), sca->scrAddrMap_.end());
       scrAddrDataForSideScan_.scrAddrsToMerge_.clear();
 
       mergeFlag_ = false;
-
-      //release lock
-      mergeLock_.store(0, memory_order_release);
    }
 }
 
@@ -401,6 +401,34 @@ void ScrAddrFilter::buildSideScanData(
       min(scrAddrDataForSideScan_.startScanFrom_, scrAddrPair.second);
 
    scrAddrDataForSideScan_.wltNAddrMap_ = wltNAddrMap;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::getAllScrAddrInDB()
+{
+   unique_lock<mutex> lock(mergeLock_);
+
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
+
+   auto dbIter = lmdb_->getIterator(SSH);
+   dbIter.seekToFirst();
+
+   //iterate over SSH DB
+   do
+   {
+      auto keyRef = dbIter.getKeyRef();
+      StoredScriptHistory ssh;
+      ssh.unserializeDBKey(dbIter.getKeyRef());
+      ssh.unserializeDBValue(dbIter.getValueRef());
+
+      scrAddrMap_[ssh.uniqueKey_] = 0;
+   } 
+   while (dbIter.advanceAndRead());
+
+   for (auto scrAddrPair : scrAddrMap_)
+      getScrAddrCurrentSyncState(scrAddrPair.first);
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -990,7 +1018,7 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
    const vector<BinaryData>& keysToDelete)
 {
    //should run in its own thread to make sure we can get a write tx
-   DB_SELECT dbs = BLKDATA;
+   DB_SELECT dbs = ZERO_CONF;
    if (db_->getDbType() != ARMORY_DB_SUPER)
       dbs = HISTORY;
 

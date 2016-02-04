@@ -2,9 +2,15 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef _BDM_SUPPORTCLASSES_H_
 #define _BDM_SUPPORTCLASSES_H_
 
@@ -121,7 +127,7 @@ private:
    shared_ptr<ScrAddrFilter>      child_;
    ScrAddrFilter*                 root_;
    ScrAddrSideScanData            scrAddrDataForSideScan_;
-   atomic<int32_t>                mergeLock_;
+   mutex                          mergeLock_;
    bool                           mergeFlag_=false;
    
    //false: dont scan
@@ -145,14 +151,14 @@ public:
    const ARMORY_DB_TYPE           armoryDbType_;
   
    ScrAddrFilter(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
-      : lmdb_(lmdb), mergeLock_(0), armoryDbType_(armoryDbType)
+      : lmdb_(lmdb), armoryDbType_(armoryDbType)
    {
       scanThreadProgressCallback_ = 
          [](const vector<string>&, double, unsigned)->void {};
    }
 
    ScrAddrFilter(const ScrAddrFilter& sca) //copy constructor
-      : lmdb_(sca.lmdb_), mergeLock_(0), armoryDbType_(sca.armoryDbType_)
+      : lmdb_(sca.lmdb_), armoryDbType_(sca.armoryDbType_)
    {}
    
    virtual ~ScrAddrFilter() { }
@@ -207,6 +213,8 @@ public:
       function<void(const vector<string>&, double prog, unsigned time)> progress);
 
    const vector<string> getNextWalletIDToScan(void);
+
+   void getAllScrAddrInDB(void);
  
 public:
    virtual ScrAddrFilter* copy()=0;

@@ -2,10 +2,15 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-//
+
 #include <iostream>
 #include <sstream>
 #include <map>
@@ -497,7 +502,8 @@ void LMDBBlockDatabase::openDatabases(
    for (int i = 0; i < COUNT; i++)
       dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
 
-   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
+   //checks if the db is supernode, we dont do that yet.
+   /*dbEnv_[BLKDATA]->open(dbBlkdataFilename());
 
    //make sure it's a fullnode DB
    {
@@ -523,8 +529,7 @@ void LMDBBlockDatabase::openDatabases(
          LOGERR << "Current DB is supernode";
          throw runtime_error("Mismatch in DB type");
       }
-   }
-
+   }*/
 
 
    dbEnv_[HEADERS]->open(dbHeadersFilename());
@@ -534,7 +539,6 @@ void LMDBBlockDatabase::openDatabases(
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS] = "headers";
    DB_NAMES[HISTORY] = "history";
-   DB_NAMES[BLKDATA] = "blocks";
    DB_NAMES[TXHINTS] = "txhints";
 
    try
@@ -619,7 +623,8 @@ void LMDBBlockDatabase::openDatabasesSupernode(
    DB_PRUNE_TYPE      pruneType
 )
 {
-   SCOPED_TIMER("openDatabases");
+   throw runtime_error("treid to open DB in supernode, not implemented");
+/*   SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
    baseDir_ = basedir;
@@ -714,7 +719,7 @@ void LMDBBlockDatabase::openDatabasesSupernode(
       throw;
    }
    
-   dbIsOpen_ = true;
+   dbIsOpen_ = true;*/
 }
 
 
