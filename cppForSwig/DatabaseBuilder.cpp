@@ -7,30 +7,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "DatabaseBuilder.h"
-#include "BtcUtils.h"
 #include "BlockUtils.h"
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockFiles::detectAllBlockFiles()
-{
-   if (folderPath_.size() == 0)
-      throw runtime_error("empty block files folder path");
-
-   unsigned numBlkFiles = filePaths_.size();
-
-   while (numBlkFiles < UINT16_MAX)
-   {
-      string path = BtcUtils::getBlkFilename(folderPath_, numBlkFiles);
-      uint64_t filesize = BtcUtils::GetFileSize(path);
-      if (filesize == FILE_DOES_NOT_EXIST)
-         break;
-
-      filePaths_.insert(make_pair(numBlkFiles, path));
-
-      totalBlockchainBytes_ += filesize;
-      numBlkFiles++;
-   }
-}
+#include "BlockchainScanner.h"
 
 /////////////////////////////////////////////////////////////////////////////
 DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles, 
@@ -286,14 +264,17 @@ BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
    //Scan history
    auto topScannedBlockHash = scanHistory(startHeight);
 
-   //update SSH with balance and txio count
-
    //return the hash of the last scanned block
    return topScannedBlockHash;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData DatabaseBuilder::scanHistory(uint32_t scanHeight)
+BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
 {
+   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_,
+      blockFiles_);
+   bcs.scan(startHeight);
+   bcs.updateSSH();
 
+   return bcs.getTopScannedBlockHash();
 }

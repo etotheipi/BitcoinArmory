@@ -35,6 +35,45 @@ using namespace std;
 #endif
 
 /////////////////////////////////////////////////////////////////////////////
+struct BlockOffset
+{
+   uint16_t fileID_;
+   size_t offset_;
+
+   BlockOffset(uint16_t fileID, size_t offset)
+      : fileID_(fileID), offset_(offset)
+   {}
+
+   bool operator>(const BlockOffset& rhs)
+   {
+      return fileID_ >= rhs.fileID_ && offset_ > rhs.offset_;
+   }
+
+   bool operator=(const BlockOffset& rhs)
+   {
+      this->fileID_ = rhs.fileID_;
+      this->offset_ = rhs.offset_;
+   }
+};
+
+/////////////////////////////////////////////////////////////////////////////
+class BlockFiles
+{
+private:
+   map<uint32_t, string> filePaths_;
+   const string folderPath_;
+   size_t totalBlockchainBytes_ = 0;
+
+public:
+   BlockFiles(const string& folderPath) :
+      folderPath_(folderPath)
+   {}
+
+   void detectAllBlockFiles(void);
+   const string& folderPath(void) const { return folderPath_; }
+};
+
+/////////////////////////////////////////////////////////////////////////////
 class BlockDataFileMap
 {
    friend class BlockFileMapPointer;

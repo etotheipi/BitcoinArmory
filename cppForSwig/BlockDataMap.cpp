@@ -7,6 +7,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "BlockDataMap.h"
+#include "BtcUtils.h"
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockFiles::detectAllBlockFiles()
+{
+   if (folderPath_.size() == 0)
+      throw runtime_error("empty block files folder path");
+
+   unsigned numBlkFiles = filePaths_.size();
+
+   while (numBlkFiles < UINT16_MAX)
+   {
+      string path = BtcUtils::getBlkFilename(folderPath_, numBlkFiles);
+      uint64_t filesize = BtcUtils::GetFileSize(path);
+      if (filesize == FILE_DOES_NOT_EXIST)
+         break;
+
+      filePaths_.insert(make_pair(numBlkFiles, path));
+
+      totalBlockchainBytes_ += filesize;
+      numBlkFiles++;
+   }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 BlockDataLoader::BlockDataLoader(const string& path,
@@ -50,6 +73,8 @@ void BlockDataLoader::garbageCollectorThread()
          if (mapFuture.wait_for(std::chrono::milliseconds(1)) 
             != future_status::ready)
             continue;
+         
+         //TODO: make sure the gc doesn't go after prefetched files right away
 
          //check the BlockDataMap counter
          auto ptr = mapFuture.get();
