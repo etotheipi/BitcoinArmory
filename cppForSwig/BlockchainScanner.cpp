@@ -11,8 +11,10 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockData::deserialize(const uint8_t* data, size_t size,
-   const BlockHeader& blockHeader)
+   const BlockHeader* blockHeader)
 {
+   headerPtr_ = blockHeader;
+
    //deser header from raw and run a quick sanity check
    if (size < HEADER_SIZE)
       throw runtime_error("raw data is smaller than HEADER_SIZE");
@@ -20,14 +22,14 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    BinaryDataRef bdr(data, HEADER_SIZE);
    BlockHeader bh(bdr);
 
-   if (bh.getThisHashRef() != blockHeader.getThisHashRef())
+   if (bh.getThisHashRef() != blockHeader->getThisHashRef())
       throw runtime_error("raw data does not back expected block hash");
 
    //get numTx, check against blockheader too
    BinaryRefReader brr(data + HEADER_SIZE, size - HEADER_SIZE);
    unsigned numTx = (unsigned)brr.get_var_int();
 
-   if (numTx != blockHeader.getNumTx())
+   if (numTx != blockHeader->getNumTx())
       throw runtime_error("tx count mismatch in deser header");
 
    for (int i = 0; i < numTx; i++)
@@ -199,15 +201,15 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
 
       //setup promise
       promise<BlockDataLink> blockPromise;
-      blockFuture = make_shared<future<BlockDataLink>>(blockPromise.get_future());
+      blockFuture = blockPromise.get_future();
 
       //TODO: encapsulate in try block to catch deser errors and signal pull thread
       //termination before exiting scope. cant have the scan thread hanging if this
       //one fails
 
       //grab block file map
-      auto blockheader = blockchain_->getHeaderByHeight(currentBlock);
-      auto filenum = blockheader.getBlockFileNum();
+      BlockHeader* blockheader = &blockchain_->getHeaderByHeight(currentBlock);
+      auto filenum = blockheader->getBlockFileNum();
       
       auto mapIter = batch->fileMaps_.find(filenum);
       if (mapIter == batch->fileMaps_.end())
@@ -224,14 +226,180 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
       //find block and deserialize it
       BlockDataLink blockfuture;
       blockfuture.blockdata_.deserialize(
-         filemap->getPtr() + blockheader.getOffset(), blockheader.getSize(),
+         filemap->getPtr() + blockheader->getOffset(), blockheader->getSize(),
          blockheader);
 
       //fill promise
       blockPromise.set_value(blockfuture);
 
       //prepare next iteration
-      blockFuture = blockFuture->get().next_;
+      blockFuture = blockFuture.get().next_;
       currentBlock += totalThreadCount_;
    }
+
+   //we're done, fill the block future with the termination block
+   promise<BlockDataLink> blockPromise;
+   blockFuture = blockPromise.get_future();
+   blockPromise.set_value(BlockDataLink());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
+{
+   //parser lambda
+   auto blockDataLoop = [&](function<void(const BlockData&)> callback)
+   {
+      auto blockFuture = batch->first_;
+      while (1)
+      {
+         auto blocklink = blockFuture.get();
+
+         if (!blocklink.blockdata_.isInitialized())
+            break;
+
+         //callback
+         callback(blocklink.blockdata_);
+
+         blockFuture = blocklink.next_;
+      }
+   };
+
+   //txout lambda
+   auto txoutParser = [&](const BlockData& blockdata)->void
+   {
+      const BlockHeader* header = blockdata.header();
+
+      //update processed height
+      auto topHeight = header->getBlockHeight();
+      batch->highestProcessedHeight_.store(topHeight, memory_order_relaxed);
+
+      auto& txns = blockdata.getTxns();
+      for (unsigned i = 0; i < txns.size(); i++)
+      {
+         auto& txn = txns[i];
+         for (unsigned y = 0; y < txn.txouts_.size(); y++)
+         {
+            auto& txout = txn.txouts_[y];
+
+            BinaryRefReader brr(txout.first);
+            brr.advance(8);
+            unsigned scriptSize = (unsigned)brr.get_var_int();
+            auto&& scrAddr = BtcUtils::getTxOutScrAddr(
+               brr.get_BinaryDataRef(scriptSize));
+
+            if (!scrAddrFilter_->hasScrAddress(scrAddr))
+               continue;
+
+            //if we got this far, this txout is ours
+            //get tx hash
+            auto& txHash = txn.getHash();
+
+            //construct StoredTxOut
+            StoredTxOut stxo;
+            stxo.dataCopy_ = BinaryData(
+               txn.data_ + txout.first, txout.second);
+            stxo.parentHash_ = txHash;
+            stxo.blockHeight_ = header->getBlockHeight();
+            stxo.duplicateID_ = header->getDuplicateID();
+            stxo.txIndex_ = i;
+            stxo.txOutIndex_ = y;
+            stxo.scrAddr_ = scrAddr;
+            auto value = stxo.getValue();
+
+            auto&& hgtx = DBUtils::heightAndDupToHgtx(
+               stxo.blockHeight_, stxo.duplicateID_);
+            
+            auto&& txioKey = DBUtils::getBlkDataKeyNoPrefix(
+               stxo.blockHeight_, stxo.duplicateID_,
+               i, y);
+
+            //update utxos_
+            auto& stxoHashMap = batch->utxos_[txHash];
+            stxoHashMap.insert(make_pair(i, move(stxo)));
+
+            //update ssh_
+            auto& ssh = batch->ssh_[scrAddr];
+            auto& subssh = ssh.subHistMap_[hgtx];
+            
+            //deal with txio count in subssh at serialization
+            TxIOPair txio;
+            txio.setValue(value);
+            txio.setTxOut(txioKey);
+            subssh.txioMap_.insert(make_pair(txioKey, txio));
+         }
+      }
+   };
+
+   //txin lambda
+   auto txinParser = [&](const BlockData& blockdata)->void
+   {
+      const BlockHeader* header = blockdata.header();
+      auto& txns = blockdata.getTxns();
+
+      for (unsigned i = 0; i < txns.size(); i++)
+      {
+         auto& txn = txns[i];
+
+         for (unsigned y = 0; y < txn.txins_.size(); y++)
+         {
+            auto& txin = txn.txins_[y];
+            BinaryDataRef outHash(
+               txn.data_ + txin.first, 32);
+
+            auto utxoIter = batch->utxos_.find(outHash);
+            if (utxoIter == batch->utxos_.end())
+               continue;
+
+            unsigned txOutId = READ_UINT32_LE(
+               txn.data_ + txin.first + 32);
+
+            auto idIter = utxoIter->second.find(txOutId);
+            if (idIter == utxoIter->second.end())
+               continue;
+
+            //if we got this far, this txins consumes one of our utxos
+
+            //create spent txout
+            auto&& hgtx = DBUtils::getBlkDataKeyNoPrefix(
+               header->getBlockHeight(), header->getDuplicateID());
+
+            auto&& txinkey = DBUtils::getBlkDataKeyNoPrefix(
+               header->getBlockHeight(), header->getDuplicateID(),
+               i, y);
+
+            StoredTxOut stxo = idIter->second;
+            stxo.spentness_ = TXOUT_SPENT;
+            stxo.spentByTxInKey_ = txinkey;
+
+            //add to spentTxOuts_
+            batch->spentTxOuts_.push_back(move(stxo));
+
+            //add to ssh_
+            auto& ssh = batch->ssh_[stxo.scrAddr_];
+            auto& subssh = ssh.subHistMap_[hgtx];
+
+            //deal with txio count in subssh at serialization
+            TxIOPair txio;
+            txio.setTxOut(stxo.getDBKey(false));
+            txio.setTxIn(txinkey);
+            txio.setValue(stxo.getValue());
+            subssh.txioMap_.insert(make_pair(txinkey, txio));
+         }
+      }
+   };
+
+   //setup future flag
+   promise<bool> utxoScanFlag;
+   batch->doneScanningUtxos_ = utxoScanFlag.get_future();
+
+   //txout loop
+   blockDataLoop(txoutParser);
+
+   //done with txouts, fill the future flag and wait on the mutex 
+   //to move to txins processing
+   utxoScanFlag.set_value(true);
+   unique_lock<mutex> lock(batch->mu_);
+
+   //txins loop
+   blockDataLoop(txinParser);
 }
