@@ -12,11 +12,30 @@
 #include "BlockDataMap.h"
 
 #include <future>
+#include <atomic>
+#include <condition_variable>
 
 #ifndef _BLOCKCHAINSCANNER_H
 #define _BLOCKCHAINSCANNER_H
 
 #define OffsetAndSize pair<size_t, size_t>
+
+////////////////////////////////////////////////////////////////////////////////
+struct BCTX
+{
+   const uint8_t* data_;
+   const size_t size_;
+
+   uint32_t version_;
+   uint32_t lockTime_;
+
+   vector<OffsetAndSize> txins_;
+   vector<OffsetAndSize> txouts_;
+
+   BCTX(const uint8_t* data, size_t size) :
+      data_(data), size_(size)
+   {}
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 class BlockData
@@ -25,12 +44,13 @@ private:
    uint8_t* data_;
    size_t size_;
 
-   vector<OffsetAndSize> txins_;
+   vector<BCTX> txns_;
    
 public:
    BlockData(void) {}
 
-   void deserialize(const uint8_t* data, size_t size);
+   void deserialize(const uint8_t* data, size_t size,
+      const BlockHeader&);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,6 +70,9 @@ struct BlockDataBatch
 
    shared_future<bool> doneScanningUtxos_;
    mutex mu_;
+   condition_variable readThreadCV_;
+
+   atomic<unsigned> highestProcessedHeight_;
    
    //keep a reference to the file mmaps used by this object since we don't copy 
    //the data, just point at it.
@@ -61,7 +84,9 @@ struct BlockDataBatch
 
    BlockDataBatch(unsigned start, unsigned end) : 
       start_(start), end_(end)
-   {}
+   {
+      highestProcessedHeight_.store(start, memory_order_relaxed);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,6 +99,7 @@ private:
    BlockDataLoader blockDataLoader_;
 
    const unsigned nBlockFilesPerBatch_ = 4;
+   const unsigned nBlocksLookAhead_ = 10;
    const unsigned totalThreadCount_;
 
    BinaryData topScannedBlockHash_;

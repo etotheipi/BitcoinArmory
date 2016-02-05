@@ -10,9 +10,60 @@
 #include "log.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockData::deserialize(const uint8_t* data, size_t size)
+void BlockData::deserialize(const uint8_t* data, size_t size,
+   const BlockHeader& blockHeader)
 {
+   //deser header from raw and run a quick sanity check
+   if (size < HEADER_SIZE)
+      throw runtime_error("raw data is smaller than HEADER_SIZE");
 
+   BinaryDataRef bdr(data, HEADER_SIZE);
+   BlockHeader bh(bdr);
+
+   if (bh.getThisHashRef() != blockHeader.getThisHashRef())
+      throw runtime_error("raw data does not back expected block hash");
+
+   //get numTx, check against blockheader too
+   BinaryRefReader brr(data + HEADER_SIZE, size - HEADER_SIZE);
+   unsigned numTx = (unsigned)brr.get_var_int();
+
+   if (numTx != blockHeader.getNumTx())
+      throw runtime_error("tx count mismatch in deser header");
+
+   for (int i = 0; i < numTx; i++)
+   {
+      //light tx deserialization, just figure out the offset and size of
+      //txins and txouts
+      vector<size_t> offsetIns, offsetOuts;
+      auto txSize = BtcUtils::TxCalcLength(
+         brr.getCurrPtr(), brr.getSizeRemaining(),
+         &offsetIns, &offsetOuts);
+
+      //create BCTX object and fill it up
+      BCTX tx(brr.getCurrPtr(), txSize);
+      tx.version_ = READ_UINT32_LE(brr.getCurrPtr());
+     
+      //convert offsets to offset + size pairs
+      for (int y = 0; y < offsetIns.size() - 1; y++)
+         tx.txins_.push_back(
+            make_pair(
+               offsetIns[y], 
+               offsetIns[y+1] - offsetIns[y]));
+
+      for (int y = 0; y < offsetOuts.size() - 1; y++)
+         tx.txouts_.push_back(
+            make_pair(
+               offsetOuts[y], 
+               offsetOuts[y+1] - offsetOuts[y]));
+      
+      tx.lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
+
+      //move it to BlockData object vector
+      txns_.push_back(move(tx));
+
+      //increment ptr offset
+      brr.advance(txSize);
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,11 +185,25 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
    auto currentBlock = batch->start_;
    auto blockFuture = batch->first_;
 
+   mutex mu;
+   unique_lock<mutex> lock(mu);
+
    while (currentBlock >= batch->end_)
    {
+      //stay within nBlocksLookAhead of the scan thread
+      while (batch->highestProcessedHeight_.load(memory_order_relaxed) >
+         nBlocksLookAhead_ * totalThreadCount_)
+      {
+         batch->readThreadCV_.wait(lock);
+      }
+
       //setup promise
       promise<BlockDataLink> blockPromise;
       blockFuture = make_shared<future<BlockDataLink>>(blockPromise.get_future());
+
+      //TODO: encapsulate in try block to catch deser errors and signal pull thread
+      //termination before exiting scope. cant have the scan thread hanging if this
+      //one fails
 
       //grab block file map
       auto blockheader = blockchain_->getHeaderByHeight(currentBlock);
@@ -159,7 +224,8 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
       //find block and deserialize it
       BlockDataLink blockfuture;
       blockfuture.blockdata_.deserialize(
-         filemap->getPtr() + blockheader.getOffset(), blockheader.getSize());
+         filemap->getPtr() + blockheader.getOffset(), blockheader.getSize(),
+         blockheader);
 
       //fill promise
       blockPromise.set_value(blockfuture);
