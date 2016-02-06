@@ -5937,10 +5937,10 @@ class DlgDispTxInfo(ArmoryDialog):
       if self.pytx.optInRBF and nConf == 0:
          lbls.append([])
          lbls[-1].append(self.main.createToolTipWidget(
-               'Whether the transaction has opted into '
-               'being replaced by another transaction with '
+               'This transaction can be replaced by another transaction that'
+               'spends the same inputs if the replacement transaction has'
                'a higher fee.'))
-         lbls[-1].append(QLabel('Opt-In RBF: '))
+         lbls[-1].append(QLabel('Mempool Replaceable: '))
          lbls[-1].append(QRichLabel(str(self.pytx.optInRBF)))
 
 
