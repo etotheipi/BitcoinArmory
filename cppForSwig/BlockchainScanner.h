@@ -119,6 +119,15 @@ struct BlockDataBatch
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+struct BatchLink
+{
+   vector<shared_ptr<BlockDataBatch>> batchVec_;
+   shared_future<shared_ptr<BatchLink>> next_;
+
+   BinaryData topScannedBlockHash_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
 class BlockchainScanner
 {
 private:
@@ -134,11 +143,17 @@ private:
    BinaryData topScannedBlockHash_;
 
    //only for relevant utxos
-   map<BinaryData, StoredTxOut> utxoMap_;
+   map<BinaryData, map<unsigned, StoredTxOut>> utxoMap_;
 
 private:
    void readBlockData(shared_ptr<BlockDataBatch>);
    void scanBlockData(shared_ptr<BlockDataBatch>);
+   
+   void accumulateDataBeforeBatchWrite(vector<shared_ptr<BlockDataBatch>>&);
+   void writeBlockData(shared_future<shared_ptr<BatchLink>>);
+   void processAndCommitTxHints(
+      const vector<shared_ptr<BlockDataBatch>>& batchVec);
+
 
 public:
    BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,

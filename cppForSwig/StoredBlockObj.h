@@ -69,6 +69,7 @@ enum DB_SELECT
    BLKDATA,
    SSH,
    HISTORY,
+   STXO,
    TXHINTS,
    ZERO_CONF,
    COUNT
