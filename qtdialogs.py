@@ -5934,6 +5934,15 @@ class DlgDispTxInfo(ArmoryDialog):
                lbls[-1].append(QLabel('Confirmations:'))
                lbls[-1].append(QRichLabel(str(nConf)))
 
+      if self.pytx.optInRBF:
+         lbls.append([])
+         lbls[-1].append(self.main.createToolTipWidget(
+               'Whether the transaction has opted into '
+               'being replaced by another transaction with '
+               'a higher fee.'))
+         lbls[-1].append(QLabel('Opt-In RBF: '))
+         lbls[-1].append(QRichLabel(str(self.pytx.optInRBF)))
+
 
 
 
