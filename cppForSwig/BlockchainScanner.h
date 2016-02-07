@@ -55,7 +55,7 @@ private:
    uint8_t* data_ = nullptr;
    size_t size_ = SIZE_MAX;
 
-   vector<BCTX> txns_;
+   vector<shared_ptr<BCTX>> txns_;
    
 public:
    BlockData(void) {}
@@ -68,7 +68,7 @@ public:
       return (data_ != nullptr);
    }
 
-   const vector<BCTX>& getTxns(void) const
+   const vector<shared_ptr<BCTX>>& getTxns(void) const
    {
       return txns_;
    }

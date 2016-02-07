@@ -15,7 +15,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
 {
    headerPtr_ = blockHeader;
 
-   //deser header from raw and run a quick sanity check
+   //deser header from raw block and run a quick sanity check
    if (size < HEADER_SIZE)
       throw runtime_error("raw data is smaller than HEADER_SIZE");
 
@@ -32,7 +32,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    if (numTx != blockHeader->getNumTx())
       throw runtime_error("tx count mismatch in deser header");
 
-   for (int i = 0; i < numTx; i++)
+   for (unsigned i = 0; i < numTx; i++)
    {
       //light tx deserialization, just figure out the offset and size of
       //txins and txouts
@@ -42,23 +42,23 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
          &offsetIns, &offsetOuts);
 
       //create BCTX object and fill it up
-      BCTX tx(brr.getCurrPtr(), txSize);
-      tx.version_ = READ_UINT32_LE(brr.getCurrPtr());
+      shared_ptr<BCTX> tx = make_shared<BCTX>(brr.getCurrPtr(), txSize);
+      tx->version_ = READ_UINT32_LE(brr.getCurrPtr());
      
       //convert offsets to offset + size pairs
       for (int y = 0; y < offsetIns.size() - 1; y++)
-         tx.txins_.push_back(
+         tx->txins_.push_back(
             make_pair(
                offsetIns[y], 
                offsetIns[y+1] - offsetIns[y]));
 
       for (int y = 0; y < offsetOuts.size() - 1; y++)
-         tx.txouts_.push_back(
+         tx->txouts_.push_back(
             make_pair(
                offsetOuts[y], 
                offsetOuts[y+1] - offsetOuts[y]));
       
-      tx.lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
+      tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
 
       //move it to BlockData object vector
       txns_.push_back(move(tx));
@@ -138,7 +138,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          vector<thread> tIDs;
          vector<shared_ptr<BlockDataBatch>> batchVec;
 
-         for (int i = 0; i < totalThreadCount_; i++)
+         for (unsigned i = 0; i < totalThreadCount_; i++)
          {
             shared_ptr<BlockDataBatch> batch
                = make_shared<BlockDataBatch>(startHeight + i, endHeight);
@@ -151,7 +151,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 
          //start batch scanner threads
          vector<unique_lock<mutex>> lockVec;
-         for (int i = 0; i < totalThreadCount_; i++)
+         for (unsigned i = 0; i < totalThreadCount_; i++)
          {
             //lock each batch mutex before start scan thread
             lockVec.push_back(unique_lock<mutex>(batchVec[i]->mu_));
@@ -159,7 +159,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          }
 
          //wait for utxo scan to complete
-         for (int i = 0; i < totalThreadCount_; i++)
+         for (unsigned i = 0; i < totalThreadCount_; i++)
          {
             auto utxoScanFlag = batchVec[i]->doneScanningUtxos_;
             utxoScanFlag.get();
@@ -198,7 +198,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          startHeight += endHeight + 1;
       }
    }
-   catch (range_error& e)
+   catch (range_error&)
    {
       LOGERR << "failed to grab block data starting height: " << startHeight;
       if (startHeight == scanFrom)
@@ -309,7 +309,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
       auto& txns = blockdata.getTxns();
       for (unsigned i = 0; i < txns.size(); i++)
       {
-         auto& txn = txns[i];
+         const BCTX& txn = *(txns[i].get());
          for (unsigned y = 0; y < txn.txouts_.size(); y++)
          {
             auto& txout = txn.txouts_[y];
@@ -371,7 +371,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
 
       for (unsigned i = 0; i < txns.size(); i++)
       {
-         auto& txn = txns[i];
+         const BCTX& txn = *(txns[i].get());
 
          for (unsigned y = 0; y < txn.txins_.size(); y++)
          {
@@ -664,4 +664,10 @@ void BlockchainScanner::processAndCommitTxHints(
          }
       }
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockchainScanner::updateSSH(void)
+{
+
 }

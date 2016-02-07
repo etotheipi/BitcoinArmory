@@ -160,9 +160,9 @@ string BlockDataLoader::intIDToName(uint32_t fileid)
 shared_future<shared_ptr<BlockDataFileMap>> 
    BlockDataLoader::getNewBlockDataMap(uint32_t fileid)
 {
-   auto&& filename = intIDToName(fileid);
+   string filename = move(intIDToName(fileid));
 
-   auto blockdataasync = [](string&& filename, bool preload)->
+   auto blockdataasync = [](string filename, bool preload)->
       shared_ptr<BlockDataFileMap>
    {
       shared_ptr<BlockDataFileMap> blockptr = make_shared<BlockDataFileMap>(

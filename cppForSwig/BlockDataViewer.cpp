@@ -14,7 +14,7 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 {
    db_ = bdm->getIFace();
    bc_ = &bdm->blockchain();
-   saf_ = bdm->getScrAddrFilter();
+   saf_ = bdm->getScrAddrFilter().get();
 
    bdmPtr_ = bdm;
 
@@ -514,7 +514,7 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 {
    checkBDMisReady();
 
-   ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter();
+   ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter().get();
 
    if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
    {

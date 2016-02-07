@@ -435,7 +435,7 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
    StoredDBInfo sdbiH;
    db->getStoredDBInfo(HEADERS, sdbiH);
 
-   if (top == nullptr)
+   if (topBlockPtr_ == nullptr)
    {
       LOGINFO << "No known top block, didn't update SDBI";
       return;

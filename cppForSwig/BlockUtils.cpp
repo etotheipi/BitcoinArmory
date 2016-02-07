@@ -19,6 +19,7 @@
 #include "lmdbpp.h"
 #include "Progress.h"
 #include "util.h"
+#include "DatabaseBuilder.h"
 
 #include "ReorgUpdater.h"
 
@@ -1318,7 +1319,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
    BDMstate_ = BDM_initializing;
    
-   readBlockHeaders_->detectAllBlkFiles();
+   /*readBlockHeaders_->detectAllBlkFiles();
    if (readBlockHeaders_->numBlockFiles()==0)
    {
       throw runtime_error("No blockfiles could be found!");
@@ -1428,10 +1429,10 @@ void BlockDataManager_LevelDB::loadDiskState(
    }
 
    {
-      /***Core 0.10 specific change:
-      Let's be consistent across different blocks folders by checking if the
-      newly added range of blocks is continuous
-      ***/
+      //Core 0.10 specific change:
+      //Let's be consistent across different blocks folders by checking if the
+      //newly added range of blocks is continuous
+      
 
       set<uint32_t> missingHeadersHeight;
       set<uint32_t> missingBlocks;
@@ -1524,8 +1525,11 @@ void BlockDataManager_LevelDB::loadDiskState(
    }
 
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
-      << ", offset " << blkDataPosition_.second;
+      << ", offset " << blkDataPosition_.second;*/
       
+   BlockFiles blockFiles(iface_->baseDir());
+   DatabaseBuilder dbBuilder(blockFiles, *this, progress);
+   dbBuilder.init();
    BDMstate_ = BDM_ready;
 }
 
@@ -1979,11 +1983,13 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr,
    }
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
-ScrAddrFilter* BlockDataManager_LevelDB::getScrAddrFilter(void) const
+shared_ptr<ScrAddrFilter> BlockDataManager_LevelDB::getScrAddrFilter(void) const
 {
-   return scrAddrData_.get();
+   return scrAddrData_;
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::startSideScan(

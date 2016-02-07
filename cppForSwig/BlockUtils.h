@@ -245,7 +245,7 @@ public:
    uint8_t getValidDupIDForHeight(uint32_t blockHgt) const
    { return iface_->getValidDupIDForHeight(blockHgt); }
 
-   ScrAddrFilter* getScrAddrFilter(void) const;
+   shared_ptr<ScrAddrFilter> getScrAddrFilter(void) const;
 
 
    StoredHeader getMainBlockFromDB(uint32_t hgt) const;

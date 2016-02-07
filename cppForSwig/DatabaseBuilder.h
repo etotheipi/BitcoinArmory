@@ -11,6 +11,8 @@
 #include "bdmenums.h"
 #include "Progress.h"
 
+class ScrAddrFilter;
+
 typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
 /////////////////////////////////////////////////////////////////////////////

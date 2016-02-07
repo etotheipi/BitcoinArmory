@@ -49,10 +49,15 @@ struct BlockOffset
       return fileID_ >= rhs.fileID_ && offset_ > rhs.offset_;
    }
 
-   bool operator=(const BlockOffset& rhs)
+   BlockOffset& operator=(const BlockOffset& rhs)
    {
-      this->fileID_ = rhs.fileID_;
-      this->offset_ = rhs.offset_;
+      if (this != &rhs)
+      {
+         this->fileID_ = rhs.fileID_;
+         this->offset_ = rhs.offset_;
+      }
+
+      return *this;
    }
 };
 

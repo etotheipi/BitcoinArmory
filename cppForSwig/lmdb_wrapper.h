@@ -650,6 +650,8 @@ public:
    bool isReady(void) { return isDBReady_(); }
    ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
 
+   const string& baseDir(void) const { return baseDir_; }
+
 private:
    string               baseDir_;
    string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }

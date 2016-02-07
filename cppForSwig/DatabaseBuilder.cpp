@@ -9,6 +9,7 @@
 #include "DatabaseBuilder.h"
 #include "BlockUtils.h"
 #include "BlockchainScanner.h"
+#include "BDM_supportClasses.h"
 
 /////////////////////////////////////////////////////////////////////////////
 DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles, 
@@ -53,7 +54,7 @@ void DatabaseBuilder::init()
       if (topScannedBlockHash == blockchain_.top().getThisHash())
          break;
 
-      //if we got this far, the scan failed, we need to repair the DB
+      //if we got this far the scan failed, diagnose the DB and repair it
    }
 }
 
