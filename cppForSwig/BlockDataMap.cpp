@@ -124,13 +124,13 @@ BlockFileMapPointer&& BlockDataLoader::get(uint32_t fileid, bool prefetch)
       else fMap = mapIter->second;
 
       //if the prefetch flag is set, get the next file
-      if (prefetch)
-         get(fileid + 1, false);
+      /*if (prefetch)
+         get(fileid + 1, false);*/
    }
    
    //wait then get future
    fMap.wait();
-   return BlockFileMapPointer(fMap.get(), gcLambda_);
+   return move(BlockFileMapPointer(fMap.get(), gcLambda_));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -149,7 +149,7 @@ string BlockDataLoader::intIDToName(uint32_t fileid)
 {
    stringstream filename;
 
-   filename << path_ << "blk";
+   filename << path_ << "/blk";
    filename << setw(5) << setfill('0') << fileid;
    filename << ".dat";
 

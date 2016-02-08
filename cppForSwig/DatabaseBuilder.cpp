@@ -124,8 +124,8 @@ void DatabaseBuilder::updateBlocksInDB(const ProgressCallback &progress)
    };
 
    vector<thread> tIDs;
-   for (int i = 1; i < thread::hardware_concurrency(); i++)
-      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0));
+   /*for (int i = 1; i < thread::hardware_concurrency(); i++)
+      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0));*/
 
    addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_);
 

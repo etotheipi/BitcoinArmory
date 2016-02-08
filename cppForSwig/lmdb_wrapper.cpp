@@ -503,8 +503,9 @@ void LMDBBlockDatabase::openDatabases(
       dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
 
    //checks if the db is supernode, we dont do that yet.
-   /*dbEnv_[BLKDATA]->open(dbBlkdataFilename());
+   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
 
+   
    //make sure it's a fullnode DB
    {
       LMDB checkDBType;
@@ -529,7 +530,7 @@ void LMDBBlockDatabase::openDatabases(
          LOGERR << "Current DB is supernode";
          throw runtime_error("Mismatch in DB type");
       }
-   }*/
+   }
 
 
    dbEnv_[HEADERS]->open(dbHeadersFilename());
@@ -539,6 +540,7 @@ void LMDBBlockDatabase::openDatabases(
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS] = "headers";
    DB_NAMES[HISTORY] = "history";
+   DB_NAMES[BLKDATA] = "blocks";
    DB_NAMES[TXHINTS] = "txhints";
 
    try
@@ -623,7 +625,7 @@ void LMDBBlockDatabase::openDatabasesSupernode(
    DB_PRUNE_TYPE      pruneType
 )
 {
-   throw runtime_error("treid to open DB in supernode, not implemented");
+   throw runtime_error("tried to open DB in supernode, not implemented");
 /*   SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
