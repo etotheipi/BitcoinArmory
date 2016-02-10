@@ -459,11 +459,9 @@ void Blockchain::addBlocksInBulk(const map<HashString, BlockHeader>& bhMap)
 {
    unique_lock<mutex> lock(mu_);
 
-   headerMap_.insert(bhMap.begin(), bhMap.end());
-
    for (auto& header : bhMap)
    {
-      auto headerIter = headerMap_.find(header.first);
-      newlyParsedBlocks_.push_back(&(headerIter->second));
+      auto& newheader = headerMap_[header.first] = header.second;
+      newlyParsedBlocks_.push_back(&newheader);
    }
 }

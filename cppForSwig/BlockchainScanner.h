@@ -52,7 +52,7 @@ class BlockData
 {
 private:
    const BlockHeader* headerPtr_ = nullptr;
-   uint8_t* data_ = nullptr;
+   const uint8_t* data_ = nullptr;
    size_t size_ = SIZE_MAX;
 
    vector<shared_ptr<BCTX>> txns_;
@@ -94,8 +94,10 @@ struct BlockDataBatch
 
    shared_future<BlockDataLink> first_;
 
+   promise<bool> scanUtxosPromise;
    shared_future<bool> doneScanningUtxos_;
-   mutex mu_;
+
+   mutex parseTxinMutex_, parseTxOutMutex_;
    condition_variable readThreadCV_;
 
    atomic<unsigned> highestProcessedHeight_;
@@ -115,7 +117,11 @@ struct BlockDataBatch
       start_(start), end_(end)
    {
       highestProcessedHeight_.store(start, memory_order_relaxed);
+      doneScanningUtxos_ = scanUtxosPromise.get_future();
    }
+
+   void flagUtxoScanDone(void) 
+   { scanUtxosPromise.set_value(true); }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

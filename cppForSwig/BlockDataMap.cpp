@@ -39,7 +39,9 @@ BlockDataLoader::BlockDataLoader(const string& path,
 {
    //set gcLambda
    gcLambda_ = [this](void)->void
-   { this->gcCondVar_.notify_all(); };
+   { 
+	   this->gcCondVar_.notify_all(); 
+   };
 
    //start up GC thread
    auto gcthread = [this](void)->void
@@ -95,7 +97,7 @@ void BlockDataLoader::garbageCollectorThread()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockFileMapPointer&& BlockDataLoader::get(const string& filename)
+BlockFileMapPointer BlockDataLoader::get(const string& filename)
 {
    //convert to int ID
    auto intID = nameToIntID(filename);
@@ -105,7 +107,7 @@ BlockFileMapPointer&& BlockDataLoader::get(const string& filename)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockFileMapPointer&& BlockDataLoader::get(uint32_t fileid, bool prefetch)
+BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
 {
    //have some fun with promise/future
    shared_future<shared_ptr<BlockDataFileMap>> fMap;
@@ -122,15 +124,21 @@ BlockFileMapPointer&& BlockDataLoader::get(uint32_t fileid, bool prefetch)
          fileMaps_[fileid] = fMap;
       }
       else fMap = mapIter->second;
+   }
 
-      //if the prefetch flag is set, get the next file
-      /*if (prefetch)
-         get(fileid + 1, false);*/
+   //if the prefetch flag is set, get the next file
+   auto prefetchLambda = [&](void)
+      ->BlockFileMapPointer
+   { return get(fileid + 1, false); };
+
+   if (prefetch)
+   {
+      thread tid(prefetchLambda);
+      tid.detach();
    }
    
-   //wait then get future
    fMap.wait();
-   return move(BlockFileMapPointer(fMap.get(), gcLambda_));
+   return BlockFileMapPointer(fMap.get(), gcLambda_);
 }
 
 /////////////////////////////////////////////////////////////////////////////

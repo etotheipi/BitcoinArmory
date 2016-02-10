@@ -323,6 +323,12 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       stxMap_[tx] = stx;
    }
 
+   if (nTx == 0 || nTx != allTxHashes.size())
+   {
+	   LOGERR << "Mismatch between numtx and allTxHashes.size() or 0 tx in block";
+	   throw BlockDeserializingException();
+   }
+
    //compute the merkle root and compare to the header's
    BinaryData computedMerkleRoot = BtcUtils::calculateMerkleRoot(allTxHashes);
 

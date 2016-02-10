@@ -658,6 +658,8 @@ private:
    string dbHeadersFilename() const { return baseDir_ + "/headers"; }
    string dbHistoryFilename() const { return baseDir_ + "/history"; }
    string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
+   string dbSshFilename() const { return baseDir_ + "/ssh"; }
+   string dbStxoFilename() const { return baseDir_ + "/stxo"; }
 
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;

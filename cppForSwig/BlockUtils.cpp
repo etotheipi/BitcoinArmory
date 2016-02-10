@@ -1527,7 +1527,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    LOGINFO << "Finished loading at file " << blkDataPosition_.first
       << ", offset " << blkDataPosition_.second;*/
       
-   BlockFiles blockFiles(iface_->baseDir());
+   BlockFiles blockFiles(config_.blkFileLocation);
    DatabaseBuilder dbBuilder(blockFiles, *this, progress);
    dbBuilder.init();
    BDMstate_ = BDM_ready;

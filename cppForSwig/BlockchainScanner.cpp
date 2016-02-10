@@ -66,6 +66,9 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
       //increment ptr offset
       brr.advance(txSize);
    }
+
+   data_ = data;
+   size_ = size;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -95,17 +98,22 @@ void BlockchainScanner::scan(uint32_t scanFrom)
    unsigned endHeight = 0;
 
    //start write thread
-   shared_future<shared_ptr<BatchLink>> batchLinkFuture;
-   thread writeThreadID = thread(writeBlockDataLambda, batchLinkFuture);
+   shared_ptr<promise<shared_ptr<BatchLink>>> batchLinkPromise = 
+      make_shared<promise<shared_ptr<BatchLink>>>();
+   thread writeThreadID;
+   
+   {
+      shared_future<shared_ptr<BatchLink>> batchLinkFuture;
+      batchLinkFuture = batchLinkPromise->get_future();
+
+      writeThreadID = thread(writeBlockDataLambda, batchLinkFuture);
+   }
 
    //loop until there are no more blocks available
    try
    {
       while (startHeight <= topBlock.getBlockHeight())
       {
-         promise<shared_ptr<BatchLink>> batchLinkPromise;
-         batchLinkFuture = batchLinkPromise.get_future();
-
          //figure out how many blocks to pull for this batch
          //batches try to grab up nBlockFilesPerBatch_ worth of block data
          unsigned targetHeight = 0;
@@ -120,7 +128,6 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 
             while (currentHeader->getBlockFileNum() < targetBlkFileNum)
                currentHeader = &(blockchain_->getHeaderByHeight(++targetHeight));
-
          }
          catch (range_error& e)
          {
@@ -154,7 +161,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          for (unsigned i = 0; i < totalThreadCount_; i++)
          {
             //lock each batch mutex before start scan thread
-            lockVec.push_back(unique_lock<mutex>(batchVec[i]->mu_));
+            lockVec.push_back(unique_lock<mutex>(batchVec[i]->parseTxinMutex_));
             tIDs.push_back(thread(scanBlockDataLambda, batchVec[i]));
          }
 
@@ -162,7 +169,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          for (unsigned i = 0; i < totalThreadCount_; i++)
          {
             auto utxoScanFlag = batchVec[i]->doneScanningUtxos_;
-            utxoScanFlag.get();
+            utxoScanFlag.wait();
          }
 
          //update utxoMap_
@@ -183,13 +190,16 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 
          //push scanned batch to write thread
          accumulateDataBeforeBatchWrite(batchVec);
+         auto currentPromise = batchLinkPromise;
+         batchLinkPromise = make_shared<promise<shared_ptr<BatchLink>>>();
          
          shared_ptr<BatchLink> batchLinkPtr = make_shared<BatchLink>();
          batchLinkPtr->topScannedBlockHash_ = topScannedBlockHash_;
-
          batchLinkPtr->batchVec_ = batchVec;
-         batchLinkPromise.set_value(batchLinkPtr);
-         batchLinkFuture = batchLinkFuture.get()->next_;
+         batchLinkPtr->next_ = batchLinkPromise->get_future();
+
+         currentPromise->set_value(batchLinkPtr);
+         
 
          //TODO: add a mechanism to wait on the write thread so as to not
          //exhaust RAM with batches waiting to write
@@ -206,9 +216,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
    }
 
    //push termination batch to write thread and wait till it exits
-   promise<shared_ptr<BatchLink>> batchLinkPromise;
-   batchLinkFuture = batchLinkPromise.get_future();
-   batchLinkPromise.set_value(nullptr);
+   batchLinkPromise->set_value(nullptr);
 
    if (writeThreadID.joinable())
       writeThreadID.join();
@@ -217,31 +225,44 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
 {
+   unique_lock<mutex> parseTxoutLock(batch->parseTxOutMutex_);
+   
    auto currentBlock = batch->start_;
-   auto blockFuture = batch->first_;
 
    mutex mu;
    unique_lock<mutex> lock(mu);
 
-   while (currentBlock >= batch->end_)
+   //setup promise
+   shared_ptr<promise<BlockDataLink>> blockPromisePtr = 
+      make_shared<promise<BlockDataLink>>();
+   batch->first_ = blockPromisePtr->get_future();
+
+
+   while (currentBlock <= batch->end_)
    {
       //stay within nBlocksLookAhead of the scan thread
-      while (batch->highestProcessedHeight_.load(memory_order_relaxed) >
+      while (currentBlock > 
+         batch->highestProcessedHeight_.load(memory_order_relaxed) +
          nBlocksLookAhead_ * totalThreadCount_)
       {
          batch->readThreadCV_.wait(lock);
       }
-
-      //setup promise
-      promise<BlockDataLink> blockPromise;
-      blockFuture = blockPromise.get_future();
 
       //TODO: encapsulate in try block to catch deser errors and signal pull thread
       //termination before exiting scope. cant have the scan thread hanging if this
       //one fails. Also update batch->end_ if we didn't go as far as that block height
 
       //grab block file map
-      BlockHeader* blockheader = &blockchain_->getHeaderByHeight(currentBlock);
+      BlockHeader* blockheader = nullptr;
+      try
+      {
+         blockheader = &blockchain_->getHeaderByHeight(currentBlock);
+      }
+      catch(range_error&)
+      {
+         break;
+      }
+
       auto filenum = blockheader->getBlockFileNum();
       
       auto mapIter = batch->fileMaps_.find(filenum);
@@ -259,21 +280,24 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
       //find block and deserialize it
       BlockDataLink blockfuture;
       blockfuture.blockdata_.deserialize(
-         filemap->getPtr() + blockheader->getOffset(), blockheader->getSize(),
+         filemap->getPtr() + blockheader->getOffset(), 
+         blockheader->getBlockSize(),
          blockheader);
 
-      //fill promise
-      blockPromise.set_value(blockfuture);
-
       //prepare next iteration
-      blockFuture = blockFuture.get().next_;
+      auto currentPromisePtr = blockPromisePtr;
+      blockPromisePtr =
+         make_shared<promise<BlockDataLink>>();
+      blockfuture.next_ = blockPromisePtr->get_future();
+
+      //fill promise
+      currentPromisePtr->set_value(blockfuture);
+
       currentBlock += totalThreadCount_;
    }
 
    //we're done, fill the block future with the termination block
-   promise<BlockDataLink> blockPromise;
-   blockFuture = blockPromise.get_future();
-   blockPromise.set_value(BlockDataLink());
+   blockPromisePtr->set_value(BlockDataLink());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -285,6 +309,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
       auto blockFuture = batch->first_;
       while (1)
       {
+         blockFuture.wait();
          auto blocklink = blockFuture.get();
 
          if (!blocklink.blockdata_.isInitialized())
@@ -314,7 +339,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
          {
             auto& txout = txn.txouts_[y];
 
-            BinaryRefReader brr(txout.first);
+            BinaryRefReader brr(txn.data_ + txout.first);
             brr.advance(8);
             unsigned scriptSize = (unsigned)brr.get_var_int();
             auto&& scrAddr = BtcUtils::getTxOutScrAddr(
@@ -348,7 +373,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
 
             //update utxos_
             auto& stxoHashMap = batch->utxos_[txHash];
-            stxoHashMap.insert(make_pair(i, move(stxo)));
+            stxoHashMap.insert(make_pair(y, move(stxo)));
 
             //update ssh_
             auto& ssh = batch->ssh_[scrAddr];
@@ -421,17 +446,14 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
       }
    };
 
-   //setup future flag
-   promise<bool> utxoScanFlag;
-   batch->doneScanningUtxos_ = utxoScanFlag.get_future();
-
    //txout loop
+   unique_lock<mutex> txoutLock(batch->parseTxOutMutex_);
    blockDataLoop(txoutParser);
 
    //done with txouts, fill the future flag and wait on the mutex 
    //to move to txins processing
-   utxoScanFlag.set_value(true);
-   unique_lock<mutex> lock(batch->mu_);
+   batch->flagUtxoScanDone();
+   unique_lock<mutex> txinLock(batch->parseTxinMutex_);
 
    //txins loop
    blockDataLoop(txinParser);
@@ -488,6 +510,7 @@ void BlockchainScanner::writeBlockData(
 
    while (1)
    {
+      batchFuture.wait();
       auto batchLink = batchFuture.get();
 
       //check for termination marker
@@ -609,17 +632,18 @@ void BlockchainScanner::processAndCommitTxHints(
    map<BinaryData, StoredTxHints> txHints;
 
    {
-      LMDBEnv::Transaction hintdbtx;
-      db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
 
       {
+         LMDBEnv::Transaction hintdbtx;
+         db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
+
          for (auto& batchPtr : batchVec)
          {
             for (auto& utxomap : batchPtr->utxos_)
             {
                auto&& txHashPrefix = utxomap.first.getSliceCopy(0, 4);
                StoredTxHints& stxh = txHints[txHashPrefix];
-               
+
                //pull txHint from DB first, don't want to override 
                //existing hints
                db_->getStoredTxHints(stxh, txHashPrefix);

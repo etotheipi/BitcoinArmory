@@ -536,12 +536,18 @@ void LMDBBlockDatabase::openDatabases(
    dbEnv_[HEADERS]->open(dbHeadersFilename());
    dbEnv_[HISTORY]->open(dbHistoryFilename());
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
+   dbEnv_[SSH]->open(dbSshFilename());
+   dbEnv_[STXO]->open(dbStxoFilename());
+
 
    map<DB_SELECT, string> DB_NAMES;
    DB_NAMES[HEADERS] = "headers";
    DB_NAMES[HISTORY] = "history";
    DB_NAMES[BLKDATA] = "blocks";
    DB_NAMES[TXHINTS] = "txhints";
+   DB_NAMES[SSH] = "ssh";
+   DB_NAMES[STXO] = "stxo";
+
 
    try
    {
@@ -3525,7 +3531,12 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    uint32_t scrAddrSize = scrAddr.getSize();
    (void)scrAddrSize;
 
-   if (!ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
+   LMDBEnv::Transaction subsshtx;
+   beginDBTransaction(&subsshtx, SSH, LMDB::ReadOnly);
+   auto subsshiter = getIterator(SSH);
+   subsshiter.seekTo(sshKey);
+
+   if (!subsshiter.advanceAndRead(DB_PREFIX_SCRIPT))
    {
       LOGERR << "No sub-SSH entries after the SSH";
       return SSHsummary;
@@ -3534,22 +3545,22 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    // Now start iterating over the sub histories
    do
    {
-      uint32_t sz = ldbIter.getKeyRef().getSize();
-      BinaryDataRef keyNoPrefix = ldbIter.getKeyRef().getSliceRef(1, sz - 1);
+      uint32_t sz = subsshiter.getKeyRef().getSize();
+      BinaryDataRef keyNoPrefix = subsshiter.getKeyRef().getSliceRef(1, sz - 1);
       if (!keyNoPrefix.startsWith(ssh.uniqueKey_))
          break;
 
       pair<BinaryData, StoredSubHistory> keyValPair;
       keyValPair.first = keyNoPrefix.getSliceCopy(sz - 5, 4);
-      keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+      keyValPair.second.unserializeDBKey(subsshiter.getKeyRef());
 
       //iter is at the right ssh, make sure hgtX <= endBlock
       if (keyValPair.second.height_ > endBlock)
          break;
 
-      keyValPair.second.getSummary(ldbIter.getValueReader());
+      keyValPair.second.getSummary(subsshiter.getValueReader());
       SSHsummary[keyValPair.second.height_] = keyValPair.second.txioCount_;
-   } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
+   } while (subsshiter.advanceAndRead(DB_PREFIX_SCRIPT));
 
    return SSHsummary;
 }

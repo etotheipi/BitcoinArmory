@@ -44,6 +44,10 @@ void DatabaseBuilder::init()
    scrAddrFilter_->getScrAddrCurrentSyncState();
    auto scanFrom = scrAddrFilter_->scanFrom();
 
+   //don't scan without any registered addresses
+   if (scrAddrFilter_->getScrAddrMap().size() == 0)
+      return;
+
    while (1)
    {
       //3) scan it!
@@ -124,8 +128,8 @@ void DatabaseBuilder::updateBlocksInDB(const ProgressCallback &progress)
    };
 
    vector<thread> tIDs;
-   /*for (int i = 1; i < thread::hardware_concurrency(); i++)
-      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0));*/
+   for (int i = 1; i < thread::hardware_concurrency(); i++)
+      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0));
 
    addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_);
 
@@ -149,7 +153,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    auto ptr = blockfilemappointer.get()->getPtr();
 
    //ptr is null if we're out of block files
-   if (ptr = nullptr)
+   if (ptr == nullptr)
       return false;
 
    vector<StoredHeader> sbhVec;
@@ -164,7 +168,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       {
          //this call unserializes too much (we're just verifying the merkle for 
          //consistentcy), replace it with something lighter.
-         sbh.unserializeFullBlock(brr, false, true);
+         sbh.unserializeFullBlock(brr, false, false);
       }
       catch (...)
       {
@@ -174,13 +178,9 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
       //block is valid, add to container
       //build header version of block first
-      sbhVec.push_back(StoredHeader());
-      StoredHeader& headerSBH = sbhVec.back();
-      headerSBH.dataCopy_ = sbh.dataCopy_;
-      headerSBH.fileID_ = fileID;
-      headerSBH.offset_ = offset;
-      headerSBH.thisHash_ = sbh.thisHash_;
-      headerSBH.numBytes_ = sbh.numBytes_;
+	  sbh.fileID_ = fileID;
+	  sbh.offset_ = offset; 
+      sbhVec.push_back(sbh);
    };
 
    parseBlockFile(ptr, blockfilemappointer.size(),

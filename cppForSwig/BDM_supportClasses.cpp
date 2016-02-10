@@ -413,9 +413,10 @@ void ScrAddrFilter::getAllScrAddrInDB()
 
    auto dbIter = lmdb_->getIterator(SSH);
    dbIter.seekToFirst();
+   
 
    //iterate over SSH DB
-   do
+   while(dbIter.advanceAndRead())
    {
       auto keyRef = dbIter.getKeyRef();
       StoredScriptHistory ssh;
@@ -424,7 +425,6 @@ void ScrAddrFilter::getAllScrAddrInDB()
 
       scrAddrMap_[ssh.uniqueKey_] = 0;
    } 
-   while (dbIter.advanceAndRead());
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);

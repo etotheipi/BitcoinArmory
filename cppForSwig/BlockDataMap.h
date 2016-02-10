@@ -134,6 +134,8 @@ public:
    {
       this->ptr_ = mv.ptr_;
       this->gcLambda_ = move(mv.gcLambda_);
+
+	  mv.ptr_ = nullptr;
    }
    
    ~BlockFileMapPointer(void)
@@ -199,16 +201,19 @@ public:
    ~BlockDataLoader(void)
    {
       //shutdown GC thread
-      unique_lock<mutex> lock(gcMu_);
-      run_ = false;
-      gcCondVar_.notify_all();
+      {
+         unique_lock<mutex> lock(gcMu_);
+         fileMaps_.clear();
+         run_ = false;
+         gcCondVar_.notify_all();
+      }
       
       if (gcThread_.joinable())
          gcThread_.join();
    }
 
-   BlockFileMapPointer&& get(const string& filename);
-   BlockFileMapPointer&& get(uint32_t fileid, bool prefetch);
+   BlockFileMapPointer get(const string& filename);
+   BlockFileMapPointer get(uint32_t fileid, bool prefetch);
 
    void reset(void);
 };
