@@ -1322,6 +1322,16 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    
    subHistMap_.clear();
    totalUnspent_ = brr.get_uint64_t();
+
+   //
+   auto sumSize = brr.get_uint32_t();
+   for (unsigned i = 0; i < sumSize; i++)
+   {
+      unsigned height = brr.get_var_int();
+      unsigned sum    = brr.get_var_int();
+
+      subsshSummary_[height] = sum;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1340,6 +1350,14 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
    bw.put_uint64_t(totalUnspent_);
+
+   //
+   bw.put_uint32_t(subsshSummary_.size());
+   for (auto& sum : subsshSummary_)
+   {
+      bw.put_var_int(sum.first);
+      bw.put_var_int(sum.second);
+   }
 }
 
 

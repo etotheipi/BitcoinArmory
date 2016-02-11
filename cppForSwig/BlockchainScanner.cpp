@@ -325,6 +325,9 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
    //txout lambda
    auto txoutParser = [&](const BlockData& blockdata)->void
    {
+      //TODO: flag isCoinbase, isMultisig
+      //TODO: save txhash and count with tx_prefix_data in HISTORY db
+
       const BlockHeader* header = blockdata.header();
 
       //update processed height
@@ -429,11 +432,8 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             stxo.spentness_ = TXOUT_SPENT;
             stxo.spentByTxInKey_ = txinkey;
 
-            //add to spentTxOuts_
-            batch->spentTxOuts_.push_back(move(stxo));
-
             //add to ssh_
-            auto& ssh = batch->ssh_[stxo.scrAddr_];
+            auto& ssh = batch->ssh_[stxo.getScrAddress()];
             auto& subssh = ssh.subHistMap_[hgtx];
 
             //deal with txio count in subssh at serialization
@@ -441,7 +441,10 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             txio.setTxOut(stxo.getDBKey(false));
             txio.setTxIn(txinkey);
             txio.setValue(stxo.getValue());
-            subssh.txioMap_.insert(make_pair(txinkey, txio));
+            subssh.txioMap_.insert(make_pair(txinkey, move(txio)));
+            
+            //add to spentTxOuts_
+            batch->spentTxOuts_.push_back(move(stxo));
          }
       }
    };
@@ -539,7 +542,12 @@ void BlockchainScanner::writeBlockData(
                {
                   //TODO: modify subssh serialization to fit our needs
 
-                  auto& bw = serializedSubSSH[subssh.second.getDBKey()];
+                  BinaryWriter subsshkey;
+                  subsshkey.put_uint8_t(DB_PREFIX_SCRIPT);
+                  subsshkey.put_BinaryData(ssh.first);
+                  subsshkey.put_BinaryData(subssh.first);
+
+                  auto& bw = serializedSubSSH[subsshkey.getDataRef()];
                   subssh.second.serializeDBValue(
                      bw, db_, ARMORY_DB_BARE, DB_PRUNE_NONE);
                }
@@ -599,22 +607,15 @@ void BlockchainScanner::writeBlockData(
       {
          //subssh
          LMDBEnv::Transaction tx;
-         db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+         db_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
 
          for (auto& subssh : serializedSubSSH)
          {
             db_->putValue(
-               HISTORY,
+               SSH,
                subssh.first.getRef(),
                subssh.second.getDataRef());
          }
-
-
-         //update SDBI in HISTORY db
-         StoredDBInfo sdbi;
-         db_->getStoredDBInfo(HISTORY, sdbi);
-         sdbi.topBlkHash_ = batchLink->topScannedBlockHash_;
-         db_->putStoredDBInfo(HISTORY, sdbi);
       }
 
       //wait on writeHintsThreadId
@@ -693,5 +694,112 @@ void BlockchainScanner::processAndCommitTxHints(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::updateSSH(void)
 {
+   //loop over all subssh entiers in SSH db, 
+   //compile balance, txio count and summary map for each address
 
+   //TODO: update HISTORY sdbi
+
+   map<BinaryData, StoredScriptHistory> sshMap_;
+   
+   {
+      StoredScriptHistory* sshPtr = nullptr;
+
+      LMDBEnv::Transaction historyTx, sshTx;
+      db_->beginDBTransaction(&historyTx, HISTORY, LMDB::ReadOnly);
+      db_->beginDBTransaction(&sshTx, SSH, LMDB::ReadOnly);
+
+      auto sshIter = db_->getIterator(SSH);
+      sshIter.seekToFirst();
+
+      while (sshIter.advanceAndRead())
+      {
+         if (sshPtr == nullptr ||
+            !sshIter.getKeyRef().contains(sshPtr->uniqueKey_))
+         {
+            //new address
+            auto& subsshkey = sshIter.getKey();
+            auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
+            sshPtr = &sshMap_[sshKey];
+
+            //get what's already in the db
+            db_->getStoredScriptHistorySummary(*sshPtr, sshKey);
+            if (sshPtr->isInitialized())
+            {
+               //set iterator at unscanned height
+               auto hgtx = sshIter.getKeyRef().getSliceRef(-4, 4);
+               auto height = DBUtils::hgtxToHeight(hgtx);
+               if (sshPtr->alreadyScannedUpToBlk_ >= height)
+               {
+                  //this ssh has already been scanned beyond the height sshIter is at,
+                  //ket's set the iterator to the correct height
+                  auto&& newKey = sshIter.getKey().getSliceCopy(0, subsshkey.getSize() - 4);
+                  auto&& newHgtx = DBUtils::heightAndDupToHgtx(
+                     sshPtr->alreadyScannedUpToBlk_ + 1, 0);
+
+                  newKey.append(newHgtx);
+                  sshIter.seekTo(newKey);
+                  continue;
+               }
+            }
+            else
+               sshPtr->uniqueKey_ = sshKey;
+         }
+
+         //deser subssh
+         StoredSubHistory subssh;
+         subssh.unserializeDBKey(sshIter.getKeyRef());
+         
+         //check dupID
+         if (db_->getValidDupIDForHeight(subssh.height_) != subssh.dupID_)
+            continue;
+
+         subssh.unserializeDBValue(sshIter.getValueRef());
+
+         for (auto& txioPair : subssh.txioMap_)
+         {
+            if (!txioPair.second.isMultisig())
+            {
+               //add up balance
+               if (txioPair.second.hasTxIn())
+               {
+                  //check for same block fund&spend
+                  auto&& keyOfOutput = txioPair.second.getDBKeyOfOutput();
+                  auto&& keyOfInput = txioPair.second.getDBKeyOfInput();
+
+                  if (keyOfOutput.startsWith(keyOfInput.getSliceRef(0, 4)))
+                  {
+                     //both output and input are part of the same block, skip
+                     continue;
+                  }
+
+                  sshPtr->totalUnspent_ -= txioPair.second.getValue();
+               }
+               else
+               {
+                  sshPtr->totalUnspent_ += txioPair.second.getValue();
+               }
+            }
+         }
+
+         //txio count
+         sshPtr->totalTxioCount_ += subssh.txioCount_;
+
+         //build subssh summary
+         sshPtr->subsshSummary_[subssh.height_] = subssh.txioCount_;
+      }
+   }
+   
+   //write it
+   LMDBEnv::Transaction putsshtx;
+   db_->beginDBTransaction(&putsshtx, HISTORY, LMDB::ReadWrite);
+
+   for (auto& ssh : sshMap_)
+   {
+      BinaryData&& sshKey = ssh.second.getDBKey();
+
+      BinaryWriter bw;
+      ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+      
+      db_->putValue(HISTORY, sshKey.getRef(), bw.getDataRef());
+   }
 }

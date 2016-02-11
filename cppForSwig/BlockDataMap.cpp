@@ -214,7 +214,6 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
 
 #ifdef _WIN32
    //create mmap
-   int rc;
    auto fileHandle = (HANDLE)_get_osfhandle(fd);
    HANDLE mh;
 

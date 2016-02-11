@@ -1146,48 +1146,43 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
    size_t scrAddrSize = scrAddr.getSize();
-   (void)scrAddrSize;
+
+   LMDBEnv::Transaction subsshtx;
+   beginDBTransaction(&subsshtx, SSH, LMDB::ReadOnly);
+   auto subsshIter = getIterator(SSH);
+
+   BinaryData dbkey_withHgtX(sshKey);
 
    if (startBlock != 0)
    {
-      BinaryData dbkey_withHgtX(sshKey);
       dbkey_withHgtX.append(DBUtils::heightAndDupToHgtx(startBlock, 0));
-      
-      if (!ldbIter.seekTo(dbkey_withHgtX))
-         return false;
    }
-   else
-   {
-      // If for some reason we hit the end of the DB without any tx, bail
-      if( !ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
-      {
-         //LOGERR << "No sub-SSH entries after the SSH";
-         return false;
-      }
-   }
-
+    
+   if (!subsshIter.seekTo(dbkey_withHgtX))
+      return false;
+   
    // Now start iterating over the sub histories
    map<BinaryData, StoredSubHistory>::iterator iter;
    size_t numTxioRead = 0;
    do
    {
-      size_t sz = ldbIter.getKeyRef().getSize();
-      BinaryDataRef keyNoPrefix= ldbIter.getKeyRef().getSliceRef(1,sz-1);
+      size_t sz = subsshIter.getKeyRef().getSize();
+      BinaryDataRef keyNoPrefix= subsshIter.getKeyRef().getSliceRef(1,sz-1);
       if(!keyNoPrefix.startsWith(ssh.uniqueKey_))
          break;
 
       pair<BinaryData, StoredSubHistory> keyValPair;
       keyValPair.first = keyNoPrefix.getSliceCopy(sz-5, 4);
-      keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+      keyValPair.second.unserializeDBKey(subsshIter.getKeyRef());
 
       //iter is at the right ssh, make sure hgtX <= endBlock
       if (keyValPair.second.height_ > endBlock)
          break;
 
-      keyValPair.second.unserializeDBValue(ldbIter.getValueReader());
+      keyValPair.second.unserializeDBValue(subsshIter.getValueReader());
       iter = ssh.subHistMap_.insert(keyValPair).first;
       numTxioRead += iter->second.txioMap_.size(); 
-   } while( ldbIter.advanceAndRead(DB_PREFIX_SCRIPT) );
+   } while(subsshIter.advanceAndRead(DB_PREFIX_SCRIPT) );
 
    return true;
 }
@@ -2548,8 +2543,8 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
             }
          }
          else
-         {            
-            BinaryRefReader stxVal = 
+         {
+            BinaryRefReader stxVal =
                getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
 
             if (stxVal.getSize() == 0)
@@ -2563,14 +2558,9 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
             return stxVal.get_BinaryData(32);
          }
       }
-      //else pull the full block then grab the txhash
-      { 
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);         
-         auto thisTx = getFullTxCopy(ldbKey6B);
-
-         return thisTx.getThisHash();
-      }
    }
+
+   return BinaryData();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3513,7 +3503,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
 
    map<uint32_t, uint32_t> SSHsummary;
 
-   LDBIter ldbIter = getIterator(getDbSelect(HISTORY));
+   LDBIter ldbIter = getIterator(HISTORY);
 
    if (!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
       return SSHsummary;
@@ -3523,46 +3513,7 @@ map<uint32_t, uint32_t> LMDBBlockDatabase::getSSHSummary(BinaryDataRef scrAddrSt
    ssh.unserializeDBKey(sshKey, true);
    ssh.unserializeDBValue(ldbIter.getValueReader());
 
-   if (ssh.totalTxioCount_ == 0)
-      return SSHsummary;
-
-   uint32_t sz = sshKey.getSize();
-   BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
-   uint32_t scrAddrSize = scrAddr.getSize();
-   (void)scrAddrSize;
-
-   LMDBEnv::Transaction subsshtx;
-   beginDBTransaction(&subsshtx, SSH, LMDB::ReadOnly);
-   auto subsshiter = getIterator(SSH);
-   subsshiter.seekTo(sshKey);
-
-   if (!subsshiter.advanceAndRead(DB_PREFIX_SCRIPT))
-   {
-      LOGERR << "No sub-SSH entries after the SSH";
-      return SSHsummary;
-   }
-
-   // Now start iterating over the sub histories
-   do
-   {
-      uint32_t sz = subsshiter.getKeyRef().getSize();
-      BinaryDataRef keyNoPrefix = subsshiter.getKeyRef().getSliceRef(1, sz - 1);
-      if (!keyNoPrefix.startsWith(ssh.uniqueKey_))
-         break;
-
-      pair<BinaryData, StoredSubHistory> keyValPair;
-      keyValPair.first = keyNoPrefix.getSliceCopy(sz - 5, 4);
-      keyValPair.second.unserializeDBKey(subsshiter.getKeyRef());
-
-      //iter is at the right ssh, make sure hgtX <= endBlock
-      if (keyValPair.second.height_ > endBlock)
-         break;
-
-      keyValPair.second.getSummary(subsshiter.getValueReader());
-      SSHsummary[keyValPair.second.height_] = keyValPair.second.txioCount_;
-   } while (subsshiter.advanceAndRead(DB_PREFIX_SCRIPT));
-
-   return SSHsummary;
+   return ssh.subsshSummary_;
 }
 
 uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const

@@ -670,6 +670,7 @@ public:
    uint32_t       alreadyScannedUpToBlk_;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
+   map<unsigned, unsigned> subsshSummary_;
 
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.
