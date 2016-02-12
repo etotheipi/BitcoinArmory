@@ -107,18 +107,21 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void DatabaseBuilder::updateBlocksInDB(const ProgressCallback &progress)
+Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
+   const ProgressCallback &progress)
 {
    //TODO: squeeze in the progress callback
 
    //preload and prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true);
 
-   auto addblocks = [&](uint16_t fileID, size_t startOffset)->void
+   auto addblocks = [&](uint16_t fileID, size_t startOffset, 
+      BlockOffset& bo)->void
    {
+      //TODO: use only the BlockOffset argument
       while (1)
       {
-         if (!addBlocksToDB(bdl, fileID, startOffset))
+         if (!addBlocksToDB(bdl, fileID, startOffset, bo))
             return;
 
          //reset startOffset for the next file
@@ -127,11 +130,20 @@ void DatabaseBuilder::updateBlocksInDB(const ProgressCallback &progress)
       }
    };
 
-   vector<thread> tIDs;
-   for (int i = 1; i < thread::hardware_concurrency(); i++)
-      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0));
+   //TODO: don't run more threads than there are blkfiles to read
 
-   addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_);
+   vector<thread> tIDs;
+   vector<BlockOffset> boVec;
+   for (unsigned i = 1; i < thread::hardware_concurrency(); i++)
+   {
+      boVec.push_back(topBlockOffset_);
+      auto& bo = boVec.back();
+      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, bo));
+   }
+
+   boVec.push_back(topBlockOffset_);
+   auto& bo = boVec.back();
+   addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_, bo);
 
    for (auto& tID : tIDs)
    {
@@ -139,15 +151,23 @@ void DatabaseBuilder::updateBlocksInDB(const ProgressCallback &progress)
          tID.join();
    }
 
+   for (auto& blockoffset : boVec)
+   {
+      if (blockoffset > topBlockOffset_)
+         topBlockOffset_ = blockoffset;
+   }
+
    //done parsing new blocks, let's add them to the DB
 
-   blockchain_.organize();
+   auto&& reorgState = blockchain_.organize();
    blockchain_.putNewBareHeaders(db_);
+
+   return reorgState;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl, 
-   uint16_t fileID, size_t startOffset)
+   uint16_t fileID, size_t startOffset, BlockOffset& bo)
 {
    auto&& blockfilemappointer = bdl.get(fileID, true);
    auto ptr = blockfilemappointer.get()->getPtr();
@@ -163,7 +183,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       //deser full block, check merkle
       StoredHeader sbh;
       BinaryRefReader brr(data, size);
-      
+
       try
       {
          //this call unserializes too much (we're just verifying the merkle for 
@@ -178,8 +198,13 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
       //block is valid, add to container
       //build header version of block first
-	  sbh.fileID_ = fileID;
-	  sbh.offset_ = offset; 
+      sbh.fileID_ = fileID;
+      sbh.offset_ = offset;
+      
+      BlockOffset blockoffset(fileID, offset + sbh.numBytes_);
+      if (blockoffset > bo)
+         bo = blockoffset;
+
       sbhVec.push_back(sbh);
    };
 
@@ -230,14 +255,20 @@ void DatabaseBuilder::parseBlockFile(
       if (magic != magicBytes_)
       {
          //no magic byte trailing the last valid file offset, let's look for one
-         BinaryDataRef theFile(fileMap + progress, fileSize - progress);
+         BinaryDataRef theFile(fileMap + localProgress, fileSize - progress);
          int32_t foundOffset = theFile.find(magicBytes_);
          if (foundOffset == -1)
             return;
          
          LOGINFO << "Found next block after skipping " << foundOffset - 4 << "bytes";
 
-         localProgress = foundOffset;
+         localProgress += foundOffset;
+
+         magic.setRef(fileMap + localProgress, magicBytesSize);
+         if (magic != magicBytes_)
+            throw runtime_error("parsing for magic byte failed");
+
+         localProgress += 4;
       }
 
       if (progress + localProgress + 4 >= fileSize)
@@ -249,6 +280,9 @@ void DatabaseBuilder::parseBlockFile(
 
       if (progress + localProgress + thisBlkSize > fileSize)
          return;
+
+      //TODO: deal with blocks that advertize more size than they actually use
+      //(next block shows up before blockSize bytes)
 
       callback(fileMap + localProgress, thisBlkSize, progress + localProgress);
 
@@ -278,4 +312,44 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
    bcs.updateSSH();
 
    return bcs.getTopScannedBlockHash();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t DatabaseBuilder::update(void)
+{
+
+   //list all files in block data folder
+   blockFiles_.detectAllBlockFiles();
+
+   //update db
+   auto&& reorgState = updateBlocksInDB(progress_);
+
+   uint32_t startHeight = reorgState.prevTopBlock->getBlockHeight() + 1;
+
+   if (!reorgState.hasNewTop)
+      return startHeight - 1;
+
+   if (!reorgState.prevTopBlockStillValid)
+   {
+      //reorg, undo blocks up to branch point
+      undoHistory(reorgState);
+
+      startHeight = reorgState.reorgBranchPoint->getBlockHeight() + 1;
+   }
+
+   //scan new blocks   
+   BinaryData&& topScannedHash = scanHistory(startHeight);
+   if (topScannedHash != blockchain_.top().getThisHash())
+      throw runtime_error("scan failure during DatabaseBuilder::update");
+
+   //TODO: recover from failed scan 
+
+   return blockchain_.top().getBlockHeight();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::undoHistory(
+   Blockchain::ReorganizationState& reorgState)
+{
+
 }

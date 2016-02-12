@@ -127,28 +127,28 @@ public:
 
 private:
    BinaryData     dataCopy_;
-   bool           isInitialized_:1;
-   bool           isMainBranch_:1;
-   bool           isOrphan_:1;
-   bool           isFinishedCalc_:1;
+   bool           isInitialized_ = false;
+   bool           isMainBranch_ = false;
+   bool           isOrphan_ = true;
+   bool           isFinishedCalc_ = false;
    // Specific to the DB storage
-   uint8_t        duplicateID_; // ID of this blk rel to others at same height
-   uint32_t       blockHeight_;
+   uint8_t        duplicateID_ = 0xFF; // ID of this blk rel to others at same height
+   uint32_t       blockHeight_ = UINT32_MAX;
    
-   uint32_t       numTx_;
+   uint32_t       numTx_ = UINT32_MAX;
    uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
    
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
-   double         difficultyDbl_;
+   double         difficultyDbl_ = 0.0;
 
    // Need to compute these later
    BinaryData     nextHash_;
-   double         difficultySum_;
+   double         difficultySum_ = 0.0;
 
    string         blkFile_;
    uint32_t       blkFileNum_ = UINT32_MAX;
-   uint64_t       blkFileOffset_;
+   uint64_t       blkFileOffset_ = SIZE_MAX;
 
 
 };

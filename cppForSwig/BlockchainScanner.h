@@ -159,6 +159,7 @@ private:
    void writeBlockData(shared_future<shared_ptr<BatchLink>>);
    void processAndCommitTxHints(
       const vector<shared_ptr<BlockDataBatch>>& batchVec);
+   void preloadUtxos(void);
 
 
 public:

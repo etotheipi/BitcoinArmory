@@ -2527,7 +2527,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
    {
       //Fullnode, check the HISTORY DB for the txhash
       {
-         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
+         LMDBEnv::Transaction tx(dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
 
          if (!ldbKey6B.startsWith(ZCprefix_))
          {
@@ -2535,7 +2535,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
             keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
             ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
 
-            BinaryDataRef txData = getValueNoCopy(HISTORY, keyFull);
+            BinaryDataRef txData = getValueNoCopy(TXHINTS, keyFull);
 
             if (txData.getSize() >= 36)
             {
@@ -2545,7 +2545,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
          else
          {
             BinaryRefReader stxVal =
-               getValueReader(HISTORY, DB_PREFIX_ZCDATA, ldbKey6B);
+               getValueReader(TXHINTS, DB_PREFIX_ZCDATA, ldbKey6B);
 
             if (stxVal.getSize() == 0)
             {

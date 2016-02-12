@@ -32,16 +32,23 @@ private:
    void findLastKnownBlockPos();
    BlockOffset loadBlockHeadersFromDB(const ProgressCallback &progress);
    
-   bool addBlocksToDB(BlockDataLoader& bdl, uint16_t fileID, size_t startOffset);
+   bool addBlocksToDB(
+      BlockDataLoader& bdl, uint16_t fileID, size_t startOffset,
+      BlockOffset& bo);
    void parseBlockFile(const uint8_t* fileMap, size_t fileSize, size_t startOffset,
       function<void(const uint8_t* data, size_t size, size_t offset)>);
+
+   Blockchain::ReorganizationState updateBlocksInDB(
+      const ProgressCallback &progress);
+   BinaryData updateTransactionHistory(uint32_t startHeight);
+   BinaryData scanHistory(uint32_t startHeight);
+   void undoHistory(Blockchain::ReorganizationState& reorgState);
+
 
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager_LevelDB&,
       const ProgressCallback&);
 
    void init(void);
-   void updateBlocksInDB(const ProgressCallback &progress);
-   BinaryData updateTransactionHistory(uint32_t startHeight);
-   BinaryData scanHistory(uint32_t startHeight);
+   uint32_t update(void);
 };

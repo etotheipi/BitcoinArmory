@@ -94,6 +94,8 @@ class FoundAllBlocksException {};
 
 class debug_replay_blocks {};
 
+class BlockFiles;
+class DatabaseBuilder;
 
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
@@ -144,6 +146,9 @@ private:
    Blockchain blockchain_;
 
    BDM_state BDMstate_ = BDM_offline;
+
+   shared_ptr<BlockFiles> blockFiles_;
+   shared_ptr<DatabaseBuilder> dbBuilder_;
 
 
 public:

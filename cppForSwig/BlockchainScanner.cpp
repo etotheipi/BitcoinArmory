@@ -83,6 +83,8 @@ void BlockchainScanner::scan(uint32_t scanFrom)
       return;
    }
 
+   preloadUtxos();
+
    //lambdas
    auto readBlockDataLambda = [&](shared_ptr<BlockDataBatch> batch)
    { readBlockData(batch); };
@@ -365,6 +367,8 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             stxo.txIndex_ = i;
             stxo.txOutIndex_ = y;
             stxo.scrAddr_ = scrAddr;
+            stxo.spentness_ = TXOUT_UNSPENT;
+            stxo.parentTxOutCount_ = txn.txouts_.size();
             auto value = stxo.getValue();
 
             auto&& hgtx = DBUtils::heightAndDupToHgtx(
@@ -634,6 +638,7 @@ void BlockchainScanner::processAndCommitTxHints(
    map<BinaryData, StoredTxHints> txHints;
 
    {
+      map<BinaryData, BinaryWriter> countAndHash;
 
       {
          LMDBEnv::Transaction hintdbtx;
@@ -654,6 +659,12 @@ void BlockchainScanner::processAndCommitTxHints(
                   stxh.dbKeyList_.push_back(utxo.second.getDBKeyOfParentTx());
 
                stxh.preferredDBKey_ = stxh.dbKeyList_.front();
+
+               //count and hash
+               auto& stxo = utxomap.second.begin()->second;
+               auto& bw = countAndHash[stxo.getDBKeyOfParentTx(true)];
+               bw.put_uint32_t(stxo.parentTxOutCount_);
+               bw.put_BinaryData(utxomap.first);
             }
          }
       }
@@ -688,6 +699,13 @@ void BlockchainScanner::processAndCommitTxHints(
                txhint.first.getRef(),
                txhint.second.getDataRef());
          }
+
+         for (auto& cah : countAndHash)
+         {
+            db_->putValue(TXHINTS,
+               cah.first.getRef(),
+               cah.second.getDataRef());
+         }
       }
    }
 }
@@ -714,9 +732,12 @@ void BlockchainScanner::updateSSH(void)
 
       while (sshIter.advanceAndRead())
       {
-         if (sshPtr == nullptr ||
-            !sshIter.getKeyRef().contains(sshPtr->uniqueKey_))
+         while (sshIter.isValid())
          {
+            if (sshPtr != nullptr &&
+               sshIter.getKeyRef().contains(sshPtr->uniqueKey_))
+               break;
+
             //new address
             auto& subsshkey = sshIter.getKey();
             auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
@@ -732,7 +753,7 @@ void BlockchainScanner::updateSSH(void)
                if (sshPtr->alreadyScannedUpToBlk_ >= height)
                {
                   //this ssh has already been scanned beyond the height sshIter is at,
-                  //ket's set the iterator to the correct height
+                  //let's set the iterator to the correct height (or the next key)
                   auto&& newKey = sshIter.getKey().getSliceCopy(0, subsshkey.getSize() - 4);
                   auto&& newHgtx = DBUtils::heightAndDupToHgtx(
                      sshPtr->alreadyScannedUpToBlk_ + 1, 0);
@@ -743,8 +764,15 @@ void BlockchainScanner::updateSSH(void)
                }
             }
             else
+            {
                sshPtr->uniqueKey_ = sshKey;
+               break;
+            }
          }
+
+         //sanity check
+         if (!sshIter.isValid())
+            break;
 
          //deser subssh
          StoredSubHistory subssh;
@@ -791,16 +819,44 @@ void BlockchainScanner::updateSSH(void)
    }
    
    //write it
+   auto& topheader = blockchain_->getHeaderByHash(topScannedBlockHash_);
+   auto topheight = topheader.getBlockHeight();
+
    LMDBEnv::Transaction putsshtx;
    db_->beginDBTransaction(&putsshtx, HISTORY, LMDB::ReadWrite);
 
    for (auto& ssh : sshMap_)
    {
       BinaryData&& sshKey = ssh.second.getDBKey();
+      ssh.second.alreadyScannedUpToBlk_ = topheight;
 
       BinaryWriter bw;
       ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
       
       db_->putValue(HISTORY, sshKey.getRef(), bw.getDataRef());
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockchainScanner::preloadUtxos()
+{
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
+   auto dbIter = db_->getIterator(STXO);
+   dbIter.seekToFirst();
+
+   while (dbIter.advanceAndRead())
+   {
+      StoredTxOut stxo;
+      stxo.unserializeDBKey(dbIter.getKeyRef());
+      stxo.unserializeDBValue(dbIter.getValueRef());
+
+      if (stxo.spentness_ == TXOUT_SPENT)
+         continue;
+
+      stxo.parentHash_ = move(db_->getTxHashForLdbKey(
+         stxo.getDBKeyOfParentTx(false)));
+      auto& idMap = utxoMap_[stxo.parentHash_];
+      idMap.insert(make_pair(stxo.txOutIndex_, move(stxo)));
    }
 }

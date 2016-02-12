@@ -328,6 +328,7 @@ public:
    // leter check that it
    uint32_t          unserArmVer_;
    uint32_t          unserDbType_;
+   unsigned          parentTxOutCount_ = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

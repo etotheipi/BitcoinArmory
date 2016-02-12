@@ -1318,218 +1318,10 @@ void BlockDataManager_LevelDB::loadDiskState(
   
    //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
    BDMstate_ = BDM_initializing;
-   
-   /*readBlockHeaders_->detectAllBlkFiles();
-   if (readBlockHeaders_->numBlockFiles()==0)
-   {
-      throw runtime_error("No blockfiles could be found!");
-   }
-   LOGINFO << "Total number of blk*.dat files: " << readBlockHeaders_->numBlockFiles();
-   LOGINFO << "Total blockchain bytes: " 
-      << BtcUtils::numToStrWCommas(readBlockHeaders_->totalBlockchainBytes());
-      
-   // load the headers from lmdb into blockchain()
-   loadBlockHeadersFromDB(progress);
-
-   {
-      progress(BDMPhase_OrganizingChain, 0, 0, 0);
-      // organize the blockchain we have so far
-      const Blockchain::ReorganizationState state
-         = blockchain().forceOrganize();
-      if(!state.prevTopBlockStillValid)
-      {
-         LOGERR << "Organize chain indicated reorg in process all headers!";
-         LOGERR << "Did we shut down last time on an orphan block?";
-      }
-   }
-
-   blockchain_.setDuplicateIDinRAM(iface_, true);
-   uint32_t lastTop = blockchain_.top().getBlockHeight();
-   
-   if (forceRescan)
-   {
-      deleteHistories();
-      scrAddrData_->clear();
-   }
-   
-   if (config_.armoryDbType != ARMORY_DB_SUPER)
-   {
-      LOGWARN << "--- Fetching SSH summaries for "
-         << scrAddrData_->numScrAddr() << " registered addresses";
-      scrAddrData_->getScrAddrCurrentSyncState();
-   }
-   
-   // find where we left off
-   // here in loadDiskState, this value is used to read the headers 
-   // and then again in loadBlockData.
-   // loadBlockData then updates blkDataPosition_ again
-   blkDataPosition_
-      = readBlockHeaders_->findFirstUnrecognizedBlockHeader(
-         blockchain()
-      );
-   LOGINFO << "Left off at file " << blkDataPosition_.first
-      << ", offset " << blkDataPosition_.second;
-   
-   LOGINFO << "Reading headers and building chain...";
-   LOGINFO << "Starting at block file " << blkDataPosition_.first
-      << " offset " << blkDataPosition_.second;
-   LOGINFO << "Block height "
-      << blockchain().top().getBlockHeight();
-      
-   // now load the new headers found in the blkfiles
-   BlockFilePosition readHeadersUpTo;
-   
-   {
-      ProgressWithPhase prog(BDMPhase_BlockHeaders, progress);
-      readHeadersUpTo = loadBlockHeadersStartingAt(prog, blkDataPosition_).first;
-   }
-   
-   try
-   {
-      // This will return true unless genesis block was reorg'd...
-      progress(BDMPhase_OrganizingChain, 0, 0, 0);
-      bool prevTopBlkStillValid = blockchain_.forceOrganize().prevTopBlockStillValid;
-      if(!prevTopBlkStillValid)
-      {
-         LOGERR << "Organize chain indicated reorg in process all headers!";
-         LOGERR << "Did we shut down last time on an orphan block?";
-      }
-   }
-   catch (std::exception &e)
-   {
-      LOGERR << e.what() << ", continuing";
-   }
-   
-   //This calls writes new headers to DB and update dupIDs in RAM.
-   //For now we will only run in on headers found in the DB, in order
-   //to get their dupIDs in RAM. This will allow us to undo the current
-   //blocks currently scanned in the DB, in case of a reorg.
-   //blockchain_.putBareHeadersByReadOrder(iface_, 0, headerCountFromDB);
-
-   findFirstBlockToApply();
-
-   LOGINFO << "Looking for first unrecognized block";
-   uint32_t scanFrom = findFirstBlockToScan();
-
-   //Now we can put the new headers found in blk files.
-   blockchain_.putNewBareHeaders(iface_);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Now we start the meat of this process...
-   
-   // start reading blocks right after the last block applied, and up
-   // to where we finished reading headers
-   {
-      TIMER_START("writeBlocksToDB");
-      ProgressWithPhase prog(BDMPhase_BlockData, progress);
-      loadBlockData(prog, readHeadersUpTo, true);
-      TIMER_STOP("writeBlocksToDB");
-      double timeElapsed = TIMER_READ_SEC("writeBlocksToDB");
-      LOGINFO << "Wrote blocks to DB in " << timeElapsed << "s";
-   }
-
-   {
-      //Core 0.10 specific change:
-      //Let's be consistent across different blocks folders by checking if the
-      //newly added range of blocks is continuous
-      
-
-      set<uint32_t> missingHeadersHeight;
-      set<uint32_t> missingBlocks;
-
-      uint32_t checkFrom = min(lastTop, scanFrom);
-      if (checkFrom > 0)
-         checkFrom--;
-
-      {
-         LOGINFO << "Checking dupIDs from " << checkFrom << " onward";
-         uint8_t dupId;
-         uint32_t currentTop = blockchain_.top().getBlockHeight();
-         LMDBEnv::Transaction blktx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-         for (uint32_t i = checkFrom; i <= currentTop; i++)
-         {
-            dupId = iface_->getValidDupIDForHeight(i);
-            if (dupId == UINT8_MAX)
-            {
-               missingHeadersHeight.insert(i);
-               missingBlocks.insert(i);
-               continue;
-            }
-
-            auto blockKey = DBUtils::getBlkDataKey(i, dupId);
-            auto blockData = iface_->getValueNoCopy(BLKDATA, blockKey);
-            if (blockData.getSize() == 0)
-               missingBlocks.insert(i);
-         }
-      }
-
-      if (missingHeadersHeight.size() > 0)
-      {
-         LOGERR << "missing " << missingHeadersHeight.size() << " block headers";
-         throw runtime_error("Missing headers! "
-            "This is unexpected, Armory will have to close. "
-            "If the error persists, do a factory reset.");
-      }
-
-      if (missingBlocks.size() > 0)
-      {
-         LOGERR << "Missing block data, attempting to repair the DB";
-         set<BinaryData> missingBlocksByHash;
-         for (auto id : missingBlocks)
-         {
-            auto& bh = blockchain_.getHeaderByHeight(id);
-            missingBlocksByHash.insert(bh.getThisHash());
-         }
-
-         repairBlockDataDB(missingBlocksByHash);
-      }
-   }
-
-   
-   {
-      ProgressWithPhase progPhase(BDMPhase_Rescan, progress);
-
-      // TODO: use applyBlocksProgress in applyBlockRangeToDB
-      // scan addresses from BDM
-      TIMER_START("applyBlockRangeToDB");
-      if (config_.armoryDbType == ARMORY_DB_SUPER)
-      {
-         uint32_t topBlock = blockchain_.top().getBlockHeight();
-
-         //no point rescanning the last known block
-         if (scanFrom < topBlock)
-         {
-            applyBlockRangeToDB(progPhase, scanFrom,
-               topBlock, *scrAddrData_);
-         }
-      }
-      else
-      {
-         if (scrAddrData_->numScrAddr() > 0)
-         {
-            uint32_t scanfrom = min(scrAddrData_->scanFrom(), scanFrom);
-
-            if (!scanfrom)
-               deleteHistories();
-
-            applyBlockRangeToDB(progPhase, scanfrom,
-               blockchain_.top().getBlockHeight(),
-               *scrAddrData_.get());
-         }
-      }
-      
-      TIMER_STOP("applyBlockRangeToDB");
-      double timeElapsed = TIMER_READ_SEC("applyBlockRangeToDB");
-      CLEANUP_ALL_TIMERS();
-      LOGINFO << "Scanned Block range in " << timeElapsed << "s";
-   }
-
-   LOGINFO << "Finished loading at file " << blkDataPosition_.first
-      << ", offset " << blkDataPosition_.second;*/
-      
-   BlockFiles blockFiles(config_.blkFileLocation);
-   DatabaseBuilder dbBuilder(blockFiles, *this, progress);
-   dbBuilder.init();
+         
+   blockFiles_ = make_shared<BlockFiles>(config_.blkFileLocation);
+   dbBuilder_ = make_shared<DatabaseBuilder>(*blockFiles_, *this, progress);
+   dbBuilder_->init();
    BDMstate_ = BDM_ready;
 }
 
@@ -1573,11 +1365,15 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    const BlockDataManager_LevelDB::BlkFileUpdateCallbacks& callbacks
 )
 {
+   return dbBuilder_->update();
+
    // callbacks is used by gtest to update the blockchain at certain moments
 
    // i don't know why this is here
    scrAddrData_->checkForMerge();
    
+   //old code
+
    uint32_t prevTopBlk = blockchain_.top().getBlockHeight()+1;
    
    const BlockFilePosition headerOffset
