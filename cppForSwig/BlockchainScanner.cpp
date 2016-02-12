@@ -438,10 +438,11 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
 
             //deal with txio count in subssh at serialization
             TxIOPair txio;
-            txio.setTxOut(stxo.getDBKey(false));
+            auto&& txoutkey = stxo.getDBKey(false);
+            txio.setTxOut(txoutkey);
             txio.setTxIn(txinkey);
             txio.setValue(stxo.getValue());
-            subssh.txioMap_.insert(make_pair(txinkey, move(txio)));
+            subssh.txioMap_[txoutkey] = move(txio);
             
             //add to spentTxOuts_
             batch->spentTxOuts_.push_back(move(stxo));
