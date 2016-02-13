@@ -6,6 +6,8 @@
 #                                                                              #
 ################################################################################
 
+import math
+
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
 
@@ -347,6 +349,12 @@ class NewWalletFrame(ArmoryFrame):
       lblDescription = QLabel("Wallet &description:")
       lblDescription.setAlignment(Qt.AlignVCenter)
       lblDescription.setBuddy(self.editDescription)
+
+      self.useManualEntropy = QCheckBox()
+      lblManualEntropy = QLabel("Add Manual &Entropy")
+      lblManualEntropy.setAlignment(Qt.AlignVCenter)
+      lblManualEntropy.setBuddy(self.useManualEntropy)
+
    
       # breaking this up into tabs
       frameLayout = QVBoxLayout()
@@ -356,7 +364,10 @@ class NewWalletFrame(ArmoryFrame):
       nameFrame = makeHorizFrame([lblName, STRETCH, self.editName])
       descriptionFrame = makeHorizFrame([lblDescription,
                                          STRETCH, self.editDescription])
-      basicQTab = makeVertFrame([nameFrame, descriptionFrame, STRETCH])
+      entropyFrame = makeHorizFrame([self.useManualEntropy,
+                                     lblManualEntropy, STRETCH])
+      basicQTab = makeVertFrame([nameFrame, descriptionFrame,
+                                 entropyFrame, STRETCH])
       newWalletTabs.addTab(basicQTab, "Configure")
       
       # Fork watching-only wallet
@@ -376,6 +387,9 @@ class NewWalletFrame(ArmoryFrame):
 
    def getKdfBytes(self):
       return self.advancedOptionsTab.getKdfBytes()
+
+   def getManualEncryption(self):
+      return self.useManualEntropy.isChecked()
    
    def getName(self):
       return str(self.editName.text())
@@ -464,6 +478,71 @@ class AdvancedOptionsFrame(ArmoryFrame):
       except:
          pass
       return kdfBytes
+
+
+class CardDeckFrame(ArmoryFrame):
+   def __init__(self, parent, main, initLabel=''):
+      super(CardDeckFrame, self).__init__(parent, main)
+
+      layout = QGridLayout()
+      
+      lblDlgDescr = QLabel('Please shuffle a deck of cards and enter the first 40 cards in order below to get at least 192 bits of entropy to properly randomize.\n\n')
+      lblDlgDescr.setWordWrap(True)
+      layout.addWidget(lblDlgDescr, 0, 0, 1, 13)
+
+      self.cards = []
+
+      for row, suit in enumerate('shdc'):
+         for col, rank in enumerate('A23456789TJQK'):
+            card = QPixmapButton("img/%s%s.png" %(rank,suit))
+            card.nameText = rank + suit
+            self.connect(card, SIGNAL(CLICKED), self.cardClicked)
+
+            layout.addWidget(card,row+1, col, 1, 1)
+            self.cards.append(card)
+
+      self.currentDeck = QLabel("")
+      layout.addWidget(self.currentDeck, 5,0,1,13)
+      self.currentNum = QLabel("")
+      layout.addWidget(self.currentNum, 6,0,1,13)
+
+      self.cardCount = 0
+
+      self.setLayout(layout)
+
+   def cardClicked(self):
+      # we need to know which one was clicked
+      button = self.sender()
+      card = button.nameText
+      self.currentDeck.setText(self.currentDeck.text() + " " + card)
+
+      self.cardCount += 1
+      self.cards.append(card)
+      button.setDisabled(True)
+      bits = int(math.log(
+         math.factorial(52) / math.factorial(52-self.cardCount),2))
+      self.currentNum.setText("Entropy: %s bits" % bits)
+
+   def getEntropy(self):
+      cards = filter(lambda x: x != '', unicode(self.currentDeck.text()).split(' '))
+      
+      orderedCards = []
+      for suit in 'shdc':
+         for rank in 'A23456789TJQK':
+            orderedCards.append(rank+suit)
+
+      num = 0
+      for card in cards:
+         num *= len(orderedCards)
+         curIndex = orderedCards.index(card)
+         orderedCards = orderedCards[:curIndex] + orderedCards[curIndex+1:]
+         num += curIndex
+      return num
+
+   def hasGoodEntropy(self):
+      # 52!/13! > 2**192
+      return self.cardCount >= 39
+
       
 class SetPassphraseFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='', passphraseCallback=None):
@@ -1040,6 +1119,9 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
    
    def setWallet(self, wlt):
       self.wlt = wlt
+
+
+
       
 # Need to put circular imports at the end of the script to avoid an import deadlock
 from qtdialogs import CLICKED, DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
