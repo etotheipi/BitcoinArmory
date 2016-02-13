@@ -26,6 +26,8 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()
 {
+   //TODO: lower thread count for unit test builds
+
    //list all files in block data folder
    blockFiles_.detectAllBlockFiles();
 
@@ -36,29 +38,34 @@ void DatabaseBuilder::init()
    //update db
    updateBlocksInDB(progress_);
 
-   //blockchain object now has the longest chain, update the wallets history
-   //1) retrieve all tracked addresses from DB
+   //blockchain object now has the longest chain, update address history
+   //retrieve all tracked addresses from DB
    scrAddrFilter_->getAllScrAddrInDB();
 
-   //2) determine from which block to start scanning
+   //determine from which block to start scanning
    scrAddrFilter_->getScrAddrCurrentSyncState();
-   auto scanFrom = scrAddrFilter_->scanFrom();
-
+   
    //don't scan without any registered addresses
    if (scrAddrFilter_->getScrAddrMap().size() == 0)
+      return;
+   
+   //check against last db state
+   auto scanFrom = scrAddrFilter_->scanFrom();
+   StoredDBInfo sdbi;
+   db_->getStoredDBInfo(HISTORY, sdbi);
+   if (scanFrom > sdbi.topBlkHgt_)
       return;
 
    while (1)
    {
-      //3) scan it!
       auto topScannedBlockHash = updateTransactionHistory(scanFrom);
 
-      //4) make sure the topScannedBlockHash matches the top block hash
-      //in the blockchain object
       if (topScannedBlockHash == blockchain_.top().getThisHash())
          break;
 
       //if we got this far the scan failed, diagnose the DB and repair it
+
+      //TODO: implement repair procedure
    }
 }
 

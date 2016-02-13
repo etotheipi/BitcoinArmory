@@ -34,6 +34,8 @@ struct BCTX
 
    mutable BinaryData txHash_;
 
+   bool isCoinbase_ = false;
+
    BCTX(const uint8_t* data, size_t size) :
       data_(data), size_(size)
    {}

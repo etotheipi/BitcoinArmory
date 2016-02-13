@@ -198,6 +198,9 @@ void DBBlock::createFromBlockHeader(const BlockHeader & bh)
    duplicateID_ = UINT8_MAX;
    isMainBranch_ = bh.isMainBranch();
    hasBlockHeader_ = true;
+
+   fileID_ = bh.getBlockFileNum();
+   offset_ = bh.getOffset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

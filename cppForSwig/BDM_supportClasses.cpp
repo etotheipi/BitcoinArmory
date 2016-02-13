@@ -360,6 +360,9 @@ uint32_t ScrAddrFilter::scanFrom() const
       }
    }
 
+   if (lowestBlock != 0)
+      lowestBlock++;
+
    return lowestBlock;
 }
 
@@ -409,9 +412,9 @@ void ScrAddrFilter::getAllScrAddrInDB()
    unique_lock<mutex> lock(mergeLock_);
 
    LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
+   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
-   auto dbIter = lmdb_->getIterator(SSH);
+   auto dbIter = lmdb_->getIterator(HISTORY);
    dbIter.seekToFirst();
    
 
@@ -428,7 +431,6 @@ void ScrAddrFilter::getAllScrAddrInDB()
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////

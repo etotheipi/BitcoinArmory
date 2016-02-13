@@ -13,6 +13,7 @@
 void BlockData::deserialize(const uint8_t* data, size_t size,
    const BlockHeader* blockHeader)
 {
+   //TODO: pass only ptr and blockheader as args
    headerPtr_ = blockHeader;
 
    //deser header from raw block and run a quick sanity check
@@ -23,7 +24,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    BlockHeader bh(bdr);
 
    if (bh.getThisHashRef() != blockHeader->getThisHashRef())
-      throw runtime_error("raw data does not back expected block hash");
+      throw runtime_error("raw data does not match expected block hash");
 
    //get numTx, check against blockheader too
    BinaryRefReader brr(data + HEADER_SIZE, size - HEADER_SIZE);
@@ -44,6 +45,10 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
       //create BCTX object and fill it up
       shared_ptr<BCTX> tx = make_shared<BCTX>(brr.getCurrPtr(), txSize);
       tx->version_ = READ_UINT32_LE(brr.getCurrPtr());
+
+      //first tx in block is always the coinbase
+      if (i == 0)
+         tx->isCoinbase_ = true;
      
       //convert offsets to offset + size pairs
       for (int y = 0; y < offsetIns.size() - 1; y++)
@@ -327,8 +332,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
    //txout lambda
    auto txoutParser = [&](const BlockData& blockdata)->void
    {
-      //TODO: flag isCoinbase, isMultisig
-      //TODO: save txhash and count with tx_prefix_data in HISTORY db
+      //TODO: flag isMultisig
 
       const BlockHeader* header = blockdata.header();
 
@@ -369,6 +373,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             stxo.scrAddr_ = scrAddr;
             stxo.spentness_ = TXOUT_UNSPENT;
             stxo.parentTxOutCount_ = txn.txouts_.size();
+            stxo.isCoinbase_ = txn.isCoinbase_;
             auto value = stxo.getValue();
 
             auto&& hgtx = DBUtils::heightAndDupToHgtx(
@@ -390,6 +395,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             TxIOPair txio;
             txio.setValue(value);
             txio.setTxOut(txioKey);
+            txio.setFromCoinbase(txn.isCoinbase_);
             subssh.txioMap_.insert(make_pair(txioKey, txio));
          }
       }
@@ -716,8 +722,6 @@ void BlockchainScanner::updateSSH(void)
    //loop over all subssh entiers in SSH db, 
    //compile balance, txio count and summary map for each address
 
-   //TODO: update HISTORY sdbi
-
    map<BinaryData, StoredScriptHistory> sshMap_;
    
    {
@@ -835,6 +839,15 @@ void BlockchainScanner::updateSSH(void)
       
       db_->putValue(HISTORY, sshKey.getRef(), bw.getDataRef());
    }
+
+   //update sdbi
+   StoredDBInfo sdbi;
+   db_->getStoredDBInfo(HISTORY, sdbi);
+
+   sdbi.topScannedBlkHash_ = topScannedBlockHash_;
+   sdbi.topBlkHgt_ = topheight;
+
+   db_->putStoredDBInfo(HISTORY, sdbi);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
