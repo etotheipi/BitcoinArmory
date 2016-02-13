@@ -94,6 +94,7 @@ void LedgerEntry::pprint(void)
    cout << "   Coinbase: " << (isCoinbase() ? 1 : 0) << endl;
    cout << "   sentSelf: " << (isSentToSelf() ? 1 : 0) << endl;
    cout << "   isChange: " << (isChangeBack() ? 1 : 0) << endl;
+   cout << "   isOptInRBF: " << (isOptInRBF() ? 1 : 0) << endl;
    cout << endl;
 }
 

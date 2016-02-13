@@ -655,6 +655,7 @@ class PyTx(BlockComponent):
       self.outputs    = UNINITIALIZED
       self.lockTime   = 0
       self.thisHash   = UNINITIALIZED
+      self.optInRBF   = False
 
    def serialize(self):
       binOut = BinaryPacker()
@@ -680,7 +681,10 @@ class PyTx(BlockComponent):
       self.version    = txData.get(UINT32)
       numInputs  = txData.get(VAR_INT)
       for i in xrange(numInputs):
-         self.inputs.append( PyTxIn().unserialize(txData) )
+         txin = PyTxIn().unserialize(txData);
+         self.inputs.append( txin )
+         if txin.intSeq < (2**32 - 1) - 1:
+            self.optInRBF = True
       numOutputs = txData.get(VAR_INT)
       for i in xrange(numOutputs):
          self.outputs.append( PyTxOut().unserialize(txData) )
@@ -739,6 +743,8 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
+      if self.optInRBF:
+         print indstr + indent + 'Opted into Replace-By-Fee'
 
    def toString(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -756,6 +762,8 @@ class PyTx(BlockComponent):
       for out in self.outputs:
          result = ''.join([result, '\n',  out.toString(nIndent+2, endian=endian)])
       return result
+      if self.optInRBF:
+         result = ''.join([result, '\n',   indstr + indent + 'Opted Into Replace-By-Fee'])
 
    def fetchCpp(self):
       """ Use the info in this PyTx to get the C++ version from TheBDM """

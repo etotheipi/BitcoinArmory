@@ -3355,6 +3355,9 @@ class ArmoryMainWindow(QMainWindow):
          # Sent-to-self
          row.append( le.isSentToSelf() )
 
+         # Opted into RBF
+         row.append( le.isOptInRBF() )
+
          # Finally, attach the row to the table
          table2D.append(row)
 
