@@ -662,7 +662,8 @@ void BlockchainScanner::processAndCommitTxHints(
                db_->getStoredTxHints(stxh, txHashPrefix);
 
                for (auto& utxo : utxomap.second)
-                  stxh.dbKeyList_.push_back(utxo.second.getDBKeyOfParentTx());
+                  stxh.dbKeyList_.push_back(
+                     utxo.second.getDBKeyOfParentTx(false));
 
                stxh.preferredDBKey_ = stxh.dbKeyList_.front();
 

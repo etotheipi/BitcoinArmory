@@ -34,6 +34,7 @@ void DatabaseBuilder::init()
    //read all blocks already in DB and populate blockchain
    topBlockOffset_ = loadBlockHeadersFromDB(progress_);
    blockchain_.forceOrganize();
+   blockchain_.setDuplicateIDinRAM(db_, true);
 
    //update db
    updateBlocksInDB(progress_);

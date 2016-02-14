@@ -988,6 +988,57 @@ BinaryData LMDBBlockDatabase::getHashForDBKey(uint32_t hgt,
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+BinaryData LMDBBlockDatabase::getDBKeyForHash(const BinaryData& txhash)
+{
+   if (txhash.getSize() < 4)
+   {
+      LOGWARN << "txhash is less than 4 bytes long";
+      return BinaryData();
+   }
+
+   BinaryData hash4(txhash.getSliceRef(0, 4));
+
+   LMDBEnv::Transaction txHints(dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
+   BinaryRefReader brrHints = getValueRef(TXHINTS, DB_PREFIX_TXHINTS, hash4);
+
+   uint32_t valSize = brrHints.getSize();
+
+   if (valSize < 6)
+   {
+      //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
+      return BinaryData();
+   }
+
+   uint32_t numHints = (uint32_t)brrHints.get_var_int();
+   uint32_t height;
+   uint8_t  dup;
+   uint16_t txIdx;
+   for (uint32_t i = 0; i < numHints; i++)
+   {
+      BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
+      BinaryRefReader brrHint(hint);
+      BLKDATA_TYPE bdtype = DBUtils::readBlkDataKeyNoPrefix(
+         brrHint, height, dup, txIdx);
+
+      if (dup != getValidDupIDForHeight(height) && numHints > 1)
+         continue;
+
+      auto&& txKey = DBUtils::getBlkDataKey(height, dup, txIdx);
+      auto dbVal = getValueNoCopy(TXHINTS, txKey.getRef());
+      if (dbVal.getSize() < 36)
+         continue;
+
+      auto txHashRef = dbVal.getSliceRef(4, 32);
+
+      if (txHashRef != txhash)
+         continue;
+
+      return txKey.getSliceCopy(1, 6);
+   }
+   
+   return BinaryData();
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Put value based on BinaryData key.  If batch writing, pass in the batch
@@ -2726,6 +2777,8 @@ bool LMDBBlockDatabase::getStoredTx_byHash(const BinaryData& txHash,
                                            StoredTx* stx,
                                            BinaryData *DBkey) const
 {
+   //TODO: fix getStored_TxByHash
+
    SCOPED_TIMER("getStoredTx");
    if (armoryDbType_ == ARMORY_DB_SUPER)
       return getStoredTx_byHashSuper(txHash, stx, DBkey);
@@ -2996,8 +3049,8 @@ bool LMDBBlockDatabase::getStoredTxOut(
          //so there is a high chance we wont need to pull the stxo from the raw
          //block, since fullnode keeps track of all relevant stxos in the 
          //history db
-         LMDBEnv::Transaction tx(dbEnv_[HISTORY].get(), LMDB::ReadOnly);
-         BinaryRefReader brr = getValueReader(HISTORY, DB_PREFIX_TXDATA, DBkey);
+         LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
+         BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
 
          if (brr.getSize() > 0)
          {
@@ -3211,9 +3264,9 @@ TxRef LMDBBlockDatabase::getTxRef( BinaryDataRef txHash )
    }
    else
    {
-      BinaryData key;
-      getStoredTx_byHash(BinaryData(txHash), nullptr, &key);
-      return TxRef(key);
+      auto&& key = getDBKeyForHash(txHash);
+      if (key.getSize() == 6)
+         return TxRef(key);
    }
       
    return TxRef();

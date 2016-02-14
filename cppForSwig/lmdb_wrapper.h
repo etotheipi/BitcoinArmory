@@ -328,6 +328,7 @@ public:
    BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key) const;
 
+   BinaryData getDBKeyForHash(const BinaryData& txhash);
    BinaryData getHashForDBKey(BinaryData dbkey);
    BinaryData getHashForDBKey(uint32_t hgt,
       uint8_t  dup,

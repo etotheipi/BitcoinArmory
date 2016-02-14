@@ -249,7 +249,8 @@ const BinaryDataRef OutPoint::getDBkey(LMDBBlockDatabase* db) const
 
    if (db != nullptr)
    {
-      if (db->getStoredTx_byHash(txHash_, nullptr, &DBkey_))
+      DBkey_ = move(db->getDBKeyForHash(txHash_));
+      if (DBkey_.getSize() == 6)
       {
          DBkey_.append(WRITE_UINT16_BE((uint16_t)txOutIndex_));
          return DBkey_;
