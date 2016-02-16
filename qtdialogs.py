@@ -8679,12 +8679,13 @@ class DlgHelpAbout(ArmoryDialog):
                                     (getVersionString(BTCARMORY_VERSION), BTCARMORY_BUILD), doWrap=False)
       lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel(tr(u'Copyright &copy; 2011-2015 Armory Technologies, Inc.'),
-                                tr(u'Copyright &copy; 2016 Goatpig'))
-      lblLicense = QRichLabel(tr(u'Licensed to Armory Technologies, Inc. under the '
+      lblOldCopyright = QRichLabel(tr(u'Copyright &copy; 2011-2015 Armory Technologies, Inc.'))
+      lblCopyright = QRichLabel(tr(u'Copyright &copy; 2016 Goatpig'))
+      lblOldLicense = QRichLabel(tr(u'Licensed to Armory Technologies, Inc. under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
-                              'Affero General Public License, Version 3</a> (AGPLv3)'),
-                              tr(u'Licensed to Goatpig under the '
+                              'Affero General Public License, Version 3</a> (AGPLv3)'))
+      lblOldLicense.setOpenExternalLinks(True)
+      lblLicense = QRichLabel(tr(u'Licensed to Goatpig under the '
                               '<a href="https://opensource.org/licenses/mit-license.php">'
                               'MIT License'))
       lblLicense.setOpenExternalLinks(True)
@@ -8692,10 +8693,12 @@ class DlgHelpAbout(ArmoryDialog):
       lblHead.setAlignment(Qt.AlignHCenter)
       lblWebpage.setAlignment(Qt.AlignHCenter)
       lblCopyright.setAlignment(Qt.AlignHCenter)
+      lblOldCopyright.setAlignment(Qt.AlignHCenter)
       lblLicense.setAlignment(Qt.AlignHCenter)
+      lblOldLicense.setAlignment(Qt.AlignHCenter)
 
       dlgLayout = QHBoxLayout()
-      dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblWebpage, STRETCH, lblLicense]))
+      dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblWebpage, lblOldCopyright, STRETCH, lblLicense, lblOldLicense]))
       self.setLayout(dlgLayout)
 
       self.setMinimumWidth(450)
