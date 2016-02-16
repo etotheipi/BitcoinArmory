@@ -3751,7 +3751,7 @@ class ArmoryMainWindow(QMainWindow):
                LOGPPRINT(pytx, logging.ERROR)
                searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
 
-               supportURL       = 'https://bitcoinarmory.com/support' 
+               supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
                blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
                blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
 
@@ -3775,8 +3775,7 @@ class ArmoryMainWindow(QMainWindow):
                   <br><br>If the transaction did fail, it is likely because the fee
                   is too low. Try again with a higher fee.
                   
-                  If the problem persists, go to "<i>Help</i>" and select 
-                  "<i>Submit Bug Report</i>".  Or use "<i>File</i>" -> 
+                  If the problem persists, go to "<i>File</i>" ->
                   "<i>Export Log File</i>" and then attach it to a support 
                   ticket at 
                   <a href="%(supporturl)s">%(supporturl)s</a>""") % {
@@ -4466,19 +4465,6 @@ class ArmoryMainWindow(QMainWindow):
       #####
       def openBitcoinOrg():
          webbrowser.open('http://www.bitcoin.org/en/download')
-
-
-      #####
-      def openInstruct():
-         if OS_WINDOWS:
-            webbrowser.open('https://www.bitcoinarmory.com/install-windows/')
-         elif OS_LINUX:
-            webbrowser.open('https://www.bitcoinarmory.com/install-linux/')
-         elif OS_MACOSX:
-            webbrowser.open('https://www.bitcoinarmory.com/install-macosx/')
-
-
-
 
 
 
@@ -5564,7 +5550,7 @@ class ArmoryMainWindow(QMainWindow):
             'accepting connections from localhost.  '
             '<br><br>'
             'If you have not changed anything, please export the log file '
-            '(from the "File" menu) and send it to support@bitcoinarmory.com')
+            '(from the "File" menu) and open an issue at https://github.com/goatpig/BitcoinArmory/issues')
          if state == 'OfflineSatoshiAvail':
             return tr( \
             'Armory does not detect internet access, but it does detect '
@@ -5624,10 +5610,8 @@ class ArmoryMainWindow(QMainWindow):
                   <br><br>
                   Unfortunately, this error is so strange, Armory does not
                   recognize it.  Please go to "Export Log File" from the "File"
-                  menu and email at as an attachment to <a href="mailto:
-                  support@bitcoinarmory.com?Subject=Bitcoind%20Crash">
-                  support@bitcoinarmory.com</a>.  We apologize for the
-                  inconvenience!"""))
+                  menu and submit an issue at https://github.com/goatpig/BitcoinArmory/issues.
+                  We apologize for the inconvenience!"""))
 
    # TODO - move out of polling and call on events
    #############################################################################
@@ -5815,9 +5799,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnFrameVisible(True, \
                      tr('Try reinstalling the Bitcoin '
                      'software then restart Armory.  If you continue to have '
-                     'problems, please contact Armory\'s core developer at '
-                     '<a href="mailto:support@bitcoinarmory.com?Subject=Bitcoind%20Crash"'
-                     '>support@bitcoinarmory.com</a>.'))
+                     'problems, please open an issue at https://github.com/goatpig/BitcoinArmory/issues'))
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnRowVisible(DASHBTNS.Install, True)
                   LOGINFO('Dashboard switched to auto-BtcdCrashed')
