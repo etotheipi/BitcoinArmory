@@ -102,7 +102,7 @@ Blockchain::ReorganizationState Blockchain::forceOrganize()
 }
 
 void Blockchain::setDuplicateIDinRAM(
-   LMDBBlockDatabase* iface, bool forceUpdateDupID)
+   LMDBBlockDatabase* iface)
 {
    for (const auto& block : headerMap_)
    {

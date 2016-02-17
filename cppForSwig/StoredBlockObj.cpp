@@ -1324,16 +1324,25 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       return;
    
    subHistMap_.clear();
-   totalUnspent_ = brr.get_uint64_t();
 
-   //
-   auto sumSize = brr.get_uint32_t();
-   for (unsigned i = 0; i < sumSize; i++)
+   try
    {
-      unsigned height = brr.get_var_int();
-      unsigned sum    = brr.get_var_int();
+      totalUnspent_ = brr.get_uint64_t();
 
-      subsshSummary_[height] = sum;
+      //
+      auto sumSize = brr.get_uint32_t();
+      for (unsigned i = 0; i < sumSize; i++)
+      {
+         unsigned height = brr.get_var_int();
+         unsigned sum = brr.get_var_int();
+
+         subsshSummary_[height] = sum;
+      }
+   }
+   catch (BlockDeserializingException& e)
+   {
+      LOGERR << "invalid varint in SSH data";
+      throw e;
    }
 }
 

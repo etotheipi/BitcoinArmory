@@ -409,6 +409,7 @@ void ScrAddrFilter::buildSideScanData(
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::getAllScrAddrInDB()
 {
+   //TODO: swap the content of SSH and HISTORY DBs
    unique_lock<mutex> lock(mergeLock_);
 
    LMDBEnv::Transaction tx;
@@ -525,7 +526,7 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    txOutsSpentByZC_.clear();
 
    LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   db_->beginDBTransaction(&tx, ZERO_CONF, LMDB::ReadOnly);
 
    //parse ZCs anew
    for (auto ZCPair : txMap_)
@@ -672,10 +673,6 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
    map<BinaryData, Tx> zcMap = newZCMap_;
 
    lock.unlock();
-
-
-   LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
 
    while (1)
    {
@@ -1019,10 +1016,10 @@ const vector<BinaryData>& ZeroConfContainer::getSpentSAforZCKey(
 void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite, 
    const vector<BinaryData>& keysToDelete)
 {
+   //TODO: write all ZC data in dedicated ZC db
+
    //should run in its own thread to make sure we can get a write tx
    DB_SELECT dbs = ZERO_CONF;
-   if (db_->getDbType() != ARMORY_DB_SUPER)
-      dbs = HISTORY;
 
    LMDBEnv::Transaction tx;
    db_->beginDBTransaction(&tx, dbs, LMDB::ReadWrite);
@@ -1077,7 +1074,7 @@ void ZeroConfContainer::loadZeroConfMempool(
    //run this in its own scope so the iter and tx are closed in order to open
    //RW tx afterwards
    {
-      auto dbs = db_->getDbSelect(HISTORY);
+      auto dbs = ZERO_CONF;
 
       LMDBEnv::Transaction tx;
       db_->beginDBTransaction(&tx, dbs, LMDB::ReadOnly);

@@ -59,7 +59,7 @@ public:
    ReorganizationState forceOrganize();
    ReorganizationState findReorgPointFromBlock(const BinaryData& blkHash);
 
-   void setDuplicateIDinRAM(LMDBBlockDatabase* iface, bool forceUpdateDupID);
+   void setDuplicateIDinRAM(LMDBBlockDatabase* iface);
 
    BlockHeader& top() const;
    BlockHeader& getGenesisBlock() const;

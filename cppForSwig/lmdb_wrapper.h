@@ -661,6 +661,7 @@ private:
    string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
    string dbSshFilename() const { return baseDir_ + "/ssh"; }
    string dbStxoFilename() const { return baseDir_ + "/stxo"; }
+   string dbZCFilename() const { return baseDir_ + "/zeroconf"; }
 
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;

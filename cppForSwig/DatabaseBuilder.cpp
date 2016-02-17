@@ -34,10 +34,10 @@ void DatabaseBuilder::init()
    //read all blocks already in DB and populate blockchain
    topBlockOffset_ = loadBlockHeadersFromDB(progress_);
    blockchain_.forceOrganize();
-   blockchain_.setDuplicateIDinRAM(db_, true);
+   blockchain_.setDuplicateIDinRAM(db_);
 
    //update db
-   updateBlocksInDB(progress_);
+   auto reorgState = updateBlocksInDB(progress_);
 
    //blockchain object now has the longest chain, update address history
    //retrieve all tracked addresses from DB
@@ -45,16 +45,25 @@ void DatabaseBuilder::init()
 
    //determine from which block to start scanning
    scrAddrFilter_->getScrAddrCurrentSyncState();
+   auto scanFrom = scrAddrFilter_->scanFrom();
+
+   if (!reorgState.prevTopBlockStillValid)
+   {
+      //reorg
+      undoHistory(reorgState);
+
+      scanFrom = min(
+         scanFrom, reorgState.reorgBranchPoint->getBlockHeight() + 1);
+   }
    
    //don't scan without any registered addresses
    if (scrAddrFilter_->getScrAddrMap().size() == 0)
       return;
    
    //check against last db state
-   auto scanFrom = scrAddrFilter_->scanFrom();
    StoredDBInfo sdbi;
    db_->getStoredDBInfo(HISTORY, sdbi);
-   if (scanFrom > sdbi.topBlkHgt_)
+   if (sdbi.topBlkHgt_ >= blockchain_.top().getBlockHeight())
       return;
 
    while (1)
@@ -325,7 +334,6 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t DatabaseBuilder::update(void)
 {
-
    //list all files in block data folder
    blockFiles_.detectAllBlockFiles();
 
@@ -352,12 +360,15 @@ uint32_t DatabaseBuilder::update(void)
 
    //TODO: recover from failed scan 
 
-   return blockchain_.top().getBlockHeight();
+   return startHeight;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::undoHistory(
    Blockchain::ReorganizationState& reorgState)
 {
+   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_, blockFiles_);
+   bcs.undo(reorgState);
 
+   blockchain_.setDuplicateIDinRAM(db_);
 }

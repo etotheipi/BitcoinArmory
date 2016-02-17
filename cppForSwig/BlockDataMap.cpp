@@ -127,13 +127,13 @@ BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
    }
 
    //if the prefetch flag is set, get the next file
-   auto prefetchLambda = [&](void)
+   auto prefetchLambda = [&](unsigned fileID)
       ->BlockFileMapPointer
-   { return get(fileid + 1, false); };
+   { return get(fileID, false); };
 
    if (prefetch)
    {
-      thread tid(prefetchLambda);
+      thread tid(prefetchLambda, fileid + 1);
       tid.detach();
    }
    

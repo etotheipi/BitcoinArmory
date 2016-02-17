@@ -538,6 +538,7 @@ void LMDBBlockDatabase::openDatabases(
    dbEnv_[TXHINTS]->open(dbTxhintsFilename());
    dbEnv_[SSH]->open(dbSshFilename());
    dbEnv_[STXO]->open(dbStxoFilename());
+   dbEnv_[ZERO_CONF]->open(dbZCFilename());
 
 
    map<DB_SELECT, string> DB_NAMES;
@@ -547,6 +548,7 @@ void LMDBBlockDatabase::openDatabases(
    DB_NAMES[TXHINTS] = "txhints";
    DB_NAMES[SSH] = "ssh";
    DB_NAMES[STXO] = "stxo";
+   DB_NAMES[ZERO_CONF] = "zeroconf";
 
 
    try
@@ -1229,6 +1231,11 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       //iter is at the right ssh, make sure hgtX <= endBlock
       if (keyValPair.second.height_ > endBlock)
          break;
+
+      //skip invalid dupIDs
+      if (keyValPair.second.dupID_ !=
+         getValidDupIDForHeight(keyValPair.second.height_))
+         continue;
 
       keyValPair.second.unserializeDBValue(subsshIter.getValueReader());
       iter = ssh.subHistMap_.insert(keyValPair).first;
@@ -2101,9 +2108,7 @@ void LMDBBlockDatabase::putStoredZC(StoredTx & stx, const BinaryData& zcKey)
 {
    SCOPED_TIMER("putStoredTx");
 
-   DB_SELECT dbs = BLKDATA;
-   if (armoryDbType_ != ARMORY_DB_SUPER)
-      dbs = HISTORY;
+   DB_SELECT dbs = ZERO_CONF;
 
    // Now add the base Tx entry in the BLKDATA DB.
    BinaryWriter bw;
@@ -2553,7 +2558,6 @@ TxIn LMDBBlockDatabase::getTxInCopy(
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
 {
-   SCOPED_TIMER("getTxHashForLdbKey");
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
       LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
@@ -2578,10 +2582,10 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
    {
       //Fullnode, check the HISTORY DB for the txhash
       {
-         LMDBEnv::Transaction tx(dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
 
          if (!ldbKey6B.startsWith(ZCprefix_))
          {
+            LMDBEnv::Transaction tx(dbEnv_[TXHINTS].get(), LMDB::ReadOnly);
             BinaryData keyFull(ldbKey6B.getSize() + 1);
             keyFull[0] = (uint8_t)DB_PREFIX_TXDATA;
             ldbKey6B.copyTo(keyFull.getPtr() + 1, ldbKey6B.getSize());
@@ -2595,8 +2599,9 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey( BinaryDataRef ldbKey6B ) const
          }
          else
          {
+            LMDBEnv::Transaction tx(dbEnv_[ZERO_CONF].get(), LMDB::ReadOnly);
             BinaryRefReader stxVal =
-               getValueReader(TXHINTS, DB_PREFIX_ZCDATA, ldbKey6B);
+               getValueReader(ZERO_CONF, DB_PREFIX_ZCDATA, ldbKey6B);
 
             if (stxVal.getSize() == 0)
             {
@@ -2702,7 +2707,7 @@ bool LMDBBlockDatabase::getStoredTx_byDBKey( StoredTx & stx,
 bool LMDBBlockDatabase::getStoredZcTx(StoredTx & stx,
    BinaryDataRef zcKey) const
 {
-   auto dbs = getDbSelect(HISTORY);
+   auto dbs = ZERO_CONF;
    
    //only by zcKey
    BinaryData zcDbKey;
@@ -2996,7 +3001,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
 
    BinaryData ldbKey = stxo.getDBKey(false);
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
-   putValue(getDbSelect(HISTORY), DB_PREFIX_TXDATA, ldbKey, bw);
+   putValue(STXO, DB_PREFIX_TXDATA, ldbKey, bw);
 }
 
 void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo, 
@@ -3005,7 +3010,7 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
    SCOPED_TIMER("putStoredTx");
 
    BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
-   putValue(getDbSelect(HISTORY), DB_PREFIX_ZCDATA, zcKey, bw);
+   putValue(ZERO_CONF, DB_PREFIX_ZCDATA, zcKey, bw);
 }
 
 
@@ -3577,11 +3582,11 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
       return UINT32_MAX;
    }
 
-   LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, getDbSelect(HISTORY), LMDB::ReadOnly);
-
    if (armoryDbType_ == ARMORY_DB_SUPER)
    {
+      LMDBEnv::Transaction tx;
+      beginDBTransaction(&tx, getDbSelect(HISTORY), LMDB::ReadOnly);
+
       if (!dbKey6.startsWith(ZCprefix_))
       {
          StoredTx stx;
@@ -3616,6 +3621,9 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
    {
       if (!dbKey6.startsWith(ZCprefix_))
       {
+         LMDBEnv::Transaction tx;
+         beginDBTransaction(&tx, getDbSelect(HISTORY), LMDB::ReadOnly);
+
          BinaryRefReader brr = getValueRef(getDbSelect(HISTORY), DB_PREFIX_TXDATA, dbKey6);
          if (brr.getSize() == 0)
          {
@@ -3627,6 +3635,9 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
       }
       else
       {
+         LMDBEnv::Transaction tx;
+         beginDBTransaction(&tx, ZERO_CONF, LMDB::ReadOnly);
+
          StoredTx stx;
          if (!getStoredZcTx(stx, dbKey6))
          {

@@ -609,6 +609,7 @@ void BlockchainScanner::writeBlockData(
 
          for (auto& stxo : serializedStxo)
          { 
+            //TODO: dont rewrite utxos, check if they are already in DB first
             db_->putValue(STXO,
                stxo.first.getRef(),
                stxo.second.getDataRef());
@@ -830,13 +831,21 @@ void BlockchainScanner::updateSSH(void)
    LMDBEnv::Transaction putsshtx;
    db_->beginDBTransaction(&putsshtx, HISTORY, LMDB::ReadWrite);
 
-   for (auto& ssh : sshMap_)
+   auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
+   for (auto& scrAddr : scrAddrMap)
    {
-      BinaryData&& sshKey = ssh.second.getDBKey();
-      ssh.second.alreadyScannedUpToBlk_ = topheight;
+      auto& ssh = sshMap_[scrAddr.first];
+
+      if (!ssh.isInitialized())
+      {
+         ssh.uniqueKey_ = scrAddr.first;
+      }
+
+      BinaryData&& sshKey = ssh.getDBKey();
+      ssh.alreadyScannedUpToBlk_ = topheight;
 
       BinaryWriter bw;
-      ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+      ssh.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
       
       db_->putValue(HISTORY, sshKey.getRef(), bw.getDataRef());
    }
@@ -872,5 +881,207 @@ void BlockchainScanner::preloadUtxos()
          stxo.getDBKeyOfParentTx(false)));
       auto& idMap = utxoMap_[stxo.parentHash_];
       idMap.insert(make_pair(stxo.txOutIndex_, move(stxo)));
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
+{
+   //dont undo subssh, these are skipped by dupID when loading history
+
+   BlockHeader* blockPtr = reorgState.prevTopBlock;
+   map<uint32_t, BlockFileMapPointer> fileMaps_;
+
+   map<DB_SELECT, set<BinaryData>> keysToDelete;
+   map<BinaryData, StoredScriptHistory> sshMap;
+   set<BinaryData> undoSpentness; //TODO: add spentness DB
+
+   //TODO: sanity checks on header ptrs from reorgState
+   if (reorgState.prevTopBlock->getBlockHeight() <=
+       reorgState.reorgBranchPoint->getBlockHeight())
+      throw runtime_error("invalid reorg state");
+
+   while (blockPtr != reorgState.reorgBranchPoint)
+   {
+      auto currentHeight = blockPtr->getBlockHeight();
+      auto currentDupId  = blockPtr->getDuplicateID();
+
+      //create tx to pull subssh data
+      LMDBEnv::Transaction sshTx;
+      db_->beginDBTransaction(&sshTx, SSH, LMDB::ReadOnly);
+
+      //grab blocks from previous top until branch point
+      if (blockPtr == nullptr)
+         throw runtime_error("reorg failed while tracing back to "
+         "branch point");
+
+      auto filenum = blockPtr->getBlockFileNum();
+      auto fileIter = fileMaps_.find(filenum);
+      if (fileIter == fileMaps_.end())
+      {
+         fileIter = fileMaps_.insert(make_pair(
+            filenum,
+            move(blockDataLoader_.get(filenum, false)))).first;
+      }
+
+      auto& filemap = fileIter->second;
+
+      BlockData bdata;
+      bdata.deserialize(filemap.get()->getPtr() + blockPtr->getOffset(),
+         blockPtr->getBlockSize(), blockPtr);
+
+      auto& txns = bdata.getTxns();
+      for (unsigned i = 0; i < txns.size(); i++)
+      {
+         auto& txn = txns[i];
+
+         //undo tx outs added by this block
+         for (unsigned y = 0; y < txn->txouts_.size(); y++)
+         {
+            auto& txout = txn->txouts_[y];
+
+            BinaryRefReader brr(txn->data_ + txout.first);
+            brr.advance(8);
+            unsigned scriptSize = (unsigned)brr.get_var_int();
+            auto&& scrAddr = BtcUtils::getTxOutScrAddr(
+               brr.get_BinaryDataRef(scriptSize));
+
+            if (!scrAddrFilter_->hasScrAddress(scrAddr))
+               continue;
+
+            //mark stxo key for deletion
+            auto&& txoutKey = DBUtils::getBlkDataKey(
+               currentHeight, currentDupId,
+               i, y);
+            keysToDelete[STXO].insert(txoutKey);
+
+            //update ssh value and txio count
+            auto& ssh = sshMap[scrAddr];
+            if (!ssh.isInitialized())
+               db_->getStoredScriptHistorySummary(ssh, scrAddr);
+
+            brr.resetPosition();
+            uint64_t value = brr.get_uint64_t();
+            ssh.totalUnspent_ -= value;
+            ssh.totalTxioCount_--;
+
+            //decrement summary count at height, remove entry if necessary
+            auto& sum = ssh.subsshSummary_[currentHeight];
+            sum--;
+            if (sum <= 0)
+               ssh.subsshSummary_.erase(currentHeight);
+         }
+
+         //undo spends from this block
+         for (unsigned y = 0; y < txn->txins_.size(); y++)
+         {
+            auto& txin = txn->txins_[y];
+
+            BinaryDataRef outHash(
+               txn->data_ + txin.first, 32);
+
+            auto&& txKey = db_->getDBKeyForHash(outHash);
+            if (txKey.getSize() != 6)
+               continue;
+
+            uint16_t txOutId = (uint16_t)READ_UINT32_LE(
+               txn->data_ + txin.first + 32);
+            txKey.append(WRITE_UINT16_BE(txOutId));
+
+            StoredTxOut stxo;
+            if (!db_->getStoredTxOut(stxo, txKey))
+               continue;
+
+            //mark txout key for undoing spentness
+            undoSpentness.insert(txKey);
+
+            //update ssh value and txio count
+            auto& scrAddr = stxo.getScrAddress();
+            auto& ssh = sshMap[scrAddr];
+            if (!ssh.isInitialized())
+               db_->getStoredScriptHistorySummary(ssh, scrAddr);
+
+            ssh.totalUnspent_ += stxo.getValue();
+            ssh.totalTxioCount_--;
+
+            //decrement summary count at height, remove entry if necessary
+            auto& sum = ssh.subsshSummary_[currentHeight];
+            sum--;
+            if (sum <= 0)
+               ssh.subsshSummary_.erase(currentHeight);
+         }
+      }
+
+      //set blockPtr to prev block
+      blockPtr = &blockchain_->getHeaderByHash(blockPtr->getPrevHashRef());
+   }
+
+   //at this point we have a map of updated ssh, as well as a 
+   //set of keys to delete from the DB and spentness to undo by stxo key
+
+   //stxo
+   {
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, STXO, LMDB::ReadWrite);
+
+      //grab stxos and revert spentness
+      map<BinaryData, StoredTxOut> stxos;
+      for (auto& stxoKey : undoSpentness)
+      {
+         auto& stxo = stxos[stxoKey];
+         db_->getStoredTxOut(stxo, stxoKey);
+
+         stxo.spentByTxInKey_.clear();
+         stxo.spentness_ = TXOUT_UNSPENT;
+      }
+
+      //put updated stxos
+      for (auto& stxo : stxos)
+         db_->putStoredTxOut(stxo.second);
+
+      //delete invalidated stxos
+      auto& stxoKeysToDelete = keysToDelete[STXO];
+      for (auto& key : stxoKeysToDelete)
+         db_->deleteValue(STXO, key);
+   }
+
+   auto branchPointHeight = 
+      reorgState.reorgBranchPoint->getBlockHeight();
+
+   //ssh
+   {
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+
+      //go thourgh all ssh in scrAddrFilter
+      auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
+      for (auto& scrAddr : scrAddrMap)
+      {
+         auto& ssh = sshMap[scrAddr.first];
+         
+         //if the ssh isn't in our map, pull it from DB
+         if (!ssh.isInitialized())
+            db_->getStoredScriptHistorySummary(ssh, scrAddr.first);
+
+         //update alreadyScannedUpToBlk_ to branch point height
+         ssh.alreadyScannedUpToBlk_ = branchPointHeight;
+      }
+
+      //write it all up
+      for (auto& ssh : sshMap)
+      {
+         BinaryWriter bw;
+         ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+         db_->putValue(HISTORY,
+            ssh.second.getDBKey().getRef(),
+            bw.getDataRef());
+      }
+
+      //update HISTORY sdbi      
+      StoredDBInfo sdbi;
+      db_->getStoredDBInfo(HISTORY, sdbi);
+      sdbi.topScannedBlkHash_ = reorgState.reorgBranchPoint->getThisHash();
+      sdbi.topBlkHgt_ = branchPointHeight;
+      db_->putStoredDBInfo(HISTORY, sdbi);
    }
 }

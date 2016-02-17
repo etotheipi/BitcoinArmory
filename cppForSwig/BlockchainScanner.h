@@ -175,6 +175,7 @@ public:
    }
 
    void scan(uint32_t startHeight);
+   void undo(Blockchain::ReorganizationState& reorgState);
    void updateSSH(void);
    
    const BinaryData& getTopScannedBlockHash(void) const
