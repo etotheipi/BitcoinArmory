@@ -78,7 +78,7 @@ class BlockchainScanner
 private:
    Blockchain* blockchain_;
    LMDBBlockDatabase* db_;
-   shared_ptr<ScrAddrFilter> scrAddrFilter_;
+   ScrAddrFilter* scrAddrFilter_;
    BlockDataLoader blockDataLoader_;
 
    const unsigned nBlockFilesPerBatch_ = 4;
@@ -103,7 +103,7 @@ private:
 
 public:
    BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,
-      shared_ptr<ScrAddrFilter> saf,
+      ScrAddrFilter* saf,
       BlockFiles& bf) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
       totalThreadCount_(thread::hardware_concurrency()),

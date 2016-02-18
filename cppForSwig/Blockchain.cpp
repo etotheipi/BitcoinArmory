@@ -422,13 +422,21 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
    LMDBEnv::Transaction tx;
    db->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
 
+   vector<BlockHeader*> unputHeaders;
    for (auto& block : newlyParsedBlocks_)
    {
-      StoredHeader sbh;
-      sbh.createFromBlockHeader(*block);
-      //don't update SDBI, we'll do it here once instead
-      uint8_t dup = db->putBareHeader(sbh, true, false);
-      block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      if (block->blockHeight_ != UINT32_MAX)
+      {
+         StoredHeader sbh;
+         sbh.createFromBlockHeader(*block);
+         //don't update SDBI, we'll do it here once instead
+         uint8_t dup = db->putBareHeader(sbh, true, false);
+         block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      }
+      else
+      {
+         unputHeaders.push_back(block);
+      }
    }
 
    //update SDBI, keep within the batch transaction
@@ -451,7 +459,7 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 
    //once commited to the DB, they aren't considered new anymore, 
    //so clean up the container
-   newlyParsedBlocks_.clear();
+   newlyParsedBlocks_ = unputHeaders;
 }
 
 /////////////////////////////////////////////////////////////////////////////

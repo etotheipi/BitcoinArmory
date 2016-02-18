@@ -19,6 +19,7 @@
 #include "lmdbpp.h"
 #include "Progress.h"
 #include "util.h"
+#include "BlockchainScanner.h"
 #include "DatabaseBuilder.h"
 
 #include "ReorgUpdater.h"
@@ -1132,19 +1133,11 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    ProgressFilter progress(&prog, startingAt, totalBytes);
    
    // Start scanning and timer
-   BlockWriteBatcher blockWrites(config_, iface_);
-   blockWrites.setUpdateSDBI(updateSDBI);
+   BlockchainScanner bcs(&blockchain_, iface_, &scrAddrData, 
+      *blockFiles_.get());
+   bcs.scan(blk0);
 
-   auto errorLambda = [this](string str)->void
-   {  criticalError_ = str;
-      this->notifyMainThread(); };
-   blockWrites.setCriticalErrorLambda(errorLambda);
-
-   if (blk1 > blockchain_.top().getBlockHeight())
-      blk1 = blockchain_.top().getBlockHeight();
-   
-   LOGWARN << "Scanning from " << blk0 << " to " << blk1;
-   return blockWrites.scanBlocks(progress, blk0, blk1, scrAddrData);
+   return bcs.getTopScannedBlockHash();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1365,14 +1358,14 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    const BlockDataManager_LevelDB::BlkFileUpdateCallbacks& callbacks
 )
 {
-   return dbBuilder_->update();
-
-   // callbacks is used by gtest to update the blockchain at certain moments
-
    // i don't know why this is here
    scrAddrData_->checkForMerge();
    
+   return dbBuilder_->update();
+     
    //old code
+
+   // callbacks is used by gtest to update the blockchain at certain moments
 
    uint32_t prevTopBlk = blockchain_.top().getBlockHeight()+1;
    
@@ -1422,7 +1415,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
                   newHeader = &blockchain_.getHeaderByHash(nextHash);
                   newHeadersVec.push_back(newHeader);
                }
-               catch (std::range_error& e)
+               catch (std::range_error&)
                {
                   //got the last block
                   break;

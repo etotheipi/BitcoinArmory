@@ -3315,7 +3315,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
    sbh_.offset_ = 0xffffeeee;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData last4 = READHEX("00ffff01efbeadde1900eeeeffff00000000");
+   BinaryData last4 = READHEX("00ffff01efbeadde" "0f000000" "1900eeeeffff00000000");
    EXPECT_EQ(serializeDBValue(sbh_, HEADERS, ARMORY_DB_FULL, DB_PRUNE_NONE), rawHead_ + last4);
 }
 
@@ -4891,7 +4891,8 @@ protected:
 
    /////
    bool compareKVListRange(uint32_t startH, uint32_t endplus1H,
-                           uint32_t startB, uint32_t endplus1B)
+                           uint32_t startB, uint32_t endplus1B,
+                           DB_SELECT db2 = HISTORY)
    {
       KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
 
@@ -4917,7 +4918,7 @@ protected:
          return false;
       }
 
-      fromDB = iface_->getAllDatabaseEntries(HISTORY);
+      fromDB = iface_->getAllDatabaseEntries(db2);
       if(fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
       {
          LOGERR << "BLKDATA DB not the correct size";
@@ -4942,7 +4943,6 @@ protected:
 
       return true;
    }
-
 
    /////
    bool standardOpenDBs(void) 
@@ -5147,7 +5147,7 @@ TEST_F(LMDBTest, STxOutPutGet)
    
    ASSERT_TRUE(standardOpenDBs());
    LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction txH(iface_->dbEnv_[STXO].get(), LMDB::ReadWrite);
 
    StoredTxOut stxo0;
    stxo0.txVersion_   = 1;
@@ -5161,7 +5161,7 @@ TEST_F(LMDBTest, STxOutPutGet)
 
    // Construct expected output
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRange(0,1, 0,2));
+   ASSERT_TRUE(compareKVListRange(0,1, 0,2, STXO));
 
    StoredTxOut stxoGet;
    iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
@@ -5198,7 +5198,7 @@ TEST_F(LMDBTest, STxOutPutGet)
    );
 
    addOutPairB(stxoKey, stxoVal);
-   ASSERT_TRUE(compareKVListRange(0,1, 0,3));
+   ASSERT_TRUE(compareKVListRange(0,1, 0,3, STXO));
 
 }
 
@@ -5576,6 +5576,7 @@ TEST_F(LMDBTest, PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
    LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction sshtx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
 
    ///////////////////////////////////////////////////////////////////////////
    // A whole bunch of setup stuff we need for SSH operations to work right
@@ -7636,8 +7637,11 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockDir, AddBlockWhileUpdating)
+TEST_F(BlockDir, DISABLED_AddBlockWhileUpdating)
 {
+   //TODO: add some mechanisms activating only #ifdef _DEBUG to run this test
+   //and set other unit test specific conditions
+
    BlockDataManagerConfig config;
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
@@ -9490,7 +9494,7 @@ TEST_F(BlockUtilsSuper, DISABLED_Load5Blocks_ReloadBDM)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
+TEST_F(BlockUtilsSuper, DISABLED_Load3BlocksPlus3)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.

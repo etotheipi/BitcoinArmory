@@ -800,6 +800,7 @@ void LMDBBlockDatabase::closeDatabasesSupernode(void)
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::destroyAndResetDatabases(void)
 {
+   //TODO: update to support the new DB_SELECTs
    SCOPED_TIMER("destroyAndResetDatabase");
 
    // We want to make sure the database is restarted with the same parameters
@@ -1261,24 +1262,23 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
       return;
    }
 
-   DB_SELECT db;
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-      db = BLKDATA;
-   else
-      db = HISTORY;
+   auto db = HISTORY;
       
    putValue(db, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
 
-   map<BinaryData, StoredSubHistory>::iterator iter;
-   for (iter = ssh.subHistMap_.begin();
-      iter != ssh.subHistMap_.end();
-      iter++)
+   //onyl supporting these for unit tests, phase out eventually
    {
-      StoredSubHistory & subssh = iter->second;
-      if (subssh.txioMap_.size() > 0)
-         putValue(db, subssh.getDBKey(),
-         serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
-         );
+      map<BinaryData, StoredSubHistory>::iterator iter;
+      for (iter = ssh.subHistMap_.begin();
+         iter != ssh.subHistMap_.end();
+         iter++)
+      {
+         StoredSubHistory & subssh = iter->second;
+         if (subssh.txioMap_.size() > 0)
+            putValue(SSH, subssh.getDBKey(),
+            serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
+            );
+      }
    }
 }
 
@@ -3642,9 +3642,9 @@ uint32_t LMDBBlockDatabase::getStxoCountForTx(const BinaryData & dbKey6) const
       if (!dbKey6.startsWith(ZCprefix_))
       {
          LMDBEnv::Transaction tx;
-         beginDBTransaction(&tx, getDbSelect(HISTORY), LMDB::ReadOnly);
+         beginDBTransaction(&tx, TXHINTS, LMDB::ReadOnly);
 
-         BinaryRefReader brr = getValueRef(getDbSelect(HISTORY), DB_PREFIX_TXDATA, dbKey6);
+         BinaryRefReader brr = getValueRef(TXHINTS, DB_PREFIX_TXDATA, dbKey6);
          if (brr.getSize() == 0)
          {
             LOGERR << "no Tx data at key";

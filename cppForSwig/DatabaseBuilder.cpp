@@ -323,7 +323,7 @@ BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
 /////////////////////////////////////////////////////////////////////////////
 BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
 {
-   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_,
+   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(),
       blockFiles_);
    bcs.scan(startHeight);
    bcs.updateSSH();
@@ -367,7 +367,8 @@ uint32_t DatabaseBuilder::update(void)
 void DatabaseBuilder::undoHistory(
    Blockchain::ReorganizationState& reorgState)
 {
-   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_, blockFiles_);
+   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(), 
+      blockFiles_);
    bcs.undo(reorgState);
 
    blockchain_.setDuplicateIDinRAM(db_);
