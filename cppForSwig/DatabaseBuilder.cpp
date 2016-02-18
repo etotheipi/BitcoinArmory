@@ -130,7 +130,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    //TODO: squeeze in the progress callback
 
    //preload and prefetch
-   BlockDataLoader bdl(blockFiles_.folderPath(), true, true);
+   BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
 
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
       BlockOffset& bo)->void

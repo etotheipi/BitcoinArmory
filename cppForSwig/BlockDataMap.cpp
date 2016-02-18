@@ -33,15 +33,22 @@ void BlockFiles::detectAllBlockFiles()
 
 /////////////////////////////////////////////////////////////////////////////
 BlockDataLoader::BlockDataLoader(const string& path,
-   bool preloadFile, bool prefetchNext) :
+   bool preloadFile, bool prefetchNext, bool enableGC) :
    path_(path), 
-   preloadFile_(preloadFile), prefetchNext_(prefetchNext), prefix_("blk")
+   preloadFile_(preloadFile), prefetchNext_(prefetchNext), 
+   prefix_("blk"), enableGC_(enableGC)
 {
    //set gcLambda
    gcLambda_ = [this](void)->void
    { 
+      if (!enableGC_)
+         return;
+
 	   this->gcCondVar_.notify_all(); 
    };
+   
+   if (!enableGC_)
+      return;
 
    //start up GC thread
    auto gcthread = [this](void)->void

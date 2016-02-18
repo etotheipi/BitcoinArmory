@@ -23,6 +23,7 @@
 #include "StoredBlockObj.h"
 #include "lmdb_wrapper.h"
 #include "txio.h"
+#include "BlockDataMap.h"
 
 struct MDB_val;
 
@@ -343,8 +344,9 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady) :
-isDBReady_(isDBReady)
+LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady,
+   string blkFolder) :
+isDBReady_(isDBReady), blkFolder_(blkFolder)
 {
    //for some reason the WRITE_UINT16 macros create 4 byte long BinaryData 
    //instead of 2, so I'm doing this the hard way instead
@@ -991,7 +993,8 @@ BinaryData LMDBBlockDatabase::getHashForDBKey(uint32_t hgt,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData LMDBBlockDatabase::getDBKeyForHash(const BinaryData& txhash)
+BinaryData LMDBBlockDatabase::getDBKeyForHash(const BinaryData& txhash,
+   uint8_t expectedDupId)
 {
    if (txhash.getSize() < 4)
    {
@@ -1023,8 +1026,11 @@ BinaryData LMDBBlockDatabase::getDBKeyForHash(const BinaryData& txhash)
       BLKDATA_TYPE bdtype = DBUtils::readBlkDataKeyNoPrefix(
          brrHint, height, dup, txIdx);
 
-      if (dup != getValidDupIDForHeight(height) && numHints > 1)
-         continue;
+      if (dup != expectedDupId)
+      {
+         if (dup != getValidDupIDForHeight(height) && numHints > 1)
+            continue;
+      }
 
       auto&& txKey = DBUtils::getBlkDataKey(height, dup, txIdx);
       auto dbVal = getValueNoCopy(TXHINTS, txKey.getRef());
@@ -1563,6 +1569,7 @@ void LMDBBlockDatabase::readAllHeaders(
       sbh.unserializeDBValue(HEADERS, ldbIter.getValueRef());
       regHead.unserialize(sbh.dataCopy_);
       regHead.setBlockSize(sbh.numBytes_);
+      regHead.setNumTx(sbh.numTx_);
 
       regHead.setBlockFileNum(sbh.fileID_);
       regHead.setBlockFileOffset(sbh.offset_);
@@ -2420,6 +2427,7 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
          BLKDATA, DB_PREFIX_TXDATA, ldbKey6B.getSliceRef(0, 4));
 
       brr.advance(HEADER_SIZE);
+
       uint32_t nTx = (uint32_t)brr.get_var_int();
 
       if (txid >= nTx)
@@ -2460,6 +2468,37 @@ Tx LMDBBlockDatabase::getFullTxCopy(
    SCOPED_TIMER("getFullTxCopy");
    BinaryData ldbKey = DBUtils::getBlkDataKey(hgt, dup, txIndex);
    return getFullTxCopy(ldbKey);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+Tx LMDBBlockDatabase::getFullTxCopy(uint16_t txIndex, BlockHeader* bhPtr) const
+{
+   if (bhPtr == nullptr)
+      throw runtime_error("null bhPtr");
+
+   if (txIndex >= bhPtr->getNumTx())
+      throw range_error("txid > numTx");
+
+   if (blkFolder_.size() == 0)
+      throw runtime_error("invalid blkFolder");
+
+   //open block file
+   BlockDataLoader bdl(blkFolder_, false, false, false);
+
+   auto&& bfmp = bdl.get(bhPtr->getBlockFileNum(), false);
+   auto fileMapPtr = bfmp.get();
+
+   auto dataPtr = fileMapPtr->getPtr();
+
+   BlockData block;
+   block.deserialize(dataPtr + bhPtr->getOffset(),
+      bhPtr->getBlockSize(), bhPtr);
+
+   auto bctx = block.getTxns()[txIndex];
+
+   BinaryRefReader brr(bctx->data_, bctx->size_);
+
+   return Tx(brr);
 }
 
 
@@ -3050,10 +3089,10 @@ bool LMDBBlockDatabase::getStoredTxOut(
    else
    {
       {
-         //Let's look in history db first. Stxos are fetched mostly to spend coins,
+         //Let's look in the db first. Stxos are fetched mostly to spend coins,
          //so there is a high chance we wont need to pull the stxo from the raw
-         //block, since fullnode keeps track of all relevant stxos in the 
-         //history db
+         //block, since fullnode keeps track of all relevant stxos
+
          LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
          BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
 
@@ -3068,25 +3107,6 @@ bool LMDBBlockDatabase::getStoredTxOut(
             return true;
          }
       }
-
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-
-      //again, in Fullnode, need to pull the entire block, unserialize then
-      //return the one stxo
-      StoredTx stx;
-      Tx thisTx = getFullTxCopy(DBkey.getSliceRef(0, 6));
-      stx.createFromTx(thisTx, false, true);
-      
-      uint16_t txOutId = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
-      if (txOutId >= stx.stxoMap_.size())
-      {
-         LOGERR << "BLKDATA DB does not have the requested TxOut";
-         return false;
-      }
-
-      stxo = stx.stxoMap_[txOutId];
-
-      return true;
    }
 
    return false;

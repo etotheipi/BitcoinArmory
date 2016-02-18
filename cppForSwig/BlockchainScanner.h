@@ -18,69 +18,6 @@
 #ifndef _BLOCKCHAINSCANNER_H
 #define _BLOCKCHAINSCANNER_H
 
-#define OffsetAndSize pair<size_t, size_t>
-
-////////////////////////////////////////////////////////////////////////////////
-struct BCTX
-{
-   const uint8_t* data_;
-   const size_t size_;
-
-   uint32_t version_;
-   uint32_t lockTime_;
-
-   vector<OffsetAndSize> txins_;
-   vector<OffsetAndSize> txouts_;
-
-   mutable BinaryData txHash_;
-
-   bool isCoinbase_ = false;
-
-   BCTX(const uint8_t* data, size_t size) :
-      data_(data), size_(size)
-   {}
-
-   const BinaryData& getHash(void) const
-   {
-      if (txHash_.getSize() == 0)
-         BtcUtils::getHash256(data_, size_, txHash_);
-
-      return txHash_;
-   }
-};
-
-////////////////////////////////////////////////////////////////////////////////
-class BlockData
-{
-private:
-   const BlockHeader* headerPtr_ = nullptr;
-   const uint8_t* data_ = nullptr;
-   size_t size_ = SIZE_MAX;
-
-   vector<shared_ptr<BCTX>> txns_;
-   
-public:
-   BlockData(void) {}
-
-   void deserialize(const uint8_t* data, size_t size,
-      const BlockHeader*);
-
-   bool isInitialized(void) const 
-   {
-      return (data_ != nullptr);
-   }
-
-   const vector<shared_ptr<BCTX>>& getTxns(void) const
-   {
-      return txns_;
-   }
-
-   const BlockHeader* header(void) const
-   {
-      return headerPtr_;
-   }
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 struct BlockDataLink
 {
@@ -170,7 +107,7 @@ public:
       BlockFiles& bf) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
       totalThreadCount_(thread::hardware_concurrency()),
-      blockDataLoader_(bf.folderPath(), true, true)
+      blockDataLoader_(bf.folderPath(), true, true, true)
    {
    }
 

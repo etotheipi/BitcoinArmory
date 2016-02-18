@@ -901,7 +901,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    , blockchain_(config_.genesisBlockHash)
 {
    auto isready = [this](void)->bool { return this->isReady(); };
-   iface_ = new LMDBBlockDatabase(isready);
+   iface_ = new LMDBBlockDatabase(isready, config_.blkFileLocation);
 
    scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    setConfig(bdmConfig);

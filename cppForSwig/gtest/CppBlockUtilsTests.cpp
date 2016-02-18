@@ -4626,7 +4626,7 @@ protected:
       #endif
 
       auto isready = [](void)->bool { return true; };
-      iface_ = new LMDBBlockDatabase(isready);
+      iface_ = new LMDBBlockDatabase(isready, string());
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -5766,7 +5766,7 @@ protected:
 #endif
 
       auto isready = [](void)->bool { return true; };
-      iface_ = new LMDBBlockDatabase(isready);
+      iface_ = new LMDBBlockDatabase(isready, string());
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);

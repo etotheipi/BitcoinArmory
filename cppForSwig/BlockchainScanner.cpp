@@ -182,7 +182,11 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          //update utxoMap_
          for (auto& batch : batchVec)
          {
-            utxoMap_.insert(batch->utxos_.begin(), batch->utxos_.end());
+            for (auto& txidMap : batch->utxos_)
+            {
+               utxoMap_[txidMap.first].insert(
+                  txidMap.second.begin(), txidMap.second.end());
+            }
          }
 
          //signal txin scan by releasing all mutexes
@@ -949,21 +953,24 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             if (!scrAddrFilter_->hasScrAddress(scrAddr))
                continue;
 
-            //mark stxo key for deletion
-            auto&& txoutKey = DBUtils::getBlkDataKey(
-               currentHeight, currentDupId,
-               i, y);
-            keysToDelete[STXO].insert(txoutKey);
-
             //update ssh value and txio count
             auto& ssh = sshMap[scrAddr];
             if (!ssh.isInitialized())
                db_->getStoredScriptHistorySummary(ssh, scrAddr);
 
+            if (ssh.alreadyScannedUpToBlk_ < currentHeight)
+               continue;
+            
             brr.resetPosition();
             uint64_t value = brr.get_uint64_t();
             ssh.totalUnspent_ -= value;
             ssh.totalTxioCount_--;
+            
+            //mark stxo key for deletion
+            auto&& txoutKey = DBUtils::getBlkDataKey(
+               currentHeight, currentDupId,
+               i, y);
+            keysToDelete[STXO].insert(txoutKey);
 
             //decrement summary count at height, remove entry if necessary
             auto& sum = ssh.subsshSummary_[currentHeight];
@@ -980,7 +987,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             BinaryDataRef outHash(
                txn->data_ + txin.first, 32);
 
-            auto&& txKey = db_->getDBKeyForHash(outHash);
+            auto&& txKey = db_->getDBKeyForHash(outHash, currentDupId);
             if (txKey.getSize() != 6)
                continue;
 
@@ -992,17 +999,20 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             if (!db_->getStoredTxOut(stxo, txKey))
                continue;
 
-            //mark txout key for undoing spentness
-            undoSpentness.insert(txKey);
-
             //update ssh value and txio count
             auto& scrAddr = stxo.getScrAddress();
             auto& ssh = sshMap[scrAddr];
             if (!ssh.isInitialized())
                db_->getStoredScriptHistorySummary(ssh, scrAddr);
 
+            if (ssh.alreadyScannedUpToBlk_ < currentHeight)
+               continue;
+
             ssh.totalUnspent_ += stxo.getValue();
             ssh.totalTxioCount_--;
+
+            //mark txout key for undoing spentness
+            undoSpentness.insert(txKey);
 
             //decrement summary count at height, remove entry if necessary
             auto& sum = ssh.subsshSummary_[currentHeight];
@@ -1029,7 +1039,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       for (auto& stxoKey : undoSpentness)
       {
          auto& stxo = stxos[stxoKey];
-         db_->getStoredTxOut(stxo, stxoKey);
+         if (!db_->getStoredTxOut(stxo, stxoKey))
+            continue;
 
          stxo.spentByTxInKey_.clear();
          stxo.spentness_ = TXOUT_UNSPENT;
@@ -1037,7 +1048,10 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
       //put updated stxos
       for (auto& stxo : stxos)
-         db_->putStoredTxOut(stxo.second);
+      {
+         if (stxo.second.isInitialized())
+            db_->putStoredTxOut(stxo.second);
+      }
 
       //delete invalidated stxos
       auto& stxoKeysToDelete = keysToDelete[STXO];
@@ -1061,10 +1075,18 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
          
          //if the ssh isn't in our map, pull it from DB
          if (!ssh.isInitialized())
+         {
             db_->getStoredScriptHistorySummary(ssh, scrAddr.first);
+            if (ssh.uniqueKey_.getSize() == 0)
+            {
+               sshMap.erase(scrAddr.first);
+               continue;
+            }
+         }
 
          //update alreadyScannedUpToBlk_ to branch point height
-         ssh.alreadyScannedUpToBlk_ = branchPointHeight;
+         if (ssh.alreadyScannedUpToBlk_ > branchPointHeight)
+            ssh.alreadyScannedUpToBlk_ = branchPointHeight;
       }
 
       //write it all up

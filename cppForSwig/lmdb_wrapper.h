@@ -236,7 +236,7 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(function<bool(void)> isDBReady);
+   LMDBBlockDatabase(function<bool(void)> isDBReady, string blkFolder);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -328,7 +328,8 @@ public:
    BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix) const;
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key) const;
 
-   BinaryData getDBKeyForHash(const BinaryData& txhash);
+   BinaryData getDBKeyForHash(const BinaryData& txhash, 
+      uint8_t dupId = UINT8_MAX);
    BinaryData getHashForDBKey(BinaryData dbkey);
    BinaryData getHashForDBKey(uint32_t hgt,
       uint8_t  dup,
@@ -607,6 +608,7 @@ public:
    Tx    getFullTxCopy(BinaryData ldbKey6B) const;
    Tx    getFullTxCopy(uint32_t hgt, uint16_t txIndex) const;
    Tx    getFullTxCopy(uint32_t hgt, uint8_t dup, uint16_t txIndex) const;
+   Tx    getFullTxCopy(uint16_t txIndex, BlockHeader* bhPtr) const;
    TxOut getTxOutCopy(BinaryData ldbKey6B, uint16_t txOutIdx) const;
    TxIn  getTxInCopy(BinaryData ldbKey6B, uint16_t txInIdx) const;
 
@@ -676,11 +678,6 @@ public:
    mutable LMDB dbs_[COUNT];
 
 private:
-   //leveldb::FilterPolicy* dbFilterPolicy_[2];
-
-   //BinaryRefReader      currReadKey_;
-   //BinaryRefReader      currReadValue_;;
-   //mutable BinaryData           lastGetValue_;
 
    bool                 dbIsOpen_;
    uint32_t             ldbBlockSize_;
@@ -697,6 +694,8 @@ private:
    const BinaryData ZCprefix_ = BinaryData(2);
 
    function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
+
+   const string blkFolder_;
 };
 
 #endif
