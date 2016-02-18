@@ -232,6 +232,7 @@ BlockFileMapPointer BlockDataLoader::get(const string& filename)
 /////////////////////////////////////////////////////////////////////////////
 BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
 {
+	prefetch = false;
    //have some fun with promise/future
    shared_future<shared_ptr<BlockDataFileMap>> fMap;
 
