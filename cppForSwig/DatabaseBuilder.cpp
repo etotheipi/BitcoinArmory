@@ -133,7 +133,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
 
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
-      BlockOffset& bo)->void
+      shared_ptr<BlockOffset> bo)->void
    {
       //TODO: use only the BlockOffset argument
       while (1)
@@ -150,17 +150,17 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    //TODO: don't run more threads than there are blkfiles to read
 
    vector<thread> tIDs;
-   vector<BlockOffset> boVec;
+   vector<shared_ptr<BlockOffset>> boVec;
    for (unsigned i = 1; i < thread::hardware_concurrency(); i++)
    {
-      boVec.push_back(topBlockOffset_);
+      boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
       tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, 
-	boVec.back()));
+	                  boVec.back()));
    }
 
-   boVec.push_back(topBlockOffset_);
-   addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_, 
-	boVec.back());
+   boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
+   addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_,
+	          boVec.back());
 
    for (auto& tID : tIDs)
    {
@@ -170,8 +170,8 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
    for (auto& blockoffset : boVec)
    {
-      if (blockoffset > topBlockOffset_)
-         topBlockOffset_ = blockoffset;
+      if (*blockoffset > topBlockOffset_)
+         topBlockOffset_ = *blockoffset;
    }
 
    //done parsing new blocks, let's add them to the DB
@@ -184,7 +184,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
 /////////////////////////////////////////////////////////////////////////////
 bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl, 
-   uint16_t fileID, size_t startOffset, BlockOffset& bo)
+   uint16_t fileID, size_t startOffset, shared_ptr<BlockOffset> bo)
 {
    auto&& blockfilemappointer = bdl.get(fileID, true);
    auto ptr = blockfilemappointer.get()->getPtr();
@@ -219,8 +219,8 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       sbh.offset_ = offset;
       
       BlockOffset blockoffset(fileID, offset + sbh.numBytes_);
-      if (blockoffset > bo)
-         bo = blockoffset;
+      if (blockoffset > *bo)
+         *bo = blockoffset;
 
       sbhVec.push_back(sbh);
    };
