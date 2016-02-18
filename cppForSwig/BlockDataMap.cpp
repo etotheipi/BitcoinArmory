@@ -9,6 +9,122 @@
 #include "BlockDataMap.h"
 #include "BtcUtils.h"
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockData::deserialize(const uint8_t* data, size_t size,
+   const BlockHeader* blockHeader, bool checkMerkle)
+{
+   headerPtr_ = blockHeader;
+
+   //deser header from raw block and run a quick sanity check
+   if (size < HEADER_SIZE)
+      throw runtime_error("raw data is smaller than HEADER_SIZE");
+
+   BinaryDataRef bdr(data, HEADER_SIZE);
+   BlockHeader bh(bdr);
+
+   blockHash_ = bh.thisHash_;
+
+   BinaryRefReader brr(data + HEADER_SIZE, size - HEADER_SIZE);
+   auto numTx = (unsigned)brr.get_var_int();
+
+   if (blockHeader != nullptr)
+   {
+      if (bh.getThisHashRef() != blockHeader->getThisHashRef())
+         throw runtime_error("raw data does not match expected block hash");
+
+      if (numTx != blockHeader->getNumTx())
+         throw runtime_error("tx count mismatch in deser header");
+   }
+
+   for (unsigned i = 0; i < numTx; i++)
+   {
+      //light tx deserialization, just figure out the offset and size of
+      //txins and txouts
+      vector<size_t> offsetIns, offsetOuts;
+      auto txSize = BtcUtils::TxCalcLength(
+         brr.getCurrPtr(), brr.getSizeRemaining(),
+         &offsetIns, &offsetOuts);
+
+      //create BCTX object and fill it up
+      shared_ptr<BCTX> tx = make_shared<BCTX>(brr.getCurrPtr(), txSize);
+      tx->version_ = READ_UINT32_LE(brr.getCurrPtr());
+
+      //first tx in block is always the coinbase
+      if (i == 0)
+         tx->isCoinbase_ = true;
+
+      //convert offsets to offset + size pairs
+      for (int y = 0; y < offsetIns.size() - 1; y++)
+         tx->txins_.push_back(
+         make_pair(
+         offsetIns[y],
+         offsetIns[y + 1] - offsetIns[y]));
+
+      for (int y = 0; y < offsetOuts.size() - 1; y++)
+         tx->txouts_.push_back(
+         make_pair(
+         offsetOuts[y],
+         offsetOuts[y + 1] - offsetOuts[y]));
+
+      tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
+
+      //move it to BlockData object vector
+      txns_.push_back(move(tx));
+
+      //increment ptr offset
+      brr.advance(txSize);
+   }
+
+   data_ = data;
+   size_ = size;
+
+   if (!checkMerkle)
+      return;
+
+   //let's check the merkle root
+   vector<BinaryData> allhashes;
+   for (auto& txn : txns_)
+   {
+      BinaryDataRef txdata(txn->data_, txn->size_);
+      auto&& txhash = BtcUtils::getHash256(txdata);
+      allhashes.push_back(txhash);
+   }
+
+   auto&& merkleroot = BtcUtils::calculateMerkleRoot(allhashes);
+   if (merkleroot != bh.getMerkleRoot())
+      throw BlockDeserializingException("invalid merkle root");
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BlockHeader BlockData::createBlockHeader(void) const
+{
+   if (headerPtr_ != nullptr)
+      return *headerPtr_;
+
+   BlockHeader bh;
+
+   bh.dataCopy_ = move(BinaryData(data_, HEADER_SIZE));
+
+   bh.difficultyDbl_ = BtcUtils::convertDiffBitsToDouble(
+      BinaryDataRef(data_ + 72, 4));
+
+   bh.isInitialized_ = true;
+   bh.nextHash_ = BinaryData(0);
+   bh.blockHeight_ = UINT32_MAX;
+   bh.difficultySum_ = -1;
+   bh.isMainBranch_ = false;
+   bh.isOrphan_ = true;
+   
+   bh.numBlockBytes_ = size_;
+   bh.numTx_ = txns_.size();
+
+   bh.blkFileNum_ = fileID_;
+   bh.blkFileOffset_ = offset_;
+   bh.thisHash_ = blockHash_;
+
+   return bh;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 void BlockFiles::detectAllBlockFiles()
 {

@@ -28,6 +28,7 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
 void DatabaseBuilder::init()
 {
    //TODO: lower thread count for unit test builds
+   TIMER_START("initdb");
 
    //list all files in block data folder
    blockFiles_.detectAllBlockFiles();
@@ -38,7 +39,12 @@ void DatabaseBuilder::init()
    blockchain_.setDuplicateIDinRAM(db_);
 
    //update db
+   TIMER_START("updateblocksindb");
+   LOGINFO << "updating HEADERS db";
    auto reorgState = updateBlocksInDB(progress_);
+   TIMER_STOP("updateblocksindb");
+   double updatetime = TIMER_READ_SEC("updateblocksindb");
+   LOGINFO << "updated HEADERS db in " << updatetime << "s";
 
    //blockchain object now has the longest chain, update address history
    //retrieve all tracked addresses from DB
@@ -67,6 +73,8 @@ void DatabaseBuilder::init()
    if (sdbi.topBlkHgt_ >= blockchain_.top().getBlockHeight())
       return;
 
+   LOGINFO << "scanning new blocks";
+   TIMER_START("scanning");
    while (1)
    {
       auto topScannedBlockHash = updateTransactionHistory(scanFrom);
@@ -78,6 +86,13 @@ void DatabaseBuilder::init()
 
       //TODO: implement repair procedure
    }
+   TIMER_STOP("scanning");
+   double scanning = TIMER_READ_SEC("scanning");
+   LOGINFO << "scanned new blocks in " << scanning << "s";
+
+   TIMER_STOP("initdb");
+   double timeSpent = TIMER_READ_SEC("initdb");
+   LOGINFO << "init db in " << timeSpent << "s";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -134,13 +149,16 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
 
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
-      shared_ptr<BlockOffset> bo)->void
+      shared_ptr<BlockOffset> bo, bool verbose)->void
    {
       //TODO: use only the BlockOffset argument
       while (1)
       {
          if (!addBlocksToDB(bdl, fileID, startOffset, bo))
             return;
+
+         if (verbose)
+            LOGINFO << "parsed block file #" << fileID;
 
          //reset startOffset for the next file
          startOffset = 0;
@@ -156,12 +174,12 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    {
       boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
       tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, 
-	                  boVec.back()));
+	                  boVec.back(), false));
    }
 
    boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
    addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_,
-	          boVec.back());
+	          boVec.back(), true);
 
    for (auto& tID : tIDs)
    {
@@ -194,19 +212,17 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    if (ptr == nullptr)
       return false;
 
-   vector<StoredHeader> sbhVec;
+   vector<BlockData> bdVec;
 
    auto tallyBlocks = [&](const uint8_t* data, size_t size, size_t offset)->void
    {
       //deser full block, check merkle
-      StoredHeader sbh;
+      BlockData bd;
       BinaryRefReader brr(data, size);
 
       try
       {
-         //this call unserializes too much (we're just verifying the merkle for 
-         //consistentcy), replace it with something lighter.
-         sbh.unserializeFullBlock(brr, false, false);
+         bd.deserialize(data, size, nullptr, true);
       }
       catch (...)
       {
@@ -216,14 +232,14 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
       //block is valid, add to container
       //build header version of block first
-      sbh.fileID_ = fileID;
-      sbh.offset_ = offset;
+      bd.setFileID(fileID);
+      bd.setOffset(offset);
       
-      BlockOffset blockoffset(fileID, offset + sbh.numBytes_);
+      BlockOffset blockoffset(fileID, offset + bd.size());
       if (blockoffset > *bo)
          *bo = blockoffset;
 
-      sbhVec.push_back(sbh);
+      bdVec.push_back(move(bd));
    };
 
    parseBlockFile(ptr, blockfilemappointer.size(),
@@ -231,10 +247,13 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
 
    //done parsing, add the headers to the blockchain object
-   //convert StoredHeader vector to BlockHeader map first
+   //convert BlockData vector to BlockHeader map first
    map<HashString, BlockHeader> bhmap;
-   for (auto& sbh : sbhVec)
-      bhmap.insert(make_pair(sbh.thisHash_, sbh.getBlockHeaderCopy()));
+   for (auto& bd : bdVec)
+   {
+      auto&& bh = bd.createBlockHeader();
+      bhmap.insert(make_pair(bh.getThisHash(), move(bh)));
+   }
 
    //add in bulk
    blockchain_.addBlocksInBulk(bhmap);

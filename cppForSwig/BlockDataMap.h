@@ -81,11 +81,16 @@ private:
 
    vector<shared_ptr<BCTX>> txns_;
 
+   unsigned fileID_ = UINT32_MAX;
+   size_t offset_ = SIZE_MAX;
+
+   BinaryData blockHash_;
+
 public:
    BlockData(void) {}
 
    void deserialize(const uint8_t* data, size_t size,
-      const BlockHeader*);
+      const BlockHeader*, bool checkMerkle = false);
 
    bool isInitialized(void) const
    {
@@ -101,6 +106,16 @@ public:
    {
       return headerPtr_;
    }
+
+   const size_t size(void) const
+   {
+      return size_;
+   }
+
+   void setFileID(unsigned fileid) { fileID_ = fileid; }
+   void setOffset(size_t offset) { offset_ = offset; }
+
+   BlockHeader createBlockHeader(void) const;
 };
 
 /////////////////////////////////////////////////////////////////////////////
