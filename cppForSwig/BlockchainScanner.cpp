@@ -146,10 +146,10 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          
 
          //TODO: add a mechanism to wait on the write thread so as to not
-         //exhaust RAM with batches waiting to write
+         //exhaust RAM with batches queued for writing
 
          //increment startBlock
-         startHeight += endHeight + 1;
+         startHeight = endHeight + 1;
       }
    }
    catch (range_error&)
@@ -181,6 +181,7 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
       make_shared<promise<BlockDataLink>>();
    batch->first_ = blockPromisePtr->get_future();
 
+   parseTxoutLock.unlock();
 
    while (currentBlock <= batch->end_)
    {
@@ -226,7 +227,7 @@ void BlockchainScanner::readBlockData(shared_ptr<BlockDataBatch> batch)
       blockfuture.blockdata_.deserialize(
          filemap->getPtr() + blockheader->getOffset(), 
          blockheader->getBlockSize(),
-         blockheader);
+         blockheader, false);
 
       //prepare next iteration
       auto currentPromisePtr = blockPromisePtr;
@@ -336,6 +337,8 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             subssh.txioMap_.insert(make_pair(txioKey, txio));
          }
       }
+
+      batch->readThreadCV_.notify_all();
    };
 
    //txin lambda
@@ -570,6 +573,9 @@ void BlockchainScanner::writeBlockData(
       //wait on writeHintsThreadId
       if (writeHintsThreadId.joinable())
          writeHintsThreadId.join();
+
+      LOGINFO << "scanned from block #" << batchLink->batchVec_[0]->start_
+         << "to block #" << batchLink->batchVec_[0]->end_;
 
       batchFuture = batchLink->next_;
    }

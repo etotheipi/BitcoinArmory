@@ -84,6 +84,21 @@ void DatabaseBuilder::init()
 
       //if we got this far the scan failed, diagnose the DB and repair it
 
+      LOGWARN << "topScannedBlockHash does match the hash of the current top";
+      LOGWARN << "current top is height #" << blockchain_.top().getBlockHeight();
+
+      try
+      {
+         auto& topscannedblock = blockchain_.getHeaderByHash(topScannedBlockHash);
+         LOGWARN << "topScannedBlockHash is height #" << topscannedblock.getBlockHeight();
+      }
+      catch (...)
+      {
+         LOGWARN << "topScannedBlockHash is invalid";
+      }
+
+      LOGINFO << "repairing DB";
+
       //TODO: implement repair procedure
    }
    TIMER_STOP("scanning");
@@ -292,7 +307,8 @@ void DatabaseBuilder::parseBlockFile(
       if (magic != magicBytes_)
       {
          //no magic byte trailing the last valid file offset, let's look for one
-         BinaryDataRef theFile(fileMap + localProgress, fileSize - progress);
+         BinaryDataRef theFile(fileMap + localProgress, 
+            fileSize - progress - localProgress);
          int32_t foundOffset = theFile.find(magicBytes_);
          if (foundOffset == -1)
             return;
