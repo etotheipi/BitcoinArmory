@@ -749,7 +749,7 @@ void BlockchainScanner::updateSSH(void)
                break;
 
             //new address
-            auto& subsshkey = sshIter.getKey();
+            auto&& subsshkey = sshIter.getKey();
             auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
             sshPtr = &sshMap_[sshKey];
 

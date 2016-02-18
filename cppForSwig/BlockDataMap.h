@@ -33,6 +33,8 @@ using namespace std;
 #else
 #include <errno.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #endif
 
 #include "BlockObj.h"

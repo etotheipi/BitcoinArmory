@@ -209,7 +209,7 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
 #ifdef _WIN32
    fd = _open(filename.c_str(), _O_RDONLY | _O_BINARY);
 #else
-   fd = open(filename, O_RDONLY);
+   fd = open(filename.c_str(), O_RDONLY);
 #endif
    if (fd == -1)
       return;
@@ -253,12 +253,13 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
 
    _close(fd);
 #else
-   fileMap_ = mmap(addr, size_, PROT_READ, 0,
+   fileMap_ = (uint8_t*)mmap(0, size_, PROT_READ, MAP_SHARED,
       fd, 0);
    if (fileMap_ == MAP_FAILED) {
       fileMap_ = NULL;
       stringstream errStr;
       errStr << "Failed to create map of file. Error Code: " << errno;
+	cout << errStr;
       throw runtime_error(errStr.str());
    }
 
