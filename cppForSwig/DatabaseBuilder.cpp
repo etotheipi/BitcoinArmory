@@ -154,13 +154,13 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    for (unsigned i = 1; i < thread::hardware_concurrency(); i++)
    {
       boVec.push_back(topBlockOffset_);
-      auto& bo = boVec.back();
-      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, bo));
+      tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, 
+	boVec.back()));
    }
 
    boVec.push_back(topBlockOffset_);
-   auto& bo = boVec.back();
-   addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_, bo);
+   addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_, 
+	boVec.back());
 
    for (auto& tID : tIDs)
    {
