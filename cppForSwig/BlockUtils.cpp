@@ -1131,10 +1131,15 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
    }
    
    ProgressFilter progress(&prog, startingAt, totalBytes);
+
+   unsigned threadcount = thread::hardware_concurrency();
+#ifdef _DEBUG
+   threadcount = DEBUG_THREAD_COUNT;
+#endif
    
    // Start scanning and timer
    BlockchainScanner bcs(&blockchain_, iface_, &scrAddrData, 
-      *blockFiles_.get());
+      *blockFiles_.get(), threadcount);
    bcs.scan(blk0);
 
    return bcs.getTopScannedBlockHash();

@@ -36,7 +36,7 @@ BlockDataLoader::BlockDataLoader(const string& path,
    bool preloadFile, bool prefetchNext, bool enableGC) :
    path_(path), 
    preloadFile_(preloadFile), prefetchNext_(prefetchNext), 
-   prefix_("blk"), enableGC_(enableGC)
+   prefix_("blk"), enableGC_(false)
 {
    //set gcLambda
    gcLambda_ = [this](void)->void

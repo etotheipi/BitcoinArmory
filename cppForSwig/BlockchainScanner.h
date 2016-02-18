@@ -104,9 +104,10 @@ private:
 public:
    BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,
       ScrAddrFilter* saf,
-      BlockFiles& bf) :
+      BlockFiles& bf,
+      unsigned threadcount) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
-      totalThreadCount_(thread::hardware_concurrency()),
+      totalThreadCount_(threadcount),
       blockDataLoader_(bf.folderPath(), true, true, true)
    {
    }

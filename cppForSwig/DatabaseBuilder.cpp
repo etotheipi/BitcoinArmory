@@ -19,7 +19,8 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
    blockchain_(bdm.blockchain()),
    scrAddrFilter_(bdm.getScrAddrFilter()),
    progress_(progress),
-   magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0)
+   magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0),
+   threadCount_(getThreadCount())
 {}
 
 
@@ -143,7 +144,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
          //reset startOffset for the next file
          startOffset = 0;
-         fileID += thread::hardware_concurrency();
+         fileID += threadCount_;
       }
    };
 
@@ -151,7 +152,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
    vector<thread> tIDs;
    vector<shared_ptr<BlockOffset>> boVec;
-   for (unsigned i = 1; i < thread::hardware_concurrency(); i++)
+   for (unsigned i = 1; i < threadCount_; i++)
    {
       boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
       tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, 
@@ -324,7 +325,7 @@ BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
 BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
 {
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(),
-      blockFiles_);
+      blockFiles_, threadCount_);
    bcs.scan(startHeight);
    bcs.updateSSH();
 
@@ -368,7 +369,7 @@ void DatabaseBuilder::undoHistory(
    Blockchain::ReorganizationState& reorgState)
 {
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(), 
-      blockFiles_);
+      blockFiles_, threadCount_);
    bcs.undo(reorgState);
 
    blockchain_.setDuplicateIDinRAM(db_);

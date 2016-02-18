@@ -16,6 +16,8 @@ class ScrAddrFilter;
 
 typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
+#define DEBUG_THREAD_COUNT 2
+
 /////////////////////////////////////////////////////////////////////////////
 class DatabaseBuilder
 {
@@ -28,6 +30,8 @@ private:
    const ProgressCallback progress_;
    const BinaryData magicBytes_;
    BlockOffset topBlockOffset_;
+
+   const unsigned threadCount_;
 
 private:
    void findLastKnownBlockPos();
@@ -45,6 +49,14 @@ private:
    BinaryData scanHistory(uint32_t startHeight);
    void undoHistory(Blockchain::ReorganizationState& reorgState);
 
+   unsigned getThreadCount(void)
+   {
+      #ifdef _DEBUG
+            return DEBUG_THREAD_COUNT;
+      #else
+            return thread::hardware_concurrency();
+      #endif
+   }
 
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager_LevelDB&,
