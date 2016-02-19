@@ -109,7 +109,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          for (unsigned i = 0; i < totalThreadCount_; i++)
          {
             auto utxoScanFlag = batchVec[i]->doneScanningUtxos_;
-            utxoScanFlag.wait();
+            utxoScanFlag.get();
          }
 
          //update utxoMap_
@@ -254,7 +254,12 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
       auto blockFuture = batch->first_;
       while (1)
       {
-         blockFuture.wait();
+         if (!blockFuture.valid())
+         {
+            LOGWARN << "exited scanBlockData loop on invalid future";
+            break;
+         }
+
          auto blocklink = blockFuture.get();
 
          if (!blocklink.blockdata_.isInitialized())
@@ -464,7 +469,12 @@ void BlockchainScanner::writeBlockData(
 
    while (1)
    {
-      batchFuture.wait();
+      if (!batchFuture.valid())
+      {
+         LOGWARN << "exited writeBlockDataLoop on invalid future";
+         break;
+      }
+
       auto batchLink = batchFuture.get();
 
       //check for termination marker
