@@ -4814,6 +4814,7 @@ mdb_env_close0(MDB_env *env, int excl)
 	}
 
 	env->me_flags &= ~(MDB_ENV_ACTIVE|MDB_ENV_TXKEY);
+   free(env->me_maps);
 }
 
 

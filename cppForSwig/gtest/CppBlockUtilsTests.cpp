@@ -81,17 +81,6 @@ static uint64_t getDBBalanceForHash160(
    return ssh.getScriptBalance();
 }
 
-
-/*
-unused
-static uint32_t getAppliedToHeightInDB(BlockDataManager_LevelDB &bdm)
-{
-   StoredDBInfo sdbi;
-   bdm.getIFace()->getStoredDBInfo(BLKDATA, sdbi, false); 
-   return sdbi.appliedToHgt_;
-}
-*/
-
 // Utility function - Clean up comments later
 static int char2int(char input)
 {
@@ -162,6 +151,7 @@ static void nullProgress(unsigned, double, unsigned, unsigned)
 {
 
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Test any custom Crypto++ code we've written.
@@ -4471,136 +4461,6 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
                        //"10""0000000400000000""0006""0006");
 }
 
-////////////////////////////////////////////////////////////////////////////////
-/*
-TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
-{
-   DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
-   StoredScriptHistory ssh;
-
-   BinaryData a160 = READHEX("aabbccdd11223344aabbccdd11223344aabbccdd"); 
-
-   BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
-   BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
-   BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
-   BinaryData dbKey3 = READHEX("02e078""0f""0030""0003");
-   BinaryData dbKey4 = READHEX("02e078""0f""0030""0009");
-   BinaryData dbKey5 = READHEX("02e078""0f""00a0""0008");
-
-   uint32_t hgt = READ_UINT32_HEX_BE("0001e078");
-   uint32_t dup = READ_UINT8_HEX_BE("0f");
-
-   TxIOPair txio0(dbKey0, 10*COIN);
-   TxIOPair txio1(dbKey1, 11*COIN);
-   TxIOPair txio2(dbKey2, 12*COIN);
-   TxIOPair txio3(dbKey3, 13*COIN);
-
-   txio0.setFromCoinbase(true);
-   txio0.setTxOutFromSelf(false);
-   txio0.setMultisig(false);
-
-   txio1.setFromCoinbase(false);
-   txio1.setTxOutFromSelf(true);
-   txio1.setMultisig(false);
-
-   txio2.setFromCoinbase(false);
-   txio2.setTxOutFromSelf(false);
-   txio2.setMultisig(true);
-
-   txio3.setFromCoinbase(false);
-   txio3.setTxOutFromSelf(false);
-   txio3.setMultisig(true);
-
-   //BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
-   //BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
-   //BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
-   //BinaryData dbKey3 = READHEX("02e078""0f""0030""0003");
-   //BinaryData dbKey4 = READHEX("02e078""0f""0030""0009");
-   //BinaryData dbKey5 = READHEX("02e078""0f""00a0""0008");
-
-   // First test, only one TxIO, stored in base SSH object
-   BinaryData expect_ssh1 = READHEX(
-      "0400""ffffffff"
-      "01"
-         "40""00ca9a3b00000000""01e0780f0007""0001")
-
-
-   // First test, only one TxIO, stored in base SSH object
-   BinaryData expectSSH_ssh2 = READHEX(
-      "0480""ffffffff""02""00752b7d00000000")
-   BinaryData expectSSH_ssh2sub1 = READHEX(
-      "02"
-         "00""00ca9a3b00000000""0007""0001"
-         "00""00ab904100000000""0009""0005");
-
-
-   BinaryData expectSSH_bothspent = READHEX(
-      "0400""ffffffff"
-      "02"
-         "60""00ca9a3b00000000""01e0780f0007""0001""01e0780f00a00008"
-         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_bothunspent = READHEX(
-      "0400""ffffffff"
-      "02"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-         "80""0065cd1d00000000""01e0780f0009""0005"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_afterrm = READHEX(
-      "0400""ffffffff"
-      "01"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-  
-   // Mark the second one spent (from same block as it was created)
-   txio1.setTxIn(dbKey4);
-
-   // In order for for these tests to work properly, the TxIns and TxOuts need
-   // to look like they're in the main branch.  Se we set the valid dupID vals
-   // so that txio.hasTxInInMain() and txio.hasTxOutInMain() both pass
-   LSMWrapper::GetInterfacePtr()->setValidDupIDForHeight(hgt,dup);
-
-   ssh.uniqueKey_ = HASH160PREFIX + a160;
-   ssh.version_ = 1;
-   ssh.alreadyScannedUpToBlk_ = UINT32_MAX;
-
-   ssh.markTxOutUnspent(txio0);
-
-   // Check the initial state matches expectations
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
-
-   ssh.insertTxio(txio1);
-   // Mark the first output spent (second one was already marked spent)
-   ssh.markTxOutSpent( dbKey0, dbKey5);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_bothspent);
-
-   // Undo the last operation
-   ssh.markTxOutUnspent(dbKey0);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
-
-
-   ssh.markTxOutUnspent(dbKey1);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_bothunspent);
-
-   ssh.markTxOutSpent( dbKey1, dbKey2);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
-
-
-   ssh.eraseTxio(dbKey1);
-   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_afterrm);
-
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -5753,6 +5613,7 @@ TEST_F(LMDBTest, HeaderDump)
 {
    // We don't actually use undo data at all yet, so I'll skip the tests for now
 }
+
 
 class LMDBTest_Super : public ::testing::Test
 {
