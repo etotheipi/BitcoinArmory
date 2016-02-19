@@ -522,7 +522,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
    //start a RO txn to grab the txouts from DB
    LMDBEnv::Transaction tx;
-   db->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   db->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
 
    vector<UnspentTxOut> utxoList;
    uint32_t blk = bdvPtr_->getTopBlockHeight();
@@ -533,6 +533,9 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
       for (const auto& txioPair : utxoMap)
       {
+         if (!txioPair.second.isSpendable(db, blk, ignoreZC))
+            continue;
+
          TxOut txout = txioPair.second.getTxOutCopy(db);
          UnspentTxOut UTXO = UnspentTxOut(db, txout, blk);
          utxoList.push_back(UTXO);

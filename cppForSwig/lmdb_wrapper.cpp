@@ -1355,7 +1355,16 @@ bool LMDBBlockDatabase::getStoredScriptHistory( StoredScriptHistory & ssh,
       return false;
    }
 
-   return readStoredScriptHistoryAtIter(ldbIter, ssh, startBlock, endBlock);
+   bool status = 
+      readStoredScriptHistoryAtIter(ldbIter, ssh, startBlock, endBlock);
+
+   if (!status)
+      return false;
+
+   //grab UTXO flags
+   getUTXOflags(ssh.subHistMap_);
+
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2516,9 +2525,13 @@ TxOut LMDBBlockDatabase::getTxOutCopy(
 
    BinaryRefReader brr;
    if (!ldbKey6B.startsWith(ZCprefix_))
-      brr = getValueReader(getDbSelect(HISTORY), DB_PREFIX_TXDATA, ldbKey8);
+      brr = getValueReader(STXO, DB_PREFIX_TXDATA, ldbKey8);
    else
-      brr = getValueReader(getDbSelect(HISTORY), DB_PREFIX_ZCDATA, ldbKey8);
+   {
+      LMDBEnv::Transaction zctx;
+      beginDBTransaction(&zctx, ZERO_CONF, LMDB::ReadOnly);
+      brr = getValueReader(ZERO_CONF, DB_PREFIX_ZCDATA, ldbKey8);
+   }
 
    if(brr.getSize()==0) 
    {
@@ -3140,8 +3153,37 @@ bool LMDBBlockDatabase::getStoredTxOut(
    return getStoredTxOut(stxo, blockHeight, dupID, txIndex, txOutIndex);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::getUTXOflags(map<BinaryData, StoredSubHistory>&
+   subSshMap) const
+{
+   LMDBEnv::Transaction tx;
+   beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
 
+   for (auto& subssh : subSshMap)
+      getUTXOflags(subssh.second);
+}
 
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::getUTXOflags(StoredSubHistory& subssh) const
+{
+   for (auto& txioPair : subssh.txioMap_)
+   {
+      auto& txio = txioPair.second;
+
+      txio.setUTXO(false);
+      if (txio.hasTxIn())
+         continue;
+
+      auto&& stxoKey = txio.getDBKeyOfOutput();
+      
+      StoredTxOut stxo;
+      getStoredTxOut(stxo, stxoKey);
+
+      if (stxo.spentness_ == TXOUT_UNSPENT)
+         txio.setUTXO(true);
+   }
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

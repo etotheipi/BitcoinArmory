@@ -521,6 +521,9 @@ public:
    bool getStoredTxOut(StoredTxOut & stxo,
       const BinaryData& DBkey) const;
 
+   void getUTXOflags(map<BinaryData, StoredSubHistory>&) const;
+   void getUTXOflags(StoredSubHistory&) const;
+
    void putStoredScriptHistory(StoredScriptHistory & ssh);
    void putStoredScriptHistorySummary(StoredScriptHistory & ssh);
    void putStoredSubHistory(StoredSubHistory & subssh);

@@ -8984,6 +8984,171 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_GetUtxos)
+{
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   scrAddrVec.push_back(TestChain::scrAddrD);
+   scrAddrVec.push_back(TestChain::scrAddrE);
+   scrAddrVec.push_back(TestChain::scrAddrF);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
+
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+   theBDV->scanWallets();
+
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 25 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   EXPECT_EQ(wlt->getFullBalance(), 240 * COIN);
+   EXPECT_EQ(wltLB1->getFullBalance(), 30 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 30 * COIN);
+
+   //get all utxos, ignore zc
+   auto spendableBalance = wlt->getSpendableBalance(5);
+   auto&& utxoVec = wlt->getSpendableTxOutListForValue();
+
+   uint64_t totalUtxoVal = 0;
+   for (auto& utxo : utxoVec)
+      totalUtxoVal += utxo.getValue();
+
+   EXPECT_EQ(spendableBalance, totalUtxoVal);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
+{
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   BtcWallet* wlt;
+   BtcWallet* wltLB1;
+   BtcWallet* wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
+
+   wlt->addScrAddress(TestChain::scrAddrE);
+
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+   theBDV->enableZeroConf();
+   theBDV->scanWallets();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(TestChain::blkHash3).isMainBranch());
+
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+
+   uint64_t fullBalance = wlt->getFullBalance();
+   uint64_t spendableBalance = wlt->getSpendableBalance(4);
+   uint64_t unconfirmedBalance = wlt->getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 65 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
+
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+
+   EXPECT_EQ(wltLB1->getFullBalance(), 10 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 15 * COIN);
+
+
+   //add ZC
+   BinaryData rawZC(TestChain::zcTxSize);
+   FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
+   fread(rawZC.getPtr(), TestChain::zcTxSize, 1, ff);
+   fclose(ff);
+
+   BinaryData rawLBZC(TestChain::lbZCTxSize);
+   FILE *flb = fopen("../reorgTest/LBZC.tx", "rb");
+   fread(rawLBZC.getPtr(), TestChain::lbZCTxSize, 1, flb);
+   fclose(flb);
+
+   theBDV->addNewZeroConfTx(rawZC, 0, false);
+   theBDV->addNewZeroConfTx(rawLBZC, 0, false);
+   theBDV->parseNewZeroConfTx();
+   theBDV->scanWallets();
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+
+   fullBalance = wlt->getFullBalance();
+   spendableBalance = wlt->getSpendableBalance(4);
+   unconfirmedBalance = wlt->getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 35 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 10 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+
+   EXPECT_EQ(wltLB1->getFullBalance(), 5 * COIN);
+   EXPECT_EQ(wltLB2->getFullBalance(), 15 * COIN);
+
+   //get utxos with zc
+   spendableBalance = wlt->getSpendableBalance(4);
+   auto&& utxoVec = wlt->getSpendableTxOutListForValue(UINT64_MAX, false);
+
+   uint64_t totalUtxoVal = 0;
+   for (auto& utxo : utxoVec)
+      totalUtxoVal += utxo.getValue();
+
+   EXPECT_EQ(spendableBalance, totalUtxoVal);
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // THESE ARE ARMORY_DB_SUPER tests.  Identical to above except for the mode.
 ////////////////////////////////////////////////////////////////////////////////

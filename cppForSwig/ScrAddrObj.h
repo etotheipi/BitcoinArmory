@@ -104,7 +104,7 @@ private:
             {
                if (txioPair.second.isUTXO())
                {
-                  //isMultisig is only signifies this scrAddr was used in the
+                  //isMultisig only signifies this scrAddr was used in the
                   //composition of a funded multisig transaction. This is purely
                   //meta-data and shouldn't be returned as a spendable txout
                   if (txioPair.second.isMultisig())
