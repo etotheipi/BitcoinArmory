@@ -584,8 +584,8 @@ void BlockchainScanner::writeBlockData(
       if (writeHintsThreadId.joinable())
          writeHintsThreadId.join();
 
-      LOGINFO << "scanned from block #" << batchLink->batchVec_[0]->start_
-         << "to block #" << batchLink->batchVec_[0]->end_;
+      LOGINFO << "scanned from height #" << batchLink->batchVec_[0]->start_
+         << " to #" << batchLink->batchVec_[0]->end_;
 
       batchFuture = batchLink->next_;
    }

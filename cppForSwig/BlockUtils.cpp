@@ -902,7 +902,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    , blockchain_(config_.genesisBlockHash)
 {
    auto isready = [this](void)->bool { return this->isReady(); };
-   iface_ = new LMDBBlockDatabase(isready, config_.blkFileLocation);
+   iface_ = new LMDBBlockDatabase(&blockchain_, isready, config_.blkFileLocation);
 
    scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    setConfig(bdmConfig);
@@ -1392,7 +1392,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    
    try
    {
-      const Blockchain::ReorganizationState state = blockchain_.organize();
+      const Blockchain::ReorganizationState state = blockchain_.organize(false);
       const bool updateDupID = state.prevTopBlockStillValid;
 
       if (!state.hasNewTop)

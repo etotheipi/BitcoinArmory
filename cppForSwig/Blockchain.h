@@ -55,7 +55,7 @@ public:
 
    void addBlocksInBulk(const map<HashString, BlockHeader>&);
 
-   ReorganizationState organize();
+   ReorganizationState organize(bool verbose);
    ReorganizationState forceOrganize();
    ReorganizationState findReorgPointFromBlock(const BinaryData& blkHash);
 
@@ -96,7 +96,7 @@ public:
    void putNewBareHeaders(LMDBBlockDatabase *db);
 
 private:
-   BlockHeader* organizeChain(bool forceRebuild=false);
+   BlockHeader* organizeChain(bool forceRebuild=false, bool verbose=false);
    /////////////////////////////////////////////////////////////////////////////
    // Update/organize the headers map (figure out longest chain, mark orphans)
    // Start from a node, trace down to the highest solved block, accumulate

@@ -24,6 +24,8 @@
 
 #include "lmdbpp.h"
 
+class Blockchain;
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Create & manage a bunch of different databases
@@ -236,7 +238,8 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(function<bool(void)> isDBReady, string blkFolder);
+   LMDBBlockDatabase(Blockchain*, 
+      function<bool(void)> isDBReady, string blkFolder);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -699,6 +702,8 @@ private:
    function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
 
    const string blkFolder_;
+
+   const Blockchain* blockchainPtr_;
 };
 
 #endif

@@ -25,6 +25,8 @@
 #include "txio.h"
 #include "BlockDataMap.h"
 
+#include "Blockchain.h"
+
 struct MDB_val;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -344,9 +346,9 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-LMDBBlockDatabase::LMDBBlockDatabase(function<bool(void)> isDBReady,
-   string blkFolder) :
-isDBReady_(isDBReady), blkFolder_(blkFolder)
+LMDBBlockDatabase::LMDBBlockDatabase(Blockchain* bcPtr, 
+   function<bool(void)> isDBReady, string blkFolder) :
+blockchainPtr_(bcPtr), isDBReady_(isDBReady), blkFolder_(blkFolder)
 {
    //for some reason the WRITE_UINT16 macros create 4 byte long BinaryData 
    //instead of 2, so I'm doing this the hard way instead
@@ -2428,33 +2430,15 @@ Tx LMDBBlockDatabase::getFullTxCopy( BinaryData ldbKey6B ) const
    }
    else
    {
-      //Fullnode, pull full block, deserialize then return Tx
-      uint16_t txid = READ_UINT16_BE(ldbKey6B.getSliceRef(4, 2));
-      
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      BinaryRefReader brr = getValueReader(
-         BLKDATA, DB_PREFIX_TXDATA, ldbKey6B.getSliceRef(0, 4));
+      BinaryRefReader brr(ldbKey6B);
+      unsigned height;
+      uint8_t dup;
+      uint16_t txid;
 
-      brr.advance(HEADER_SIZE);
+      DBUtils::readBlkDataKeyNoPrefix(brr, height, dup, txid);
+      auto& header = blockchainPtr_->getHeaderByHeight(height);
 
-      uint32_t nTx = (uint32_t)brr.get_var_int();
-
-      if (txid >= nTx)
-      {
-         LOGERR << "Requested full Tx but not all TxOut available";
-         return Tx();
-      }
-
-      uint32_t i = 0;
-      while (i < txid)
-      {
-         uint32_t nBytes = BtcUtils::TxCalcLength(
-            brr.getCurrPtr(), brr.getSizeRemaining(), nullptr, nullptr);
-         brr.advance(nBytes);
-         ++i;
-      }
-
-      return Tx(brr);
+      return getFullTxCopy(txid, &header);
    }
 }
 
@@ -2857,8 +2841,6 @@ bool LMDBBlockDatabase::getStoredTx_byHash(const BinaryData& txHash,
       //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
       return false;
    }
-
-   LDBIter ldbIter = getIterator(BLKDATA);
    
    uint32_t numHints = (uint32_t)brrHints.get_var_int();
    uint32_t height;

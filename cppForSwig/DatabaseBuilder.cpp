@@ -41,7 +41,7 @@ void DatabaseBuilder::init()
    //update db
    TIMER_START("updateblocksindb");
    LOGINFO << "updating HEADERS db";
-   auto reorgState = updateBlocksInDB(progress_);
+   auto reorgState = updateBlocksInDB(progress_, true);
    TIMER_STOP("updateblocksindb");
    double updatetime = TIMER_READ_SEC("updateblocksindb");
    LOGINFO << "updated HEADERS db in " << updatetime << "s";
@@ -156,7 +156,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
 /////////////////////////////////////////////////////////////////////////////
 Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
-   const ProgressCallback &progress)
+   const ProgressCallback &progress, bool verbose)
 {
    //TODO: squeeze in the progress callback
 
@@ -181,11 +181,13 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
       }
    };
 
-   //TODO: don't run more threads than there are blkfiles to read
-
    vector<thread> tIDs;
    vector<shared_ptr<BlockOffset>> boVec;
-   for (unsigned i = 1; i < threadCount_; i++)
+
+   unsigned threadcount = min(threadCount_,
+      blockFiles_.fileCount() - topBlockOffset_.fileID_);
+
+   for (unsigned i = 1; i < threadcount; i++)
    {
       boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
       tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, 
@@ -194,7 +196,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
    boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
    addblocks(topBlockOffset_.fileID_, topBlockOffset_.offset_,
-	          boVec.back(), true);
+	          boVec.back(), verbose);
 
    for (auto& tID : tIDs)
    {
@@ -210,7 +212,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
    //done parsing new blocks, let's add them to the DB
 
-   auto&& reorgState = blockchain_.organize();
+   auto&& reorgState = blockchain_.organize(verbose);
    blockchain_.putNewBareHeaders(db_);
 
    return reorgState;
@@ -374,7 +376,11 @@ uint32_t DatabaseBuilder::update(void)
    blockFiles_.detectAllBlockFiles();
 
    //update db
-   auto&& reorgState = updateBlocksInDB(progress_);
+   auto&& reorgState = updateBlocksInDB(progress_, false);
+
+   uint32_t prevTop = reorgState.prevTopBlock->getBlockHeight();
+   if (prevTop == blockchain_.top().getBlockHeight())
+      return 0;
 
    uint32_t startHeight = reorgState.prevTopBlock->getBlockHeight() + 1;
 

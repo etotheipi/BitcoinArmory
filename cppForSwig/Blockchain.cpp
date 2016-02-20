@@ -81,11 +81,11 @@ BlockHeader& Blockchain::addNewBlock(
    return bh;
 }
 
-Blockchain::ReorganizationState Blockchain::organize()
+Blockchain::ReorganizationState Blockchain::organize(bool verbose)
 {
    ReorganizationState st;
    st.prevTopBlock = &top();
-   st.reorgBranchPoint = organizeChain();
+   st.reorgBranchPoint = organizeChain(false, verbose);
    st.prevTopBlockStillValid = !st.reorgBranchPoint;
    st.hasNewTop = (st.prevTopBlock != &top());
    return st;
@@ -207,14 +207,10 @@ const BlockHeader& Blockchain::getHeaderPtrForTxRef(const TxRef &txr) const
 // the previous top. Returns the branch point if we had to reorg
 // TODO:  Figure out if there is an elegant way to deal with a forked 
 //        blockchain containing two equal-length chains
-BlockHeader* Blockchain::organizeChain(bool forceRebuild)
+BlockHeader* Blockchain::organizeChain(bool forceRebuild, bool verbose)
 {
-   SCOPED_TIMER("organizeChain");
-
-   // Why did this line not through an error?  I left here to remind 
-   // myself to go figure it out.
-   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
-   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+   if (verbose)
+      LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
 
    
    // If rebuild, we zero out any original organization data and do a 
@@ -418,6 +414,9 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
    unique_lock<mutex> lock(mu_);
 
+   if (newlyParsedBlocks_.size() == 0)
+      return;
+
    //create transaction here to batch the write
    LMDBEnv::Transaction tx;
    db->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
@@ -469,7 +468,16 @@ void Blockchain::addBlocksInBulk(const map<HashString, BlockHeader>& bhMap)
 
    for (auto& header : bhMap)
    {
-      auto& newheader = headerMap_[header.first] = header.second;
+      auto iter = headerMap_.insert(header);
+      if (!iter.second)
+      {
+         if (iter.first->second.dataCopy_.getSize() == HEADER_SIZE)
+            continue;
+
+         iter.first->second = header.second;
+      }
+
+      auto& newheader = iter.first->second;
       newlyParsedBlocks_.push_back(&newheader);
    }
 }

@@ -130,7 +130,10 @@ struct BlockOffset
 
    bool operator>(const BlockOffset& rhs)
    {
-      return fileID_ >= rhs.fileID_ && offset_ > rhs.offset_;
+      if (fileID_ == rhs.fileID_)
+         return offset_ > rhs.offset_;
+
+      return fileID_ > rhs.fileID_;
    }
 
    BlockOffset& operator=(const BlockOffset& rhs)
@@ -160,6 +163,7 @@ public:
 
    void detectAllBlockFiles(void);
    const string& folderPath(void) const { return folderPath_; }
+   const unsigned fileCount(void) const { return filePaths_.size(); }
 };
 
 /////////////////////////////////////////////////////////////////////////////
