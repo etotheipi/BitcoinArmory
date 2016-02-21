@@ -253,7 +253,7 @@ public:
 class BlockDataLoader
 {
 private:
-   map<uint32_t, shared_future<shared_ptr<BlockDataFileMap>>> fileMaps_;
+   map<uint32_t, shared_ptr<BlockDataFileMap>> fileMaps_;
    
    mutex gcMu_, mu_;
    thread gcThread_;
@@ -282,7 +282,8 @@ private:
    uint32_t nameToIntID(const string& filename);
    string intIDToName(uint32_t fileid);
 
-   shared_future<shared_ptr<BlockDataFileMap>> getNewBlockDataMap(uint32_t fileid);
+   shared_future<shared_ptr<BlockDataFileMap>> 
+      getNewBlockDataMap(uint32_t fileid);
 
 public:
    BlockDataLoader(const string& path,

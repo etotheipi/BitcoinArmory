@@ -152,7 +152,7 @@ BlockDataLoader::BlockDataLoader(const string& path,
    bool preloadFile, bool prefetchNext, bool enableGC) :
    path_(path), 
    preloadFile_(preloadFile), prefetchNext_(prefetchNext), 
-   prefix_("blk"), enableGC_(false)
+   prefix_("blk"), enableGC_(enableGC)
 {
    //set gcLambda
    gcLambda_ = [this](void)->void
@@ -188,21 +188,10 @@ void BlockDataLoader::garbageCollectorThread()
       auto mapIter = fileMaps_.begin();
       while (mapIter != fileMaps_.end())
       {
-         auto mapFuture = mapIter->second;
-
-         if (!mapFuture.valid())
-            continue;
-
-         //emulating a try_lock, we're no interested in futures still waiting
-         //on a promise for gc operations
-         if (mapFuture.wait_for(std::chrono::milliseconds(1)) 
-            != future_status::ready)
-            continue;
-         
          //TODO: make sure the gc doesn't go after prefetched files right away
 
          //check the BlockDataMap counter
-         auto ptr = mapFuture.get();
+         auto ptr = mapIter->second;
          
          int counter = ptr->useCounter_.load(memory_order_relaxed);
          if (counter <= 0)
@@ -234,35 +223,35 @@ BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
 {
 	prefetch = false;
    //have some fun with promise/future
-   shared_future<shared_ptr<BlockDataFileMap>> fMap;
-
-   //lock map, look for fileid entry
-   {
-      unique_lock<mutex> lock(mu_);
-
-      auto mapIter = fileMaps_.find(fileid);
-      if (mapIter == fileMaps_.end())
-      {
-         //don't have this fileid yet, create it
-         fMap = getNewBlockDataMap(fileid);
-         fileMaps_[fileid] = fMap;
-      }
-      else fMap = mapIter->second;
-   }
-
+   shared_ptr<BlockDataFileMap> fMap;
+   
    //if the prefetch flag is set, get the next file
    auto prefetchLambda = [&](unsigned fileID)
       ->BlockFileMapPointer
    { return get(fileID, false); };
 
-   if (prefetch)
+
+   //lock map, look for fileid entry
    {
-      thread tid(prefetchLambda, fileid + 1);
-      tid.detach();
+      unique_lock<mutex> lock(mu_);
+
+      if (prefetch)
+      {
+         thread tid(prefetchLambda, fileid + 1);
+         tid.detach();
+      }
+
+      auto mapIter = fileMaps_.find(fileid);
+      if (mapIter == fileMaps_.end())
+      {
+         //don't have this fileid yet, create it
+         fMap = getNewBlockDataMap(fileid).get();
+         fileMaps_[fileid] = fMap;
+      }
+      else fMap = mapIter->second;
    }
-   
-   fMap.wait();
-   return BlockFileMapPointer(fMap.get(), gcLambda_);
+
+   return BlockFileMapPointer(fMap, gcLambda_);
 }
 
 /////////////////////////////////////////////////////////////////////////////

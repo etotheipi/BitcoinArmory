@@ -19,27 +19,17 @@
 #define _BLOCKCHAINSCANNER_H
 
 ////////////////////////////////////////////////////////////////////////////////
-struct BlockDataLink
-{
-   BlockData blockdata_;
-   shared_future<BlockDataLink> next_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
 struct BlockDataBatch
 {
    const unsigned start_;
    const unsigned end_;
 
-   shared_future<BlockDataLink> first_;
-
    promise<bool> scanUtxosPromise;
    shared_future<bool> doneScanningUtxos_;
 
-   mutex parseTxinMutex_, parseTxOutMutex_;
-   condition_variable readThreadCV_;
+   mutex parseTxinMutex_;
 
-   atomic<unsigned> highestProcessedHeight_;
+   unsigned highestProcessedHeight_;
    
    //keep a reference to the file mmaps used by this object since we don't copy 
    //the data, just point at it.
@@ -50,12 +40,13 @@ struct BlockDataBatch
    map<BinaryData, StoredScriptHistory> ssh_;
    vector<StoredTxOut> spentTxOuts_;
 
+   map<unsigned, BlockData> blocks_;
 
    ////
    BlockDataBatch(unsigned start, unsigned end) : 
       start_(start), end_(end)
    {
-      highestProcessedHeight_.store(start, memory_order_relaxed);
+      highestProcessedHeight_ = start;
       doneScanningUtxos_ = scanUtxosPromise.get_future();
    }
 
@@ -67,8 +58,9 @@ struct BlockDataBatch
 struct BatchLink
 {
    vector<shared_ptr<BlockDataBatch>> batchVec_;
-   shared_future<shared_ptr<BatchLink>> next_;
+   shared_ptr<BatchLink> next_;
 
+   mutex readyToWrite_;
    BinaryData topScannedBlockHash_;
 };
 
@@ -91,11 +83,10 @@ private:
    map<BinaryData, map<unsigned, StoredTxOut>> utxoMap_;
 
 private:
-   void readBlockData(shared_ptr<BlockDataBatch>);
    void scanBlockData(shared_ptr<BlockDataBatch>);
    
    void accumulateDataBeforeBatchWrite(vector<shared_ptr<BlockDataBatch>>&);
-   void writeBlockData(shared_future<shared_ptr<BatchLink>>);
+   void writeBlockData(shared_ptr<BatchLink>);
    void processAndCommitTxHints(
       const vector<shared_ptr<BlockDataBatch>>& batchVec);
    void preloadUtxos(void);

@@ -62,6 +62,8 @@ void DatabaseBuilder::init()
       scanFrom = min(
          scanFrom, reorgState.reorgBranchPoint->getBlockHeight() + 1);
    }
+
+   //TODO: scanFrom should be the min of the top height in HISTORY and SSH db
    
    //don't scan without any registered addresses
    if (scrAddrFilter_->getScrAddrMap().size() == 0)
@@ -379,7 +381,8 @@ uint32_t DatabaseBuilder::update(void)
    auto&& reorgState = updateBlocksInDB(progress_, false);
 
    uint32_t prevTop = reorgState.prevTopBlock->getBlockHeight();
-   if (prevTop == blockchain_.top().getBlockHeight())
+   if (reorgState.prevTopBlockStillValid && 
+       prevTop == blockchain_.top().getBlockHeight())
       return 0;
 
    uint32_t startHeight = reorgState.prevTopBlock->getBlockHeight() + 1;

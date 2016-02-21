@@ -16,7 +16,7 @@ class ScrAddrFilter;
 
 typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
-#define DEBUG_THREAD_COUNT 3
+#define DEBUG_THREAD_COUNT 2
 
 /////////////////////////////////////////////////////////////////////////////
 class DatabaseBuilder
