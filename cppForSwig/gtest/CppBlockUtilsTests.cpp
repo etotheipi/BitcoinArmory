@@ -4819,7 +4819,7 @@ protected:
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("03100000");
-      BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
+      BinaryData val0 = magic_ + flags + zeros_ + zeros_ + BtcUtils::EmptyHash_;
       addOutPairH(DBINFO, val0);
       addOutPairB(DBINFO, val0);
 
@@ -4869,7 +4869,6 @@ TEST_F(LMDBTest, OpenClose)
    ASSERT_TRUE(iface_->databasesAreOpen());
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 0);
-   EXPECT_EQ(READHEX(MAINNET_GENESIS_HASH_HEX), iface_->getTopBlockHash(HEADERS));
                           
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
    KVLIST BList = iface_->getAllDatabaseEntries(HISTORY);
@@ -4881,13 +4880,13 @@ TEST_F(LMDBTest, OpenClose)
    for(uint32_t i=0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + BtcUtils::EmptyHash_);
    }
 
    for(uint32_t i=0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + BtcUtils::EmptyHash_);
    }
                          
    iface_->closeDatabases();
@@ -4928,13 +4927,13 @@ TEST_F(LMDBTest, OpenCloseOpenNominal)
    for(uint32_t i=0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + BtcUtils::EmptyHash_);
    }
 
    for(uint32_t i=0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + BtcUtils::EmptyHash_);
    }
                          
    iface_->closeDatabases();
@@ -4961,7 +4960,7 @@ TEST_F(LMDBTest, PutGetDelete)
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
    BinaryData PREFIX = WRITE_UINT8_BE((uint8_t)TXDATA);
-   BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
+   BinaryData val0 = magic_ + flags + zeros_ + zeros_ + BtcUtils::EmptyHash_;
    BinaryData commonValue = READHEX("abcd1234");
    BinaryData keyAB = READHEX("0000");
    BinaryData nothing = BinaryData(0);
@@ -5306,7 +5305,6 @@ TEST_F(LMDBTest, DISABLED_GetFullBlock)
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(HEADERS, sdbi);
    EXPECT_EQ(sdbi.topBlkHgt_,  0);
-   EXPECT_EQ(sdbi.topBlkHash_, iface_->getGenesisBlockHash());
 
    iface_->putStoredHeader(sbh);
 
@@ -5316,7 +5314,6 @@ TEST_F(LMDBTest, DISABLED_GetFullBlock)
       "7d97d862654e03d6c43b77820a40df894e3d6890784528e9cd05000000000000");
    iface_->getStoredDBInfo(HEADERS, sdbi);
    EXPECT_EQ(sdbi.topBlkHgt_,  123000);
-   EXPECT_EQ(sdbi.topBlkHash_, headerHash);
 
    BinaryData rawHeader = READHEX(
       "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
@@ -6569,7 +6566,6 @@ TEST_F(LMDBTest_Super, DISABLED_GetFullBlock)
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(HEADERS, sdbi);
    EXPECT_EQ(sdbi.topBlkHgt_, 0);
-   EXPECT_EQ(sdbi.topBlkHash_, iface_->getGenesisBlockHash());
 
    iface_->putStoredHeader(sbh);
 
@@ -6579,7 +6575,6 @@ TEST_F(LMDBTest_Super, DISABLED_GetFullBlock)
       "7d97d862654e03d6c43b77820a40df894e3d6890784528e9cd05000000000000");
    iface_->getStoredDBInfo(HEADERS, sdbi);
    EXPECT_EQ(sdbi.topBlkHgt_, 123000);
-   EXPECT_EQ(sdbi.topBlkHash_, headerHash);
 
    BinaryData rawHeader = READHEX(
       "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
@@ -10597,29 +10592,6 @@ TEST_F(BlockUtilsWithWalletTest, DISABLED_ZeroConfUpdate)
    zcKey.append(WRITE_UINT32_LE(0));
    EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
 }
-
-// This was really just to time the logging to determine how much impact it 
-// has.  It looks like writing to file is about 1,000,000 logs/sec, while 
-// writing to the null stream (below the threshold log level) is about 
-// 2,200,000/sec.    As long as we use log messages sparingly (and timer
-// calls which call the logger), there will be no problem leaving them
-// on even in production code.
-/*
-TEST(TimeDebugging, WriteToLogNoStdOut)
-{
-   LOGDISABLESTDOUT();
-   for(uint32_t i=0; i<1000000; i++)
-      LOGERR << "Testing writing out " << 3 << " diff things";
-   LOGENABLESTDOUT();
-}
-
-TEST(TimeDebugging, WriteNull)
-{
-   for(uint32_t i=0; i<1000000; i++)
-      LOGDEBUG4 << "Testing writing out " << 3 << " diff things";
-}
-*/
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

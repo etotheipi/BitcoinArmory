@@ -231,9 +231,6 @@ private:
          const BlockFilePosition &fileAndOffset
       );
    
-   void deleteHistories(void);
-   void wipeHistoryAndHintDB(void);
-
    void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
    uint32_t findFirstBlockToScan(void);
    void findFirstBlockToApply(void);

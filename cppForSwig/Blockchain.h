@@ -54,6 +54,7 @@ public:
       const BlockHeader &block, bool suppressVerbose);
 
    void addBlocksInBulk(const map<HashString, BlockHeader>&);
+   void forceAddBlocksInBulk(const map<HashString, BlockHeader>&);
 
    ReorganizationState organize(bool verbose);
    ReorganizationState forceOrganize();

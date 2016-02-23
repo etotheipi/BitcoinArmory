@@ -116,6 +116,7 @@ public:
    void setOffset(size_t offset) { offset_ = offset; }
 
    BlockHeader createBlockHeader(void) const;
+   const BinaryData& getHash(void) const { return blockHash_; }
 };
 
 /////////////////////////////////////////////////////////////////////////////

@@ -291,6 +291,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Sometimes, we just need to nuke everything and start over
    void destroyAndResetDatabases(void);
+   void resetHistoryDatabases(void);
 
    /////////////////////////////////////////////////////////////////////////////
    bool databasesAreOpen(void) { return dbIsOpen_; }

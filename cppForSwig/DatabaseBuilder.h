@@ -58,6 +58,11 @@ private:
       #endif
    }
 
+   void resetHistory(void);
+   bool reparseBlkFiles(unsigned fromID);
+   map<BinaryData, BlockHeader> assessBlkFile(BlockDataLoader& bdl,
+      unsigned fileID);
+
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager_LevelDB&,
       const ProgressCallback&);

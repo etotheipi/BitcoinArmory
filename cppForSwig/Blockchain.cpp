@@ -451,7 +451,7 @@ void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
    if (topBlockPtr_->blockHeight_ >= sdbiH.topBlkHgt_)
    {
       sdbiH.topBlkHgt_ = topBlockPtr_->blockHeight_;
-      sdbiH.topBlkHash_ = topBlockPtr_->thisHash_;
+      sdbiH.topScannedBlkHash_ = topBlockPtr_->thisHash_;
       db->putStoredDBInfo(HEADERS, sdbiH);
    }
 
@@ -479,5 +479,20 @@ void Blockchain::addBlocksInBulk(const map<HashString, BlockHeader>& bhMap)
 
       auto& newheader = iter.first->second;
       newlyParsedBlocks_.push_back(&newheader);
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void Blockchain::forceAddBlocksInBulk(
+   const map<HashString, BlockHeader>& bhMap)
+{
+   unique_lock<mutex> lock(mu_);
+
+   for (auto& headerPair : bhMap)
+   {
+      auto& header = headerMap_[headerPair.first];
+      header = headerPair.second;
+
+      newlyParsedBlocks_.push_back(&header);
    }
 }

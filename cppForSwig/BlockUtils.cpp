@@ -1283,7 +1283,6 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
 {
    LOGINFO << "Executing: doRebuildDatabases";
    destroyAndResetDatabases();
-   deleteHistories();
    scrAddrData_->clear();
    loadDiskState(progress);
 }
@@ -1512,163 +1511,6 @@ StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
    uint8_t dupMain = iface_->getValidDupIDForHeight(hgt);
    return getBlockFromDB(hgt, dupMain);
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// Deletes all SSH entries in the database
-void BlockDataManager_LevelDB::deleteHistories(void)
-{
-   //LOGINFO << "Clearing all SSH";
-   if (config_.armoryDbType != ARMORY_DB_SUPER)
-   {
-      wipeHistoryAndHintDB();
-      return;
-   }
-
-   LMDBEnv::Transaction tx;
-   iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
-
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
-
-   sdbi.appliedToHgt_ = 0;
-   sdbi.topScannedBlkHash_ = BinaryData(0);
-   iface_->putStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
-   //////////
-
-   bool done = false;
-   uint32_t i=0;
-   //can't iterate and delete at the same time with LMDB
-   vector<BinaryData> keysToDelete;
-
-   while (!done)
-   {
-      bool recycle = false;
-
-      {
-         LDBIter ldbIter(iface_->getIterator(iface_->getDbSelect(HISTORY)));
-
-         try
-         {
-            if (!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
-            {
-               done = true;
-               break;
-            }
-         }
-         catch (exception &e)
-         {
-            LOGERR << "iter recycling snafu";
-            LOGERR << e.what();
-            done = true;
-            break;
-         }
-
-         do
-         {
-            if ((++i % 10000) == 0)
-            {
-               recycle = true;
-               break;
-            }
-
-            BinaryData key = ldbIter.getKey();
-
-            if (key.getSize() == 0)
-            {
-               done = true;
-               break;
-            }
-
-            if (key[0] != (uint8_t)DB_PREFIX_SCRIPT)
-            {
-               done = true;
-               break;
-            }
-
-            keysToDelete.push_back(key);
-         } while (ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
-      }
-
-      for (auto& keytodel : keysToDelete)
-         iface_->deleteValue(iface_->getDbSelect(HISTORY), keytodel);
-
-      keysToDelete.clear();
-
-      if (!recycle)
-      {
-         break;
-      }
-
-      tx.commit();
-      tx.begin();
-   }
-
-   for (auto& keytodel : keysToDelete)
-      iface_->deleteValue(iface_->getDbSelect(HISTORY), keytodel);
-
-   if (i)
-      LOGINFO << "Deleted " << i << " SSH and subSSH entries";
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::wipeHistoryAndHintDB()
-{
-   { 
-      LMDBEnv::Transaction tx;
-      iface_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
-
-      StoredDBInfo sdbi;
-      iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
-
-      sdbi.appliedToHgt_ = 0;
-      sdbi.topScannedBlkHash_ = BinaryData(0);
-
-      iface_->dbs_[HISTORY].drop();
-      iface_->putStoredDBInfo(HISTORY, sdbi);
-   }
-
-   LMDBEnv::Transaction tx;
-   iface_->beginDBTransaction(&tx, TXHINTS, LMDB::ReadWrite);
-   iface_->dbs_[TXHINTS].drop();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// BDM detects the reorg, but is wallet-agnostic so it can't update any wallets
-// You have to call this yourself after you check whether the last organizeChain
-// call indicated that a reorg happened
-
-/////////////////////////////////////////////////////////////////////////////
-/* This was never actually used
-bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
-{
-   SCOPED_TIMER("verifyBlkFileIntegrity");
-   PDEBUG("Verifying blk0001.dat integrity");
-
-   bool isGood = true;
-   map<HashString, BlockHeader>::iterator headIter;
-   for(headIter  = headerMap_.begin();
-       headIter != headerMap_.end();
-       headIter++)
-   {
-      BlockHeader & bhr = headIter->second;
-      bool thisHeaderIsGood = bhr.verifyIntegrity();
-      if( !thisHeaderIsGood )
-      {
-         cout << "Blockfile contains incorrect header or tx data:" << endl;
-         cout << "  Block number:    " << bhr.getBlockHeight() << endl;
-         cout << "  Block hash (BE):   " << endl;
-         cout << "    " << bhr.getThisHash().copySwapEndian().toHexStr() << endl;
-         cout << "  Num Tx :         " << bhr.getNumTx() << endl;
-         //cout << "  Tx Hash List: (compare to raw tx data on blockexplorer)" << endl;
-         //for(uint32_t t=0; t<bhr.getNumTx(); t++)
-            //cout << "    " << bhr.getTxRefPtrList()[t]->getThisHash().copySwapEndian().toHexStr() << endl;
-      }
-      isGood = isGood && thisHeaderIsGood;
-   }
-   return isGood;
-   PDEBUG("Done verifying blockfile integrity");
-}
-*/
    
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
@@ -1893,7 +1735,7 @@ uint32_t BlockDataManager_LevelDB::findFirstBlockToScan(void)
                ***/
 
                undoData = false;
-               deleteHistories();
+               //deleteHistories();
 
                scrAddrData_->clear();
             }
@@ -1923,7 +1765,7 @@ void BlockDataManager_LevelDB::findFirstBlockToApply(void)
 
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(iface_->getDbSelect(HISTORY), sdbi);
-   BinaryData lastTopBlockHash = sdbi.topBlkHash_;
+   BinaryData lastTopBlockHash = sdbi.topScannedBlkHash_;
 
    if (blockchain_.hasHeaderWithHash(lastTopBlockHash))
    {

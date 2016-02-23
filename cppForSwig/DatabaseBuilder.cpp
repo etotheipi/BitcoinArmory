@@ -50,11 +50,44 @@ void DatabaseBuilder::init()
    //retrieve all tracked addresses from DB
    scrAddrFilter_->getAllScrAddrInDB();
 
+   //don't scan without any registered addresses
+   if (scrAddrFilter_->getScrAddrMap().size() == 0)
+      return;
+
+   bool reset = false;
+
    //determine from which block to start scanning
    scrAddrFilter_->getScrAddrCurrentSyncState();
    auto scanFrom = scrAddrFilter_->scanFrom();
 
-   if (!reorgState.prevTopBlockStillValid)
+   StoredDBInfo sshSdbi;
+   db_->getStoredDBInfo(SSH, sshSdbi);
+
+   StoredDBInfo sdbi;
+   db_->getStoredDBInfo(HISTORY, sdbi);
+
+   //check merkle of registered addresses vs what's in the DB
+   if (!scrAddrFilter_->hasNewAddresses())
+   {
+      //top scanned height from scrAddrFilter and HISTORY SDBI match,
+      //no new addresses were registered in between runs.
+
+      if (sshSdbi.topBlkHgt_ > sdbi.topBlkHgt_)
+      {
+         //SSH db has scanned ahead of HISTORY db, no point rescanning these
+         //blocks
+         scanFrom = sshSdbi.topBlkHgt_;
+      }
+   }
+   else
+   {
+      //we have newly registered addresses this run, force a full rescan
+      resetHistory();
+      scanFrom = 0;
+      reset = true;
+   }
+
+   if (!reorgState.prevTopBlockStillValid && !reset)
    {
       //reorg
       undoHistory(reorgState);
@@ -62,20 +95,16 @@ void DatabaseBuilder::init()
       scanFrom = min(
          scanFrom, reorgState.reorgBranchPoint->getBlockHeight() + 1);
    }
-
-   //TODO: scanFrom should be the min of the top height in HISTORY and SSH db
    
-   //don't scan without any registered addresses
-   if (scrAddrFilter_->getScrAddrMap().size() == 0)
+   if (scanFrom >= blockchain_.top().getBlockHeight())
+   {
+      LOGINFO << "no new blocks to scan, done initializing";
       return;
-   
-   //check against last db state
-   StoredDBInfo sdbi;
-   db_->getStoredDBInfo(HISTORY, sdbi);
-   if (sdbi.topBlkHgt_ >= blockchain_.top().getBlockHeight())
-      return;
+   }
 
-   LOGINFO << "scanning new blocks";
+   LOGINFO << "scanning new blocks from #" << scanFrom << " to #" <<
+      blockchain_.top().getBlockHeight();
+
    TIMER_START("scanning");
    while (1)
    {
@@ -102,7 +131,28 @@ void DatabaseBuilder::init()
       LOGINFO << "repairing DB";
 
       //TODO: implement repair procedure
+
+      //grab top scanned height from SSH DB
+      StoredDBInfo sdbi;
+      db_->getStoredDBInfo(SSH, sdbi);
+
+      //get fileID for height
+      auto& topHeader = blockchain_.getHeaderByHeight(sdbi.topBlkHgt_);
+      int fileID = topHeader.getBlockFileNum();
+      
+      //rewind 5 blk files for the good measure
+      fileID -= 5;
+      if (fileID < 0)
+         fileID = 0;
+
+      //reparse these blk files
+      if (!reparseBlkFiles(fileID))
+      {
+         LOGERR << "failed to repair DB, aborting";
+         throw runtime_error("failed to repair DB");
+      }
    }
+
    TIMER_STOP("scanning");
    double scanning = TIMER_READ_SEC("scanning");
    LOGINFO << "scanned new blocks in " << scanning << "s";
@@ -168,7 +218,6 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
       shared_ptr<BlockOffset> bo, bool verbose)->void
    {
-      //TODO: use only the BlockOffset argument
       while (1)
       {
          if (!addBlocksToDB(bdl, fileID, startOffset, bo))
@@ -212,8 +261,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
          topBlockOffset_ = *blockoffset;
    }
 
-   //done parsing new blocks, let's add them to the DB
-
+   //done parsing new blocks, reorg and add to DB
    auto&& reorgState = blockchain_.organize(verbose);
    blockchain_.putNewBareHeaders(db_);
 
@@ -250,7 +298,6 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       }
 
       //block is valid, add to container
-      //build header version of block first
       bd.setFileID(fileID);
       bd.setOffset(offset);
       
@@ -365,6 +412,7 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
 {
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(),
       blockFiles_, threadCount_);
+   
    bcs.scan(startHeight);
    bcs.updateSSH();
 
@@ -417,4 +465,144 @@ void DatabaseBuilder::undoHistory(
    bcs.undo(reorgState);
 
    blockchain_.setDuplicateIDinRAM(db_);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::resetHistory()
+{
+   //nuke HISTORY, SSH, TXHINT and STXO DBs
+   LOGINFO << "reseting history in DB";
+   db_->resetHistoryDatabases();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
+{
+   mutex mu;
+   map<BinaryData, BlockHeader> headerMap;
+
+   BlockDataLoader bdl(blockFiles_.folderPath(), true, false, true);
+
+   auto assessLambda = [&](unsigned fileID)->void
+   {
+      while (fileID < blockFiles_.fileCount())
+      {
+         auto&& hmap = assessBlkFile(bdl, fileID);
+
+         fileID += threadCount_;
+
+         if (hmap.size() == 0)
+            continue;
+
+         unique_lock<mutex> lock(mu);
+         headerMap.insert(hmap.begin(), hmap.end());
+      }
+   };
+
+   unsigned threadcount = min(threadCount_,
+      blockFiles_.fileCount() - topBlockOffset_.fileID_);
+
+   vector<thread> tIDs;
+   for (unsigned i = 1; i < threadcount; i++)
+      tIDs.push_back(thread(assessLambda, fromID + i));
+
+   assessLambda(fromID);
+
+   for (auto& tID : tIDs)
+   {
+      if (tID.joinable())
+         tID.join();
+   }
+
+   //headerMap contains blocks that are either missing from our blockchain 
+   //object or are recorded under invalid fileID/offset. Lets forcefully add
+   //them to the blockchain object, then force a full reorg
+
+   if (headerMap.size() == 0)
+   {
+      LOGWARN << "did not find any damaged and/or missings blocks";
+      return false;
+   }
+
+   blockchain_.forceAddBlocksInBulk(headerMap);
+   blockchain_.forceOrganize();
+   blockchain_.putNewBareHeaders(db_);
+
+   //TODO: edge case: all the new blocks found were orphans, nothing was added
+   //to the db, will run into the same blocks next run
+
+   return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
+   BlockDataLoader& bdl, unsigned fileID)
+{
+   map<BinaryData, BlockHeader> returnMap;
+
+   auto&& blockfilemappointer = bdl.get(fileID, false);
+   auto ptr = blockfilemappointer.get()->getPtr();
+
+   //ptr is null if we're out of block files
+   if (ptr == nullptr)
+      return returnMap;
+
+   vector<BlockData> bdVec;
+
+   auto tallyBlocks = [&](const uint8_t* data, size_t size, size_t offset)->void
+   {
+      //deser full block, check merkle
+      BlockData bd;
+      BinaryRefReader brr(data, size);
+
+      try
+      {
+         bd.deserialize(data, size, nullptr, true);
+      }
+      catch (...)
+      {
+         //deser failed, ignore this block
+         return;
+      }
+
+      bd.setFileID(fileID);
+      bd.setOffset(offset);
+
+
+      //query blockchain object for block by hash
+      BlockHeader* bhPtr = nullptr;
+      try
+      {
+         blockchain_.getHeaderByHash(bd.getHash());
+      }
+      catch (range_error&)
+      {
+         //catch and continue
+      }
+
+      //add the block either if we don't have it in our blockchain object,
+      //or if the offsets and/or fileID mismatch
+      if (bhPtr != nullptr)
+      {
+         if (bhPtr->getBlockFileNum() == fileID &&
+            bhPtr->getOffset() == offset)
+            return;
+      }
+
+      bdVec.push_back(move(bd));
+   };
+
+   parseBlockFile(ptr, blockfilemappointer.size(),
+      0, tallyBlocks);
+
+   //done parsing, add the headers to the blockchain object
+   //convert BlockData vector to BlockHeader map first
+   map<HashString, BlockHeader> bhmap;
+   for (auto& bd : bdVec)
+   {
+      auto&& bh = bd.createBlockHeader();
+      bhmap.insert(make_pair(bh.getThisHash(), move(bh)));
+   }
+
+   return returnMap;
 }

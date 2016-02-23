@@ -578,7 +578,6 @@ void LMDBBlockDatabase::openDatabases(
             StoredDBInfo sdbi;
             sdbi.magic_ = magicBytes_;
             sdbi.topBlkHgt_ = 0;
-            sdbi.topBlkHash_ = genesisBlkHash_;
             sdbi.armoryType_ = armoryDbType_;
             sdbi.pruneType_ = dbPruneType_;
             putStoredDBInfo(CURRDB, sdbi);
@@ -760,7 +759,6 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
    StoredDBInfo sdbi;
    sdbi.magic_      = magicBytes_;
    sdbi.topBlkHgt_  = 0;
-   sdbi.topBlkHash_ = genesisBlkHash_;
    sdbi.armoryType_ = armoryDbType_;
    sdbi.pruneType_ = dbPruneType_;
    
@@ -798,6 +796,18 @@ void LMDBBlockDatabase::closeDatabasesSupernode(void)
    dbIsOpen_ = false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::resetHistoryDatabases(void)
+{
+   closeDatabases();
+   remove(dbHistoryFilename().c_str());
+   remove(dbSshFilename().c_str());
+   remove(dbTxhintsFilename().c_str());
+   remove(dbStxoFilename().c_str());
+
+   openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_,
+      magicBytes_, armoryDbType_, dbPruneType_);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::destroyAndResetDatabases(void)
@@ -807,18 +817,15 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
 
    // We want to make sure the database is restarted with the same parameters
    // it was called with originally
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-   {
-      closeDatabasesSupernode();
-      remove(dbBlkdataFilename().c_str());
-   }
-   else
    {
       closeDatabases();
       remove(dbHeadersFilename().c_str());
       remove(dbHistoryFilename().c_str());
       remove(dbBlkdataFilename().c_str());
       remove(dbTxhintsFilename().c_str());
+      remove(dbSshFilename().c_str());
+      remove(dbStxoFilename().c_str());
+      remove(dbZCFilename().c_str());
    }
    
    // Reopen the databases with the exact same parameters as before
@@ -838,7 +845,7 @@ BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
    beginDBTransaction(&tx, db, LMDB::ReadOnly);
    StoredDBInfo sdbi;
    getStoredDBInfo(db, sdbi);
-   return sdbi.topBlkHash_;
+   return sdbi.topScannedBlkHash_;
 }
 
 
@@ -1747,7 +1754,6 @@ uint8_t LMDBBlockDatabase::putStoredHeader( StoredHeader & sbh,
       if(sbh.blockHeight_ > sdbiB.topBlkHgt_)
       {
          sdbiB.topBlkHgt_  = sbh.blockHeight_;
-         sdbiB.topBlkHash_ = sbh.thisHash_;
          putStoredDBInfo(BLKDATA, sdbiB);
       }
    }
@@ -1854,7 +1860,6 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID,
          if (sbh.blockHeight_ >= sdbiH.topBlkHgt_)
          {
             sdbiH.topBlkHgt_ = sbh.blockHeight_;
-            sdbiH.topBlkHash_ = sbh.thisHash_;
             putStoredDBInfo(HEADERS, sdbiH);
          }
       }
@@ -3752,7 +3757,6 @@ uint8_t LMDBBlockDatabase::putRawBlockData(BinaryRefReader& brr,
          if (sbh.blockHeight_ > sdbiB.topBlkHgt_)
          {
             sdbiB.topBlkHgt_ = sbh.blockHeight_;
-            sdbiB.topBlkHash_ = bh->getThisHash();
             putStoredDBInfo(HISTORY, sdbiB);
          }
       }

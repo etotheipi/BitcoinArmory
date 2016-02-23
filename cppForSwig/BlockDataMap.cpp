@@ -17,7 +17,8 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
 
    //deser header from raw block and run a quick sanity check
    if (size < HEADER_SIZE)
-      throw runtime_error("raw data is smaller than HEADER_SIZE");
+      throw BlockDeserializingException(
+         "raw data is smaller than HEADER_SIZE");
 
    BinaryDataRef bdr(data, HEADER_SIZE);
    BlockHeader bh(bdr);
@@ -30,10 +31,12 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    if (blockHeader != nullptr)
    {
       if (bh.getThisHashRef() != blockHeader->getThisHashRef())
-         throw runtime_error("raw data does not match expected block hash");
+         throw BlockDeserializingException(
+            "raw data does not match expected block hash");
 
       if (numTx != blockHeader->getNumTx())
-         throw runtime_error("tx count mismatch in deser header");
+         throw BlockDeserializingException(
+            "tx count mismatch in deser header");
    }
 
    for (unsigned i = 0; i < numTx; i++)

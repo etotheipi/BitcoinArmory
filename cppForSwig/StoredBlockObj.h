@@ -223,7 +223,8 @@ public:
 class StoredDBInfo
 {
 public:
-   StoredDBInfo(void)
+   StoredDBInfo(void) :
+      metaHash_(BtcUtils::EmptyHash_)
    {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
@@ -241,9 +242,9 @@ public:
 
    BinaryData      magic_;
    uint32_t        topBlkHgt_=0;
-   BinaryData      topBlkHash_; //hash of last block commited
-   BinaryData      topScannedBlkHash_; //commited to SSH
-   uint32_t        appliedToHgt_=0; // only used in BLKDATA DB
+   BinaryData      metaHash_; //32 bytes
+   BinaryData      topScannedBlkHash_; //32 bytes
+   uint32_t        appliedToHgt_=0;
    uint32_t        armoryVer_=ARMORY_DB_VERSION;
    ARMORY_DB_TYPE  armoryType_=ARMORY_DB_WHATEVER;
    DB_PRUNE_TYPE   pruneType_=DB_PRUNE_WHATEVER;

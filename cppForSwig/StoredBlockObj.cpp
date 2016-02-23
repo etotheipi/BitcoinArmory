@@ -38,14 +38,14 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
    {
       magic_.resize(0);
       topBlkHgt_ = UINT32_MAX;
-      topBlkHash_.resize(0);
+      metaHash_.resize(0);
       return;
    }
    brr.get_BinaryData(magic_, 4);
    BitUnpacker<uint32_t> bitunpack(brr);
    topBlkHgt_    = brr.get_uint32_t();
    appliedToHgt_ = brr.get_uint32_t();
-   brr.get_BinaryData(topBlkHash_, 32);
+   brr.get_BinaryData(metaHash_, 32);
 
    armoryVer_  =                 bitunpack.getBits(4);
    armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
@@ -67,7 +67,7 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    bw.put_BitPacker(bitpack);
    bw.put_uint32_t(topBlkHgt_); // top blk height
    bw.put_uint32_t(appliedToHgt_); // top blk height
-   bw.put_BinaryData(topBlkHash_);
+   bw.put_BinaryData(metaHash_);
 
    if (topScannedBlkHash_.getSize())
       bw.put_BinaryData(topScannedBlkHash_);
@@ -96,7 +96,7 @@ void StoredDBInfo::pprintOneLine(uint32_t indent)
    
    cout << "DBINFO: " 
         << " TopBlk: " << topBlkHgt_
-        << " , " << topBlkHash_.getSliceCopy(0,4).toHexStr().c_str()
+        << " , " << metaHash_.getSliceCopy(0,4).toHexStr().c_str()
         << endl;
 }
 

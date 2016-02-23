@@ -215,7 +215,9 @@ public:
    const vector<string> getNextWalletIDToScan(void);
 
    void getAllScrAddrInDB(void);
- 
+   BinaryData getAddressMapMerkle(void) const;
+   bool hasNewAddresses(void) const;
+
 public:
    virtual ScrAddrFilter* copy()=0;
 

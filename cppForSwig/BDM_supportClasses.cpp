@@ -435,6 +435,51 @@ void ScrAddrFilter::getAllScrAddrInDB()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+BinaryData ScrAddrFilter::getAddressMapMerkle(void) const
+{
+   vector<BinaryData> addrVec;
+   addrVec.reserve(scrAddrMap_.size());
+   for (auto& addrPair : scrAddrMap_)
+      addrVec.push_back(addrPair.first);
+
+   return BtcUtils::calculateMerkleRoot(addrVec);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ScrAddrFilter::hasNewAddresses(void) const
+{
+   if (scrAddrMap_.size() == 0)
+      return false;
+
+   //do not run before getAllScrAddrInDB
+   auto&& currentmerkle = getAddressMapMerkle();
+   BinaryData dbMerkle;
+
+   {
+      LMDBEnv::Transaction tx;
+      lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      
+      StoredDBInfo sdbi;
+      lmdb_->getStoredDBInfo(HISTORY, sdbi);
+
+      dbMerkle = sdbi.metaHash_;
+   }
+
+   if (dbMerkle == currentmerkle)
+      return false;
+
+   //merkles don't match, check height in each address
+   auto scanfrom = scrAddrMap_.begin()->second;
+   for (auto& scrAddrPair : scrAddrMap_)
+   {
+      if (scanfrom != scrAddrPair.second)
+         return true;
+   }
+
+   return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 const vector<string> ScrAddrFilter::getNextWalletIDToScan(void)
 {
    if (child_.get() != nullptr)

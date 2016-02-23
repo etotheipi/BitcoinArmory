@@ -14,9 +14,22 @@
 #include <future>
 #include <atomic>
 #include <condition_variable>
+#include <exception>
 
 #ifndef _BLOCKCHAINSCANNER_H
 #define _BLOCKCHAINSCANNER_H
+
+class ScanningException : public runtime_error
+{
+private:
+   const unsigned badHeight_;
+
+public:
+   ScanningException(unsigned badHeight, const string &what = "")
+      : runtime_error(what), badHeight_(badHeight)
+   { }
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 struct BlockDataBatch
@@ -28,6 +41,7 @@ struct BlockDataBatch
    shared_future<bool> doneScanningUtxos_;
 
    mutex parseTxinMutex_;
+   exception_ptr exceptionPtr_;
 
    unsigned highestProcessedHeight_;
    
@@ -51,7 +65,9 @@ struct BlockDataBatch
    }
 
    void flagUtxoScanDone(void) 
-   { scanUtxosPromise.set_value(true); }
+   { 
+      scanUtxosPromise.set_value(true); 
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

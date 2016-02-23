@@ -21,6 +21,19 @@ void BlockchainScanner::scan(uint32_t scanFrom)
       return;
    }
 
+   //write address merkle in HISTORY sdbi
+   {
+      auto&& addrMerkle = scrAddrFilter_->getAddressMapMerkle();
+
+      LMDBEnv::Transaction historytx;
+      db_->beginDBTransaction(&historytx, HISTORY, LMDB::ReadWrite);
+      
+      StoredDBInfo historySdbi;
+      db_->getStoredDBInfo(HISTORY, historySdbi);
+      historySdbi.metaHash_ = addrMerkle;
+      db_->putStoredDBInfo(HISTORY, historySdbi);
+   }
+
    preloadUtxos();
    shared_ptr<BatchLink> batchLinkPtr;
 
@@ -107,6 +120,9 @@ void BlockchainScanner::scan(uint32_t scanFrom)
          {
             auto utxoScanFlag = batchVec[i]->doneScanningUtxos_;
             utxoScanFlag.get();
+
+            if (batchVec[i]->exceptionPtr_ != nullptr)
+               rethrow_exception(batchVec[i]->exceptionPtr_);
          }
 
          //update utxoMap_
@@ -155,6 +171,11 @@ void BlockchainScanner::scan(uint32_t scanFrom)
       LOGERR << "failed to grab block data starting height: " << startHeight;
       if (startHeight == scanFrom)
          LOGERR << "no block data was scanned";
+   }
+   catch (...)
+   {
+      LOGWARN << "scanning halted unexpectedly";
+      //let the scan terminate
    }
 
    //push termination batch to write thread and wait till it exits
@@ -207,22 +228,11 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             auto insertPair = batch->blocks_.insert(make_pair(height, move(bdata)));
             iter = insertPair.first;
          }
-         catch (BlockDeserializingException& e)
-         {
-            LOGERR << "block deser error during scan at height #" << height;
-            LOGERR << "error output: " << e.what();
-            throw e;
-         }
-         catch (runtime_error& e)
-         {
-            LOGERR << "block deser error during scan at height #" << height;
-            LOGERR << "error output: " << e.what();
-            throw e;
-         }
          catch (...)
          {
             LOGERR << "unknown block deser error during scan at height #" << height;
-            throw runtime_error("unkonwn deser error during scan");
+            batch->exceptionPtr_ = current_exception();
+            return BlockData();
          }
       }
 
@@ -237,6 +247,8 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
       while (currentBlock <= batch->end_)
       {
          BlockData& bdata = getBlock(currentBlock);
+         if (!bdata.isInitialized())
+            return;
 
          callback(bdata);
 
