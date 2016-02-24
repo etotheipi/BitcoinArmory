@@ -897,7 +897,8 @@ protected:
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
+BlockDataManager_LevelDB::BlockDataManager_LevelDB(
+   const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
    , blockchain_(config_.genesisBlockHash)
 {
@@ -917,6 +918,7 @@ void BlockDataManager_LevelDB::setConfig(
       config_.blkFileLocation,
       config_.magicBytes
    );
+   iface_->setBlkFolder(config_.blkFileLocation);
 }
 
 /////////////////////////////////////////////////////////////////////////////

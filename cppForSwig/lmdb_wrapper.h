@@ -661,6 +661,7 @@ public:
    ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
 
    const string& baseDir(void) const { return baseDir_; }
+   void setBlkFolder(const string& path) { blkFolder_ = path; }
 
 private:
    string               baseDir_;
@@ -702,7 +703,7 @@ private:
 
    function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
 
-   const string blkFolder_;
+   string blkFolder_;
 
    const Blockchain* blockchainPtr_;
 };
