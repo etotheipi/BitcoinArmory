@@ -18,19 +18,18 @@ from tempfile import mkstemp
 # Set some constants up front
 minOSXVer    = '10.7'
 osxName      = 'ElCapitan'
-pythonVer    = '2.7.9'  # NB: ArmoryMac.pro must also be kept up to date!!!
+pythonVer    = '2.7.11'  # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer   = '2.7'
-setToolVer   = '10.2.1'
-pipVer       = '6.0.3'
-psutilVer    = '2.1.3'
-zopeVer      = '4.1.1'
-twistedVer   = '14.0.2'
-libpngVer    = '1.6.15'
-qtVerDate    = '2015-02-16-4'
+setToolVer   = '20.1.1'
+pipVer       = '8.0.2'
+psutilVer    = '4.0.0'
+zopeVer      = '4.1.3'
+twistedVer   = '15.5.0'
+libpngVer    = '1.6.21'
 qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                         # Possibly "sipFlags" below too.
-sipVer       = '4.16.5' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer      = '4.11.3' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+sipVer       = '4.17'   # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer      = '4.11.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 webkitRev    = '191838'
 appNopeVer   = '0.1.0'
 LOGFILE      = 'build-app.log.txt'
@@ -95,7 +94,7 @@ def main():
    make_empty_app()
    compile_python()
    compile_pip()
-   install_libpng()
+   compile_libpng()
    install_qt()
    compile_sip()
    compile_pyqt()
@@ -215,6 +214,8 @@ def getTarUnpackPath(tarName, inDir=None):
    # exited with status 254Child process exited with status 254"
    if tarName == "Python-%s.tar.xz" % pythonVer:
       theDir = "Python-%s" % pythonVer
+   elif tarName == "libpng-%s.tar.xz" % libpngVer:
+      theDir = "libpng-%s" % pythonVer
    else:
       tar = tarfile.open(tarPath,'r')
       theDir = tar.next().name.split('/')[0]
@@ -304,33 +305,33 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "3172f6e957713c2d9fca462cc16068222fd1b9d3" ] )
+                    "c3b8bbe3f084c4d4ea13ffb03d75a5e22f9756ff" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
                     "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "09da3f767e40d1451cac97af59afd99802c77076" ] )
+                    "bb2774945cdbf1137772d81993b4d41d15e9a0a6" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
                     "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-                    "67d4affd83ee2f3514ac1386bee59f10f672517c" ] )
+                    "974a8c345d272b9d9072287f399aab8410067f7e" ] )
 
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
                     "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
-                    "aae4725eb33cf56d4480bc60f50c147870d607ba" ] )
+                    "2a56200988040f6c0167b7d331555d937adac55b" ] )
 
 distfiles.append( [ 'Twisted', \
                     "Twisted-%s.tar.bz2" % twistedVer, \
                     "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
-                    "b908dc0d117a782d2becc83fbb906ba4311f3351" ] )
+                    "c7db4b949fc27794ca94677f66082f49be43f283" ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
-                    "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
-                    "059d99d0321a8519252ae860667237a838d2a557" ] )
+                    "libpng-%s.tar.xz" % libpngVer, \
+                    "https://dl.bintray.com/homebrew/mirror/libpng-%s.tar.xz" % libpngVer, \
+                    "978b2f4e007eda56032001493ddb97d20f0ab291" ] )
 
 # Skipping Git for now.
 #distfiles.append( [ "Qt-git", \
@@ -353,10 +354,7 @@ distfiles.append( [ 'libpng', \
 # support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
                     "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
-                    #"qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate), \
                     "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
-                    #"http://download.qt.io/snapshots/qt/4.8/%s/%s/qt-everywhere-opensource-src-%s-%s.tar.gz" % (qtVer, qtVerDate, qtVer, qtVerDate), \
-                    #"745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
                     "76aef40335c0701e5be7bb3a9101df5d22fe3666" ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
@@ -367,12 +365,12 @@ distfiles.append( [ "Webkit-for-Qt", \
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    'd5d7b6765de8634eccf48a250dbd915f01b2a771' ] )
+                    '1de4c10bcc809ecf9093c783d9530ff4403c8210' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
                     "https://pypi.python.org/packages/source/z/zope.interface/zope.interface-%s.tar.gz" % zopeVer, \
-                    '20a9284429e29eb8cc63eee5ed686c257c01b1fc' ] )
+                    '207161e27880d07679aff6d712ed12f55e3d91b6' ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
@@ -383,7 +381,7 @@ distfiles.append( [ "zope", \
 distfiles.append( [ "pyqt", \
                     "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    '8c53254b38686e5366d74eba81f02f9611f39166' ] )
+                    'c319f273e40afe68a2e65ff2b9c01e0d43e980f7' ] )
 
 #distfiles.append( [ 'appnope', \
 #                    "appnope-%s.tar.gz" % appNopeVer, \
@@ -445,7 +443,7 @@ def compile_pip():
       execAndWait(command, cwd=pipDir)
 
 ################################################################################
-def install_libpng():
+def compile_libpng():
    logprint('Installing libpng')
    dylib = 'libpng16.16.dylib'
    target = path.join(APPDIR, 'Contents/Dependencies', dylib)
@@ -453,7 +451,11 @@ def install_libpng():
       logprint('libpng already installed.')
    else:
       pngDir = unpack(tarfilesToDL['libpng'])
-      src = path.join(pngDir, '%s/lib' % libpngVer, dylib)
+      command = './configure'
+      execAndWait(command, cwd=pngDir)
+      command = 'make'
+      execAndWait(command, cwd=pngDir)
+      src = path.join(pngDir, '.libs', dylib)
       copyfile(src, target)
 
 ################################################################################
@@ -465,11 +467,8 @@ def compile_qt():
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
    qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-   #qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s-%s' % (qtVer, qtVerDate))
    qtInstDir  = path.join(INSTALLDIR, 'qt')
    qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
-   #qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s-%s.tar.gz' % (qtVer, qtVerDate))
-   #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
    #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
    # If we did a fresh download, it's already uncompressed in DLDir.  Move it
