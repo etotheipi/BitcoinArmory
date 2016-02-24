@@ -368,7 +368,7 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
       fileMap_ = NULL;
       stringstream errStr;
       errStr << "Failed to create map of file. Error Code: " << errno;
-	cout << errStr;
+	   cout << errStr.str() << endl;
       throw runtime_error(errStr.str());
    }
 
