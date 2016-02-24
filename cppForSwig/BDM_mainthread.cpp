@@ -407,15 +407,19 @@ try
       }
 
       const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
-      if(prevTopBlk > 0)
+      if(prevTopBlk != 0)
       {
          bdv->scanWallets(prevTopBlk);
 
          //notify Python that new blocks have been parsed
-         int nNewBlocks = bdm->blockchain().top().getBlockHeight() + 1
+         StoredDBInfo sdbi;
+         pimpl->bdm->getIFace()->getStoredDBInfo(SUBSSH, sdbi);
+         
+
+         int nNewBlocks = sdbi.topBlkHgt_ + 1
             - prevTopBlk;
          callback->run(BDMAction_NewBlock, &nNewBlocks,
-            bdm->getTopBlockHeight()
+            sdbi.topBlkHgt_
          );
       }
       

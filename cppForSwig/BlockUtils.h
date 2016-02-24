@@ -219,22 +219,7 @@ private:
       const ProgressCallback &progress,
       bool doRescan=false
    );
-   void loadBlockData(
-      ProgressReporter &prog,
-      const BlockFilePosition &stopAt,
-      bool updateDupID
-   );
-   void loadBlockHeadersFromDB(const ProgressCallback &progress);
-   pair<BlockFilePosition, vector<BlockHeader*> >
-      loadBlockHeadersStartingAt(
-         ProgressReporter &prog,
-         const BlockFilePosition &fileAndOffset
-      );
    
-   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
-   uint32_t findFirstBlockToScan(void);
-   void findFirstBlockToApply(void);
-
 public:
 
    BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
@@ -252,8 +237,6 @@ public:
 
    StoredHeader getMainBlockFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup) const;
-
-   void repairBlockDataDB(set<BinaryData>& missingBlocksByHash);
 
 public:
 
@@ -279,8 +262,6 @@ public:
    bool startSideScan(
       const function<void(const vector<string>&, double prog,unsigned time)> &cb
    );
-
-   void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
 
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
    bool isReady(void) const   { return BDMstate_ == BDM_ready; }

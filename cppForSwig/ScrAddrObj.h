@@ -326,7 +326,7 @@ private:
    mutable uint64_t totalTxioCount_=0;
    mutable uint32_t lastSeenBlock_=0;
 
-   //prebuild history indexes for quick fetch from SSH
+   //prebuild history indexes for quick fetch from ssh
    HistoryPager hist_;
 
    //fetches and maintains utxos

@@ -176,7 +176,6 @@
     <ClInclude Include="..\BlockDataViewer.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BlockUtils.h" />
-    <ClInclude Include="..\BlockWriteBatcher.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\DatabaseBuilder.h" />
@@ -189,7 +188,6 @@
     <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\Progress.h" />
-    <ClInclude Include="..\ReorgUpdater.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\txio.h" />
@@ -205,7 +203,6 @@
     <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
     <ClCompile Include="..\BlockUtils.cpp" />
-    <ClCompile Include="..\BlockWriteBatcher.cpp" />
     <ClCompile Include="..\BtcUtils.cpp" />
     <ClCompile Include="..\BtcWallet.cpp" />
     <ClCompile Include="..\DatabaseBuilder.cpp" />

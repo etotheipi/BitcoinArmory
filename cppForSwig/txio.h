@@ -158,7 +158,7 @@ private:
    /***marks txio as spent for serialize/deserialize operations. It signifies
    whether a subSSH entry with only a TxOut DBkey is spent.
 
-   To allow for partial parsing of SSH history, all txouts need to be visible at
+   To allow for partial parsing of ssh history, all txouts need to be visible at
    the height they appeared, amd spent txouts need to be visible at the
    spending txin's height as well.
 

@@ -414,6 +414,7 @@ public:
       uint32_t endBlock);
 
    uint32_t getStxoCountForTx(const BinaryData & dbKey6) const;
+   void resetHistoryForAddressVector(const vector<BinaryData>&);
 
 public:
 
@@ -450,10 +451,6 @@ public:
       bool withBlkData = true,
       bool updateDupID = true);
 
-   //for Fullnode
-   uint8_t putRawBlockData(BinaryRefReader& brr, 
-      function<const BlockHeader& (const BinaryData&)>);
-
    //getStoredHeader detects the dbType and update the passed StoredHeader
    //accordingly
    bool getStoredHeader(StoredHeader & sbh,
@@ -488,9 +485,6 @@ public:
       BinaryDataRef dbKey) const;
 
    bool getStoredTx_byHash(const BinaryData& txHash,
-      StoredTx* stx = nullptr,
-      BinaryData* DBkey = nullptr) const;
-   bool getStoredTx_byHashSuper(const BinaryData& txHash,
       StoredTx* stx = nullptr,
       BinaryData* DBkey = nullptr) const;
 
@@ -548,10 +542,10 @@ public:
       BinaryDataRef rawScript) const;
 
    // This method breaks from the convention I've used for getting/putting 
-   // stored objects, because we never really handle Sub-SSH objects directly,
+   // stored objects, because we never really handle Sub-ssh objects directly,
    // but we do need to harness them.  This method could be renamed to
    // "getPartialScriptHistory()" ... it reads the main 
-   // sub-SSH from DB and adds it to the supplied regular-SSH.
+   // sub-ssh from DB and adds it to the supplied regular-ssh.
    bool fetchStoredSubHistory(StoredScriptHistory & ssh,
       BinaryData hgtX,
       bool createIfDNE = false,
@@ -565,7 +559,7 @@ public:
    uint64_t getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMulti = false);
 
    // TODO: We should probably implement some kind of method for accessing or 
-   //       running calculations on an SSH without ever loading the entire
+   //       running calculations on an ssh without ever loading the entire
    //       thing into RAM.  
 
    // None of the SUD methods are implemented because we don't actually need
@@ -670,6 +664,7 @@ private:
    string dbHistoryFilename() const { return baseDir_ + "/history"; }
    string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
    string dbSshFilename() const { return baseDir_ + "/ssh"; }
+   string dbSubSshFilename() const { return baseDir_ + "/subssh"; }
    string dbStxoFilename() const { return baseDir_ + "/stxo"; }
    string dbZCFilename() const { return baseDir_ + "/zeroconf"; }
 

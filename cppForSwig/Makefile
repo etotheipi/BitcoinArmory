@@ -27,7 +27,7 @@ LINK = $(CXX)
 
 OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
-	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
+	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o \
 	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
 	libcryptopp.a mdb.o midl.o txio.o \

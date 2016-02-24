@@ -75,12 +75,6 @@
     <ClInclude Include="..\Progress.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\BlockWriteBatcher.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ReorgUpdater.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\bdmenums.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -123,9 +117,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\BlockWriteBatcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\BtcWallet.cpp">

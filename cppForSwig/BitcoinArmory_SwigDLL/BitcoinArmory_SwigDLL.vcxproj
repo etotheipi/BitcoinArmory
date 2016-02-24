@@ -424,7 +424,6 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\BlockDataViewer.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BlockUtils.h" />
-    <ClInclude Include="..\BlockWriteBatcher.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\DatabaseBuilder.h" />
@@ -434,7 +433,6 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\Progress.h" />
-    <ClInclude Include="..\ReorgUpdater.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeContainer.h" />
@@ -451,7 +449,6 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
     <ClCompile Include="..\BlockUtils.cpp" />
-    <ClCompile Include="..\BlockWriteBatcher.cpp" />
     <ClCompile Include="..\BtcUtils.cpp" />
     <ClCompile Include="..\BtcWallet.cpp" />
     <ClCompile Include="..\CppBlockUtils_wrap.cxx" />

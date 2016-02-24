@@ -68,6 +68,7 @@ enum DB_SELECT
    HEADERS,
    BLKDATA,
    SSH,
+   SUBSSH,
    HISTORY,
    STXO,
    TXHINTS,
@@ -674,7 +675,7 @@ public:
    uint64_t       totalUnspent_;
    map<unsigned, unsigned> subsshSummary_;
 
-   // If this SSH has only one TxIO (most of them), then we don't bother
+   // If this ssh has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.
    // We always stored them in RAM using the StoredSubHistory 
    // objects which will have the per-block lists of TxIOs.  But when 

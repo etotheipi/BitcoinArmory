@@ -43,9 +43,6 @@
     <ClCompile Include="..\Blockchain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\BlockWriteBatcher.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\BDM_supportClasses.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -138,13 +135,7 @@
     <ClInclude Include="..\Progress.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\BlockWriteBatcher.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\Blockchain.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ReorgUpdater.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\txio.h">

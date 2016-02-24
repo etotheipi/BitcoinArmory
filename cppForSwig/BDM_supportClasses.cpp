@@ -14,7 +14,6 @@
 #include "BDM_supportClasses.h"
 #include "BlockUtils.h"
 #include "txio.h"
-#include "ReorgUpdater.h"
 #include <thread>
 
 
@@ -25,7 +24,7 @@
 void ScrAddrFilter::getScrAddrCurrentSyncState()
 {
    LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
 
    for (auto scrAddrPair : scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
@@ -35,7 +34,7 @@ void ScrAddrFilter::getScrAddrCurrentSyncState()
 void ScrAddrFilter::getScrAddrCurrentSyncState(
    BinaryData const & scrAddr)
 {
-   //grab SSH for scrAddr
+   //grab ssh for scrAddr
    StoredScriptHistory ssh;
    lmdb_->getStoredScriptHistorySummary(ssh, scrAddr);
 
@@ -46,10 +45,9 @@ void ScrAddrFilter::getScrAddrCurrentSyncState(
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::setSSHLastScanned(uint32_t height)
 {
-   //LMDBBlockDatabase::Batch batch(db, BLKDATA);
-   LOGWARN << "Updating SSH last scanned";
+   LOGWARN << "Updating ssh last scanned";
    LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+   lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
    for (const auto scrAddrPair : scrAddrMap_)
    {
       StoredScriptHistory ssh;
@@ -121,7 +119,7 @@ bool ScrAddrFilter::registerAddressBatch(
          return false;
       }
 
-      //check DB for the scrAddr's SSH
+      //check DB for the scrAddr's ssh
       StoredScriptHistory ssh;
          
       ScrAddrFilter* topChild = this;
@@ -192,12 +190,12 @@ void ScrAddrFilter::scanScrAddrThread()
 
    if(doScan_ == false)
    {
-      //new addresses, set their last seen block in the SSH entries
+      //new addresses, set their last seen block in the ssh entries
       setSSHLastScanned(currentTopBlockHeight());
    }
    else
    {
-      //wipe SSH
+      //wipe ssh
       vector<BinaryData> saVec;
       for (const auto& scrAddrPair : scrAddrMap_)
          saVec.push_back(scrAddrPair.first);
@@ -319,10 +317,11 @@ void ScrAddrFilter::checkForMerge()
          }
          else
          {
+            throw runtime_error("needs reimplemented");
+
             //last scanned block is off the main branch, undo till branch point
             const Blockchain::ReorganizationState state =
                bc.findReorgPointFromBlock(lastScannedBlockHash);
-            ReorgUpdater reorg(state, &bc, lmdb_, config(), sca.get(), true);
 
             startBlock = state.reorgBranchPoint->getBlockHeight() + 1;
          }
@@ -409,18 +408,14 @@ void ScrAddrFilter::buildSideScanData(
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::getAllScrAddrInDB()
 {
-   //TODO: swap the content of SSH and HISTORY DBs
    unique_lock<mutex> lock(mergeLock_);
 
    LMDBEnv::Transaction tx;
-   lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
+   auto dbIter = lmdb_->getIterator(SSH);   
 
-   auto dbIter = lmdb_->getIterator(HISTORY);
-   dbIter.seekToFirst();
-   
-
-   //iterate over SSH DB
-   while(dbIter.advanceAndRead())
+   //iterate over ssh DB
+   while(dbIter.advanceAndRead(DB_PREFIX_SCRIPT))
    {
       auto keyRef = dbIter.getKeyRef();
       StoredScriptHistory ssh;
@@ -457,10 +452,10 @@ bool ScrAddrFilter::hasNewAddresses(void) const
 
    {
       LMDBEnv::Transaction tx;
-      lmdb_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
       
       StoredDBInfo sdbi;
-      lmdb_->getStoredDBInfo(HISTORY, sdbi);
+      lmdb_->getStoredDBInfo(SSH, sdbi);
 
       dbMerkle = sdbi.metaHash_;
    }

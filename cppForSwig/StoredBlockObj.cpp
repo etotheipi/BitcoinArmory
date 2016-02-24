@@ -1321,7 +1321,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    totalTxioCount_ = brr.get_var_int();
 
-   // We shouldn't end up with empty SSH's, but should catch it just in case
+   // We shouldn't end up with empty ssh's, but should catch it just in case
    if(totalTxioCount_==0)
       return;
    
@@ -1343,7 +1343,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    }
    catch (BlockDeserializingException& e)
    {
-      LOGERR << "invalid varint in SSH data";
+      LOGERR << "invalid varint in StoredScriptHistory data";
       throw e;
    }
 }
@@ -1639,7 +1639,7 @@ void StoredScriptHistory::eraseTxio(const TxIOPair& txio)
 ////////////////////////////////////////////////////////////////////////////////
 // SubSSH object code
 //
-// If the SSH has more than one TxIO, then we put them into SubSSH objects,
+// If the ssh has more than one TxIO, then we put them into SubSSH objects,
 // which represent a list of TxIOs for the given block.  The complexity of
 // doing it this way seems unnecessary, but it actually works quite efficiently
 // for massively-reused addresses like SatoshiDice.
@@ -1922,7 +1922,7 @@ const TxIOPair* StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Since the outer-SSH object tracks total unspent balances, we need to pass 
+// Since the outer-ssh object tracks total unspent balances, we need to pass 
 // out the total amount that was deleted from the sub-history, and of course
 // return zero if nothing was removed.
 bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
@@ -1996,7 +1996,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
    return bal;
 }
 ////////////////////////////////////////////////////////////////////////////////
-// This method will add the TxIOPair to the SSH object if it doesn't exist,
+// This method will add the TxIOPair to the ssh object if it doesn't exist,
 // in addition to marking it unspent.  
 //
 // If there is a 2-of-3 multisig scraddr M, which includes pubkeys, X, Y and Z,
@@ -2015,7 +2015,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 // involve a given scraddr, but don't automatically include them in any
 // balance or UTXO set calculations.
 //   
-// Returns the difference to be applied to totalUnspent_ in the outer SSH
+// Returns the difference to be applied to totalUnspent_ in the outer ssh
 // (unless it's UINT64_MAX which is interpretted as failure)
 void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B, 
                                         uint64_t&  additionalSize,

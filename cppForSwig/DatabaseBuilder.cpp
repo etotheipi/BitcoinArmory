@@ -60,23 +60,22 @@ void DatabaseBuilder::init()
    scrAddrFilter_->getScrAddrCurrentSyncState();
    auto scanFrom = scrAddrFilter_->scanFrom();
 
-   StoredDBInfo sshSdbi;
-   db_->getStoredDBInfo(SSH, sshSdbi);
+   StoredDBInfo subsshSdbi;
+   db_->getStoredDBInfo(SUBSSH, subsshSdbi);
 
-   StoredDBInfo sdbi;
-   db_->getStoredDBInfo(HISTORY, sdbi);
+   StoredDBInfo sshsdbi;
+   db_->getStoredDBInfo(SSH, sshsdbi);
 
    //check merkle of registered addresses vs what's in the DB
    if (!scrAddrFilter_->hasNewAddresses())
    {
-      //top scanned height from scrAddrFilter and HISTORY SDBI match,
       //no new addresses were registered in between runs.
 
-      if (sshSdbi.topBlkHgt_ > sdbi.topBlkHgt_)
+      if (subsshSdbi.topBlkHgt_ > sshsdbi.topBlkHgt_)
       {
-         //SSH db has scanned ahead of HISTORY db, no point rescanning these
+         //SUBSSH db has scanned ahead of SSH db, no point rescanning these
          //blocks
-         scanFrom = sshSdbi.topBlkHgt_;
+         scanFrom = subsshSdbi.topBlkHgt_;
       }
    }
    else
@@ -130,9 +129,9 @@ void DatabaseBuilder::init()
 
       LOGINFO << "repairing DB";
 
-      //grab top scanned height from SSH DB
+      //grab top scanned height from SUBSSH DB
       StoredDBInfo sdbi;
-      db_->getStoredDBInfo(SSH, sdbi);
+      db_->getStoredDBInfo(SUBSSH, sdbi);
 
       //get fileID for height
       auto& topHeader = blockchain_.getHeaderByHeight(sdbi.topBlkHgt_);
@@ -477,7 +476,7 @@ void DatabaseBuilder::undoHistory(
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::resetHistory()
 {
-   //nuke HISTORY, SSH, TXHINT and STXO DBs
+   //nuke SSH, SUBSSH, TXHINT and STXO DBs
    LOGINFO << "reseting history in DB";
    db_->resetHistoryDatabases();
 }

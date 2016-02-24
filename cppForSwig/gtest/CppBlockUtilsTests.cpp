@@ -4260,7 +4260,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    ssh.alreadyScannedUpToBlk_ = 65535;
 
    /////////////////////////////////////////////////////////////////////////////
-   // Empty SSH (shouldn't be written in supernode, should be in full node)
+   // Empty ssh (shouldn't be written in supernode, should be in full node)
    BinaryData expect, expSub1, expSub2;
    expect = READHEX("0400""ffff0000""00""0000000000000000""00000000");
    EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
@@ -4398,7 +4398,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
 
 
    /////////////////////////////////////////////////////////////////////////////
-   // Test reading a subSSH and merging it with the regular SSH
+   // Test reading a subSSH and merging it with the regular ssh
    ssh = sshorig;
    subssh1 = StoredSubHistory();
 
@@ -4416,7 +4416,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    uint64_t val0 = READ_UINT64_HEX_LE("0000030000000000");
    uint64_t val1 = READ_UINT64_HEX_LE("0000000400000000");
 
-   // Unmerged, so SSH doesn't have the subSSH as part of it yet.
+   // Unmerged, so ssh doesn't have the subSSH as part of it yet.
    EXPECT_EQ(   ssh.subHistMap_.size(), 0);
    EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
    EXPECT_EQ(   ssh.totalTxioCount_, 2);
@@ -5062,56 +5062,6 @@ TEST_F(LMDBTest, STxOutPutGet)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(LMDBTest, PutFullBlockNoTx)
-{
-//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
-   StoredHeader sbh;
-   BinaryRefReader brr(rawBlock_);
-   sbh.unserializeFullBlock(brr);
-   sbh.setKeyData(123000, UINT8_MAX);
-
-   StoredHeadHgtList hhl;
-   hhl.height_ = 123000;
-   hhl.dupAndHashList_.push_back( pair<uint8_t, BinaryData>(0, sbh.thisHash_));
-   hhl.preferredDup_ = UINT8_MAX;
-
-   BinaryData TXP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
-   BinaryData HHP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHASH);
-   BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
-   BinaryData hgtx  = READHEX("01e078""00");
-   BinaryData sbh_HH_key = HHP + sbh.thisHash_;
-   BinaryData sbh_HH_val = sbh.dataCopy_ + hgtx + READHEX("46040000");
-   BinaryData sbh_HG_key = hhl.getDBKey();
-   BinaryData sbh_HG_val = hhl.serializeDBValue();
-   
-   ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction txh(iface_->dbEnv_[HEADERS].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction txH(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-
-   addOutPairH( sbh_HH_key, sbh_HH_val);
-   addOutPairH( sbh_HG_key, sbh_HG_val);
-
-   brr.resetPosition();
-   testBlockHeader bh;
-   bh.unserialize(brr);
-   bh.setDuplicateID(0);
-   bh.setBlockHeight(123000);
-
-   auto getBH = [&](const BinaryData& hash)->const BlockHeader&
-   { return bh; };
-   uint8_t sdup = iface_->putRawBlockData(brr, getBH);
-   EXPECT_TRUE(compareKVListRange(0,1, 0,1));
-   EXPECT_EQ(sdup, 0);
-
-   // Try adding it again and see if get the correct dup again, and no touch DB
-   sdup = iface_->putRawBlockData(brr, getBH);
-   EXPECT_TRUE(compareKVListRange(0,1, 0, 1));
-   EXPECT_EQ(sdup, 0);
-}
-
-////////////////////////////////////////////////////////////////////////////////
 TEST_F(LMDBTest, PutGetBareHeader)
 {
 //    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
@@ -5432,11 +5382,11 @@ TEST_F(LMDBTest, PutGetStoredTxHints)
 TEST_F(LMDBTest, PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
-   LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
-   LMDBEnv::Transaction sshtx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(iface_->dbEnv_[SSH].get(), LMDB::ReadWrite);
+   LMDBEnv::Transaction sshtx(iface_->dbEnv_[SUBSSH].get(), LMDB::ReadWrite);
 
    ///////////////////////////////////////////////////////////////////////////
-   // A whole bunch of setup stuff we need for SSH operations to work right
+   // A whole bunch of setup stuff we need for ssh operations to work right
    LMDBBlockDatabase *const iface = iface_;
    iface->setValidDupIDForHeight(255,0);
    iface->setValidDupIDForHeight(256,0);
@@ -5461,10 +5411,10 @@ TEST_F(LMDBTest, PutGetStoredScriptHistory)
          "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
          "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
          "0000");
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey0, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey1, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey2, RAWTX);
-   iface->putValue(HISTORY, DB_PREFIX_TXDATA, dbkey3, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey0, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey1, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey2, RAWTX);
+   iface->putValue(SSH, DB_PREFIX_TXDATA, dbkey3, RAWTX);
 
    TxIOPair txio0(dbkey0, val0);
    TxIOPair txio1(dbkey1, val1);
@@ -5493,7 +5443,7 @@ TEST_F(LMDBTest, PutGetStoredScriptHistory)
    EXPECT_EQ(ssh.subHistMap_.size(), 0);
 
    /////////////////////////////////////////////////////////////////////////////
-   // An empty SSH -- this shouldn't happen in production, but test it anyway
+   // An empty ssh -- this shouldn't happen in production, but test it anyway
    iface_->putStoredScriptHistory(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
@@ -6694,7 +6644,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
    ASSERT_TRUE(standardOpenDBs());
 
    ///////////////////////////////////////////////////////////////////////////
-   // A whole bunch of setup stuff we need for SSH operations to work right
+   // A whole bunch of setup stuff we need for ssh operations to work right
    LMDBBlockDatabase *const iface = iface_;
    iface->setValidDupIDForHeight(255, 0);
    iface->setValidDupIDForHeight(256, 0);
@@ -6751,7 +6701,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetStoredScriptHistory)
    EXPECT_EQ(ssh.subHistMap_.size(), 0);
 
    /////////////////////////////////////////////////////////////////////////////
-   // An empty SSH -- this shouldn't happen in production, but test it anyway
+   // An empty ssh -- this shouldn't happen in production, but test it anyway
    iface_->putStoredScriptHistory(ssh);
    iface_->getStoredScriptHistory(sshtemp, uniq);
 
@@ -10079,7 +10029,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    // Random note (since I just spent 2 hours trying to figure out why
    // I wasn't getting warnings about re-marking TxOuts spent that were
    // already marked spent):   We get three warnings about TxOuts that
-   // already marked unspent in the SSH objects when we replay blocks 
+   // already marked unspent in the ssh objects when we replay blocks 
    // 1 and 2 (but not 0). This is expected.  But, I also expected a 
    // warning about a TxOut already marked spent.  Turns out that 
    // we are replaying the previous block first which calls "markUnspent" 
@@ -10617,3 +10567,5 @@ GTEST_API_ int main(int argc, char **argv)
 
    return exitCode;
 }
+
+//TODO: add test to merge new addresses on reorg

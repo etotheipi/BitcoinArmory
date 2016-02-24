@@ -41,7 +41,7 @@ class ScrAddrFilter
    /***
    This class keeps track of all registered scrAddr to be scanned by the DB.
    If the DB isn't running in supernode, this class also acts as a helper to
-   filter transactions, which is required in order to save only relevant SSH
+   filter transactions, which is required in order to save only relevant ssh
 
    The transaction filter isn't exact however. It gets more efficient as it
    encounters more UTxO.
@@ -57,15 +57,15 @@ class ScrAddrFilter
    Registering addresses while the BDM isn't initialized will return instantly
    Otherwise, the following steps are taken:
 
-   1) Check SSH entries in the DB for this scrAddr. If there is none, this
+   1) Check ssh entries in the DB for this scrAddr. If there is none, this
    DB never saw this address (full/lite node). Else mark the top scanned block.
 
    -- Non supernode operations --
-   2.a) If the address is new, create an empty SSH header for that scrAddr
+   2.a) If the address is new, create an empty ssh header for that scrAddr
    in the DB, marked at the current top height
    2.b) If the address isn't new, scan it from its last seen block, or its
    block creation, or 0 if none of the above is available. This will create
-   the SSH entries for the address, which will have the current top height as
+   the ssh entries for the address, which will have the current top height as
    its scanned height.
    --
 
@@ -131,7 +131,7 @@ private:
    bool                           mergeFlag_=false;
    
    //false: dont scan
-   //true: wipe existing SSH then scan
+   //true: wipe existing ssh then scan
    bool                           doScan_ = true; 
    bool                           isScanning_ = false;
 

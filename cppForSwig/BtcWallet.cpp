@@ -9,7 +9,6 @@
 #include "BlockUtils.h"
 #include "txio.h"
 #include "BlockDataViewer.h"
-#include "ReorgUpdater.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -734,7 +733,7 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
          updateAfterReorg(startBlock);
          
       LMDBEnv::Transaction tx;
-      bdvPtr_->getDB()->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+      bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
 
       fetchDBScrAddrData(startBlock, endBlock);
       scanWalletZeroConf(reorg);
@@ -892,6 +891,8 @@ void BtcWallet::merge()
             }
             else
             {
+               throw("need reimplemented");
+
                //top scanned block is not on the main branch, undo till branch point
                const Blockchain::ReorganizationState state =
                   bc.findReorgPointFromBlock(mergeTopScannedBlkHash);
@@ -902,9 +903,6 @@ void BtcWallet::merge()
 
                for (const auto& scrAddr : scrAddrMapToMerge)
                   saf->regScrAddrForScan(scrAddr.first, 0);
-
-               ReorgUpdater reorgOnlyUndo(state,
-                  &bc, bdvPtr_->getDB(), bdvPtr_->config(), saf.get(), true);
 
                bottomBlock = state.reorgBranchPoint->getBlockHeight() + 1;
             }
@@ -954,7 +952,7 @@ map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
    map<uint32_t, preHistory> preHistSummary;
 
    LMDBEnv::Transaction tx;
-   bdvPtr_->getDB()->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
    for (auto& scrAddrPair : scrAddrMap_)
    {
       scrAddrPair.second.mapHistory();

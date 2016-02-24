@@ -23,17 +23,17 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 
    startAt_ = scanFrom;
 
-   //write address merkle in HISTORY sdbi
+   //write address merkle in SSH sdbi
    {
       auto&& addrMerkle = scrAddrFilter_->getAddressMapMerkle();
 
       LMDBEnv::Transaction historytx;
-      db_->beginDBTransaction(&historytx, HISTORY, LMDB::ReadWrite);
+      db_->beginDBTransaction(&historytx, SSH, LMDB::ReadWrite);
       
       StoredDBInfo historySdbi;
-      db_->getStoredDBInfo(HISTORY, historySdbi);
+      db_->getStoredDBInfo(SSH, historySdbi);
       historySdbi.metaHash_ = addrMerkle;
-      db_->putStoredDBInfo(HISTORY, historySdbi);
+      db_->putStoredDBInfo(SSH, historySdbi);
    }
 
    preloadUtxos();
@@ -562,22 +562,22 @@ void BlockchainScanner::writeBlockData(
       {
          //subssh
          LMDBEnv::Transaction tx;
-         db_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
+         db_->beginDBTransaction(&tx, SUBSSH, LMDB::ReadWrite);
 
          for (auto& subssh : serializedSubSSH)
          {
             db_->putValue(
-               SSH,
+               SUBSSH,
                subssh.first.getRef(),
                subssh.second.getDataRef());
          }
 
-         //update SSH sdbi
+         //update SUBSSH sdbi
          StoredDBInfo sdbi;
-         db_->getStoredDBInfo(SSH, sdbi);
+         db_->getStoredDBInfo(SUBSSH, sdbi);
          sdbi.topBlkHgt_ = batchLinkPtr->batchVec_[0]->end_;
          sdbi.topScannedBlkHash_ = batchLinkPtr->topScannedBlockHash_;
-         db_->putStoredDBInfo(SSH, sdbi);
+         db_->putStoredDBInfo(SUBSSH, sdbi);
       }
 
       //wait on writeHintsThreadId
@@ -681,7 +681,7 @@ void BlockchainScanner::processAndCommitTxHints(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::updateSSH(void)
 {
-   //loop over all subssh entiers in SSH db, 
+   //loop over all subssh entiers in SUBSSH db, 
    //compile balance, txio count and summary map for each address
 
    map<BinaryData, StoredScriptHistory> sshMap_;
@@ -690,10 +690,10 @@ void BlockchainScanner::updateSSH(void)
       StoredScriptHistory* sshPtr = nullptr;
 
       LMDBEnv::Transaction historyTx, sshTx;
-      db_->beginDBTransaction(&historyTx, HISTORY, LMDB::ReadOnly);
-      db_->beginDBTransaction(&sshTx, SSH, LMDB::ReadOnly);
+      db_->beginDBTransaction(&historyTx, SSH, LMDB::ReadOnly);
+      db_->beginDBTransaction(&sshTx, SUBSSH, LMDB::ReadOnly);
 
-      auto sshIter = db_->getIterator(SSH);
+      auto sshIter = db_->getIterator(SUBSSH);
       sshIter.seekToFirst();
 
       while (sshIter.advanceAndRead())
@@ -789,7 +789,7 @@ void BlockchainScanner::updateSSH(void)
    auto topheight = topheader.getBlockHeight();
 
    LMDBEnv::Transaction putsshtx;
-   db_->beginDBTransaction(&putsshtx, HISTORY, LMDB::ReadWrite);
+   db_->beginDBTransaction(&putsshtx, SSH, LMDB::ReadWrite);
 
    auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
    for (auto& scrAddr : scrAddrMap)
@@ -807,17 +807,17 @@ void BlockchainScanner::updateSSH(void)
       BinaryWriter bw;
       ssh.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
       
-      db_->putValue(HISTORY, sshKey.getRef(), bw.getDataRef());
+      db_->putValue(SSH, sshKey.getRef(), bw.getDataRef());
    }
 
    //update sdbi
    StoredDBInfo sdbi;
-   db_->getStoredDBInfo(HISTORY, sdbi);
+   db_->getStoredDBInfo(SSH, sdbi);
 
    sdbi.topScannedBlkHash_ = topScannedBlockHash_;
    sdbi.topBlkHgt_ = topheight;
 
-   db_->putStoredDBInfo(HISTORY, sdbi);
+   db_->putStoredDBInfo(SSH, sdbi);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -868,7 +868,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
       //create tx to pull subssh data
       LMDBEnv::Transaction sshTx;
-      db_->beginDBTransaction(&sshTx, SSH, LMDB::ReadOnly);
+      db_->beginDBTransaction(&sshTx, SUBSSH, LMDB::ReadOnly);
 
       //grab blocks from previous top until branch point
       if (blockPtr == nullptr)
@@ -1022,7 +1022,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
    //ssh
    {
       LMDBEnv::Transaction tx;
-      db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadWrite);
+      db_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
 
       //go thourgh all ssh in scrAddrFilter
       auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
@@ -1051,16 +1051,16 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       {
          BinaryWriter bw;
          ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
-         db_->putValue(HISTORY,
+         db_->putValue(SSH,
             ssh.second.getDBKey().getRef(),
             bw.getDataRef());
       }
 
-      //update HISTORY sdbi      
+      //update SSH sdbi      
       StoredDBInfo sdbi;
-      db_->getStoredDBInfo(HISTORY, sdbi);
+      db_->getStoredDBInfo(SSH, sdbi);
       sdbi.topScannedBlkHash_ = reorgState.reorgBranchPoint->getThisHash();
       sdbi.topBlkHgt_ = branchPointHeight;
-      db_->putStoredDBInfo(HISTORY, sdbi);
+      db_->putStoredDBInfo(SSH, sdbi);
    }
 }
