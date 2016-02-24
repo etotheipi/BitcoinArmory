@@ -43,7 +43,8 @@ class ProgressCalculator
 public:
    ProgressCalculator(uint64_t total);
    
-   void advance(uint64_t to);
+   void advance(uint64_t to, bool suppress = true);
+
    uint64_t total() const { return total_; }
 
    double fractionCompleted() const { return lastSample_/double(total_); }

@@ -21,6 +21,8 @@ void BlockchainScanner::scan(uint32_t scanFrom)
       return;
    }
 
+   startAt_ = scanFrom;
+
    //write address merkle in HISTORY sdbi
    {
       auto&& addrMerkle = scrAddrFilter_->getAddressMapMerkle();
@@ -190,7 +192,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
 {
    //getBlock lambda
-   auto getBlock = [&](unsigned height)->BlockData&
+   auto getBlock = [&](unsigned height)->BlockData
    {
       auto iter = batch->blocks_.find(height);
       if (iter == batch->blocks_.end())
@@ -246,7 +248,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
 
       while (currentBlock <= batch->end_)
       {
-         BlockData& bdata = getBlock(currentBlock);
+         BlockData&& bdata = getBlock(currentBlock);
          if (!bdata.isInitialized())
             return;
 
@@ -445,6 +447,16 @@ void BlockchainScanner::accumulateDataBeforeBatchWrite(
 void BlockchainScanner::writeBlockData(
    shared_ptr<BatchLink> batchLinkPtr)
 {
+   auto getGlobalOffsetForBlock = [&](unsigned height)->size_t
+   {
+      auto& header = blockchain_->getHeaderByHeight(height);
+      return header.getBlockFileNum() * 128 * 1024 * 1024 + header.getOffset();
+   };
+
+   ProgressCalculator calc(getGlobalOffsetForBlock(
+      blockchain_->top().getBlockHeight()));
+   calc.advance(getGlobalOffsetForBlock(startAt_));
+
    auto writeHintsLambda = 
       [&](const vector<shared_ptr<BlockDataBatch>>& batchVec)->void
    { processAndCommitTxHints(batchVec); };
@@ -574,6 +586,13 @@ void BlockchainScanner::writeBlockData(
 
       LOGINFO << "scanned from height #" << batchLinkPtr->batchVec_[0]->start_
          << " to #" << batchLinkPtr->batchVec_[0]->end_;
+
+      size_t progVal = getGlobalOffsetForBlock(batchLinkPtr->batchVec_[0]->end_);
+      calc.advance(progVal);
+      if (reportProgress_)
+         progress_(BDMPhase_Rescan,
+         calc.fractionCompleted(), calc.remainingSeconds(),
+         progVal);
 
       batchLinkPtr = batchLinkPtr->next_;
    }

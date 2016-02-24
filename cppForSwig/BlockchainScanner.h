@@ -10,6 +10,8 @@
 #include "lmdb_wrapper.h"
 #include "BDM_supportClasses.h"
 #include "BlockDataMap.h"
+#include "Progress.h"
+#include "bdmenums.h"
 
 #include <future>
 #include <atomic>
@@ -18,6 +20,8 @@
 
 #ifndef _BLOCKCHAINSCANNER_H
 #define _BLOCKCHAINSCANNER_H
+
+typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
 class ScanningException : public runtime_error
 {
@@ -95,8 +99,13 @@ private:
 
    BinaryData topScannedBlockHash_;
 
+   ProgressCallback progress_;
+   bool reportProgress_ = false;
+
    //only for relevant utxos
    map<BinaryData, map<unsigned, StoredTxOut>> utxoMap_;
+
+   unsigned startAt_ = 0;
 
 private:
    void scanBlockData(shared_ptr<BlockDataBatch>);
@@ -112,10 +121,12 @@ public:
    BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,
       ScrAddrFilter* saf,
       BlockFiles& bf,
-      unsigned threadcount) :
+      unsigned threadcount,
+      ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
       totalThreadCount_(threadcount),
-      blockDataLoader_(bf.folderPath(), true, true, true)
+      blockDataLoader_(bf.folderPath(), true, true, true),
+      progress_(prg), reportProgress_(reportProgress)
    {
    }
 

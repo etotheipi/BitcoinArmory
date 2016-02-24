@@ -130,8 +130,6 @@ void DatabaseBuilder::init()
 
       LOGINFO << "repairing DB";
 
-      //TODO: implement repair procedure
-
       //grab top scanned height from SSH DB
       StoredDBInfo sdbi;
       db_->getStoredDBInfo(SSH, sdbi);
@@ -210,21 +208,32 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    const ProgressCallback &progress, bool verbose)
 {
-   //TODO: squeeze in the progress callback
-
    //preload and prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
+
+   unsigned threadcount = min(threadCount_,
+      blockFiles_.fileCount() - topBlockOffset_.fileID_);
 
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
       shared_ptr<BlockOffset> bo, bool verbose)->void
    {
+      ProgressCalculator calc(blockFiles_.fileCount());
+      calc.advance(fileID);
+
       while (1)
       {
          if (!addBlocksToDB(bdl, fileID, startOffset, bo))
             return;
 
          if (verbose)
+         {
             LOGINFO << "parsed block file #" << fileID;
+            
+            calc.advance(fileID + threadcount, false);
+            progress(BDMPhase_BlockData,
+            calc.fractionCompleted(), calc.remainingSeconds(), 
+               fileID + threadcount);
+         }
 
          //reset startOffset for the next file
          startOffset = 0;
@@ -234,9 +243,6 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
    vector<thread> tIDs;
    vector<shared_ptr<BlockOffset>> boVec;
-
-   unsigned threadcount = min(threadCount_,
-      blockFiles_.fileCount() - topBlockOffset_.fileID_);
 
    for (unsigned i = 1; i < threadcount; i++)
    {
@@ -401,17 +407,18 @@ void DatabaseBuilder::parseBlockFile(
 BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
 {
    //Scan history
-   auto topScannedBlockHash = scanHistory(startHeight);
+   auto topScannedBlockHash = scanHistory(startHeight, true);
 
    //return the hash of the last scanned block
    return topScannedBlockHash;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight)
+BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
+   bool reportprogress)
 {
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(),
-      blockFiles_, threadCount_);
+      blockFiles_, threadCount_, progress_, reportprogress);
    
    bcs.scan(startHeight);
    bcs.updateSSH();
@@ -447,7 +454,7 @@ uint32_t DatabaseBuilder::update(void)
    }
 
    //scan new blocks   
-   BinaryData&& topScannedHash = scanHistory(startHeight);
+   BinaryData&& topScannedHash = scanHistory(startHeight, false);
    if (topScannedHash != blockchain_.top().getThisHash())
       throw runtime_error("scan failure during DatabaseBuilder::update");
 
@@ -461,7 +468,7 @@ void DatabaseBuilder::undoHistory(
    Blockchain::ReorganizationState& reorgState)
 {
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(), 
-      blockFiles_, threadCount_);
+      blockFiles_, threadCount_, progress_, false);
    bcs.undo(reorgState);
 
    blockchain_.setDuplicateIDinRAM(db_);

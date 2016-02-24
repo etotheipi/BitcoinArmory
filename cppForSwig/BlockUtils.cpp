@@ -1136,10 +1136,12 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
 #ifdef _DEBUG
    threadcount = DEBUG_THREAD_COUNT;
 #endif
-   
+
+   ProgressCallback prg;
+
    // Start scanning and timer
    BlockchainScanner bcs(&blockchain_, iface_, &scrAddrData, 
-      *blockFiles_.get(), threadcount);
+      *blockFiles_.get(), threadcount, prg, false);
    bcs.scan(blk0);
 
    return bcs.getTopScannedBlockHash();
@@ -1261,6 +1263,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
+   iface_->resetHistoryDatabases();
    loadDiskState(progress, true);
 }
 
@@ -1291,29 +1294,7 @@ void BlockDataManager_LevelDB::loadDiskState(
    const ProgressCallback &progress,
    bool forceRescan
 )
-{
-   class ProgressWithPhase : public ProgressReporter
-   {
-      const BDMPhase phase_;
-      const ProgressCallback progress_;
-   public:
-      ProgressWithPhase(
-         BDMPhase phase,
-         const ProgressCallback& progress
-      ) : phase_(phase), progress_(progress)
-      {
-         this->progress(0.0, 0);
-      }
-      
-      virtual void progress(
-         double progress, unsigned secondsRemaining
-      )
-      {
-         progress_(phase_, progress, secondsRemaining, 0);
-      }
-   };
-  
-   //quick hack to signal scrAddrData_ that the BDM is loading/loaded.
+{  
    BDMstate_ = BDM_initializing;
          
    blockFiles_ = make_shared<BlockFiles>(config_.blkFileLocation);
@@ -1362,134 +1343,9 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
    const BlockDataManager_LevelDB::BlkFileUpdateCallbacks& callbacks
 )
 {
-   // i don't know why this is here
    scrAddrData_->checkForMerge();
    
    return dbBuilder_->update();
-     
-   //old code
-
-   // callbacks is used by gtest to update the blockchain at certain moments
-
-   uint32_t prevTopBlk = blockchain_.top().getBlockHeight()+1;
-   
-   const BlockFilePosition headerOffset
-      = blkDataPosition_;
-   NullProgressReporter prog;
-   
-   const pair<BlockFilePosition, vector<BlockHeader*>>
-      loadResult = loadBlockHeadersStartingAt(prog, headerOffset);
-   
-   const BlockFilePosition &readHeadersUpTo = loadResult.first;
-
-   if (callbacks.headersRead)
-      callbacks.headersRead();
-      
-   if (loadResult.second.empty())
-      return 0;
-   
-   
-   try
-   {
-      const Blockchain::ReorganizationState state = blockchain_.organize(false);
-      const bool updateDupID = state.prevTopBlockStillValid;
-
-      if (!state.hasNewTop)
-      {
-         blkDataPosition_ = readHeadersUpTo;
-         return 0;
-      }
-
-      {
-         LMDBEnv::Transaction tx;
-         iface_->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
-
-         //grab all blocks from previous to current top
-         vector<BlockHeader*> newHeadersVec;
-         {
-            BlockHeader* newHeader = state.prevTopBlock;
-            if (!state.prevTopBlockStillValid)
-               newHeader = state.reorgBranchPoint;
-
-            while (1)
-            {
-               BinaryData nextHash = newHeader->getNextHashRef();
-               try
-               {
-                  newHeader = &blockchain_.getHeaderByHash(nextHash);
-                  newHeadersVec.push_back(newHeader);
-               }
-               catch (std::range_error&)
-               {
-                  //got the last block
-                  break;
-               }
-            }
-         }
-      
-         for (BlockHeader *bh : newHeadersVec)
-         {
-            StoredHeader sbh;
-            sbh.createFromBlockHeader(*bh);
-            uint8_t dup = iface_->putBareHeader(sbh, updateDupID);
-            bh->setDuplicateID(dup);
-         }
-
-         if (callbacks.headersUpdated)
-            callbacks.headersUpdated();
-         
-         //find lowest offset in the new blocks to add
-         for (auto bh : newHeadersVec)
-         {
-            if (bh->getBlockFileNum() < blkDataPosition_.first ||
-               (bh->getBlockFileNum() == blkDataPosition_.first &&
-               bh->getOffset() < blkDataPosition_.second))
-            {
-               blkDataPosition_.first = bh->getBlockFileNum();
-               blkDataPosition_.second = bh->getOffset();
-            }
-         }
-
-         loadBlockData(prog, readHeadersUpTo, updateDupID);
-         if (callbacks.blockDataLoaded)
-            callbacks.blockDataLoaded();
-      }
-      
-      if(!state.prevTopBlockStillValid)
-      {
-         LOGWARN << "Blockchain Reorganization detected!";
-         ReorgUpdater reorg(state, &blockchain_, iface_, config_, 
-            scrAddrData_.get(), false);
-         
-         LOGINFO << prevTopBlk - state.reorgBranchPoint->getBlockHeight() << " blocks long reorg!";
-         prevTopBlk = state.reorgBranchPoint->getBlockHeight();
-      }
-      else if(state.hasNewTop)
-      {
-         const BlockHeader & bh = blockchain_.top();
-         uint32_t hgt = bh.getBlockHeight();
-   
-         //LOGINFO << "Applying block to DB!";
-         applyBlockRangeToDB(prog, prevTopBlk, hgt, *scrAddrData_.get());
-      }
-      else
-      {
-         LOGWARN << "Block data did not extend the main chain!";
-         // New block was added -- didn't cause a reorg but it's not the
-         // new top block either (it's a fork block).  We don't do anything
-         // at all until the reorg actually happens
-      }
-   }
-   catch (std::exception &e)
-   {
-      LOGERR << "Error adding block data: " << e.what();
-   }
-   
-   // If an orphan block is found, I won't get here and therefor
-   // the orphan block will have its header read again. Then, if 
-   // the header gets a height, its blkdata is also read
-   blkDataPosition_ = readHeadersUpTo;
-   return prevTopBlk;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
