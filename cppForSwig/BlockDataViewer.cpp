@@ -268,28 +268,11 @@ Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 {
    checkBDMisReady();
 
-   if (config().armoryDbType == ARMORY_DB_SUPER)
-   {
-      LMDBEnv::Transaction tx(db_->dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-
-      TxRef txrefobj = db_->getTxRef(txhash);
-
-      if (!txrefobj.isNull())
-         return txrefobj.attached(db_).getTxCopy();
-      else
-      {
-         // It's not in the blockchain, but maybe in the zero-conf tx list
-         return zeroConfCont_.getTxByHash(txhash);
-      }
-   }
+   StoredTx stx;
+   if (db_->getStoredTx_byHash(txhash, &stx))
+      return stx.getTxCopy();
    else
-   {
-      StoredTx stx;
-      if (db_->getStoredTx_byHash(txhash, &stx))
-         return stx.getTxCopy();
-      else
-         return zeroConfCont_.getTxByHash(txhash);
-   }
+      return zeroConfCont_.getTxByHash(txhash);
 }
 
 bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
@@ -486,7 +469,8 @@ StoredHeader BlockDataViewer::getMainBlockFromDB(uint32_t height) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-StoredHeader BlockDataViewer::getBlockFromDB(uint32_t height, uint8_t dupID) const
+StoredHeader BlockDataViewer::getBlockFromDB(
+   uint32_t height, uint8_t dupID) const
 {
    StoredHeader sbh;
    db_->getStoredHeader(sbh, height, dupID, true);
@@ -725,11 +709,10 @@ TxOut BlockDataViewer::getTxOutCopy(
    const BinaryData& txHash, uint16_t index) const
 {
    LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   db_->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
       
 
-   BinaryData bdkey;
-   db_->getStoredTx_byHash(txHash, nullptr, &bdkey);
+   BinaryData bdkey = db_->getDBKeyForHash(txHash);
 
    if (bdkey.getSize() == 0)
       return TxOut();

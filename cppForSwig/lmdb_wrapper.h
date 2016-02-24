@@ -333,12 +333,12 @@ public:
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key) const;
 
    BinaryData getDBKeyForHash(const BinaryData& txhash, 
-      uint8_t dupId = UINT8_MAX);
-   BinaryData getHashForDBKey(BinaryData dbkey);
+      uint8_t dupId = UINT8_MAX) const;
+   BinaryData getHashForDBKey(BinaryData dbkey) const;
    BinaryData getHashForDBKey(uint32_t hgt,
       uint8_t  dup,
       uint16_t txi = UINT16_MAX,
-      uint16_t txo = UINT16_MAX);
+      uint16_t txo = UINT16_MAX) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
@@ -440,33 +440,13 @@ public:
    // BareHeaders are those int the HEADERS DB with no blockdta associated
    uint8_t putBareHeader(StoredHeader & sbh, bool updateDupID = true,
                          bool updateSDBI = true);
-   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup);
-   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt);
-   bool    getBareHeader(StoredHeader & sbh, BinaryDataRef headHash);
+   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup) const;
+   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt) const;
+   bool    getBareHeader(StoredHeader & sbh, BinaryDataRef headHash) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   // StoredHeader accessors
-   //For Supernode
-   uint8_t putStoredHeader(StoredHeader & sbh,
-      bool withBlkData = true,
-      bool updateDupID = true);
-
-   //getStoredHeader detects the dbType and update the passed StoredHeader
-   //accordingly
-   bool getStoredHeader(StoredHeader & sbh,
-      uint32_t blockHgt,
-      uint8_t blockDup = UINT8_MAX,
-      bool withTx = true) const;
-
-   bool getStoredHeader(StoredHeader & sbh,
-      BinaryDataRef headHash,
-      bool withTx = true) const;
-
-   // This seemed unnecessary and was also causing conflicts with optional args
-   //bool getStoredHeader(StoredHeader & sbh,
-   //uint32_t blockHgt,
-   //bool withTx=true);
-
+   // still using the old name even though no block data is stored anymore
+   bool getStoredHeader(StoredHeader&, uint32_t, uint8_t, bool withTx=true) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredTx Accessors
@@ -485,8 +465,7 @@ public:
       BinaryDataRef dbKey) const;
 
    bool getStoredTx_byHash(const BinaryData& txHash,
-      StoredTx* stx = nullptr,
-      BinaryData* DBkey = nullptr) const;
+      StoredTx* stx = nullptr) const;
 
    bool getStoredTx(StoredTx & st,
       uint32_t blkHgt,
@@ -575,25 +554,12 @@ public:
    void updatePreferredTxHint(BinaryDataRef hashOrPrefix, BinaryData preferKey);
 
    bool putStoredHeadHgtList(StoredHeadHgtList const & hhl);
-   bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height);
+   bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height) const;
 
    ////////////////////////////////////////////////////////////////////////////
    // Some methods to grab data at the current iterator location.  Return
    // false if reading fails (maybe because we were expecting to find the
    // specified DB entry type, but the prefix byte indicated something else
-   bool readStoredBlockAtIter(LDBIter & ldbIter, DBBlock & sbh) const;
-
-   bool readStoredTxAtIter(LDBIter & iter,
-      uint32_t height,
-      uint8_t dupID,
-      DBTx & stx) const;
-
-   bool readStoredTxOutAtIter(LDBIter & iter,
-      uint32_t height,
-      uint8_t  dupID,
-      uint16_t txIndex,
-      StoredTxOut & stxo) const;
-
    bool readStoredScriptHistoryAtIter(LDBIter & iter,
       StoredScriptHistory & ssh,
       uint32_t startBlock,
