@@ -59,6 +59,8 @@ private:
    }
 
    void resetHistory(void);
+   void resetSSHdb(void);
+
    bool reparseBlkFiles(unsigned fromID);
    map<BinaryData, BlockHeader> assessBlkFile(BlockDataLoader& bdl,
       unsigned fileID);

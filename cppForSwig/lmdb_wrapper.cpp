@@ -383,47 +383,6 @@ void LMDBBlockDatabase::openDatabases(
 {
    baseDir_ = basedir;
 
-   if (dbtype == ARMORY_DB_SUPER)
-   {
-      //make sure it is a supernode DB
-#ifdef WIN32
-      if (access(dbHeadersFilename().c_str(), 0) == 0)
-#else
-      if (access(dbHeadersFilename().c_str(), F_OK) == 0)
-#endif
-      {
-         LOGERR << "Mismatch in DB type";
-         LOGERR << "Requested supernode";
-         LOGERR << "Current DB is fullnode";
-         throw runtime_error("Mismatch in DB type");
-      }
-
-      try
-      {
-         openDatabasesSupernode(basedir,
-            genesisBlkHash, genesisTxHash,
-            magic, dbtype, pruneType);
-      }
-      catch (LMDBException &e)
-      {
-         LOGERR << "Exception thrown while opening database";
-         LOGERR << e.what();
-         throw e;
-      }
-      catch (runtime_error &e)
-      {
-         throw e;
-      }
-      catch (...)
-      {
-         LOGERR << "Exception thrown while opening database";
-         closeDatabases();
-         throw;
-      }
-
-      return;
-   }
-
    SCOPED_TIMER("openDatabases");
    LOGINFO << "Opening databases...";
 
@@ -444,107 +403,30 @@ void LMDBBlockDatabase::openDatabases(
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
 
-   for (int i = 0; i < COUNT; i++)
-      dbEnv_[DB_SELECT(i)].reset(new LMDBEnv());
-
-   //checks if the db is supernode, we dont do that yet.
-   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
-
-   
-   //make sure it's a fullnode DB
-   {
-      LMDB checkDBType;
-      const char* dataPtr = nullptr;
-
-      {
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-         checkDBType.open(dbEnv_[BLKDATA].get(), "blkdata");
-         auto dbKey = StoredDBInfo::getDBKey();
-         CharacterArrayRef data = checkDBType.get_NoCopy(CharacterArrayRef(
-            dbKey.getSize(), (char*)dbKey.getPtr()));
-
-         dataPtr = data.data;
-      }
-
-      checkDBType.close();
-
-      if (dataPtr != nullptr)
-      {
-         LOGERR << "Mismatch in DB type";
-         LOGERR << "Requested fullnode";
-         LOGERR << "Current DB is supernode";
-         throw runtime_error("Mismatch in DB type");
-      }
-   }
-
-
-   dbEnv_[HEADERS]->open(dbHeadersFilename());
-   dbEnv_[HISTORY]->open(dbHistoryFilename());
-   dbEnv_[TXHINTS]->open(dbTxhintsFilename());
-   dbEnv_[SSH]->open(dbSshFilename());
-   dbEnv_[SUBSSH]->open(dbSubSshFilename());
-   dbEnv_[STXO]->open(dbStxoFilename());
-   dbEnv_[ZERO_CONF]->open(dbZCFilename());
-
-
-   map<DB_SELECT, string> DB_NAMES;
-   DB_NAMES[HEADERS] = "headers";
-   DB_NAMES[HISTORY] = "history";
-   DB_NAMES[BLKDATA] = "blocks";
-   DB_NAMES[TXHINTS] = "txhints";
-   DB_NAMES[SSH] = "ssh";
-   DB_NAMES[SUBSSH] = "subssh";
-   DB_NAMES[STXO] = "stxo";
-   DB_NAMES[ZERO_CONF] = "zeroconf";
-
-
    try
    {
-      for (auto& db : DB_NAMES)
+      for (int i = 0; i < COUNT; i++)
       {
-         DB_SELECT CURRDB = db.first;
-         LMDBEnv::Transaction tx(dbEnv_[CURRDB].get(), LMDB::ReadWrite);
+         DB_SELECT CURRDB = DB_SELECT(i);
+         StoredDBInfo sdbi = openDB(CURRDB);
 
-         dbs_[CURRDB].open(dbEnv_[CURRDB].get(), db.second);
-
-         //no SDBI in TXHINTS
-         if (CURRDB == TXHINTS)
-            continue;
-
-         StoredDBInfo sdbi;
-         getStoredDBInfo(CURRDB, sdbi, false);
-         if (!sdbi.isInitialized())
+         // Check that the magic bytes are correct
+         if (magicBytes_ != sdbi.magic_)
          {
-            // If DB didn't exist yet (dbinfo key is empty), seed it
-            // A new database has the maximum flag settings
-            // Flags can only be reduced.  Increasing requires redownloading
-            StoredDBInfo sdbi;
-            sdbi.magic_ = magicBytes_;
-            sdbi.topBlkHgt_ = 0;
-            sdbi.armoryType_ = armoryDbType_;
-            sdbi.pruneType_ = dbPruneType_;
-            putStoredDBInfo(CURRDB, sdbi);
+            throw runtime_error("Magic bytes mismatch!  Different blkchain?");
          }
-         else
+
+         else if (armoryDbType_ != sdbi.armoryType_)
          {
-            // Check that the magic bytes are correct
-            if (magicBytes_ != sdbi.magic_)
-            {
-               throw runtime_error("Magic bytes mismatch!  Different blkchain?");
-            }
+            LOGERR << "Mismatch in DB type";
+            LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
+            LOGERR << "Expecting mode: " << sdbi.armoryType_;
+            throw runtime_error("Mismatch in DB type");
+         }
 
-            else if (armoryDbType_ != sdbi.armoryType_)
-            {
-               LOGERR << "Mismatch in DB type";
-               LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
-               LOGERR << "Expecting mode: " << sdbi.armoryType_;
-               throw runtime_error("Mismatch in DB type");
-            }
-
-            if (dbPruneType_ != sdbi.pruneType_)
-            {
-               throw runtime_error("Mismatch in DB type");
-            }
+         if (dbPruneType_ != sdbi.pruneType_)
+         {
+            throw runtime_error("Mismatch in DB type");
          }
       }
    }
@@ -569,115 +451,6 @@ void LMDBBlockDatabase::openDatabases(
 
    dbIsOpen_ = true;
 }
-
-void LMDBBlockDatabase::openDatabasesSupernode(
-   const string& basedir,
-   BinaryData const & genesisBlkHash,
-   BinaryData const & genesisTxHash,
-   BinaryData const & magic,
-   ARMORY_DB_TYPE     dbtype,
-   DB_PRUNE_TYPE      pruneType
-)
-{
-   throw runtime_error("tried to open DB in supernode, not implemented");
-/*   SCOPED_TIMER("openDatabases");
-   LOGINFO << "Opening databases...";
-
-   baseDir_ = basedir;
-
-   magicBytes_ = magic;
-   genesisTxHash_ = genesisTxHash;
-   genesisBlkHash_ = genesisBlkHash;
-   
-   armoryDbType_ = dbtype;
-   dbPruneType_ = pruneType;
-
-   if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
-   {
-      LOGERR << " must set magic bytes and genesis block";
-      LOGERR << "           before opening databases.";
-      throw runtime_error("magic bytes not set");
-   }
-
-   // Just in case this isn't the first time we tried to open it.
-   closeDatabasesSupernode();
-   
-   dbEnv_[BLKDATA].reset(new LMDBEnv());
-   dbEnv_[BLKDATA]->open(dbBlkdataFilename());
-   
-   map<DB_SELECT, string> DB_NAMES;
-   DB_NAMES[HEADERS] = "headers";
-   DB_NAMES[BLKDATA] = "blkdata";
-
-   try
-   {
-      for(auto& db : DB_NAMES)
-      {
-         DB_SELECT CURRDB = db.first;
-         LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
-
-         dbs_[CURRDB].open(dbEnv_[BLKDATA].get(), db.second);
-
-         StoredDBInfo sdbi;
-         getStoredDBInfo(CURRDB, sdbi, false); 
-         if(!sdbi.isInitialized())
-         {
-            // If DB didn't exist yet (dbinfo key is empty), seed it
-            // A new database has the maximum flag settings
-            // Flags can only be reduced.  Increasing requires redownloading
-            StoredDBInfo sdbi;
-            sdbi.magic_      = magicBytes_;
-            sdbi.topBlkHgt_  = 0;
-            sdbi.topBlkHash_ = genesisBlkHash_;
-            sdbi.armoryType_ = armoryDbType_;
-            sdbi.pruneType_ = dbPruneType_;
-            putStoredDBInfo(CURRDB, sdbi);
-         }
-         else
-         {
-            // Check that the magic bytes are correct
-            if(magicBytes_ != sdbi.magic_)
-            {
-               throw runtime_error("Magic bytes mismatch!  Different blkchain?");
-            }
-      
-            else if(armoryDbType_ != sdbi.armoryType_)
-            {
-               LOGERR << "Mismatch in DB type";
-               LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
-               LOGERR << "Expecting mode: " << sdbi.armoryType_;
-               throw runtime_error("Mismatch in DB type");
-            }
-
-            if(dbPruneType_ != sdbi.pruneType_)
-            {
-               throw runtime_error("Mismatch in DB type");
-            }
-         }
-      }
-   }
-   catch (LMDBException &e)
-   {
-      LOGERR << "Exception thrown while opening database";
-      LOGERR << e.what();
-      throw e;
-   }
-   catch (runtime_error &e)
-   {
-      LOGERR << "Exception thrown while opening database";
-      LOGERR << e.what();
-      throw e;
-   }
-   catch(...)
-   {
-      LOGERR << "Exception thrown while opening database";
-      closeDatabases();
-      throw;
-   }
-   
-   dbIsOpen_ = true;*/
-}
-
 
 /////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::nukeHeadersDB(void)
@@ -713,29 +486,9 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
 // DBs don't really need to be closed.  Just delete them
 void LMDBBlockDatabase::closeDatabases(void)
 {
-   if (armoryDbType_ == ARMORY_DB_SUPER)
-   {
-      closeDatabasesSupernode();
-      return;
-   }
-
    for(uint32_t db=0; db<COUNT; db++)
-   {
-      dbs_[(DB_SELECT)db].close();
-      if (dbEnv_[(DB_SELECT)db] != nullptr)
-         dbEnv_[(DB_SELECT)db]->close();
-   }
-   dbIsOpen_ = false;
-}
+      closeDB(DB_SELECT(db));
 
-/////////////////////////////////////////////////////////////////////////////
-// DBs don't really need to be closed.  Just delete them
-void LMDBBlockDatabase::closeDatabasesSupernode(void)
-{
-   dbs_[BLKDATA].close();
-   dbs_[HEADERS].close();
-   if (dbEnv_[BLKDATA] != nullptr)
-      dbEnv_[BLKDATA]->close();
    dbIsOpen_ = false;
 }
 
@@ -743,10 +496,10 @@ void LMDBBlockDatabase::closeDatabasesSupernode(void)
 void LMDBBlockDatabase::resetHistoryDatabases(void)
 {
    closeDatabases();
-   remove(dbSubSshFilename().c_str());
-   remove(dbSshFilename().c_str());
-   remove(dbTxhintsFilename().c_str());
-   remove(dbStxoFilename().c_str());
+   remove(getDbPath(SUBSSH).c_str());
+   remove(getDbPath(SSH).c_str());
+   remove(getDbPath(TXHINTS).c_str());
+   remove(getDbPath(STXO).c_str());
 
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_,
       magicBytes_, armoryDbType_, dbPruneType_);
@@ -762,14 +515,8 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    // it was called with originally
    {
       closeDatabases();
-      remove(dbHeadersFilename().c_str());
-      remove(dbHistoryFilename().c_str());
-      remove(dbBlkdataFilename().c_str());
-      remove(dbTxhintsFilename().c_str());
-      remove(dbSshFilename().c_str());
-      remove(dbSubSshFilename().c_str());
-      remove(dbStxoFilename().c_str());
-      remove(dbZCFilename().c_str());
+      for (unsigned db = HEADERS; db != COUNT; db++)
+         remove(getDbPath(static_cast<DB_SELECT>(db)).c_str());
    }
    
    // Reopen the databases with the exact same parameters as before
@@ -1404,13 +1151,15 @@ bool LMDBBlockDatabase::getFullUTXOMapForSSH(
                                 map<BinaryData, UnspentTxOut> & mapToFill,
                                 bool withMultisig)
 {
-   throw runtime_error("not implemented");
+   //TODO: deprecate. replace with paged version once new coin control is
+   //implemented
 
    if(!ssh.haveFullHistoryLoaded())
       return false;
 
-   LMDBEnv::Transaction tx;
-   beginDBTransaction(&tx, HISTORY, LMDB::ReadOnly);
+   LMDBEnv::Transaction stxotx, hinttx;
+   beginDBTransaction(&stxotx, STXO, LMDB::ReadOnly);
+   beginDBTransaction(&hinttx, TXHINTS, LMDB::ReadOnly);
 
    {
       for (const auto& ssPair : ssh.subHistMap_)
@@ -2425,53 +2174,26 @@ bool LMDBBlockDatabase::getStoredTxOut(
    if (DBkey.getSize() != 8)
    {
       LOGERR << "Tried to get StoredTxOut, but the provided key is not of the "
-                 "proper size. Expect size is 8, this key is: " << DBkey.getSize();
+         "proper size. Expect size is 8, this key is: " << DBkey.getSize();
       return false;
    }
 
-   if (armoryDbType_ == ARMORY_DB_SUPER)
+   //Let's look in the db first. Stxos are fetched mostly to spend coins,
+   //so there is a high chance we wont need to pull the stxo from the raw
+   //block, since fullnode keeps track of all relevant stxos
+
+   LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
+   BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
+
+   if (brr.getSize() > 0)
    {
-      BinaryData key = WRITE_UINT8_BE(DB_PREFIX_TXDATA);
-      key.append(DBkey);
-
-      LMDBEnv::Transaction tx(dbEnv_[BLKDATA].get(), LMDB::ReadOnly);
-      BinaryRefReader brr = getValueReader(BLKDATA, key);
-      if (brr.getSize() == 0)
-      {
-         LOGERR << "BLKDATA DB does not have the requested TxOut";
-         return false;
-      }
-
       stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
       stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
       stxo.txIndex_ = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
       stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
 
       stxo.unserializeDBValue(brr);
-
       return true;
-   }
-   else
-   {
-      {
-         //Let's look in the db first. Stxos are fetched mostly to spend coins,
-         //so there is a high chance we wont need to pull the stxo from the raw
-         //block, since fullnode keeps track of all relevant stxos
-
-         LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
-         BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
-
-         if (brr.getSize() > 0)
-         {
-            stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
-            stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
-            stxo.txIndex_ = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
-            stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
-
-            stxo.unserializeDBValue(brr);
-            return true;
-         }
-      }
    }
 
    return false;
@@ -3055,4 +2777,93 @@ void LMDBBlockDatabase::resetHistoryForAddressVector(
 
       deleteValue(SSH, addrWithPrefix.getRef());
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredDBInfo LMDBBlockDatabase::openDB(DB_SELECT db)
+{
+   dbEnv_[db] = make_shared<LMDBEnv>();
+   dbEnv_[db]->open(getDbPath(db));
+
+   LMDBEnv::Transaction tx(dbEnv_[db].get(), LMDB::ReadWrite);
+   dbs_[db].open(dbEnv_[db].get(), getDbName(db));
+
+   StoredDBInfo sdbi;
+   getStoredDBInfo(db, sdbi, false);
+   if (!sdbi.isInitialized())
+   {
+      // If DB didn't exist yet (dbinfo key is empty), seed it
+      sdbi.magic_ = magicBytes_;
+      sdbi.metaHash_ = BtcUtils::EmptyHash_;
+      sdbi.topBlkHgt_ = 0;
+      sdbi.armoryType_ = armoryDbType_;
+      sdbi.pruneType_ = dbPruneType_;
+      putStoredDBInfo(db, sdbi);
+   }
+
+   return sdbi;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string LMDBBlockDatabase::getDbPath(DB_SELECT db) const
+{
+   stringstream ss;
+   ss << baseDir_ << "/" << getDbName(db);
+   return ss.str();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string LMDBBlockDatabase::getDbName(DB_SELECT db) const
+{
+   switch(db)
+   {
+      case HEADERS:
+         return "headers";
+
+      case BLKDATA:
+         return "blkdata";
+
+      case HISTORY:
+         return "history";
+
+      case TXHINTS:
+         return "txhints";
+
+      case SSH:
+         return "ssh";
+
+      case SUBSSH:
+         return "subssh";
+
+      case STXO:
+         return "stxo";
+
+      case ZERO_CONF:
+         return "zeroconf";
+
+      default: 
+         throw runtime_error("unknown db");
+   }
+
+   return "";
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::closeDB(DB_SELECT db)
+{
+   dbs_[db].close();
+   if (dbEnv_[db] != nullptr)
+   {
+      dbEnv_[db]->close();
+      dbEnv_[db].reset();
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void LMDBBlockDatabase::resetSSHdb()
+{
+   closeDB(SSH);
+   remove(getDbPath(SSH).c_str());
+
+   openDB(SSH);
 }

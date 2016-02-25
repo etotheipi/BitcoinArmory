@@ -289,6 +289,7 @@ try
          if (mode == 0) bdm->doInitialSyncOnLoad(loadProgress);
          else if (mode == 1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
          else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
+         else if (mode == 3) bdm->doInitialSyncOnLoad_RescanBalance(loadProgress);
 
          if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
          {

@@ -111,6 +111,7 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
+parser.add_option("--rescanBalance",   dest="rescanBalance", default=False,     action="store_true", help="Rescan balance")
 parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
@@ -917,6 +918,7 @@ fileRebuild     = os.path.join(ARMORY_HOME_DIR, 'rebuild.flag')
 fileRescan      = os.path.join(ARMORY_HOME_DIR, 'rescan.flag')
 fileDelSettings = os.path.join(ARMORY_HOME_DIR, 'delsettings.flag')
 fileClrMempool  = os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag')
+fileRescanBalance  = os.path.join(ARMORY_HOME_DIR, 'rescanbalance.flag')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
@@ -941,15 +943,25 @@ elif os.path.exists(fileRebuild):
 
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
+      
+   if os.path.exists(fileRescanBalance):
+      os.remove(fileRescanBalance)
 
    CLI_OPTIONS.rebuild = True
+
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
    os.remove(fileRescan)
-   if os.path.exists(fileRebuild):
-      os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
+   
+   if os.path.exists(fileRescanBalance):
+      os.remove(fileRescanBalance)
 
+elif os.path.exists(fileRescanBalance):
+   LOGINFO('Found %s, will rescan balances' % fileRescanBalance)
+   os.remove(fileRescanBalance)
+   CLI_OPTIONS.rescanBalance = True
+   
 CLI_OPTIONS.clearMempool = False
 if os.path.exists(fileClrMempool):
    # Flag to clear all ZC transactions from database

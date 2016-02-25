@@ -12,28 +12,48 @@
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::scan(uint32_t scanFrom)
 {
-   //sanity check
-   auto topBlock = blockchain_->top();
-   if (topBlock.getBlockHeight() < scanFrom)
-   {
-      LOGWARN << "tried to scan the chain from a height beyond current top,"
-         " aborting";
-      return;
-   }
-
    startAt_ = scanFrom;
+
+   auto& topBlock = blockchain_->top();
+   StoredDBInfo subsshSdbi;
 
    //write address merkle in SSH sdbi
    {
       auto&& addrMerkle = scrAddrFilter_->getAddressMapMerkle();
 
+      StoredDBInfo sshSdbi;
       LMDBEnv::Transaction historytx;
       db_->beginDBTransaction(&historytx, SSH, LMDB::ReadWrite);
       
-      StoredDBInfo historySdbi;
-      db_->getStoredDBInfo(SSH, historySdbi);
-      historySdbi.metaHash_ = addrMerkle;
-      db_->putStoredDBInfo(SSH, historySdbi);
+      db_->getStoredDBInfo(SSH, sshSdbi);
+      sshSdbi.metaHash_ = addrMerkle;
+      db_->putStoredDBInfo(SSH, sshSdbi);
+   }
+
+   db_->getStoredDBInfo(SUBSSH, subsshSdbi);
+   BlockHeader* sdbiblock = nullptr;
+
+   //check if we need to scan anything
+   try
+   {
+      sdbiblock = 
+         &blockchain_->getHeaderByHash(subsshSdbi.topScannedBlkHash_);
+   }
+   catch (...)
+   {
+      sdbiblock = &blockchain_->getHeaderByHeight(0);
+   }
+
+   if (sdbiblock->isMainBranch())
+   {
+      if (scanFrom != 0 && 
+          (sdbiblock->getBlockHeight() >= scanFrom ||
+          scanFrom > topBlock.getBlockHeight()))
+      {
+         LOGINFO << "no history to scan";
+         topScannedBlockHash_ = topBlock.getThisHash();
+         return;
+      }
    }
 
    preloadUtxos();
@@ -679,10 +699,36 @@ void BlockchainScanner::processAndCommitTxHints(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockchainScanner::updateSSH(void)
+void BlockchainScanner::updateSSH()
 {
    //loop over all subssh entiers in SUBSSH db, 
    //compile balance, txio count and summary map for each address
+
+   {
+      StoredDBInfo sdbi;
+      db_->getStoredDBInfo(SSH, sdbi);
+
+      BlockHeader* sdbiblock = nullptr;
+
+      try
+      {
+         sdbiblock = &blockchain_->getHeaderByHash(sdbi.topScannedBlkHash_);
+      }
+      catch (...)
+      {
+         sdbiblock = &blockchain_->getHeaderByHeight(0);
+      }
+
+      if (sdbiblock->isMainBranch())
+      {
+         if (sdbi.topBlkHgt_ != 0 && 
+             sdbi.topBlkHgt_ >= blockchain_->top().getBlockHeight())
+         {
+            LOGINFO << "no SSH to scan";
+            return;
+         }
+      }
+   }
 
    map<BinaryData, StoredScriptHistory> sshMap_;
    

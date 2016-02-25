@@ -250,20 +250,11 @@ public:
       ARMORY_DB_TYPE     dbtype,
       DB_PRUNE_TYPE      pruneType);
 
-   void openDatabasesSupernode(
-      const string& basedir,
-      BinaryData const & genesisBlkHash,
-      BinaryData const & genesisTxHash,
-      BinaryData const & magic,
-      ARMORY_DB_TYPE     dbtype,
-      DB_PRUNE_TYPE      pruneType);
-
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases();
-   void closeDatabasesSupernode(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void beginDBTransaction(LMDBEnv::Transaction* tx, 
@@ -623,23 +614,12 @@ public:
    const string& baseDir(void) const { return baseDir_; }
    void setBlkFolder(const string& path) { blkFolder_ = path; }
 
-private:
-   string               baseDir_;
-   string dbBlkdataFilename() const { return baseDir_ + "/blocks";  }
-   string dbHeadersFilename() const { return baseDir_ + "/headers"; }
-   string dbHistoryFilename() const { return baseDir_ + "/history"; }
-   string dbTxhintsFilename() const { return baseDir_ + "/txhints"; }
-   string dbSshFilename() const { return baseDir_ + "/ssh"; }
-   string dbSubSshFilename() const { return baseDir_ + "/subssh"; }
-   string dbStxoFilename() const { return baseDir_ + "/stxo"; }
-   string dbZCFilename() const { return baseDir_ + "/zeroconf"; }
+   string getDbName(DB_SELECT) const;
+   string getDbPath(DB_SELECT) const;
 
-   BinaryData           genesisBlkHash_;
-   BinaryData           genesisTxHash_;
-   BinaryData           magicBytes_;
-
-   ARMORY_DB_TYPE armoryDbType_;
-   DB_PRUNE_TYPE dbPruneType_;
+   void closeDB(DB_SELECT db);
+   StoredDBInfo openDB(DB_SELECT);
+   void resetSSHdb(void);
 
 public:
 
@@ -647,6 +627,14 @@ public:
    mutable LMDB dbs_[COUNT];
 
 private:
+
+   string               baseDir_;
+   BinaryData           genesisBlkHash_;
+   BinaryData           genesisTxHash_;
+   BinaryData           magicBytes_;
+
+   ARMORY_DB_TYPE armoryDbType_;
+   DB_PRUNE_TYPE dbPruneType_;
 
    bool                 dbIsOpen_;
    uint32_t             ldbBlockSize_;

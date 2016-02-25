@@ -4500,12 +4500,6 @@ protected:
       config_.genesisTxHash = gentx_;
       config_.magicBytes = magic_;
 
-      // Make sure the global DB type and prune type are reset for each test
-      //iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-      //                        ARMORY_DB_BARE, DB_PRUNE_NONE);
-//       DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-//       DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
       rawHead_ = READHEX(
          "01000000"
          "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000"
@@ -9944,128 +9938,6 @@ TEST_F(TestCryptoECDSA, VerifyPubKeyValidity)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/* Never got around to finishing this...
-class TestMainnetBlkchain: public ::testing::Test
-{
-protected:
-   /////////////////////////////////////////////////////////////////////////////
-   virtual void SetUp(void) 
-   {
-      iface_ = LSMWrapper::GetInterfacePtr();
-      magic_ = READHEX(MAINNET_MAGIC_BYTES);
-      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
-      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
-      zeros_ = READHEX("00000000");
-      DBUtils::setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils::setDbPruneType(DB_PRUNE_NONE);
-
-      blkdir_  = string("/home/alan/.bitcoin");
-      homedir_ = string("./fakehomedir");
-      ldbdir_  = string("/home/alan/ARMORY_DB_257k_BLKS");
-
-      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      if(!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
-
-      mkdir(homedir_);
-
-      TheBDM.SelectNetwork("Main");
-      TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetLevelDBLocation(ldbdir_);
-
-      TestChain::addrA = READHEX("b077a2b5e8a53f1d3ef4100117125de6a5b15f6b");
-      TestChain::addrB = READHEX("4c765bca17f9881ad6d4336a1d4ec34a091e5a6f");
-
-      TestChain::scrAddrA = HASH160PREFIX + TestChain::addrA;
-      TestChain::scrAddrB = HASH160PREFIX + TestChain::addrB;
-
-      LOGDISABLESTDOUT();
-   }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   virtual void TearDown(void)
-   {
-      rmdir(homedir_);
-
-      BlockDataManager_LevelDB::DestroyInstance();
-      LOGENABLESTDOUT();
-   }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   void rmdir(string src)
-   {
-      char* syscmd = new char[4096];
-      sprintf(syscmd, "rm -rf %s", src.c_str());
-      system(syscmd);
-      delete[] syscmd;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void mkdir(string newdir)
-   {
-      char* syscmd = new char[4096];
-      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
-      system(syscmd);
-      delete[] syscmd;
-   }
-#endif
-
-   LMDBBlockDatabase* iface_;
-   BinaryData magic_;
-   BinaryData ghash_;
-   BinaryData gentx_;
-   BinaryData zeros_;
-
-   string blkdir_;
-   string homedir_;
-   string ldbdir_;
-   string blk0dat_;
-
-};
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
-{
-   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
-
-   // We do all the database stuff first, THEN load the addresses
-   BtcWallet wlt(theBDM);
-   wlt.addScrAddress(TestChain::scrAddrA);
-   wlt.addScrAddress(TestChain::scrAddrB);
-   TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(TestChain::scrAddrD);
-   TheBDM.fetchAllRegisteredScrAddrData();
-   TheBDM.scanRegisteredTxForWallet(wlt);
-
-   uint64_t balanceWlt;
-   uint64_t balanceDB;
-   
-   balanceWlt = wlt.getScrAddrObjByKey(TestChain::scrAddrA).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(TestChain::scrAddrA);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
-   
-   balanceWlt = wlt.getScrAddrObjByKey(TestChain::scrAddrB).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(TestChain::scrAddrB);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(TestChain::scrAddrC).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(TestChain::scrAddrC);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(TestChain::scrAddrD).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(TestChain::scrAddrD);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,   100*COIN);
-}
-*/
-
-////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsWithWalletTest, DISABLED_ZeroConfUpdate)
 {
    // Copy only the first two blocks
@@ -10083,7 +9955,8 @@ TEST_F(BlockUtilsWithWalletTest, DISABLED_ZeroConfUpdate)
    theBDV->enableZeroConf();
    theBDV->scanWallets();
 
-   BinaryData ZChash = READHEX("b6b6f145742a9072fd85f96772e63a00eb4101709aa34ec5dd59e8fc904191a7");
+   BinaryData ZChash = READHEX(
+      "b6b6f145742a9072fd85f96772e63a00eb4101709aa34ec5dd59e8fc904191a7");
    BinaryData rawZC(259);
    FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
    fread(rawZC.getPtr(), 259, 1, ff);
@@ -10137,3 +10010,4 @@ GTEST_API_ int main(int argc, char **argv)
 }
 
 //TODO: add test to merge new addresses on reorg
+//TODO: add test for SSH rescan

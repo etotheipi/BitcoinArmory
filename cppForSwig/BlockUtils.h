@@ -205,7 +205,9 @@ public:
    void doInitialSyncOnLoad(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rescan(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rebuild(const ProgressCallback &progress);
-   
+   void doInitialSyncOnLoad_RescanBalance(
+      const ProgressCallback &progress);
+
    // for testing only
    struct BlkFileUpdateCallbacks
    {

@@ -768,6 +768,7 @@ class ArmoryMainWindow(QMainWindow):
       actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
       actRescanDB     = self.createAction(tr('Rescan Databases'), self.rescanNextLoad)
       actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
+      actRescanBalance = self.createAction(tr('Rescan Balance'), self.rescanBalanceNextLoad)
       actFactoryReset = self.createAction(tr('Factory Reset'), self.factoryReset)
       actPrivacyPolicy = self.createAction(tr('Armory Privacy Policy'), self.showPrivacyGeneric)
 
@@ -781,6 +782,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actPrivacyPolicy)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
+      self.menusList[MENUS.Help].addAction(actRescanBalance)      
       self.menusList[MENUS.Help].addAction(actRescanDB)
       self.menusList[MENUS.Help].addAction(actRebuildDB)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
@@ -1311,6 +1313,17 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.Yes:
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
+         
+   ####################################################
+   def rescanBalanceNextLoad(self):
+      reply = QMessageBox.warning(self, tr('Queue Balance Rescan?'), tr("""
+         The next time you restart Armory, it will rescan the balance of
+         your wallets. This operation typically takes less than a minute
+         <br><br>
+         Do you wish to force a balance rescan on the next Armory restart?"""), \
+         QMessageBox.Yes | QMessageBox.No)
+      if reply==QMessageBox.Yes:
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescanbalance.flag') )         
 
    ####################################################
    def loadFailedManyTimesFunc(self, nFail):

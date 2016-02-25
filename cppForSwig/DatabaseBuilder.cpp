@@ -95,12 +95,6 @@ void DatabaseBuilder::init()
          scanFrom, reorgState.reorgBranchPoint->getBlockHeight() + 1);
    }
    
-   if (scanFrom >= blockchain_.top().getBlockHeight())
-   {
-      LOGINFO << "no new blocks to scan, done initializing";
-      return;
-   }
-
    LOGINFO << "scanning new blocks from #" << scanFrom << " to #" <<
       blockchain_.top().getBlockHeight();
 

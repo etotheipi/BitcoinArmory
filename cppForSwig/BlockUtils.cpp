@@ -1134,6 +1134,16 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_RescanBalance(
+   const ProgressCallback &progress
+   )
+{
+   LOGINFO << "Executing: doInitialSyncOnLoad_RescanBalance";
+   iface_->resetSSHdb();
+   loadDiskState(progress, false);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doRebuildDatabases(
    const ProgressCallback &progress
 )
