@@ -280,7 +280,8 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
    vector<BlockData> bdVec;
 
-   auto tallyBlocks = [&](const uint8_t* data, size_t size, size_t offset)->void
+   auto tallyBlocks = 
+      [&](const uint8_t* data, size_t size, size_t offset)->bool
    {
       //deser full block, check merkle
       BlockData bd;
@@ -293,7 +294,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       catch (...)
       {
          //deser failed, ignore this block
-         return;
+         return false;
       }
 
       //block is valid, add to container
@@ -305,6 +306,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
          *bo = blockoffset;
 
       bdVec.push_back(move(bd));
+      return true;
    };
 
    parseBlockFile(ptr, blockfilemappointer.size(),
@@ -329,7 +331,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::parseBlockFile(
    const uint8_t* fileMap, size_t fileSize, size_t startOffset,
-   function<void(const uint8_t* data, size_t size, size_t offset)> callback)
+   function<bool(const uint8_t* data, size_t size, size_t offset)> callback)
 {
    //check magic bytes at start of file
    auto magicBytesSize = magicBytes_.getSize();
@@ -384,14 +386,16 @@ void DatabaseBuilder::parseBlockFile(
       if (progress + localProgress + thisBlkSize > fileSize)
          return;
 
-      //TODO: deal with blocks that advertize more size than they actually use
-      //(next block shows up before blockSize bytes)
+      fileMap += localProgress;
+      progress += localProgress;
 
-      callback(fileMap + localProgress, thisBlkSize, progress + localProgress);
-
-      //update progress counters
-      fileMap += localProgress + thisBlkSize;
-      progress += localProgress + thisBlkSize;
+      if (callback(
+         fileMap, thisBlkSize, progress))
+      {
+         //only advance for the whole blockSize if callback returned true
+         fileMap += thisBlkSize;
+         progress += thisBlkSize;
+      }
    }
 }
 
@@ -549,7 +553,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
 
    vector<BlockData> bdVec;
 
-   auto tallyBlocks = [&](const uint8_t* data, size_t size, size_t offset)->void
+   auto tallyBlocks = [&](const uint8_t* data, size_t size, size_t offset)->bool
    {
       //deser full block, check merkle
       BlockData bd;
@@ -562,7 +566,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       catch (...)
       {
          //deser failed, ignore this block
-         return;
+         return false;
       }
 
       bd.setFileID(fileID);
@@ -586,10 +590,11 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       {
          if (bhPtr->getBlockFileNum() == fileID &&
             bhPtr->getOffset() == offset)
-            return;
+            return true;
       }
 
       bdVec.push_back(move(bd));
+      return true;
    };
 
    parseBlockFile(ptr, blockfilemappointer.size(),

@@ -41,7 +41,7 @@ private:
       BlockDataLoader& bdl, uint16_t fileID, size_t startOffset,
       shared_ptr<BlockOffset> bo);
    void parseBlockFile(const uint8_t* fileMap, size_t fileSize, size_t startOffset,
-      function<void(const uint8_t* data, size_t size, size_t offset)>);
+      function<bool(const uint8_t* data, size_t size, size_t offset)>);
 
    Blockchain::ReorganizationState updateBlocksInDB(
       const ProgressCallback &progress, bool verbose);
