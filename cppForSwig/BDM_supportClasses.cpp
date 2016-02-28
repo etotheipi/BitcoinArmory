@@ -617,7 +617,7 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
       while (!lastKnownHeader->isMainBranch())
       {
          //trace back to the branch point
-         auto& bhash = lastKnownHeader->getPrevHash();
+         auto&& bhash = lastKnownHeader->getPrevHash();
          lastKnownHeader = &bcPtr->getHeaderByHash(bhash);
       }
 
