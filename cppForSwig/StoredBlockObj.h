@@ -523,6 +523,8 @@ public:
       bool doFrag = true,
       bool withPrefix8 = false);
 
+   void unserializeSimple(BinaryRefReader);
+
    bool serializeFullBlock(BinaryWriter & bw) const;
    void setKeyData(uint32_t hgt, uint8_t dupID = UINT8_MAX);
    

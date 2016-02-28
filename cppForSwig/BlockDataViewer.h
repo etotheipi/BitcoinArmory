@@ -245,6 +245,8 @@ public:
    bool getZCflag(void) const
    { return rescanZC_.load(memory_order_acquire); }
 
+   bool isRBF(const BinaryData& txHash) const;
+
 public:
 
    //refresh notifications

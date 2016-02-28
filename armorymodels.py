@@ -27,7 +27,8 @@ sys.path.append('../cppForSwig')
 
 WLTVIEWCOLS = enum('Visible', 'ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
-                   'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
+                   'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', \
+                   'optInRBF')
 ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
@@ -330,6 +331,10 @@ class LedgerDispModelSimple(QAbstractTableModel):
       nConf = rowData[LEDGERCOLS.NumConf]
       wltID = rowData[LEDGERCOLS.WltID]
       wlt = self.main.walletMap.get(wltID)
+      optInRBF = rowData[LEDGERCOLS.optInRBF]
+      
+      if optInRBF == True:
+         abc = ''
       
       if wlt:
          wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
@@ -339,7 +344,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
                          # 'WltName', 'Comment', 'Amount', 'isOther', 
                          # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
-                         # 'DoubleSpend')
+                         # 'optInRBF')
 
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
@@ -353,7 +358,9 @@ class LedgerDispModelSimple(QAbstractTableModel):
       elif role==Qt.DecorationRole:
          pass
       elif role==Qt.BackgroundColorRole:
-         if wtype==WLTTYPES.WatchOnly:
+         if optInRBF is True:
+            return QVariant( Colors.optInRBF )
+         elif wtype==WLTTYPES.WatchOnly:
             return QVariant( Colors.TblWltOther )
          elif wtype==WLTTYPES.Offline:
             return QVariant( Colors.TblWltOffline )
@@ -394,6 +401,10 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                  'Bitcoin mining.  These transactions take\n'
                                  '120 confirmations (approximately one day)\n'
                                  'before they are available to be spent.')
+               elif optInRBF:
+                  tooltipStr = ('This is a mempool replaceable transaction.'
+                               ' Do not consider you have been sent these coins until'
+                               ' this transaction has at least 1 confirmation.')
                else:
                   tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
                   tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'

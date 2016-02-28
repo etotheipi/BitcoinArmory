@@ -181,7 +181,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
 
    for (const auto& txio : txioMap)
    {
-      auto txOutDBKey = txio.second.getDBKeyOfOutput().getSliceCopy(0, 6);
+      auto&& txOutDBKey = txio.second.getDBKeyOfOutput().getSliceCopy(0, 6);
 
       auto& txioVec = TxnTxIOMap[txOutDBKey];
       txioVec.push_back(&txio.second);
@@ -206,6 +206,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       uint16_t txIndex;
 
       set<BinaryData> scrAddrSet;
+
+      bool isRBF = false;
       
       //grab iterator
       auto txioIter = txioVec.second.cbegin();
@@ -241,6 +243,9 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
      
       while (txioIter != txioVec.second.cend())
       {
+         if (blockNum == UINT32_MAX && (*txioIter)->isRBF())
+            isRBF = true;
+
          if ((*txioIter)->getDBKeyOfOutput().startsWith(txioVec.first))
          {
             isCoinbase |= (*txioIter)->isFromCoinbase();
@@ -288,7 +293,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          txTime,
          isCoinbase,
          isSentToSelf,
-         isChangeBack);
+         isChangeBack,
+         isRBF);
 
       le.scrAddrSet_ = move(scrAddrSet);
       leMap[txioVec.first] = le;

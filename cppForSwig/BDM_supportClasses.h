@@ -276,7 +276,9 @@ private:
    map<HashString, map<BinaryData, TxIOPair> >  txioMap_; //<scrAddr,  <dbKeyOfOutput, TxIOPair>>
    map<HashString, vector<HashString> >         keyToSpentScrAddr_; //<zcKey, vector<ScrAddr>>
    set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
+   set<HashString>                              allZcTxHashes_;
 
+   BinaryData lastParsedBlockHash_;
 
    std::atomic<uint32_t>       topId_;
    mutex mu_;

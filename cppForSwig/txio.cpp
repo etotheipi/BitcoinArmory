@@ -328,6 +328,7 @@ TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
    this->txtime_ = rhs.txtime_;
 
    this->isUTXO_ = rhs.isUTXO_;
+   this->isRBF_ = rhs.isRBF_;
 
    return *this;
 }

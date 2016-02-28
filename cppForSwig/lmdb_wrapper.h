@@ -291,6 +291,8 @@ public:
    // Get latest block info
    BinaryData getTopBlockHash(DB_SELECT db);
    uint32_t   getTopBlockHeight(DB_SELECT db);
+   BinaryData getTopBlockHash() const;
+
    
    /////////////////////////////////////////////////////////////////////////////
    LDBIter getIterator(DB_SELECT db) const
@@ -620,6 +622,9 @@ public:
    void closeDB(DB_SELECT db);
    StoredDBInfo openDB(DB_SELECT);
    void resetSSHdb(void);
+
+   const Blockchain* blockchain(void) const { return blockchainPtr_; }
+
 
 public:
 

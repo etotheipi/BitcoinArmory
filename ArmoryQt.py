@@ -353,7 +353,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
       self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
-      self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+      self.ledgerView.hideColumn(LEDGERCOLS.optInRBF)
            
 
       # Another table and model, for lockboxes
@@ -3348,6 +3348,8 @@ class ArmoryMainWindow(QMainWindow):
          row.append(wltName)
 
          # Comment
+         if le.isOptInRBF() == True:
+            dispComment = "***MEMPOOL REPLACEABLE*** " + dispComment
          row.append(dispComment)
 
          # Amount

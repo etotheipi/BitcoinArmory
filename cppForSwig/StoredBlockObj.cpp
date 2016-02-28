@@ -234,6 +234,48 @@ void DBBlock::setHeaderData(BinaryData const & header80B)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeSimple(BinaryRefReader brr)
+{
+   uint32_t height = blockHeight_;
+   uint8_t  dupid = duplicateID_;
+
+   vector<BinaryData> allTxHashes;
+   BlockHeader bh(brr);
+   uint32_t nTx = (uint32_t)brr.get_var_int();
+
+   createFromBlockHeader(bh);
+   numTx_ = nTx;
+
+   blockHeight_ = height;
+   duplicateID_ = dupid;
+
+   numBytes_ = HEADER_SIZE + BtcUtils::calcVarIntSize(numTx_);
+   if (dataCopy_.getSize() != HEADER_SIZE)
+   {
+      LOGERR << "Unserializing header did not produce 80-byte object!";
+      return;
+   }
+
+   if (numBytes_ > brr.getSize())
+   {
+      LOGERR << "Anticipated size of block header is more than what we have";
+      throw BlockDeserializingException();
+   }
+
+   BtcUtils::getHash256(dataCopy_, thisHash_);
+
+   for (uint32_t tx = 0; tx < nTx; tx++)
+   {
+      // gather tx hashes
+      Tx thisTx(brr);
+
+      StoredTx stx;
+      stx.thisHash_ = thisTx.getThisHash();
+      stxMap_[tx] = move(stx);
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void StoredHeader::unserializeFullBlock(BinaryRefReader brr, 
                                         bool doFrag,
                                         bool withPrefix)

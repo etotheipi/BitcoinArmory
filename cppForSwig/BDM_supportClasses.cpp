@@ -606,9 +606,89 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
       }
    }
 
-   //build the set of invalidated zc dbKeys and delete them from db
+   //get all txhashes for the new blocks
+   set<BinaryData> minedHashes;
+   auto bcPtr = db_->blockchain();
+   try
+   {
+      const BlockHeader* lastKnownHeader =
+         &bcPtr->getHeaderByHash(lastParsedBlockHash_);
+
+      while (!lastKnownHeader->isMainBranch())
+      {
+         //trace back to the branch point
+         auto& bhash = lastKnownHeader->getPrevHash();
+         lastKnownHeader = &bcPtr->getHeaderByHash(bhash);
+      }
+
+      //get the next header
+      auto height = lastKnownHeader->getBlockHeight() + 1;
+      lastKnownHeader = &bcPtr->getHeaderByHeight(height);
+
+      while (lastKnownHeader != nullptr)
+      {
+         //grab block
+         StoredHeader sbh;
+         db_->getStoredHeader(sbh,
+            lastKnownHeader->getBlockHeight(),
+            lastKnownHeader->getDuplicateID(),
+            false);
+
+         //build up hash set
+         for (auto& stx : sbh.stxMap_)
+            minedHashes.insert(stx.second.thisHash_);
+
+         //next block
+         auto& bhash = lastKnownHeader->getNextHash();
+         lastKnownHeader = &bcPtr->getHeaderByHash(bhash);
+      }
+   }
+   catch (...)
+   {
+   }
+
    vector<BinaryData> keysToWrite, keysToDelete;
 
+   //compare minedHashes to allZCTxHashes_, mark keys for deletion
+   for (auto& minedHash : minedHashes)
+   {
+      auto iter = allZcTxHashes_.find(minedHash);
+      if (iter != allZcTxHashes_.end())
+      {
+         keysToDelete.push_back(*iter);
+         allZcTxHashes_.erase(iter);
+      }
+   }
+
+   for (auto& txiomap : txioMap)
+   {
+      for (auto& txio : txiomap.second)
+      {
+         if (!txio.second.isRBF())
+         {
+            auto iter = allZcTxHashes_.find(txio.second.getTxHashOfOutput());
+            if (iter != allZcTxHashes_.end())
+               txio.second.setRBF(true); //flag all ZC of ZC as replaceable
+         }
+
+         if (txio.second.isRBF())
+         {
+            auto iter = txMap.find(txio.second.getTxHashOfOutput());
+            if (iter != txMap.end())
+            {
+               iter->second.setRBF(true);
+               continue;
+            }
+
+            iter = txMap.find(txio.second.getTxHashOfInput());
+            if (iter != txMap.end())
+               iter->second.setRBF(true);
+         }
+      }
+   }
+
+
+   //build the set of invalidated zc dbKeys and delete them from db
    for (auto& tx : txMap_)
    {
       if (txMap.find(tx.first) == txMap.end())
@@ -677,12 +757,6 @@ map<BinaryData, vector<BinaryData>> ZeroConfContainer::purge(
    }
 
    return invalidatedKeys;
-
-   /*
-   // Rewrite the zero-conf pool file
-   if (hashRmVec.size() > 0)
-   rewriteZeroConfFile();
-   */
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -701,7 +775,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
    without deleting any new ZC that may have been added during the process.
 
    Note: there is no concurency interference with purging the container
-   (for reorgs and new blocks), as they methods called by the BDM main thread.
+   (for reorgs and new blocks), as both methods are called by the BDM main thread.
    ***/
    uint32_t nProcessed = 0;
 
@@ -726,9 +800,10 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
          if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
             continue; //already have this ZC
 
-         //LOGWARN << "new ZC transcation: " << txHash.toHexStr();
-
          {
+            allZcTxHashes_.insert(txHash);
+            keysToWrite.push_back(newZCPair.first);
+
             map<BinaryData, map<BinaryData, TxIOPair> > newTxIO =
                ZCisMineBulkFilter(newZCPair.second,
                   newZCPair.first,
@@ -740,7 +815,6 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
                txHashToDBKey_[txHash] = newZCPair.first;
                txMap_[newZCPair.first] = newZCPair.second;
                
-               keysToWrite.push_back(newZCPair.first);
 
                for (const auto& saTxio : newTxIO)
                {
@@ -754,6 +828,33 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
                }
 
                zcIsOurs = true;
+            }
+         }
+      }
+
+      for (auto& txiomap : txioMap_)
+      {
+         for (auto& txio : txiomap.second)
+         {
+            if (!txio.second.isRBF())
+            {
+               auto iter = allZcTxHashes_.find(txio.second.getTxHashOfOutput());
+               if (iter != allZcTxHashes_.end())
+                  txio.second.setRBF(true); //flag all ZC of ZC as replaceable
+            }
+
+            if (txio.second.isRBF())
+            {
+               auto iter = txMap_.find(txio.second.getTxHashOfOutput());
+               if (iter != txMap_.end())
+               {
+                  iter->second.setRBF(true);
+                  continue;
+               }
+
+               iter = txMap_.find(txio.second.getTxHashOfInput());
+               if (iter != txMap_.end())
+                  iter->second.setRBF(true);
             }
          }
       }
@@ -773,7 +874,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
       //check if newZCMap_ doesnt have new Txn
       if (nProcessed >= newZCMap_.size())
       {
-         //clear map and release lock
+         //clear map
          newZCMap_.clear();
 
          //break out of the loop
@@ -781,7 +882,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
       }
 
       //else search the new ZC container for unseen ZC
-      map<BinaryData, Tx>::const_iterator newZcIter = newZCMap_.begin();
+      auto newZcIter = newZCMap_.begin();
 
       while (newZcIter != newZCMap_.begin())
       {
@@ -796,6 +897,8 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
       //reset counter
       nProcessed = 0;
    }
+
+   lastParsedBlockHash_ = db_->getTopBlockHash();
 
    return zcIsOurs;
 }
@@ -871,6 +974,8 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
       return processedTxIO;
    }
 
+   bool isRBF = tx.isRBF();
+
    uint8_t const * txStartPtr = tx.getPtr();
    for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
    {
@@ -898,6 +1003,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
             txio.setValue(chainedTxOut.getValue());
             txio.setTxTime(txtime);
+            txio.setRBF(isRBF);
 
             BinaryData spentSA = chainedTxOut.getScrAddressStr();
             auto& key_txioPair = processedTxIO[spentSA];
@@ -930,6 +1036,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
                txio.setTxHashOfInput(txHash);
                txio.setValue(stxOut.getValue());
                txio.setTxTime(txtime);
+               txio.setRBF(isRBF);
 
                auto& key_txioPair = processedTxIO[sa];
                key_txioPair[opKey] = txio;
@@ -956,6 +1063,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          txio.setTxHashOfOutput(txHash);
          txio.setTxTime(txtime);
          txio.setUTXO(true);
+         txio.setRBF(isRBF);
 
          auto& key_txioPair = processedTxIO[scrAddr];
 
@@ -965,7 +1073,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
       // It's still possible this is a multisig addr involving one of our 
       // existing scrAddrs, even if we aren't explicitly looking for this multisig
-      if (withSecondOrderMultisig && txout.getScriptType() ==
+/*      if (withSecondOrderMultisig && txout.getScriptType() ==
          TXOUT_SCRIPT_MULTISIG)
       {
          BinaryRefReader brrmsig(scrAddr);
@@ -989,7 +1097,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
             key_txioPair[txio.getDBKeyOfOutput()] = txio;
          }
-      }
+      }*/
    }
 
    // If we got here, it's either non std or not ours
@@ -1066,9 +1174,18 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
 
    for (auto& key : keysToWrite)
    {
-      StoredTx zcTx;
-      zcTx.createFromTx(txMap_[key], true, true);
-      db_->putStoredZC(zcTx, key);
+      auto iter = txMap_.find(key);
+      if (iter != txMap_.end())
+      {
+         StoredTx zcTx;
+         zcTx.createFromTx(txMap_[key], true, true);
+         db_->putStoredZC(zcTx, key);
+      }
+      else
+      {
+         //if the key is not to be found in the txMap_, this is a ZC txhash
+         db_->putValue(ZERO_CONF, key, BinaryData());
+      }
    }
 
    for (auto& key : keysToDelete)
@@ -1145,6 +1262,11 @@ void ZeroConfContainer::loadZeroConfMempool(
          {
             //TxOut, ignore it
             continue;
+         }
+         else if (zcKey.getSize() == 32)
+         {
+            //tx hash
+            allZcTxHashes_.insert(zcKey);
          }
          else
          {

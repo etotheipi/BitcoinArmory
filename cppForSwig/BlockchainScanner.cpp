@@ -755,6 +755,12 @@ void BlockchainScanner::updateSSH()
             auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
             sshPtr = &sshMap_[sshKey];
 
+            if (!scrAddrFilter_->hasScrAddress(sshKey))
+            {
+               LOGWARN << "invalid scrAddr in SUBSSH db";
+               continue;
+            }
+
             //get what's already in the db
             db_->getStoredScriptHistorySummary(*sshPtr, sshKey);
             if (sshPtr->isInitialized())
@@ -1095,6 +1101,12 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       //write it all up
       for (auto& ssh : sshMap)
       {
+         if (!scrAddrFilter_->hasScrAddress(ssh.second.uniqueKey_))
+         {
+            LOGWARN << "invalid scrAddr during undo";
+            continue;
+         }
+
          BinaryWriter bw;
          ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
          db_->putValue(SSH,

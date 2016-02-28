@@ -577,6 +577,13 @@ public:
    uint8_t    getDuplicateID(void)    { return txRefObj_.getDuplicateID();    }
    uint16_t   getBlockTxIndex(void)   { return txRefObj_.getBlockTxIndex();   }
 
+   bool isRBF(void) const;
+   void setRBF(bool isTrue)
+   {
+      isRBF_ = 0;
+      if (isTrue) isRBF_ = 1;
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
    void pprintAlot(ostream & os=cout);
@@ -611,6 +618,8 @@ private:
    TxRef         txRefObj_;
 
    uint32_t      txTime_;
+
+   unsigned isRBF_ = UINT32_MAX;
 };
 
 

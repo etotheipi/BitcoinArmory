@@ -539,6 +539,11 @@ BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
    return sdbi.topScannedBlkHash_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData LMDBBlockDatabase::getTopBlockHash() const
+{
+   return blockchainPtr_->top().getThisHash();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t LMDBBlockDatabase::getTopBlockHeight(DB_SELECT db)
@@ -999,7 +1004,7 @@ void LMDBBlockDatabase::putStoredScriptHistorySummary(StoredScriptHistory & ssh)
 void LMDBBlockDatabase::putStoredSubHistory(StoredSubHistory & subssh)
 
 {
-   DB_SELECT db = SSH;
+   DB_SELECT db = SUBSSH;
 
    if (subssh.txioMap_.size() > 0)
       putValue(db, subssh.getDBKey(),
@@ -1971,7 +1976,10 @@ bool LMDBBlockDatabase::getStoredHeader(
 
       BinaryRefReader brr(dataPtr + bh.getOffset(), bh.getBlockSize());
 
-      sbh.unserializeFullBlock(brr, false, false);
+      if (withTx)
+         sbh.unserializeFullBlock(brr, false, false);
+      else
+         sbh.unserializeSimple(brr);
    }
    catch (...)
    {
