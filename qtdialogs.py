@@ -3752,7 +3752,7 @@ class DlgAddressInfo(ArmoryDialog):
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
       self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
-      self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+      self.ledgerView.hideColumn(LEDGERCOLS.optInRBF)
 
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
       self.ledgerView.setSelectionMode(QTableView.SingleSelection)
