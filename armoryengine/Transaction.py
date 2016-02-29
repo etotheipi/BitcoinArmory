@@ -741,8 +741,6 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
-      if self.optInRBF:
-         print indstr + indent + 'Opted into Replace-By-Fee'
 
    def toString(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -760,8 +758,7 @@ class PyTx(BlockComponent):
       for out in self.outputs:
          result = ''.join([result, '\n',  out.toString(nIndent+2, endian=endian)])
       return result
-      if self.optInRBF:
-         result = ''.join([result, '\n',   indstr + indent + 'Opted Into Replace-By-Fee'])
+
 
    def fetchCpp(self):
       """ Use the info in this PyTx to get the C++ version from TheBDM """
