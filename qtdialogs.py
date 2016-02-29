@@ -4005,7 +4005,9 @@ class DlgEULA(ArmoryDialog):
 
 
       lblPleaseAgree = QRichLabel(\
-         '<b>Armory Bitcoin Client is licensed under the <i>MIT License</i></b>'
+         '<b>Armory Bitcoin Client is licensed in part under the ' 
+         '<i>Affero General Public License, Version 3 (AGPLv3)</i>' 
+         'and in part under the <i>MIT License</i></b>'
          '<br><br>'
          'Additionally, as a condition of receiving this software '
          'for free, you accept all risks associated with using it '
