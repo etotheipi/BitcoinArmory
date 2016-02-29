@@ -155,16 +155,16 @@ class SendBitcoinsFrame(ArmoryFrame):
          Click this button to copy a "bitcoin:" link directly into Armory."""))
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
       fromFrameList = [self.frmSelectedWlt]
-      if not USE_TESTNET:
-         btnDonate = QPushButton("Donate to Armory Developers!")
-         ttipDonate = self.main.createToolTipWidget(\
-            'Making this software was a lot of work.  You can give back '
-            'by adding a small donation to go to the Armory developers.  '
-            'You will have the ability to change the donation amount '
-            'before finalizing the transaction.')
-         self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
-         frmDonate = makeHorizFrame([btnDonate, ttipDonate], condenseMargins=True)
-         fromFrameList.append(frmDonate)
+      # if not USE_TESTNET:
+      #    btnDonate = QPushButton("Donate to Armory Developers!")
+      #    ttipDonate = self.main.createToolTipWidget(\
+      #       'Making this software was a lot of work.  You can give back '
+      #       'by adding a small donation to go to the Armory developers.  '
+      #       'You will have the ability to change the donation amount '
+      #       'before finalizing the transaction.')
+      #    self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
+      #    frmDonate = makeHorizFrame([btnDonate, ttipDonate], condenseMargins=True)
+      #    fromFrameList.append(frmDonate)
 
       if not self.main.usermode == USERMODE.Standard:
          frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI], condenseMargins=True)
@@ -242,11 +242,11 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.setMinimumHeight(self.maxHeight * 20)
       # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
-      loadCount = self.main.settings.get('Load_Count')
-      alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
-      lastPestering = self.main.getSettingOrSetDefault('DonateLastPester', 0)
-      donateFreq = self.main.getSettingOrSetDefault('DonateFreq', 20)
-      dnaaDonate = self.main.getSettingOrSetDefault('DonateDNAA', False)
+      # loadCount = self.main.settings.get('Load_Count')
+      # alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
+      # lastPestering = self.main.getSettingOrSetDefault('DonateLastPester', 0)
+      # donateFreq = self.main.getSettingOrSetDefault('DonateFreq', 20)
+      # dnaaDonate = self.main.getSettingOrSetDefault('DonateDNAA', False)
 
 
       if prefill:
@@ -264,32 +264,32 @@ class SendBitcoinsFrame(ArmoryFrame):
             else:
                self.addOneRecipient(None, amount, message, label, plainText=addrStr)
 
-      elif not self.main == None and \
-           loadCount % donateFreq == (donateFreq-1) and \
-           not loadCount == lastPestering and \
-           not dnaaDonate and \
-           not USE_TESTNET:
-         result = MsgBoxWithDNAA(self, self.main, MSGBOX.Question, 'Please donate!', tr("""
-            <i>Armory</i> is the result of thousands of hours of development 
-            by very talented coders.  Yet, this software 
-            has been given to you for free to benefit the greater Bitcoin 
-            community! 
-            <br><br>
-            If you are satisfied with this software, please consider 
-            donating what you think this software would be worth as a commercial 
-            application.
-            <br><br><b>Are you willing to donate to the Armory developers?</b> If you 
-            select "Yes," a donation field will be added to your 
-            next transaction.  You will have the opportunity to remove it or change 
-            the amount before sending the transaction."""), None)
-         self.main.writeSetting('DonateLastPester', loadCount)
-
-         if result[0] == True:
-            self.addDonation()
-            self.makeRecipFrame(2)
-
-         if result[1] == True:
-            self.main.writeSetting('DonateDNAA', True)
+      # elif not self.main == None and \
+      #      loadCount % donateFreq == (donateFreq-1) and \
+      #      not loadCount == lastPestering and \
+      #      not dnaaDonate and \
+      #      not USE_TESTNET:
+      #    result = MsgBoxWithDNAA(self, self.main, MSGBOX.Question, 'Please donate!', tr("""
+      #       <i>Armory</i> is the result of thousands of hours of development
+      #       by very talented coders.  Yet, this software
+      #       has been given to you for free to benefit the greater Bitcoin
+      #       community!
+      #       <br><br>
+      #       If you are satisfied with this software, please consider
+      #       donating what you think this software would be worth as a commercial
+      #       application.
+      #       <br><br><b>Are you willing to donate to the Armory developers?</b> If you
+      #       select "Yes," a donation field will be added to your
+      #       next transaction.  You will have the opportunity to remove it or change
+      #       the amount before sending the transaction."""), None)
+      #    self.main.writeSetting('DonateLastPester', loadCount)
+      #
+      #    if result[0] == True:
+      #       self.addDonation()
+      #       self.makeRecipFrame(2)
+      #
+      #    if result[1] == True:
+      #       self.main.writeSetting('DonateDNAA', True)
 
 
 

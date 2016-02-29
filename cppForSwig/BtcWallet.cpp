@@ -328,8 +328,8 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
       LOGERR << "ALERT:  Found non-standard transaction referencing";
       LOGERR << "        an address in your wallet.  There is no way";
       LOGERR << "        for this program to determine if you can";
-      LOGERR << "        spend these BTC or not.  Please email the";
-      LOGERR << "        following information to support@bitcoinarmory.com";
+      LOGERR << "        spend these BTC or not.  Please open an issue with the ";
+      LOGERR << "        following information at https://github.com/goatpig/BitcoinArmory/issues";
       LOGERR << "        for help identifying the transaction and how";
       LOGERR << "        to spend it:";
       LOGERR << "   Block Number: " << blknum;

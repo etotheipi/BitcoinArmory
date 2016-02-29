@@ -405,273 +405,273 @@ class DlgGenericGetPassword(ArmoryDialog):
       self.setWindowTitle(tr('Enter Password'))
       self.setWindowIcon(QIcon(self.main.iconfile))
 
-################################################################################
-class DlgBugReport(ArmoryDialog):
-
-   def __init__(self, parent=None, main=None):
-      super(DlgBugReport, self).__init__(parent, main)
-
-      tsPage = 'https://bitcoinarmory.com/troubleshooting'
-      faqPage = 'https://bitcoinarmory.com/faq'
-
-      lblDescr = QRichLabel(tr("""
-         <b><u>Send a bug report to the Armory team</u></b>
-         <br><br>
-         If you are having difficulties with Armory, you should first visit
-         our <a href="%(tsurl)s">troubleshooting page</a> and our
-         <a href="%(faqurl)s">FAQ page</a> which describe solutions to
-         many common problems.
-         <br><br>
-         If you do not find the answer to your problem on those pages,
-         please describe it in detail below, and any steps taken to
-         reproduce the problem.  The more information you provide, the
-         more likely we will be able to help you.
-         <br><br>
-         <b><font color="%(color)s">Note:</font></b>  Please keep in mind we 
-         are a small open-source company, and do not have a formal customer
-         support department.  We will do our best to help you, but cannot
-         respond to everyone!""") \
-            % {'tsurl' : tsPage, 'faqurl' : faqPage, 'color' :htmlColor('TextBlue')})
-
-      self.chkNoLog = QCheckBox(tr('Do not send log file with report'))
-      self.chkNoLog.setChecked(False)
-
-      self.btnMoreInfo = QLabelButton(tr('Privacy Info'))
-      self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
-                              self.main.logFilePrivacyWarning)
-
-      self.noLogWarn = QRichLabel(tr("""
-         <font color="%(color)s">You are unlikely to get a response unless you 
-         provide a log file and a reasonable description with your support
-         request.""") % { 'color' : htmlColor('TextWarn') })
-      self.noLogWarn.setVisible(False)
-
-      self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
-                                           self.noLogWarn.setVisible)
-
-      self.lblEmail = QRichLabel(tr('Email Address:'))
-      self.edtEmail = QLineEdit()
-      self.edtEmail.setMaxLength(100)
-
-      self.lblSubject = QRichLabel(tr('Subject:'))
-      self.edtSubject = QLineEdit()
-      self.edtSubject.setMaxLength(64)
-      self.edtSubject.setText(tr("Bug Report"))
-
-      self.txtDescr = QTextEdit()
-      self.txtDescr.setFont(GETFONT('Fixed', 9))
-      w,h = tightSizeNChar(self, 80)
-      self.txtDescr.setMinimumWidth(w)
-      self.txtDescr.setMinimumHeight(4*h)
-      self.lblOS = QRichLabel(tr("""
-         Note: if you are using this computer to report an Armory problem
-         on another computer, please include the operating system of the
-         other computer and the version of Armory it is running."""))
-
-      self.btnSubmit = QPushButton(tr('Submit Report'))
-      self.btnCancel = QPushButton(tr('Cancel'))
-      self.btnbox = QDialogButtonBox()
-      self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
-      self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
-      self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
-      self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
-
-      armoryver = getVersionString(BTCARMORY_VERSION)
-      lblDetect = QRichLabel( tr("""
-         <b>Detected:</b> %(osname)s (%(osvariant)s) / %(mem)0.2f GB RAM / Armory version %(ver)s<br>
-         <font size=2>(this data will be submitted automatically with the
-         report)</font>""") % \
-         { 'osname' : OS_NAME, 'osvariant' : OS_VARIANT[0], 'mem' : SystemSpecs.Memory, 'ver' : armoryver})
-
-
-      layout = QGridLayout()
-      i = -1
-
-      i += 1
-      layout.addWidget(lblDescr,         i,0, 1,2)
-
-      i += 1
-      layout.addWidget(HLINE(),          i,0, 1,2)
-
-      i += 1
-      layout.addWidget(lblDetect,        i,0, 1,2)
-
-      i += 1
-      layout.addWidget(HLINE(),          i,0, 1,2)
-
-      i += 1
-      layout.addWidget(self.lblEmail,    i,0, 1,1)
-      layout.addWidget(self.edtEmail,    i,1, 1,1)
-
-      i += 1
-      layout.addWidget(self.lblSubject,  i,0, 1,1)
-      layout.addWidget(self.edtSubject,  i,1, 1,1)
-
-      i += 1
-      layout.addWidget(QLabel(tr("Description of problem:")),    i,0, 1,2)
-
-      i += 1
-      layout.addWidget(self.txtDescr,    i,0, 1,2)
-
-      i += 1
-      frmchkbtn = makeHorizFrame([self.chkNoLog, self.btnMoreInfo, 'Stretch'])
-      layout.addWidget(frmchkbtn,        i,0, 1,2)
-
-      i += 1
-      layout.addWidget(self.noLogWarn,   i,0, 1,2)
-
-      i += 1
-      layout.addWidget(self.btnbox,      i,0, 1,2)
-
-      self.setLayout(layout)
-      self.setWindowTitle(tr('Submit a Bug Report'))
-      self.setWindowIcon(QIcon(self.main.iconfile))
-
-   #############################################################################
-   def submitReport(self):
-      if self.main.getUserAgreeToPrivacy(True):
-         self.userAgreedToPrivacyPolicy = True
-      else:
-         return
-
-      emailAddr = unicode(self.edtEmail.text()).strip()
-      emailLen = lenBytes(emailAddr)
-
-      subjectText = unicode(self.edtSubject.text()).strip()
-      subjectLen = lenBytes(subjectText)
-
-      description = unicode(self.txtDescr.toPlainText()).strip()
-      descrLen = lenBytes(description)
-
-
-      if emailLen == 0 or not '@' in emailAddr:
-         reply = MsgBoxCustom(MSGBOX.Warning, tr('Missing Email'), tr("""
-            You must supply a valid email address so we can follow up on your
-            request."""), \
-            noStr=tr('Go Back'), yesStr=tr('Submit without Email'))
-
-         if not reply:
-            return
-         else:
-            emailAddr = '<NO EMAIL SUPPPLIED>'
-
-
-      if descrLen < 10:
-         QMessageBox.warning(self, tr('Empty Description'), tr("""
-            You must describe what problem you are having, and any steps
-            to reproduce the problem.  The Armory team cannot look for
-            problems in the log file if it doesn't know what those problems
-            are!."""), QMessageBox.Ok)
-         return
-
-      maxDescr = 16384
-      if descrLen > maxDescr:
-         reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
-            You have exceeded the maximum size of the description that can
-            be submitted to our ticket system, which is %(bytes)d bytes.
-            If you click "Continue", the last %(last)s bytes of your description
-            will be removed before sending.""") % { 'bytes' : maxDescr, 'last' : descrLen-maxDescr}, \
-            noStr=tr('Go Back'), yesStr=tr('Continue'))
-         if not reply:
-            return
-         else:
-            description = unicode_truncate(description, maxDescr)
-
-
-      # This is a unique-but-not-traceable ID, to simply match users to log files
-      uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
-      dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
-      osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
-
-      reportMap = {}
-      reportMap['uniqID']       = uniqID
-      reportMap['OSmajor']      = OS_NAME
-      reportMap['OSvariant']    = osvariant
-      reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
-      reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
-      reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
-      reportMap['userEmail']    = emailAddr
-      reportMap['userSubject']  = subjectText
-      reportMap['userDescr']    = description
-      reportMap['userTime']     = unixTimeToFormatStr(RightNow())
-      reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
-      reportMap['agreedPrivacy']  = str(self.userAgreedToPrivacyPolicy)
-
-      combinedLogName = 'armory_log_%s_%s.txt' % (uniqID, dateStr)
-      combinedLogPath = os.path.join(ARMORY_HOME_DIR, combinedLogName)
-      self.main.saveCombinedLogFile(combinedLogPath)
-
-      if self.chkNoLog.isChecked():
-         reportMap['fileLog'] = '<NO LOG FILE SUBMITTED>'
-      else:
-         with open(combinedLogPath, 'r') as f:
-            reportMap['fileLog'] = f.read()
-
-      LOGDEBUG('Sending the following dictionary of values to server')
-      for key,val in reportMap.iteritems():
-         if key=='fileLog':
-            LOGDEBUG(key.ljust(12) + ': ' + binary_to_hex(sha256(val)))
-         else:
-            LOGDEBUG(key.ljust(12) + ': ' + val)
-
-      expectedResponseMap = {}
-      expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap['fileLog']))
-
-      try:
-         import urllib3
-         http = urllib3.PoolManager()
-         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
-         response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
-         responseMap = ast.literal_eval(response._body)
-
-
-         LOGINFO('-'*50)
-         LOGINFO('Response JSON:')
-         for key,val in responseMap.iteritems():
-            LOGINFO(key.ljust(12) + ': ' + str(val))
-
-         LOGINFO('-'*50)
-         LOGINFO('Expected JSON:')
-         for key,val in expectedResponseMap.iteritems():
-            LOGINFO(key.ljust(12) + ': ' + str(val))
-
-
-         LOGDEBUG('Connection info:')
-         LOGDEBUG('   status:  ' + str(response.status))
-         LOGDEBUG('   version: ' + str(response.version))
-         LOGDEBUG('   reason:  ' + str(response.reason))
-         LOGDEBUG('   strict:  ' + str(response.strict))
-
-
-         if responseMap==expectedResponseMap:
-            LOGINFO('Server verified receipt of log file')
-            cemail = 'contact@bitcoinarmory.com'
-            QMessageBox.information(self, tr('Submitted!'), tr("""
-               <b>Your report was submitted successfully!</b> 
-               <br><br>
-               You should receive and email shortly from our support system.
-               If you do not receive it, you should follow up your request
-               with an email to <a href="%(url)s">%(url)s</a>.  If you do, please
-               attach the following file to your email:
-               <br><br>
-               %(path)s
-               <br><br>
-               Please be aware that the team receives lots of reports, 
-               so it may take a few days for the team to get back to 
-               you.""") % {'url' : cemail, 'path' : combinedLogPath}, QMessageBox.Ok)
-            self.accept()
-         else:
-            raise ConnectionError('Failed to send bug report')
-
-      except:
-         LOGEXCEPT('Failed:')
-         bugpage = 'https://bitcoinarmory.com/support/'
-         QMessageBox.information(self, tr('Submitted!'), tr("""
-            There was a problem submitting your bug report.  It is recommended
-            that you submit this information through our webpage instead:
-            <br><br>
-            <a href="%(url)s">%(url)s</a>""") % { 'url' : bugpage }, QMessageBox.Ok)
-         self.reject()
+# ################################################################################
+# class DlgBugReport(ArmoryDialog):
+#
+#    def __init__(self, parent=None, main=None):
+#       super(DlgBugReport, self).__init__(parent, main)
+#
+#       tsPage = 'https://bitcoinarmory.com/troubleshooting'
+#       faqPage = 'https://bitcoinarmory.com/faq'
+#
+#       lblDescr = QRichLabel(tr("""
+#          <b><u>Send a bug report to the Armory team</u></b>
+#          <br><br>
+#          If you are having difficulties with Armory, you should first visit
+#          our <a href="%(tsurl)s">troubleshooting page</a> and our
+#          <a href="%(faqurl)s">FAQ page</a> which describe solutions to
+#          many common problems.
+#          <br><br>
+#          If you do not find the answer to your problem on those pages,
+#          please describe it in detail below, and any steps taken to
+#          reproduce the problem.  The more information you provide, the
+#          more likely we will be able to help you.
+#          <br><br>
+#          <b><font color="%(color)s">Note:</font></b>  Please keep in mind we
+#          are a small open-source company, and do not have a formal customer
+#          support department.  We will do our best to help you, but cannot
+#          respond to everyone!""") \
+#             % {'tsurl' : tsPage, 'faqurl' : faqPage, 'color' :htmlColor('TextBlue')})
+#
+#       self.chkNoLog = QCheckBox(tr('Do not send log file with report'))
+#       self.chkNoLog.setChecked(False)
+#
+#       self.btnMoreInfo = QLabelButton(tr('Privacy Info'))
+#       self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
+#                               self.main.logFilePrivacyWarning)
+#
+#       self.noLogWarn = QRichLabel(tr("""
+#          <font color="%(color)s">You are unlikely to get a response unless you
+#          provide a log file and a reasonable description with your support
+#          request.""") % { 'color' : htmlColor('TextWarn') })
+#       self.noLogWarn.setVisible(False)
+#
+#       self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
+#                                            self.noLogWarn.setVisible)
+#
+#       self.lblEmail = QRichLabel(tr('Email Address:'))
+#       self.edtEmail = QLineEdit()
+#       self.edtEmail.setMaxLength(100)
+#
+#       self.lblSubject = QRichLabel(tr('Subject:'))
+#       self.edtSubject = QLineEdit()
+#       self.edtSubject.setMaxLength(64)
+#       self.edtSubject.setText(tr("Bug Report"))
+#
+#       self.txtDescr = QTextEdit()
+#       self.txtDescr.setFont(GETFONT('Fixed', 9))
+#       w,h = tightSizeNChar(self, 80)
+#       self.txtDescr.setMinimumWidth(w)
+#       self.txtDescr.setMinimumHeight(4*h)
+#       self.lblOS = QRichLabel(tr("""
+#          Note: if you are using this computer to report an Armory problem
+#          on another computer, please include the operating system of the
+#          other computer and the version of Armory it is running."""))
+#
+#       self.btnSubmit = QPushButton(tr('Submit Report'))
+#       self.btnCancel = QPushButton(tr('Cancel'))
+#       self.btnbox = QDialogButtonBox()
+#       self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
+#       self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+#       self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
+#       self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
+#
+#       armoryver = getVersionString(BTCARMORY_VERSION)
+#       lblDetect = QRichLabel( tr("""
+#          <b>Detected:</b> %(osname)s (%(osvariant)s) / %(mem)0.2f GB RAM / Armory version %(ver)s<br>
+#          <font size=2>(this data will be submitted automatically with the
+#          report)</font>""") % \
+#          { 'osname' : OS_NAME, 'osvariant' : OS_VARIANT[0], 'mem' : SystemSpecs.Memory, 'ver' : armoryver})
+#
+#
+#       layout = QGridLayout()
+#       i = -1
+#
+#       i += 1
+#       layout.addWidget(lblDescr,         i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(HLINE(),          i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(lblDetect,        i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(HLINE(),          i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(self.lblEmail,    i,0, 1,1)
+#       layout.addWidget(self.edtEmail,    i,1, 1,1)
+#
+#       i += 1
+#       layout.addWidget(self.lblSubject,  i,0, 1,1)
+#       layout.addWidget(self.edtSubject,  i,1, 1,1)
+#
+#       i += 1
+#       layout.addWidget(QLabel(tr("Description of problem:")),    i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(self.txtDescr,    i,0, 1,2)
+#
+#       i += 1
+#       frmchkbtn = makeHorizFrame([self.chkNoLog, self.btnMoreInfo, 'Stretch'])
+#       layout.addWidget(frmchkbtn,        i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(self.noLogWarn,   i,0, 1,2)
+#
+#       i += 1
+#       layout.addWidget(self.btnbox,      i,0, 1,2)
+#
+#       self.setLayout(layout)
+#       self.setWindowTitle(tr('Submit a Bug Report'))
+#       self.setWindowIcon(QIcon(self.main.iconfile))
+#
+#    #############################################################################
+#    def submitReport(self):
+#       if self.main.getUserAgreeToPrivacy(True):
+#          self.userAgreedToPrivacyPolicy = True
+#       else:
+#          return
+#
+#       emailAddr = unicode(self.edtEmail.text()).strip()
+#       emailLen = lenBytes(emailAddr)
+#
+#       subjectText = unicode(self.edtSubject.text()).strip()
+#       subjectLen = lenBytes(subjectText)
+#
+#       description = unicode(self.txtDescr.toPlainText()).strip()
+#       descrLen = lenBytes(description)
+#
+#
+#       if emailLen == 0 or not '@' in emailAddr:
+#          reply = MsgBoxCustom(MSGBOX.Warning, tr('Missing Email'), tr("""
+#             You must supply a valid email address so we can follow up on your
+#             request."""), \
+#             noStr=tr('Go Back'), yesStr=tr('Submit without Email'))
+#
+#          if not reply:
+#             return
+#          else:
+#             emailAddr = '<NO EMAIL SUPPPLIED>'
+#
+#
+#       if descrLen < 10:
+#          QMessageBox.warning(self, tr('Empty Description'), tr("""
+#             You must describe what problem you are having, and any steps
+#             to reproduce the problem.  The Armory team cannot look for
+#             problems in the log file if it doesn't know what those problems
+#             are!."""), QMessageBox.Ok)
+#          return
+#
+#       maxDescr = 16384
+#       if descrLen > maxDescr:
+#          reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
+#             You have exceeded the maximum size of the description that can
+#             be submitted to our ticket system, which is %(bytes)d bytes.
+#             If you click "Continue", the last %(last)s bytes of your description
+#             will be removed before sending.""") % { 'bytes' : maxDescr, 'last' : descrLen-maxDescr}, \
+#             noStr=tr('Go Back'), yesStr=tr('Continue'))
+#          if not reply:
+#             return
+#          else:
+#             description = unicode_truncate(description, maxDescr)
+#
+#
+#       # This is a unique-but-not-traceable ID, to simply match users to log files
+#       uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
+#       dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+#       osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
+#
+#       reportMap = {}
+#       reportMap['uniqID']       = uniqID
+#       reportMap['OSmajor']      = OS_NAME
+#       reportMap['OSvariant']    = osvariant
+#       reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
+#       reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
+#       reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
+#       reportMap['userEmail']    = emailAddr
+#       reportMap['userSubject']  = subjectText
+#       reportMap['userDescr']    = description
+#       reportMap['userTime']     = unixTimeToFormatStr(RightNow())
+#       reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
+#       reportMap['agreedPrivacy']  = str(self.userAgreedToPrivacyPolicy)
+#
+#       combinedLogName = 'armory_log_%s_%s.txt' % (uniqID, dateStr)
+#       combinedLogPath = os.path.join(ARMORY_HOME_DIR, combinedLogName)
+#       self.main.saveCombinedLogFile(combinedLogPath)
+#
+#       if self.chkNoLog.isChecked():
+#          reportMap['fileLog'] = '<NO LOG FILE SUBMITTED>'
+#       else:
+#          with open(combinedLogPath, 'r') as f:
+#             reportMap['fileLog'] = f.read()
+#
+#       LOGDEBUG('Sending the following dictionary of values to server')
+#       for key,val in reportMap.iteritems():
+#          if key=='fileLog':
+#             LOGDEBUG(key.ljust(12) + ': ' + binary_to_hex(sha256(val)))
+#          else:
+#             LOGDEBUG(key.ljust(12) + ': ' + val)
+#
+#       expectedResponseMap = {}
+#       expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap['fileLog']))
+#
+#       try:
+#          import urllib3
+#          http = urllib3.PoolManager()
+#          headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+#          response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
+#          responseMap = ast.literal_eval(response._body)
+#
+#
+#          LOGINFO('-'*50)
+#          LOGINFO('Response JSON:')
+#          for key,val in responseMap.iteritems():
+#             LOGINFO(key.ljust(12) + ': ' + str(val))
+#
+#          LOGINFO('-'*50)
+#          LOGINFO('Expected JSON:')
+#          for key,val in expectedResponseMap.iteritems():
+#             LOGINFO(key.ljust(12) + ': ' + str(val))
+#
+#
+#          LOGDEBUG('Connection info:')
+#          LOGDEBUG('   status:  ' + str(response.status))
+#          LOGDEBUG('   version: ' + str(response.version))
+#          LOGDEBUG('   reason:  ' + str(response.reason))
+#          LOGDEBUG('   strict:  ' + str(response.strict))
+#
+#
+#          if responseMap==expectedResponseMap:
+#             LOGINFO('Server verified receipt of log file')
+#             cemail = 'contact@bitcoinarmory.com'
+#             QMessageBox.information(self, tr('Submitted!'), tr("""
+#                <b>Your report was submitted successfully!</b>
+#                <br><br>
+#                You should receive and email shortly from our support system.
+#                If you do not receive it, you should follow up your request
+#                with an email to <a href="%(url)s">%(url)s</a>.  If you do, please
+#                attach the following file to your email:
+#                <br><br>
+#                %(path)s
+#                <br><br>
+#                Please be aware that the team receives lots of reports,
+#                so it may take a few days for the team to get back to
+#                you.""") % {'url' : cemail, 'path' : combinedLogPath}, QMessageBox.Ok)
+#             self.accept()
+#          else:
+#             raise ConnectionError('Failed to send bug report')
+#
+#       except:
+#          LOGEXCEPT('Failed:')
+#          bugpage = 'https://bitcoinarmory.com/support/'
+#          QMessageBox.information(self, tr('Submitted!'), tr("""
+#             There was a problem submitting your bug report.  It is recommended
+#             that you submit this information through our webpage instead:
+#             <br><br>
+#             <a href="%(url)s">%(url)s</a>""") % { 'url' : bugpage }, QMessageBox.Ok)
+#          self.reject()
 
 
 ################################################################################
@@ -825,152 +825,152 @@ class DlgInconsistentWltReport(ArmoryDialog):
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 
-   #############################################################################
-   def submitReport(self):
-
-      self.userAgreedToPrivacyPolicy = False
-      if self.main.getUserAgreeToPrivacy(True):
-         self.userAgreedToPrivacyPolicy = True
-      else:
-         return
-
-      emailAddr = unicode(self.edtEmail.text()).strip()
-      emailLen = lenBytes(emailAddr)
-
-      subjectText = unicode(self.edtSubject.text()).strip()
-      subjectLen = lenBytes(subjectText)
-
-      description = unicode(self.txtDescr.toPlainText()).strip()
-      descrLen = lenBytes(description)
-
-
-      if emailLen == 0 or not '@' in emailAddr:
-         QMessageBox.warning(self, tr('Missing Email'), tr("""
-            You must supply a valid email address so we can follow up on your
-            submission."""),  QMessageBox.Ok)
-         return
-
-
-
-      maxDescr = 16384
-      if descrLen > maxDescr:
-         reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
-            You have exceeded the maximum size of the description that can
-            be submitted to our ticket system, which is %(bytes)d bytes.
-            If you click "Continue", the last %(last)s bytes of your description
-            will be removed before sending.""") % { 'bytes' : maxDescr, 'last' : (descrLen-maxDescr)}, \
-            noStr=tr('Go Back'), yesStr=tr('Continue'))
-
-         if not reply:
-            return
-         else:
-            description = unicode_truncate(description, maxDescr)
-
-
-      # This is a unique-but-not-traceable ID, to simply match users to log files
-      uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
-      dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
-      osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
-
-      reportMap = {}
-      reportMap['uniqID']       = uniqID
-      reportMap['OSmajor']      = OS_NAME
-      reportMap['OSvariant']    = osvariant
-      reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
-      reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
-      reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
-      reportMap['userEmail']    = emailAddr
-      reportMap['userSubject']  = subjectText
-      reportMap['userDescr']    = description
-      reportMap['userTime']     = unixTimeToFormatStr(RightNow())
-      reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
-      reportMap['agreedPrivacy']  = str(self.userAgreedToPrivacyPolicy)
-
-      fileUploadKey = 'fileWalletLogs'
-
-      # Create a zip file of all logs (for all dirs), and put raw into map
-      zpath = self.createZipfile()
-      with open(zpath, 'rb') as f:
-         reportMap[fileUploadKey] = f.read()
-
-      LOGDEBUG('Sending the following dictionary of values to server')
-      for key,val in reportMap.iteritems():
-         if key==fileUploadKey:
-            LOGDEBUG(key.ljust(12) + ': ' + binary_to_hex(sha256(val)))
-         else:
-            LOGDEBUG(key.ljust(12) + ': ' + val)
-
-
-      expectedResponseMap = {}
-      with open(zpath, 'rb') as f:
-         expectedResponseMap['fileWalletLogsHash'] = \
-                           binary_to_hex(sha256(f.read()))
-
-      try:
-
-         import urllib3
-         http = urllib3.PoolManager()
-         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
-         response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
-         responseMap = ast.literal_eval(response._body)
-
-
-         LOGINFO('-'*50)
-         LOGINFO('Response JSON:')
-         for key,val in responseMap.iteritems():
-            LOGINFO(key.ljust(12) + ': ' + str(val))
-
-         LOGINFO('-'*50)
-         LOGINFO('Expected JSON:')
-         for key,val in expectedResponseMap.iteritems():
-            LOGINFO(key.ljust(12) + ': ' + str(val))
-
-
-         LOGDEBUG('Connection info:')
-         LOGDEBUG('   status:  ' + str(response.status))
-         LOGDEBUG('   version: ' + str(response.version))
-         LOGDEBUG('   reason:  ' + str(response.reason))
-         LOGDEBUG('   strict:  ' + str(response.strict))
-
-
-         if responseMap==expectedResponseMap:
-            LOGINFO('Server verified receipt of log file')
-            cemail = 'contact@bitcoinarmory.com'
-            QMessageBox.information(self, tr('Submitted!'), tr("""
-               <b>Your report was submitted successfully!</b> 
-               <br><br>
-               You should receive and email shortly from our support system.
-               If you do not receive it, you should follow up your request
-               with an email to <a href="%(url)s">%(url)s</a>.  
-               You should hear back from an Armory representative within
-               24 hours.""") % { 'url' : cemail }, QMessageBox.Ok)
-            self.accept()
-         else:
-            raise ConnectionError('Failed to send bug report')
-
-      except:
-         LOGEXCEPT('Failed:')
-         bugpage = 'https://bitcoinarmory.com/support/'
-         QMessageBox.information(self, tr('Submission Error!'), tr("""
-            There was a problem submitting your data through Armory.
-            Please create a new support ticket using our webpage, and attach
-            the following file to it:
-            <br><br>
-            %(zpath)s
-            <br><br>
-            Click below to go to the support page to open a new ticket. 
-            <br><br>
-            <a href=%(url)s">%(url)s</a>""") % {'zpath' : zpath, 'url' :bugpage}, QMessageBox.Ok)
-
-         try:
-            strOut  = 'Raw response from server:\n'
-            strOut += response.text
-            LOGINFO(strOut)
-         except:
-            # Get here if response._body doesn't exist... never got that far
-            pass
-
-         self.reject()
+   # #############################################################################
+   # def submitReport(self):
+   #
+   #    self.userAgreedToPrivacyPolicy = False
+   #    if self.main.getUserAgreeToPrivacy(True):
+   #       self.userAgreedToPrivacyPolicy = True
+   #    else:
+   #       return
+   #
+   #    emailAddr = unicode(self.edtEmail.text()).strip()
+   #    emailLen = lenBytes(emailAddr)
+   #
+   #    subjectText = unicode(self.edtSubject.text()).strip()
+   #    subjectLen = lenBytes(subjectText)
+   #
+   #    description = unicode(self.txtDescr.toPlainText()).strip()
+   #    descrLen = lenBytes(description)
+   #
+   #
+   #    if emailLen == 0 or not '@' in emailAddr:
+   #       QMessageBox.warning(self, tr('Missing Email'), tr("""
+   #          You must supply a valid email address so we can follow up on your
+   #          submission."""),  QMessageBox.Ok)
+   #       return
+   #
+   #
+   #
+   #    maxDescr = 16384
+   #    if descrLen > maxDescr:
+   #       reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
+   #          You have exceeded the maximum size of the description that can
+   #          be submitted to our ticket system, which is %(bytes)d bytes.
+   #          If you click "Continue", the last %(last)s bytes of your description
+   #          will be removed before sending.""") % { 'bytes' : maxDescr, 'last' : (descrLen-maxDescr)}, \
+   #          noStr=tr('Go Back'), yesStr=tr('Continue'))
+   #
+   #       if not reply:
+   #          return
+   #       else:
+   #          description = unicode_truncate(description, maxDescr)
+   #
+   #
+   #    # This is a unique-but-not-traceable ID, to simply match users to log files
+   #    uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
+   #    dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+   #    osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
+   #
+   #    reportMap = {}
+   #    reportMap['uniqID']       = uniqID
+   #    reportMap['OSmajor']      = OS_NAME
+   #    reportMap['OSvariant']    = osvariant
+   #    reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
+   #    reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
+   #    reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
+   #    reportMap['userEmail']    = emailAddr
+   #    reportMap['userSubject']  = subjectText
+   #    reportMap['userDescr']    = description
+   #    reportMap['userTime']     = unixTimeToFormatStr(RightNow())
+   #    reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
+   #    reportMap['agreedPrivacy']  = str(self.userAgreedToPrivacyPolicy)
+   #
+   #    fileUploadKey = 'fileWalletLogs'
+   #
+   #    # Create a zip file of all logs (for all dirs), and put raw into map
+   #    zpath = self.createZipfile()
+   #    with open(zpath, 'rb') as f:
+   #       reportMap[fileUploadKey] = f.read()
+   #
+   #    LOGDEBUG('Sending the following dictionary of values to server')
+   #    for key,val in reportMap.iteritems():
+   #       if key==fileUploadKey:
+   #          LOGDEBUG(key.ljust(12) + ': ' + binary_to_hex(sha256(val)))
+   #       else:
+   #          LOGDEBUG(key.ljust(12) + ': ' + val)
+   #
+   #
+   #    expectedResponseMap = {}
+   #    with open(zpath, 'rb') as f:
+   #       expectedResponseMap['fileWalletLogsHash'] = \
+   #                         binary_to_hex(sha256(f.read()))
+   #
+   #    try:
+   #
+   #       import urllib3
+   #       http = urllib3.PoolManager()
+   #       headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+   #       response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
+   #       responseMap = ast.literal_eval(response._body)
+   #
+   #
+   #       LOGINFO('-'*50)
+   #       LOGINFO('Response JSON:')
+   #       for key,val in responseMap.iteritems():
+   #          LOGINFO(key.ljust(12) + ': ' + str(val))
+   #
+   #       LOGINFO('-'*50)
+   #       LOGINFO('Expected JSON:')
+   #       for key,val in expectedResponseMap.iteritems():
+   #          LOGINFO(key.ljust(12) + ': ' + str(val))
+   #
+   #
+   #       LOGDEBUG('Connection info:')
+   #       LOGDEBUG('   status:  ' + str(response.status))
+   #       LOGDEBUG('   version: ' + str(response.version))
+   #       LOGDEBUG('   reason:  ' + str(response.reason))
+   #       LOGDEBUG('   strict:  ' + str(response.strict))
+   #
+   #
+   #       if responseMap==expectedResponseMap:
+   #          LOGINFO('Server verified receipt of log file')
+   #          cemail = 'contact@bitcoinarmory.com'
+   #          QMessageBox.information(self, tr('Submitted!'), tr("""
+   #             <b>Your report was submitted successfully!</b>
+   #             <br><br>
+   #             You should receive and email shortly from our support system.
+   #             If you do not receive it, you should follow up your request
+   #             with an email to <a href="%(url)s">%(url)s</a>.
+   #             You should hear back from an Armory representative within
+   #             24 hours.""") % { 'url' : cemail }, QMessageBox.Ok)
+   #          self.accept()
+   #       else:
+   #          raise ConnectionError('Failed to send bug report')
+   #
+   #    except:
+   #       LOGEXCEPT('Failed:')
+   #       bugpage = 'https://bitcoinarmory.com/support/'
+   #       QMessageBox.information(self, tr('Submission Error!'), tr("""
+   #          There was a problem submitting your data through Armory.
+   #          Please create a new support ticket using our webpage, and attach
+   #          the following file to it:
+   #          <br><br>
+   #          %(zpath)s
+   #          <br><br>
+   #          Click below to go to the support page to open a new ticket.
+   #          <br><br>
+   #          <a href=%(url)s">%(url)s</a>""") % {'zpath' : zpath, 'url' :bugpage}, QMessageBox.Ok)
+   #
+   #       try:
+   #          strOut  = 'Raw response from server:\n'
+   #          strOut += response.text
+   #          LOGINFO(strOut)
+   #       except:
+   #          # Get here if response._body doesn't exist... never got that far
+   #          pass
+   #
+   #       self.reject()
 
 
    #############################################################################
@@ -3403,8 +3403,7 @@ class DlgImportAddress(ArmoryDialog):
             MsgBoxCustom(MSGBOX.Error, 'Error!', tr("""
                Failed:  No addresses could be imported.
                Please check the logfile (ArmoryQt.exe.log) or the console output
-               for information about why it failed (and email support@bitcoinarmory.com
-               for help fixing the problem). """))
+               for information about why it failed. """))
             return
          else:
             if nError == 0:
@@ -4006,8 +4005,9 @@ class DlgEULA(ArmoryDialog):
 
 
       lblPleaseAgree = QRichLabel(\
-         '<b>Armory Bitcoin Client is licensed under the <i>Affero General '
-         'Public License, Version 3 (AGPLv3)</i></b>'
+         '<b>Armory Bitcoin Client is licensed in part under the ' 
+         '<i>Affero General Public License, Version 3 (AGPLv3)</i>' 
+         'and in part under the <i>MIT License</i></b>'
          '<br><br>'
          'Additionally, as a condition of receiving this software '
          'for free, you accept all risks associated with using it '
@@ -4064,10 +4064,7 @@ class DlgIntroMessage(ArmoryDialog):
          'software available!</b>  But please remember, this software '
          'is still <i>Beta</i> - Armory developers will not be held responsible '
          'for loss of bitcoins resulting from the use of this software!'
-         '<br><br>'
-         'For more info about Armory, and Bitcoin itself, see '
-         '<a href="https://bitcoinarmory.com/faq">frequently '
-         'asked questions</a>.')
+         '<br><br>')
       lblDescr.setOpenExternalLinks(True)
 
       lblContact = QRichLabel(\
@@ -6166,8 +6163,7 @@ class DlgDispTxInfo(ArmoryDialog):
                   '(change outputs are displayed in light gray).')
 
       self.lblChangeDescr = QRichLabel( tr("""Some outputs might be "change."
-         <a href="https://bitcoinarmory.com/all-about-change">Click for more 
-         info</a>"""), doWrap=False)
+         """), doWrap=False)
       self.lblChangeDescr.setOpenExternalLinks(True)
         
 
@@ -7230,7 +7226,6 @@ class DlgPrintBackup(ArmoryDialog):
 
       self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
       self.scene.newLine()
-      self.scene.drawText('http://www.bitcoinarmory.com')
 
       self.scene.newLine(extra_dy=20)
       self.scene.drawHLine()
@@ -8688,21 +8683,28 @@ class DlgHelpAbout(ArmoryDialog):
 
       lblHead = QRichLabel(tr('Armory Bitcoin Wallet : Version %s-beta-%s') % \
                                     (getVersionString(BTCARMORY_VERSION), BTCARMORY_BUILD), doWrap=False)
-      lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
-      lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel(tr(u'Copyright &copy; 2011-2015 Armory Technologies, Inc.'))
-      lblLicense = QRichLabel(tr(u'Licensed under the '
+      #lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
+      #lblWebpage.setOpenExternalLinks(True)
+      lblOldCopyright = QRichLabel(tr(u'Copyright &copy; 2011-2015 Armory Technologies, Inc.'))
+      lblCopyright = QRichLabel(tr(u'Copyright &copy; 2016 Goatpig'))
+      lblOldLicense = QRichLabel(tr(u'Licensed to Armory Technologies, Inc. under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)'))
+      lblOldLicense.setOpenExternalLinks(True)
+      lblLicense = QRichLabel(tr(u'Licensed to Goatpig under the '
+                              '<a href="https://opensource.org/licenses/mit-license.php">'
+                              'MIT License'))
       lblLicense.setOpenExternalLinks(True)
 
       lblHead.setAlignment(Qt.AlignHCenter)
-      lblWebpage.setAlignment(Qt.AlignHCenter)
+      #lblWebpage.setAlignment(Qt.AlignHCenter)
       lblCopyright.setAlignment(Qt.AlignHCenter)
+      lblOldCopyright.setAlignment(Qt.AlignHCenter)
       lblLicense.setAlignment(Qt.AlignHCenter)
+      lblOldLicense.setAlignment(Qt.AlignHCenter)
 
       dlgLayout = QHBoxLayout()
-      dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblWebpage, STRETCH, lblLicense]))
+      dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblOldCopyright, STRETCH, lblLicense, lblOldLicense]))
       self.setLayout(dlgLayout)
 
       self.setMinimumWidth(450)
@@ -8790,10 +8792,10 @@ class DlgSettings(ArmoryDialog):
       skipOnlineChk = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
       self.chkSkipOnlineCheck.setChecked(skipOnlineChk)
 
-      self.chkSkipVersionCheck = QCheckBox(tr("""
-         Skip periodic version queries to Armory server"""))
-      skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
-      self.chkSkipVersionCheck.setChecked(skipVerChk)
+      # self.chkSkipVersionCheck = QCheckBox(tr("""
+      #    Skip periodic version queries to Armory server"""))
+      # skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
+      # self.chkSkipVersionCheck.setChecked(skipVerChk)
 
 
       self.chkDisableTorrent = QCheckBox(tr("""
@@ -8804,31 +8806,31 @@ class DlgSettings(ArmoryDialog):
 
       ##########################################################################
       #  Privacy Settings
-      privacyStats = self.main.getSettingOrSetDefault('SkipStatsReport', False)
+      # privacyStats = self.main.getSettingOrSetDefault('SkipStatsReport', False)
       privacyTor   = self.main.getSettingOrSetDefault('UseTorSettings', False)
 
       lblPrivacyTitle = QRichLabel("<b>Privacy Settings</b>")
-      lblPrivStatsDescr = QRichLabel("""
-         When this software checks for updates and security alerts, it sends
-         your operating system and Armory version to ATI server for statistical
-         purposes.  No attempt is made to identify you.  No IP addresses are 
-         logged by ATI servers.  You can continue to receive notifications 
-         but not send any statistical information.""")
+      # lblPrivStatsDescr = QRichLabel("""
+      #    When this software checks for updates and security alerts, it sends
+      #    your operating system and Armory version to ATI server for statistical
+      #    purposes.  No attempt is made to identify you.  No IP addresses are
+      #    logged by ATI servers.  You can continue to receive notifications
+      #    but not send any statistical information.""")
       lblPrivTorDescr = QRichLabel("""
          If you are going to use Armory and Bitcoin Core with a proxy (such
          as Tor), you should disable all Armory communications that might operate 
          outside the proxy.""")
 
-      self.chkPrivacyStats = QCheckBox(tr("""
-         Disable OS and version reporting"""))
+      # self.chkPrivacyStats = QCheckBox(tr("""
+      #   Disable OS and version reporting"""))
 
       self.chkPrivacyTor = QCheckBox(tr("""
          Enable settings for proxies/Tor"""))
 
-      self.connect(self.chkPrivacyTor, SIGNAL('toggled(bool)'), 
-                   self.chkPrivacyStats.setDisabled)
+      # self.connect(self.chkPrivacyTor, SIGNAL('toggled(bool)'))
+      #             self.chkPrivacyStats.setDisabled)
 
-      self.chkPrivacyStats.setChecked(privacyStats)
+      #self.chkPrivacyStats.setChecked(privacyStats)
       self.chkPrivacyTor.setChecked(privacyTor)
       #  Privacy Settings
       ##########################################################################
@@ -8853,72 +8855,68 @@ class DlgSettings(ArmoryDialog):
          self.main.setupUriRegistration(justDoIt=True)
          QMessageBox.information(self, tr('Registered'), tr("""
             Armory just attempted to register itself to handle "bitcoin:"
-            links, but this does not work on all operating systems.  You can
-            test it by going to the
-            <a href="http://www.bitcoinarmory.com">Bitcoin Armory
-            website</a> and clicking the link at the bottom of the
-            homepage."""), QMessageBox.Ok)
+            links, but this does not work on all operating systems."""), QMessageBox.Ok)
 
       self.connect(btnDefaultURI, SIGNAL(CLICKED), clickRegURI)
 
 
-      ###############################################################
-      # Announcements and Alerts
-      lblAnnounce = QRichLabel(tr("""
-         Armory Technologies, Inc. will periodically post announcements and
-         security alerts.  ATI will also use this channel to notify you of
-         new Armory versions.  All these notifications are signed by an
-         offline private key controlled exclusively by ATI."""))
-      self.radioAnnounce1024 = QRadioButton(tr("""
-         (Level 1) All announcements including testing/unstable versions"""))
-      self.radioAnnounce2048 = QRadioButton(tr("""
-         (Level 2) Standard announcements and notifications"""))
-      self.radioAnnounce3072 = QRadioButton(tr("""
-         (Level 3) Only important announcements and alerts"""))
-      self.radioAnnounce4096 = QRadioButton(tr("""
-         (Level 4) Only critical security alerts"""))
-
-      self.chkDisableUpgradeNotify = QCheckBox(tr("""
-         Disable software upgrade notifications """))
-
-      self.chkDisableUpgradeNotify.setChecked( \
-         self.main.getSettingOrSetDefault('DisableUpgradeNotify', False))
-
-      lblDisableAnnounce = QRichLabel(tr("""
-         <font color="%s">If you must completely disable all notifications
-         from the Armory team, you can run Armory with the
-         "--skip-announce-check" flag from the command-line, or add it to
-         the Armory shortcut target</font>""") % htmlColor('DisableFG'))
-
-      btnGroupAnnounce = QButtonGroup(self)
-      btnGroupAnnounce.addButton(self.radioAnnounce1024)
-      btnGroupAnnounce.addButton(self.radioAnnounce2048)
-      btnGroupAnnounce.addButton(self.radioAnnounce3072)
-      btnGroupAnnounce.addButton(self.radioAnnounce4096)
-      btnGroupAnnounce.setExclusive(True)
-
-      minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', \
-                                                         DEFAULT_MIN_PRIORITY)
-      if minPriority >= 4096:
-         self.radioAnnounce4096.setChecked(True)
-      elif minPriority >= 3072:
-         self.radioAnnounce3072.setChecked(True)
-      elif minPriority >= 2048:
-         self.radioAnnounce2048.setChecked(True)
-      elif minPriority >= 0:
-         self.radioAnnounce1024.setChecked(True)
-
-      btnResetNotify = QPushButton(tr('Reset Notifications'))
-      frmBtnResetNotify = makeHorizFrame([btnResetNotify, 'Stretch'])
-
-      def resetNotifyLong():
-         self.main.notifyIgnoreLong  = set()
-         self.main.notifyIgnoreShort = set()
-         self.main.writeSetting('NotifyIgnore', '')
-         QMessageBox.information(self, tr('Settings Changed'), tr("""
-            All notifications have been reset!"""), QMessageBox.Ok)
-
-      self.connect(btnResetNotify, SIGNAL(CLICKED), resetNotifyLong)
+      # ###############################################################
+      # # Announcements and Alerts (Commeented out until announcements system fix)
+      # lblAnnounce = QRichLabel(tr("""
+      #    Armory Technologies, Inc. will periodically post announcements and
+      #    security alerts.  ATI will also use this channel to notify you of
+      #    new Armory versions.  All these notifications are signed by an
+      #    offline private key controlled exclusively by ATI."""))
+      # self.radioAnnounce1024 = QRadioButton(tr("""
+      #    (Level 1) All announcements including testing/unstable versions"""))
+      # self.radioAnnounce2048 = QRadioButton(tr("""
+      #    (Level 2) Standard announcements and notifications"""))
+      # self.radioAnnounce3072 = QRadioButton(tr("""
+      #    (Level 3) Only important announcements and alerts"""))
+      # self.radioAnnounce4096 = QRadioButton(tr("""
+      #    (Level 4) Only critical security alerts"""))
+      #
+      # self.chkDisableUpgradeNotify = QCheckBox(tr("""
+      #    Disable software upgrade notifications """))
+      #
+      # self.chkDisableUpgradeNotify.setChecked( \
+      #    self.main.getSettingOrSetDefault('DisableUpgradeNotify', False))
+      #
+      # lblDisableAnnounce = QRichLabel(tr("""
+      #    <font color="%s">If you must completely disable all notifications
+      #    from the Armory team, you can run Armory with the
+      #    "--skip-announce-check" flag from the command-line, or add it to
+      #    the Armory shortcut target</font>""") % htmlColor('DisableFG'))
+      #
+      # btnGroupAnnounce = QButtonGroup(self)
+      # btnGroupAnnounce.addButton(self.radioAnnounce1024)
+      # btnGroupAnnounce.addButton(self.radioAnnounce2048)
+      # btnGroupAnnounce.addButton(self.radioAnnounce3072)
+      # btnGroupAnnounce.addButton(self.radioAnnounce4096)
+      # btnGroupAnnounce.setExclusive(True)
+      #
+      # minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', \
+      #                                                    DEFAULT_MIN_PRIORITY)
+      # if minPriority >= 4096:
+      #    self.radioAnnounce4096.setChecked(True)
+      # elif minPriority >= 3072:
+      #    self.radioAnnounce3072.setChecked(True)
+      # elif minPriority >= 2048:
+      #    self.radioAnnounce2048.setChecked(True)
+      # elif minPriority >= 0:
+      #    self.radioAnnounce1024.setChecked(True)
+      #
+      # btnResetNotify = QPushButton(tr('Reset Notifications'))
+      # frmBtnResetNotify = makeHorizFrame([btnResetNotify, 'Stretch'])
+      #
+      # def resetNotifyLong():
+      #    self.main.notifyIgnoreLong  = set()
+      #    self.main.notifyIgnoreShort = set()
+      #    self.main.writeSetting('NotifyIgnore', '')
+      #    QMessageBox.information(self, tr('Settings Changed'), tr("""
+      #       All notifications have been reset!"""), QMessageBox.Ok)
+      #
+      # self.connect(btnResetNotify, SIGNAL(CLICKED), resetNotifyLong)
 
 
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
@@ -9126,10 +9124,10 @@ class DlgSettings(ArmoryDialog):
       
       i += 1
       frmLayout.addWidget(lblPrivacyTitle, i, 0, 1, 3)
-      i += 1
-      frmLayout.addWidget(lblPrivStatsDescr , i, 0, 1, 3)
-      i += 1
-      frmLayout.addWidget(self.chkPrivacyStats , i, 0, 1, 3)
+      # i += 1
+      # frmLayout.addWidget(lblPrivStatsDescr , i, 0, 1, 3)
+      # i += 1
+      # frmLayout.addWidget(self.chkPrivacyStats , i, 0, 1, 3)
       i += 1
       frmLayout.addWidget(lblPrivTorDescr, i, 0, 1, 3)
       i += 1
@@ -9200,33 +9198,33 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
 
-      i += 1
-      frmLayout.addWidget(lblAnnounce, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(self.radioAnnounce1024, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(self.radioAnnounce2048, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(self.radioAnnounce3072, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(self.radioAnnounce4096, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(lblDisableAnnounce, i, 0, 1, 4)
-
-      i += 1
-      frmLayout.addWidget(self.chkDisableUpgradeNotify , i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(frmBtnResetNotify , i, 0, 1, 3)
-
-
-      i += 1
-      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
+      # i += 1
+      # frmLayout.addWidget(lblAnnounce, i, 0, 1, 3)
+      #
+      # i += 1
+      # frmLayout.addWidget(self.radioAnnounce1024, i, 0, 1, 3)
+      #
+      # i += 1
+      # frmLayout.addWidget(self.radioAnnounce2048, i, 0, 1, 3)
+      #
+      # i += 1
+      # frmLayout.addWidget(self.radioAnnounce3072, i, 0, 1, 3)
+      #
+      # i += 1
+      # frmLayout.addWidget(self.radioAnnounce4096, i, 0, 1, 3)
+      #
+      # i += 1
+      # frmLayout.addWidget(lblDisableAnnounce, i, 0, 1, 4)
+      #
+      # i += 1
+      # frmLayout.addWidget(self.chkDisableUpgradeNotify , i, 0, 1, 3)
+      #
+      # i += 1
+      # frmLayout.addWidget(frmBtnResetNotify , i, 0, 1, 3)
+      #
+      #
+      # i += 1
+      # frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(lblUsermode, i, 0)
@@ -9366,20 +9364,6 @@ class DlgSettings(ArmoryDialog):
       oldTorSetting = self.main.getSettingOrSetDefault('UseTorSettings', False)
       self.main.writeSetting('SkipStatsReport',self.chkPrivacyStats.isChecked())
       self.main.writeSetting('UseTorSettings', self.chkPrivacyTor.isChecked())
-
-      if self.chkPrivacyTor.isChecked() and not oldTorSetting:
-         annURL = 'https://bitcoinarmory.com/announcements/'
-         QMessageBox.warning(self, 'Disable Security Alerts?', tr("""
-            You have chosen to disable all Armory communications that are
-            incompatible with proxies/Tor.  This includes 
-            checking for security alerts.  If you leave this option
-            checked, it is highly recommended that you manually check
-            for updates in the "<i>Announcements</i>" tab on the main 
-            window from another online Armory installation and/or
-            bookmark our announcements page: 
-            <br><br>
-            <a href="%s">%s</a>""") % (annURL,annURL), QMessageBox.Ok) 
-
       
 
 
@@ -10193,236 +10177,237 @@ class DlgRequestPayment(ArmoryDialog):
 
 
 
-################################################################################
-class DlgNotificationWithDNAA(ArmoryDialog):
-   """
-   This dialog will be used for automatic popups when notifications come in,
-   as well as displaying specific notifications if viewed and selected in
-   the Announcements tab.
-   """
-   def __init__(self, parent, main, nid, notifyMap, showBtnDNAA=True):
-      super(DlgNotificationWithDNAA, self).__init__(parent, main)
-
-      self.notifyID = nid
-      isUpgrade = ('upgrade' in notifyMap['ALERTTYPE'].lower())
-      isTesting = (notifyMap['ALERTTYPE'].lower()=='upgrade-testing')
-
-      #if notifyMap is None:
-         #notifyMap = self.main.almostFullNotificationList[nid]
-
-      priority   = int(notifyMap['PRIORITY'])
-      shortDescr = notifyMap['SHORTDESCR']
-      longDescr  = notifyMap['LONGDESCR']
-      startTime  = long(notifyMap['STARTTIME'])
-
-      minver  = notifyMap['MINVERSION']
-      maxver  = notifyMap['MAXVERSION']
-      minExclude = minver.startswith('>')
-      maxExclude = maxver.startswith('<')
-      minver  = minver[1:] if minExclude else minver
-      maxver  = maxver[1:] if maxExclude else maxver
-
-
-      LTE = '\xe2\x89\xa4'
-      GTE = '\xe2\x89\xa5'
-
-      if isUpgrade:
-         currVerStr = getVersionString(BTCARMORY_VERSION)
-         versionString = tr("""You are using version %s<br>""") % currVerStr
-      elif minver=='*':
-         versionString = tr('Affects Armory versions:  ')
-         if maxver=='*':
-            versionString = 'Affects all Armory versions'
-         elif maxExclude:
-            versionString += tr('before %s<br>' % maxver)
-         else:
-            versionString += tr('%s%s<br>' % (LTE, maxver))
-      elif minExclude:
-         versionString = tr('Affects Armory versions ')
-         if maxver=='*':
-            versionString += tr('after %s<br>' % minver)
-         elif maxExclude:
-            versionString += tr('between %s and %s<br>' % (minver, maxver))
-         else:
-            versionString += tr('after %s,  %s%s<br>' % (minver, LTE, maxver))
-      else:
-         versionString = tr('Affects Armory versions ')
-         if maxver=='*':
-            versionString += tr('%s%s<br>' % (GTE,minver))
-         elif maxExclude:
-            versionString += tr('%s%s and before %s<br>' % (GTE, minver, maxver))
-         else:
-            versionString += tr('%s%s and %s%s<br>' % (GTE,minver,LTE,maxver))
-
-
-      startTimeStr = ''
-      if startTime > 0:
-         if isUpgrade:
-            for verStr,dateStr,updList in self.main.changelog:
-               if verStr==notifyMap['MAXVERSION'][1:]:
-                  startTimeStr = tr('Released: %s<br>' % dateStr)
-                  break
-         else:
-            startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
-
-      if isUpgrade:
-         iconFile = ':/MsgBox_info48.png'
-         headerSz = 4         
-          
-         if isTesting:
-            titleStr = tr('New Armory Test Build')
-            headerStr = tr("""New Testing Version Available!""")        
-         else:
-            titleStr = tr('Upgrade Armory')
-            headerStr = tr("""Armory is out-of-date!""")
-            
-      elif 0 <= priority < 2048:
-         iconFile = ':/MsgBox_info48.png'
-         titleStr = tr('Information')
-         headerSz = 4
-         headerStr = tr("""General Notification""")
-      elif 2048 <= priority < 4096:
-         iconFile = ':/MsgBox_warning48.png'
-         titleStr = ''
-         headerSz = 4
-         headerStr = tr("""
-            Important Information from <i>Armory Technologies, Inc.</i>""")
-      elif 4096 <= priority < 5120:
-         iconFile = ':/MsgBox_critical64.png'
-         titleStr = tr('Alert')
-         headerSz = 4
-         headerStr = tr("""
-            Security Alert from <i>Armory Technologies, Inc.</i>""")
-      elif 5120 <= priority:
-         iconFile = ':/MsgBox_critical64.png'
-         titleStr = tr('Alert')
-         headerSz = 4
-         headerStr = tr("""
-            Critical Security Alert from <i>Armory Technologies, Inc.</i>""")
-
-      lblHeader =  QRichLabel(tr("""
-         <font size=%d color="%s"><b>%s</b></font><br>""") % \
-                     (headerSz, htmlColor('TextWarn'), headerStr), \
-                     doWrap=False, hAlign=Qt.AlignHCenter)
-
-      lblTopInfo = QRichLabel(tr("""
-         <b>%(shortDescr)s</b><br>
-         %(startTimeStr)s
-         <br>
-         %(versionString)s
-         """) % locals())
-
-      lastWord = ''
-      if not isUpgrade:
-         lastWord = tr("""
-         If new versions of Armory are available, you can get them
-         using our <font color="red"><a href="secureDL(Armory)">secure
-         downloader</a></font> """)
-
-      lblBottomInfo = QRichLabel(tr("""
-         You can access all alerts and announcements from the
-         "Announcements" tab on the main Armory window.""") + lastWord)
-
-
-      def doUDD(href=None):
-         self.accept()
-         self.main.openDLArmory()
-
-      lblBottomInfo.setOpenExternalLinks(False)
-      self.connect(lblBottomInfo, SIGNAL('linkActivated(const QString &)'), doUDD)
-
-      # Setup the long descr
-      def openLink(url):
-         #print 'opening ', url
-         import webbrowser
-         webbrowser.open(str(url))
-
-      self.txtLongDescr = QTextBrowser()
-      self.txtLongDescr.setHtml(longDescr)
-      self.txtLongDescr.setOpenExternalLinks(True)
-
-
-
-
-      notifyIcon = QLabel()
-      pixfile = QPixmap(iconFile)
-      notifyIcon.setPixmap(pixfile)
-      notifyIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-
-
-      btnDismiss      = QPushButton(tr('Close'))
-      btnIgnoreLong   = QPushButton(tr('Do not popup again'))
-      btnDownload     = QPushButton(tr('Secure Download'))
-
-      btnIgnoreLong.setVisible(showBtnDNAA)
-
-      def openUpgrader(): 
-         self.accept()
-         self.main.openDLArmory()
-
-      self.connect(btnDismiss,    SIGNAL(CLICKED), self.acceptShortIgnore)
-      self.connect(btnIgnoreLong, SIGNAL(CLICKED), self.acceptLongIgnore)
-      self.connect(btnDownload,   SIGNAL(CLICKED), openUpgrader)
-
-      if not isUpgrade:
-         btnDownload.setVisible(False)
-
-      # You cannot permanently ignore a critical security alert!
-      if priority >= 5120:
-         btnIgnoreLong.setVisible(False)
-
-      layout = QVBoxLayout()
-      frmTop = makeHorizFrame([notifyIcon, 'Space(20)', lblTopInfo])
-      frmTop.layout().setStretch(0, 0)
-      frmTop.layout().setStretch(1, 0)
-      frmTop.layout().setStretch(2, 1)
-      frmButton = makeHorizFrame(['Stretch', \
-                                  btnDismiss, \
-                                  btnIgnoreLong, \
-                                  btnDownload])
-      layout.addWidget(lblHeader)
-      layout.addWidget(HLINE())
-      layout.addWidget(frmTop)
-      layout.addWidget(self.txtLongDescr)
-      layout.addItem(QSpacerItem(20, 20))
-      layout.addWidget(lblBottomInfo)
-      layout.addWidget(frmButton)
-      layout.setStretch(0, 0)
-      layout.setStretch(1, 0)
-      layout.setStretch(2, 0)
-      layout.setStretch(3, 1)
-      layout.setStretch(4, 0)
-      layout.setStretch(5, 0)
-      layout.setStretch(6, 0)
-
-      self.setLayout(layout)
-
-      self.setMinimumWidth(500)
-
-      # TODO:  Dear god this is terrible, but for my life I cannot figure
-      #        out how to move the vbar, because you can't do it until
-      #        the dialog is drawn which doesn't happen til after __init__
-      from twisted.internet import reactor
-      reactor.callLater(0.05, self.resizeEvent)
-
-      self.setWindowTitle(titleStr)
-      self.setWindowIcon(QIcon(iconFile))
-
-   def resizeEvent(self, ev=None):
-      super(DlgNotificationWithDNAA, self).resizeEvent(ev)
-      vbar = self.txtLongDescr.verticalScrollBar()
-      vbar.setValue(vbar.minimum())
-
-
-   def acceptLongIgnore(self):
-      self.main.notifyIgnoreLong.add(self.notifyID)
-      self.main.notifyIgnoreShort.add(self.notifyID)
-      self.main.writeSetting('NotifyIgnore',''.join(self.main.notifyIgnoreLong))
-      self.accept()
-
-   def acceptShortIgnore(self):
-      self.main.notifyIgnoreShort.add(self.notifyID)
-      self.accept()
+# ################################################################################
+# Commented out until announcements system fix
+# class DlgNotificationWithDNAA(ArmoryDialog):
+#    """
+#    This dialog will be used for automatic popups when notifications come in,
+#    as well as displaying specific notifications if viewed and selected in
+#    the Announcements tab.
+#    """
+#    def __init__(self, parent, main, nid, notifyMap, showBtnDNAA=True):
+#       super(DlgNotificationWithDNAA, self).__init__(parent, main)
+#
+#       self.notifyID = nid
+#       isUpgrade = ('upgrade' in notifyMap['ALERTTYPE'].lower())
+#       isTesting = (notifyMap['ALERTTYPE'].lower()=='upgrade-testing')
+#
+#       #if notifyMap is None:
+#          #notifyMap = self.main.almostFullNotificationList[nid]
+#
+#       priority   = int(notifyMap['PRIORITY'])
+#       shortDescr = notifyMap['SHORTDESCR']
+#       longDescr  = notifyMap['LONGDESCR']
+#       startTime  = long(notifyMap['STARTTIME'])
+#
+#       minver  = notifyMap['MINVERSION']
+#       maxver  = notifyMap['MAXVERSION']
+#       minExclude = minver.startswith('>')
+#       maxExclude = maxver.startswith('<')
+#       minver  = minver[1:] if minExclude else minver
+#       maxver  = maxver[1:] if maxExclude else maxver
+#
+#
+#       LTE = '\xe2\x89\xa4'
+#       GTE = '\xe2\x89\xa5'
+#
+#       if isUpgrade:
+#          currVerStr = getVersionString(BTCARMORY_VERSION)
+#          versionString = tr("""You are using version %s<br>""") % currVerStr
+#       elif minver=='*':
+#          versionString = tr('Affects Armory versions:  ')
+#          if maxver=='*':
+#             versionString = 'Affects all Armory versions'
+#          elif maxExclude:
+#             versionString += tr('before %s<br>' % maxver)
+#          else:
+#             versionString += tr('%s%s<br>' % (LTE, maxver))
+#       elif minExclude:
+#          versionString = tr('Affects Armory versions ')
+#          if maxver=='*':
+#             versionString += tr('after %s<br>' % minver)
+#          elif maxExclude:
+#             versionString += tr('between %s and %s<br>' % (minver, maxver))
+#          else:
+#             versionString += tr('after %s,  %s%s<br>' % (minver, LTE, maxver))
+#       else:
+#          versionString = tr('Affects Armory versions ')
+#          if maxver=='*':
+#             versionString += tr('%s%s<br>' % (GTE,minver))
+#          elif maxExclude:
+#             versionString += tr('%s%s and before %s<br>' % (GTE, minver, maxver))
+#          else:
+#             versionString += tr('%s%s and %s%s<br>' % (GTE,minver,LTE,maxver))
+#
+#
+#       startTimeStr = ''
+#       if startTime > 0:
+#          if isUpgrade:
+#             for verStr,dateStr,updList in self.main.changelog:
+#                if verStr==notifyMap['MAXVERSION'][1:]:
+#                   startTimeStr = tr('Released: %s<br>' % dateStr)
+#                   break
+#          else:
+#             startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
+#
+#       if isUpgrade:
+#          iconFile = ':/MsgBox_info48.png'
+#          headerSz = 4
+#
+#          if isTesting:
+#             titleStr = tr('New Armory Test Build')
+#             headerStr = tr("""New Testing Version Available!""")
+#          else:
+#             titleStr = tr('Upgrade Armory')
+#             headerStr = tr("""Armory is out-of-date!""")
+#
+#       elif 0 <= priority < 2048:
+#          iconFile = ':/MsgBox_info48.png'
+#          titleStr = tr('Information')
+#          headerSz = 4
+#          headerStr = tr("""General Notification""")
+#       elif 2048 <= priority < 4096:
+#          iconFile = ':/MsgBox_warning48.png'
+#          titleStr = ''
+#          headerSz = 4
+#          headerStr = tr("""
+#             Important Information from <i>Armory Technologies, Inc.</i>""")
+#       elif 4096 <= priority < 5120:
+#          iconFile = ':/MsgBox_critical64.png'
+#          titleStr = tr('Alert')
+#          headerSz = 4
+#          headerStr = tr("""
+#             Security Alert from <i>Armory Technologies, Inc.</i>""")
+#       elif 5120 <= priority:
+#          iconFile = ':/MsgBox_critical64.png'
+#          titleStr = tr('Alert')
+#          headerSz = 4
+#          headerStr = tr("""
+#             Critical Security Alert from <i>Armory Technologies, Inc.</i>""")
+#
+#       lblHeader =  QRichLabel(tr("""
+#          <font size=%d color="%s"><b>%s</b></font><br>""") % \
+#                      (headerSz, htmlColor('TextWarn'), headerStr), \
+#                      doWrap=False, hAlign=Qt.AlignHCenter)
+#
+#       lblTopInfo = QRichLabel(tr("""
+#          <b>%(shortDescr)s</b><br>
+#          %(startTimeStr)s
+#          <br>
+#          %(versionString)s
+#          """) % locals())
+#
+#       lastWord = ''
+#       if not isUpgrade:
+#          lastWord = tr("""
+#          If new versions of Armory are available, you can get them
+#          using our <font color="red"><a href="secureDL(Armory)">secure
+#          downloader</a></font> """)
+#
+#       lblBottomInfo = QRichLabel(tr("""
+#          You can access all alerts and announcements from the
+#          "Announcements" tab on the main Armory window.""") + lastWord)
+#
+#
+#       def doUDD(href=None):
+#          self.accept()
+#          self.main.openDLArmory()
+#
+#       lblBottomInfo.setOpenExternalLinks(False)
+#       self.connect(lblBottomInfo, SIGNAL('linkActivated(const QString &)'), doUDD)
+#
+#       # Setup the long descr
+#       def openLink(url):
+#          #print 'opening ', url
+#          import webbrowser
+#          webbrowser.open(str(url))
+#
+#       self.txtLongDescr = QTextBrowser()
+#       self.txtLongDescr.setHtml(longDescr)
+#       self.txtLongDescr.setOpenExternalLinks(True)
+#
+#
+#
+#
+#       notifyIcon = QLabel()
+#       pixfile = QPixmap(iconFile)
+#       notifyIcon.setPixmap(pixfile)
+#       notifyIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+#
+#
+#       btnDismiss      = QPushButton(tr('Close'))
+#       btnIgnoreLong   = QPushButton(tr('Do not popup again'))
+#       btnDownload     = QPushButton(tr('Secure Download'))
+#
+#       btnIgnoreLong.setVisible(showBtnDNAA)
+#
+#       def openUpgrader():
+#          self.accept()
+#          self.main.openDLArmory()
+#
+#       self.connect(btnDismiss,    SIGNAL(CLICKED), self.acceptShortIgnore)
+#       self.connect(btnIgnoreLong, SIGNAL(CLICKED), self.acceptLongIgnore)
+#       self.connect(btnDownload,   SIGNAL(CLICKED), openUpgrader)
+#
+#       if not isUpgrade:
+#          btnDownload.setVisible(False)
+#
+#       # You cannot permanently ignore a critical security alert!
+#       if priority >= 5120:
+#          btnIgnoreLong.setVisible(False)
+#
+#       layout = QVBoxLayout()
+#       frmTop = makeHorizFrame([notifyIcon, 'Space(20)', lblTopInfo])
+#       frmTop.layout().setStretch(0, 0)
+#       frmTop.layout().setStretch(1, 0)
+#       frmTop.layout().setStretch(2, 1)
+#       frmButton = makeHorizFrame(['Stretch', \
+#                                   btnDismiss, \
+#                                   btnIgnoreLong, \
+#                                   btnDownload])
+#       layout.addWidget(lblHeader)
+#       layout.addWidget(HLINE())
+#       layout.addWidget(frmTop)
+#       layout.addWidget(self.txtLongDescr)
+#       layout.addItem(QSpacerItem(20, 20))
+#       layout.addWidget(lblBottomInfo)
+#       layout.addWidget(frmButton)
+#       layout.setStretch(0, 0)
+#       layout.setStretch(1, 0)
+#       layout.setStretch(2, 0)
+#       layout.setStretch(3, 1)
+#       layout.setStretch(4, 0)
+#       layout.setStretch(5, 0)
+#       layout.setStretch(6, 0)
+#
+#       self.setLayout(layout)
+#
+#       self.setMinimumWidth(500)
+#
+#       # TODO:  Dear god this is terrible, but for my life I cannot figure
+#       #        out how to move the vbar, because you can't do it until
+#       #        the dialog is drawn which doesn't happen til after __init__
+#       from twisted.internet import reactor
+#       reactor.callLater(0.05, self.resizeEvent)
+#
+#       self.setWindowTitle(titleStr)
+#       self.setWindowIcon(QIcon(iconFile))
+#
+#    def resizeEvent(self, ev=None):
+#       super(DlgNotificationWithDNAA, self).resizeEvent(ev)
+#       vbar = self.txtLongDescr.verticalScrollBar()
+#       vbar.setValue(vbar.minimum())
+#
+#
+#    def acceptLongIgnore(self):
+#       self.main.notifyIgnoreLong.add(self.notifyID)
+#       self.main.notifyIgnoreShort.add(self.notifyID)
+#       self.main.writeSetting('NotifyIgnore',''.join(self.main.notifyIgnoreLong))
+#       self.accept()
+#
+#    def acceptShortIgnore(self):
+#       self.main.notifyIgnoreShort.add(self.notifyID)
+#       self.accept()
 
 
 ################################################################################
@@ -11904,9 +11889,7 @@ class DlgFragBackup(ArmoryDialog):
              <font color="%(color)s"><b>%(N)d</b></font>
          fragments are sufficient to restore your wallet, and each fragment
          has the ID, <font color="%(color)s"><b>%(prefix)s</b></font>.  All fragments with the
-         same fragment ID are compatible with each other!
-         <a href="https://bitcoinarmory.com/armory-backups-are-forever/">Click
-         here</a> to read more about our backup system.<br>""") % \
+         same fragment ID are compatible with each other!""") % \
          { 'color' : BLUE, 'M' : M, 'N' : N, 'prefix' : self.fragPrefixStr})
 
 
@@ -15086,95 +15069,96 @@ class DlgBroadcastBlindTx(ArmoryDialog):
 
       self.accept()
       
-#################################################################################
-class DlgPrivacyPolicy(ArmoryDialog):
-   def __init__(self, main=None, parent=None, popupType='generic'):
-      super(DlgPrivacyPolicy, self).__init__(parent, main)
-
-      lblHeader = QRichLabel(tr("""
-         <font size=4><b>Armory Technologies, Inc. Privacy 
-         Policy</b></font>"""), hAlign=Qt.AlignCenter)
-
-      if popupType=='generic':
-         descrTxt = tr("""
-            Unless explicitly disabled, Armory periodically contacts ATI 
-            servers for alerts and software updates.  These checks expose 
-            your IP address, software version, and operating system 
-            to ATI servers, as well as any other servers 
-            in-route.  No other information is collected without your 
-            explicit permission, which will be obtained when such
-            information is requested, such as submitting a bug report
-            with your log files.
-            <br><br>
-            By using this software and submitting this information to 
-            ATI, you are agreeing to the ATI privacy policy at the 
-            link below.  The page also includes information
-            about changing Armory's default privacy settings.""")
-      elif popupType=='submitbug':
-         descrTxt = tr("""
-            You are submitting a bug report to ATI servers.  Your log 
-            files will be included unless you explicitly unselected it
-            from the bug submission screen.  Armory log files do not 
-            contain any <u>security</u>-sensitive
-            information, but some users may consider the information to be
-            <u>privacy</u>-sensitive.  The log files may identify some 
-            addresses and transactions that are related to your wallets.
-            No signing keys are ever written to the log file that would
-            allow another party to move or spend your funds.
-            <br><br>
-
-            By using this software and submitting this information to 
-            ATI, you are agreeing to the ATI privacy policy at the 
-            link below.""")
-      else:
-         LOGERROR("Unknown popup type: %s", popupType)
-         descrTxt = tr("""
-            By using this software and submitting this information to 
-            ATI, you are agreeing to the ATI privacy policy at the 
-            link below.  The page also includes information about 
-            changing Armory's default privacy settings.
-            <br><br>""")
-         
-
-      lblURL = QRichLabel(tr("""<br><a href="%s">%s</a><br><br>""") % \
-         (PRIVACY_URL, PRIVACY_URL), hAlign=Qt.AlignHCenter)
-      lblURL.setOpenExternalLinks(True)
-
-      
-      lblDescr = QRichLabel(tr("""<br> %s""") % descrTxt)
-
-      self.chkUserAgrees = QCheckBox(tr("""
-         I have read and agree to the ATI privacy policy"""))
-
-
-      self.btnContinue = QPushButton('')
-      self.connect(self.chkUserAgrees, SIGNAL('toggled(bool)'), 
-                                          self.btnContinue.setEnabled)
-      self.connect(self.btnContinue, SIGNAL('clicked()'), self.accept)
-
-
-      frmBtn = makeHorizFrame(['Stretch', self.btnContinue])
-      mainLayout = QVBoxLayout()
-      mainLayout.addWidget(lblHeader)
-      mainLayout.addWidget(lblDescr)
-      mainLayout.addWidget(lblURL)
-      mainLayout.addWidget(self.chkUserAgrees)
-      mainLayout.addWidget(frmBtn)
-      self.setLayout(mainLayout)
-
-      if popupType=='submitbug':
-         self.chkUserAgrees.setVisible(True)
-         self.chkUserAgrees.setChecked(False)
-         self.btnContinue.setEnabled(False)
-         self.btnContinue.setText(tr('Continue'))
-      else:
-         self.chkUserAgrees.setVisible(False)
-         self.chkUserAgrees.setChecked(False)
-         self.btnContinue.setEnabled(True)
-         self.btnContinue.setText(tr('Ok'))
-
-   
-      self.setWindowTitle(tr("Privacy Policy"))
+# #################################################################################
+# Commented out until announcements system fix
+# class DlgPrivacyPolicy(ArmoryDialog):
+#    def __init__(self, main=None, parent=None, popupType='generic'):
+#       super(DlgPrivacyPolicy, self).__init__(parent, main)
+#
+#       lblHeader = QRichLabel(tr("""
+#          <font size=4><b>Armory Technologies, Inc. Privacy
+#          Policy</b></font>"""), hAlign=Qt.AlignCenter)
+#
+#       if popupType=='generic':
+#          descrTxt = tr("""
+#             Unless explicitly disabled, Armory periodically contacts ATI
+#             servers for alerts and software updates.  These checks expose
+#             your IP address, software version, and operating system
+#             to ATI servers, as well as any other servers
+#             in-route.  No other information is collected without your
+#             explicit permission, which will be obtained when such
+#             information is requested, such as submitting a bug report
+#             with your log files.
+#             <br><br>
+#             By using this software and submitting this information to
+#             ATI, you are agreeing to the ATI privacy policy at the
+#             link below.  The page also includes information
+#             about changing Armory's default privacy settings.""")
+#       elif popupType=='submitbug':
+#          descrTxt = tr("""
+#             You are submitting a bug report to ATI servers.  Your log
+#             files will be included unless you explicitly unselected it
+#             from the bug submission screen.  Armory log files do not
+#             contain any <u>security</u>-sensitive
+#             information, but some users may consider the information to be
+#             <u>privacy</u>-sensitive.  The log files may identify some
+#             addresses and transactions that are related to your wallets.
+#             No signing keys are ever written to the log file that would
+#             allow another party to move or spend your funds.
+#             <br><br>
+#
+#             By using this software and submitting this information to
+#             ATI, you are agreeing to the ATI privacy policy at the
+#             link below.""")
+#       else:
+#          LOGERROR("Unknown popup type: %s", popupType)
+#          descrTxt = tr("""
+#             By using this software and submitting this information to
+#             ATI, you are agreeing to the ATI privacy policy at the
+#             link below.  The page also includes information about
+#             changing Armory's default privacy settings.
+#             <br><br>""")
+#
+#
+#       lblURL = QRichLabel(tr("""<br><a href="%s">%s</a><br><br>""") % \
+#          (PRIVACY_URL, PRIVACY_URL), hAlign=Qt.AlignHCenter)
+#       lblURL.setOpenExternalLinks(True)
+#
+#
+#       lblDescr = QRichLabel(tr("""<br> %s""") % descrTxt)
+#
+#       self.chkUserAgrees = QCheckBox(tr("""
+#          I have read and agree to the ATI privacy policy"""))
+#
+#
+#       self.btnContinue = QPushButton('')
+#       self.connect(self.chkUserAgrees, SIGNAL('toggled(bool)'),
+#                                           self.btnContinue.setEnabled)
+#       self.connect(self.btnContinue, SIGNAL('clicked()'), self.accept)
+#
+#
+#       frmBtn = makeHorizFrame(['Stretch', self.btnContinue])
+#       mainLayout = QVBoxLayout()
+#       mainLayout.addWidget(lblHeader)
+#       mainLayout.addWidget(lblDescr)
+#       mainLayout.addWidget(lblURL)
+#       mainLayout.addWidget(self.chkUserAgrees)
+#       mainLayout.addWidget(frmBtn)
+#       self.setLayout(mainLayout)
+#
+#       if popupType=='submitbug':
+#          self.chkUserAgrees.setVisible(True)
+#          self.chkUserAgrees.setChecked(False)
+#          self.btnContinue.setEnabled(False)
+#          self.btnContinue.setText(tr('Continue'))
+#       else:
+#          self.chkUserAgrees.setVisible(False)
+#          self.chkUserAgrees.setChecked(False)
+#          self.btnContinue.setEnabled(True)
+#          self.btnContinue.setText(tr('Ok'))
+#
+#
+#       self.setWindowTitle(tr("Privacy Policy"))
          
 
 #################################################################################
