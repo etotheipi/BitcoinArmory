@@ -722,9 +722,9 @@ class DlgInconsistentWltReport(ArmoryDialog):
       lblDescr = QRichLabel(("""
          Armory has detected that %s inconsistent,
          possibly due to hardware errors out of our control.  It <u>strongly
-         recommended</u> you submit the wallet logs to the Armory team 
-         for review.  Until you hear back from an Armory representative, 
-         we recommend:
+         recommended</u> you submit the wallet logs to the Armory developers 
+         for review.  Until you hear back from an Armory developer, 
+         it is recommended that you:
          <ul>
          <li><b>Do not delete any data in your Armory home directory</b></li>
          <li><b>Do not send or receive any funds with the affected 
@@ -733,25 +733,9 @@ class DlgInconsistentWltReport(ArmoryDialog):
          </ul> 
          """) % (wltDispStr))
 
-      self.chkIncludeReg = QCheckBox(tr("""Include all log files"""))
-      self.chkIncludeWOW = QCheckBox(tr("""Include watch-only 
-         wallet""", "Include watch-only wallets", len(walletList)))
-      self.chkIncludeWOW.setChecked(False)
-      self.chkIncludeReg.setChecked(True)
-
-      self.btnMoreInfo = QLabelButton('Privacy Warning')
-      self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
-                                 self.main.logFileTriplePrivacyWarning)
-
-
       btnBackupLogs = QPushButton(tr("Save backup of log files"))
       self.connect(btnBackupLogs, SIGNAL('clicked()'), self.doBackupLogs)
       frmBackup = makeHorizFrame(['Stretch', btnBackupLogs, 'Stretch'])
-
-
-      self.lblEmail = QRichLabel(tr('Email Address:'))
-      self.edtEmail = QLineEdit()
-      self.edtEmail.setMaxLength(100)
 
       self.lblSubject = QRichLabel(tr('Subject:'))
       self.edtSubject = QLineEdit()
@@ -764,21 +748,10 @@ class DlgInconsistentWltReport(ArmoryDialog):
       self.txtDescr.setMinimumWidth(w)
       self.txtDescr.setMinimumHeight(int(2.5*h))
 
-      self.btnSubmit = QPushButton(tr('Submit Data to ATI'))
-      self.btnCancel = QPushButton(tr('Cancel'))
+      self.btnCancel = QPushButton(tr('Close'))
       self.btnbox = QDialogButtonBox()
-      self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
       self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
-      self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
       self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
-
-      armoryver = getVersionString(BTCARMORY_VERSION)
-      lblDetect = QRichLabel( tr("""
-         <b>Detected:</b> %(osname)s (%(osvariant)s) / %(mem)0.2f GB RAM / Armory version %(ver)s<br>
-         <font size=2>(this data will be included with the data 
-         submission""") % \
-         { 'osname' : OS_NAME, 'osvariant' : OS_VARIANT[0], 'mem' : SystemSpecs.Memory, 'ver' : armoryver})
-
 
       layout = QGridLayout()
       i = -1
@@ -795,33 +768,11 @@ class DlgInconsistentWltReport(ArmoryDialog):
       i += 1
       layout.addWidget(HLINE(),          i,0, 1,2)
 
-
-      i += 1
-      layout.addWidget(self.lblEmail,    i,0, 1,1)
-      layout.addWidget(self.edtEmail,    i,1, 1,1)
-
-      i += 1
-      layout.addWidget(self.lblSubject,  i,0, 1,1)
-      layout.addWidget(self.edtSubject,  i,1, 1,1)
-
-      i += 1
-      layout.addWidget(QLabel(tr("Additional Info:")),    i,0, 1,2)
-
-      i += 1
-      layout.addWidget(self.txtDescr,    i,0, 1,2)
-
-      i += 1
-      frmChkBtnRL = makeHorizFrame([self.chkIncludeReg, 
-                                    self.chkIncludeWOW,  
-                                    self.btnMoreInfo,])
-      layout.addWidget(frmChkBtnRL,      i,0, 1,2)
-
-
       i += 1
       layout.addWidget(self.btnbox,      i,0, 1,2)
 
       self.setLayout(layout)
-      self.setWindowTitle(tr('Send Wallet Logs to ATI'))
+      self.setWindowTitle(tr('Inconsistent Wallet'))
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 
