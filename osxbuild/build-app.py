@@ -18,7 +18,7 @@ from tempfile import mkstemp
 # Set some constants up front
 minOSXVer    = '10.7'
 osxName      = 'ElCapitan'
-pythonVer    = '2.7.11'  # NB: ArmoryMac.pro must also be kept up to date!!!
+pythonVer    = '2.7.11' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer   = '2.7'
 setToolVer   = '20.1.1'
 pipVer       = '8.0.2'
@@ -58,10 +58,6 @@ pypathData += '\nPYVER=python%s' % pyMajorVer
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option('--fromscratch',  dest='fromscratch',  default=False, action='store_true', help='Remove all prev-downloaded: redownload and rebuild all')
 parser.add_option('--rebuildall',   dest='rebuildall',   default=False, action='store_true', help='Remove all prev-built; no redownload, only rebuild')
-parser.add_option('--qtcheckout',   dest='qtcheckout',   default='4.8', type='str',          help='Specify commit to checkout, after a pull')
-parser.add_option('--qtupdate',     dest='qtupdate',     default=False, action='store_true', help='Rebuild only qt libraries, if already built')
-parser.add_option('--qtrebuild',    dest='qtrebuild',    default=False, action='store_true', help='Rebuild only qt libraries, if already built')
-parser.add_option('--precompiledQt',dest='precompiledQt',default=False, action='store_true', help='Download and use a precompiled version of Qt')
 (CLIOPTS, CLIARGS) = parser.parse_args()
 
 ################################################################################
@@ -83,10 +79,6 @@ def main():
    # For git repos, the "ID" is branch name.  Otherwise, its' the md5sum 
    for pkgname, fname, url, ID in distfiles:
       logprint('\n\n')
-      # Skip download of Qt-git if downloading Qt, and vice versa.
-      #if((pkgname.lower()=='qt-git' and     CLIOPTS.precompiledQt) or \
-      #   (pkgname.lower()=='qt'     and not CLIOPTS.precompiledQt)     ):
-      #   continue
       downloadPkg(pkgname, fname, url, ID)
 
    logprint("\n\nALL DOWNLOADS COMPLETED.\n\n")
@@ -333,17 +325,6 @@ distfiles.append( [ 'libpng', \
                     "https://dl.bintray.com/homebrew/mirror/libpng-%s.tar.xz" % libpngVer, \
                     "978b2f4e007eda56032001493ddb97d20f0ab291" ] )
 
-# Skipping Git for now.
-#distfiles.append( [ "Qt-git", \
-#                    "qt5_git_repo.tar.gz", \
-#                    'git://gitorious.org/qt/qt5.git',
-#                    'stable' ] )
-
-#distfiles.append( [ "Qt-git", \
-#                    "qt4_git_repo.tar.gz", \
-#                    'git://gitorious.org/qt/qt.git',
-#                    '4.8' ] )
-
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
 #                    "qt-everywhere-opensource-src-5.2.1.tar.gz", \
@@ -485,8 +466,6 @@ def compile_qt():
          raise RuntimeError('*** ERROR: No cloned repo and no tar file...? ***')
       logprint('Unpacking Qt from tarfile')
       qtBuildDir = unpack(tarfilesToDL['Qt'])
-      #logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
-      #logprint('Remove qt5_git_repo.tar.gz to re-clone HEAD')
    elif not path.exists(qtTarFile):
       # Useful only if we're grabbing Qt from Git.
       logprint('Tarring downloaded repo for future use.')
@@ -529,12 +508,6 @@ def compile_qt():
 ################################################################################
 def install_qt():
       logprint('Installing Qt')
-   # We really don't need this arg for now, but maybe it'll be useful later?
-   #if CLIOPTS.precompiledQt:
-   #   logprint('Unpacking precompiled Qt.')
-   #   qtdir = unpack(tarfilesToDL['Qt'])
-   #   raise RuntimeError('Using precompiled Qt is not supported yet.')
-   #else:
       if not path.exists(QTBUILTFLAG):
          compile_qt()
          execAndWait('touch %s' % QTBUILTFLAG)
@@ -619,21 +592,6 @@ def compile_pyqt():
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ################################################################################
-'''
-def pip_install(package, lookfor):
-   """Install package with pip.
-
-   For some reason this appears to be broken.  Pip installs psutil in /usr/local instead of
-   inside the app.  Strange.  Do not use!
-   """
-   if path.exists(path.join(PYSITEPKGS, lookfor)):
-      print package, "already installed"
-   else: 
-      print "Installing %s using pip." % (package,)
-      execAndWait("pip install %s > pip-%s.log 2>&1" % (package, package))
-'''
-
-################################################################################
 def compile_twisted():
    logprint('Installing python-twisted')
 
@@ -708,10 +666,11 @@ def compile_objc_library():
    # Execute SIP to create the Python/Obj-C++ glue code, use qmake to create the
    # Makefile, and make the shared library. Be sure to keep the SIP flags in
    # sync with generate_sip_module_code() from PyQt's configure-ng.py.
-   sipFlags = '-w -x VendorID -t WS_MACX -t Qt_4_8_6 -x Py_v3 -B Qt_5_0_0 -o ' \
+   sipFlags = '-w -x VendorID -t WS_MACX -t Qt_4_8_7 -x Py_v3 -B Qt_5_0_0 -o ' \
               '-P -g -c . -I ../workspace/unpackandbuild/PyQt-mac-gpl-%s/sip' % pyQtVer
    execAndWait('../workspace/unpackandbuild/sip-%s/sipgen/sip %s ./ArmoryMac.sip' % (sipVer, sipFlags), cwd=OBJCDIR)
    execAndWait('../workspace/unpackandbuild/qt-everywhere-opensource-src-%s/bin/qmake ArmoryMac.pro' % qtVer, cwd=OBJCDIR)
+
    # For some reason, qmake mangles LFLAGS when LFLAGS is built. The exact cause
    # is unknown but probably has to do with a conf file included in
    # mkspecs/unsupported/macx-clang-libc++/qmake.conf. Patch the output for now.
@@ -802,14 +761,6 @@ def delete_prev_data(opts):
    # If we ran this before, we should have a qt dir here
    prevQtDir = path.join(UNPACKDIR, 'qt')
 
-   def resetQtRepo():
-      if path.exists(prevQtDir):
-         makefile = path.join(prevQtDir, 'Makefile')
-         if path.exists(makefile):
-            execAndWait('make clean', cwd=prevQtDir)
-            removefile(makefile)
-         removefile(QTBUILTFLAG)
-   
    # Always remove previously-built application files
    removetree(APPDIR)
    removetree(INSTALLDIR)
@@ -820,15 +771,6 @@ def delete_prev_data(opts):
       removetree(DLDIR)      # Clear even the downloaded files
    elif opts.rebuildall:
       removetree(UNPACKDIR)
-   elif not opts.qtcheckout == '4.8':
-      resetQtRepo()
-      execAndWait('git pull')
-      execAndWait('git checkout %s' % opts.qtcheckout)
-   elif opts.qtupdate:
-      resetQtRepo()
-      execAndWait('git pull')
-   elif opts.qtrebuild:
-      resetQtRepo()
    else:
       logprint('Using all packages previously downloaded and built')
 
