@@ -34,7 +34,7 @@ Name "Bitcoin Armory"
 !include x64.nsh
 
 # Reserved Files
-ReserveFile "${NSISDIR}\Plugins\x86-ansi\StartMenu.dll"
+ReserveFile "${NSISDIR}\Plugins\StartMenu.dll"
 
 # Variables
 Var StartMenuGroup
