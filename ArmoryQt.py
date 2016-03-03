@@ -5306,28 +5306,19 @@ class ArmoryMainWindow(QMainWindow):
       if state == 'NewUserInfo':
          return tr("""
          For more information about Armory, and even Bitcoin itself, you should
-         visit the <a href="https://bitcoinarmory.com/faq/">frequently
-         asked questions page</a>.  If
+         visit the <a href="https://bitcointalk.org/index.php?board=97.0">Armory Forum</a>
+	 and <a href="https://bitcoin.org">Bitcoin.org</a>.  If
          you are experiencing problems using this software, please visit the
-         <a href="https://bitcoinarmory.com/troubleshooting/">Armory
-         troubleshooting webpage</a>.  It will be updated frequently with
-         solutions to common problems.
+         <a href="https://bitcointalk.org/index.php?board=97.0">Armory Forum</a>. Users
+	 there will help you with any issues that you have.
          <br><br>
          <b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper
          backups protect you <i>forever</i> against forgotten passwords,
          hard-drive failure, and make it easy for your family to recover
          your funds if something terrible happens to you.  <i>Each wallet
          only needs to be backed up once, ever!</i>  Without it, you are at
-         risk of losing all of your Bitcoins!  For more information,
-         visit the <a href="https://bitcoinarmory.com/armory-backups-are-forever/">Armory
-         Backups page</a>.
-         <br><br>
-         To learn about improving your security through the use of offline
-         wallets, visit the
-         <a href="https://bitcoinarmory.com/using-our-wallet">Armory
-         Quick Start Guide</a>, and the
-         <a href="https://bitcoinarmory.com/using-our-wallet/#offlinewallet">Offline
-         Wallet Tutorial</a>.<br><br> """)
+         risk of losing all of your Bitcoins!
+         <br><br>""")
       elif state == 'OnlineFull1':
          return tr( \
          '<p><b>You now have access to all the features Armory has to offer!</b><br>'
@@ -5428,13 +5419,6 @@ class ArmoryMainWindow(QMainWindow):
             'then please check "Let Armory run '
             'Bitcoin-Qt in the background" under "File"->"Settings."'
             '<br><br>'
-            'If you are new to Armory and/or Bitcoin-Qt, '
-            'please visit the Armory '
-            'webpage for more information.  Start at '
-            '<a href="https://bitcoinarmory.com/armory-and-bitcoin-qt">'
-            'Why Armory needs Bitcoin-Qt</a> or go straight to our <a '
-            'href="https://bitcoinarmory.com/faq/">'
-            'frequently asked questions</a> page for more general information.  '
             'If you already know what you\'re doing and simply need '
             'to fetch the latest version of Bitcoin-Qt, you can download it from '
             '<a href="http://www.bitcoin.org">http://www.bitcoin.org</a>.')
@@ -5532,8 +5516,7 @@ class ArmoryMainWindow(QMainWindow):
             'your wallet if you have not done so already!  You are protected '
             '<i>forever</i> from hard-drive loss, or forgetting you password. '
             'If you do not have a backup, you could lose all of your '
-            'Bitcoins forever!  See the <a href="https://bitcoinarmory.com/">'
-            'Armory Backups page</a> for more info.',
+            'Bitcoins forever!',
             'The software is downloading and processing the latest activity '
             'on the network related to your wallets.  This should take only '
             'a few minutes.  While you wait, you can manage your wallets.  '
@@ -5542,8 +5525,7 @@ class ArmoryMainWindow(QMainWindow):
             'your wallets if you have not done so already!  You are protected '
             '<i>forever</i> from hard-drive loss, or forgetting you password. '
             'If you do not have a backup, you could lose all of your '
-            'Bitcoins forever!  See the <a href="https://bitcoinarmory.com/">'
-            'Armory Backups page</a> for more info.',
+            'Bitcoins forever!',
                len(self.walletMap)
             )
             
