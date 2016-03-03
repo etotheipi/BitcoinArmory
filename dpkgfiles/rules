@@ -13,7 +13,7 @@
 	dh $@
 
 override_dh_auto_build:
-	make STATIC_LINK=1 PYVER=python2.7
+	make PYVER=python2.7
 
 override_dh_auto_test:
 
