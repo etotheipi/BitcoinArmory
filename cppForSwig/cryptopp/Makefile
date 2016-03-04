@@ -37,6 +37,7 @@ GAS210_OR_LATER = $(shell echo "" | $(AS) -v 2>&1 | $(EGREP) -c "GNU assembler v
 GAS217_OR_LATER = $(shell echo "" | $(AS) -v 2>&1 | $(EGREP) -c "GNU assembler version (2\.1[7-9]|2\.[2-9]|[3-9])")
 GAS219_OR_LATER = $(shell echo "" | $(AS) -v 2>&1 | $(EGREP) -c "GNU assembler version (2\.19|2\.[2-9]|[3-9])")
 ISMINGW = $(shell $(CXX) --version 2>&1 | $(EGREP) -c "mingw")
+CROSSCOMPILE = $(shell $(CXX) --version 2>&1 | $(EGREP) -c "crosstool-NG")
 
 ifneq ($(GCC42_OR_LATER),0)
 ifeq ($(UNAME),Darwin)
@@ -67,7 +68,11 @@ else
 ifeq ($(GAS219_OR_LATER),0)
 CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
 else
+ifeq ($(CROSSCOMPILE),0)
 CXXFLAGS += -mpclmul -mssse3 -maes -msse4
+else
+CXXFLAGS +=
+endif
 endif
 
 endif
