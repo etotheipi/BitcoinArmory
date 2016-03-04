@@ -1,8 +1,9 @@
 # Armory
 
 **Created by Alan Reiner on 13 July, 2011**
+**Forked by goatpig in February 2016**
 
-[Armory](https://github.com/etotheipi/BitcoinArmory) is a full-featured Bitcoin client, offering a dozen innovative features not found in any other client software! Manage multiple wallets (deterministic and watching-only), print paper backups that work forever, import or sweep private keys, and keep your savings in a computer that never touches the internet, while still being able to manage incoming payments, and create outgoing payments with the help of a USB key.
+[Armory](https://github.com/goatpig/BitcoinArmory) is a full-featured Bitcoin client, offering a dozen innovative features not found in any other client software! Manage multiple wallets (deterministic and watching-only), print paper backups that work forever, import or sweep private keys, and keep your savings in a computer that never touches the internet, while still being able to manage incoming payments, and create outgoing payments with the help of a USB key.
 
 Multi-signature transactions are accommodated under-the-hood about 80%, and will be completed and integrated into the UI soon.
 
@@ -10,9 +11,7 @@ Multi-signature transactions are accommodated under-the-hood about 80%, and will
 
 ## Donations
 
-Please take a moment to donate! 1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv
-
-![bitcoin:1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv][Donation Image]
+*Will post an address eventually for donations*
 
 ## Building Armory From Source
 
@@ -57,6 +56,9 @@ Please take a moment to donate! 1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv
  (OPTIONAL - if you want to make a standalone executable in Windows)  
  Windows: [Download][Windows Py2Exe Download]  
 
+* LMDB - database engine, modified to suit Armory's use cases
+[LMDB page]
+
 ## Sample Code
 
 Armory contains over 25,000 lines of code, between the C++ and python libraries.  This can be very confusing for someone unfamiliar with the code (you).  Below I have attempted to illustrate the CONOPS (concept of operations) that the library was designed for, so you know how to use it in your own development activities.  There is a TON of sample code in the following:
@@ -67,8 +69,9 @@ Armory contains over 25,000 lines of code, between the C++ and python libraries.
 
 ## License
 
-Distributed under the GNU Affero General Public License (AGPL v3)  
-See [LICENSE file](LICENSE) or [here][License]
+Distributed partially under the GNU Affero General Public License (AGPL v3)  
+and the MIT License
+See [LICENSE file](LICENSE)
 
 ## Copyright
 
@@ -84,5 +87,4 @@ Copyright (C) 2011-2015, Armory Technologies, Inc.
 [QT4 Reactor Download]: https://launchpad.net/qt4reactor
 [Windows PyWin Download]: http://sourceforge.net/projects/pywin32/files/pywin32/
 [Windows Py2Exe Download]:  http://www.py2exe.org/
-[License]: http://www.gnu.org/licenses/agpl.html
-[Donation Image]: https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=bitcoin:1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv?&label=Armory+Donation
+[LMDB page]: http://symas.com/mdb/

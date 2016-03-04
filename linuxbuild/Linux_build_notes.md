@@ -6,7 +6,10 @@ Compiling in Linux has proven to be quite easy. There are only a few dependencie
 
 ## Verifying Source Code Authenticity
 
-The latest stable version of Armory is always be tagged in the git repository by its version number, and signed with the Armory signing key ([98832223](https://pgp.mit.edu/pks/lookup?op=vindex&search=0x4AB16AEA98832223)).
+The latest stable version of Armory is always be tagged in the git repository by its version number.
+
+Versions up to 0.93.3 are signed with the Alan Reiner's Armory signing key ([98832223](https://pgp.mit.edu/pks/lookup?op=vindex&search=0x4AB16AEA98832223)).
+Versions 0.94 and later are signed with goatpig's key (4922589A)
 
 Here’s how to import the Armory signing key into your keyring from the Ubuntu keyserver and verify the signature using `git tag -v`:
 
