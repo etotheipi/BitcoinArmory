@@ -80,6 +80,6 @@ Changelog for Developers using the armoryengine codebase
           subscript is standard).  However, I suppose it is possible to have
           a TxIn script that gets labeled, but is not actually P2SHSPEND.  
           However, I'm doubtful that such a script could be valid and make
-          it's way through Bitcoin-Qt into the blk*.dat files.
+          it's way through Bitcoin-Core into the blk*.dat files.
 
 

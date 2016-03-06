@@ -295,7 +295,7 @@ try
          {
             string errorMsg(
                "Armory has detected an error in the blockchain database "
-               "maintained by the third-party Bitcoin software (Bitcoin-Qt "
+               "maintained by the third-party Bitcoin software (Bitcoin-Core "
                "or bitcoind). This error is not fatal, but may lead to "
                "incorrect balances, inability to send coins, or application "
                "instability."

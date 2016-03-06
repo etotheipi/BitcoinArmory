@@ -1742,15 +1742,15 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def broadTx(self):
       if self.main.netMode == NETWORKMODE.Disconnected:
          QMessageBox.warning(self, 'No Internet!', \
-            'Armory lost its connection to Bitcoin-Qt, and cannot '
+            'Armory lost its connection to Bitcoin-Core, and cannot '
             'broadcast any transactions until it is reconnected. '
-            'Please verify that Bitcoin-Qt (or bitcoind) is open '
+            'Please verify that Bitcoin-Core (or bitcoind) is open '
             'and synchronized with the network.', QMessageBox.Ok)
          return
       elif self.main.netMode == NETWORKMODE.Offline:
          QMessageBox.warning(self, 'No Internet!', \
             'You do not currently have a connection to the Bitcoin network. '
-            'If this does not seem correct, verify that Bitcoin-Qt is open '
+            'If this does not seem correct, verify that Bitcoin-Core is open '
             'and synchronized with the network.', QMessageBox.Ok)
          return
 

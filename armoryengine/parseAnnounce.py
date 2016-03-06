@@ -158,7 +158,7 @@ class downloadLinkParser(object):
    ArmoryOffline 0.88 Ubuntu 10.04  32  http://url/offbundle-32.tar.gz   641382c93b9
    ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64.tar.gz   5541af39c84
 
-   # Windows 32-bit Satoshi (Bitcoin-Qt/bitcoind)
+   # Windows 32-bit Satoshi (Bitcoin-Core/bitcoind)
    Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe  118372a9ff3
    Satoshi 0.9.0 Ubuntu  10.04              http://btc.org/win0.9.0.deb  2aa3f763c3b
 
