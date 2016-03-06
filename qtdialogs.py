@@ -24,7 +24,7 @@ from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
 from armoryengine.PyBtcAddress import calcWalletIDFromRoot
-from announcefetch import DEFAULT_MIN_PRIORITY
+#from announcefetch import DEFAULT_MIN_PRIORITY
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from armoryengine.MultiSigUtils import calcLockboxID, createLockboxEntryStr,\
    LBPREFIX, isBareLockbox, isP2SHLockbox
@@ -9313,7 +9313,7 @@ class DlgSettings(ArmoryDialog):
 
    
       oldTorSetting = self.main.getSettingOrSetDefault('UseTorSettings', False)
-      self.main.writeSetting('SkipStatsReport',self.chkPrivacyStats.isChecked())
+      #self.main.writeSetting('SkipStatsReport',self.chkPrivacyStats.isChecked())
       self.main.writeSetting('UseTorSettings', self.chkPrivacyTor.isChecked())
       
 

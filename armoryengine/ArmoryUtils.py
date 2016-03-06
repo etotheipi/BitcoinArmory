@@ -3717,14 +3717,14 @@ class FakeTDM(object):
       self.removeOldTorrentFile = lambda: None
 
 
-DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
+#DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
 TheTDM = FakeTDM()
-try:
-   import torrentDL
-   TheTDM = torrentDL.TorrentDownloadManager()
-except:
-   LOGEXCEPT('Failed to import torrent downloader')
-   DISABLE_TORRENTDL = True
+#try:
+#   import torrentDL
+#   TheTDM = torrentDL.TorrentDownloadManager()
+#except:
+   #LOGEXCEPT('Failed to import torrent downloader')
+DISABLE_TORRENTDL = True
 
 # We only use BITTORRENT for mainnet
 if USE_TESTNET:

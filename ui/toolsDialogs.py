@@ -15,7 +15,7 @@ from qtdefines import *
 from qtdialogs import MIN_PASSWD_WIDTH, DlgPasswd3, createAddrBookButton,\
    DlgUnlockWallet
 from armoryengine.ArmoryUtils import isASCII
-from announcefetch import ANNOUNCE_SIGN_PUBKEY
+#from announcefetch import ANNOUNCE_SIGN_PUBKEY
 
 class MessageSigningVerificationDialog(ArmoryDialog):
 

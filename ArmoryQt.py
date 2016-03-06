@@ -37,8 +37,8 @@ from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
 import CppBlockUtils as Cpp
-from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP, \
-   DEFAULT_FETCH_INTERVAL
+#from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP, \
+ #  DEFAULT_FETCH_INTERVAL
 from armorycolors import Colors, htmlColor, QAPP
 from armoryengine.ALL import *
 from armoryengine.Block import PyBlock
@@ -2425,16 +2425,16 @@ class ArmoryMainWindow(QMainWindow):
 
       # Only do an explicit announce check if we have no bootstrap at all
       # (don't need to spend time doing an explicit check if we have one)
-      if self.announceFetcher.getFileModTime('bootstrap') == 0:
-         if forceWaitTime>0:
-            self.explicitCheckAnnouncements(forceWaitTime)
+      #if self.announceFetcher.getFileModTime('bootstrap') == 0:
+       #  if forceWaitTime>0:
+        #    self.explicitCheckAnnouncements(forceWaitTime)
 
       # If it's still not there, look for a default file
-      if self.announceFetcher.getFileModTime('bootstrap') == 0:
-         LOGERROR('Could not get announce bootstrap; using default')
-         srcTorrent = os.path.join(GetExecDir(), 'default_bootstrap.torrent')
-      else:
-         srcTorrent = self.announceFetcher.getAnnounceFilePath('bootstrap')
+      #if self.announceFetcher.getFileModTime('bootstrap') == 0:
+       #  LOGERROR('Could not get announce bootstrap; using default')
+        # srcTorrent = os.path.join(GetExecDir(), 'default_bootstrap.torrent')
+      #else:
+         #srcTorrent = self.announceFetcher.getAnnounceFilePath('bootstrap')
 
       # Maybe we still don't have a torrent for some reason
       if not srcTorrent or not os.path.exists(srcTorrent):
@@ -2468,7 +2468,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setSatoshiPaths()
       TheSDM.setDisabled(False)
 
-      torrentIsDisabled = self.getSettingOrSetDefault('DisableTorrent', False)
+      torrentIsDisabled = True #self.getSettingOrSetDefault('DisableTorrent', False)
 
       # Give the SDM the torrent file...it will use it if it makes sense
       if not torrentIsDisabled and TheSDM.shouldTryBootstrapTorrent():
@@ -2523,8 +2523,11 @@ class ArmoryMainWindow(QMainWindow):
 
       TheBDM.setSatoshiDir(self.satoshiHomePath)
       TheSDM.setSatoshiDir(self.satoshiHomePath)
-      TheTDM.setSatoshiDir(self.satoshiHomePath)
-      
+      try:
+         TheTDM.setSatoshiDir(self.satoshiHomePath)
+      except:
+         #fake TDM, nothing to do
+         pass
       
    ############################################################################
    # This version of online mode is possible doesn't check the internet everytime
