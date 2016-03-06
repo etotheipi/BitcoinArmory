@@ -9318,6 +9318,7 @@ class DlgSettings(ArmoryDialog):
       
 
 
+      '''
       if self.radioAnnounce1024.isChecked():
          self.main.writeSetting('NotifyMinPriority',    0)
       elif self.radioAnnounce2048.isChecked():
@@ -9329,7 +9330,7 @@ class DlgSettings(ArmoryDialog):
 
       self.main.writeSetting('DisableUpgradeNotify', \
                   self.chkDisableUpgradeNotify.isChecked())
-      
+      '''
       try:
          self.main.createCombinedLedger()
       except: 
