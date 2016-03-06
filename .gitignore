@@ -69,3 +69,5 @@ osxbuild/env
 /armory_*_raspbian-armhf*
 
 /dpkgfiles/control
+
+/r-pi/RPI_CROSSCOMPILE/*
