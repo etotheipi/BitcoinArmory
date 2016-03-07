@@ -46,9 +46,11 @@ void BlockchainScanner::scan(uint32_t scanFrom)
 
    if (sdbiblock->isMainBranch())
    {
+      if (sdbiblock->getBlockHeight() > scanFrom)
+         scanFrom = sdbiblock->getBlockHeight();
+
       if (scanFrom != 0 && 
-          (sdbiblock->getBlockHeight() >= scanFrom ||
-          scanFrom > topBlock.getBlockHeight()))
+          scanFrom > topBlock.getBlockHeight())
       {
          LOGINFO << "no history to scan";
          topScannedBlockHash_ = topBlock.getThisHash();
