@@ -4262,12 +4262,7 @@ class ArmoryMainWindow(QMainWindow):
          Please do not send the log file to the Armory developers if you
          are not comfortable with the privacy implications!  However, if you
          do not send the log file, it may be very difficult or impossible
-         for us to help you with your problem.
-
-         <br><br><b><u>Advanced tip:</u></b> You can use
-         "<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" from the main
-         window to save a copy of the log file that you can manually
-         review."""), wCancel=wCancel, yesStr="&Ok")
+         for us to help you with your problem. """), wCancel=wCancel, yesStr="&Ok")
 
 
    #############################################################################
