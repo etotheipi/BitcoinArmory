@@ -348,7 +348,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             txio.setValue(value);
             txio.setTxOut(txioKey);
             txio.setFromCoinbase(txn.isCoinbase_);
-            subssh.txioMap_.insert(make_pair(txioKey, txio));
+            subssh.txioMap_.insert(make_pair(txioKey, move(txio)));
          }
       }
    };
@@ -393,6 +393,11 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             StoredTxOut stxo = idIter->second;
             stxo.spentness_ = TXOUT_SPENT;
             stxo.spentByTxInKey_ = txinkey;
+
+            //if this tx's hash was never pulled, let's add it to the stxo's
+            //parent hash, in order to keep track of this tx in the hint db
+            if (txn.txHash_.getSize() == 0)
+               stxo.parentHash_ = move(txn.getHash());
 
             //add to ssh_
             auto& ssh = batch->ssh_[stxo.getScrAddress()];
@@ -628,77 +633,107 @@ void BlockchainScanner::processAndCommitTxHints(
    const vector<shared_ptr<BlockDataBatch>>& batchVec)
 {
    map<BinaryData, StoredTxHints> txHints;
+   map<BinaryData, BinaryWriter> countAndHash;
+
+   auto addTxHint = 
+      [&](StoredTxHints& stxh, const StoredTxOut& utxo)->void
+   {
+      auto&& utxokey = utxo.getDBKeyOfParentTx(false);
+
+      //make sure key isn't already in there
+      for (auto& key : stxh.dbKeyList_)
+      {
+         if (key == utxokey)
+            return;
+      }
+
+      stxh.dbKeyList_.push_back(move(utxokey));
+   };
+
+   auto addTxHintMap = 
+      [&](const pair<BinaryData, map<unsigned, StoredTxOut>>& utxomap)->void
+   {
+      auto&& txHashPrefix = utxomap.first.getSliceCopy(0, 4);
+      StoredTxHints& stxh = txHints[txHashPrefix];
+
+      //pull txHint from DB first, don't want to override 
+      //existing hints
+      if (stxh.isNull())
+         db_->getStoredTxHints(stxh, txHashPrefix);
+
+      for (auto& utxo : utxomap.second)
+      {
+         addTxHint(stxh, utxo.second);
+      }
+
+      stxh.preferredDBKey_ = stxh.dbKeyList_.front();
+
+      //count and hash
+      auto& stxo = utxomap.second.begin()->second;
+      auto& bw = countAndHash[stxo.getDBKeyOfParentTx(true)];
+      if (bw.getSize() != 0)
+         return;
+
+      bw.put_uint32_t(stxo.parentTxOutCount_);
+      bw.put_BinaryData(utxomap.first);
+   };
 
    {
-      map<BinaryData, BinaryWriter> countAndHash;
+      LMDBEnv::Transaction hintdbtx;
+      db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
 
+      for (auto& batchPtr : batchVec)
       {
-         LMDBEnv::Transaction hintdbtx;
-         db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
-
-         for (auto& batchPtr : batchVec)
+         for (auto& utxomap : batchPtr->utxos_)
          {
-            for (auto& utxomap : batchPtr->utxos_)
-            {
-               auto&& txHashPrefix = utxomap.first.getSliceCopy(0, 4);
-               StoredTxHints& stxh = txHints[txHashPrefix];
+            addTxHintMap(utxomap);
+         }
+         
+         for (auto& stxo : batchPtr->spentTxOuts_)
+         {
+            //if this stxo has no parent hash, it means the hash was flagged
+            //by a utxo, we can skip this
+            if (stxo.parentHash_.getSize() == 0)
+               continue;
 
-               //pull txHint from DB first, don't want to override 
-               //existing hints
-               db_->getStoredTxHints(stxh, txHashPrefix);
+            //spoof the object for addTxHintMap
+            pair<BinaryData, map<unsigned, StoredTxOut>> stxomap;
+            
+            stxomap.first = stxo.parentHash_;
+            //unsigned value in map is unused for tallying txhints
+            stxomap.second.insert(make_pair(0, stxo));
 
-               for (auto& utxo : utxomap.second)
-                  stxh.dbKeyList_.push_back(
-                     utxo.second.getDBKeyOfParentTx(false));
-
-               stxh.preferredDBKey_ = stxh.dbKeyList_.front();
-
-               //count and hash
-               auto& stxo = utxomap.second.begin()->second;
-               auto& bw = countAndHash[stxo.getDBKeyOfParentTx(true)];
-               bw.put_uint32_t(stxo.parentTxOutCount_);
-               bw.put_BinaryData(utxomap.first);
-            }
+            addTxHintMap(stxomap);
          }
       }
+   }
 
-      //TODO: deal with spender txhint
-      /*for (auto& batchPtr : batchVec)
+   map<BinaryData, BinaryWriter> serializedHints;
+
+   //serialize
+   for (auto& txhint : txHints)
+   {
+      auto& bw = serializedHints[txhint.second.getDBKey()];
+      txhint.second.serializeDBValue(bw);
+   }
+
+   //write
+   {
+      LMDBEnv::Transaction hintdbtx;
+      db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadWrite);
+
+      for (auto& txhint : serializedHints)
       {
-      for (auto& stxo : batchPtr->spentTxOuts_)
-      {
-      auto&& txHashPrefix = stxo.
-      StoredTxHints& stxh = txHints[txHashPrefix];
+         db_->putValue(TXHINTS,
+            txhint.first.getRef(),
+            txhint.second.getDataRef());
       }
-      }*/
 
-      map<BinaryData, BinaryWriter> serializedHints;
-
-      //serialize
-      for (auto& txhint : txHints)
+      for (auto& cah : countAndHash)
       {
-         auto& bw = serializedHints[txhint.second.getDBKey()];
-         txhint.second.serializeDBValue(bw);
-      }
-
-      //write
-      {
-         LMDBEnv::Transaction hintdbtx;
-         db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadWrite);
-
-         for (auto& txhint : serializedHints)
-         {
-            db_->putValue(TXHINTS,
-               txhint.first.getRef(),
-               txhint.second.getDataRef());
-         }
-
-         for (auto& cah : countAndHash)
-         {
-            db_->putValue(TXHINTS,
-               cah.first.getRef(),
-               cah.second.getDataRef());
-         }
+         db_->putValue(TXHINTS,
+            cah.first.getRef(),
+            cah.second.getDataRef());
       }
    }
 }
