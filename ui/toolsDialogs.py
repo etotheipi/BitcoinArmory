@@ -80,7 +80,7 @@ class MessageSigningWidget(QWidget):
       
       # Create a row with just a sign message button
       
-      self.bareSigButton = QPushButton('Bare Signature (Bitcoin-Qt Compatible)')
+      self.bareSigButton = QPushButton('Bare Signature (Bitcoin-Core Compatible)')
       self.base64SigButton = QPushButton('Base64 Signature')
       self.clearSigButton = QPushButton('Clearsign Signature')
       sigButtonFrame = makeHorizFrame([self.bareSigButton,\

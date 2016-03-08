@@ -74,7 +74,7 @@ bool MacNotificationHandler::hasUserNotificationCenterSupport(void)
 }
 
 
-// Borrowed from Bitcoin-Qt's Notificator::Notificator()  (src/notificator.cpp)
+// Borrowed from Bitcoin-Core Notificator::Notificator()  (src/notificator.cpp)
 MacNotificationHandler::notifType MacNotificationHandler::hasGrowl(void)
 {
     notifType retVal = None;
@@ -108,7 +108,7 @@ MacNotificationHandler::notifType MacNotificationHandler::hasGrowl(void)
 }
 
 
-// Borrowed from Bitcoin-Qt's Notificator::notifyGrowl()  (src/notificator.cpp)
+// Borrowed from Bitcoin-Core Notificator::notifyGrowl()  (src/notificator.cpp)
 void MacNotificationHandler::notifyGrowl(const QString &title, const QString &text, const QIcon &icon)
 {
     const QString script(

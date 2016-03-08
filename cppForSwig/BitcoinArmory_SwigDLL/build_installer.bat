@@ -4,6 +4,5 @@ C:\Python27\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\..\qrc_img_resources.py ..\
 python ..\..\setup.py py2exe --includes sip,hashlib,json,twisted -d ..\..\ArmoryStandalone
 copy ..\..\img\*.ico ..\..\ArmoryStandalone
 copy ..\..\img\armory_logo*.png ..\..\ArmoryStandalone
-copy ..\..\default_bootstrap.torrent ..\..\ArmoryStandalone 
 python ..\..\writeNSISCompilerArgs.py
 makensis.exe ..\..\ArmorySetup.nsi

@@ -1068,7 +1068,7 @@ public:
    //        look like the output of this function operating on a multisig 
    //        script (doesn't matter if it's valid or not)?  In other words, is
    //        there is a hole where someone could mine a script that would be
-   //        forwarded by Bitcoin-Qt to this code, which would then produce
+   //        forwarded by Bitcoin-Core to this code, which would then produce
    //        a non-std-unique-key that would be indistinguishable from the 
    //        output of this function?  My guess is, no.  And my guess is that 
    //        it's not a very useful even if it did.  But it would be good to
@@ -1340,7 +1340,7 @@ public:
    }
 
 
-   // This got more complicated when Bitcoin-Qt 0.8 switched from
+   // This got more complicated when Bitcoin-Core 0.8 switched from
    // blk0001.dat to blocks/blk00000.dat
    static string getBlkFilename(string dir, uint32_t fblkNum)
    {
