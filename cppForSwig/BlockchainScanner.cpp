@@ -472,7 +472,10 @@ void BlockchainScanner::writeBlockData(
    auto getGlobalOffsetForBlock = [&](unsigned height)->size_t
    {
       auto& header = blockchain_->getHeaderByHeight(height);
-      return header.getBlockFileNum() * 128 * 1024 * 1024 + header.getOffset();
+      size_t val = header.getBlockFileNum();
+      val *= 128 * 1024 * 1024;
+      val += header.getOffset();
+      return val;
    };
 
    ProgressCalculator calc(getGlobalOffsetForBlock(
