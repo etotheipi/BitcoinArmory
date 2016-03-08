@@ -20,6 +20,8 @@ endif
 	rm -f qrc_img_resources.py
 	rm -f _CppBlockUtils.so
 	rm -f cppForSwig/cryptopp/a.out
+	rm -f *.pyc bitcoinrpc_jsonrpc/*.pyc ui/*.pyc
+	rm -f armoryengine/*.pyc dialogs/*.pyc	
 	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
 
 install : all
