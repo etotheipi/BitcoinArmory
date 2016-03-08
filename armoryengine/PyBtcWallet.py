@@ -467,6 +467,12 @@ class PyBtcWallet(object):
    #############################################################################
    @CheckWalletRegistration
    def getAddrTxOutList(self, addr160, txType='Spendable'):
+      """
+      deprecated call, use getFullUTXOList instead
+      """
+      
+      raise NotImplemented
+      
       """ Returns UnspentTxOut/C++ objects """
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
