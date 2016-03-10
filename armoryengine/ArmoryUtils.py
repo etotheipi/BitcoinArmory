@@ -124,8 +124,14 @@ parser.add_option("--enable-detsign", dest="enableDetSign", action="store_true",
 parser.add_option("--supernode", dest="enableSupernode", default=False, action="store_true", help="Enabled Exhaustive Blockchain Tracking")
 parser.set_defaults(enableDetSign=True)
 
+# Get the host operating system
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
+
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
-if sys.platform == 'darwin':
+if OS_MACOSX:
    parser.add_option('-p', '--psn')
 
 # These are arguments passed by running unit-tests that need to be handled
@@ -231,11 +237,6 @@ class P2SHNotSupportedError(Exception): pass
 class NonBase58CharacterError(Exception): pass
 class isMSWallet(Exception): pass
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
 
 if getattr(sys, 'frozen', False):
