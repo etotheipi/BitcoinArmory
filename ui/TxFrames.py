@@ -1093,19 +1093,19 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
    #############################################################################
-   def addDonation(self, amt=DONATION):
-      lastIsEmpty = True
-      for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
-         if len(str(self.widgetTable[-1][widg].text())) > 0:
-            lastIsEmpty = False
-
-      if not lastIsEmpty:
-         self.makeRecipFrame(len(self.widgetTable) + 1)
-
-      self.widgetTable[-1]['QLE_ADDR'].setText(ARMORY_DONATION_ADDR)
-      self.widgetTable[-1]['QLE_AMT'].setText(coin2str(amt, maxZeros=2).strip())
-      self.widgetTable[-1]['QLE_COMM'].setText(\
-            'Donation to Armory developers.  Thank you for your generosity!')
+   # def addDonation(self, amt=DONATION):
+   #    lastIsEmpty = True
+   #    for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']:
+   #       if len(str(self.widgetTable[-1][widg].text())) > 0:
+   #          lastIsEmpty = False
+   #
+   #    if not lastIsEmpty:
+   #       self.makeRecipFrame(len(self.widgetTable) + 1)
+   #
+   #    self.widgetTable[-1]['QLE_ADDR'].setText(ARMORY_DONATION_ADDR)
+   #    self.widgetTable[-1]['QLE_AMT'].setText(coin2str(amt, maxZeros=2).strip())
+   #    self.widgetTable[-1]['QLE_COMM'].setText(\
+   #          'Donation to Armory developers.  Thank you for your generosity!')
 
    #############################################################################
    def clickEnterURI(self):
