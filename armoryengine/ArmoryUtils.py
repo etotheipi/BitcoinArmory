@@ -321,12 +321,6 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
-
 BLOCKCHAINS = {}
 BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
 BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Old Test Network"
