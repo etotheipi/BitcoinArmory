@@ -1093,7 +1093,8 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
    #############################################################################
-   # def addDonation(self, amt=DONATION):
+   def addDonation(self, amt=DONATION):
+      return
    #    lastIsEmpty = True
    #    for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']:
    #       if len(str(self.widgetTable[-1][widg].text())) > 0:
