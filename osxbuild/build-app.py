@@ -56,9 +56,38 @@ pypathData += '\nPYVER=python%s' % pyMajorVer
 # If no arguments specified, then do the minimal amount of work necessary
 # Assume that only one flag is specified.  These should be 
 parser = optparse.OptionParser(usage="%prog [options]\n")
-parser.add_option('--fromscratch',  dest='fromscratch',  default=False, action='store_true', help='Remove all prev-downloaded: redownload and rebuild all')
-parser.add_option('--rebuildall',   dest='rebuildall',   default=False, action='store_true', help='Remove all prev-built; no redownload, only rebuild')
+parser.add_option('--fromscratch',  dest='fromscratch', default=False, action='store_true', help='Remove all prev-downloaded: redownload and rebuild all')
+parser.add_option('--rebuildall',   dest='rebuildall',  default=False, action='store_true', help='Remove all prev-built; no redownload, only rebuild')
+parser.add_option('--compapponly',  dest='compapponly', default=False, action='store_true', help='Recompile Armory, not the 3rd party code')
 (CLIOPTS, CLIARGS) = parser.parse_args()
+
+################################################################################
+# Write the string to both console and log file
+def logprint(s):
+   print s
+   with open(LOGFILE,'a') as f:
+      f.write(s if s.endswith('\n') else s+'\n')
+
+# Even if it's already built, we'll always "make install" and then
+# set a bunch of environment variables (INSTALLDIR is wiped on every
+# run of this script, so all "make install" steps need to be re-run).
+# Variables placed out here to make compile-only option feasible.
+# Qt5 may require QMAKESPEC to change.
+try:
+   oldDYLDPath = ':'+os.environ['DYLD_FRAMEWORK_PATH']
+except KeyError:
+   oldDYLDPath = ''
+qtInstDir  = path.join(INSTALLDIR, 'qt')
+qtBinDir = path.join(qtInstDir, 'bin')
+qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+frmpath = path.join(APPDIR, 'Contents/Frameworks')
+os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
+os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (frmpath, oldDYLDPath)
+os.environ['QTDIR'] = qtInstDir
+os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/unsupported/macx-clang-libc++')
+logprint('All the following ENV vars are now set:')
+for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
+   logprint('   %s: \n      %s' % (var, os.environ[var]))
 
 ################################################################################
 # Now actually start the download&build process
@@ -69,7 +98,8 @@ def main():
    if path.exists(LOGFILE):
       os.remove(LOGFILE)
 
-   delete_prev_data(CLIOPTS)
+   if not CLIOPTS.compapponly:
+      delete_prev_data(CLIOPTS)
 
    makedir(WORKDIR)
    makedir(DLDIR)
@@ -82,32 +112,26 @@ def main():
       downloadPkg(pkgname, fname, url, ID)
 
    logprint("\n\nALL DOWNLOADS COMPLETED.\n\n")
-   
-   make_empty_app()
-   compile_python()
-   compile_pip()
-   compile_libpng()
-   install_qt()
-   compile_sip()
-   compile_pyqt()
-   compile_zope()
-   compile_twisted()
-   compile_psutil()
-   #compile_appnope() # Disable App Nap. Done already in Mac manifest.
+
+   if not CLIOPTS.compapponly:
+      make_empty_app()
+      compile_python()
+      compile_pip()
+      compile_libpng()
+      install_qt()
+      compile_sip()
+      compile_pyqt()
+      compile_zope()
+      compile_twisted()
+      compile_psutil()
+      #compile_appnope() # Disable App Nap. Done already in Mac manifest.
+      make_resources()
    compile_armory()
    compile_objc_library()
-   make_resources()
    cleanup_app()
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
    make_targz()
-
-################################################################################
-# Write the string to both console and log file
-def logprint(s):
-   print s
-   with open(LOGFILE,'a') as f:
-      f.write(s if s.endswith('\n') else s+'\n')
 
 ################################################################################
 def getRightNowStr():
@@ -514,13 +538,6 @@ def install_qt():
       else:
          logprint('QT already compiled.  Skipping compile step.')
       
-      # Even if it's already built, we'll always "make install" and then
-      # set a bunch of environment variables (INSTALLDIR is wiped on every
-      # Run of this script, so all "make install" steps need to be re-run
-      qtInstDir  = path.join(INSTALLDIR, 'qt')
-      qtBinDir = path.join(qtInstDir, 'bin')
-      qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-
       qtconf = path.join(qtBinDir, 'qt.conf')
       execAndWait('make install', cwd=qtBuildDir)
 
@@ -537,21 +554,6 @@ def install_qt():
          os.makedirs(qtBinDir)
       with open(qtconf, 'w') as f:
          f.write('[Paths]\nPrefix = %s' % qtInstDir)
-   
-      try:
-         old = ':'+os.environ['DYLD_FRAMEWORK_PATH']
-      except KeyError:
-         old = ''
-   
-      # Qt5 may require QMAKESPEC to change.
-      frmpath = path.join(APPDIR, 'Contents/Frameworks')
-      os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
-      os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (frmpath, old)
-      os.environ['QTDIR'] = qtInstDir
-      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/unsupported/macx-clang-libc++')
-      logprint('All the following ENV vars are now set:')
-      for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
-         logprint('   %s: \n      %s' % (var, os.environ[var]))
 
 ################################################################################
 def compile_sip():
@@ -697,8 +699,11 @@ def cleanup_app():
    testdir = path.join(PYPREFIX, "lib/python%s/test" % pyMajorVer)
    if path.exists(testdir):
       removetree(testdir)
-   print "Removing .pyo and unneeded .py files."
-   remove_python_files(PYPREFIX)
+      print "Removing .pyo and unneeded .py files."
+   if CLIOPTS.cleanupapp:
+      remove_python_files(PYPREFIX, False)
+   else:
+      remove_python_files(PYPREFIX)
    remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'), False)
    show_app_size()
 
