@@ -201,7 +201,7 @@ def tightSizeNChar(obj, nChar):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect('abcfgijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return szWidth, szHeight
@@ -212,7 +212,7 @@ def tightSizeStr(obj, theStr):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return szWidth, szHeight
    
@@ -224,7 +224,7 @@ def relaxedSizeStr(obj, theStr):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return (10 + szWidth*1.05), 1.5*szHeight
 
@@ -236,7 +236,7 @@ def relaxedSizeNChar(obj, nChar):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect('abcfg ijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return (10 + szWidth*1.05), 1.5*szHeight

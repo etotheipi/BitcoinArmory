@@ -8070,7 +8070,7 @@ class DlgAddressBook(ArmoryDialog):
          lblToAddr.setVisible(False)
 
 
-      rowHeight = tightSizeStr(self.font, 'XygjpHI')[1]
+      rowHeight = tightSizeStr(self.font(), 'XygjpHI')[1]
 
       self.wltDispModel = AllWalletsDispModel(self.main)
       self.wltDispView = QTableView()
