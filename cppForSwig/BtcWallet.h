@@ -206,6 +206,11 @@ public:
    void forceScan(void);
    bool hasBdvPtr(void) const { return bdvPtr_ != nullptr; }
 
+   void setRegistrationCallback(function<void(void)> lbd)
+   {
+      doneRegisteringCallback_ = lbd;
+   }
+
 private:   
    
    //new all purpose wallet scanning call, returns true on bootstrap and new block,
@@ -286,6 +291,10 @@ private:
 
    //set to true to add wallet paged history to global ledgers 
    bool                          uiFilter_ = true;
+
+   //call this lambda once a wallet is done registering and scanning 
+   //for the first time
+   function<void(void)> doneRegisteringCallback_ = []{};
 };
 
 #endif

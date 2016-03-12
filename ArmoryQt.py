@@ -2630,12 +2630,16 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED) or self.doShutdown:
          return
 
+      return
+      
+      #TODO: fix this later
+      '''
       TheBDM.bdv().addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
 
       # All extra tx functions take one arg:  the PyTx object of the new ZC tx
       for txFunc in self.extraNewTxFunctions:
          txFunc(pytxObj)   
-
+      '''
 
 
    #############################################################################
@@ -7094,6 +7098,8 @@ def checkForAlreadyOpenError():
 
 if 1:
 
+   TheBDM.setupBDV()
+   
    import qt4reactor
    qt4reactor.install()
       

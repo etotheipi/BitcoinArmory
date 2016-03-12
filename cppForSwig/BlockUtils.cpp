@@ -713,30 +713,7 @@ BlockDataManagerConfig::BlockDataManagerConfig()
 {
    armoryDbType = ARMORY_DB_BARE;
    pruneType = DB_PRUNE_NONE;
-}
-
-BlockDataManagerConfig::BlockDataManagerConfig(const BlockDataManagerConfig& in)
-{
-   *this = in;
-}
-
-BlockDataManagerConfig& BlockDataManagerConfig::operator=(
-   const BlockDataManagerConfig& in)
-{
-   if (this != &in)
-   {
-      armoryDbType = ARMORY_DB_BARE;
-      pruneType = DB_PRUNE_NONE;
-
-      blkFileLocation = in.blkFileLocation;
-      levelDBLocation = in.levelDBLocation;
-
-      genesisBlockHash = in.genesisBlockHash;
-      genesisTxHash = in.genesisTxHash;
-      magicBytes = in.magicBytes;
-   }
-
-   return *this;
+   selectNetwork("Main");
 }
 
 void BlockDataManagerConfig::selectNetwork(const string &netname)
@@ -922,7 +899,7 @@ void BlockDataManager_LevelDB::setConfig(
 void BlockDataManager_LevelDB::openDatabase()
 {
    LOGINFO << "blkfile dir: " << config_.blkFileLocation;
-   LOGINFO << "lmdb dir: " << config_.levelDBLocation;
+   LOGINFO << "lmdb dir: " << config_.dbLocation;
    if (config_.genesisBlockHash.getSize() == 0)
    {
       throw runtime_error("ERROR: Genesis Block Hash not set!");
@@ -931,7 +908,7 @@ void BlockDataManager_LevelDB::openDatabase()
    try
    {
       iface_->openDatabases(
-         config_.levelDBLocation,
+         config_.dbLocation,
          config_.genesisBlockHash,
          config_.genesisTxHash,
          config_.magicBytes,

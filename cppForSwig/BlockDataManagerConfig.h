@@ -8,33 +8,17 @@
 #ifndef BLOCKDATAMANAGERCONFIG_H
 #define BLOCKDATAMANAGERCONFIG_H
 
+#include "bdmenums.h"
 #include "BinaryData.h"
-
-enum ARMORY_DB_TYPE
-{
-  ARMORY_DB_BARE, // only raw block data
-  ARMORY_DB_LITE,
-  ARMORY_DB_PARTIAL,
-  ARMORY_DB_FULL,
-  ARMORY_DB_SUPER,
-  ARMORY_DB_WHATEVER
-};
-
-enum DB_PRUNE_TYPE
-{
-  DB_PRUNE_ALL,
-  DB_PRUNE_NONE,
-  DB_PRUNE_WHATEVER
-};
-
 
 struct BlockDataManagerConfig
 {
    ARMORY_DB_TYPE armoryDbType;
    DB_PRUNE_TYPE pruneType;
+   BDM_INIT_MODE initMode = INIT_RESUME;
    
-   string blkFileLocation;
-   string levelDBLocation;
+   string blkFileLocation = "./";
+   string dbLocation = "./";
    
    BinaryData genesisBlockHash;
    BinaryData genesisTxHash;
@@ -54,9 +38,7 @@ struct BlockDataManagerConfig
    }
    
    BlockDataManagerConfig();
-   BlockDataManagerConfig(const BlockDataManagerConfig& in);
-   BlockDataManagerConfig& operator=(const BlockDataManagerConfig& in);
-   void selectNetwork(const string &netname);
+   void selectNetwork(const std::string &netname);
 };
 
 #endif

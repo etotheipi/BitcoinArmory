@@ -20,6 +20,7 @@
 #include "UniversalTimer.h"
 #include "bdmenums.h"
 #include "BlockUtils.h"
+#include "BDM_Server.h"
 
 struct BlockDataManagerConfig;
 
@@ -74,37 +75,6 @@ public:
 
 class BlockDataManager_LevelDB;
 class BlockDataViewer;
-
-class BlockDataManagerThread
-{
-   struct BlockDataManagerThreadImpl;
-   BlockDataManagerThreadImpl *pimpl;
-   
-public:
-   BlockDataManagerThread(const BlockDataManagerConfig &config);
-   ~BlockDataManagerThread();
-   
-   // start the BDM thread
-   void start(int mode, BDM_CallBack *callback, BDM_Inject *inject);
-   
-   BlockDataManager_LevelDB *bdm();
-   BlockDataViewer *bdv();
-   
-   void setConfig(const BlockDataManagerConfig &config);
-
-   // stop the BDM thread 
-   void shutdownAndWait();
-   
-   // return true if the caller is should wait on callback notification
-   bool requestShutdown();
-
-private:
-   static void* thrun(void *);
-   void run();
-
-private:
-   BlockDataManagerThread(const BlockDataManagerThread&);
-};
 
 inline void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
 inline void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }

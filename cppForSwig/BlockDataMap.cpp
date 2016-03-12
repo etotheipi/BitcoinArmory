@@ -317,14 +317,19 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
 
 #ifdef _WIN32
    fd = _open(filename.c_str(), _O_RDONLY | _O_BINARY);
-#else
-   fd = open(filename.c_str(), O_RDONLY);
-#endif
    if (fd == -1)
       return;
 
-   size_ = lseek(fd, 0, SEEK_END);
+   size_ = _lseek(fd, 0, SEEK_END);
+   _lseek(fd, 0, SEEK_SET);
+#else
+   fd = open(filename.c_str(), O_RDONLY);
+   if (fd == -1)
+      return;
+
+   size_ = _lseek(fd, 0, SEEK_END);
    lseek(fd, 0, SEEK_SET);
+#endif
 
    char* data = nullptr;
 

@@ -1,33 +1,26 @@
-/* File BlockUtils.i */
-/*
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
-//  support@bitcoinarmory.com                                                 //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-*/
+
 %module(directors="1") CppBlockUtils
-%feature("director") BDM_CallBack;
-%feature("director") BDM_Inject;
+%feature("director") PythonCallback;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
-#include "BlockObj.h"
-#include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
-#include "BtcWallet.h"
-#include "LedgerEntry.h"
-#include "ScrAddrObj.h"
-#include "Blockchain.h"
-#include "BDM_mainthread.h"
-#include "BlockDataManagerConfig.h"
-#include "BlockDataViewer.h"
+#include "SwigClient.h"
+#include "bdmenums.h"
 %}
-
 
 %include "std_string.i"
 %include "std_vector.i"
@@ -50,11 +43,6 @@
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
 
 %ignore readVarInt(BinaryRefReader & brr);
-%ignore BlockDataViewer::blockchain() const;
-%ignore BlockDataManager_LevelDB::readBlockUpdate(const pair<size_t, uint64_t>& headerOffset);
-%ignore BlockDataManager_LevelDB::loadDiskState(const function<void(unsigned, double,unsigned)> &progress);
-%ignore BlockDataViewer::refreshLock_;
-
 
 %allowexception;
 
@@ -63,17 +51,7 @@ namespace std
    %template(vector_int) std::vector<int>;
    %template(vector_float) std::vector<float>;
    %template(vector_string) std::vector<string>;
-   //%template(vector_BinaryData) std::vector<BinaryData>;
-   %template(vector_LedgerEntry) std::vector<LedgerEntry>;
-   //%template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
-   %template(vector_TxRefPtr) std::vector<TxRef*>;
-   %template(vector_Tx) std::vector<Tx>;
-   %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
-   %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
-   %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
-   %template(vector_RegisteredTx) std::vector<RegisteredTx>;
-   %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
-   %template(set_BinaryData) std::set<BinaryData>;
+   //%template(vector_LedgerEntry) std::vector<LedgerEntry>;
 }
 
 %exception
@@ -201,6 +179,7 @@ namespace std
 	$result = thisList;
 }
 
+/******************************************************************************/
 // Convert Python(dict{str:list[str]}) to C++(map<BinaryData, vector<BinaryData>) 
 %typemap(in) const std::map<BinaryData, std::vector<BinaryData> >& (std::map<BinaryData, std::vector<BinaryData> > map_bd_vec_bd)
 {
@@ -226,42 +205,57 @@ namespace std
 	$1 = &map_bd_vec_bd;
 }
 
-// Ubuntu 12.04 doesn't support C++11 without compiler & linker trickery. One
-// very tricky issue involves librt. clock_* calls, used by Armory, required
-// the rt library before GLIBC 2.17, at which point they were moved to libc.
-// Long story short, Ubuntu 12.04 can't compile C++11 by default (only GCC 4.6
-// is available by default, and a libstdc++ bug means GCC 4.7.3+ must be used),
-// and making a 12.04 build under later versions of Ubuntu (with static linking)
-// creates a hole due to glibc 2.17+ being present post-12.04. SWIG somehow gets
-// tripped up, as seen if linking Armory with the "-Wl,--no-undefined" flag. To
-// fix this, use timer_* calls, which remain in librt, to create a dummy call in
-// the SWIG-generated code that forces an rt link in SWIG. This marks librt as
-// "NEEDED" by the linker.
-//
-// The "-Wl,--no-as-needed" linker flag is a simpler alternative to adding this
-// code. The flag is brute force and causes bloat by adding unneeded libraries
-// if devs aren't careful. Therefore, it's not used.
-//
-// Finally, this code is compiled only for Linux. Targeting specific distros
-// requires too much effort. All Linux compilers will have to deal. :)
-%inline %{
-#if defined(__linux) || defined(__linux__)
-   void force_librt() { timer_create(CLOCK_REALTIME, NULL, NULL); }
-#endif
-%}
+/******************************************************************************/
+// Convert C++(StoredHeader) to a Python dict with the following key:val pairs:
+// {
+// "height":int
+// "blockHash":str
+// "merkle":str
+// "numBytes":int
+// "numTx":int
+// "txHashList":[TxHash, TxHash, TxHash, ...]
+// }
+%typemap(out) StoredHeader
+{
+	PyObject *thisDict = PyDict_New();
 
-/* With our typemaps, we can finally include our other objects */
-%include "BlockObj.h"
-%include "BlockUtils.h"
+	//height
+	PyDict_SetItemString(thisDict, "height", PyInt_FromSize_t($1.blockHeight_));
+
+	//block hash
+	std::string hashStr = $1.thisHash_.toHexStr(true);
+	PyDict_SetItemString(thisDict, "blockHash", 
+		PyString_FromStringAndSize(hashStr.c_str(), hashStr.size()));
+
+	//merkle
+	std::string merkleStr = $1.merkle_.toHexStr(true);
+	PyDict_SetItemString(thisDict, "merkle", 
+		PyString_FromStringAndSize(merkleStr.c_str(), merkleStr.size()));
+
+	//size of block in bytes
+	PyDict_SetItemString(thisDict, "numBytes", PyInt_FromSize_t($1.numBytes_));
+
+	//tx count
+	PyDict_SetItemString(thisDict, "numTx", PyInt_FromSize_t($1.getNumTx()));
+
+	PyObject *thisList = PyList_New($1.getNumTx());
+	
+	//tx hash list
+	for(unsigned i=0; i<$1.getNumTx(); i++)
+	{
+		DBTx& tx = $1.getTxByIndex(i);
+		std::string hashStr = tx.thisHash_.toHexStr(true);
+		PyList_SET_ITEM(thisList, i, 
+			PyString_FromStringAndSize(hashStr.c_str(), hashStr.size()));
+	}
+
+	//add list to dict
+	PyDict_SetItemString(thisDict, "txHashList", thisList);
+
+	$result = thisDict;
+}
+
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
-%include "BtcWallet.h"
-%include "LedgerEntry.h"
-%include "ScrAddrObj.h"
-%include "Blockchain.h"
-%include "BlockDataViewer.h"
-%include "BlockDataManagerConfig.h"
-%include "BDM_mainthread.h"
+%include "SwigClient.h"
 %include "bdmenums.h"
-
-

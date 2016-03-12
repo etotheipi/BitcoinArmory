@@ -34,6 +34,24 @@ BlockDataViewer::~BlockDataViewer()
 }
 
 /////////////////////////////////////////////////////////////////////////////
+shared_ptr<BtcWallet> BlockDataViewer::createWallet(const string& id)
+{
+   if (id.empty())
+      return nullptr;
+
+   return groups_[group_wallet].createWallet(id);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+shared_ptr<BtcWallet> BlockDataViewer::createLockbox(const string& id)
+{
+   if (id.empty())
+      return nullptr;
+
+   return groups_[group_lockbox].createWallet(id);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 BtcWallet* BlockDataViewer::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
@@ -755,6 +773,27 @@ WalletGroup::~WalletGroup()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+shared_ptr<BtcWallet> WalletGroup::createWallet(const string& IDstr)
+{
+   ReadWriteLock::WriteLock wl(lock_);
+   BinaryData id(IDstr);
+
+   {
+      auto regWlt = wallets_.find(id);
+      if (regWlt != wallets_.end())
+      {
+         bdvPtr_->flagRefresh(BDV_refreshSkipRescan, id);
+         return regWlt->second;
+      }
+   }
+
+   auto insertIter = 
+      wallets_.insert(make_pair(id, make_shared<BtcWallet>(bdvPtr_, id)));
+
+   return insertIter.first->second;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BtcWallet* WalletGroup::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
@@ -767,21 +806,18 @@ BtcWallet* WalletGroup::registerWallet(
    ReadWriteLock::WriteLock wl(lock_);
    BinaryData id(IDstr);
 
-   {
+   /*{
       auto regWlt = wallets_.find(id);
       if (regWlt != wallets_.end())
       {
          bdvPtr_->flagRefresh(BDV_refreshSkipRescan, id);
          return regWlt->second.get();
       }
-   }
+   }*/
 
    shared_ptr<BtcWallet> newWallet;
 
    {
-      // Main thread isnt running, just register the wallet
-      // Add it to the list of wallets to watch
-      // Instantiate the object through insert.
       auto insertResult = wallets_.insert(make_pair(
          id, shared_ptr<BtcWallet>(new BtcWallet(bdvPtr_, id))
          ));

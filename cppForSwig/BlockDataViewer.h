@@ -4,7 +4,13 @@
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
+//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef BLOCK_DATA_VIEWER_H
 #define BLOCK_DATA_VIEWER_H
 
@@ -83,6 +89,9 @@ private:
 
 class BlockDataViewer
 {
+
+   friend class BDV_Server_Object;
+
 public:
    BlockDataViewer(BlockDataManager_LevelDB* bdm);
    ~BlockDataViewer(void);
@@ -94,6 +103,9 @@ public:
    // blockchain in RAM, each scan will take 30-120 seconds.  Registering makes 
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
+   shared_ptr<BtcWallet> createWallet(const string& id);
+   shared_ptr<BtcWallet> createLockbox(const string& id);
+
    BtcWallet* registerWallet(vector<BinaryData> const& scrAddrVec,
                               string ID, bool wltIsNew);
    BtcWallet* registerLockbox(vector<BinaryData> const& scrAddrVec, 
@@ -176,7 +188,7 @@ public:
                            uint32_t startBlock, uint32_t endBlock) const;
 
    void flagRefresh(BDV_refresh refresh, const BinaryData& refreshId);
-   void notifyMainThread(void) const { bdmPtr_->notifyMainThread(); }
+   virtual void notifyMainThread(void) const {}
 
    StoredHeader getMainBlockFromDB(uint32_t height) const;
    StoredHeader getBlockFromDB(uint32_t height, uint8_t dupID) const;
@@ -281,6 +293,7 @@ private:
 class WalletGroup
 {
    friend class BlockDataViewer;
+   friend class BDV_Server_Object;
 
 public:
 
@@ -302,6 +315,7 @@ public:
 
    ~WalletGroup();
 
+   shared_ptr<BtcWallet> createWallet(const string& IDstr);
    BtcWallet* registerWallet(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    void unregisterWallet(const string& IDstr);

@@ -1146,6 +1146,7 @@ vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
+   doneRegisteringCallback_();
    bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
 }
 

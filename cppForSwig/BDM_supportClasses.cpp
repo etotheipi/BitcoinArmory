@@ -192,6 +192,10 @@ void ScrAddrFilter::scanScrAddrThread()
    {
       //new addresses, set their last seen block in the ssh entries
       setSSHLastScanned(currentTopBlockHeight());
+
+      for (auto& batch : scrAddrDataForSideScan_.wltNAddrMap_)
+         batch.first->needsRefresh();
+
    }
    else
    {
