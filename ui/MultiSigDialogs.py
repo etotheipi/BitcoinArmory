@@ -572,7 +572,7 @@ class DlgLockboxEditor(ArmoryDialog):
             else:
                self.createDate = long(RightNow())
       
-      if not USE_TESTNET and isMofNNonStandardToSpend(currM, currN):
+      if not USE_TESTNET and isMofNNonStandardToSpend(currM, currN) and not USE_REGTEST:
          reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
             If you are running any Bitcoin Core version earlier than 0.9.3
             all spending transactions from this lockbox
@@ -1450,8 +1450,8 @@ class DlgLockboxManager(ArmoryDialog):
             return
          elif action == actionReqPayment:
             if not self.main.getSettingOrSetDefault('DNAA_P2SHCompatWarn', False):
-               oldStartChar = "'m' or 'n'" if USE_TESTNET else "'1'"
-               newStartChar = "'2'"        if USE_TESTNET else "'3'"
+               oldStartChar = "'m' or 'n'" if USE_TESTNET or USE_REGTEST else "'1'"
+               newStartChar = "'2'"        if USE_TESTNET or USE_REGTEST else "'3'"
                reply = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, tr('Compatibility Warning'), 
                   tr("""You are about to request payment to a "P2SH" address 
                   which is the format used for receiving to multi-signature

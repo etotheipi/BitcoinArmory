@@ -7164,7 +7164,7 @@ class DlgPrintBackup(ArmoryDialog):
 
       doMask = self.chkSecurePrint.isChecked()
 
-      if USE_TESTNET:
+      if USE_TESTNET or USE_REGTEST:
          self.scene.drawPixmapFile(':/armory_logo_green_h56.png')
       else:
          self.scene.drawPixmapFile(':/armory_logo_h36.png')
@@ -8434,7 +8434,7 @@ class DlgAddressBook(ArmoryDialog):
 
          # Disable Bare multisig if mainnet and N>3
          lb = self.main.getLockboxByID(selectedLockBoxId)
-         if lb.N>3 and not USE_TESTNET:
+         if lb.N>3 and not USE_TESTNET and not USE_REGTEST:
             self.useBareMultiSigCheckBox.setEnabled(False)
             self.useBareMultiSigCheckBox.setChecked(False)
             self.useBareMultiSigCheckBox.setToolTip(tr("""
@@ -11561,7 +11561,7 @@ class DlgWODataPrintBackup(ArmoryDialog):
       wrap = 0.9 * self.scene.pageRect().width()
 
       # Start drawing the page.
-      if USE_TESTNET:
+      if USE_TESTNET or USE_REGTEST:
          self.scene.drawPixmapFile(':/armory_logo_green_h56.png')
       else:
          self.scene.drawPixmapFile(':/armory_logo_h36.png')
@@ -14988,8 +14988,11 @@ class DlgBroadcastBlindTx(ArmoryDialog):
 
       hexhash = binary_to_hex(txhash, endOut=BIGENDIAN)
       if USE_TESTNET:
-         linkToExplorer = 'https://testnet.blockexplorer.com/tx/%s' % hexhash
-         dispToExplorer = 'https://testnet.blockexplorer.com/tx/%s...' % hexhash[:16]
+         linkToExplorer = 'http://blockexplorer.com/testnet/tx/%s' % hexhash
+         dispToExplorer = 'http://blockexplorer.com/testnet/tx/%s...' % hexhash[:16]
+      elif USE_REGTEST:
+         linkToExplorer = ''
+         dispToExplorer = ''
       else:
          linkToExplorer = 'https://blockchain.info/search/%s' % hexhash
          dispToExplorer = 'https://blockchain.info/search/%s...' % hexhash[:16]

@@ -742,6 +742,13 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 
       testnet_ = true;
    }
+   else if (netname == "Regtest")
+   {
+	   genesisBlockHash_ = READHEX(REGTEST_GENESIS_HASH_HEX);
+	   genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
+	   magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
+	   btcPort_ = "18333"
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
