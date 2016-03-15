@@ -335,7 +335,8 @@ public:
       getFullTxioMap(void) const { return txioMap_; }
 
    void dropZC(const set<BinaryData>& txHashes);
-   bool parseNewZC(function<bool(const BinaryData&)>, bool updateDb = true);
+   set<BinaryData> parseNewZC(
+      function<bool(const BinaryData&)>, bool updateDb = true);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData& zcKey) const;
 

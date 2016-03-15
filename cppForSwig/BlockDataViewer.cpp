@@ -170,7 +170,7 @@ void BlockDataViewer::disableZeroConf(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::parseNewZeroConfTx()
+set<BinaryData> BlockDataViewer::parseNewZeroConfTx()
 {
    return zeroConfCont_.parseNewZC(
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });

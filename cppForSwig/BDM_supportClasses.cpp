@@ -712,8 +712,8 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
-   bool updateDb)
+set<BinaryData> ZeroConfContainer::parseNewZC(
+   function<bool(const BinaryData&)> filter, bool updateDb)
 {
    /***
    ZC transcations are pushed to the BDM by another thread (usually the thread
@@ -731,12 +731,12 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
    ***/
    uint32_t nProcessed = 0;
 
-   bool zcIsOurs = false;
-
    unique_lock<mutex> lock(mu_);
 
    //copy new ZC map
    map<BinaryData, Tx> zcMap = newZCMap_;
+
+   set<BinaryData> newZcByHash;
 
    lock.unlock();
 
@@ -844,7 +844,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
                      txioPair[txio.first] = txio.second;
                }
 
-               zcIsOurs = true;
+               newZcByHash.insert(txHash);
             }
          }
       }
@@ -890,7 +890,7 @@ bool ZeroConfContainer::parseNewZC(function<bool(const BinaryData&)> filter,
 
    lastParsedBlockHash_ = db_->getTopBlockHash();
 
-   return zcIsOurs;
+   return newZcByHash;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

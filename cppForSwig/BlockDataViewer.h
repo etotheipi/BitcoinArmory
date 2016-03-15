@@ -129,7 +129,7 @@ public:
    void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime,
       bool writeToFile);
    bool isZcEnabled() const { return zcEnabled_; }
-   bool parseNewZeroConfTx(void);
+   set<BinaryData> parseNewZeroConfTx(void);
 
    TX_AVAILABILITY   getTxHashAvail(BinaryDataRef txhash) const;
    Tx                getTxByHash(BinaryData const & txHash) const;
