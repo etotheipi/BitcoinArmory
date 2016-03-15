@@ -557,6 +557,16 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+bool Tx::isCoinbase(void) const
+{
+   if (!isInitialized())
+      throw runtime_error("unprocessed tx");
+
+   BinaryDataRef bdr(dataCopy_.getPtr() + offsetsTxIn_[0], 32);
+   return bdr == BtcUtils::EmptyHash_;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr, size_t size)
 {
@@ -658,8 +668,8 @@ TxOut Tx::getTxOutCopy(int i) const
 /////////////////////////////////////////////////////////////////////////////
 bool Tx::isRBF() const
 {
-   if (isRBF_ != UINT32_MAX)
-      return isRBF_ == 1;
+   if (isRBF_)
+      return true;
 
    for (unsigned i = 0; i < offsetsTxIn_.size() - 1; i++)
    { 

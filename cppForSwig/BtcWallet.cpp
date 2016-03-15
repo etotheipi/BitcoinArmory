@@ -678,7 +678,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanWalletZeroConf(bool withReorg)
+void BtcWallet::scanWalletZeroConf(bool purge)
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
@@ -686,16 +686,7 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
    ***/
    SCOPED_TIMER("rescanWalletZeroConf");
 
-   map<BinaryData, map<BinaryData, TxIOPair> > ZCtxioMap = 
-      bdvPtr_->getNewZeroConfTxIOMap();
-
-   if (withReorg==true)
-   {
-      //scanning ZC after a reorg, Everything beyond the last valid block has
-      //been wiped out of RAM, thus grab the full ZC txio map. Still need a call
-      //to getNewZeroConfTxIOMap to clear the new ZC map
-      ZCtxioMap = bdvPtr_->getFullZeroConfTxIOMap();
-   }
+   auto ZCtxioMap = bdvPtr_->getFullZeroConfTxIOMap();
 
    auto isZcFromWallet = [this](const BinaryData& zcKey)->bool
    {
@@ -710,10 +701,21 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
       return false;
    };
 
+   for (auto& scrAddr : scrAddrMap_)
+   {
+      if (scrAddr.second.validZCKeys_.size() > 0)
+      {
+         auto zcIter = ZCtxioMap.find(scrAddr.first);
+         if (purge || zcIter == ZCtxioMap.end())
+            scrAddr.second.scanZC(
+               map<BinaryData, TxIOPair>(),
+               isZcFromWallet);
+      }
+   }
+
    for (auto& scrAddrTxio : ZCtxioMap)
    {
-      map<BinaryData, ScrAddrObj>::iterator scrAddr = 
-	      scrAddrMap_.find(scrAddrTxio.first);
+      auto scrAddr = scrAddrMap_.find(scrAddrTxio.first);
 
       if (scrAddr != scrAddrMap_.end())
          scrAddr->second.scanZC(scrAddrTxio.second, isZcFromWallet);
@@ -721,13 +723,10 @@ void BtcWallet::scanWalletZeroConf(bool withReorg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, 
-   bool reorg, const map<BinaryData, vector<BinaryData> >& invalidatedZCKeys)
+bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg)
 {
    if (startBlock < endBlock)
    {
-      purgeZeroConfTxIO(invalidatedZCKeys);
-
       //new top block
       if (reorg)
          updateAfterReorg(startBlock);
@@ -736,7 +735,7 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
 
       fetchDBScrAddrData(startBlock, endBlock);
-      scanWalletZeroConf(reorg);
+      scanWalletZeroConf(true);
 
       map<BinaryData, TxIOPair> txioMap;
       getTxioForRange(startBlock, UINT32_MAX, txioMap);
@@ -750,7 +749,7 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       //top block didnt change, only have to check for new ZC
       if (bdvPtr_->isZcEnabled())
       {
-         scanWalletZeroConf();
+         scanWalletZeroConf(false);
          map<BinaryData, TxIOPair> txioMap;
          getTxioForRange(endBlock +1, UINT32_MAX, txioMap);
          updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
@@ -772,20 +771,6 @@ void BtcWallet::reset()
    merge();
 
    clearBlkData();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::purgeZeroConfTxIO(
-   const map<BinaryData, vector<BinaryData> >& invalidatedTxIO)
-{
-   for (auto& txioVec : invalidatedTxIO)
-   {
-      map<BinaryData, ScrAddrObj>::iterator scrAddr = 
-	      scrAddrMap_.find(txioVec.first);
-
-      if (scrAddr != scrAddrMap_.end())
-         scrAddr->second.purgeZC(txioVec.second);
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -369,12 +369,12 @@ try
          bdv->flagRescanZC(false);
          if (bdv->parseNewZeroConfTx() == true)
          {
-            set<BinaryData> newZCTxHash = bdv->getNewZCTxHash();
+            //set<BinaryData> newZCTxHash = bdv->getNewZCTxHash();
             bdv->scanWallets();
 
             vector<LedgerEntry> newZCLedgers;
 
-            for (const auto& txHash : newZCTxHash)
+/*            for (const auto& txHash : newZCTxHash)
             {
                auto& le_w = bdv->getTxLedgerByHash_FromWallets(txHash);
                if (le_w.getTxTime() != 0)
@@ -383,7 +383,7 @@ try
                auto& le_lb = bdv->getTxLedgerByHash_FromLockboxes(txHash);
                if (le_lb.getTxTime() != 0)
                   newZCLedgers.push_back(le_lb);
-            }
+            }*/
 
             LOGINFO << newZCLedgers.size() << " new ZC Txn";
             //notify ZC

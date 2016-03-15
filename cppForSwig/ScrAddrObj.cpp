@@ -132,7 +132,60 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
    //with scrAddr. Since several wallets may reference the same scrAddr, we 
    //can't modify original txio, so we use a copy.
 
-   for (auto txioPair : zcTxIOMap)
+   //break down zcTxIOMap into valid and invalid keys
+   map<BinaryData, TxIOPair> newZC;
+   vector<BinaryData> invalidZCvec;
+   set<BinaryData> invalidZCset;
+
+   //look for invalidated keys
+   for (auto& key : validZCKeys_)
+   {
+      auto keyIter = zcTxIOMap.find(key);
+      if (keyIter == zcTxIOMap.end())
+         invalidZCvec.push_back(key);
+   }
+
+   //purge if necessary
+   if (invalidZCvec.size() > 0)
+   {
+      //rebuild validZCKeys_
+      for (auto& key : invalidZCvec)
+      {
+         validZCKeys_.erase(key);
+         invalidZCset.insert(key);
+      }
+
+      purgeZC(invalidZCset);
+   }
+
+   //look for new keys
+   for (auto& txiopair : zcTxIOMap)
+   {
+      auto keyIter = relevantTxIO_.find(txiopair.first);
+      if (keyIter != relevantTxIO_.end())
+      {
+         //make sure the ZC txio wasn't spent by another ZC
+         auto& newtxio = txiopair.second;
+         if (!newtxio.hasTxIn())
+            continue;
+         
+         auto& txio = keyIter->second;
+         if (txio.hasTxIn())
+         {
+            if (txio.getDBKeyOfInput() == newtxio.getDBKeyOfInput())
+               continue;
+         }
+      }
+
+      newZC.insert(txiopair);
+      validZCKeys_.insert(txiopair.first);
+   }
+
+   //nothing to do if we didn't find new ZC
+   if (newZC.size() == 0)
+      return;
+
+   for (auto& txioPair : newZC)
    {
       if (txioPair.second.hasTxOutZC() &&
          isZcFromWallet(txioPair.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
@@ -148,7 +201,7 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::purgeZC(const vector<BinaryData>& invalidatedTxOutKeys)
+void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
 {
    for (auto zc : invalidatedTxOutKeys)
    {

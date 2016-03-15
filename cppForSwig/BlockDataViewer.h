@@ -113,16 +113,9 @@ public:
       const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
       bool areNew);
 
-   map<BinaryData, map<BinaryData, TxIOPair> >
-      getNewZeroConfTxIOMap() const
-   { return zeroConfCont_.getNewTxioMap(); }
-
    const map<BinaryData, map<BinaryData, TxIOPair> >&
       getFullZeroConfTxIOMap() const
    { return zeroConfCont_.getFullTxioMap(); }
-
-   set<BinaryData> getNewZCTxHash(void) const
-   { return zeroConfCont_.getNewZCByHash(); }
 
    const LedgerEntry& getTxLedgerByHash_FromWallets(
       const BinaryData& txHash) const;
@@ -135,7 +128,6 @@ public:
    void disableZeroConf(void);
    void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime,
       bool writeToFile);
-   void purgeZeroConfPool(void);
    bool isZcEnabled() const { return zcEnabled_; }
    bool parseNewZeroConfTx(void);
 
@@ -311,9 +303,6 @@ public:
    bool hasID(const BinaryData& ID) const;
    void pprintRegisteredWallets(void) const;
 
-   void purgeZeroConfPool(
-      const map<BinaryData, vector<BinaryData> >& invalidatedTxIOKeys);
-
    const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
 
    void reset();
@@ -329,8 +318,7 @@ private:
    void updateLedgerFilter(const vector<BinaryData>& walletsVec);
 
    void merge();
-   void scanWallets(uint32_t, uint32_t, bool,
-      map<BinaryData, vector<BinaryData> >);
+   void scanWallets(uint32_t, uint32_t, bool);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 
