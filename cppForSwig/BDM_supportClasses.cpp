@@ -990,6 +990,12 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          StoredTxOut stxOut;
          if (db_->getStoredTxOut(stxOut, opKey))
          {
+            if (stxOut.isSpent())
+            {
+               //invalid ZC, dump it
+               return ZeroConfContainer::BulkFilterData();
+            }
+
             BinaryData sa = stxOut.getScrAddress();
             if (filter(sa))
             {

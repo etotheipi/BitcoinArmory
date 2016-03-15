@@ -132,31 +132,48 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
    //with scrAddr. Since several wallets may reference the same scrAddr, we 
    //can't modify original txio, so we use a copy.
 
+   //to figure out the ZC key in a txio
+   auto getZcKeyFromTxio = [](const TxIOPair& txio)->BinaryData
+   {
+      //txin takes precedence over txout when figuring which ZC modified 
+      //the txio last
+      if (txio.hasTxInZC())
+         return txio.getDBKeyOfInput();
+      else if (txio.hasTxOutZC())
+         return txio.getDBKeyOfOutput();
+
+      return BinaryData();
+   };
+
+   //sort new ZC by zc key and txio key
+   set<BinaryData> zckeys;
+   for (auto& txiopair : zcTxIOMap)
+      zckeys.insert(getZcKeyFromTxio(txiopair.second));
+
    //break down zcTxIOMap into valid and invalid keys
    map<BinaryData, TxIOPair> newZC;
-   vector<BinaryData> invalidZCvec;
    set<BinaryData> invalidZCset;
 
-   //look for invalidated keys
-   for (auto& key : validZCKeys_)
+   //look for invalidated keys, delete from validZcKeys_ as we go
+   auto keyIter = validZCKeys_.begin();
+   while (keyIter != validZCKeys_.end())
    {
-      auto keyIter = zcTxIOMap.find(key);
-      if (keyIter == zcTxIOMap.end())
-         invalidZCvec.push_back(key);
+      auto zcIter = zckeys.find(keyIter->first);
+      if (zcIter == zckeys.end())
+      {
+         for (auto& txiokey : keyIter->second)
+            invalidZCset.insert(txiokey);
+
+         validZCKeys_.erase(keyIter++);
+         continue;
+      }
+
+      ++keyIter;
    }
 
    //purge if necessary
-   if (invalidZCvec.size() > 0)
-   {
-      //rebuild validZCKeys_
-      for (auto& key : invalidZCvec)
-      {
-         validZCKeys_.erase(key);
-         invalidZCset.insert(key);
-      }
-
+   if (invalidZCset.size() > 0)
       purgeZC(invalidZCset);
-   }
 
    //look for new keys
    for (auto& txiopair : zcTxIOMap)
@@ -178,7 +195,8 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
       }
 
       newZC.insert(txiopair);
-      validZCKeys_.insert(txiopair.first);
+      auto& zckeyset = validZCKeys_[getZcKeyFromTxio(txiopair.second)];
+      zckeyset.insert(txiopair.first);
    }
 
    //nothing to do if we didn't find new ZC

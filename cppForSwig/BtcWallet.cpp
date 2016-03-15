@@ -753,7 +753,7 @@ bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg)
          map<BinaryData, TxIOPair> txioMap;
          getTxioForRange(endBlock +1, UINT32_MAX, txioMap);
          updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
-                             endBlock +1, UINT32_MAX);
+                             endBlock +1, UINT32_MAX, true);
 
          balance_ = getFullBalanceFromDB();
 

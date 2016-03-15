@@ -332,7 +332,7 @@ private:
    //fetches and maintains utxos
    pagedUTXOs   utxos_;
 
-   set<BinaryData> validZCKeys_;
+   map<BinaryData, set<BinaryData>> validZCKeys_;
 };
 
 #endif
