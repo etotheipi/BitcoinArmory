@@ -14993,8 +14993,8 @@ class DlgBroadcastBlindTx(ArmoryDialog):
 
       hexhash = binary_to_hex(txhash, endOut=BIGENDIAN)
       if USE_TESTNET:
-         linkToExplorer = 'http://blockexplorer.com/testnet/tx/%s' % hexhash
-         dispToExplorer = 'http://blockexplorer.com/testnet/tx/%s...' % hexhash[:16]
+         linkToExplorer = 'https://testnet.blockexplorer.com/tx/%s' % hexhash
+         dispToExplorer = 'https://testnet.blockexplorer.com/tx/%s...' % hexhash[:16]
       else:
          linkToExplorer = 'https://blockchain.info/search/%s' % hexhash
          dispToExplorer = 'https://blockchain.info/search/%s...' % hexhash[:16]

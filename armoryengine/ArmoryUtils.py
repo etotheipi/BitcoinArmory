@@ -495,8 +495,8 @@ else:
 
    # 
    BLOCKEXPLORE_NAME     = 'blockexplorer.com'
-   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s'
-   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s'
+   BLOCKEXPLORE_URL_TX   = 'https://testnet.blockexplorer.com/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://testnet.blockexplorer.com/address/%s'
 
 # These are the same regardless of network
 # They are the way data is stored in the database which is network agnostic
