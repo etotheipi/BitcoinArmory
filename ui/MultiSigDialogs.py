@@ -1356,7 +1356,7 @@ class DlgLockboxManager(ArmoryDialog):
 
       if USE_TESTNET:
          blkExploreTitle = 'View on blockexplorer.com'
-         blkExploreURL   = 'http://blockexplorer.com/testnet/tx/%s' % txHash
+         blkExploreURL   = 'https://testnet.blockexplorer.com/tx/%s' % txHash
       else:
          blkExploreTitle = 'View on blockchain.info'
          blkExploreURL   = 'https://blockchain.info/tx/%s' % txHash
