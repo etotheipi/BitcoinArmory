@@ -262,9 +262,9 @@ try
       /*if(bdv->getZCflag())
       {
          bdv->flagRescanZC(false);
-         if (bdv->parseNewZeroConfTx() == true)
+         auto&& newZCTxHash = bdv->parseNewZeroConfTx();
+         if (newZCTxHash.size() > 0)
          {
-            set<BinaryData> newZCTxHash = bdv->getNewZCTxHash();
             bdv->scanWallets();
 
             vector<LedgerEntry> newZCLedgers;

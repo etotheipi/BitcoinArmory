@@ -215,20 +215,15 @@ private:
    
    //new all purpose wallet scanning call, returns true on bootstrap and new block,
    //false on ZC
-   bool scanWallet(uint32_t startBlock,
-      uint32_t endBlock,
-      bool reorg,
-      const map<BinaryData, vector<BinaryData> >& invalidatedZCKeys);
+   bool scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
-   void scanWalletZeroConf(bool withReorg = false);
+   void scanWalletZeroConf(bool purge = false);
 
    void fetchDBScrAddrData(uint32_t startBlock, uint32_t endBlock);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
-   void purgeZeroConfTxIO(
-      const map<BinaryData, vector<BinaryData> >& invalidatedTxIO);
 
    void updateWalletLedgersFromTxio(map<BinaryData, LedgerEntry>& le,
       const map<BinaryData, TxIOPair>& txioMap,

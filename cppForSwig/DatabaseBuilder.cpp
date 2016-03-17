@@ -41,7 +41,7 @@ void DatabaseBuilder::init()
    //update db
    TIMER_START("updateblocksindb");
    LOGINFO << "updating HEADERS db";
-   auto reorgState = updateBlocksInDB(progress_, true);
+   auto reorgState = updateBlocksInDB(progress_, true, true);
    TIMER_STOP("updateblocksindb");
    double updatetime = TIMER_READ_SEC("updateblocksindb");
    LOGINFO << "updated HEADERS db in " << updatetime << "s";
@@ -199,7 +199,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
 /////////////////////////////////////////////////////////////////////////////
 Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
-   const ProgressCallback &progress, bool verbose)
+   const ProgressCallback &progress, bool verbose, bool initialLoad)
 {
    //preload and prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
@@ -236,6 +236,16 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
    vector<thread> tIDs;
    vector<shared_ptr<BlockOffset>> boVec;
+
+   if (initialLoad)
+   {
+      //rewind 30MB for good measure
+      unsigned rewind = 30 * 1024 * 1024;
+      if (topBlockOffset_.offset_ > rewind)
+         topBlockOffset_.offset_ -= rewind;
+      else
+         topBlockOffset_.offset_ = 0;
+   }
 
    for (unsigned i = 1; i < threadcount; i++)
    {
@@ -430,7 +440,7 @@ uint32_t DatabaseBuilder::update(void)
    blockFiles_.detectAllBlockFiles();
 
    //update db
-   auto&& reorgState = updateBlocksInDB(progress_, false);
+   auto&& reorgState = updateBlocksInDB(progress_, false, false);
 
    uint32_t prevTop = reorgState.prevTopBlock->getBlockHeight();
    if (reorgState.prevTopBlockStillValid && 

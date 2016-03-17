@@ -44,7 +44,7 @@ private:
       function<bool(const uint8_t* data, size_t size, size_t offset)>);
 
    Blockchain::ReorganizationState updateBlocksInDB(
-      const ProgressCallback &progress, bool verbose);
+      const ProgressCallback &progress, bool verbose, bool initialLoad);
    BinaryData updateTransactionHistory(uint32_t startHeight);
    BinaryData scanHistory(uint32_t startHeight, bool reportprogress);
    void undoHistory(Blockchain::ReorganizationState& reorgState);

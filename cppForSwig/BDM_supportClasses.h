@@ -270,6 +270,15 @@ class ZeroConfContainer
    empty BinaryData object otherwise.
    ***/
 
+   struct BulkFilterData
+   {
+      map<BinaryData, map<BinaryData, TxIOPair>> scrAddrTxioMap_;
+      map<BinaryData, map<unsigned, BinaryData>> outPointsSpentByKey_;
+      set<BinaryData> txOutsSpentByZC_;
+
+      bool isEmpty(void) { return scrAddrTxioMap_.size() == 0; }
+   };
+
 private:
    map<HashString, HashString>                  txHashToDBKey_; //<txHash, dbKey>
    map<HashString, Tx>                          txMap_; //<zcKey, zcTx>
@@ -277,6 +286,7 @@ private:
    map<HashString, vector<HashString> >         keyToSpentScrAddr_; //<zcKey, vector<ScrAddr>>
    set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
    set<HashString>                              allZcTxHashes_;
+   map<BinaryData, map<unsigned, BinaryData>>   outPointsSpentByKey_; //<txHash, map<opId, ZcKeys>>
 
    BinaryData lastParsedBlockHash_;
 
@@ -291,7 +301,6 @@ private:
    //newTxioMap_ is ephemeral too. It's contains ZC txios that have yet to be
    //processed by their relevant scrAddrObj. It's content is returned then wiped 
    //by each call to getNewTxioMap
-   map<HashString, map<BinaryData, TxIOPair> >  newTxioMap_;
    LMDBBlockDatabase*                           db_;
 
    static map<BinaryData, TxIOPair> emptyTxioMap_;
@@ -304,8 +313,7 @@ private:
    bool RemoveTxByKey(const BinaryData key);
    bool RemoveTxByHash(const BinaryData txHash);
    
-   map<BinaryData, map<BinaryData, TxIOPair> >
-      ZCisMineBulkFilter(const Tx & tx,
+   BulkFilterData ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey,
       uint32_t txtime,
       function<bool(const BinaryData&)>,
@@ -320,23 +328,18 @@ public:
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;
 
-   map<BinaryData, vector<BinaryData> > purge(
+   void purge(
       function<bool(const BinaryData&)>);
 
-   const map<HashString, map<BinaryData, TxIOPair> >& 
-      getNewTxioMap(void) const;
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 
-   //returns a vector of ZC TxHash that belong to your tracked scrAddr. This is
-   //mostly a UI helper method
-   set<BinaryData> getNewZCByHash(void) const;
-
-   bool parseNewZC(function<bool(const BinaryData&)>, bool updateDb = true);
+   void dropZC(const set<BinaryData>& txHashes);
+   set<BinaryData> parseNewZC(
+      function<bool(const BinaryData&)>, bool updateDb = true);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData& zcKey) const;
 
-   void resetNewZC() { newTxioMap_.clear(); }
    void clear(void);
 
    const map<BinaryData, TxIOPair> getZCforScrAddr(BinaryData scrAddr) const;

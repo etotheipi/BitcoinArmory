@@ -529,6 +529,7 @@ public:
    BinaryData         getThisHash(void)  const;
    //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
+   bool               isCoinbase(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    size_t             getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
@@ -580,8 +581,7 @@ public:
    bool isRBF(void) const;
    void setRBF(bool isTrue)
    {
-      isRBF_ = 0;
-      if (isTrue) isRBF_ = 1;
+      isRBF_ = isTrue;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -619,7 +619,7 @@ private:
 
    uint32_t      txTime_;
 
-   unsigned isRBF_ = UINT32_MAX;
+   bool isRBF_ = false;
 };
 
 

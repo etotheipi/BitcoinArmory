@@ -113,21 +113,20 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       initialized_ = true;
    }
 
-   map<BinaryData, vector<BinaryData> > invalidatedZCKeys;
    if (startBlock != endBlock)
    {
-      invalidatedZCKeys = zeroConfCont_.purge(
-         [this](const BinaryData& sa)->bool 
-         { return saf_->hasScrAddress(sa); });
+      zeroConfCont_.purge(
+         [this](const BinaryData& sa)->bool {
+         return saf_->hasScrAddress(sa); });
    }
+
    const bool reorg = (lastScanned_ > startBlock);
 
    sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
 
-      group.scanWallets(*sbIter, endBlock, 
-         reorg, invalidatedZCKeys);
+      group.scanWallets(*sbIter, endBlock, reorg);
 
       group.updateGlobalLedgerFirstPage(*sbIter, endBlock,
          forceRefresh);
@@ -135,7 +134,6 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       sbIter++;
    }
 
-   zeroConfCont_.resetNewZC();
    lastScanned_ = endBlock;
 }
 
@@ -190,18 +188,7 @@ void BlockDataViewer::disableZeroConf(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::purgeZeroConfPool()
-{
-   const map<BinaryData, vector<BinaryData> > invalidatedTxIOKeys
-      = zeroConfCont_.purge(
-      [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
-
-   for (auto& group : groups_)
-      group.purgeZeroConfPool(invalidatedTxIOKeys);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataViewer::parseNewZeroConfTx()
+set<BinaryData> BlockDataViewer::parseNewZeroConfTx()
 {
    return zeroConfCont_.parseNewZC(
       [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
@@ -894,15 +881,6 @@ void WalletGroup::pprintRegisteredWallets(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void WalletGroup::purgeZeroConfPool(
-   const map<BinaryData, vector<BinaryData> >& invalidatedTxIOKeys)
-{
-   ReadWriteLock::ReadLock rl(lock_);
-   for (auto& wlt : values(wallets_))
-      wlt->purgeZeroConfTxIO(invalidatedTxIOKeys);
-}
-
-/////////////////////////////////////////////////////////////////////////////
 const LedgerEntry& WalletGroup::getTxLedgerByHash(
    const BinaryData& txHash) const
 {
@@ -1041,12 +1019,12 @@ void WalletGroup::merge()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void WalletGroup::scanWallets(uint32_t startBlock, uint32_t endBlock, 
-   bool reorg, map<BinaryData, vector<BinaryData> > invalidatedZCKeys)
+void WalletGroup::scanWallets(
+   uint32_t startBlock, uint32_t endBlock, bool reorg)
 {
    ReadWriteLock::ReadLock rl(lock_);
    for (auto& wlt : values(wallets_))
-      wlt->scanWallet(startBlock, endBlock, reorg, invalidatedZCKeys);
+      wlt->scanWallet(startBlock, endBlock, reorg);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
