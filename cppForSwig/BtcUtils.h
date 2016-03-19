@@ -93,6 +93,8 @@ typedef enum
    TXOUT_SCRIPT_MULTISIG,
    TXOUT_SCRIPT_P2SH,
    TXOUT_SCRIPT_NONSTANDARD,
+   TXOUT_SCRIPT_P2WPKH,
+   TXOUT_SCRIPT_P2WSH
 }  TXOUT_SCRIPT_TYPE;
 
 typedef enum
@@ -103,7 +105,10 @@ typedef enum
    TXIN_SCRIPT_SPENDPUBKEY,
    TXIN_SCRIPT_SPENDMULTI,
    TXIN_SCRIPT_SPENDP2SH,
-   TXIN_SCRIPT_NONSTANDARD
+   TXIN_SCRIPT_NONSTANDARD,
+   TXIN_SCRIPT_WITNESS,
+   TXIN_SCRIPT_P2WPKH_P2SH,
+   TXIN_SCRIPT_P2WSH_P2SH
 }  TXIN_SCRIPT_TYPE;
 
 
@@ -833,8 +838,14 @@ public:
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
    {
       size_t sz = s.getSize();
-      if (sz < 23)
+      if (sz < 21)
          return TXOUT_SCRIPT_NONSTANDARD;
+      else if (sz == 21 &&
+         s[0] == 0x00)
+         return TXOUT_SCRIPT_P2WPKH;
+      else if (sz == 34 &&
+         s[0] == 0x00)
+         return TXOUT_SCRIPT_P2WSH;
       else if (sz == 25 &&
          s[0] == 0x76 &&
          s[1] == 0xa9 &&
@@ -875,7 +886,13 @@ public:
                                              BinaryDataRef prevTxHash)
    {
       if(script.getSize() == 0)
-         return TXIN_SCRIPT_NONSTANDARD;
+         return TXIN_SCRIPT_WITNESS;
+
+      if(script.getSize() == 23 && script[0] == 0x00)
+         return TXIN_SCRIPT_P2WPKH_P2SH;
+
+      if(script.getSize() == 34 && script[0] == 0x00)
+         return TXIN_SCRIPT_P2WSH_P2SH;
 
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
@@ -936,6 +953,8 @@ public:
          case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
          case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
          case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(2,20);
+         case(TXOUT_SCRIPT_P2WSH):        return script.getSliceCopy(2,32);
+         case(TXOUT_SCRIPT_P2WPKH):        return script.getSliceCopy(2,20);
          case(TXOUT_SCRIPT_MULTISIG):    return BadAddress_;
          case(TXOUT_SCRIPT_NONSTANDARD): return BadAddress_;
          default:                        return BadAddress_;
@@ -956,6 +975,14 @@ public:
          case(TXOUT_SCRIPT_STDHASH160) :
             bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
             bw.put_BinaryData(script.getSliceCopy(3, 20));
+            return bw.getData();
+         case(TXOUT_SCRIPT_P2WPKH) :
+            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
+            bw.put_BinaryData(script.getSliceCopy(2, 20));
+            return bw.getData();
+         case(TXOUT_SCRIPT_P2WSH) :
+            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
+            bw.put_BinaryData(getHash160(script.getSliceCopy(3, 32)));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY65) :
             bw.put_uint8_t(SCRIPT_PREFIX_HASH160);

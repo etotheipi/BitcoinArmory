@@ -532,21 +532,27 @@ CPP_TXOUT_STDPUBKEY33  = 2
 CPP_TXOUT_MULTISIG     = 3
 CPP_TXOUT_P2SH         = 4
 CPP_TXOUT_NONSTANDARD  = 5
+CPP_TXOUT_P2WPKH       = 6
+CPP_TXOUT_P2WSH        = 7
 CPP_TXOUT_HAS_ADDRSTR  = [CPP_TXOUT_STDHASH160, \
                           CPP_TXOUT_STDPUBKEY65,
                           CPP_TXOUT_STDPUBKEY33,
-                          CPP_TXOUT_P2SH]
+                          CPP_TXOUT_P2SH,
+                          CPP_TXOUT_P2WPKH,
+                          CPP_TXOUT_P2WSH]
 CPP_TXOUT_STDSINGLESIG = [CPP_TXOUT_STDHASH160, \
                           CPP_TXOUT_STDPUBKEY65,
                           CPP_TXOUT_STDPUBKEY33]
 
-CPP_TXOUT_SCRIPT_NAMES = ['']*6
+CPP_TXOUT_SCRIPT_NAMES = ['']*8
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY65] = 'Standard (PK65)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WPKH]      = 'Standard (P2WPKH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WSH]       = 'Standard (P2WSH)'
 
 # Copied from cppForSwig/BtcUtils.h::getTxInScriptTypeInt(script)
 CPP_TXIN_STDUNCOMPR    = 0
@@ -556,8 +562,11 @@ CPP_TXIN_SPENDPUBKEY   = 3
 CPP_TXIN_SPENDMULTI    = 4
 CPP_TXIN_SPENDP2SH     = 5
 CPP_TXIN_NONSTANDARD   = 6
+CPP_TXIN_WITNESS       = 7
+CPP_TXIN_P2WPKH_P2SH   = 8
+CPP_TXIN_P2WSH_P2SH    = 9
 
-CPP_TXIN_SCRIPT_NAMES = ['']*7
+CPP_TXIN_SCRIPT_NAMES = ['']*10
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDUNCOMPR]  = 'Sig + PubKey65'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDCOMPR]    = 'Sig + PubKey33'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_COINBASE]    = 'Coinbase'
@@ -2798,6 +2807,8 @@ def checkAddrBinValid(addrBin, validPrefixes=None):
 ################################################################################
 def checkAddrStrValid(addrStr):
    """ Check that a Base58 address-string is valid on this network """
+   if(addrStr == ''):
+      return False
    return checkAddrBinValid(base58_to_binary(addrStr))
 
 
