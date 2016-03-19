@@ -525,12 +525,42 @@ void BDV_Server_Object::maintenanceThread(void)
    Wallets may still be in the side scan process when we get this far
    ***/
 
+   while (1)
    {
-      unique_lock<mutex> lock(registerWalletMutex_);
-      for (auto& wltregstruct : wltRegMap_)
-         wltregstruct.second.future_.wait();
+      bool isNew = false;
+      set<BinaryData> scrAddrSet;
+      map<string, walletRegStruct> wltMap;
 
-      wltRegMap_.clear();
+      {
+         unique_lock<mutex> lock(registerWalletMutex_);
+
+         if (wltRegMap_.size() == 0)
+            break;
+
+         wltMap = move(wltRegMap_);
+         wltRegMap_.clear();
+      }
+
+      //bundle addresses to register together
+      for (auto& wlt : wltMap)
+      {
+         for (auto& scraddr : wlt.second.scrAddrVec)
+            scrAddrSet.insert(scraddr);
+      }
+
+      //register address set with BDM
+      auto&& waitOnFuture = bdmPtr_->registerAddressBatch(scrAddrSet, isNew);
+      waitOnFuture.wait();
+
+      //register actual wallets with BDV
+      auto bdvPtr = (BlockDataViewer*)this;
+      for (auto& wlt : wltMap)
+      {
+         //this should return when the wallet is registered, since all
+         //underlying  addresses are already registered with the BDM
+         bdvPtr->registerWallet(
+            wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
+      }
    }
 
    top_ = bdmT_->topBH();
@@ -578,29 +608,21 @@ bool BDV_Server_Object::registerWallet(
 
       unique_lock<mutex> lock(registerWalletMutex_);
 
-      //init future
+      //save data
       auto& wltregstruct = wltRegMap_[IDstr];
-      wltregstruct.future_ = wltregstruct.promise_.get_future();
 
-      //create lambda
-      auto cbPromise = [&](void)->void
-      {
-         //fulfill promise
-         wltregstruct.promise_.set_value(true);
-      };
+      wltregstruct.scrAddrVec = scrAddrVec;
+      wltregstruct.IDstr = IDstr;
+      wltregstruct.isNew = wltIsNew;
 
-      auto wltPtr = createWallet(IDstr);
-
-      if (wltPtr == nullptr)
-         return false;
-
-      //set lambda
-      wltPtr->setRegistrationCallback(cbPromise);
+      return true;
    }
-
-   //register wallet with BDV
-   auto bdvPtr = (BlockDataViewer*)this;
-   return bdvPtr->registerWallet(scrAddrVec, IDstr, wltIsNew) != nullptr;
+   else
+   {
+      //register wallet with BDV
+      auto bdvPtr = (BlockDataViewer*)this;
+      return bdvPtr->registerWallet(scrAddrVec, IDstr, wltIsNew) != nullptr;
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -23,7 +23,7 @@ BDM_CallBack::~BDM_CallBack()
 
 struct BlockDataManagerThread::BlockDataManagerThreadImpl
 {
-   BlockDataManager_LevelDB *bdm=nullptr;
+   BlockDataManager *bdm=nullptr;
    int mode=0;
    volatile bool run=false;
    bool failure=false;
@@ -40,7 +40,7 @@ BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &con
    notifier_(nft)
 {
    pimpl = new BlockDataManagerThreadImpl;
-   pimpl->bdm = new BlockDataManager_LevelDB(config);
+   pimpl->bdm = new BlockDataManager(config);
 }
 
 BlockDataManagerThread::~BlockDataManagerThread()
@@ -64,7 +64,7 @@ void BlockDataManagerThread::start(BDM_INIT_MODE mode)
    pimpl->tID = thread(thrun, this);
 }
 
-BlockDataManager_LevelDB *BlockDataManagerThread::bdm()
+BlockDataManager *BlockDataManagerThread::bdm()
 {
    return pimpl->bdm;
 }
@@ -118,7 +118,7 @@ public:
 void BlockDataManagerThread::run()
 try
 {
-   BlockDataManager_LevelDB *const bdm = this->bdm();
+   BlockDataManager *const bdm = this->bdm();
    
    //BDM_CallBack *const callback = pimpl->callback;
 

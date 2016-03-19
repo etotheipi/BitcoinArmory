@@ -110,10 +110,11 @@ void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addAddressBulk(vector<BinaryData> const & scrAddrBulk,
-                               bool areNew)
+shared_ptr<BtcWallet::MergeBatch> BtcWallet::addAddressBulk(
+   vector<BinaryData> const & scrAddrBulk, bool areNew)
 {
-   vector<BinaryData> addrToReg;
+   shared_ptr<BtcWallet::MergeBatch> batch = 
+      make_shared<BtcWallet::MergeBatch>();
 
    for (const auto& scrAddr : scrAddrBulk)
    {
@@ -123,28 +124,11 @@ void BtcWallet::addAddressBulk(vector<BinaryData> const & scrAddrBulk,
       if (scrAddr.getSize() == 0)
          continue;
 
-      addrToReg.push_back(scrAddr);
-
+      batch->addrMap_[scrAddr] = 
+         ScrAddrObj(bdvPtr_->getDB(), &bdvPtr_->blockchain(), scrAddr);
    }
 
-   if (addrToReg.size() == 0)
-      return;
-
-   if (isRegistered_)
-   {
-      if (bdvPtr_ != nullptr)
-      {
-         if (!bdvPtr_->registerAddresses(addrToReg, walletID_, areNew))
-            return;
-      }
-   }
-
-   for (const auto& scrAddr : addrToReg)
-   {
-      ScrAddrObj sca(bdvPtr_->getDB(), &bdvPtr_->blockchain(), scrAddr);
-      scrAddrMap_[scrAddr] = ScrAddrObj(bdvPtr_->getDB(), &bdvPtr_->blockchain(), scrAddr);
-   }
-   //should init new addresses
+   return batch;
 }
 
 /////////////////////////////////////////////////////////////////////////////

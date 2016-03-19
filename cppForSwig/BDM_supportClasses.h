@@ -78,6 +78,13 @@ class ScrAddrFilter
    friend class BlockDataViewer;
 
 public:
+   struct WalletInfo
+   {
+      function<void(void)> callback_;
+      set<BinaryData> scrAddrSet_;
+      string ID_;
+   };
+
    struct ScrAddrSideScanData
    {
       /***
@@ -85,7 +92,7 @@ public:
       only 1 wallet can be registered per post BDM init address scan.
       ***/
       uint32_t startScanFrom_=0;
-      map<shared_ptr<BtcWallet>, vector<BinaryData>> wltNAddrMap_;
+      vector<WalletInfo> wltInfoVec_;
 
       BinaryData lastScannedBlkHash_;
 
@@ -98,19 +105,10 @@ public:
       vector<string> getWalletIDString(void)
       {
          vector<string> strVec;
-         for (auto& batch : wltNAddrMap_)
-            strVec.push_back(string(batch.first->walletID().getCharPtr(),
-                             batch.first->walletID().getSize()));
+         for (auto& wltInfo : wltInfoVec_)
+            strVec.push_back(wltInfo.ID_);
 
          return strVec;
-      }
-   };
-   
-   struct hashBinData
-   {
-      std::size_t operator()(const BinaryData& bd) const
-      {
-         return *((std::size_t*)bd.getPtr());
       }
    };
 
@@ -119,7 +117,7 @@ private:
    //this is used only for the inital load currently
 
 
-   unordered_map<BinaryData, uint32_t, hashBinData>   scrAddrMap_;
+   shared_ptr<map<BinaryData, uint32_t>>   scrAddrMap_;
 
    LMDBBlockDatabase *const       lmdb_;
 
@@ -137,8 +135,8 @@ private:
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
-      auto scrAddrIter = scrAddrMap_.find(scrAddr);
-      if (ITER_IN_MAP(scrAddrIter, scrAddrMap_))
+      auto scrAddrIter = scrAddrMap_->find(scrAddr);
+      if (scrAddrIter != scrAddrMap_->end())
          scrAddrIter->second = blkHgt;
    }
 
@@ -165,26 +163,24 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const unordered_map<BinaryData, uint32_t, hashBinData>& getScrAddrMap(void) const
+   const shared_ptr<map<BinaryData, uint32_t>>& getScrAddrMap(void) const
    { return scrAddrMap_; }
 
    size_t numScrAddr(void) const
-   { return scrAddrMap_.size(); }
+   { return scrAddrMap_->size(); }
 
    uint32_t scanFrom(void) const;
    bool registerAddresses(const vector<BinaryData>&, shared_ptr<BtcWallet>,
       bool areNew);
-   bool registerAddressBatch(
-      const map<shared_ptr<BtcWallet>, vector<BinaryData>>& wltNAddrMap,
-      bool areNew);
-
-   void unregisterScrAddr(BinaryData& scrAddrIn)
-   { scrAddrMap_.erase(scrAddrIn); }
+   bool registerAddressBatch(vector<WalletInfo>&& wltInfoVec, bool areNew);
 
    void clear(void);
 
    bool hasScrAddress(const BinaryData & sa)
-   { return (scrAddrMap_.find(sa) != scrAddrMap_.end()); }
+   { 
+      auto scraddrmapptr = scrAddrMap_;
+      return (scraddrmapptr->find(sa) != scraddrmapptr->end());
+   }
 
    void getScrAddrCurrentSyncState();
    void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
@@ -192,7 +188,7 @@ public:
    void setSSHLastScanned(uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
-   { scrAddrMap_[scrAddr] = scanFrom; }
+   { (*scrAddrMap_)[scrAddr] = scanFrom; }
 
    void scanScrAddrMapInNewThread(void);
 
@@ -235,7 +231,7 @@ protected:
 private:
    void scanScrAddrThread(void);
    void buildSideScanData(
-      const map<shared_ptr<BtcWallet>, vector<BinaryData>>& wltnAddrMap);
+      const vector<WalletInfo>& wltInfoVec);
 };
 
 class ZeroConfContainer

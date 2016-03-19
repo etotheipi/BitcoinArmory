@@ -72,7 +72,7 @@ public:
    // start the BDM thread
    void start(BDM_INIT_MODE mode);
 
-   BlockDataManager_LevelDB *bdm();
+   BlockDataManager *bdm();
 
    void setConfig(const BlockDataManagerConfig &config);
 
@@ -116,8 +116,9 @@ private:
 
    struct walletRegStruct
    {
-      promise<bool> promise_;
-      shared_future<bool> future_;
+      vector<BinaryData> scrAddrVec;
+      string IDstr;
+      bool isNew;
    };
 
    mutex registerWalletMutex_;

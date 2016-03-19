@@ -77,7 +77,7 @@ static uint64_t scanFor(const uint8_t *in, const uint64_t inLen,
    return UINT64_MAX;
 }
 
-class BlockDataManager_LevelDB::BitcoinQtBlockFiles
+class BlockDataManager::BitcoinQtBlockFiles
 {
    const string blkFileLocation_;
    struct BlkFile
@@ -783,13 +783,13 @@ public:
 
 
 
-class BlockDataManager_LevelDB::BDM_ScrAddrFilter : public ScrAddrFilter
+class BlockDataManager::BDM_ScrAddrFilter : public ScrAddrFilter
 {
-   BlockDataManager_LevelDB *const bdm_;
+   BlockDataManager *const bdm_;
    //0: didn't start, 1: is initializing, 2: done initializing
    
 public:
-   BDM_ScrAddrFilter(BlockDataManager_LevelDB *bdm)
+   BDM_ScrAddrFilter(BlockDataManager *bdm)
       : ScrAddrFilter(bdm->getIFace(), bdm->config().armoryDbType)
       , bdm_(bdm)
    {
@@ -867,11 +867,11 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Start BlockDataManager_LevelDB methods
+// Start BlockDataManager methods
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB::BlockDataManager_LevelDB(
+BlockDataManager::BlockDataManager(
    const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
    , blockchain_(config_.genesisBlockHash)
@@ -884,7 +884,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::setConfig(
+void BlockDataManager::setConfig(
    const BlockDataManagerConfig &bdmConfig)
 {
    config_ = bdmConfig;
@@ -896,7 +896,7 @@ void BlockDataManager_LevelDB::setConfig(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::openDatabase()
+void BlockDataManager::openDatabase()
 {
    LOGINFO << "blkfile dir: " << config_.blkFileLocation;
    LOGINFO << "lmdb dir: " << config_.dbLocation;
@@ -932,7 +932,7 @@ void BlockDataManager_LevelDB::openDatabase()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
+BlockDataManager::~BlockDataManager()
 {
    iface_->closeDatabases();
    scrAddrData_.reset();
@@ -945,7 +945,7 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 // raw blockdata is stored in the DB with no ssh objects.  This goes through
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
-BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
+BinaryData BlockDataManager::applyBlockRangeToDB(
    ProgressReporter &prog, 
    uint32_t blk0, uint32_t blk1, 
    ScrAddrFilter& scrAddrData,
@@ -981,7 +981,7 @@ BinaryData BlockDataManager_LevelDB::applyBlockRangeToDB(
 /////////////////////////////////////////////////////////////////////////////
 /*  This is not currently being used, and is actually likely to change 
  *  a bit before it is needed, so I have just disabled it.
-vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
+vector<TxRef*> BlockDataManager::findAllNonStdTx(void)
 {
    PDEBUG("Finding all non-std tx");
    vector<TxRef*> txVectOut(0);
@@ -1067,7 +1067,7 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
+void BlockDataManager::destroyAndResetDatabases(void)
 {
    if(iface_)
    {
@@ -1080,7 +1080,7 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad(
+void BlockDataManager::doInitialSyncOnLoad(
    const ProgressCallback &progress
 )
 {
@@ -1089,7 +1089,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
+void BlockDataManager::doInitialSyncOnLoad_Rescan(
    const ProgressCallback &progress
 )
 {
@@ -1099,7 +1099,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
+void BlockDataManager::doInitialSyncOnLoad_Rebuild(
    const ProgressCallback &progress
 )
 {
@@ -1111,7 +1111,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_RescanBalance(
+void BlockDataManager::doInitialSyncOnLoad_RescanBalance(
    const ProgressCallback &progress
    )
 {
@@ -1121,7 +1121,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_RescanBalance(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doRebuildDatabases(
+void BlockDataManager::doRebuildDatabases(
    const ProgressCallback &progress
 )
 {
@@ -1131,7 +1131,8 @@ void BlockDataManager_LevelDB::doRebuildDatabases(
    loadDiskState(progress);
 }
 
-void BlockDataManager_LevelDB::loadDiskState(
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager::loadDiskState(
    const ProgressCallback &progress,
    bool forceRescan
 )
@@ -1144,8 +1145,9 @@ void BlockDataManager_LevelDB::loadDiskState(
    BDMstate_ = BDM_ready;
 }
 
-uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
-   const BlockDataManager_LevelDB::BlkFileUpdateCallbacks& callbacks
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager::readBlkFileUpdate(
+   const BlockDataManager::BlkFileUpdateCallbacks& callbacks
 )
 {
    scrAddrData_->checkForMerge();
@@ -1154,7 +1156,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup) const
+StoredHeader BlockDataManager::getBlockFromDB(uint32_t hgt, uint8_t dup) const
 {
 
    // Get the full block from the DB
@@ -1167,21 +1169,21 @@ StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt) const
+StoredHeader BlockDataManager::getMainBlockFromDB(uint32_t hgt) const
 {
    uint8_t dupMain = iface_->getValidDupIDForHeight(hgt);
    return getBlockFromDB(hgt, dupMain);
 }
    
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<ScrAddrFilter> BlockDataManager_LevelDB::getScrAddrFilter(void) const
+shared_ptr<ScrAddrFilter> BlockDataManager::getScrAddrFilter(void) const
 {
    return scrAddrData_;
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::startSideScan(
+bool BlockDataManager::startSideScan(
    const function<void(const vector<string>&, double prog,unsigned time)> &cb
 )
 {
@@ -1189,7 +1191,31 @@ bool BlockDataManager_LevelDB::startSideScan(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<string> BlockDataManager_LevelDB::getNextWalletIDToScan(void)
+vector<string> BlockDataManager::getNextWalletIDToScan(void)
 {
    return scrAddrData_->getNextWalletIDToScan();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_future<bool> BlockDataManager::registerAddressBatch(
+   const set<BinaryData>& addrSet, bool isNew)
+{
+   promise<bool> waitOnPromise;
+   shared_future<bool> waitOnFuture = waitOnPromise.get_future();
+
+   auto callback = [&](void)->void
+   {
+      waitOnPromise.set_value(true);
+   };
+
+   ScrAddrFilter::WalletInfo wltInfo;
+   wltInfo.scrAddrSet_ = addrSet;
+   wltInfo.callback_ = callback;
+
+   vector<ScrAddrFilter::WalletInfo> wltInfoVec;
+   wltInfoVec.push_back(move(wltInfo));
+
+   scrAddrData_->registerAddressBatch(move(wltInfoVec), isNew);
+
+   return waitOnFuture;
 }

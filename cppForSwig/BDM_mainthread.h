@@ -47,7 +47,7 @@ public:
    BDMFailure() { }
 };
 
-class BDM_Inject : public BlockDataManager_LevelDB::Notifier
+class BDM_Inject : public BlockDataManager::Notifier
 {
    struct BDM_Inject_Impl;
    BDM_Inject_Impl *pimpl;

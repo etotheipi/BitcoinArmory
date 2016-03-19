@@ -161,7 +161,7 @@ class DBTxRef;
 
 class TxRef
 {
-   friend class BlockDataManager_LevelDB;
+   friend class BlockDataManager;
    friend class Tx;
 
 public:
@@ -255,7 +255,7 @@ inline DBTxRef TxRef::attached(const LMDBBlockDatabase* db) const
 // OutPoint is just a reference to a TxOut
 class OutPoint
 {
-   friend class BlockDataManager_LevelDB;
+   friend class BlockDataManager;
    friend class OutPointRef;
 
 public:
@@ -303,7 +303,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxIn
 {
-   friend class BlockDataManager_LevelDB;
+   friend class BlockDataManager;
 
 public:
    TxIn(void) : dataCopy_(0), parentHash_(0), parentHeight_(UINT32_MAX),
@@ -409,7 +409,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxOut
 {
-   friend class BlockDataManager_LevelDB;
+   friend class BlockDataManager;
 
 public:
 
@@ -510,7 +510,7 @@ private:
 class Tx
 {
    friend class BtcWallet;
-   friend class BlockDataManager_LevelDB;
+   friend class BlockDataManager;
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}

@@ -11,7 +11,7 @@
 #include "bdmenums.h"
 #include "Progress.h"
 
-class BlockDataManager_LevelDB;
+class BlockDataManager;
 class ScrAddrFilter;
 
 typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
@@ -66,7 +66,7 @@ private:
       unsigned fileID);
 
 public:
-   DatabaseBuilder(BlockFiles&, BlockDataManager_LevelDB&,
+   DatabaseBuilder(BlockFiles&, BlockDataManager&,
       const ProgressCallback&);
 
    void init(void);

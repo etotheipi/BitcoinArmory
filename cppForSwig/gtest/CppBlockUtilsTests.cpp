@@ -60,7 +60,7 @@
 
 #define TheBDM (*theBDM)
 
-static uint32_t getTopBlockHeightInDB(BlockDataManager_LevelDB &bdm, DB_SELECT db)
+static uint32_t getTopBlockHeightInDB(BlockDataManager &bdm, DB_SELECT db)
 {
    StoredDBInfo sdbi;
    bdm.getIFace()->getStoredDBInfo(db, sdbi, false); 
@@ -68,7 +68,7 @@ static uint32_t getTopBlockHeightInDB(BlockDataManager_LevelDB &bdm, DB_SELECT d
 }
 
 static uint64_t getDBBalanceForHash160(
-   BlockDataManager_LevelDB &bdm,
+   BlockDataManager &bdm,
    BinaryDataRef addr160
 )
 {
@@ -6642,7 +6642,7 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
 class BlockUtilsBare : public ::testing::Test
 {
 protected:
-   BlockDataManager_LevelDB *theBDM;
+   BlockDataManager *theBDM;
    BlockDataViewer *theBDV;
 
    // Run this before registering a BDM.
@@ -6717,7 +6717,7 @@ protected:
       config.genesisTxHash = gentx_;
       config.magicBytes = magic_;
 
-      theBDM = new BlockDataManager_LevelDB(config);
+      theBDM = new BlockDataManager(config);
       theBDM->openDatabase();
       iface_ = theBDM->getIFace();
 
@@ -6825,7 +6825,7 @@ TEST_F(BlockDir, HeadersFirst)
    // Put the first 5 blocks out of order
    setBlocks({ "0", "1", "2", "4", "3", "5" }, blk0dat_);
    
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
 
@@ -6870,7 +6870,7 @@ TEST_F(BlockDir, HeadersFirstUpdate)
    // Put the first 5 blocks out of order
    setBlocks({ "0", "1", "2" }, blk0dat_);
    
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
 
@@ -6919,7 +6919,7 @@ TEST_F(BlockDir, HeadersFirstReorg)
 
    setBlocks({ "0", "1"}, blk0dat_);
 
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
    const std::vector<BinaryData> scraddrs
@@ -6990,7 +6990,7 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
       
    setBlocks({ "0", "1", "2" }, blk0dat_);
    
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
 
@@ -7047,7 +7047,7 @@ TEST_F(BlockDir, DISABLED_AddBlockWhileUpdating)
       
    setBlocks({ "0", "1", "2" }, blk0dat_);
    
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
    const std::vector<BinaryData> scraddrs
@@ -7064,7 +7064,7 @@ TEST_F(BlockDir, DISABLED_AddBlockWhileUpdating)
    
    bdv.scanWallets();
    
-   BlockDataManager_LevelDB::BlkFileUpdateCallbacks callbacks;
+   BlockDataManager::BlkFileUpdateCallbacks callbacks;
    callbacks.headersRead = [&]()
       {
          appendBlocks({"3"}, blk0dat_);
@@ -7106,7 +7106,7 @@ TEST_F(BlockDir, BlockFileSplit)
    std::string blk1dat = BtcUtils::getBlkFilename(blkdir_, 1);
    setBlocks({ "2", "3", "4","5" }, blk1dat);
    
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
    const std::vector<BinaryData> scraddrs
@@ -7149,7 +7149,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
    setBlocks({ "0", "1" }, blk0dat_);
    
    
-   BlockDataManager_LevelDB bdm(config);
+   BlockDataManager bdm(config);
    bdm.openDatabase();
    
    const std::vector<BinaryData> scraddrs
@@ -7391,7 +7391,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    delete theBDM;
    delete theBDV;
 
-   theBDM = new BlockDataManager_LevelDB(config);
+   theBDM = new BlockDataManager(config);
    theBDM->openDatabase();
    theBDV = new BlockDataViewer(theBDM);
    iface_ = theBDM->getIFace();
@@ -7606,7 +7606,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    delete theBDM;
    delete theBDV;
 
-   theBDM = new BlockDataManager_LevelDB(config);
+   theBDM = new BlockDataManager(config);
    theBDM->openDatabase();
    theBDV = new BlockDataViewer(theBDM);
    iface_ = theBDM->getIFace();
@@ -8292,7 +8292,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    //add the reorg blocks
    setBlocks({ "0", "1", "2", "3", "4", "5", "4A", "5A" }, blk0dat_);
 
-   theBDM = new BlockDataManager_LevelDB(config);
+   theBDM = new BlockDataManager(config);
    theBDM->openDatabase();
    iface_ = theBDM->getIFace();
    theBDV = new BlockDataViewer(theBDM);
@@ -8380,7 +8380,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg_DontTrigger)
    //add the reorg blocks
    setBlocks({ "0", "1", "2", "3", "4", "5", "4A", "5A" }, blk0dat_);
 
-   theBDM = new BlockDataManager_LevelDB(config);
+   theBDM = new BlockDataManager(config);
    theBDM->openDatabase();
    iface_ = theBDM->getIFace();
    theBDV = new BlockDataViewer(theBDM);
@@ -9058,7 +9058,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
 class BlockUtilsSuper : public ::testing::Test
 {
 protected:
-   BlockDataManager_LevelDB TheBDM;
+   BlockDataManager TheBDM;
    BlockDataViewer*         theBDV;
 
    /////////////////////////////////////////////////////////////////////////////
@@ -9090,7 +9090,7 @@ protected:
       config_.genesisTxHash = gentx_;
       config_.magicBytes = magic_;
       
-      theBDM = new BlockDataManager_LevelDB(config_);
+      theBDM = new BlockDataManager(config_);
       theBDM->openDatabase();
       theBDV = new BlockDataViewer(theBDM);
 
@@ -9362,7 +9362,7 @@ TEST_F(BlockUtilsSuper, DISABLED_Load5Blocks_ReloadBDM)
    EXPECT_EQ(ssh.totalTxioCount_, 2);
 
    delete theBDM;
-   theBDM = new BlockDataManager_LevelDB(config_);
+   theBDM = new BlockDataManager(config_);
    
    theBDM->openDatabase();
    iface_ = theBDM->getIFace();
@@ -9439,7 +9439,7 @@ TEST_F(BlockUtilsSuper, DISABLED_Load3BlocksPlus3)
    TheBDM.readBlkFileUpdate();
 
    delete theBDM;
-   theBDM = new BlockDataManager_LevelDB(config_);
+   theBDM = new BlockDataManager(config_);
 
    theBDM->openDatabase();
    iface_ = theBDM->getIFace();
@@ -9710,7 +9710,7 @@ TEST_F(BlockUtilsSuper, DISABLED_Load5Blocks_ReloadBDM_Reorg)
 
    //reload BDM
    delete theBDM;
-   theBDM = new BlockDataManager_LevelDB(config_);
+   theBDM = new BlockDataManager(config_);
    theBDM->openDatabase();
    iface_ = theBDM->getIFace();
 
@@ -10033,7 +10033,7 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
 class BlockUtilsWithWalletTest: public ::testing::Test
 {
 protected:
-   BlockDataManager_LevelDB *theBDM;
+   BlockDataManager *theBDM;
    BlockDataViewer*          theBDV;
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
@@ -10065,7 +10065,7 @@ protected:
       config.genesisTxHash = gentx_;
       config.magicBytes = magic_;
       
-      theBDM = new BlockDataManager_LevelDB(config);
+      theBDM = new BlockDataManager(config);
       theBDM->openDatabase();
       theBDV = new BlockDataViewer(theBDM);
       iface_ = theBDM->getIFace();

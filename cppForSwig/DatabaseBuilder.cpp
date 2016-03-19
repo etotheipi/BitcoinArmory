@@ -13,7 +13,7 @@
 
 /////////////////////////////////////////////////////////////////////////////
 DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles, 
-   BlockDataManager_LevelDB& bdm,
+   BlockDataManager& bdm,
    const ProgressCallback &progress)
    : blockFiles_(blockFiles), db_(bdm.getIFace()),
    blockchain_(bdm.blockchain()),

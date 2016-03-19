@@ -9,7 +9,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
+BlockDataViewer::BlockDataViewer(BlockDataManager* bdm) :
    rescanZC_(false), zeroConfCont_(bdm->getIFace())
 {
    db_ = bdm->getIFace();
@@ -31,24 +31,6 @@ BlockDataViewer::BlockDataViewer(BlockDataManager_LevelDB* bdm) :
 BlockDataViewer::~BlockDataViewer()
 {
    groups_.clear();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-shared_ptr<BtcWallet> BlockDataViewer::createWallet(const string& id)
-{
-   if (id.empty())
-      return nullptr;
-
-   return groups_[group_wallet].createWallet(id);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-shared_ptr<BtcWallet> BlockDataViewer::createLockbox(const string& id)
-{
-   if (id.empty())
-      return nullptr;
-
-   return groups_[group_lockbox].createWallet(id);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -218,22 +200,29 @@ void BlockDataViewer::registerAddressBatch(
    //if called from python, feed it a dict such as:
    //{wltID1:[addrList1], wltID2:[addrList2]}
 
-   map<shared_ptr<BtcWallet>, vector<BinaryData>> wlt_addr;
+   auto& group = groups_[group_wallet];
 
-   for (auto& batch : wltNAddrMap)
+   vector<ScrAddrFilter::WalletInfo> wltInfoVec;
+   for (auto& wltpair : wltNAddrMap)
    {
-      for (auto& group : groups_)
-      {
-         auto wlt = group.getWalletByID(batch.first);
-         if (wlt != nullptr)
-         {
-            wlt_addr.insert(make_pair(wlt, batch.second));
-            break;
-         }
-      }
+      auto wlt = group.getWalletByID(wltpair.first);
+      if (wlt == nullptr)
+         continue;
+
+      auto callback = [wlt](void)->void
+      { wlt->needsRefresh(); };
+
+      ScrAddrFilter::WalletInfo wltInfo;
+      wltInfo.callback_ = callback;
+      wltInfo.ID_ = string(wltpair.first.getCharPtr());
+
+      for (auto& sa : wltpair.second)
+         wltInfo.scrAddrSet_.insert(sa);
+
+      wltInfoVec.push_back(move(wltInfo));
    }
 
-   saf_->registerAddressBatch(wlt_addr, areNew);
+   saf_->registerAddressBatch(move(wltInfoVec), areNew);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -760,27 +749,6 @@ WalletGroup::~WalletGroup()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<BtcWallet> WalletGroup::createWallet(const string& IDstr)
-{
-   ReadWriteLock::WriteLock wl(lock_);
-   BinaryData id(IDstr);
-
-   {
-      auto regWlt = wallets_.find(id);
-      if (regWlt != wallets_.end())
-      {
-         bdvPtr_->flagRefresh(BDV_refreshSkipRescan, id);
-         return regWlt->second;
-      }
-   }
-
-   auto insertIter = 
-      wallets_.insert(make_pair(id, make_shared<BtcWallet>(bdvPtr_, id)));
-
-   return insertIter.first->second;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 BtcWallet* WalletGroup::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
@@ -793,30 +761,27 @@ BtcWallet* WalletGroup::registerWallet(
    ReadWriteLock::WriteLock wl(lock_);
    BinaryData id(IDstr);
 
-   /*{
-      auto regWlt = wallets_.find(id);
-      if (regWlt != wallets_.end())
-      {
-         bdvPtr_->flagRefresh(BDV_refreshSkipRescan, id);
-         return regWlt->second.get();
-      }
-   }*/
+   shared_ptr<BtcWallet> theWallet;
 
-   shared_ptr<BtcWallet> newWallet;
-
+   auto wltIter = wallets_.find(id);
+   if (wltIter != wallets_.end())
+   {
+         theWallet = wltIter->second;
+   }
+   else
    {
       auto insertResult = wallets_.insert(make_pair(
          id, shared_ptr<BtcWallet>(new BtcWallet(bdvPtr_, id))
          ));
-      newWallet = insertResult.first->second;
+      theWallet = insertResult.first->second;
    }
 
-   newWallet->addAddressBulk(scrAddrVec, wltIsNew);
+   theWallet->addAddressBulk(scrAddrVec, wltIsNew);
 
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
    vector<BinaryData> saVec;
-   saVec.reserve(newWallet->getScrAddrMap().size());
+   saVec.reserve(theWallet->getScrAddrMap().size());
    for (const auto& scrAddrPair : newWallet->getScrAddrMap())
       saVec.push_back(scrAddrPair.first);
 

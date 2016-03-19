@@ -13,7 +13,7 @@
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
 
-class BlockDataManager_LevelDB;
+class BlockDataManager;
 class BlockDataViewer;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -60,6 +60,13 @@ class BtcWallet
 
    static const uint32_t MIN_UTXO_PER_TXN = 100;
 
+private:
+
+   struct MergeBatch
+   {
+      map<BinaryData, ScrAddrObj> addrMap_;
+   };
+
 public:
 
    enum MergeWallet
@@ -97,8 +104,8 @@ public:
                    uint32_t      firstBlockNum  = 0,
                    uint32_t      lastTimestamp  = 0,
                    uint32_t      lastBlockNum   = 0);
-   void addAddressBulk(vector<BinaryData> const & scrAddrBulk,
-                       bool areNew);
+   shared_ptr<MergeBatch> addAddressBulk(
+      vector<BinaryData> const & scrAddrBulk, bool areNew);
    void removeAddressBulk(vector<BinaryData> const & scrAddrBulk);
 
 

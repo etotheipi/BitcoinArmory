@@ -93,7 +93,7 @@ class BlockDataViewer
    friend class BDV_Server_Object;
 
 public:
-   BlockDataViewer(BlockDataManager_LevelDB* bdm);
+   BlockDataViewer(BlockDataManager* bdm);
    ~BlockDataViewer(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -261,7 +261,7 @@ public:
 private:
    atomic<bool> rescanZC_;
 
-   BlockDataManager_LevelDB* bdmPtr_;
+   BlockDataManager* bdmPtr_;
    LMDBBlockDatabase*        db_;
    Blockchain*               bc_;
    ScrAddrFilter*            saf_;
@@ -307,7 +307,6 @@ public:
 
    ~WalletGroup();
 
-   shared_ptr<BtcWallet> createWallet(const string& IDstr);
    BtcWallet* registerWallet(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    void unregisterWallet(const string& IDstr);

@@ -18,6 +18,7 @@
 #include <fstream>
 #include <vector>
 #include <set>
+#include <future>
 
 #include "Blockchain.h"
 #include "BinaryData.h"
@@ -60,7 +61,7 @@
 
 using namespace std;
 
-class BlockDataManager_LevelDB;
+class BlockDataManager;
 class LSM;
 //class BDM_Inject;
 
@@ -98,7 +99,7 @@ class BlockFiles;
 class DatabaseBuilder;
 
 ////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager_LevelDB
+class BlockDataManager
 {
    //void grablock(uint32_t n);
 
@@ -168,10 +169,8 @@ private:
    Notifier* notifier_ = nullptr;
 
 public:
-   BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
-   ~BlockDataManager_LevelDB();
-
-public:
+   BlockDataManager(const BlockDataManagerConfig &config);
+   ~BlockDataManager();
 
    Blockchain& blockchain() { return blockchain_; }
    const Blockchain& blockchain() const { return blockchain_; }
@@ -189,7 +188,8 @@ public:
    
    bool hasNotifier() const { return notifier_ != nullptr; }
 
-   
+   shared_future<bool> registerAddressBatch(
+      const set<BinaryData>& addrSet, bool isNew);
    
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
