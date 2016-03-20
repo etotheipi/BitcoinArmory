@@ -242,7 +242,9 @@ class P2SHNotSupportedError(Exception): pass
 class NonBase58CharacterError(Exception): pass
 class isMSWallet(Exception): pass
 
-
+# Witness variables and constants
+WITNESS = False
+NODE_WITNESS = 1 << 3
 
 if getattr(sys, 'frozen', False):
    sys.argv = [arg.decode('utf8') for arg in sys.argv]
