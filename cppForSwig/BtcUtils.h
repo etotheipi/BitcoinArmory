@@ -704,16 +704,19 @@ public:
 
    static uint32_t TxWitnessCalcLength(uint8_t const * ptr, uint32_t nIn)
    {
-       uint32_t viArrLen;
-       readVarInt(ptr, &viArrLen);
-       uint32_t witLen = viArrLen;
-       for(uint32_t i=0; i<nIn; i++)
-       {
-          uint32_t viLen;
-          uint32_t scrLen = (uint32_t)readVarInt(ptr+witLen, &viLen);
-          witLen += scrLen
-          witLen += viLen;
-       }
+      uint32_t witLen = 0;
+      for(uint32_t i=0; i<nIn; i++)
+      {
+         uint32_t viStackLen;
+         uint32_t stackLen = (uint32_t)readVarInt(ptr+witLen, &viStackLen);
+         witLen += viStackLen;
+         for(uint32_t i=0; i<stackLen; i++)
+         {
+            uint32_t viLen;
+            witLen += (uint32_t)readVarInt(ptr+witLen, &viLen);
+            witLen += viLen;
+         }
+      }
        return witLen;
    }
 
@@ -721,15 +724,18 @@ public:
    {
        if (size < 9)
         throw BlockDeserializingException();
-       uint32_t viArrLen;
-       readVarInt(ptr, size, &viArrLen);
-       uint32_t witLen = viArrLen;
+       uint32_t witLen = 0;
        for(uint32_t i=0; i<nIn; i++)
        {
-          uint32_t viLen;
-          uint32_t scrLen = (uint32_t)readVarInt(ptr+witLen, size-witLen, &viLen);
-          witLen += scrLen
-          witLen += viLen;
+          uint32_t viStackLen;
+          uint32_t stackLen = (uint32_t)readVarInt(ptr+witLen, size-witLen, &viStackLen);
+          witLen += viStackLen;
+          for(uint32_t i=0; i<stackLen; i++)
+          {
+             uint32_t viLen;
+             witLen += (uint32_t)readVarInt(ptr+witLen, size-witLen, &viLen);
+             witLen += viLen;
+          }
        }
        return witLen;
    }
@@ -750,16 +756,14 @@ public:
 
       // Get marker and flag if transaction uses segwit
       bool usesWitness = false;
-      uint8_t marker = (uint8_t)brr.get_uint8_t;
-      if(marker == 0)
+      uint8_t marker = (uint8_t)brr.get_uint8_t();
+      uint8_t flag = (uint8_t)brr.get_uint8_t();
+      if(marker == 0 && flag == 1)
       {
-         brr.advance(1);
-         uint8_t flag = (uint8_t)brr.get_uint8_t;
-         if(flag != 1)
-            throw BlockDeserializingException;
-         brr.advace(1);
          usesWitness = true;
       }
+      else
+         brr.rewind(2);
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
@@ -801,7 +805,8 @@ public:
       // Now extract the witnesses
       if(usesWitness)
       {
-         (*offsetsWitness) = brr.getPosition();
+         if(offsetsWitness != NULL)
+            (*offsetsWitness) = brr.getPosition();
          brr.advance( TxWitnessCalcLength(brr.getCurrPtr(), nIn, brr.getSizeRemaining()) );
       }
 
@@ -828,16 +833,14 @@ public:
 
       // Get marker and flag if transaction uses segwit
       bool usesWitness = false;
-      uint8_t marker = (uint8_t)brr.get_uint8_t;
-      if(marker == 0)
+      uint8_t marker = (uint8_t)brr.get_uint8_t();
+      uint8_t flag = (uint8_t)brr.get_uint8_t();
+      if(marker == 0 && flag == 1)
       {
-         brr.advance(1);
-         uint8_t flag = (uint8_t)brr.get_uint8_t;
-         if(flag != 1)
-            throw BlockDeserializingException;
-         brr.advace(1);
          usesWitness = true;
       }
+      else
+         brr.rewind(2);
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
@@ -894,7 +897,8 @@ public:
       // Now extract the witnesses
       if(usesWitness)
       {
-         (*offsetsWitness) = brr.getPosition();
+         if(offsetsWitness != NULL)
+            (*offsetsWitness)[i] = brr.getPosition();
          brr.advance( TxWitnessCalcLength(brr.getCurrPtr(), nIn, brr.getSizeRemaining()) );
       }
 

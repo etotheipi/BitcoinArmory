@@ -725,6 +725,18 @@ class PyTx(BlockComponent):
       binOut.put(UINT32, self.lockTime)
       return binOut.getBinaryString()
 
+   def serializeWithoutWitness(self):
+      binOut = BinaryPacker()
+      binOut.put(UINT32, self.version)
+      binOut.put(VAR_INT, len(self.inputs))
+      for txin in self.inputs:
+         binOut.put(BINARY_CHUNK, txin.serialize())
+      binOut.put(VAR_INT, len(self.outputs))
+      for txout in self.outputs:
+         binOut.put(BINARY_CHUNK, txout.serialize())
+      binOut.put(UINT32, self.lockTime)
+      return binOut.getBinaryString()
+
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
          txData = toUnpack

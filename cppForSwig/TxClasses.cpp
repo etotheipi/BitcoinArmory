@@ -373,22 +373,30 @@ bool Tx::isCoinbase(void) const
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr, size_t size)
 {
-   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_);
+	uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetWitness_);
 
-   if (nBytes > size)
-      throw BlockDeserializingException();
-   dataCopy_.copyFrom(ptr, nBytes);
-   BtcUtils::getHash256(ptr, nBytes, thisHash_);
-   if (8 > size)
-      throw BlockDeserializingException();
+	if (nBytes > size)
+		throw BlockDeserializingException();
+	dataCopy_.copyFrom(ptr, nBytes);
+	BtcUtils::getHash256(ptr, nBytes, thisHash_);
+	if (8 > size)
+		throw BlockDeserializingException();
 
-   uint32_t numTxOut = offsetsTxOut_.size() - 1;
-   version_ = READ_UINT32_LE(ptr);
-   if (4 > size - offsetsTxOut_[numTxOut])
-      throw BlockDeserializingException();
-   lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
+	uint32_t numTxOut = offsetsTxOut_.size() - 1;
+	version_ = READ_UINT32_LE(ptr);
+	if (4 > size - offsetsTxOut_[numTxOut])
+		throw BlockDeserializingException();
+	lockTime_ = READ_UINT32_LE(ptr + nBytes - 4);
 
-   isInitialized_ = true;
+	if (READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
+	{
+		usesWitness_ = true;
+		normData_.append(version_);
+		normData_.copyFrom(ptr + 6, offsetWitness_);
+		normData_.append(lockTime_);
+	}
+
+	isInitialized_ = true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -411,20 +419,28 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
    size--;
    auto ptr = rawTx.getPtr() + 1;
 
-   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_);
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetWitness_);
 
    if (nBytes > size)
-      throw BlockDeserializingException();
+	   throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, nBytes);
    BtcUtils::getHash256(ptr, nBytes, thisHash_);
    if (8 > size)
-      throw BlockDeserializingException();
+	   throw BlockDeserializingException();
 
    uint32_t numTxOut = offsetsTxOut_.size() - 1;
    version_ = READ_UINT32_LE(ptr);
    if (4 > size - offsetsTxOut_[numTxOut])
-      throw BlockDeserializingException();
-   lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
+	   throw BlockDeserializingException();
+   lockTime_ = READ_UINT32_LE(ptr + nBytes - 4);
+
+   if (READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
+   {
+	   usesWitness_ = true;
+	   normData_.append(version_);
+	   normData_.copyFrom(ptr + 6, offsetWitness_);
+	   normData_.append(lockTime_);
+   }
 
    isInitialized_ = true;
    isRBF_ = (bool)rawTx.getPtr();
@@ -434,10 +450,10 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
 /////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getThisHash(void) const
 {
-   if (thisHash_.getSize() == 32)
-      return thisHash_;
+	if (thisHash_.getSize() == 32)
+		return thisHash_;
 
-   return BtcUtils::getHash256(dataCopy_.getPtr(), dataCopy_.getSize());
+	return BtcUtils::getHash256(normData_.getPtr(), normData_.getSize());
 }
 
 /////////////////////////////////////////////////////////////////////////////
