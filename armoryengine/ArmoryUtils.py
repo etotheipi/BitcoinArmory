@@ -245,6 +245,8 @@ class isMSWallet(Exception): pass
 # Witness variables and constants
 WITNESS = False
 NODE_WITNESS = 1 << 3
+MARKER = '\x00'
+FLAG = '\x01'
 
 if getattr(sys, 'frozen', False):
    sys.argv = [arg.decode('utf8') for arg in sys.argv]

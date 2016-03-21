@@ -650,6 +650,53 @@ class PyTxOut(BlockComponent):
       return result
 
 #####
+class PyTxWitness(BlockComponent):
+   def __init__(self):
+      self.binWitness  = UNINITIALIZED
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         txWitnessData = toUnpack
+      else:
+         txWitnessData = BinaryUnpacker( toUnpack )
+
+      self.binWitness = []
+      stackSize = txWitnessData.get(VAR_INT)
+      self.binWitness.append(stackSize)
+      if stackSize > 0:
+         stackItemSize = txWitnessData.get(VAR_INT)
+         stackItem = txWitnessData.get(BINARY_CHUNK, stackItemSize)
+         if txWitnessData.getRemainingSize() < stackItemSize: raise UnserializeError
+         self.binWitness.append(stackItemSize)
+         self.binWitness.append(stackItem)
+      return self
+
+   def getWitnesses(self):
+      return self.binWitness
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(VAR_INT, self.binWitness[0])
+      for i in range(1, len(self.binWitness)/2, 2):
+         binOut.put(VAR_INT, self.binWitness[i])
+         binOut.put(BINARY_CHUNK, self.binWitness[i+1])
+      return binOut.getBinaryString()
+
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+      print self.toString(self, nIndent, endian)
+
+   def toString(self, nIndent=0, endian=BIGENDIAN):
+      indstr = indent*nIndent
+      indstr2 = indstr + indent
+      result = indstr + 'PyWitness:'
+      result = ''.join([result, '\n',  indstr2 + 'Stack Size:', \
+                                       str(self.binWitnesses[0])])
+      for i in range(0, len(self.binWitness)/2, 2):
+          result = ''.join([result, '\n',  indstr2 + 'Stack Item:', \
+                                       str(self.binWitnesses[i])])
+      return result
+
+#####
 class PyTx(BlockComponent):
    def __init__(self):
       self.version    = UNINITIALIZED
@@ -658,16 +705,23 @@ class PyTx(BlockComponent):
       self.lockTime   = 0
       self.thisHash   = UNINITIALIZED
       self.rbfFlag    = False
+      self.witnesses  = UNINITIALIZED
+      self.useWitness = False
 
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
+      if(WITNESS):
+         binOut.put(UINT8, MARKER)
+         binOut.put(UINT8, FLAG)
       binOut.put(VAR_INT, len(self.inputs))
       for txin in self.inputs:
          binOut.put(BINARY_CHUNK, txin.serialize())
       binOut.put(VAR_INT, len(self.outputs))
       for txout in self.outputs:
          binOut.put(BINARY_CHUNK, txout.serialize())
+      for witItem in self.witnesses:
+         binOut.put(BINARY_CHUNK, witItem.serialize())
       binOut.put(UINT32, self.lockTime)
       return binOut.getBinaryString()
 
@@ -681,6 +735,10 @@ class PyTx(BlockComponent):
       self.inputs     = []
       self.outputs    = []
       self.version    = txData.get(UINT32)
+      if txData.get(UINT8) == MARKER and txData.get(UINT8) == FLAG:
+         self.useWitness = True
+      else:
+         txData.rewind(2)
       numInputs  = txData.get(VAR_INT)
       for i in xrange(numInputs):
          txin = PyTxIn().unserialize(txData);
@@ -689,6 +747,10 @@ class PyTx(BlockComponent):
       numOutputs = txData.get(VAR_INT)
       for i in xrange(numOutputs):
          self.outputs.append( PyTxOut().unserialize(txData) )
+      if self.useWitness:
+         for i in xrange(numInputs):
+            self.witnesses.append( PyTxWitness().unserialize(txData))
+
       self.lockTime   = txData.get(UINT32)
       endPos = txData.getPosition()
       self.nBytes = endPos - startPos
@@ -737,6 +799,8 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', len(self.inputs)
       print indstr + indent + 'nOutputs: ', len(self.outputs)
+      if self.useWitness:
+         print indstr + indent + 'nWitnesses: ', len(self.witnesses)
       print indstr + indent + 'LockTime: ', self.lockTime
       print indstr + indent + 'Inputs: '
       for inp in self.inputs:
@@ -744,6 +808,8 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
+      for witness in self.witnesses:
+         witness.pprint(nIndent+2, endian=endian)
 
    def toString(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -753,6 +819,7 @@ class PyTx(BlockComponent):
       result = ''.join([result, '\n',   indstr + indent + 'Version:  ', str(self.version)])
       result = ''.join([result, '\n',   indstr + indent + 'nInputs:  ', str(len(self.inputs))])
       result = ''.join([result, '\n',   indstr + indent + 'nOutputs: ', str(len(self.outputs))])
+      result = ''.join([result, '\n',   indstr + indent + 'nWitnesses: ', str(len(self.witnesses))])
       result = ''.join([result, '\n',   indstr + indent + 'LockTime: ', str(self.lockTime)])
       result = ''.join([result, '\n',   indstr + indent + 'Inputs: '])
       for inp in self.inputs:
@@ -760,6 +827,8 @@ class PyTx(BlockComponent):
       result = ''.join([result, '\n', indstr + indent + 'Outputs: '])
       for out in self.outputs:
          result = ''.join([result, '\n',  out.toString(nIndent+2, endian=endian)])
+      for witness in self.witnesses:
+         result = ''.join([result, '\n',  witness.toString(nIndent+2, endian=endian)])
       return result
 
 
@@ -771,6 +840,9 @@ class PyTx(BlockComponent):
       bu = BinaryUnpacker(self.serialize())
       theSer = self.serialize()
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
+      if self.useWitness:
+         print binary_to_hex(bu.get(BINARY_CHUNK, 1))
+         print binary_to_hex(bu.get(BINARY_CHUNK, 1))
       nTxin = bu.get(VAR_INT)
       print 'VAR_INT(%d)' % nTxin
       for i in range(nTxin):
@@ -786,6 +858,14 @@ class PyTx(BlockComponent):
          print binary_to_hex(bu.get(BINARY_CHUNK,8))
          scriptSz = bu.get(VAR_INT)
          print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
+      if self.useWitness:
+         for i in range(nTxin):
+            stackSize = bu.get(VAR_INT)
+            print 'VAR_IN(%d)' % stackSize
+            for j in range(stackSize):
+               stackItemSize = bu.get(VAR_INT)
+               print 'VAR_IN(%d)' % stackItemSize
+               print binary_to_hex(bu.get(BINARY_CHUNK, stackItemSize))
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
 
    def setRBF(self, flag):

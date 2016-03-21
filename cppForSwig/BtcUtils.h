@@ -702,11 +702,44 @@ public:
       return (8 + viLen + scrLen);
    }
 
+   static uint32_t TxWitnessCalcLength(uint8_t const * ptr, uint32_t nIn)
+   {
+       uint32_t viArrLen;
+       readVarInt(ptr, &viArrLen);
+       uint32_t witLen = viArrLen;
+       for(uint32_t i=0; i<nIn; i++)
+       {
+          uint32_t viLen;
+          uint32_t scrLen = (uint32_t)readVarInt(ptr+witLen, &viLen);
+          witLen += scrLen
+          witLen += viLen;
+       }
+       return witLen;
+   }
+
+   static size_t TxWitnessCalcLength(uint8_t const * ptr, uint32_t nIn, size_t size)
+   {
+       if (size < 9)
+        throw BlockDeserializingException();
+       uint32_t viArrLen;
+       readVarInt(ptr, size, &viArrLen);
+       uint32_t witLen = viArrLen;
+       for(uint32_t i=0; i<nIn; i++)
+       {
+          uint32_t viLen;
+          uint32_t scrLen = (uint32_t)readVarInt(ptr+witLen, size-witLen, &viLen);
+          witLen += scrLen
+          witLen += viLen;
+       }
+       return witLen;
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    static size_t TxCalcLength(uint8_t const * ptr,
                                 size_t size,
                                 vector<size_t> * offsetsIn=NULL,
-                                vector<size_t> * offsetsOut=NULL)
+                                vector<size_t> * offsetsOut=NULL,
+                                size_t * offsetsWitness=NULL)
    {
       BinaryRefReader brr(ptr, size);  
       
@@ -714,6 +747,19 @@ public:
          throw BlockDeserializingException();
       // Tx Version;
       brr.advance(4);
+
+      // Get marker and flag if transaction uses segwit
+      bool usesWitness = false;
+      uint8_t marker = (uint8_t)brr.get_uint8_t;
+      if(marker == 0)
+      {
+         brr.advance(1);
+         uint8_t flag = (uint8_t)brr.get_uint8_t;
+         if(flag != 1)
+            throw BlockDeserializingException;
+         brr.advace(1);
+         usesWitness = true;
+      }
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
@@ -751,6 +797,14 @@ public:
          for(uint32_t i=0; i<nOut; i++)
             brr.advance( TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()) );
       }
+
+      // Now extract the witnesses
+      if(usesWitness)
+      {
+         (*offsetsWitness) = brr.getPosition();
+         brr.advance( TxWitnessCalcLength(brr.getCurrPtr(), nIn, brr.getSizeRemaining()) );
+      }
+
       brr.advance(4);
 
       return brr.getPosition();
@@ -763,13 +817,27 @@ public:
       size_t len,
       bool fragged,
       vector<size_t> * offsetsIn=NULL,
-      vector<size_t> * offsetsOut=NULL)
+      vector<size_t> * offsetsOut=NULL,
+      vector<size_t> * offsetsWitness=NULL)
    {
       BinaryRefReader brr(ptr, len);  
 
       
       // Tx Version;
       brr.advance(4);
+
+      // Get marker and flag if transaction uses segwit
+      bool usesWitness = false;
+      uint8_t marker = (uint8_t)brr.get_uint8_t;
+      if(marker == 0)
+      {
+         brr.advance(1);
+         uint8_t flag = (uint8_t)brr.get_uint8_t;
+         if(flag != 1)
+            throw BlockDeserializingException;
+         brr.advace(1);
+         usesWitness = true;
+      }
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
@@ -822,6 +890,14 @@ public:
                   TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
          }
       }
+
+      // Now extract the witnesses
+      if(usesWitness)
+      {
+         (*offsetsWitness) = brr.getPosition();
+         brr.advance( TxWitnessCalcLength(brr.getCurrPtr(), nIn, brr.getSizeRemaining()) );
+      }
+
       brr.advance(4);
 
       return brr.getPosition();
