@@ -1948,49 +1948,6 @@ class ArmoryMainWindow(QMainWindow):
    #          func(fileText)
 
 
-
-
-   #############################################################################
-   def processAlerts(self):
-      # display to the user any alerts that came in through the bitcoin
-      # network
-      
-      if self.NetworkingFactory == None:
-         return
-      
-      factory = self.NetworkingFactory
-      armoryClient = factory.getProto()
-      if armoryClient is None:
-         return
-      alerts = armoryClient.alerts
-      
-      try:
-         peerInfo = armoryClient.peerInfo
-      except: 
-         LOGERROR("failed to process alerts from bitcoind")
-         return
-
-      for id, alert in alerts.items():
-         if self.ignoreAlerts.get(id):
-            continue
-         if time.time() > alert.expiration:
-            continue
-         if peerInfo["version"] < alert.minVersion \
-            or peerInfo["version"] > alert.maxVersion:
-            continue
-         if peerInfo["subver"] not in alert.subVerSet:
-            continue
-         title = "Bitcoin alert %s" % alert.uniqueID
-         alert_str = "%s<br>%s<br>%s<br>" % (alert.statusBar, alert.comment, alert.reserved)
-         msg = "This alert has been received from the bitcoin network:<p>" + \
-               alert_str + \
-               "</p>Please visit <a href='https://bitcoin.org/en/alerts'>https://bitcoin.org/en/alerts</a> for more information.<br>"
-         reply, self.ignoreAlerts[id] = MsgBoxWithDNAA(
-            self, self, MSGBOX.Warning, title, msg,
-            'Do not show me this notification again', yesStr='OK')
-         self.writeSetting('IgnoreAlerts', ",".join([str(i) for i in self.ignoreAlerts.keys()]))
-
-
    # #############################################################################
    # def processChangelog(self, txt):
    #    try:
@@ -6377,9 +6334,6 @@ class ArmoryMainWindow(QMainWindow):
       bdmState = TheBDM.getState()
 
       self.heartbeatCount += 1
-      if self.heartbeatCount % 60 == 20:
-      #   self.processAnnounceData()
-         self.processAlerts()
 
       try:
          for func in self.extraHeartbeatAlways:
