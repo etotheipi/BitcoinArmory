@@ -48,11 +48,16 @@ struct BCTX
    const uint8_t* data_;
    const size_t size_;
 
+   BinaryData noWitData_;
+
    uint32_t version_;
    uint32_t lockTime_;
+   uint8_t  marker_;
+   uint8_t  flag_;
 
    vector<OffsetAndSize> txins_;
    vector<OffsetAndSize> txouts_;
+   vector<OffsetAndSize> txwitnesses_;
 
    mutable BinaryData txHash_;
 

@@ -44,14 +44,23 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    {
       //light tx deserialization, just figure out the offset and size of
       //txins and txouts
-      vector<size_t> offsetIns, offsetOuts;
+      vector<size_t> offsetIns, offsetOuts, offsetsWitness;
       auto txSize = BtcUtils::TxCalcLength(
          brr.getCurrPtr(), brr.getSizeRemaining(),
-         &offsetIns, &offsetOuts);
+         &offsetIns, &offsetOuts, &offsetsWitness);
 
       //create BCTX object and fill it up
       shared_ptr<BCTX> tx = make_shared<BCTX>(brr.getCurrPtr(), txSize);
       tx->version_ = READ_UINT32_LE(brr.getCurrPtr());
+
+      // Marker and flag if it is a witness transaction
+      bool useWitnesses = false;
+      if(!offsetsWitness.empty())
+      {
+         useWitnesses = true;
+         tx->marker_ = READ_UINT8_BE(brr.getCurrPtr() + 4);
+         tx->flag_ = READ_UINT8_BE(brr.getCurrPtr() + 4 + 1);
+      }
 
       //first tx in block is always the coinbase
       if (i == 0)
@@ -70,7 +79,32 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
          offsetOuts[y],
          offsetOuts[y + 1] - offsetOuts[y]));
 
-      tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
+      // Add all the old serialization data to noWitData_
+      tx->noWitData_.append(brr.getCurrPtr(), 4);
+      uint32_t txInOutSize = offsetOuts.back() - offsetIns[0];
+      uint32_t viInLen;
+      if(useWitnesses) {
+         BtcUtils::readVarInt(brr.getCurrPtr() + 6, &viInLen);
+         tx->noWitData_.append(brr.getCurrPtr() + 4 + 2, txInOutSize + viInLen);
+      }
+      else {
+         BtcUtils::readVarInt(brr.getCurrPtr() + 4, &viInLen);
+         tx->noWitData_.append(brr.getCurrPtr() + 4, txInOutSize + viInLen);
+      }
+
+      if(useWitnesses) {
+         for (int y = 0; y < offsetOuts.size() - 1; y++)
+            tx->txwitnesses_.push_back(
+                    make_pair(
+                            offsetsWitness[y],
+                            offsetsWitness[y + 1] - offsetsWitness[y]));
+         tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetsWitness.back());
+         tx->noWitData_.append(brr.getCurrPtr() + offsetsWitness.back(), 4);
+      }
+      else {
+         tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
+         tx->noWitData_.append(brr.getCurrPtr() + offsetOuts.back(), 4);
+      }
 
       //move it to BlockData object vector
       txns_.push_back(move(tx));
@@ -89,7 +123,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    vector<BinaryData> allhashes;
    for (auto& txn : txns_)
    {
-      BinaryDataRef txdata(txn->data_, txn->size_);
+      BinaryDataRef txdata(txn->noWitData_);
       auto&& txhash = BtcUtils::getHash256(txdata);
       allhashes.push_back(move(txhash));
    }
