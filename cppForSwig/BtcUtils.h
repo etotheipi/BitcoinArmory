@@ -969,11 +969,9 @@ public:
    {
       if(script.getSize() == 0)
          return TXIN_SCRIPT_WITNESS;
-
-      if(script.getSize() == 23 && script[0] == 0x00)
+      if(script.getSize() == 23 && script[1] == 0x00)
          return TXIN_SCRIPT_P2WPKH_P2SH;
-
-      if(script.getSize() == 34 && script[0] == 0x00)
+      if(script.getSize() == 35 && script[1] == 0x00)
          return TXIN_SCRIPT_P2WSH_P2SH;
 
       if(prevTxHash == BtcUtils::EmptyHash_)

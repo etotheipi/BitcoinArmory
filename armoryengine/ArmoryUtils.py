@@ -245,8 +245,8 @@ class isMSWallet(Exception): pass
 # Witness variables and constants
 WITNESS = False
 NODE_WITNESS = 1 << 3
-MARKER = '\x00'
-FLAG = '\x01'
+MARKER = 0
+FLAG = 1
 
 if getattr(sys, 'frozen', False):
    sys.argv = [arg.decode('utf8') for arg in sys.argv]
@@ -1623,6 +1623,9 @@ def scrAddr_to_hash160(scrAddr):
 
 ################################################################################
 def addrStr_to_scrAddr(addrStr):
+   if addrStr == '':
+      return '';
+
    if not checkAddrStrValid(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 

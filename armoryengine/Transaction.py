@@ -9,6 +9,7 @@ import logging
 import os
 
 import CppBlockUtils as Cpp
+import armoryengine.ArmoryUtils
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
@@ -664,11 +665,13 @@ class PyTxWitness(BlockComponent):
       stackSize = txWitnessData.get(VAR_INT)
       self.binWitness.append(stackSize)
       if stackSize > 0:
-         stackItemSize = txWitnessData.get(VAR_INT)
-         stackItem = txWitnessData.get(BINARY_CHUNK, stackItemSize)
-         if txWitnessData.getRemainingSize() < stackItemSize: raise UnserializeError
-         self.binWitness.append(stackItemSize)
-         self.binWitness.append(stackItem)
+         for i in range(0, stackSize, 1):
+            stackItemSize = txWitnessData.get(VAR_INT)
+            debugremsize = txWitnessData.getRemainingSize()
+            if txWitnessData.getRemainingSize() < stackItemSize: raise UnserializeError
+            stackItem = txWitnessData.get(BINARY_CHUNK, stackItemSize)
+            self.binWitness.append(stackItemSize)
+            self.binWitness.append(stackItem)
       return self
 
    def getWitnesses(self):
@@ -677,7 +680,7 @@ class PyTxWitness(BlockComponent):
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(VAR_INT, self.binWitness[0])
-      for i in range(1, len(self.binWitness)/2, 2):
+      for i in range(1, len(self.binWitness), 2):
          binOut.put(VAR_INT, self.binWitness[i])
          binOut.put(BINARY_CHUNK, self.binWitness[i+1])
       return binOut.getBinaryString()
@@ -711,7 +714,7 @@ class PyTx(BlockComponent):
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
-      if(WITNESS):
+      if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
          binOut.put(UINT8, MARKER)
          binOut.put(UINT8, FLAG)
       binOut.put(VAR_INT, len(self.inputs))
@@ -720,8 +723,9 @@ class PyTx(BlockComponent):
       binOut.put(VAR_INT, len(self.outputs))
       for txout in self.outputs:
          binOut.put(BINARY_CHUNK, txout.serialize())
-      for witItem in self.witnesses:
-         binOut.put(BINARY_CHUNK, witItem.serialize())
+      if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
+         for witItem in self.witnesses:
+            binOut.put(BINARY_CHUNK, witItem.serialize())
       binOut.put(UINT32, self.lockTime)
       return binOut.getBinaryString()
 
@@ -746,6 +750,7 @@ class PyTx(BlockComponent):
       startPos = txData.getPosition()
       self.inputs     = []
       self.outputs    = []
+      self.witnesses  = []
       self.version    = txData.get(UINT32)
       if txData.get(UINT8) == MARKER and txData.get(UINT8) == FLAG:
          self.useWitness = True
@@ -766,11 +771,11 @@ class PyTx(BlockComponent):
       self.lockTime   = txData.get(UINT32)
       endPos = txData.getPosition()
       self.nBytes = endPos - startPos
-      self.thisHash = hash256(self.serialize())
+      self.thisHash = hash256(self.serializeWithoutWitness())
       return self
 
    def getHash(self):
-      return hash256(self.serialize())
+      return hash256(self.serializeWithoutWitness())
 
    def getHashHex(self, endianness=LITTLEENDIAN):
       return binary_to_hex(self.getHash(), endOut=endianness)
