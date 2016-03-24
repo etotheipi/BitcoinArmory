@@ -278,7 +278,7 @@ void ScrAddrFilter::mergeSideScanPile()
    {
       //pop all we can from the pile
       while (1)
-         scanDataVec.push_back(scanDataPile_.pop_back());
+         scanDataVec.push_back(move(scanDataPile_.pop_back()));
    }
    catch (IsEmpty&)
    {
