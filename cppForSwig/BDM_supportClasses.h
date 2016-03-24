@@ -99,6 +99,7 @@ public:
       ***/
       uint32_t startScanFrom_=0;
       vector<WalletInfo> wltInfoVec_;
+      bool doScan_ = true;
 
       BinaryData lastScannedBlkHash_;
 
@@ -233,8 +234,7 @@ protected:
 
 private:
    void scanScrAddrThread(void);
-   void buildSideScanData(
-      const vector<WalletInfo>& wltInfoSet);
+   void buildSideScanData(const vector<WalletInfo>& wltInfoSet, bool areNew);
 };
 
 class ZeroConfContainer

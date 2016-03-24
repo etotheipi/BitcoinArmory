@@ -8705,7 +8705,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    future<bool> waitOnReg = waitOnRegPromise.get_future();
 
    auto callback = [&waitOnRegPromise](void)->void
-   { waitOnRegPromise.set_value(true); };
+   { 
+      waitOnRegPromise.set_value(true); 
+   };
 
    wlt->setRegistrationCallback(callback);
 
@@ -8794,6 +8796,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_SideScan)
 
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad(nullProgress);
+
+   theBDV->scanWallets();
 
    //post initial load address registration
    wlt->addScrAddress(TestChain::scrAddrD);

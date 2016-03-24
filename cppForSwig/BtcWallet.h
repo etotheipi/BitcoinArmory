@@ -233,7 +233,6 @@ private:
    void getTxioForRange(uint32_t, uint32_t, 
       map<BinaryData, TxIOPair>&) const;
 
-   void sortLedger();
    void unregister(void) { isRegistered_ = false; }
 
    void resetTxOutHistory(void);

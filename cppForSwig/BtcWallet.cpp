@@ -77,7 +77,7 @@ void BtcWallet::addScrAddress(const BinaryData& scrAddr)
          vector<BinaryData> saVec;
          saVec.push_back(scrAddr);
 
-         if (!bdvPtr_->registerAddresses(saVec, walletID_, true))
+         if (!bdvPtr_->registerAddresses(saVec, walletID_, false))
             return;
       }
    }
@@ -1043,8 +1043,8 @@ vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::needsRefresh(void)
 { 
-   doneRegisteringCallback_();
    bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
+   doneRegisteringCallback_();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

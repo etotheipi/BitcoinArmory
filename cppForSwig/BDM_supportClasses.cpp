@@ -157,39 +157,24 @@ bool ScrAddrFilter::registerAddressBatch(
       sca->setParent(this);
       bool hasNewSA = false;
 
-      if (!areNew)
-      {
-         //mark existing history for wipe and rescan from block 0
-         sca->doScan_ = true;
-
-         for (auto& batch : wltInfoVec)
-         {
-            if (batch.scrAddrSet_.size() == 0)
-               continue;
-
-            for (const auto& scrAddr : batch.scrAddrSet_)
-               sca->regScrAddrForScan(scrAddr, 0);
-
-            hasNewSA = true;
-         }
-      }
-      else
+      if (areNew)
       {
          //mark addresses as fresh to skip DB scan
-         sca->doScan_ = false;
-         for (auto& batch : wltInfoVec)
-         {
-            if (batch.scrAddrSet_.size() == 0)
-               continue;
-
-            for (const auto& scrAddr : batch.scrAddrSet_)
-               sca->regScrAddrForScan(scrAddr, 0);
-
-            hasNewSA = true;
-         }
+         doScan_ = false;
       }
 
-      sca->buildSideScanData(wltInfoVec);
+      for (auto& batch : wltInfoVec)
+      {
+         if (batch.scrAddrSet_.size() == 0)
+            continue;
+
+         for (const auto& scrAddr : batch.scrAddrSet_)
+            sca->regScrAddrForScan(scrAddr, 0);
+
+         hasNewSA = true;
+      }
+
+      sca->buildSideScanData(wltInfoVec, areNew);
       scanFilterInNewThread(sca);
 
       if (!hasNewSA)
@@ -233,10 +218,6 @@ void ScrAddrFilter::scanScrAddrThread()
    {
       //new addresses, set their last seen block in the ssh entries
       setSSHLastScanned(currentTopBlockHeight());
-
-      for (auto& batch : scrAddrDataForSideScan_.wltInfoVec_)
-         batch.callback_();
-
    }
    else
    {
@@ -274,6 +255,7 @@ void ScrAddrFilter::addToMergePile(const BinaryData& lastScannedBlkHash)
    if (parent_ == nullptr)
       throw runtime_error("scf invalid parent");
 
+   scrAddrDataForSideScan_.lastScannedBlkHash_ = lastScannedBlkHash;
    parent_->scanDataPile_.push_back(scrAddrDataForSideScan_);
    parent_->mergeSideScanPile();
 }
@@ -296,7 +278,7 @@ void ScrAddrFilter::mergeSideScanPile()
    {
       //pop all we can from the pile
       while (1)
-         scanDataVec.push_back(move(scanDataPile_.pop_back()));
+         scanDataVec.push_back(scanDataPile_.pop_back());
    }
    catch (IsEmpty&)
    {
@@ -314,6 +296,12 @@ void ScrAddrFilter::mergeSideScanPile()
 
    for (auto& scandata : scanDataVec)
    {
+      newScrAddrMap.insert(scandata.scrAddrsToMerge_.begin(),
+         scandata.scrAddrsToMerge_.end());
+
+      if (!scandata.doScan_)
+         continue;
+
       //don't catch anything here, we want it to fail until handling
       //is implemented
       auto& header =
@@ -326,8 +314,6 @@ void ScrAddrFilter::mergeSideScanPile()
       if (lowestScanneHeader.getBlockHeight() > header.getBlockHeight())
          lowestScanneHeader = header;
 
-      newScrAddrMap.insert(scandata.scrAddrsToMerge_.begin(),
-         scandata.scrAddrsToMerge_.end());
    }
 
    //with the lowest common scanned header and all addresses in one
@@ -390,7 +376,8 @@ void ScrAddrFilter::clear()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ScrAddrFilter::buildSideScanData(const vector<WalletInfo>& wltInfoVec)
+void ScrAddrFilter::buildSideScanData(const vector<WalletInfo>& wltInfoVec,
+   bool areNew)
 {
    scrAddrDataForSideScan_.startScanFrom_ = UINT32_MAX;
    for (const auto& scrAddrPair : *scrAddrMap_)
@@ -398,6 +385,7 @@ void ScrAddrFilter::buildSideScanData(const vector<WalletInfo>& wltInfoVec)
       min(scrAddrDataForSideScan_.startScanFrom_, scrAddrPair.second);
 
    scrAddrDataForSideScan_.wltInfoVec_ = wltInfoVec;
+   scrAddrDataForSideScan_.doScan_ = !areNew;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
