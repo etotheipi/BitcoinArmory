@@ -106,9 +106,9 @@ public:
    shared_ptr<BtcWallet> createWallet(const string& id);
    shared_ptr<BtcWallet> createLockbox(const string& id);
 
-   BtcWallet* registerWallet(vector<BinaryData> const& scrAddrVec,
+   shared_ptr<BtcWallet> registerWallet(vector<BinaryData> const& scrAddrVec,
                               string ID, bool wltIsNew);
-   BtcWallet* registerLockbox(vector<BinaryData> const& scrAddrVec, 
+   shared_ptr<BtcWallet> registerLockbox(vector<BinaryData> const& scrAddrVec, 
                               string ID, bool wltIsNew);
    void       unregisterWallet(const string& ID);
    void       unregisterLockbox(const string& ID);
@@ -307,7 +307,7 @@ public:
 
    ~WalletGroup();
 
-   BtcWallet* registerWallet(
+   shared_ptr<BtcWallet> registerWallet(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    void unregisterWallet(const string& IDstr);
    bool registerAddresses(const vector<BinaryData>& saVec,

@@ -34,7 +34,7 @@ BlockDataViewer::~BlockDataViewer()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BtcWallet* BlockDataViewer::registerWallet(
+shared_ptr<BtcWallet> BlockDataViewer::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
    if (IDstr.empty())
@@ -44,7 +44,7 @@ BtcWallet* BlockDataViewer::registerWallet(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BtcWallet* BlockDataViewer::registerLockbox(
+shared_ptr<BtcWallet> BlockDataViewer::registerLockbox(
    vector<BinaryData> const & scrAddrVec, string IDstr, bool wltIsNew)
 {
    if (IDstr.empty())
@@ -749,7 +749,7 @@ WalletGroup::~WalletGroup()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BtcWallet* WalletGroup::registerWallet(
+shared_ptr<BtcWallet> WalletGroup::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
    if (IDstr.empty())
@@ -776,21 +776,27 @@ BtcWallet* WalletGroup::registerWallet(
       theWallet = insertResult.first->second;
    }
 
-   theWallet->addAddressBulk(scrAddrVec, wltIsNew);
+   auto mergebatch = theWallet->addAddressBulk(scrAddrVec, wltIsNew);
 
    //register all scrAddr in the wallet with the BDM. It doesn't matter if
    //the data is overwritten
-   vector<BinaryData> saVec;
-   saVec.reserve(theWallet->getScrAddrMap().size());
-   for (const auto& scrAddrPair : newWallet->getScrAddrMap())
-      saVec.push_back(scrAddrPair.first);
+   set<BinaryData> saSet;
+   for (const auto& scrAddrPair : mergebatch->addrMap_)
+      saSet.insert(scrAddrPair.first);
 
-   saf_->registerAddresses(saVec, newWallet, wltIsNew);
+   auto callback = [&](void)->void
+   {
+      theWallet->prepareScrAddrForMerge(saSet, wltIsNew, BinaryData());
+      theWallet->merge();
+      theWallet->needsRefresh();
+      theWallet->setRegistered();
+   };
+
+   saf_->registerAddresses(saSet, IDstr, wltIsNew, callback);
 
    //tell the wallet it is registered
-   newWallet->setRegistered();
 
-   return newWallet.get();
+   return theWallet;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -824,7 +830,24 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
    if (wltIter == wallets_.end())
       return false;
 
-   return saf_->registerAddresses(saVec, wltIter->second, areNew);
+   shared_ptr<set<BinaryData>> saSet = make_shared<set<BinaryData>>();
+   saSet->insert(saVec.begin(), saVec.end());
+   string IDstr = string(walletID.getCharPtr(), walletID.getSize());
+
+   auto& wlt = wltIter->second;
+   auto&& topHash = bdvPtr_->blockchain().top().getThisHash();
+
+   //Capture by copy (instead of reference). These are local variables and
+   //the lamba may be called back by another thread, after this scope has
+   //exited. wlt lifetime doesn't depend on this scope, reference is fine there
+   auto callback = [saSet, areNew, topHash, &wlt](void)->void
+   {
+      wlt->prepareScrAddrForMerge(*saSet, areNew, topHash);
+      wlt->needsRefresh();
+   };
+
+   return saf_->registerAddresses(*saSet, IDstr, areNew,
+      callback);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

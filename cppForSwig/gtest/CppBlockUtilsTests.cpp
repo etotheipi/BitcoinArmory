@@ -4519,7 +4519,7 @@ protected:
          
       config_.armoryDbType = ARMORY_DB_FULL;
       config_.pruneType = DB_PRUNE_NONE;
-      config_.levelDBLocation = string("ldbtestdir");
+      config_.dbLocation = string("ldbtestdir");
 
       config_.genesisBlockHash = ghash_;
       config_.genesisTxHash = gentx_;
@@ -4827,7 +4827,7 @@ protected:
    bool standardOpenDBs(void) 
    {
       iface_->openDatabases(
-         config_.levelDBLocation,
+         config_.dbLocation,
          config_.genesisBlockHash,
          config_.genesisTxHash,
          config_.magicBytes,
@@ -4878,7 +4878,7 @@ protected:
 TEST_F(LMDBTest, OpenClose)
 {
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -4920,7 +4920,7 @@ TEST_F(LMDBTest, OpenCloseOpenNominal)
    BinaryData flags = READHEX("03100000");
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -4931,7 +4931,7 @@ TEST_F(LMDBTest, OpenCloseOpenNominal)
    iface_->closeDatabases();
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -4964,7 +4964,7 @@ TEST_F(LMDBTest, PutGetDelete)
    BinaryData flags = READHEX("03100000");
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5406,7 +5406,7 @@ protected:
 
       config_.armoryDbType = ARMORY_DB_SUPER;
       config_.pruneType = DB_PRUNE_NONE;
-      config_.levelDBLocation = string("ldbtestdir");
+      config_.dbLocation = string("ldbtestdir");
 
       config_.genesisBlockHash = ghash_;
       config_.genesisTxHash = gentx_;
@@ -5721,7 +5721,7 @@ protected:
    bool standardOpenDBs(void)
    {
       iface_->openDatabases(
-         config_.levelDBLocation,
+         config_.dbLocation,
          config_.genesisBlockHash,
          config_.genesisTxHash,
          config_.magicBytes,
@@ -5773,7 +5773,7 @@ protected:
 TEST_F(LMDBTest_Super, DISABLED_OpenClose)
 {
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5816,7 +5816,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenNominal)
    BinaryData flags = READHEX("04100000");
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5827,7 +5827,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenNominal)
    iface_->closeDatabases();
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5860,7 +5860,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenMismatch)
 {
    LOGERR << "Expecting four error messages here:  this is normal";
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5871,7 +5871,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenMismatch)
    iface_->closeDatabases();
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5882,7 +5882,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenMismatch)
    iface_->closeDatabases();
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5892,7 +5892,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenMismatch)
    EXPECT_FALSE(iface_->databasesAreOpen());
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5902,7 +5902,7 @@ TEST_F(LMDBTest_Super, DISABLED_OpenCloseOpenMismatch)
    EXPECT_FALSE(iface_->databasesAreOpen());
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -5927,7 +5927,7 @@ TEST_F(LMDBTest_Super, DISABLED_PutGetDelete)
    BinaryData flags = READHEX("04100000");
 
    iface_->openDatabases(
-      config_.levelDBLocation,
+      config_.dbLocation,
       config_.genesisBlockHash,
       config_.genesisTxHash,
       config_.magicBytes,
@@ -6647,7 +6647,7 @@ protected:
 
    // Run this before registering a BDM.
    void regWallet(const vector<BinaryData>& scrAddrs, const string& wltName,
-                  BlockDataViewer*& inBDV, BtcWallet** inWlt)
+                  BlockDataViewer*& inBDV, shared_ptr<BtcWallet>* inWlt)
    {
       // Register the standalone address wallet. (All registrations should be
       // done before initializing the BDM. This is critical!)
@@ -6657,8 +6657,8 @@ protected:
 
    // Run this before registering a BDM. (For now, just make the two lockboxes a
    // package deal. Code can be altered later if needed.)
-   void regLockboxes(BlockDataViewer*& inBDV, BtcWallet** inLB1,
-                     BtcWallet** inLB2)
+   void regLockboxes(BlockDataViewer*& inBDV, shared_ptr<BtcWallet>* inLB1,
+      shared_ptr<BtcWallet>* inLB2)
    {
       // Register the two lockboxes. Note that the lockbox data is pulled from
       // createTestChain.py, the script that built most of the blocks used in
@@ -6711,7 +6711,7 @@ protected:
       config.armoryDbType = ARMORY_DB_BARE;
       config.pruneType = DB_PRUNE_NONE;
       config.blkFileLocation = blkdir_;
-      config.levelDBLocation = ldbdir_;
+      config.dbLocation = ldbdir_;
       
       config.genesisBlockHash = ghash_;
       config.genesisTxHash = gentx_;
@@ -6816,7 +6816,7 @@ TEST_F(BlockDir, HeadersFirst)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
    
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -6861,7 +6861,7 @@ TEST_F(BlockDir, HeadersFirstUpdate)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
    
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -6911,7 +6911,7 @@ TEST_F(BlockDir, HeadersFirstReorg)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
 
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -6982,7 +6982,7 @@ TEST_F(BlockDir, HeadersFirstUpdateTwice)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
    
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7039,7 +7039,7 @@ TEST_F(BlockDir, DISABLED_AddBlockWhileUpdating)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
    
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7095,7 +7095,7 @@ TEST_F(BlockDir, BlockFileSplit)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
    
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7140,7 +7140,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
    config.armoryDbType = ARMORY_DB_BARE;
    config.pruneType = DB_PRUNE_NONE;
    config.blkFileLocation = blkdir_;
-   config.levelDBLocation = ldbdir_;
+   config.dbLocation = ldbdir_;
    
    config.genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
    config.genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7190,9 +7190,9 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -7234,7 +7234,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_DamagedBlkFile)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   BtcWallet* wlt;
+   shared_ptr<BtcWallet> wlt;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
 
    // this test should be reworked to be in terms of createTestChain.py
@@ -7263,9 +7263,9 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus2)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -7340,9 +7340,9 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -7515,9 +7515,9 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -7741,9 +7741,9 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZCchain)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -7907,9 +7907,9 @@ TEST_F(BlockUtilsBare, Load3Blocks_RBF)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -8108,10 +8108,10 @@ TEST_F(BlockUtilsBare, Load3Blocks_RBF)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
 {
-   BtcWallet* wlt;
-   BtcWallet* wlt2;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wlt2;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
 
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8171,10 +8171,10 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_DoubleReorg)
 {
-   BtcWallet* wlt;
-   BtcWallet* wlt2;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wlt2;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
 
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8265,10 +8265,10 @@ TEST_F(BlockUtilsBare, Load5Blocks_DoubleReorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
 {
-   BtcWallet* wlt;
-   BtcWallet* wlt2;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wlt2;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
 
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8355,10 +8355,10 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg_DontTrigger)
    bypassed instead.
    ***/
 
-   BtcWallet* wlt;
-   BtcWallet* wlt2;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wlt2;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
 
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8436,9 +8436,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg_DontTrigger)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, CorruptedBlock)
 {
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
 
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8481,9 +8481,9 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 {
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    const ScrAddrObj* scrObj;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8595,9 +8595,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
 {
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
@@ -8637,9 +8637,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
 {
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
@@ -8682,9 +8682,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 {
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    const ScrAddrObj* scrObj;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8696,17 +8696,20 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    // This is just a regular load
    TheBDM.doInitialSyncOnLoad(nullProgress);
 
+   theBDV->scanWallets();
+
    //post initial load address registration
    wlt->addScrAddress(TestChain::scrAddrD);
 
-   EXPECT_EQ(TheBDM.sideScanFlag_, true);
+   promise<bool> waitOnRegPromise;
+   future<bool> waitOnReg = waitOnRegPromise.get_future();
 
-   //fire side scan manually since there is no maintenance thread with unit tests
-   theBDM->startSideScan([](const vector<string>&, double prog, unsigned time){});
+   auto callback = [&waitOnRegPromise](void)->void
+   { waitOnRegPromise.set_value(true); };
 
-   //wait on the address scan
-   while (wlt->getMergeFlag() == false)
-      usleep(100);
+   wlt->setRegistrationCallback(callback);
+
+   waitOnReg.wait();
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -8776,11 +8779,65 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_SideScan)
+{
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
+   const ScrAddrObj* scrObj;
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
+
+   // This is just a regular load
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+
+   //post initial load address registration
+   wlt->addScrAddress(TestChain::scrAddrD);
+
+   //wait on the address scan
+   promise<bool> waitOnRegPromise;
+   future<bool> waitOnReg = waitOnRegPromise.get_future();
+
+   auto callback = [&waitOnRegPromise](void)->void
+   { waitOnRegPromise.set_value(true); };
+
+   wlt->setRegistrationCallback(callback);
+
+   waitOnReg.wait();
+
+   theBDV->scanWallets();
+
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 70 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+   scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 25 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddr);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   EXPECT_EQ(wlt->getFullBalance(), 135 * COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 {
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    const ScrAddrObj* scrObj;
    vector<BinaryData> scrAddrVec;
    scrAddrVec.push_back(TestChain::scrAddrA);
@@ -8796,14 +8853,15 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
    wlt->addScrAddress(TestChain::scrAddrD);
 
-   EXPECT_EQ(TheBDM.sideScanFlag_, true);
+   promise<bool> waitOnRegPromise;
+   future<bool> waitOnReg = waitOnRegPromise.get_future();
 
-   //fire side scan manually since there is no maintenance thread with unit tests
-   theBDM->startSideScan([](const vector<string>&, double prog, unsigned time){});
+   auto callback = [&waitOnRegPromise](void)->void
+   { waitOnRegPromise.set_value(true); };
 
-   //wait on the address scan
-   while (wlt->getMergeFlag() == false)
-      usleep(100);
+   wlt->setRegistrationCallback(callback);
+
+   waitOnReg.wait();
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -8895,9 +8953,9 @@ TEST_F(BlockUtilsBare, Load5Blocks_GetUtxos)
    scrAddrVec.push_back(TestChain::scrAddrD);
    scrAddrVec.push_back(TestChain::scrAddrE);
    scrAddrVec.push_back(TestChain::scrAddrF);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -8949,9 +9007,9 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
    scrAddrVec.push_back(TestChain::scrAddrA);
    scrAddrVec.push_back(TestChain::scrAddrB);
    scrAddrVec.push_back(TestChain::scrAddrC);
-   BtcWallet* wlt;
-   BtcWallet* wltLB1;
-   BtcWallet* wltLB2;
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
    regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
    regLockboxes(theBDV, &wltLB1, &wltLB2);
 
@@ -9084,7 +9142,7 @@ protected:
       config_.armoryDbType = ARMORY_DB_SUPER;
       config_.pruneType = DB_PRUNE_NONE;
       config_.blkFileLocation = blkdir_;
-      config_.levelDBLocation = ldbdir_;
+      config_.dbLocation = ldbdir_;
       
       config_.genesisBlockHash = ghash_;
       config_.genesisTxHash = gentx_;
@@ -9124,7 +9182,7 @@ protected:
 
    // Run this before registering a BDM.
    void regWallet(const vector<BinaryData>& scrAddrs, const string& wltName,
-                  BlockDataViewer*& inBDV, BtcWallet** inWlt)
+                  BlockDataViewer*& inBDV, shared_ptr<BtcWallet>* inWlt)
    {
       // Register the standalone address wallet. (All registrations should be
       // done before initializing the BDM. This is critical!)
@@ -9134,8 +9192,8 @@ protected:
 
    // Run this before registering a BDM. (For now, just make the two lockboxes a
    // package deal. Code can be altered later if needed.)
-   void regLockboxes(BlockDataViewer*& inBDV, BtcWallet** inLB1,
-                     BtcWallet** inLB2)
+   void regLockboxes(BlockDataViewer*& inBDV, shared_ptr<BtcWallet>* inLB1,
+      shared_ptr<BtcWallet>* inLB2)
    {
       // Register the two lockboxes. Note that the lockbox data is pulled from
       // createTestChain.py, the script that built most of the blocks used in
@@ -10059,7 +10117,7 @@ protected:
       config.armoryDbType = ARMORY_DB_SUPER;
       config.pruneType = DB_PRUNE_NONE;
       config.blkFileLocation = blkdir_;
-      config.levelDBLocation = ldbdir_;
+      config.dbLocation = ldbdir_;
 
       config.genesisBlockHash = ghash_;
       config.genesisTxHash = gentx_;

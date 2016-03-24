@@ -27,7 +27,7 @@ BtcWallet::~BtcWallet(void)
 // the exact same thing.  The only difference is to tell the BDM whether it 
 // should do a rescan of the blockchain, or if we know there's nothing to find
 // so don't bother (perhaps because we just created the address)...
-void BtcWallet::addScrAddress(HashString    scrAddr, 
+void BtcWallet::addScrAddress(const BinaryData& scrAddr, 
                               uint32_t      firstTimestamp,
                               uint32_t      firstBlockNum,
                               uint32_t      lastTimestamp,
@@ -62,7 +62,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addNewScrAddress(BinaryData scrAddr)
+void BtcWallet::addScrAddress(const BinaryData& scrAddr)
 {
    if (scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
@@ -150,84 +150,10 @@ void BtcWallet::addScrAddress_ScrAddrObj_(ScrAddrObj const & newScrAddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addScrAddress_1_(HashString scrAddr)
-{  
-   addScrAddress(scrAddr); 
-} 
-
-/////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addScrAddress_3_(HashString    scrAddr, 
-                              uint32_t      firstTimestamp,
-                              uint32_t      firstBlockNum)
-{  
-   addScrAddress(scrAddr, firstBlockNum, firstTimestamp); 
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addScrAddress_5_(HashString    scrAddr, 
-                              uint32_t      firstTimestamp,
-                              uint32_t      firstBlockNum,
-                              uint32_t      lastTimestamp,
-                              uint32_t      lastBlockNum)
-{
-   addScrAddress(scrAddr, firstBlockNum, firstTimestamp, 
-                          lastBlockNum,  lastTimestamp); 
-}
-
-/////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
    return (scrAddrMap_.find(scrAddr) != scrAddrMap_.end());
 }
-
-/////////////////////////////////////////////////////////////////////////////
-/*void BtcWallet::pprintAlot(LMDBBlockDatabase *db, 
-                           uint32_t topBlk, bool withAddr) const
-{
-   map<OutPoint, TxIOPair> const & txiomap = txioMap_;
-   
-   // Since 99.999%+ of all transactions are not ours, let's do the 
-   // fastest bulk filter possible, even though it will add 
-   // redundant computation to the tx that are ours.  In fact,
-   // we will skip the TxIn/TxOut convenience methods and follow the
-   // pointers directly to the data we want
-
-   OutPoint op; // reused
-   uint8_t const * txStartPtr = tx.getPtr();
-   for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
-   {
-      // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin),
-         tx.getSize() - tx.getTxInOffset(iin));
-      if (KEY_IN_MAP(op, txiomap))
-         return make_pair(true, true);
-   }
-
-   // Simply convert the TxOut scripts to scrAddrs and check if registered
-   for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
-   {
-      TxOut txout = tx.getTxOutCopy(iout);
-      BinaryData scrAddr = txout.getScrAddressStr();
-      if (hasScrAddress(scrAddr))
-         return make_pair(true, false);
-
-      // It's still possible this is a multisig addr involving one of our 
-      // existing scrAddrs, even if we aren't explicitly looking for this multisig
-      if (withSecondOrderMultisig && txout.getScriptType() == TXOUT_SCRIPT_MULTISIG)
-      {
-         BinaryRefReader brrmsig(scrAddr);
-         uint8_t PREFIX = brrmsig.get_uint8_t();
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
-         for (uint8_t a = 0; a<N; a++)
-         if (hasScrAddress(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
-            return make_pair(true, false);
-      }
-   }
-
-   // If we got here, it's either non std or not ours
-   return make_pair(false, false);
-}*/
 
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr) const
@@ -770,16 +696,18 @@ const LedgerEntry& BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) cons
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::prepareScrAddrForMerge(const vector<BinaryData>& scrAddrVec, 
+void BtcWallet::prepareScrAddrForMerge(const set<BinaryData>& scrAddrSet, 
    bool isNew, BinaryData topScannedBlockHash)
 {
    //pass isNew = true for supernode too, since that's the same behavior
 
    shared_ptr<mergeStruct> newMergeStruct(new mergeStruct());
    newMergeStruct->mergeAction_ = (isNew ? MergeAction::NoRescan : MergeAction::Rescan);
+   if (!isRegistered_)
+      newMergeStruct->mergeAction_ = MergeAction::NoRescan;
    newMergeStruct->mergeTopScannedBlkHash_ = topScannedBlockHash;
 
-   for (const auto& scrAddr : scrAddrVec)
+   for (const auto& scrAddr : scrAddrSet)
    {
       ScrAddrObj newScrAddrObj(bdvPtr_->getDB(),
                                &bdvPtr_->blockchain(),
@@ -838,12 +766,12 @@ void BtcWallet::merge()
 
       while (currentMergeData.get() != nullptr)
       {
-         mergeLock.unlock();
+         //mergeLock.unlock();
 
          auto& scrAddrMapToMerge = currentMergeData->scrAddrMapToMerge_;
          auto& mergeTopScannedBlkHash = currentMergeData->mergeTopScannedBlkHash_;
 
-         if (mergeData_->mergeAction_ == MergeAction::Rescan && scrAddrMapToMerge.size() > 0)
+         /*if (mergeData_->mergeAction_ == MergeAction::Rescan && scrAddrMapToMerge.size() > 0)
          {
             //compare last scanned blk hash to current main chain
             Blockchain& bc = bdvPtr_->blockchain();
@@ -879,7 +807,7 @@ void BtcWallet::merge()
             uint32_t topBlock = bdvPtr_->blockchain().top().getBlockHeight();
             if (bottomBlock < topBlock)
                bdvPtr_->scanScrAddrVector(scrAddrMapToMerge, bottomBlock, topBlock);
-         }
+         }*/
 
          //merge scrAddrMap
          if (mergeData_->mergeAction_ != MergeAction::DeleteAddresses)
@@ -895,7 +823,7 @@ void BtcWallet::merge()
                scrAddrMap_.erase(scrAddrPair);
          }
 
-         mergeLock.lock();
+         //mergeLock.lock();
          currentMergeData = currentMergeData->nextMergeData_;
       }
 

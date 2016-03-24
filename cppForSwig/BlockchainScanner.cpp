@@ -884,7 +884,7 @@ void BlockchainScanner::updateSSH()
    db_->beginDBTransaction(&putsshtx, SSH, LMDB::ReadWrite);
 
    auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
-   for (auto& scrAddr : scrAddrMap)
+   for (auto& scrAddr : *scrAddrMap)
    {
       auto& ssh = sshMap_[scrAddr.first];
 
@@ -1118,7 +1118,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
       //go thourgh all ssh in scrAddrFilter
       auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
-      for (auto& scrAddr : scrAddrMap)
+      for (auto& scrAddr : *scrAddrMap)
       {
          auto& ssh = sshMap[scrAddr.first];
          

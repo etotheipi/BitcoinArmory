@@ -18,6 +18,7 @@
 #include <atomic>
 #include <functional>
 
+#include "ThreadSafeClasses.h"
 #include "BinaryData.h"
 #include "ScrAddrObj.h"
 #include "BtcWallet.h"
@@ -83,6 +84,11 @@ public:
       function<void(void)> callback_;
       set<BinaryData> scrAddrSet_;
       string ID_;
+
+      bool operator<(const ScrAddrFilter::WalletInfo& rhs) const
+      {
+         return ID_ < rhs.ID_;
+      }
    };
 
    struct ScrAddrSideScanData
@@ -112,6 +118,10 @@ public:
       }
    };
 
+public:
+   mutex mergeLock_;
+   BinaryData lastScannedHash_;
+
 private:
    //map of scrAddr and their respective last scanned block
    //this is used only for the inital load currently
@@ -122,16 +132,15 @@ private:
    LMDBBlockDatabase *const       lmdb_;
 
    //
-   shared_ptr<ScrAddrFilter>      child_;
-   ScrAddrFilter*                 root_;
+   ScrAddrFilter*                 parent_;
    ScrAddrSideScanData            scrAddrDataForSideScan_;
-   mutex                          mergeLock_;
-   bool                           mergeFlag_=false;
    
    //false: dont scan
    //true: wipe existing ssh then scan
    bool                           doScan_ = true; 
    bool                           isScanning_ = false;
+
+   AtomicPile<ScrAddrSideScanData> scanDataPile_;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
@@ -151,6 +160,7 @@ public:
    ScrAddrFilter(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
       : lmdb_(lmdb), armoryDbType_(armoryDbType)
    {
+      scrAddrMap_ = make_shared<map<BinaryData, uint32_t>>();
       scanThreadProgressCallback_ = 
          [](const vector<string>&, double, unsigned)->void {};
    }
@@ -170,8 +180,8 @@ public:
    { return scrAddrMap_->size(); }
 
    uint32_t scanFrom(void) const;
-   bool registerAddresses(const vector<BinaryData>&, shared_ptr<BtcWallet>,
-      bool areNew);
+   bool registerAddresses(const set<BinaryData>&, string, bool,
+      function<void(void)>);
    bool registerAddressBatch(vector<WalletInfo>&& wltInfoVec, bool areNew);
 
    void clear(void);
@@ -190,32 +200,26 @@ public:
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
    { (*scrAddrMap_)[scrAddr] = scanFrom; }
 
-   void scanScrAddrMapInNewThread(void);
+   static void scanFilterInNewThread(shared_ptr<ScrAddrFilter> sca);
 
    //pointer to the SCA object held by the bdm
-   void setRoot(ScrAddrFilter* sca) { root_ = sca; }
+   void setParent(ScrAddrFilter* sca) { parent_ = sca; }
 
    //shared_ptr to the next object in line waiting to get scanned. Only one
    //scan takes place at a time, so if several wallets are imported before
    //the first one is done scanning, a SCA will be built and referenced to as
    //the child to previous side thread scan SCA, which will initiate the next 
    //scan before it cleans itself up
-   void setChild(const shared_ptr<ScrAddrFilter>& sca) { child_  = sca; }
 
-   void merge(const BinaryData& lastScannedBlkHash);
-   void checkForMerge(void);
-
-   bool startSideScan(
-      function<void(const vector<string>&, double prog, unsigned time)> progress);
-
-   const vector<string> getNextWalletIDToScan(void);
+   void addToMergePile(const BinaryData& lastScannedBlkHash);
+   void mergeSideScanPile(void);
 
    void getAllScrAddrInDB(void);
    BinaryData getAddressMapMerkle(void) const;
    bool hasNewAddresses(void) const;
 
 public:
-   virtual ScrAddrFilter* copy()=0;
+   virtual shared_ptr<ScrAddrFilter> copy()=0;
 
 protected:
    virtual bool bdmIsRunning() const=0;
@@ -223,7 +227,6 @@ protected:
       uint32_t startBlock, uint32_t endBlock, const vector<string>& wltIDs
    )=0;
    virtual uint32_t currentTopBlockHeight() const=0;
-   virtual void flagForScanThread(void) = 0;
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec) = 0;
    virtual Blockchain& blockchain(void) = 0;
    virtual BlockDataManagerConfig config(void) = 0;
@@ -231,7 +234,7 @@ protected:
 private:
    void scanScrAddrThread(void);
    void buildSideScanData(
-      const vector<WalletInfo>& wltInfoVec);
+      const vector<WalletInfo>& wltInfoSet);
 };
 
 class ZeroConfContainer

@@ -796,9 +796,10 @@ public:
    
    }
 
-   virtual BDM_ScrAddrFilter* copy()
+   virtual shared_ptr<ScrAddrFilter> copy()
    {
-      return new BDM_ScrAddrFilter(bdm_);
+      shared_ptr<ScrAddrFilter> sca = make_shared<BDM_ScrAddrFilter>(bdm_);
+      return sca;
    }
 
 protected:
@@ -1149,9 +1150,7 @@ void BlockDataManager::loadDiskState(
 uint32_t BlockDataManager::readBlkFileUpdate(
    const BlockDataManager::BlkFileUpdateCallbacks& callbacks
 )
-{
-   scrAddrData_->checkForMerge();
-   
+{ 
    return dbBuilder_->update();
 }
 
@@ -1179,21 +1178,6 @@ StoredHeader BlockDataManager::getMainBlockFromDB(uint32_t hgt) const
 shared_ptr<ScrAddrFilter> BlockDataManager::getScrAddrFilter(void) const
 {
    return scrAddrData_;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager::startSideScan(
-   const function<void(const vector<string>&, double prog,unsigned time)> &cb
-)
-{
-   return scrAddrData_->startSideScan(cb);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<string> BlockDataManager::getNextWalletIDToScan(void)
-{
-   return scrAddrData_->getNextWalletIDToScan();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

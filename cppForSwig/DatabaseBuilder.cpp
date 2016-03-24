@@ -27,7 +27,8 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()
 {
-   //TODO: lower thread count for unit test builds
+   unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
+
    TIMER_START("initdb");
 
    //list all files in block data folder
@@ -51,7 +52,7 @@ void DatabaseBuilder::init()
    scrAddrFilter_->getAllScrAddrInDB();
 
    //don't scan without any registered addresses
-   if (scrAddrFilter_->getScrAddrMap().size() == 0)
+   if (scrAddrFilter_->getScrAddrMap()->size() == 0)
       return;
 
    bool reset = false;
@@ -430,12 +431,15 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
    bcs.scan(startHeight);
    bcs.updateSSH();
 
+   scrAddrFilter_->lastScannedHash_ = bcs.getTopScannedBlockHash();
    return bcs.getTopScannedBlockHash();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t DatabaseBuilder::update(void)
 {
+   unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
+
    //list all files in block data folder
    blockFiles_.detectAllBlockFiles();
 

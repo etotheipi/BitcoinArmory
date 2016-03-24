@@ -239,21 +239,6 @@ try
    
    while(pimpl->run)
    {
-      bdm->getScrAddrFilter()->checkForMerge();
-
-      if (bdm->sideScanFlag_ == true)
-      {
-         bdm->sideScanFlag_ = false;
-
-         bool doScan = bdm->startSideScan(rescanProgress);
-         
-         vector<string> wltIDs = bdm->getNextWalletIDToScan();
-         if (wltIDs.size() && doScan)
-         {
-            //callback->run(BDMAction_StartedWalletScan, &wltIDs);
-         }
-      }
-
       if (bdm->criticalError_.size())
       {
          throw runtime_error(bdm->criticalError_.c_str());

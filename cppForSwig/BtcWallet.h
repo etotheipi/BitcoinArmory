@@ -97,13 +97,15 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // addScrAddr when blockchain rescan req'd, addNewScrAddr for just-created
-   void addNewScrAddress(BinaryData addr);
+   void addScrAddress(const BinaryData& addr);
    void addScrAddress(ScrAddrObj const & newAddr);
-   void addScrAddress(BinaryData    addr, 
-                   uint32_t      firstTimestamp = 0,
-                   uint32_t      firstBlockNum  = 0,
-                   uint32_t      lastTimestamp  = 0,
-                   uint32_t      lastBlockNum   = 0);
+   void BtcWallet::addScrAddress(
+      const BinaryData&    scrAddr,
+      uint32_t      firstTimestamp,
+      uint32_t      firstBlockNum,
+      uint32_t      lastTimestamp,
+      uint32_t      lastBlockNum);
+
    shared_ptr<MergeBatch> addAddressBulk(
       vector<BinaryData> const & scrAddrBulk, bool areNew);
    void removeAddressBulk(vector<BinaryData> const & scrAddrBulk);
@@ -113,26 +115,6 @@ public:
    // Here I just create some extra functions that sidestep all the problems
    // but it would be nice to figure out "typemap typecheck" in SWIG...
    void addScrAddress_ScrAddrObj_(ScrAddrObj const & newAddr);
-
-   // Adds a new address that is assumed to be imported, and thus will
-   // require a blockchain scan
-   void addScrAddress_1_(BinaryData addr);
-
-   // Adds a new address that we claim has never been seen until thos moment,
-   // and thus there's no point in doing a blockchain rescan.
-   void addNewScrAddress_1_(BinaryData addr) {addNewScrAddress(addr);}
-
-   // Blockchain rescan will depend on the firstBlockNum input
-   void addScrAddress_3_(BinaryData    addr, 
-                      uint32_t      firstTimestamp,
-                      uint32_t      firstBlockNum);
-
-   // Blockchain rescan will depend on the firstBlockNum input
-   void addScrAddress_5_(BinaryData    addr, 
-                      uint32_t      firstTimestamp,
-                      uint32_t      firstBlockNum,
-                      uint32_t      lastTimestamp,
-                      uint32_t      lastBlockNum);
 
    bool hasScrAddress(BinaryData const & scrAddr) const;
 
@@ -194,7 +176,7 @@ public:
    ScrAddrObj& getScrAddrObjRef(const BinaryData& key);
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
-   void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 
+   void prepareScrAddrForMerge(const set<BinaryData>& scrAddr, 
                                bool isNew,
                                BinaryData topScannedBlockHash);
    void markAddressListForDeletion(const vector<BinaryData>& scrAddrVecToDel);
