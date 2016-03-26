@@ -1,0 +1,20 @@
+v0.94.0, released March 27th 2016:
+
+- Added features:
+   - New database format: DB shrinked from 60GB to sub 200MB, >10x initial setup and startup speed.
+   - New DB corruption detection and auto repair code. Bad block issues should be mostly gone.
+   - Detection and GUI flagging of RBF enabled zero confirmation transactions. 
+   - Fixed ZC chain handling and replacement. All ZC spending ZC outputs are now flagged as replaceable, 
+     regardless of TxIn sequence or parent Tx state.
+   - After the change in lead, all new code is now developed under the MIT license (was AGPL3).
+
+- Removed features:
+   - No more phone home code. There are no plans to reintroduce any code of that nature.
+   - As a result, the announce tab code is gone.
+   - No more torrent code. Seedboxes were hosted by ATI and are now down. Also, IBD improvements in 
+     Core 0.10-12 make this code obsolete.
+   - As a result of the new light weight DB, the TxHint set has been shrinked to the bare minimum. This means
+     Armory cannot resolve arbitrary TxHash to data in block anymore. The main symptom is the inability to 
+     resolve TxIn data in the "Transcation Details" dialog. This feature will be reintroduced as part of an
+     intermediarry DB format inbetween fullnode and supernode.
+   - No more supernode. Will be reintroduced in a later version.
