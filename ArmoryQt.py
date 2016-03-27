@@ -164,6 +164,10 @@ class ArmoryMainWindow(QMainWindow):
       self.lockboxIDMap = {}
       self.cppLockboxWltMap = {}
 
+      # Error and exit on both regtest and testnet
+      if USE_TESTNET and USE_REGTEST:
+         DlgRegAndTest(self, self).exec_()
+
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
       self.lastAnnounceUpdate = {}

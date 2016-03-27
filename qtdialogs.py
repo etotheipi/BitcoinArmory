@@ -15132,6 +15132,30 @@ class ArmorySplashScreen(QSplashScreen):
                        
    def updateProgress(self, val):
       self.progressBar.setValue(val)
+
+#############################################################################
+class DlgRegAndTest(ArmoryDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgRegAndTest, self).__init__(parent, main)
+
+      self.btcClose = QPushButton("Close")
+      self.connect(self.btcClose, SIGNAL(CLICKED), self.close)
+      btnBox = makeHorizFrame([STRETCH, self.btcClose])
+
+      lblError = QRichLabel(tr('Error: You cannot run the Regression Test network and Bitcoin Test Network at the same time.'))
+
+      dlgLayout = QVBoxLayout()
+      frmBtn = makeHorizFrame([STRETCH, self.btcClose])
+      frmAll = makeVertFrame([lblError, frmBtn])
+
+      dlgLayout.addWidget(frmAll)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Error')
+
+   def close(self):
+      self.main.abortLoad = True
+      LOGERROR('User attempted to run regtest and testnet simultaneously')
+      super(DlgRegAndTest, self).reject()
       
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\

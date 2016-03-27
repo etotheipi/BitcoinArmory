@@ -278,9 +278,6 @@ USE_TESTNET = CLI_OPTIONS.testnet
 # Use CLI args to determine regtest or not
 USE_REGTEST = CLI_OPTIONS.regtest
 
-if USE_REGTEST and USE_TESTNET:
-   os._exit(-1)
-
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
    CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0) + (1 if USE_REGTEST else 0)
