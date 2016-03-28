@@ -74,25 +74,18 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    if (endBlock == UINT32_MAX)
       endBlock = getTopBlockHeight() + 1;
    
-   for (auto& group : groups_)
-      group.merge();
-
    vector<uint32_t> startBlocks;
    for (auto& group : groups_)
       startBlocks.push_back(startBlock);
 
-
    auto sbIter = startBlocks.begin();
-   if (!initialized_)
+   for (auto& group : groups_)
    {
-      //out of date history, page all wallets' history
-      for (auto& group : groups_)
+      if (group.pageHistory(forceRefresh, false))
       {
-         *sbIter = group.pageHistory();
+         *sbIter = group.hist_.getPageBottom(0);
          sbIter++;
       }
-
-      initialized_ = true;
    }
 
    if (startBlock != endBlock)
@@ -178,7 +171,7 @@ set<BinaryData> BlockDataViewer::parseNewZeroConfTx()
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
-   BinaryData walletID, bool areNew)
+   const string& walletID, bool areNew)
 {
    if (saVec.empty())
       return false;
@@ -358,7 +351,6 @@ void BlockDataViewer::reset()
    zeroConfCont_.clear();
 
    lastScanned_ = 0;
-   initialized_ = false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -563,9 +555,7 @@ WalletGroup BlockDataViewer::getStandAloneWalletGroup(
       auto wltIter = wallets.find(wltid);
       if (wltIter != wallets.end())
       {
-         shared_ptr<BtcWallet> wltCopy(
-            new BtcWallet(*(wltIter->second.get())));
-         wg.wallets_[wltid] = wltCopy;
+         wg.wallets_[wltid] = wltIter->second;
       }
 
       else
@@ -573,14 +563,12 @@ WalletGroup BlockDataViewer::getStandAloneWalletGroup(
          auto lbIter = lockboxes.find(wltid);
          if (lbIter != lockboxes.end())
          {
-            shared_ptr<BtcWallet> lbCopy(
-               new BtcWallet(*(lbIter->second.get())));
-            wg.wallets_[wltid] = lbCopy;
+            wg.wallets_[wltid] = lbIter->second;
          }
       }
    }
 
-   wg.pageHistory(true);
+   wg.pageHistory(true, false);
 
    return wg;
 }
@@ -756,45 +744,29 @@ shared_ptr<BtcWallet> WalletGroup::registerWallet(
    {
       return nullptr;
    }
-
-   // Check if the wallet is already registered
-   ReadWriteLock::WriteLock wl(lock_);
-   BinaryData id(IDstr);
-
+   
    shared_ptr<BtcWallet> theWallet;
 
-   auto wltIter = wallets_.find(id);
-   if (wltIter != wallets_.end())
    {
+      ReadWriteLock::WriteLock wl(lock_);
+      BinaryData id(IDstr);
+
+
+      auto wltIter = wallets_.find(id);
+      if (wltIter != wallets_.end())
+      {
          theWallet = wltIter->second;
+      }
+      else
+      {
+         auto insertResult = wallets_.insert(make_pair(
+            id, shared_ptr<BtcWallet>(new BtcWallet(bdvPtr_, id))
+            ));
+         theWallet = insertResult.first->second;
+      }
    }
-   else
-   {
-      auto insertResult = wallets_.insert(make_pair(
-         id, shared_ptr<BtcWallet>(new BtcWallet(bdvPtr_, id))
-         ));
-      theWallet = insertResult.first->second;
-   }
 
-   auto mergebatch = theWallet->addAddressBulk(scrAddrVec, wltIsNew);
-
-   //register all scrAddr in the wallet with the BDM. It doesn't matter if
-   //the data is overwritten
-   set<BinaryData> saSet;
-   for (const auto& scrAddrPair : mergebatch->addrMap_)
-      saSet.insert(scrAddrPair.first);
-
-   auto callback = [&](void)->void
-   {
-      theWallet->prepareScrAddrForMerge(saSet, wltIsNew, BinaryData());
-      theWallet->merge();
-      theWallet->needsRefresh();
-      theWallet->setRegistered();
-   };
-
-   saf_->registerAddresses(saSet, IDstr, wltIsNew, callback);
-
-   //tell the wallet it is registered
+   registerAddresses(scrAddrVec, IDstr, wltIsNew);
 
    return theWallet;
 }
@@ -819,35 +791,49 @@ void WalletGroup::unregisterWallet(const string& IDstr)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
-   BinaryData walletID, bool areNew)
+   const string& IDstr, bool areNew)
 {
    if (saVec.empty())
       return false;
 
-   ReadWriteLock::ReadLock rl(lock_);
+   shared_ptr<BtcWallet> theWallet;
 
-   auto wltIter = wallets_.find(walletID);
-   if (wltIter == wallets_.end())
-      return false;
-
-   shared_ptr<set<BinaryData>> saSet = make_shared<set<BinaryData>>();
-   saSet->insert(saVec.begin(), saVec.end());
-   string IDstr = string(walletID.getCharPtr(), walletID.getSize());
-
-   auto& wlt = wltIter->second;
-   auto&& topHash = bdvPtr_->blockchain().top().getThisHash();
-
-   //Capture by copy (instead of reference). These are local variables and
-   //the lamba may be called back by another thread, after this scope has
-   //exited. wlt lifetime doesn't depend on this scope, reference is fine there
-   auto callback = [saSet, areNew, topHash, &wlt](void)->void
    {
-      wlt->prepareScrAddrForMerge(*saSet, areNew, topHash);
-      wlt->needsRefresh();
+      ReadWriteLock::ReadLock rl(lock_);
+
+      BinaryData walletID(IDstr);
+
+      auto wltIter = wallets_.find(walletID);
+      if (wltIter == wallets_.end())
+         return false;
+
+      theWallet = wltIter->second;
+   }
+
+   auto addrMap = theWallet->scrAddrMap_.getAddrMap();
+
+   set<BinaryData> saSet;
+   map<BinaryData, shared_ptr<ScrAddrObj>> saMap;
+   for (auto& sa : saVec)
+   {
+      if (addrMap->find(sa) != addrMap->end())
+         continue;
+
+      saSet.insert(sa);
+      
+      auto saObj = make_shared<ScrAddrObj>(
+         bdvPtr_->getDB(), &bdvPtr_->blockchain(), sa);
+      saMap.insert(make_pair(sa, saObj));
+   }
+
+   auto callback = [&, saMap, theWallet](void)->void
+   {
+      theWallet->scrAddrMap_.mergeScrAddrMap(saMap);
+      theWallet->needsRefresh();
+      theWallet->setRegistered();
    };
 
-   return saf_->registerAddresses(*saSet, IDstr, areNew,
-      callback);
+   return saf_->registerAddresses(saSet, IDstr, areNew, callback);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -893,17 +879,32 @@ void WalletGroup::reset()
 
 ////////////////////////////////////////////////////////////////////////////////
 map<uint32_t, uint32_t> WalletGroup::computeWalletsSSHSummary(
-   bool forcePaging)
+   bool forcePaging, bool pageAnyway)
 {
    map<uint32_t, uint32_t> fullSummary;
 
    ReadWriteLock::ReadLock rl(lock_);
 
+   bool isAlreadyPaged = true;
    for (auto& wlt : values(wallets_))
    {
-      if (forcePaging)
+      if(forcePaging)
          wlt->mapPages();
 
+      if (wlt->isPaged())
+         isAlreadyPaged = false;
+      else
+         wlt->mapPages();
+   }
+
+   if (isAlreadyPaged)
+   {
+      if (!forcePaging && !pageAnyway)
+         throw AlreadyPagedException();
+   }
+
+   for (auto& wlt : values(wallets_))
+   {
       if (wlt->uiFilter_ == false)
          continue;
 
@@ -917,14 +918,12 @@ map<uint32_t, uint32_t> WalletGroup::computeWalletsSSHSummary(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t WalletGroup::pageHistory(bool forcePaging)
+bool WalletGroup::pageHistory(bool forcePaging, bool pageAnyway)
 {
-   auto computeSummary = [this](bool force)->map<uint32_t, uint32_t>
-   { return this->computeWalletsSSHSummary(force); };
+   auto computeSummary = [&](void)->map<uint32_t, uint32_t>
+   { return this->computeWalletsSSHSummary(forcePaging, pageAnyway); };
 
-   hist_.mapHistory(computeSummary, forcePaging);
-
-   return hist_.getPageBottom(0);
+   return hist_.mapHistory(computeSummary);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -943,7 +942,7 @@ vector<LedgerEntry> WalletGroup::getHistoryPage(uint32_t pageId,
       //return globalLedger_;
 
    if (rebuildLedger || remapWallets)
-      pageHistory(remapWallets);
+      pageHistory(remapWallets, false);
 
    hist_.setCurrentPage(pageId);
 
@@ -996,14 +995,6 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
       wallets_[walletID]->uiFilter_ = true;
 
    bdvPtr_->flagRefresh(BDV_filterChanged, BinaryData());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void WalletGroup::merge()
-{
-   ReadWriteLock::ReadLock rl(lock_);
-   for (auto& wlt : values(wallets_))
-      wlt->merge();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

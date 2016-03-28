@@ -834,7 +834,7 @@ protected:
    
       WalletIdProgressReporter progress(wltIDs, scanThreadProgressCallback_);
       
-      //pass to false to skip SDBI top block updates
+      //pass false to skip SDBI top block updates
       return bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this, false);
    }
    
@@ -975,6 +975,7 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
    BlockchainScanner bcs(&blockchain_, iface_, &scrAddrData, 
       *blockFiles_.get(), threadcount, prg, false);
    bcs.scan(blk0);
+   bcs.updateSSH(true);
 
    return bcs.getTopScannedBlockHash();
 }

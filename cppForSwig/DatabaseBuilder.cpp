@@ -429,7 +429,7 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
       blockFiles_, threadCount_, progress_, reportprogress);
    
    bcs.scan(startHeight);
-   bcs.updateSSH();
+   bcs.updateSSH(false);
 
    scrAddrFilter_->lastScannedHash_ = bcs.getTopScannedBlockHash();
    return bcs.getTopScannedBlockHash();

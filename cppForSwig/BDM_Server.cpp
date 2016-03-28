@@ -516,14 +516,9 @@ void BDV_Server_Object::maintenanceThread(void)
    {
       //poll BDM state while it's still initializing
       usleep(1000);
+
+      //TODO: implement BDM ready check through promise
    }
-
-   /***Wait on wallet side scans if any. Usual registration process is:
-   1) register wallets
-   2) start BDV thread
-
-   Wallets may still be in the side scan process when we get this far
-   ***/
 
    while (1)
    {

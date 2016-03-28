@@ -119,7 +119,7 @@ public:
    bool hasWallet(const BinaryData& ID) const;
 
    bool registerAddresses(const vector<BinaryData>& saVec, 
-                           BinaryData walletID, bool areNew);
+                           const string& walletID, bool areNew);
 
    void registerAddressBatch(
       const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
@@ -278,7 +278,6 @@ private:
    bool     zcLiteMode_;
 
    uint32_t lastScanned_ = 0;
-   bool initialized_ = false;
 };
 
 
@@ -311,7 +310,7 @@ public:
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    void unregisterWallet(const string& IDstr);
    bool registerAddresses(const vector<BinaryData>& saVec,
-      BinaryData walletID, bool areNew);
+      const string& walletID, bool areNew);
 
    bool hasID(const BinaryData& ID) const;
    void pprintRegisteredWallets(void) const;
@@ -326,11 +325,10 @@ public:
 
 private:   
    map<uint32_t, uint32_t> computeWalletsSSHSummary(
-      bool forcePaging);
-   uint32_t pageHistory(bool forcePaging = true);
+      bool forcePaging, bool pageAnyway);
+   bool pageHistory(bool forcePaging, bool pageAnyway);
    void updateLedgerFilter(const vector<BinaryData>& walletsVec);
 
-   void merge();
    void scanWallets(uint32_t, uint32_t, bool);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);

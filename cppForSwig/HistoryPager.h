@@ -15,6 +15,9 @@
 #include "LedgerEntry.h"
 #include "BlockObj.h"
 
+class AlreadyPagedException
+{};
+
 class HistoryPager
 {
 private:
@@ -77,9 +80,8 @@ public:
    void addPage(uint32_t count, uint32_t bottom, uint32_t top);
    void sortPages(void) { std::sort(pages_.begin(), pages_.end()); }
    
-   void mapHistory(
-      function< map<uint32_t, uint32_t>(bool) > getSSHsummary,
-      bool forcePaging = true);
+   bool mapHistory(
+      function< map<uint32_t, uint32_t>(void) > getSSHsummary);
    
    const map<uint32_t, uint32_t>& getSSHsummary(void) const
    { return SSHsummary_; }
@@ -92,6 +94,11 @@ public:
    uint32_t getRangeForHeightAndCount(uint32_t height, uint32_t count) const;
    uint32_t getBlockInVicinity(uint32_t blk) const;
    uint32_t getPageIdForBlockHeight(uint32_t) const;
+
+   bool isInitiliazed(void) const
+   {
+      return isInitialized_;
+   }
 };
 
 #endif

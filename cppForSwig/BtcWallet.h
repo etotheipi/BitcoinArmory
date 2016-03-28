@@ -62,59 +62,70 @@ class BtcWallet
 
 private:
 
-   struct MergeBatch
+   class AddressMap
    {
-      map<BinaryData, ScrAddrObj> addrMap_;
+      shared_ptr<map<BinaryData, shared_ptr<ScrAddrObj>>> addrMap_;
+      mutex mergeLock_;
+
+      AddressMap& operator=(const AddressMap&) = delete;
+
+   public:
+
+      AddressMap()
+      {
+         addrMap_ = make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
+      }
+
+      const shared_ptr<map<BinaryData, shared_ptr<ScrAddrObj>>>
+         getAddrMap(void) const
+      {
+         return addrMap_;
+      }
+
+      void mergeScrAddrMap(
+         const map<BinaryData, shared_ptr<ScrAddrObj>>& scrAddrMap)
+      {
+         auto newAddrMap =
+            make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
+
+         unique_lock<mutex> lock(mergeLock_);
+         
+         *newAddrMap = *addrMap_;
+         newAddrMap->insert(scrAddrMap.begin(), scrAddrMap.end());
+
+         addrMap_ = newAddrMap;
+      }
+
+      void deleteScrAddrVector(const vector<BinaryData>& saVec)
+      {
+         auto newAddrMap =
+            make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
+
+         unique_lock<mutex> lock(mergeLock_);
+
+         *newAddrMap = *addrMap_;
+         for (auto& sa : saVec)
+            newAddrMap->erase(sa);
+
+         addrMap_ = newAddrMap;
+      }
    };
 
 public:
-
-   enum MergeWallet
-   {
-      NoMerge,
-      NeedsMerging
-   };
-
-   enum MergeAction
-   {
-      NoRescan,
-      Rescan,
-      DeleteAddresses
-   };
 
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
       : bdvPtr_(bdv), walletID_(ID)
    {}
 
-   BtcWallet(const BtcWallet& wlt) :
-      bdvPtr_(wlt.bdvPtr_), walletID_(wlt.walletID_)
-   {
-      scrAddrMap_ = wlt.scrAddrMap_;
-      balance_ = wlt.balance_;
-   }
-   
-   ~BtcWallet(void);
+   BtcWallet::~BtcWallet(void)
+   {}
+
+   BtcWallet(const BtcWallet& wlt) = delete;
 
    /////////////////////////////////////////////////////////////////////////////
    // addScrAddr when blockchain rescan req'd, addNewScrAddr for just-created
    void addScrAddress(const BinaryData& addr);
-   void addScrAddress(ScrAddrObj const & newAddr);
-   void BtcWallet::addScrAddress(
-      const BinaryData&    scrAddr,
-      uint32_t      firstTimestamp,
-      uint32_t      firstBlockNum,
-      uint32_t      lastTimestamp,
-      uint32_t      lastBlockNum);
-
-   shared_ptr<MergeBatch> addAddressBulk(
-      vector<BinaryData> const & scrAddrBulk, bool areNew);
    void removeAddressBulk(vector<BinaryData> const & scrAddrBulk);
-
-
-   // SWIG has some serious problems with typemaps and variable arg lists
-   // Here I just create some extra functions that sidestep all the problems
-   // but it would be nice to figure out "typemap typecheck" in SWIG...
-   void addScrAddress_ScrAddrObj_(ScrAddrObj const & newAddr);
 
    bool hasScrAddress(BinaryData const & scrAddr) const;
 
@@ -164,35 +175,19 @@ public:
 
    void reset(void);
    
-   const map<BinaryData, ScrAddrObj>& getScrAddrMap(void) const
-   { return scrAddrMap_; }
-
-   map<BinaryData, ScrAddrObj>& getScrAddrMap(void)
-   { return scrAddrMap_; }
-
-   size_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
-
    const ScrAddrObj* getScrAddrObjByKey(const BinaryData& key) const;
    ScrAddrObj& getScrAddrObjRef(const BinaryData& key);
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
-   void prepareScrAddrForMerge(const set<BinaryData>& scrAddr, 
-                               bool isNew,
-                               BinaryData topScannedBlockHash);
-   void markAddressListForDeletion(const vector<BinaryData>& scrAddrVecToDel);
-
 
    void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
    const BinaryData& walletID() const { return walletID_; }
-
-   uint8_t getMergeFlag(void) { return mergeFlag_; }
 
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
    vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
    size_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
    void needsRefresh(void);
-   void forceScan(void);
    bool hasBdvPtr(void) const { return bdvPtr_ != nullptr; }
 
    void setRegistrationCallback(function<void(void)> lbd)
@@ -202,15 +197,12 @@ public:
 
 private:   
    
-   //new all purpose wallet scanning call, returns true on bootstrap and new block,
-   //false on ZC
+   //returns true on bootstrap and new block, false on ZC
    bool scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
    void scanWalletZeroConf(bool purge = false);
-
-   void fetchDBScrAddrData(uint32_t startBlock, uint32_t endBlock);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
 
@@ -219,9 +211,8 @@ private:
       uint32_t startBlock, uint32_t endBlock,
       bool purge = false) const;
 
-   void merge(void);
-
    void mapPages(void);
+   bool isPaged(void) const;
 
    BlockDataViewer* getBdvPtr(void) const
    { return bdvPtr_; }
@@ -232,37 +223,18 @@ private:
 
    void getTxioForRange(uint32_t, uint32_t, 
       map<BinaryData, TxIOPair>&) const;
-
    void unregister(void) { isRegistered_ = false; }
-
    void resetTxOutHistory(void);
 
 private:
 
-   struct mergeStruct
-   {
-      map<BinaryData, ScrAddrObj> scrAddrMapToMerge_;
-      vector<BinaryData>          scrAddrVecToDelete_;
-      BinaryData                  mergeTopScannedBlkHash_;
-      MergeAction                 mergeAction_;
-
-      shared_ptr<mergeStruct> nextMergeData_;
-   };
-
    BlockDataViewer* const        bdvPtr_;
-   map<BinaryData, ScrAddrObj>   scrAddrMap_;
+   AddressMap                    scrAddrMap_;
    
    bool                          ignoreLastScanned_=true;
    map<BinaryData, LedgerEntry>* ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
                                  
    bool                          isRegistered_=false;
-
-   //BtcWallet(const BtcWallet&); // no copies
-
-   //for post init importing of new addresses
-   mutex                         mergeLock_;
-   shared_ptr<mergeStruct>       mergeData_;
-   MergeWallet                   mergeFlag_ = MergeWallet::NoMerge;
    
    //manages history pages
    HistoryPager                  histPages_;
@@ -277,7 +249,7 @@ private:
 
    //call this lambda once a wallet is done registering and scanning 
    //for the first time
-   function<void(void)> doneRegisteringCallback_ = []{};
+   function<void(void)> doneRegisteringCallback_ = [](void)->void{};
 };
 
 #endif

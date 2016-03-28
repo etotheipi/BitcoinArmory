@@ -95,23 +95,33 @@ map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(uint32_t pageId)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void HistoryPager::mapHistory(
-   function< map<uint32_t, uint32_t>(bool) > getSSHsummary,
-   bool forcePaging)
+bool HistoryPager::mapHistory(
+   function< map<uint32_t, uint32_t>(void)> getSSHsummary)
 {
    //grab the ssh summary for the pager. This is a map, referencing the amount
    //of txio per block for the given address.
    
+   map<uint32_t, uint32_t> newSummary;
+   
+   try
+   {
+      newSummary = move(getSSHsummary());
+   }
+   catch (AlreadyPagedException&)
+   {
+      return false;
+   }
+
    reset();
    SSHsummary_.clear();
    
-   SSHsummary_ = getSSHsummary(forcePaging);
+   SSHsummary_ = move(newSummary);
    
    if (SSHsummary_.size() == 0)
    {
       addPage(0, 0, UINT32_MAX);
       isInitialized_ = true;
-      return;
+      return true;
    }
 
    auto histIter = SSHsummary_.crbegin();
@@ -139,6 +149,7 @@ void HistoryPager::mapHistory(
    sortPages();
 
    isInitialized_ = true;
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

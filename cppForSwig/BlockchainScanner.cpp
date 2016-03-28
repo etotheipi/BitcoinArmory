@@ -739,7 +739,7 @@ void BlockchainScanner::processAndCommitTxHints(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockchainScanner::updateSSH()
+void BlockchainScanner::updateSSH(bool force)
 {
    //loop over all subssh entiers in SUBSSH db, 
    //compile balance, txio count and summary map for each address
@@ -764,8 +764,11 @@ void BlockchainScanner::updateSSH()
          if (sdbi.topBlkHgt_ != 0 && 
              sdbi.topBlkHgt_ >= blockchain_->top().getBlockHeight())
          {
-            LOGINFO << "no SSH to scan";
-            return;
+            if (!force)
+            {
+               LOGINFO << "no SSH to scan";
+               return;
+            }
          }
       }
    }
@@ -797,7 +800,7 @@ void BlockchainScanner::updateSSH()
 
             if (!scrAddrFilter_->hasScrAddress(sshKey))
             {
-               LOGWARN << "invalid scrAddr in SUBSSH db";
+               //LOGWARN << "invalid scrAddr in SUBSSH db";
                continue;
             }
 

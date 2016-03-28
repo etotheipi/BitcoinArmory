@@ -446,7 +446,7 @@ void ScrAddrObj::mapHistory()
    ledger_ = &LedgerEntry::EmptyLedgerMap_;
 
    //create history map
-   auto getSummary = [this](bool)->map<uint32_t, uint32_t>
+   auto getSummary = [this]()->map<uint32_t, uint32_t>
       { return db_->getSSHSummary(this->getScrAddr(), UINT32_MAX); };
 
    hist_.mapHistory(getSummary); 
