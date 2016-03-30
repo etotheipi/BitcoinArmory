@@ -437,7 +437,10 @@ BinaryData ScrAddrFilter::getAddressMapMerkle(void) const
    for (auto& addrPair : scrAddrMap_)
       addrVec.push_back(addrPair.first);
 
-   return BtcUtils::calculateMerkleRoot(addrVec);
+   if (addrVec.size() > 0)
+      return BtcUtils::calculateMerkleRoot(addrVec);
+
+   return BinaryData();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
