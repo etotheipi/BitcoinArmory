@@ -336,6 +336,19 @@ void ScrAddrFilter::checkForMerge()
       scrAddrMap_.insert(sca->scrAddrMap_.begin(), sca->scrAddrMap_.end());
       scrAddrDataForSideScan_.scrAddrsToMerge_.clear();
 
+      //write address merkle in SSH sdbi
+      {
+         auto&& addrMerkle = getAddressMapMerkle();
+
+         StoredDBInfo sshSdbi;
+         LMDBEnv::Transaction historytx;
+         lmdb_->beginDBTransaction(&historytx, SSH, LMDB::ReadWrite);
+
+         lmdb_->getStoredDBInfo(SSH, sshSdbi);
+         sshSdbi.metaHash_ = addrMerkle;
+         lmdb_->putStoredDBInfo(SSH, sshSdbi);
+      }
+
       mergeFlag_ = false;
    }
 }

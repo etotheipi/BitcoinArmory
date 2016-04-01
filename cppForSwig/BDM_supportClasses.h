@@ -113,6 +113,8 @@ public:
          return *((std::size_t*)bd.getPtr());
       }
    };
+   
+   mutex                          mergeLock_;
 
 private:
    //map of scrAddr and their respective last scanned block
@@ -127,7 +129,6 @@ private:
    shared_ptr<ScrAddrFilter>      child_;
    ScrAddrFilter*                 root_;
    ScrAddrSideScanData            scrAddrDataForSideScan_;
-   mutex                          mergeLock_;
    bool                           mergeFlag_=false;
    
    //false: dont scan

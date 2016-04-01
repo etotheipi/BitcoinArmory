@@ -99,7 +99,8 @@ private:
 
    BinaryData topScannedBlockHash_;
 
-   ProgressCallback progress_;
+   ProgressCallback progress_ = 
+      [](BDMPhase, double, unsigned, unsigned)->void{};
    bool reportProgress_ = false;
 
    //only for relevant utxos
@@ -116,6 +117,7 @@ private:
       const vector<shared_ptr<BlockDataBatch>>& batchVec);
    void preloadUtxos(void);
 
+   uint32_t check_merkle(uint32_t startHeight);
 
 public:
    BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,
@@ -131,8 +133,10 @@ public:
    }
 
    void scan(uint32_t startHeight);
+   void scan_nocheck(uint32_t startHeight);
+
    void undo(Blockchain::ReorganizationState& reorgState);
-   void updateSSH();
+   void updateSSH(bool);
    
    const BinaryData& getTopScannedBlockHash(void) const
    {
