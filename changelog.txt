@@ -1,3 +1,14 @@
+v0.94.1, released April 2nd 2016:
+
+== Fixed ==
+   - Fixed parsing new blocks with no wallet loaded
+   - Fixed wallet/address import
+   - Fixed address sweeping
+   - .deb installer: will not register shortcuts if /usr/share/desktop-directories is missing
+
+== Removed ==
+   - Removed Bitcoin P2P alert parsing, as it was removed from Bitcoin Core.
+
 v0.94.0, released March 27th 2016:
 
 == Added ==
