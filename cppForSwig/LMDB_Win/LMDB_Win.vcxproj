@@ -100,7 +100,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../mdb</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
     </ClCompile>

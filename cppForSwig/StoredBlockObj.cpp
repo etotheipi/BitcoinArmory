@@ -67,6 +67,9 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    bw.put_BitPacker(bitpack);
    bw.put_uint32_t(topBlkHgt_); // top blk height
    bw.put_uint32_t(appliedToHgt_); // top blk height
+   
+   if (metaHash_.getSize() == 0)
+      bw.put_BinaryData(BtcUtils::EmptyHash_);
    bw.put_BinaryData(metaHash_);
 
    if (topScannedBlkHash_.getSize())

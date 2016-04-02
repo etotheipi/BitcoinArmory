@@ -118,7 +118,7 @@ public:
          return strVec;
       }
    };
-
+   
 public:
    mutex mergeLock_;
    BinaryData lastScannedHash_;

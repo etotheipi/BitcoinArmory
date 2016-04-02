@@ -12,8 +12,16 @@
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::scan(uint32_t scanFrom)
 {
-   startAt_ = scanFrom;
+   scanFrom = check_merkle(scanFrom);
+   if (scanFrom == UINT32_MAX)
+      return;
 
+   scan_nocheck(scanFrom);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockchainScanner::check_merkle(uint32_t scanFrom)
+{
    auto& topBlock = blockchain_->top();
    StoredDBInfo subsshSdbi;
 
@@ -24,7 +32,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
       StoredDBInfo sshSdbi;
       LMDBEnv::Transaction historytx;
       db_->beginDBTransaction(&historytx, SSH, LMDB::ReadWrite);
-      
+
       db_->getStoredDBInfo(SSH, sshSdbi);
       sshSdbi.metaHash_ = addrMerkle;
       db_->putStoredDBInfo(SSH, sshSdbi);
@@ -36,7 +44,7 @@ void BlockchainScanner::scan(uint32_t scanFrom)
    //check if we need to scan anything
    try
    {
-      sdbiblock = 
+      sdbiblock =
          &blockchain_->getHeaderByHash(subsshSdbi.topScannedBlkHash_);
    }
    catch (...)
@@ -49,14 +57,23 @@ void BlockchainScanner::scan(uint32_t scanFrom)
       if (sdbiblock->getBlockHeight() > scanFrom)
          scanFrom = sdbiblock->getBlockHeight();
 
-      if (scanFrom != 0 && 
-          scanFrom > topBlock.getBlockHeight())
+      if (scanFrom != 0 &&
+         scanFrom > topBlock.getBlockHeight())
       {
          LOGINFO << "no history to scan";
          topScannedBlockHash_ = topBlock.getThisHash();
-         return;
+         return UINT32_MAX;
       }
    }
+
+   return scanFrom;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
+{
+   startAt_ = scanFrom;
+   auto& topBlock = blockchain_->top();
 
    preloadUtxos();
    shared_ptr<BatchLink> batchLinkPtr;
@@ -795,17 +812,26 @@ void BlockchainScanner::updateSSH(bool force)
 
             //new address
             auto&& subsshkey = sshIter.getKey();
+            if (subsshkey.getSize() < 5)
+            { 
+               LOGWARN << "invalid scrAddr in SUBSSH db";
+               sshIter.advanceAndRead();
+               continue;
+            }
+
             auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
-            sshPtr = &sshMap_[sshKey];
 
             if (!scrAddrFilter_->hasScrAddress(sshKey))
             {
-               //LOGWARN << "invalid scrAddr in SUBSSH db";
+               sshPtr = nullptr;
+               sshIter.advanceAndRead();
                continue;
             }
 
             //get what's already in the db
+            sshPtr = &sshMap_[sshKey];
             db_->getStoredScriptHistorySummary(*sshPtr, sshKey);
+
             if (sshPtr->isInitialized())
             {
                //set iterator at unscanned height
@@ -831,7 +857,7 @@ void BlockchainScanner::updateSSH(bool force)
             }
          }
 
-         //sanity check
+         //sanity checks
          if (!sshIter.isValid())
             break;
 

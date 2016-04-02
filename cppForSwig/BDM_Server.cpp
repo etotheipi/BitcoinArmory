@@ -446,21 +446,6 @@ void BDV_Server_Object::startThreads()
 BDV_Action BDV_Server_Object::scan(void)
 {
    bool scanAnyway = false;
-   //check for ZC
-
-   //check for newly registered wallets or addresses
-   for (auto& grp : groups_)
-   {
-      ReadWriteLock::ReadLock rl(grp.lock_);
-      for (auto& wlt : values(grp.wallets_))
-      {
-         if (wlt->getMergeFlag() == BtcWallet::MergeWallet::NeedsMerging)
-         {
-            scanAnyway = true;
-            break;
-         }
-      }
-   }
 
    BDV_refresh refresh = BDV_dontRefresh;
    vector<BinaryData> refreshIDVec;

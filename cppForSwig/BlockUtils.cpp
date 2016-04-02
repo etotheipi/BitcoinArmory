@@ -953,28 +953,22 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
    bool updateSDBI)
 {
    // compute how many bytes of raw blockdata we're going to apply
-   uint64_t startingAt=0, totalBytes=0;
-   for (unsigned i=0; i < blockchain().top().getBlockHeight(); i++)
-   {
-      const BlockHeader &bh = blockchain().getHeaderByHeight(i);
-      if (i < blk0)
-         startingAt += bh.getBlockSize();
-      totalBytes += bh.getBlockSize();
-   }
-   
-   ProgressFilter progress(&prog, startingAt, totalBytes);
-
+   uint64_t startingAt=0, totalBytes=0;   
    unsigned threadcount = thread::hardware_concurrency();
 #ifdef _DEBUG
    threadcount = DEBUG_THREAD_COUNT;
 #endif
 
-   ProgressCallback prg;
+   auto prg = [&](BDMPhase phase, double fracCompleted,
+      unsigned secRemain, unsigned progVal)->void
+   {
+      prog.progress(fracCompleted, secRemain);
+   };
 
    // Start scanning and timer
    BlockchainScanner bcs(&blockchain_, iface_, &scrAddrData, 
-      *blockFiles_.get(), threadcount, prg, false);
-   bcs.scan(blk0);
+      *blockFiles_.get(), threadcount, prg, true);
+   bcs.scan_nocheck(blk0);
    bcs.updateSSH(true);
 
    return bcs.getTopScannedBlockHash();
