@@ -2854,12 +2854,14 @@ def getUnspentTxOutsForAddr160List(addr160List):
             if addr!='ROOT':
                scrAddrList.append(Hash160ToScrAddr(addr))
       
-      try:
-         utxoList = TheBDM.bdv().getUnspentTxoutsForAddr160List(scrAddrList, IGNOREZC)
-      except:
-         raise AddressUnregisteredError
-      
-      return utxoList
+
+      from CoinSelection import PyUnspentTxOut
+      utxoList = TheBDM.bdv().getUnspentTxoutsForAddr160List(scrAddrList, IGNOREZC)
+      pyUtxoList = []
+      for utxo in utxoList:
+         pyUtxoList.append(PyUnspentTxOut().createFromCppUtxo(utxo))
+
+      return pyUtxoList
    
    else:
       return []
