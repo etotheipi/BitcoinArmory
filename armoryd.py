@@ -1942,7 +1942,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
-         utxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
+         cppUtxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
+         utxoList = map(lambda tx: PyUnspentTxOut().createFromCppUtxo(tx), cppUtxoList)
 
       if spendBal < totalSend + fee:
          raise NotEnoughCoinsError, "You have %s satoshis which is not enough to send %s satoshis with a fee of %s." % (spendBal, totalSend, fee)
