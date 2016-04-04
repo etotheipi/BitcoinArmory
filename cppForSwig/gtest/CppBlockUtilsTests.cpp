@@ -8721,7 +8721,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
       
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
-   EXPECT_EQ(scrObj->getFullBalance(), 0);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+   EXPECT_EQ(scrObj->getPageCount(), 0);
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5*COIN);
@@ -8746,6 +8747,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
    EXPECT_EQ(scrObj->getFullBalance(), 65*COIN);
+   EXPECT_EQ(scrObj->getPageCount(), 1);
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5*COIN);
@@ -8770,6 +8772,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(scrObj->getFullBalance(), 20*COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
    EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+   EXPECT_EQ(scrObj->getPageCount(), 1);
+
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5*COIN);
@@ -8824,6 +8828,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_SideScan)
    EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
    EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+   EXPECT_EQ(scrObj->getPageCount(), 1);
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
@@ -8834,7 +8839,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_SideScan)
    scrObj = wltLB2->getScrAddrObjByKey(TestChain::lb2ScrAddrP2SH);
    EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
 
-   EXPECT_EQ(wlt->getFullBalance(), 135 * COIN);
+   EXPECT_EQ(wlt->getFullBalance(), 205 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -8879,14 +8884,10 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrF);
    EXPECT_EQ(scrObj->getFullBalance(),  5*COIN);
 
-   try
-   {
-      scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
-      EXPECT_EQ(scrObj, nullptr);
-   }
-   catch (std::runtime_error &)
-   {
-   }
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 65 * COIN);
+   EXPECT_EQ(scrObj->getPageCount(), 0);
+
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5*COIN);

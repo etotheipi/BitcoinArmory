@@ -296,8 +296,12 @@ void ScrAddrFilter::mergeSideScanPile()
 
    for (auto& scandata : scanDataVec)
    {
-      newScrAddrMap.insert(scandata.scrAddrsToMerge_.begin(),
-         scandata.scrAddrsToMerge_.end());
+      for (auto& wltInfo : scandata.wltInfoVec_)
+      {
+         for (auto& sa : wltInfo.scrAddrSet_)
+            newScrAddrMap.insert(make_pair(
+               sa, lastScannedHeader.getBlockHeight()));
+      }
 
       if (!scandata.doScan_)
          continue;
@@ -330,6 +334,9 @@ void ScrAddrFilter::mergeSideScanPile()
          lastScannedHeader.getBlockHeight(), vector<string>());
    }
 
+   //add addresses to main filter map
+   scrAddrMap_->insert(
+      newScrAddrMap.begin(), newScrAddrMap.end());
 
    //write address merkle in SSH sdbi
    {
@@ -344,9 +351,6 @@ void ScrAddrFilter::mergeSideScanPile()
       lmdb_->putStoredDBInfo(SSH, sshSdbi);
    }
 
-   //add addresses to main filter map
-   scrAddrMap_->insert(
-      newScrAddrMap.begin(), newScrAddrMap.end());
 
    //hit callbacks
    for (auto& scandata : scanDataVec)

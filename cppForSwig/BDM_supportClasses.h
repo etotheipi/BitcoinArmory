@@ -103,8 +103,6 @@ public:
 
       BinaryData lastScannedBlkHash_;
 
-      map<BinaryData, uint32_t> scrAddrsToMerge_;
-
       ScrAddrSideScanData(void) {}
       ScrAddrSideScanData(uint32_t height) :
          startScanFrom_(height) {}
@@ -124,9 +122,6 @@ public:
    BinaryData lastScannedHash_;
 
 private:
-   //map of scrAddr and their respective last scanned block
-   //this is used only for the inital load currently
-
 
    shared_ptr<map<BinaryData, uint32_t>>   scrAddrMap_;
 

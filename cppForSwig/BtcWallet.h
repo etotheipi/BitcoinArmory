@@ -88,9 +88,13 @@ private:
          auto newAddrMap =
             make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
 
-         unique_lock<mutex> lock(mergeLock_);
-         
-         *newAddrMap = *addrMap_;
+
+         {
+            unique_lock<mutex> lock(mergeLock_);
+
+            *newAddrMap = *addrMap_;
+         }
+
          newAddrMap->insert(scrAddrMap.begin(), scrAddrMap.end());
 
          addrMap_ = newAddrMap;
