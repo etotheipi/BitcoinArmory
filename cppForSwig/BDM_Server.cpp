@@ -61,7 +61,7 @@ void BDV_Server_Object::buildMethodMap()
 
       auto& delegateObject = delegateIter->second;
 
-      auto arg0 = args.get<int>();
+      auto arg0 = args.get<unsigned int>();
 
       auto&& retVal = delegateObject.getHistoryPage(arg0);
 
@@ -544,9 +544,11 @@ void BDV_Server_Object::maintenanceThread(void)
    }
 
    top_ = bdmT_->topBH();
-   scanWallets(0, top_->getBlockHeight());
+   scanWallets(0, top_->getBlockHeight(), BDV_refreshSkipRescan);
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
+   unsigned int topblock = blockchain().top().getBlockHeight();
+   args.push_back(topblock);
    cb_.callback(move(args));
 
    mutex mu;

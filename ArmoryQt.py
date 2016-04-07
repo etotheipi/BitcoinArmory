@@ -3234,7 +3234,6 @@ class ArmoryMainWindow(QMainWindow):
       
 
       self.combinedLedger = []
-      #self.combinedLedger.extend(TheBDM.bdv().getWalletsHistoryPage(self.mainLedgerCurrentPage -1))
       totalFunds  = 0
       spendFunds  = 0
       unconfFunds = 0

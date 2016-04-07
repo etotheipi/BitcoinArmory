@@ -78,10 +78,14 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
    for (auto& group : groups_)
       startBlocks.push_back(startBlock);
 
+   bool refresh = false;
+   if (forceRefresh != BDV_dontRefresh)
+      refresh = true;
+
    auto sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
-      if (group.pageHistory(forceRefresh, false))
+      if (group.pageHistory(refresh, false))
       {
          *sbIter = group.hist_.getPageBottom(0);
          sbIter++;

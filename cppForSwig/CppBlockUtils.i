@@ -20,6 +20,7 @@
 #include "EncryptionUtils.h"
 #include "SwigClient.h"
 #include "bdmenums.h"
+
 %}
 
 %include "std_string.i"
@@ -51,7 +52,8 @@ namespace std
    %template(vector_int) std::vector<int>;
    %template(vector_float) std::vector<float>;
    %template(vector_string) std::vector<string>;
-   //%template(vector_LedgerEntry) std::vector<LedgerEntry>;
+   %template(vector_LedgerEntryData) std::vector<LedgerEntryData>;
+   %template(set_BinaryData) std::set<BinaryData>;
 }
 
 %exception
@@ -259,3 +261,4 @@ namespace std
 %include "EncryptionUtils.h"
 %include "SwigClient.h"
 %include "bdmenums.h"
+%include "LedgerEntryData.h"

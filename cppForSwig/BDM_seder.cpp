@@ -60,7 +60,15 @@ istream& operator >> (istream& is, LedgerEntryVector& lev)
       int64_t value;
       uint32_t blockNum;
       objss >> value;
+      char underscore;
+      objss.get(underscore);
+      if (underscore != '_')
+         throw runtime_error("malformed LedgerEntryVector argument");
       objss >> blockNum;
+
+      objss.get(underscore);
+      if (underscore != '_')
+         throw runtime_error("malformed LedgerEntryVector argument");
 
       string data;
       if (!getline(objss, data, '_'))
@@ -70,9 +78,25 @@ istream& operator >> (istream& is, LedgerEntryVector& lev)
       uint32_t index, txTime;
       bool isCoinbase, isSentToSelf, isChangeBack;
       objss >> index;
+      objss.get(underscore);
+      if (underscore != '_')
+         throw runtime_error("malformed LedgerEntryVector argument");
+
       objss >> txTime;
+      objss.get(underscore);
+      if (underscore != '_')
+         throw runtime_error("malformed LedgerEntryVector argument");
+
       objss >> isCoinbase;
+      objss.get(underscore);
+      if (underscore != '_')
+         throw runtime_error("malformed LedgerEntryVector argument");
+
       objss >> isSentToSelf;
+      objss.get(underscore);
+      if (underscore != '_')
+         throw runtime_error("malformed LedgerEntryVector argument");
+
       objss >> isChangeBack;
 
       LedgerEntryData le(ID, value, blockNum, 

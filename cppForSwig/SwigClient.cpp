@@ -34,6 +34,8 @@ void BlockDataViewer::goOnline()
 BlockDataViewer::BlockDataViewer(const shared_ptr<BinarySocket> sock) :
    sock_(sock)
 {
+
+   //TODO: fix this
 #ifdef _WIN33
    WORD wVersionRequested;
    WSADATA wsaData;
@@ -346,7 +348,8 @@ void PythonCallback::remoteLoop(void)
          }
          else if (cb == "BDM_Ready")
          {
-            run(BDMAction::BDMAction_Ready, nullptr, 0);
+            unsigned int topblock = args.get<unsigned int>();
+            run(BDMAction::BDMAction_Ready, nullptr, topblock);
          }
          else if (cb == "BDV_Refresh")
          {
