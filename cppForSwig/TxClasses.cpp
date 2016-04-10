@@ -378,7 +378,6 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
 	if (nBytes > size)
 		throw BlockDeserializingException();
 	dataCopy_.copyFrom(ptr, nBytes);
-	BtcUtils::getHash256(ptr, nBytes, thisHash_);
 	if (8 > size)
 		throw BlockDeserializingException();
 
@@ -391,10 +390,13 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
 	if (READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
 	{
 		usesWitness_ = true;
-		normData_.append(version_);
-		normData_.copyFrom(ptr + 6, offsetWitness_);
-		normData_.append(lockTime_);
+		dataNoWitness_.append(version_);
+		dataNoWitness_.copyFrom(ptr + 6, offsetsWitness_.at(0));
+		dataNoWitness_.append(lockTime_);
+		BtcUtils::getHash256(dataNoWitness_, thisHash_);
 	}
+	else
+		BtcUtils::getHash256(ptr, nBytes, thisHash_);
 
 	isInitialized_ = true;
 }
@@ -424,7 +426,6 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
    if (nBytes > size)
 	   throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, nBytes);
-   BtcUtils::getHash256(ptr, nBytes, thisHash_);
    if (8 > size)
 	   throw BlockDeserializingException();
 
@@ -437,10 +438,13 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
    if (READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
    {
 	   usesWitness_ = true;
-	   normData_.append(version_);
-	   normData_.copyFrom(ptr + 6, offsetWitness_);
-	   normData_.append(lockTime_);
+	   dataNoWitness_.append(version_);
+	   dataNoWitness_.copyFrom(ptr + 6, offsetsWitness_.at(0));
+	   dataNoWitness_.append(lockTime_);
+	   BtcUtils::getHash256(dataNoWitness_, thisHash_);
    }
+   else
+	   BtcUtils::getHash256(ptr, nBytes, thisHash_);
 
    isInitialized_ = true;
    isRBF_ = (bool)rawTx.getPtr();
@@ -453,7 +457,7 @@ BinaryData Tx::getThisHash(void) const
 	if (thisHash_.getSize() == 32)
 		return thisHash_;
 
-	return BtcUtils::getHash256(normData_.getPtr(), normData_.getSize());
+	return BtcUtils::getHash256(dataNoWitness_.getPtr(), dataNoWitness_.getSize());
 }
 
 /////////////////////////////////////////////////////////////////////////////

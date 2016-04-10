@@ -335,10 +335,12 @@ public:
    //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
    bool               isCoinbase(void) const;
+   bool               usesWitness(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    size_t             getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
    size_t             getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
+   size_t             getWitnessOffset(uint32_t i) const { return  offsetsWitness_[i]; }
 
    /////////////////////////////////////////////////////////////////////////////
    static Tx          createFromStr(BinaryData const & bd) { return Tx(bd); }
@@ -351,6 +353,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const    { return dataCopy_; }
    BinaryData         serializeWithRBFFlag(void) const;
+   BinaryData         serializeNoWitness(void) const { return dataNoWitness_; };
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, size_t size);
@@ -411,7 +414,7 @@ private:
    BinaryData    dataCopy_;
    bool          isInitialized_;
    bool          usesWitness_;
-   BinaryData    normData_;
+   BinaryData    dataNoWitness_;
 
    uint32_t      version_;
    uint32_t      lockTime_;

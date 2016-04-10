@@ -1058,7 +1058,10 @@ class PayloadBlock(object):
       bp.put(BINARY_CHUNK, self.header.serialize())
       bp.put(VAR_INT, len(self.txList))
       for tx in self.txList:
-         bp.put(BINARY_CHUNK, tx.serialize())
+         if armoryengine.ArmoryUtils.WITNESS:
+            bp.put(BINARY_CHUNK, tx.serializeWithoutWitness())
+         else:
+            bp.put(BINARY_CHUNK, tx.serialize())
       return bp.getBinaryString()
 
    def pprint(self, nIndent=0):

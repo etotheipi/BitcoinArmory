@@ -93,7 +93,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
       }
 
       if(useWitnesses) {
-         for (int y = 0; y < offsetOuts.size() - 1; y++)
+         for (int y = 0; y < offsetsWitness.size() - 1; y++)
             tx->txwitnesses_.push_back(
                     make_pair(
                             offsetsWitness[y],

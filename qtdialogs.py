@@ -5673,7 +5673,7 @@ class DlgDispTxInfo(ArmoryDialog):
          pytx = ustx.getPyTxSignedIfPossible()
 
 
-      self.pytx = pytx.copy()
+      self.pytx = pytx.copyWithoutWitness()
 
       if self.mode == None:
          self.mode = self.main.usermode
