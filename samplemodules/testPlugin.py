@@ -29,7 +29,7 @@ from qtdefines import makeHorizFrame, makeVertFrame, STYLE_PLAIN, QRichLabel, \
 class PluginObject(object):
 
    tabName = 'Exchange Rates'
-   maxVersion = '0.93.99'
+   maxVersion = '0.94.99'
    
    #############################################################################
    def __init__(self, main):
@@ -67,11 +67,7 @@ class PluginObject(object):
       self.main.connect(self.edtEnterUSD, SIGNAL('textEdited(QString)'), self.updateCalcBTC)
       self.main.connect(self.edtEnterBTC, SIGNAL('textEdited(QString)'), self.updateCalcUSD)
 
-      def clearCalc():
-         self.edtEnterUSD.setText('')
-         self.edtEnterBTC.setText('')
-
-      self.main.connect(btnClear, SIGNAL('clicked()'), clearCalc)
+      self.main.connect(btnClear, SIGNAL('clicked()'), self.clearCalc)
 
       frmCalcMid = makeHorizFrame( [self.lblEnterUSD1,
                                     self.edtEnterUSD,
@@ -137,6 +133,10 @@ class PluginObject(object):
       self.tabToDisplay.setWidgetResizable(True)
       self.tabToDisplay.setWidget(frm)
 
+   #############################################################################
+   def clearCalc(self):
+      self.edtEnterUSD.setText('')
+      self.edtEnterBTC.setText('')
 
    #############################################################################
    def getTabToDisplay(self):
