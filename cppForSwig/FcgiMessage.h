@@ -14,10 +14,7 @@
 
 using namespace std;
 
-#define FCGI_BEGIN_REQUEST 1
-#define FCGI_PARAMS        4
-#define FCGI_STDIN         5
-#define FCGI_RESPONDER     1
+#include "fastcgi.h"
 
 struct FcgiData
 {

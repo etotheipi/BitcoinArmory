@@ -76,34 +76,40 @@ void BinarySocket::write(SOCKET sockfd, const char* data, uint32_t size)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-char* BinarySocket::read(SOCKET sockfd)
+vector<char> BinarySocket::read(SOCKET sockfd)
 {
-   char* retval = new char[maxread_ + 1];
-   memset(retval, 0, maxread_);
-   int readcount = maxread_;
+   size_t increment = 8192;
+   vector<char> sockdata;
+   sockdata.resize(increment);
+   size_t totalread = 0;
+
+   //TODO: break down reads to 8192 byte packets, set max read to 1MB
 
    try
    {
       while (1)
       {
-         auto bytesread = READFROMSOCKET(sockfd, retval, readcount);
+         auto bytesread = READFROMSOCKET(sockfd, &sockdata[totalread], increment);
+         totalread += bytesread;
+
          if (bytesread == 0)
             break;
          if (bytesread < 0)
             throw runtime_error("error while reading socket");
 
-         readcount -= bytesread;
-         if (readcount < 0)
+         if (bytesread == increment)
+            sockdata.resize(totalread);
+
+         if (totalread > maxread_)
             throw runtime_error("too much data to read from socket");
       }
    }
    catch (runtime_error &e)
    {
-      delete[] retval;
       throw e;
    }
 
-   return retval;
+   return sockdata;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,12 +118,15 @@ string BinarySocket::writeAndRead(const string& msg)
    auto sockfd = this->open();
 
    this->write(sockfd, msg.c_str(), msg.size());
-   auto retval = this->read(sockfd);
-   auto&& retmsg = string(retval);
+   auto&& retval = this->read(sockfd);
 
    this->close(sockfd);
-   delete[] retval;
    
+   string retmsg;
+   typedef vector<char>::iterator IterType;
+   retmsg.insert(retmsg.begin(),
+      move_iterator<IterType>(retval.begin()),
+      move_iterator<IterType>(retval.end()));
    return retmsg;
 }
 
@@ -168,14 +177,20 @@ int32_t HttpSocket::makePacket(char** packet, const char* msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string HttpSocket::getMessage(const char* msg)
+string HttpSocket::getMessage(vector<char>& msg)
 {
    /***
    Always expect text data (null terminated)
    ***/
 
    //look for double crlf http header end, return everything after that
-   string htmlstr(msg);
+   typedef vector<char>::iterator vcIter;
+
+   //let's use a move iterator, enough copies already as it is
+   string htmlstr(
+      move_iterator<vcIter>(msg.begin()), 
+      move_iterator<vcIter>(msg.end()));
+
    size_t pos = htmlstr.find("\r\n\r\n");
    if (pos == string::npos)
    {
@@ -200,12 +215,10 @@ string HttpSocket::writeAndRead(const string& msg)
    
    this->write(sockfd, packet, packetSize);
 
-   char* retval = this->read(sockfd);
+   auto&& retval = this->read(sockfd);
    auto&& retmsg = getMessage(retval);
    
    this->close(sockfd);
-   delete[] retval;
-   delete[] packet;
    
    return retmsg;
 }
@@ -252,16 +265,70 @@ FcgiMessage FcgiSocket::makePacket(const char* msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::getMessage(const char* msg)
+string FcgiSocket::getMessage(vector<char>& msg)
 {
-   /***
-   TODO: check fcgi header content
-   ***/
+   //parse FCGI headers, rebuild HTTP packet
+   if (msg.size() == 0)
+      throw runtime_error("empty fcgi packet");
 
-   //get rid of first 8 bytes fcgi header, then strip http header
-   auto&& httpbody = HttpSocket::getMessage(msg + 8);
+   vector<char> httpmsg;
 
-   //check for fcgi_end_request packet
+   auto processFcgiPacket = [&](void)->void
+   {
+      size_t ptrindex = 0;
+
+      while (ptrindex + FCGI_HEADER_LEN <= msg.size())
+      {
+         //grab fcgi header
+         char* fcgiheader = &msg[ptrindex];
+
+         ptrindex += FCGI_HEADER_LEN;
+
+         //make sure fcgi version and request id match
+         if (fcgiheader[0] != FCGI_VERSION_1)
+            throw runtime_error("unexpected fcgi header version");
+
+         uint16_t requestid;
+         requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
+         if (requestid != fcgiRequestID_)
+            throw runtime_error("request error mismatch");
+
+         //check packet type
+         switch (fcgiheader[1])
+         {
+         case FCGI_END_REQUEST:
+            //0 terminate for the good measure and return
+            httpmsg.push_back(0);
+            return;
+
+         case FCGI_STDOUT:
+            //get packetsize and padding
+            uint16_t packetsize, padding;
+
+            packetsize = (uint8_t)fcgiheader[5] + (uint8_t)fcgiheader[4] * 256;
+            padding    = (uint8_t)fcgiheader[7] + (uint8_t)fcgiheader[6] * 256;
+
+            //extract http data
+            httpmsg.insert(httpmsg.end(),
+               msg.begin() + ptrindex,
+               msg.begin() + ptrindex + packetsize);
+
+            //advance index to next header
+            ptrindex += packetsize + padding;
+            break;
+
+         case FCGI_ABORT_REQUEST:
+            throw runtime_error("received FCGI_ABORT_REQUEST packet");
+
+         default:
+            //we do not handle the other request types as a client
+            throw runtime_error("unknown fcgi header request byte");
+         }
+      }
+   };
+
+
+   auto&& httpbody = HttpSocket::getMessage(httpmsg);
 
    return httpbody;
 }
@@ -277,11 +344,10 @@ string FcgiSocket::writeAndRead(const string& msg)
 
    this->write(sockfd, (char*)serdata, serdatalength);
 
-   char* retval = this->read(sockfd);
+   auto&& retval = this->read(sockfd);
    auto&& retmsg = getMessage(retval);
 
    this->close(sockfd);
-   delete[] retval;
    fcgiMsg.clear();
 
    return retmsg;

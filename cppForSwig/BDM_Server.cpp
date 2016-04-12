@@ -405,8 +405,29 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    //print serialized retVal
    ss << retStream.str();
 
+   auto&& retStr = ss.str();
+   vector<string> retVec;
+   auto totalsize = retStr.size();
+   size_t delim = 1450;
+   size_t start = 0;
+
+   while (totalsize > 0)
+   {
+      auto chunk = delim;
+      if (chunk > totalsize)
+         chunk = totalsize;
+
+      retVec.push_back(move(string(retStr.c_str() + start, chunk)));
+      start += chunk;
+      totalsize -= chunk;
+   }
+
    //complete FCGI request
-   FCGX_FPrintF(req->out, ss.str().c_str());
+   for (auto& retstr : retVec)
+   {
+      FCGX_FPrintF(req->out, retstr.c_str());
+   }
+
    FCGX_Finish_r(req);
 
    delete req;

@@ -43,7 +43,7 @@ class BinarySocket
    friend class FcgiSocket;
 
 private:
-   const int maxread_ = 65536;
+   const size_t maxread_ = 1024*1024*1024;
    
    struct sockaddr serv_addr_;
    const string addr_;
@@ -56,7 +56,7 @@ private:
    SOCKET open(void);
    void close(SOCKET);
    void write(SOCKET, const char*, uint32_t);
-   char* read(SOCKET);
+   vector<char> read(SOCKET);
 
 public:
    BinarySocket(const string& addr, const string& port);
@@ -74,7 +74,7 @@ private:
 
 private:
    int32_t makePacket(char** packet, const char* msg);
-   virtual string getMessage(const char* msg);
+   virtual string getMessage(vector<char>&);
 
 public:
    HttpSocket(const BinarySocket&);
@@ -87,7 +87,7 @@ class FcgiSocket : public HttpSocket
 private:
    void addStringParam(const string& name, const string& val);
    FcgiMessage makePacket(const char*);
-   string getMessage(const char* msg);
+   string getMessage(vector<char>&);
 
 public:
    FcgiSocket(const HttpSocket&);

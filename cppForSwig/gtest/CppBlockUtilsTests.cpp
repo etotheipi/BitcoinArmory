@@ -33,6 +33,8 @@
 #include "../reorgTest/blkdata.h"
 #include "../txio.h"
 
+#include "../BDM_seder.h"
+
 #include <thread>
 
 
@@ -9112,6 +9114,88 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
    EXPECT_EQ(spendableBalance, totalUtxoVal);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, LedgerSeDer)
+{
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   shared_ptr<BtcWallet> wlt;
+   shared_ptr<BtcWallet> wltLB1;
+   shared_ptr<BtcWallet> wltLB2;
+   regWallet(scrAddrVec, "wallet1", theBDV, &wlt);
+   regLockboxes(theBDV, &wltLB1, &wltLB2);
+
+   wlt->addScrAddress(TestChain::scrAddrE);
+
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+   TheBDM.doInitialSyncOnLoad(nullProgress);
+   theBDV->enableZeroConf();
+   theBDV->scanWallets();
+
+   auto&& ledgervec = wlt->getHistoryPageAsVector(0);
+   
+   LedgerEntryVector lev;
+   for (auto& le : ledgervec)
+   {
+      LedgerEntryData led(le.getWalletID(),
+         le.getValue(), le.getBlockNum(), le.getTxHash(),
+         le.getIndex(), le.getTxTime(), le.isCoinbase(),
+         le.isSentToSelf(), le.isChangeBack());
+      lev.push_back(move(led));
+   }
+
+   stringstream ss;
+   ss << lev;
+
+   LedgerEntryVector deserlev;
+   ss >> deserlev;
+
+
+   for (unsigned i = 0; i < deserlev.toVector().size(); i++)
+   {
+      EXPECT_EQ(lev.toVector()[i].getID(), deserlev.toVector()[i].getID());
+      EXPECT_EQ(lev.toVector()[i].getTxHash(), deserlev.toVector()[i].getTxHash());
+      EXPECT_EQ(lev.toVector()[i].getValue(), deserlev.toVector()[i].getValue());
+   }
+
+   //////
+   //create huge ledger vector (1k entries)
+
+   LedgerEntryVector lev2;
+   for (unsigned i = 0; i < 1000; i++)
+   {
+      stringstream ssID;
+      ssID << setw(7) << setfill('0') << i;
+      string strid = ssID.str();
+
+      auto&& txHash = BtcUtils::getHash256((uint8_t*)strid.c_str(), strid.size());
+
+      LedgerEntryData led(strid,
+         i, i, 
+         txHash,
+         i, i, false,
+         false, false);
+      lev2.push_back(move(led));
+   }
+
+   stringstream largestream;
+   largestream << lev2;
+
+   LedgerEntryVector lev2deser;
+   largestream >> lev2deser;
+
+   for (unsigned i = 0; i < 1000; i++)
+   {
+      EXPECT_EQ(lev2.toVector()[i].getID(), lev2deser.toVector()[i].getID());
+      EXPECT_EQ(lev2.toVector()[i].getTxHash(), lev2deser.toVector()[i].getTxHash());
+      EXPECT_EQ(lev2.toVector()[i].getValue(), lev2deser.toVector()[i].getValue());
+   }
+
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
