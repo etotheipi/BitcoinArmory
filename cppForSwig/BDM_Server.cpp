@@ -406,9 +406,9 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    ss << retStream.str();
 
    auto&& retStr = ss.str();
-   vector<string> retVec;
+   vector<pair<size_t, size_t>> msgOffsetVec;
    auto totalsize = retStr.size();
-   size_t delim = 1450;
+   size_t delim = 8176; //8192 (max fcgi packet) - 16 (2x fcgi header)
    size_t start = 0;
 
    while (totalsize > 0)
@@ -417,15 +417,29 @@ void FCGI_Server::processRequest(FCGX_Request* req)
       if (chunk > totalsize)
          chunk = totalsize;
 
-      retVec.push_back(move(string(retStr.c_str() + start, chunk)));
+      msgOffsetVec.push_back(make_pair(start, chunk));
       start += chunk;
       totalsize -= chunk;
    }
 
+   //get non const ptr of the message string since we will set temp null bytes
+   //for the purpose of breaking down the string into FCGI sized packets
+   char* ptr = const_cast<char*>(retStr.c_str());
+   char prevVal = ptr[0];
+
    //complete FCGI request
-   for (auto& retstr : retVec)
+   for (auto& offsetPair : msgOffsetVec)
    {
-      FCGX_FPrintF(req->out, retstr.c_str());
+      //reset previous last byte to its original value;
+      ptr[offsetPair.first] = prevVal;
+
+      //save current last byte
+      prevVal = ptr[offsetPair.first + offsetPair.second];
+
+      //null terminate for this packet
+      ptr[offsetPair.first + offsetPair.second] = 0;
+
+      FCGX_FPrintF(req->out, ptr + offsetPair.first);
    }
 
    FCGX_Finish_r(req);

@@ -62,6 +62,7 @@ public:
    FcgiPacket& getNewPacket(void);
    uint16_t beginRequest(void);
    void endRequest(void) {}
+   int id(void) const { return requestID_; }
 };
 
 #endif

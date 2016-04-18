@@ -16,6 +16,7 @@
 #include <functional>
 
 #include "FcgiMessage.h"
+#include "bdmenums.h"
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -49,9 +50,6 @@ private:
    const string addr_;
    const string port_;
 
-   bool isFcgi_ = false;
-   int fcgiRequestID_ = -1;
-
 private:   
    SOCKET open(void);
    void close(SOCKET);
@@ -62,6 +60,7 @@ public:
    BinarySocket(const string& addr, const string& port);
 
    virtual string writeAndRead(const string&);
+   virtual SocketType type(void) const { return SocketBinary; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,11 +73,12 @@ private:
 
 private:
    int32_t makePacket(char** packet, const char* msg);
-   virtual string getMessage(vector<char>&);
+   string getMessage(vector<char>&);
 
 public:
    HttpSocket(const BinarySocket&);
    virtual string writeAndRead(const string&);
+   virtual SocketType type(void) const { return SocketHttp; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -87,11 +87,12 @@ class FcgiSocket : public HttpSocket
 private:
    void addStringParam(const string& name, const string& val);
    FcgiMessage makePacket(const char*);
-   string getMessage(vector<char>&);
+   string getMessage(const vector<char>&, const FcgiMessage&);
 
 public:
    FcgiSocket(const HttpSocket&);
    string writeAndRead(const string&);
+   SocketType type(void) const { return SocketFcgi; }
 };
 
 #endif

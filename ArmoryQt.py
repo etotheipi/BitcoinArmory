@@ -3335,8 +3335,8 @@ class ArmoryMainWindow(QMainWindow):
          # for change , which means the change address MUST have a higher
          # chain index
          amt = le.getValue()
-         if le.isSentToSelf() and wlt and showSentToSelfAmt:
-            amt = determineSentToSelfAmt(le, wlt)[0]
+         #if le.isSentToSelf() and wlt and showSentToSelfAmt:
+            #amt = determineSentToSelfAmt(le, wlt)[0]
 
          # NumConf
          row.append(nConf)

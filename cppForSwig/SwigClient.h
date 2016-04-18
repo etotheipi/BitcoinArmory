@@ -1,3 +1,11 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2016, goatpig.                                              //
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 /***
 Set of spoof classes that expose all BDV, wallet and address obj methods to SWIG
 and handle the data transmission with the BDM server
@@ -20,13 +28,6 @@ inline void DisableCppLogStdOut() { LOGDISABLESTDOUT(); }
 #include <thread>
 
 class BlockDataViewer;
-
-enum SocketType
-{
-   SocketBinary,
-   SocketHttp,
-   SocketFcgi
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 class ScrAddrObj
@@ -85,10 +86,7 @@ public:
 class PythonCallback
 {   
 private:
-   struct KillPythonCallback
-   {};
-   
-   bool run_;
+   bool run_ = true;
    thread thr_;
 
    const shared_ptr<BinarySocket> sock_;

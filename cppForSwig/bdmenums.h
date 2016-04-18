@@ -59,5 +59,11 @@ enum BDM_INIT_MODE
    INIT_SSH
 };
 
+enum SocketType
+{
+   SocketBinary,
+   SocketHttp,
+   SocketFcgi
+};
 
 #endif

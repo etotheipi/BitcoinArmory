@@ -98,7 +98,9 @@ vector<char> BinarySocket::read(SOCKET sockfd)
             throw runtime_error("error while reading socket");
 
          if (bytesread == increment)
-            sockdata.resize(totalread);
+            sockdata.resize(totalread + increment);
+         else
+            break;
 
          if (totalread > maxread_)
             throw runtime_error("too much data to read from socket");
@@ -109,6 +111,7 @@ vector<char> BinarySocket::read(SOCKET sockfd)
       throw e;
    }
 
+   sockdata.resize(totalread);
    return sockdata;
 }
 
@@ -265,7 +268,8 @@ FcgiMessage FcgiSocket::makePacket(const char* msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::getMessage(vector<char>& msg)
+string FcgiSocket::getMessage(const vector<char>& msg, 
+   const FcgiMessage& fcgimsg)
 {
    //parse FCGI headers, rebuild HTTP packet
    if (msg.size() == 0)
@@ -280,7 +284,7 @@ string FcgiSocket::getMessage(vector<char>& msg)
       while (ptrindex + FCGI_HEADER_LEN <= msg.size())
       {
          //grab fcgi header
-         char* fcgiheader = &msg[ptrindex];
+         const char* fcgiheader = &msg[ptrindex];
 
          ptrindex += FCGI_HEADER_LEN;
 
@@ -290,8 +294,8 @@ string FcgiSocket::getMessage(vector<char>& msg)
 
          uint16_t requestid;
          requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
-         if (requestid != fcgiRequestID_)
-            throw runtime_error("request error mismatch");
+         if (requestid != fcgimsg.id())
+            throw runtime_error("request id mismatch");
 
          //check packet type
          switch (fcgiheader[1])
@@ -327,7 +331,7 @@ string FcgiSocket::getMessage(vector<char>& msg)
       }
    };
 
-
+   processFcgiPacket();
    auto&& httpbody = HttpSocket::getMessage(httpmsg);
 
    return httpbody;
@@ -345,7 +349,7 @@ string FcgiSocket::writeAndRead(const string& msg)
    this->write(sockfd, (char*)serdata, serdatalength);
 
    auto&& retval = this->read(sockfd);
-   auto&& retmsg = getMessage(retval);
+   auto&& retmsg = getMessage(retval, fcgiMsg);
 
    this->close(sockfd);
    fcgiMsg.clear();

@@ -318,7 +318,7 @@ PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
 ///////////////////////////////////////////////////////////////////////////////
 PythonCallback::~PythonCallback(void)
 {
-   throw(KillPythonCallback());
+   run_ = false;
    if (thr_.joinable())
       thr_.join();
 }
@@ -326,44 +326,37 @@ PythonCallback::~PythonCallback(void)
 ///////////////////////////////////////////////////////////////////////////////
 void PythonCallback::remoteLoop(void)
 {
-   try
-   {
-      Command sendCmd;
-      sendCmd.method_ = "registerCallback";
-      sendCmd.ids_.push_back(bdvID_);
-      sendCmd.serialize();
+   Command sendCmd;
+   sendCmd.method_ = "registerCallback";
+   sendCmd.ids_.push_back(bdvID_);
+   sendCmd.serialize();
 
-      while (1)
+   while (run_)
+   {
+      auto&& retval = sock_->writeAndRead(sendCmd.command_);
+      Arguments args(retval);
+
+      auto&& cb = args.get<string>();
+
+      if (cb == "NewBlock")
       {
-         auto&& retval = sock_->writeAndRead(sendCmd.command_);
-         Arguments args(retval);
-
-         auto&& cb = args.get<string>();
-
-         if (cb == "NewBlock")
-         {
-            unsigned int newblock = args.get<unsigned int>();
-            if (newblock != 0)
-               run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
-         }
-         else if (cb == "BDM_Ready")
-         {
-            unsigned int topblock = args.get<unsigned int>();
-            run(BDMAction::BDMAction_Ready, nullptr, topblock);
-         }
-         else if (cb == "BDV_Refresh")
-         {
-            vector<BinaryData> bdVector;
-            run(BDMAction::BDMAction_Refresh, &bdVector, 0);
-         }
-         else if (cb == "progress")
-         {
-
-         }
+         unsigned int newblock = args.get<unsigned int>();
+         if (newblock != 0)
+            run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
       }
-   }
-   catch (KillPythonCallback&)
-   {
-      //exit thread
+      else if (cb == "BDM_Ready")
+      {
+         unsigned int topblock = args.get<unsigned int>();
+         run(BDMAction::BDMAction_Ready, nullptr, topblock);
+      }
+      else if (cb == "BDV_Refresh")
+      {
+         vector<BinaryData> bdVector;
+         run(BDMAction::BDMAction_Refresh, &bdVector, 0);
+      }
+      else if (cb == "progress")
+      {
+
+      }
    }
 }
