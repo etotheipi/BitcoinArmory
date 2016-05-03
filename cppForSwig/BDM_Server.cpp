@@ -266,9 +266,9 @@ void BDV_Server_Object::buildMethodMap()
 ///////////////////////////////////////////////////////////////////////////////
 const shared_ptr<BDV_Server_Object>& Clients::get(const string& id) const
 {
-   unique_lock<mutex> lock(mu_);
-   auto iter = BDVs_.find(id);
-   if (iter == BDVs_.end())
+   auto bdvmap = BDVs_.get();
+   auto iter = bdvmap->find(id);
+   if (iter == bdvmap->end())
       throw runtime_error("unknown BDVid");
 
    return iter->second;
@@ -296,20 +296,44 @@ Arguments Clients::runCommand(const string& cmdStr)
 Arguments Clients::registerBDV()
 {
    shared_ptr<BDV_Server_Object> newBDV
-      = make_shared<BDV_Server_Object>(bdmT_, BDM_notifier_);
+      = make_shared<BDV_Server_Object>(bdmT_);
 
    string newID(newBDV->getID());
 
-   {
-      unique_lock<mutex> lock(mu_);
-      BDVs_[newID] = newBDV;
-   }
-   
+   BDVs_.addBdv(newID, newBDV);
+
    LOGINFO << "registered bdv: " << newID;
 
    Arguments args;
    args.push_back(newID);
    return args;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void Clients::maintenanceThread(void) const
+{
+   if (bdmT_ == nullptr)
+      throw runtime_error("invalid BDM thread ptr");
+
+   while (1)
+   {
+      try
+      { 
+         auto&& newBlock = bdmT_->bdm()->newBlocksStack_.get();
+         auto bdvmap = BDVs_.get();
+
+         for (auto& bdv : *bdvmap)
+         {
+            BDV_Action_Struct action;
+            action.action_ = BDV_NewBlock;
+            bdv.second->notificationStack_.push_back(move(action));
+         }
+      }
+      catch (IsEmpty&)
+      {
+         break;
+      }
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -327,9 +351,6 @@ Arguments BDV_Server_Object::executeCommand(const string& method,
 ///////////////////////////////////////////////////////////////////////////////
 void FCGI_Server::init()
 {
-   if (FCGX_Init())
-      throw runtime_error("failed to initialize FCGI engine");
-
    sockfd_ = FCGX_OpenSocket("localhost:9050", 10);
    if (sockfd_ == -1)
       throw runtime_error("failed to create FCGI listen socket");
@@ -400,8 +421,6 @@ void FCGI_Server::processRequest(FCGX_Request* req)
 
    delete[] content;
    
-   
-   
    //print serialized retVal
    ss << retStream.str();
 
@@ -452,11 +471,9 @@ void FCGI_Server::processRequest(FCGX_Request* req)
 
 ///////////////////////////////////////////////////////////////////////////////
 BDV_Server_Object::BDV_Server_Object(
-   BlockDataManagerThread *bdmT, shared_ptr<BDV_Notifier> nf) :
-   bdmT_(bdmT), BlockDataViewer(bdmT->bdm()), BDM_notifier_(nf)
+   BlockDataManagerThread *bdmT) :
+   bdmT_(bdmT), BlockDataViewer(bdmT->bdm())
 {
-   run_.store(false, std::memory_order_relaxed);
-
    bdvID_ = SecureBinaryData().GenerateRandom(10).toHexStr();
    buildMethodMap();
 }
@@ -467,78 +484,25 @@ void BDV_Server_Object::startThreads()
    auto thrLambda = [this](void)->void
    { this->maintenanceThread(); };
 
-   auto listenerLambda = [this](void)->void
-   { this->BDM_listener(); };
-
    tID_ = thread(thrLambda);
-
-   thread listener(listenerLambda);
-   if (listener.joinable())
-      listener.detach();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-BDV_Action BDV_Server_Object::scan(void)
+void BDV_Server_Object::scan(const BDV_Action_Struct&)
 {
-   bool scanAnyway = false;
-
-   BDV_refresh refresh = BDV_dontRefresh;
-   vector<BinaryData> refreshIDVec;
-   if (refresh_ != BDV_dontRefresh)
-   {
-      unique_lock<mutex> lock(refreshLock_);
-
-      refresh = refresh_;
-      refresh_ = BDV_dontRefresh;
-
-      vector<BinaryData> refreshIDVec;
-      for (const auto& refreshID : refreshIDSet_)
-         refreshIDVec.push_back(refreshID);
-
-      refreshIDSet_.clear();
-      scanAnyway = true;
-   }
-
-   auto prev = top_;
-   top_ = bdmT_->topBH();
-   if (!scanAnyway)
-   {
-      if (top_ == prev)
-         return BDV_NoAction;
-   }
 
    scanWallets(prev->getBlockHeight(), top_->getBlockHeight(), refresh);
 
    if (prev == top_ && refresh != BDV_dontRefresh)
-      return BDV_RefreshWallets;
+      return;
 
-   return BDV_NewBlock;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-void BDV_Server_Object::BDM_listener(void)
-{
-   mutex mu;
-   unique_lock<mutex> lock(mu);
-   while (run_)
-   {
-      BDM_notifier_->wait(&lock);
-      localNotifier_.notify();
-   }
+   return;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void BDV_Server_Object::maintenanceThread(void)
 {
-   run_.store(true, std::memory_order_relaxed);
-
-   while (!isBDMReady())
-   {
-      //poll BDM state while it's still initializing
-      usleep(1000);
-
-      //TODO: implement BDM ready check through promise
-   }
+   bdmPtr_->blockUntilReady();
 
    while (1)
    {
@@ -586,20 +550,17 @@ void BDV_Server_Object::maintenanceThread(void)
    args.push_back(topblock);
    cb_.callback(move(args));
 
-   mutex mu;
-   unique_lock<mutex> lock(mu);
-
-   while (run_)
+   while (1)
    {
-      auto action = scan();
-      if (action == BDV_NoAction)
-      {
-         localNotifier_.wait(&lock);
-         continue;
-      }
+      auto&& action_struct = notificationStack_.get();
+      auto& action = action_struct.action_;
+
+      scan(action_struct);
 
       if (action == BDV_NewBlock)
       {
+         //purge zc on new block
+
          Arguments args2;
          uint32_t blocknum = top_->getBlockHeight();
          args2.push_back(move(string("NewBlock")));
@@ -608,9 +569,15 @@ void BDV_Server_Object::maintenanceThread(void)
       }
       else if (action == BDV_RefreshWallets)
       {
+         //dont purge zc on refresh
+
          Arguments args2;
          args2.push_back(move(string("BDV_Refresh")));
          cb_.callback(move(args2), OrderRefresh);
+      }
+      else if (action == BDV_ZC)
+      {
+         //pass new zc to scan
       }
    }
 }

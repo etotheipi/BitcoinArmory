@@ -35,9 +35,7 @@ struct BlockDataManagerThread::BlockDataManagerThreadImpl
    }
 };
 
-BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &config,
-   BDV_Notifier* nft) :
-   notifier_(nft)
+BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &config)
 {
    pimpl = new BlockDataManagerThreadImpl;
    pimpl->bdm = new BlockDataManager(config);
@@ -119,14 +117,13 @@ void BlockDataManagerThread::run()
 try
 {
    BlockDataManager *const bdm = this->bdm();
-   
-   //BDM_CallBack *const callback = pimpl->callback;
-
-   /*OnFinish onFinish(
-      [callback] () { callback->run(BDMAction_Exited, nullptr); }
-   );*/
+      
+   promise<bool> isReadyPromise;
+   bdm->isReadyFuture_ = isReadyPromise.get_future();
    
    {
+      bdm->networkNode_->connectToNode();
+
       tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
       time_t lastProgressTime=0;
       
@@ -184,27 +181,7 @@ try
          else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
          else if (mode == 3) bdm->doInitialSyncOnLoad_RescanBalance(loadProgress);
 
-         if (bdm->missingBlockHashes().size() || bdm->missingBlockHeaderHashes().size())
-         {
-            string errorMsg(
-               "Armory has detected an error in the blockchain database "
-               "maintained by the third-party Bitcoin software (Bitcoin-Core "
-               "or bitcoind). This error is not fatal, but may lead to "
-               "incorrect balances, inability to send coins, or application "
-               "instability."
-               "<br><br> "
-               "It is unlikely that the error affects your wallets, "
-               "but it <i>is</i> possible. If you experience crashing, "
-               "or see incorrect balances on any wallets, it is strongly "
-               "recommended you re-download the blockchain using: "
-               "<i>Help</i>\"\xe2\x86\x92\"<i>Factory Reset</i>\".");
-            //callback->run(BDMAction_ErrorMsg, &errorMsg, bdm->missingBlockHashes().size());
-            throw;
-         }
-
          //bdv->enableZeroConf(clearZc);
-
-         //bdv->scanWallets();
       }
       catch (BDMStopRequest&)
       {
@@ -212,38 +189,23 @@ try
          return;
       }
    }
-   
-   topBH_ = &bdm->blockchain().top();
 
-   double lastprog=0;
-   unsigned lasttime=0;
+   isReadyPromise.set_value(true);
    
-   const auto rescanProgress
-      = [&] (const vector<string>& wltIdVec, double prog,unsigned time)
+   auto updateChainLambda = [bdm, this]()->bool
    {
-      if (prog == lastprog && time==lasttime)
-         return; // don't go to python if nothing's changed
-      //callback->progress("blk", prog, time);
-      lastprog = prog;
-      lasttime = time;
-      
-      /*callback->progress(
-         BDMPhase_Rescan,
-         wltIdVec,
-         lastprog, lasttime, 0
-      );*/
-   };   
-   
-   //push 'bdm is ready' to Python
-   //callback->run(BDMAction_Ready, nullptr, bdm->getTopBlockHeight());
-   
-   while(pimpl->run)
-   {
-      if (bdm->criticalError_.size())
+      const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
+      if (prevTopBlk > 0)
       {
-         throw runtime_error(bdm->criticalError_.c_str());
+         bdm->newBlocksStack_.push_back(move(prevTopBlk));
+         return true;
       }
 
+      return false;
+   };
+
+   while(pimpl->run)
+   {
       /*if(bdv->getZCflag())
       {
          bdv->flagRescanZC(false);
@@ -271,29 +233,23 @@ try
          }
       }*/
 
-      /*if (bdv->refresh_ != BDV_dontRefresh)
+      //register promise with p2p interface
+      promise<bool> newBlocksPromise;
+      auto newBlocksFuture = newBlocksPromise.get_future();
+      
+      auto newBlocksCallback = 
+         [&newBlocksPromise](const vector<InvEntry*>&)->void
       {
-         unique_lock<mutex> lock(bdv->refreshLock_);
+         newBlocksPromise.set_value(true);
+      };
 
-         BDV_refresh refresh = bdv->refresh_;
-         bdv->refresh_ = BDV_dontRefresh;
-         bdv->scanWallets(UINT32_MAX, UINT32_MAX, refresh);
-         
-         vector<BinaryData> refreshIDVec;
-         for (const auto& refreshID : bdv->refreshIDSet_)
-            refreshIDVec.push_back(refreshID);
+      bdm->networkNode_->registerInvBlockLambda(newBlocksCallback);
 
-         bdv->refreshIDSet_.clear();
-         callback->run(BDMAction_Refresh, &refreshIDVec);
-      }*/
+      //keep updating until there are no more new blocks
+      while (updateChainLambda());
 
-      const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
-      if(prevTopBlk > 0)
-      {
-         topBH_ = &bdm->blockchain().top();
-
-         notifier_->notify();
-      }
+      //wait on future
+      newBlocksFuture.get();
    }
 }
 catch (std::exception &e)

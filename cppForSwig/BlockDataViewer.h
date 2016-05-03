@@ -127,7 +127,7 @@ public:
 
    const map<BinaryData, map<BinaryData, TxIOPair> >&
       getFullZeroConfTxIOMap() const
-   { return zeroConfCont_.getFullTxioMap(); }
+   { return zeroConfCont_->getFullTxioMap(); }
 
    const LedgerEntry& getTxLedgerByHash_FromWallets(
       const BinaryData& txHash) const;
@@ -136,14 +136,6 @@ public:
 
    void pprintRegisteredWallets(void) const;
 
-   void enableZeroConf(bool cleanMempool = false);
-   void disableZeroConf(void);
-   void addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime,
-      bool writeToFile);
-   bool isZcEnabled() const { return zcEnabled_; }
-   set<BinaryData> parseNewZeroConfTx(void);
-
-   TX_AVAILABILITY   getTxHashAvail(BinaryDataRef txhash) const;
    Tx                getTxByHash(BinaryData const & txHash) const;
    TxOut             getPrevTxOut(TxIn & txin) const;
    Tx                getPrevTx(TxIn & txin) const;
@@ -200,28 +192,22 @@ public:
       return bdmPtr_->isRunning(); 
    }
 
-   bool isBDMReady(void) const
+   void blockUntilBDMisReady(void) const
    {
       if (bdmPtr_ == nullptr)
-         return false;
-      return bdmPtr_->isReady();
-   }
-
-   void checkBDMisReady(void) const
-   {
-      if (!isBDMReady())
-         throw BDMnotReady();
+         throw runtime_error("no bdmPtr_");
+      bdmPtr_->blockUntilReady();
    }
 
    bool isTxOutSpentByZC(const BinaryData& dbKey) const
-   { return zeroConfCont_.isTxOutSpentByZC(dbKey); }
+   { return zeroConfCont_->isTxOutSpentByZC(dbKey); }
 
    const map<BinaryData, TxIOPair> getZCutxoForScrAddr(
       const BinaryData& scrAddr) const
-   { return zeroConfCont_.getZCforScrAddr(scrAddr); }
+   { return zeroConfCont_->getZCforScrAddr(scrAddr); }
 
    const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const
-   { return zeroConfCont_.getSpentSAforZCKey(zcKey); }
+   { return zeroConfCont_->getSpentSAforZCKey(zcKey); }
 
    ScrAddrFilter* getSAF(void) { return saf_; }
    const BlockDataManagerConfig& config() const { return bdmPtr_->config(); }
@@ -243,6 +229,8 @@ public:
    TxOut getTxOutCopy(const BinaryData& txHash, uint16_t index) const;
    Tx getSpenderTxForTxOut(uint32_t height, uint32_t txindex, uint16_t txoutid) const;
 
+   bool isZcEnabled() const { return bdmPtr_->isZcEnabled(); }
+
    void flagRescanZC(bool flag)
    { rescanZC_.store(flag, memory_order_release); }
 
@@ -250,13 +238,6 @@ public:
    { return rescanZC_.load(memory_order_acquire); }
 
    bool isRBF(const BinaryData& txHash) const;
-
-public:
-
-   //refresh notifications
-   BDV_refresh refresh_ = BDV_dontRefresh;
-   set<BinaryData> refreshIDSet_;
-   mutex refreshLock_;
 
 private:
    atomic<bool> rescanZC_;
@@ -271,13 +252,9 @@ private:
    //to avoid cleanup snafus. Time for smart pointers
 
    vector<WalletGroup> groups_;
-
-   ZeroConfContainer   zeroConfCont_;
    
-   bool     zcEnabled_;
-   bool     zcLiteMode_;
-
    uint32_t lastScanned_ = 0;
+   const shared_ptr<ZeroConfContainer> zeroConfCont_;
 };
 
 

@@ -58,10 +58,6 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
    uint32_t currBlk, bool inclAllZC
 ) const
 {
-   /***may need some help with the paging system in place***/
-   if (!db_->isReady())
-      throw runtime_error("DB isnt ready");
-
    uint64_t balance = 0;
    for (auto txio : relevantTxIO_)
    {
@@ -74,9 +70,6 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getFullBalance() const
 {
-   if (!db_->isReady())
-      throw runtime_error("DB isnt ready");
-
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr_);
    uint64_t balance = ssh.getScriptBalance(false);
@@ -311,9 +304,6 @@ void ScrAddrObj::updateLedgers(map<BinaryData, LedgerEntry>& leMap,
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getTxioCountFromSSH(void) const
 {
-   if (!db_->isReady())
-      throw runtime_error("DB isnt ready");
-
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr_);
 

@@ -238,8 +238,7 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(Blockchain*, 
-      function<bool(void)> isDBReady, string blkFolder);
+   LMDBBlockDatabase(Blockchain*, string blkFolder);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -610,7 +609,6 @@ public:
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
    BinaryData getMagicBytes(void)       { return magicBytes_; }
 
-   bool isReady(void) { return isDBReady_(); }
    ARMORY_DB_TYPE armoryDbType(void) { return armoryDbType_; }
 
    const string& baseDir(void) const { return baseDir_; }
@@ -654,8 +652,6 @@ private:
    map<BinaryData, StoredScriptHistory>   registeredSSHs_;
 
    const BinaryData ZCprefix_ = BinaryData(2);
-
-   function<bool(void)> isDBReady_ = [](void)->bool{ return false; };
 
    string blkFolder_;
 

@@ -47,7 +47,7 @@
 
 #ifdef _MSC_VER
    #include "mman.h"
-   #include "leveldb_windows_port\win32_posix\win32_posix.h"
+   //#include "leveldb_windows_port\win32_posix\win32_posix.h"
    #else
    #include <fcntl.h>
    #include <sys/mman.h>
@@ -63,15 +63,6 @@ using namespace std;
 
 class BlockDataManager;
 class LSM;
-//class BDM_Inject;
-
-typedef enum
-{
-  TX_DNE,
-  TX_ZEROCONF,
-  TX_IN_BLOCKCHAIN
-} TX_AVAILABILITY;
-
 
 typedef enum
 {
@@ -101,9 +92,6 @@ class DatabaseBuilder;
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager
 {
-   //void grablock(uint32_t n);
-
-
 private:
    BlockDataManagerConfig config_;
    
@@ -120,29 +108,8 @@ private:
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
 
-  
-   // If the BDM is not in super-node mode, then it will be specifically tracking
-   // a set of addresses & wallets.  We register those addresses and wallets so
-   // that we know what TxOuts to track as we process blockchain data.  And when
-   // it may be necessary to do rescans.
-   //
-   // If instead we ARE in ARMORY_DB_SUPER (not implemented yet, as of this
-   // comment being written), then we don't have anything to track -- the DB
-   // will automatically update for all addresses, period.  And we'd best not 
-   // track those in RAM (maybe on a huge server...?)
-
-   // list of block headers that appear to be missing 
-   // when scanned by buildAndScanDatabases
-   vector<BinaryData>                 missingBlockHeaderHashes_;
-   // list of blocks whose contents are invalid but we have
-   // their headers
-   vector<BinaryData>                 missingBlockHashes_;
-   
-   // TODO: We eventually want to maintain some kind of master TxIO map, instead
-   // of storing them in the individual wallets.  With the new DB, it makes more
-   // sense to do this, and it will become easier to compute total balance when
-   // multiple wallets share the same addresses
-   //map<OutPoint,   TxIOPair>          txioMap_;
+   shared_ptr<ZeroConfContainer>   zeroConfCont_;
+   bool     zcEnabled_;
 
    Blockchain blockchain_;
 
@@ -153,20 +120,13 @@ private:
 
 
 public:
-   bool                               sideScanFlag_ = false;
-   typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;
-   
-   class Notifier
-   {
-   public:
-      virtual ~Notifier() { }
-      virtual void notify()=0;
-   };
-   
-   string criticalError_;
+   typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;   
+   shared_ptr<BitcoinP2P> networkNode_;
+   shared_future<bool> isReadyFuture_;
+
+   BlockingStack<uint32_t> newBlocksStack_;
 
 private:
-   Notifier* notifier_ = nullptr;
 
 public:
    BlockDataManager(const BlockDataManagerConfig &config);
@@ -179,23 +139,18 @@ public:
    void setConfig(const BlockDataManagerConfig &bdmConfig);
    
    LMDBBlockDatabase *getIFace(void) {return iface_;}
-   void setNotifier(Notifier* notifier) { notifier_ = notifier; }
-   void notifyMainThread() const
-   { 
-      if (notifier_)
-         notifier_->notify(); 
-   }
    
-   bool hasNotifier() const { return notifier_ != nullptr; }
-
    shared_future<bool> registerAddressBatch(
       const set<BinaryData>& addrSet, bool isNew);
    
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
-   const BinaryData& getGenesisHash(void) const  { return config_.genesisBlockHash;   }
-   const BinaryData& getGenesisTxHash(void) const { return config_.genesisTxHash; }
-   const BinaryData& getMagicBytes(void) const   { return config_.magicBytes;    }
+   const BinaryData& getGenesisHash(void) const  
+   { return config_.genesisBlockHash;   }
+   const BinaryData& getGenesisTxHash(void) const 
+   { return config_.genesisTxHash; }
+   const BinaryData& getMagicBytes(void) const   
+   { return config_.magicBytes;    }
 
 public:
    void openDatabase(void);
@@ -214,7 +169,6 @@ public:
       std::function<void()> headersRead, headersUpdated, blockDataLoaded;
    };
    
-   uint32_t readBlkFileUpdate(const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
    
 private:
    void loadDiskState(
@@ -223,6 +177,8 @@ private:
    );
    
 public:
+   uint32_t readBlkFileUpdate(
+      const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
 
    BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
                             uint32_t blk0, uint32_t blk1,
@@ -240,38 +196,24 @@ public:
    StoredHeader getMainBlockFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup) const;
 
+   void enableZeroConf(bool cleanMempool = false);
+   void disableZeroConf(void);
+   bool isZcEnabled() const { return zcEnabled_; }
+   shared_ptr<ZeroConfContainer> zeroConfCont(void) const
+   {
+      return zeroConfCont_;
+   }
+
 public:
-
-// These things should probably be private, but they also need to be test-able,
-// and googletest apparently cannot access private methods without polluting 
-// this class with gtest code
-//private: 
-
-   //void pprintSSHInfoAboutHash160(BinaryData const & a160);
-
-   // Simple wrapper around the logger so that they are easy to access from SWIG
-
-   /////////////////////////////////////////////////////////////////////////////
-   // We may use this to trigger flushing the queued DB updates
-   //bool estimateDBUpdateSize(
-                        //map<BinaryData, StoredTx> &            stxToModify,
-                        //map<BinaryData, StoredScriptHistory> & sshToModify);
-
-   vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
-   
-   vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
    bool startSideScan(
       const function<void(const vector<string>&, double prog,unsigned time)> &cb
    );
 
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
-   bool isReady(void) const   { return BDMstate_ == BDM_ready; }
+   void blockUntilReady(void) const { isReadyFuture_.wait(); }
 
    vector<string> getNextWalletIDToScan(void);
 };
-
-
-// kate: indent-width 3; replace-tabs on;
 
 #endif

@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <vector>
 #include <unordered_map>
-#include <pthread.h>
+#include <thread>
 #include <mutex>
 
 struct MDB_env;
@@ -255,7 +255,7 @@ private:
    MDB_env *dbenv=nullptr;
 
    std::mutex threadTxMutex_;
-   std::unordered_map<pthread_t, LMDBThreadTxInfo> txForThreads_;
+   std::unordered_map<std::thread::id, LMDBThreadTxInfo> txForThreads_;
    
    friend class LMDB;
 

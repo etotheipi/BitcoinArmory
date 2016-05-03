@@ -61,7 +61,7 @@ inline void LMDB::Iterator::checkOk() const
 
 void LMDB::Iterator::openCursor()
 {
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    LMDBEnv *const env = db_->env;
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    
@@ -383,7 +383,7 @@ void LMDBEnv::Transaction::begin()
    
    began = true;
 
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    LMDBThreadTxInfo& thTx = env->txForThreads_[tID];
@@ -438,7 +438,7 @@ void LMDBEnv::Transaction::commit()
    began=false;
 
    //look for an existing transaction in this thread
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    auto txnIter = env->txForThreads_.find(tID);
 
@@ -512,7 +512,7 @@ void LMDB::open(LMDBEnv *env, const std::string &name)
    this->env = env;
    
    LMDBEnv::Transaction tx(env);
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    auto txnIter = env->txForThreads_.find(tID);
 
@@ -536,8 +536,8 @@ void LMDB::insert(
    MDB_val mkey = { key.len, const_cast<char*>(key.data) };
    MDB_val mval = { value.len, const_cast<char*>(value.data) };
    
-   const pthread_t tID = pthread_self();
-   
+   auto tID = std::this_thread::get_id();
+
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    
    auto txnIter = env->txForThreads_.find(tID);
@@ -556,7 +556,7 @@ void LMDB::insert(
 
 void LMDB::erase(const CharacterArrayRef& key)
 {
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    auto txnIter = env->txForThreads_.find(tID);
 
@@ -586,7 +586,7 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
 {
    //simple get without the use of iterators
 
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
    
    auto txnIter = env->txForThreads_.find(tID);
@@ -611,7 +611,7 @@ CharacterArrayRef LMDB::get_NoCopy(const CharacterArrayRef& key) const
 
 void LMDB::drop(void)
 {
-   const pthread_t tID = pthread_self();
+   auto tID = std::this_thread::get_id();
    std::unique_lock<std::mutex> lock(env->threadTxMutex_);
 
    auto txnIter = env->txForThreads_.find(tID);

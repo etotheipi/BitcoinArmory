@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <future>
 
+#include "BitcoinP2p.h"
 #include "include\fcgiapp.h"
 
 #include "BlockDataViewer.h"
@@ -28,21 +29,23 @@ enum BDV_Action
 {
    BDV_NoAction,
    BDV_NewBlock,
-   BDV_RefreshWallets
+   BDV_RefreshWallets,
+   BDV_ZC
 };
 
-///////////////////////////////////////////////////////////////////////////////
-class BDV_Notifier
+struct BDV_Data
 {
-private:
-   mutable condition_variable cv_;
+};
 
-public:
-   BDV_Notifier(void)
-   {}
+struct BDV_Data_ZC : public BDV_Data
+{
+   map<BinaryData, map<BinaryData, TxOut>> scrAddrZcMap_;
+};
 
-   void wait(unique_lock<mutex> *lock) { cv_.wait(*lock); }
-   void notify(void) const { cv_.notify_all(); }
+struct BDV_Action_Struct
+{
+   BDV_Action action_;
+   unique_ptr<BDV_Data> payload_ = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -61,12 +64,11 @@ class BlockDataManagerThread
 {
    struct BlockDataManagerThreadImpl;
    BlockDataManagerThreadImpl *pimpl;
-   BDV_Notifier* const notifier_;
 
    BlockHeader* topBH_ = nullptr;
 
 public:
-   BlockDataManagerThread(const BlockDataManagerConfig &config, BDV_Notifier*);
+   BlockDataManagerThread(const BlockDataManagerConfig &config);
    ~BlockDataManagerThread();
 
    // start the BDM thread
@@ -100,14 +102,9 @@ private:
       const vector<string>&, Arguments&)>> methodMap_;
    
    thread tID_;
-   shared_ptr<BDV_Notifier> const BDM_notifier_;
-   BDV_Notifier localNotifier_;
-
    SocketCallback cb_;
 
    string bdvID_;
-   atomic<bool> run_;
-
    BlockDataManagerThread* bdmT_;
 
    map<string, LedgerDelegate> delegateMap_;
@@ -124,6 +121,10 @@ private:
    mutex registerWalletMutex_;
    map<string, walletRegStruct> wltRegMap_;
 
+public:
+
+   BlockingStack<BDV_Action_Struct> notificationStack_;
+
 private:
    BDV_Server_Object(BDV_Server_Object&) = delete; //no copies
    
@@ -136,18 +137,14 @@ private:
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
 
 public:
-   BDV_Server_Object(BlockDataManagerThread *bdmT, 
-      shared_ptr<BDV_Notifier> nf);
+   BDV_Server_Object(BlockDataManagerThread *bdmT);
 
    const string& getID(void) const { return bdvID_; }
    void maintenanceThread(void);
    Arguments executeCommand(const string& method, 
                               const vector<string>& ids, 
                               Arguments& args);
-   BDV_Action scan(void);
-
-   void BDM_listener(void);
-   void notifyMainThread(void) const { localNotifier_.notify(); }
+   void scan(const BDV_Action_Struct&);
 };
 
 class Clients;
@@ -156,25 +153,66 @@ class Clients;
 class Clients
 {
 private:
-   map<string, shared_ptr<BDV_Server_Object>> BDVs_;
-   BlockDataManagerThread* bdmT_;
-   mutable mutex mu_;
+   struct bdvMap
+   {
+      //locked writes, lockless reads
+   private:
+      mutex mu_;
+      typedef map<string, shared_ptr<BDV_Server_Object>> bdv_map_type;
+      shared_ptr<bdv_map_type> map_;
 
-   shared_ptr<BDV_Notifier> const BDM_notifier_;
+   public:
+      void addBdv(const string& id, shared_ptr<BDV_Server_Object> bdv)
+      {
+         auto newMap = make_shared<bdv_map_type>();
+
+         unique_lock<mutex> lock(mu_);
+         *newMap = *map_;
+         
+         newMap->insert(make_pair(move(id), bdv));
+         map_ = newMap;
+      }
+
+      void eraseBdv(const string& id)
+      {
+         auto newMap = make_shared<bdv_map_type>();
+         
+         unique_lock<mutex> lock(mu_);
+         *newMap = *map_;
+
+         newMap->erase(id);
+         map_ = newMap;
+      }
+
+      auto get(void) const -> const shared_ptr<bdv_map_type>
+      {
+         return map_;
+      }
+   };
+
+   bdvMap BDVs_;
+   BlockDataManagerThread* bdmT_;
+
+private:
+   void maintenanceThread(void) const;
 
 public:
-   //add
-   //remove
-   //run command
-   //get
 
-   Clients(BlockDataManagerThread* bdmT, shared_ptr<BDV_Notifier> nf) :
-      bdmT_(bdmT), BDM_notifier_(nf)
-   {}
+   Clients(BlockDataManagerThread* bdmT) :
+      bdmT_(bdmT)
+   {
+      auto mainthread = [this](void)->void
+      {
+         maintenanceThread();
+      };
+
+      thread thr(mainthread);
+      if (thr.joinable())
+         thr.detach();
+   }
 
    const shared_ptr<BDV_Server_Object>& get(const string& id) const;
    Arguments runCommand(const string& cmd);
-
    Arguments registerBDV(void);
 };
 
@@ -195,8 +233,8 @@ private:
    Clients clients_;
 
 public:
-   FCGI_Server(BlockDataManagerThread* bdmT, shared_ptr<BDV_Notifier> nft) :
-      clients_(bdmT, nft)
+   FCGI_Server(BlockDataManagerThread* bdmT) :
+      clients_(bdmT)
    {
       liveThreads_.store(0, memory_order_relaxed);
    }

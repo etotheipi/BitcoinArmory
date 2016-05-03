@@ -843,11 +843,6 @@ protected:
       return bdm_->blockchain().top().getBlockHeight();
    }
    
-   virtual void flagForScanThread(void)
-   {
-      bdm_->sideScanFlag_ = true;
-   }
-
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec)
    {
       bdm_->getIFace()->resetHistoryForAddressVector(saVec);
@@ -874,11 +869,14 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager::BlockDataManager(
    const BlockDataManagerConfig &bdmConfig) 
-   : config_(bdmConfig)
-   , blockchain_(config_.genesisBlockHash)
+   : config_(bdmConfig), 
+   iface_(new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation)), 
+   blockchain_(config_.genesisBlockHash)
 {
-   auto isready = [this](void)->bool { return this->isReady(); };
-   iface_ = new LMDBBlockDatabase(&blockchain_, isready, config_.blkFileLocation);
+   networkNode_ = make_shared<BitcoinP2P>("localhost", "18333",
+      *(uint32_t*)config_.magicBytes.getPtr());
+
+   zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
 
    scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    setConfig(bdmConfig);
@@ -926,7 +924,6 @@ void BlockDataManager::openDatabase()
    {
       stringstream ss;
       ss << "DB failed to open, unknown error";
-      ss >> criticalError_;
       throw runtime_error(ss.str());
    }
 
@@ -1197,4 +1194,24 @@ shared_future<bool> BlockDataManager::registerAddressBatch(
    scrAddrData_->registerAddressBatch(move(wltInfoVec), isNew);
 
    return waitOnFuture;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager::enableZeroConf(bool clearMempool)
+{
+   SCOPED_TIMER("enableZeroConf");
+   LOGINFO << "Enabling zero-conf tracking ";
+   zcEnabled_ = true;
+
+   auto zcFilter = [this](const BinaryData& scrAddr)->bool
+   { return this->getScrAddrFilter()->hasScrAddress(scrAddr); };
+
+   zeroConfCont_->init(zcFilter, clearMempool);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager::disableZeroConf(void)
+{
+   SCOPED_TIMER("disableZeroConf");
+   zcEnabled_ = false;
 }

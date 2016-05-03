@@ -10,16 +10,13 @@
 
 /////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::BlockDataViewer(BlockDataManager* bdm) :
-   rescanZC_(false), zeroConfCont_(bdm->getIFace())
+   zeroConfCont_(bdm->zeroConfCont()), rescanZC_(false)
 {
    db_ = bdm->getIFace();
    bc_ = &bdm->blockchain();
    saf_ = bdm->getScrAddrFilter().get();
 
    bdmPtr_ = bdm;
-
-   zcEnabled_ = false;
-   zcLiteMode_ = false;
 
    groups_.push_back(WalletGroup(this, saf_));
    groups_.push_back(WalletGroup(this, saf_));
@@ -92,23 +89,15 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       }
    }
 
-   if (startBlock != endBlock)
-   {
-      zeroConfCont_.purge(
-         [this](const BinaryData& sa)->bool {
-         return saf_->hasScrAddress(sa); });
-   }
-
    const bool reorg = (lastScanned_ > startBlock);
 
    sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
-
       group.scanWallets(*sbIter, endBlock, reorg);
 
-      group.updateGlobalLedgerFirstPage(*sbIter, endBlock,
-         forceRefresh);
+      /*group.updateGlobalLedgerFirstPage(*sbIter, endBlock,
+         forceRefresh);*/
 
       sbIter++;
    }
@@ -126,51 +115,6 @@ bool BlockDataViewer::hasWallet(const BinaryData& ID) const
 void BlockDataViewer::pprintRegisteredWallets(void) const
 {
    groups_[group_wallet].pprintRegisteredWallets();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::addNewZeroConfTx(BinaryData const & rawTx,
-   uint32_t txtime,
-   bool writeToFile)
-{
-   if (!zcEnabled_)
-      return;
-
-   SCOPED_TIMER("addNewZeroConfTx");
-
-   if (txtime == 0)
-      txtime = (uint32_t)time(nullptr);
-
-   zeroConfCont_.addRawTx(rawTx, txtime);
-   flagRescanZC(true);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::enableZeroConf(bool clearMempool)
-{
-   SCOPED_TIMER("enableZeroConf");
-   LOGINFO << "Enabling zero-conf tracking ";
-   zcEnabled_ = true;
-   //zcLiteMode_ = zcLite;
-
-   auto zcFilter = [this](const BinaryData& scrAddr)->bool
-   { return this->bdmPtr_->getScrAddrFilter()->hasScrAddress(scrAddr); };
-
-   zeroConfCont_.loadZeroConfMempool(zcFilter, clearMempool);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::disableZeroConf(void)
-{
-   SCOPED_TIMER("disableZeroConf");
-   zcEnabled_ = false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-set<BinaryData> BlockDataViewer::parseNewZeroConfTx()
-{
-   return zeroConfCont_.parseNewZC(
-      [this](const BinaryData& sa)->bool { return saf_->hasScrAddress(sa); });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -226,7 +170,6 @@ void BlockDataViewer::registerAddressBatch(
 const LedgerEntry& BlockDataViewer::getTxLedgerByHash_FromWallets(
    const BinaryData& txHash) const
 {
-   checkBDMisReady();
    return groups_[group_wallet].getTxLedgerByHash(txHash);
 }
 
@@ -234,42 +177,22 @@ const LedgerEntry& BlockDataViewer::getTxLedgerByHash_FromWallets(
 const LedgerEntry& BlockDataViewer::getTxLedgerByHash_FromLockboxes(
    const BinaryData& txHash) const
 {
-   checkBDMisReady();
    return groups_[group_lockbox].getTxLedgerByHash(txHash);
 }
 
-/////////////////////////////////////////////////////////////////////////////
-TX_AVAILABILITY BlockDataViewer::getTxHashAvail(BinaryDataRef txHash) const
-{
-   checkBDMisReady();
-
-   if (db_->getTxRef(txHash).isNull())
-   {
-      if (!zeroConfCont_.hasTxByHash(txHash))
-         return TX_DNE;  // No tx at all
-      else
-         return TX_ZEROCONF;  // Zero-conf tx
-   }
-   else
-      return TX_IN_BLOCKCHAIN; // In the blockchain already
-}
-
-/////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(HashString const & txhash) const
 {
-   checkBDMisReady();
-
    StoredTx stx;
    if (db_->getStoredTx_byHash(txhash, &stx))
       return stx.getTxCopy();
    else
-      return zeroConfCont_.getTxByHash(txhash);
+      return zeroConfCont_->getTxByHash(txhash);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
 {
-   checkBDMisReady();
-
    if (!tx.hasTxRef())
       return false;
    return tx.getTxRef().attached(db_).isMainBranch();
@@ -278,8 +201,6 @@ bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
 ////////////////////////////////////////////////////////////////////////////////
 TxOut BlockDataViewer::getPrevTxOut(TxIn & txin) const
 {
-   checkBDMisReady();
-
    if (txin.isCoinbase())
       return TxOut();
 
@@ -295,8 +216,6 @@ TxOut BlockDataViewer::getPrevTxOut(TxIn & txin) const
 ////////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getPrevTx(TxIn & txin) const
 {
-   checkBDMisReady();
-
    if (txin.isCoinbase())
       return Tx();
 
@@ -307,8 +226,6 @@ Tx BlockDataViewer::getPrevTx(TxIn & txin) const
 ////////////////////////////////////////////////////////////////////////////////
 HashString BlockDataViewer::getSenderScrAddr(TxIn & txin) const
 {
-   checkBDMisReady();
-
    if (txin.isCoinbase())
       return HashString(0);
 
@@ -319,8 +236,6 @@ HashString BlockDataViewer::getSenderScrAddr(TxIn & txin) const
 ////////////////////////////////////////////////////////////////////////////////
 int64_t BlockDataViewer::getSentValue(TxIn & txin) const
 {
-   checkBDMisReady();
-
    if (txin.isCoinbase())
       return -1;
 
@@ -337,8 +252,6 @@ LMDBBlockDatabase* BlockDataViewer::getDB(void) const
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataViewer::getTopBlockHeight(void) const
 {
-   checkBDMisReady();
-
    return bc_->top().getBlockHeight();
 }
 
@@ -349,11 +262,6 @@ void BlockDataViewer::reset()
       group.reset();
 
    rescanZC_   = false;
-   zcEnabled_  = false;
-   zcLiteMode_ = false;
-   
-   zeroConfCont_.clear();
-
    lastScanned_ = 0;
 }
 
@@ -376,8 +284,6 @@ void BlockDataViewer::scanScrAddrVector(
 ////////////////////////////////////////////////////////////////////////////////
 size_t BlockDataViewer::getWalletsPageCount(void) const
 {
-   checkBDMisReady();
-
    return groups_[group_wallet].getPageCount();
 }
 
@@ -385,8 +291,6 @@ size_t BlockDataViewer::getWalletsPageCount(void) const
 vector<LedgerEntry> BlockDataViewer::getWalletsHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
-   checkBDMisReady();
-
    return groups_[group_wallet].getHistoryPage(pageId, 
       rebuildLedger, remapWallets);
 }
@@ -394,8 +298,6 @@ vector<LedgerEntry> BlockDataViewer::getWalletsHistoryPage(uint32_t pageId,
 ////////////////////////////////////////////////////////////////////////////////
 size_t BlockDataViewer::getLockboxesPageCount(void) const
 {
-   checkBDMisReady();
-
    return groups_[group_lockbox].getPageCount();
 }
 
@@ -403,8 +305,6 @@ size_t BlockDataViewer::getLockboxesPageCount(void) const
 vector<LedgerEntry> BlockDataViewer::getLockboxesHistoryPage(uint32_t pageId,
    bool rebuildLedger, bool remapWallets)
 {
-   checkBDMisReady();
-
    return groups_[group_lockbox].getHistoryPage(pageId,
       rebuildLedger, remapWallets);
 }
@@ -451,8 +351,6 @@ void BlockDataViewer::flagRefresh(BDV_refresh refresh, const BinaryData& refresh
 ////////////////////////////////////////////////////////////////////////////////
 StoredHeader BlockDataViewer::getMainBlockFromDB(uint32_t height) const
 {
-   checkBDMisReady();
-
    uint8_t dupID = db_->getValidDupIDForHeight(height);
    
    return getBlockFromDB(height, dupID);
@@ -477,8 +375,6 @@ bool BlockDataViewer::scrAddressIsRegistered(const BinaryData& scrAddr) const
 ////////////////////////////////////////////////////////////////////////////////
 BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
 {
-   checkBDMisReady();
-
    return bc_->getHeaderByHash(blockHash);
 }
 
@@ -486,8 +382,6 @@ BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
 vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
    const vector<BinaryData>& scrAddrVec, bool ignoreZc) const
 {
-   checkBDMisReady();
-
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter().get();
 
    if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
@@ -503,7 +397,7 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 
    for (const auto& scrAddr : scrAddrVec)
    {
-      const auto& zcTxioMap = zeroConfCont_.getZCforScrAddr(scrAddr);
+      const auto& zcTxioMap = zeroConfCont_->getZCforScrAddr(scrAddr);
 
       StoredScriptHistory ssh;
       db_->getStoredScriptHistory(ssh, scrAddr);
@@ -546,8 +440,6 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 WalletGroup BlockDataViewer::getStandAloneWalletGroup(
    const vector<BinaryData>& wltIDs, HistoryOrdering order)
 {
-  checkBDMisReady();
-
    WalletGroup wg(this, this->saf_);
    wg.order_ = order;
 
@@ -723,7 +615,7 @@ Tx BlockDataViewer::getSpenderTxForTxOut(uint32_t height, uint32_t txindex,
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::isRBF(const BinaryData& txHash) const
 {
-   auto&& zctx = zeroConfCont_.getTxByHash(txHash);
+   auto&& zctx = zeroConfCont_->getTxByHash(txHash);
    if (!zctx.isInitialized())
       return false;
 

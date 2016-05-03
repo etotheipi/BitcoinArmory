@@ -65,19 +65,21 @@ BlockDataManagerConfig parseArgs(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
    DataMeta::initTypeMap();
-   shared_ptr<BDV_Notifier> ntf = make_shared<BDV_Notifier>();
 
    auto&& bdmConfig = parseArgs(argc, argv);
 
    STARTLOGGING("./supernodeTest.txt", LogLvlDebug);
    LOGENABLESTDOUT();
 
-   BlockDataManagerThread bdmThread(bdmConfig, ntf.get());
+   if (FCGX_Init())
+      throw runtime_error("failed to initialize FCGI engine");
+
+   BlockDataManagerThread bdmThread(bdmConfig);
 
    //get mode from bdmConfig and start BDM maintenance thread
    bdmThread.start(bdmConfig.initMode);
 
-   FCGI_Server server(&bdmThread, ntf);
+   FCGI_Server server(&bdmThread);
    server.init();
    server.enterLoop();
 

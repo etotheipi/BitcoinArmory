@@ -19,9 +19,19 @@
 #include <functional>
 
 #include "ThreadSafeClasses.h"
+#include "BitcoinP2p.h"
 #include "BinaryData.h"
 #include "ScrAddrObj.h"
 #include "BtcWallet.h"
+
+#define GETZC_THREADCOUNT 5
+
+enum ZcAction
+{
+   Zc_NewTx,
+   Zc_Purge,
+   Zc_Shutdown
+};
 
 
 class ZeroConfContainer;
@@ -136,7 +146,7 @@ private:
    bool                           doScan_ = true; 
    bool                           isScanning_ = false;
 
-   AtomicPile<ScrAddrSideScanData> scanDataPile_;
+   Pile<ScrAddrSideScanData> scanDataPile_;
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
@@ -234,35 +244,7 @@ private:
 
 class ZeroConfContainer
 {
-   /***
-   This class does parses ZC based on a filter function that takes a scrAddr
-   and return a bool. 
-
-   This class stores and represents ZC transactions by DBkey. While the ZC txn
-   do not hit the DB, they are assigned a 6 bytes key like mined transaction
-   to unify TxIn parsing by DBkey.
-
-   DBkeys are unique. They are preferable to outPoints because they're cheaper
-   (8 bytes vs 32), and do not incur extra processing to recover a TxOut
-   script DB (TxOuts are saved by DBkey, but OutPoints only store a TxHash, 
-   which has to be converted first to a DBkey). They also carry height,
-   dupID and TxId natively.
-
-   The first 2 bytes of ZC DBkey will always be 0xFFFF. The
-   transaction index having to be unique, will be 4 bytes long instead, and
-   produced by atomically incrementing topId_. In comparison, a TxOut DBkey
-   uses 4 Bytes for height and dupID, 2 bytes for the Tx index in the block it 
-   refers to by hgtX, and 2 more bytes for the TxOut id. 
-
-   Indeed, at 7 tx/s, including limbo, it is possible a 2 bytes index will
-   overflow on long run cycles.
-
-   Methods:
-   addRawTx takes in a raw tx, hashes it and verifies it isnt already added.
-   It then unserializes the transaction to a Tx Object, assigns it a key and
-   parses it to populate the TxIO map. It returns the Tx key if valid, or an
-   empty BinaryData object otherwise.
-   ***/
+   //TODO: make this class thread safe for all I/O
 
    struct BulkFilterData
    {
@@ -271,6 +253,17 @@ class ZeroConfContainer
       set<BinaryData> txOutsSpentByZC_;
 
       bool isEmpty(void) { return scrAddrTxioMap_.size() == 0; }
+   };
+
+   struct ZcActionStruct
+   {
+      ZcAction action_;
+      map<BinaryData, Tx> zcMap_;
+
+      void setData(map<BinaryData, Tx> zcmap)
+      {
+         zcMap_ = move(zcmap);
+      }
    };
 
 private:
@@ -284,23 +277,22 @@ private:
 
    BinaryData lastParsedBlockHash_;
 
-   std::atomic<uint32_t>       topId_;
-   mutex mu_;
+   std::atomic<uint32_t> topId_;
 
-   //newZCmap_ is ephemeral. Raw ZC are saved until they are processed.
-   //The code has a thread pushing new ZC, and set the BDM thread flag
-   //to parse it
-   map<BinaryData, Tx> newZCMap_; //<zcKey, zcTx>
-
-   //newTxioMap_ is ephemeral too. It's contains ZC txios that have yet to be
-   //processed by their relevant scrAddrObj. It's content is returned then wiped 
-   //by each call to getNewTxioMap
-   LMDBBlockDatabase*                           db_;
+   LMDBBlockDatabase* db_;
 
    static map<BinaryData, TxIOPair> emptyTxioMap_;
    bool enabled_ = false;
 
    vector<BinaryData> emptyVecBinData_;
+
+   //stacks inv tx packets from node
+   Stack<promise<InvEntry>> newInvTxStack_;
+   
+   //stacks new zc Tx objects from node
+   BlockingStack<ZcActionStruct> newZcStack_;
+
+   shared_ptr<BitcoinP2P> networkNode_;
 
 private:
    BinaryData getNewZCkey(void);
@@ -313,36 +305,48 @@ private:
       function<bool(const BinaryData&)>,
       bool withSecondOrderMultisig = true);
 
-public:
-   ZeroConfContainer(LMDBBlockDatabase* db) :
-      topId_(0), db_(db) {}
+   void loadZeroConfMempool(bool clearMempool);
+   set<BinaryData> purge(void);
 
-   void addRawTx(const BinaryData& rawTx, uint32_t txtime);
+public:
+   ZeroConfContainer(LMDBBlockDatabase* db, 
+      shared_ptr<BitcoinP2P> node) :
+      topId_(0), db_(db), 
+      networkNode_(node)
+   {
+      //register ZC callback
+      auto processInvTx = [this](vector<InvEntry*>& entryVec)->void
+      {
+         this->processInvTxVec(entryVec);
+      };
+
+      networkNode_->registerInvTxLambda(processInvTx);
+   }
+
 
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;
-
-   void purge(
-      function<bool(const BinaryData&)>);
 
    const map<HashString, map<BinaryData, TxIOPair> >&
       getFullTxioMap(void) const { return txioMap_; }
 
    void dropZC(const set<BinaryData>& txHashes);
-   set<BinaryData> parseNewZC(
-      function<bool(const BinaryData&)>, bool updateDb = true);
+   void parseNewZC(void);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData& zcKey) const;
 
    void clear(void);
 
-   const map<BinaryData, TxIOPair> getZCforScrAddr(BinaryData scrAddr) const;
+   const map<BinaryData, TxIOPair>& getZCforScrAddr(BinaryData scrAddr) const;
    const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
 
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
-   void loadZeroConfMempool(function<bool(const BinaryData&)>, bool clearMempool);
+   void processInvTxVec(vector<InvEntry*>&);
+   void processInvTxThread(void);
+
+   void init(function<bool(const BinaryData&)>, bool clearMempool);
 };
 
 #endif
