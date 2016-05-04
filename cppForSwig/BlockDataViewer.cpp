@@ -63,21 +63,61 @@ void BlockDataViewer::unregisterLockbox(const string& IDstr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::scanWallets(uint32_t startBlock,
-   uint32_t endBlock, BDV_refresh forceRefresh)
+void BlockDataViewer::scanWallets(const BDV_Action_Struct& action)
 {
-   if (startBlock == UINT32_MAX)
-      startBlock = lastScanned_;
-   if (endBlock == UINT32_MAX)
-      endBlock = getTopBlockHeight() + 1;
+   bool reorg = false;
+   uint32_t startBlock = UINT32_MAX;
+   uint32_t endBlock = UINT32_MAX;
+
+   BDV_Notification_ZC::zcMapType zcMap;
+
+   bool refresh = false;
+
+   switch (action.action_)
+   {
+   case BDV_NewBlock:
+   {
+      auto reorgState =
+         (Blockchain::ReorganizationState*)action.payload_.get();
+
+      if (!reorgState->hasNewTop)
+         return;
+    
+      if (!reorgState->prevTopStillValid)
+      {
+         //reorg
+         reorg = true;
+         startBlock = reorgState->reorgBranchPoint->getBlockHeight();
+      }
+      else
+      {
+         startBlock = reorgState->prevTop->getBlockHeight();
+      }
+         
+      endBlock = reorgState->newTop->getBlockHeight();
+      break;
+   }
+   
+   case BDV_ZC:
+   {
+      auto zcAction = (BDV_Notification_ZC*)action.payload_.get();
+      zcMap = move(zcAction->scrAddrZcMap_);
+      break;
+   }
+
+   case BDV_RefreshWallets:
+   {
+      refresh = true;
+      break;
+   }
+
+   default:
+      return;
+   }
    
    vector<uint32_t> startBlocks;
    for (auto& group : groups_)
       startBlocks.push_back(startBlock);
-
-   bool refresh = false;
-   if (forceRefresh != BDV_dontRefresh)
-      refresh = true;
 
    auto sbIter = startBlocks.begin();
    for (auto& group : groups_)
@@ -85,16 +125,15 @@ void BlockDataViewer::scanWallets(uint32_t startBlock,
       if (group.pageHistory(refresh, false))
       {
          *sbIter = group.hist_.getPageBottom(0);
-         sbIter++;
       }
+         
+      sbIter++;
    }
-
-   const bool reorg = (lastScanned_ > startBlock);
 
    sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
-      group.scanWallets(*sbIter, endBlock, reorg);
+      group.scanWallets(*sbIter, endBlock, reorg, zcMap);
 
       /*group.updateGlobalLedgerFirstPage(*sbIter, endBlock,
          forceRefresh);*/
@@ -326,9 +365,6 @@ void BlockDataViewer::updateLockboxesLedgerFilter(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::flagRefresh(BDV_refresh refresh, const BinaryData& refreshID)
 { 
-   if (saf_->bdmIsRunning() == false)
-      return;
-
    unique_lock<mutex> lock(refreshLock_);
 
    if (refresh_ != BDV_refreshAndRescan)
@@ -895,11 +931,12 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
 
 ////////////////////////////////////////////////////////////////////////////////
 void WalletGroup::scanWallets(
-   uint32_t startBlock, uint32_t endBlock, bool reorg)
+   uint32_t startBlock, uint32_t endBlock, bool reorg,
+   const BDV_Notification_ZC::zcMapType& zcMap)
 {
    ReadWriteLock::ReadLock rl(lock_);
    for (auto& wlt : values(wallets_))
-      wlt->scanWallet(startBlock, endBlock, reorg);
+      wlt->scanWallet(startBlock, endBlock, reorg, zcMap);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

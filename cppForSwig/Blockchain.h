@@ -37,9 +37,10 @@ public:
    
    struct ReorganizationState
    {
-      bool prevTopBlockStillValid=false;
+      bool prevTopStillValid=false;
       bool hasNewTop=false;
-      BlockHeader *prevTopBlock=nullptr;
+      BlockHeader *prevTop=nullptr;
+      BlockHeader *newTop = nullptr;
       BlockHeader *reorgBranchPoint=nullptr;
    };
    

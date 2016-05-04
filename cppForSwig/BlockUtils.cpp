@@ -1139,7 +1139,7 @@ void BlockDataManager::loadDiskState(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager::readBlkFileUpdate(
+Blockchain::ReorganizationState BlockDataManager::readBlkFileUpdate(
    const BlockDataManager::BlkFileUpdateCallbacks& callbacks
 )
 { 

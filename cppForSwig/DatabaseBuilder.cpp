@@ -87,7 +87,7 @@ void DatabaseBuilder::init()
       reset = true;
    }
 
-   if (!reorgState.prevTopBlockStillValid && !reset)
+   if (!reorgState.prevTopStillValid && !reset)
    {
       //reorg
       undoHistory(reorgState);
@@ -436,7 +436,7 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t DatabaseBuilder::update(void)
+Blockchain::ReorganizationState DatabaseBuilder::update(void)
 {
    unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
 
@@ -446,17 +446,14 @@ uint32_t DatabaseBuilder::update(void)
    //update db
    auto&& reorgState = updateBlocksInDB(progress_, false, false);
 
-   uint32_t prevTop = reorgState.prevTopBlock->getBlockHeight();
-   if (reorgState.prevTopBlockStillValid && 
-       prevTop == blockchain_.top().getBlockHeight())
-      return 0;
-
-   uint32_t startHeight = reorgState.prevTopBlock->getBlockHeight() + 1;
-
    if (!reorgState.hasNewTop)
-      return startHeight - 1;
+      return reorgState;
 
-   if (!reorgState.prevTopBlockStillValid)
+   uint32_t prevTop = reorgState.prevTop->getBlockHeight();
+   uint32_t startHeight = reorgState.prevTop->getBlockHeight() + 1;
+
+
+   if (!reorgState.prevTopStillValid)
    {
       //reorg, undo blocks up to branch point
       undoHistory(reorgState);
@@ -471,7 +468,7 @@ uint32_t DatabaseBuilder::update(void)
 
    //TODO: recover from failed scan 
 
-   return startHeight;
+   return reorgState;
 }
 
 /////////////////////////////////////////////////////////////////////////////

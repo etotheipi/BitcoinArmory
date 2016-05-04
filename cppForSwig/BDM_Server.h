@@ -25,29 +25,6 @@
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
 
-enum BDV_Action
-{
-   BDV_NoAction,
-   BDV_NewBlock,
-   BDV_RefreshWallets,
-   BDV_ZC
-};
-
-struct BDV_Data
-{
-};
-
-struct BDV_Data_ZC : public BDV_Data
-{
-   map<BinaryData, map<BinaryData, TxOut>> scrAddrZcMap_;
-};
-
-struct BDV_Action_Struct
-{
-   BDV_Action action_;
-   unique_ptr<BDV_Data> payload_ = nullptr;
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 class SocketCallback : public Callback
 {
@@ -109,8 +86,6 @@ private:
 
    map<string, LedgerDelegate> delegateMap_;
 
-   BlockHeader *top_ = nullptr;
-
    struct walletRegStruct
    {
       vector<BinaryData> scrAddrVec;
@@ -144,7 +119,6 @@ public:
    Arguments executeCommand(const string& method, 
                               const vector<string>& ids, 
                               Arguments& args);
-   void scan(const BDV_Action_Struct&);
 };
 
 class Clients;
@@ -216,6 +190,7 @@ public:
    Arguments registerBDV(void);
 };
 
+///////////////////////////////////////////////////////////////////////////////
 class FCGI_Server
 {
    /***

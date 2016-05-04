@@ -124,7 +124,7 @@ public:
    shared_ptr<BitcoinP2P> networkNode_;
    shared_future<bool> isReadyFuture_;
 
-   BlockingStack<uint32_t> newBlocksStack_;
+   BlockingStack<Blockchain::ReorganizationState> newBlocksStack_;
 
 private:
 
@@ -177,7 +177,7 @@ private:
    );
    
 public:
-   uint32_t readBlkFileUpdate(
+   Blockchain::ReorganizationState readBlkFileUpdate(
       const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
 
    BinaryData applyBlockRangeToDB(ProgressReporter &prog, 

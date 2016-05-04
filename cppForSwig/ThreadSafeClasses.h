@@ -279,7 +279,7 @@ public:
 
    T get(void)
    {
-      //blocks as long as there are is no data available in the chain.
+      //blocks as long as there is no data available in the chain.
 
       //run in loop until we get data or a throw
       try

@@ -70,5 +70,5 @@ public:
       const ProgressCallback&);
 
    void init(void);
-   uint32_t update(void);
+   Blockchain::ReorganizationState update(void);
 };

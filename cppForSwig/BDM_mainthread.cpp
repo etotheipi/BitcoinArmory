@@ -194,10 +194,10 @@ try
    
    auto updateChainLambda = [bdm, this]()->bool
    {
-      const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
-      if (prevTopBlk > 0)
+      auto reorgState = bdm->readBlkFileUpdate();
+      if (reorgState.hasNewTop)
       {
-         bdm->newBlocksStack_.push_back(move(prevTopBlk));
+         bdm->newBlocksStack_.push_back(move(reorgState));
          return true;
       }
 

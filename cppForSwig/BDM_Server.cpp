@@ -319,13 +319,16 @@ void Clients::maintenanceThread(void) const
    {
       try
       { 
-         auto&& newBlock = bdmT_->bdm()->newBlocksStack_.get();
+         auto&& reorgState = bdmT_->bdm()->newBlocksStack_.get();
          auto bdvmap = BDVs_.get();
 
          for (auto& bdv : *bdvmap)
          {
             BDV_Action_Struct action;
             action.action_ = BDV_NewBlock;
+            unique_ptr<BDV_Notification> bdvdata =
+               make_unique<BDV_Notification_NewBlock>(reorgState);
+
             bdv.second->notificationStack_.push_back(move(action));
          }
       }
@@ -542,8 +545,7 @@ void BDV_Server_Object::maintenanceThread(void)
       }
    }
 
-   top_ = bdmT_->topBH();
-   scanWallets(0, top_->getBlockHeight(), BDV_refreshSkipRescan);
+   scanWallets(0, bdmT_->topBH()->getBlockHeight(), BDV_refreshSkipRescan);
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
    unsigned int topblock = blockchain().top().getBlockHeight();

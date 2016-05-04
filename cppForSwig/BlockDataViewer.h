@@ -45,6 +45,49 @@ typedef enum
    group_lockbox
 }LedgerGroups;
 
+enum BDV_Action
+{
+   BDV_NoAction,
+   BDV_NewBlock,
+   BDV_RefreshWallets,
+   BDV_ZC
+};
+
+struct BDV_Notification
+{
+};
+
+struct BDV_Notification_NewBlock : public BDV_Notification
+{
+   Blockchain::ReorganizationState reorgState_;
+
+   BDV_Notification_NewBlock(
+      const Blockchain::ReorganizationState& ref) :
+      reorgState_(ref)
+   {}
+
+   BDV_Notification_NewBlock(
+      Blockchain::ReorganizationState&& mv) :
+      reorgState_(move(mv))
+   {}
+};
+
+struct BDV_Notification_ZC : public BDV_Notification
+{
+   typedef map<BinaryData, map<BinaryData, TxIOPair>> zcMapType;
+   zcMapType scrAddrZcMap_;
+
+   BDV_Notification_ZC(zcMapType&& mv) :
+      scrAddrZcMap_(move(mv))
+   {}
+};
+
+struct BDV_Action_Struct
+{
+   BDV_Action action_;
+   unique_ptr<BDV_Notification> payload_ = nullptr;
+};
+
 class WalletGroup;
 
 class BDMnotReady : public exception
@@ -113,8 +156,7 @@ public:
    void       unregisterWallet(const string& ID);
    void       unregisterLockbox(const string& ID);
 
-   void scanWallets(uint32_t startBlock = UINT32_MAX,
-      uint32_t endBlock = UINT32_MAX, BDV_refresh forceRefresh = BDV_dontRefresh);
+   void scanWallets(const BDV_Action_Struct&);
    
    bool hasWallet(const BinaryData& ID) const;
 
@@ -172,7 +214,6 @@ public:
                            uint32_t startBlock, uint32_t endBlock) const;
 
    void flagRefresh(BDV_refresh refresh, const BinaryData& refreshId);
-   virtual void notifyMainThread(void) const {}
 
    StoredHeader getMainBlockFromDB(uint32_t height) const;
    StoredHeader getBlockFromDB(uint32_t height, uint8_t dupID) const;
@@ -306,7 +347,8 @@ private:
    bool pageHistory(bool forcePaging, bool pageAnyway);
    void updateLedgerFilter(const vector<BinaryData>& walletsVec);
 
-   void scanWallets(uint32_t, uint32_t, bool);
+   void scanWallets(uint32_t, uint32_t, bool,
+      const BDV_Notification_ZC::zcMapType&);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 
