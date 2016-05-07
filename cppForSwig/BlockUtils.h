@@ -107,8 +107,6 @@ private:
 
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
-
-   shared_ptr<ZeroConfContainer>   zeroConfCont_;
    bool     zcEnabled_;
 
    Blockchain blockchain_;
@@ -125,6 +123,7 @@ public:
    shared_future<bool> isReadyFuture_;
 
    BlockingStack<Blockchain::ReorganizationState> newBlocksStack_;
+   shared_ptr<ZeroConfContainer>   zeroConfCont_;
 
 private:
 

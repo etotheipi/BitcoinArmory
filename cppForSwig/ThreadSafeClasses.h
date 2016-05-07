@@ -359,4 +359,52 @@ public:
    }
 };
 
+template<typename T, typename U> class TransactionalMap
+{
+   //locked writes, lockless reads
+private:
+   mutex mu_;
+   typedef map<T, U> map_type;
+   shared_ptr<map_type> map_;
+
+public:
+   void insert(pair<T, U>&& mv)
+   {
+      auto newMap = make_shared<map_type>();
+
+      unique_lock<mutex> lock(mu_);
+      *newMap = *map_;
+
+      newMap->insert(move(obj));
+      map_ = newMap;
+   }
+
+   void insert(const pair<T, U>& obj)
+   {
+      auto newMap = make_shared<map_type>();
+
+      unique_lock<mutex> lock(mu_);
+      *newMap = *map_;
+
+      newMap->insert(obj);
+      map_ = newMap;
+   }
+
+   void eraseBdv(const T& id)
+   {
+      auto newMap = make_shared<map_type>();
+
+      unique_lock<mutex> lock(mu_);
+      *newMap = *map_;
+
+      newMap->erase(id);
+      map_ = newMap;
+   }
+
+   shared_ptr<map_type> get(void) const
+   {
+      return map_;
+   }
+};
+
 #endif

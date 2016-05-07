@@ -47,7 +47,7 @@ typedef enum
 
 enum BDV_Action
 {
-   BDV_NoAction,
+   BDV_Init,
    BDV_NewBlock,
    BDV_RefreshWallets,
    BDV_ZC

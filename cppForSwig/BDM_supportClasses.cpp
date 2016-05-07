@@ -518,8 +518,6 @@ set<BinaryData> ZeroConfContainer::purge()
    For ZC chains to be parsed properly, it is important ZC transactions are
    parsed in the order they appeared.
    ***/
-   SCOPED_TIMER("purgeZeroConfPool");
-
    LMDBEnv::Transaction tx;
    db_->beginDBTransaction(&tx, ZERO_CONF, LMDB::ReadOnly);
 
@@ -666,7 +664,7 @@ void ZeroConfContainer::parseNewZC(void)
       map<BinaryData, Tx> zcMap;
       try
       {
-         zcAction = newZcStack_.get();
+         zcAction = move(newZcStack_.get());
       }
       catch (IsEmpty&)
       {
@@ -677,6 +675,7 @@ void ZeroConfContainer::parseNewZC(void)
       {
       case Zc_Purge:
       {
+         zcAction.zcMap_ = move(txMap_);
          auto&& keysToDelete = purge();
          auto keyIter = zcAction.zcMap_.begin();
          while (keyIter != zcAction.zcMap_.end())
@@ -705,7 +704,6 @@ void ZeroConfContainer::parseNewZC(void)
 
       set<BinaryData> newZcByHash;
 
-      //TODO: flag invalid ZC for deletion as well
       vector<BinaryData> keysToWrite, keysToDelete;
 
       for (auto& newZCPair : zcMap)
@@ -745,8 +743,7 @@ void ZeroConfContainer::parseNewZC(void)
             auto&& bulkData =
                ZCisMineBulkFilter(newZCPair.second,
                newZCPair.first,
-               newZCPair.second.getTxTime(),
-               filter);
+               newZCPair.second.getTxTime());
 
             //check for replacement
             {
@@ -797,6 +794,8 @@ void ZeroConfContainer::parseNewZC(void)
                txHashToDBKey_[txHash] = newZCPair.first;
                txMap_[newZCPair.first] = newZCPair.second;
 
+               //TODO: get rid of txioMap_, arrange by BDV and push to callbacks instead
+               
                for (const auto& saTxio : bulkData.scrAddrTxioMap_)
                {
                   //again, can't use insert, have to overwrite existing data
@@ -839,9 +838,7 @@ bool ZeroConfContainer::getKeyForTxHash(const BinaryData& txHash,
 ///////////////////////////////////////////////////////////////////////////////
 ZeroConfContainer::BulkFilterData 
 ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
-   const BinaryData & ZCkey, uint32_t txtime, 
-   function<bool(const BinaryData&)> filter, 
-   bool withSecondOrderMultisig)
+   const BinaryData & ZCkey, uint32_t txtime)
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -853,6 +850,20 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
    including the prefix) and returns a bool. For supernode, it should return
    true all the time.
    ***/
+
+   auto bdvcallbacks = bdvCallbacks_.get();
+   auto filter = [&bdvcallbacks](const BinaryData& addr)->set<string>
+   {
+      set<string> flaggedBDVs;
+
+      for (auto& callbacks : *bdvcallbacks)
+      {
+         if (callbacks.second.addressFilter_(addr))
+            flaggedBDVs.insert(callbacks.first);
+      }
+
+      return flaggedBDVs;
+   };
 
    BinaryData txHash = tx.getThisHash();
    TxRef txref = db_->getTxRef(txHash);
@@ -927,7 +938,8 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
             }
 
             BinaryData sa = stxOut.getScrAddress();
-            if (filter(sa))
+            auto&& flaggedBDVs = filter(sa);
+            if (flaggedBDVs.size() > 0)
             {
                TxIOPair txio(
                   TxRef(opKey.getSliceRef(0, 6)), op.getTxOutIndex(),
@@ -946,6 +958,11 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
                auto& wltIdVec = keyToSpentScrAddr_[ZCkey];
                wltIdVec.push_back(sa);
+
+               for (auto& bdvStr : flaggedBDVs)
+               {
+                  bulkData.flaggedBDVs_[bdvStr].insert(sa);
+               }
             }
          }
       }
@@ -956,7 +973,8 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
    {
       auto&& txout = tx.getTxOutCopy(iout);
       BinaryData scrAddr = txout.getScrAddressStr();
-      if (filter(scrAddr))
+      auto&& flaggedBDVs = filter(scrAddr);
+      if (flaggedBDVs.size() > 0)
       {
          TxIOPair txio(TxRef(ZCkey), iout);
 
@@ -969,11 +987,16 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          auto& key_txioPair = bulkData.scrAddrTxioMap_[scrAddr];
 
          key_txioPair[txio.getDBKeyOfOutput()] = txio;
+
+         for (auto& bdvStr : flaggedBDVs)
+         {
+            bulkData.flaggedBDVs_[bdvStr].insert(scrAddr);
+         }
       }
    }
 
    // If we got here, it's either non std or not ours
-   return bulkData;
+   return move(bulkData);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

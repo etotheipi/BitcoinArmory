@@ -244,7 +244,12 @@ private:
 
 class ZeroConfContainer
 {
-   //TODO: make this class thread safe for all I/O
+private:
+   struct BDV_Callbacks
+   {
+      function<void(map<BinaryData, TxIOPair>)> newZcCallback_;
+      function<bool(const BinaryData&)> addressFilter_;
+   };
 
    struct BulkFilterData
    {
@@ -252,9 +257,12 @@ class ZeroConfContainer
       map<BinaryData, map<unsigned, BinaryData>> outPointsSpentByKey_;
       set<BinaryData> txOutsSpentByZC_;
 
+      map<string, set<BinaryData>> flaggedBDVs_;
+
       bool isEmpty(void) { return scrAddrTxioMap_.size() == 0; }
    };
 
+public:
    struct ZcActionStruct
    {
       ZcAction action_;
@@ -287,26 +295,22 @@ private:
    vector<BinaryData> emptyVecBinData_;
 
    //stacks inv tx packets from node
-   Stack<promise<InvEntry>> newInvTxStack_;
-   
-   //stacks new zc Tx objects from node
-   BlockingStack<ZcActionStruct> newZcStack_;
-
    shared_ptr<BitcoinP2P> networkNode_;
+   Stack<promise<InvEntry>> newInvTxStack_;
+   TransactionalMap<string, BDV_Callbacks> bdvCallbacks_;
 
 private:
-   BinaryData getNewZCkey(void);
-   bool RemoveTxByKey(const BinaryData key);
-   bool RemoveTxByHash(const BinaryData txHash);
-   
+   BinaryData getNewZCkey(void);   
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey,
-      uint32_t txtime,
-      function<bool(const BinaryData&)>,
-      bool withSecondOrderMultisig = true);
+      uint32_t txtime);
 
    void loadZeroConfMempool(bool clearMempool);
    set<BinaryData> purge(void);
+
+public:
+   //stacks new zc Tx objects from node
+   BlockingStack<ZcActionStruct> newZcStack_;
 
 public:
    ZeroConfContainer(LMDBBlockDatabase* db, 
@@ -322,7 +326,6 @@ public:
 
       networkNode_->registerInvTxLambda(processInvTx);
    }
-
 
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;

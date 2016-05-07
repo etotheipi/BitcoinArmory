@@ -65,16 +65,24 @@ void BlockDataViewer::unregisterLockbox(const string& IDstr)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::scanWallets(const BDV_Action_Struct& action)
 {
-   bool reorg = false;
    uint32_t startBlock = UINT32_MAX;
    uint32_t endBlock = UINT32_MAX;
 
-   BDV_Notification_ZC::zcMapType zcMap;
-
+   bool reorg = false;
    bool refresh = false;
+
+   BDV_Notification_ZC::zcMapType zcMap;
 
    switch (action.action_)
    {
+   case BDV_Init:
+   {
+      startBlock = 0;
+      endBlock = blockchain().top().getBlockHeight();
+      refresh = true;
+      break;
+   }
+
    case BDV_NewBlock:
    {
       auto reorgState =

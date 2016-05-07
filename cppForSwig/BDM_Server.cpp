@@ -491,18 +491,6 @@ void BDV_Server_Object::startThreads()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BDV_Server_Object::scan(const BDV_Action_Struct&)
-{
-
-   scanWallets(prev->getBlockHeight(), top_->getBlockHeight(), refresh);
-
-   if (prev == top_ && refresh != BDV_dontRefresh)
-      return;
-
-   return;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 void BDV_Server_Object::maintenanceThread(void)
 {
    bdmPtr_->blockUntilReady();
@@ -545,7 +533,10 @@ void BDV_Server_Object::maintenanceThread(void)
       }
    }
 
-   scanWallets(0, bdmT_->topBH()->getBlockHeight(), BDV_refreshSkipRescan);
+   BDV_Action_Struct firstScanAction;
+   firstScanAction.action_ = BDV_Init;
+   scanWallets(firstScanAction);
+
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
    unsigned int topblock = blockchain().top().getBlockHeight();
@@ -557,14 +548,18 @@ void BDV_Server_Object::maintenanceThread(void)
       auto&& action_struct = notificationStack_.get();
       auto& action = action_struct.action_;
 
-      scan(action_struct);
+      scanWallets(action_struct);
 
       if (action == BDV_NewBlock)
       {
          //purge zc on new block
 
          Arguments args2;
-         uint32_t blocknum = top_->getBlockHeight();
+         auto payload = 
+            (BDV_Notification_NewBlock*)action_struct.payload_.get();
+         uint32_t blocknum = 
+            payload->reorgState_.newTop->getBlockHeight();
+
          args2.push_back(move(string("NewBlock")));
          args2.push_back(blocknum);
          cb_.callback(move(args2), OrderNewBlock);

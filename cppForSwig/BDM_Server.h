@@ -127,44 +127,7 @@ class Clients;
 class Clients
 {
 private:
-   struct bdvMap
-   {
-      //locked writes, lockless reads
-   private:
-      mutex mu_;
-      typedef map<string, shared_ptr<BDV_Server_Object>> bdv_map_type;
-      shared_ptr<bdv_map_type> map_;
-
-   public:
-      void addBdv(const string& id, shared_ptr<BDV_Server_Object> bdv)
-      {
-         auto newMap = make_shared<bdv_map_type>();
-
-         unique_lock<mutex> lock(mu_);
-         *newMap = *map_;
-         
-         newMap->insert(make_pair(move(id), bdv));
-         map_ = newMap;
-      }
-
-      void eraseBdv(const string& id)
-      {
-         auto newMap = make_shared<bdv_map_type>();
-         
-         unique_lock<mutex> lock(mu_);
-         *newMap = *map_;
-
-         newMap->erase(id);
-         map_ = newMap;
-      }
-
-      auto get(void) const -> const shared_ptr<bdv_map_type>
-      {
-         return map_;
-      }
-   };
-
-   bdvMap BDVs_;
+   TransactionalMap<string, shared_ptr<BDV_Server_Object>> BDVs_;
    BlockDataManagerThread* bdmT_;
 
 private:

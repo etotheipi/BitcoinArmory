@@ -198,6 +198,11 @@ try
       if (reorgState.hasNewTop)
       {
          bdm->newBlocksStack_.push_back(move(reorgState));
+         
+         ZeroConfContainer::ZcActionStruct zcaction;
+         zcaction.action_ = Zc_Purge;
+
+         bdm->zeroConfCont_->newZcStack_.push_back(move(zcaction));
          return true;
       }
 
