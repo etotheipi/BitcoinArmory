@@ -245,15 +245,9 @@ private:
 class ZeroConfContainer
 {
 private:
-   struct BDV_Callbacks
-   {
-      function<void(map<BinaryData, TxIOPair>)> newZcCallback_;
-      function<bool(const BinaryData&)> addressFilter_;
-   };
-
    struct BulkFilterData
    {
-      map<BinaryData, map<BinaryData, TxIOPair>> scrAddrTxioMap_;
+      map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> scrAddrTxioMap_;
       map<BinaryData, map<unsigned, BinaryData>> outPointsSpentByKey_;
       set<BinaryData> txOutsSpentByZC_;
 
@@ -263,6 +257,17 @@ private:
    };
 
 public:
+   struct BDV_Callbacks
+   {
+      function<void(
+         map<
+         BinaryData, shared_ptr<
+         map<BinaryData, TxIOPair >> >
+         )> newZcCallback_;
+
+      function<bool(const BinaryData&)> addressFilter_;
+   };
+
    struct ZcActionStruct
    {
       ZcAction action_;
@@ -350,6 +355,8 @@ public:
    void processInvTxThread(void);
 
    void init(function<bool(const BinaryData&)>, bool clearMempool);
+
+   void insertBDVcallback(string, BDV_Callbacks);
 };
 
 #endif

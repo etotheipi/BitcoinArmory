@@ -18,6 +18,27 @@
 #include <ctime>
 //#include <unistd.h>
 
+void BlockDataManager::registerBDVwithZCcontainer(
+   shared_ptr<BDV_Server_Object> bdvPtr)
+{
+   auto filter = [bdvPtr](const BinaryData& scrAddr)->bool
+   {
+      return bdvPtr->hasScrAddress(scrAddr);
+   };
+
+   auto newzc = [bdvPtr](
+      map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap)->void
+   {
+      bdvPtr->zcCallback(move(zcMap));
+   };
+
+   ZeroConfContainer::BDV_Callbacks callbacks;
+   callbacks.addressFilter_ = filter;
+   callbacks.newZcCallback_ = newzc;
+
+   zeroConfCont_->insertBDVcallback(move(bdvPtr->getID()), move(callbacks));
+}
+
 BDM_CallBack::~BDM_CallBack()
 {}
 
@@ -111,7 +132,6 @@ public:
 
 
 }
-
 
 void BlockDataManagerThread::run()
 try

@@ -442,7 +442,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::scanWalletZeroConf(bool purge,
-   const map<BinaryData, map<BinaryData, TxIOPair>>& zcMap)
+   const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>& zcMap)
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
@@ -485,13 +485,13 @@ void BtcWallet::scanWalletZeroConf(bool purge,
       auto scrAddr = addrMap->find(scrAddrTxio.first);
 
       if (scrAddr != addrMap->end())
-         scrAddr->second->scanZC(scrAddrTxio.second, isZcFromWallet);
+         scrAddr->second->scanZC(*scrAddrTxio.second, isZcFromWallet);
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg,
-   const map<BinaryData, map<BinaryData, TxIOPair>>& zcMap)
+   const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>& zcMap)
 {
    if (zcMap.size() == 0)
    {

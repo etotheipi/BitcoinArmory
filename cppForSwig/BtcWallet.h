@@ -203,12 +203,12 @@ private:
    
    //returns true on bootstrap and new block, false on ZC
    bool scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg,
-      const map<BinaryData, map<BinaryData, TxIOPair>>&);
+      const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>&);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
    void scanWalletZeroConf(bool purge,
-      const map<BinaryData, map<BinaryData, TxIOPair>>&);
+      const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>&);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
 

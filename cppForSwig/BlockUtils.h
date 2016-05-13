@@ -88,6 +88,7 @@ class debug_replay_blocks {};
 
 class BlockFiles;
 class DatabaseBuilder;
+class BDV_Server_Object;
 
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager
@@ -125,8 +126,6 @@ public:
    BlockingStack<Blockchain::ReorganizationState> newBlocksStack_;
    shared_ptr<ZeroConfContainer>   zeroConfCont_;
 
-private:
-
 public:
    BlockDataManager(const BlockDataManagerConfig &config);
    ~BlockDataManager();
@@ -151,7 +150,6 @@ public:
    const BinaryData& getMagicBytes(void) const   
    { return config_.magicBytes;    }
 
-public:
    void openDatabase(void);
    void     destroyAndResetDatabases(void);
    
@@ -168,6 +166,7 @@ public:
       std::function<void()> headersRead, headersUpdated, blockDataLoaded;
    };
    
+   void registerBDVwithZCcontainer(shared_ptr<BDV_Server_Object>);
    
 private:
    void loadDiskState(
@@ -211,6 +210,12 @@ public:
 
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
    void blockUntilReady(void) const { isReadyFuture_.wait(); }
+   bool isReady(void) const
+   {
+      return 
+         isReadyFuture_.wait_for(chrono::seconds(0)) == 
+         std::future_status::ready;
+   }
 
    vector<string> getNextWalletIDToScan(void);
 };

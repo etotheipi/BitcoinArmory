@@ -970,7 +970,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 {
    //dont undo subssh, these are skipped by dupID when loading history
 
-   BlockHeader* blockPtr = reorgState.prevTopBlock;
+   BlockHeader* blockPtr = reorgState.prevTop;
    map<uint32_t, BlockFileMapPointer> fileMaps_;
 
    map<DB_SELECT, set<BinaryData>> keysToDelete;
@@ -978,7 +978,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
    set<BinaryData> undoSpentness; //TODO: add spentness DB
 
    //TODO: sanity checks on header ptrs from reorgState
-   if (reorgState.prevTopBlock->getBlockHeight() <=
+   if (reorgState.prevTop->getBlockHeight() <=
        reorgState.reorgBranchPoint->getBlockHeight())
       throw runtime_error("invalid reorg state");
 

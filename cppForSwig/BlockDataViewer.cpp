@@ -63,7 +63,7 @@ void BlockDataViewer::unregisterLockbox(const string& IDstr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::scanWallets(const BDV_Action_Struct& action)
+void BlockDataViewer::scanWallets(BDV_Action_Struct action)
 {
    uint32_t startBlock = UINT32_MAX;
    uint32_t endBlock = UINT32_MAX;
@@ -371,25 +371,13 @@ void BlockDataViewer::updateLockboxesLedgerFilter(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::flagRefresh(BDV_refresh refresh, const BinaryData& refreshID)
+void BlockDataViewer::flagRefresh(BDV_refresh refresh, 
+   const BinaryData& refreshID)
 { 
-   unique_lock<mutex> lock(refreshLock_);
+   auto notif = make_unique<BDV_Notification_Refresh>(refresh, refreshID);
 
-   if (refresh_ != BDV_refreshAndRescan)
-   {
-      if (refresh == BDV_refreshAndRescan)
-         refresh_ = BDV_refreshAndRescan;
-      else
-         refresh_ = BDV_refreshSkipRescan;
-   }
-
-   if (refreshID.getSize())
-      refreshIDSet_.insert(refreshID);
-   
-   if (refresh == BDV_filterChanged)
-      refreshIDSet_.insert(BinaryData("wallet_filter_changed"));
-
-   notifyMainThread();
+   BDV_Action_Struct action(BDV_RefreshWallets, move(notif));
+   pushNotification(move(action));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -666,6 +654,24 @@ bool BlockDataViewer::isRBF(const BinaryData& txHash) const
    return zctx.isRBF();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataViewer::hasScrAddress(const BinaryData& scrAddr) const
+{
+   //TODO: make sure this is thread safe
+
+   for (auto& group : groups_)
+   {
+      ReadWriteLock::WriteLock wl(group.lock_);
+
+      for (auto& wlt : group.wallets_)
+      {
+         if (wlt.second->hasScrAddress(scrAddr))
+            return true;
+      }
+   }
+
+   return false;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //// WalletGroup
@@ -725,8 +731,6 @@ void WalletGroup::unregisterWallet(const string& IDstr)
    }
 
    wallets_.erase(id);
-
-   bdvPtr_->notifyMainThread();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

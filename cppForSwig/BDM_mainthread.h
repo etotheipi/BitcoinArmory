@@ -47,32 +47,6 @@ public:
    BDMFailure() { }
 };
 
-class BDM_Inject : public BlockDataManager::Notifier
-{
-   struct BDM_Inject_Impl;
-   BDM_Inject_Impl *pimpl;
-public:
-   
-   BDM_Inject();
-   virtual ~BDM_Inject();
-   
-   virtual void run()=0;
-   
-   // instruct the BDM to wake up and call run() ASAP
-   void notify();
-   
-   // Block for 'ms' milliseconds or until someone
-   // notify()es me
-   void wait(unsigned ms);
-   
-   // once notify() is called, only returns on your
-   // thread after run() is called
-   void waitRun();
-   
-   // the BDM thread will call this if it fails
-   void setFailureFlag();
-};
-
 class BlockDataManager_LevelDB;
 class BlockDataViewer;
 

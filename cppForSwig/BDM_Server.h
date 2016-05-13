@@ -96,6 +96,9 @@ private:
    mutex registerWalletMutex_;
    map<string, walletRegStruct> wltRegMap_;
 
+   promise<bool> isReadyPromise_;
+   shared_future<bool> isReadyFuture_;
+
 public:
 
    BlockingStack<BDV_Action_Struct> notificationStack_;
@@ -111,6 +114,11 @@ private:
    bool registerWallet(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
 
+   void pushNotification(BDV_Action_Struct action)
+   {
+      notificationStack_.push_back(move(action));
+   }
+
 public:
    BDV_Server_Object(BlockDataManagerThread *bdmT);
 
@@ -119,9 +127,10 @@ public:
    Arguments executeCommand(const string& method, 
                               const vector<string>& ids, 
                               Arguments& args);
+  
+   void zcCallback(
+      map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap);
 };
-
-class Clients;
 
 ///////////////////////////////////////////////////////////////////////////////
 class Clients

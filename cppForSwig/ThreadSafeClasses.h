@@ -12,6 +12,7 @@
 #include <atomic>
 #include <memory>
 #include <future>
+#include <map>
 
 using namespace std;
 
@@ -364,18 +365,17 @@ template<typename T, typename U> class TransactionalMap
    //locked writes, lockless reads
 private:
    mutex mu_;
-   typedef map<T, U> map_type;
-   shared_ptr<map_type> map_;
+   shared_ptr<map<T, U>> map_;
 
 public:
    void insert(pair<T, U>&& mv)
    {
-      auto newMap = make_shared<map_type>();
+      auto newMap = make_shared<map<T, U>>();
 
       unique_lock<mutex> lock(mu_);
       *newMap = *map_;
 
-      newMap->insert(move(obj));
+      newMap->insert(move(mv));
       map_ = newMap;
    }
 
@@ -392,7 +392,7 @@ public:
 
    void eraseBdv(const T& id)
    {
-      auto newMap = make_shared<map_type>();
+      auto newMap = make_shared<map<T, U>>();
 
       unique_lock<mutex> lock(mu_);
       *newMap = *map_;
@@ -401,7 +401,7 @@ public:
       map_ = newMap;
    }
 
-   shared_ptr<map_type> get(void) const
+   shared_ptr<map<T, U>> get(void) const
    {
       return map_;
    }

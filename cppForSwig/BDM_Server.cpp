@@ -300,7 +300,11 @@ Arguments Clients::registerBDV()
 
    string newID(newBDV->getID());
 
-   BDVs_.addBdv(newID, newBDV);
+   //add to BDVs map
+   BDVs_.insert(move(make_pair(newID, newBDV)));
+
+   //register with ZC container
+   bdmT_->bdm()->registerBDVwithZCcontainer(newBDV);
 
    LOGINFO << "registered bdv: " << newID;
 
@@ -324,11 +328,8 @@ void Clients::maintenanceThread(void) const
 
          for (auto& bdv : *bdvmap)
          {
-            BDV_Action_Struct action;
-            action.action_ = BDV_NewBlock;
-            unique_ptr<BDV_Notification> bdvdata =
-               make_unique<BDV_Notification_NewBlock>(reorgState);
-
+            auto bdvdata = make_unique<BDV_Notification_NewBlock>(reorgState);
+            BDV_Action_Struct action(BDV_NewBlock, move(bdvdata));
             bdv.second->notificationStack_.push_back(move(action));
          }
       }
@@ -477,6 +478,8 @@ BDV_Server_Object::BDV_Server_Object(
    BlockDataManagerThread *bdmT) :
    bdmT_(bdmT), BlockDataViewer(bdmT->bdm())
 {
+   isReadyFuture_ = isReadyPromise_.get_future();
+
    bdvID_ = SecureBinaryData().GenerateRandom(10).toHexStr();
    buildMethodMap();
 }
@@ -533,9 +536,12 @@ void BDV_Server_Object::maintenanceThread(void)
       }
    }
 
-   BDV_Action_Struct firstScanAction;
-   firstScanAction.action_ = BDV_Init;
-   scanWallets(firstScanAction);
+   //could a wallet registration event get lost in between the init loop 
+   //and setting the promise?
+   isReadyPromise_.set_value(true);
+
+   BDV_Action_Struct firstScanAction(BDV_Init, nullptr);
+   scanWallets(move(firstScanAction));
 
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
@@ -552,8 +558,6 @@ void BDV_Server_Object::maintenanceThread(void)
 
       if (action == BDV_NewBlock)
       {
-         //purge zc on new block
-
          Arguments args2;
          auto payload = 
             (BDV_Notification_NewBlock*)action_struct.payload_.get();
@@ -566,7 +570,7 @@ void BDV_Server_Object::maintenanceThread(void)
       }
       else if (action == BDV_RefreshWallets)
       {
-         //dont purge zc on refresh
+         //ignore refresh type and refreshID for now
 
          Arguments args2;
          args2.push_back(move(string("BDV_Refresh")));
@@ -574,16 +578,28 @@ void BDV_Server_Object::maintenanceThread(void)
       }
       else if (action == BDV_ZC)
       {
-         //pass new zc to scan
+         //add zc notification for frontend callback
       }
    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BDV_Server_Object::zcCallback(
+   map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap)
+{
+   auto notificationPtr = make_unique<BDV_Notification_ZC>(
+      move(zcMap));
+
+   BDV_Action_Struct action(BDV_ZC, move(notificationPtr));
+
+   notificationStack_.push_back(move(action));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 bool BDV_Server_Object::registerWallet(
    vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
 {
-   if (!run_.load(memory_order_relaxed))
+   if (isReadyFuture_.wait_for(chrono::seconds(0)) != future_status::ready)
    {
       //only run this code if the bdv maintenance thread hasn't started yet
 
@@ -598,12 +614,10 @@ bool BDV_Server_Object::registerWallet(
 
       return true;
    }
-   else
-   {
-      //register wallet with BDV
-      auto bdvPtr = (BlockDataViewer*)this;
-      return bdvPtr->registerWallet(scrAddrVec, IDstr, wltIsNew) != nullptr;
-   }
+
+   //register wallet with BDV
+   auto bdvPtr = (BlockDataViewer*)this;
+   return bdvPtr->registerWallet(scrAddrVec, IDstr, wltIsNew) != nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

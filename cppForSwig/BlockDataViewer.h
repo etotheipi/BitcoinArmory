@@ -74,7 +74,7 @@ struct BDV_Notification_NewBlock : public BDV_Notification
 
 struct BDV_Notification_ZC : public BDV_Notification
 {
-   typedef map<BinaryData, map<BinaryData, TxIOPair>> zcMapType;
+   typedef map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMapType;
    zcMapType scrAddrZcMap_;
 
    BDV_Notification_ZC(zcMapType&& mv) :
@@ -82,10 +82,25 @@ struct BDV_Notification_ZC : public BDV_Notification
    {}
 };
 
+struct BDV_Notification_Refresh : public BDV_Notification
+{
+   const BDV_refresh refresh_;
+   const BinaryData refreshID_;
+
+   BDV_Notification_Refresh(
+      BDV_refresh refresh, const BinaryData& refreshID) :
+      refresh_(refresh), refreshID_(refreshID)
+   {}
+};
+
 struct BDV_Action_Struct
 {
    BDV_Action action_;
-   unique_ptr<BDV_Notification> payload_ = nullptr;
+   shared_ptr<BDV_Notification> payload_ = nullptr;
+
+   BDV_Action_Struct(BDV_Action action, shared_ptr<BDV_Notification> notif) :
+      action_(action), payload_(notif)
+   {}
 };
 
 class WalletGroup;
@@ -132,8 +147,8 @@ private:
 
 class BlockDataViewer
 {
-
-   friend class BDV_Server_Object;
+private:
+   virtual void pushNotification(BDV_Action_Struct) = 0;
 
 public:
    BlockDataViewer(BlockDataManager* bdm);
@@ -156,7 +171,7 @@ public:
    void       unregisterWallet(const string& ID);
    void       unregisterLockbox(const string& ID);
 
-   void scanWallets(const BDV_Action_Struct&);
+   void scanWallets(BDV_Action_Struct);
    
    bool hasWallet(const BinaryData& ID) const;
 
@@ -279,8 +294,9 @@ public:
    { return rescanZC_.load(memory_order_acquire); }
 
    bool isRBF(const BinaryData& txHash) const;
+   bool hasScrAddress(const BinaryData& sa) const;
 
-private:
+protected:
    atomic<bool> rescanZC_;
 
    BlockDataManager* bdmPtr_;

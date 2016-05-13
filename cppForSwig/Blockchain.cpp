@@ -84,20 +84,22 @@ BlockHeader& Blockchain::addNewBlock(
 Blockchain::ReorganizationState Blockchain::organize(bool verbose)
 {
    ReorganizationState st;
-   st.prevTopBlock = &top();
+   st.prevTop = &top();
    st.reorgBranchPoint = organizeChain(false, verbose);
-   st.prevTopBlockStillValid = !st.reorgBranchPoint;
-   st.hasNewTop = (st.prevTopBlock != &top());
+   st.prevTopStillValid = !st.reorgBranchPoint;
+   st.hasNewTop = (st.prevTop != &top());
+   st.newTop = &top();
    return st;
 }
 
 Blockchain::ReorganizationState Blockchain::forceOrganize()
 {
    ReorganizationState st;
-   st.prevTopBlock = &top();
+   st.prevTop = &top();
    st.reorgBranchPoint = organizeChain(true);
-   st.prevTopBlockStillValid = !st.reorgBranchPoint;
-   st.hasNewTop = (st.prevTopBlock != &top());
+   st.prevTopStillValid = !st.reorgBranchPoint;
+   st.hasNewTop = (st.prevTop != &top());
+   st.newTop = &top();
    return st;
 }
 
@@ -118,8 +120,8 @@ Blockchain::findReorgPointFromBlock(const BinaryData& blkHash)
    BlockHeader *bh = &getHeaderByHash(blkHash);
    
    ReorganizationState st;
-   st.prevTopBlock = bh;
-   st.prevTopBlockStillValid = true;
+   st.prevTop = bh;
+   st.prevTopStillValid = true;
    st.hasNewTop = false;
    st.reorgBranchPoint = nullptr;
 
@@ -129,12 +131,13 @@ Blockchain::findReorgPointFromBlock(const BinaryData& blkHash)
       bh = &getHeaderByHash(prevHash);
    }
 
-   if (bh != st.prevTopBlock)
+   if (bh != st.prevTop)
    {
       st.reorgBranchPoint = bh;
-      st.prevTopBlockStillValid = false;
+      st.prevTopStillValid = false;
    }
 
+   st.newTop = &top();
    return st;
 }
 
