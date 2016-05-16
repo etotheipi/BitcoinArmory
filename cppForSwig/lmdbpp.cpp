@@ -20,8 +20,6 @@
 #include <sys/stat.h>
 #endif
 
-//#define DISABLE_TRANSACTIONS
-
 static std::string errorString(int rc)
 {
    return mdb_strerror(rc);

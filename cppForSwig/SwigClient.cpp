@@ -262,6 +262,28 @@ int64_t BtcWallet::getUnconfirmedBalance(uint32_t blockheight, bool IGNOREZC)
    return balance;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
+   bool ignoreZC)
+{
+   Command cmd;
+   cmd.method_ = "getSpendableTxOutListForValue";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   unsigned int ignorezc = ignoreZC;
+   cmd.args_.push_back(val);
+   cmd.args_.push_back(ignorezc);
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(move(retval));
+   auto&& utxoVec = arg.get<UtxoVector>();
+
+   auto&& utxovec = utxoVec.toVec();
+   return utxovec;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //

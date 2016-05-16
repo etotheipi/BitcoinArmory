@@ -229,7 +229,7 @@ void BDV_Server_Object::buildMethodMap()
       }
 
       if (wltPtr == nullptr)
-         throw runtime_error("unknown wallet/lockbox ID");
+         throw runtime_error("unknown wallet or lockbox ID");
 
       auto height = args.get<uint32_t>();
       auto ignorezc = args.get<unsigned int>();
@@ -261,6 +261,47 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["hasHeaderWithHash"] = hasHeaderWithHash;
+
+   //getSpendableTxOutListForValue
+   auto getSpendableTxOutListForValue = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+      shared_ptr<BtcWallet> wltPtr = nullptr;
+      for (int i = 0; i < this->groups_.size(); i++)
+      {
+         auto wltIter = this->groups_[i].wallets_.find(bdId);
+         if (wltIter != this->groups_[i].wallets_.end())
+            wltPtr = wltIter->second;
+      }
+
+      if (wltPtr == nullptr)
+         throw runtime_error("unknown wallet or lockbox ID");
+
+      auto value = args.get<uint64_t>();
+      auto ignorezc = args.get<unsigned int>();
+
+      auto&& utxoVec = wltPtr->getSpendableTxOutListForValue(value, ignorezc);
+
+      UtxoVector retVec;
+      for (auto& utxo : utxoVec)
+      {
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txOutIndex_,
+            move(utxo.txHash_), move(utxo.script_));
+
+         retVec.push_back(move(entry));
+      }
+
+      Arguments retarg;
+      retarg.push_back(move(retVec));
+      return retarg;
+   };
+
+   methodMap_["getSpendableTxOutListForValue"] = getSpendableTxOutListForValue;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -578,7 +619,11 @@ void BDV_Server_Object::maintenanceThread(void)
       }
       else if (action == BDV_ZC)
       {
-         //add zc notification for frontend callback
+         //TODO: upgrade to reporting actual ZC to trigger tooltip notification
+         //in front end, instead simple refresh
+         Arguments args2;
+         args2.push_back(move(string("BDV_Refresh")));
+         cb_.callback(move(args2), OrderRefresh);
       }
    }
 }

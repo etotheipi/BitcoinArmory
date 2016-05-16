@@ -54,6 +54,8 @@ public:
    int64_t getFullBalance(void);
    int64_t getUnconfirmedBalance(uint32_t topBlockHeight, bool IGNOREZC);
    int64_t getSpendableBalance(uint32_t topBlockHeight, bool IGNOREZC);
+
+   vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

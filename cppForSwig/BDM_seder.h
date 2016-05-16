@@ -100,6 +100,37 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+struct UTXO
+{
+   BinaryData txHash_;
+   uint32_t   txOutIndex_;
+   uint32_t   txHeight_;
+   uint64_t   value_;
+   BinaryData script_;
+   bool       isMultisigRef_;
+
+   UTXO(uint64_t value, uint32_t txHeight, uint32_t txOutIndex,
+      BinaryData txHash, BinaryData script) :
+      txHash_(move(txHash)), txHeight_(txHeight), txOutIndex_(txOutIndex),
+      value_(value), script_(move(script))
+   {}
+};
+
+///////////////////////////////////////////////////////////////////////////////
+class UtxoVector
+{
+private:
+   vector<UTXO> vec_;
+
+public:
+   friend ostream& operator << (ostream&, const UtxoVector&);
+   friend istream& operator >> (istream&, UtxoVector&);
+
+   void push_back(UTXO utxo) { vec_.push_back(move(utxo)); }
+   vector<UTXO> toVec(void) { return move(vec_); }
+};
+
+///////////////////////////////////////////////////////////////////////////////
 class ErrorType
 {
 private:
@@ -169,7 +200,7 @@ public:
    }
 
    ///////////////////////////////////////////////////////////////////////////////
-   template<typename T> auto get() -> const T
+   template<typename T> auto get() -> T
    {
       if (strArgs_.size() == 0)
          throw runtime_error("exhausted entries in Arguments object");

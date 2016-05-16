@@ -18,6 +18,7 @@ const vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
    make_shared<DataObject<BinaryDataObject>>(),
    make_shared<DataObject<BinaryDataVector>>(),
    make_shared<DataObject<LedgerEntryVector>>(),
+   make_shared<DataObject<UtxoVector>>(),
    make_shared<DataObject<ErrorType>>()
 };
 
