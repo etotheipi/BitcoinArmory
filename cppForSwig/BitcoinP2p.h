@@ -40,8 +40,8 @@
 
 using namespace std;
 
-//macros
-#define PTR_PUT(val, ptr, type) {type* valptr = (type*)(ptr); *valptr = val;}
+//reconnect constants
+#define RECONNECT_INCREMENT_MS 1000
 
 //message header
 #define MESSAGE_HEADER_LEN    24
@@ -84,6 +84,19 @@ enum InvType
 int get_varint(uint64_t& val, uint8_t* ptr, uint32_t size);
 int make_varint(const uint64_t& value, vector<uint8_t>& varint);
 int get_varint_len(const int64_t& value);
+
+////////////////////////////////////////////////////////////////////////////////
+struct fdset_except_safe
+{
+   fd_set set_;
+
+   fdset_except_safe(void) { zero(); }
+   ~fdset_except_safe(void) { zero(); }
+
+   void set(SOCKET sockfd) { FD_SET(sockfd, &set_); }
+   void zero(void) { FD_ZERO(&set_); }
+   fd_set* get(void) { return &set_; }
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 struct BitcoinNetAddr
@@ -152,7 +165,6 @@ struct GetDataException : public BitcoinP2P_Exception
    GetDataException(const string& e) : BitcoinP2P_Exception(e)
    {}
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 class Payload
@@ -384,6 +396,7 @@ private:
 
    mutex connectMutex_, pollMutex_, writeMutex_;
    unique_ptr<promise<bool>> connectedPromise_ = nullptr;
+   unique_ptr<promise<bool>> verackPromise_ = nullptr;
 
    //to pass payloads between the poll thread and the processing one
    BlockingStack<vector<uint8_t>> dataStack_;
@@ -403,6 +416,8 @@ public:
    static const map<string, PayloadType> strToPayload_;
 
 private:
+   void connectLoop(void);
+
    void setBlocking(SOCKET, bool);
    void pollSocketThread();
    void processDataStackThread(void);

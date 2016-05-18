@@ -11,6 +11,20 @@
 #include <ctime>
 #include "BitcoinP2p.h"
 
+template <typename T> uint32_t put_integer_be(uint8_t* ptr, const T& integer)
+{
+   uint32_t size = sizeof(T);
+   auto len = size - 1;
+   auto intptr = (uint8_t*)&integer;
+
+   for (uint32_t i = 0; i < size; i++)
+   {
+      ptr[i] = intptr[len - i];
+   }
+
+   return size;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 int get_varint_len(const int64_t& value)
 {
@@ -261,9 +275,9 @@ void BitcoinNetAddr::deserialize(BinaryRefReader brr)
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinNetAddr::serialize(uint8_t* ptr) const
 {
-   PTR_PUT(services_, ptr, uint64_t);
+   put_integer_be(ptr, services_);
    memcpy(ptr + 8, ipV6_, 16);
-   PTR_PUT(port_, ptr + 24, uint16_t);
+   put_integer_be(ptr + 24, port_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -322,9 +336,9 @@ size_t Payload_Version::serialize_inner(uint8_t* dataptr) const
 
    uint8_t* vhptr = dataptr;
    
-   PTR_PUT(vheader_.version_, vhptr, uint32_t);
-   PTR_PUT(vheader_.services_, vhptr, uint64_t);
-   PTR_PUT(vheader_.timestamp_, vhptr, int64_t);
+   put_integer_be(vhptr, vheader_.version_);
+   put_integer_be(vhptr +4, vheader_.services_);
+   put_integer_be(vhptr +12, vheader_.timestamp_);
    vhptr += 20;
 
    vheader_.addr_recv_.serialize(vhptr);
@@ -595,8 +609,11 @@ BitcoinP2P::BitcoinP2P(const string& addrV4, const string& port,
 ////////////////////////////////////////////////////////////////////////////////
 BitcoinP2P::~BitcoinP2P()
 {
+   //TODO: kill connectLoop first
+
    //disconnect
    closesocket(sockfd_);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -626,81 +643,18 @@ void BitcoinP2P::connectToNode()
    if (!lock.try_lock()) //return if another thread is already here
       throw SocketError("another connect attempt is underway");
 
-   while (1) //keep trying to connect to the node
-   {
-      if(sockfd_ != SIZE_MAX) 
-         closesocket(sockfd_);
-
-      sockfd_ = socket(node_addr_.sa_family, SOCK_STREAM, 0);
-      if (sockfd_ < 0)
-         throw SocketError("failed to create socket");
-
-      auto result = connect(sockfd_, &node_addr_, sizeof(node_addr_));
-      if (result == 0)
-         break;
-
-      //failed to connect, let's retry in a second
-      this_thread::sleep_for(chrono::milliseconds(1000));
-   }
-
-   //set socket to unblocking
-   setBlocking(sockfd_, false);
-
-   //start select and process threads
-   auto selectThread = [this](void)->void
-   { 
-      try
-      {
-         this->pollSocketThread();
-      }
-      catch (...)
-      {
-         this->select_except_ = current_exception();
-      }
-   };
-
-   auto processThread = [this](void)->void
-   {
-      try
-      {
-         this->processDataStackThread();
-      }
-      catch (...)
-      {
-         this->process_except_ = current_exception();
-      }
-   };
-
-   thread selectThr(selectThread);
-   thread processThr(processThread);
-
-   if (selectThr.joinable())
-      selectThr.detach();
-
-   if (processThr.joinable())
-      processThr.detach();
-
-   //send version payload
-   Payload_Version version;
-   auto timestamp = getTimeStamp();
-
-   struct sockaddr clientsocketaddr;
-   int namelen = sizeof(clientsocketaddr);
-   if (getsockname(sockfd_, &clientsocketaddr, &namelen) != 0)
-      throw SocketError("failed to get client sockaddr");
-
-   version.setVersionHeaderIPv4(40000, 0, timestamp,
-      node_addr_, clientsocketaddr);
-   
-   version.userAgent_ = "Armory:0.95";
-   version.startHeight_ = -1;
-
    connectedPromise_ = unique_ptr<promise<bool>>(new promise<bool>());
    auto connectedFuture = connectedPromise_->get_future();
 
-   sendMessage(move(version));
-   
-   //wait on verack
+   auto connectLambda = [this](void)->void
+   {
+      this->connectLoop();
+   };
+
+   thread connectthread(connectLambda);
+   if (connectthread.joinable())
+      connectthread.detach();
+
    connectedFuture.get();
 
    if (select_except_ != nullptr)
@@ -708,6 +662,111 @@ void BitcoinP2P::connectToNode()
 
    if (process_except_ != nullptr)
       rethrow_exception(process_except_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BitcoinP2P::connectLoop(void)
+{
+   while (1)
+   {
+      //clean up stacks
+      dataStack_.reset();
+
+      verackPromise_ = make_unique<promise<bool>>();
+      auto verackFuture = verackPromise_->get_future();
+
+      size_t waitBeforeReconnect = 0;
+      while (1)
+      {
+         if (sockfd_ != SIZE_MAX)
+            closesocket(sockfd_);
+
+         sockfd_ = socket(node_addr_.sa_family, SOCK_STREAM, 0);
+         if (sockfd_ < 0)
+            throw SocketError("failed to create socket");
+
+         if (connect(sockfd_, &node_addr_, sizeof(node_addr_)) == 0)
+            break;
+
+         waitBeforeReconnect += RECONNECT_INCREMENT_MS;
+         this_thread::sleep_for(chrono::milliseconds(waitBeforeReconnect));
+      }
+
+      //set socket to unblocking
+      setBlocking(sockfd_, false);
+
+      //start select and process threads
+      auto selectThread = [this](void)->void
+      {
+         try
+         {
+            this->pollSocketThread();
+         }
+         catch (...)
+         {
+            this->select_except_ = current_exception();
+         }
+      };
+
+      auto processThread = [this](void)->void
+      {
+         try
+         {
+            this->processDataStackThread();
+         }
+         catch (...)
+         {
+            this->process_except_ = current_exception();
+         }
+      };
+
+      thread selectThr(selectThread);
+      thread processThr(processThread);
+
+      //send version payload
+      Payload_Version version;
+      auto timestamp = getTimeStamp();
+
+      struct sockaddr clientsocketaddr;
+      int namelen = sizeof(clientsocketaddr);
+      if (getsockname(sockfd_, &clientsocketaddr, &namelen) != 0)
+         throw SocketError("failed to get client sockaddr");
+
+      version.setVersionHeaderIPv4(40000, 0, timestamp,
+         node_addr_, clientsocketaddr);
+
+      version.userAgent_ = "Armory:0.95";
+      version.startHeight_ = -1;
+
+      sendMessage(move(version));
+
+      //wait on verack
+
+      //signal calling thread
+      try
+      {
+         verackFuture.get();
+         verackPromise_.reset();
+         connectedPromise_->set_value(true);
+      }
+      catch (...)
+      {
+
+      }
+
+      //wait on threads
+      if (processThr.joinable())
+         processThr.join();
+      
+      //close socket to guarantee select returns
+      if (sockfd_ != SIZE_MAX)
+         closesocket(sockfd_);
+
+      if (selectThr.joinable())
+         selectThr.join();
+
+      LOGINFO << "Disconnected from Bitcoin node";
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -720,92 +779,112 @@ void BitcoinP2P::pollSocketThread()
 
    size_t readIncrement = 8192;
 
-   fd_set read_set, except_set;
+   fdset_except_safe read_set, except_set;
       
    timeval tv;
    tv.tv_usec = 0;
    tv.tv_sec = 60; //1min timeout on select
 
-   while (1)
+   stringstream errorss;
+
+   exception_ptr eptr = nullptr;
+
+   try
    {
-      FD_ZERO(&read_set);
-      FD_ZERO(&except_set);
-
-      FD_SET(sockfd_, &read_set);
-      FD_SET(sockfd_, &except_set);
-
-      auto retval = select(0, &read_set, nullptr, &except_set, &tv);
-      
-      if (retval == 0)
-         continue;
-
-      if (retval == -1)
+      while (1)
       {
-         //select error, process and exit loop
-#ifdef _WIN32
-         auto errornum = WSAGetLastError();
-#else
-         auto errornum = errno;
-#endif
-         stringstream ss;
-         ss << "select error: " << errornum;
-         throw SocketError(ss.str());
-      }
+         read_set.zero();
+         except_set.zero();
 
-      //exceptions
-      if (FD_ISSET(sockfd_, &except_set))
-      {
-         //grab socket error code
+         read_set.set(sockfd_);
+         except_set.set(sockfd_);
 
-         //pass error to callback
+         auto retval = select(0, read_set.get(), nullptr, except_set.get(), &tv);
 
-         //break out of poll loop
-         break;
-      }
+         if (retval == 0)
+            continue;
 
-      if (FD_ISSET(sockfd_, &read_set))
-      {
-         //TODO: process closed socket
-
-         //read socket
-         vector<uint8_t> readdata;
-         readdata.resize(readIncrement);
-
-         size_t offset = 0, totalread = 0;
-         int readAmt;
-
-         while ((readAmt =
-            READFROMSOCKET(sockfd_, (char*)&readdata[offset], readIncrement))
-            != 0)
+         if (retval == -1)
          {
-            if (readAmt < 0)
-            {
-               //push error packet to read chain
-
-               //exit poll loop
-            }
-
-            totalread += readAmt;
-            if (readAmt < readIncrement)
-               break;
-
-            readdata.resize(totalread + readIncrement);
+            //select error, process and exit loop
+#ifdef _WIN32
+            auto errornum = WSAGetLastError();
+#else
+            auto errornum = errno;
+#endif
+            errorss << "select error: " << errornum;
+            throw SocketError(errorss.str());
          }
 
-         readdata.resize(totalread);
+         //exceptions
+         if (FD_ISSET(sockfd_, except_set.get()))
+         {
+            //grab socket error code
 
-         //push to data stack
-         dataStack_.push_back(move(readdata));
+            //pass error to callback
+
+            //break out of poll loop
+            errorss << "socket exception";
+            throw SocketError(errorss.str());
+         }
+
+         if (FD_ISSET(sockfd_, read_set.get()))
+         {
+            //read socket
+            vector<uint8_t> readdata;
+            readdata.resize(readIncrement);
+
+            size_t offset = 0, totalread = 0;
+            int readAmt;
+
+            while ((readAmt =
+               READFROMSOCKET(sockfd_, (char*)&readdata[offset], readIncrement))
+               != 0)
+            {
+               if (readAmt < 0)
+               {
+                  errorss << "read socket error: " << readAmt;
+                  throw SocketError(errorss.str());
+               }
+
+               totalread += readAmt;
+               if (readAmt < readIncrement)
+                  break;
+
+               readdata.resize(totalread + readIncrement);
+            }
+
+            if (readAmt == 0)
+            {
+               errorss << "socket closed";
+               throw SocketError(errorss.str());
+            }
+
+            readdata.resize(totalread);
+
+            //push to data stack
+            dataStack_.push_back(move(readdata));
+         }
       }
+   }
+   catch (...)
+   {
+      eptr = current_exception();
    }
 
    //cleanup
-   FD_ZERO(&read_set);
-   FD_ZERO(&except_set);
+   read_set.zero();
+   except_set.zero();
 
    //close socket
    closesocket(sockfd_);
    sockfd_ = SIZE_MAX;
+
+   //halt process thread
+   dataStack_.terminate();
+
+   if (eptr != nullptr)
+      rethrow_exception(eptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -823,7 +902,11 @@ void BitcoinP2P::processDataStackThread()
    }
    catch (IsEmpty&)
    {
+      if (verackPromise_ == nullptr)
+         return;
 
+      exception_ptr eptr = current_exception();
+      verackPromise_->set_exception(eptr);
    }
 }
 
@@ -867,12 +950,12 @@ void BitcoinP2P::processPayload(vector<unique_ptr<Payload>> payloadVec)
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinP2P::gotVerack(void)
 {
-   if (connectedPromise_ == nullptr)
+   if (verackPromise_ == nullptr)
       return;
 
    try
    {
-      connectedPromise_->set_value(true);
+      verackPromise_->set_value(true);
    }
    catch (future_error&)
    {
@@ -993,7 +1076,7 @@ void BitcoinP2P::sendMessage(Payload&& payload)
       throw SocketError("failed to send data");
 
    //don't release the mutex until we are write ready
-   fd_set write_set, except_set;
+   fdset_except_safe write_set, except_set;
 
    timeval tv;
    tv.tv_usec = 0;
@@ -1001,12 +1084,12 @@ void BitcoinP2P::sendMessage(Payload&& payload)
 
    while (1)
    {
-      FD_ZERO(&write_set);
-      FD_ZERO(&except_set);
-      FD_SET(sockfd_, &write_set);
-      FD_SET(sockfd_, &except_set);
+      write_set.zero();
+      except_set.zero();
+      write_set.set(sockfd_);
+      except_set.set(sockfd_);
 
-      auto retval = select(0, nullptr, &write_set, &except_set, &tv);
+      auto retval = select(0, nullptr, write_set.get(), except_set.get(), &tv);
 
       if (retval == 0)
          continue;
@@ -1028,6 +1111,7 @@ void BitcoinP2P::sendMessage(Payload&& payload)
          //grab socket error code
 
          //break out of poll loop
+         throw SocketError("select expection during sendMessage");
          break;
       }
 

@@ -22,6 +22,7 @@ class IsEmpty
 class StopBlockingLoop
 {};
 
+////////////////////////////////////////////////////////////////////////////////
 template <typename T> class Entry
 {
 private:
@@ -45,6 +46,7 @@ public:
    }
 };
 
+////////////////////////////////////////////////////////////////////////////////
 template <typename T> class AtomicEntry
 {
 private:
@@ -72,6 +74,7 @@ public:
    }
 };
 
+////////////////////////////////////////////////////////////////////////////////
 template<typename T> class Pile
 {
    /***
@@ -142,6 +145,7 @@ public:
    }
 };
 
+////////////////////////////////////////////////////////////////////////////////
 template <typename T> class Stack
 {
    /***
@@ -264,7 +268,8 @@ public:
    }
 };
 
-template <typename T> class BlockingStack : private Stack<T>
+////////////////////////////////////////////////////////////////////////////////
+template <typename T> class BlockingStack : public Stack<T>
 {
    /***
    get() blocks as long as the container is empty
@@ -273,24 +278,40 @@ template <typename T> class BlockingStack : private Stack<T>
 private:
    typedef shared_ptr<promise<bool>> promisePtr;
    Pile<promisePtr> promisePile_;
-      
+   atomic<int> waiting_;
+   atomic<bool> terminate_;
+
 public:
    BlockingStack() : Stack()
-   {}
+   {
+      terminate_.store(false, memory_order_relaxed);
+      waiting_.store(0, memory_order_relaxed);
+   }
 
    T get(void)
    {
       //blocks as long as there is no data available in the chain.
 
       //run in loop until we get data or a throw
+
+      waiting_.fetch_add(1, memory_order_relaxed);
+
       try
       {
          while (1)
          {
+            auto terminate = terminate_.load(memory_order_relaxed);
+            if (terminate)
+            {
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               throw IsEmpty();
+            }
+
             //try to pop_front
             try
             {
                auto&& retval = pop_front();
+               waiting_.fetch_sub(1, memory_order_relaxed);
                return move(retval);
             }
             catch (IsEmpty&)
@@ -324,6 +345,7 @@ public:
             try
             {
                auto&& retval = pop_front();
+               waiting_.fetch_sub(1, memory_order_relaxed);
                return retval;
             }
             catch (IsEmpty&)
@@ -336,6 +358,7 @@ public:
       catch (StopBlockingLoop&)
       {
          //loop stopped unexpectedly
+         waiting_.fetch_sub(1, memory_order_relaxed);
          throw IsEmpty();
       }
    }
@@ -358,8 +381,43 @@ public:
          }
       }
    }
+
+   void terminate(void)
+   {
+      terminate_.store(true, memory_order_relaxed);
+
+      while (waiting_.load(memory_order_relaxed) > 0)
+      {
+         try
+         {
+            auto&& p = promisePile_.pop_back();
+            exception_ptr eptr;
+            try
+            {
+               throw(StopBlockingLoop());
+            }
+            catch (...)
+            {
+               eptr = current_exception();
+            }
+
+            p->set_exception(eptr);
+         }
+         catch (IsEmpty&)
+         {
+         }
+      }
+   }
+
+   void reset(void)
+   {
+      clear();
+
+      terminate_.store(false, memory_order_relaxed);
+   }
 };
 
+////////////////////////////////////////////////////////////////////////////////
 template<typename T, typename U> class TransactionalMap
 {
    //locked writes, lockless reads
