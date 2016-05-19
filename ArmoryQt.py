@@ -74,7 +74,6 @@ if OS_MACOSX:
 # http://sourceforge.net/p/texstudio/bugs/594/?page=1 - Fix is mentioned.
 # http://pyqt.sourceforge.net/Docs/PyQt4/qapplication.html#setDesktopSettingsAware
 # - Mentions that this must be called before the app (QAPP) is created.
-if OS_MACOSX:
    QApplication.setDesktopSettingsAware(False)
 
 # PyQt4 Imports
