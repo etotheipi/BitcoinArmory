@@ -277,6 +277,7 @@ string FcgiSocket::getMessage(const vector<char>& msg,
 
    vector<char> httpmsg;
 
+   int endpacket = 0;
    auto processFcgiPacket = [&](void)->void
    {
       size_t ptrindex = 0;
@@ -301,8 +302,7 @@ string FcgiSocket::getMessage(const vector<char>& msg,
          switch (fcgiheader[1])
          {
          case FCGI_END_REQUEST:
-            //0 terminate for the good measure and return
-            httpmsg.push_back(0);
+            endpacket++;
             return;
 
          case FCGI_STDOUT:
@@ -310,15 +310,22 @@ string FcgiSocket::getMessage(const vector<char>& msg,
             uint16_t packetsize, padding;
 
             packetsize = (uint8_t)fcgiheader[5] + (uint8_t)fcgiheader[4] * 256;
-            padding    = (uint8_t)fcgiheader[7] + (uint8_t)fcgiheader[6] * 256;
+            padding    = (uint8_t)fcgiheader[6] + (uint8_t)fcgiheader[7] * 256;
 
-            //extract http data
-            httpmsg.insert(httpmsg.end(),
-               msg.begin() + ptrindex,
-               msg.begin() + ptrindex + packetsize);
+            if (packetsize > 0)
+            {
+               //extract http data
+               httpmsg.insert(httpmsg.end(),
+                  msg.begin() + ptrindex,
+                  msg.begin() + ptrindex + packetsize);
 
-            //advance index to next header
-            ptrindex += packetsize + padding;
+               //advance index to next header
+               ptrindex += packetsize + padding;
+            }
+            else
+            {
+               endpacket++;
+            }
             break;
 
          case FCGI_ABORT_REQUEST:
@@ -333,6 +340,9 @@ string FcgiSocket::getMessage(const vector<char>& msg,
 
    processFcgiPacket();
    auto&& httpbody = HttpSocket::getMessage(httpmsg);
+
+   if (endpacket < 2)
+      throw runtime_error("fcgi packet is missing termination");
 
    return httpbody;
 }

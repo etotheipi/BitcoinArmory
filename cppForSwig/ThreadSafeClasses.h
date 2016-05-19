@@ -426,6 +426,12 @@ private:
    shared_ptr<map<T, U>> map_;
 
 public:
+
+   TransactionalMap::TransactionalMap(void)
+   {
+      map_ = make_shared<map<T, U>>();
+   }
+
    void insert(pair<T, U>&& mv)
    {
       auto newMap = make_shared<map<T, U>>();
