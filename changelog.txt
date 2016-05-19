@@ -1,14 +1,26 @@
+v0.94.1, released April 2nd 2016:
+
+== Fixed ==
+   - Fixed parsing new blocks with no wallet loaded
+   - Fixed wallet/address import
+   - Fixed address sweeping
+   - .deb installer: will not register shortcuts if /usr/share/desktop-directories is missing
+
+== Removed ==
+   - Removed Bitcoin P2P alert parsing, as it was removed from Bitcoin Core.
+
 v0.94.0, released March 27th 2016:
 
-- Added features:
+== Added ==
    - New database format: DB shrinked from 60GB to sub 200MB, >10x initial setup and startup speed.
    - New DB corruption detection and auto repair code. Bad block issues should be mostly gone.
    - Detection and GUI flagging of RBF enabled zero confirmation transactions. 
    - Fixed ZC chain handling and replacement. All ZC spending ZC outputs are now flagged as replaceable, 
      regardless of TxIn sequence or parent Tx state.
+   - Added new GUI option to add additional entropy at wallet creation using a deck of cards.
    - After the change in lead, all new code is now developed under the MIT license (was AGPL3).
 
-- Removed features:
+== Removed ==
    - No more phone home code. There are no plans to reintroduce any code of that nature.
    - As a result, the announce tab code is gone.
    - No more torrent code. Seedboxes were hosted by ATI and are now down. Also, IBD improvements in 

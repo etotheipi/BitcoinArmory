@@ -54,7 +54,6 @@ class ArmoryClient(Protocol):
       self.sentVerack = False
       self.sentHeadersReq = True
       self.peer = []
-      self.alerts = {}
 
    ############################################################
    def connectionMade(self):
@@ -214,12 +213,6 @@ class ArmoryClient(Protocol):
          pyTxList = msg.payload.txList
          LOGINFO('Received new block.  %s', binary_to_hex(pyHeader.getHash(), BIGENDIAN))
          self.factory.func_newBlock(pyHeader, pyTxList)
-      elif msg.cmd=='alert':
-         # store the alert in our map
-         id = msg.payload.uniqueID
-         if not self.alerts.get(id):
-            self.alerts[id] = msg.payload
-         LOGWARN("received alert: %s" % msg.payload.statusBar)
                   
 
    ############################################################
@@ -307,7 +300,6 @@ class ArmoryClientFactory(ReconnectingClientFactory):
    connection -- to localhost.
    """
    protocol = ArmoryClient
-   lastAlert = 0
 
    #############################################################################
    def __init__(self, \
@@ -324,7 +316,6 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       of the handshake-finished callback
       """
       self.bdm = bdm
-      self.lastAlert = 0
       self.deferred_handshake   = forceDeferred(def_handshake)
 
       # All other methods will be regular callbacks:  we plan to have a very
@@ -977,95 +968,6 @@ class PayloadBlock(object):
       for tx in self.txList:
          print indstr + indent + 'Tx:', tx.getHashHex()
 
-
-################################################################################
-class PayloadAlert(object):
-   command = 'alert'
-
-   def __init__(self):
-      self.nonSigLength = 0
-      self.version = 1
-      self.relayUntil = 0
-      self.expiration = 0
-      self.uniqueID   = 0
-      self.cancelVal  = 0
-      self.cancelSet  = []
-      self.minVersion = 0
-      self.maxVersion = 0
-      self.subVerSet  = []
-      self.priority   = 0
-      self.comment    = ''
-      self.statusBar  = ''
-      self.reserved   = ''
-      self.signature   = ''
-   
-
-   def unserialize(self, toUnpack):
-      alertData = BinaryUnpacker( toUnpack )
-      self.nonSigLength = alertData.get(INT8)
-      self.version = alertData.get(UINT32)
-      self.relayUntil = alertData.get(UINT64)
-      self.expiration = alertData.get(UINT64)
-      self.uniqueID = alertData.get(UINT32)
-      self.cancelVal = alertData.get(UINT32)
-      numCancel = alertData.get(INT8)
-      for i in range(numCancel):
-         self.cancelSet.append(alertData.get(UINT32))
-      self.minVersion = alertData.get(UINT32)
-      self.maxVersion = alertData.get(UINT32)
-      numSubVer = alertData.get(INT8)
-      for i in range(numSubVer):
-         self.subVerSet.append(alertData.get(VAR_STR))
-      self.priority = alertData.get(UINT32)
-      self.comment = alertData.get(VAR_STR)
-      self.statusBar = alertData.get(VAR_STR)
-      self.reserved = alertData.get(VAR_STR)
-      self.signature = alertData.get(VAR_STR)
-
-      return self
-
-   def serialize(self):
-      bp = BinaryPacker()
-      bp.put(INT8, self.nonSigLength)
-      bp.put(UINT32, self.version)
-      bp.put(UINT64, self.expiration)
-      bp.put(UINT64, self.relayUntil)
-      bp.put(UINT32, self.uniqueID)
-      bp.put(UINT32, self.cancelVal)
-      bp.put(INT8, len(self.cancelSet))
-      for cancel in self.cancelSet:
-         bp.put(UINT32, cancel)
-      bp.put(UINT32, self.minVersion)
-      bp.put(UINT32, self.maxVersion)
-      bp.put(INT8, len(self.subVerSet))
-      for subVer in self.subVerSet:
-         bp.put(VAR_STR, subVer)
-      bp.put(UINT32, self.priority)
-      bp.put(VAR_STR, self.comment)
-      bp.put(VAR_STR, self.statusBar)
-      bp.put(VAR_STR, self.reserved)
-      bp.put(VAR_STR, self.signature)
-      
-      return bp.getBinaryString()
-
-
-   def pprint(self, nIndent=0):
-      print nIndent*'\t' + "ALERT:" + "\n" + \
-         nIndent*'\t' + ("version:%s" % self.version) + "\n" + \
-         nIndent*'\t' + ("comment:%s" % self.comment) + "\n" + \
-         nIndent*'\t' + ("statusBar:%s" % self.statusBar) + "\n" + \
-         nIndent*'\t' + ("reserved:%s" % self.reserved) + "\n"
-
-
-REJECT_MALFORMED_CODE = 0x01
-REJECT_INVALID_CODE = 0x10
-REJECT_OBSOLETE_CODE = 0x11
-REJECT_DUPLICATE_CODE = 0x12
-REJECT_NONSTANDARD_CODE = 0x40
-REJECT_DUST_CODE = 0x41
-REJECT_INSUFFICIENTFEE_CODE = 0x42
-REJECT_CHECKPOINT_CODE = 0x43
-
 ################################################################################
 class PayloadReject(object):
    command = 'reject'
@@ -1106,7 +1008,6 @@ PayloadMap = {
    'getblocks':   PayloadGetBlocks,
    'block':       PayloadBlock,
    'headers':     PayloadHeaders,
-   'alert':       PayloadAlert,
    'reject':      PayloadReject }
 
 
