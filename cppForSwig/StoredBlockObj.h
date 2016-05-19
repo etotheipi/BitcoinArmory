@@ -317,20 +317,18 @@ public:
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
    BinaryData        parentHash_;
-   BinaryData        hashAndId_;
    TXOUT_SPENTNESS   spentness_;
    bool              isCoinbase_;
    BinaryData        spentByTxInKey_;
    BinaryData        hgtX_;
+   
 
    mutable BinaryData scrAddr_;
 
-   // We don't actually enforce these members.  They're solely for recording
-   // the values that were unserialized with everything else, so that we can
-   // leter check that it
    uint32_t          unserArmVer_;
    uint32_t          unserDbType_;
    unsigned          parentTxOutCount_ = 0;
+   BinaryData        spenderHash_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

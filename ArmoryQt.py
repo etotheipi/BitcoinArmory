@@ -6139,7 +6139,10 @@ class ArmoryMainWindow(QMainWindow):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          #Blockchain just finished loading, finish initializing UI and render the
          #ledgers
-         
+
+         for wltid in self.walletMap:
+            self.walletMap[wltid].detectHighestUsedIndex()
+                     
          self.blkReceived = RightNow()
          if self.needUpdateAfterScan:
             LOGDEBUG('Running finishLoadBlockchain')
