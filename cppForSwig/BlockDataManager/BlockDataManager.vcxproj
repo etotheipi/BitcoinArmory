@@ -145,6 +145,7 @@
     <ClCompile Include="..\BtcWallet.cpp" />
     <ClCompile Include="..\DatabaseBuilder.cpp" />
     <ClCompile Include="..\DataObject.cpp" />
+    <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\HistoryPager.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
@@ -156,6 +157,7 @@
     <ClCompile Include="..\Progress.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
+    <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
     <ClCompile Include="fcgi\libfcgi\fcgiapp.c" />
@@ -164,10 +166,14 @@
   <ItemGroup>
     <ClInclude Include="..\bdmenums.h" />
     <ClInclude Include="..\BitcoinP2p.h" />
+    <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\DataObject.h" />
+    <ClInclude Include="..\DBUtils.h" />
     <ClInclude Include="..\SocketIncludes.h" />
+    <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeClasses.h" />
     <ClInclude Include="..\util.h" />
+    <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="fcgi\include\fcgiapp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

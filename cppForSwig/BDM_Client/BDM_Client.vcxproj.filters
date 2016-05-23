@@ -42,6 +42,12 @@
     <ClInclude Include="..\LedgerEntryData.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\TxClasses.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\DBUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -78,6 +84,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\FcgiMessage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\DBUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\TxClasses.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

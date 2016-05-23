@@ -242,7 +242,9 @@ bool BlockDataViewer::isTxMainBranch(const Tx &tx) const
 {
    if (!tx.hasTxRef())
       return false;
-   return tx.getTxRef().attached(db_).isMainBranch();
+
+   DBTxRef dbTxRef(tx.getTxRef(), db_);
+   return dbTxRef.isMainBranch();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -641,7 +643,8 @@ Tx BlockDataViewer::getSpenderTxForTxOut(uint32_t height, uint32_t txindex,
       return Tx();
 
    TxRef txref(stxo.spentByTxInKey_.getSliceCopy(0, 6));
-   return txref.attached(db_).getTxCopy();
+   DBTxRef dbTxRef(txref, db_);
+   return dbTxRef.getTxCopy();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

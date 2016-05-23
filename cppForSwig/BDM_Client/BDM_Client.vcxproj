@@ -169,12 +169,14 @@
     <ClInclude Include="..\BDM_seder.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\DataObject.h" />
+    <ClInclude Include="..\DBUtils.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\FcgiMessage.h" />
     <ClInclude Include="..\LedgerEntry.h" />
     <ClInclude Include="..\LedgerEntryData.h" />
     <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\SwigClient.h" />
+    <ClInclude Include="..\TxClasses.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BDM_seder.cpp" />
@@ -185,11 +187,13 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\leveldb_windows_port\win32_posix;../;../cryptopp;C:\Python27_64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="..\DataObject.cpp" />
+    <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\FcgiMessage.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
     <ClCompile Include="..\SocketObject.cpp" />
     <ClCompile Include="..\SwigClient.cpp" />
+    <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
     <ClCompile Include="..\Win_TranslatePath.cpp" />
   </ItemGroup>

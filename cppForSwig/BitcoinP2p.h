@@ -64,13 +64,13 @@ using namespace std;
 
 enum PayloadType
 {
+   Payload_tx = 1,
    Payload_version,
    Payload_verack,
    Payload_ping,
    Payload_pong,
    Payload_inv,
-   Payload_getdata,
-   Payload_tx
+   Payload_getdata
 };
 
 enum InvType
@@ -316,6 +316,11 @@ public:
 
    PayloadType type(void) const { return Payload_inv; }
    string typeStr(void) const { return "inv"; }
+
+   void setInvVector(vector<InvEntry> invvec)
+   {
+      invVector_ = move(invvec);
+   }
 };
 
 ////
@@ -344,13 +349,18 @@ public:
 
    PayloadType type(void) const { return Payload_getdata; }
    string typeStr(void) const { return "getdata"; }
+
+   const vector<InvEntry>& getInvVector(void) const
+   {
+      return invVector_;
+   }
 };
 
 ////
 struct Payload_Tx : public Payload
 {
 private:
-   vector<uint8_t> rawTx;
+   vector<uint8_t> rawTx_;
    BinaryData txHash_;
 
 private:
@@ -372,14 +382,19 @@ public:
    const BinaryData& getHash256()
    {
       if (txHash_.getSize() == 0)
-         txHash_ = move(BtcUtils::getHash256(&rawTx[0], rawTx.size()));
+         txHash_ = move(BtcUtils::getHash256(&rawTx_[0], rawTx_.size()));
 
       return txHash_;
    }
 
    const vector<uint8_t>& getRawTx(void) const
    {
-      return rawTx;
+      return rawTx_;
+   }
+
+   void setRawTx(vector<uint8_t> rawtx)
+   {
+      rawTx_ = move(rawtx);
    }
 };
 
@@ -405,12 +420,25 @@ private:
    exception_ptr process_except_ = nullptr;
 
    //callback lambdas
-   Stack<function<void(const vector<InvEntry*>&)>> invBlockLambdas_;
-   function<void(vector<InvEntry*>&)> invTxLambda_ = {};
+   Stack<function<void(const vector<InvEntry>&)>> invBlockLambdas_;
+   function<void(vector<InvEntry>&)> invTxLambda_ = {};
 
    typedef function<void(Payload_Tx)> getTxCallback;
-   map<BinaryData, getTxCallback> getDataCallbackMap_;
-   mutex getDataCallbackMapMutex_;
+
+   //stores callback by txhash for getdata packet we send to the node
+   TransactionalMap<BinaryData, getTxCallback> getTxCallbackMap_;
+
+   //stores payloads by hash for inv packets we sent to the node,
+   //expecting a getdata response
+
+public:
+   struct getDataPayload
+   {
+      shared_ptr<Payload> payload_;
+      shared_ptr<promise<bool>> promise_;
+   };
+
+   TransactionalMap<BinaryData, getDataPayload> getDataPayloadMap_;
 
 public:
    static const map<string, PayloadType> strToPayload_;
@@ -429,8 +457,8 @@ private:
    void replyPong(unique_ptr<Payload>);
 
    void processInv(unique_ptr<Payload>);
-   void processInvBlock(const vector<InvEntry*>&);
-   void processInvTx(vector<InvEntry*>&);
+   void processInvBlock(const vector<InvEntry>&);
+   void processInvTx(vector<InvEntry>&);
    void processGetData(unique_ptr<Payload>);
    void processGetTx(unique_ptr<Payload>);
 
@@ -448,12 +476,12 @@ public:
 
    Payload_Tx getTx(const InvEntry&, uint32_t timeout = 60);
 
-   void registerInvBlockLambda(function<void(const vector<InvEntry*>&)> func)
+   void registerInvBlockLambda(function<void(const vector<InvEntry>&)> func)
    {
       invBlockLambdas_.push_back(move(func));
    }
 
-   void registerInvTxLambda(function<void(vector<InvEntry*>&)> func)
+   void registerInvTxLambda(function<void(vector<InvEntry>&)> func)
    {
       invTxLambda_ = move(func);
    }

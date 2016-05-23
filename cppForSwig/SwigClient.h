@@ -18,6 +18,7 @@ and handle the data transmission with the BDM server
 #include "SocketObject.h"
 #include "bdmenums.h"
 #include "log.h"
+#include "TxClasses.h"
 
 inline void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
 inline void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
@@ -56,6 +57,7 @@ public:
    int64_t getSpendableBalance(uint32_t topBlockHeight, bool IGNOREZC);
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
+   uint64_t getAddrTotalTxnCount(const BinaryData& scrAddr);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,6 +147,9 @@ public:
    Blockchain blockchain(void);
 
    void goOnline(void);
+
+   void broadcastZC(const BinaryData& rawTx);
+   Tx getTxByHash(const BinaryData& txHash);
 };
 
 #endif

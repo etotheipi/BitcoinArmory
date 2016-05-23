@@ -3708,35 +3708,24 @@ class ArmoryMainWindow(QMainWindow):
          LOGRAWDATA(pytx.serialize(), logging.INFO)
          LOGPPRINT(pytx, logging.INFO)
          newTxHash = pytx.getHash()
-         LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))
-         self.NetworkingFactory.sendTx(pytx)
-         LOGINFO('Transaction sent to Satoshi client...!')
 
+         try:
+            LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))            
+            TheBDM.bdv().broadcastZC(pytx.serialize())
+            LOGINFO('Transaction sent to Satoshi client...!')
+         except:
+            LOGERROR('Transaction was not accepted by the Satoshi client')
+            LOGERROR('Raw transaction:')
+            LOGRAWDATA(pytx.serialize(), logging.ERROR)
+            LOGERROR('Transaction details')
+            LOGPPRINT(pytx, logging.ERROR)
+            searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
 
-         def sendGetDataMsg():
-            msg = PyMessage('getdata')
-            msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
-            self.NetworkingFactory.sendMessage(msg)
+            supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
+            blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
+            blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
 
-         def checkForTxInBDM():
-            # The sleep/delay makes sure we have time to receive a response
-            # but it also gives the user a chance to SEE the change to their
-            # balance occur.  In some cases, that may be more satisfying than
-            # just seeing the updated balance when they get back to the main
-            # screen
-            if not TheBDM.bdv().getTxByHash(newTxHash).isInitialized():
-               LOGERROR('Transaction was not accepted by the Satoshi client')
-               LOGERROR('Raw transaction:')
-               LOGRAWDATA(pytx.serialize(), logging.ERROR)
-               LOGERROR('Transaction details')
-               LOGPPRINT(pytx, logging.ERROR)
-               searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
-
-               supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
-               blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
-               blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
-
-               QMessageBox.warning(self, tr('Transaction Not Accepted'), tr("""
+            QMessageBox.warning(self, tr('Transaction Not Accepted'), tr("""
                   The transaction that you just executed, does not 
                   appear to have been accepted by the Bitcoin network yet. 
                   This can happen for a variety of reasons.  
@@ -3761,15 +3750,8 @@ class ArmoryMainWindow(QMainWindow):
                   ticket at 
                   <a href="%(supporturl)s">%(supporturl)s</a>""") % {
                      'blockexplorer' : BLOCKEXPLORE_NAME, 'url' : blkexplURL, \
-                     'urlshort' : blkexplURL_short, 'supporturl' : supportURL}, QMessageBox.Ok)
+                     'urlshort' : blkexplURL_short, 'supporturl' : supportURL}, QMessageBox.Ok)            
 
-         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
-
-         # Send the Tx after a short delay, give the system time to see the Tx
-         # on the network and process it, and check to see if the Tx was seen.
-         # We may change this setup in the future, but for now....
-         reactor.callLater(3, sendGetDataMsg)
-         reactor.callLater(15, checkForTxInBDM)
 
 
    #############################################################################

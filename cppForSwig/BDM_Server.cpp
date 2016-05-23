@@ -86,6 +86,9 @@ void BDV_Server_Object::buildMethodMap()
    auto registerWallet = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
+      if (ids.size() != 1)
+         throw runtime_error("unexpected id count");
+
       auto&& id = args.get<string>();
       auto&& scrAddrVec = args.get<BinaryDataVector>();
       auto&& isNew = args.get<unsigned int>();
@@ -104,6 +107,9 @@ void BDV_Server_Object::buildMethodMap()
    auto registerLockbox = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
+      if (ids.size() != 1)
+         throw runtime_error("unexpected id count");
+
       auto&& id = args.get<string>();
       auto&& scrAddrVec = args.get<BinaryDataVector>();
       auto&& isNew = args.get<unsigned int>();
@@ -250,7 +256,7 @@ void BDV_Server_Object::buildMethodMap()
       if (ids.size() != 1)
          throw runtime_error("unexpected id count");
 
-      auto hash = args.get<BinaryDataObject>();
+      auto&& hash = args.get<BinaryDataObject>();
 
       unsigned int hasHash = 
          this->blockchain().hasHeaderWithHash(hash.get());
@@ -302,6 +308,72 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getSpendableTxOutListForValue"] = getSpendableTxOutListForValue;
+
+   //broadcastZC
+   auto broadcastZC = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 1)
+         throw runtime_error("unexpected id count");
+
+      auto&& rawTx = args.get<BinaryDataObject>();
+
+      this->zeroConfCont_->broadcastZC(rawTx.get());
+
+      Arguments retarg;
+      return retarg;
+   };
+
+   methodMap_["broadcastZC"] = broadcastZC;
+
+   //getAddrTotalTxnCount
+   auto getAddrTotalTxnCount = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+      shared_ptr<BtcWallet> wltPtr = nullptr;
+      for (int i = 0; i < this->groups_.size(); i++)
+      {
+         auto wltIter = this->groups_[i].wallets_.find(bdId);
+         if (wltIter != this->groups_[i].wallets_.end())
+            wltPtr = wltIter->second;
+      }
+
+      if (wltPtr == nullptr)
+         throw runtime_error("unknown wallet or lockbox ID");
+
+      auto&& scrAddr = args.get<BinaryDataObject>();
+
+      auto retval = wltPtr->getAddrTotalTxnCount(scrAddr.get());
+
+      Arguments retarg;
+      retarg.push_back(retval);
+      return retarg;
+   };
+
+   methodMap_["getAddrTotalTxnCount"] = getAddrTotalTxnCount;
+
+   //getTxByHash
+   auto getTxByHash = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 1)
+         throw runtime_error("unexpected id count");
+
+      auto&& txHash = args.get<BinaryDataObject>();
+      auto&& retval = this->getTxByHash(txHash.get());
+      BinaryDataObject bdo(move(retval.serialize()));
+
+      Arguments retarg;
+      retarg.push_back(move(bdo));
+      return move(retarg);
+   };
+
+   methodMap_["getTxByHash"] = getTxByHash;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -461,7 +533,7 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    }
    else
    {
-      retStream << "Error: empty request";
+      retStream << "error: empty request";
    }
 
    delete[] content;

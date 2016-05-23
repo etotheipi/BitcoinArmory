@@ -17,10 +17,11 @@
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BtcUtils.h"
+#include "BinaryData.h"
 #include "EncryptionUtils.h"
 #include "SwigClient.h"
 #include "bdmenums.h"
-
+#include "TxClasses.h"
 %}
 
 %include "std_string.i"
@@ -39,9 +40,9 @@
 %typedef short              int16_t;
 %typedef int                int32_t;
 %typedef long long          int64_t;
-%typedef unsigned int       size_t;
 %typedef unsigned int       TXIN_SCRIPT_TYPE;
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
+%typedef unsigned long long size_t;
 
 %ignore readVarInt(BinaryRefReader & brr);
 
@@ -54,6 +55,7 @@ namespace std
    %template(vector_string) std::vector<string>;
    %template(vector_LedgerEntryData) std::vector<LedgerEntryData>;
    %template(set_BinaryData) std::set<BinaryData>;
+   %template(vector_UTXO) std::vector<UTXO>;
 }
 
 %exception
@@ -262,3 +264,5 @@ namespace std
 %include "SwigClient.h"
 %include "bdmenums.h"
 %include "LedgerEntryData.h"
+%include "BinaryData.h"
+%include "TxClasses.h"

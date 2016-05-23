@@ -108,6 +108,12 @@
     <ClCompile Include="..\BitcoinP2P.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\TxClasses.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\DBUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fcgi\include\fcgiapp.h">
@@ -129,6 +135,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\SocketIncludes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\BlockObj.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\TxClasses.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\StoredBlockObj.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\DBUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

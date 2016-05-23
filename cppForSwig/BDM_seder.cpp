@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "BDM_seder.h"
+#include "BtcUtils.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 ostream& operator << (ostream& os, const LedgerEntryVector& lev)
@@ -170,6 +171,7 @@ istream& operator >> (istream& is, UtxoVector& utxovec)
          throw runtime_error("malformed UtxoVector argument");
       objss >> txOutIndex;
 
+      objss.get(underscore);
       if (underscore != '_')
          throw runtime_error("malformed UtxoVector argument");
       string data;
@@ -443,10 +445,6 @@ void Command::serialize()
    command_ = move(ss.str());
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//
-// LedgerEntryVector
-//
 ///////////////////////////////////////////////////////////////////////////////
 const vector<LedgerEntryData>& LedgerEntryVector::toVector() const
 {

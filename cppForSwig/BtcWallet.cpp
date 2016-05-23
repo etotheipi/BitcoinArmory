@@ -4,6 +4,11 @@
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
+//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include "BtcWallet.h"
 #include "BlockUtils.h"
@@ -358,8 +363,8 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
          // It's only outgoing if it has a TxIn
          if (!txio.hasTxIn() || txio.hasTxInZC())
             continue;
-
-         Tx thisTx = txio.getTxRefOfInput().attached(bdvPtr_->getDB()).getTxCopy();
+         DBTxRef dbTxRef(txio.getTxRefOfInput(), bdvPtr_->getDB());
+         auto&& thisTx = dbTxRef.getTxCopy();
          HashString txHash = thisTx.getThisHash();
 
          if (allTxList.count(txHash) > 0)

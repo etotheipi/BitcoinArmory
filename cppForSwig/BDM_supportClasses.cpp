@@ -714,9 +714,15 @@ void ZeroConfContainer::parseNewZC(void)
             keysToWrite.push_back(newZCPair.first);
       }
 
+      auto waitonzcmap = waitOnZcMap_.get();
+
       for (auto& newZCPair : zcMap)
       {
          const BinaryData&& txHash = newZCPair.second.getThisHash();
+         auto promiseIter = waitonzcmap->find(txHash);
+         if (promiseIter != waitonzcmap->end())
+            promiseIter->second->set_value(true);
+
          if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
             continue; //already have this ZC
 
@@ -965,7 +971,8 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
 
       //fetch the TxOut from DB
-      BinaryData opKey = op.getDBkey(db_);
+      DBOutPoint dbop(op, db_);
+      auto&& opKey = dbop.getDBkey();
       if (opKey.getSize() == 8)
       {
          //found outPoint DBKey, grab the StoredTxOut
@@ -1257,7 +1264,7 @@ void ZeroConfContainer::init(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ZeroConfContainer::processInvTxVec(vector<InvEntry*>& invVec)
+void ZeroConfContainer::processInvTxVec(vector<InvEntry>& invVec)
 {
    /***
    This code will ignore new tx if there are no threads ready in the thread
@@ -1265,12 +1272,12 @@ void ZeroConfContainer::processInvTxVec(vector<InvEntry*>& invVec)
    new tx get processed.
    ***/
 
-   for (auto entry : invVec)
+   for (auto& entry : invVec)
    {
       try
       {
          auto&& newtxpromise = newInvTxStack_.pop_front();
-         newtxpromise.set_value(move(*entry));
+         newtxpromise.set_value(move(entry));
       }
       catch (IsEmpty&)
       {
@@ -1321,4 +1328,93 @@ void ZeroConfContainer::processInvTxThread(void)
 void ZeroConfContainer::insertBDVcallback(string id, BDV_Callbacks callback)
 {
    bdvCallbacks_.insert(move(make_pair(move(id), move(callback))));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
+   uint32_t timeout_sec)
+{
+   //get tx hash
+   auto&& txHash = BtcUtils::getHash256(rawzc);
+
+   //create inv payload
+   InvEntry entry;
+   entry.invtype_ = Inv_Msg_Tx;
+   memcpy(entry.hash, txHash.getPtr(), 32);
+   
+   vector<InvEntry> invVec;
+   invVec.push_back(move(entry));
+
+   Payload_Inv payload_inv;
+   payload_inv.setInvVector(invVec);
+
+   //create getData payload packet
+   auto payload = make_unique<Payload_Tx>();
+   vector<uint8_t> rawtx;
+   rawtx.resize(rawzc.getSize());
+   memcpy(&rawtx[0], rawzc.getPtr(), rawzc.getSize());
+
+   payload->setRawTx(move(rawtx));
+   auto getDataProm = make_shared<promise<bool>>();
+   auto getDataFut = getDataProm->get_future();
+
+   BitcoinP2P::getDataPayload getDataPayload;
+   getDataPayload.payload_ = move(payload);
+   getDataPayload.promise_ = getDataProm;
+
+   pair<BinaryData, BitcoinP2P::getDataPayload> getDataPair;
+   getDataPair.first = txHash;
+   getDataPair.second = move(getDataPayload);
+
+   //register getData payload
+   networkNode_->getDataPayloadMap_.insert(move(getDataPair));
+
+   //send inv packet
+   networkNode_->sendMessage(move(payload_inv));
+
+   //wait on getData future
+   bool sentTx = false;
+   if (timeout_sec == 0)
+   {
+      getDataFut.get();
+      sentTx = true;
+   }
+   else
+   {
+      //auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(timeout_sec));
+      auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(3000));
+      if (getDataFutStatus == future_status::ready)
+         sentTx = true;
+   }
+
+   networkNode_->getDataPayloadMap_.erase(txHash);
+
+   if (!sentTx)
+      throw runtime_error("broadcast tx timed out");
+
+   //register tx hash for watching
+   auto gotZcPromise = make_shared<promise<bool>>();
+   auto watchTxFuture = gotZcPromise->get_future();
+   waitOnZcMap_.insert(make_pair(txHash, gotZcPromise));
+
+   //try to fetch tx by hash from node
+   processInvTxVec(move(invVec));
+
+   bool gotTx = false;
+   if (timeout_sec == 0)
+   {
+      watchTxFuture.wait();
+      gotTx = true;
+   }
+   else
+   {
+      auto status = watchTxFuture.wait_for(chrono::seconds(timeout_sec));
+      if (status == future_status::ready)
+         gotTx = true;
+   }
+
+   waitOnZcMap_.erase(txHash);
+
+   if (!gotTx)
+      throw runtime_error("broadcast tx timed out");
 }

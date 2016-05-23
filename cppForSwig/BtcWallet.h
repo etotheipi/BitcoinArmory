@@ -4,6 +4,11 @@
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
+//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _BTCWALLET_H
 #define _BTCWALLET_H
@@ -24,13 +29,13 @@ public:
    /////
    AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash()) { txList_.clear(); }
    explicit AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) { txList_.clear(); }
-   void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
+   void addTx(Tx & tx) { txList_.push_back( tx ); }
    BinaryData getScrAddr(void) { return scrAddr_; }
 
    /////
-   vector<RegisteredTx> getTxList(void)
+   vector<Tx> getTxList(void)
    { 
-      sort(txList_.begin(), txList_.end()); 
+      //sort(txList_.begin(), txList_.end()); 
       return txList_;
    }
 
@@ -38,15 +43,15 @@ public:
    bool operator<(AddressBookEntry const & abe2) const
    {
       // If one of the entries has no tx (this shouldn't happen), sort by hash
-      if( txList_.size()==0 || abe2.txList_.size()==0)
+      //if( txList_.size()==0 || abe2.txList_.size()==0)
          return scrAddr_ < abe2.scrAddr_;
 
-      return (txList_[0] < abe2.txList_[0]);
+      //return (txList_[0] < abe2.txList_[0]);
    }
 
 private:
    BinaryData scrAddr_;
-   vector<RegisteredTx> txList_;
+   vector<Tx> txList_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

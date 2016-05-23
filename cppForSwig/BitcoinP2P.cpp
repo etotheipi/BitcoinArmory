@@ -223,32 +223,37 @@ vector<unique_ptr<Payload>> Payload::deserialize(
          switch (payloadIter->second)
          {
          case Payload_version:
-            retvec.push_back(move(unique_ptr<Payload_Version>(
-               new Payload_Version(
-               payloadptr, *length))));
+            retvec.push_back(move(make_unique<Payload_Version>(
+               payloadptr, *length)));
             break;
 
          case Payload_verack:
-            retvec.push_back(move(unique_ptr<Payload_Verack>(
-               new Payload_Verack())));
+            retvec.push_back(move(make_unique<Payload_Verack>()));
             break;
 
          case Payload_ping:
-            retvec.push_back(move(unique_ptr<Payload_Ping>(
-               new Payload_Ping(
-               payloadptr, *length))));
+            retvec.push_back(move(make_unique<Payload_Ping>(
+               payloadptr, *length)));
             break;
 
          case Payload_pong:
-            retvec.push_back(move(unique_ptr<Payload_Pong>(
-               new Payload_Pong(
-               payloadptr, *length))));
+            retvec.push_back(move(make_unique<Payload_Pong>(
+               payloadptr, *length)));
             break;
 
          case Payload_inv:
-            retvec.push_back(move(unique_ptr<Payload_Inv>(
-               new Payload_Inv(
-               payloadptr, *length))));
+            retvec.push_back(move(make_unique<Payload_Inv>(
+               payloadptr, *length)));
+            break;
+
+         case Payload_tx:
+            retvec.push_back(move(make_unique<Payload_Tx>(
+               payloadptr, *length)));
+            break;
+
+         case Payload_getdata:
+            retvec.push_back(move(make_unique<Payload_GetData>(
+               payloadptr, *length)));
             break;
          }
       }
@@ -460,17 +465,17 @@ void Payload_Inv::deserialize(uint8_t* dataptr, size_t len)
 size_t Payload_Tx::serialize_inner(uint8_t* dataptr) const
 {
    if (dataptr == nullptr)
-      return rawTx.size();
+      return rawTx_.size();
 
-   memcpy(dataptr, &rawTx[0], rawTx.size());
-   return rawTx.size();
+   memcpy(dataptr, &rawTx_[0], rawTx_.size());
+   return rawTx_.size();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void Payload_Tx::deserialize(uint8_t* dataptr, size_t len)
 {
-   rawTx.resize(len);
-   memcpy(&rawTx[0], dataptr, len);
+   rawTx_.resize(len);
+   memcpy(&rawTx_[0], dataptr, len);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -739,15 +744,16 @@ void BitcoinP2P::connectLoop(void)
       version.startHeight_ = -1;
 
       sendMessage(move(version));
-
-      //wait on verack
-
-      //signal calling thread
       try
       {
+         //wait on verack
          verackFuture.get();
          verackPromise_.reset();
+         LOGINFO << "Connected to Bitcoin node";
+
+         //signal calling thread
          connectedPromise_->set_value(true);
+
       }
       catch (...)
       {
@@ -987,12 +993,12 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
    Payload_Inv* invptr = (Payload_Inv*)payload.get();
 
    //order entries by type
-   map<InvType, vector<InvEntry*>> orderedEntries;
+   map<InvType, vector<InvEntry>> orderedEntries;
    
    for (auto& entry : invptr->invVector_)
    {
       auto& invvec = orderedEntries[entry.invtype_];
-      invvec.push_back(&entry);
+      invvec.push_back(move(entry));
    }
 
    //process them
@@ -1014,9 +1020,9 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BitcoinP2P::processInvBlock(const vector<InvEntry*>& invVec)
+void BitcoinP2P::processInvBlock(const vector<InvEntry>& invVec)
 {
-   vector<function<void(const vector<InvEntry*>&)>> callbacksVec;
+   vector<function<void(const vector<InvEntry>&)>> callbacksVec;
    try
    {
       while (1)
@@ -1034,15 +1040,41 @@ void BitcoinP2P::processInvBlock(const vector<InvEntry*>& invVec)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BitcoinP2P::processInvTx(vector<InvEntry*>& invVec)
+void BitcoinP2P::processInvTx(vector<InvEntry>& invVec)
 {
    invTxLambda_(invVec);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BitcoinP2P::processGetData(const unique_ptr<Payload> payload)
+void BitcoinP2P::processGetData(unique_ptr<Payload> payload)
 {
+   Payload_GetData payloadgetdata = move(*(Payload_GetData*)payload.release());
 
+   auto& invvector = payloadgetdata.getInvVector();
+   auto getdatamap = getDataPayloadMap_.get();
+
+   for (auto& entry : invvector)
+   {
+      BinaryDataRef bdr(entry.hash, 32);
+
+      auto payloadIter = getdatamap->find(bdr);
+      if (payloadIter == getdatamap->end())
+         continue;
+
+      if (payloadIter->second.payload_->type() != entry.invtype_)
+         continue;
+
+      auto&& payload = *payloadIter->second.payload_.get();
+      sendMessage(move(payload));
+      try
+      {
+         payloadIter->second.promise_->set_value(true);
+      }
+      catch (future_error&)
+      {
+         //do nothing
+      }
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1053,15 +1085,15 @@ void BitcoinP2P::processGetTx(unique_ptr<Payload> payload)
 
    map<BinaryData, getTxCallback> consumedCallbacks;
    auto& txHash = payloadtx.getHash256();
-
-   unique_lock<mutex> lock(getDataCallbackMapMutex_);
    
-   auto callbackIter = getDataCallbackMap_.find(txHash);
-   if (callbackIter == getDataCallbackMap_.end())
+   auto gettxcallbackmap = getTxCallbackMap_.get();
+
+   auto callbackIter = gettxcallbackmap->find(txHash);
+   if (callbackIter == gettxcallbackmap->end())
       return;
 
    callbackIter->second(move(payloadtx));
-   getDataCallbackMap_.erase(callbackIter);
+   getTxCallbackMap_.erase(txHash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1170,7 +1202,7 @@ Payload_Tx BitcoinP2P::getTx(
    //wait on promise
    if (timeout == 0)
    {
-      //wait undefinitely if there is timeout is 0
+      //wait undefinitely if timeout is 0
       return move(gotDataFuture.get());
    }
    else
@@ -1193,15 +1225,13 @@ Payload_Tx BitcoinP2P::getTx(
 void BitcoinP2P::registerGetTxCallback(
    const BinaryDataRef& hashRef, getTxCallback callback)
 {
-   unique_lock<mutex> lock(getDataCallbackMapMutex_);
-   getDataCallbackMap_.insert(make_pair(
-      hashRef, callback));
+   getTxCallbackMap_.insert(move(make_pair(
+      hashRef, callback)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinP2P::unregisterGetTxCallback(
    const BinaryDataRef& hashRef)
 {
-   unique_lock<mutex> lock(getDataCallbackMapMutex_);
-   getDataCallbackMap_.erase(hashRef);
+   getTxCallbackMap_.erase(hashRef);
 }

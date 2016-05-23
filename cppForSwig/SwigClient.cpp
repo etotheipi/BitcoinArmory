@@ -164,6 +164,38 @@ Blockchain BlockDataViewer::blockchain(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::broadcastZC(const BinaryData& rawTx)
+{
+   Command cmd;
+
+   cmd.method_ = "broadcastZC";
+   cmd.ids_.push_back(bdvID_);
+   cmd.args_.push_back(BinaryDataObject(rawTx));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
+{
+   Command cmd;
+
+   cmd.method_ = "getTxByHash";
+   cmd.ids_.push_back(bdvID_);
+   cmd.args_.push_back(BinaryDataObject(txHash));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+
+   Arguments retval(result);
+   auto&& rawtx = retval.get<BinaryDataObject>();
+
+   Tx tx(rawtx.get());
+   return tx;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // LedgerDelegate
 //
@@ -280,6 +312,26 @@ vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
    auto&& utxovec = utxoVec.toVec();
    return utxovec;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& scrAddr)
+{
+   Command cmd;
+   cmd.method_ = "getAddrTotalTxnCount";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   BinaryDataObject bdo(scrAddr);
+   cmd.args_.push_back(move(bdo));
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(move(retval));
+
+   auto count = arg.get<uint64_t>();
+   return count;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -14,6 +14,7 @@
 #include "BinaryData.h"
 #include "DataObject.h"
 #include "LedgerEntryData.h"
+#include "TxClasses.h"
 
 enum OrderType
 {
@@ -97,23 +98,6 @@ public:
 
    friend ostream& operator << (ostream&, const BinaryDataVector&);
    friend istream& operator >> (istream&, BinaryDataVector&);
-};
-
-///////////////////////////////////////////////////////////////////////////////
-struct UTXO
-{
-   BinaryData txHash_;
-   uint32_t   txOutIndex_;
-   uint32_t   txHeight_;
-   uint64_t   value_;
-   BinaryData script_;
-   bool       isMultisigRef_;
-
-   UTXO(uint64_t value, uint32_t txHeight, uint32_t txOutIndex,
-      BinaryData txHash, BinaryData script) :
-      txHash_(move(txHash)), txHeight_(txHeight), txOutIndex_(txOutIndex),
-      value_(value), script_(move(script))
-   {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////

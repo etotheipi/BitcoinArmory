@@ -4,6 +4,11 @@
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
+//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _TXIO_H_
 #define _TXIO_H_

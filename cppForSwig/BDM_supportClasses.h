@@ -302,7 +302,9 @@ private:
    //stacks inv tx packets from node
    shared_ptr<BitcoinP2P> networkNode_;
    Stack<promise<InvEntry>> newInvTxStack_;
+   
    TransactionalMap<string, BDV_Callbacks> bdvCallbacks_;
+   TransactionalMap<BinaryData, shared_ptr<promise<bool>>> waitOnZcMap_;
 
 private:
    BinaryData getNewZCkey(void);   
@@ -324,7 +326,7 @@ public:
       networkNode_(node)
    {
       //register ZC callback
-      auto processInvTx = [this](vector<InvEntry*>& entryVec)->void
+      auto processInvTx = [this](vector<InvEntry>& entryVec)->void
       {
          this->processInvTxVec(entryVec);
       };
@@ -351,12 +353,14 @@ public:
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
-   void processInvTxVec(vector<InvEntry*>&);
+   void processInvTxVec(vector<InvEntry>&);
    void processInvTxThread(void);
 
    void init(function<bool(const BinaryData&)>, bool clearMempool);
 
    void insertBDVcallback(string, BDV_Callbacks);
+
+   void broadcastZC(const BinaryData& rawzc, uint32_t timeout_sec = 3);
 };
 
 #endif

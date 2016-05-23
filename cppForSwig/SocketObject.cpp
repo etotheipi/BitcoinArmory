@@ -278,16 +278,15 @@ string FcgiSocket::getMessage(const vector<char>& msg,
    vector<char> httpmsg;
 
    int endpacket = 0;
+   size_t ptroffset = 0;
    auto processFcgiPacket = [&](void)->void
    {
-      size_t ptrindex = 0;
-
-      while (ptrindex + FCGI_HEADER_LEN <= msg.size())
+      while (ptroffset + FCGI_HEADER_LEN <= msg.size())
       {
          //grab fcgi header
-         const char* fcgiheader = &msg[ptrindex];
+         const char* fcgiheader = &msg[ptroffset];
 
-         ptrindex += FCGI_HEADER_LEN;
+         ptroffset += FCGI_HEADER_LEN;
 
          //make sure fcgi version and request id match
          if (fcgiheader[0] != FCGI_VERSION_1)
@@ -316,11 +315,11 @@ string FcgiSocket::getMessage(const vector<char>& msg,
             {
                //extract http data
                httpmsg.insert(httpmsg.end(),
-                  msg.begin() + ptrindex,
-                  msg.begin() + ptrindex + packetsize);
+                  msg.begin() + ptroffset,
+                  msg.begin() + ptroffset + packetsize);
 
                //advance index to next header
-               ptrindex += packetsize + padding;
+               ptroffset += packetsize + padding;
             }
             else
             {

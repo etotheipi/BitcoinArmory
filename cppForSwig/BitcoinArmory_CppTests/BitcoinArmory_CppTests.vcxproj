@@ -190,6 +190,7 @@
     <ClInclude Include="..\Progress.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
+    <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="..\txio.h" />
     <ClInclude Include="..\UniversalTimer.h" />
   </ItemGroup>

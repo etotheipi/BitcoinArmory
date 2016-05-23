@@ -1040,7 +1040,7 @@ class PyBtcWallet(object):
          
          wltNAddr = {}
          wltNAddr[self.uniqueIDB58] = newAddrList
-         TheBDM.bdv().registerAddressBatch(wltNAddr, isActuallyNew)
+         TheBDM.bdv().registerWallet(self.uniqueIDB58, newAddrList, isActuallyNew)
          self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
                                           [lastComputedIndex, True]])
          

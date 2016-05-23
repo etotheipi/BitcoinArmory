@@ -17,12 +17,14 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <atomic>
+
 #include "BinaryData.h"
+#include "DBUtils.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "txio.h"
 #include "BlockDataManagerConfig.h"
-#include <atomic>
 
 #define ARMORY_DB_VERSION   0x00
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
@@ -32,30 +34,6 @@ static const uint64_t UPDATE_BYTES_SSH    = 25;
 static const uint64_t UPDATE_BYTES_SUBSSH = 75;
 static const uint64_t UPDATE_BYTES_KEY    = 8;
 
-enum BLKDATA_TYPE
-{
-  NOT_BLKDATA,
-  BLKDATA_HEADER,
-  BLKDATA_TX,
-  BLKDATA_TXOUT
-};
-
-enum DB_PREFIX
-{
-  DB_PREFIX_DBINFO,
-  DB_PREFIX_HEADHASH,
-  DB_PREFIX_HEADHGT,
-  DB_PREFIX_TXDATA,
-  DB_PREFIX_TXHINTS,
-  DB_PREFIX_SCRIPT,
-  DB_PREFIX_UNDODATA,
-  DB_PREFIX_TRIENODES,
-  DB_PREFIX_COUNT,
-  DB_PREFIX_ZCDATA
-};
-
-// In ARMORY_DB_PARTIAL and LITE, we may not store full tx, but we will know 
-// its block and index, so we can just request the full block from our peer.
 enum DB_TX_AVAIL
 {
   DB_TX_EXISTS,
@@ -123,102 +101,6 @@ static BinaryData serializeDBValue(const T &o, const Args &...a)
    o.serializeDBValue(wr, a...);
    return wr.getData();
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// Basically making stuff globally accessible through DBUtils singleton
-////////////////////////////////////////////////////////////////////////////////
-class DBUtils
-{
-public:
-
-   static uint32_t   hgtxToHeight(const BinaryData& hgtx);
-   static uint8_t    hgtxToDupID(const BinaryData& hgtx);
-   static BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getBlkDataKey(uint32_t height, 
-                            uint8_t  dup);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getBlkDataKey(uint32_t height, 
-                            uint8_t  dup,
-                            uint16_t txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getBlkDataKey(uint32_t height, 
-                            uint8_t  dup,
-                            uint16_t txIdx,
-                            uint16_t txOutIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                           uint8_t  dup);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                           uint8_t  dup,
-                                           uint16_t txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                           uint8_t  dup,
-                                           uint16_t txIdx,
-                                           uint16_t txOutIdx);
-
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx);
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx);
-   
-
-
-   static string getPrefixName(uint8_t prefixInt);
-   static string getPrefixName(DB_PREFIX pref);
-
-   static bool checkPrefixByte(       BinaryRefReader & brr, 
-                                      DB_PREFIX prefix,
-                                      bool rewindWhenDone=false);
-   static bool checkPrefixByteWError( BinaryRefReader & brr, 
-                                      DB_PREFIX prefix,
-                                      bool rewindWhenDone=false);
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 class StoredDBInfo

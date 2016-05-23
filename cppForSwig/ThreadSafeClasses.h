@@ -454,7 +454,7 @@ public:
       map_ = newMap;
    }
 
-   void eraseBdv(const T& id)
+   void erase(const T& id)
    {
       auto newMap = make_shared<map<T, U>>();
 

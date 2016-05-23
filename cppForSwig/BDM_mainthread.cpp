@@ -201,7 +201,7 @@ try
          else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
          else if (mode == 3) bdm->doInitialSyncOnLoad_RescanBalance(loadProgress);
 
-         //bdv->enableZeroConf(clearZc);
+         bdm->enableZeroConf(clearZc);
       }
       catch (BDMStopRequest&)
       {
@@ -263,7 +263,7 @@ try
       auto newBlocksFuture = newBlocksPromise.get_future();
       
       auto newBlocksCallback = 
-         [&newBlocksPromise](const vector<InvEntry*>&)->void
+         [&newBlocksPromise](const vector<InvEntry>&)->void
       {
          newBlocksPromise.set_value(true);
       };
