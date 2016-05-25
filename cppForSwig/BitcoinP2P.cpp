@@ -106,7 +106,7 @@ int get_varint(uint64_t& val, uint8_t* ptr, uint32_t size)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const map<string, PayloadType> BitcoinP2P::strToPayload_ = {
+const map<string, PayloadType> BitcoinP2P::strToPayload_; /* = {
    make_pair("version", Payload_version),
    make_pair("verack", Payload_verack),
    make_pair("inv", Payload_inv),
@@ -114,7 +114,7 @@ const map<string, PayloadType> BitcoinP2P::strToPayload_ = {
    make_pair("pong", Payload_pong),
    make_pair("getdata", Payload_getdata),
    make_pair("tx", Payload_tx)
-};
+};*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////
