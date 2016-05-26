@@ -14,6 +14,8 @@
 #include <future>
 #include <map>
 
+#include "make_unique.h"
+
 using namespace std;
 
 class IsEmpty
