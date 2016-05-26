@@ -476,12 +476,12 @@ public:
 
    Payload_Tx getTx(const InvEntry&, uint32_t timeout = 60);
 
-   void registerInvBlockLambda(function<void(const vector<InvEntry>&)> func)
+   void registerInvBlockLambda(function<void(const vector<InvEntry>)> func)
    {
       invBlockLambdas_.push_back(move(func));
    }
 
-   void registerInvTxLambda(function<void(vector<InvEntry>&)> func)
+   void registerInvTxLambda(function<void(vector<InvEntry>)> func)
    {
       invTxLambda_ = move(func);
    }

@@ -1007,13 +1007,11 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
       switch (entryVec.first)
       {
       case Inv_Msg_Block:
-         processInvBlock(entryVec.second);
+         processInvBlock(move(entryVec.second));
          break;
 
       case Inv_Msg_Tx:
-         processInvTx(entryVec.second);
-
-      default:
+         processInvTx(move(entryVec.second));
          break;
       }
    }

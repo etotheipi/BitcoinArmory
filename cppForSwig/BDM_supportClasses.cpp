@@ -1264,7 +1264,7 @@ void ZeroConfContainer::init(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ZeroConfContainer::processInvTxVec(vector<InvEntry>& invVec)
+void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec)
 {
    /***
    This code will ignore new tx if there are no threads ready in the thread

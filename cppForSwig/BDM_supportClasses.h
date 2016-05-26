@@ -326,7 +326,7 @@ public:
       networkNode_(node)
    {
       //register ZC callback
-      auto processInvTx = [this](vector<InvEntry>& entryVec)->void
+      auto processInvTx = [this](vector<InvEntry> entryVec)->void
       {
          this->processInvTxVec(entryVec);
       };
@@ -353,7 +353,7 @@ public:
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
-   void processInvTxVec(vector<InvEntry>&);
+   void processInvTxVec(vector<InvEntry>);
    void processInvTxThread(void);
 
    void init(function<bool(const BinaryData&)>, bool clearMempool);
