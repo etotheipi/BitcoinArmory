@@ -738,33 +738,6 @@ bool BDV_Server_Object::registerWallet(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void Callback::callback(Arguments&& cmd, OrderType type)
-{
-   {
-      unique_lock<mutex> lock(mu_);
-      //compress new block and refresh commands together
-      cbOrder order(move(cmd), type);
-
-      if (type != OrderOther)
-      {
-         deque<cbOrder> oldQueue = move(cbQueue_);
-         cbQueue_.clear();
-         for (auto& entry : oldQueue)
-         {
-            if (entry.otype_ != type)
-               cbQueue_.push_back(move(entry));
-         }
-      }
-
-      cbQueue_.push_back(move(order));
-      if (cbQueue_.size() > maxQueue_)
-         cbQueue_.pop_front();
-   }
-
-   emit();
-}
-
-///////////////////////////////////////////////////////////////////////////////
 void SocketCallback::emit()
 {
    cv_.notify_all();
