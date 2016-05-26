@@ -39,7 +39,8 @@ OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
 	libcryptopp.a mdb.o midl.o txio.o TxClasses.o \
 	DatabaseBuilder.o BlockchainScanner.o BlockDataMap.o \
-	fcgiapp.o DataObject.o BitcoinP2P.o BDM_Server.o
+	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o \
+	fcgiapp.o os_unix.o
 
 #if python is specified, use it
 ifndef PYVER
@@ -112,8 +113,11 @@ midl.o: mdb/midl.c mdb/lmdb.h mdb/midl.h
 %.o: %.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<
 
-fcgiapp.o: $(FCGI_DIR)/libfcgi/fcgiapp.c
-	$(CXX) $(CXXFLAGS) -I$(FCGI_DIR) -I$(FCGI_DIR)/include -c  $(FCGI_DIR)/libfcgi/fcgiapp.c
+fcgiapp.o: $(FCGI_DIR)/libfcgi/fcgiapp.c 
+	$(CXX) $(CXXFLAGS) -I$(FCGI_DIR) -I$(FCGI_DIR)/include -c  $(FCGI_DIR)/libfcgi/fcgiapp.c 
+
+os_unix.o: $(FCGI_DIR)/libfcgi/os_unix.c
+	$(CXX) $(CXXFLAGS) -I$(FCGI_DIR) -I$(FCGI_DIR)/include -DHAVE_NETDB_H -DHAVE_SYS_SOCKET_H -DHAVE_UNISTD_H -DHAVE_SOCKLEN -c $(FCGI_DIR)/libfcgi/os_unix.c
 
 CppBlockUtils_wrap.cxx: $(ALL_HEADERS) CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 

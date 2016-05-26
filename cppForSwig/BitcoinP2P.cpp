@@ -586,14 +586,9 @@ BitcoinP2P::BitcoinP2P(const string& addrV4, const string& port,
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_protocol = IPPROTO_TCP;
 
-#ifdef _WIN32
-   //somehow getaddrinfo doesnt handle localhost on Windows
-   string addrstr = addr_v4_;
+   auto addrstr = addr_v4_;
    if (addr_v4_ == "localhost")
       addrstr = "127.0.0.1";
-#else
-   auto addrstr = addr_v4_;
-#endif
 
    int rt = getaddrinfo(addrstr.c_str(), port_.c_str(), &hints, &result);
 
