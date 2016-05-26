@@ -17,7 +17,6 @@
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BtcUtils.h"
-#include "BinaryData.h"
 #include "EncryptionUtils.h"
 #include "SwigClient.h"
 #include "bdmenums.h"
@@ -264,5 +263,4 @@ namespace std
 %include "SwigClient.h"
 %include "bdmenums.h"
 %include "LedgerEntryData.h"
-%include "BinaryData.h"
 %include "TxClasses.h"

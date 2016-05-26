@@ -40,7 +40,7 @@ void BDV_Server_Object::buildMethodMap()
    {
       auto retVal = this->getTopBlockHeight();
       Arguments retarg;
-      retarg.push_back(retVal);
+      retarg.push_back(move(retVal));
       return retarg;
    };
 
@@ -97,7 +97,7 @@ void BDV_Server_Object::buildMethodMap()
          this->registerWallet(scrAddrVec.get(), id, isNew);
       
       Arguments retarg;
-      retarg.push_back(retVal);
+      retarg.push_back(move(retVal));
       return retarg;
    };
 
@@ -118,7 +118,7 @@ void BDV_Server_Object::buildMethodMap()
          this->registerLockbox(scrAddrVec.get(), id, isNew) != nullptr;
 
       Arguments retarg;
-      retarg.push_back(retVal);
+      retarg.push_back(move(retVal));
       return retarg;
    };
 
@@ -134,7 +134,7 @@ void BDV_Server_Object::buildMethodMap()
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
       Arguments retarg;
-      retarg.push_back(id);
+      retarg.push_back(move(id));
       return retarg;
    };
 
@@ -150,7 +150,7 @@ void BDV_Server_Object::buildMethodMap()
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
       Arguments retarg;
-      retarg.push_back(id);
+      retarg.push_back(move(id));
       return retarg;
    };
 
@@ -179,7 +179,7 @@ void BDV_Server_Object::buildMethodMap()
       auto balance = wltPtr->getFullBalance();
 
       Arguments retarg;
-      retarg.push_back(balance);
+      retarg.push_back(move(balance));
       return retarg;
    };
 
@@ -211,7 +211,7 @@ void BDV_Server_Object::buildMethodMap()
       auto balance = wltPtr->getSpendableBalance(height, ignorezc);
 
       Arguments retarg;
-      retarg.push_back(balance);
+      retarg.push_back(move(balance));
       return retarg;
    };
 
@@ -243,7 +243,7 @@ void BDV_Server_Object::buildMethodMap()
       auto balance = wltPtr->getUnconfirmedBalance(height, ignorezc);
 
       Arguments retarg;
-      retarg.push_back(balance);
+      retarg.push_back(move(balance));
       return retarg;
    };
 
@@ -262,7 +262,7 @@ void BDV_Server_Object::buildMethodMap()
          this->blockchain().hasHeaderWithHash(hash.get());
 
       Arguments retarg;
-      retarg.push_back(hasHash);
+      retarg.push_back(move(hasHash));
       return retarg;
    };
 
@@ -351,7 +351,7 @@ void BDV_Server_Object::buildMethodMap()
       auto retval = wltPtr->getAddrTotalTxnCount(scrAddr.get());
 
       Arguments retarg;
-      retarg.push_back(retval);
+      retarg.push_back(move(retval));
       return retarg;
    };
 
@@ -422,7 +422,7 @@ Arguments Clients::registerBDV()
    LOGINFO << "registered bdv: " << newID;
 
    Arguments args;
-   args.push_back(newID);
+   args.push_back(move(newID));
    return args;
 }
 
@@ -659,7 +659,7 @@ void BDV_Server_Object::maintenanceThread(void)
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
    unsigned int topblock = blockchain().top().getBlockHeight();
-   args.push_back(topblock);
+   args.push_back(move(topblock));
    cb_.callback(move(args));
 
    while (1)
@@ -678,7 +678,7 @@ void BDV_Server_Object::maintenanceThread(void)
             payload->reorgState_.newTop->getBlockHeight();
 
          args2.push_back(move(string("NewBlock")));
-         args2.push_back(blocknum);
+         args2.push_back(move(blocknum));
          cb_.callback(move(args2), OrderNewBlock);
       }
       else if (action == BDV_RefreshWallets)

@@ -222,22 +222,6 @@ istream& operator >> (istream& is, BinaryDataObject& bdo)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const ErrorType& et)
-{
-   os << et.err_;
-
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, ErrorType& et)
-{
-   is >> et.err_;
-
-   return is;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 ostream& operator << (ostream& os, const DataMeta& obj)
 {
    /***
@@ -256,15 +240,6 @@ ostream& operator << (ostream& os, const DataMeta& obj)
 
    os << "~" << entry->second << "-";
    obj.serializeToStream(os);
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const ReturnValue& rv)
-{
-
-   os << (*rv.dataPtr_);
-
    return os;
 }
 

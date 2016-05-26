@@ -126,7 +126,7 @@ public:
       : bdvPtr_(bdv), walletID_(ID)
    {}
 
-   BtcWallet::~BtcWallet(void)
+   ~BtcWallet(void)
    {}
 
    BtcWallet(const BtcWallet& wlt) = delete;

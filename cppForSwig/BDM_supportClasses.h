@@ -17,6 +17,7 @@
 #include <vector>
 #include <atomic>
 #include <functional>
+#include <memory>
 
 #include "ThreadSafeClasses.h"
 #include "BitcoinP2p.h"
@@ -347,7 +348,7 @@ public:
 
    void clear(void);
 
-   const map<BinaryData, TxIOPair>& getZCforScrAddr(BinaryData scrAddr) const;
+   map<BinaryData, TxIOPair> getZCforScrAddr(BinaryData scrAddr) const;
    const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
 
    void updateZCinDB(

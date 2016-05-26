@@ -327,7 +327,7 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
    if (fd == -1)
       return;
 
-   size_ = _lseek(fd, 0, SEEK_END);
+   size_ = lseek(fd, 0, SEEK_END);
    lseek(fd, 0, SEEK_SET);
 #endif
 

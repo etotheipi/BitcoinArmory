@@ -9,8 +9,20 @@
 #include <string>
 #include <initializer_list>
 #include <memory>
+#include <deque>
+#include <mutex>
+
+#include "BDM_seder.h"
 
 using namespace std;
+
+enum OrderType
+{
+   OrderNewBlock,
+   OrderRefresh,
+   OrderZC,
+   OrderOther
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 class DataMeta
@@ -40,6 +52,22 @@ public:
 
    friend ostream& operator << (ostream&, const DataMeta&);
 };
+
+template <typename T> class DataObject;
+
+///////////////////////////////////////////////////////////////////////////////
+template<typename T> istream& operator >> (istream& is, DataObject<T>& obj)
+{
+   is >> obj.obj_;
+   return is;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+template<typename T> ostream& operator << (ostream& os, const DataObject<T>& obj)
+{
+   os << obj.obj_;
+   return os;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 template <typename T> class DataObject : public DataMeta
@@ -75,18 +103,147 @@ public:
 
    const T getObj(void) const { return obj_; }
 
-   friend ostream& operator << <T> (
-      ostream&, const DataObject<T>&);
-   friend istream& operator >> <T> (istream&, DataObject<T>&);
+   friend ostream& operator << <> (ostream&, const DataObject<T>&);
+   friend istream& operator >> <> (istream&, DataObject<T>&);
 
    void serializeToStream(ostream& os) const { os << obj_; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-template<typename T> istream& operator >> (istream& is, DataObject<T>& obj)
+class Arguments
 {
-   is >> obj.obj_;
-   return is;
-}
+private:
+   bool initialized_ = false;
+   string argStr_;
+   vector<shared_ptr<DataMeta>> argData_;
+   deque<string> strArgs_;
+   
+   void init(void);
+
+public:
+   Arguments(void)
+   {}
+
+   Arguments(const string& argAsString) :
+      argStr_(argAsString)
+   { breakdownString(); }
+
+   Arguments(const string&& argAsString) :
+      argStr_(move(argAsString))
+   { breakdownString(); }
+
+   Arguments(const vector<shared_ptr<DataMeta>>&& argAsData) :
+      argData_(move(argAsData))
+   {}
+
+   Arguments(const deque<shared_ptr<DataMeta>>& argAsData)
+   {
+      argData_.insert(argData_.begin(),
+         argAsData.begin(), argAsData.end());
+   }
+
+   void breakdownString();
+   const string& serialize();
+   
+   ///////////////////////////////////////////////////////////////////////////////
+   template<typename T> void push_back(const T& obj)
+   {
+      shared_ptr<DataMeta> data = make_shared<DataObject<T>>(obj);
+      argData_.push_back(data);
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////
+   template<typename T> void push_back(T&& obj)
+   {
+      shared_ptr<DataMeta> data = make_shared<DataObject<T>>(move(obj));
+      argData_.push_back(data);
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////
+   template<typename T> auto get() -> T
+   {
+      if (strArgs_.size() == 0)
+         throw runtime_error("exhausted entries in Arguments object");
+
+      stringstream ss(strArgs_.front());
+      strArgs_.pop_front();
+
+      char c = 0;
+      ss.get(c);
+      if (c != '~')
+         throw runtime_error("bad argument syntax");
+
+      string objType;
+      getline(ss, objType, '-');
+      if (objType.size() == 0)
+         throw runtime_error("arg missing type marker");
+      auto objTypeInt = atoi(objType.c_str());
+      if (objTypeInt >= DataMeta::iTypeIDs_.size())
+         throw runtime_error("unknown type id in arg");
+
+      auto typeIter = DataMeta::iTypeIDs_.cbegin() + objTypeInt;
+      if (!(*typeIter)->isType(typeid(T)))
+      {
+         stringstream ss;
+         ss << "Invalid argument type. Expected: " << typeid(T).name()
+            << ", got:" << (*typeIter)->getTypeName() ;
+         throw runtime_error(ss.str());
+      }
+
+      DataObject<T> dataObj;
+      ss >> dataObj;
+
+      return dataObj.getObj();
+   }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+struct Command
+{
+   //ser/deser bdvid/walletid/method name
+   string method_;
+   vector<string> ids_;
+   Arguments args_;
+
+   string command_;
+
+   Command()
+   {}
+
+   Command(const string& command) :
+      command_(command)
+   {}
+
+   void deserialize(void);
+   void serialize(void);
+};
+
+///////////////////////////////////////////////////////////////////////////////
+class Callback
+{
+   struct cbOrder
+   {
+      Arguments order_;
+      OrderType otype_;
+
+      cbOrder(Arguments&& order, OrderType type) :
+         order_(move(order)), otype_(type)
+      {}
+   };
+
+protected:
+   deque<cbOrder> cbQueue_;
+   mutex mu_;
+   condition_variable cv_;
+
+   static const int maxQueue_ = 5;
+
+public:
+
+   virtual ~Callback() {};
+   virtual void emit(void) = 0;
+
+   void callback(Arguments&& cmd, OrderType type = OrderOther);
+};
 
 #endif

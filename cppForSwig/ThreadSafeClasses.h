@@ -284,7 +284,7 @@ private:
    atomic<bool> terminate_;
 
 public:
-   BlockingStack() : Stack()
+   BlockingStack() : Stack<T>()
    {
       terminate_.store(false, memory_order_relaxed);
       waiting_.store(0, memory_order_relaxed);
@@ -312,7 +312,7 @@ public:
             //try to pop_front
             try
             {
-               auto&& retval = pop_front();
+               auto&& retval = Stack<T>::pop_front();
                waiting_.fetch_sub(1, memory_order_relaxed);
                return move(retval);
             }
@@ -346,7 +346,7 @@ public:
 
             try
             {
-               auto&& retval = pop_front();
+               auto&& retval = Stack<T>::pop_front();
                waiting_.fetch_sub(1, memory_order_relaxed);
                return retval;
             }
@@ -367,10 +367,10 @@ public:
 
    void push_back(T&& obj)
    {
-      Stack::push_back(move(obj));
+      Stack<T>::push_back(move(obj));
 
       //pop promises
-      while (count_.load(memory_order_relaxed) > 0)
+      while (Stack<T>::count_.load(memory_order_relaxed) > 0)
       {
          try
          {
@@ -413,7 +413,7 @@ public:
 
    void reset(void)
    {
-      clear();
+      Stack<T>::clear();
 
       terminate_.store(false, memory_order_relaxed);
    }
@@ -429,7 +429,7 @@ private:
 
 public:
 
-   TransactionalMap::TransactionalMap(void)
+   TransactionalMap(void)
    {
       map_ = make_shared<map<T, U>>();
    }
@@ -447,7 +447,7 @@ public:
 
    void insert(const pair<T, U>& obj)
    {
-      auto newMap = make_shared<map_type>();
+      auto newMap = make_shared<map<T, U>>();
 
       unique_lock<mutex> lock(mu_);
       *newMap = *map_;

@@ -7,6 +7,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "SocketObject.h"
+#include <cstring>
+#include <stdexcept>
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -30,7 +32,7 @@ BinarySocket::BinarySocket(const string& addr, const string& port) :
    if(addr == "localhost")
       addrstr = "127.0.0.1"; 
 #else
-   string& addrstr = addr;
+   auto& addrstr = addr;
 #endif
 
    getaddrinfo(addrstr.c_str(), port.c_str(), &hints, &result);
@@ -51,7 +53,7 @@ BinarySocket::BinarySocket(const string& addr, const string& port) :
 ///////////////////////////////////////////////////////////////////////////////
 SOCKET BinarySocket::open(void)
 {
-   int64_t sockfd = socket(serv_addr_.sa_family, SOCK_STREAM, 0);
+   SOCKET sockfd = socket(serv_addr_.sa_family, SOCK_STREAM, 0);
    if (sockfd < 0)
       throw runtime_error("failed to create socket");
 
@@ -64,8 +66,12 @@ SOCKET BinarySocket::open(void)
 ///////////////////////////////////////////////////////////////////////////////
 void BinarySocket::close(SOCKET sockfd)
 {
+#ifdef WIN32
    if (closesocket(sockfd) != 0)
       throw runtime_error("failed to close socket");
+#else
+   closesocket(sockfd);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

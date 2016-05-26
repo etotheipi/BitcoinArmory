@@ -7,6 +7,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "FcgiMessage.h"
+#include <cstring>
+#include <stdexcept>
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -31,7 +33,7 @@ void FcgiPacket::buildHeader(uint8_t header_type, uint16_t requestID_)
       contentLength += data.size();
 
    if (contentLength > UINT16_MAX)
-      throw(runtime_error("data is too large for fcgi packet"));
+      throw runtime_error("data is too large for fcgi packet");
 
    header[4] = *((uint8_t*)(&contentLength) + 1); //contentLength B1
    header[5] = *((uint8_t*)(&contentLength)); //contentLength B0

@@ -27,7 +27,7 @@ void BlockDataViewer::goOnline()
    cmd.method_ = "goOnline";
    cmd.ids_.push_back(bdvID_);
    cmd.serialize();
-   auto& result = sock_->writeAndRead(cmd.command_);
+   auto&& result = sock_->writeAndRead(cmd.command_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -76,11 +76,11 @@ BtcWallet BlockDataViewer::registerWallet(
    const string& id, const vector<BinaryData>& addrVec, bool isNew)
 {
    Command cmd;
-   uint32_t isNewInt = (uint32_t)isNew;
+   unsigned isNewInt = (unsigned int)isNew;
 
    cmd.args_.push_back(id);
-   cmd.args_.push_back(BinaryDataVector(addrVec));
-   cmd.args_.push_back(isNewInt);
+   cmd.args_.push_back(move(BinaryDataVector(addrVec)));
+   cmd.args_.push_back(move(isNewInt));
 
    cmd.method_ = "registerWallet";
    cmd.ids_.push_back(bdvID_);
@@ -105,7 +105,7 @@ BtcWallet BlockDataViewer::registerLockbox(
 
    cmd.args_.push_back(id);
    cmd.args_.push_back(BinaryDataVector(addrVec));
-   cmd.args_.push_back(isNewInt);
+   cmd.args_.push_back(move(isNewInt));
 
    cmd.method_ = "registerLockbox";
    cmd.ids_.push_back(bdvID_);
@@ -212,7 +212,7 @@ vector<LedgerEntryData> LedgerDelegate::getHistoryPage(uint32_t id)
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(delegateID_);
 
-   cmd.args_.push_back(id);
+   cmd.args_.push_back(move(id));
 
    cmd.serialize();
 
@@ -258,8 +258,8 @@ int64_t BtcWallet::getSpendableBalance(uint32_t blockheight, bool IGNOREZC)
    cmd.ids_.push_back(walletID_);
 
    unsigned int ignorezc = IGNOREZC;
-   cmd.args_.push_back(blockheight);
-   cmd.args_.push_back(unsigned int(ignorezc));
+   cmd.args_.push_back(move(blockheight));
+   cmd.args_.push_back(move(ignorezc));
 
    cmd.serialize();
 
@@ -279,8 +279,8 @@ int64_t BtcWallet::getUnconfirmedBalance(uint32_t blockheight, bool IGNOREZC)
    cmd.ids_.push_back(walletID_);
 
    unsigned int ignorezc = IGNOREZC;
-   cmd.args_.push_back(blockheight);
-   cmd.args_.push_back(unsigned int(ignorezc));
+   cmd.args_.push_back(move(blockheight));
+   cmd.args_.push_back(move(ignorezc));
 
    cmd.serialize();
 
@@ -301,8 +301,8 @@ vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    cmd.ids_.push_back(walletID_);
 
    unsigned int ignorezc = ignoreZC;
-   cmd.args_.push_back(val);
-   cmd.args_.push_back(ignorezc);
+   cmd.args_.push_back(move(val));
+   cmd.args_.push_back(move(ignorezc));
 
    cmd.serialize();
 
@@ -362,7 +362,7 @@ bool Blockchain::hasHeaderWithHash(const BinaryData& hash)
    cmd.ids_.push_back(bdvID_);
 
    BinaryDataObject bdo(hash);
-   cmd.args_.push_back(bdo);
+   cmd.args_.push_back(move(bdo));
    cmd.serialize();
 
    auto&& retval = sock_->writeAndRead(cmd.command_);

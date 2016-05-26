@@ -9,12 +9,12 @@
 #ifndef _H_FCGI_MESSAGE_
 #define _H_FCGI_MESSAGE_
 
-#include <vector>
 #include <stdint.h>
+#include <vector>
+#include <string>
+#include "./BlockDataManager/fcgi/include/fastcgi.h"
 
 using namespace std;
-
-#include "fastcgi.h"
 
 struct FcgiData
 {

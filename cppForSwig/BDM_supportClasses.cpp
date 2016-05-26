@@ -1053,7 +1053,7 @@ bool ZeroConfContainer::isTxOutSpentByZC(const BinaryData& dbkey)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-const map<BinaryData, TxIOPair>& ZeroConfContainer::getZCforScrAddr(
+map<BinaryData, TxIOPair> ZeroConfContainer::getZCforScrAddr(
    BinaryData scrAddr) const
 {
    auto saIter = txioMap_.find(scrAddr);
@@ -1349,7 +1349,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    payload_inv.setInvVector(invVec);
 
    //create getData payload packet
-   auto payload = make_unique<Payload_Tx>();
+   auto&& payload = make_unique<Payload_Tx>();
    vector<uint8_t> rawtx;
    rawtx.resize(rawzc.getSize());
    memcpy(&rawtx[0], rawzc.getPtr(), rawzc.getSize());

@@ -27,15 +27,21 @@
 #define WRITETOSOCKET(a, b, c) send(a, b, c, NULL)
 #define READFROMSOCKET(a, b, c) recv(a, b, c, NULL)
 
+#define SOCK_MAX SIZE_MAX
+
 #else
-#include <socket.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 #include <fcntl.h>
 #define closesocket close
 
-#define WRITETOSOCKET(a, b, c) write(a, b, c)
-#define READFROMSOCKET(a, b, c) read(a, b, c)
+#define WRITETOSOCKET(a, b, c) send(a, b, c, 0)
+#define READFROMSOCKET(a, b, c) recv(a, b, c, 0)
 
-#define SOCKET int64_t;
+typedef int SOCKET;
+#define SOCK_MAX INT_MAX
 #endif
 
 using namespace std;
@@ -457,8 +463,8 @@ private:
    void replyPong(unique_ptr<Payload>);
 
    void processInv(unique_ptr<Payload>);
-   void processInvBlock(const vector<InvEntry>&);
-   void processInvTx(vector<InvEntry>&);
+   void processInvBlock(vector<InvEntry>);
+   void processInvTx(vector<InvEntry>);
    void processGetData(unique_ptr<Payload>);
    void processGetTx(unique_ptr<Payload>);
 

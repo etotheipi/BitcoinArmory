@@ -437,13 +437,13 @@ struct UTXO
    BinaryData script_;
    bool       isMultisigRef_;
 
-   UTXO::UTXO(uint64_t value, uint32_t txHeight, uint32_t txOutIndex,
+   UTXO(uint64_t value, uint32_t txHeight, uint32_t txOutIndex,
       BinaryData txHash, BinaryData script) :
       txHash_(move(txHash)), txHeight_(txHeight), txOutIndex_(txOutIndex),
       value_(value), script_(move(script))
    {}
 
-   UTXO::UTXO(void) {}
+   UTXO(void) {}
 
    BinaryData getRecipientScrAddr(void) const
    { return BtcUtils::getTxOutScrAddr(script_); }

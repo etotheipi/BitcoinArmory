@@ -106,7 +106,7 @@ int get_varint(uint64_t& val, uint8_t* ptr, uint32_t size)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const map<string, PayloadType> BitcoinP2P::strToPayload_; /* = {
+const map<string, PayloadType> BitcoinP2P::strToPayload_ = {
    make_pair("version", Payload_version),
    make_pair("verack", Payload_verack),
    make_pair("inv", Payload_inv),
@@ -114,7 +114,7 @@ const map<string, PayloadType> BitcoinP2P::strToPayload_; /* = {
    make_pair("pong", Payload_pong),
    make_pair("getdata", Payload_getdata),
    make_pair("tx", Payload_tx)
-};*/
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 ////
@@ -592,7 +592,7 @@ BitcoinP2P::BitcoinP2P(const string& addrV4, const string& port,
    if (addr_v4_ == "localhost")
       addrstr = "127.0.0.1";
 #else
-   string& addrstr = addr;
+   auto addrstr = addr_v4_;
 #endif
 
    int rt = getaddrinfo(addrstr.c_str(), port_.c_str(), &hints, &result);
@@ -633,7 +633,7 @@ void BitcoinP2P::setBlocking(SOCKET sock, bool setblocking)
       throw SocketError("failed to set blocking mode on socket");
 #else
    int flags = fcntl(sock, F_GETFL, 0);
-   if (flags < 0) return false;
+   if (flags < 0) return;
    flags = setblocking ? (flags&~O_NONBLOCK) : (flags | O_NONBLOCK);
    if(fcntl(sock, F_SETFL, flags) != 0);
       throw SocketError("failed to set blocking mode on socket");
@@ -683,7 +683,7 @@ void BitcoinP2P::connectLoop(void)
       size_t waitBeforeReconnect = 0;
       while (1)
       {
-         if (sockfd_ != SIZE_MAX)
+         if (sockfd_ != SOCK_MAX)
             closesocket(sockfd_);
 
          sockfd_ = socket(node_addr_.sa_family, SOCK_STREAM, 0);
@@ -733,7 +733,11 @@ void BitcoinP2P::connectLoop(void)
       auto timestamp = getTimeStamp();
 
       struct sockaddr clientsocketaddr;
+#ifdef _WIN32
       int namelen = sizeof(clientsocketaddr);
+#else
+      unsigned int namelen = sizeof(clientsocketaddr);
+#endif
       if (getsockname(sockfd_, &clientsocketaddr, &namelen) != 0)
          throw SocketError("failed to get client sockaddr");
 
@@ -765,7 +769,7 @@ void BitcoinP2P::connectLoop(void)
          processThr.join();
       
       //close socket to guarantee select returns
-      if (sockfd_ != SIZE_MAX)
+      if (sockfd_ != SOCK_MAX)
          closesocket(sockfd_);
 
       if (selectThr.joinable())
@@ -884,7 +888,7 @@ void BitcoinP2P::pollSocketThread()
 
    //close socket
    closesocket(sockfd_);
-   sockfd_ = SIZE_MAX;
+   sockfd_ = SOCK_MAX;
 
    //halt process thread
    dataStack_.terminate();
@@ -1018,7 +1022,7 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BitcoinP2P::processInvBlock(const vector<InvEntry>& invVec)
+void BitcoinP2P::processInvBlock(vector<InvEntry> invVec)
 {
    vector<function<void(const vector<InvEntry>&)>> callbacksVec;
    try
@@ -1038,7 +1042,7 @@ void BitcoinP2P::processInvBlock(const vector<InvEntry>& invVec)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BitcoinP2P::processInvTx(vector<InvEntry>& invVec)
+void BitcoinP2P::processInvTx(vector<InvEntry> invVec)
 {
    invTxLambda_(invVec);
 }
@@ -1136,7 +1140,7 @@ void BitcoinP2P::sendMessage(Payload&& payload)
       }
 
       //exceptions
-      if (FD_ISSET(sockfd_, &except_set))
+      if (FD_ISSET(sockfd_, except_set.get()))
       {
          //grab socket error code
 
@@ -1145,15 +1149,12 @@ void BitcoinP2P::sendMessage(Payload&& payload)
          break;
       }
 
-      if (FD_ISSET(sockfd_, &write_set))
+      if (FD_ISSET(sockfd_, write_set.get()))
       {
          //write ready
          break;
       }
    }
-
-   FD_ZERO(&write_set);
-   FD_ZERO(&except_set);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -16,7 +16,7 @@
 #include <future>
 
 #include "BitcoinP2p.h"
-#include "include\fcgiapp.h"
+#include "./BlockDataManager/fcgi/include/fcgiapp.h"
 
 #include "BlockDataViewer.h"
 #include "BDM_seder.h"
@@ -29,7 +29,7 @@
 class SocketCallback : public Callback
 {
 public:
-   SocketCallback::SocketCallback(void) : Callback()
+   SocketCallback(void) : Callback()
    {}
 
    void emit(void);

@@ -9,7 +9,7 @@
 #ifndef _SOCKETOBJ_H
 #define _SOCKETOBJ_H
 
-#include <sys\types.h>
+#include <sys/types.h>
 #include <string>
 #include <sstream>
 #include <stdint.h>
@@ -26,13 +26,15 @@
 #define READFROMSOCKET(a, b, c) recv(a, b, c, NULL)
 
 #else
-#include <socket.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 #define closesocket close
 
-#define WRITETOSOCKET(a, b, c) write(a, b, c)
-#define READFROMSOCKET(a, b, c) read(a, b, c)
+#define WRITETOSOCKET(a, b, c) send(a, b, c, 0)
+#define READFROMSOCKET(a, b, c) recv(a, b, c, 0)
 
-#define SOCKET void*;
+typedef int SOCKET;
 #endif
 
 using namespace std;
