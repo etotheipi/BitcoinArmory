@@ -27,20 +27,19 @@ LINK = $(CXX)
 
 OBJS_Client = UniversalTimer.o BinaryData.o \
 	BtcUtils.o DBUtils.o EncryptionUtils.o \
-	libcryptopp.a \
 	BDM_seder.o DataObject.o FcgiMessage.o \
 	SocketObject.o SwigClient.o \
-	TxClasses.o
+	TxClasses.o libcryptopp.a
 
-OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
+OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	BtcUtils.o DBUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o \
 	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
-	libcryptopp.a mdb.o midl.o txio.o TxClasses.o \
+	mdb.o midl.o txio.o TxClasses.o StoredBlockObj.o \
 	DatabaseBuilder.o BlockchainScanner.o BlockDataMap.o \
 	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o \
-	fcgiapp.o os_unix.o
+	fcgiapp.o os_unix.o libcryptopp.a 
 
 #if python is specified, use it
 ifndef PYVER
@@ -91,7 +90,7 @@ client: ../_CppBlockUtils.so ../qrc_img_resources.py
 server: ../ArmoryDB
 
 ../_CppBlockUtils.so: $(OBJS_Client) CppBlockUtils_wrap.o
-	$(LINK) -shared -fPIC $(LDFLAGS) $(CXXFLAGS) $(OBJS_Client) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	$(LINK) -shared $(LDFLAGS) $(CXXFLAGS) $(OBJS_Client) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
