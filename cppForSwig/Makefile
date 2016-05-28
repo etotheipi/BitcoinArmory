@@ -123,7 +123,7 @@ CppBlockUtils_wrap.cxx: $(ALL_HEADERS) CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: $(ALL_HEADERS) CppBlockUtils_wrap.cxx
-	$(CXX) $(SWIG_INC)  $(CXXCPP) -c CppBlockUtils_wrap.cxx
+	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
 playground: ../_CppBlockUtils.so playground.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(shell $(PYVER)-config --libs) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp

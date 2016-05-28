@@ -9,7 +9,9 @@
 #include <thread>
 #include <chrono>
 #include <ctime>
+#include <string.h>
 #include "BitcoinP2p.h"
+
 
 template <typename T> uint32_t put_integer_be(uint8_t* ptr, const T& integer)
 {
@@ -630,8 +632,14 @@ void BitcoinP2P::setBlocking(SOCKET sock, bool setblocking)
    int flags = fcntl(sock, F_GETFL, 0);
    if (flags < 0) return;
    flags = setblocking ? (flags&~O_NONBLOCK) : (flags | O_NONBLOCK);
-   if(fcntl(sock, F_SETFL, flags) != 0);
+   int rt = fcntl(sock, F_SETFL, flags); 
+   if(rt != 0)
+   {
+      auto thiserrno = errno;
+      cout << "fcntl returned " << rt << endl;
+      cout << "error: " << strerror(errno);
       throw SocketError("failed to set blocking mode on socket");
+   }
 #endif
 }
 
@@ -786,10 +794,6 @@ void BitcoinP2P::pollSocketThread()
 
    fdset_except_safe read_set, except_set;
       
-   timeval tv;
-   tv.tv_usec = 0;
-   tv.tv_sec = 60; //1min timeout on select
-
    stringstream errorss;
 
    exception_ptr eptr = nullptr;
@@ -798,13 +802,17 @@ void BitcoinP2P::pollSocketThread()
    {
       while (1)
       {
+         timeval tv;
+         tv.tv_usec = 0;
+         tv.tv_sec = 60; //1min timeout on select
+
          read_set.zero();
          except_set.zero();
 
          read_set.set(sockfd_);
          except_set.set(sockfd_);
 
-         auto retval = select(0, read_set.get(), nullptr, except_set.get(), &tv);
+         auto retval = select(sockfd_ +1, read_set.get(), nullptr, except_set.get(), &tv);
 
          if (retval == 0)
             continue;
@@ -1107,18 +1115,18 @@ void BitcoinP2P::sendMessage(Payload&& payload)
    //don't release the mutex until we are write ready
    fdset_except_safe write_set, except_set;
 
-   timeval tv;
-   tv.tv_usec = 0;
-   tv.tv_sec = 60; //1min timeout on select
-
    while (1)
    {
+      timeval tv;
+      tv.tv_usec = 0;
+      tv.tv_sec = 60; //1min timeout on select
+
       write_set.zero();
       except_set.zero();
       write_set.set(sockfd_);
       except_set.set(sockfd_);
 
-      auto retval = select(0, nullptr, write_set.get(), except_set.get(), &tv);
+      auto retval = select(sockfd_ +1, nullptr, write_set.get(), except_set.get(), &tv);
 
       if (retval == 0)
          continue;
