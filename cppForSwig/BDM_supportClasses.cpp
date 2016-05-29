@@ -1218,7 +1218,7 @@ void ZeroConfContainer::loadZeroConfMempool(bool clearMempool)
    else if (zcMap.size())
    {   
       //set the zckey to the highest used index
-      auto lastEntry = zcMap.end();
+      auto lastEntry = zcMap.rbegin();
       auto& topZcKey = lastEntry->first;
       topId_.store(READ_UINT32_BE(topZcKey.getSliceCopy(2, 4)) +1);
 

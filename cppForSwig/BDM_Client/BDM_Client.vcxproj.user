@@ -3,6 +3,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerCommand>C:\Python27_64\python.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>ArmoryQt.py --testnet</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>../../ArmoryQt.py --testnet</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

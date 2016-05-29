@@ -148,9 +148,9 @@ HttpSocket::HttpSocket(const BinarySocket& obj) :
    BinarySocket(obj)
 {
    stringstream ss;
-   ss << "POST index.html HTTP/1.1\r\n";
+   ss << "POST /index.php HTTP/1.1" << "\r\n";
    ss << "Host: " << addr_ << "\r\n";
-   ss << "Content-type: text/html; charset=UTF-8\r\n";
+   ss << "Content-type: text/html; charset=UTF-8" << "\r\n";
    ss << "Content-Length: ";
 
    http_header_ = move(ss.str());
