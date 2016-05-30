@@ -56,7 +56,7 @@ private:
    SOCKET open(void);
    void close(SOCKET);
    void write(SOCKET, const char*, uint32_t);
-   vector<char> read(SOCKET);
+   void read(SOCKET, vector<char>& buffer);
 
 public:
    BinarySocket(const string& addr, const string& port);

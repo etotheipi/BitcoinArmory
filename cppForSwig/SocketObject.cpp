@@ -82,12 +82,12 @@ void BinarySocket::write(SOCKET sockfd, const char* data, uint32_t size)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<char> BinarySocket::read(SOCKET sockfd)
+void BinarySocket::read(SOCKET sockfd, vector<char>& buffer)
 {
    size_t increment = 8192;
-   vector<char> sockdata;
-   sockdata.resize(increment);
-   size_t totalread = 0;
+   auto currentSize = buffer.size();
+   buffer.resize(currentSize + increment);
+   size_t totalread = currentSize;
 
    //TODO: break down reads to 8192 byte packets, set max read to 1MB
 
@@ -95,7 +95,7 @@ vector<char> BinarySocket::read(SOCKET sockfd)
    {
       while (1)
       {
-         auto bytesread = READFROMSOCKET(sockfd, &sockdata[totalread], increment);
+         auto bytesread = READFROMSOCKET(sockfd, &buffer[totalread], increment);
          totalread += bytesread;
 
          if (bytesread == 0)
@@ -104,7 +104,7 @@ vector<char> BinarySocket::read(SOCKET sockfd)
             throw runtime_error("error while reading socket");
 
          if (bytesread == increment)
-            sockdata.resize(totalread + increment);
+            buffer.resize(totalread + increment);
          else
             break;
 
@@ -117,8 +117,7 @@ vector<char> BinarySocket::read(SOCKET sockfd)
       throw e;
    }
 
-   sockdata.resize(totalread);
-   return sockdata;
+   buffer.resize(totalread);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,7 +126,8 @@ string BinarySocket::writeAndRead(const string& msg)
    auto sockfd = this->open();
 
    this->write(sockfd, msg.c_str(), msg.size());
-   auto&& retval = this->read(sockfd);
+   vector<char> retval;
+   this->read(sockfd, retval);
 
    this->close(sockfd);
    
@@ -224,9 +224,76 @@ string HttpSocket::writeAndRead(const string& msg)
    
    this->write(sockfd, packet, packetSize);
 
-   auto&& retval = this->read(sockfd);
-   auto&& retmsg = getMessage(retval);
+   vector<char> retval;
+   typedef vector<char>::iterator vecIterType;
+
+   int content_length = -1;
+   size_t header_len = 0;
+
+   auto get_content_len = [&content_length](const string& header_str)
+   {
+      string search_tok_caps("Content-Length: ");
+      auto tokpos = header_str.find(search_tok_caps);
+      if (tokpos != string::npos)
+      {
+         content_length = atoi(header_str.c_str() + 
+                               tokpos + search_tok_caps.size());
+         return;
+      }
+
+      string search_tok("content-length: ");
+      tokpos = header_str.find(search_tok);
+      if (tokpos != string::npos)
+      {
+         content_length = atoi(header_str.c_str() + 
+                               tokpos + search_tok.size());
+         return;
+      }
+   };
+
+   while (1)
+   {
+      //get as much http data as available
+      this->read(sockfd, retval);
+
+      if (content_length == -1)
+      {
+         //if content_length is -1, we have not read the content-lengh in the
+         //http header yet, let's do that
+         for (unsigned i = 0; i < retval.size(); i++)
+         {
+            if (retval[i] == '\r')
+            {
+               if (retval.size() - i < 3)
+                  break;
+
+               if (retval[i + 1] == '\n' &&
+                  retval[i + 2] == '\r' &&
+                  retval[i + 3] == '\n')
+               {
+                  header_len = i + 4;
+                  break;
+               }
+            }
+         }
+
+         if (header_len == 0)
+            throw runtime_error("couldn't find http header in response");
+
+         string header_str(&retval[0], header_len);
+         get_content_len(header_str);
+      }
+         
+      if (content_length == -1)
+         throw runtime_error("failed to find http header response packet");
+
+      //check the total amount of data read matches the advertised
+      //data in the http header
+      if (retval.size() == content_length + header_len)
+         break;
+   }
    
+   auto&& retmsg = getMessage(retval);
    this->close(sockfd);
    
    return retmsg;
@@ -363,7 +430,8 @@ string FcgiSocket::writeAndRead(const string& msg)
 
    this->write(sockfd, (char*)serdata, serdatalength);
 
-   auto&& retval = this->read(sockfd);
+   vector<char> retval;
+   this->read(sockfd, retval);
    auto&& retmsg = getMessage(retval, fcgiMsg);
 
    this->close(sockfd);

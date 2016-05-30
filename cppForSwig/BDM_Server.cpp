@@ -544,7 +544,7 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    auto&& retStr = ss.str();
    vector<pair<size_t, size_t>> msgOffsetVec;
    auto totalsize = retStr.size();
-   size_t delim = 8176; //8192 (max fcgi packet) - 16 (2x fcgi header)
+   size_t delim = 4080; //4096 (one memory page) - 16 (2x fcgi header)
    size_t start = 0;
 
    while (totalsize > 0)
