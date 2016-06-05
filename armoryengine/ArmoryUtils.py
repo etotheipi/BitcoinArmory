@@ -82,6 +82,9 @@ ARMORY_INFO_SIGN_PUBLICKEY = ('04'
 indent = ' '*3
 haveGUI = [False, None]
 
+ARMORYDB_DEFAULT_IP = "127.0.0.1"
+ARMORYDB_DEFAULT_PORT = "9050"
+
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default=DEFAULT, type="str",          help="load Armory with a specific settings file")
 parser.add_option("--datadir",         dest="datadir",     default=DEFAULT, type="str",          help="Change the directory that Armory calls home")
@@ -118,7 +121,9 @@ parser.add_option("--disable-modules", dest="disableModules", default=False, act
 parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
 parser.add_option("--disable-detsign", dest="enableDetSign", action="store_false", help="Disable Transaction Deterministic Signing (RFC 6979)")
 parser.add_option("--enable-detsign", dest="enableDetSign", action="store_true", help="Enable Transaction Deterministic Signing (RFC 6979) - Enabled by default")
-parser.add_option("--supernode", dest="enableSupernode", default=False, action="store_true", help="Enabled Exhaustive Blockchain Tracking")
+parser.add_option("--armorydb-ip", dest="armorydb_ip", default=ARMORYDB_DEFAULT_IP, type="str", help="Set remote DB IP (default: 127.0.0.1)")
+parser.add_option("--armorydb-port", dest="armorydb_port", default=ARMORYDB_DEFAULT_PORT, type="str", help="Set remote DB port (default: 9050)")
+
 parser.set_defaults(enableDetSign=True)
 
 # Get the host operating system
@@ -272,7 +277,11 @@ if CLI_OPTIONS.interport < 0:
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
 #supernode
-ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
+#ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
+
+#db address
+ARMORYDB_IP = CLI_OPTIONS.armorydb_ip
+ARMORYDB_PORT = CLI_OPTIONS.armorydb_port
 
 # Is deterministic signing enabled?
 ENABLE_DETSIGN = CLI_OPTIONS.enableDetSign
@@ -3745,30 +3754,7 @@ class ArmoryListenerFactory(ClientFactory):
 # Check general internet connection
 # Do not Check when ForceOnline is true
 def isInternetAvailable(forceOnline = False):
-   internetStatus = INTERNET_STATUS.Unavailable
-   if forceOnline:
-      internetStatus = INTERNET_STATUS.DidNotCheck
-   else:
-      try:
-         import urllib2
-         urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-         internetStatus = INTERNET_STATUS.Available
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot determine if internet is '
-            'available')
-      except urllib2.URLError:
-         # In the extremely rare case that google might be down (or just to try
-         # again...)
-         try:
-            urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-            internetStatus = INTERNET_STATUS.Available
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-      except:
-         LOGEXCEPT('Error checking for internet connection')
-         LOGERROR('Run --skip-online-check if you think this is an error')
-
+   internetStatus = INTERNET_STATUS.DidNotCheck
    return internetStatus
 
 

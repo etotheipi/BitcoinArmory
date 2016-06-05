@@ -870,7 +870,7 @@ protected:
 BlockDataManager::BlockDataManager(
    const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig), 
-   iface_(new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation)), 
+   iface_(new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation_)), 
    blockchain_(config_.genesisBlockHash)
 {
    networkNode_ = make_shared<BitcoinP2P>("localhost", "18333",
@@ -888,17 +888,17 @@ void BlockDataManager::setConfig(
 {
    config_ = bdmConfig;
    readBlockHeaders_ = make_shared<BitcoinQtBlockFiles>(
-      config_.blkFileLocation,
+      config_.blkFileLocation_,
       config_.magicBytes
    );
-   iface_->setBlkFolder(config_.blkFileLocation);
+   iface_->setBlkFolder(config_.blkFileLocation_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::openDatabase()
 {
-   LOGINFO << "blkfile dir: " << config_.blkFileLocation;
-   LOGINFO << "lmdb dir: " << config_.dbLocation;
+   LOGINFO << "blkfile dir: " << config_.blkFileLocation_;
+   LOGINFO << "lmdb dir: " << config_.dbLocation_;
    if (config_.genesisBlockHash.getSize() == 0)
    {
       throw runtime_error("ERROR: Genesis Block Hash not set!");
@@ -907,7 +907,7 @@ void BlockDataManager::openDatabase()
    try
    {
       iface_->openDatabases(
-         config_.dbLocation,
+         config_.dbLocation_,
          config_.genesisBlockHash,
          config_.genesisTxHash,
          config_.magicBytes,
@@ -1132,7 +1132,7 @@ void BlockDataManager::loadDiskState(
 {  
    BDMstate_ = BDM_initializing;
          
-   blockFiles_ = make_shared<BlockFiles>(config_.blkFileLocation);
+   blockFiles_ = make_shared<BlockFiles>(config_.blkFileLocation_);
    dbBuilder_ = make_shared<DatabaseBuilder>(*blockFiles_, *this, progress);
    dbBuilder_->init();
    BDMstate_ = BDM_ready;

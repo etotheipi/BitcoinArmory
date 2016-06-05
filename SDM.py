@@ -144,166 +144,9 @@ class SatoshiDaemonManager(object):
       if 'testnet' in newDir:
          self.satoshiRoot, tail = os.path.split(newDir) 
       
-   #############################################################################
-   def setDisableTorrentDL(self, b):
-      self.torrentDisabled = b
-
-   #############################################################################
-   def tryToSetupTorrentDL(self, torrentPath):
-      if self.torrentDisabled:
-         LOGWARN('Tried to setup torrent download mgr but we are disabled')
-         return False
-      
-      if not torrentPath or not os.path.exists(torrentPath):
-         self.useTorrentFinalAnswer = False
-         return False
-
-      bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
-      bootfilePart = bootfile + '.partial'
-      bootfileOld  = bootfile + '.old'
-
-      # cleartorrent.flag means we should remove any pre-existing files
-      delTorrentFlag = os.path.join(ARMORY_HOME_DIR, 'cleartorrent.flag')
-      if os.path.exists(delTorrentFlag):
-         LOGWARN('Flag found to delete any pre-existing torrent files')
-         if os.path.exists(bootfile):       os.remove(bootfile)
-         if os.path.exists(bootfilePart):   os.remove(bootfilePart)
-         if os.path.exists(bootfileOld):    os.remove(bootfileOld)
-         if os.path.exists(delTorrentFlag): os.remove(delTorrentFlag)
-
-
-      TheTDM.setupTorrent(torrentPath, bootfile)
-      if not TheTDM.getTDMState()=='ReadyToStart':
-         LOGERROR('Unknown error trying to start torrent manager')
-         self.useTorrentFinalAnswer = False
-         return False
-
-
-      # We will tell the TDM to write status updates to the log file, and only
-      # every 90 seconds.  After it finishes (or fails), simply launch bitcoind
-      # as we would've done without the torrent
-      #####
-      def torrentLogToFile(dpflag=Event(), fractionDone=None, timeEst=None,
-                           downRate=None, upRate=None, activity=None,
-                           statistics=None, **kws):
-         statStr = ''
-         if fractionDone:
-            statStr += '   Done: %0.1f%%  ' % (fractionDone*100)
-         if downRate:
-            statStr += ' / DLRate: %0.1f/sec' % (downRate/1024.)
-         if timeEst:
-            statStr += ' / TLeft: %s' % secondsToHumanTime(timeEst)
-         if statistics:
-            statStr += ' / Seeds: %d' % (statistics.numSeeds)
-            statStr += ' / Peers: %d' % (statistics.numPeers)
-
-         if len(statStr)==0:
-            statStr = 'No torrent info available'
-
-         LOGINFO('Torrent: %s' % statStr)
-
-      #####
-      def torrentFinished():
-         bootsz = '<Unknown>'
-         if os.path.exists(bootfile):
-            bootsz = bytesToHumanSize(os.path.getsize(bootfile))
-
-         LOGINFO('Torrent finished; size of %s is %s', torrentPath, bootsz)
-         LOGINFO('Remove the core btc databases before doing bootstrap')
-         deleteBitcoindDBs()
-         self.launchBitcoindAndGuardian()
-
-      #####
-      def warnUserHashFail():
-         from PyQt4.QtGui import QMessageBox
-         QMessageBox.warning(self, tr('Hash Failure'), tr("""The torrent download 
-            is currently encountering too many packet hash failures to allow it to 
-            progress properly. As a result, the torrent engine has been halted. You 
-            should report this incident to the Armory team and turn off this feature 
-            until further notice."""), QMessageBox.Ok)      
-      
-      #####
-      def torrentFailed(errMsg=''):
-         # Not sure there's actually anything we need to do here...
-         if errMsg == 'hashFail':
-            warnUserHashFail()
-            
-         bootsz = '<Unknown>'
-         if os.path.exists(bootfile):
-            bootsz = bytesToHumanSize(os.path.getsize(bootfile))
-
-         LOGERROR('Torrent failed; size of %s is %s', torrentPath, bootsz)
-         self.launchBitcoindAndGuardian()
-         
-
- 
- 
-      TheTDM.setSecondsBetweenUpdates(90)
-      TheTDM.setCallback('displayFunc',  torrentLogToFile)
-      TheTDM.setCallback('finishedFunc', torrentFinished)
-      TheTDM.setCallback('failedFunc',   torrentFailed)
-
-      LOGINFO('Bootstrap file is %s' % bytesToHumanSize(TheTDM.torrentSize))
-         
-      self.useTorrentFinalAnswer = True
-      self.useTorrentFile = torrentPath
-      return True
-      
-
-   #############################################################################
-   def shouldTryBootstrapTorrent(self):
-      if DISABLE_TORRENTDL or TheTDM.getTDMState()=='Disabled':
-         return False
-
-      # The only torrent we have is for the primary Bitcoin network
-      if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
-         return False
-      
-         
-
-      if TheTDM.torrentSize:
-         bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
-         if os.path.exists(bootfile):
-            if os.path.getsize(bootfile) >= TheTDM.torrentSize/2:
-               LOGWARN('Looks like a full bootstrap is already here')
-               LOGWARN('Skipping torrent download')
-               return False
-               
-
-      # If they don't even have a BTC_HOME_DIR, corebtc never been installed
-      blockDir = os.path.join(self.satoshiHome, 'blocks')
-      if not os.path.exists(self.satoshiHome) or not os.path.exists(blockDir):
-         return True
-      
-      # Get the cumulative size of the blk*.dat files
-      blockDirSize = sum([os.path.getsize(os.path.join(blockDir, a)) \
-                  for a in os.listdir(blockDir) if a.startswith('blk')])
-      sizeStr = bytesToHumanSize(blockDirSize)
-      LOGINFO('Total size of files in %s is %s' % (blockDir, sizeStr))
-
-      # If they have only a small portion of the blockchain, do it
-      szThresh = 100*MEGABYTE if USE_TESTNET else 6*GIGABYTE
-      if blockDirSize < szThresh:
-         return True
-
-      # So far we know they have a BTC_HOME_DIR, with more than 6GB in blocks/
-      # The only thing that can induce torrent now is if we have a partially-
-      # finished bootstrap file bigger than the blocks dir.
-      bootFiles = ['','']
-      bootFiles[0] = os.path.join(self.satoshiHome, 'bootstrap.dat')
-      bootFiles[1] = os.path.join(self.satoshiHome, 'bootstrap.dat.partial')
-      for fn in bootFiles:
-         if os.path.exists(fn):
-            if os.path.getsize(fn) > blockDirSize:
-               return True
-            
-      # Okay, we give up -- just download [the rest] via P2P
-      return False
-
-
-   #############################################################################
-   #def setSatoshiDir(self, newDir):
-      #self.satoshiHome = newDir
+      self.dbExecutable = "./ArmoryDB"
+      if OS_WINDOWS:
+         self.dbExecutable += ".exe"
 
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=None, \
@@ -357,10 +200,6 @@ class SatoshiDaemonManager(object):
       self.last20queries = []
 
       self.readBitcoinConf(makeIfDNE=True)
-
-
-
-
 
    #############################################################################
    def setDisabled(self, newBool=True):
@@ -581,12 +420,6 @@ class SatoshiDaemonManager(object):
 
       self.bitconf['host'] = '127.0.0.1'
 
-
-   #############################################################################
-   def cleanupFailedTorrent(self):
-      # Right now I think don't do anything
-      pass    
-
    #############################################################################
    def startBitcoind(self, callback):
       self.btcOut, self.btcErr = None,None
@@ -602,15 +435,7 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
 
-      
-      chk1 = os.path.exists(self.useTorrentFile)
-      chk2 = self.shouldTryBootstrapTorrent()
-      chk3 = TheTDM.getTDMState()=='ReadyToStart'
-
-      if chk1 and chk2 and chk3:
-         TheTDM.startDownload()
-      else:
-         self.launchBitcoindAndGuardian()
+      self.launchBitcoindAndGuardian()
             
       #New backend code: we wont be polling the SDM state in the main thread
       #anymore, instead create a thread at bitcoind start to poll the SDM state
@@ -624,6 +449,35 @@ class SatoshiDaemonManager(object):
       while self.getSDMStateLogic() != 'BitcoindReady':
          time.sleep(1.0)
       callback()
+   
+   #############################################################################   
+   def spawnDB(self, dbDir):
+      pargs = [self.dbExecutable]
+
+      if USE_TESTNET:
+         pargs.append('--testnet')    
+         
+      blocksdir = os.path.join(self.satoshiHome, 'blocks')
+      if not os.path.exists(blocksdir):
+         raise "Invalid blockdata path"
+      
+      pargs.append('--satoshi-datadir="' + blocksdir + '"')
+      pargs.append('--dbdir="' + dbDir + '"')
+      
+      if CLI_OPTIONS.rebuild:
+         pargs.append('--rebuild')
+      elif CLI_OPTIONS.rescan:
+         pargs.append('--rescan')
+      elif CLI_OPTIONS.rescanBalance:
+         pargs.append('--rescanSSH')
+      
+      kargs = {}
+      if OS_WINDOWS:
+         #import win32process
+         kargs['shell'] = True
+         #kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+         
+      launchProcess(pargs, **kargs)
       
    #############################################################################
    def launchBitcoindAndGuardian(self):

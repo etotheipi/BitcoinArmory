@@ -114,8 +114,7 @@ void BDV_Server_Object::buildMethodMap()
       auto&& scrAddrVec = args.get<BinaryDataVector>();
       auto&& isNew = args.get<unsigned int>();
 
-      uint32_t retVal =
-         this->registerLockbox(scrAddrVec.get(), id, isNew) != nullptr;
+      uint32_t retVal = this->registerLockbox(scrAddrVec.get(), id, isNew);
 
       Arguments retarg;
       retarg.push_back(move(retVal));
@@ -644,8 +643,12 @@ void BDV_Server_Object::maintenanceThread(void)
       {
          //this should return when the wallet is registered, since all
          //underlying  addresses are already registered with the BDM
-         bdvPtr->registerWallet(
-            wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
+         if (wlt.second.type_ == TypeWallet)
+            bdvPtr->registerWallet(
+               wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
+         else
+            bdvPtr->registerLockbox(
+               wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
       }
    }
 
@@ -728,6 +731,7 @@ bool BDV_Server_Object::registerWallet(
       wltregstruct.scrAddrVec = scrAddrVec;
       wltregstruct.IDstr = IDstr;
       wltregstruct.isNew = wltIsNew;
+      wltregstruct.type_ = TypeWallet;
 
       return true;
    }
@@ -736,6 +740,33 @@ bool BDV_Server_Object::registerWallet(
    auto bdvPtr = (BlockDataViewer*)this;
    return bdvPtr->registerWallet(scrAddrVec, IDstr, wltIsNew) != nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+bool BDV_Server_Object::registerLockbox(
+   vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew)
+{
+   if (isReadyFuture_.wait_for(chrono::seconds(0)) != future_status::ready)
+   {
+      //only run this code if the bdv maintenance thread hasn't started yet
+
+      unique_lock<mutex> lock(registerWalletMutex_);
+
+      //save data
+      auto& wltregstruct = wltRegMap_[IDstr];
+
+      wltregstruct.scrAddrVec = scrAddrVec;
+      wltregstruct.IDstr = IDstr;
+      wltregstruct.isNew = wltIsNew;
+      wltregstruct.type_ = TypeLockbox;
+
+      return true;
+   }
+
+   //register wallet with BDV
+   auto bdvPtr = (BlockDataViewer*)this;
+   return bdvPtr->registerLockbox(scrAddrVec, IDstr, wltIsNew) != nullptr;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 void SocketCallback::emit()

@@ -5,6 +5,12 @@
 // BlockDataViewer
 //
 ///////////////////////////////////////////////////////////////////////////////
+bool BlockDataViewer::hasRemoteDB(void)
+{
+   return sock_->testConnection();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 BlockDataViewer BlockDataViewer::getNewBDV(const string& addr,
    const string& port, SocketType st)
 {
@@ -21,6 +27,25 @@ BlockDataViewer BlockDataViewer::getNewBDV(const string& addr,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::registerWithDB()
+{
+   if (bdvID_.size() != 0)
+      throw BDVALreadyRegistered();
+
+   //get bdvID
+   try
+   {
+      auto&& result = sock_->writeAndRead(string("&registerBDV"));
+      Arguments args(move(result));
+      bdvID_ = args.get<string>();
+   }
+   catch (...)
+   {
+      throw NoArmoryDBExcept();
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::goOnline()
 {
    Command cmd;
@@ -34,36 +59,7 @@ void BlockDataViewer::goOnline()
 BlockDataViewer::BlockDataViewer(const shared_ptr<BinarySocket> sock) :
    sock_(sock)
 {
-
-   //TODO: fix this
-#ifdef _WIN33
-   WORD wVersionRequested;
-   WSADATA wsaData;
-   int err;
-
-   wVersionRequested = MAKEWORD(2, 2);
-
-   err = WSAStartup(wVersionRequested, &wsaData);
-   if (err != 0)
-      throw runtime_error("WSAStartup failed with error: " + err);
-
-   /* Confirm that the WinSock DLL supports 2.2.*/
-   /* Note that if the DLL supports versions greater    */
-   /* than 2.2 in addition to 2.2, it will still return */
-   /* 2.2 in wVersion since that is the version we      */
-   /* requested.                                        */
-
-   if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-      WSACleanup();
-      throw runtime_error("Could not find a usable version of Winsock.dll");
-   }
-#endif
-
    DataMeta::initTypeMap();
-
-   auto&& result = sock_->writeAndRead(string("&registerBDV"));
-   Arguments args(move(result));
-   bdvID_ = args.get<string>();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -404,8 +400,17 @@ void PythonCallback::remoteLoop(void)
 
    while (run_)
    {
-      auto&& retval = sock_->writeAndRead(sendCmd.command_);
-      Arguments args(retval);
+      Arguments args;
+
+      try
+      {
+         auto&& retval = sock_->writeAndRead(sendCmd.command_);
+         args = move(Arguments(move(retval)));
+      }
+      catch (runtime_error&)
+      {
+         continue;
+      }
 
       auto&& cb = args.get<string>();
 

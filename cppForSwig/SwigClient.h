@@ -30,6 +30,18 @@ inline void DisableCppLogStdOut() { LOGDISABLESTDOUT(); }
 
 class BlockDataViewer;
 
+struct NoArmoryDBExcept : public runtime_error
+{
+   NoArmoryDBExcept(void) : runtime_error("")
+   {}
+};
+
+struct BDVALreadyRegistered : public runtime_error
+{
+   BDVALreadyRegistered(void) : runtime_error("")
+   {}
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 class ScrAddrObj
 {
@@ -147,9 +159,12 @@ public:
    Blockchain blockchain(void);
 
    void goOnline(void);
+   void registerWithDB(void);
 
    void broadcastZC(const BinaryData& rawTx);
    Tx getTxByHash(const BinaryData& txHash);
+
+   bool hasRemoteDB(void);
 };
 
 #endif

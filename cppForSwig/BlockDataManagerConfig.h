@@ -17,8 +17,8 @@ struct BlockDataManagerConfig
    DB_PRUNE_TYPE pruneType;
    BDM_INIT_MODE initMode = INIT_RESUME;
    
-   string blkFileLocation = "./";
-   string dbLocation = "./";
+   string blkFileLocation_ = "./";
+   string dbLocation_ = "./";
    
    BinaryData genesisBlockHash;
    BinaryData genesisTxHash;

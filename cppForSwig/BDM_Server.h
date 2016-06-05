@@ -25,6 +25,12 @@
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
 
+enum WalletType
+{
+   TypeWallet,
+   TypeLockbox
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 class SocketCallback : public Callback
 {
@@ -91,6 +97,7 @@ private:
       vector<BinaryData> scrAddrVec;
       string IDstr;
       bool isNew;
+      WalletType type_;
    };
 
    mutex registerWalletMutex_;
@@ -112,6 +119,8 @@ private:
    void startThreads(void);
 
    bool registerWallet(
+      vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
+   bool registerLockbox(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
 
    void pushNotification(BDV_Action_Struct action)

@@ -130,11 +130,6 @@ class BlockDataManager(object):
       #register callbacks
       self.armoryDBDir = ""
 
-      #dbType
-      self.dbType = Cpp.ARMORY_DB_BARE
-      if ENABLE_SUPERNODE:
-         self.dbType = Cpp.ARMORY_DB_SUPER      
-
       # Flags
       self.aboutToRescan = False
       self.errorOut      = 0
@@ -156,16 +151,26 @@ class BlockDataManager(object):
       self.secondsRemaining=0
       self.progressPhase=0
       self.progressNumeric=0
+      
+      self.instantiateBDV()
    
    #############################################################################  
-   def setupBDV(self):
+   def instantiateBDV(self):
       if self.bdmState == BDM_OFFLINE:
          return
       
       self.bdmState = BDM_SCANNING
-      self.bdv_ = Cpp.BlockDataViewer_getNewBDV("127.0.0.1", "9050", Cpp.SocketFcgi)
-      LOGINFO("bdvId is: " + self.bdv_.getID())      
-            
+      socketType = Cpp.SocketFcgi
+      if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
+         socketType = Cpp.SocketHttp 
+      self.bdv_ = Cpp.BlockDataViewer_getNewBDV(ARMORYDB_IP, ARMORYDB_PORT, socketType)   
+
+   #############################################################################
+   def registerBDV(self):   
+      if self.bdmState == BDM_OFFLINE:
+         return   
+      
+      self.bdv_.registerWithDB()
       
    #############################################################################
    @ActLikeASingletonBDM
@@ -224,9 +229,9 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def goOnline(self, satoshiDir=None, armoryDBDir=None, armoryHomeDir=None):
-      self.callback = PySide_CallBack(self).__disown__()
       self.bdv().goOnline()
-
+      self.callback = PySide_CallBack(self).__disown__()
+      
    #############################################################################
    @ActLikeASingletonBDM
    def registerWallet(self, prefixedKeys, uniqueIDB58, isNew=False):
@@ -283,45 +288,6 @@ class BlockDataManager(object):
       
    #############################################################################
    @ActLikeASingletonBDM
-   def bdmConfig(self, forInit=False):
-
-      blkdir = ""
-      
-      if forInit == False:
-      # Check for the existence of the Bitcoin-Core directory         
-         if not os.path.exists(self.btcdir):
-            raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
-   
-         blkdir = os.path.join(self.btcdir, 'blocks')
-         blk1st = os.path.join(blkdir, 'blk00000.dat')
-   
-         # ... and its blk000X.dat files
-         if not os.path.exists(blk1st):
-            LOGERROR('Blockchain data not available: %s', blk1st)
-            raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
-
-      blockdir = blkdir
-      armoryDBDir = self.armoryDBDir
-      
-      if OS_WINDOWS:
-         if isinstance(blkdir, unicode):
-            blockdir = blkdir.encode('utf8')
-         if isinstance(self.armoryDBDir, unicode):
-            armoryDBDir = self.armoryDBDir.encode('utf8')
-
-      bdmConfig = Cpp.BlockDataManagerConfig()
-      bdmConfig.armoryDbType = self.dbType
-      bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
-      bdmConfig.blkFileLocation = blockdir
-      bdmConfig.levelDBLocation = armoryDBDir
-      bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
-      bdmConfig.setGenesisTxHash(GENESIS_TX_HASH)
-      bdmConfig.setMagicBytes(MAGIC_BYTES)
-
-      return bdmConfig
-
-   #############################################################################
-   @ActLikeASingletonBDM
    def predictLoadTime(self):
       return (self.progressPhase, self.progressComplete, self.secondsRemaining, self.progressNumeric)
 
@@ -359,12 +325,6 @@ class BlockDataManager(object):
    def runBDM(self, fn):
       return self.inject.runCommand(fn)
    
-   #############################################################################
-   @ActLikeASingletonBDM
-   def forceSupernode(self):
-      self.dbType = Cpp.ARMORY_DB_SUPER 
-
-
    #############################################################################
    @ActLikeASingletonBDM
    def RegisterEventForSignal(self, func, signal):

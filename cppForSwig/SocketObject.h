@@ -60,6 +60,7 @@ private:
 
 public:
    BinarySocket(const string& addr, const string& port);
+   bool testConnection(void);
 
    virtual string writeAndRead(const string&);
    virtual SocketType type(void) const { return SocketBinary; }

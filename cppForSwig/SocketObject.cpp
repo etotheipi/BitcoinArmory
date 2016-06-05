@@ -140,6 +140,22 @@ string BinarySocket::writeAndRead(const string& msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+bool BinarySocket::testConnection(void)
+{
+   try
+   {
+      auto sockfd = open();
+      close(sockfd);
+      return true;
+   }
+   catch (runtime_error&)
+   {
+   }
+
+   return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // HttpSocket
 //
@@ -182,7 +198,7 @@ int32_t HttpSocket::makePacket(char** packet, const char* msg)
 
    memset(*packet + pos, 0, 1);
 
-   return pos + 1;
+   return pos;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -232,6 +248,10 @@ string HttpSocket::writeAndRead(const string& msg)
 
    auto get_content_len = [&content_length](const string& header_str)
    {
+      string err504("HTTP/1.1 504");
+      if (header_str.compare(0, err504.size(), err504) == 0)
+         throw runtime_error("connection timed out");
+      
       string search_tok_caps("Content-Length: ");
       auto tokpos = header_str.find(search_tok_caps);
       if (tokpos != string::npos)
@@ -289,8 +309,11 @@ string HttpSocket::writeAndRead(const string& msg)
 
       //check the total amount of data read matches the advertised
       //data in the http header
-      if (retval.size() == content_length + header_len)
+      if (retval.size() >= content_length + header_len)
+      {
+         retval.resize(content_length + header_len);
          break;
+      }
    }
    
    auto&& retmsg = getMessage(retval);
