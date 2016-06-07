@@ -46,7 +46,6 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
-#include <assert.h>
 
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
 #include "log.h"
@@ -550,7 +549,8 @@ public:
          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0             };
 
-      assert(str.size()%2 == 0);
+      if (str.size() % 2 != 0)
+         throw runtime_error("odd hexit count");
       size_t newLen = str.size() / 2;
       alloc(newLen);
 
@@ -1576,7 +1576,7 @@ public:
          {
             cerr << "Could not open file for reading!  File: " << filename.c_str() << endl;
             cerr << "Aborting!" << endl;
-            assert(false);
+            throw runtime_error("failed to open file");
          }
 
          ifstreamPtr->seekg(0, ios::end);

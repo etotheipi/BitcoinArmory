@@ -130,11 +130,11 @@ void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
                targetHeight = topBlock.getBlockHeight();
          }
 
-         #ifdef _DEBUG
+         /*#ifdef _DEBUG
             targetHeight = startHeight + totalThreadCount_;
             if(targetHeight > topBlock.getBlockHeight())
                targetHeight = topBlock.getBlockHeight();
-         #endif
+         #endif*/
 
          endHeight = targetHeight;
 

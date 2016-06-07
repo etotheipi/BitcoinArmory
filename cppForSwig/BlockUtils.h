@@ -79,6 +79,13 @@ typedef enum
    BDM_ready
 }BDM_state;
 
+enum ResetDBMode
+{
+   Reset_Rescan,
+   Reset_Rebuild,
+   Reset_SSH
+};
+
 class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
@@ -151,9 +158,7 @@ public:
    { return config_.magicBytes;    }
 
    void openDatabase(void);
-   void     destroyAndResetDatabases(void);
    
-   void doRebuildDatabases(const ProgressCallback &progress);
    void doInitialSyncOnLoad(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rescan(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rebuild(const ProgressCallback &progress);
@@ -167,7 +172,8 @@ public:
    };
    
    void registerBDVwithZCcontainer(shared_ptr<BDV_Server_Object>);
-   
+   void unregisterBDVwithZCcontainer(const string&);
+
 private:
    void loadDiskState(
       const ProgressCallback &progress,
@@ -218,6 +224,8 @@ public:
    }
 
    vector<string> getNextWalletIDToScan(void);
+   
+   void resetDatabases(ResetDBMode mode);
 };
 
 #endif

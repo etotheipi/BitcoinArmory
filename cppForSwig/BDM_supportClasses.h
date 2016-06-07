@@ -222,6 +222,8 @@ public:
    void mergeSideScanPile(void);
 
    void getAllScrAddrInDB(void);
+   void putAddrMapInDB(void);
+
    BinaryData getAddressMapMerkle(void) const;
    bool hasNewAddresses(void) const;
 
@@ -360,6 +362,7 @@ public:
    void init(function<bool(const BinaryData&)>, bool clearMempool);
 
    void insertBDVcallback(string, BDV_Callbacks);
+   void eraseBDVcallback(string);
 
    void broadcastZC(const BinaryData& rawzc, uint32_t timeout_sec = 3);
 };

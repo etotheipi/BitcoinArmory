@@ -101,6 +101,9 @@ struct BDV_Action_Struct
    BDV_Action_Struct(BDV_Action action, shared_ptr<BDV_Notification> notif) :
       action_(action), payload_(notif)
    {}
+
+   BDV_Action_Struct(void)
+   {}
 };
 
 class WalletGroup;

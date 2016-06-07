@@ -392,7 +392,17 @@ Arguments Clients::runCommand(const string& cmdStr)
    Command cmdObj(cmdStr);
    cmdObj.deserialize();
    if (cmdObj.method_ == "registerBDV")
+   {
       return registerBDV();
+   }
+   else if (cmdObj.method_ == "unregisterBDV")
+   {
+      if (cmdObj.ids_.size() != 1)
+         throw runtime_error("invalid arg count for unregisterBDV");
+
+      unregisterBDV(cmdObj.ids_[0]);
+      return Arguments();
+   }
 
    //find the BDV and method
    if (cmdObj.ids_.size() == 0)
@@ -424,6 +434,27 @@ Arguments Clients::registerBDV()
    args.push_back(move(newID));
    return args;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+void Clients::unregisterBDV(const string& bdvId)
+{
+   //shutdown bdv threads
+   auto bdvMap = BDVs_.get();
+   auto bdvIter = bdvMap->find(bdvId);
+   if (bdvIter == bdvMap->end())
+      return;
+
+   bdvIter->second->haltThreads();
+
+   //add to BDVs map
+   BDVs_.erase(bdvId);
+
+   //unregister with ZC container
+   bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvId);
+
+   LOGINFO << "unregistered bdv: " << bdvId;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 void Clients::maintenanceThread(void) const
@@ -606,6 +637,15 @@ void BDV_Server_Object::startThreads()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BDV_Server_Object::haltThreads()
+{
+   notificationStack_.clear();
+
+   if (tID_.joinable())
+      tID_.join();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void BDV_Server_Object::maintenanceThread(void)
 {
    bdmPtr_->blockUntilReady();
@@ -667,7 +707,16 @@ void BDV_Server_Object::maintenanceThread(void)
 
    while (1)
    {
-      auto&& action_struct = notificationStack_.get();
+      BDV_Action_Struct action_struct;
+      try
+      {
+         action_struct = move(notificationStack_.get());
+      }
+      catch (IsEmpty&)
+      {
+         break;
+      }
+
       auto& action = action_struct.action_;
 
       scanWallets(action_struct);
@@ -777,6 +826,7 @@ void SocketCallback::emit()
 ///////////////////////////////////////////////////////////////////////////////
 Arguments SocketCallback::respond()
 {
+   //TODO: use a blockingstack instead, add timeouts to blocking stacks
    Arguments arg;
 
    {

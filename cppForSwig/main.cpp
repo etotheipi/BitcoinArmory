@@ -81,6 +81,13 @@ BlockDataManagerConfig parseArgs(int argc, char* argv[])
 
             bdmConfig.blkFileLocation_ = stripQuotes(argstr);
          }
+         else if (str == "--spawnID")
+         {
+            string argstr;
+            getline(ss, argstr, '=');
+
+            bdmConfig.spawnID_ = argstr;
+         }
          else
          {
             cout << "Error: bad argument syntax" << endl;

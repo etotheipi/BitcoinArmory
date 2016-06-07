@@ -19,6 +19,7 @@ struct BlockDataManagerConfig
    
    string blkFileLocation_ = "./";
    string dbLocation_ = "./";
+   string spawnID_;
    
    BinaryData genesisBlockHash;
    BinaryData genesisTxHash;

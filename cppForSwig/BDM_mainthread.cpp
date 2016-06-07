@@ -16,8 +16,8 @@
 #include "BlockDataViewer.h"
 
 #include <ctime>
-//#include <unistd.h>
 
+////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::registerBDVwithZCcontainer(
    shared_ptr<BDV_Server_Object> bdvPtr)
 {
@@ -37,6 +37,13 @@ void BlockDataManager::registerBDVwithZCcontainer(
    callbacks.newZcCallback_ = newzc;
 
    zeroConfCont_->insertBDVcallback(move(bdvPtr->getID()), move(callbacks));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager::unregisterBDVwithZCcontainer(
+   const string& bdvID)
+{
+   zeroConfCont_->eraseBDVcallback(bdvID);
 }
 
 BDM_CallBack::~BDM_CallBack()
@@ -188,9 +195,6 @@ try
       
       try
       {
-         //don't call this unless you're trying to get online
-         //pimpl->bdm->setNotifier(pimpl->inject);
-
          bdm->openDatabase();
 
          unsigned mode = pimpl->mode & 0x00000003;

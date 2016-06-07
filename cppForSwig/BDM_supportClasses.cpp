@@ -419,13 +419,42 @@ void ScrAddrFilter::getAllScrAddrInDB()
       auto keyRef = dbIter.getKeyRef();
       StoredScriptHistory ssh;
       ssh.unserializeDBKey(dbIter.getKeyRef());
-      ssh.unserializeDBValue(dbIter.getValueRef());
+      //ssh.unserializeDBValue(dbIter.getValueRef());
 
       (*scrAddrMap_)[ssh.uniqueKey_] = 0;
    } 
 
    for (auto scrAddrPair : *scrAddrMap_)
       getScrAddrCurrentSyncState(scrAddrPair.first);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ScrAddrFilter::putAddrMapInDB()
+{
+   auto&& addrMerkle = getAddressMapMerkle();
+
+   LMDBEnv::Transaction tx;
+   lmdb_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
+
+   for (auto& scrAddrObj : *scrAddrMap_)
+   {
+      StoredScriptHistory ssh;
+      ssh.uniqueKey_ = scrAddrObj.first;
+
+      auto&& sshKey = ssh.getDBKey();
+      ssh.alreadyScannedUpToBlk_ = 0;
+
+      BinaryWriter bw;
+      ssh.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+
+      lmdb_->putValue(SSH, sshKey.getRef(), bw.getDataRef());
+   }
+
+   //update merkle
+   StoredDBInfo sshSdbi;
+   lmdb_->getStoredDBInfo(SSH, sshSdbi);
+   sshSdbi.metaHash_ = addrMerkle;
+   lmdb_->putStoredDBInfo(SSH, sshSdbi);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1328,6 +1357,12 @@ void ZeroConfContainer::processInvTxThread(void)
 void ZeroConfContainer::insertBDVcallback(string id, BDV_Callbacks callback)
 {
    bdvCallbacks_.insert(move(make_pair(move(id), move(callback))));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::eraseBDVcallback(string id)
+{
+   bdvCallbacks_.erase(id);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

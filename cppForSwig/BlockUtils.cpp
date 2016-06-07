@@ -1059,18 +1059,34 @@ vector<TxRef*> BlockDataManager::findAllNonStdTx(void)
 // untouched
 
 
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager::destroyAndResetDatabases(void)
+void BlockDataManager::resetDatabases(ResetDBMode mode)
 {
-   if(iface_)
+   if (mode == Reset_SSH)
    {
-      LOGWARN << "Destroying databases;  will need to be rebuilt";
-      iface_->destroyAndResetDatabases();
+      iface_->resetSSHdb();
       return;
    }
-   LOGERR << "Attempted to destroy databases, but no DB interface set";
-}
 
+   //we keep all scrAddr data in between db reset/clear
+   scrAddrData_->getAllScrAddrInDB();
+
+   switch (mode)
+   {
+   case Reset_Rescan:
+      iface_->resetHistoryDatabases();
+      break;
+
+   case Reset_Rebuild:
+      iface_->destroyAndResetDatabases();
+      blockchain_.clear();
+      break;
+   }
+
+   //reapply scrAddrData_'s content to the db
+   scrAddrData_->putAddrMapInDB();
+
+   scrAddrData_->clear();
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::doInitialSyncOnLoad(
@@ -1087,7 +1103,7 @@ void BlockDataManager::doInitialSyncOnLoad_Rescan(
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
-   iface_->resetHistoryDatabases();
+   resetDatabases(Reset_Rescan);
    loadDiskState(progress, true);
 }
 
@@ -1097,9 +1113,7 @@ void BlockDataManager::doInitialSyncOnLoad_Rebuild(
 )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
-   destroyAndResetDatabases();
-   scrAddrData_->clear();
-   blockchain_.clear();
+   resetDatabases(Reset_Rebuild);
    loadDiskState(progress, true);
 }
 
@@ -1109,19 +1123,8 @@ void BlockDataManager::doInitialSyncOnLoad_RescanBalance(
    )
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_RescanBalance";
-   iface_->resetSSHdb();
+   resetDatabases(Reset_SSH);
    loadDiskState(progress, false);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager::doRebuildDatabases(
-   const ProgressCallback &progress
-)
-{
-   LOGINFO << "Executing: doRebuildDatabases";
-   destroyAndResetDatabases();
-   scrAddrData_->clear();
-   loadDiskState(progress);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1176,12 +1179,13 @@ shared_ptr<ScrAddrFilter> BlockDataManager::getScrAddrFilter(void) const
 shared_future<bool> BlockDataManager::registerAddressBatch(
    const set<BinaryData>& addrSet, bool isNew)
 {
-   promise<bool> waitOnPromise;
-   shared_future<bool> waitOnFuture = waitOnPromise.get_future();
+   auto waitOnPromise = make_shared<promise<bool>>();
+   shared_future<bool> waitOnFuture = waitOnPromise->get_future();
 
-   auto callback = [&](void)->void
+   auto callback = [waitOnPromise](void)->void
    {
-      waitOnPromise.set_value(true);
+      LOGINFO << "setting scan callback promise";
+      waitOnPromise->set_value(true);
    };
 
    ScrAddrFilter::WalletInfo wltInfo;

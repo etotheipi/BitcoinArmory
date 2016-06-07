@@ -130,6 +130,7 @@ private:
 
 public:
    BDV_Server_Object(BlockDataManagerThread *bdmT);
+   ~BDV_Server_Object(void) { haltThreads(); }
 
    const string& getID(void) const { return bdvID_; }
    void maintenanceThread(void);
@@ -139,6 +140,7 @@ public:
   
    void zcCallback(
       map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap);
+   void haltThreads(void);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -169,6 +171,7 @@ public:
    const shared_ptr<BDV_Server_Object>& get(const string& id) const;
    Arguments runCommand(const string& cmd);
    Arguments registerBDV(void);
+   void unregisterBDV(const string& bdvId);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
