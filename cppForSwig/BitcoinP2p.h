@@ -20,29 +20,7 @@
 #include "BinaryData.h"
 #include "EncryptionUtils.h"
 
-#ifdef _WIN32
-#include <WinSock2.h>
-#include <ws2tcpip.h>
-
-#define WRITETOSOCKET(a, b, c) send(a, b, c, NULL)
-#define READFROMSOCKET(a, b, c) recv(a, b, c, NULL)
-
-#define SOCK_MAX SIZE_MAX
-
-#else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <fcntl.h>
-#define closesocket close
-
-#define WRITETOSOCKET(a, b, c) send(a, b, c, 0)
-#define READFROMSOCKET(a, b, c) recv(a, b, c, 0)
-
-typedef int SOCKET;
-#define SOCK_MAX INT_MAX
-#endif
+#include "SocketIncludes.h"
 
 using namespace std;
 

@@ -18,24 +18,7 @@
 #include "FcgiMessage.h"
 #include "bdmenums.h"
 
-#ifdef _WIN32
-#include <WinSock2.h>
-#include <ws2tcpip.h>
-
-#define WRITETOSOCKET(a, b, c) send(a, b, c, NULL)
-#define READFROMSOCKET(a, b, c) recv(a, b, c, NULL)
-
-#else
-#include <sys/socket.h>
-#include <netdb.h>
-#include <unistd.h>
-#define closesocket close
-
-#define WRITETOSOCKET(a, b, c) send(a, b, c, 0)
-#define READFROMSOCKET(a, b, c) recv(a, b, c, 0)
-
-typedef int SOCKET;
-#endif
+#include "SocketIncludes.h"
 
 using namespace std;
 
@@ -53,10 +36,10 @@ private:
    const string port_;
 
 private:   
-   SOCKET open(void);
-   void close(SOCKET);
-   void write(SOCKET, const char*, uint32_t);
-   void read(SOCKET, vector<char>& buffer);
+   SOCKET openSocket(void);
+   void closeSocket(SOCKET);
+   void writeToSocket(SOCKET, const char*, uint32_t);
+   void readFromSocket(SOCKET, vector<char>& buffer);
 
 public:
    BinarySocket(const string& addr, const string& port);

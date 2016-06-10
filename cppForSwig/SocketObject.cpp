@@ -51,7 +51,7 @@ BinarySocket::BinarySocket(const string& addr, const string& port) :
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-SOCKET BinarySocket::open(void)
+SOCKET BinarySocket::openSocket(void)
 {
    SOCKET sockfd = socket(serv_addr_.sa_family, SOCK_STREAM, 0);
    if (sockfd < 0)
@@ -64,25 +64,31 @@ SOCKET BinarySocket::open(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::close(SOCKET sockfd)
+void BinarySocket::closeSocket(SOCKET sockfd)
 {
+   if (sockfd == SOCK_MAX)
+      return;
+
 #ifdef WIN32
    if (closesocket(sockfd) != 0)
       throw runtime_error("failed to close socket");
 #else
-   closesocket(sockfd);
+   if(close(sockfd) != 0)
+      throw runtime_error("failed to close socket");
 #endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::write(SOCKET sockfd, const char* data, uint32_t size)
+void BinarySocket::writeToSocket(
+   SOCKET sockfd, const char* data, uint32_t size)
 {
    if(WRITETOSOCKET(sockfd, data, size) != size)
       throw runtime_error("failed to write to socket");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::read(SOCKET sockfd, vector<char>& buffer)
+void BinarySocket::readFromSocket(
+   SOCKET sockfd, vector<char>& buffer)
 {
    size_t increment = 8192;
    auto currentSize = buffer.size();
@@ -123,13 +129,13 @@ void BinarySocket::read(SOCKET sockfd, vector<char>& buffer)
 ///////////////////////////////////////////////////////////////////////////////
 string BinarySocket::writeAndRead(const string& msg)
 {
-   auto sockfd = this->open();
+   auto sockfd = this->openSocket();
 
-   this->write(sockfd, msg.c_str(), msg.size());
+   writeToSocket(sockfd, msg.c_str(), msg.size());
    vector<char> retval;
-   this->read(sockfd, retval);
+   readFromSocket(sockfd, retval);
 
-   this->close(sockfd);
+   closeSocket(sockfd);
    
    string retmsg;
    typedef vector<char>::iterator IterType;
@@ -144,8 +150,8 @@ bool BinarySocket::testConnection(void)
 {
    try
    {
-      auto sockfd = open();
-      close(sockfd);
+      auto sockfd = openSocket();
+      closeSocket(sockfd);
       return true;
    }
    catch (runtime_error&)
@@ -233,12 +239,12 @@ string HttpSocket::getMessage(vector<char>& msg)
 ///////////////////////////////////////////////////////////////////////////////
 string HttpSocket::writeAndRead(const string& msg)
 {
-   auto sockfd = this->open();
+   auto sockfd = openSocket();
 
    char* packet = nullptr;
    auto packetSize = makePacket(&packet, msg.c_str());
    
-   this->write(sockfd, packet, packetSize);
+   writeToSocket(sockfd, packet, packetSize);
 
    vector<char> retval;
    typedef vector<char>::iterator vecIterType;
@@ -274,7 +280,7 @@ string HttpSocket::writeAndRead(const string& msg)
    while (1)
    {
       //get as much http data as available
-      this->read(sockfd, retval);
+      readFromSocket(sockfd, retval);
 
       if (content_length == -1)
       {
@@ -317,7 +323,7 @@ string HttpSocket::writeAndRead(const string& msg)
    }
    
    auto&& retmsg = getMessage(retval);
-   this->close(sockfd);
+   closeSocket(sockfd);
    
    return retmsg;
 }
@@ -445,19 +451,19 @@ string FcgiSocket::getMessage(const vector<char>& msg,
 ///////////////////////////////////////////////////////////////////////////////
 string FcgiSocket::writeAndRead(const string& msg)
 {
-   auto sockfd = this->open();
+   auto sockfd = openSocket();
 
    auto&& fcgiMsg = makePacket(msg.c_str());
    auto serdata = fcgiMsg.serialize();
    auto serdatalength = fcgiMsg.getSerializedDataLength();
 
-   this->write(sockfd, (char*)serdata, serdatalength);
+   writeToSocket(sockfd, (char*)serdata, serdatalength);
 
    vector<char> retval;
-   this->read(sockfd, retval);
+   readFromSocket(sockfd, retval);
    auto&& retmsg = getMessage(retval, fcgiMsg);
 
-   this->close(sockfd);
+   closeSocket(sockfd);
    fcgiMsg.clear();
 
    return retmsg;
