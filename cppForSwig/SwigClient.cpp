@@ -376,6 +376,11 @@ bool Blockchain::hasHeaderWithHash(const BinaryData& hash)
 PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
    sock_(bdv.sock_), bdvID_(bdv.getID())
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void PythonCallback::startLoop(void)
+{
    auto loop = [this](void)->void
    { this->remoteLoop(); };
 
@@ -433,6 +438,11 @@ void PythonCallback::remoteLoop(void)
       else if (cb == "progress")
       {
 
+      }
+      else if (cb == "terminate")
+      {
+         //server kicked us out
+         break;
       }
    }
 }

@@ -231,6 +231,7 @@ class BlockDataManager(object):
    def goOnline(self, satoshiDir=None, armoryDBDir=None, armoryHomeDir=None):
       self.bdv().goOnline()
       self.callback = PySide_CallBack(self).__disown__()
+      self.callback.startLoop()
       
    #############################################################################
    @ActLikeASingletonBDM

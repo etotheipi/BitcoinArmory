@@ -120,6 +120,7 @@ public:
       unsigned progressNumeric
       ) = 0;   
    
+   void startLoop(void);
    void remoteLoop(void);
 };
 

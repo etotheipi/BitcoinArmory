@@ -177,7 +177,7 @@ public:
       getline(ss, objType, '-');
       if (objType.size() == 0)
          throw runtime_error("arg missing type marker");
-      auto objTypeInt = atoi(objType.c_str());
+      unsigned int objTypeInt = (unsigned int)atoi(objType.c_str());
       if (objTypeInt >= DataMeta::iTypeIDs_.size())
          throw runtime_error("unknown type id in arg");
 

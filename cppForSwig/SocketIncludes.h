@@ -24,6 +24,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
 #define closesocket close
 
 #define WRITETOSOCKET(a, b, c) send(a, b, c, 0)
