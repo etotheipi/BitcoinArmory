@@ -405,44 +405,40 @@ void PythonCallback::remoteLoop(void)
 
    while (run_)
    {
-      Arguments args;
-
       try
       {
          auto&& retval = sock_->writeAndRead(sendCmd.command_);
-         args = move(Arguments(move(retval)));
+         Arguments args(move(retval));
+         auto&& cb = move(args.get<string>());
+         if (cb == "NewBlock")
+         {
+            unsigned int newblock = args.get<unsigned int>();
+            if (newblock != 0)
+               run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
+         }
+         else if (cb == "BDM_Ready")
+         {
+            unsigned int topblock = args.get<unsigned int>();
+            run(BDMAction::BDMAction_Ready, nullptr, topblock);
+         }
+         else if (cb == "BDV_Refresh")
+         {
+            vector<BinaryData> bdVector;
+            run(BDMAction::BDMAction_Refresh, &bdVector, 0);
+         }
+         else if (cb == "progress")
+         {
+
+         }
+         else if (cb == "terminate")
+         {
+            //server kicked us out
+            break;
+         }
       }
       catch (runtime_error&)
       {
          continue;
-      }
-
-      auto&& cb = args.get<string>();
-
-      if (cb == "NewBlock")
-      {
-         unsigned int newblock = args.get<unsigned int>();
-         if (newblock != 0)
-            run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
-      }
-      else if (cb == "BDM_Ready")
-      {
-         unsigned int topblock = args.get<unsigned int>();
-         run(BDMAction::BDMAction_Ready, nullptr, topblock);
-      }
-      else if (cb == "BDV_Refresh")
-      {
-         vector<BinaryData> bdVector;
-         run(BDMAction::BDMAction_Refresh, &bdVector, 0);
-      }
-      else if (cb == "progress")
-      {
-
-      }
-      else if (cb == "terminate")
-      {
-         //server kicked us out
-         break;
       }
    }
 }

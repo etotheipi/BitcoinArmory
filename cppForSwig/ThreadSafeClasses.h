@@ -473,4 +473,154 @@ public:
    }
 };
 
+////////////////////////////////////////////////////////////////////////////////
+template <typename T> class TimedStack : public Stack<T>
+{
+   /***
+   get() blocks as long as the container is empty
+   ***/
+
+private:
+   typedef shared_ptr<promise<bool>> promisePtr;
+   TransactionalMap<thread, promisePtr> promiseMap_;
+   atomic<int> waiting_;
+   atomic<bool> terminate_;
+
+public:
+   TimedStack() : Stack<T>()
+   {
+      terminate_.store(false, memory_order_relaxed);
+      waiting_.store(0, memory_order_relaxed);
+   }
+
+   T get(std::chrono timetout = std::chrono::seconds(600))
+   {
+      //blocks as long as there is no data available in the chain.
+
+      //run in loop until we get data or a throw
+
+      waiting_.fetch_add(1, memory_order_relaxed);
+
+      try
+      {
+         while (1)
+         {
+            auto terminate = terminate_.load(memory_order_relaxed);
+            if (terminate)
+            {
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               throw IsEmpty();
+            }
+
+            //try to pop_front
+            try
+            {
+               auto&& retval = Stack<T>::pop_front();
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               return move(retval);
+            }
+            catch (IsEmpty&)
+            {
+            }
+
+            //if there are no items, create promise, push to promise pile
+            auto haveItemPromise = make_shared<promise<bool>>();
+            promiseMap_.insert(this_thread::get_id(), haveItemPromise);
+
+            auto haveItemFuture = haveItemPromise->get_future();
+
+            /***
+            3 cases here:
+
+            a) New object was pushed back to the chain after the promise was pushed
+            to the promise pile. Future will be set.
+
+            b) New object was pushed back before the promise was pushed to the promise
+            pile. Promise won't be set.
+
+            c) Nothing was pushed after the promise, just wait on future.
+
+            a and c are covered by waiting on the future. To cover b, we need to try
+            to pop_front once more first. If it fails, wait on future.
+
+            In case of a, this approach (test a second time before waiting on future)
+            wastes the promise, but that's only a slight overhead so it's an
+            acceptable trade off.
+            ***/
+
+            try
+            {
+               auto&& retval = Stack<T>::pop_front();
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               return retval;
+            }
+            catch (IsEmpty&)
+            {
+            }
+
+            haveItemFuture.wait();
+         }
+      }
+      catch (StopBlockingLoop&)
+      {
+         //loop stopped unexpectedly
+         waiting_.fetch_sub(1, memory_order_relaxed);
+         throw IsEmpty();
+      }
+   }
+
+   void push_back(T&& obj)
+   {
+      Stack<T>::push_back(move(obj));
+
+      //pop promises
+      while (Stack<T>::count_.load(memory_order_relaxed) > 0)
+      {
+         try
+         {
+            auto&& p = promisePile_.pop_back();
+            p->set_value(true);
+         }
+         catch (IsEmpty&)
+         {
+            break;
+         }
+      }
+   }
+
+   void terminate(void)
+   {
+      terminate_.store(true, memory_order_relaxed);
+
+      while (waiting_.load(memory_order_relaxed) > 0)
+      {
+         try
+         {
+            auto&& p = promisePile_.pop_back();
+            exception_ptr eptr;
+            try
+            {
+               throw(StopBlockingLoop());
+            }
+            catch (...)
+            {
+               eptr = current_exception();
+            }
+
+            p->set_exception(eptr);
+         }
+         catch (IsEmpty&)
+         {
+         }
+      }
+   }
+
+   void reset(void)
+   {
+      Stack<T>::clear();
+
+      terminate_.store(false, memory_order_relaxed);
+   }
+};
+
 #endif

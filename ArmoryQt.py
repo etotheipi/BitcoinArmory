@@ -2261,9 +2261,7 @@ class ArmoryMainWindow(QMainWindow):
    ############################################################################
    def loadBlockchainIfNecessary(self):
       LOGINFO('loadBlockchainIfNecessary')
-      if CLI_OPTIONS.offline:
-         self.switchNetworkMode(NETWORKMODE.Offline)
-      elif self.isOnlineModePossible():
+      if self.netMode != NETWORKMODE.Offline:
          # Track number of times we start loading the blockchain.
          # We will decrement the number when loading finishes
          # We can use this to detect problems with mempool or blkxxxx.dat
@@ -2277,9 +2275,7 @@ class ArmoryMainWindow(QMainWindow):
             self.switchNetworkMode(NETWORKMODE.Full)         
          except Cpp.NoArmoryDBExcept:
             self.switchNetworkMode(NETWORKMODE.Offline)                       
-      else:
-         self.switchNetworkMode(NETWORKMODE.Offline)
-         
+
     #############################################################################
    def switchNetworkMode(self, newMode):
       LOGINFO('Setting netmode: %s', newMode)
