@@ -11,8 +11,8 @@
 
 #include <vector>
 #include <map>
+#include <mutex>
 #include <thread>
-#include <condition_variable>
 #include <future>
 
 #include "BitcoinP2p.h"
@@ -34,12 +34,30 @@ enum WalletType
 ///////////////////////////////////////////////////////////////////////////////
 class SocketCallback : public Callback
 {
+private:
+   mutex mu_;
+   unsigned int count_ = 0;
+
 public:
    SocketCallback(void) : Callback()
    {}
 
    void emit(void);
    Arguments respond(void);
+
+   bool isValid(void)
+   {
+      unique_lock<mutex> lock(mu_, defer_lock);
+
+      if (lock.try_lock())
+      {
+         ++count_;
+         if (count_ >= 2)
+            return false;
+      }
+
+      return true;
+   }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,6 +98,8 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 class BDV_Server_Object : public BlockDataViewer
 {
+   friend class Clients;
+
 private:
    map<string, function<Arguments(
       const vector<string>&, Arguments&)>> methodMap_;
@@ -148,10 +168,12 @@ class Clients
 {
 private:
    TransactionalMap<string, shared_ptr<BDV_Server_Object>> BDVs_;
+   mutable BlockingStack<bool> gcCommands_;
    BlockDataManagerThread* bdmT_;
 
 private:
    void maintenanceThread(void) const;
+   void garbageCollectorThread(void);
 
 public:
 
@@ -163,9 +185,18 @@ public:
          maintenanceThread();
       };
 
+      auto gcThread = [this](void)->void
+      {
+         garbageCollectorThread();
+      };
+
       thread thr(mainthread);
       if (thr.joinable())
          thr.detach();
+
+      thread gcthr(gcThread);
+      if (gcthr.joinable())
+         gcthr.detach();
    }
 
    const shared_ptr<BDV_Server_Object>& get(const string& id) const;

@@ -469,6 +469,24 @@ public:
       map_ = newMap;
    }
 
+   void erase(const vector<T>& idVec)
+   {
+      if (idVec.size() == 0)
+         return;
+
+      auto newMap = make_shared<map<T, U>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newMap = *map_;
+
+      for (auto& id : idVec)
+      {
+         newMap->erase(id);
+      }
+
+      map_ = newMap;
+   }
+
    shared_ptr<map<T, U>> pop_all(void)
    {
       auto newMap = make_shared<map<T, U>>();

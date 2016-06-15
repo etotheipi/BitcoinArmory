@@ -480,21 +480,75 @@ void Clients::maintenanceThread(void) const
 
    while (1)
    {
-      try
-      { 
-         auto&& reorgState = bdmT_->bdm()->newBlocksStack_.get();
-         auto bdvmap = BDVs_.get();
+      bool hasNewTop = false;
+      Blockchain::ReorganizationState reorgState;
 
-         for (auto& bdv : *bdvmap)
-         {
-            auto bdvdata = make_unique<BDV_Notification_NewBlock>(reorgState);
-            BDV_Action_Struct action(BDV_NewBlock, move(bdvdata));
-            bdv.second->notificationStack_.push_back(move(action));
-         }
+      try
+      {
+         reorgState = move(bdmT_->bdm()->newBlocksStack_.get(chrono::seconds(120)));
+         hasNewTop = true;
+      }
+      catch (StackTimedOutException&)
+      {
+         //nothing to do
+      }
+      catch (StopBlockingLoop&)
+      {
+         //shutdown gc thread
+         gcCommands_.push_back(false);
+
+         return;
+      }
+
+      //trigger gc thread
+      gcCommands_.push_back(true);
+      
+      //don't go any futher if there is no new top
+      if (!hasNewTop)
+         continue;
+
+      auto bdvmap = BDVs_.get();
+
+      for (auto& bdv : *bdvmap)
+      {
+         auto bdvdata = make_unique<BDV_Notification_NewBlock>(reorgState);
+         BDV_Action_Struct action(BDV_NewBlock, move(bdvdata));
+         bdv.second->notificationStack_.push_back(move(action));
+      }
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void Clients::garbageCollectorThread(void)
+{
+   while (1)
+   {
+      try
+      {
+         bool command = gcCommands_.get();
+         if(!command)
+            return;
       }
       catch (IsEmpty&)
       {
-         break;
+         return;
+      }
+
+      vector<string> bdvToDelete;
+      
+      {
+         auto bdvmap = BDVs_.get();
+
+         for (auto& bdvPair : *bdvmap)
+         {
+            if (!bdvPair.second->cb_->isValid())
+               bdvToDelete.push_back(bdvPair.first);
+         }
+      }
+
+      for (auto& bdvID : bdvToDelete)
+      {
+         unregisterBDV(bdvID);
       }
    }
 }
@@ -842,7 +896,16 @@ bool BDV_Server_Object::registerLockbox(
 ///////////////////////////////////////////////////////////////////////////////
 Arguments SocketCallback::respond()
 {
-   //TODO: use a blockingstack instead, add timeouts to blocking stacks
+   unique_lock<mutex> lock(mu_, defer_lock);
+
+   if (!lock.try_lock())
+   {
+      Arguments arg;
+      arg.push_back(move(string("continue")));
+      return arg;
+   }
+   
+   count_ = 0;
    vector<Callback::OrderStruct> orderVec;
 
    try
