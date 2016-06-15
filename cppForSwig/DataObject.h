@@ -13,6 +13,7 @@
 #include <mutex>
 
 #include "BDM_seder.h"
+#include "ThreadSafeClasses.h"
 
 using namespace std;
 
@@ -117,7 +118,7 @@ private:
    string argStr_;
    vector<shared_ptr<DataMeta>> argData_;
    deque<string> strArgs_;
-   
+
    void init(void);
 
 public:
@@ -126,11 +127,15 @@ public:
 
    Arguments(const string& argAsString) :
       argStr_(argAsString)
-   { breakdownString(); }
+   {
+      breakdownString();
+   }
 
    Arguments(const string&& argAsString) :
       argStr_(move(argAsString))
-   { breakdownString(); }
+   {
+      breakdownString();
+   }
 
    Arguments(const vector<shared_ptr<DataMeta>>&& argAsData) :
       argData_(move(argAsData))
@@ -144,7 +149,14 @@ public:
 
    void breakdownString();
    const string& serialize();
-   
+
+   ///////////////////////////////////////////////////////////////////////////////
+   void merge(const Arguments& argIn)
+   {
+      argData_.insert(argData_.end(),
+         argIn.argData_.begin(), argIn.argData_.end());
+   }
+
    ///////////////////////////////////////////////////////////////////////////////
    template<typename T> void push_back(const T& obj)
    {
@@ -160,10 +172,20 @@ public:
    }
 
    ///////////////////////////////////////////////////////////////////////////////
+   const vector<shared_ptr<DataMeta>>& getArgVector(void) const
+   {
+      return argData_;
+   }
+
+
+   ///////////////////////////////////////////////////////////////////////////////
    template<typename T> auto get() -> T
    {
       if (strArgs_.size() == 0)
+      {
+         LOGERR << "exhausted entries in Arguments object";
          throw runtime_error("exhausted entries in Arguments object");
+      }
 
       stringstream ss(strArgs_.front());
       strArgs_.pop_front();
@@ -195,6 +217,11 @@ public:
 
       return dataObj.getObj();
    }
+
+   bool hasArgs(void) const
+   {
+      return strArgs_.size() != 0 || argData_.size() != 0;
+   }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -221,29 +248,37 @@ struct Command
 ///////////////////////////////////////////////////////////////////////////////
 class Callback
 {
-   struct cbOrder
+protected:
+   
+   struct OrderStruct
    {
       Arguments order_;
       OrderType otype_;
 
-      cbOrder(Arguments&& order, OrderType type) :
+      OrderStruct(Arguments&& order, OrderType type) :
          order_(move(order)), otype_(type)
+      {}
+
+      OrderStruct(void) 
       {}
    };
 
-protected:
-   deque<cbOrder> cbQueue_;
-   mutex mu_;
-   condition_variable cv_;
-
-   static const int maxQueue_ = 5;
+   TimedStack<OrderStruct> cbStack_;
 
 public:
 
-   virtual ~Callback() {};
-   virtual void emit(void) = 0;
+   virtual ~Callback() 
+   {
+      shutdown();
+   };
 
    void callback(Arguments&& cmd, OrderType type = OrderOther);
+   bool isValid(void) const { return cbStack_.isValid(); }
+
+   void shutdown(void)
+   {
+      cbStack_.terminate();
+   }
 };
 
 #endif

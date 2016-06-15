@@ -127,9 +127,10 @@ void BinarySocket::readFromSocket(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string BinarySocket::writeAndRead(const string& msg)
+string BinarySocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-   auto sockfd = this->openSocket();
+   if (sockfd == SOCK_MAX)
+      sockfd = this->openSocket();
 
    writeToSocket(sockfd, msg.c_str(), msg.size());
    vector<char> retval;
@@ -237,9 +238,10 @@ string HttpSocket::getMessage(vector<char>& msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string HttpSocket::writeAndRead(const string& msg)
+string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-   auto sockfd = openSocket();
+   if (sockfd == SOCK_MAX)
+      sockfd = openSocket();
 
    char* packet = nullptr;
    auto packetSize = makePacket(&packet, msg.c_str());
@@ -449,9 +451,10 @@ string FcgiSocket::getMessage(const vector<char>& msg,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::writeAndRead(const string& msg)
+string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-   auto sockfd = openSocket();
+   if (sockfd == SOCK_MAX)
+      sockfd = openSocket();  
 
    auto&& fcgiMsg = makePacket(msg.c_str());
    auto serdata = fcgiMsg.serialize();

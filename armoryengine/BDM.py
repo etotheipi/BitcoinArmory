@@ -176,19 +176,6 @@ class BlockDataManager(object):
    @ActLikeASingletonBDM
    def getListenerList(self):
       return self.cppNotificationListenerList
-         
-   
-   #############################################################################
-   @ActLikeASingletonBDM
-   def cleanUpBDMThread(self):
-      self.bdmThread = None
-         
-   #############################################################################
-   @ActLikeASingletonBDM
-   def BDMshutdownCallback(self, action, args):
-      if action == 'stopped':
-         self.cppNotificationListenerList.remove(self.BDMshutdownCallback)
-         self.cleanUpBDMThread()
 
    #############################################################################
    @ActLikeASingletonBDM
@@ -310,16 +297,9 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
-   def beginCleanShutdown(self):
-      #TODO: rework shutdown procedure
-      '''
-      if self.bdmThread: 
-         self.bdmState = BDM_UNINITIALIZED
-         self.registerCppNotification(self.BDMshutdownCallback)      
-         self.bdv().reset()
-         if self.bdmThread.requestShutdown() == False:
-            self.cleanUpBDMThread()
-      '''
+   def shutdown(self):
+      self.bdv_.unregisterFromDB()
+      self.callback.shutdown()
 
    #############################################################################
    @ActLikeASingletonBDM

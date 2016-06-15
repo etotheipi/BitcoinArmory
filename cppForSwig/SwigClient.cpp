@@ -46,6 +46,16 @@ void BlockDataViewer::registerWithDB()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::unregisterFromDB()
+{
+   Command cmd;
+   cmd.method_ = "unregisterBDV";
+   cmd.ids_.push_back(bdvID_);
+   cmd.serialize();
+   auto&& result = sock_->writeAndRead(cmd.command_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void BlockDataViewer::goOnline()
 {
    Command cmd;
@@ -396,6 +406,15 @@ PythonCallback::~PythonCallback(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void PythonCallback::shutdown()
+{
+   run_ = false;
+   closesocket(sockfd_);
+   if (thr_.joinable())
+      thr_.join();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void PythonCallback::remoteLoop(void)
 {
    Command sendCmd;
@@ -403,28 +422,30 @@ void PythonCallback::remoteLoop(void)
    sendCmd.ids_.push_back(bdvID_);
    sendCmd.serialize();
 
-   while (run_)
+   auto processCallback = [this](Arguments args)->bool
    {
-      try
+      while (args.hasArgs())
       {
-         auto&& retval = sock_->writeAndRead(sendCmd.command_);
-         Arguments args(move(retval));
          auto&& cb = move(args.get<string>());
-         if (cb == "NewBlock")
+         if (cb == "continue")
+         {
+            continue;
+         }
+         else if (cb == "NewBlock")
          {
             unsigned int newblock = args.get<unsigned int>();
             if (newblock != 0)
                run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
          }
-         else if (cb == "BDM_Ready")
-         {
-            unsigned int topblock = args.get<unsigned int>();
-            run(BDMAction::BDMAction_Ready, nullptr, topblock);
-         }
          else if (cb == "BDV_Refresh")
          {
             vector<BinaryData> bdVector;
             run(BDMAction::BDMAction_Refresh, &bdVector, 0);
+         }
+         else if (cb == "BDM_Ready")
+         {
+            unsigned int topblock = args.get<unsigned int>();
+            run(BDMAction::BDMAction_Ready, nullptr, topblock);
          }
          else if (cb == "progress")
          {
@@ -432,9 +453,24 @@ void PythonCallback::remoteLoop(void)
          }
          else if (cb == "terminate")
          {
-            //server kicked us out
-            break;
+            //shut down command from server
+            return false;
          }
+      }
+
+      return true;
+   };
+
+   while (run_)
+   {
+      try
+      {
+         sockfd_ = sock_->openSocket();
+         auto&& retval = sock_->writeAndRead(sendCmd.command_, sockfd_);
+         Arguments args(move(retval));
+
+         if (!processCallback(move(args)))
+            return;
       }
       catch (runtime_error&)
       {

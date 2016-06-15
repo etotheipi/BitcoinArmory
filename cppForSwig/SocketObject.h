@@ -25,27 +25,24 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////
 class BinarySocket
 {
-   friend class HttpSocket;
-   friend class FcgiSocket;
-
-private:
+protected:
    const size_t maxread_ = 1024*1024*1024;
    
    struct sockaddr serv_addr_;
    const string addr_;
    const string port_;
 
-private:   
-   SOCKET openSocket(void);
+protected:   
    void closeSocket(SOCKET);
    void writeToSocket(SOCKET, const char*, uint32_t);
    void readFromSocket(SOCKET, vector<char>& buffer);
 
 public:
+   SOCKET openSocket(void);
    BinarySocket(const string& addr, const string& port);
    bool testConnection(void);
 
-   virtual string writeAndRead(const string&);
+   virtual string writeAndRead(const string&, SOCKET sfd = SOCK_MAX);
    virtual SocketType type(void) const { return SocketBinary; }
 };
 
@@ -63,7 +60,7 @@ private:
 
 public:
    HttpSocket(const BinarySocket&);
-   virtual string writeAndRead(const string&);
+   virtual string writeAndRead(const string&, SOCKET sockfd = SOCK_MAX);
    virtual SocketType type(void) const { return SocketHttp; }
 };
 
@@ -77,7 +74,7 @@ private:
 
 public:
    FcgiSocket(const HttpSocket&);
-   string writeAndRead(const string&);
+   string writeAndRead(const string&, SOCKET sfd = SOCK_MAX);
    SocketType type(void) const { return SocketFcgi; }
 };
 

@@ -17,7 +17,16 @@ void BDV_Server_Object::buildMethodMap()
    auto registerCallback = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
-      return this->cb_.respond();
+      auto cbPtr = this->cb_;
+      if (cbPtr == nullptr || !cbPtr->isValid())
+         return Arguments();
+
+      auto&& retval = this->cb_->respond();
+
+      if (!retval.hasArgs())
+         LOGINFO << "returned empty callback packet";
+
+      return retval;
    };
 
    methodMap_["registerCallback"] = registerCallback;
@@ -438,20 +447,27 @@ Arguments Clients::registerBDV()
 ///////////////////////////////////////////////////////////////////////////////
 void Clients::unregisterBDV(const string& bdvId)
 {
+   shared_ptr<BDV_Server_Object> bdvPtr;
+
    //shutdown bdv threads
-   auto bdvMap = BDVs_.get();
-   auto bdvIter = bdvMap->find(bdvId);
-   if (bdvIter == bdvMap->end())
-      return;
+   {
+      auto bdvMap = BDVs_.get();
+      auto bdvIter = bdvMap->find(bdvId);
+      if (bdvIter == bdvMap->end())
+         return;
 
-   bdvIter->second->haltThreads();
+      //copy shared_ptr and unregister from bdv map
+      bdvPtr = bdvIter->second;
+      BDVs_.erase(bdvId);
+   }
 
-   //add to BDVs map
-   BDVs_.erase(bdvId);
-
-   //unregister with ZC container
+   //unregister from ZC container
    bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvId);
 
+   //shut down threads
+   bdvPtr->haltThreads();
+
+   //we are done
    LOGINFO << "unregistered bdv: " << bdvId;
 }
 
@@ -563,7 +579,11 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    }
    else
    {
-      retStream << "error: empty request";
+      FCGX_Finish_r(req);
+      delete req;
+
+      liveThreads_.fetch_sub(1, memory_order_relaxed);
+      return;
    }
 
    delete[] content;
@@ -621,6 +641,7 @@ BDV_Server_Object::BDV_Server_Object(
    BlockDataManagerThread *bdmT) :
    bdmT_(bdmT), BlockDataViewer(bdmT->bdm())
 {
+   cb_ = make_shared<SocketCallback>();
    isReadyFuture_ = isReadyPromise_.get_future();
 
    bdvID_ = SecureBinaryData().GenerateRandom(10).toHexStr();
@@ -639,10 +660,12 @@ void BDV_Server_Object::startThreads()
 ///////////////////////////////////////////////////////////////////////////////
 void BDV_Server_Object::haltThreads()
 {
-   notificationStack_.clear();
+   notificationStack_.terminate();
 
    if (tID_.joinable())
       tID_.join();
+
+   cb_.reset();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -703,7 +726,7 @@ void BDV_Server_Object::maintenanceThread(void)
    args.push_back(move(string("BDM_Ready")));
    unsigned int topblock = blockchain().top().getBlockHeight();
    args.push_back(move(topblock));
-   cb_.callback(move(args));
+   cb_->callback(move(args));
 
    while (1)
    {
@@ -731,7 +754,7 @@ void BDV_Server_Object::maintenanceThread(void)
 
          args2.push_back(move(string("NewBlock")));
          args2.push_back(move(blocknum));
-         cb_.callback(move(args2), OrderNewBlock);
+         cb_->callback(move(args2), OrderNewBlock);
       }
       else if (action == BDV_RefreshWallets)
       {
@@ -739,7 +762,7 @@ void BDV_Server_Object::maintenanceThread(void)
 
          Arguments args2;
          args2.push_back(move(string("BDV_Refresh")));
-         cb_.callback(move(args2), OrderRefresh);
+         cb_->callback(move(args2), OrderRefresh);
       }
       else if (action == BDV_ZC)
       {
@@ -747,7 +770,7 @@ void BDV_Server_Object::maintenanceThread(void)
          //in front end, instead simple refresh
          Arguments args2;
          args2.push_back(move(string("BDV_Refresh")));
-         cb_.callback(move(args2), OrderRefresh);
+         cb_->callback(move(args2), OrderRefresh);
       }
    }
 }
@@ -816,37 +839,78 @@ bool BDV_Server_Object::registerLockbox(
    return bdvPtr->registerLockbox(scrAddrVec, IDstr, wltIsNew) != nullptr;
 }
 
-
-///////////////////////////////////////////////////////////////////////////////
-void SocketCallback::emit()
-{
-   cv_.notify_all();
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 Arguments SocketCallback::respond()
 {
    //TODO: use a blockingstack instead, add timeouts to blocking stacks
-   Arguments arg;
+   vector<Callback::OrderStruct> orderVec;
 
+   try
    {
-      unique_lock<mutex> lock(mu_);
+      orderVec = move(cbStack_.pop_all(std::chrono::seconds(50)));
+   }
+   catch (IsEmpty&)
+   {
+      Arguments arg;
+      arg.push_back(move(string("continue")));
+      return arg;
+   }
+   catch (StackTimedOutException&)
+   {
+      Arguments arg;
+      arg.push_back(move(string("continue")));
+      return arg;
+   }
+   catch (StopBlockingLoop&)
+   {
+      //return terminate packet
+      Callback::OrderStruct terminateOrder;
+      terminateOrder.order_.push_back(move(string("terminate")));
+      terminateOrder.otype_ = OrderOther;
+   }
 
-      if (cbQueue_.size() == 0)
-         cv_.wait_for(lock, chrono::seconds(600));
-      
-      //TODO: deplete callback queue (instead of just pop the front)
-      //consider just finishing the fcgi request in case there is no data
-      //to push back to the client
+   //consolidate NewBlock and Refresh notifications
+   bool refreshNotification = false;
+   int32_t newBlock = -1;
 
-      if (cbQueue_.size() == 0)
-         return arg;
+   Arguments arg;
+   for (auto& order : orderVec)
+   {
+      switch (order.otype_)
+      {
+         case OrderNewBlock:
+         {
+            auto& argVector = order.order_.getArgVector();
+            if (argVector.size() != 2)
+               break;
 
-      arg = move(cbQueue_.front().order_);
-      cbQueue_.pop_front();
+            auto heightPtr = (DataObject<uint32_t>*)argVector[1].get();
+
+            int blockheight = (int)heightPtr->getObj();
+            if (blockheight > newBlock)
+               newBlock = blockheight;
+
+            break;
+         }
+
+         case OrderRefresh:
+            refreshNotification = true;
+            break;
+
+         default:
+            arg.merge(order.order_);
+      }
+   }
+
+   if (refreshNotification)
+      arg.push_back(move(string("BDV_Refresh")));
+
+   if (newBlock > -1)
+   {
+      arg.push_back(move(string("NewBlock")));
+      arg.push_back(move((unsigned int)newBlock));
    }
 
    //send it
-   stringstream ss;
    return arg;
 }

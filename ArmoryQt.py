@@ -6396,42 +6396,23 @@ class ArmoryMainWindow(QMainWindow):
          
          self.shutdownBitcoindThread = threading.Thread(target=TheSDM.stopBitcoind)
          self.shutdownBitcoindThread.start()
-         
-         TheBDM.registerCppNotification(self.actuallyDoExitNow)
-         TheBDM.beginCleanShutdown()
+
+         TheBDM.shutdown()
 
          # Remove Temp Modules Directory if it exists:
          if self.tempModulesDirName:
             shutil.rmtree(self.tempModulesDirName)
+            
+         self.shutdownBitcoindThread.join()
+         
+         from twisted.internet import reactor
+         LOGINFO('Attempting to close the main window!')
+         reactor.stop()
+         
       except:
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
-
-
-   def actuallyDoExitNow(self, action, l):
-      # this is a BDM callback
-      if action != STOPPED_ACTION:
-         return
-      # Any extra shutdown activities, perhaps added by modules
-      for fn in self.extraShutdownFunctions:
-         try:
-            fn()
-         except:
-            LOGEXCEPT('Shutdown function failed.  Skipping.')
-
-      
-      # This will do nothing if bitcoind isn't running.
-      try:
-         self.shutdownBitcoindThread.join()
-      except:
-         pass
-
-      
-
-      from twisted.internet import reactor
-      LOGINFO('Attempting to close the main window!')
-      reactor.stop()
-    
+   
 
    #############################################################################
    def execTrigger(self, toSpawn):

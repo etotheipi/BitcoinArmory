@@ -1184,7 +1184,6 @@ shared_future<bool> BlockDataManager::registerAddressBatch(
 
    auto callback = [waitOnPromise](void)->void
    {
-      LOGINFO << "setting scan callback promise";
       waitOnPromise->set_value(true);
    };
 

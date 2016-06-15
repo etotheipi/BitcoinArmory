@@ -85,7 +85,7 @@ private:
       const vector<string>&, Arguments&)>> methodMap_;
    
    thread tID_;
-   SocketCallback cb_;
+   shared_ptr<SocketCallback> cb_;
 
    string bdvID_;
    BlockDataManagerThread* bdmT_;

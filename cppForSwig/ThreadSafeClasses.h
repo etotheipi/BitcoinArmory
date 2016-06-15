@@ -13,6 +13,8 @@
 #include <memory>
 #include <future>
 #include <map>
+#include <chrono>
+#include <thread>
 
 #include "make_unique.h"
 
@@ -467,11 +469,33 @@ public:
       map_ = newMap;
    }
 
+   shared_ptr<map<T, U>> pop_all(void)
+   {
+      auto newMap = make_shared<map<T, U>>();
+      unique_lock<mutex> lock(mu_);
+      
+      auto retMap = map_;
+      map_ = newMap;
+
+      return retMap;
+   }
+
    shared_ptr<map<T, U>> get(void) const
    {
       return map_;
    }
+
+   void clear(void)
+   {
+      auto newMap = make_shared<map<T, U>>();
+      unique_lock<mutex> lock(mu_);
+
+      map_ = newMap;
+   }
 };
+
+struct StackTimedOutException
+{};
 
 ////////////////////////////////////////////////////////////////////////////////
 template <typename T> class TimedStack : public Stack<T>
@@ -482,7 +506,7 @@ template <typename T> class TimedStack : public Stack<T>
 
 private:
    typedef shared_ptr<promise<bool>> promisePtr;
-   TransactionalMap<thread, promisePtr> promiseMap_;
+   TransactionalMap<thread::id, promisePtr> promiseMap_;
    atomic<int> waiting_;
    atomic<bool> terminate_;
 
@@ -493,80 +517,88 @@ public:
       waiting_.store(0, memory_order_relaxed);
    }
 
-   T get(std::chrono timetout = std::chrono::seconds(600))
+   T get(chrono::seconds timeout = chrono::seconds(600))
    {
-      //blocks as long as there is no data available in the chain.
-
-      //run in loop until we get data or a throw
+      //block until timeout expires or data is available
+      //return data or throw IsEmpty or StackTimedOutException
 
       waiting_.fetch_add(1, memory_order_relaxed);
-
       try
       {
-         while (1)
+         auto terminate = terminate_.load(memory_order_relaxed);
+         if (terminate)
          {
-            auto terminate = terminate_.load(memory_order_relaxed);
-            if (terminate)
-            {
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               throw IsEmpty();
-            }
-
-            //try to pop_front
-            try
-            {
-               auto&& retval = Stack<T>::pop_front();
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               return move(retval);
-            }
-            catch (IsEmpty&)
-            {
-            }
-
-            //if there are no items, create promise, push to promise pile
-            auto haveItemPromise = make_shared<promise<bool>>();
-            promiseMap_.insert(this_thread::get_id(), haveItemPromise);
-
-            auto haveItemFuture = haveItemPromise->get_future();
-
-            /***
-            3 cases here:
-
-            a) New object was pushed back to the chain after the promise was pushed
-            to the promise pile. Future will be set.
-
-            b) New object was pushed back before the promise was pushed to the promise
-            pile. Promise won't be set.
-
-            c) Nothing was pushed after the promise, just wait on future.
-
-            a and c are covered by waiting on the future. To cover b, we need to try
-            to pop_front once more first. If it fails, wait on future.
-
-            In case of a, this approach (test a second time before waiting on future)
-            wastes the promise, but that's only a slight overhead so it's an
-            acceptable trade off.
-            ***/
-
-            try
-            {
-               auto&& retval = Stack<T>::pop_front();
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               return retval;
-            }
-            catch (IsEmpty&)
-            {
-            }
-
-            haveItemFuture.wait();
+            waiting_.fetch_sub(1, memory_order_relaxed);
+            throw IsEmpty();
          }
+
+         //try to pop_front
+         try
+         {
+            auto&& retval = Stack<T>::pop_front();
+            waiting_.fetch_sub(1, memory_order_relaxed);
+            return move(retval);
+         }
+         catch (IsEmpty&)
+         {
+         }
+
+         //if there are no items, create promise, push to promise pile
+         auto tID = this_thread::get_id();
+         
+         auto haveItemPromise = make_shared<promise<bool>>();
+
+         promiseMap_.insert(make_pair(tID, haveItemPromise));
+         auto haveItemFuture = haveItemPromise->get_future();
+
+
+         //try to grab data one more time before waiting on future
+         try
+         {
+            auto&& retval = Stack<T>::pop_front();
+            waiting_.fetch_sub(1, memory_order_relaxed);
+            promiseMap_.erase(tID);
+            return retval;
+         }
+         catch (IsEmpty&)
+         {
+         }
+
+         auto status = haveItemFuture.wait_for(timeout);
+         promiseMap_.erase(this_thread::get_id());
+         waiting_.fetch_sub(1, memory_order_relaxed);
+
+         if (status == future_status::timeout) //future timed out
+            throw StackTimedOutException();
+
+         auto&& retval = Stack<T>::pop_front();
+         return retval;
       }
       catch (StopBlockingLoop&)
       {
          //loop stopped unexpectedly
          waiting_.fetch_sub(1, memory_order_relaxed);
-         throw IsEmpty();
+         throw StopBlockingLoop();
       }
+   }
+
+   vector<T> pop_all(chrono::seconds timeout = chrono::seconds(600))
+   {
+      vector<T> vecT;
+
+      vecT.push_back(move(get(timeout)));
+      
+      try
+      {
+         while (1)
+            vecT.push_back(move(pop_front()));
+      }
+      catch (IsEmpty&)
+      {}
+
+      promiseMap_.clear();
+      waiting_.store(0, memory_order_relaxed);
+      return move(vecT);
    }
 
    void push_back(T&& obj)
@@ -576,15 +608,10 @@ public:
       //pop promises
       while (Stack<T>::count_.load(memory_order_relaxed) > 0)
       {
-         try
-         {
-            auto&& p = promisePile_.pop_back();
-            p->set_value(true);
-         }
-         catch (IsEmpty&)
-         {
-            break;
-         }
+         auto promisemap = promiseMap_.pop_all();
+         
+         for (auto& prom : *promisemap)
+            prom.second->set_value(true);
       }
    }
 
@@ -594,9 +621,10 @@ public:
 
       while (waiting_.load(memory_order_relaxed) > 0)
       {
-         try
+         auto promisemap = promiseMap_.pop_all();
+
+         for (auto& p : *promisemap)
          {
-            auto&& p = promisePile_.pop_back();
             exception_ptr eptr;
             try
             {
@@ -607,10 +635,7 @@ public:
                eptr = current_exception();
             }
 
-            p->set_exception(eptr);
-         }
-         catch (IsEmpty&)
-         {
+            p.second->set_exception(eptr);
          }
       }
    }
@@ -620,6 +645,12 @@ public:
       Stack<T>::clear();
 
       terminate_.store(false, memory_order_relaxed);
+   }
+
+   bool isValid(void) const
+   {
+      auto val = terminate_.load(memory_order_relaxed);
+      return !val;
    }
 };
 
