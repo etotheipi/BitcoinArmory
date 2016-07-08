@@ -25,7 +25,7 @@
 using namespace std;
 
 //reconnect constants
-#define RECONNECT_INCREMENT_MS 1000
+#define RECONNECT_INCREMENT_MS 500
 
 //message header
 #define MESSAGE_HEADER_LEN    24

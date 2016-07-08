@@ -655,6 +655,7 @@ class PyTx(BlockComponent):
       self.outputs    = UNINITIALIZED
       self.lockTime   = 0
       self.thisHash   = UNINITIALIZED
+      self.rbfFlag    = False
 
    def serialize(self):
       binOut = BinaryPacker()
@@ -785,8 +786,11 @@ class PyTx(BlockComponent):
          print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
 
+   def setRBF(self, flag):
+      self.rbfFlag = flag
+      
    def isRBF(self):
-      return TheBDM.bdv().isRBF(self.getHash())
+      return self.rbfFlag
 
 
 # Use to identify status of individual sigs on an UnsignedTxINPUT

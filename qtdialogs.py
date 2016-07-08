@@ -5591,11 +5591,11 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.bdv().getTxByHash(prevTxHash).isInitialized():
-            prevTx = TheBDM.bdv().getPrevTx(cppTxin)
+         prevTx = TheBDM.bdv().getTxByHash(prevTxHash)
+         if prevTx.isInitialized():
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(TheBDM.bdv().getSenderScrAddr(cppTxin))
-            txinFromList[-1].append(TheBDM.bdv().getSentValue(cppTxin))
+            txinFromList[-1].append(prevTxOut.getScrAddressStr())
+            txinFromList[-1].append(prevTxOut.getValue())
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())
@@ -5719,39 +5719,34 @@ class DlgDispTxInfo(ArmoryDialog):
       svPairDisp = None
       if haveBDM and haveWallet and self.data[FIELDS.SumOut] and self.data[FIELDS.SumIn]:
          fee = self.data[FIELDS.SumOut] - self.data[FIELDS.SumIn]
-         ldgr = wlt.getTxLedger()
-         for le in ldgr:
-            if le.getTxHash() == txHash:
-               txAmt = le.getValue()
+         le = wlt.getLedgerEntryForTxHash(txHash)
+         txAmt = le.getValue()
 
-               # If we found the LE for this tx, then we can display much
-               # more useful information... like ignoring change outputs,
-               if le.isSentToSelf():
-                  txdir = 'Sent-to-Self'
-                  svPairDisp = []
-                  if len(self.pytx.outputs)==1:
-                     txAmt = fee
-                     triplet = self.data[FIELDS.OutList][0]
+         if le.isSentToSelf():
+            txdir = 'Sent-to-Self'
+            svPairDisp = []
+            if len(self.pytx.outputs)==1:
+               txAmt = fee
+               triplet = self.data[FIELDS.OutList][0]
+               scrAddr = script_to_scrAddr(triplet[2])
+               svPairDisp.append([scrAddr, triplet[1]])
+            else:
+               txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
+               for i, triplet in enumerate(self.data[FIELDS.OutList]):
+                  if not i == changeIndex:
                      scrAddr = script_to_scrAddr(triplet[2])
                      svPairDisp.append([scrAddr, triplet[1]])
                   else:
-                     txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
-                     for i, triplet in enumerate(self.data[FIELDS.OutList]):
-                        if not i == changeIndex:
-                           scrAddr = script_to_scrAddr(triplet[2])
-                           svPairDisp.append([scrAddr, triplet[1]])
-                        else:
-                           indicesMakeGray.append(i)
-               else:
-                  if le.getValue() > 0:
-                     txdir = 'Received'
-                     svPairDisp = svPairSelf
-                     indicesMakeGray.extend(indicesOther)
-                  if le.getValue() < 0:
-                     txdir = 'Sent'
-                     svPairDisp = svPairOther
-                     indicesMakeGray.extend(indicesSelf)
-               break
+                     indicesMakeGray.append(i)
+         else:
+            if le.getValue() > 0:
+               txdir = 'Received'
+               svPairDisp = svPairSelf
+               indicesMakeGray.extend(indicesOther)
+            if le.getValue() < 0:
+               txdir = 'Sent'
+               svPairDisp = svPairOther
+               indicesMakeGray.extend(indicesSelf)
 
 
       # If this is a USTX, the above calculation probably didn't do its job

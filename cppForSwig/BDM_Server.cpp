@@ -59,34 +59,104 @@ void BDV_Server_Object::buildMethodMap()
    auto getHistoryPage = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
-      if (ids.size() != 2)
+      if (ids.size() < 2)
          throw runtime_error("unexpected id count");
 
-      auto& delegateID = ids[1];
-
-      auto delegateIter = delegateMap_.find(delegateID);
-      if (delegateIter == delegateMap_.end())
-         throw runtime_error("unknown delegateID");
-
-      auto& delegateObject = delegateIter->second;
-
-      auto arg0 = args.get<unsigned int>();
-
-      auto&& retVal = delegateObject.getHistoryPage(arg0);
-
-      LedgerEntryVector lev;
-      for (auto& le : retVal)
+      auto toLedgerEntryVector = []
+         (vector<LedgerEntry>& leVec)->LedgerEntryVector
       {
-         LedgerEntryData led(le.getWalletID(),
-            le.getValue(), le.getBlockNum(), le.getTxHash(),
-            le.getIndex(), le.getTxTime(), le.isCoinbase(),
-            le.isSentToSelf(), le.isChangeBack());
-         lev.push_back(move(led));
+         LedgerEntryVector lev;
+         for (auto& le : leVec)
+         {
+            LedgerEntryData led(le.getWalletID(),
+               le.getValue(), le.getBlockNum(), le.getTxHash(),
+               le.getIndex(), le.getTxTime(), le.isCoinbase(),
+               le.isSentToSelf(), le.isChangeBack());
+            lev.push_back(move(led));
+         }
+
+         return lev;
+      };
+
+      auto& nextID = ids[1];
+
+      //is it a ledger from a delegate?
+      auto delegateIter = delegateMap_.find(nextID);
+      if (delegateIter != delegateMap_.end())
+      {
+         
+         auto& delegateObject = delegateIter->second;
+
+         auto arg0 = args.get<unsigned int>();
+
+         auto&& retVal = delegateObject.getHistoryPage(arg0);
+
+         Arguments retarg;
+         retarg.push_back(move(toLedgerEntryVector(retVal)));
+         return retarg;
+      }
+      
+      //or a wallet?
+      auto theWallet = getWalletOrLockbox(nextID);
+      if (theWallet != nullptr)
+      {
+         //is it an address ledger?
+         if (ids.size() == 3)
+         {
+
+         }
+
+         unsigned pageId = UINT32_MAX;
+         BinaryData txHash;
+
+         //is a page or a hash
+         try
+         {
+            pageId = args.get<unsigned int>();
+         }
+         catch (runtime_error&)
+         {
+            auto&& bdo = args.get<BinaryDataObject>();
+            txHash = bdo.get();
+         }
+         
+         LedgerEntryVector resultLev;
+         if (pageId != UINT32_MAX)
+         {
+            auto&& retVal = theWallet->getHistoryPageAsVector(pageId);
+            resultLev = move(toLedgerEntryVector(retVal));
+         }
+         else
+         {
+            pageId = 0;
+            while (1)
+            {
+               auto&& ledgerMap = theWallet->getHistoryPage(pageId++);
+               for (auto& le : ledgerMap)
+               {
+                  auto& leHash = le.second.getTxHash();
+                  if (leHash == txHash)
+                  {
+                     vector<LedgerEntry> lev;
+                     lev.push_back(move(le.second));
+                     resultLev = toLedgerEntryVector(move(lev));
+
+                     Arguments retarg;
+                     retarg.push_back(move(resultLev));
+                     return retarg;
+                  }
+               }
+
+            }
+         }
+         
+         Arguments retarg;
+         retarg.push_back(move(resultLev));
+         return retarg;
       }
 
-      Arguments retarg;
-      retarg.push_back(move(lev));
-      return retarg;
+      throw runtime_error("invalid id");
+      return Arguments();
    };
 
    methodMap_["getHistoryPage"] = getHistoryPage;
@@ -374,7 +444,7 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& txHash = args.get<BinaryDataObject>();
       auto&& retval = this->getTxByHash(txHash.get());
-      BinaryDataObject bdo(move(retval.serialize()));
+      BinaryDataObject bdo(move(retval.serializeWithRBFFlag()));
 
       Arguments retarg;
       retarg.push_back(move(bdo));
@@ -752,7 +822,7 @@ void BDV_Server_Object::maintenanceThread(void)
 
       //register address set with BDM
       auto&& waitOnFuture = bdmPtr_->registerAddressBatch(scrAddrSet, isNew);
-      waitOnFuture.wait();
+      waitOnFuture.get();
 
       //register actual wallets with BDV
       auto bdvPtr = (BlockDataViewer*)this;

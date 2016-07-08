@@ -27,8 +27,6 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()
 {
-   unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
-
    TIMER_START("initdb");
 
    //list all files in block data folder
@@ -61,11 +59,10 @@ void DatabaseBuilder::init()
    scrAddrFilter_->getScrAddrCurrentSyncState();
    auto scanFrom = scrAddrFilter_->scanFrom();
 
-   StoredDBInfo subsshSdbi;
-   db_->getStoredDBInfo(SUBSSH, subsshSdbi);
-
-   StoredDBInfo sshsdbi;
-   db_->getStoredDBInfo(SSH, sshsdbi);
+   //DatabaseBuilder objects always operate on sdbi index 0
+   //BlockchainScanner object depend on the underlying ScrAddrFilter uniqueID
+   auto&& subsshSdbi = db_->getStoredDBInfo(SUBSSH, 0);
+   auto&& sshsdbi = db_->getStoredDBInfo(SSH, 0);
 
    //check merkle of registered addresses vs what's in the DB
    if (!scrAddrFilter_->hasNewAddresses())
@@ -125,8 +122,7 @@ void DatabaseBuilder::init()
       LOGINFO << "repairing DB";
 
       //grab top scanned height from SUBSSH DB
-      StoredDBInfo sdbi;
-      db_->getStoredDBInfo(SUBSSH, sdbi);
+      auto&& sdbi = db_->getStoredDBInfo(SUBSSH, 0);
 
       //get fileID for height
       auto& topHeader = blockchain_.getHeaderByHeight(sdbi.topBlkHgt_);
@@ -289,7 +285,12 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    if (ptr == nullptr)
       return false;
 
-   vector<BlockData> bdVec;
+   map<uint32_t, BlockData> bdMap;
+
+   auto getID = [&](void)->uint32_t
+   {
+      return blockchain_.getNewUniqueID();
+   };
 
    auto tallyBlocks = 
       [&](const uint8_t* data, size_t size, size_t offset)->bool
@@ -300,7 +301,8 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
       try
       {
-         bd.deserialize(data, size, nullptr, true);
+         bd.deserialize(data, size, nullptr, 
+            getID, true);
       }
       catch (...)
       {
@@ -316,7 +318,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       if (blockoffset > *bo)
          *bo = blockoffset;
 
-      bdVec.push_back(move(bd));
+      bdMap.insert(move(make_pair(bd.uniqueID(), move(bd))));
       return true;
    };
 
@@ -327,14 +329,35 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    //done parsing, add the headers to the blockchain object
    //convert BlockData vector to BlockHeader map first
    map<HashString, BlockHeader> bhmap;
-   for (auto& bd : bdVec)
+   for (auto& bd : bdMap)
    {
-      auto&& bh = bd.createBlockHeader();
-      bhmap.insert(make_pair(bh.getThisHash(), move(bh)));
+      auto&& bh = bd.second.createBlockHeader();
+      bhmap.insert(move(make_pair(bh.getThisHash(), move(bh))));
    }
 
    //add in bulk
-   blockchain_.addBlocksInBulk(bhmap);
+   auto&& insertedBlocks = blockchain_.addBlocksInBulk(bhmap);
+
+   //process filters
+   if (insertedBlocks.size() > 0)
+   {
+      //pull existing file filter bucket from db (if any)
+      auto&& pool = db_->getFilterPoolForFileNum<TxFilterType>(fileID);
+
+      //tally all block filters
+      set<TxFilter<TxFilterType>> allFilters;
+      
+      for (auto& bdId : insertedBlocks)
+      {
+         allFilters.insert(bdMap[bdId].getTxFilter());
+      }
+
+      //update bucket
+      pool.update(allFilters);
+
+      //update db entry
+      db_->putFilterPoolForFileNum(fileID, pool);
+   }
 
    return true;
 }
@@ -430,6 +453,7 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
    
    bcs.scan(startHeight);
    bcs.updateSSH(false);
+   bcs.resolveTxHashes();
 
    scrAddrFilter_->lastScannedHash_ = bcs.getTopScannedBlockHash();
    return bcs.getTopScannedBlockHash();
@@ -475,6 +499,7 @@ Blockchain::ReorganizationState DatabaseBuilder::update(void)
 void DatabaseBuilder::undoHistory(
    Blockchain::ReorganizationState& reorgState)
 {
+   //unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(), 
       blockFiles_, threadCount_, progress_, false);
    bcs.undo(reorgState);
@@ -570,9 +595,12 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       BlockData bd;
       BinaryRefReader brr(data, size);
 
+      auto getID = [this](void)->uint32_t
+      { return blockchain_.getNewUniqueID(); };
+
       try
       {
-         bd.deserialize(data, size, nullptr, true);
+         bd.deserialize(data, size, nullptr, getID, true);
       }
       catch (...)
       {

@@ -158,12 +158,6 @@ bool BlockDataViewer::hasWallet(const BinaryData& ID) const
    return groups_[group_wallet].hasID(ID);
 }
 
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::pprintRegisteredWallets(void) const
-{
-   groups_[group_wallet].pprintRegisteredWallets();
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    const string& walletID, bool areNew)
@@ -190,22 +184,23 @@ void BlockDataViewer::registerAddressBatch(
 
    auto& group = groups_[group_wallet];
 
-   vector<ScrAddrFilter::WalletInfo> wltInfoVec;
+   vector<shared_ptr<ScrAddrFilter::WalletInfo>> wltInfoVec;
    for (auto& wltpair : wltNAddrMap)
    {
       auto wlt = group.getWalletByID(wltpair.first);
       if (wlt == nullptr)
          continue;
 
-      auto callback = [wlt](void)->void
-      { wlt->needsRefresh(); };
+      auto callback = [wlt](bool refresh)->void
+      { wlt->needsRefresh(refresh); };
 
-      ScrAddrFilter::WalletInfo wltInfo;
-      wltInfo.callback_ = callback;
-      wltInfo.ID_ = string(wltpair.first.getCharPtr());
+      shared_ptr<ScrAddrFilter::WalletInfo> wltInfo = 
+         make_shared<ScrAddrFilter::WalletInfo>();
+      wltInfo->callback_ = callback;
+      wltInfo->ID_ = string(wltpair.first.getCharPtr());
 
       for (auto& sa : wltpair.second)
-         wltInfo.scrAddrSet_.insert(sa);
+         wltInfo->scrAddrSet_.insert(sa);
 
       wltInfoVec.push_back(move(wltInfo));
    }
@@ -677,6 +672,17 @@ bool BlockDataViewer::hasScrAddress(const BinaryData& scrAddr) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+shared_ptr<BtcWallet> BlockDataViewer::getWalletOrLockbox(
+   const BinaryData& id) const
+{
+   auto wallet = groups_[group_wallet].getWalletByID(id);
+   if (wallet != nullptr)
+      return wallet;
+
+   return groups_[group_lockbox].getWalletByID(id);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 //// WalletGroup
 ////////////////////////////////////////////////////////////////////////////////
 WalletGroup::~WalletGroup()
@@ -773,10 +779,10 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
       saMap.insert(make_pair(sa, saObj));
    }
 
-   auto callback = [&, saMap, theWallet](void)->void
+   auto callback = [&, saMap, theWallet](bool refresh)->void
    {
       theWallet->scrAddrMap_.mergeScrAddrMap(saMap);
-      theWallet->needsRefresh();
+      theWallet->needsRefresh(refresh);
       theWallet->setRegistered();
    };
 
@@ -788,17 +794,6 @@ bool WalletGroup::hasID(const BinaryData& ID) const
 {
    ReadWriteLock::ReadLock rl(lock_);
    return wallets_.find(ID) != wallets_.end();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void WalletGroup::pprintRegisteredWallets(void) const
-{
-   ReadWriteLock::ReadLock rl(lock_);
-   for (const auto& wlt : values(wallets_))
-   {
-      cout << "Wallet:";
-      wlt->pprintAlittle(cout);
-   }
 }
 
 /////////////////////////////////////////////////////////////////////////////

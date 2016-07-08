@@ -194,8 +194,6 @@ public:
    const LedgerEntry& getTxLedgerByHash_FromLockboxes(
       const BinaryData& txHash) const;
 
-   void pprintRegisteredWallets(void) const;
-
    Tx                getTxByHash(BinaryData const & txHash) const;
    TxOut             getPrevTxOut(TxIn & txin) const;
    Tx                getPrevTx(TxIn & txin) const;
@@ -299,6 +297,8 @@ public:
    bool isRBF(const BinaryData& txHash) const;
    bool hasScrAddress(const BinaryData& sa) const;
 
+   shared_ptr<BtcWallet> getWalletOrLockbox(const BinaryData& hash) const;
+
 protected:
    atomic<bool> rescanZC_;
 
@@ -350,7 +350,7 @@ public:
       const string& walletID, bool areNew);
 
    bool hasID(const BinaryData& ID) const;
-   void pprintRegisteredWallets(void) const;
+   shared_ptr<BtcWallet> getWalletByID(const BinaryData& ID) const;
 
    const LedgerEntry& getTxLedgerByHash(const BinaryData& txHash) const;
 
@@ -372,7 +372,6 @@ private:
       uint32_t endBlock, BDV_refresh forceRefresh);
 
    map<BinaryData, shared_ptr<BtcWallet> > getWalletMap(void) const;
-   shared_ptr<BtcWallet> getWalletByID(const BinaryData& ID) const;
 
    uint32_t getBlockInVicinity(uint32_t) const;
    uint32_t getPageIdForBlockHeight(uint32_t) const;

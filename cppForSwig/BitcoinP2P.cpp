@@ -675,6 +675,8 @@ void BitcoinP2P::connectToNode()
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinP2P::connectLoop(void)
 {
+   size_t waitBeforeReconnect = 0;
+
    while (1)
    {
       //clean up stacks
@@ -683,7 +685,6 @@ void BitcoinP2P::connectLoop(void)
       verackPromise_ = make_unique<promise<bool>>();
       auto verackFuture = verackPromise_->get_future();
 
-      size_t waitBeforeReconnect = 0;
       while (1)
       {
          if (sockfd_ != SOCK_MAX)
@@ -741,18 +742,21 @@ void BitcoinP2P::connectLoop(void)
 #else
       unsigned int namelen = sizeof(clientsocketaddr);
 #endif
-      if (getsockname(sockfd_, &clientsocketaddr, &namelen) != 0)
-         throw SocketError("failed to get client sockaddr");
 
-      version.setVersionHeaderIPv4(40000, 0, timestamp,
-         node_addr_, clientsocketaddr);
-
-      version.userAgent_ = "Armory:0.95";
-      version.startHeight_ = -1;
-
-      sendMessage(move(version));
       try
       {
+         //send version
+         if (getsockname(sockfd_, &clientsocketaddr, &namelen) != 0)
+            throw SocketError("failed to get client sockaddr");
+
+         version.setVersionHeaderIPv4(40000, 0, timestamp,
+            node_addr_, clientsocketaddr);
+
+         version.userAgent_ = "Armory:0.95";
+         version.startHeight_ = -1;
+
+         sendMessage(move(version));
+
          //wait on verack
          verackFuture.get();
          verackPromise_.reset();
@@ -760,11 +764,13 @@ void BitcoinP2P::connectLoop(void)
 
          //signal calling thread
          connectedPromise_->set_value(true);
+         waitBeforeReconnect = 0;
 
       }
       catch (...)
       {
-
+         waitBeforeReconnect += RECONNECT_INCREMENT_MS;
+         this_thread::sleep_for(chrono::milliseconds(waitBeforeReconnect));
       }
 
       //wait on threads

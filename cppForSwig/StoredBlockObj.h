@@ -51,6 +51,7 @@ enum DB_SELECT
    STXO,
    TXHINTS,
    ZERO_CONF,
+   TXFILTERS,
    COUNT
 };
 
@@ -113,7 +114,7 @@ public:
    bool isInitialized(void) const { return magic_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
 
-   static BinaryData getDBKey(void);
+   static BinaryData getDBKey(uint16_t id = 0);
    
    void       unserializeDBValue(BinaryRefReader & brr);
    void         serializeDBValue(BinaryWriter &    bw ) const;
@@ -302,9 +303,11 @@ public:
    }
 
    virtual bool haveAllTxOut(void) const;
+   bool isRBF(void) const { return isRBF_; }
 
    ////
    map<uint16_t, StoredTxOut> stxoMap_;
+   bool isRBF_ = false;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -380,6 +383,8 @@ public:
 
    size_t offset_;
    uint16_t fileID_;
+
+   unsigned int uniqueID_ = UINT32_MAX;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

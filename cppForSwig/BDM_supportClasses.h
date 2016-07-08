@@ -92,25 +92,29 @@ class ScrAddrFilter
 public:
    struct WalletInfo
    {
-      function<void(void)> callback_;
+      static atomic<unsigned> idCounter_; //no need to init this
+
+      function<void(bool)> callback_;
       set<BinaryData> scrAddrSet_;
       string ID_;
+      const unsigned intID_;
+
+      WalletInfo(void) :
+         intID_(idCounter_.fetch_add(1, memory_order_relaxed))
+      {}
 
       bool operator<(const ScrAddrFilter::WalletInfo& rhs) const
       {
-         return ID_ < rhs.ID_;
+         return intID_ < rhs.intID_;
       }
    };
 
    struct ScrAddrSideScanData
    {
-      /***
-      scrAddrMap_ is a map so it can only have meta per scrAddr. This means
-      only 1 wallet can be registered per post BDM init address scan.
-      ***/
       uint32_t startScanFrom_=0;
-      vector<WalletInfo> wltInfoVec_;
+      vector<shared_ptr<WalletInfo>> wltInfoVec_;
       bool doScan_ = true;
+      unsigned uniqueID_ = UINT32_MAX;
 
       BinaryData lastScannedBlkHash_;
 
@@ -122,7 +126,7 @@ public:
       {
          vector<string> strVec;
          for (auto& wltInfo : wltInfoVec_)
-            strVec.push_back(wltInfo.ID_);
+            strVec.push_back(wltInfo->ID_);
 
          return strVec;
       }
@@ -131,12 +135,17 @@ public:
 public:
    mutex mergeLock_;
    BinaryData lastScannedHash_;
+   const ARMORY_DB_TYPE           armoryDbType_;
 
 private:
+
+   static atomic<unsigned> keyCounter_;
 
    shared_ptr<map<BinaryData, uint32_t>>   scrAddrMap_;
 
    LMDBBlockDatabase *const       lmdb_;
+
+   const unsigned uniqueKey_;
 
    //
    ScrAddrFilter*                 parent_;
@@ -148,6 +157,9 @@ private:
    bool                           isScanning_ = false;
 
    Pile<ScrAddrSideScanData> scanDataPile_;
+   set<shared_ptr<WalletInfo>> scanningAddresses_;
+
+private:
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
    {
@@ -156,24 +168,38 @@ private:
          scrAddrIter->second = blkHgt;
    }
 
+   static void cleanUpPreviousChildren(LMDBBlockDatabase* lmdb);
+
 protected:
    function<void(const vector<string>& wltIDs, double prog, unsigned time)>
-      scanThreadProgressCallback_;// = [](const vector<string>&, double, unsigned)->void {};
+      scanThreadProgressCallback_;
+
+   static unsigned getUniqueKey(void)
+   {
+      return keyCounter_.fetch_add(1, memory_order_relaxed);
+   }
 
 public:
-   
-   const ARMORY_DB_TYPE           armoryDbType_;
-  
+
+   static void init(void);
+
    ScrAddrFilter(LMDBBlockDatabase* lmdb, ARMORY_DB_TYPE armoryDbType)
-      : lmdb_(lmdb), armoryDbType_(armoryDbType)
+      : lmdb_(lmdb), armoryDbType_(armoryDbType), 
+      uniqueKey_(getUniqueKey())
    {
+      //make sure we are running off of a clean SDBI set when instantiating the first
+      //SAF object (held by the BDM object)
+      if (uniqueKey_ == 0) 
+         cleanUpPreviousChildren(lmdb);
+
       scrAddrMap_ = make_shared<map<BinaryData, uint32_t>>();
       scanThreadProgressCallback_ = 
          [](const vector<string>&, double, unsigned)->void {};
    }
 
    ScrAddrFilter(const ScrAddrFilter& sca) //copy constructor
-      : lmdb_(sca.lmdb_), armoryDbType_(sca.armoryDbType_)
+      : lmdb_(sca.lmdb_), armoryDbType_(sca.armoryDbType_),
+      uniqueKey_(getUniqueKey()) //even copies' keys are unique
    {}
    
    virtual ~ScrAddrFilter() { }
@@ -188,8 +214,9 @@ public:
 
    uint32_t scanFrom(void) const;
    bool registerAddresses(const set<BinaryData>&, string, bool,
-      function<void(void)>);
-   bool registerAddressBatch(vector<WalletInfo>&& wltInfoVec, bool areNew);
+      function<void(bool)>);
+   bool registerAddressBatch(
+      vector<shared_ptr<WalletInfo>>&& wltInfoVec, bool areNew);
 
    void clear(void);
 
@@ -209,14 +236,8 @@ public:
 
    static void scanFilterInNewThread(shared_ptr<ScrAddrFilter> sca);
 
-   //pointer to the SCA object held by the bdm
+   //pointer to the SAF object held by the bdm
    void setParent(ScrAddrFilter* sca) { parent_ = sca; }
-
-   //shared_ptr to the next object in line waiting to get scanned. Only one
-   //scan takes place at a time, so if several wallets are imported before
-   //the first one is done scanning, a SCA will be built and referenced to as
-   //the child to previous side thread scan SCA, which will initiate the next 
-   //scan before it cleans itself up
 
    void addToMergePile(const BinaryData& lastScannedBlkHash);
    void mergeSideScanPile(void);
@@ -226,6 +247,16 @@ public:
 
    BinaryData getAddressMapMerkle(void) const;
    bool hasNewAddresses(void) const;
+
+   void updateAddressMerkleInDB(void);
+   
+   StoredDBInfo getSubSshSDBI(void) const;
+   void putSubSshSDBI(const StoredDBInfo&);
+   StoredDBInfo getSshSDBI(void) const;
+   void putSshSDBI(const StoredDBInfo&);
+   
+   set<BinaryData> getMissingHashes(void) const;
+   void putMissingHashes(const set<BinaryData>&);
 
 public:
    virtual shared_ptr<ScrAddrFilter> copy()=0;
@@ -242,7 +273,8 @@ protected:
 
 private:
    void scanScrAddrThread(void);
-   void buildSideScanData(const vector<WalletInfo>& wltInfoSet, bool areNew);
+   void buildSideScanData(
+      const vector<shared_ptr<WalletInfo>>& wltInfoSet, bool areNew);
 };
 
 class ZeroConfContainer

@@ -17,15 +17,14 @@
 #include "StoredBlockObj.h"
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredDBInfo::getDBKey(void)
+BinaryData StoredDBInfo::getDBKey(uint16_t id)
 {
-   // Return a key that is guaranteed to be before all other non-empty
-   // DB keys
    static BinaryData dbinfokey(0);
    if(dbinfokey.getSize() == 0)
    {
       BinaryWriter bw(1);
       bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO); 
+      bw.put_uint16_t(id);
       dbinfokey = bw.getData();
    }
    return dbinfokey;
@@ -70,7 +69,8 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    
    if (metaHash_.getSize() == 0)
       bw.put_BinaryData(BtcUtils::EmptyHash_);
-   bw.put_BinaryData(metaHash_);
+   else
+      bw.put_BinaryData(metaHash_);
 
    if (topScannedBlkHash_.getSize())
       bw.put_BinaryData(topScannedBlkHash_);
@@ -204,6 +204,8 @@ void DBBlock::createFromBlockHeader(const BlockHeader & bh)
 
    fileID_ = bh.getBlockFileNum();
    offset_ = bh.getOffset();
+
+   uniqueID_ = bh.getThisID();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -534,6 +536,7 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
       numTx_ = brr.get_uint32_t();
       fileID_ = brr.get_uint16_t();
       offset_ = brr.get_uint64_t();
+      uniqueID_ = brr.get_uint32_t();
    }
    else if(db==BLKDATA)
    {
@@ -593,6 +596,7 @@ void DBBlock::serializeDBValue(
       bw.put_uint32_t(numTx_);
       bw.put_uint16_t(fileID_);
       bw.put_uint64_t(offset_);
+      bw.put_uint32_t(uniqueID_);
    }
    else if(db==BLKDATA)
    {
@@ -1157,6 +1161,7 @@ Tx StoredTx::getTxCopy(void) const
    Tx returnTx(getSerializedTx());
    if(blockHeight_ != UINT32_MAX)
       returnTx.setTxRef(TxRef(getDBKey(false)));
+   returnTx.setRBF(isRBF_);
    return returnTx;
 }
 

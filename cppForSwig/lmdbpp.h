@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <thread>
 #include <mutex>
+#include "mdb\lmdb.h"
 
 struct MDB_env;
 struct MDB_txn;
@@ -96,7 +97,7 @@ public:
       mutable bool hasTx=true;
       bool has_=false;
       LMDBThreadTxInfo* txnPtr_=nullptr;
-      std::string key_, val_;
+      MDB_val key_, val_;
          
       void reset();
       void checkHasDb() const;
@@ -163,11 +164,11 @@ public:
       // std::logic_error is returned (not LSMException). LSMException may
       // be thrown for other reasons. You can avoid logic_error by
       // calling isValid() first
-      const std::string& key() const { return key_; }
+      const MDB_val& key() const { return key_; }
       
       // returns the value currently pointed to. Exceptions are thrown
       // under the same conditions as key()
-      const std::string& value() const { return val_; }
+      const MDB_val& value() const { return val_; }
    };
    
    LMDB() { }
@@ -196,7 +197,7 @@ public:
    void erase(const CharacterArrayRef& key);
 
    // read the value having the given key
-   std::string value(const CharacterArrayRef& key) const;
+   MDB_val value(const CharacterArrayRef& key) const;
    
    // read the value having the given key, without copying its
    // data even once. The return object has a pointer to the

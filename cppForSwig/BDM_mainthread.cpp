@@ -195,8 +195,6 @@ try
       
       try
       {
-         bdm->openDatabase();
-
          unsigned mode = pimpl->mode & 0x00000003;
          bool clearZc = pimpl->mode & 0x00000004;
 
@@ -235,33 +233,6 @@ try
 
    while(pimpl->run)
    {
-      /*if(bdv->getZCflag())
-      {
-         bdv->flagRescanZC(false);
-         auto&& newZCTxHash = bdv->parseNewZeroConfTx();
-         if (newZCTxHash.size() > 0)
-         {
-            bdv->scanWallets();
-
-            vector<LedgerEntry> newZCLedgers;
-
-            for (const auto& txHash : newZCTxHash)
-            {
-               auto& le_w = bdv->getTxLedgerByHash_FromWallets(txHash);
-               if (le_w.getTxTime() != 0)
-                  newZCLedgers.push_back(le_w);
-
-               auto& le_lb = bdv->getTxLedgerByHash_FromLockboxes(txHash);
-               if (le_lb.getTxTime() != 0)
-                  newZCLedgers.push_back(le_lb);
-            }
-
-            LOGINFO << newZCLedgers.size() << " new ZC Txn";
-            //notify ZC
-            callback->run(BDMAction_ZC, &newZCLedgers);
-         }
-      }*/
-
       //register promise with p2p interface
       promise<bool> newBlocksPromise;
       auto newBlocksFuture = newBlocksPromise.get_future();

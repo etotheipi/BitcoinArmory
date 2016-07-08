@@ -196,7 +196,7 @@ public:
    vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
    size_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
-   void needsRefresh(void);
+   void needsRefresh(bool refresh);
    bool hasBdvPtr(void) const { return bdvPtr_ != nullptr; }
 
    void setRegistrationCallback(function<void(void)> lbd)

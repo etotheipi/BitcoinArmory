@@ -40,7 +40,7 @@ void BtcWallet::addScrAddress(const BinaryData& scrAddr)
 void BtcWallet::removeAddressBulk(vector<BinaryData> const & scrAddrBulk)
 {
    scrAddrMap_.deleteScrAddrVector(scrAddrBulk);
-   needsRefresh();
+   needsRefresh(true);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -788,12 +788,13 @@ vector<LedgerEntry> BtcWallet::getHistoryPageAsVector(uint32_t pageId)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::needsRefresh(void)
+void BtcWallet::needsRefresh(bool refresh)
 { 
    //merge addresses in
 
    //notify BDV
-   bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
+   if (refresh)
+      bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
 
    //call custom callback
    doneRegisteringCallback_();

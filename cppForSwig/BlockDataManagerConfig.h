@@ -24,6 +24,8 @@ struct BlockDataManagerConfig
    BinaryData genesisBlockHash;
    BinaryData genesisTxHash;
    BinaryData magicBytes;
+
+   string btcPort_;
    
    void setGenesisBlockHash(const BinaryData &h)
    {

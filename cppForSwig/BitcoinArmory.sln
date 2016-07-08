@@ -15,6 +15,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LMDB_Win", "LMDB_Win\LMDB_Win.vcxproj", "{2DAEB6BF-8CF7-43D5-AEA9-BF824BBC8AE4}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BlockDataManager", "BlockDataManager\BlockDataManager.vcxproj", "{8BB5F940-6F78-4B72-B86A-8DCD3923B448}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2DAEB6BF-8CF7-43D5-AEA9-BF824BBC8AE4} = {2DAEB6BF-8CF7-43D5-AEA9-BF824BBC8AE4}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{461A6909-198D-4CC3-AC80-A6196E536C43}"
 EndProject

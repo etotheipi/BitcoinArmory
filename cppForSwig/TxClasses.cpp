@@ -390,6 +390,46 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryData Tx::serializeWithRBFFlag() const
+{
+   BinaryWriter bw;
+   bw.put_uint8_t(isRBF_);
+
+   bw.put_BinaryData(dataCopy_);
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
+{
+   auto size = rawTx.getSize();
+   if (size == 0)
+      throw runtime_error("empty raw tx");
+   
+   size--;
+   auto ptr = rawTx.getPtr() + 1;
+
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_);
+
+   if (nBytes > size)
+      throw BlockDeserializingException();
+   dataCopy_.copyFrom(ptr, nBytes);
+   BtcUtils::getHash256(ptr, nBytes, thisHash_);
+   if (8 > size)
+      throw BlockDeserializingException();
+
+   uint32_t numTxOut = offsetsTxOut_.size() - 1;
+   version_ = READ_UINT32_LE(ptr);
+   if (4 > size - offsetsTxOut_[numTxOut])
+      throw BlockDeserializingException();
+   lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
+
+   isInitialized_ = true;
+   isRBF_ = (bool)rawTx.getPtr();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getThisHash(void) const
 {
    if (thisHash_.getSize() == 32)

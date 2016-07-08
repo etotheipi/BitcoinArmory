@@ -35,7 +35,9 @@ enum DB_PREFIX
    DB_PREFIX_UNDODATA,
    DB_PREFIX_TRIENODES,
    DB_PREFIX_COUNT,
-   DB_PREFIX_ZCDATA
+   DB_PREFIX_ZCDATA,
+   DB_PREFIX_POOL,
+   DB_PREFIX_MISSING_HASHES
 };
 
 class DBUtils
@@ -127,5 +129,8 @@ public:
    static bool checkPrefixByteWError(BinaryRefReader & brr,
       DB_PREFIX prefix,
       bool rewindWhenDone = false);
+
+   static BinaryData getFilterPoolKey(uint32_t filenum);
+   static BinaryData getMissingHashesKey(uint32_t id);
 };
 #endif

@@ -70,6 +70,10 @@ public:
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
    uint64_t getAddrTotalTxnCount(const BinaryData& scrAddr);
+
+   vector<LedgerEntryData> getHistoryPage(uint32_t id);
+   LedgerEntryData getLedgerEntryForTxHash(
+      const BinaryData& txhash);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

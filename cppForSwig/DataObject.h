@@ -188,7 +188,6 @@ public:
       }
 
       stringstream ss(strArgs_.front());
-      strArgs_.pop_front();
 
       char c = 0;
       ss.get(c);
@@ -211,6 +210,8 @@ public:
             << ", got:" << (*typeIter)->getTypeName() ;
          throw runtime_error(ss.str());
       }
+
+      strArgs_.pop_front();
 
       DataObject<T> dataObj;
       ss >> dataObj;

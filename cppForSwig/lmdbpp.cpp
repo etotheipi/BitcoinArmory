@@ -49,7 +49,11 @@ inline void LMDB::Iterator::checkOk() const
       
       if (has_)
       {
-         const_cast<Iterator*>(this)->seek(key_);
+         CharacterArrayRef keydata(
+            key_.mv_size,
+            (const char*)key_.mv_data);
+
+         const_cast<Iterator*>(this)->seek(keydata);
          if (!has_)
             throw LMDBException("Cursor could not be regenerated");
       }
@@ -165,7 +169,11 @@ LMDB::Iterator& LMDB::Iterator::operator=(const Iterator &copy)
    
    if (copy.has_)
    {
-      seek(copy.key_);
+      CharacterArrayRef keydata(
+         copy.key_.mv_size, 
+         (const char*)copy.key_.mv_data);
+
+      seek(keydata);
       if (!has_)
          throw LMDBException("Cursor could not be copied");
    }
@@ -184,7 +192,9 @@ bool LMDB::Iterator::operator==(const Iterator &other) const
       if (a || b) return false;
    }
    
-   return key() == other.key();
+   //make sure this is a proper check
+   return key().mv_data == other.key().mv_data &&
+      key().mv_size == key().mv_size;
 }
 
 void LMDB::Iterator::advance()
@@ -203,8 +213,8 @@ void LMDB::Iterator::advance()
    else
    {
       has_ = true;
-      key_ = std::string(static_cast<char*>(mkey.mv_data), mkey.mv_size);
-      val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+      key_ = mkey;
+      val_ = mval;
    }
 }
 
@@ -224,8 +234,8 @@ void LMDB::Iterator::retreat()
    else
    {
       has_ = true;
-      key_ = std::string(static_cast<char*>(mkey.mv_data), mkey.mv_size);
-      val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+      key_ = mkey;
+      val_ = mval;
    }
 }
 
@@ -246,8 +256,8 @@ void LMDB::Iterator::toFirst()
    else
    {
       has_ = true;
-      key_ = std::string(static_cast<char*>(mkey.mv_data), mkey.mv_size);
-      val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+      key_ = mkey;
+      val_ = mval;
    }
 }
 
@@ -290,8 +300,8 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
          // key is longer and the earlier bytes are the same,
          // therefor, mkey is before key
          has_ = true;
-         key_ = std::string(static_cast<char*>(mkey.mv_data), mkey.mv_size);
-         val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+         key_ = mkey;
+         val_ = mval;
          return;
       }
       else
@@ -308,8 +318,8 @@ void LMDB::Iterator::seek(const CharacterArrayRef &key, SeekBy e)
    else
    {
       has_ = true;
-      key_ = std::string(static_cast<char*>(mkey.mv_data), mkey.mv_size);
-      val_ = std::string(static_cast<char*>(mval.mv_data), mval.mv_size);
+      key_ = mkey;
+      val_ = mval;
    }
 }
 
@@ -571,7 +581,7 @@ void LMDB::erase(const CharacterArrayRef& key)
    }
 }
 
-std::string LMDB::value(const CharacterArrayRef& key) const
+MDB_val LMDB::value(const CharacterArrayRef& key) const
 {
    Iterator c = find(key);
    if (!c.isValid())

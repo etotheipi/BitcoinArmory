@@ -13,6 +13,7 @@
 #include <memory>
 #include <future>
 #include <map>
+#include <set>
 #include <chrono>
 #include <thread>
 
@@ -108,6 +109,7 @@ public:
       if (topentry == nullptr)
          throw IsEmpty();
 
+      //fix null topentry case
       while (!top_.compare_exchange_weak(topentry, topentry->next_,
          memory_order_release, memory_order_relaxed));
       
@@ -190,6 +192,9 @@ public:
       while (!bottom_.compare_exchange_weak(valptr, nextptr,
          memory_order_release, memory_order_relaxed))
       {
+         if (valptr == nullptr)
+            throw IsEmpty();
+
          nextptr = valptr->next_.load(memory_order_acquire);
       }
 
@@ -277,18 +282,39 @@ template <typename T> class BlockingStack : public Stack<T>
 {
    /***
    get() blocks as long as the container is empty
+
+   terminate() halts all operations and returns on all waiting threads
+   completed() lets the container serve it's remaining entries before halting
    ***/
 
 private:
    typedef shared_ptr<promise<bool>> promisePtr;
    Pile<promisePtr> promisePile_;
    atomic<int> waiting_;
-   atomic<bool> terminate_;
+   atomic<bool> terminated_;
+   atomic<bool> completed_;
+
+private:
+   future<bool> getFuture()
+   {
+      auto completed = completed_.load(memory_order_relaxed);
+      if (completed)
+      {
+         waiting_.fetch_sub(1, memory_order_relaxed);
+         throw IsEmpty();
+      }
+
+      auto haveItemPromise = make_shared<promise<bool>>();
+      promisePile_.push_back(haveItemPromise);
+
+      return haveItemPromise->get_future();
+   }
 
 public:
    BlockingStack() : Stack<T>()
    {
-      terminate_.store(false, memory_order_relaxed);
+      terminated_.store(false, memory_order_relaxed);
+      completed_.store(false, memory_order_relaxed);
       waiting_.store(0, memory_order_relaxed);
    }
 
@@ -304,7 +330,7 @@ public:
       {
          while (1)
          {
-            auto terminate = terminate_.load(memory_order_relaxed);
+            auto terminate = terminated_.load(memory_order_relaxed);
             if (terminate)
             {
                waiting_.fetch_sub(1, memory_order_relaxed);
@@ -322,10 +348,7 @@ public:
             {}
 
             //if there are no items, create promise, push to promise pile
-            auto haveItemPromise = make_shared<promise<bool>>();
-            promisePile_.push_back(haveItemPromise);
-
-            auto haveItemFuture = haveItemPromise->get_future();
+            auto&& haveItemFuture = getFuture();
 
             /***
             3 cases here:
@@ -369,6 +392,10 @@ public:
 
    void push_back(T&& obj)
    {
+      auto completed = completed_.load(memory_order_relaxed);
+      if (completed)
+         return;
+
       Stack<T>::push_back(move(obj));
 
       //pop promises
@@ -388,7 +415,9 @@ public:
 
    void terminate(void)
    {
-      terminate_.store(true, memory_order_relaxed);
+      //terminate also flags complete
+      terminated_.store(true, memory_order_relaxed); 
+      completed_.store(true, memory_order_relaxed);
 
       while (waiting_.load(memory_order_relaxed) > 0)
       {
@@ -417,7 +446,36 @@ public:
    {
       Stack<T>::clear();
 
-      terminate_.store(false, memory_order_relaxed);
+      terminated_.store(false, memory_order_relaxed);
+      completed_.store(false, memory_order_relaxed);
+   }
+
+   void completed(void)
+   {
+      completed_.store(true, memory_order_relaxed);
+      
+      while (waiting_.load(memory_order_relaxed) > 0)
+      {
+         try
+         {
+            auto&& p = promisePile_.pop_back();
+            exception_ptr eptr;
+            try
+            {
+               throw(IsEmpty());
+            }
+            catch (...)
+            {
+               eptr = current_exception();
+            }
+
+            p->set_exception(eptr);
+         }
+         catch (IsEmpty&)
+         {
+         }
+      }
+
    }
 };
 
@@ -514,6 +572,110 @@ public:
 
 struct StackTimedOutException
 {};
+
+////////////////////////////////////////////////////////////////////////////////
+template<typename T> class TransactionalSet
+{
+   //locked writes, lockless reads
+private:
+   mutex mu_;
+   shared_ptr<set<T>> set_;
+
+public:
+
+   TransactionalSet(void)
+   {
+      set_ = make_shared<set<T>>();
+   }
+
+   void insert(T&& mv)
+   {
+      auto newSet = make_shared<set<T>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newSet = *set_;
+
+      newSet->insert(move(mv));
+      set_ = newSet;
+   }
+
+   void insert(const T& obj)
+   {
+      auto newSet = make_shared<set<T>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newSet = *set_;
+
+      newSet->insert(obj);
+      set_ = newSet;
+   }
+
+   void insert(const set<T>& dataSet)
+   {
+      auto newSet = make_shared<set<T>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newSet = *set_;
+
+      newSet->insert(dataSet.begin(), dataSet.end());
+      set_ = newSet;
+
+   }
+
+   void erase(const T& id)
+   {
+      auto newSet = make_shared<set<T>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newSet = *set_;
+
+      newSet->erase(id);
+      set_ = newSet;
+   }
+
+   void erase(const vector<T>& idVec)
+   {
+      if (idVec.size() == 0)
+         return;
+
+      auto newSet = make_shared<set<T>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newSet = *set_;
+
+      for (auto& id : idVec)
+      {
+         newSet->erase(id);
+      }
+
+      set_ = newSet;
+   }
+
+   shared_ptr<set<T>> pop_all(void)
+   {
+      auto newSet = make_shared<set<T>>();
+      unique_lock<mutex> lock(mu_);
+
+      auto retSet = set_;
+      set_ = newSet;
+
+      return retSet;
+   }
+
+   shared_ptr<set<T>> get(void) const
+   {
+      return set_;
+   }
+
+   void clear(void)
+   {
+      auto newSet = make_shared<set<T>>();
+      unique_lock<mutex> lock(mu_);
+
+      set_ = newSet;
+   }
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 template <typename T> class TimedStack : public Stack<T>

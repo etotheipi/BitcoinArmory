@@ -130,7 +130,7 @@ public:
    shared_ptr<BitcoinP2P> networkNode_;
    shared_future<bool> isReadyFuture_;
 
-   BlockingStack<Blockchain::ReorganizationState> newBlocksStack_;
+   TimedStack<Blockchain::ReorganizationState> newBlocksStack_;
    shared_ptr<ZeroConfContainer>   zeroConfCont_;
 
 public:

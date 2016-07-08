@@ -258,3 +258,25 @@ BinaryData DBUtils::heightAndDupToHgtx(uint32_t hgt, uint8_t dup)
    uint32_t hgtxInt = (hgt << 8) | (uint32_t)dup;
    return WRITE_UINT32_BE(hgtxInt);
 }
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getFilterPoolKey(uint32_t filenum)
+{
+   uint32_t bucketKey = (DB_PREFIX_POOL << 24) | (uint32_t)filenum;
+   return WRITE_UINT32_BE(bucketKey);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getMissingHashesKey(uint32_t id)
+{
+   BinaryData bd;
+   bd.resize(4);
+
+   id &= 0x00FFFFFF; //24bit ids top
+   id |= DB_PREFIX_MISSING_HASHES << 24;
+   
+   auto keyPtr = (uint32_t*)bd.getPtr();
+   *keyPtr = id;
+
+   return bd;
+}

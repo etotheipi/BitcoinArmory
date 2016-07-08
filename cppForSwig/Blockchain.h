@@ -30,9 +30,6 @@ class Blockchain
 {
 public:
    Blockchain(const HashString &genesisHash);
-   // implemented but not used:
-   //vector<BlockHeader*> getHeadersNotOnMainChain(void);
-
    void clear();
    
    struct ReorganizationState
@@ -54,7 +51,7 @@ public:
    BlockHeader& addNewBlock(const HashString &blockhash, 
       const BlockHeader &block, bool suppressVerbose);
 
-   void addBlocksInBulk(const map<HashString, BlockHeader>&);
+   set<uint32_t> addBlocksInBulk(const map<HashString, BlockHeader>&);
    void forceAddBlocksInBulk(const map<HashString, BlockHeader>&);
 
    ReorganizationState organize(bool verbose);
@@ -70,6 +67,8 @@ public:
    
    const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
    BlockHeader& getHeaderByHash(HashString const & blkHash);
+   BlockHeader& getHeaderById(uint32_t id) const;
+
    bool hasHeaderWithHash(BinaryData const & txHash) const;
    const BlockHeader& getHeaderPtrForTxRef(const TxRef &txr) const;
    const BlockHeader& getHeaderPtrForTx(const Tx & txObj) const
@@ -82,9 +81,6 @@ public:
       return getHeaderPtrForTxRef(txObj.getTxRef());
    }
    
-   /**
-    * @return a map of all headers, even with duplicates
-    **/
    map<HashString, BlockHeader>& allHeaders()
    {
       return headerMap_;
@@ -96,6 +92,9 @@ public:
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
    void putNewBareHeaders(LMDBBlockDatabase *db);
+   const set<BlockHeader*>& getBlockHeightsForFileNum(uint32_t) const;
+
+   unsigned int getNewUniqueID(void) { return topID_.fetch_add(1, memory_order_relaxed); }
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false, bool verbose=false);
@@ -111,9 +110,13 @@ private:
    map<HashString, BlockHeader> headerMap_;
    vector<BlockHeader*> newlyParsedBlocks_;
    deque<BlockHeader*> headersByHeight_;
+   map<uint32_t, BlockHeader*> headersById_;
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;
+   map<uint32_t, uint32_t> fileNumToKey_;
    Blockchain(const Blockchain&); // not defined
+
+   atomic<unsigned int> topID_;
 
    mutex mu_;
 };

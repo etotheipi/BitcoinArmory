@@ -27,6 +27,8 @@
 #include "BtcUtils.h"
 #include "TxClasses.h"
 
+typedef uint32_t TxFilterType;
+
 ////////////////////////////////////////////////////////////////////////////////
 class LMDBBlockDatabase; 
 class TxRef;
@@ -34,6 +36,185 @@ class Tx;
 class TxIn;
 class TxOut;
 
+////////////////////////////////////////////////////////////////////////////////
+template<typename T> class TxFilter
+{
+   template <typename T> friend class TxFilterPool;
+
+private:
+   vector<T> filterVector_;
+   const uint8_t* filterPtr_ = nullptr;
+   
+   uint32_t blockKey_ = UINT32_MAX;
+   size_t len_ = SIZE_MAX;
+   bool isValid_ = false;
+
+private:
+   void update(const BinaryData& hash)
+   {
+      if (hash.getSize() != 32)
+         throw range_error("unexpected hash length");
+
+      auto hashHead = (T*)hash.getPtr();
+
+      filterVector_.push_back(*hashHead);
+   }
+
+   uint32_t getBlockKeyFromPtr(const uint8_t* ptr)
+   {
+      return *(uint32_t*)(ptr + 4);
+   }
+
+   uint32_t getLenFromPtr(const uint8_t* ptr)
+   {
+      return *(uint32_t*)(ptr + 8);
+   }
+
+   bool checkPtrLen(const uint8_t* ptr)
+   {
+      if (ptr == nullptr)
+         throw runtime_error("invalid txfilter ptr");
+
+      auto size = (uint32_t*)(ptr);
+      if (*size < 12)
+         throw runtime_error("invalid txfilter ptr");
+
+      auto len = (uint32_t*)(ptr + 8);
+      auto total = *len * sizeof(T) + 12;
+      if (total != *size)
+         throw runtime_error("invalid txfilter ptr");
+
+      return true;
+   }
+
+   void deserialize(uint8_t* ptr)
+   {
+      auto size = (uint32_t*)ptr;
+      blockKey_ = *(uint32_t*)(ptr + 4);
+      len_ = *(uint32_t*)(ptr + 8);
+
+      if (*size != len_ * sizeof(T) + 12)
+         throw runtime_error("deser error");
+      
+      filterVector_.resize(len_);
+      memcpy(&filterVector_[0], ptr + 12, len_ * sizeof(T));
+
+      isValid_ = true;
+   }
+
+
+public:
+   TxFilter(void)
+   {}
+
+   TxFilter(unsigned blockkey, size_t len) :
+      blockKey_(blockkey), len_(len)
+   {      
+      filterVector_.reserve(len_);
+
+      isValid_ = true;
+   }
+
+   TxFilter(const uint8_t* ptr) :
+      isValid_(checkPtrLen(ptr)),
+      blockKey_(getBlockKeyFromPtr(ptr)), 
+      len_(getLenFromPtr(ptr))
+   {
+      filterPtr_ = ptr;
+   }
+
+   TxFilter(const TxFilter<T>& obj) :
+      blockKey_(obj.blockKey_), len_(obj.len_),
+      isValid_(obj.isValid_), filterPtr_(obj.filterPtr_)
+   {
+      filterVector_ = obj.filterVector_;
+   }
+
+   TxFilter(TxFilter<T>&& mv) :
+      blockKey_(mv.blockKey_), len_(mv.len_),
+      isValid_(mv.isValid_), filterPtr_(mv.filterPtr_)
+   {
+      filterVector_ = move(mv.filterVector_);
+   }
+
+   TxFilter& operator=(const TxFilter& rhs)
+   {
+      blockKey_ = rhs.blockKey_;
+      len_ = rhs.len_;
+      filterVector_ = rhs.filterVector_;
+      filterPtr_ = rhs.filterPtr_;
+
+      isValid_ = true;
+
+      return *this;
+   }
+
+   bool isValid(void) const { return isValid_; }
+
+   void update(const vector<BinaryData>& hashVec)
+   {
+      if (!isValid())
+         throw runtime_error("txfilter needs initialized first");
+
+      for (auto& hash : hashVec)
+      {
+         update(hash);
+      }
+   }   
+   
+   set<uint32_t> compare(const BinaryData& hash) const
+   {
+      auto key = (T*)hash.getPtr();
+      return compare(*key);
+   }
+
+   set<uint32_t> compare(const T& key) const
+   {
+      set<uint32_t> resultSet;
+      if (filterVector_.size() != 0)
+      {
+         for (unsigned i = 0; i < filterVector_.size(); i++)
+         {
+            if (filterVector_[i] == key)
+               resultSet.insert(i);
+         }
+      }
+      else if (filterPtr_ != nullptr)
+      {
+         auto ptr = (T*)(filterPtr_ + 12);
+         for (unsigned i = 0; i < len_; i++)
+            if (ptr[i] == key)
+               resultSet.insert(i);
+      }
+      else
+         throw runtime_error("invalid filter");
+
+      return resultSet;
+   }
+
+   uint32_t getBlockKey(void) const { return blockKey_; }
+
+   void serialize(BinaryWriter& bw) const
+   {
+      if (blockKey_ == UINT32_MAX)
+         throw runtime_error("invalid block key");
+
+      uint32_t size = 12 + filterVector_.size() * sizeof(T);
+      bw.put_uint32_t(size);
+      bw.put_uint32_t(blockKey_);
+      bw.put_uint32_t(filterVector_.size());
+      
+      BinaryDataRef bdr(
+         (uint8_t*)&filterVector_[0], filterVector_.size() * sizeof(T));
+      bw.put_BinaryData(bdr);
+   }
+
+   bool operator < (const TxFilter& rhs) const
+   {
+      //we want higher blocks to appear earlier in sets/maps
+      return blockKey_ > rhs.blockKey_;
+   }
+};
 
 class BlockHeader
 {
@@ -132,6 +313,14 @@ public:
 
    void clearDataCopy() {dataCopy_.resize(0);}
 
+   BinaryData getBlockDataKey(void) const
+   {
+      return DBUtils::getBlkDataKeyNoPrefix(blockHeight_, duplicateID_);
+   }
+
+   unsigned int getThisID(void) const { return uniqueID_; }
+   void setUniqueID(unsigned int& ID) { uniqueID_ = ID; }
+
 private:
    BinaryData     dataCopy_;
    bool           isInitialized_ = false;
@@ -157,7 +346,7 @@ private:
    uint32_t       blkFileNum_ = UINT32_MAX;
    uint64_t       blkFileOffset_ = SIZE_MAX;
 
-
+   unsigned int uniqueID_ = UINT32_MAX;
 };
 
 

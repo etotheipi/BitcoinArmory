@@ -723,12 +723,14 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
       genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       magicBytes = READHEX(MAINNET_MAGIC_BYTES);
+      btcPort_ = "8333";
    }
    else if(netname == "Test")
    {
       genesisBlockHash = READHEX(TESTNET_GENESIS_HASH_HEX);
       genesisTxHash = READHEX(TESTNET_GENESIS_TX_HASH_HEX);
       magicBytes = READHEX(TESTNET_MAGIC_BYTES);
+      btcPort_ = "18333";
    }
 }
 
@@ -873,13 +875,14 @@ BlockDataManager::BlockDataManager(
    iface_(new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation_)), 
    blockchain_(config_.genesisBlockHash)
 {
-   networkNode_ = make_shared<BitcoinP2P>("localhost", "18333",
+   setConfig(bdmConfig);
+   openDatabase();
+
+   networkNode_ = make_shared<BitcoinP2P>("127.0.0.1", config_.btcPort_,
       *(uint32_t*)config_.magicBytes.getPtr());
 
    zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
-
    scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
-   setConfig(bdmConfig);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -967,6 +970,7 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
       *blockFiles_.get(), threadcount, prg, true);
    bcs.scan_nocheck(blk0);
    bcs.updateSSH(true);
+   bcs.resolveTxHashes();
 
    return bcs.getTopScannedBlockHash();
 }
@@ -1182,16 +1186,17 @@ shared_future<bool> BlockDataManager::registerAddressBatch(
    auto waitOnPromise = make_shared<promise<bool>>();
    shared_future<bool> waitOnFuture = waitOnPromise->get_future();
 
-   auto callback = [waitOnPromise](void)->void
+   auto callback = [waitOnPromise](bool refresh)->void
    {
-      waitOnPromise->set_value(true);
+      waitOnPromise->set_value(refresh);
    };
 
-   ScrAddrFilter::WalletInfo wltInfo;
-   wltInfo.scrAddrSet_ = addrSet;
-   wltInfo.callback_ = callback;
+   shared_ptr<ScrAddrFilter::WalletInfo> wltInfo = 
+      make_shared<ScrAddrFilter::WalletInfo>();
+   wltInfo->scrAddrSet_ = addrSet;
+   wltInfo->callback_ = callback;
 
-   vector<ScrAddrFilter::WalletInfo> wltInfoVec;
+   vector<shared_ptr<ScrAddrFilter::WalletInfo>> wltInfoVec;
    wltInfoVec.push_back(move(wltInfo));
 
    scrAddrData_->registerAddressBatch(move(wltInfoVec), isNew);

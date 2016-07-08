@@ -58,7 +58,10 @@ SOCKET BinarySocket::openSocket(void)
       throw runtime_error("failed to create socket");
 
    if (connect(sockfd, &serv_addr_, sizeof(serv_addr_)) < 0)
+   {
+      closeSocket(sockfd);
       throw runtime_error("failed to connect to server");
+   }
 
    return sockfd;
 }
@@ -82,8 +85,11 @@ void BinarySocket::closeSocket(SOCKET sockfd)
 void BinarySocket::writeToSocket(
    SOCKET sockfd, const char* data, uint32_t size)
 {
-   if(WRITETOSOCKET(sockfd, data, size) != size)
+   if (WRITETOSOCKET(sockfd, data, size) != size)
+   {
+      closeSocket(sockfd);
       throw runtime_error("failed to write to socket");
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -120,6 +126,7 @@ void BinarySocket::readFromSocket(
    }
    catch (runtime_error &e)
    {
+      closeSocket(sockfd);
       throw e;
    }
 

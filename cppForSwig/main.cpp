@@ -102,10 +102,11 @@ BlockDataManagerConfig parseArgs(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
    DataMeta::initTypeMap();
+   ScrAddrFilter::init();
 
    auto&& bdmConfig = parseArgs(argc, argv);
 
-   STARTLOGGING("./supernodeTest.txt", LogLvlDebug);
+   STARTLOGGING("./dbLog.txt", LogLvlDebug);
    LOGENABLESTDOUT();
 
    if (FCGX_Init())

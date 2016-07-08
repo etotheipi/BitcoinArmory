@@ -3120,7 +3120,7 @@ class PyBtcWallet(object):
    @CheckWalletRegistration
    def getHistoryPage(self, pageID):
       try:
-         return self.cppWallet.getHistoryPageAsVector(pageID)
+         return self.cppWallet.getHistoryPage(pageID)
       except:
          raise 'pageID is out of range'  
       
@@ -3173,6 +3173,11 @@ class PyBtcWallet(object):
    @CheckWalletRegistration
    def getCppAddr(self, scrAddr):
       return self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(scrAddr))
+   
+   ###############################################################################
+   @CheckWalletRegistration
+   def getLedgerEntryForTxHash(self, txHash):
+      return self.cppWallet.getLedgerEntryForTxHash(txHash)
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

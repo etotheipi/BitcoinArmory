@@ -2621,14 +2621,20 @@ mdb_txn_renew0(MDB_txn *txn)
 	}
 	txn->mt_dbflags[0] = txn->mt_dbflags[1] = DB_VALID;
 
-	if (env->me_maxpg < txn->mt_next_pgno) {
-		mdb_txn_reset0(txn, "renew0-mapfail");
-		if (new_notls) {
-			txn->mt_u.reader->mr_pid = 0;
-			txn->mt_u.reader = NULL;
-		}
-		return MDB_MAP_RESIZED;
-	}
+   if (env->me_maxpg < txn->mt_next_pgno)
+   {
+      mdb_enlarge_map(txn->mt_env, MAX_MAPSIZE_INCEREMENT, 0);
+      mdb_txn_setnewmapreference(txn);
+
+      if (env->me_maxpg < txn->mt_next_pgno) {
+         mdb_txn_reset0(txn, "renew0-mapfail");
+         if (new_notls) {
+            txn->mt_u.reader->mr_pid = 0;
+            txn->mt_u.reader = NULL;
+         }
+         return MDB_MAP_RESIZED;
+      }
+   }
 
 	return MDB_SUCCESS;
 }

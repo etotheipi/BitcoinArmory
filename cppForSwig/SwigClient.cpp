@@ -197,7 +197,8 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
    Arguments retval(result);
    auto&& rawtx = retval.get<BinaryDataObject>();
 
-   Tx tx(rawtx.get());
+   Tx tx;
+   tx.unserializeWithRBFFlag(rawtx.get());
    return tx;
 }
 
@@ -341,6 +342,50 @@ uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& scrAddr)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntryData> BtcWallet::getHistoryPage(uint32_t id)
+{
+   Command cmd;
+   cmd.method_ = "getHistoryPage";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   cmd.args_.push_back(move(id));
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(retval);
+   auto&& lev = arg.get<LedgerEntryVector>();
+
+   auto& levData = lev.toVector();
+   return levData;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+LedgerEntryData BtcWallet::getLedgerEntryForTxHash(
+   const BinaryData& txhash)
+{
+   Command cmd;
+   cmd.method_ = "getHistoryPage";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   //get history page with a hash as argument instead of an int will return 
+   //the ledger entry for the tx instead of a page
+   cmd.args_.push_back(move(BinaryDataObject(txhash)));
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(retval);
+   auto&& lev = arg.get<LedgerEntryVector>();
+
+   auto& levData = lev.toVector();
+   return levData[0];
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // ScrAddrObj
 //
@@ -424,6 +469,8 @@ void PythonCallback::remoteLoop(void)
 
    auto processCallback = [this](Arguments args)->bool
    {
+      //LOGINFO << "entering callback process lambda";
+
       while (args.hasArgs())
       {
          auto&& cb = move(args.get<string>());

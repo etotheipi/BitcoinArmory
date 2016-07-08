@@ -85,12 +85,20 @@ private:
    size_t offset_ = SIZE_MAX;
 
    BinaryData blockHash_;
+   TxFilter<TxFilterType> txFilter_;
+
+   uint32_t uniqueID_ = UINT32_MAX;
 
 public:
    BlockData(void) {}
 
+   BlockData(uint32_t blockid) 
+      : uniqueID_(blockid)
+   {}
+
    void deserialize(const uint8_t* data, size_t size,
-      const BlockHeader*, bool checkMerkle = false);
+      const BlockHeader*, 
+      function<unsigned int(void)> getID, bool checkMerkle = false);
 
    bool isInitialized(void) const
    {
@@ -117,6 +125,10 @@ public:
 
    BlockHeader createBlockHeader(void) const;
    const BinaryData& getHash(void) const { return blockHash_; }
+   
+   TxFilter<TxFilterType> computeTxFilter(const vector<BinaryData>&) const;
+   const TxFilter<TxFilterType>& getTxFilter(void) const { return txFilter_; }
+   uint32_t uniqueID(void) const { return uniqueID_; }
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -212,7 +224,8 @@ private:
    function<void(void)> gcLambda_;
 
 public:
-   BlockFileMapPointer(shared_ptr<BlockDataFileMap> ptr, function<void(void)> gcLambda)
+   BlockFileMapPointer(
+      shared_ptr<BlockDataFileMap> ptr, function<void(void)> gcLambda)
       : ptr_(ptr), gcLambda_(gcLambda)
    {
       //update ptr counter

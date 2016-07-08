@@ -16,7 +16,7 @@ class ScrAddrFilter;
 
 typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
-#define DEBUG_THREAD_COUNT 2
+#define DEBUG_THREAD_COUNT 5
 
 /////////////////////////////////////////////////////////////////////////////
 class DatabaseBuilder
@@ -51,11 +51,15 @@ private:
 
    unsigned getThreadCount(void)
    {
+      unsigned threadCount;
       #ifdef _DEBUG
-            return DEBUG_THREAD_COUNT;
+            threadCount = DEBUG_THREAD_COUNT;
       #else
-            return thread::hardware_concurrency();
+            threadCount = thread::hardware_concurrency();
       #endif
+
+      LOGINFO << "Running on " << threadCount << " threads";
+      return threadCount;
    }
 
    void resetHistory(void);

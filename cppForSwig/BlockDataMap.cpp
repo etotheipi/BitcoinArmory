@@ -11,7 +11,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockData::deserialize(const uint8_t* data, size_t size,
-   const BlockHeader* blockHeader, bool checkMerkle)
+   const BlockHeader* blockHeader, 
+   function<unsigned int(void)> getID, bool checkMerkle)
 {
    headerPtr_ = blockHeader;
 
@@ -90,12 +91,26 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    {
       BinaryDataRef txdata(txn->data_, txn->size_);
       auto&& txhash = BtcUtils::getHash256(txdata);
-      allhashes.push_back(txhash);
+      allhashes.push_back(move(txhash));
    }
 
    auto&& merkleroot = BtcUtils::calculateMerkleRoot(allhashes);
    if (merkleroot != bh.getMerkleRoot())
       throw BlockDeserializingException("invalid merkle root");
+
+   uniqueID_ = getID();
+
+   txFilter_ = move(computeTxFilter(allhashes));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+TxFilter<TxFilterType> 
+BlockData::computeTxFilter(const vector<BinaryData>& allHashes) const
+{
+   TxFilter<TxFilterType> txFilter(uniqueID_, allHashes.size());
+   txFilter.update(allHashes);
+
+   return move(txFilter);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -124,6 +139,7 @@ BlockHeader BlockData::createBlockHeader(void) const
    bh.blkFileNum_ = fileID_;
    bh.blkFileOffset_ = offset_;
    bh.thisHash_ = blockHash_;
+   bh.uniqueID_ = uniqueID_;
 
    return bh;
 }
