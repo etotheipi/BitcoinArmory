@@ -218,8 +218,24 @@ try
       auto newBlocksFuture = newBlocksPromise.get_future();
       
       auto newBlocksCallback = 
-         [&newBlocksPromise](const vector<InvEntry>&)->void
+         [&newBlocksPromise](const vector<InvEntry>& vecIE)->void
       {
+         for (auto& ie : vecIE)
+         {
+            if (ie.invtype_ == Inv_Terminate)
+            {
+               try
+               {
+                  throw runtime_error("terminate");
+               }
+               catch (...)
+               {
+                  newBlocksPromise.set_exception(current_exception());
+                  return;
+               }
+            }
+         }
+
          newBlocksPromise.set_value(true);
       };
 
@@ -231,7 +247,7 @@ try
          while (updateChainLambda());
 
          //wait on future
-         newBlocksFuture.wait();
+         newBlocksFuture.get();
       }
       catch (...)
       {
@@ -239,7 +255,7 @@ try
       }
    }
 
-   bdm->newBlocksStack_.terminate();
+   //bdm->newBlocksStack_.terminate();
 }
 catch (std::exception &e)
 {

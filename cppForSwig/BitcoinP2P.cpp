@@ -1264,7 +1264,11 @@ void BitcoinP2P::shutdown()
 
    //clean up remaining lambdas
    vector<InvEntry> ieVec;
+   InvEntry entry;
+   entry.invtype_ = Inv_Terminate;
+   ieVec.push_back(entry);
 
    processInvBlock(ieVec);
-   processInvTx(ieVec);
+   //zc container will shut down its own threads
+   //processInvTx(ieVec);
 }
