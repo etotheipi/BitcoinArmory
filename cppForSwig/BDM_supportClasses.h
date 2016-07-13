@@ -99,6 +99,7 @@ public:
       string ID_;
       const unsigned intID_;
 
+
       WalletInfo(void) :
          intID_(idCounter_.fetch_add(1, memory_order_relaxed))
       {}
@@ -140,6 +141,7 @@ public:
 private:
 
    static atomic<unsigned> keyCounter_;
+   static atomic<bool> run_;
 
    shared_ptr<map<BinaryData, uint32_t>>   scrAddrMap_;
 
@@ -207,7 +209,11 @@ public:
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
    const shared_ptr<map<BinaryData, uint32_t>>& getScrAddrMap(void) const
-   { return scrAddrMap_; }
+   { 
+      if (!run_.load(memory_order_relaxed))
+         throw runtime_error("ScrAddrFilter flagged for termination");
+      return scrAddrMap_; 
+   }
 
    size_t numScrAddr(void) const
    { return scrAddrMap_->size(); }
@@ -219,12 +225,6 @@ public:
       vector<shared_ptr<WalletInfo>>&& wltInfoVec, bool areNew);
 
    void clear(void);
-
-   bool hasScrAddress(const BinaryData & sa)
-   { 
-      auto scraddrmapptr = scrAddrMap_;
-      return (scraddrmapptr->find(sa) != scraddrmapptr->end());
-   }
 
    void getScrAddrCurrentSyncState();
    void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
@@ -257,6 +257,11 @@ public:
    
    set<BinaryData> getMissingHashes(void) const;
    void putMissingHashes(const set<BinaryData>&);
+
+   static void shutdown(void)
+   {
+      run_.store(false, memory_order_relaxed);
+   }
 
 public:
    virtual shared_ptr<ScrAddrFilter> copy()=0;
@@ -392,6 +397,7 @@ public:
    void processInvTxThread(void);
 
    void init(function<bool(const BinaryData&)>, bool clearMempool);
+   void shutdown();
 
    void insertBDVcallback(string, BDV_Callbacks);
    void eraseBDVcallback(string);

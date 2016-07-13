@@ -22,7 +22,8 @@ enum OrderType
    OrderNewBlock,
    OrderRefresh,
    OrderZC,
-   OrderOther
+   OrderOther,
+   OrderTerminate
 };
 
 ///////////////////////////////////////////////////////////////////////////////

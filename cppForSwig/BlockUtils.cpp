@@ -935,6 +935,11 @@ void BlockDataManager::openDatabase()
 /////////////////////////////////////////////////////////////////////////////
 BlockDataManager::~BlockDataManager()
 {
+   blockFiles_.reset();
+   dbBuilder_.reset();
+   networkNode_.reset();
+   readBlockHeaders_.reset();
+   zeroConfCont_.reset();
    iface_->closeDatabases();
    scrAddrData_.reset();
    delete iface_;
@@ -1212,7 +1217,14 @@ void BlockDataManager::enableZeroConf(bool clearMempool)
    zcEnabled_ = true;
 
    auto zcFilter = [this](const BinaryData& scrAddr)->bool
-   { return this->getScrAddrFilter()->hasScrAddress(scrAddr); };
+   { 
+      auto scrAddrMap = scrAddrData_->getScrAddrMap();
+      auto saIter = scrAddrMap->find(scrAddr);
+      if (saIter == scrAddrMap->end())
+         return false;
+
+      return true;
+   };
 
    zeroConfCont_->init(zcFilter, clearMempool);
 }
@@ -1222,4 +1234,6 @@ void BlockDataManager::disableZeroConf(void)
 {
    SCOPED_TIMER("disableZeroConf");
    zcEnabled_ = false;
+
+   zeroConfCont_->shutdown();
 }

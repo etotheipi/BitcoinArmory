@@ -234,37 +234,8 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["getLedgerDelegateForLockboxes"] = getLedgerDelegateForLockboxes;
 
-   //getFullBalance
-   auto getFullBalance = [this]
-      (const vector<string>& ids, Arguments& args)->Arguments
-   {
-      if (ids.size() != 2)
-         throw runtime_error("unexpected id count");
-
-      auto& walletId = ids[1];
-      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
-      shared_ptr<BtcWallet> wltPtr = nullptr;
-      for (int i = 0; i < this->groups_.size(); i++)
-      {
-         auto wltIter = this->groups_[i].wallets_.find(bdId);
-         if (wltIter != this->groups_[i].wallets_.end())
-            wltPtr = wltIter->second;
-      }
-
-      if (wltPtr == nullptr)
-         throw runtime_error("unknown wallet/lockbox ID");
-
-      auto balance = wltPtr->getFullBalance();
-
-      Arguments retarg;
-      retarg.push_back(move(balance));
-      return retarg;
-   };
-
-   methodMap_["getFullBalance"] = getFullBalance;
-
-   //getSpendableBalance
-   auto getSpendableBalance = [this]
+   //getBalances
+   auto getBalances = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
       if (ids.size() != 2)
@@ -286,46 +257,18 @@ void BDV_Server_Object::buildMethodMap()
       auto height = args.get<uint32_t>();
       auto ignorezc = args.get<unsigned int>();
 
-      auto balance = wltPtr->getSpendableBalance(height, ignorezc);
+      auto balance_full = wltPtr->getFullBalance();
+      auto balance_spen = wltPtr->getSpendableBalance(height, ignorezc);
+      auto balance_unco = wltPtr->getUnconfirmedBalance(height, ignorezc);
 
       Arguments retarg;
-      retarg.push_back(move(balance));
+      retarg.push_back(move(balance_full));
+      retarg.push_back(move(balance_spen));
+      retarg.push_back(move(balance_unco));
       return retarg;
    };
 
-   methodMap_["getSpendableBalance"] = getSpendableBalance;
-
-   //getUnconfirmedBalance
-   auto getUnconfirmedBalance = [this]
-      (const vector<string>& ids, Arguments& args)->Arguments
-   {
-      if (ids.size() != 2)
-         throw runtime_error("unexpected id count");
-
-      auto& walletId = ids[1];
-      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
-      shared_ptr<BtcWallet> wltPtr = nullptr;
-      for (int i = 0; i < this->groups_.size(); i++)
-      {
-         auto wltIter = this->groups_[i].wallets_.find(bdId);
-         if (wltIter != this->groups_[i].wallets_.end())
-            wltPtr = wltIter->second;
-      }
-
-      if (wltPtr == nullptr)
-         throw runtime_error("unknown wallet or lockbox ID");
-
-      auto height = args.get<uint32_t>();
-      auto ignorezc = args.get<unsigned int>();
-
-      auto balance = wltPtr->getUnconfirmedBalance(height, ignorezc);
-
-      Arguments retarg;
-      retarg.push_back(move(balance));
-      return retarg;
-   };
-
-   methodMap_["getUnconfirmedBalance"] = getUnconfirmedBalance;
+   methodMap_["getBalances"] = getBalances;
 
    //hasHeaderWithHash
    auto hasHeaderWithHash = [this]
@@ -468,6 +411,9 @@ const shared_ptr<BDV_Server_Object>& Clients::get(const string& id) const
 ///////////////////////////////////////////////////////////////////////////////
 Arguments Clients::runCommand(const string& cmdStr)
 {
+   if (!run_.load(memory_order_relaxed))
+      return Arguments();
+
    Command cmdObj(cmdStr);
    cmdObj.deserialize();
    if (cmdObj.method_ == "registerBDV")
@@ -482,6 +428,21 @@ Arguments Clients::runCommand(const string& cmdStr)
       unregisterBDV(cmdObj.ids_[0]);
       return Arguments();
    }
+   else if (cmdObj.method_ == "shutdown")
+   {
+      auto shutdownLambda = [this](void)->void
+      {
+         this->exitRequestLoop();
+      };
+
+      //run shutdown sequence in its own thread so that the fcgi listen
+      //loop can exit properly.
+      thread shutdownThr(shutdownLambda);
+      if (shutdownThr.joinable())
+         shutdownThr.detach();
+
+      return Arguments();
+   }
 
    //find the BDV and method
    if (cmdObj.ids_.size() == 0)
@@ -491,6 +452,55 @@ Arguments Clients::runCommand(const string& cmdStr)
 
    //execute command
    return bdv->executeCommand(cmdObj.method_, cmdObj.ids_, cmdObj.args_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void Clients::shutdown()
+{
+   /*shutdown sequence*/
+   
+   //exit BDM maintenance thread
+   bdmT_->shutdown();
+
+   //shutdown ZC container
+   bdmT_->bdm()->disableZeroConf();
+
+   //terminate all ongoing scans
+   bdmT_->bdm()->terminateAllScans();
+
+   bdmT_->cleanUp();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void Clients::exitRequestLoop()
+{
+   /*terminate request processing loop*/
+   LOGINFO << "shutting down server";
+
+   //shutdown node
+   bdmT_->bdm()->shutdownNode();
+
+   //prevent all new commands from running
+   run_.store(false, memory_order_relaxed);
+
+   //shutdown Clients gc thread
+   gcCommands_.completed();
+
+   //cleanup all BDVs
+   unregisterAllBDVs();
+
+   //shutdown loop on FcgiServer side
+   fcgiShutdownCallback_();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void Clients::unregisterAllBDVs()
+{
+   auto bdvs = BDVs_.get();
+   BDVs_.clear();
+
+   for (auto& bdv : *bdvs)
+      bdv.second->haltThreads();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -644,6 +654,28 @@ void FCGI_Server::init()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void FCGI_Server::haltFcgiLoop()
+{
+   /*** to exit the FCGI loop we need to shutdown the FCGI lib as a whole
+   (otherwise accept will keep on blocking until a new fcgi request is 
+   received. Shutting down the lib calls WSACleanUp in Windows, which will
+   terminate all networking capacity for the process.
+
+   This means the node P2P connection will crash if it isn't cleaned up first.
+   ***/
+
+   //shutdown loop
+   run_ = 0;
+
+   //spin lock until all requests are closed
+   while (liveThreads_.load(memory_order_relaxed) != 0);
+
+   //close the listening socket
+   //FCGX_ShutdownPending();
+   OS_LibShutdown();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void FCGI_Server::enterLoop()
 {
    while (run_)
@@ -662,7 +694,7 @@ void FCGI_Server::enterLoop()
       if (thr.joinable())
          thr.detach();
 
-      //implement a thread recycling chain later
+      //TODO: implement thread recycling
    }
 }
 
@@ -861,6 +893,7 @@ void BDV_Server_Object::maintenanceThread(void)
       }
       catch (IsEmpty&)
       {
+         cb_->callback(Arguments(), OrderTerminate);
          break;
       }
 
@@ -1029,6 +1062,13 @@ Arguments SocketCallback::respond()
          case OrderRefresh:
             refreshNotification = true;
             break;
+
+         case OrderTerminate:
+         {
+            Arguments terminateArg;
+            terminateArg.push_back(move(string("terminate")));
+            return terminateArg;
+         }
 
          default:
             arg.merge(order.order_);

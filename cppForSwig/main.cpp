@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
    server.enterLoop();
 
    //stop all threads and clean up
-
+   server.shutdown();
 
    return 0;
 }

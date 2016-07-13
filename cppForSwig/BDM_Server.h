@@ -17,6 +17,7 @@
 
 #include "BitcoinP2p.h"
 #include "./BlockDataManager/fcgi/include/fcgiapp.h"
+#include "./BlockDataManager/fcgi/include/fcgios.h"
 
 #include "BlockDataViewer.h"
 #include "BDM_seder.h"
@@ -58,41 +59,6 @@ public:
 
       return true;
    }
-};
-
-///////////////////////////////////////////////////////////////////////////////
-class BlockDataManagerThread
-{
-   struct BlockDataManagerThreadImpl;
-   BlockDataManagerThreadImpl *pimpl;
-
-   BlockHeader* topBH_ = nullptr;
-
-public:
-   BlockDataManagerThread(const BlockDataManagerConfig &config);
-   ~BlockDataManagerThread();
-
-   // start the BDM thread
-   void start(BDM_INIT_MODE mode);
-
-   BlockDataManager *bdm();
-
-   void setConfig(const BlockDataManagerConfig &config);
-
-   // stop the BDM thread 
-   void shutdownAndWait();
-
-   // return true if the caller should wait on callback notification
-   bool requestShutdown();
-
-   BlockHeader* topBH(void) const { return topBH_; }
-
-private:
-   static void* thrun(void *);
-   void run();
-
-private:
-   BlockDataManagerThread(const BlockDataManagerThread&);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -171,15 +137,23 @@ private:
    mutable BlockingStack<bool> gcCommands_;
    BlockDataManagerThread* bdmT_;
 
+   function<void(void)> fcgiShutdownCallback_;
+
+   atomic<bool> run_;
+
 private:
    void maintenanceThread(void) const;
    void garbageCollectorThread(void);
+   void unregisterAllBDVs(void);
 
 public:
 
-   Clients(BlockDataManagerThread* bdmT) :
-      bdmT_(bdmT)
+   Clients(BlockDataManagerThread* bdmT,
+      function<void(void)> shutdownLambda) :
+      bdmT_(bdmT), fcgiShutdownCallback_(shutdownLambda)
    {
+      run_.store(true, memory_order_relaxed);
+
       auto mainthread = [this](void)->void
       {
          maintenanceThread();
@@ -203,6 +177,8 @@ public:
    Arguments runCommand(const string& cmd);
    Arguments registerBDV(void);
    void unregisterBDV(const string& bdvId);
+   void shutdown(void);
+   void exitRequestLoop(void);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -222,9 +198,20 @@ private:
 
    Clients clients_;
 
+private:
+   function<void(void)> getShutdownCallback(void)
+   {
+      auto shutdownCallback = [this](void)->void
+      {
+         this->haltFcgiLoop();
+      };
+
+      return shutdownCallback;
+   }
+
 public:
    FCGI_Server(BlockDataManagerThread* bdmT) :
-      clients_(bdmT)
+      clients_(bdmT, getShutdownCallback())
    {
       liveThreads_.store(0, memory_order_relaxed);
    }
@@ -232,6 +219,8 @@ public:
    void init(void);
    void enterLoop(void);
    void processRequest(FCGX_Request* req);
+   void haltFcgiLoop(void);
+   void shutdown(void) { clients_.shutdown(); }
 };
 
 #endif

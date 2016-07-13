@@ -398,7 +398,13 @@ StoredHeader BlockDataViewer::getBlockFromDB(
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::scrAddressIsRegistered(const BinaryData& scrAddr) const
 {
-   return saf_->hasScrAddress(scrAddr);
+   auto scrAddrMap = saf_->getScrAddrMap();
+   auto saIter = scrAddrMap->find(scrAddr);
+
+   if (saIter == scrAddrMap->end())
+      return false;
+
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -413,11 +419,14 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 {
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter().get();
 
+   auto scrAddrMap = saf_->getScrAddrMap();
+
    if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
    {
       for (const auto& scrAddr : scrAddrVec)
       {
-         if (!saf->hasScrAddress(scrAddr))
+         auto saIter = scrAddrMap->find(scrAddr);
+         if (saIter == scrAddrMap->end())
             throw std::range_error("Don't have this scrAddr tracked");
       }
    }

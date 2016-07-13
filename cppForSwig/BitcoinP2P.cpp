@@ -580,6 +580,8 @@ BitcoinP2P::BitcoinP2P(const string& addrV4, const string& port,
    uint32_t magicword) :
    addr_v4_(addrV4), port_(port), magic_word_(magicword)
 {
+   run_.store(true, memory_order_relaxed);
+
    //resolve address
    struct addrinfo hints;
    struct addrinfo *result;
@@ -644,7 +646,7 @@ void BitcoinP2P::setBlocking(SOCKET sock, bool setblocking)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BitcoinP2P::connectToNode()
+void BitcoinP2P::connectToNode(bool async)
 {
    unique_lock<mutex> lock(connectMutex_, defer_lock);
 
@@ -663,6 +665,9 @@ void BitcoinP2P::connectToNode()
    if (connectthread.joinable())
       connectthread.detach();
 
+   if (async)
+      return;
+
    connectedFuture.get();
 
    if (select_except_ != nullptr)
@@ -676,8 +681,10 @@ void BitcoinP2P::connectToNode()
 void BitcoinP2P::connectLoop(void)
 {
    size_t waitBeforeReconnect = 0;
+   promise<bool> shutdownPromise;
+   shutdownFuture_ = shutdownPromise.get_future();
 
-   while (1)
+   while (run_.load(memory_order_relaxed))
    {
       //clean up stacks
       dataStack_.reset();
@@ -786,6 +793,8 @@ void BitcoinP2P::connectLoop(void)
 
       LOGINFO << "Disconnected from Bitcoin node";
    }
+
+   shutdownPromise.set_value(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1242,4 +1251,20 @@ void BitcoinP2P::unregisterGetTxCallback(
    const BinaryDataRef& hashRef)
 {
    getTxCallbackMap_.erase(hashRef);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BitcoinP2P::shutdown()
+{
+   run_.store(false, memory_order_relaxed);
+   closesocket(sockfd_);
+
+   //wait until connect loop exists
+   shutdownFuture_.wait();
+
+   //clean up remaining lambdas
+   vector<InvEntry> ieVec;
+
+   processInvBlock(ieVec);
+   processInvTx(ieVec);
 }

@@ -208,6 +208,8 @@ public:
       return zeroConfCont_;
    }
 
+   void shutdownNode(void) { networkNode_->shutdown(); }
+
 public:
 
    bool startSideScan(
@@ -226,6 +228,64 @@ public:
    vector<string> getNextWalletIDToScan(void);
    
    void resetDatabases(ResetDBMode mode);
+   
+   void terminateAllScans(void) 
+   {
+      ScrAddrFilter::shutdown();
+   }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+class BlockDataManagerThread
+{
+   struct BlockDataManagerThreadImpl
+   {
+      BlockDataManager *bdm = nullptr;
+      int mode = 0;
+      volatile bool run = false;
+      bool failure = false;
+      thread tID;
+
+      ~BlockDataManagerThreadImpl()
+      {
+         delete bdm;
+      }
+   };
+
+   BlockDataManagerThreadImpl *pimpl = nullptr;
+
+   BlockHeader* topBH_ = nullptr;
+
+public:
+   BlockDataManagerThread(const BlockDataManagerConfig &config);
+   ~BlockDataManagerThread();
+
+   // start the BDM thread
+   void start(BDM_INIT_MODE mode);
+
+   BlockDataManager *bdm();
+
+   void setConfig(const BlockDataManagerConfig &config);
+
+   // return true if the caller should wait on callback notification
+   void shutdown();
+
+   BlockHeader* topBH(void) const { return topBH_; }
+   void cleanUp(void)
+   {
+      if (pimpl == nullptr)
+         return;
+
+      delete pimpl;
+      pimpl = nullptr;
+   }
+
+private:
+   static void* thrun(void *);
+   void run();
+
+private:
+   BlockDataManagerThread(const BlockDataManagerThread&);
 };
 
 #endif

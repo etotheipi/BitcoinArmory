@@ -49,20 +49,6 @@ void BlockDataManager::unregisterBDVwithZCcontainer(
 BDM_CallBack::~BDM_CallBack()
 {}
 
-struct BlockDataManagerThread::BlockDataManagerThreadImpl
-{
-   BlockDataManager *bdm=nullptr;
-   int mode=0;
-   volatile bool run=false;
-   bool failure=false;
-   thread tID;
-
-   ~BlockDataManagerThreadImpl()
-   {
-      delete bdm;
-   }
-};
-
 BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &config)
 {
    pimpl = new BlockDataManagerThreadImpl;
@@ -71,6 +57,9 @@ BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &con
 
 BlockDataManagerThread::~BlockDataManagerThread()
 {
+   if (pimpl == nullptr)
+      return;
+
    if (pimpl->run)
    {
       LOGERR << "Destroying BlockDataManagerThread without shutting down first";
@@ -78,6 +67,7 @@ BlockDataManagerThread::~BlockDataManagerThread()
    else
    {
       delete pimpl;
+      pimpl = nullptr;
    }
 }
 
@@ -100,27 +90,15 @@ void BlockDataManagerThread::setConfig(const BlockDataManagerConfig &config)
    pimpl->bdm->setConfig(config);
 }
 
-
-// stop the BDM thread
-void BlockDataManagerThread::shutdownAndWait()
-{
-   requestShutdown();
-   
-   if (pimpl->tID.joinable())
-      pimpl->tID.join();
-}
-
-bool BlockDataManagerThread::requestShutdown()
+void BlockDataManagerThread::shutdown()
 {
    if (pimpl->run)
    {
       pimpl->run = false;
-      //pimpl->inject->notify();
 
-      return true;
+      if (pimpl->tID.joinable())
+         pimpl->tID.join();
    }
-
-   return false;
 }
 
 namespace
@@ -149,7 +127,9 @@ try
    bdm->isReadyFuture_ = isReadyPromise.get_future();
    
    {
-      bdm->networkNode_->connectToNode();
+      //connect to node as async, no need to wait for a succesful connection
+      //to init the DB
+      bdm->networkNode_->connectToNode(true);
 
       tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
       time_t lastProgressTime=0;
@@ -243,28 +223,32 @@ try
          newBlocksPromise.set_value(true);
       };
 
-      bdm->networkNode_->registerInvBlockLambda(newBlocksCallback);
+      try
+      {
+         bdm->networkNode_->registerInvBlockLambda(newBlocksCallback);
 
-      //keep updating until there are no more new blocks
-      while (updateChainLambda());
+         //keep updating until there are no more new blocks
+         while (updateChainLambda());
 
-      //wait on future
-      newBlocksFuture.get();
+         //wait on future
+         newBlocksFuture.wait();
+      }
+      catch (...)
+      {
+         break;
+      }
    }
+
+   bdm->newBlocksStack_.terminate();
 }
 catch (std::exception &e)
 {
    LOGERR << "BDM thread failed: " << e.what();
    string errstr(e.what());
-   /*pimpl->callback->run(BDMAction_ErrorMsg, &errstr);
-   pimpl->inject->setFailureFlag();
-   pimpl->inject->notify();*/
 }
 catch (...)
 {
    LOGERR << "BDM thread failed: (unknown exception)";
-   /*pimpl->inject->setFailureFlag();
-   pimpl->inject->notify();*/
 }
 
 void* BlockDataManagerThread::thrun(void *_self)

@@ -22,11 +22,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 atomic<unsigned> ScrAddrFilter::keyCounter_;
 atomic<unsigned> ScrAddrFilter::WalletInfo::idCounter_;
+atomic<bool> ScrAddrFilter::run_;
 
 ///////////////////////////////////////////////////////////////////////////////
 void ScrAddrFilter::init()
 {
    keyCounter_.store(0, memory_order_relaxed);
+   run_.store(true, memory_order_relaxed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1589,7 +1591,12 @@ void ZeroConfContainer::processInvTxThread(void)
       try
       {
          auto&& entry = newtxfuture.get();
+         //thread exit condition: push a block with a inv_error type
+         if (entry.invtype_ == Inv_Terminate)
+            break;
+
          auto&& payload = networkNode_->getTx(entry);
+
 
          //push raw tx with current time
          pair<BinaryData, Tx> zcpair;
@@ -1714,4 +1721,21 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    if (!gotTx)
       throw runtime_error("broadcast tx timed out");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::shutdown()
+{
+   newZcStack_.completed();
+
+   //shutdow invtx processing threads by pushing inventries of 
+   //inv_terminate type
+   InvEntry terminateEntry;
+   vector<InvEntry> vecIE;
+   terminateEntry.invtype_ = Inv_Terminate;
+
+   for (unsigned i = 0; i < GETZC_THREADCOUNT; i++)
+      vecIE.push_back(terminateEntry);
+
+   processInvTxVec(vecIE);
 }

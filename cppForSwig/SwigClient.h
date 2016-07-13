@@ -64,9 +64,7 @@ private:
 
 public:
    BtcWallet(const BlockDataViewer&, const string&);
-   int64_t getFullBalance(void);
-   int64_t getUnconfirmedBalance(uint32_t topBlockHeight, bool IGNOREZC);
-   int64_t getSpendableBalance(uint32_t topBlockHeight, bool IGNOREZC);
+   vector<uint64_t> getBalances(uint32_t topBlockHeight, bool IGNOREZC);
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
    uint64_t getAddrTotalTxnCount(const BinaryData& scrAddr);
@@ -169,6 +167,7 @@ public:
    void goOnline(void);
    void registerWithDB(void);
    void unregisterFromDB(void);
+   void shutdown(void);
 
    void broadcastZC(const BinaryData& rawTx);
    Tx getTxByHash(const BinaryData& txHash);

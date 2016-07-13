@@ -262,6 +262,10 @@ class PyBtcWallet(object):
       #list is cleared after each scan.
       self.actionsToTakeAfterScan = []
       
+      self.balance_spendable = 0
+      self.balance_unconfirmed = 0
+      self.balance_full = 0
+      
    #############################################################################
    def registerWallet(self, isNew=False):
       if len(self.uniqueIDB58) == 0:
@@ -369,18 +373,25 @@ class PyBtcWallet(object):
    # change was always deprioritized, but using --nospendzeroconfchange makes
    # it totally unspendable
    def getBalance(self, balType="Spendable"):
+      if balType.lower() in ('spendable','spend'):
+         return self.balance_spendable
+         #return self.cppWallet.getSpendableBalance(topBlockHeight, IGNOREZC)
+      elif balType.lower() in ('unconfirmed','unconf'):
+         #return self.cppWallet.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
+         return self.balance_unconfirmed
+      elif balType.lower() in ('total','ultimate','unspent','full'):
+         #return self.cppWallet.getFullBalance()
+         return self.balance_full
+      else:
+         raise TypeError('Unknown balance type! "' + balType + '"')
+      
+   def getBalanceFromDB(self):
       if self.cppWallet != None and TheBDM.getState() is BDM_BLOCKCHAIN_READY:
          topBlockHeight = TheBDM.getTopBlockHeight()
-         if balType.lower() in ('spendable','spend'):
-            return self.cppWallet.getSpendableBalance(topBlockHeight, IGNOREZC)
-         elif balType.lower() in ('unconfirmed','unconf'):
-            return self.cppWallet.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
-         elif balType.lower() in ('total','ultimate','unspent','full'):
-            return self.cppWallet.getFullBalance()
-         else:
-            raise TypeError('Unknown balance type! "' + balType + '"')
-      else:
-         return 0
+         balanceVector = self.cppWallet.getBalances(topBlockHeight, IGNOREZC)
+         self.balance_full = balanceVector[0]
+         self.balance_spendable = balanceVector[1]
+         self.balance_unconfirmed = balanceVector[2]
 
    #############################################################################
    @CheckWalletRegistration

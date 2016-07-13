@@ -5832,6 +5832,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def updateWalletBalance(self):
+      for wltid in self.walletMap:
+         self.walletMap[wltid].getBalanceFromDB()
 
    #############################################################################
    def handleCppNotification(self, action, args):
@@ -5839,6 +5842,8 @@ class ArmoryMainWindow(QMainWindow):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          #Blockchain just finished loading, finish initializing UI and render the
          #ledgers
+         
+         self.updateWalletBalance()
 
          for wltid in self.walletMap:
             self.walletMap[wltid].detectHighestUsedIndex()
@@ -5854,12 +5859,14 @@ class ArmoryMainWindow(QMainWindow):
          #A zero conf Tx conerns one of the address Armory is tracking, pull the 
          #updated ledgers from the BDM and create the related notifications.         
 
+         self.updateWalletBalance()
          self.checkNewZeroConf(args)        
 
       elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
          #the new block height in the status bar and note the block received time         
 
+         self.updateWalletBalance()
          newBlocks = args[0]
          if newBlocks>0:       
             print 'New Block: ', TheBDM.getTopBlockHeight()
@@ -5885,6 +5892,7 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
+         self.updateWalletBalance()
          reset  = False
          if len(args) == 0:
             self.createCombinedLedger()
@@ -6381,9 +6389,12 @@ class ArmoryMainWindow(QMainWindow):
       
       try:
          # Save the main window geometry in the settings file
-         self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
-         self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
-         self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
+         try:
+            self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
+            self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
+            self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
+         except:
+            pass
 
          if TheBDM.getState()==BDM_SCANNING:
             LOGINFO('BDM state is scanning -- force shutdown BDM')
@@ -6408,12 +6419,15 @@ class ArmoryMainWindow(QMainWindow):
          
          from twisted.internet import reactor
          LOGINFO('Attempting to close the main window!')
-         reactor.stop()
+
          
       except:
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
    
+      from twisted.internet import reactor
+      LOGINFO('Attempting to close the main window!')
+      reactor.stop()
 
    #############################################################################
    def execTrigger(self, toSpawn):

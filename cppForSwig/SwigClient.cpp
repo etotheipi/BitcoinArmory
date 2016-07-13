@@ -78,6 +78,15 @@ BlockDataViewer::~BlockDataViewer()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::shutdown()
+{
+   Command cmd;
+   cmd.method_ = "shutdown";
+   cmd.serialize();
+   auto&& result = sock_->writeAndRead(cmd.command_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 BtcWallet BlockDataViewer::registerWallet(
    const string& id, const vector<BinaryData>& addrVec, bool isNew)
 {
@@ -241,29 +250,13 @@ BtcWallet::BtcWallet(const BlockDataViewer& bdv, const string& id) :
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
-int64_t BtcWallet::getFullBalance()
+vector<uint64_t> BtcWallet::getBalances(uint32_t blockheight, bool IGNOREZC)
 {
    Command cmd;
-   cmd.method_ = "getFullBalance";
+   cmd.method_ = "getBalances";
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
-   cmd.serialize();
-
-   auto&& retval = sock_->writeAndRead(cmd.command_);
-   Arguments arg(retval);
-   auto&& balance = arg.get<uint64_t>();
-
-   return balance;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-int64_t BtcWallet::getSpendableBalance(uint32_t blockheight, bool IGNOREZC)
-{
-   Command cmd;
-   cmd.method_ = "getSpendableBalance";
-   cmd.ids_.push_back(bdvID_);
-   cmd.ids_.push_back(walletID_);
-
+   
    unsigned int ignorezc = IGNOREZC;
    cmd.args_.push_back(move(blockheight));
    cmd.args_.push_back(move(ignorezc));
@@ -272,30 +265,17 @@ int64_t BtcWallet::getSpendableBalance(uint32_t blockheight, bool IGNOREZC)
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(retval);
-   auto&& balance = arg.get<uint64_t>();
+   
+   auto&& balance_full = arg.get<uint64_t>();
+   auto&& balance_spen = arg.get<uint64_t>();
+   auto&& balance_unco = arg.get<uint64_t>();
 
-   return balance;
-}
+   vector<uint64_t> balanceVec;
+   balanceVec.push_back(balance_full);
+   balanceVec.push_back(balance_spen);
+   balanceVec.push_back(balance_unco);
 
-///////////////////////////////////////////////////////////////////////////////
-int64_t BtcWallet::getUnconfirmedBalance(uint32_t blockheight, bool IGNOREZC)
-{
-   Command cmd;
-   cmd.method_ = "getUnconfirmedBalance";
-   cmd.ids_.push_back(bdvID_);
-   cmd.ids_.push_back(walletID_);
-
-   unsigned int ignorezc = IGNOREZC;
-   cmd.args_.push_back(move(blockheight));
-   cmd.args_.push_back(move(ignorezc));
-
-   cmd.serialize();
-
-   auto&& retval = sock_->writeAndRead(cmd.command_);
-   Arguments arg(retval);
-   auto&& balance = arg.get<uint64_t>();
-
-   return balance;
+   return balanceVec;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

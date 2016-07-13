@@ -50,6 +50,7 @@
 namespace std
 {
    %template(vector_int) std::vector<int>;
+   %template(vector_uint64_t) std::vector<uint64_t>; 
    %template(vector_float) std::vector<float>;
    %template(vector_string) std::vector<string>;
    %template(vector_LedgerEntryData) std::vector<LedgerEntryData>;

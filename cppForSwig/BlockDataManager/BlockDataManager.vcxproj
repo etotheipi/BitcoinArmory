@@ -175,6 +175,8 @@
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\DataObject.h" />
     <ClInclude Include="..\DBUtils.h" />
+    <ClInclude Include="..\lmdbpp.h" />
+    <ClInclude Include="..\mdb\lmdb.h" />
     <ClInclude Include="..\SocketIncludes.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeClasses.h" />

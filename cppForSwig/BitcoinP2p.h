@@ -62,7 +62,8 @@ enum InvType
    Inv_Error = 0,
    Inv_Msg_Tx,
    Inv_Msg_Block,
-   Inv_Msg_Filtered_Block
+   Inv_Msg_Filtered_Block,
+   Inv_Terminate
 };
 
 int get_varint(uint64_t& val, uint8_t* ptr, uint32_t size);
@@ -412,8 +413,8 @@ private:
    //stores callback by txhash for getdata packet we send to the node
    TransactionalMap<BinaryData, getTxCallback> getTxCallbackMap_;
 
-   //stores payloads by hash for inv packets we sent to the node,
-   //expecting a getdata response
+   atomic<bool> run_;
+   future<bool> shutdownFuture_;
 
 public:
    struct getDataPayload
@@ -455,18 +456,25 @@ public:
    BitcoinP2P(const string& addr, const string& port, uint32_t magic_word);
    ~BitcoinP2P();
 
-   void connectToNode(void);
+   void connectToNode(bool async);
+   void shutdown(void);
    void sendMessage(Payload&&);
 
    Payload_Tx getTx(const InvEntry&, uint32_t timeout = 60);
 
    void registerInvBlockLambda(function<void(const vector<InvEntry>)> func)
    {
+      if (!run_.load(memory_order_relaxed))
+         throw runtime_error("node has been shutdown");
+
       invBlockLambdas_.push_back(move(func));
    }
 
    void registerInvTxLambda(function<void(vector<InvEntry>)> func)
    {
+      if (!run_.load(memory_order_relaxed))
+         throw runtime_error("node has been shutdown");
+
       invTxLambda_ = move(func);
    }
 };

@@ -310,6 +310,8 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
    {
       //TODO: flag isMultisig
 
+      auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
+
       const BlockHeader* header = blockdata.header();
 
       //update processed height
@@ -331,7 +333,8 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
             auto&& scrAddr = BtcUtils::getTxOutScrAddr(
                brr.get_BinaryDataRef(scriptSize));
 
-            if (!scrAddrFilter_->hasScrAddress(scrAddr))
+            auto saIter = scrAddrMap->find(scrAddr);
+            if (saIter == scrAddrMap->end())
                continue;
 
             //if we got this far, this txout is ours
@@ -809,6 +812,7 @@ void BlockchainScanner::updateSSH(bool force)
    map<BinaryData, StoredScriptHistory> sshMap_;
    
    {
+      auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
       StoredScriptHistory* sshPtr = nullptr;
 
       LMDBEnv::Transaction historyTx, sshTx;
@@ -837,7 +841,8 @@ void BlockchainScanner::updateSSH(bool force)
 
             auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
 
-            if (!scrAddrFilter_->hasScrAddress(sshKey))
+            auto saIter = scrAddrMap->find(sshKey);
+            if (saIter == scrAddrMap->end())
             {
                sshPtr = nullptr;
                sshIter.advanceAndRead();
@@ -1048,6 +1053,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
        reorgState.reorgBranchPoint->getBlockHeight())
       throw runtime_error("invalid reorg state");
 
+   auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
+
    while (blockPtr != reorgState.reorgBranchPoint)
    {
       auto currentHeight = blockPtr->getBlockHeight();
@@ -1096,7 +1103,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             auto&& scrAddr = BtcUtils::getTxOutScrAddr(
                brr.get_BinaryDataRef(scriptSize));
 
-            if (!scrAddrFilter_->hasScrAddress(scrAddr))
+            auto saIter = scrAddrMap->find(scrAddr);
+            if (saIter == scrAddrMap->end())
                continue;
 
             //update ssh value and txio count
@@ -1238,7 +1246,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       //write it all up
       for (auto& ssh : sshMap)
       {
-         if (!scrAddrFilter_->hasScrAddress(ssh.second.uniqueKey_))
+         auto saIter = scrAddrMap->find(ssh.second.uniqueKey_);
+         if (saIter == scrAddrMap->end())
          {
             LOGWARN << "invalid scrAddr during undo";
             continue;
