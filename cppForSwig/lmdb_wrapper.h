@@ -313,7 +313,7 @@ public:
 
    const TxFilter<T>& getFilterById(uint32_t id)
    {
-      TxFilter filter(id, 0);
+      TxFilter<T> filter(id, 0);
       auto filterIter = pool_.find(filter);
 
       if (filterIter == pool_.end())

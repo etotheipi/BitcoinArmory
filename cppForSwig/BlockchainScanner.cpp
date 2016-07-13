@@ -1589,7 +1589,7 @@ void BlockchainScanner::resolveTxHashes()
             resolvedHashes.insert(result.first);
 
             //get hashPrefix
-            auto& hashPrefix = result.first.getSliceRef(4, 4);
+            auto hashPrefix = result.first.getSliceRef(4, 4);
 
             auto& hintObj = txHints[hashPrefix];
 

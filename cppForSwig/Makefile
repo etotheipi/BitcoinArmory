@@ -49,7 +49,7 @@ else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
-CPPFLAGS += -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+CPPFLAGS += -Icryptopp -Imdb -IBlockDataManager/fcgi -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lmdb
 SWIG_OPTS    += -c++ -python -threads
 

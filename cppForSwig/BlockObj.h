@@ -39,7 +39,7 @@ class TxOut;
 ////////////////////////////////////////////////////////////////////////////////
 template<typename T> class TxFilter
 {
-   template <typename T> friend class TxFilterPool;
+   template <typename U> friend class TxFilterPool;
 
 private:
    vector<T> filterVector_;

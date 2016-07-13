@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <thread>
 #include <mutex>
-#include "mdb\lmdb.h"
+#include "mdb/lmdb.h"
 
 struct MDB_env;
 struct MDB_txn;

@@ -12,6 +12,7 @@
 #include <atomic>
 #include <memory>
 #include <future>
+#include <vector>
 #include <map>
 #include <set>
 #include <chrono>
@@ -771,7 +772,7 @@ public:
       try
       {
          while (1)
-            vecT.push_back(move(pop_front()));
+            vecT.push_back(move(Stack<T>::pop_front()));
       }
       catch (IsEmpty&)
       {}

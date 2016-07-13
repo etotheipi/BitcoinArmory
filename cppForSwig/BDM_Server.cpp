@@ -132,17 +132,23 @@ void BDV_Server_Object::buildMethodMap()
             while (1)
             {
                auto&& ledgerMap = theWallet->getHistoryPage(pageId++);
-               for (auto& le : ledgerMap)
+               for (auto& lePair : ledgerMap)
                {
-                  auto& leHash = le.second.getTxHash();
+                  auto& leHash = lePair.second.getTxHash();
                   if (leHash == txHash)
                   {
-                     vector<LedgerEntry> lev;
-                     lev.push_back(move(le.second));
-                     resultLev = toLedgerEntryVector(move(lev));
+                     auto& le = lePair.second;
+
+                     LedgerEntryData led(le.getWalletID(),
+                     le.getValue(), le.getBlockNum(), le.getTxHash(),
+                     le.getIndex(), le.getTxTime(), le.isCoinbase(),
+                     le.isSentToSelf(), le.isChangeBack());
+
+                     LedgerEntryVector lev;
+                     lev.push_back(move(led));
 
                      Arguments retarg;
-                     retarg.push_back(move(resultLev));
+                     retarg.push_back(move(lev));
                      return retarg;
                   }
                }
