@@ -677,7 +677,7 @@ void FCGI_Server::haltFcgiLoop()
    while (liveThreads_.load(memory_order_relaxed) != 0);
 
    //close the listening socket
-   //FCGX_ShutdownPending();
+   closesocket(sockfd_);
    OS_LibShutdown();
 }
 
