@@ -39,6 +39,11 @@ void BlockDataViewer::registerWithDB()
       Arguments args(move(result));
       bdvID_ = args.get<string>();
    }
+   catch (runtime_error &e)
+   {
+      LOGERR << e.what();
+      throw NoArmoryDBExcept();
+   }
    catch (...)
    {
       throw NoArmoryDBExcept();
@@ -411,6 +416,12 @@ bool Blockchain::hasHeaderWithHash(const BinaryData& hash)
 PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
    sock_(bdv.sock_), bdvID_(bdv.getID())
 {
+   orderMap_["continue"] = CBO_continue;
+   orderMap_["NewBlock"] = CBO_NewBlock;
+   orderMap_["BDV_Refresh"] = CBO_BDV_Refresh;
+   orderMap_["BDM_Ready"] = CBO_BDM_Ready;
+   orderMap_["progress"] = CBO_progress;
+   orderMap_["terminate"] = CBO_terminate;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -453,35 +464,51 @@ void PythonCallback::remoteLoop(void)
 
       while (args.hasArgs())
       {
-         auto&& cb = move(args.get<string>());
-         if (cb == "continue")
+         auto&& cb = args.get<string>();
+
+         auto orderIter = orderMap_.find(cb);
+         if(orderIter == orderMap_.end())
          {
             continue;
-         }
-         else if (cb == "NewBlock")
+         } 
+
+         switch(orderIter->second)
+         {
+         case CBO_continue:
+            break;
+       
+         case CBO_NewBlock:
          {
             unsigned int newblock = args.get<unsigned int>();
             if (newblock != 0)
                run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
+            break;
          }
-         else if (cb == "BDV_Refresh")
+
+         case CBO_BDV_Refresh:
          {
             vector<BinaryData> bdVector;
             run(BDMAction::BDMAction_Refresh, &bdVector, 0);
+            break;
          }
-         else if (cb == "BDM_Ready")
+
+         case CBO_BDM_Ready:
          {
             unsigned int topblock = args.get<unsigned int>();
             run(BDMAction::BDMAction_Ready, nullptr, topblock);
+            break;
          }
-         else if (cb == "progress")
-         {
 
+         case CBO_progress:
+         {
+            break;
          }
-         else if (cb == "terminate")
+
+         case CBO_terminate:
          {
             //shut down command from server
             return false;
+         }
          }
       }
 

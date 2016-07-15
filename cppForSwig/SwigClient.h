@@ -104,6 +104,17 @@ public:
 class PythonCallback
 {   
 private:
+
+   enum CallbackOrder
+   {
+      CBO_continue,
+      CBO_NewBlock,
+      CBO_BDV_Refresh,
+      CBO_BDM_Ready,
+      CBO_progress,
+      CBO_terminate
+   };   
+
    bool run_ = true;
    thread thr_;
 
@@ -111,9 +122,11 @@ private:
    const string bdvID_;
    SOCKET sockfd_;
 
+   map<string, CallbackOrder> orderMap_;
+
 public:
    PythonCallback(const BlockDataViewer& bdv);
-   virtual ~PythonCallback(void);
+   virtual ~PythonCallback(void) = 0;
 
    virtual void run(BDMAction action, void* ptr, int block = 0) = 0;
    virtual void progress(
