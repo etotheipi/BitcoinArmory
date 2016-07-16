@@ -300,7 +300,7 @@ class BlockDataManager(object):
    def shutdown(self):
       self.bdv_.unregisterFromDB()
       self.callback.shutdown()
-      self.bdv_.shutdown()
+      #self.bdv_.shutdown()
 
    #############################################################################
    @ActLikeASingletonBDM

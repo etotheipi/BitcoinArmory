@@ -1,3 +1,11 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2016, goatpig.                                              //
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 #include "SwigClient.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -307,23 +315,29 @@ vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& scrAddr)
+map<BinaryData, uint32_t> BtcWallet::getAddrTxnCountsFromDB()
 {
    Command cmd;
-   cmd.method_ = "getAddrTotalTxnCount";
+   cmd.method_ = "getAddrTxnCounts";
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
-
-   BinaryDataObject bdo(scrAddr);
-   cmd.args_.push_back(move(bdo));
-
    cmd.serialize();
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(move(retval));
 
-   auto count = arg.get<uint64_t>();
-   return count;
+   map<BinaryData, uint32_t> countMap;
+
+   auto&& count = arg.get<uint64_t>();
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& addr = arg.get<BinaryDataObject>();
+      auto&& count = arg.get<uint32_t>();
+
+      countMap[addr.get()] = count;
+   }
+
+   return countMap;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -496,6 +510,7 @@ void PythonCallback::remoteLoop(void)
          {
             unsigned int topblock = args.get<unsigned int>();
             run(BDMAction::BDMAction_Ready, nullptr, topblock);
+            //return false;
             break;
          }
 
@@ -519,7 +534,7 @@ void PythonCallback::remoteLoop(void)
    {
       try
       {
-         sockfd_ = sock_->openSocket();
+         sockfd_ = sock_->openSocket(true);
          auto&& retval = sock_->writeAndRead(sendCmd.command_, sockfd_);
          Arguments args(move(retval));
 

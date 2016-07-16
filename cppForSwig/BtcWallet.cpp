@@ -166,13 +166,21 @@ uint64_t BtcWallet::getFullBalanceFromDB() const
    return balance;
 }
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getAddrTotalTxnCount(const BinaryData& addr) const
+map<BinaryData, uint32_t> BtcWallet::getTotalTxnCount() const
 {
-   const ScrAddrObj* addrPtr = getScrAddrObjByKey(addr);
-   if (addrPtr != nullptr)
-      return addrPtr->getTxioCountFromSSH();
+   map<BinaryData, uint32_t> countMap;
 
-   return 0;
+   auto addrMap = scrAddrMap_.getAddrMap();
+   for (auto &sa : *addrMap)
+   {
+      auto count = sa.second->getTxioCountForLedgers();
+      if (count == UINT32_MAX)
+         continue;
+
+      countMap[sa.first] = count;
+   }
+
+   return countMap;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -809,7 +817,7 @@ uint64_t BtcWallet::getWltTotalTxnCount(void) const
    auto addrMap = scrAddrMap_.getAddrMap();
 
    for (const auto& scrAddrPair : *addrMap)
-      ntxn += getAddrTotalTxnCount(scrAddrPair.first);
+      ntxn += scrAddrPair.second->getTxioCountFromSSH();
 
    return ntxn;
 }

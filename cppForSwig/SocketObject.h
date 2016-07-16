@@ -14,68 +14,123 @@
 #include <sstream>
 #include <stdint.h>
 #include <functional>
+#include <memory>
 
-#include "FcgiMessage.h"
+#include "ThreadSafeClasses.h"
 #include "bdmenums.h"
+#include "log.h"
 
 #include "SocketIncludes.h"
 
 using namespace std;
 
+////////////////////////////////////////////////////////////////////////////////
+struct fdset_except_safe
+{
+   fd_set set_;
+
+   fdset_except_safe(void) { zero(); }
+   ~fdset_except_safe(void) { zero(); }
+
+   void set(SOCKET sockfd) { FD_SET(sockfd, &set_); }
+   void zero(void) { FD_ZERO(&set_); }
+   fd_set* get(void) { return &set_; }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 class BinarySocket
 {
 protected:
-   const size_t maxread_ = 1024*1024*1024;
+   const size_t maxread_ = 4*1024*1024;
    
    struct sockaddr serv_addr_;
    const string addr_;
    const string port_;
 
+private:
+   void readFromSocketThread(SOCKET sockfd,
+      shared_ptr<BlockingStack<vector<uint8_t>>>);
+
 protected:   
-   void closeSocket(SOCKET);
-   void writeToSocket(SOCKET, const char*, uint32_t);
-   void readFromSocket(SOCKET, vector<char>& buffer);
+   void closeSocket(SOCKET&);
+   void writeToSocket(SOCKET&, void*, size_t);
+   void readFromSocket(SOCKET& sockfd,
+      shared_ptr<BlockingStack<vector<uint8_t>>>);
+   void setBlocking(SOCKET&, bool);
+   
+   vector<uint8_t> writeAndRead(
+      SOCKET& sfd, void* data, size_t datalen, 
+      shared_ptr<BlockingStack<vector<uint8_t>>>);
 
 public:
-   SOCKET openSocket(void);
+   SOCKET openSocket(bool blocking);
+
    BinarySocket(const string& addr, const string& port);
    bool testConnection(void);
 
-   virtual string writeAndRead(const string&, SOCKET sfd = SOCK_MAX);
+   virtual string writeAndRead(const string&, SOCKET sock = SOCK_MAX)
+   {
+      throw SocketError("not implemened, use the protected method instead");
+   }
+
    virtual SocketType type(void) const { return SocketBinary; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-class HttpSocket : public BinarySocket
-{
-   friend class FcgiSocket;
-
-private:
-   string http_header_;
-
-private:
-   int32_t makePacket(char** packet, const char* msg);
-   string getMessage(vector<char>&);
-
-public:
-   HttpSocket(const BinarySocket&);
-   virtual string writeAndRead(const string&, SOCKET sockfd = SOCK_MAX);
-   virtual SocketType type(void) const { return SocketHttp; }
-};
-
-///////////////////////////////////////////////////////////////////////////////
-class FcgiSocket : public HttpSocket
+class DedicatedBinarySocket : public BinarySocket
 {
 private:
-   void addStringParam(const string& name, const string& val);
-   FcgiMessage makePacket(const char*);
-   string getMessage(const vector<char>&, const FcgiMessage&);
+   SOCKET sockfd_ = SOCK_MAX;
 
 public:
-   FcgiSocket(const HttpSocket&);
-   string writeAndRead(const string&, SOCKET sfd = SOCK_MAX);
-   SocketType type(void) const { return SocketFcgi; }
+   DedicatedBinarySocket(const string& addr, const string& port) :
+      BinarySocket(addr, port)
+   {}
+
+   ~DedicatedBinarySocket(void) { BinarySocket::closeSocket(sockfd_); }
+
+   vector<uint8_t> writeAndRead(
+      SOCKET& sfd, void* data, size_t datalen,
+      shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+   {
+      return BinarySocket::writeAndRead(sockfd_, data, datalen, readStack);
+   }
+
+   void closeSocket()
+   {
+      BinarySocket::closeSocket(sockfd_);
+   }
+
+   void writeToSocket(void* data, size_t len)
+   {
+      BinarySocket::writeToSocket(sockfd_, data, len);
+   }
+
+   void readFromSocket(
+      shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+   {
+      BinarySocket::readFromSocket(sockfd_, readStack);
+   }
+
+   bool openSocket(bool blocking)
+   {
+      sockfd_ = BinarySocket::openSocket(blocking);
+      
+      return isValid();
+   }
+
+   int getSocketName(struct sockaddr& sa)
+   {
+#ifdef _WIN32
+      int namelen = sizeof(sa);
+#else
+      unsigned int namelen = sizeof(sa);
+#endif
+
+      return getsockname(sockfd_, &sa, &namelen);
+   }
+
+   bool isValid(void) const { return sockfd_ != SOCK_MAX; }
 };
 
 #endif

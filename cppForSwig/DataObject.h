@@ -185,7 +185,7 @@ public:
       if (strArgs_.size() == 0)
       {
          LOGERR << "exhausted entries in Arguments object";
-         throw runtime_error("exhausted entries in Arguments object");
+         throw range_error("exhausted entries in Arguments object");
       }
 
       stringstream ss(strArgs_.front());

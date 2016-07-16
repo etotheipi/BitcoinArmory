@@ -51,106 +51,166 @@ BinarySocket::BinarySocket(const string& addr, const string& port) :
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-SOCKET BinarySocket::openSocket(void)
+SOCKET BinarySocket::openSocket(bool blocking)
 {
-   SOCKET sockfd = socket(serv_addr_.sa_family, SOCK_STREAM, 0);
-   if (sockfd < 0)
-      throw runtime_error("failed to create socket");
-
-   if (connect(sockfd, &serv_addr_, sizeof(serv_addr_)) < 0)
+   SOCKET sockfd = SOCK_MAX;
+   try
    {
-      closeSocket(sockfd);
-      throw runtime_error("failed to connect to server");
+      sockfd = socket(serv_addr_.sa_family, SOCK_STREAM, 0);
+      if (sockfd < 0)
+         throw SocketError("failed to create socket");
+
+      if (connect(sockfd, &serv_addr_, sizeof(serv_addr_)) < 0)
+      {
+         closeSocket(sockfd);
+         throw SocketError("failed to connect to server");
+      }
+   
+      setBlocking(sockfd, blocking);
+   }
+   catch (SocketError &e)
+   {
+      closesocket(sockfd);
+      sockfd = SOCK_MAX;
    }
 
    return sockfd;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::closeSocket(SOCKET sockfd)
+void BinarySocket::closeSocket(SOCKET& sockfd)
 {
    if (sockfd == SOCK_MAX)
       return;
 
 #ifdef WIN32
-   if (closesocket(sockfd) != 0)
-      throw runtime_error("failed to close socket");
+   closesocket(sockfd);
 #else
-   if(close(sockfd) != 0)
-      throw runtime_error("failed to close socket");
+   close(sockfd);
 #endif
+
+   sockfd = SOCK_MAX;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 void BinarySocket::writeToSocket(
-   SOCKET sockfd, const char* data, uint32_t size)
+   SOCKET& sockfd, void* data, size_t size)
 {
-   if (WRITETOSOCKET(sockfd, data, size) != size)
+   //don't return we have written and are write ready
+   fdset_except_safe write_set, except_set;
+   bool haveWritten = false;
+
+   while (1)
    {
-      closeSocket(sockfd);
-      throw runtime_error("failed to write to socket");
+      timeval tv;
+      tv.tv_usec = 0;
+      tv.tv_sec = 60; //1min timeout on select
+
+      write_set.zero();
+      except_set.zero();
+      write_set.set(sockfd);
+      except_set.set(sockfd);
+
+      auto retval = select(sockfd + 1, nullptr, write_set.get(), except_set.get(), &tv);
+
+      if (retval == 0)
+         continue;
+      else if (retval == -1)
+      {
+#ifdef _WIN32
+         auto errornum = WSAGetLastError();
+#else
+         auto errornum = errno;
+#endif
+         stringstream ss;
+         ss << "select error: " << errornum;
+         throw SocketError(ss.str());
+      }
+
+      //exceptions
+      if (FD_ISSET(sockfd, except_set.get()))
+      {
+         //grab socket error code
+
+         //break out of poll loop
+         throw SocketError("select expection during sendMessage");
+         break;
+      }
+
+      if (FD_ISSET(sockfd, write_set.get()))
+      {
+         if (!haveWritten)
+         {
+            auto bytessent = WRITETOSOCKET(sockfd, (char*)data, size);
+            if (bytessent != size)
+               throw SocketError("failed to send data");
+
+            haveWritten = true;
+         }
+         else
+         {
+            //write ready
+            break;
+         }
+      }
    }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::readFromSocket(
-   SOCKET sockfd, vector<char>& buffer)
-{
-   size_t increment = 8192;
-   auto currentSize = buffer.size();
-   buffer.resize(currentSize + increment);
-   size_t totalread = currentSize;
 
-   //TODO: break down reads to 8192 byte packets, set max read to 1MB
+///////////////////////////////////////////////////////////////////////////////
+vector<uint8_t> BinarySocket::writeAndRead(
+   SOCKET& sockfd, void* data, size_t datalen,
+   shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+{
+   /***
+   After the write, poll the socket and push back data to the readStack as
+   it shows. Caller can halt this whole process by closing sockfd.
+   Otherwise, the method exist when sockfd is closed by the other side.
+
+   This method can be called from a thread (get() on the BlockingStack object) or
+   directly (wait for it to return)
+   ***/
+
+   if (sockfd == SOCK_MAX)
+      sockfd = this->openSocket(false);
+   try
+   {
+      //TODO: what if the socket is closed before we get into the 
+      //readFromSocket select()?
+      writeToSocket(sockfd, data, datalen);
+      readFromSocket(sockfd, readStack);
+   }
+   catch (SocketError &e)
+   {
+      LOGERR << "writeAndRead SocketError: " << e.what();
+   }
+   catch (exception &e)
+   {
+      LOGERR << "writeAndRead exception: " << e.what();
+   }
+   catch (...)
+   {
+      LOGERR << "writeAndRead unknown exception";
+   }
+
+   readStack->completed();
+   closeSocket(sockfd);
+
+   vector<uint8_t> dataVec;
 
    try
    {
       while (1)
       {
-         auto bytesread = READFROMSOCKET(sockfd, &buffer[totalread], increment);
-         totalread += bytesread;
-
-         if (bytesread == 0)
-            break;
-         if (bytesread < 0)
-            throw runtime_error("error while reading socket");
-
-         if (bytesread == increment)
-            buffer.resize(totalread + increment);
-         else
-            break;
-
-         if (totalread > maxread_)
-            throw runtime_error("too much data to read from socket");
+         auto&& packet = readStack->get();
+         dataVec.insert(dataVec.end(), packet.begin(), packet.end());
       }
    }
-   catch (runtime_error &e)
+   catch (IsEmpty&)
    {
-      closeSocket(sockfd);
-      throw e;
    }
 
-   buffer.resize(totalread);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-string BinarySocket::writeAndRead(const string& msg, SOCKET sockfd)
-{
-   if (sockfd == SOCK_MAX)
-      sockfd = this->openSocket();
-
-   writeToSocket(sockfd, msg.c_str(), msg.size());
-   vector<char> retval;
-   readFromSocket(sockfd, retval);
-
-   closeSocket(sockfd);
-   
-   string retmsg;
-   typedef vector<char>::iterator IterType;
-   retmsg.insert(retmsg.begin(),
-      move_iterator<IterType>(retval.begin()),
-      move_iterator<IterType>(retval.end()));
-   return retmsg;
+   return dataVec;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -158,7 +218,7 @@ bool BinarySocket::testConnection(void)
 {
    try
    {
-      auto sockfd = openSocket();
+      auto sockfd = openSocket(true);
       closeSocket(sockfd);
       return true;
    }
@@ -169,312 +229,160 @@ bool BinarySocket::testConnection(void)
    return false;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//
-// HttpSocket
-//
-///////////////////////////////////////////////////////////////////////////////
-HttpSocket::HttpSocket(const BinarySocket& obj) :
-   BinarySocket(obj)
+////////////////////////////////////////////////////////////////////////////////
+void BinarySocket::setBlocking(SOCKET& sock, bool setblocking)
 {
-   stringstream ss;
-   ss << "POST /index.php HTTP/1.1" << "\r\n";
-   ss << "Host: " << addr_ << "\r\n";
-   ss << "Content-type: text/html; charset=UTF-8" << "\r\n";
-   ss << "Content-Length: ";
+   if (sock < 0)
+      throw SocketError("invalid socket");
 
-   http_header_ = move(ss.str());
-}
-
-///////////////////////////////////////////////////////////////////////////////
-int32_t HttpSocket::makePacket(char** packet, const char* msg)
-{
-   if (packet == nullptr)
-      return -1;
-
-   stringstream ss;
-   ss << strlen(msg);
-   ss << "\r\n\r\n";
-
-   *packet = new char[strlen(msg) +
-      ss.str().size() +
-      http_header_.size() +
-      1];
-
-   memcpy(*packet, http_header_.c_str(), http_header_.size());
-   size_t pos = http_header_.size();
-
-   memcpy(*packet + pos, ss.str().c_str(), ss.str().size());
-   pos += ss.str().size();
-
-   memcpy(*packet + pos, msg, strlen(msg));
-   pos += strlen(msg);
-
-   memset(*packet + pos, 0, 1);
-
-   return pos;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-string HttpSocket::getMessage(vector<char>& msg)
-{
-   /***
-   Always expect text data (null terminated)
-   ***/
-
-   //look for double crlf http header end, return everything after that
-   typedef vector<char>::iterator vcIter;
-
-   //let's use a move iterator, enough copies already as it is
-   string htmlstr(
-      move_iterator<vcIter>(msg.begin()), 
-      move_iterator<vcIter>(msg.end()));
-
-   size_t pos = htmlstr.find("\r\n\r\n");
-   if (pos == string::npos)
+#ifdef WIN32
+   unsigned long mode = (unsigned long)!setblocking;
+   if (ioctlsocket(sock, FIONBIO, &mode) != 0)
+      throw SocketError("failed to set blocking mode on socket");
+#else
+   int flags = fcntl(sock, F_GETFL, 0);
+   if (flags < 0) return;
+   flags = setblocking ? (flags&~O_NONBLOCK) : (flags | O_NONBLOCK);
+   int rt = fcntl(sock, F_SETFL, flags);
+   if (rt != 0)
    {
-      //no html break, check for error marker
-      pos = htmlstr.find("error:");
-      if (pos != string::npos)
-         throw runtime_error(htmlstr);
-
-      throw runtime_error("unexpected return value");
+      auto thiserrno = errno;
+      cout << "fcntl returned " << rt << endl;
+      cout << "error: " << strerror(errno);
+      throw SocketError("failed to set blocking mode on socket");
    }
-
-   return htmlstr.substr(pos +4);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
+void BinarySocket::readFromSocket(SOCKET& sockfd,
+   shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
 {
-   if (sockfd == SOCK_MAX)
-      sockfd = openSocket();
+   exception_ptr exceptptr = nullptr;
 
-   char* packet = nullptr;
-   auto packetSize = makePacket(&packet, msg.c_str());
-   
-   writeToSocket(sockfd, packet, packetSize);
-
-   vector<char> retval;
-   typedef vector<char>::iterator vecIterType;
-
-   int content_length = -1;
-   size_t header_len = 0;
-
-   auto get_content_len = [&content_length](const string& header_str)
+   auto readLambda = [sockfd, readStack, this](void)->void
    {
-      string err504("HTTP/1.1 504");
-      if (header_str.compare(0, err504.size(), err504) == 0)
-         throw runtime_error("connection timed out");
-      
-      string search_tok_caps("Content-Length: ");
-      auto tokpos = header_str.find(search_tok_caps);
-      if (tokpos != string::npos)
+      try
       {
-         content_length = atoi(header_str.c_str() + 
-                               tokpos + search_tok_caps.size());
-         return;
+         readFromSocketThread(sockfd, readStack);
       }
-
-      string search_tok("content-length: ");
-      tokpos = header_str.find(search_tok);
-      if (tokpos != string::npos)
+      catch (...)
       {
-         content_length = atoi(header_str.c_str() + 
-                               tokpos + search_tok.size());
-         return;
       }
    };
 
-   while (1)
+   thread readThr(readLambda);
+   if (readThr.joinable())
+      readThr.detach();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BinarySocket::readFromSocketThread(SOCKET sockfd,
+   shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+{
+   size_t readIncrement = 8192;
+   fdset_except_safe read_set, except_set;
+   stringstream errorss;
+
+   exception_ptr exceptptr = nullptr;
+
+   try
    {
-      //get as much http data as available
-      readFromSocket(sockfd, retval);
-
-      if (content_length == -1)
+      while (1)
       {
-         //if content_length is -1, we have not read the content-lengh in the
-         //http header yet, let's do that
-         for (unsigned i = 0; i < retval.size(); i++)
-         {
-            if (retval[i] == '\r')
-            {
-               if (retval.size() - i < 3)
-                  break;
+         timeval tv;
+         tv.tv_usec = 0;
+         tv.tv_sec = 6000; //1min timeout on select
 
-               if (retval[i + 1] == '\n' &&
-                  retval[i + 2] == '\r' &&
-                  retval[i + 3] == '\n')
+         read_set.zero();
+         except_set.zero();
+
+         read_set.set(sockfd);
+         except_set.set(sockfd);
+
+         auto status =
+            select(sockfd + 1, read_set.get(), nullptr, except_set.get(), &tv);
+
+         if (status == 0)
+            continue;
+
+         if (status == -1)
+         {
+            //select error, process and exit loop
+#ifdef _WIN32
+            auto errornum = WSAGetLastError();
+#else
+            auto errornum = errno;
+#endif
+            errorss << "select error: " << errornum;
+            throw SocketError(errorss.str());
+         }
+
+         //exceptions
+         if (FD_ISSET(sockfd, except_set.get()))
+         {
+            //TODO: grab socket error code, pass error to callback
+
+            //break out of poll loop
+            errorss << "socket exception";
+            throw SocketError(errorss.str());
+         }
+
+         if (FD_ISSET(sockfd, read_set.get()))
+         {
+            //read socket
+            vector<uint8_t> readdata;
+            readdata.resize(readIncrement);
+
+            size_t totalread = 0;
+            int readAmt;
+
+            while ((readAmt =
+               READFROMSOCKET(sockfd, (char*)&readdata[0] + totalread , readIncrement))
+               != 0)
+            {
+               if (readAmt < 0)
                {
-                  header_len = i + 4;
+                  /*errorss << "read socket error: " << readAmt;
+                  throw SocketError(errorss.str());*/
                   break;
                }
+
+               totalread += readAmt;
+               if (readAmt < readIncrement)
+                  break;
+
+               readdata.resize(totalread + readIncrement);
             }
+
+            if (totalread > 0)
+            {
+               readdata.resize(totalread);
+
+               //callback with the new data
+               readStack->push_back(move(readdata));
+            }
+            
+            //socket closed, exit select loop
+            if (readAmt == 0)
+               break;
          }
-
-         if (header_len == 0)
-            throw runtime_error("couldn't find http header in response");
-
-         string header_str(&retval[0], header_len);
-         get_content_len(header_str);
-      }
-         
-      if (content_length == -1)
-         throw runtime_error("failed to find http header response packet");
-
-      //check the total amount of data read matches the advertised
-      //data in the http header
-      if (retval.size() >= content_length + header_len)
-      {
-         retval.resize(content_length + header_len);
-         break;
       }
    }
-   
-   auto&& retmsg = getMessage(retval);
-   closeSocket(sockfd);
-   
-   return retmsg;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// FcgiSocket
-//
-///////////////////////////////////////////////////////////////////////////////
-FcgiSocket::FcgiSocket(const HttpSocket& obj) :
-   HttpSocket(obj)
-{}
-
-///////////////////////////////////////////////////////////////////////////////
-FcgiMessage FcgiSocket::makePacket(const char* msg)
-{
-   FcgiMessage fcgiMsg;
-   auto requestID = fcgiMsg.beginRequest();
-
-   stringstream msglength;
-   msglength << strlen(msg);
-
-   //params
-   auto& params = fcgiMsg.getNewPacket();
-   params.addParam("CONTENT_TYPE", "text/html; charset=UTF-8");
-   params.addParam("CONTENT_LENGTH", msglength.str());
-   params.buildHeader(FCGI_PARAMS, requestID);
-
-   //terminate fcgi_param
-   auto& paramterminator = fcgiMsg.getNewPacket();
-   paramterminator.buildHeader(FCGI_PARAMS, requestID);
-
-   //data
-   //TODO: break down data into several FCGI_STDIN packets if length > UINT16_MAX
-   auto& data = fcgiMsg.getNewPacket();
-   data.addData(msg, strlen(msg));
-   data.buildHeader(FCGI_STDIN, requestID);
-
-   //terminate fcgi_stdin
-   auto& dataterminator = fcgiMsg.getNewPacket();
-   dataterminator.buildHeader(FCGI_STDIN, requestID);
-
-   return fcgiMsg;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::getMessage(const vector<char>& msg, 
-   const FcgiMessage& fcgimsg)
-{
-   //parse FCGI headers, rebuild HTTP packet
-   if (msg.size() == 0)
-      throw runtime_error("empty fcgi packet");
-
-   vector<char> httpmsg;
-
-   int endpacket = 0;
-   size_t ptroffset = 0;
-   auto processFcgiPacket = [&](void)->void
+   catch (...)
    {
-      while (ptroffset + FCGI_HEADER_LEN <= msg.size())
-      {
-         //grab fcgi header
-         const char* fcgiheader = &msg[ptroffset];
+      exceptptr = current_exception();
+   }
 
-         ptroffset += FCGI_HEADER_LEN;
-
-         //make sure fcgi version and request id match
-         if (fcgiheader[0] != FCGI_VERSION_1)
-            throw runtime_error("unexpected fcgi header version");
-
-         uint16_t requestid;
-         requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
-         if (requestid != fcgimsg.id())
-            throw runtime_error("request id mismatch");
-
-         //check packet type
-         switch (fcgiheader[1])
-         {
-         case FCGI_END_REQUEST:
-            endpacket++;
-            return;
-
-         case FCGI_STDOUT:
-            //get packetsize and padding
-            uint16_t packetsize, padding;
-
-            packetsize = (uint8_t)fcgiheader[5] + (uint8_t)fcgiheader[4] * 256;
-            padding    = (uint8_t)fcgiheader[6] + (uint8_t)fcgiheader[7] * 256;
-
-            if (packetsize > 0)
-            {
-               //extract http data
-               httpmsg.insert(httpmsg.end(),
-                  msg.begin() + ptroffset,
-                  msg.begin() + ptroffset + packetsize);
-
-               //advance index to next header
-               ptroffset += packetsize + padding;
-            }
-            else
-            {
-               endpacket++;
-            }
-            break;
-
-         case FCGI_ABORT_REQUEST:
-            throw runtime_error("received FCGI_ABORT_REQUEST packet");
-
-         default:
-            //we do not handle the other request types as a client
-            throw runtime_error("unknown fcgi header request byte");
-         }
-      }
-   };
-
-   processFcgiPacket();
-   auto&& httpbody = HttpSocket::getMessage(httpmsg);
-
-   if (endpacket < 2)
-      throw runtime_error("fcgi packet is missing termination");
-
-   return httpbody;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
-{
-   if (sockfd == SOCK_MAX)
-      sockfd = openSocket();  
-
-   auto&& fcgiMsg = makePacket(msg.c_str());
-   auto serdata = fcgiMsg.serialize();
-   auto serdatalength = fcgiMsg.getSerializedDataLength();
-
-   writeToSocket(sockfd, (char*)serdata, serdatalength);
-
-   vector<char> retval;
-   readFromSocket(sockfd, retval);
-   auto&& retmsg = getMessage(retval, fcgiMsg);
-
+   //cleanup
+   read_set.zero();
+   except_set.zero();
    closeSocket(sockfd);
-   fcgiMsg.clear();
+   
+   //mark read as completed
+   readStack->completed(exceptptr);
 
-   return retmsg;
+   //rethrow in case of exception
+   if (exceptptr != nullptr)
+      rethrow_exception(exceptptr);
 }

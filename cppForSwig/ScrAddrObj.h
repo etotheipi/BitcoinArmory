@@ -306,6 +306,18 @@ public:
    uint32_t getBlockInVicinity(uint32_t blk) const;
    uint32_t getPageIdForBlockHeight(uint32_t blk) const;
 
+   uint32_t getTxioCountForLedgers(void)
+   {
+      //return UINT32_MAX unless count has changed since last call
+      //(or it's the first call)
+      auto count = getTxioCountFromSSH();
+      if (count == txioCountForLedgers_)
+         return UINT32_MAX;
+
+      txioCountForLedgers_ = count;
+      return count;
+   }
+
 private:
    LMDBBlockDatabase *db_;
    Blockchain        *bc_;
@@ -325,6 +337,8 @@ private:
    
    mutable uint64_t totalTxioCount_=0;
    mutable uint32_t lastSeenBlock_=0;
+
+   uint32_t txioCountForLedgers_ = UINT32_MAX;
 
    //prebuild history indexes for quick fetch from ssh
    HistoryPager hist_;

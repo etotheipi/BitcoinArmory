@@ -162,6 +162,7 @@
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\Progress.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
+    <ClCompile Include="..\SocketObject.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="..\lmdbpp.h" />
     <ClInclude Include="..\mdb\lmdb.h" />
     <ClInclude Include="..\SocketIncludes.h" />
+    <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeClasses.h" />
     <ClInclude Include="..\util.h" />

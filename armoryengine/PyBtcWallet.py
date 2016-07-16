@@ -266,6 +266,8 @@ class PyBtcWallet(object):
       self.balance_unconfirmed = 0
       self.balance_full = 0
       
+      self.addrTxnCountDict = {}
+      
    #############################################################################
    def registerWallet(self, isNew=False):
       if len(self.uniqueIDB58) == 0:
@@ -384,7 +386,8 @@ class PyBtcWallet(object):
          return self.balance_full
       else:
          raise TypeError('Unknown balance type! "' + balType + '"')
-      
+   
+   #############################################################################  
    def getBalanceFromDB(self):
       if self.cppWallet != None and TheBDM.getState() is BDM_BLOCKCHAIN_READY:
          topBlockHeight = TheBDM.getTopBlockHeight()
@@ -1112,7 +1115,7 @@ class PyBtcWallet(object):
       for a160 in self.linearAddr160List[startFrom:]:
          addr = self.addrMap[a160]
          scrAddr = Hash160ToScrAddr(a160)
-         if self.cppWallet.getAddrTotalTxnCount(scrAddr) > 0:
+         if self.getAddrTotalTxnCount(scrAddr) > 0:
             highestIndex = max(highestIndex, addr.chainIndex)
 
       if highestIndex > self.highestUsedChainIndex:
@@ -3090,7 +3093,19 @@ class PyBtcWallet(object):
    ###############################################################################
    @CheckWalletRegistration
    def getAddrTotalTxnCount(self, a160):
-      return self.cppWallet.getAddrTotalTxnCount(a160)
+      return self.addrTxnCountDict[a160]
+      #try:
+      #   return self.addrTxnCountDict[a160]
+      #except:
+      #   return 0
+      
+   ###############################################################################
+   @CheckWalletRegistration
+   def getAddrTxnCountsFromDB(self):
+      countList = self.cppWallet.getAddrTxnCountsFromDB()
+      
+      for addr in countList:
+         self.addrTxnCountDict[addr] = countList[addr]
    
    ###############################################################################
    @CheckWalletRegistration

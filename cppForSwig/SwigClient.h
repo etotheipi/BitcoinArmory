@@ -15,7 +15,7 @@ and handle the data transmission with the BDM server
 #define _SWIGCLIENT_H
 
 #include "BDM_seder.h"
-#include "SocketObject.h"
+#include "StringSockets.h"
 #include "bdmenums.h"
 #include "log.h"
 #include "TxClasses.h"
@@ -67,7 +67,7 @@ public:
    vector<uint64_t> getBalances(uint32_t topBlockHeight, bool IGNOREZC);
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
-   uint64_t getAddrTotalTxnCount(const BinaryData& scrAddr);
+   map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
 
    vector<LedgerEntryData> getHistoryPage(uint32_t id);
    LedgerEntryData getLedgerEntryForTxHash(

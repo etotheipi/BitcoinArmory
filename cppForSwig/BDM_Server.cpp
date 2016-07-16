@@ -353,8 +353,8 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["broadcastZC"] = broadcastZC;
 
-   //getAddrTotalTxnCount
-   auto getAddrTotalTxnCount = [this]
+   //getAddrTxnCounts
+   auto getAddrTxnCounts = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
       if (ids.size() != 2)
@@ -373,16 +373,23 @@ void BDV_Server_Object::buildMethodMap()
       if (wltPtr == nullptr)
          throw runtime_error("unknown wallet or lockbox ID");
 
-      auto&& scrAddr = args.get<BinaryDataObject>();
-
-      auto retval = wltPtr->getAddrTotalTxnCount(scrAddr.get());
+      auto&& countMap = wltPtr->getTotalTxnCount();
 
       Arguments retarg;
-      retarg.push_back(move(retval));
+      auto&& mapSize = countMap.size();
+      retarg.push_back(move(mapSize));
+
+      for (auto count : countMap)
+      {
+         BinaryDataObject bdo(move(count.first));
+         retarg.push_back(move(bdo));
+         retarg.push_back(move(count.second));
+      }
+
       return retarg;
    };
 
-   methodMap_["getAddrTotalTxnCount"] = getAddrTotalTxnCount;
+   methodMap_["getAddrTxnCounts"] = getAddrTxnCounts;
 
    //getTxByHash
    auto getTxByHash = [this]
@@ -756,7 +763,8 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    auto&& retStr = ss.str();
    vector<pair<size_t, size_t>> msgOffsetVec;
    auto totalsize = retStr.size();
-   size_t delim = 4080; //4096 (one memory page) - 16 (2x fcgi header)
+   //8192 (one memory page) - 8 (1 fcgi header), also a multiple of 8
+   size_t delim = 8184; 
    size_t start = 0;
 
    while (totalsize > 0)
@@ -773,22 +781,10 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    //get non const ptr of the message string since we will set temp null bytes
    //for the purpose of breaking down the string into FCGI sized packets
    char* ptr = const_cast<char*>(retStr.c_str());
-   char prevVal = ptr[0];
 
    //complete FCGI request
    for (auto& offsetPair : msgOffsetVec)
-   {
-      //reset previous last byte to its original value;
-      ptr[offsetPair.first] = prevVal;
-
-      //save current last byte
-      prevVal = ptr[offsetPair.first + offsetPair.second];
-
-      //null terminate for this packet
-      ptr[offsetPair.first + offsetPair.second] = 0;
-
-      FCGX_FPrintF(req->out, ptr + offsetPair.first);
-   }
+      FCGX_PutStr(ptr + offsetPair.first, offsetPair.second, req->out);
 
    FCGX_Finish_r(req);
 

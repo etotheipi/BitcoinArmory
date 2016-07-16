@@ -5832,9 +5832,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def updateWalletBalance(self):
+   def updateWalletData(self):
       for wltid in self.walletMap:
          self.walletMap[wltid].getBalanceFromDB()
+         self.walletMap[wltid].getAddrTxnCountsFromDB()
 
    #############################################################################
    def handleCppNotification(self, action, args):
@@ -5843,7 +5844,7 @@ class ArmoryMainWindow(QMainWindow):
          #Blockchain just finished loading, finish initializing UI and render the
          #ledgers
          
-         self.updateWalletBalance()
+         self.updateWalletData()
 
          for wltid in self.walletMap:
             self.walletMap[wltid].detectHighestUsedIndex()
@@ -5859,14 +5860,14 @@ class ArmoryMainWindow(QMainWindow):
          #A zero conf Tx conerns one of the address Armory is tracking, pull the 
          #updated ledgers from the BDM and create the related notifications.         
 
-         self.updateWalletBalance()
+         self.updateWalletData()
          self.checkNewZeroConf(args)        
 
       elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
          #the new block height in the status bar and note the block received time         
 
-         self.updateWalletBalance()
+         self.updateWalletData()
          newBlocks = args[0]
          if newBlocks>0:       
             print 'New Block: ', TheBDM.getTopBlockHeight()
@@ -5892,7 +5893,7 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the 
          #wallet filter was modified
-         self.updateWalletBalance()
+         self.updateWalletData()
          reset  = False
          if len(args) == 0:
             self.createCombinedLedger()

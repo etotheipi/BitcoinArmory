@@ -165,6 +165,7 @@ private:
 
 protected:
    atomic<size_t> count_;
+   exception_ptr exceptPtr_ = nullptr;
 
 public:
    Stack()
@@ -179,7 +180,7 @@ public:
       clear();
    }
 
-   T pop_front(void)
+   T pop_front(bool rethrow = true)
    {
       //throw if empty
       auto valptr = bottom_.load(memory_order_acquire);
@@ -213,6 +214,9 @@ public:
       //delete ptr and return value
       auto&& retval = valptr->get();
       delete valptr;
+
+      if (rethrow && exceptPtr_ != nullptr)
+         rethrow_exception(exceptPtr_);
 
       return move(retval);
    }
@@ -270,11 +274,13 @@ public:
       try
       {
          while (1)
-            pop_front();
+            pop_front(false);
       }
       catch (IsEmpty&)
       {
       }
+
+      exceptPtr_ = nullptr;
    }
 };
 
@@ -302,7 +308,10 @@ private:
       if (completed)
       {
          waiting_.fetch_sub(1, memory_order_relaxed);
-         throw IsEmpty();
+         if (exceptPtr_ != nullptr)
+            rethrow_exception(exceptPtr_);
+         else
+            throw IsEmpty();
       }
 
       auto haveItemPromise = make_shared<promise<bool>>();
@@ -414,9 +423,9 @@ public:
       }
    }
 
-   void terminate(void)
+   void terminate(exception_ptr exceptptr = nullptr)
    {
-      //terminate also flags complete
+      exceptPtr_ = exceptptr;
       terminated_.store(true, memory_order_relaxed); 
       completed_.store(true, memory_order_relaxed);
 
@@ -426,13 +435,21 @@ public:
          {
             auto&& p = promisePile_.pop_back();
             exception_ptr eptr;
-            try
+
+            if (exceptPtr_ != nullptr)
             {
-               throw(StopBlockingLoop());
+               eptr = exceptPtr_;
             }
-            catch (...)
+            else
             {
-               eptr = current_exception();
+               try
+               {
+                  throw(StopBlockingLoop());
+               }
+               catch (...)
+               {
+                  eptr = current_exception();
+               }
             }
 
             p->set_exception(eptr);
@@ -451,8 +468,9 @@ public:
       completed_.store(false, memory_order_relaxed);
    }
 
-   void completed(void)
+   void completed(exception_ptr exceptptr = nullptr)
    {
+      exceptPtr_ = exceptptr;
       completed_.store(true, memory_order_relaxed);
       
       while (waiting_.load(memory_order_relaxed) > 0)
@@ -461,13 +479,21 @@ public:
          {
             auto&& p = promisePile_.pop_back();
             exception_ptr eptr;
-            try
+            
+            if (exceptPtr_ != nullptr)
             {
-               throw(IsEmpty());
+               eptr = exceptPtr_;
             }
-            catch (...)
+            else
             {
-               eptr = current_exception();
+               try
+               {
+                  throw(IsEmpty());
+               }
+               catch (...)
+               {
+                  eptr = current_exception();
+               }
             }
 
             p->set_exception(eptr);

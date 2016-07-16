@@ -265,6 +265,31 @@ namespace std
 	$result = thisDict;
 }
 
+/******************************************************************************/
+// Convert C++(map<BinaryData, uint32_t>) to Python(dict{string, int})
+%typemap(out) map<BinaryData, uint32_t>
+{
+	PyObject* thisDict = PyDict_New();
+	auto bdIter = $1.begin();
+
+	while(bdIter != $1.end())
+	{
+		auto& bdobj = bdIter->first;
+		PyObject* pyStringObj = 
+		   PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+		
+		PyObject* pyIntObj =
+		   PyInt_FromLong(bdIter->second);
+
+		PyDict_SetItem(thisDict, pyStringObj, pyIntObj);
+
+		++bdIter;
+	}
+
+	$result = thisDict;
+}
+
+
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
 %include "SwigClient.h"

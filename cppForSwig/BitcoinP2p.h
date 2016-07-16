@@ -20,7 +20,7 @@
 #include "BinaryData.h"
 #include "EncryptionUtils.h"
 
-#include "SocketIncludes.h"
+#include "SocketObject.h"
 
 using namespace std;
 
@@ -70,18 +70,6 @@ int get_varint(uint64_t& val, uint8_t* ptr, uint32_t size);
 int make_varint(const uint64_t& value, vector<uint8_t>& varint);
 int get_varint_len(const int64_t& value);
 
-////////////////////////////////////////////////////////////////////////////////
-struct fdset_except_safe
-{
-   fd_set set_;
-
-   fdset_except_safe(void) { zero(); }
-   ~fdset_except_safe(void) { zero(); }
-
-   void set(SOCKET sockfd) { FD_SET(sockfd, &set_); }
-   void zero(void) { FD_ZERO(&set_); }
-   fd_set* get(void) { return &set_; }
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 struct BitcoinNetAddr
@@ -118,13 +106,6 @@ public:
    {}
 
    const string& what(void) const { return error_; }
-
-};
-
-struct SocketError : public BitcoinP2P_Exception
-{
-   SocketError(const string& e) : BitcoinP2P_Exception(e)
-   {}
 };
 
 struct BitcoinMessageDeserError : public BitcoinP2P_Exception
@@ -388,18 +369,16 @@ public:
 class BitcoinP2P
 {
 private:
-   const string addr_v4_;
-   const string port_;
    const uint32_t magic_word_;
    struct sockaddr node_addr_;
-   SOCKET sockfd_ = -1;
+   DedicatedBinarySocket binSocket_;
 
    mutex connectMutex_, pollMutex_, writeMutex_;
    unique_ptr<promise<bool>> connectedPromise_ = nullptr;
    unique_ptr<promise<bool>> verackPromise_ = nullptr;
 
    //to pass payloads between the poll thread and the processing one
-   BlockingStack<vector<uint8_t>> dataStack_;
+   shared_ptr<BlockingStack<vector<uint8_t>>> dataStack_;
 
    exception_ptr select_except_ = nullptr;
    exception_ptr process_except_ = nullptr;
@@ -431,7 +410,6 @@ public:
 private:
    void connectLoop(void);
 
-   void setBlocking(SOCKET, bool);
    void pollSocketThread();
    void processDataStackThread(void);
    void processPayload(vector<unique_ptr<Payload>>);

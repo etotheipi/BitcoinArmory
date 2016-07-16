@@ -161,7 +161,7 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
                                   bool includeAllZeroConf=true) const;
 
-   uint64_t getAddrTotalTxnCount(const BinaryData& addr) const;
+   map<BinaryData, uint32_t> getTotalTxnCount() const;
    uint64_t getWltTotalTxnCount(void) const;
 
    void prepareTxOutHistory(uint64_t val, bool ignoreZC);

@@ -34,4 +34,20 @@ typedef int SOCKET;
 #define SOCK_MAX INT_MAX
 #endif
 
+////////////////////////////////////////////////////////////////////////////////
+#include <string>
+
+struct SocketError
+{
+private:
+   const string error_;
+
+public:
+   SocketError(const string& e) : error_(e)
+   {}
+
+   const string& what(void) const { return error_; }
+
+};
+
 #endif
