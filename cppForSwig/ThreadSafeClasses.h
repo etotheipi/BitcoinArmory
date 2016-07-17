@@ -813,9 +813,12 @@ public:
       Stack<T>::push_back(move(obj));
 
       //pop promises
-      while (Stack<T>::count_.load(memory_order_relaxed) > 0)
+      while (Stack<T>::waiting_.load(memory_order_relaxed) > 0)
       {
+         //TODO: Stack::count_ can be off, fix that
          auto promisemap = promiseMap_.pop_all();
+         if (promisemap->size() == 0)
+            break;
          
          for (auto& prom : *promisemap)
             prom.second->set_value(true);

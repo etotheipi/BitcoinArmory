@@ -3093,11 +3093,10 @@ class PyBtcWallet(object):
    ###############################################################################
    @CheckWalletRegistration
    def getAddrTotalTxnCount(self, a160):
-      return self.addrTxnCountDict[a160]
-      #try:
-      #   return self.addrTxnCountDict[a160]
-      #except:
-      #   return 0
+      try:
+         return self.addrTxnCountDict[a160]
+      except:
+         return 0
       
    ###############################################################################
    @CheckWalletRegistration

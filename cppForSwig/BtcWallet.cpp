@@ -174,7 +174,7 @@ map<BinaryData, uint32_t> BtcWallet::getTotalTxnCount() const
    for (auto &sa : *addrMap)
    {
       auto count = sa.second->getTxioCountForLedgers();
-      if (count == UINT32_MAX)
+      if (count == 0 || count == UINT32_MAX)
          continue;
 
       countMap[sa.first] = count;
