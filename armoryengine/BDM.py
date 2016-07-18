@@ -154,6 +154,7 @@ class BlockDataManager(object):
       
       self.spawnId = ""
       
+      self.remoteDB = False
       self.instantiateBDV()
    
    #############################################################################  
@@ -165,6 +166,8 @@ class BlockDataManager(object):
       socketType = Cpp.SocketFcgi
       if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
          socketType = Cpp.SocketHttp 
+         self.remoteDB = True
+         
       self.bdv_ = Cpp.BlockDataViewer_getNewBDV(ARMORYDB_IP, ARMORYDB_PORT, socketType)   
 
    #############################################################################
@@ -174,6 +177,11 @@ class BlockDataManager(object):
       
       self.bdv_.registerWithDB()
       
+   #############################################################################
+   @ActLikeASingletonBDM
+   def hasRemoteDB(self):
+      return self.remoteDB
+            
    #############################################################################
    @ActLikeASingletonBDM
    def getListenerList(self):
@@ -305,9 +313,15 @@ class BlockDataManager(object):
    #############################################################################
    @ActLikeASingletonBDM
    def shutdown(self):
-      self.bdv_.unregisterFromDB()
-      self.callback.shutdown()
-      self.bdv_.shutdown(self.spawnId)
+      if self.bdmState == BDM_OFFLINE:
+         return
+      
+      try:
+         self.bdv_.unregisterFromDB()
+         self.callback.shutdown()
+         self.bdv_.shutdown(self.spawnId)
+      except:
+         pass
 
    #############################################################################
    @ActLikeASingletonBDM

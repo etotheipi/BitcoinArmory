@@ -2195,12 +2195,13 @@ class ArmoryMainWindow(QMainWindow):
    ############################################################################
    def startBitcoindIfNecessary(self):
       LOGINFO('startBitcoindIfNecessary')
+
       if self.internetStatus == INTERNET_STATUS.Unavailable or \
          CLI_OPTIONS.offline:
          LOGWARN('Not online, will not start bitcoind')
          return False
 
-      if not self.doAutoBitcoind:
+      if TheBDM.hasRemoteDB() or not self.doAutoBitcoind:
          self.notifyBitcoindIsReady()
          return False
 
@@ -5364,7 +5365,8 @@ class ArmoryMainWindow(QMainWindow):
       # This keeps popping up for some reason!
       self.lblTorrentStats.setVisible(False)
 
-      if self.doAutoBitcoind and not sdmState=='BitcoindReady':
+      if not TheBDM.hasRemoteDB() and \
+         self.doAutoBitcoind and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.
          # TODO -  Move to event handlers
          if not sdmState==self.lastSDMState:
@@ -5569,13 +5571,8 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                               size=4, bold=True, color='DisableFG')
 
-                  # If more than 10 days behind, or still downloading torrent
-                  if tdmState=='Downloading' or self.approxBlkLeft > 1440:
-                     descr1 += self.GetDashStateText('Auto', 'InitializingLongTime')
-                     descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
-                  else:
-                     descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
-                     descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
+                  descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
+                  descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
 
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnFrameVisible(True, \
@@ -6402,11 +6399,6 @@ class ArmoryMainWindow(QMainWindow):
             LOGINFO('BDM state is scanning -- force shutdown BDM')
          else:
             LOGINFO('BDM is safe for clean shutdown')
-
-         #no callback notify in offline mode, just exit
-         if TheBDM.getState() in (BDM_OFFLINE,BDM_UNINITIALIZED):
-            self.actuallyDoExitNow(STOPPED_ACTION, 1)
-            return
          
          self.shutdownBitcoindThread = threading.Thread(target=TheSDM.stopBitcoind)
          self.shutdownBitcoindThread.start()
@@ -6418,10 +6410,6 @@ class ArmoryMainWindow(QMainWindow):
             shutil.rmtree(self.tempModulesDirName)
             
          self.shutdownBitcoindThread.join()
-         
-         from twisted.internet import reactor
-         LOGINFO('Attempting to close the main window!')
-
          
       except:
          # Don't want a strange error here interrupt shutdown

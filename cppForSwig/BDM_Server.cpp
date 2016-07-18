@@ -446,7 +446,6 @@ Arguments Clients::runCommand(const string& cmdStr)
       auto& thisSpawnId = bdmT_->bdm()->config().spawnID_;
       if (thisSpawnId.size() != 0)
       {
-         LOGINFO << "db id is: " << thisSpawnId;
          //if thisSpawnId is empty, proceed with shutdown
          //if the spawnId provided with the shutdown command is emtpy, 
          //mismatches, or is missing entirely (get() will throw), return
