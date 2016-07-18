@@ -81,12 +81,12 @@ BlockDataManagerConfig parseArgs(int argc, char* argv[])
 
             bdmConfig.blkFileLocation_ = stripQuotes(argstr);
          }
-         else if (str == "--spawnID")
+         else if (str == "--spawnId")
          {
             string argstr;
             getline(ss, argstr, '=');
 
-            bdmConfig.spawnID_ = argstr;
+            bdmConfig.spawnID_ = stripQuotes(argstr);
          }
          else
          {
@@ -101,13 +101,14 @@ BlockDataManagerConfig parseArgs(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+   STARTLOGGING("./dbLog.txt", LogLvlDebug);
+   LOGENABLESTDOUT();
+
    DataMeta::initTypeMap();
    ScrAddrFilter::init();
 
    auto&& bdmConfig = parseArgs(argc, argv);
 
-   STARTLOGGING("./dbLog.txt", LogLvlDebug);
-   LOGENABLESTDOUT();
 
    if (FCGX_Init())
       throw runtime_error("failed to initialize FCGI engine");

@@ -443,6 +443,26 @@ Arguments Clients::runCommand(const string& cmdStr)
    }
    else if (cmdObj.method_ == "shutdown")
    {
+      auto& thisSpawnId = bdmT_->bdm()->config().spawnID_;
+      if (thisSpawnId.size() != 0)
+      {
+         LOGINFO << "db id is: " << thisSpawnId;
+         //if thisSpawnId is empty, proceed with shutdown
+         //if the spawnId provided with the shutdown command is emtpy, 
+         //mismatches, or is missing entirely (get() will throw), return
+         
+         try
+         {
+            auto&& spawnId = cmdObj.args_.get<string>();
+            if ((spawnId.size() == 0) || (spawnId.compare(thisSpawnId) != 0))
+               throw runtime_error("spawnId mismatch");
+         }
+         catch (...)
+         {
+            return Arguments();
+         }
+      }
+      
       auto shutdownLambda = [this](void)->void
       {
          this->exitRequestLoop();
@@ -488,7 +508,7 @@ void Clients::shutdown()
 void Clients::exitRequestLoop()
 {
    /*terminate request processing loop*/
-   LOGINFO << "shutting down server";
+   LOGINFO << "proceeding to shutdown";
 
    //shutdown node
    bdmT_->bdm()->shutdownNode();

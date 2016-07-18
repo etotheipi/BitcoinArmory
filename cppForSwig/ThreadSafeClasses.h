@@ -813,7 +813,7 @@ public:
       Stack<T>::push_back(move(obj));
 
       //pop promises
-      while (Stack<T>::waiting_.load(memory_order_relaxed) > 0)
+      while (waiting_.load(memory_order_relaxed) > 0)
       {
          //TODO: Stack::count_ can be off, fix that
          auto promisemap = promiseMap_.pop_all();

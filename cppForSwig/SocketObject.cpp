@@ -219,6 +219,9 @@ bool BinarySocket::testConnection(void)
    try
    {
       auto sockfd = openSocket(true);
+      if (sockfd == SOCK_MAX)
+         return false;
+
       closeSocket(sockfd);
       return true;
    }

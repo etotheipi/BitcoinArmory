@@ -461,6 +461,10 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(blocksdir):
          raise "Invalid blockdata path"
       
+      randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
+      spawnId = binary_to_base58(randBase58)
+      
+      pargs.append('--spawnId="' + spawnId + '"')
       pargs.append('--satoshi-datadir="' + blocksdir + '"')
       pargs.append('--dbdir="' + dbDir + '"')
       
@@ -478,6 +482,8 @@ class SatoshiDaemonManager(object):
          #kargs['creationflags'] = win32process.CREATE_NO_WINDOW
          
       launchProcess(pargs, **kargs)
+      
+      return spawnId
       
    #############################################################################
    def launchBitcoindAndGuardian(self):

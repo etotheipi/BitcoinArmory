@@ -180,7 +180,7 @@ public:
    void goOnline(void);
    void registerWithDB(void);
    void unregisterFromDB(void);
-   void shutdown(void);
+   void shutdown(const string& spawnId);
 
    void broadcastZC(const BinaryData& rawTx);
    Tx getTxByHash(const BinaryData& txHash);

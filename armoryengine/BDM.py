@@ -152,6 +152,8 @@ class BlockDataManager(object):
       self.progressPhase=0
       self.progressNumeric=0
       
+      self.spawnId = ""
+      
       self.instantiateBDV()
    
    #############################################################################  
@@ -297,10 +299,15 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
+   def setSpawnId(self, spawnId):
+      self.spawnId = spawnId
+
+   #############################################################################
+   @ActLikeASingletonBDM
    def shutdown(self):
       self.bdv_.unregisterFromDB()
       self.callback.shutdown()
-      #self.bdv_.shutdown()
+      self.bdv_.shutdown(self.spawnId)
 
    #############################################################################
    @ActLikeASingletonBDM

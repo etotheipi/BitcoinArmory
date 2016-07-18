@@ -91,10 +91,14 @@ BlockDataViewer::~BlockDataViewer()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::shutdown()
+void BlockDataViewer::shutdown(const string& spawnId)
 {
    Command cmd;
    cmd.method_ = "shutdown";
+   
+   if (spawnId.size() > 0)
+      cmd.args_.push_back(move(spawnId));
+
    cmd.serialize();
    auto&& result = sock_->writeAndRead(cmd.command_);
 }
