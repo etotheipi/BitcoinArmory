@@ -17,6 +17,7 @@
 #include <set>
 #include <chrono>
 #include <thread>
+#include <exception>
 
 #include "make_unique.h"
 
@@ -308,8 +309,8 @@ private:
       if (completed)
       {
          waiting_.fetch_sub(1, memory_order_relaxed);
-         if (exceptPtr_ != nullptr)
-            rethrow_exception(exceptPtr_);
+         if (Stack<T>::exceptPtr_ != nullptr)
+            rethrow_exception(Stack<T>::exceptPtr_);
          else
             throw IsEmpty();
       }
@@ -425,7 +426,7 @@ public:
 
    void terminate(exception_ptr exceptptr = nullptr)
    {
-      exceptPtr_ = exceptptr;
+      Stack<T>::exceptPtr_ = exceptptr;
       terminated_.store(true, memory_order_relaxed); 
       completed_.store(true, memory_order_relaxed);
 
@@ -436,9 +437,9 @@ public:
             auto&& p = promisePile_.pop_back();
             exception_ptr eptr;
 
-            if (exceptPtr_ != nullptr)
+            if (Stack<T>::exceptPtr_ != nullptr)
             {
-               eptr = exceptPtr_;
+               eptr = Stack<T>::exceptPtr_;
             }
             else
             {
@@ -470,7 +471,7 @@ public:
 
    void completed(exception_ptr exceptptr = nullptr)
    {
-      exceptPtr_ = exceptptr;
+      Stack<T>::exceptPtr_ = exceptptr;
       completed_.store(true, memory_order_relaxed);
       
       while (waiting_.load(memory_order_relaxed) > 0)
@@ -480,9 +481,9 @@ public:
             auto&& p = promisePile_.pop_back();
             exception_ptr eptr;
             
-            if (exceptPtr_ != nullptr)
+            if (Stack<T>::exceptPtr_ != nullptr)
             {
-               eptr = exceptPtr_;
+               eptr = Stack<T>::exceptPtr_;
             }
             else
             {

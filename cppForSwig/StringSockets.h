@@ -9,6 +9,7 @@
 #ifndef _H_STRING_SOCKETS
 #define _H_STRING_SOCKETS
 
+#include <string.h>
 #include "SocketObject.h"
 #include "FcgiMessage.h"
 

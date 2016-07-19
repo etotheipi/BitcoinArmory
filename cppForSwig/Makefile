@@ -28,7 +28,7 @@ LINK = $(CXX)
 OBJS_Client = UniversalTimer.o BinaryData.o \
 	BtcUtils.o DBUtils.o EncryptionUtils.o \
 	BDM_seder.o DataObject.o FcgiMessage.o \
-	SocketObject.o SwigClient.o \
+	SocketObject.o SwigClient.o StringSockets.o \
 	TxClasses.o libcryptopp.a
 
 OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
@@ -38,7 +38,7 @@ OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	BlockDataViewer.o HistoryPager.o Progress.o \
 	mdb.o midl.o txio.o TxClasses.o StoredBlockObj.o \
 	DatabaseBuilder.o BlockchainScanner.o BlockDataMap.o \
-	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o \
+	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o SocketObject.o \
 	fcgiapp.o os_unix.o libcryptopp.a 
 
 #if python is specified, use it
