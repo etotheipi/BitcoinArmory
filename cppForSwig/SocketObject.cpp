@@ -295,7 +295,7 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
       {
          timeval tv;
          tv.tv_usec = 0;
-         tv.tv_sec = 6000; //1min timeout on select
+         tv.tv_sec = 60; //1min timeout on select
 
          read_set.zero();
          except_set.zero();

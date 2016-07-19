@@ -749,21 +749,24 @@ void FCGI_Server::processRequest(FCGX_Request* req)
 
       string contentStr(content);
 
+      //print HTML header
+      ss << "HTTP/1.1 200 OK\r\n";
+      ss << "Content-Type: text/html; charset=UTF-8\r\n";
+
       try
       {
          auto&& retVal = clients_.runCommand(contentStr);
          retStream << retVal.serialize();
 
-         //print HTML header
-         ss << "HTTP/1.1 200 OK\r\n";
-         ss << "Content-Type: text/html; charset=UTF-8\r\n";
-         ss << "Content-Length: " << retStream.str().size();
-         ss << "\r\n\r\n";
       }
       catch (exception& e)
       {
          retStream << "error: " << e.what();
       }
+      
+      //complete HTML header
+      ss << "Content-Length: " << retStream.str().size();
+      ss << "\r\n\r\n";
    }
    else
    {
