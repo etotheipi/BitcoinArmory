@@ -26,13 +26,9 @@
 #include "txio.h"
 #include "BlockDataManagerConfig.h"
 
-#define ARMORY_DB_VERSION   0x00
+#define ARMORY_DB_VERSION   0x9501
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
 #define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
-
-static const uint64_t UPDATE_BYTES_SSH    = 25;
-static const uint64_t UPDATE_BYTES_SUBSSH = 75;
-static const uint64_t UPDATE_BYTES_KEY    = 8;
 
 enum DB_TX_AVAIL
 {
@@ -94,7 +90,6 @@ class DBTx;
 class StoredScriptHistory;
 class StoredSubHistory;
 
-
 template<class T, typename ...Args>
 static BinaryData serializeDBValue(const T &o, const Args &...a)
 {
@@ -130,8 +125,7 @@ public:
    BinaryData      topScannedBlkHash_; //32 bytes
    uint32_t        appliedToHgt_=0;
    uint32_t        armoryVer_=ARMORY_DB_VERSION;
-   ARMORY_DB_TYPE  armoryType_=ARMORY_DB_WHATEVER;
-   DB_PRUNE_TYPE   pruneType_=DB_PRUNE_WHATEVER;
+   ARMORY_DB_TYPE  armoryType_=ARMORY_DB_FULL; //default db mode
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -159,8 +153,7 @@ public:
 
    void       unserializeDBValue(BinaryRefReader &  brr);
    void       serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
-      DB_PRUNE_TYPE pruneType,
-      bool forceSaveSpent = false) const;
+               bool forceSaveSpent = false) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key);
@@ -232,8 +225,7 @@ public:
    void       unserializeDBValue(BinaryRefReader & brr);
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
-   BinaryData   serializeDBValue(ARMORY_DB_TYPE dbType,
-      DB_PRUNE_TYPE pruneType) const;
+   BinaryData   serializeDBValue(ARMORY_DB_TYPE dbType) const;
    void       unserializeDBKey(BinaryDataRef key);
 
    BinaryData getDBKey(bool withPrefix = true) const;
@@ -282,7 +274,7 @@ public:
 
    void         serializeDBValue(
       BinaryWriter &    bw,
-      ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
+      ARMORY_DB_TYPE dbType
       ) const;
 
    BinaryData getSerializedTx(void) const;
@@ -337,8 +329,7 @@ public:
    void serializeDBValue( 
       BinaryWriter &    bw,
       DB_SELECT         db,
-      ARMORY_DB_TYPE dbType,
-      DB_PRUNE_TYPE pruneType
+      ARMORY_DB_TYPE dbType
    ) const;
 
    void unserializeDBValue(DB_SELECT db, BinaryData const & bd, bool ignMrkl=false);
@@ -376,7 +367,6 @@ public:
    uint32_t        unserArmVer_;
    uint32_t        unserBlkVer_;
    ARMORY_DB_TYPE  unserDbType_;
-   DB_PRUNE_TYPE   unserPrType_;
    MERKLE_SER_TYPE unserMkType_;
    
    bool hasBlockHeader_=false;
@@ -444,7 +434,8 @@ public:
    bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void       serializeDBValue(BinaryWriter    & bw, 
+               LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
@@ -454,15 +445,6 @@ public:
    SCRIPT_PREFIX getScriptType(void) const;
    //uint64_t      getTxioCount(void) const {return (uint64_t)txioMap_.size();}
 
-   //void pprintOneLine(uint32_t indent=3);
-   //void pprintFullSSH(uint32_t indent=3);
-
-   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
-   TxIOPair& insertTxio(TxIOPair const & txio, 
-                        uint64_t* additionalSize = nullptr);
-   bool      eraseTxio(BinaryData const & dbKey8B);
-
-   
    // This adds the TxOut if it doesn't exist yet
    const TxIOPair* markTxOutSpent(const BinaryData& txOutKey8B);
 
@@ -530,7 +512,7 @@ public:
    bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
@@ -545,8 +527,6 @@ public:
    uint64_t getScriptBalance(bool withMultisig=false);
 
    bool     haveFullHistoryLoaded(void) const;
-
-   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
 
    bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
                        bool withMultisig=false);
@@ -585,10 +565,10 @@ public:
    bool isInitialized(void) { return (outPointsAddedByBlock_.size() > 0);}
    bool isNull(void) { return !isInitialized(); }
 
-   void       unserializeDBValue(BinaryRefReader & brr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
-   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
-   void       unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
-   void       unserializeDBValue(BinaryDataRef      bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+   void       unserializeDBValue(BinaryRefReader & brr, ARMORY_DB_TYPE dbType);
+   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType) const;
+   void       unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType);
+   void       unserializeDBValue(BinaryDataRef      bd, ARMORY_DB_TYPE dbType);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 

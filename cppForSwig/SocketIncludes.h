@@ -37,16 +37,11 @@ typedef int SOCKET;
 ////////////////////////////////////////////////////////////////////////////////
 #include <string>
 
-struct SocketError
+struct SocketError : public runtime_error
 {
-private:
-   const string error_;
-
 public:
-   SocketError(const string& e) : error_(e)
+   SocketError(const string& e) : runtime_error(e)
    {}
-
-   const string& what(void) const { return error_; }
 
 };
 

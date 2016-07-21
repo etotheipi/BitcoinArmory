@@ -379,8 +379,7 @@ void LMDBBlockDatabase::openDatabases(
    BinaryData const & genesisBlkHash,
    BinaryData const & genesisTxHash,
    BinaryData const & magic,
-   ARMORY_DB_TYPE     dbtype,
-   DB_PRUNE_TYPE      pruneType
+   ARMORY_DB_TYPE     dbtype
    )
 {
    baseDir_ = basedir;
@@ -393,7 +392,6 @@ void LMDBBlockDatabase::openDatabases(
    genesisBlkHash_ = genesisBlkHash;
 
    armoryDbType_ = dbtype;
-   dbPruneType_ = pruneType;
 
    if (genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
@@ -405,45 +403,24 @@ void LMDBBlockDatabase::openDatabases(
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
 
-   try
+   for (int i = 0; i < COUNT; i++)
    {
-      for (int i = 0; i < COUNT; i++)
+      DB_SELECT CURRDB = DB_SELECT(i);
+      StoredDBInfo sdbi = openDB(CURRDB);
+
+      // Check that the magic bytes are correct
+      if (magicBytes_ != sdbi.magic_)
       {
-         DB_SELECT CURRDB = DB_SELECT(i);
-         StoredDBInfo sdbi = openDB(CURRDB);
-
-         // Check that the magic bytes are correct
-         if (magicBytes_ != sdbi.magic_)
-         {
-            throw runtime_error("Magic bytes mismatch!  Different blkchain?");
-         }
-
-         else if (armoryDbType_ != sdbi.armoryType_)
-         {
-            LOGERR << "Mismatch in DB type";
-            LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
-            LOGERR << "Expecting mode: " << sdbi.armoryType_;
-            throw runtime_error("Mismatch in DB type");
-         }
+         throw runtime_error("Magic bytes mismatch!  Different blkchain?");
       }
-   }
-   catch (LMDBException &e)
-   {
-      LOGERR << "Exception thrown while opening database";
-      LOGERR << e.what();
-      throw e;
-   }
-   catch (runtime_error &e)
-   {
-      LOGERR << "Exception thrown while opening database";
-      LOGERR << e.what();
-      throw e;
-   }
-   catch (...)
-   {
-      LOGERR << "Exception thrown while opening database";
-      closeDatabases();
-      throw;
+
+      else if (armoryDbType_ != sdbi.armoryType_)
+      {
+         LOGERR << "Mismatch in DB type";
+         LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
+         LOGERR << "Expecting mode: " << sdbi.armoryType_;
+         throw runtime_error("Mismatch in DB type");
+      }
    }
 
    dbIsOpen_ = true;
@@ -475,7 +452,7 @@ void LMDBBlockDatabase::nukeHeadersDB(void)
    sdbi.magic_      = magicBytes_;
    sdbi.topBlkHgt_  = 0;
    sdbi.armoryType_ = armoryDbType_;
-   sdbi.pruneType_ = dbPruneType_;
+   sdbi.armoryVer_ = ARMORY_DB_VERSION;
    
    putStoredDBInfo(HEADERS, sdbi, 0);
 }
@@ -502,7 +479,7 @@ void LMDBBlockDatabase::resetHistoryDatabases(void)
    remove(getDbPath(STXO).c_str());
 
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_,
-      magicBytes_, armoryDbType_, dbPruneType_);
+      magicBytes_, armoryDbType_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -522,7 +499,7 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, 
-      magicBytes_, armoryDbType_, dbPruneType_);
+      magicBytes_, armoryDbType_);
 }
 
 
@@ -939,7 +916,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
 
    auto db = SSH;
       
-   putValue(db, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
+   putValue(db, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_));
 
    //onyl supporting these for unit tests, phase out eventually
    {
@@ -951,7 +928,7 @@ void LMDBBlockDatabase::putStoredScriptHistory( StoredScriptHistory & ssh)
          StoredSubHistory & subssh = iter->second;
          if (subssh.txioMap_.size() > 0)
             putValue(SUBSSH, subssh.getDBKey(),
-            serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
+            serializeDBValue(subssh, this, armoryDbType_)
             );
       }
    }
@@ -967,7 +944,7 @@ void LMDBBlockDatabase::putStoredScriptHistorySummary(StoredScriptHistory & ssh)
       return;
    }
 
-   putValue(SSH, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
+   putValue(SSH, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -978,7 +955,7 @@ void LMDBBlockDatabase::putStoredSubHistory(StoredSubHistory & subssh)
 
    if (subssh.txioMap_.size() > 0)
       putValue(db, subssh.getDBKey(),
-         serializeDBValue(subssh, this, armoryDbType_, dbPruneType_));
+         serializeDBValue(subssh, this, armoryDbType_));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1432,7 +1409,7 @@ uint8_t LMDBBlockDatabase::putBareHeader(StoredHeader & sbh, bool updateDupID,
    // Overwrite the existing hash-indexed entry, just in case the dupID was
    // not known when previously written.  
    putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_,
-      serializeDBValue(sbh, HEADERS, armoryDbType_, dbPruneType_));
+      serializeDBValue(sbh, HEADERS, armoryDbType_));
 
    // If this block is valid, update quick lookup table, and store it in DBInfo
    if(sbh.isMainBranch_)
@@ -1570,7 +1547,7 @@ void LMDBBlockDatabase::putStoredTx( StoredTx & stx, bool withTxOut)
 
    // Now add the base Tx entry in the BLKDATA DB.
    BinaryWriter bw;
-   stx.serializeDBValue(bw, armoryDbType_, dbPruneType_);
+   stx.serializeDBValue(bw, armoryDbType_);
    putValue(BLKDATA, DB_PREFIX_TXDATA, ldbKey, bw.getDataRef());
 
 
@@ -1602,7 +1579,7 @@ void LMDBBlockDatabase::putStoredZC(StoredTx & stx, const BinaryData& zcKey)
 
    // Now add the base Tx entry in the BLKDATA DB.
    BinaryWriter bw;
-   stx.serializeDBValue(bw, armoryDbType_, dbPruneType_);
+   stx.serializeDBValue(bw, armoryDbType_);
    bw.put_uint32_t(stx.unixTime_);
    putValue(dbs, DB_PREFIX_ZCDATA, zcKey, bw.getDataRef());
 
@@ -2128,7 +2105,7 @@ void LMDBBlockDatabase::putStoredTxOut( StoredTxOut const & stxo)
    SCOPED_TIMER("putStoredTx");
 
    BinaryData ldbKey = stxo.getDBKey(false);
-   BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
+   BinaryData bw = serializeDBValue(stxo, armoryDbType_);
    putValue(STXO, DB_PREFIX_TXDATA, ldbKey, bw);
 }
 
@@ -2137,7 +2114,7 @@ void LMDBBlockDatabase::putStoredZcTxOut(StoredTxOut const & stxo,
 {
    SCOPED_TIMER("putStoredTx");
 
-   BinaryData bw = serializeDBValue(stxo, armoryDbType_, dbPruneType_);
+   BinaryData bw = serializeDBValue(stxo, armoryDbType_);
    putValue(ZERO_CONF, DB_PREFIX_ZCDATA, zcKey, bw);
 }
 
@@ -2725,7 +2702,6 @@ StoredDBInfo LMDBBlockDatabase::openDB(DB_SELECT db)
       sdbi.metaHash_ = BtcUtils::EmptyHash_;
       sdbi.topBlkHgt_ = 0;
       sdbi.armoryType_ = armoryDbType_;
-      sdbi.pruneType_ = dbPruneType_;
       putStoredDBInfo(db, sdbi, 0);
    }
 
@@ -2816,7 +2792,7 @@ void LMDBBlockDatabase::resetSSHdb()
 
       StoredScriptHistory emptySSH;
       BinaryWriter bw;
-      emptySSH.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+      emptySSH.serializeDBValue(bw, ARMORY_DB_BARE);
 
       for (auto& sshkey : sshKeys)
       {

@@ -565,7 +565,7 @@ void BlockchainScanner::writeBlockData(
 
                   auto& bw = serializedSubSSH[subsshkey.getDataRef()];
                   subssh.second.serializeDBValue(
-                     bw, db_, ARMORY_DB_BARE, DB_PRUNE_NONE);
+                     bw, db_, ARMORY_DB_BARE);
                }
             }
 
@@ -577,7 +577,7 @@ void BlockchainScanner::writeBlockData(
                {
                   auto& bw = serializedStxo[utxo.second.getDBKey()];
                   utxo.second.serializeDBValue(
-                     bw, ARMORY_DB_BARE, DB_PRUNE_NONE, true);
+                     bw, ARMORY_DB_BARE, true);
                }
             }
          }
@@ -594,7 +594,7 @@ void BlockchainScanner::writeBlockData(
             if (bw.getSize() > 0)
                bw.reset();
             stxo.serializeDBValue(
-               bw, ARMORY_DB_BARE, DB_PRUNE_NONE, true);
+               bw, ARMORY_DB_BARE, true);
          }
       }
 
@@ -999,7 +999,7 @@ void BlockchainScanner::updateSSH(bool force)
       ssh.alreadyScannedUpToBlk_ = topheight;
 
       BinaryWriter bw;
-      ssh.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+      ssh.serializeDBValue(bw, ARMORY_DB_BARE);
       
       db_->putValue(SSH, sshKey.getRef(), bw.getDataRef());
    }
@@ -1254,7 +1254,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
          }
 
          BinaryWriter bw;
-         ssh.second.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+         ssh.second.serializeDBValue(bw, ARMORY_DB_BARE);
          db_->putValue(SSH,
             ssh.second.getDBKey().getRef(),
             bw.getDataRef());

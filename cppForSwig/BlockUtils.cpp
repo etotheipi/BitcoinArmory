@@ -712,7 +712,6 @@ private:
 BlockDataManagerConfig::BlockDataManagerConfig()
 {
    armoryDbType = ARMORY_DB_BARE;
-   pruneType = DB_PRUNE_NONE;
    selectNetwork("Main");
 }
 
@@ -876,13 +875,19 @@ BlockDataManager::BlockDataManager(
    blockchain_(config_.genesisBlockHash)
 {
    setConfig(bdmConfig);
-   openDatabase();
+   try
+   {
+      openDatabase();
+      networkNode_ = make_shared<BitcoinP2P>("127.0.0.1", config_.btcPort_,
+         *(uint32_t*)config_.magicBytes.getPtr());
 
-   networkNode_ = make_shared<BitcoinP2P>("127.0.0.1", config_.btcPort_,
-      *(uint32_t*)config_.magicBytes.getPtr());
-
-   zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
-   scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
+      zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
+      scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
+   }
+   catch (...)
+   {
+      exceptPtr_ = current_exception();
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -914,8 +919,7 @@ void BlockDataManager::openDatabase()
          config_.genesisBlockHash,
          config_.genesisTxHash,
          config_.magicBytes,
-         config_.armoryDbType,
-         config_.pruneType);
+         config_.armoryDbType);
    }
    catch (runtime_error &e)
    {
@@ -923,13 +927,6 @@ void BlockDataManager::openDatabase()
       ss << "DB failed to open, reporting the following error: " << e.what();
       throw runtime_error(ss.str());
    }
-   catch (...)
-   {
-      stringstream ss;
-      ss << "DB failed to open, unknown error";
-      throw runtime_error(ss.str());
-   }
-
 }
 
 /////////////////////////////////////////////////////////////////////////////

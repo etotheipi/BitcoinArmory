@@ -711,7 +711,7 @@ void ScrAddrFilter::putAddrMapInDB()
       ssh.alreadyScannedUpToBlk_ = 0;
 
       BinaryWriter bw;
-      ssh.serializeDBValue(bw, ARMORY_DB_BARE, DB_PRUNE_NONE);
+      ssh.serializeDBValue(bw, ARMORY_DB_BARE);
 
       lmdb_->putValue(SSH, sshKey.getRef(), bw.getDataRef());
    }

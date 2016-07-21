@@ -41,14 +41,20 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
       return;
    }
    brr.get_BinaryData(magic_, 4);
+   
    BitUnpacker<uint32_t> bitunpack(brr);
+   armoryVer_  =                 bitunpack.getBits(16);
+   if (armoryVer_ != ARMORY_DB_VERSION)
+   {
+      LOGERR << "DB version mismatch. Use another dbdir!";
+      throw DbErrorMsg("DB version mismatch. Use another dbdir!");
+   }
+
+   armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
+   
    topBlkHgt_    = brr.get_uint32_t();
    appliedToHgt_ = brr.get_uint32_t();
    brr.get_BinaryData(metaHash_, 32);
-
-   armoryVer_  =                 bitunpack.getBits(4);
-   armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
-   pruneType_  = (DB_PRUNE_TYPE) bitunpack.getBits(4);
 
    if (brr.getSizeRemaining() == 32)
       brr.get_BinaryData(topScannedBlkHash_, 32);
@@ -58,9 +64,8 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
 void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
 {
    BitPacker<uint32_t> bitpack;
-   bitpack.putBits((uint32_t)armoryVer_,   4);
+   bitpack.putBits((uint32_t)armoryVer_,   16);
    bitpack.putBits((uint32_t)armoryType_,  4);
-   bitpack.putBits((uint32_t)pruneType_,   4);
 
    bw.put_BinaryData(magic_);
    bw.put_BitPacker(bitpack);
@@ -545,7 +550,6 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
       unserArmVer_      =                  bitunpack.getBits(4);
       unserBlkVer_      =                  bitunpack.getBits(4);
       unserDbType_      = (ARMORY_DB_TYPE) bitunpack.getBits(4);
-      unserPrType_      = (DB_PRUNE_TYPE)  bitunpack.getBits(2);
       unserMkType_      = (MERKLE_SER_TYPE)bitunpack.getBits(2);
       blockAppliedToDB_ =                  bitunpack.getBit();
    
@@ -577,8 +581,7 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
 void DBBlock::serializeDBValue(
    BinaryWriter &  bw,
    DB_SELECT       db,
-   ARMORY_DB_TYPE dbType,
-   DB_PRUNE_TYPE pruneType
+   ARMORY_DB_TYPE dbType
 ) const
 {
    if(!isInitialized())
@@ -615,8 +618,6 @@ void DBBlock::serializeDBValue(
       {
          // If we store all the tx anyway, don't need any/partial merkle trees
          case ARMORY_DB_BARE:    mtype = MERKLE_SER_NONE;    break;
-         case ARMORY_DB_LITE:    mtype = MERKLE_SER_PARTIAL; break;
-         case ARMORY_DB_PARTIAL: mtype = MERKLE_SER_FULL;    break;
          case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
          case ARMORY_DB_SUPER:   mtype = MERKLE_SER_NONE;    break;
          default: 
@@ -632,7 +633,6 @@ void DBBlock::serializeDBValue(
       bitpack.putBits((uint32_t)ARMORY_DB_VERSION,         4);
       bitpack.putBits((uint32_t)version,                   4);
       bitpack.putBits((uint32_t)dbType, 4);
-      bitpack.putBits((uint32_t)pruneType,  2);
       bitpack.putBits((uint32_t)mtype,                     2);
       bitpack.putBit(blockAppliedToDB_);
 
@@ -819,8 +819,7 @@ void DBTx::unserializeDBValue(BinaryRefReader & brr)
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::serializeDBValue(
       BinaryWriter &    bw,
-      ARMORY_DB_TYPE dbType,
-      DB_PRUNE_TYPE
+      ARMORY_DB_TYPE dbType
    ) const
 {
    TX_SERIALIZE_TYPE serType;
@@ -830,8 +829,6 @@ void StoredTx::serializeDBValue(
       // In most cases, if storing separate TxOuts, fragged Tx is fine
       // UPDATE:  I'm not sure there's a good reason to NOT frag ever
       case ARMORY_DB_BARE:    serType = TX_SER_FRAGGED; break;
-      case ARMORY_DB_LITE:    serType = TX_SER_FRAGGED; break;
-      case ARMORY_DB_PARTIAL: serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_FULL:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_SUPER:   serType = TX_SER_FRAGGED; break;
       default: 
@@ -1055,7 +1052,7 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
                                    bool forceSaveSpentness) const
 {
    TXOUT_SPENTNESS writeSpent = spentness_;
@@ -1068,8 +1065,6 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_
          //   spentness (in fact, if it's spent, this entry probably won't even
          //   be written to the DB).
          case ARMORY_DB_BARE:                                 break;
-         case ARMORY_DB_LITE:    writeSpent = TXOUT_SPENTUNK; break;
-         case ARMORY_DB_PARTIAL: writeSpent = TXOUT_SPENTUNK; break;
          case ARMORY_DB_FULL:                                 break;
          case ARMORY_DB_SUPER:                                break;
          default: 
@@ -1363,8 +1358,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    // Now read the stored data fro this registered address
    BitUnpacker<uint16_t> bitunpack(brr);
    version_            =                    bitunpack.getBits(4);
-   DB_PRUNE_TYPE pruneType = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
-   (void)pruneType;
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
    (void)txoListType;
 
@@ -1400,13 +1393,12 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, 
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) 
+   ARMORY_DB_TYPE dbType) 
    const
 {
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)dbType,                  4);
-   bitpack.putBits((uint16_t)pruneType,               2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
@@ -1506,35 +1498,6 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
    map<BinaryData, StoredSubHistory>::iterator iter;
    for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
       iter->second.pprintFullSubSSH(indent+3);
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B, 
-                                        bool includeMultisig)
-{
-   if(!isInitialized() || subHistMap_.size() == 0)
-      return NULL;
-
-   {
-      // Otherwise, we go searching...
-      BinaryData first4 = dbKey8B.getSliceCopy(0,4);
-      map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
-      iterSubSSH = subHistMap_.find(first4);
-      if(ITER_NOT_IN_MAP(iterSubSSH, subHistMap_))
-         return NULL;
-   
-      // This returns NULL if does not exist.
-      TxIOPair* outptr = iterSubSSH->second.findTxio(dbKey8B);
-      if(outptr==NULL)
-         return NULL;
-
-      if(!includeMultisig && outptr->isMultisig())
-         return NULL;
-
-      return outptr;
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1746,7 +1709,12 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMulti);
 
-      insertTxio(txio);
+      //insertTxio(txio);
+      BinaryData key8B = txio.getDBKeyOfOutput();
+
+      pair<BinaryData, TxIOPair> txioInsertPair(
+         move(key8B), move(txio));
+      txioMap_.insert(move(txioInsertPair));
    }
 }
 
@@ -1770,8 +1738,7 @@ void StoredSubHistory::getSummary(BinaryRefReader & brr)
 ////////////////////////////////////////////////////////////////////////////////
 void StoredSubHistory::serializeDBValue(BinaryWriter & bw, 
                                         LMDBBlockDatabase *db, 
-                                        ARMORY_DB_TYPE dbType, 
-                                        DB_PRUNE_TYPE pruneType) const
+                                        ARMORY_DB_TYPE dbType) const
 {
    bw.put_var_int(txioMap_.size());
    for(const auto& txioPair : txioMap_)
@@ -1782,9 +1749,6 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
       // If spent and only maintaining a pruned DB, skip it
       if(isSpent)
       {
-         if(pruneType==DB_PRUNE_ALL)
-            continue;
-
          if(!txio.getTxRefOfInput().isInitialized())
          {
             LOGERR << "TxIO is spent, but input is not initialized";
@@ -1941,83 +1905,6 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
-{
-   auto iter = txioMap_.find(dbKey8B);
-   if(ITER_NOT_IN_MAP(iter, txioMap_))
-      return NULL;
-   else
-   {
-      if (!withMulti && iter->second.isMultisig())
-         return NULL;
-   }
-   return &(iter->second);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-const TxIOPair* StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
-{
-   TxIOPair * txioptr = findTxio(txOutKey8B);
-   if(txioptr==NULL)
-   {
-      LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
-      return nullptr;
-      //throw runtime_error("missing txio!");
-   }
-
-   txioptr->setUTXO(false);
-   txioptr->flagged = true;
-
-   return txioptr;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Since the outer-ssh object tracks total unspent balances, we need to pass 
-// out the total amount that was deleted from the sub-history, and of course
-// return zero if nothing was removed.
-bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
-{
-   auto txioIter = txioMap_.find(dbKey8B);
-
-   if (ITER_NOT_IN_MAP(txioIter, txioMap_))
-   {
-      LOGWARN << "failed to erase txio in subshh: doesn't exist!";
-      return false;
-   }
-
-   txioMap_.erase(txioIter);
-   return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, 
-                                       uint64_t* additionalSize)
-{
-   BinaryData key8B = txio.getDBKeyOfOutput();
-
-   pair<BinaryData, TxIOPair> txioInsertPair(key8B, txio);
-   pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
-
-   // This returns pair<ExistingOrInsertedIter, wasInserted>
-   txioInsertResult = txioMap_.insert(txioInsertPair);
-
-   // If not inserted, then it was already there.  Overwrite if requested
-   if (txioInsertResult.second == true)
-   {
-      if (additionalSize != nullptr)
-      {
-         *additionalSize += UPDATE_BYTES_KEY;
-         if (txio.hasTxIn())
-            *additionalSize += UPDATE_BYTES_KEY;
-      }
-   }
-   else txioInsertResult.first->second = txio;
-
-   return txioInsertResult.first->second;
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredSubHistory::getSubHistoryReceived(bool withMultisig)
 {
    uint64_t bal = 0;
@@ -2123,7 +2010,7 @@ vector<uint64_t> StoredSubHistory::getSubHistoryValues(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, 
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+   ARMORY_DB_TYPE dbType)
 {
    brr.get_BinaryData(blockHash_, 32);
 
@@ -2166,7 +2053,8 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
+void StoredUndoData::serializeDBValue(
+   BinaryWriter & bw, ARMORY_DB_TYPE dbType) const
 {
    bw.put_BinaryData(blockHash_);
 
@@ -2218,18 +2106,20 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+void StoredUndoData::unserializeDBValue(
+   BinaryData const & bd, ARMORY_DB_TYPE dbType)
 {
    BinaryRefReader brr(bd);
-   unserializeDBValue(brr, dbType, pruneType);
+   unserializeDBValue(brr, dbType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryDataRef bdr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+void StoredUndoData::unserializeDBValue(
+   BinaryDataRef bdr, ARMORY_DB_TYPE dbType)
                                   
 {
    BinaryRefReader brr(bdr);
-   unserializeDBValue(brr, dbType, pruneType);
+   unserializeDBValue(brr, dbType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

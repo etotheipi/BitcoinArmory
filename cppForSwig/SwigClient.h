@@ -36,9 +36,9 @@ struct NoArmoryDBExcept : public runtime_error
    {}
 };
 
-struct BDVALreadyRegistered : public runtime_error
+struct BDVAlreadyRegistered : public runtime_error
 {
-   BDVALreadyRegistered(void) : runtime_error("")
+   BDVAlreadyRegistered(void) : runtime_error("")
    {}
 };
 
@@ -178,7 +178,7 @@ public:
    Blockchain blockchain(void);
 
    void goOnline(void);
-   void registerWithDB(void);
+   void registerWithDB(BinaryData magic_word);
    void unregisterFromDB(void);
    void shutdown(const string& spawnId);
 

@@ -17,6 +17,34 @@ void printHelp()
 
 BlockDataManagerConfig parseArgs(int argc, char* argv[])
 {
+   /***
+   --testnet: run db against testnet bitcoin network
+   
+   --rescan: delete all processed history data and rescan blockchain from the 
+     first block
+   
+   --rebuild: delete all DB data and build and scan from scratch
+   
+   --rescanSSH: delete balance and txcount data and rescan it. Much faster than
+     rescan or rebuild.
+   
+   --supernode: process and keep record of all transaction activity on the 
+     blockchain. Not implemented yet, argument has no effect
+   
+   --datadir: path to the operation folder
+   
+   --dbdir: path to folder containing the database files. If empty, a new db
+     will be created there
+   
+   --satoshi-datadir: path to blockchain data folder (blkXXXXX.dat files)
+   
+   --spawnId: id as a string with which the db was spawned. Certain methods like
+     shutdown require this id to proceed. Starting with an empty id makes all
+     these methods unusable. Currently only used by shutdown()
+
+
+
+   ***/
    BlockDataManagerConfig bdmConfig;
 
    auto stripQuotes = [](const string& input)->string

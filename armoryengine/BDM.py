@@ -156,6 +156,8 @@ class BlockDataManager(object):
       
       self.remoteDB = False
       self.instantiateBDV()
+      
+      self.exception = ""
    
    #############################################################################  
    def instantiateBDV(self):
@@ -175,7 +177,10 @@ class BlockDataManager(object):
       if self.bdmState == BDM_OFFLINE:
          return   
       
-      self.bdv_.registerWithDB()
+      try:
+         self.bdv_.registerWithDB(MAGIC_BYTES)
+      except Cpp.DbErrorMsg as e:
+         self.exception = e.what()
       
    #############################################################################
    @ActLikeASingletonBDM

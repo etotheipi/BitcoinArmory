@@ -35,26 +35,28 @@ BlockDataViewer BlockDataViewer::getNewBDV(const string& addr,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::registerWithDB()
+void BlockDataViewer::registerWithDB(BinaryData magic_word)
 {
    if (bdvID_.size() != 0)
-      throw BDVALreadyRegistered();
+      throw BDVAlreadyRegistered();
 
    //get bdvID
    try
    {
-      auto&& result = sock_->writeAndRead(string("&registerBDV"));
+      Command cmd;
+      cmd.method_ = "registerBDV";
+      BinaryDataObject bdo(move(magic_word));
+      cmd.args_.push_back(move(bdo));
+      cmd.serialize();
+
+      auto&& result = sock_->writeAndRead(cmd.command_);
       Arguments args(move(result));
       bdvID_ = args.get<string>();
    }
    catch (runtime_error &e)
    {
       LOGERR << e.what();
-      throw NoArmoryDBExcept();
-   }
-   catch (...)
-   {
-      throw NoArmoryDBExcept();
+      throw e;
    }
 }
 

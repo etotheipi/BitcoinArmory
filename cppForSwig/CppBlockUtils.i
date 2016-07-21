@@ -74,6 +74,14 @@ namespace std
 	{
 		SWIG_exception(SWIG_RuntimeError, e.what());
 	}
+	catch (DbErrorMsg& e)
+	{
+		SWIG_Python_Raise(SWIG_NewPointerObj(
+			(new DbErrorMsg(static_cast<const DbErrorMsg&>(e))),
+			SWIGTYPE_p_DbErrorMsg, SWIG_POINTER_OWN),
+			"DbErrorMsg", SWIGTYPE_p_DbErrorMsg);
+		SWIG_fail;
+	}
 }
 
 

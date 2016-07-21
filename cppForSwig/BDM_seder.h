@@ -129,6 +129,8 @@ public:
 
    friend ostream& operator << (ostream&, const ErrorType&);
    friend istream& operator >> (istream&, ErrorType&);
+
+   const string& what(void) const { return err_; }
 };
 
 #endif

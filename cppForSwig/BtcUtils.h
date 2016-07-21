@@ -31,6 +31,19 @@
 
 class LedgerEntry;
 
+///////////////////////////////////////////////////////////////////////////////
+class DbErrorMsg
+{
+   const string err_;
+
+public:
+   DbErrorMsg(const string& errstr) : 
+      err_(errstr)
+   {}
+
+   const string& what(void) const { return err_; }
+};
+
 #define HEADER_SIZE 80
 #define COIN 100000000ULL
 #define NBLOCKS_REGARDED_AS_RESCAN 144

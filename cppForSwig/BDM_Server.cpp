@@ -427,11 +427,16 @@ Arguments Clients::runCommand(const string& cmdStr)
    if (!run_.load(memory_order_relaxed))
       return Arguments();
 
+   if (bdmT_->bdm()->hasException())
+   {
+      rethrow_exception(bdmT_->bdm()->getException());
+   }
+
    Command cmdObj(cmdStr);
    cmdObj.deserialize();
    if (cmdObj.method_ == "registerBDV")
    {
-      return registerBDV();
+      return registerBDV(cmdObj.args_);
    }
    else if (cmdObj.method_ == "unregisterBDV")
    {
@@ -444,24 +449,24 @@ Arguments Clients::runCommand(const string& cmdStr)
    else if (cmdObj.method_ == "shutdown")
    {
       auto& thisSpawnId = bdmT_->bdm()->config().spawnID_;
-      if (thisSpawnId.size() != 0)
+      if (thisSpawnId.size() == 0)
+         return Arguments();
+
+      //if thisSpawnId is empty, return
+      //if the spawnId provided with the shutdown command is emtpy, 
+      //mismatches, or is missing entirely (get() will throw), return
+
+      try
       {
-         //if thisSpawnId is empty, proceed with shutdown
-         //if the spawnId provided with the shutdown command is emtpy, 
-         //mismatches, or is missing entirely (get() will throw), return
-         
-         try
-         {
-            auto&& spawnId = cmdObj.args_.get<string>();
-            if ((spawnId.size() == 0) || (spawnId.compare(thisSpawnId) != 0))
-               throw runtime_error("spawnId mismatch");
-         }
-         catch (...)
-         {
-            return Arguments();
-         }
+         auto&& spawnId = cmdObj.args_.get<string>();
+         if ((spawnId.size() == 0) || (spawnId.compare(thisSpawnId) != 0))
+            throw runtime_error("spawnId mismatch");
       }
-      
+      catch (...)
+      {
+         return Arguments();
+      }
+
       auto shutdownLambda = [this](void)->void
       {
          this->exitRequestLoop();
@@ -536,8 +541,22 @@ void Clients::unregisterAllBDVs()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-Arguments Clients::registerBDV()
+Arguments Clients::registerBDV(Arguments& arg)
 {
+   try
+   {
+      auto&& magic_word = arg.get<BinaryDataObject>();
+      auto& thisMagicWord = bdmT_->bdm()->config().magicBytes;
+
+      if (thisMagicWord != magic_word.get())
+         throw runtime_error("");
+   }
+   catch (...)
+   {
+      throw DbErrorMsg("invalid magic word");
+   }
+
+
    shared_ptr<BDV_Server_Object> newBDV
       = make_shared<BDV_Server_Object>(bdmT_);
 
@@ -761,7 +780,27 @@ void FCGI_Server::processRequest(FCGX_Request* req)
       }
       catch (exception& e)
       {
-         retStream << "error: " << e.what();
+         ErrorType err(e.what());
+         Arguments arg;
+         arg.push_back(move(err));
+
+         retStream << arg.serialize();
+      }
+      catch (DbErrorMsg &e)
+      {
+         ErrorType err(e.what());
+         Arguments arg;
+         arg.push_back(move(err));
+
+         retStream << arg.serialize();
+      }
+      catch (...)
+      {
+         ErrorType err("unknown error");
+         Arguments arg;
+         arg.push_back(move(err));
+         
+         retStream << arg.serialize();
       }
       
       //complete HTML header

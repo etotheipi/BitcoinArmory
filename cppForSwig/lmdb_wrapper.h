@@ -337,8 +337,7 @@ public:
       BinaryData const & genesisBlkHash,
       BinaryData const & genesisTxHash,
       BinaryData const & magic,
-      ARMORY_DB_TYPE     dbtype,
-      DB_PRUNE_TYPE      pruneType);
+      ARMORY_DB_TYPE     dbtype);
 
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);
@@ -768,7 +767,6 @@ private:
    BinaryData           magicBytes_;
 
    ARMORY_DB_TYPE armoryDbType_;
-   DB_PRUNE_TYPE dbPruneType_;
 
    bool                 dbIsOpen_;
    uint32_t             ldbBlockSize_;

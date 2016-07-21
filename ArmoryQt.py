@@ -6037,6 +6037,14 @@ class ArmoryMainWindow(QMainWindow):
             reactor.callLater(1, self.Heartbeat)
          return
 
+      if TheBDM.exception != "":
+         QMessageBox.warning(self, tr('Database Error'), tr("""
+                           The DB has returned the following 
+                           error: <br><br>
+                           <b> %s </b> <br><br>
+                           Armory will not shutdown. """ \
+                           % TheBDM.exception), QMessageBox.Ok)
+         self.closeForReal()
 
       # TorrentDownloadManager
       # SatoshiDaemonManager

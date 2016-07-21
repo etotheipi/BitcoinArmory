@@ -19,6 +19,7 @@
 #include <vector>
 #include <set>
 #include <future>
+#include <exception>
 
 #include "Blockchain.h"
 #include "BinaryData.h"
@@ -124,6 +125,7 @@ private:
    shared_ptr<BlockFiles> blockFiles_;
    shared_ptr<DatabaseBuilder> dbBuilder_;
 
+   exception_ptr exceptPtr_ = nullptr;
 
 public:
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;   
@@ -173,6 +175,9 @@ public:
    
    void registerBDVwithZCcontainer(shared_ptr<BDV_Server_Object>);
    void unregisterBDVwithZCcontainer(const string&);
+
+   bool hasException(void) const { return exceptPtr_ != nullptr; }
+   exception_ptr getException(void) const { return exceptPtr_; }
 
 private:
    void loadDiskState(

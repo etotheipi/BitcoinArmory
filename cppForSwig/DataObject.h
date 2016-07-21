@@ -108,7 +108,7 @@ public:
    friend ostream& operator << <> (ostream&, const DataObject<T>&);
    friend istream& operator >> <> (istream&, DataObject<T>&);
 
-   void serializeToStream(ostream& os) const { os << obj_; }
+void serializeToStream(ostream& os) const { os << obj_; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -206,10 +206,18 @@ public:
       auto typeIter = DataMeta::iTypeIDs_.cbegin() + objTypeInt;
       if (!(*typeIter)->isType(typeid(T)))
       {
-         stringstream ss;
-         ss << "Invalid argument type. Expected: " << typeid(T).name()
+         if ((*typeIter)->isType(typeid(ErrorType)))
+         {
+            DataObject<ErrorType> errObj;
+            ss >> errObj;
+
+            throw DbErrorMsg(errObj.getObj().what());
+         }
+
+         stringstream ssErr;
+         ssErr << "Invalid argument type. Expected: " << typeid(T).name()
             << ", got:" << (*typeIter)->getTypeName() ;
-         throw runtime_error(ss.str());
+         throw runtime_error(ssErr.str());
       }
 
       strArgs_.pop_front();

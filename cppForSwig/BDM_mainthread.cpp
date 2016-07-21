@@ -122,6 +122,9 @@ void BlockDataManagerThread::run()
 try
 {
    BlockDataManager *const bdm = this->bdm();
+
+   if (bdm->hasException())
+      return;
       
    promise<bool> isReadyPromise;
    bdm->isReadyFuture_ = isReadyPromise.get_future();
@@ -170,7 +173,6 @@ try
             LOGINFO << "Stop requested detected";
             throw BDMStopRequest();
          }
-         
       };
       
       try

@@ -20,7 +20,7 @@ ostream& operator << (ostream& os, const ErrorType& et)
 ///////////////////////////////////////////////////////////////////////////////
 istream& operator >> (istream& is, ErrorType& et)
 {
-   is >> et.err_;
+   getline(is, et.err_);
 
    return is;
 }

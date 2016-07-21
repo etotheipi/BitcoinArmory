@@ -14,7 +14,6 @@
 struct BlockDataManagerConfig
 {
    ARMORY_DB_TYPE armoryDbType;
-   DB_PRUNE_TYPE pruneType;
    BDM_INIT_MODE initMode = INIT_RESUME;
    
    string blkFileLocation_ = "./";
