@@ -529,9 +529,9 @@ else:
    PRIVKEYBYTE = '\xef'
 
    # 
-   BLOCKEXPLORE_NAME     = 'blockexplorer.com' if USE_TESTNET else ''
-   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s' if USE_TESTNET else ''
-   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s' if USE_TESTNET else ''
+   BLOCKEXPLORE_NAME     = 'blockexplorer.com' if USE_TESTNET else 'Fake regtest explorer'
+   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s' if USE_TESTNET else 'http://noexplorer.none/%s'
+   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s' if USE_TESTNET else 'http://noexplorer.none/addr/%s'
 
 # These are the same regardless of network
 # They are the way data is stored in the database which is network agnostic

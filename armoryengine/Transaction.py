@@ -2185,7 +2185,7 @@ class UnsignedTransaction(AsciiSerializable):
                raise InvalidHashError('P2SH script not supplied')
 
 
-         ustxiList.append(UnsignedTxInput(pyPrevTx.serialize(), 
+         ustxiList.append(UnsignedTxInput(pyPrevTx.serializeWithoutWitness(),
                                           txoIdx, 
                                           p2sh, 
                                           pubKeyMap))

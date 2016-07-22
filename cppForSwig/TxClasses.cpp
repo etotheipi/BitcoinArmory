@@ -394,10 +394,11 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
 		BinaryData txBody(ptr + 6, offsetsTxOut_.back() - 6);
 		dataNoWitness_.append(txBody);
 		dataNoWitness_.append(WRITE_UINT32_LE(lockTime_));
-		BtcUtils::getHash256(dataNoWitness_, thisHash_);
 	}
 	else
-		BtcUtils::getHash256(ptr, nBytes, thisHash_);
+		dataNoWitness_.copyFrom(ptr, nBytes);
+
+	BtcUtils::getHash256(dataNoWitness_, thisHash_);
 
 	isInitialized_ = true;
 }
@@ -443,10 +444,11 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
 	   BinaryData txBody(ptr + 6, offsetsTxOut_.back() - 6);
 	   dataNoWitness_.append(txBody);
 	   dataNoWitness_.append(WRITE_UINT32_LE(lockTime_));
-	   BtcUtils::getHash256(dataNoWitness_, thisHash_);
    }
    else
-	   BtcUtils::getHash256(ptr, nBytes, thisHash_);
+	   dataNoWitness_.copyFrom(ptr, nBytes);
+
+   BtcUtils::getHash256(dataNoWitness_, thisHash_);
 
    isInitialized_ = true;
    isRBF_ = (bool)rawTx.getPtr();

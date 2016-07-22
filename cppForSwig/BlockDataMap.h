@@ -70,7 +70,7 @@ struct BCTX
    const BinaryData& getHash(void) const
    {
       if (txHash_.getSize() == 0)
-         BtcUtils::getHash256(data_, size_, txHash_);
+         BtcUtils::getHash256(noWitData_.getPtr(), noWitData_.getSize(), txHash_);
 
       return txHash_;
    }
