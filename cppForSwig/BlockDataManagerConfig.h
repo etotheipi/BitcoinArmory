@@ -8,39 +8,66 @@
 #ifndef BLOCKDATAMANAGERCONFIG_H
 #define BLOCKDATAMANAGERCONFIG_H
 
+#include <thread>
 #include "bdmenums.h"
 #include "BinaryData.h"
 
+#ifdef _WIN32
+#include <ShlObj.h>
+#else
+#include <wordexp.h>
+#endif
+
 struct BlockDataManagerConfig
 {
-   ARMORY_DB_TYPE armoryDbType;
-   BDM_INIT_MODE initMode = INIT_RESUME;
-   
-   string blkFileLocation_ = "./";
-   string dbLocation_ = "./";
+   ARMORY_DB_TYPE armoryDbType_ = ARMORY_DB_FULL;
+   BDM_INIT_MODE initMode_ = INIT_RESUME;
+
+   static const string dbDirExtention_;
+   static const string defaultDataDir_;
+   static const string defaultBlkFileLocation_;
+   static const string defaultTestnetDataDir_;
+   static const string defaultTestnetBlkFileLocation_;
+
+   string dataDir_;
+   string blkFileLocation_;
+   string dbDir_;
+
+   bool testnet_ = false;
+
+   string logFilePath_;
+
    string spawnID_;
    
-   BinaryData genesisBlockHash;
-   BinaryData genesisTxHash;
-   BinaryData magicBytes;
+   BinaryData genesisBlockHash_;
+   BinaryData genesisTxHash_;
+   BinaryData magicBytes_;
 
    string btcPort_;
+
+   unsigned ramUsage_ = 4;
+   unsigned threadCount_ = thread::hardware_concurrency();
    
    void setGenesisBlockHash(const BinaryData &h)
    {
-      genesisBlockHash = h;
+      genesisBlockHash_ = h;
    }
    void setGenesisTxHash(const BinaryData &h)
    {
-      genesisTxHash = h;
+      genesisTxHash_ = h;
    }
    void setMagicBytes(const BinaryData &h)
    {
-      magicBytes = h;
+      magicBytes_ = h;
    }
-   
+
    BlockDataManagerConfig();
    void selectNetwork(const std::string &netname);
+
+   void appendPath(string& base, const string& add);
+   void parseArgs(int argc, char* argv[]);
+   void printHelp(void);
+   string stripQuotes(const string& input);
 };
 
 #endif

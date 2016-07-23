@@ -20,7 +20,8 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
-   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync
+   MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync, ARMORY_RAM_USAGE,\
+   ARMORY_THREAD_COUNT, ARMORY_DB_TYPE
 from bitcoinrpc_jsonrpc import authproxy
 
 
@@ -454,6 +455,8 @@ class SatoshiDaemonManager(object):
    def spawnDB(self, dbDir):
       pargs = [self.dbExecutable]
 
+      pars.append('--db-type="' + ARMORY_DB_TYPE + '"')
+
       if USE_TESTNET:
          pargs.append('--testnet')    
          
@@ -474,6 +477,11 @@ class SatoshiDaemonManager(object):
          pargs.append('--rescan')
       elif CLI_OPTIONS.rescanBalance:
          pargs.append('--rescanSSH')
+         
+      if ARMORY_RAM_USAGE != -1:
+         pargs.append('--ram-usage=' + ARMORY_RAM_USAGE)
+      if ARMORY_THREAD_COUNT != -1:
+         pargs.append('--thread-count=' + ARMORY_THREAD_COUNT)
       
       kargs = {}
       if OS_WINDOWS:

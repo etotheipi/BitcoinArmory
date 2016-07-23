@@ -16,8 +16,6 @@ class ScrAddrFilter;
 
 typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
-#define DEBUG_THREAD_COUNT 5
-
 /////////////////////////////////////////////////////////////////////////////
 class DatabaseBuilder
 {
@@ -30,8 +28,9 @@ private:
    const ProgressCallback progress_;
    const BinaryData magicBytes_;
    BlockOffset topBlockOffset_;
+   const ARMORY_DB_TYPE dbType_;
 
-   const unsigned threadCount_;
+   const BlockDataManagerConfig bdmConfig_;
 
 private:
    void findLastKnownBlockPos();
@@ -49,25 +48,14 @@ private:
    BinaryData scanHistory(uint32_t startHeight, bool reportprogress);
    void undoHistory(Blockchain::ReorganizationState& reorgState);
 
-   unsigned getThreadCount(void)
-   {
-      unsigned threadCount;
-      #ifdef _DEBUG
-            threadCount = DEBUG_THREAD_COUNT;
-      #else
-            threadCount = thread::hardware_concurrency();
-      #endif
-
-      LOGINFO << "Running on " << threadCount << " threads";
-      return threadCount;
-   }
-
    void resetHistory(void);
    void resetSSHdb(void);
 
    bool reparseBlkFiles(unsigned fromID);
    map<BinaryData, BlockHeader> assessBlkFile(BlockDataLoader& bdl,
       unsigned fileID);
+
+   ARMORY_DB_TYPE getDbType(void) const;
 
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager&,

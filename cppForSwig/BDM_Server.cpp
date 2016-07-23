@@ -546,7 +546,7 @@ Arguments Clients::registerBDV(Arguments& arg)
    try
    {
       auto&& magic_word = arg.get<BinaryDataObject>();
-      auto& thisMagicWord = bdmT_->bdm()->config().magicBytes;
+      auto& thisMagicWord = bdmT_->bdm()->config().magicBytes_;
 
       if (thisMagicWord != magic_word.get())
          throw runtime_error("");

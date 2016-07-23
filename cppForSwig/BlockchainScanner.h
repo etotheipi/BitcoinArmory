@@ -113,7 +113,7 @@ private:
    ScrAddrFilter* scrAddrFilter_;
    BlockDataLoader blockDataLoader_;
 
-   const unsigned nBlockFilesPerBatch_ = 4;
+   const unsigned nBlockFilesPerBatch_;
    const unsigned nBlocksLookAhead_ = 10;
    const unsigned totalThreadCount_;
    const unsigned totalBlockFileCount_;
@@ -158,15 +158,15 @@ public:
    BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,
       ScrAddrFilter* saf,
       BlockFiles& bf,
-      unsigned threadcount,
+      unsigned threadcount, unsigned batchSize, 
       ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
       totalThreadCount_(threadcount),
       blockDataLoader_(bf.folderPath(), true, true, true),
       progress_(prg), reportProgress_(reportProgress),
-      totalBlockFileCount_(bf.fileCount())
-   {
-   }
+      totalBlockFileCount_(bf.fileCount()),
+      nBlockFilesPerBatch_(batchSize)
+   {}
 
    void scan(uint32_t startHeight);
    void scan_nocheck(uint32_t startHeight);

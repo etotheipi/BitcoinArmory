@@ -780,7 +780,6 @@ void BlockchainScanner::updateSSH(bool force)
    StoredDBInfo sdbi = scrAddrFilter_->getSshSDBI();
 
    {
-
       BlockHeader* sdbiblock = nullptr;
 
       try
@@ -804,6 +803,16 @@ void BlockchainScanner::updateSSH(bool force)
             }
          }
       }
+   }
+
+   bool resolveHashes = false;
+   {
+      //check for db mode against HEADERS db since it the only one that 
+      //doesn't change through rescans
+      auto headersSdbi = db_->getStoredDBInfo(HEADERS, 0);
+
+      if (headersSdbi.armoryType_ == ARMORY_DB_FULL)
+         resolveHashes = true;
    }
 
    set<BinaryData> txnsToResolve;
@@ -896,9 +905,13 @@ void BlockchainScanner::updateSSH(bool force)
          for (auto& txioPair : subssh.txioMap_)
          {
             auto&& keyOfOutput = txioPair.second.getDBKeyOfOutput();
-            auto&& txKey = keyOfOutput.getSliceRef(0, 6);
+            
+            if (resolveHashes)
+            {
+               auto&& txKey = keyOfOutput.getSliceRef(0, 6);
 
-            txnsToResolve.insert(txKey);
+               txnsToResolve.insert(txKey);
+            }
 
             if (!txioPair.second.isMultisig())
             {
@@ -933,7 +946,7 @@ void BlockchainScanner::updateSSH(bool force)
 
 
    //build txHash refs from listed txins
-   if (txnsToResolve.size() > 0)
+   if (resolveHashes && txnsToResolve.size() > 0)
    {
       set<BinaryData> allMissingTxHashes;
       try
@@ -1455,6 +1468,11 @@ void BlockchainScanner::processFilterHitsThread(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::resolveTxHashes()
 {
+   /***
+   the missing hashes entry will always be empty if the db is not set
+   to ARMORY_DB_FULL, no need to check dbType here
+   ***/
+
    TIMER_START("resolveHashes");
 
    set<BinaryData> missingHashes;

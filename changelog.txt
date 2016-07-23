@@ -1,3 +1,38 @@
+v0.94.99-testing
+
+== Added ==
+
+   - Introducing litenode
+   - Client and database are now split in 2 binaries: ArmoryQt (client) and ArmoryDB (server)
+   - The clients interface with the server over the FCGI protocol. Server is hardcoded to listen on localhost:9050
+   - ArmoryDB can serve remote clients through the use of a HTTP daemon. Example setup for nginx can be found in here: ...
+
+   - As a result, bitcoin P2P connectivity has been moved from ArmoryQt to ArmoryDB. This means in turn that clients do not 
+     require the presence of a local bitcoin node process to operate.
+   - By default ArmoryQt spawns and controls ArmoryDB. This will not happen in 2 cases:
+      _ There is already an instance of ArmoryDB listening on localhost:9050
+      _ ArmoryQt has been pointed to specific ArmoryDB through a combination of the new --armorydb-ip and --armorydb-port 
+        command line arguments
+   - ArmoryDB requires the presence of a bitcoin node on localhost:8333 and access to raw blockchain data like before.
+     The change to interface with bitcoin nodes remotely is not in the scope of this release
+   - ArmoryDB comes with its own set of command line arguments. They are described here: ...
+   
+   - Introduced an extra set of data to resolve random transaction hashes. This database is ~550MB with the current
+     blockchain size. It can be disabled on a factory reset using the --disable-resolver command line argument
+   - ArmoryDB now uses its own log file (./dbLog.txt), running in the --datadir folder
+   - Added DB version detection. Mismatch in DB version will result in an error message and termination on the client side,
+     a stdout warning on the server terminal side as well as in the log file.
+
+== Fixed ==
+   - Fixed the missing transaction issue in Tx detail dialog through the addition of the new resolver dataset
+
+== Removed ==
+   - ArmoryQt does not interface nor require the presence of a local bitcoin node to operate online anymore. This 
+     functionality has been migrated to ArmoryDB
+   - There will be no changes to wallet crypto related operations in this version. Older offline versions of Armory
+     (down to 0.92.x) are still compatible with 0.95
+
+
 v0.94.1, released April 2nd 2016:
 
 == Fixed ==

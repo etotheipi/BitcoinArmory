@@ -411,15 +411,13 @@ void LMDBBlockDatabase::openDatabases(
       // Check that the magic bytes are correct
       if (magicBytes_ != sdbi.magic_)
       {
-         throw runtime_error("Magic bytes mismatch!  Different blkchain?");
+         throw DbErrorMsg("Magic bytes mismatch!  Different blokchain?");
       }
 
-      else if (armoryDbType_ != sdbi.armoryType_)
+      if (CURRDB == HEADERS)
       {
-         LOGERR << "Mismatch in DB type";
-         LOGERR << "DB is in  mode: " << (uint32_t)armoryDbType_;
-         LOGERR << "Expecting mode: " << sdbi.armoryType_;
-         throw runtime_error("Mismatch in DB type");
+         if (armoryDbType_ != sdbi.armoryType_)
+            armoryDbType_ = sdbi.armoryType_;
       }
    }
 

@@ -153,11 +153,11 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
    const BinaryData& getGenesisHash(void) const  
-   { return config_.genesisBlockHash;   }
+   { return config_.genesisBlockHash_; }
    const BinaryData& getGenesisTxHash(void) const 
-   { return config_.genesisTxHash; }
+   { return config_.genesisTxHash_; }
    const BinaryData& getMagicBytes(void) const   
-   { return config_.magicBytes;    }
+   { return config_.magicBytes_; }
 
    void openDatabase(void);
    

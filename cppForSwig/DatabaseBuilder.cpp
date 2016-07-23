@@ -16,13 +16,20 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
    BlockDataManager& bdm,
    const ProgressCallback &progress)
    : blockFiles_(blockFiles), db_(bdm.getIFace()),
-   blockchain_(bdm.blockchain()),
+   bdmConfig_(bdm.config()), blockchain_(bdm.blockchain()),
    scrAddrFilter_(bdm.getScrAddrFilter()),
    progress_(progress),
    magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0),
-   threadCount_(getThreadCount())
+   dbType_(getDbType())
 {}
 
+/////////////////////////////////////////////////////////////////////////////
+ARMORY_DB_TYPE DatabaseBuilder::getDbType() const
+{
+   StoredDBInfo sdbi;
+   db_->getStoredDBInfo(HEADERS, 0);
+   return sdbi.armoryType_;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()
@@ -201,7 +208,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    //preload and prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
 
-   unsigned threadcount = min(threadCount_,
+   unsigned threadcount = min(bdmConfig_.threadCount_,
       blockFiles_.fileCount() - topBlockOffset_.fileID_);
 
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
@@ -227,7 +234,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
          //reset startOffset for the next file
          startOffset = 0;
-         fileID += threadCount_;
+         fileID += bdmConfig_.threadCount_;
       }
    };
 
@@ -339,7 +346,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    auto&& insertedBlocks = blockchain_.addBlocksInBulk(bhmap);
 
    //process filters
-   if (insertedBlocks.size() > 0)
+   if (dbType_ == ARMORY_DB_FULL && insertedBlocks.size() > 0)
    {
       //pull existing file filter bucket from db (if any)
       auto&& pool = db_->getFilterPoolForFileNum<TxFilterType>(fileID);
@@ -449,7 +456,8 @@ BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
    bool reportprogress)
 {
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(),
-      blockFiles_, threadCount_, progress_, reportprogress);
+      blockFiles_, bdmConfig_.threadCount_, bdmConfig_.ramUsage_,
+      progress_, reportprogress);
    
    bcs.scan(startHeight);
    bcs.updateSSH(false);
@@ -501,7 +509,8 @@ void DatabaseBuilder::undoHistory(
 {
    //unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
    BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(), 
-      blockFiles_, threadCount_, progress_, false);
+      blockFiles_, bdmConfig_.threadCount_, bdmConfig_.ramUsage_, 
+      progress_, false);
    bcs.undo(reorgState);
 
    blockchain_.setDuplicateIDinRAM(db_);
@@ -529,7 +538,7 @@ bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
       {
          auto&& hmap = assessBlkFile(bdl, fileID);
 
-         fileID += threadCount_;
+         fileID += bdmConfig_.threadCount_;
 
          if (hmap.size() == 0)
             continue;
@@ -539,7 +548,7 @@ bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
       }
    };
 
-   unsigned threadcount = min(threadCount_,
+   unsigned threadcount = min(bdmConfig_.threadCount_,
       blockFiles_.fileCount() - topBlockOffset_.fileID_);
 
    vector<thread> tIDs;
