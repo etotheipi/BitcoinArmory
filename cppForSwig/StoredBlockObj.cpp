@@ -15,6 +15,7 @@
 #include <list>
 #include <map>
 #include "StoredBlockObj.h"
+#include "DbErrorMsg.h"
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData StoredDBInfo::getDBKey(uint16_t id)

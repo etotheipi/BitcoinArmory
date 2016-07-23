@@ -105,32 +105,4 @@ public:
    vector<UTXO> toVec(void) { return move(vec_); }
 };
 
-///////////////////////////////////////////////////////////////////////////////
-class ErrorType
-{
-private:
-   string err_;
-
-public:
-   ErrorType() 
-   {}
-
-   ErrorType(const string& err) :
-      err_(err)
-   {}
-
-   ErrorType(string&& err) :
-      err_(move(err))
-   {}
-
-   ErrorType(const char* str) :
-      err_(str)
-   {}
-
-   friend ostream& operator << (ostream&, const ErrorType&);
-   friend istream& operator >> (istream&, ErrorType&);
-
-   const string& what(void) const { return err_; }
-};
-
 #endif

@@ -1,3 +1,11 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2016, goatpig.                                              //
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 #ifndef _DATAOBJECT_H
 #define _DATAOBJECT_H
 
@@ -12,6 +20,7 @@
 #include <deque>
 #include <mutex>
 
+#include "DbErrorMsg.h"
 #include "BDM_seder.h"
 #include "ThreadSafeClasses.h"
 
@@ -111,6 +120,33 @@ public:
 void serializeToStream(ostream& os) const { os << obj_; }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+class ErrorType
+{
+private:
+   string err_;
+
+public:
+   ErrorType() 
+   {}
+
+   ErrorType(const string& err) :
+      err_(err)
+   {}
+
+   ErrorType(string&& err) :
+      err_(move(err))
+   {}
+
+   ErrorType(const char* str) :
+      err_(str)
+   {}
+
+   friend ostream& operator << (ostream&, const ErrorType&);
+   friend istream& operator >> (istream&, ErrorType&);
+
+   const string& what(void) const { return err_; }
+};
 ///////////////////////////////////////////////////////////////////////////////
 class Arguments
 {

@@ -20,6 +20,7 @@
 #include "./BlockDataManager/fcgi/include/fcgios.h"
 
 #include "BlockDataViewer.h"
+#include "DataObject.h"
 #include "BDM_seder.h"
 #include "EncryptionUtils.h"
 #include "LedgerEntry.h"

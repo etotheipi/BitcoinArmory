@@ -965,8 +965,18 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
    string userPath(pathPtr);
    delete[] pathPtr;
 #else
-   //implement with wordexp.h methods
-   throw runtime_error("not implemented");
+   wordexp_t wexp;
+   wordexp("~", &wexp, 0);
+
+   for(unsigned i=0; i < wexp.we_wordc; i++)
+   {
+      cout << wexp.we_wordv[i] << endl;
+   }
+
+   if(wexp.we_wordc == 0)
+      throw runtime_error("failed to resolve home path");
+
+   string userPath(wexp.we_wordv[0]);
 #endif
 
    //expand paths if necessary

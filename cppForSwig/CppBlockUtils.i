@@ -18,6 +18,7 @@
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
+#include "DbErrorMsg.h"
 #include "SwigClient.h"
 #include "bdmenums.h"
 #include "TxClasses.h"
@@ -300,6 +301,7 @@ namespace std
 
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
+%include "DbErrorMsg.h"
 %include "SwigClient.h"
 %include "bdmenums.h"
 %include "LedgerEntryData.h"
