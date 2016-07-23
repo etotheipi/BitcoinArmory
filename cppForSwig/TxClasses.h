@@ -425,7 +425,7 @@ private:
    // Will always create TxIns and TxOuts on-the-fly; only store the offsets
    vector<size_t> offsetsTxIn_;
    vector<size_t> offsetsTxOut_;
-   vector<size_t> offsetWitness_;
+   vector<size_t> offsetsWitness_;
 
    // To be calculated later
    //BlockHeader*  headerPtr_;

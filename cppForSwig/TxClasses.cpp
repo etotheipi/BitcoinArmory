@@ -373,7 +373,7 @@ bool Tx::isCoinbase(void) const
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr, size_t size)
 {
-	uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetWitness_);
+	uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetsWitness_);
 
 	if (nBytes > size)
 		throw BlockDeserializingException();
@@ -423,7 +423,7 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
    size--;
    auto ptr = rawTx.getPtr() + 1;
 
-   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetWitness_);
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetsWitness_);
 
    if (nBytes > size)
 	   throw BlockDeserializingException();
