@@ -692,10 +692,10 @@ class PyTxWitness(BlockComponent):
       indstr2 = indstr + indent
       result = indstr + 'PyWitness:'
       result = ''.join([result, '\n',  indstr2 + 'Stack Size:', \
-                                       str(self.binWitnesses[0])])
+                                       str(self.binWitness[0])])
       for i in range(0, len(self.binWitness)/2, 2):
           result = ''.join([result, '\n',  indstr2 + 'Stack Item:', \
-                                       str(self.binWitnesses[i])])
+                                       str(self.binWitness[i])])
       return result
 
 #####
@@ -714,8 +714,8 @@ class PyTx(BlockComponent):
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
       if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
-         binOut.put(UINT8, MARKER)
-         binOut.put(UINT8, FLAG)
+         binOut.put(UINT8, WITNESS_MARKER)
+         binOut.put(UINT8, WITNESS_FLAG)
       binOut.put(VAR_INT, len(self.inputs))
       for txin in self.inputs:
          binOut.put(BINARY_CHUNK, txin.serialize())
@@ -753,7 +753,7 @@ class PyTx(BlockComponent):
       self.version    = txData.get(UINT32)
       marker = txData.get(UINT8)
       flag = txData.get(UINT8)
-      if marker == MARKER and flag == FLAG:
+      if marker == WITNESS_MARKER and flag == WITNESS_FLAG:
          self.useWitness = True
       else:
          txData.rewind(2)
