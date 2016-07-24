@@ -716,9 +716,13 @@ public:
        witLen += viStackLen;
        for(uint32_t i=0; i<stackLen; i++)
        {
+		   if (size - witLen < 1)
+			   throw BlockDeserializingException();
           uint32_t viLen;
           witLen += (uint32_t)readVarInt(ptr+witLen, size-witLen, &viLen);
           witLen += viLen;
+		  if (witLen < size)
+			  throw BlockDeserializingException();
        }
        return witLen;
    }
@@ -803,6 +807,11 @@ public:
                brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
             }
          }
+      }
+      else
+      {
+         offsetsWitness->resize(1);
+         (*offsetsWitness)[0] = (*offsetsOut)[nOut];
       }
 
       brr.advance(4);
@@ -898,7 +907,8 @@ public:
             for (uint32_t i = 0; i < nIn; i++) {
                (*offsetsWitness)[i] = brr.getPosition();
                brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
-            }
+			}
+			(*offsetsWitness)[nIn] = brr.getPosition();
          }
          else
          {
@@ -927,10 +937,12 @@ public:
       if (sz < 21)
          return TXOUT_SCRIPT_NONSTANDARD;
       else if (sz == 21 &&
-         s[0] == 0x00)
+         s[0] == 0x00 &&
+		 s[1] == 0x14)
          return TXOUT_SCRIPT_P2WPKH;
       else if (sz == 34 &&
-         s[0] == 0x00)
+         s[0] == 0x00 &&
+		 s[1] == 0x20)
          return TXOUT_SCRIPT_P2WSH;
       else if (sz == 25 &&
          s[0] == 0x76 &&
@@ -973,9 +985,9 @@ public:
    {
       if(script.getSize() == 0)
          return TXIN_SCRIPT_WITNESS;
-      if(script.getSize() == 23 && script[1] == 0x00)
+      if(script.getSize() == 23 && script[1] == 0x00 && script[2] == 0x14)
          return TXIN_SCRIPT_P2WPKH_P2SH;
-      if(script.getSize() == 35 && script[1] == 0x00)
+      if(script.getSize() == 35 && script[1] == 0x00 && script[2] == 0x20)
          return TXIN_SCRIPT_P2WSH_P2SH;
 
       if(prevTxHash == BtcUtils::EmptyHash_)
@@ -1065,7 +1077,7 @@ public:
             bw.put_BinaryData(script.getSliceCopy(2, 20));
             return bw.getData();
          case(TXOUT_SCRIPT_P2WSH) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
+            bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
             bw.put_BinaryData(getHash160(script.getSliceCopy(3, 32)));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY65) :

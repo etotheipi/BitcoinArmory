@@ -667,7 +667,6 @@ class PyTxWitness(BlockComponent):
       if stackSize > 0:
          for i in range(0, stackSize, 1):
             stackItemSize = txWitnessData.get(VAR_INT)
-            debugremsize = txWitnessData.getRemainingSize()
             if txWitnessData.getRemainingSize() < stackItemSize: raise UnserializeError
             stackItem = txWitnessData.get(BINARY_CHUNK, stackItemSize)
             self.binWitness.append(stackItemSize)
