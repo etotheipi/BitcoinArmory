@@ -48,12 +48,10 @@ struct BCTX
    const uint8_t* data_;
    const size_t size_;
 
-   BinaryData noWitData_;
-
    uint32_t version_;
    uint32_t lockTime_;
-   uint8_t  marker_;
-   uint8_t  flag_;
+
+   bool usesWitness_;
 
    vector<OffsetAndSize> txins_;
    vector<OffsetAndSize> txouts_;
@@ -69,8 +67,13 @@ struct BCTX
 
    const BinaryData& getHash(void) const
    {
-      if (txHash_.getSize() == 0)
-         BtcUtils::getHash256(noWitData_.getPtr(), noWitData_.getSize(), txHash_);
+      if(txHash_.getSize() == 0)
+      {
+         BinaryData noWitData = BinaryData();
+         if(usesWitness_)
+            noWitData.append(version_).append(data_ + txins_.at(0).first, txwitnesses_.at(0).first - txins_.at(0).first).append(lockTime_);
+         BtcUtils::getHash256(noWitData, txHash_);
+      }
 
       return txHash_;
    }

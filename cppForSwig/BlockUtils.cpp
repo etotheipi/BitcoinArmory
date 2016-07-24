@@ -747,7 +747,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 	   genesisBlockHash_ = READHEX(REGTEST_GENESIS_HASH_HEX);
 	   genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
 	   magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
-	   btcPort_ = "18333"
+      btcPort_ = "18333";
    }
 }
 
