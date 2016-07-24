@@ -747,7 +747,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 	   genesisBlockHash_ = READHEX(REGTEST_GENESIS_HASH_HEX);
 	   genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
 	   magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
-      btcPort_ = "18333";
+      btcPort_ = "18444";
    }
 }
 
@@ -784,6 +784,8 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 {
    /***
    --testnet: run db against testnet bitcoin network
+
+   --regtest: run db against regression test network
 
    --rescan: delete all processed history data and rescan blockchain from the
    first block
@@ -834,6 +836,10 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       if (str == "--testnet")
       {
          selectNetwork("Test");
+      }
+      else if(str == "--regtest")
+      {
+         selectNetwork("Regtest");
       }
       else if (str == "--rescan")
       {

@@ -46,6 +46,10 @@ using namespace std;
 #define INV_MAX 50000
 #define INV_ENTRY_LEN 36
 
+// Node witness
+#define NODE_WITNESS 1 << 3
+extern bool PEER_USES_WITNESS;
+
 enum PayloadType
 {
    Payload_tx = 1,
@@ -63,7 +67,10 @@ enum InvType
    Inv_Msg_Tx,
    Inv_Msg_Block,
    Inv_Msg_Filtered_Block,
-   Inv_Terminate
+   Inv_Terminate,
+   Inv_Witness = 1 << 30,
+   Inv_Msg_Witness_Tx = Inv_Msg_Tx | Inv_Witness,
+   Inv_Msg_Witness_Block = Inv_Msg_Block | Inv_Witness
 };
 
 int get_varint(uint64_t& val, uint8_t* ptr, uint32_t size);
@@ -413,6 +420,8 @@ private:
    void pollSocketThread();
    void processDataStackThread(void);
    void processPayload(vector<unique_ptr<Payload>>);
+
+   void checkServices(unique_ptr<Payload>);
    
    void gotVerack(void);
    void returnVerack(void);

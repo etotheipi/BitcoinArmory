@@ -1643,7 +1643,10 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    //create inv payload
    InvEntry entry;
-   entry.invtype_ = Inv_Msg_Tx;
+   if(PEER_USES_WITNESS)
+      entry.invtype_ = Inv_Msg_Witness_Tx;
+   else
+      entry.invtype_ = Inv_Msg_Tx;
    memcpy(entry.hash, txHash.getPtr(), 32);
    
    vector<InvEntry> invVec;

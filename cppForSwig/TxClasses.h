@@ -335,7 +335,6 @@ public:
    //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
    bool               isCoinbase(void) const;
-   bool               usesWitness(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    size_t             getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }

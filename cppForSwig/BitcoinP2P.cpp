@@ -12,6 +12,7 @@
 #include <string.h>
 #include "BitcoinP2p.h"
 
+bool PEER_USES_WITNESS;
 
 template <typename T> uint32_t put_integer_be(uint8_t* ptr, const T& integer)
 {
@@ -673,7 +674,10 @@ void BitcoinP2P::connectLoop(void)
          if (binSocket_.getSocketName(clientsocketaddr) != 0)
             throw SocketError("failed to get client sockaddr");
 
-         version.setVersionHeaderIPv4(40000, 0, timestamp,
+         // Services, for future extensibility
+         uint32_t services = 0 | NODE_WITNESS;
+
+         version.setVersionHeaderIPv4(70012, services, timestamp,
             node_addr_, clientsocketaddr);
 
          version.userAgent_ = "Armory:0.95";
@@ -753,6 +757,7 @@ void BitcoinP2P::processPayload(vector<unique_ptr<Payload>> payloadVec)
       switch (payload->type())
       {
       case Payload_version:
+         checkServices(move(payload));
          returnVerack();
          break;
 
@@ -780,6 +785,17 @@ void BitcoinP2P::processPayload(vector<unique_ptr<Payload>> payloadVec)
          continue;
       }
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BitcoinP2P::checkServices(unique_ptr<Payload> payload)
+{
+   Payload_Version* pver = (Payload_Version*)payload.get();
+
+   if(pver->vheader_.services_ & NODE_WITNESS)
+      PEER_USES_WITNESS = true;
+   else
+      PEER_USES_WITNESS = false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -888,7 +904,7 @@ void BitcoinP2P::processGetData(unique_ptr<Payload> payload)
       if (payloadIter == getdatamap->end())
          continue;
 
-      if (payloadIter->second.payload_->type() != entry.invtype_)
+      if(payloadIter->second.payload_->type() != entry.invtype_)
          continue;
 
       auto&& payload = *payloadIter->second.payload_.get();
@@ -943,7 +959,7 @@ Payload_Tx BitcoinP2P::getTx(
    const InvEntry& entry, uint32_t timeout)
 {
    //blocks until data is received or timeout expires
-   if (entry.invtype_ != Inv_Msg_Tx)
+   if (entry.invtype_ != Inv_Msg_Tx || entry.invtype_ != Inv_Msg_Witness_Tx)
       throw GetDataException("entry type isnt Inv_Msg_Tx");
 
    BinaryDataRef txHash(entry.hash, 32);
