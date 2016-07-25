@@ -4,8 +4,9 @@ v0.94.99-testing
 
    - Introducing litenode
    - Client and database are now split in 2 binaries: ArmoryQt (client) and ArmoryDB (server)
-   - The clients interface with the server over the FCGI protocol. Server is hardcoded to listen on localhost:9050
-   - ArmoryDB can serve remote clients through the use of a HTTP daemon. Example setup for nginx can be found in here: ...
+   - Clients interface with servers over the FCGI protocol. Server is hardcoded to listen on localhost:9050
+   - ArmoryDB can serve remote clients through the use of a HTTP daemon. Example setup for nginx can be found in here: 
+     ./nginx_example.conf
 
    - As a result, bitcoin P2P connectivity has been moved from ArmoryQt to ArmoryDB. This means in turn that clients do not 
      require the presence of a local bitcoin node process to operate.
@@ -14,14 +15,26 @@ v0.94.99-testing
       _ ArmoryQt has been pointed to specific ArmoryDB through a combination of the new --armorydb-ip and --armorydb-port 
         command line arguments
    - ArmoryDB requires the presence of a bitcoin node on localhost:8333 and access to raw blockchain data like before.
-     The change to interface with bitcoin nodes remotely is not in the scope of this release
-   - ArmoryDB comes with its own set of command line arguments. They are described here: ...
-   
+     The change to interface with bitcoin nodes remotely (blocks over p2p) is not in the scope of this release
+   - ArmoryDB comes with its own set of command line arguments. They are described here:  
+     ./cppForSwig/BlockUtils.cpp:778
+
+   - DB modes are selected with the new --db-type cli arg. It defaults to --db-type=DB_FULL. Also available are DB_BARE and
+     DB_SUPER. DB has not effect currently, it will be implemented in a future release.   
    - Introduced an extra set of data to resolve random transaction hashes. This database is ~550MB with the current
-     blockchain size. It can be disabled on a factory reset using the --disable-resolver command line argument
-   - ArmoryDB now uses its own log file (./dbLog.txt), running in the --datadir folder
+     blockchain size. This comes in addition to the previous db features of 0.94. This is the default mode, i.e. DB_FULL. 
+     To disable this feature (revert to the bare 0.94 db), use --db-type=DB_BARE.
+   - You cannot swap db modes on top of an existing db, you will need to build one from scratch instead.
+
+   - ArmoryDB now uses its own log file (dbLog.txt), running in the --datadir folder
+   - 0.95 db format changed from 0.94, you will have to build it in another --dbdir
    - Added DB version detection. Mismatch in DB version will result in an error message and termination on the client side,
-     a stdout warning on the server terminal side as well as in the log file.
+     a stdout warning on the server terminal side as well as in the db log file.
+
+   - new cli args have been introduced to control db resource consumption:
+     _ --ram_usage: int >= 1. Defaults to 4. Each point is worth ~128MB RAM on top of the baseline needs. There is no upper
+       bound, be careful when using high values. <= 0 values result in use of default.
+     _ --thread-count: int >= 1. Defaults to CPU max thread count. As with ram-usage, use large upper values with care.
 
 == Fixed ==
    - Fixed the missing transaction issue in Tx detail dialog through the addition of the new resolver dataset

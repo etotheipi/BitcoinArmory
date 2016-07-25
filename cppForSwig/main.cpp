@@ -27,6 +27,9 @@ int main(int argc, char* argv[])
    STARTLOGGING(bdmConfig.logFilePath_, LogLvlDebug);
    LOGENABLESTDOUT();
 
+   LOGINFO << "Running on " << bdmConfig.threadCount_ << " threads";
+   LOGINFO << "Ram usage level: " << bdmConfig.ramUsage_;
+
    if (FCGX_Init())
       throw runtime_error("failed to initialize FCGI engine");
 
