@@ -28,12 +28,15 @@ struct BlockDataManagerConfig
    static const string defaultBlkFileLocation_;
    static const string defaultTestnetDataDir_;
    static const string defaultTestnetBlkFileLocation_;
+   static const string defaultRegtestDataDir_;
+   static const string defaultRegtestBlkFileLocation_;
 
    string dataDir_;
    string blkFileLocation_;
    string dbDir_;
 
    bool testnet_ = false;
+   bool regtest_ = false;
 
    string logFilePath_;
 

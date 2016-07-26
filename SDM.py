@@ -458,7 +458,9 @@ class SatoshiDaemonManager(object):
       pargs.append('--db-type="' + ARMORY_DB_TYPE + '"')
 
       if USE_TESTNET:
-         pargs.append('--testnet')    
+         pargs.append('--testnet')
+      if USE_REGTEST:
+         pargs.append('--regtest');
          
       blocksdir = os.path.join(self.satoshiHome, 'blocks')
       if not os.path.exists(blocksdir):
