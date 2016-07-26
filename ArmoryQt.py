@@ -6042,7 +6042,7 @@ class ArmoryMainWindow(QMainWindow):
                            The DB has returned the following 
                            error: <br><br>
                            <b> %s </b> <br><br>
-                           Armory will not shutdown. """ \
+                           Armory will now shutdown. """ \
                            % TheBDM.exception), QMessageBox.Ok)
          self.closeForReal()
 

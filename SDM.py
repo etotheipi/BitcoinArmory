@@ -455,7 +455,7 @@ class SatoshiDaemonManager(object):
    def spawnDB(self, dbDir):
       pargs = [self.dbExecutable]
 
-      pars.append('--db-type="' + ARMORY_DB_TYPE + '"')
+      pargs.append('--db-type="' + ARMORY_DB_TYPE + '"')
 
       if USE_TESTNET:
          pargs.append('--testnet')    
