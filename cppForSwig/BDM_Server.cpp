@@ -699,7 +699,7 @@ Arguments BDV_Server_Object::executeCommand(const string& method,
 ///////////////////////////////////////////////////////////////////////////////
 void FCGI_Server::init()
 {
-   sockfd_ = FCGX_OpenSocket("localhost:9050", 10);
+   sockfd_ = FCGX_OpenSocket("127.0.0.1:9050", 10);
    if (sockfd_ == -1)
       throw runtime_error("failed to create FCGI listen socket");
 }
