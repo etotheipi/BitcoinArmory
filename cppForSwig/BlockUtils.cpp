@@ -708,12 +708,18 @@ const string BlockDataManagerConfig::defaultBlkFileLocation_ = "~/Bitcoin/blocks
 
 const string BlockDataManagerConfig::defaultTestnetDataDir_ = "~/Armory/testnet3";
 const string BlockDataManagerConfig::defaultTestnetBlkFileLocation_ = "~/Bitcoin/testnet3/blocks";
+
+const string BlockDataManagerConfig::defaultRegtestDataDir_ = "~/Armory/regtest";
+const string BlockDataManagerConfig::defaultRegtestBlkFileLocation_ = "~/Bitcoin/regtest/blocks";
 #else
 const string BlockDataManagerConfig::defaultDataDir_ = "~/.armory";
 const string BlockDataManagerConfig::defaultBlkFileLocation_ = "~/.bitcoin/blocks";
 
 const string BlockDataManagerConfig::defaultTestnetDataDir_ = "~/.armory/testnet3";
 const string BlockDataManagerConfig::defaultTestnetBlkFileLocation_ = "~/.bitcoin/testnet3/blocks";
+
+const string BlockDataManagerConfig::defaultRegtestDataDir_ = "~/.armory/regtest";
+const string BlockDataManagerConfig::defaultRegtestBlkFileLocation_ = "~/.bitcoin/regtest/blocks";
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -741,6 +747,15 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       btcPort_ = "18333";
 
       testnet_ = true;
+   }
+   else if (netname == "Regtest")
+   {
+	   genesisBlockHash_ = READHEX(REGTEST_GENESIS_HASH_HEX);
+	   genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
+	   magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
+      btcPort_ = "18444";
+
+      regtest_ = true;
    }
 }
 
@@ -777,6 +792,8 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 {
    /***
    --testnet: run db against testnet bitcoin network
+
+   --regtest: run db against regression test network
 
    --rescan: delete all processed history data and rescan blockchain from the
    first block
@@ -827,6 +844,10 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       if (str == "--testnet")
       {
          selectNetwork("Test");
+      }
+      else if(str == "--regtest")
+      {
+         selectNetwork("Regtest");
       }
       else if (str == "--rescan")
       {
@@ -933,9 +954,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
    //figure out defaults
    if (dataDir_.size() == 0)
    {
-      if (!testnet_)
+      if (!testnet_ && !regtest_)
          dataDir_ = defaultDataDir_;
-      else dataDir_ = defaultTestnetDataDir_;
+      else if(!regtest_)
+         dataDir_ = defaultTestnetDataDir_;
+      else
+         dataDir_ = defaultRegtestDataDir_;
    }
 
 

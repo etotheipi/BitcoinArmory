@@ -198,7 +198,7 @@ class PyBtcWallet(object):
       self.linearAddr160List = []
       self.chainIndexMap = {}
       self.txAddrMap = {}    # cache for getting tx-labels based on addr search
-      if USE_TESTNET:
+      if USE_TESTNET or USE_REGTEST:
          self.addrPoolSize = 10  # this makes debugging so much easier!
       else:
          self.addrPoolSize = CLI_OPTIONS.keypool

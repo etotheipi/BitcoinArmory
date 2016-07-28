@@ -9,6 +9,7 @@ import logging
 import os
 
 import CppBlockUtils as Cpp
+import armoryengine.ArmoryUtils
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
@@ -430,6 +431,8 @@ def TxInExtractAddrStrIfAvail(txinObj):
       return hash160_to_addrStr( hash160(lastPush) )
    elif scrType == CPP_TXIN_SPENDP2SH:
       return binScript_to_p2shAddrStr(lastPush)
+   elif scrType == CPP_TXIN_P2WPKH_P2SH or scrType == CPP_TXIN_P2WSH_P2SH:
+      return binScript_to_p2shAddrStr(hash160(rawScript))
    else:
       return ''
 
@@ -648,6 +651,54 @@ class PyTxOut(BlockComponent):
       return result
 
 #####
+class PyTxWitness(BlockComponent):
+   def __init__(self):
+      self.binWitness  = UNINITIALIZED
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         txWitnessData = toUnpack
+      else:
+         txWitnessData = BinaryUnpacker( toUnpack )
+
+      self.binWitness = []
+      stackSize = txWitnessData.get(VAR_INT)
+      self.binWitness.append(stackSize)
+      if stackSize > 0:
+         for i in range(0, stackSize, 1):
+            stackItemSize = txWitnessData.get(VAR_INT)
+            if txWitnessData.getRemainingSize() < stackItemSize: raise UnserializeError
+            stackItem = txWitnessData.get(BINARY_CHUNK, stackItemSize)
+            self.binWitness.append(stackItemSize)
+            self.binWitness.append(stackItem)
+      return self
+
+   def getWitnesses(self):
+      return self.binWitness
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(VAR_INT, self.binWitness[0])
+      for i in range(1, len(self.binWitness), 2):
+         binOut.put(VAR_INT, self.binWitness[i])
+         binOut.put(BINARY_CHUNK, self.binWitness[i+1])
+      return binOut.getBinaryString()
+
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+      print self.toString(self, nIndent, endian)
+
+   def toString(self, nIndent=0, endian=BIGENDIAN):
+      indstr = indent*nIndent
+      indstr2 = indstr + indent
+      result = indstr + 'PyWitness:'
+      result = ''.join([result, '\n',  indstr2 + 'Stack Size:', \
+                                       str(self.binWitness[0])])
+      for i in range(0, len(self.binWitness)/2, 2):
+          result = ''.join([result, '\n',  indstr2 + 'Stack Item:', \
+                                       str(self.binWitness[i])])
+      return result
+
+#####
 class PyTx(BlockComponent):
    def __init__(self):
       self.version    = UNINITIALIZED
@@ -656,8 +707,28 @@ class PyTx(BlockComponent):
       self.lockTime   = 0
       self.thisHash   = UNINITIALIZED
       self.rbfFlag    = False
+      self.witnesses  = UNINITIALIZED
+      self.useWitness = False
 
    def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(UINT32, self.version)
+      if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
+         binOut.put(UINT8, WITNESS_MARKER)
+         binOut.put(UINT8, WITNESS_FLAG)
+      binOut.put(VAR_INT, len(self.inputs))
+      for txin in self.inputs:
+         binOut.put(BINARY_CHUNK, txin.serialize())
+      binOut.put(VAR_INT, len(self.outputs))
+      for txout in self.outputs:
+         binOut.put(BINARY_CHUNK, txout.serialize())
+      if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
+         for witItem in self.witnesses:
+            binOut.put(BINARY_CHUNK, witItem.serialize())
+      binOut.put(UINT32, self.lockTime)
+      return binOut.getBinaryString()
+
+   def serializeWithoutWitness(self):
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
       binOut.put(VAR_INT, len(self.inputs))
@@ -678,7 +749,14 @@ class PyTx(BlockComponent):
       startPos = txData.getPosition()
       self.inputs     = []
       self.outputs    = []
+      self.witnesses  = []
       self.version    = txData.get(UINT32)
+      marker = txData.get(UINT8)
+      flag = txData.get(UINT8)
+      if marker == WITNESS_MARKER and flag == WITNESS_FLAG:
+         self.useWitness = True
+      else:
+         txData.rewind(2)
       numInputs  = txData.get(VAR_INT)
       for i in xrange(numInputs):
          txin = PyTxIn().unserialize(txData);
@@ -687,20 +765,27 @@ class PyTx(BlockComponent):
       numOutputs = txData.get(VAR_INT)
       for i in xrange(numOutputs):
          self.outputs.append( PyTxOut().unserialize(txData) )
+      if self.useWitness:
+         for i in xrange(numInputs):
+            self.witnesses.append( PyTxWitness().unserialize(txData))
+
       self.lockTime   = txData.get(UINT32)
       endPos = txData.getPosition()
       self.nBytes = endPos - startPos
-      self.thisHash = hash256(self.serialize())
+      self.thisHash = hash256(self.serializeWithoutWitness())
       return self
 
    def getHash(self):
-      return hash256(self.serialize())
+      return hash256(self.serializeWithoutWitness())
 
    def getHashHex(self, endianness=LITTLEENDIAN):
       return binary_to_hex(self.getHash(), endOut=endianness)
 
    def copy(self):
       return PyTx().unserialize(self.serialize())
+
+   def copyWithoutWitness(self):
+      return PyTx().unserialize(self.serializeWithoutWitness())
 
 
    def makeRecipientsList(self):
@@ -735,6 +820,8 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', len(self.inputs)
       print indstr + indent + 'nOutputs: ', len(self.outputs)
+      if self.useWitness:
+         print indstr + indent + 'nWitnesses: ', len(self.witnesses)
       print indstr + indent + 'LockTime: ', self.lockTime
       print indstr + indent + 'Inputs: '
       for inp in self.inputs:
@@ -742,6 +829,8 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
+      for witness in self.witnesses:
+         witness.pprint(nIndent+2, endian=endian)
 
    def toString(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -751,6 +840,7 @@ class PyTx(BlockComponent):
       result = ''.join([result, '\n',   indstr + indent + 'Version:  ', str(self.version)])
       result = ''.join([result, '\n',   indstr + indent + 'nInputs:  ', str(len(self.inputs))])
       result = ''.join([result, '\n',   indstr + indent + 'nOutputs: ', str(len(self.outputs))])
+      result = ''.join([result, '\n',   indstr + indent + 'nWitnesses: ', str(len(self.witnesses))])
       result = ''.join([result, '\n',   indstr + indent + 'LockTime: ', str(self.lockTime)])
       result = ''.join([result, '\n',   indstr + indent + 'Inputs: '])
       for inp in self.inputs:
@@ -758,6 +848,8 @@ class PyTx(BlockComponent):
       result = ''.join([result, '\n', indstr + indent + 'Outputs: '])
       for out in self.outputs:
          result = ''.join([result, '\n',  out.toString(nIndent+2, endian=endian)])
+      for witness in self.witnesses:
+         result = ''.join([result, '\n',  witness.toString(nIndent+2, endian=endian)])
       return result
 
 
@@ -769,6 +861,9 @@ class PyTx(BlockComponent):
       bu = BinaryUnpacker(self.serialize())
       theSer = self.serialize()
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
+      if self.useWitness:
+         print binary_to_hex(bu.get(BINARY_CHUNK, 1))
+         print binary_to_hex(bu.get(BINARY_CHUNK, 1))
       nTxin = bu.get(VAR_INT)
       print 'VAR_INT(%d)' % nTxin
       for i in range(nTxin):
@@ -784,6 +879,14 @@ class PyTx(BlockComponent):
          print binary_to_hex(bu.get(BINARY_CHUNK,8))
          scriptSz = bu.get(VAR_INT)
          print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
+      if self.useWitness:
+         for i in range(nTxin):
+            stackSize = bu.get(VAR_INT)
+            print 'VAR_IN(%d)' % stackSize
+            for j in range(stackSize):
+               stackItemSize = bu.get(VAR_INT)
+               print 'VAR_IN(%d)' % stackItemSize
+               print binary_to_hex(bu.get(BINARY_CHUNK, stackItemSize))
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
 
    def setRBF(self, flag):
@@ -878,7 +981,7 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
       return None
 
    # Create a copy of the tx with all scripts blanked out
-   txCopy = pytx.copy()
+   txCopy = pytx.copyWithoutWitness()
    for i in range(len(txCopy.inputs)):
       txCopy.inputs[i].binScript = ''
 
@@ -2081,7 +2184,7 @@ class UnsignedTransaction(AsciiSerializable):
                raise InvalidHashError('P2SH script not supplied')
 
 
-         ustxiList.append(UnsignedTxInput(pyPrevTx.serialize(), 
+         ustxiList.append(UnsignedTxInput(pyPrevTx.serializeWithoutWitness(),
                                           txoIdx, 
                                           p2sh, 
                                           pubKeyMap))

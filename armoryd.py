@@ -24,8 +24,8 @@
 # Does not require armory to be installed or running, this is a standalone
 # application. Requires bitcoind process to be running before starting armoryd.
 # Requires an armory wallet (can be watching only) to be in the same folder as
-# the armoryd script. Works with testnet, use --testnet flag when starting the
-# script.
+# the armoryd script. Works with testnet and regtest, use --testnet and --regtest
+# flags respectively when starting the script.
 #
 # BEWARE:
 # This is relatively untested, please use caution. There should be no chance for
@@ -1643,6 +1643,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'difficulty':        TheBDM.getTopBlockDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
+               'regtest':           USE_REGTEST,
                'keypoolsize':       self.curWlt.addrPoolSize
              }
 

@@ -339,6 +339,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    size_t             getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
    size_t             getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
+   size_t             getWitnessOffset(uint32_t i) const { return  offsetsWitness_[i]; }
 
    /////////////////////////////////////////////////////////////////////////////
    static Tx          createFromStr(BinaryData const & bd) { return Tx(bd); }
@@ -351,6 +352,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const    { return dataCopy_; }
    BinaryData         serializeWithRBFFlag(void) const;
+   BinaryData         serializeNoWitness(void) const { return dataNoWitness_; };
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, size_t size);
@@ -410,6 +412,8 @@ private:
    // Full copy of the serialized tx
    BinaryData    dataCopy_;
    bool          isInitialized_;
+   bool          usesWitness_;
+   BinaryData    dataNoWitness_;
 
    uint32_t      version_;
    uint32_t      lockTime_;
@@ -420,6 +424,7 @@ private:
    // Will always create TxIns and TxOuts on-the-fly; only store the offsets
    vector<size_t> offsetsTxIn_;
    vector<size_t> offsetsTxOut_;
+   vector<size_t> offsetsWitness_;
 
    // To be calculated later
    //BlockHeader*  headerPtr_;

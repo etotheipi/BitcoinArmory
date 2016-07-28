@@ -107,6 +107,12 @@ class ArmoryMainWindow(QMainWindow):
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
+      if USE_REGTEST:
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [REGTEST] dlgMain')
+         self.iconfile = ':/armory_icon_green_32x32.png'
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
+         if Colors.isDarkBkgd:
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.iconfile = ':/armory_icon_32x32.png'
@@ -121,7 +127,7 @@ class ArmoryMainWindow(QMainWindow):
          self.setWindowIcon(QIcon(self.iconfile))
       else:
          self.notifCtr = ArmoryMac.MacNotificationHandler.None
-         if USE_TESTNET:
+         if USE_TESTNET or USE_REGTEST:
             self.iconfile = ':/armory_icon_green_fullres.png'
             ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
             ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
@@ -157,6 +163,10 @@ class ArmoryMainWindow(QMainWindow):
       self.allLockboxes = []
       self.lockboxIDMap = {}
       self.cppLockboxWltMap = {}
+
+      # Error and exit on both regtest and testnet
+      if USE_TESTNET and USE_REGTEST:
+         DlgRegAndTest(self, self).exec_()
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -410,7 +420,7 @@ class ArmoryMainWindow(QMainWindow):
 
       ##########################################################################
       if not CLI_OPTIONS.disableModules:
-         if USE_TESTNET:
+         if USE_TESTNET or USE_REGTEST:
             self.loadArmoryModulesNoZip()
       # Armory Modules are diabled on main net. If enabled it uses zip files to 
       # contain the modules     
@@ -925,7 +935,7 @@ class ArmoryMainWindow(QMainWindow):
                   Armory will only run a module from a zip file that
                   has the required stucture.""") % \
                   { 'color' : htmlColor('TextRed'), 'name' : moduleName, 'path' : moduleZipPath}, QMessageBox.Ok)
-            elif not USE_TESTNET and infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Unsigned:
+            elif not USE_TESTNET and not USE_REGTEST and infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Unsigned:
                reply = QMessageBox.warning(self, tr("UNSIGNED Module"), tr("""
                   Armory detected the following module which  
                   <font color="%(color)s"><b>has not been signed by Armory</b></font> and may be dangerous:
@@ -1298,7 +1308,7 @@ class ArmoryMainWindow(QMainWindow):
       self.sysTray = QSystemTrayIcon(self)
       self.sysTray.setIcon( QIcon(self.iconfile) )
       self.sysTray.setVisible(True)
-      self.sysTray.setToolTip('Armory' + (' [Testnet]' if USE_TESTNET else ''))
+      self.sysTray.setToolTip('Armory' + (' [Testnet]' if USE_TESTNET else '') + (' [Regtest]' if USE_REGTEST else ''))
       self.connect(self.sysTray, SIGNAL('messageClicked()'), self.bringArmoryToFront)
       self.connect(self.sysTray, SIGNAL('activated(QSystemTrayIcon::ActivationReason)'), \
                    self.sysTrayActivated)
@@ -1398,7 +1408,7 @@ class ArmoryMainWindow(QMainWindow):
       """
       LOGINFO('setupUriRegistration')
 
-      if USE_TESTNET:
+      if USE_TESTNET or USE_REGTEST:
          return
 
       if OS_LINUX:
@@ -6905,7 +6915,7 @@ def checkForAlreadyOpenError():
          armoryExists.append(proc.pid)
       if bexe in pname:
          LOGINFO('Found bitcoind PID: %d', proc.pid)
-         if ('testnet' in proc.name) == USE_TESTNET:
+         if ('testnet' in proc.name) == USE_TESTNET or ('regtest' in proc.name) == USE_REGTEST:
             bitcoindExists.append(proc.pid)
 
    if len(armoryExists)>0:
@@ -6932,7 +6942,7 @@ if 1:
       checkForAlreadyOpen()
 
    pixLogo = QPixmap(':/splashlogo.png')
-   if USE_TESTNET:
+   if USE_TESTNET or USE_REGTEST:
       pixLogo = QPixmap(':/splashlogo_testnet.png')
    SPLASH = ArmorySplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())

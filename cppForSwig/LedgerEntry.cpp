@@ -208,6 +208,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       set<BinaryData> scrAddrSet;
 
       bool isRBF = false;
+      bool usesWitness = false;
       
       //grab iterator
       auto txioIter = txioVec.second.cbegin();

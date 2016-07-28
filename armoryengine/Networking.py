@@ -21,6 +21,7 @@
 
 import os.path
 import random
+import armoryengine.ArmoryUtils
 
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ReconnectingClientFactory
@@ -28,7 +29,7 @@ from twisted.internet.protocol import Protocol, ReconnectingClientFactory
 from armoryengine.ArmoryUtils import LOGINFO, LOGWARN, RightNow, getVersionString, \
    BTCARMORY_VERSION, NetworkIDError, LOGERROR, BLOCKCHAINS, CLI_OPTIONS, LOGDEBUG, \
    binary_to_hex, BIGENDIAN, LOGRAWDATA, ARMORY_HOME_DIR, ConnectionError, \
-   MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, \
+   MAGIC_BYTES, hash256, verifyChecksum, NETWORKENDIAN, int_to_bitset, NODE_WITNESS, \
    bitset_to_int, unixTimeToFormatStr, UnknownNetworkPayload
 from armoryengine.BDM import  BDM_OFFLINE, BDM_SCANNING,\
    BDM_BLOCKCHAIN_READY
@@ -69,9 +70,10 @@ class ArmoryClient(Protocol):
 
       self.peer = [addrTo, portTo]
 
-      services = '0'*16
+      # Services: NODE_WITNESS77
+      services = int_to_bitset(NODE_WITNESS, widthBytes=8)
       msgVersion = PayloadVersion()
-      msgVersion.version  = 40000   # TODO: this is what my Satoshi client says
+      msgVersion.version  = 70012   # TODO: this is what my Satoshi client says
       msgVersion.services = services
       msgVersion.time     = long(RightNow())
       msgVersion.addrRecv = PyNetAddress(0, services, addrTo,   portTo  )
@@ -152,6 +154,8 @@ class ArmoryClient(Protocol):
             self.peerInfo['subver']  = msg.payload.subver
             self.peerInfo['time']    = msg.payload.time
             self.peerInfo['height']  = msg.payload.height0
+            if(bitset_to_int(msg.payload.services) & NODE_WITNESS):
+               armoryengine.ArmoryUtils.WITNESS = True
             LOGINFO('Received version message from peer:')
             LOGINFO('   Version:     %s', str(self.peerInfo['version']))
             LOGINFO('   SubVersion:  %s', str(self.peerInfo['subver']))
@@ -201,6 +205,9 @@ class ArmoryClient(Protocol):
          # Now send the full request
          if self.factory.bdm and not self.factory.bdm.getState()==BDM_SCANNING:
             self.sendMessage(getdataMsg)
+
+      if msg.cmd=='ping':
+         self.sendMessage(PayloadPong(msg.payload.nonce))
 
       if msg.cmd=='tx':
          pytx = msg.payload.tx
@@ -413,6 +420,7 @@ def parseNetAddress(addrObj):
 MSG_INV_ERROR = 0
 MSG_INV_TX    = 1
 MSG_INV_BLOCK = 2
+MSG_WITNESS_FLAG = 1 << 30
 
 
 ################################################################################
@@ -583,20 +591,61 @@ class PayloadPing(object):
    """
    command = 'ping'
 
-   def __init__(self):
-      pass
+   def __init__(self, nonce=-1):
+      self.nonce = nonce
  
    def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         pingData = toUnpack
+      else:
+         pingData = BinaryUnpacker( toUnpack )
+
+      self.nonce    = pingData.get(UINT64)
       return self
- 
+
    def serialize(self):
-      return ''
+      bp = BinaryPacker()
+      bp.put(UINT64, self.nonce)
+      return bp.getBinaryString()
 
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print ''
       print indstr + 'Message(ping)'
+
+################################################################################
+################################################################################
+class PayloadPong(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+   command = 'pong'
+
+   def __init__(self, nonce=-1):
+      self.nonce = nonce
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         pongData = toUnpack
+      else:
+         pongData = BinaryUnpacker( toUnpack )
+
+      self.nonce    = pongData.get(UINT64)
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(UINT64, self.nonce)
+      return bp.getBinaryString()
+
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(pong)'
+      print indstr + indent + 'Nonce:    ' + str(self.nonce)
 
       
 ################################################################################
@@ -761,7 +810,10 @@ class PayloadGetData(object):
       bp = BinaryPacker()
       bp.put(VAR_INT, len(self.invList))
       for inv in self.invList:
-         bp.put(UINT32, inv[0])
+         if armoryengine.ArmoryUtils.WITNESS and (inv[0] == MSG_INV_TX or inv[0] == MSG_INV_BLOCK):
+            bp.put(UINT32, inv[0] | MSG_WITNESS_FLAG)
+         else:
+            bp.put(UINT32, inv[0])
          bp.put(BINARY_CHUNK, inv[1], width=32)
       return bp.getBinaryString()
       
@@ -817,7 +869,56 @@ class PayloadGetHeaders(object):
       for i in range(1,len(self.hashList)):
          print indstr + indent + '             :' + binary_to_hex(self.hashList[i])
       print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
+
+
+################################################################################
+################################################################################
+class PayloadSendHeaders(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+   command = 'sendheaders'
+
+   def __init__(self):
+      pass
+
+   def unserialize(self, toUnpack):
+      return self
+
+   def serialize(self):
+      return ''
+
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(pong)'
          
+
+################################################################################
+################################################################################
+class PayloadSendHeaders(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+   command = 'sendheaders'
+
+   def __init__(self):
+      pass
+
+   def unserialize(self, toUnpack):
+      return self
+
+   def serialize(self):
+      return ''
+
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(pong)'
 
 
 ################################################################################
@@ -957,7 +1058,10 @@ class PayloadBlock(object):
       bp.put(BINARY_CHUNK, self.header.serialize())
       bp.put(VAR_INT, len(self.txList))
       for tx in self.txList:
-         bp.put(BINARY_CHUNK, tx.serialize())
+         if armoryengine.ArmoryUtils.WITNESS:
+            bp.put(BINARY_CHUNK, tx.serializeWithoutWitness())
+         else:
+            bp.put(BINARY_CHUNK, tx.serialize())
       return bp.getBinaryString()
 
    def pprint(self, nIndent=0):
@@ -998,6 +1102,7 @@ class PayloadReject(object):
 # Use this map to figure out which object to serialize/unserialize from a cmd
 PayloadMap = {
    'ping':        PayloadPing,
+   'pong':        PayloadPong,
    'tx':          PayloadTx,
    'inv':         PayloadInv,
    'version':     PayloadVersion,
@@ -1005,6 +1110,7 @@ PayloadMap = {
    'addr':        PayloadAddr,
    'getdata':     PayloadGetData,
    'getheaders':  PayloadGetHeaders,
+   'sendheaders': PayloadSendHeaders,
    'getblocks':   PayloadGetBlocks,
    'block':       PayloadBlock,
    'headers':     PayloadHeaders,

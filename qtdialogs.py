@@ -5673,7 +5673,7 @@ class DlgDispTxInfo(ArmoryDialog):
          pytx = ustx.getPyTxSignedIfPossible()
 
 
-      self.pytx = pytx.copy()
+      self.pytx = pytx.copyWithoutWitness()
 
       if self.mode == None:
          self.mode = self.main.usermode
@@ -7164,7 +7164,7 @@ class DlgPrintBackup(ArmoryDialog):
 
       doMask = self.chkSecurePrint.isChecked()
 
-      if USE_TESTNET:
+      if USE_TESTNET or USE_REGTEST:
          self.scene.drawPixmapFile(':/armory_logo_green_h56.png')
       else:
          self.scene.drawPixmapFile(':/armory_logo_h36.png')
@@ -8434,7 +8434,7 @@ class DlgAddressBook(ArmoryDialog):
 
          # Disable Bare multisig if mainnet and N>3
          lb = self.main.getLockboxByID(selectedLockBoxId)
-         if lb.N>3 and not USE_TESTNET:
+         if lb.N>3 and not USE_TESTNET and not USE_REGTEST:
             self.useBareMultiSigCheckBox.setEnabled(False)
             self.useBareMultiSigCheckBox.setChecked(False)
             self.useBareMultiSigCheckBox.setToolTip(tr("""
@@ -11561,7 +11561,7 @@ class DlgWODataPrintBackup(ArmoryDialog):
       wrap = 0.9 * self.scene.pageRect().width()
 
       # Start drawing the page.
-      if USE_TESTNET:
+      if USE_TESTNET or USE_REGTEST:
          self.scene.drawPixmapFile(':/armory_logo_green_h56.png')
       else:
          self.scene.drawPixmapFile(':/armory_logo_h36.png')
@@ -14988,8 +14988,11 @@ class DlgBroadcastBlindTx(ArmoryDialog):
 
       hexhash = binary_to_hex(txhash, endOut=BIGENDIAN)
       if USE_TESTNET:
-         linkToExplorer = 'https://testnet.blockexplorer.com/tx/%s' % hexhash
-         dispToExplorer = 'https://testnet.blockexplorer.com/tx/%s...' % hexhash[:16]
+         linkToExplorer = 'http://blockexplorer.com/testnet/tx/%s' % hexhash
+         dispToExplorer = 'http://blockexplorer.com/testnet/tx/%s...' % hexhash[:16]
+      elif USE_REGTEST:
+         linkToExplorer = ''
+         dispToExplorer = ''
       else:
          linkToExplorer = 'https://blockchain.info/search/%s' % hexhash
          dispToExplorer = 'https://blockchain.info/search/%s...' % hexhash[:16]
@@ -15129,6 +15132,30 @@ class ArmorySplashScreen(QSplashScreen):
                        
    def updateProgress(self, val):
       self.progressBar.setValue(val)
+
+#############################################################################
+class DlgRegAndTest(ArmoryDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgRegAndTest, self).__init__(parent, main)
+
+      self.btcClose = QPushButton("Close")
+      self.connect(self.btcClose, SIGNAL(CLICKED), self.close)
+      btnBox = makeHorizFrame([STRETCH, self.btcClose])
+
+      lblError = QRichLabel(tr('Error: You cannot run the Regression Test network and Bitcoin Test Network at the same time.'))
+
+      dlgLayout = QVBoxLayout()
+      frmBtn = makeHorizFrame([STRETCH, self.btcClose])
+      frmAll = makeVertFrame([lblError, frmBtn])
+
+      dlgLayout.addWidget(frmAll)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Error')
+
+   def close(self):
+      self.main.abortLoad = True
+      LOGERROR('User attempted to run regtest and testnet simultaneously')
+      super(DlgRegAndTest, self).reject()
       
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
