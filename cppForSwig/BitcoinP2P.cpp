@@ -637,12 +637,14 @@ void BitcoinP2P::connectLoop(void)
       verackPromise_ = make_unique<promise<bool>>();
       auto verackFuture = verackPromise_->get_future();
 
-      while (1)
+      while (run_.load(memory_order_relaxed))
       {
          if (binSocket_.openSocket(false))
             break;
 
-         waitBeforeReconnect += RECONNECT_INCREMENT_MS;
+         if (waitBeforeReconnect < 5000)
+            waitBeforeReconnect += RECONNECT_INCREMENT_MS;
+
          this_thread::sleep_for(chrono::milliseconds(waitBeforeReconnect));
       }
 
