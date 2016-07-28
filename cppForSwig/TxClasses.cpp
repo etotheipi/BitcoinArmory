@@ -106,14 +106,16 @@ OutPoint TxIn::getOutPoint(void) const
 /////////////////////////////////////////////////////////////////////////////
 BinaryData TxIn::getScript(void) const
 {
-   uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr() + 36);
+   uint32_t scrLen = 
+      (uint32_t)BtcUtils::readVarInt(getPtr() + 36, getSize() - 36);
    return BinaryData(getPtr() + getScriptOffset(), scrLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryDataRef TxIn::getScriptRef(void) const
 {
-   uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr() + 36);
+   uint32_t scrLen = 
+      (uint32_t)BtcUtils::readVarInt(getPtr() + 36, getSize() - 36);
    return BinaryDataRef(getPtr() + getScriptOffset(), scrLen);
 }
 
@@ -269,7 +271,7 @@ void TxOut::unserialize_checked(uint8_t const * ptr,
 {
    parentTx_ = parent;
    index_ = idx;
-   uint32_t numBytes = (nbytes == 0 ? BtcUtils::TxOutCalcLength(ptr) : nbytes);
+   uint32_t numBytes = (nbytes == 0 ? BtcUtils::TxOutCalcLength(ptr, size) : nbytes);
    if (size < numBytes)
       throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, numBytes);

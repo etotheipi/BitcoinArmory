@@ -286,47 +286,6 @@ public:
    static const BinaryData& EmptyHash() { return EmptyHash_;  }
 
    /////////////////////////////////////////////////////////////////////////////
-   static pair<uint64_t, uint8_t> readVarInt(BinaryRefReader & brr)
-   {
-      uint64_t outVal;
-      uint32_t outLen;
-      outVal = readVarInt(brr.getCurrPtr(), &outLen);
-      brr.advance(outLen);
-      return pair<uint64_t, uint8_t>(outVal, (uint8_t)outLen);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   static uint64_t readVarInt(uint8_t const * strmPtr, uint32_t* lenOutPtr=NULL)
-   {
-      uint8_t firstByte = strmPtr[0];
-
-      if(firstByte < 0xfd)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 1;
-         return firstByte;
-      }
-      if(firstByte == 0xfd)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 3;
-         return READ_UINT16_LE(strmPtr+1);
-         
-      }
-      else if(firstByte == 0xfe)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 5;
-         return READ_UINT32_LE(strmPtr+1);
-      }
-      else //if(firstByte == 0xff)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 9;
-         return READ_UINT64_LE(strmPtr+1);
-      }
-   }
-   /////////////////////////////////////////////////////////////////////////////
    static uint64_t readVarInt(uint8_t const * strmPtr, size_t remaining, uint32_t* lenOutPtr=NULL)
    {
       if (remaining < 1)
@@ -695,13 +654,6 @@ public:
    // The point of these methods is to calculate the length of the object,
    // hence we don't know in advance how big the object actually will be, so
    // we can't provide it as an input for safety checking...
-   static uint32_t TxInCalcLength(uint8_t const * ptr)
-   {
-      uint32_t viLen;
-      uint32_t scrLen = (uint32_t)readVarInt(ptr+36, &viLen);
-      return (36 + viLen + scrLen + 4);
-   }
-
    static void TxInCalcLength(uint8_t const * ptr, size_t size, 
                        vector<size_t> * offsetsIn)
    {
@@ -733,14 +685,6 @@ public:
       uint32_t viLen;
       uint32_t scrLen = (uint32_t)readVarInt(ptr+36, size-36, &viLen);
       return (36 + viLen + scrLen + 4);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   static uint32_t TxOutCalcLength(uint8_t const * ptr)
-   {
-      uint32_t viLen;
-      uint32_t scrLen = (uint32_t)readVarInt(ptr+8, &viLen);
-      return (8 + viLen + scrLen);
    }
    
    /////////////////////////////////////////////////////////////////////////////
@@ -809,13 +753,14 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static size_t StoredTxCalcLength( 
-                                uint8_t const * ptr,
-                                bool fragged,
-                                vector<size_t> * offsetsIn=NULL,
-                                vector<size_t> * offsetsOut=NULL)
+   static size_t StoredTxCalcLength(
+      uint8_t const * ptr,
+      size_t len,
+      bool fragged,
+      vector<size_t> * offsetsIn=NULL,
+      vector<size_t> * offsetsOut=NULL)
    {
-      BinaryRefReader brr(ptr);  
+      BinaryRefReader brr(ptr, len);  
 
       
       // Tx Version;
@@ -829,7 +774,8 @@ public:
          for(uint32_t i=0; i<nIn; i++)
          {
             (*offsetsIn)[i] = brr.getPosition();
-            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+            brr.advance(
+               TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
          }
          (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
       }
@@ -837,7 +783,8 @@ public:
       {
          // Don't need to track the offsets, just leap over everything
          for(uint32_t i=0; i<nIn; i++)
-            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+            brr.advance(
+               TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
       }
 
       // Now extract the TxOut list
@@ -858,14 +805,16 @@ public:
             for(uint32_t i=0; i<nOut; i++)
             {
                (*offsetsOut)[i] = brr.getPosition();
-               brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+               brr.advance( 
+                  TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
             }
             (*offsetsOut)[nOut] = brr.getPosition();
          }
          else
          {
             for(uint32_t i=0; i<nOut; i++)
-               brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+               brr.advance( 
+                  TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
          }
       }
       brr.advance(4);

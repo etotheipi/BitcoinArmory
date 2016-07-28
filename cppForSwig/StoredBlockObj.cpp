@@ -1008,7 +1008,8 @@ void StoredTxOut::unserialize(BinaryRefReader & brr)
       return;
    }
 
-   uint32_t numBytes = BtcUtils::TxOutCalcLength(brr.getCurrPtr());
+   uint32_t numBytes = BtcUtils::TxOutCalcLength(
+      brr.getCurrPtr(), brr.getSizeRemaining());
 
    if(brr.getSizeRemaining() < numBytes)
    {

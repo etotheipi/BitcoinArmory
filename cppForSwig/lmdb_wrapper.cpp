@@ -1792,7 +1792,7 @@ TxIn LMDBBlockDatabase::getTxInCopy(
       {
          bool isFragged = txSer == TX_SER_FRAGGED;
          vector<size_t> offsetsIn;
-         BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
+         BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), brr.getSize(), isFragged, &offsetsIn);
          if ((uint32_t)(offsetsIn.size() - 1) < (uint32_t)(txInIdx + 1))
          {
             LOGERR << "Requested TxIn with index greater than numTxIn";
