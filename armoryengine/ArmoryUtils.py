@@ -83,7 +83,7 @@ indent = ' '*3
 haveGUI = [False, None]
 
 ARMORYDB_DEFAULT_IP = "127.0.0.1"
-ARMORYDB_DEFAULT_PORT = "9050"
+ARMORYDB_DEFAULT_PORT = "9001"
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default=DEFAULT, type="str",          help="load Armory with a specific settings file")

@@ -24,6 +24,7 @@
 #include "BDM_seder.h"
 #include "EncryptionUtils.h"
 #include "LedgerEntry.h"
+#include "DbHeader.h"
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
 
@@ -197,6 +198,9 @@ private:
    int run_ = true;
    atomic<uint32_t> liveThreads_;
 
+   const string port_;
+   const string ip_;
+
    Clients clients_;
 
 private:
@@ -210,9 +214,21 @@ private:
       return shutdownCallback;
    }
 
+   string getPort(uint32_t iPort)
+   {
+      if (iPort == UINT32_MAX)
+         iPort = DEFAULT_FCGI_PORT;
+
+      stringstream ss;
+      ss << iPort;
+
+      return ss.str();
+   }
+
 public:
-   FCGI_Server(BlockDataManagerThread* bdmT) :
-      clients_(bdmT, getShutdownCallback())
+   FCGI_Server(BlockDataManagerThread* bdmT, uint32_t port = UINT32_MAX) :
+      clients_(bdmT, getShutdownCallback()),
+      ip_("127.0.0.1"), port_(getPort(port))
    {
       liveThreads_.store(0, memory_order_relaxed);
    }
@@ -222,6 +238,7 @@ public:
    void processRequest(FCGX_Request* req);
    void haltFcgiLoop(void);
    void shutdown(void) { clients_.shutdown(); }
+   void checkSocket(void) const;
 };
 
 #endif

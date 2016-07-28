@@ -2186,9 +2186,12 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.setSpawnId(spawnId)
          
          #test if db has started
-         if TheBDM.bdv().hasRemoteDB == False:
-            LOGERROR("Failed to spawn ArmoryDB")
-            return False
+         if TheBDM.bdv().hasRemoteDB() == False:
+            #wait 1 second
+            time.sleep(1)
+            if TheBDM.bdv().hasRemoteDB == False:
+               LOGERROR("Failed to spawn ArmoryDB")
+               return False
          
       return True
       
@@ -6711,10 +6714,16 @@ class ArmoryMainWindow(QMainWindow):
       gotDB = self.startArmoryDBIfNecessary()
       if gotDB == False:
          self.switchNetworkMode(NETWORKMODE.Offline)
+
+         QMessageBox.warning(self, tr('Database Error'), tr("""
+                           Armory failed to spawn the DB! <br>
+                           Continuiing operations in offline mode instead. <br>
+                           Refer to the DB log for more information.""" \
+                           % TheBDM.exception), QMessageBox.Ok)         
       else:
          self.switchNetworkMode(NETWORKMODE.Full)
+      
       self.setupBDV()      
-         
       self.setupLedgerViews()
          
       self.loadBlockchainIfNecessary()      
@@ -6722,6 +6731,9 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################   
    def setupLedgerViews(self):
+      if self.netMode == NETWORKMODE.Offline:
+         return
+      
       # Table to display ledger/activity
       w,h = tightSizeNChar(self.walletsView, 55)
       viewWidth  = 1.2*w

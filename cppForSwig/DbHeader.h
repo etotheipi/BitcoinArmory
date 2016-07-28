@@ -6,10 +6,12 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _H_DB_ERROR_MSG
-#define _H_DB_ERROR_MSG
+#ifndef _H_DB_HEADER
+#define _H_DB_HEADER
 
 #include <string>
+
+#define DEFAULT_FCGI_PORT 9001
 
 class DbErrorMsg
 {

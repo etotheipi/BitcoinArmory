@@ -426,27 +426,11 @@ Arguments Clients::runCommand(const string& cmdStr)
 {
    if (!run_.load(memory_order_relaxed))
       return Arguments();
-
-   if (bdmT_->bdm()->hasException())
-   {
-      rethrow_exception(bdmT_->bdm()->getException());
-   }
-
+   
    Command cmdObj(cmdStr);
    cmdObj.deserialize();
-   if (cmdObj.method_ == "registerBDV")
-   {
-      return registerBDV(cmdObj.args_);
-   }
-   else if (cmdObj.method_ == "unregisterBDV")
-   {
-      if (cmdObj.ids_.size() != 1)
-         throw runtime_error("invalid arg count for unregisterBDV");
 
-      unregisterBDV(cmdObj.ids_[0]);
-      return Arguments();
-   }
-   else if (cmdObj.method_ == "shutdown")
+   if (cmdObj.method_ == "shutdown")
    {
       auto& thisSpawnId = bdmT_->bdm()->config().spawnID_;
       if (thisSpawnId.size() == 0)
@@ -478,6 +462,22 @@ Arguments Clients::runCommand(const string& cmdStr)
       if (shutdownThr.joinable())
          shutdownThr.detach();
 
+      return Arguments();
+   }
+   else if (bdmT_->bdm()->hasException())
+   {
+      rethrow_exception(bdmT_->bdm()->getException());
+   }
+   else if (cmdObj.method_ == "registerBDV")
+   {
+      return registerBDV(cmdObj.args_);
+   }
+   else if (cmdObj.method_ == "unregisterBDV")
+   {
+      if (cmdObj.ids_.size() != 1)
+         throw runtime_error("invalid arg count for unregisterBDV");
+
+      unregisterBDV(cmdObj.ids_[0]);
       return Arguments();
    }
 
@@ -699,9 +699,36 @@ Arguments BDV_Server_Object::executeCommand(const string& method,
 ///////////////////////////////////////////////////////////////////////////////
 void FCGI_Server::init()
 {
-   sockfd_ = FCGX_OpenSocket("127.0.0.1:9050", 10);
+   stringstream ss;
+#ifdef _WIN32
+   if(ip_ == "127.0.0.1" || ip_ == "localhost")
+      ss << "localhost:" << port_;
+   else
+      throw runtime_error("will not bind on anything but localhost");
+#else
+   ss << ip_ << ":" << port_;
+#endif
+   
+   auto socketStr = ss.str();
+   sockfd_ = FCGX_OpenSocket(socketStr.c_str(), 10);
    if (sockfd_ == -1)
       throw runtime_error("failed to create FCGI listen socket");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void FCGI_Server::checkSocket() const
+{
+   BinarySocket testSock(ip_, port_);
+   if (testSock.testConnection())
+   {
+      LOGERR << "There is already a process listening on "
+         << ip_ << ":" << port_;
+      LOGERR << "ArmoryDB cannot start under these conditions. Shutting down!";
+      LOGERR << "Make sure to shutdown the conflicting process" <<
+         "before trying again (most likely another ArmoryDB instance).";
+
+      exit(1);
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -756,7 +783,7 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    stringstream ss;
    stringstream retStream;
    char* content = nullptr;
-
+ 
    //pass to clients_
    char* content_length = FCGX_GetParam("CONTENT_LENGTH", req->envp);
    if (content_length != nullptr)

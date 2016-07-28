@@ -227,6 +227,7 @@ bool BinarySocket::testConnection(void)
    }
    catch (runtime_error&)
    {
+      int abc = 0;
    }
 
    return false;

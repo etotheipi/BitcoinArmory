@@ -19,7 +19,7 @@
 #include "log.h"
 #include "BinaryData.h"
 #include "BtcUtils.h"
-#include "DbErrorMsg.h"
+#include "DbHeader.h"
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
 

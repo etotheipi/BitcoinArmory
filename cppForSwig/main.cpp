@@ -9,12 +9,6 @@ using namespace std;
 #include "BDM_mainthread.h"
 #include "BDM_Server.h"
 
-
-void printHelp()
-{
-   exit(0);
-}
-
 int main(int argc, char* argv[])
 {
 
@@ -33,13 +27,14 @@ int main(int argc, char* argv[])
    if (FCGX_Init())
       throw runtime_error("failed to initialize FCGI engine");
 
+
    BlockDataManagerThread bdmThread(bdmConfig);
-
-   //get mode from bdmConfig and start BDM maintenance thread
-   bdmThread.start(bdmConfig.initMode_);
-
    FCGI_Server server(&bdmThread);
+   
+   server.checkSocket();
    server.init();
+   bdmThread.start(bdmConfig.initMode_);
+   
    server.enterLoop();
 
    //stop all threads and clean up

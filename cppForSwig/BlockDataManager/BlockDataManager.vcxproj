@@ -175,6 +175,7 @@
     <ClInclude Include="..\BitcoinP2p.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\DataObject.h" />
+    <ClInclude Include="..\DbHeader.h" />
     <ClInclude Include="..\DBUtils.h" />
     <ClInclude Include="..\lmdbpp.h" />
     <ClInclude Include="..\mdb\lmdb.h" />
