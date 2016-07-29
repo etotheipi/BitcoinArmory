@@ -69,8 +69,9 @@ void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
    shared_ptr<BatchLink> batchLinkPtr;
 
    //lambdas
+   auto&& scrRefSet = scrAddrFilter_->getOutScrRefSet();
    auto scanBlockDataLambda = [&](shared_ptr<BlockDataBatch> batch)
-   { scanBlockData(batch); };
+   { scanBlockData(batch, scrRefSet); };
 
    auto writeBlockDataLambda = [&](void)
    { writeBlockData(batchLinkPtr); };
@@ -224,7 +225,8 @@ void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
+void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
+   const set<TxOutScriptRef>& scrRefSet)
 {
    //getBlock lambda
    auto getBlock = [&](unsigned height)->const BlockData&
@@ -309,9 +311,6 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
    auto txoutParser = [&](const BlockData& blockdata)->void
    {
       //TODO: flag isMultisig
-
-      auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
-
       const BlockHeader* header = blockdata.header();
 
       //update processed height
@@ -330,16 +329,18 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch)
                txn.data_ + txout.first, txout.second);
             brr.advance(8);
             unsigned scriptSize = (unsigned)brr.get_var_int();
-            auto&& scrAddr = BtcUtils::getTxOutScrAddr(
+            auto&& scrRef = BtcUtils::getTxOutScrAddrNoCopy(
                brr.get_BinaryDataRef(scriptSize));
 
-            auto saIter = scrAddrMap->find(scrAddr);
-            if (saIter == scrAddrMap->end())
+            auto saIter = scrRefSet.find(scrRef);
+            if (saIter == scrRefSet.end())
                continue;
 
             //if we got this far, this txout is ours
             //get tx hash
             auto& txHash = txn.getHash();
+
+            auto&& scrAddr = scrRef.getScrAddr();
 
             //construct StoredTxOut
             StoredTxOut stxo;
@@ -819,9 +820,9 @@ void BlockchainScanner::updateSSH(bool force)
 
    //process ssh, list missing hashes for hash resolver
    map<BinaryData, StoredScriptHistory> sshMap_;
-   
+   auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
+
    {
-      auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
       StoredScriptHistory* sshPtr = nullptr;
 
       LMDBEnv::Transaction historyTx, sshTx;
@@ -998,7 +999,6 @@ void BlockchainScanner::updateSSH(bool force)
    LMDBEnv::Transaction putsshtx;
    db_->beginDBTransaction(&putsshtx, SSH, LMDB::ReadWrite);
 
-   auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
    for (auto& scrAddr : *scrAddrMap)
    {
       auto& ssh = sshMap_[scrAddr.first];
@@ -1235,7 +1235,6 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       db_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
 
       //go thourgh all ssh in scrAddrFilter
-      auto& scrAddrMap = scrAddrFilter_->getScrAddrMap();
       for (auto& scrAddr : *scrAddrMap)
       {
          auto& ssh = sshMap[scrAddr.first];

@@ -161,5 +161,8 @@
     <ClInclude Include="..\SocketObject.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\DbHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

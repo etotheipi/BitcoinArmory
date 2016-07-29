@@ -215,6 +215,23 @@ public:
       return scrAddrMap_; 
    }
 
+   set<TxOutScriptRef> getOutScrRefSet(void) const
+   {
+      set<TxOutScriptRef> outset;
+
+      auto scrAddrMap = scrAddrMap_;
+
+      for (auto& scrAddrPair : *scrAddrMap_)
+      {
+         TxOutScriptRef scrRef;
+         scrRef.setRef(scrAddrPair.first);
+
+         outset.insert(move(scrRef));
+      }
+
+      return outset;
+   }
+
    size_t numScrAddr(void) const
    { return scrAddrMap_->size(); }
 

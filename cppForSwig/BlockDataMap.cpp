@@ -11,7 +11,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockData::deserialize(const uint8_t* data, size_t size,
-   const BlockHeader* blockHeader, 
+   const BlockHeader* blockHeader,
    function<unsigned int(void)> getID, bool checkMerkle)
 {
    headerPtr_ = blockHeader;
@@ -19,7 +19,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    //deser header from raw block and run a quick sanity check
    if (size < HEADER_SIZE)
       throw BlockDeserializingException(
-         "raw data is smaller than HEADER_SIZE");
+      "raw data is smaller than HEADER_SIZE");
 
    BinaryDataRef bdr(data, HEADER_SIZE);
    BlockHeader bh(bdr);
@@ -33,11 +33,11 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    {
       if (bh.getThisHashRef() != blockHeader->getThisHashRef())
          throw BlockDeserializingException(
-            "raw data does not match expected block hash");
+         "raw data does not match expected block hash");
 
       if (numTx != blockHeader->getNumTx())
          throw BlockDeserializingException(
-            "tx count mismatch in deser header");
+         "tx count mismatch in deser header");
    }
 
    for (unsigned i = 0; i < numTx; i++)
@@ -54,14 +54,10 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
       tx->version_ = READ_UINT32_LE(brr.getCurrPtr());
 
       // Check the marker and flag for witness transaction
-      uint8_t marker = READ_UINT8_BE(brr.getCurrPtr() + 4);
-      uint8_t flag = READ_UINT8_BE(brr.getCurrPtr() + 4 + 1);
-      if(marker == 0 && flag == 1)
+      auto brrPtr = brr.getCurrPtr() + 4;
+      auto marker = (const uint16_t*)brrPtr;
+      if (*marker == 0x0100)
          tx->usesWitness_ = true;
-      else
-      {
-         tx->usesWitness_ = false;
-      }
 
       //first tx in block is always the coinbase
       if (i == 0)
@@ -80,18 +76,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
          offsetOuts[y],
          offsetOuts[y + 1] - offsetOuts[y]));
 
-      // Get witness offsets
-      if(tx->usesWitness_) {
-         for (int y = 0; y < offsetsWitness.size() - 1; y++)
-            tx->txwitnesses_.push_back(
-                    make_pair(
-                            offsetsWitness[y],
-                            offsetsWitness[y + 1] - offsetsWitness[y]));
-         tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetsWitness.back());
-      }
-      else {
-         tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetOuts.back());
-      }
+      tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetsWitness.back());
 
       //move it to BlockData object vector
       txns_.push_back(move(tx));
@@ -110,8 +95,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    vector<BinaryData> allhashes;
    for (auto& txn : txns_)
    {
-      BinaryDataRef txdata(txn->data_, txn->size_);
-      auto&& txhash = BtcUtils::getHash256(txdata);
+      auto txhash = txn->moveHash();
       allhashes.push_back(move(txhash));
    }
 

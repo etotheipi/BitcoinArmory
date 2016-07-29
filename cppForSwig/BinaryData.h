@@ -844,13 +844,18 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryDataRef const & bd2) const
    {
-      size_t minLen = min(nBytes_, bd2.nBytes_);
-      for(size_t i=0; i<minLen; i++)
+      if (nBytes_ == bd2.nBytes_)
       {
-         if( ptr_[i] == bd2.ptr_[i] )
-            continue;
-         return ptr_[i] < bd2.ptr_[i];
+         for (size_t i = 0; i < nBytes_; i++)
+         {
+            if (ptr_[i] == bd2.ptr_[i])
+               continue;
+            return ptr_[i] < bd2.ptr_[i];
+         }
+
+         return false;
       }
+
       return (nBytes_ < bd2.nBytes_);
    }
 

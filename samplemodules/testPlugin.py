@@ -164,7 +164,7 @@ class PluginObject(object):
    #############################################################################
    def checkUpdatePrice(self):
 
-      urlBase = 'http://coinbase.com/api/v1/prices/'
+      urlBase = 'https://coinbase.com/api/v1/prices/'
       urlSell = urlBase + 'sell'
       urlBuy  = urlBase + 'buy'
 

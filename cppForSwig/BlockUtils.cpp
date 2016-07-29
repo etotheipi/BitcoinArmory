@@ -909,7 +909,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
                printHelp();
             }
          }
-         else if (str == "ram-usage")
+         else if (str == "--ram-usage")
          {
             string argstr;
             getline(ss, argstr, '=');
@@ -926,7 +926,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
             if (val > 0)
                ramUsage_ = val;
          }
-         else if (str == "thread-count")
+         else if (str == "--thread-count")
          {
             string argstr;
             getline(ss, argstr, '=');

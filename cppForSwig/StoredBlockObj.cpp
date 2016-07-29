@@ -740,9 +740,8 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
 {
    vector<size_t> offsetsIn, offsetsOut; 
    uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
-                                                  fragged,
-                                                  &offsetsIn,
-                                                  &offsetsOut);
+      brr.getSize(), fragged, &offsetsIn, &offsetsOut, nullptr);
+
    if(brr.getSizeRemaining() < nbytes)
    {
       LOGERR << "Not enough bytes in BRR to unserialize StoredTx";
@@ -934,7 +933,8 @@ BinaryData DBTx::getSerializedTxFragged(void) const
 
    BinaryWriter bw;
    vector<size_t> outOffsets;
-   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), false, NULL, &outOffsets);
+   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), dataCopy_.getSize(),
+      false, nullptr, &outOffsets, nullptr);
    uint32_t firstOut  = outOffsets[0];
    uint32_t afterLast = outOffsets[outOffsets.size()-1];
    uint32_t span = afterLast - firstOut;

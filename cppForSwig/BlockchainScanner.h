@@ -132,7 +132,8 @@ private:
    mutex resolverMutex_;
 
 private:
-   void scanBlockData(shared_ptr<BlockDataBatch>);
+   void scanBlockData(shared_ptr<BlockDataBatch>,
+      const set<TxOutScriptRef>&);
    
    void accumulateDataBeforeBatchWrite(vector<shared_ptr<BlockDataBatch>>&);
    void writeBlockData(shared_ptr<BatchLink>);

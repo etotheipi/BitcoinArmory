@@ -51,11 +51,10 @@ struct BCTX
    uint32_t version_;
    uint32_t lockTime_;
 
-   bool usesWitness_;
+   bool usesWitness_ = false;
 
    vector<OffsetAndSize> txins_;
    vector<OffsetAndSize> txouts_;
-   vector<OffsetAndSize> txwitnesses_;
 
    mutable BinaryData txHash_;
 
@@ -69,13 +68,34 @@ struct BCTX
    {
       if(txHash_.getSize() == 0)
       {
-         BinaryData noWitData = BinaryData();
-         if(usesWitness_)
-            noWitData.append(version_).append(data_ + txins_.at(0).first, txwitnesses_.at(0).first - txins_.at(0).first).append(lockTime_);
-         BtcUtils::getHash256(noWitData, txHash_);
+         if (usesWitness_)
+         {
+            BinaryData noWitData;
+            BinaryDataRef version(data_, 4);
+            BinaryDataRef txinout(data_ + size_ + 6, txouts_.back().first - 6);
+            BinaryDataRef locktime(data_ + size_ - 4, 4);
+           
+            noWitData.append(version);
+            noWitData.append(txinout);
+            noWitData.append(locktime);
+            
+            BtcUtils::getHash256(noWitData, txHash_);
+         }
+         else
+         {
+            BinaryDataRef hashdata(data_, size_);
+            BtcUtils::getHash256(hashdata, txHash_);
+         }
       }
 
       return txHash_;
+   }
+
+   BinaryData&& moveHash(void)
+   {
+      getHash();
+
+      return move(txHash_);
    }
 };
 

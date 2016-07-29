@@ -412,7 +412,7 @@ private:
    // Full copy of the serialized tx
    BinaryData    dataCopy_;
    bool          isInitialized_;
-   bool          usesWitness_;
+   bool          usesWitness_ = false;
    BinaryData    dataNoWitness_;
 
    uint32_t      version_;

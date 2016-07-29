@@ -265,6 +265,58 @@ enum OPCODETYPE
     OP_INVALIDOPCODE = 0xff,
 };
 
+struct TxOutScriptRef
+{
+   SCRIPT_PREFIX type_ = SCRIPT_PREFIX_NONSTD;
+   BinaryDataRef scriptRef_;
+   BinaryData scriptCopy_;
+
+   TxOutScriptRef()
+   {}
+
+   TxOutScriptRef(TxOutScriptRef&& outscr)
+   {
+      type_ = move(outscr.type_);
+      if (outscr.scriptCopy_.getSize() > 0)
+      {
+         scriptCopy_ = move(outscr.scriptCopy_);
+         outscr.scriptRef_.setRef(scriptCopy_);
+      }
+
+      scriptRef_ = move(outscr.scriptRef_);
+   }
+
+   bool operator == (const TxOutScriptRef& rhs) const
+   {
+      if (this->type_ != rhs.type_)
+         return false;
+
+      return this->scriptRef_ == rhs.scriptRef_;
+   }
+
+   bool operator < (const TxOutScriptRef& rhs) const
+   {
+      if (this->type_ == rhs.type_)
+         return this->scriptRef_ < rhs.scriptRef_;
+      else
+         return this->type_ < rhs.type_;
+   }
+
+   void setRef(const BinaryData& bd)
+   {
+      type_ = (SCRIPT_PREFIX)bd.getPtr()[0];
+      scriptRef_ = bd.getSliceRef(1, bd.getSize() - 1);
+   }
+
+   BinaryData getScrAddr(void) const
+   {
+      BinaryWriter bw;
+      bw.put_uint8_t(type_);
+      bw.put_BinaryData(scriptRef_);
+
+      return bw.getData();
+   }
+};
 
 class BlockDeserializingException : public runtime_error
 {
@@ -295,7 +347,8 @@ public:
    static const BinaryData& EmptyHash() { return EmptyHash_;  }
 
    /////////////////////////////////////////////////////////////////////////////
-   static uint64_t readVarInt(uint8_t const * strmPtr, size_t remaining, uint32_t* lenOutPtr=NULL)
+   static uint64_t readVarInt(uint8_t const * strmPtr, size_t remaining, 
+      uint32_t* lenOutPtr=NULL)
    {
       if (remaining < 1)
          throw BlockDeserializingException("invalid varint");
@@ -709,20 +762,20 @@ public:
    static size_t TxWitnessCalcLength(uint8_t const * ptr, size_t size)
    {
        if (size < 1)
-        throw BlockDeserializingException();
+         throw BlockDeserializingException();
        uint32_t witLen = 0;
        uint32_t viStackLen;
        uint32_t stackLen = (uint32_t)readVarInt(ptr, size, &viStackLen);
        witLen += viStackLen;
-       for(uint32_t i=0; i<stackLen; i++)
+       for (uint32_t i = 0; i < stackLen; i++)
        {
-		   if (size - witLen < 1)
-			   throw BlockDeserializingException();
+          if (size - witLen < 1)
+             throw BlockDeserializingException();
           uint32_t viLen;
-          witLen += (uint32_t)readVarInt(ptr+witLen, size-witLen, &viLen);
+          witLen += (uint32_t)readVarInt(ptr + witLen, size - witLen, &viLen);
           witLen += viLen;
-		  if (witLen < size)
-			  throw BlockDeserializingException();
+          if (witLen > size)
+             throw BlockDeserializingException();
        }
        return witLen;
    }
@@ -730,9 +783,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    static size_t TxCalcLength(uint8_t const * ptr,
                                 size_t size,
-                                vector<size_t> * offsetsIn=NULL,
-                                vector<size_t> * offsetsOut=NULL,
-                                vector<size_t> * offsetsWitness=NULL)
+                                vector<size_t> * offsetsIn,
+                                vector<size_t> * offsetsOut,
+                                vector<size_t> * offsetsWitness)
    {
       BinaryRefReader brr(ptr, size);  
       
@@ -743,18 +796,16 @@ public:
 
       // Get marker and flag if transaction uses segwit
       bool usesWitness = false;
-      uint8_t marker = (uint8_t)brr.get_uint8_t();
-      uint8_t flag = (uint8_t)brr.get_uint8_t();
-      if(marker == 0 && flag == 1)
+      auto marker = (const uint16_t*)brr.getCurrPtr();
+      if (*marker == 0x0100)
       {
          usesWitness = true;
+         brr.advance(2);
       }
-      else
-         brr.rewind(2);
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
-      if(offsetsIn != NULL)
+      if (offsetsIn != nullptr)
       {
          offsetsIn->resize(nIn+1);
          for(uint32_t i=0; i<nIn; i++)
@@ -773,7 +824,7 @@ public:
 
       // Now extract the TxOut list
       uint32_t nOut = (uint32_t)brr.get_var_int();
-      if(offsetsOut != NULL)
+      if (offsetsOut != nullptr)
       {
          offsetsOut->resize(nOut+1);
          for(uint32_t i=0; i<nOut; i++)
@@ -792,7 +843,7 @@ public:
       // Now extract the witnesses
       if(usesWitness)
       {
-         if(offsetsWitness != NULL)
+         if (offsetsWitness != nullptr)
          {
             offsetsWitness->resize(nIn + 1);
             for (uint32_t i = 0; i < nIn; i++) {
@@ -811,7 +862,7 @@ public:
       else
       {
          offsetsWitness->resize(1);
-         (*offsetsWitness)[0] = (*offsetsOut)[nOut];
+         (*offsetsWitness)[0] = brr.getPosition();
       }
 
       brr.advance(4);
@@ -825,9 +876,9 @@ public:
       uint8_t const * ptr,
       size_t len,
       bool fragged,
-      vector<size_t> * offsetsIn=NULL,
-      vector<size_t> * offsetsOut=NULL,
-      vector<size_t> * offsetsWitness=NULL)
+      vector<size_t> * offsetsIn,
+      vector<size_t> * offsetsOut,
+      vector<size_t> * offsetsWitness)
    {
       BinaryRefReader brr(ptr, len);  
 
@@ -837,18 +888,16 @@ public:
 
       // Get marker and flag if transaction uses segwit
       bool usesWitness = false;
-      uint8_t marker = (uint8_t)brr.get_uint8_t();
-      uint8_t flag = (uint8_t)brr.get_uint8_t();
-      if(marker == 0 && flag == 1)
+      auto marker = (const uint16_t*)brr.getCurrPtr();
+      if (*marker == 0x0100)
       {
          usesWitness = true;
+         brr.advance(2);
       }
-      else
-         brr.rewind(2);
 
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
-      if(offsetsIn != NULL)
+      if (offsetsIn != nullptr)
       {
          offsetsIn->resize(nIn+1);
          for(uint32_t i=0; i<nIn; i++)
@@ -879,7 +928,7 @@ public:
       else
       {
          // Now extract the TxOut list
-         if(offsetsOut != NULL)
+         if (offsetsOut != nullptr)
          {
             offsetsOut->resize(nOut+1);
             for(uint32_t i=0; i<nOut; i++)
@@ -901,7 +950,7 @@ public:
       // Now extract the witnesses
       if(usesWitness)
       {
-         if(offsetsWitness != NULL)
+         if (offsetsWitness != nullptr)
          {
             offsetsWitness->resize(nIn + 1);
             for (uint32_t i = 0; i < nIn; i++) {
@@ -916,6 +965,11 @@ public:
                brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
             }
          }
+      }
+      else
+      {
+         offsetsWitness->resize(1);
+         (*offsetsWitness)[0] = brr.getPosition();
       }
 
       brr.advance(4);
@@ -983,15 +1037,15 @@ public:
    static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef script,
                                              BinaryDataRef prevTxHash)
    {
+      if(prevTxHash == BtcUtils::EmptyHash_)
+         return TXIN_SCRIPT_COINBASE;
+      
       if(script.getSize() == 0)
          return TXIN_SCRIPT_WITNESS;
       if(script.getSize() == 23 && script[1] == 0x00 && script[2] == 0x14)
          return TXIN_SCRIPT_P2WPKH_P2SH;
       if(script.getSize() == 35 && script[1] == 0x00 && script[2] == 0x20)
          return TXIN_SCRIPT_P2WSH_P2SH;
-
-      if(prevTxHash == BtcUtils::EmptyHash_)
-         return TXIN_SCRIPT_COINBASE;
 
       // Technically, this doesn't recognize all P2SH spends.  Only 
       // spends of P2SH scripts that are, themselves, standard
@@ -1104,6 +1158,81 @@ public:
             LOGERR << "What kind of TxOutScript did we get?";
             return BinaryData(0);
       }
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   //no copy version, the regular one is too slow for scanning operations
+   static TxOutScriptRef getTxOutScrAddrNoCopy(BinaryDataRef script)
+   {
+      TxOutScriptRef outputRef;
+      auto type = getTxOutScriptType(script);
+      switch (type)
+      {
+      case(TXOUT_SCRIPT_STDHASH160) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_HASH160;
+         outputRef.scriptRef_ = move(script.getSliceRef(3, 20));
+         break;
+      }
+
+      case(TXOUT_SCRIPT_P2WPKH) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_HASH160;
+         outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
+         break;
+      }
+
+      case(TXOUT_SCRIPT_P2WSH) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_P2SH;
+         outputRef.scriptRef_ = move(script.getSliceRef(2, 32));
+         break;
+      }
+
+      case(TXOUT_SCRIPT_STDPUBKEY65) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_HASH160;
+         outputRef.scriptCopy_ = move(getHash160(script.getSliceRef(1, 65)));
+         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+         break;
+      }
+
+      case(TXOUT_SCRIPT_STDPUBKEY33) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_HASH160;
+         outputRef.scriptCopy_ = move(getHash160(script.getSliceRef(1, 33)));
+         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+         break;
+      }
+
+      case(TXOUT_SCRIPT_P2SH) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_P2SH;
+         outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
+         break;
+      }
+
+      case(TXOUT_SCRIPT_NONSTANDARD) :
+      {
+         outputRef.type_ = SCRIPT_PREFIX_NONSTD;
+         outputRef.scriptCopy_ = move(getHash160(script));
+         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+         break;
+      }
+
+      case(TXOUT_SCRIPT_MULTISIG) :
+      {         
+         outputRef.type_ = SCRIPT_PREFIX_MULTISIG;
+         outputRef.scriptCopy_ = move(getMultisigUniqueKey(script));
+         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+         break;
+      }
+
+      default:
+         LOGERR << "What kind of TxOutScript did we get?";
+      }
+
+      return outputRef;
    }
 
    /////////////////////////////////////////////////////////////////////////////

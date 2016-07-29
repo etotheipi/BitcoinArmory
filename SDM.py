@@ -716,7 +716,7 @@ class SatoshiDaemonManager(object):
          LOGDEBUG('Creating proxy')
          usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword',\
                                                       'host', 'rpcport']]
-         pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)
+         pstr = 'https://%s:%s@%s:%d' % (usr,pas,hst,prt)
          LOGINFO('Creating proxy in SDM: host=%s, port=%s', hst,prt)
          self.proxy = ServiceProxy(pstr)
 

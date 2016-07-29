@@ -385,13 +385,13 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
    version_ = READ_UINT32_LE(ptr);
    if(4 > size - offsetsWitness_[numWitness])
       throw BlockDeserializingException();
-   lockTime_ = READ_UINT32_LE(ptr + nBytes - 4);
+   lockTime_ = READ_UINT32_LE(ptr + offsetsWitness_[numWitness]);
 
    if(READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
    {
       usesWitness_ = true;
       dataNoWitness_.append(WRITE_UINT32_LE(version_));
-      BinaryData txBody(ptr + 6,offsetsTxOut_.back() - 6);
+      BinaryDataRef txBody(ptr + 6,offsetsTxOut_.back() - 6);
       dataNoWitness_.append(txBody);
       dataNoWitness_.append(WRITE_UINT32_LE(lockTime_));
    }
@@ -420,37 +420,9 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
    if (size == 0)
       throw runtime_error("empty raw tx");
    
-   size--;
    auto ptr = rawTx.getPtr() + 1;
+   unserialize(ptr, size - 1);
 
-   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetsWitness_);
-
-   if (nBytes > size)
-      throw BlockDeserializingException();
-   dataCopy_.copyFrom(ptr, nBytes);
-   if (8 > size)
-      throw BlockDeserializingException();
-
-   uint32_t numWitness = offsetsWitness_.size() - 1;
-   version_ = READ_UINT32_LE(ptr);
-   if (4 > size - offsetsWitness_[numWitness])
-	   throw BlockDeserializingException();
-   lockTime_ = READ_UINT32_LE(ptr + nBytes - 4);
-
-   if (READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
-   {
-	   usesWitness_ = true;
-	   dataNoWitness_.append(WRITE_UINT32_LE(version_));
-	   BinaryData txBody(ptr + 6, offsetsTxOut_.back() - 6);
-	   dataNoWitness_.append(txBody);
-	   dataNoWitness_.append(WRITE_UINT32_LE(lockTime_));
-   }
-   else
-	   dataNoWitness_.copyFrom(ptr, nBytes);
-
-   BtcUtils::getHash256(dataNoWitness_, thisHash_);
-
-   isInitialized_ = true;
    isRBF_ = (bool)rawTx.getPtr();
 }
 
