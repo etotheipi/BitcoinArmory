@@ -4,6 +4,11 @@
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
+//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifndef _BTCUTILS_H_
@@ -265,58 +270,8 @@ enum OPCODETYPE
     OP_INVALIDOPCODE = 0xff,
 };
 
-struct TxOutScriptRef
-{
-   SCRIPT_PREFIX type_ = SCRIPT_PREFIX_NONSTD;
-   BinaryDataRef scriptRef_;
-   BinaryData scriptCopy_;
 
-   TxOutScriptRef()
-   {}
-
-   TxOutScriptRef(TxOutScriptRef&& outscr)
-   {
-      type_ = move(outscr.type_);
-      if (outscr.scriptCopy_.getSize() > 0)
-      {
-         scriptCopy_ = move(outscr.scriptCopy_);
-         outscr.scriptRef_.setRef(scriptCopy_);
-      }
-
-      scriptRef_ = move(outscr.scriptRef_);
-   }
-
-   bool operator == (const TxOutScriptRef& rhs) const
-   {
-      if (this->type_ != rhs.type_)
-         return false;
-
-      return this->scriptRef_ == rhs.scriptRef_;
-   }
-
-   bool operator < (const TxOutScriptRef& rhs) const
-   {
-      if (this->type_ == rhs.type_)
-         return this->scriptRef_ < rhs.scriptRef_;
-      else
-         return this->type_ < rhs.type_;
-   }
-
-   void setRef(const BinaryData& bd)
-   {
-      type_ = (SCRIPT_PREFIX)bd.getPtr()[0];
-      scriptRef_ = bd.getSliceRef(1, bd.getSize() - 1);
-   }
-
-   BinaryData getScrAddr(void) const
-   {
-      BinaryWriter bw;
-      bw.put_uint8_t(type_);
-      bw.put_BinaryData(scriptRef_);
-
-      return bw.getData();
-   }
-};
+#include "TxOutScrRef.h"
 
 class BlockDeserializingException : public runtime_error
 {

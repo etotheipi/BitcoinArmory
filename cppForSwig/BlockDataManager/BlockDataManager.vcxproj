@@ -183,6 +183,7 @@
     <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeClasses.h" />
+    <ClInclude Include="..\TxOutScrRef.h" />
     <ClInclude Include="..\util.h" />
     <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="fcgi\include\fcgiapp.h" />

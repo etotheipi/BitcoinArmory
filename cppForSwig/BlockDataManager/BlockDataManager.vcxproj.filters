@@ -164,5 +164,8 @@
     <ClInclude Include="..\DbHeader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\TxOutScrRef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
