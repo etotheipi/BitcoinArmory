@@ -15,8 +15,27 @@ struct TxOutScriptRef
    BinaryDataRef scriptRef_;
    BinaryData scriptCopy_;
 
+   void copyFrom(const TxOutScriptRef& outscr)
+   {
+      type_ = outscr.type_;
+      if(outscr.scriptCopy_.getSize())
+      {
+         scriptCopy_ = outscr.scriptCopy_;
+         scriptRef_.setRef(scriptCopy_);
+      }
+      else
+      {
+         scriptRef_ = outscr.scriptRef_;
+      }
+   }
+
    TxOutScriptRef()
    {}
+
+   TxOutScriptRef(const TxOutScriptRef& outscr)
+   {
+      copyFrom(outscr);
+   }
 
    TxOutScriptRef(TxOutScriptRef&& outscr)
    {
@@ -28,6 +47,13 @@ struct TxOutScriptRef
       }
 
       scriptRef_ = move(outscr.scriptRef_);
+   }
+
+   TxOutScriptRef& operator=(const TxOutScriptRef& rhs)
+   {
+      if(this !=  &rhs)
+         copyFrom(rhs);
+      return *this;
    }
 
    bool operator == (const TxOutScriptRef& rhs) const
