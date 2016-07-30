@@ -97,25 +97,23 @@ void BinarySocket::writeToSocket(
    SOCKET& sockfd, void* data, size_t size)
 {
    //don't return we have written and are write ready
-   fdset_except_safe write_set, except_set;
+   struct pollfd pfd;
    bool haveWritten = false;
+
+   pfd.fd = sockfd;
+   pfd.events = POLLOUT;
 
    while (1)
    {
-      timeval tv;
-      tv.tv_usec = 0;
-      tv.tv_sec = 60; //1min timeout on select
+#ifdef _WIN32
+      auto status = WSAPoll(&pfd, 1, 60000);
+#else
+      auto status = poll(&pfd, 1, 60000);
+#endif
 
-      write_set.zero();
-      except_set.zero();
-      write_set.set(sockfd);
-      except_set.set(sockfd);
-
-      auto retval = select(sockfd + 1, nullptr, write_set.get(), except_set.get(), &tv);
-
-      if (retval == 0)
+      if (status == 0)
          continue;
-      else if (retval == -1)
+      else if (status == -1)
       {
 #ifdef _WIN32
          auto errornum = WSAGetLastError();
@@ -123,25 +121,25 @@ void BinarySocket::writeToSocket(
          auto errornum = errno;
 #endif
          stringstream ss;
-         ss << "select error: " << errornum;
+         ss << "poll() error: " << errornum;
          throw SocketError(ss.str());
       }
 
       //exceptions
-      if (FD_ISSET(sockfd, except_set.get()))
+      if (pfd.revents & POLLERR)
       {
          //grab socket error code
 
          //break out of poll loop
-         throw SocketError("select expection during sendMessage");
+         throw SocketError("poll() expection during sendMessage");
          break;
       }
 
-      if (FD_ISSET(sockfd, write_set.get()))
+      if (pfd.revents & POLLOUT)
       {
          if (!haveWritten)
          {
-            auto bytessent = WRITETOSOCKET(sockfd, (char*)data, size);
+            auto bytessent = send(sockfd, (char*)data, size, 0);
             if (bytessent != size)
                throw SocketError("failed to send data");
 
@@ -285,30 +283,32 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
    shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
 {
    size_t readIncrement = 8192;
-   fdset_except_safe read_set, except_set;
    stringstream errorss;
 
    exception_ptr exceptptr = nullptr;
+
+   struct pollfd pfd;
+   pfd.fd = sockfd;
+   pfd.events = POLLIN;
 
    try
    {
       while (1)
       {
-         timeval tv;
-         tv.tv_usec = 0;
-         tv.tv_sec = 60; //1min timeout on select
-
-         read_set.zero();
-         except_set.zero();
-
-         read_set.set(sockfd);
-         except_set.set(sockfd);
-
-         auto status =
-            select(sockfd + 1, read_set.get(), nullptr, except_set.get(), &tv);
+#ifdef _WIN32
+         auto status = WSAPoll(&pfd, 1, 60000);
+#else
+         auto status = poll(&pfd, 1, 60000);
+#endif
 
          if (status == 0)
             continue;
+
+         //socket was closed
+         if (pfd.revents & POLLHUP)
+         {
+            break;
+         }
 
          if (status == -1)
          {
@@ -318,12 +318,12 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
 #else
             auto errornum = errno;
 #endif
-            errorss << "select error: " << errornum;
+            errorss << "poll() error: " << errornum;
             throw SocketError(errorss.str());
          }
 
          //exceptions
-         if (FD_ISSET(sockfd, except_set.get()))
+         if (pfd.revents & POLLERR)
          {
             //TODO: grab socket error code, pass error to callback
 
@@ -332,7 +332,29 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
             throw SocketError(errorss.str());
          }
 
-         if (FD_ISSET(sockfd, read_set.get()))
+         if (pfd.revents & POLLRDBAND)
+         {
+            //we dont use OOB data, just grab and dump
+            vector<uint8_t> readdata;
+            readdata.resize(1024);
+            int readAmt;
+            size_t totalread = 0;
+
+            while (readAmt =
+               recv(sockfd, (char*)&readdata[0] + totalread, 1024, MSG_OOB))
+            {
+               if (readAmt < 0)
+                  break;
+
+               totalread += readAmt;
+               if (readAmt < 1024)
+                  break;
+
+               readdata.resize(totalread + 1024);
+            }
+         }
+
+         if (pfd.revents & POLLIN)
          {
             //read socket
             vector<uint8_t> readdata;
@@ -342,7 +364,7 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
             int readAmt;
 
             while ((readAmt =
-               READFROMSOCKET(sockfd, (char*)&readdata[0] + totalread , readIncrement))
+               recv(sockfd, (char*)&readdata[0] + totalread , readIncrement, 0))
                != 0)
             {
                if (readAmt < 0)
@@ -366,10 +388,6 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
                //callback with the new data
                readStack->push_back(move(readdata));
             }
-            
-            //socket closed, exit select loop
-            if (readAmt == 0)
-               break;
          }
       }
    }
@@ -379,8 +397,6 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
    }
 
    //cleanup
-   read_set.zero();
-   except_set.zero();
    closeSocket(sockfd);
    
    //mark read as completed

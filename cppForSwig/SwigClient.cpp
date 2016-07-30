@@ -548,8 +548,7 @@ void PythonCallback::remoteLoop(void)
    {
       try
       {
-         sockfd_ = sock_->openSocket(true);
-         auto&& retval = sock_->writeAndRead(sendCmd.command_, sockfd_);
+         auto&& retval = sock_->writeAndRead(sendCmd.command_);
          Arguments args(move(retval));
 
          if (!processCallback(move(args)))

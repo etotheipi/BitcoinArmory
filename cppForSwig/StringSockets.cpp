@@ -262,6 +262,13 @@ FcgiMessage FcgiSocket::makePacket(const char* msg)
 ///////////////////////////////////////////////////////////////////////////////
 string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
+   if (msg == "10907")
+      int abc = 0;
+   if (msg.size() < 20)
+      LOGINFO << msg;
+   else
+      LOGINFO << msg.substr(20);
+
    if (sockfd == SOCK_MAX)
       sockfd = openSocket(false);
 

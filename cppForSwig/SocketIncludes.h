@@ -13,9 +13,6 @@
 #include <WinSock2.h>
 #include <ws2tcpip.h>
 
-#define WRITETOSOCKET(a, b, c) send(a, b, c, NULL)
-#define READFROMSOCKET(a, b, c) recv(a, b, c, NULL)
-
 #define SOCK_MAX SIZE_MAX
 
 #else
@@ -26,9 +23,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #define closesocket close
-
-#define WRITETOSOCKET(a, b, c) send(a, b, c, 0)
-#define READFROMSOCKET(a, b, c) recv(a, b, c, 0)
 
 typedef int SOCKET;
 #define SOCK_MAX INT_MAX

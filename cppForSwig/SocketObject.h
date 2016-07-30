@@ -16,6 +16,10 @@
 #include <functional>
 #include <memory>
 
+#ifndef _WIN32
+#include <poll.h>
+#endif
+
 #include "ThreadSafeClasses.h"
 #include "bdmenums.h"
 #include "log.h"
@@ -23,19 +27,6 @@
 #include "SocketIncludes.h"
 
 using namespace std;
-
-////////////////////////////////////////////////////////////////////////////////
-struct fdset_except_safe
-{
-   fd_set set_;
-
-   fdset_except_safe(void) { zero(); }
-   ~fdset_except_safe(void) { zero(); }
-
-   void set(SOCKET sockfd) { FD_SET(sockfd, &set_); }
-   void zero(void) { FD_ZERO(&set_); }
-   fd_set* get(void) { return &set_; }
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 class BinarySocket
