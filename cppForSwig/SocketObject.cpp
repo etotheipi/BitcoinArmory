@@ -121,7 +121,9 @@ void BinarySocket::writeToSocket(
          auto errornum = errno;
 #endif
          stringstream ss;
-         ss << "poll() error: " << errornum;
+         ss << "poll() error in writeToSocket: " << errornum;
+
+         LOGERR << ss.str();
          throw SocketError(ss.str());
       }
 
@@ -131,7 +133,8 @@ void BinarySocket::writeToSocket(
          //grab socket error code
 
          //break out of poll loop
-         throw SocketError("poll() expection during sendMessage");
+         LOGERR << "POLLERR in writeToSocket";
+         throw SocketError("POLLERR in writeToSocket");
          break;
       }
 
@@ -152,63 +155,6 @@ void BinarySocket::writeToSocket(
          }
       }
    }
-}
-
-
-///////////////////////////////////////////////////////////////////////////////
-vector<uint8_t> BinarySocket::writeAndRead(
-   SOCKET& sockfd, void* data, size_t datalen,
-   shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
-{
-   /***
-   After the write, poll the socket and push back data to the readStack as
-   it shows. Caller can halt this whole process by closing sockfd.
-   Otherwise, the method exist when sockfd is closed by the other side.
-
-   This method can be called from a thread (get() on the BlockingStack object) or
-   directly (wait for it to return)
-   ***/
-
-   if (sockfd == SOCK_MAX)
-      sockfd = this->openSocket(false);
-   try
-   {
-      //TODO: what if the socket is closed before we get into the 
-      //readFromSocket select()?
-      writeToSocket(sockfd, data, datalen);
-      readFromSocket(sockfd, readStack);
-   }
-   catch (SocketError &e)
-   {
-      LOGERR << "writeAndRead SocketError: " << e.what();
-   }
-   catch (exception &e)
-   {
-      LOGERR << "writeAndRead exception: " << e.what();
-   }
-   catch (...)
-   {
-      LOGERR << "writeAndRead unknown exception";
-   }
-
-   readStack->completed();
-   closeSocket(sockfd);
-
-   vector<uint8_t> dataVec;
-
-   try
-   {
-      while (1)
-      {
-         auto&& packet = readStack->get();
-         dataVec.insert(dataVec.end(), packet.begin(), packet.end());
-      }
-   }
-   catch (IsEmpty&)
-   {
-   }
-
-   return dataVec;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -258,15 +204,15 @@ void BinarySocket::setBlocking(SOCKET& sock, bool setblocking)
 
 ///////////////////////////////////////////////////////////////////////////////
 void BinarySocket::readFromSocket(SOCKET& sockfd,
-   shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+   function<bool(vector<uint8_t>, bool)> callback)
 {
    exception_ptr exceptptr = nullptr;
 
-   auto readLambda = [sockfd, readStack, this](void)->void
+   auto readLambda = [sockfd, callback, this](void)->void
    {
       try
       {
-         readFromSocketThread(sockfd, readStack);
+         readFromSocketThread(sockfd, callback);
       }
       catch (...)
       {
@@ -280,7 +226,7 @@ void BinarySocket::readFromSocket(SOCKET& sockfd,
 
 ///////////////////////////////////////////////////////////////////////////////
 void BinarySocket::readFromSocketThread(SOCKET sockfd,
-   shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+   function<bool(vector<uint8_t>, bool)> callback)
 {
    size_t readIncrement = 8192;
    stringstream errorss;
@@ -304,12 +250,6 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
          if (status == 0)
             continue;
 
-         //socket was closed
-         if (pfd.revents & POLLHUP)
-         {
-            break;
-         }
-
          if (status == -1)
          {
             //select error, process and exit loop
@@ -318,7 +258,8 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
 #else
             auto errornum = errno;
 #endif
-            errorss << "poll() error: " << errornum;
+            errorss << "poll() error in readFromSocketThread: " << errornum;
+            LOGERR << errorss.str();
             throw SocketError(errorss.str());
          }
 
@@ -328,7 +269,8 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
             //TODO: grab socket error code, pass error to callback
 
             //break out of poll loop
-            errorss << "socket exception";
+            errorss << "POLLERR error in readFromSocketThread";
+            LOGERR << errorss.str();
             throw SocketError(errorss.str());
          }
 
@@ -369,8 +311,18 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
             {
                if (readAmt < 0)
                {
-                  /*errorss << "read socket error: " << readAmt;
-                  throw SocketError(errorss.str());*/
+#ifdef _WIN32
+                  auto errornum = WSAGetLastError();
+                  if(errornum == WSAEWOULDBLOCK)
+                     break;
+#else
+                  auto errornum = errno;
+                  if (errornum == EAGAIN || errornum == EWOULDBLOCK)
+                     break;
+#endif
+
+                  errorss << "recv error: " << errornum;
+                  throw SocketError(errorss.str());
                   break;
                }
 
@@ -381,14 +333,24 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
                readdata.resize(totalread + readIncrement);
             }
 
+            if (readAmt == 0)
+            {
+               LOGINFO << "POLLIN recv return 0";
+            }
+
             if (totalread > 0)
             {
                readdata.resize(totalread);
 
-               //callback with the new data
-               readStack->push_back(move(readdata));
+               //callback with the new data, exit poll loop on true
+               if (callback(move(readdata), false))
+                  break;
             }
          }
+
+         //socket was closed
+         if (pfd.revents & POLLHUP)
+            break;
       }
    }
    catch (...)
@@ -400,7 +362,7 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
    closeSocket(sockfd);
    
    //mark read as completed
-   readStack->completed(exceptptr);
+   callback(vector<uint8_t>(), true);
 
    //rethrow in case of exception
    if (exceptptr != nullptr)

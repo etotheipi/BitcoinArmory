@@ -167,6 +167,9 @@ vector<uint8_t> Payload::serialize(uint32_t magic_word) const
 vector<unique_ptr<Payload>> Payload::deserialize(
    vector<uint8_t>& data, uint32_t magic_word)
 {
+   //TODO: add trailing uncomplete payload data replay in next deser call
+   //(mostly useful for grabbing data during blocks over p2p syncing)
+
    if (data.size() < MESSAGE_HEADER_LEN)
       throw BitcoinMessageDeserError("invalid header size");
    
@@ -180,7 +183,24 @@ vector<unique_ptr<Payload>> Payload::deserialize(
       //check magic word
       uint32_t* magicword = (uint32_t*)(ptr + MAGIC_WORD_OFFSET);
       if (*magicword != magic_word)
-         throw BitcoinMessageDeserError("invalid magic word");
+      {
+         //invalid magic word, search remainder of the packet for another one
+         auto sizeRemaining = totalsize - offset;
+         auto mwFirstByte = *(uint8_t*)magic_word;
+         unsigned i;
+         for (i = 4; i < sizeRemaining; i++)
+         {
+            if (ptr[i] == mwFirstByte)
+            {
+               auto mwPtr = (uint32_t*)(ptr + i);
+               if (*mwPtr == magic_word)
+                  break;
+            }
+         }
+
+         offset += i;
+         continue;
+      }
 
       //get message type
       char* messagetype = (char*)(ptr + MESSAGE_TYPE_OFFSET);
@@ -194,7 +214,10 @@ vector<unique_ptr<Payload>> Payload::deserialize(
       }
 
       if (i == MESSAGE_TYPE_LEN)
-         throw BitcoinMessageDeserError("messagetype is too long or not a string");
+      {
+         offset += 4; //skip the current mw before reentering the loop
+         continue;
+      }
 
       //get and verify length
       uint32_t* length = (uint32_t*)(ptr + PAYLOAD_LENGTH_OFFSET);
@@ -212,53 +235,62 @@ vector<unique_ptr<Payload>> Payload::deserialize(
       uint32_t* hashChecksum = (uint32_t*)payloadHash.getPtr();
 
       if (*hashChecksum != *checksum)
-         throw BitcoinMessageDeserError("payload checksum mismatch");
-
+      {
+         offset += 4;
+         continue;
+      }
 
       //instantiate relevant Payload child class and return it
-      auto payloadIter = BitcoinP2P::strToPayload_.find(messagetype);
-      if (payloadIter != BitcoinP2P::strToPayload_.end())
+      try
       {
-         uint8_t* payloadptr = nullptr;
-         if (*length > 0)
-            payloadptr = &data[offset] + MESSAGE_HEADER_LEN;
-
-         switch (payloadIter->second)
+         auto payloadIter = BitcoinP2P::strToPayload_.find(messagetype);
+         if (payloadIter != BitcoinP2P::strToPayload_.end())
          {
-         case Payload_version:
-            retvec.push_back(move(make_unique<Payload_Version>(
-               payloadptr, *length)));
-            break;
+            uint8_t* payloadptr = nullptr;
+            if (*length > 0)
+               payloadptr = &data[offset] + MESSAGE_HEADER_LEN;
 
-         case Payload_verack:
-            retvec.push_back(move(make_unique<Payload_Verack>()));
-            break;
+            switch (payloadIter->second)
+            {
+            case Payload_version:
+               retvec.push_back(move(make_unique<Payload_Version>(
+                  payloadptr, *length)));
+               break;
 
-         case Payload_ping:
-            retvec.push_back(move(make_unique<Payload_Ping>(
-               payloadptr, *length)));
-            break;
+            case Payload_verack:
+               retvec.push_back(move(make_unique<Payload_Verack>()));
+               break;
 
-         case Payload_pong:
-            retvec.push_back(move(make_unique<Payload_Pong>(
-               payloadptr, *length)));
-            break;
+            case Payload_ping:
+               retvec.push_back(move(make_unique<Payload_Ping>(
+                  payloadptr, *length)));
+               break;
 
-         case Payload_inv:
-            retvec.push_back(move(make_unique<Payload_Inv>(
-               payloadptr, *length)));
-            break;
+            case Payload_pong:
+               retvec.push_back(move(make_unique<Payload_Pong>(
+                  payloadptr, *length)));
+               break;
 
-         case Payload_tx:
-            retvec.push_back(move(make_unique<Payload_Tx>(
-               payloadptr, *length)));
-            break;
+            case Payload_inv:
+               retvec.push_back(move(make_unique<Payload_Inv>(
+                  payloadptr, *length)));
+               break;
 
-         case Payload_getdata:
-            retvec.push_back(move(make_unique<Payload_GetData>(
-               payloadptr, *length)));
-            break;
+            case Payload_tx:
+               retvec.push_back(move(make_unique<Payload_Tx>(
+                  payloadptr, *length)));
+               break;
+
+            case Payload_getdata:
+               retvec.push_back(move(make_unique<Payload_GetData>(
+                  payloadptr, *length)));
+               break;
+            }
          }
+      }
+      catch (BitcoinMessageDeserError&)
+      {
+         //ignore deser error on full length payload
       }
          
       offset += MESSAGE_HEADER_LEN + *length;
@@ -725,7 +757,15 @@ void BitcoinP2P::pollSocketThread()
    if (!lock.try_lock())
       throw SocketError("another poll thread is already running");
 
-   binSocket_.readFromSocket(dataStack_);
+   auto dataStack = dataStack_;
+
+   auto callback = [dataStack](vector<uint8_t> socketdata, bool)->bool
+   {
+      dataStack->push_back(move(socketdata));
+      return false;
+   };
+
+   binSocket_.readFromSocket(callback);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

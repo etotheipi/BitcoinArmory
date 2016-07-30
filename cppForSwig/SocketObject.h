@@ -40,19 +40,15 @@ protected:
 
 private:
    void readFromSocketThread(SOCKET sockfd,
-      shared_ptr<BlockingStack<vector<uint8_t>>>);
+      function<bool(vector<uint8_t>, bool)> callback);
 
 protected:   
    void closeSocket(SOCKET&);
    void writeToSocket(SOCKET&, void*, size_t);
    void readFromSocket(SOCKET& sockfd,
-      shared_ptr<BlockingStack<vector<uint8_t>>>);
+      function<bool(vector<uint8_t>, bool)> callback);
    void setBlocking(SOCKET&, bool);
    
-   vector<uint8_t> writeAndRead(
-      SOCKET& sfd, void* data, size_t datalen, 
-      shared_ptr<BlockingStack<vector<uint8_t>>>);
-
 public:
    SOCKET openSocket(bool blocking);
 
@@ -80,13 +76,6 @@ public:
 
    ~DedicatedBinarySocket(void) { BinarySocket::closeSocket(sockfd_); }
 
-   vector<uint8_t> writeAndRead(
-      SOCKET& sfd, void* data, size_t datalen,
-      shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
-   {
-      return BinarySocket::writeAndRead(sockfd_, data, datalen, readStack);
-   }
-
    void closeSocket()
    {
       BinarySocket::closeSocket(sockfd_);
@@ -97,10 +86,9 @@ public:
       BinarySocket::writeToSocket(sockfd_, data, len);
    }
 
-   void readFromSocket(
-      shared_ptr<BlockingStack<vector<uint8_t>>> readStack)
+   void readFromSocket(function<bool(vector<uint8_t>, bool)> callback)
    {
-      BinarySocket::readFromSocket(sockfd_, readStack);
+      BinarySocket::readFromSocket(sockfd_, callback);
    }
 
    bool openSocket(bool blocking)

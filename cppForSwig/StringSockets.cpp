@@ -123,77 +123,82 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
       }
    };
 
-   auto processHttpPacket = [&retval, &content_length, &header_len,
-      get_content_len]
-      (void)->bool
-   {
-      if (content_length == -1)
-      {
-         //if content_length is -1, we have not read the content-length in the
-         //http header yet, let's find that
-         for (unsigned i = 0; i < retval.size(); i++)
-         {
-            if (retval[i] == '\r')
-            {
-               if (retval.size() - i < 3)
-                  break;
+   auto readPromise = make_shared<promise<bool>>();
+   auto waitOnRead = readPromise->get_future();
 
-               if (retval[i + 1] == '\n' &&
-                  retval[i + 2] == '\r' &&
-                  retval[i + 3] == '\n')
+   auto processHttpPacket = [readPromise, &retval, &content_length, &header_len,
+      get_content_len]
+      (vector<uint8_t> socketData, bool interrupt)->bool
+   {
+      try
+      {
+         if (socketData.size() > 0)
+         {
+            retval.insert(retval.end(), socketData.begin(), socketData.end());
+
+            if (content_length == -1)
+            {
+               //if content_length is -1, we have not read the content-length in the
+               //http header yet, let's find that
+               for (unsigned i = 0; i < retval.size(); i++)
                {
-                  header_len = i + 4;
-                  break;
+                  if (retval[i] == '\r')
+                  {
+                     if (retval.size() - i < 3)
+                        break;
+
+                     if (retval[i + 1] == '\n' &&
+                        retval[i + 2] == '\r' &&
+                        retval[i + 3] == '\n')
+                     {
+                        header_len = i + 4;
+                        break;
+                     }
+                  }
                }
+
+               if (header_len == 0)
+                  throw HttpError("couldn't find http header in response");
+
+               string header_str((char*)&retval[0], header_len);
+               get_content_len(header_str);
             }
+
+            if (content_length == -1)
+               throw HttpError("failed to find http header response packet");
+
+            //check the total amount of data read matches the advertised
+            //data in the http header
          }
 
-         if (header_len == 0)
-            throw HttpError("couldn't find http header in response");
+         bool done = false;
+         if (retval.size() >= content_length + header_len)
+         {
+            retval.resize(content_length + header_len);
+            done = true;
+         }
 
-         string header_str((char*)&retval[0], header_len);
-         get_content_len(header_str);
+         if (interrupt)
+            done = true;
+
+         if (done)
+            readPromise->set_value(true);
+
+         return done;
       }
-
-      if (content_length == -1)
-         throw HttpError("failed to find http header response packet");
-
-      //check the total amount of data read matches the advertised
-      //data in the http header
-      if (retval.size() >= content_length + header_len)
+      catch (...)
       {
-         retval.resize(content_length + header_len);
+         readPromise->set_exception(current_exception());
          return true;
       }
-
-      return false;
    };
 
-   //start select loop before we write to the socket
-   auto readStack = make_shared<BlockingStack<vector<uint8_t>>>();
-   try
-   {
-      readFromSocket(sockfd, readStack);
-   }
-   catch (...)
-   {
-      //process as much data as we got regardless of failure
-   }
-   
+   readFromSocket(sockfd, processHttpPacket);   
    writeToSocket(sockfd, packet, packetSize);
 
    try
    {
-      while (1)
-      {
-         auto&& datavec = readStack->get();
-         retval.insert(retval.end(),
-            datavec.begin(), datavec.end());
-
-         //break out of loop is we have the data we need
-         if (processHttpPacket())
-            break;
-      }
+      waitOnRead.get();
    }
    catch (HttpError &e)
    {
@@ -262,13 +267,6 @@ FcgiMessage FcgiSocket::makePacket(const char* msg)
 ///////////////////////////////////////////////////////////////////////////////
 string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-   if (msg == "10907")
-      int abc = 0;
-   if (msg.size() < 20)
-      LOGINFO << msg;
-   else
-      LOGINFO << msg.substr(20);
-
    if (sockfd == SOCK_MAX)
       sockfd = openSocket(false);
 
@@ -276,107 +274,117 @@ string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
    auto serdata = fcgiMsg.serialize();
    auto serdatalength = fcgiMsg.getSerializedDataLength();
 
-
-   auto readStack = make_shared<BlockingStack<vector<uint8_t>>>();
-   try
-   {
-      readFromSocket(sockfd, readStack);
-   }
-   catch (...)
-   {
-      //process as much data as we got regardless of failure
-   }
-   
-   writeToSocket(sockfd, (char*)serdata, serdatalength);
-
    vector<uint8_t> fcgidata;
    vector<uint8_t> httpData;
 
    int endpacket = 0;
    size_t ptroffset = 0;
+   auto readPromise = make_shared<promise<bool>>();
+   auto waitOnRead = readPromise->get_future();
+
    auto processFcgiPacket =
-      [&endpacket, &ptroffset, &fcgidata, &httpData, &fcgiMsg](void)->void
+      [readPromise, &endpacket, &ptroffset, &fcgidata, &httpData, &fcgiMsg](
+      vector<uint8_t> socketData, bool interrupt)->bool
    {
-      while (ptroffset + FCGI_HEADER_LEN <= fcgidata.size())
+      try
       {
-         //grab fcgi header
-         auto* fcgiheader = &fcgidata[ptroffset];
-
-         ptroffset += FCGI_HEADER_LEN;
-
-         //make sure fcgi version and request id match
-         if (fcgiheader[0] != FCGI_VERSION_1)
-            throw FcgiError("unexpected fcgi header version");
-
-         uint16_t requestid;
-         requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
-         if (requestid != fcgiMsg.id())
-            throw FcgiError("request id mismatch");
-
-         //check packet type
-         switch (fcgiheader[1])
+         if (socketData.size() > 0)
          {
-         case FCGI_END_REQUEST:
-         {
-            endpacket++;
-            return;
-         }
+            fcgidata.insert(fcgidata.end(), socketData.begin(), socketData.end());
 
-         case FCGI_STDOUT:
-         {
-            //get packetsize and padding
-            uint16_t packetsize = 0, padding;
-
-            packetsize |= (uint8_t)fcgiheader[5];
-            packetsize |= (uint16_t)(fcgiheader[4] << 8);
-            padding = (uint8_t)fcgiheader[6];
-
-            if (packetsize > 0)
+            while (ptroffset + FCGI_HEADER_LEN <= fcgidata.size())
             {
-               //do not process this fcgi packet if we dont have enough
-               //data in the read buffer to cover the advertized length
-               if (packetsize + padding + ptroffset >
-                  fcgidata.size())
+               //grab fcgi header
+               auto* fcgiheader = &fcgidata[ptroffset];
+
+               ptroffset += FCGI_HEADER_LEN;
+
+               //make sure fcgi version and request id match
+               if (fcgiheader[0] != FCGI_VERSION_1)
+                  throw FcgiError("unexpected fcgi header version");
+
+               uint16_t requestid;
+               requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
+               if (requestid != fcgiMsg.id())
+                  throw FcgiError("request id mismatch");
+
+               //check packet type
+               bool abortParse = false;
+               switch (fcgiheader[1])
                {
-                  ptroffset -= FCGI_HEADER_LEN;
-                  return;
+               case FCGI_END_REQUEST:
+               {
+                  endpacket++;
+                  break;
                }
 
-               //extract http data
-               httpData.insert(httpData.end(),
-                  fcgidata.begin() + ptroffset,
-                  fcgidata.begin() + ptroffset + packetsize);
+               case FCGI_STDOUT:
+               {
+                  //get packetsize and padding
+                  uint16_t packetsize = 0, padding;
 
-               //advance index to next header
-               ptroffset += packetsize + padding;
+                  packetsize |= (uint8_t)fcgiheader[5];
+                  packetsize |= (uint16_t)(fcgiheader[4] << 8);
+                  padding = (uint8_t)fcgiheader[6];
+
+                  if (packetsize > 0)
+                  {
+                     //do not process this fcgi packet if we dont have enough
+                     //data in the read buffer to cover the advertized length
+                     if (packetsize + padding + ptroffset >
+                        fcgidata.size())
+                     {
+                        ptroffset -= FCGI_HEADER_LEN;
+                        abortParse = true;
+                        break;
+                     }
+
+                     //extract http data
+                     httpData.insert(httpData.end(),
+                        fcgidata.begin() + ptroffset,
+                        fcgidata.begin() + ptroffset + packetsize);
+
+                     //advance index to next header
+                     ptroffset += packetsize + padding;
+                  }
+
+                  break;
+               }
+
+               case FCGI_ABORT_REQUEST:
+                  throw FcgiError("received FCGI_ABORT_REQUEST packet");
+
+                  //we do not handle the other request types as a client
+               default:
+                  throw FcgiError("unknown fcgi header request byte");
+               }
+
+               if (endpacket >= 1 || abortParse)
+                  break;
             }
-
-            break;
          }
 
-         case FCGI_ABORT_REQUEST:
-            throw FcgiError("received FCGI_ABORT_REQUEST packet");
-
-         //we do not handle the other request types as a client
-         default:
-            throw FcgiError("unknown fcgi header request byte");
+         if (endpacket >= 1 || interrupt)
+         {
+            readPromise->set_value(true);
+            return true;
          }
+         return false;
       }
+      catch (...)
+      {
+         readPromise->set_exception(current_exception());
+         return true;
+      }
+
    };
+
+   readFromSocket(sockfd, processFcgiPacket);
+   writeToSocket(sockfd, (char*)serdata, serdatalength);
 
    try
    {
-      while (1)
-      {
-         auto&& datavec = readStack->get();
-         fcgidata.insert(fcgidata.end(),
-            datavec.begin(), datavec.end());
-
-         //break out of loop is we have the data we need
-         processFcgiPacket();
-         if (endpacket >= 1)
-            break;
-      }
+      waitOnRead.get();
    }
    catch (FcgiError &e)
    {
