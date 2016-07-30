@@ -108,7 +108,7 @@ private:
    shared_ptr<BitcoinQtBlockFiles> readBlockHeaders_;
    
    // This is our permanent link to the two databases used
-   LMDBBlockDatabase* iface_;
+   LMDBBlockDatabase* iface_ = nullptr;
    
    BlockFilePosition blkDataPosition_ = {0, 0};
    
@@ -143,7 +143,6 @@ public:
    const Blockchain& blockchain() const { return blockchain_; }
    
    const BlockDataManagerConfig &config() const { return config_; }
-   void setConfig(const BlockDataManagerConfig &bdmConfig);
    
    LMDBBlockDatabase *getIFace(void) {return iface_;}
    
@@ -269,8 +268,6 @@ public:
    void start(BDM_INIT_MODE mode);
 
    BlockDataManager *bdm();
-
-   void setConfig(const BlockDataManagerConfig &config);
 
    // return true if the caller should wait on callback notification
    void shutdown();

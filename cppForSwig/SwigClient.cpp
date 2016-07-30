@@ -476,9 +476,12 @@ void PythonCallback::remoteLoop(void)
    Command sendCmd;
    sendCmd.method_ = "registerCallback";
    sendCmd.ids_.push_back(bdvID_);
+   sendCmd.args_.push_back(move(string("waitOnBDV")));
    sendCmd.serialize();
 
-   auto processCallback = [this](Arguments args)->bool
+   bool isReady = false;
+
+   auto processCallback = [&](Arguments args)->bool
    {
       //LOGINFO << "entering callback process lambda";
 
@@ -514,9 +517,14 @@ void PythonCallback::remoteLoop(void)
 
          case CBO_BDM_Ready:
          {
+            isReady = true;
+
+            sendCmd.args_.clear();
+            sendCmd.args_.push_back(move(string("getStatus")));
+            sendCmd.serialize();
+
             unsigned int topblock = args.get<unsigned int>();
             run(BDMAction::BDMAction_Ready, nullptr, topblock);
-            //return false;
             break;
          }
 

@@ -835,201 +835,228 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
    ***/
 
-   for (int i = 1; i < argc; i++)
+   try
    {
-      istringstream ss(argv[i]);
-      string str;
-      getline(ss, str, '=');
+      for (int i = 1; i < argc; i++)
+      {
+         istringstream ss(argv[i]);
+         string str;
+         getline(ss, str, '=');
 
-      if (str == "--testnet")
-      {
-         selectNetwork("Test");
-      }
-      else if(str == "--regtest")
-      {
-         selectNetwork("Regtest");
-      }
-      else if (str == "--rescan")
-      {
-         initMode_ = INIT_RESCAN;
-      }
-      else if (str == "--rebuild")
-      {
-         initMode_ = INIT_REBUILD;
-      }
-      else if (str == "--rescanSSH")
-      {
-         initMode_ = INIT_SSH;
-      }
-      else
-      {
-         if (str == "--datadir")
+         if (str == "--testnet")
          {
-            string argstr;
-            getline(ss, argstr, '=');
-
-            dataDir_ = stripQuotes(argstr);
+            selectNetwork("Test");
          }
-         else if (str == "--dbdir")
+         else if (str == "--regtest")
          {
-            string argstr;
-            getline(ss, argstr, '=');
-
-            dbDir_ = stripQuotes(argstr);
+            selectNetwork("Regtest");
          }
-         else if (str == "--satoshi-datadir")
+         else if (str == "--rescan")
          {
-            string argstr;
-            getline(ss, argstr, '=');
-
-            blkFileLocation_ = stripQuotes(argstr);
+            initMode_ = INIT_RESCAN;
          }
-         else if (str == "--spawnId")
+         else if (str == "--rebuild")
          {
-            string argstr;
-            getline(ss, argstr, '=');
-
-            spawnID_ = stripQuotes(argstr);
+            initMode_ = INIT_REBUILD;
          }
-         else if (str == "--db-type")
+         else if (str == "--rescanSSH")
          {
-            string argstr;
-            getline(ss, argstr, '=');
+            initMode_ = INIT_SSH;
+         }
+         else
+         {
+            if (str == "--datadir")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
 
-            auto&& str = stripQuotes(argstr);
-            if (str == "DB_BARE")
-               armoryDbType_ = ARMORY_DB_BARE;
-            else if (str == "DB_FULL")
-               armoryDbType_ = ARMORY_DB_FULL;
-            else if (str == "DB_SUPER")
-               armoryDbType_ = ARMORY_DB_SUPER;
+               dataDir_ = stripQuotes(argstr);
+            }
+            else if (str == "--dbdir")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
+
+               dbDir_ = stripQuotes(argstr);
+            }
+            else if (str == "--satoshi-datadir")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
+
+               blkFileLocation_ = stripQuotes(argstr);
+            }
+            else if (str == "--spawnId")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
+
+               spawnID_ = stripQuotes(argstr);
+            }
+            else if (str == "--db-type")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
+
+               auto&& str = stripQuotes(argstr);
+               if (str == "DB_BARE")
+                  armoryDbType_ = ARMORY_DB_BARE;
+               else if (str == "DB_FULL")
+                  armoryDbType_ = ARMORY_DB_FULL;
+               else if (str == "DB_SUPER")
+                  armoryDbType_ = ARMORY_DB_SUPER;
+               else
+               {
+                  cout << "Error: bad argument syntax" << endl;
+                  printHelp();
+               }
+            }
+            else if (str == "--ram-usage")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
+
+               int val = 0;
+               try
+               {
+                  val = stoi(argstr);
+               }
+               catch (...)
+               {
+               }
+
+               if (val > 0)
+                  ramUsage_ = val;
+            }
+            else if (str == "--thread-count")
+            {
+               string argstr;
+               getline(ss, argstr, '=');
+
+               int val = 0;
+               try
+               {
+                  val = stoi(argstr);
+               }
+               catch (...)
+               {
+               }
+
+               if (val > 0)
+                  threadCount_ = val;
+            }
             else
             {
                cout << "Error: bad argument syntax" << endl;
                printHelp();
             }
          }
-         else if (str == "--ram-usage")
-         {
-            string argstr;
-            getline(ss, argstr, '=');
-
-            int val = 0;
-            try
-            {
-               val = stoi(argstr);
-            }
-            catch (...)
-            {
-            }
-
-            if (val > 0)
-               ramUsage_ = val;
-         }
-         else if (str == "--thread-count")
-         {
-            string argstr;
-            getline(ss, argstr, '=');
-
-            int val = 0;
-            try
-            {
-               val = stoi(argstr);
-            }
-            catch (...)
-            {
-            }
-
-            if (val > 0)
-               threadCount_ = val;
-         }
-         else
-         {
-            cout << "Error: bad argument syntax" << endl;
-            printHelp();
-         }
       }
-   }
 
-   //figure out defaults
-   if (dataDir_.size() == 0)
-   {
-      if (!testnet_ && !regtest_)
-         dataDir_ = defaultDataDir_;
-      else if(!regtest_)
-         dataDir_ = defaultTestnetDataDir_;
-      else
-         dataDir_ = defaultRegtestDataDir_;
-   }
+      //figure out defaults
+      if (dataDir_.size() == 0)
+      {
+         if (!testnet_ && !regtest_)
+            dataDir_ = defaultDataDir_;
+         else if (!regtest_)
+            dataDir_ = defaultTestnetDataDir_;
+         else
+            dataDir_ = defaultRegtestDataDir_;
+      }
 
 
-   if (dbDir_.size() == 0)
-   {
-      dbDir_ = dataDir_;
-      appendPath(dbDir_, dbDirExtention_);
-   }
+      if (dbDir_.size() == 0)
+      {
+         dbDir_ = dataDir_;
+         appendPath(dbDir_, dbDirExtention_);
+      }
 
-   if (blkFileLocation_.size() == 0)
-   {
-      if (!testnet_)
-         blkFileLocation_ = defaultBlkFileLocation_;
-      else
-         blkFileLocation_ = defaultTestnetBlkFileLocation_;
-   }
+      if (blkFileLocation_.size() == 0)
+      {
+         if (!testnet_)
+            blkFileLocation_ = defaultBlkFileLocation_;
+         else
+            blkFileLocation_ = defaultTestnetBlkFileLocation_;
+      }
 
-   //resolve ~
+      //resolve ~
 #ifdef _WIN32
-   char* pathPtr = new char[MAX_PATH + 1];
-   if (SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, pathPtr) != S_OK)
-   {
+      char* pathPtr = new char[MAX_PATH + 1];
+      if (SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, pathPtr) != S_OK)
+      {
+         delete[] pathPtr;
+         throw runtime_error("failed to resolve appdata path");
+      }
+
+      string userPath(pathPtr);
       delete[] pathPtr;
-      throw runtime_error("failed to resolve appdata path");
-   }
-
-   string userPath(pathPtr);
-   delete[] pathPtr;
 #else
-   wordexp_t wexp;
-   wordexp("~", &wexp, 0);
+      wordexp_t wexp;
+      wordexp("~", &wexp, 0);
 
-   for(unsigned i=0; i < wexp.we_wordc; i++)
-   {
-      cout << wexp.we_wordv[i] << endl;
-   }
+      for(unsigned i=0; i < wexp.we_wordc; i++)
+      {
+         cout << wexp.we_wordv[i] << endl;
+      }
 
-   if(wexp.we_wordc == 0)
-      throw runtime_error("failed to resolve home path");
+      if(wexp.we_wordc == 0)
+         throw runtime_error("failed to resolve home path");
 
-   string userPath(wexp.we_wordv[0]);
+      string userPath(wexp.we_wordv[0]);
 #endif
 
-   //expand paths if necessary
-   if (dataDir_.c_str()[0] == '~')
-   {
-      auto newPath = userPath;
-      appendPath(newPath, dataDir_.substr(1));
+      //expand paths if necessary
+      if (dataDir_.c_str()[0] == '~')
+      {
+         auto newPath = userPath;
+         appendPath(newPath, dataDir_.substr(1));
 
-      dataDir_ = move(newPath);
+         dataDir_ = move(newPath);
+      }
+
+      if (dbDir_.c_str()[0] == '~')
+      {
+         auto newPath = userPath;
+         appendPath(newPath, dbDir_.substr(1));
+
+         dbDir_ = move(newPath);
+      }
+
+      if (blkFileLocation_.c_str()[0] == '~')
+      {
+         auto newPath = userPath;
+         appendPath(newPath, blkFileLocation_.substr(1));
+
+         blkFileLocation_ = move(newPath);
+      }
+
+      logFilePath_ = dataDir_;
+      appendPath(logFilePath_, "/dbLog.txt");
+
+      //test all paths
+      auto testPath = [](const string& path, int mode)
+      {
+#ifdef _WIN32
+         if (_access(path.c_str(), mode) != 0)
+#else
+         if (access(path.c_str(), mode) != 0)
+#endif
+         {
+            stringstream ss;
+            ss << path << " is not valid path";
+
+            throw DbErrorMsg(ss.str());
+         }
+      };
+
+      testPath(dataDir_, 6);
+      testPath(dbDir_, 6);
+      testPath(blkFileLocation_, 4);
    }
-
-   if (dbDir_.c_str()[0] == '~')
+   catch (...)
    {
-      auto newPath = userPath;
-      appendPath(newPath, dbDir_.substr(1));
-
-      dbDir_ = move(newPath);
+      exceptionPtr_ = current_exception();
    }
-
-   if (blkFileLocation_.c_str()[0] == '~')
-   {
-      auto newPath = userPath;
-      appendPath(newPath, blkFileLocation_.substr(1));
-
-      blkFileLocation_ = move(newPath);
-   }
-
-   logFilePath_ = dataDir_;
-   appendPath(logFilePath_, "/dbLog.txt");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1182,10 +1209,20 @@ protected:
 BlockDataManager::BlockDataManager(
    const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig), 
-   iface_(new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation_)), 
    blockchain_(config_.genesisBlockHash_)
 {
-   setConfig(bdmConfig);
+   if (bdmConfig.exceptionPtr_ != nullptr)
+   {
+      exceptPtr_ = bdmConfig.exceptionPtr_;
+      return;
+   }
+
+   iface_ = new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation_);
+   readBlockHeaders_ = make_shared<BitcoinQtBlockFiles>(
+      config_.blkFileLocation_,
+      config_.magicBytes_
+      );
+
    try
    {
       openDatabase();
@@ -1199,18 +1236,6 @@ BlockDataManager::BlockDataManager(
    {
       exceptPtr_ = current_exception();
    }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager::setConfig(
-   const BlockDataManagerConfig &bdmConfig)
-{
-   config_ = bdmConfig;
-   readBlockHeaders_ = make_shared<BitcoinQtBlockFiles>(
-      config_.blkFileLocation_,
-      config_.magicBytes_
-   );
-   iface_->setBlkFolder(config_.blkFileLocation_);
 }
 
 /////////////////////////////////////////////////////////////////////////////

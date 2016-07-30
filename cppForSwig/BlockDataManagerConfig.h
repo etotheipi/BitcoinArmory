@@ -8,6 +8,7 @@
 #ifndef BLOCKDATAMANAGERCONFIG_H
 #define BLOCKDATAMANAGERCONFIG_H
 
+#include <exception>
 #include <thread>
 #include "bdmenums.h"
 #include "BinaryData.h"
@@ -50,6 +51,8 @@ struct BlockDataManagerConfig
 
    unsigned ramUsage_ = 4;
    unsigned threadCount_ = thread::hardware_concurrency();
+
+   exception_ptr exceptionPtr_ = nullptr;
    
    void setGenesisBlockHash(const BinaryData &h)
    {

@@ -214,7 +214,6 @@ public:
       return argData_;
    }
 
-
    ///////////////////////////////////////////////////////////////////////////////
    template<typename T> auto get() -> T
    {
@@ -267,6 +266,13 @@ public:
    bool hasArgs(void) const
    {
       return strArgs_.size() != 0 || argData_.size() != 0;
+   }
+
+   void clear(void)
+   {
+      argStr_.clear();
+      argData_.clear();
+      strArgs_.clear();
    }
 };
 

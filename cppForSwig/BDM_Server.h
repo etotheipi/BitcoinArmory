@@ -41,12 +41,15 @@ private:
    mutex mu_;
    unsigned int count_ = 0;
 
+   function<unsigned(void)> isReady_;
+
 public:
-   SocketCallback(void) : Callback()
+   SocketCallback(function<unsigned(void)> isReady) :
+      Callback(), isReady_(isReady)
    {}
 
    void emit(void);
-   Arguments respond(void);
+   Arguments respond(const string&);
 
    bool isValid(void)
    {

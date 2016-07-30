@@ -21,7 +21,9 @@ void BDV_Server_Object::buildMethodMap()
       if (cbPtr == nullptr || !cbPtr->isValid())
          return Arguments();
 
-      auto&& retval = this->cb_->respond();
+      auto&& callbackArg = args.get<string>();
+
+      auto&& retval = this->cb_->respond(callbackArg);
 
       if (!retval.hasArgs())
          LOGINFO << "returned empty callback packet";
@@ -887,8 +889,23 @@ BDV_Server_Object::BDV_Server_Object(
    BlockDataManagerThread *bdmT) :
    bdmT_(bdmT), BlockDataViewer(bdmT->bdm())
 {
-   cb_ = make_shared<SocketCallback>();
    isReadyFuture_ = isReadyPromise_.get_future();
+   auto lbdFut = isReadyFuture_;
+
+   //unsafe, should consider creating the blockchain object as a shared_ptr
+   auto bc = &blockchain();
+
+   auto isReadyLambda = [lbdFut, bc](void)->unsigned
+   {
+      if (lbdFut._Is_ready())
+      {
+         return bc->top().getBlockHeight();
+      }
+
+      return UINT32_MAX;
+   };
+   
+   cb_ = make_shared<SocketCallback>(isReadyLambda);
 
    bdvID_ = SecureBinaryData().GenerateRandom(10).toHexStr();
    buildMethodMap();
@@ -1087,7 +1104,7 @@ bool BDV_Server_Object::registerLockbox(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-Arguments SocketCallback::respond()
+Arguments SocketCallback::respond(const string& command)
 {
    unique_lock<mutex> lock(mu_, defer_lock);
 
@@ -1095,11 +1112,31 @@ Arguments SocketCallback::respond()
    {
       Arguments arg;
       arg.push_back(move(string("continue")));
-      return arg;
+      return move(arg);
    }
    
    count_ = 0;
    vector<Callback::OrderStruct> orderVec;
+
+   if (command == "waitOnBDV")
+   {
+      //test if ready
+      auto topheight = isReady_();
+      if (topheight != UINT32_MAX)
+      {
+         LOGINFO << "got ready signal from lambda";
+         Arguments arg;
+         arg.push_back(string("BDM_Ready"));
+         arg.push_back(move(topheight));
+         return move(arg);
+      }
+
+      //otherwise wait on callback stack as usual
+   }
+   else if (command != "getStatus")
+   {
+      //throw unknown command error
+   }
 
    try
    {
@@ -1109,13 +1146,13 @@ Arguments SocketCallback::respond()
    {
       Arguments arg;
       arg.push_back(move(string("continue")));
-      return arg;
+      return move(arg);
    }
    catch (StackTimedOutException&)
    {
       Arguments arg;
       arg.push_back(move(string("continue")));
-      return arg;
+      return move(arg);
    }
    catch (StopBlockingLoop&)
    {
@@ -1175,5 +1212,5 @@ Arguments SocketCallback::respond()
    }
 
    //send it
-   return arg;
+   return move(arg);
 }

@@ -85,11 +85,6 @@ BlockDataManager *BlockDataManagerThread::bdm()
    return pimpl->bdm;
 }
 
-void BlockDataManagerThread::setConfig(const BlockDataManagerConfig &config)
-{
-   pimpl->bdm->setConfig(config);
-}
-
 void BlockDataManagerThread::shutdown()
 {
    if (pimpl->run)
