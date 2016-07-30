@@ -65,6 +65,7 @@
 #include <mutex>
 #include <memory>
 #include "OS_TranslatePath.h"
+#include "make_unique.h"
 
 #define FILEANDLINE "(" << __FILE__ << ":" << __LINE__ << ") "
 #define LOGERR    (LoggerObj(LogLvlError ).getLogStream() << FILEANDLINE )
