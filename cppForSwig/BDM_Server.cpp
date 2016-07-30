@@ -897,7 +897,7 @@ BDV_Server_Object::BDV_Server_Object(
 
    auto isReadyLambda = [lbdFut, bc](void)->unsigned
    {
-      if (lbdFut._Is_ready())
+      if (lbdFut.wait_for(chrono::seconds(0)) == future_status::ready)
       {
          return bc->top().getBlockHeight();
       }
