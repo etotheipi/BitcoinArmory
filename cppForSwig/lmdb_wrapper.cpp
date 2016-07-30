@@ -349,8 +349,9 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-LMDBBlockDatabase::LMDBBlockDatabase(Blockchain* bcPtr, string blkFolder) :
-blockchainPtr_(bcPtr), blkFolder_(blkFolder)
+LMDBBlockDatabase::LMDBBlockDatabase(
+   shared_ptr<Blockchain> bcPtr, string blkFolder) :
+   blockchainPtr_(bcPtr), blkFolder_(blkFolder)
 {
    //for some reason the WRITE_UINT16 macros create 4 byte long BinaryData 
    //instead of 2, so I'm doing this the hard way instead

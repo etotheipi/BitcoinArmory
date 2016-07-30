@@ -290,7 +290,7 @@ protected:
    )=0;
    virtual uint32_t currentTopBlockHeight() const=0;
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec) = 0;
-   virtual Blockchain& blockchain(void) = 0;
+   virtual shared_ptr<Blockchain> blockchain(void) = 0;
    virtual BlockDataManagerConfig config(void) = 0;
 
 private:

@@ -118,7 +118,7 @@ private:
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
    bool     zcEnabled_;
 
-   Blockchain blockchain_;
+   shared_ptr<Blockchain> blockchain_ = nullptr;
 
    BDM_state BDMstate_ = BDM_offline;
 
@@ -139,8 +139,8 @@ public:
    BlockDataManager(const BlockDataManagerConfig &config);
    ~BlockDataManager();
 
-   Blockchain& blockchain() { return blockchain_; }
-   const Blockchain& blockchain() const { return blockchain_; }
+   shared_ptr<Blockchain> blockchain() { return blockchain_; }
+   shared_ptr<Blockchain> blockchain() const { return blockchain_; }
    
    const BlockDataManagerConfig &config() const { return config_; }
    
@@ -193,7 +193,7 @@ public:
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);
 
-   uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
+   uint32_t getTopBlockHeight() const {return blockchain_->top().getBlockHeight();}
       
    uint8_t getValidDupIDForHeight(uint32_t blockHgt) const
    { return iface_->getValidDupIDForHeight(blockHgt); }

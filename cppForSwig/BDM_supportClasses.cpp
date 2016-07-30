@@ -548,13 +548,14 @@ void ScrAddrFilter::mergeSideScanPile()
    if (scanDataVec.size() == 0)
       return;
 
-   uint32_t startHeight = blockchain().top().getBlockHeight();
+   auto bcptr = blockchain();
+   uint32_t startHeight = bcptr->top().getBlockHeight();
    for (auto& scanData : scanDataVec)
    {
       auto& topHash = scanData.lastScannedBlkHash_;
       try
       {
-         auto& header = blockchain().getHeaderByHash(topHash);
+         auto& header = bcptr->getHeaderByHash(topHash);
          auto&& headerHeight = header.getBlockHeight();
          if (startHeight > headerHeight)
             startHeight = headerHeight;
@@ -581,7 +582,7 @@ void ScrAddrFilter::mergeSideScanPile()
    //scan it all to sync all subssh and ssh to the same height
    applyBlockRangeToDB(
       startHeight, 
-      blockchain().top().getBlockHeight(), 
+      bcptr->top().getBlockHeight(),
       vector<string>());
    updateAddressMerkleInDB();
 

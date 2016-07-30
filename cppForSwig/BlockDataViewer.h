@@ -304,7 +304,7 @@ protected:
 
    BlockDataManager* bdmPtr_;
    LMDBBlockDatabase*        db_;
-   Blockchain*               bc_;
+   shared_ptr<Blockchain>    bc_;
    ScrAddrFilter*            saf_;
 
    //Wanna keep the BtcWallet non copyable so the only existing object for

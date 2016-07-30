@@ -330,7 +330,7 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(Blockchain*, string blkFolder);
+   LMDBBlockDatabase(shared_ptr<Blockchain>, string blkFolder);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -694,7 +694,7 @@ public:
    StoredDBInfo openDB(DB_SELECT);
    void resetSSHdb(void);
 
-   const Blockchain* blockchain(void) const { return blockchainPtr_; }
+   const shared_ptr<Blockchain> blockchain(void) const { return blockchainPtr_; }
 
    /////////////////////////////////////////////////////////////////////////////
    template <typename T> TxFilterPool<T> getFilterPoolForFileNum(
@@ -785,7 +785,7 @@ private:
 
    string blkFolder_;
 
-   const Blockchain* blockchainPtr_;
+   const shared_ptr<Blockchain> blockchainPtr_;
 };
 
 #endif

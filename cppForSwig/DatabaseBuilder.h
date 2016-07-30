@@ -21,7 +21,7 @@ class DatabaseBuilder
 {
 private:
    BlockFiles& blockFiles_;
-   Blockchain& blockchain_;
+   shared_ptr<Blockchain> blockchain_;
    LMDBBlockDatabase* db_;
    shared_ptr<ScrAddrFilter> scrAddrFilter_;
 

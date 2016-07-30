@@ -1181,7 +1181,7 @@ protected:
    
    virtual uint32_t currentTopBlockHeight() const
    {
-      return bdm_->blockchain().top().getBlockHeight();
+      return bdm_->blockchain()->top().getBlockHeight();
    }
    
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec)
@@ -1189,7 +1189,7 @@ protected:
       bdm_->getIFace()->resetHistoryForAddressVector(saVec);
    }
 
-   virtual Blockchain& blockchain(void)
+   virtual shared_ptr<Blockchain> blockchain(void)
    {
       return bdm_->blockchain();
    }
@@ -1209,16 +1209,18 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager::BlockDataManager(
    const BlockDataManagerConfig &bdmConfig) 
-   : config_(bdmConfig), 
-   blockchain_(config_.genesisBlockHash_)
+   : config_(bdmConfig)
 {
+
    if (bdmConfig.exceptionPtr_ != nullptr)
    {
       exceptPtr_ = bdmConfig.exceptionPtr_;
       return;
    }
+   
+   blockchain_ = make_shared<Blockchain>(config_.genesisBlockHash_);
 
-   iface_ = new LMDBBlockDatabase(&blockchain_, config_.blkFileLocation_);
+   iface_ = new LMDBBlockDatabase(blockchain_, config_.blkFileLocation_);
    readBlockHeaders_ = make_shared<BitcoinQtBlockFiles>(
       config_.blkFileLocation_,
       config_.magicBytes_
@@ -1301,7 +1303,7 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
    };
 
    // Start scanning and timer
-   BlockchainScanner bcs(&blockchain_, iface_, &scrAddrData, 
+   BlockchainScanner bcs(blockchain_, iface_, &scrAddrData, 
       *blockFiles_.get(), config_.threadCount_, config_.ramUsage_,
       prg, true);
    bcs.scan_nocheck(blk0);
@@ -1418,7 +1420,7 @@ void BlockDataManager::resetDatabases(ResetDBMode mode)
 
    case Reset_Rebuild:
       iface_->destroyAndResetDatabases();
-      blockchain_.clear();
+      blockchain_->clear();
       break;
    }
 

@@ -108,7 +108,7 @@ private:
       }
    };
 
-   Blockchain* blockchain_;
+   shared_ptr<Blockchain> blockchain_;
    LMDBBlockDatabase* db_;
    ScrAddrFilter* scrAddrFilter_;
    BlockDataLoader blockDataLoader_;
@@ -156,7 +156,7 @@ private:
 
 
 public:
-   BlockchainScanner(Blockchain* bc, LMDBBlockDatabase* db,
+   BlockchainScanner(shared_ptr<Blockchain> bc, LMDBBlockDatabase* db,
       ScrAddrFilter* saf,
       BlockFiles& bf,
       unsigned threadcount, unsigned batchSize, 

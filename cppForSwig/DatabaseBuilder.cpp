@@ -41,8 +41,8 @@ void DatabaseBuilder::init()
 
    //read all blocks already in DB and populate blockchain
    topBlockOffset_ = loadBlockHeadersFromDB(progress_);
-   blockchain_.forceOrganize();
-   blockchain_.setDuplicateIDinRAM(db_);
+   blockchain_->forceOrganize();
+   blockchain_->setDuplicateIDinRAM(db_);
 
    //update db
    TIMER_START("updateblocksindb");
@@ -101,24 +101,24 @@ void DatabaseBuilder::init()
    }
    
    LOGINFO << "scanning new blocks from #" << scanFrom << " to #" <<
-      blockchain_.top().getBlockHeight();
+      blockchain_->top().getBlockHeight();
 
    TIMER_START("scanning");
    while (1)
    {
       auto topScannedBlockHash = updateTransactionHistory(scanFrom);
 
-      if (topScannedBlockHash == blockchain_.top().getThisHash())
+      if (topScannedBlockHash == blockchain_->top().getThisHash())
          break;
 
       //if we got this far the scan failed, diagnose the DB and repair it
 
       LOGWARN << "topScannedBlockHash does match the hash of the current top";
-      LOGWARN << "current top is height #" << blockchain_.top().getBlockHeight();
+      LOGWARN << "current top is height #" << blockchain_->top().getBlockHeight();
 
       try
       {
-         auto& topscannedblock = blockchain_.getHeaderByHash(topScannedBlockHash);
+         auto& topscannedblock = blockchain_->getHeaderByHash(topScannedBlockHash);
          LOGWARN << "topScannedBlockHash is height #" << topscannedblock.getBlockHeight();
       }
       catch (...)
@@ -132,7 +132,7 @@ void DatabaseBuilder::init()
       auto&& sdbi = db_->getStoredDBInfo(SUBSSH, 0);
 
       //get fileID for height
-      auto& topHeader = blockchain_.getHeaderByHeight(sdbi.topBlkHgt_);
+      auto& topHeader = blockchain_->getHeaderByHeight(sdbi.topBlkHgt_);
       int fileID = topHeader.getBlockFileNum();
       
       //rewind 5 blk files for the good measure
@@ -164,7 +164,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
    //TODO: preload the headers db file to speed process up
 
    LOGINFO << "Reading headers from db";
-   blockchain_.clear();
+   blockchain_->clear();
 
    unsigned counter = 0;
    BlockOffset topBlockOffet(0, 0);
@@ -183,7 +183,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
    const auto callback = [&](const BlockHeader &h, uint32_t height, uint8_t dup)
    {
-      blockchain_.addBlock(h.getThisHash(), h, height, dup);
+      blockchain_->addBlock(h.getThisHash(), h, height, dup);
 
       BlockOffset currblock(h.getBlockFileNum(), h.getOffset());
       if (currblock > topBlockOffet)
@@ -196,7 +196,7 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
    db_->readAllHeaders(callback);
 
-   LOGINFO << "Found " << blockchain_.allHeaders().size() << " headers in db";
+   LOGINFO << "Found " << blockchain_->allHeaders().size() << " headers in db";
 
    return topBlockOffet;
 }
@@ -275,8 +275,8 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    }
 
    //done parsing new blocks, reorg and add to DB
-   auto&& reorgState = blockchain_.organize(verbose);
-   blockchain_.putNewBareHeaders(db_);
+   auto&& reorgState = blockchain_->organize(verbose);
+   blockchain_->putNewBareHeaders(db_);
 
    return reorgState;
 }
@@ -296,7 +296,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
    auto getID = [&](void)->uint32_t
    {
-      return blockchain_.getNewUniqueID();
+      return blockchain_->getNewUniqueID();
    };
 
    auto tallyBlocks = 
@@ -343,7 +343,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    }
 
    //add in bulk
-   auto&& insertedBlocks = blockchain_.addBlocksInBulk(bhmap);
+   auto&& insertedBlocks = blockchain_->addBlocksInBulk(bhmap);
 
    //process filters
    if (dbType_ == ARMORY_DB_FULL && insertedBlocks.size() > 0)
@@ -455,7 +455,7 @@ BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
 BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
    bool reportprogress)
 {
-   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(),
+   BlockchainScanner bcs(blockchain_, db_, scrAddrFilter_.get(),
       blockFiles_, bdmConfig_.threadCount_, bdmConfig_.ramUsage_,
       progress_, reportprogress);
    
@@ -495,7 +495,7 @@ Blockchain::ReorganizationState DatabaseBuilder::update(void)
 
    //scan new blocks   
    BinaryData&& topScannedHash = scanHistory(startHeight, false);
-   if (topScannedHash != blockchain_.top().getThisHash())
+   if (topScannedHash != blockchain_->top().getThisHash())
       throw runtime_error("scan failure during DatabaseBuilder::update");
 
    //TODO: recover from failed scan 
@@ -508,12 +508,12 @@ void DatabaseBuilder::undoHistory(
    Blockchain::ReorganizationState& reorgState)
 {
    //unique_lock<mutex> lock(scrAddrFilter_->mergeLock_);
-   BlockchainScanner bcs(&blockchain_, db_, scrAddrFilter_.get(), 
+   BlockchainScanner bcs(blockchain_, db_, scrAddrFilter_.get(), 
       blockFiles_, bdmConfig_.threadCount_, bdmConfig_.ramUsage_, 
       progress_, false);
    bcs.undo(reorgState);
 
-   blockchain_.setDuplicateIDinRAM(db_);
+   blockchain_->setDuplicateIDinRAM(db_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -573,9 +573,9 @@ bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
       return false;
    }
 
-   blockchain_.forceAddBlocksInBulk(headerMap);
-   blockchain_.forceOrganize();
-   blockchain_.putNewBareHeaders(db_);
+   blockchain_->forceAddBlocksInBulk(headerMap);
+   blockchain_->forceOrganize();
+   blockchain_->putNewBareHeaders(db_);
 
    //TODO: edge case: all the new blocks found were orphans, nothing was added
    //to the db, will run into the same blocks next run
@@ -605,7 +605,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       BinaryRefReader brr(data, size);
 
       auto getID = [this](void)->uint32_t
-      { return blockchain_.getNewUniqueID(); };
+      { return blockchain_->getNewUniqueID(); };
 
       try
       {
@@ -625,7 +625,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       BlockHeader* bhPtr = nullptr;
       try
       {
-         blockchain_.getHeaderByHash(bd.getHash());
+         blockchain_->getHeaderByHash(bd.getHash());
       }
       catch (range_error&)
       {

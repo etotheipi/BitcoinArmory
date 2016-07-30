@@ -13,7 +13,7 @@ BlockDataViewer::BlockDataViewer(BlockDataManager* bdm) :
    zeroConfCont_(bdm->zeroConfCont()), rescanZC_(false)
 {
    db_ = bdm->getIFace();
-   bc_ = &bdm->blockchain();
+   bc_ = bdm->blockchain();
    saf_ = bdm->getScrAddrFilter().get();
 
    bdmPtr_ = bdm;
