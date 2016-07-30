@@ -181,6 +181,8 @@ class BlockDataManager(object):
          self.bdv_.registerWithDB(MAGIC_BYTES)
       except Cpp.DbErrorMsg as e:
          self.exception = e.what()
+         LOGERROR('DB error: ' + e.what())
+         raise e
       
    #############################################################################
    @ActLikeASingletonBDM

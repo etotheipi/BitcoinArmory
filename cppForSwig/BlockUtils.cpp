@@ -1043,8 +1043,9 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 #endif
          {
             stringstream ss;
-            ss << path << " is not valid path";
+            ss << path << " is not a valid path";
 
+            cout << ss.str() << endl;
             throw DbErrorMsg(ss.str());
          }
       };

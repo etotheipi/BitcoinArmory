@@ -6699,7 +6699,11 @@ class ArmoryMainWindow(QMainWindow):
       if self.netMode == NETWORKMODE.Offline:
          return
       
-      TheBDM.registerBDV()
+      try:
+         TheBDM.registerBDV()
+      except:
+         self.switchNetworkMode(NETWORKMODE.Offline)
+         return
             
       for wltId in self.walletMap:
          self.walletMap[wltId].registerWallet()
