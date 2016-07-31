@@ -37,6 +37,38 @@ class HttpSocket : public BinarySocket
 private:
    string http_header_;
 
+   struct packetData
+   {
+      vector<uint8_t> httpData;
+      int content_length = -1;
+      size_t header_len = 0;
+
+      void get_content_len(const string& header_str)
+      {
+         string err504("HTTP/1.1 504");
+         if (header_str.compare(0, err504.size(), err504) == 0)
+            throw HttpError("connection timed out");
+
+         string search_tok_caps("Content-Length: ");
+         auto tokpos = header_str.find(search_tok_caps);
+         if (tokpos != string::npos)
+         {
+            content_length = atoi(header_str.c_str() +
+               tokpos + search_tok_caps.size());
+            return;
+         }
+
+         string search_tok("content-length: ");
+         tokpos = header_str.find(search_tok);
+         if (tokpos != string::npos)
+         {
+            content_length = atoi(header_str.c_str() +
+               tokpos + search_tok.size());
+            return;
+         }
+      }
+   };
+
 private:
    int32_t makePacket(char** packet, const char* msg);
    string getBody(vector<uint8_t>);
@@ -53,6 +85,16 @@ class FcgiSocket : public HttpSocket
 private:
    void addStringParam(const string& name, const string& val);
    FcgiMessage makePacket(const char*);
+
+   struct packetStruct
+   {
+      vector<uint8_t> fcgidata;
+      vector<uint8_t> httpData;
+
+      int endpacket = 0;
+      size_t ptroffset = 0;
+      uint16_t fcgiid = 0;
+   };
 
 public:
    FcgiSocket(const HttpSocket&);
