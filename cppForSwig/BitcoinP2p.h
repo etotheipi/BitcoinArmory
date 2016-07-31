@@ -365,10 +365,18 @@ public:
       return rawTx_;
    }
 
+   void moveFrom(Payload_Tx& ptx)
+   {
+      rawTx_ = move(ptx.rawTx_);
+   }
+
    void setRawTx(vector<uint8_t> rawtx)
    {
       rawTx_ = move(rawtx);
    }
+
+   size_t getSize(void) const { return rawTx_.size(); }
+
 };
 
 

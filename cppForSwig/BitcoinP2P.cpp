@@ -971,8 +971,22 @@ void BitcoinP2P::processGetData(unique_ptr<Payload> payload)
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinP2P::processGetTx(unique_ptr<Payload> payload)
 {
-   //mem leak?
-   Payload_Tx payloadtx = move(*(Payload_Tx*)payload.release());
+   if (payload->type() != Payload_tx)
+   {
+      LOGERR << "processGetTx: expected payload type tx type, got " <<
+         payload->typeStr() << " instead";
+      return;
+   }
+
+   auto payloadTxPtr = dynamic_cast<Payload_Tx*>(payload.get());
+   if (payloadTxPtr->getSize() == 0)
+   {
+      LOGERR << "empty rawtx";
+      return;
+   }
+
+   Payload_Tx payloadtx;
+   payloadtx.moveFrom(*payloadTxPtr);
 
    map<BinaryData, getTxCallback> consumedCallbacks;
    auto& txHash = payloadtx.getHash256();
