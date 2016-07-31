@@ -336,6 +336,7 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
             if (readAmt == 0)
             {
                LOGINFO << "POLLIN recv return 0";
+               break;
             }
 
             if (totalread > 0)

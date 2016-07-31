@@ -759,10 +759,16 @@ void BitcoinP2P::pollSocketThread()
 
    auto dataStack = dataStack_;
 
-   auto callback = [dataStack](vector<uint8_t> socketdata, bool)->bool
+   auto callback = [dataStack](vector<uint8_t> socketdata, bool interrupt)->bool
    {
-      dataStack->push_back(move(socketdata));
-      return false;
+      if (!interrupt)
+      {
+         dataStack->push_back(move(socketdata));
+         return false;
+      }
+
+      dataStack->terminate();
+      return true;
    };
 
    binSocket_.readFromSocket(callback);
