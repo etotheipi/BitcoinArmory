@@ -759,9 +759,10 @@ void BitcoinP2P::pollSocketThread()
 
    auto dataStack = dataStack_;
 
-   auto callback = [dataStack](vector<uint8_t> socketdata, bool interrupt)->bool
+   auto callback = [dataStack](
+      vector<uint8_t> socketdata, exception_ptr ePtr)->bool
    {
-      if (!interrupt)
+      if (ePtr == nullptr && socketdata.size() > 0)
       {
          dataStack->push_back(move(socketdata));
          return false;
@@ -978,18 +979,17 @@ void BitcoinP2P::processGetTx(unique_ptr<Payload> payload)
       return;
    }
 
-   auto payloadTxPtr = dynamic_cast<Payload_Tx*>(payload.get());
-   if (payloadTxPtr->getSize() == 0)
+   shared_ptr<Payload> payload_sptr(move(payload));
+   auto payloadtx = dynamic_pointer_cast<Payload_Tx>(payload_sptr);
+   if (payloadtx->getSize() == 0)
    {
       LOGERR << "empty rawtx";
       return;
    }
 
-   Payload_Tx payloadtx;
-   payloadtx.moveFrom(*payloadTxPtr);
 
    map<BinaryData, getTxCallback> consumedCallbacks;
-   auto& txHash = payloadtx.getHash256();
+   auto& txHash = payloadtx->getHash256();
    
    auto gettxcallbackmap = getTxCallbackMap_.get();
 
@@ -1017,7 +1017,7 @@ int64_t BitcoinP2P::getTimeStamp() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Payload_Tx BitcoinP2P::getTx(
+shared_ptr<Payload_Tx> BitcoinP2P::getTx(
    const InvEntry& entry, uint32_t timeout)
 {
    //blocks until data is received or timeout expires
@@ -1028,15 +1028,15 @@ Payload_Tx BitcoinP2P::getTx(
 
    //use a shared_ptr until we start using a C++14 compiler for
    //lambda generalized capture
-   auto gotDataPromise = make_shared<promise<Payload_Tx>>();
+   auto gotDataPromise = make_shared<promise<shared_ptr<Payload_Tx>>>();
    auto&& gotDataFuture = gotDataPromise->get_future().share();
 
    auto waitOnDataCallback = 
-      [gotDataPromise](Payload_Tx payload)->void
+      [gotDataPromise](shared_ptr<Payload_Tx> payload)->void
    {
       try
       {
-         gotDataPromise->set_value(move(payload));
+         gotDataPromise->set_value(payload);
       }
       catch (future_error&)
       {
@@ -1055,7 +1055,7 @@ Payload_Tx BitcoinP2P::getTx(
    if (timeout == 0)
    {
       //wait undefinitely if timeout is 0
-      return move(gotDataFuture.get());
+      return gotDataFuture.get();
    }
    else
    {
@@ -1069,7 +1069,7 @@ Payload_Tx BitcoinP2P::getTx(
          throw GetDataException("operation timed out");
       }
 
-      return move(gotDataFuture.get());
+      return gotDataFuture.get();
    }
 }
 

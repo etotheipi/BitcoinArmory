@@ -402,7 +402,7 @@ private:
    Stack<function<void(const vector<InvEntry>&)>> invBlockLambdas_;
    function<void(vector<InvEntry>&)> invTxLambda_ = {};
 
-   typedef function<void(Payload_Tx)> getTxCallback;
+   typedef function<void(shared_ptr<Payload_Tx>)> getTxCallback;
 
    //stores callback by txhash for getdata packet we send to the node
    TransactionalMap<BinaryData, getTxCallback> getTxCallbackMap_;
@@ -455,7 +455,7 @@ public:
    void shutdown(void);
    void sendMessage(Payload&&);
 
-   Payload_Tx getTx(const InvEntry&, uint32_t timeout = 60);
+   shared_ptr<Payload_Tx> getTx(const InvEntry&, uint32_t timeout = 60);
 
    void registerInvBlockLambda(function<void(const vector<InvEntry>)> func)
    {

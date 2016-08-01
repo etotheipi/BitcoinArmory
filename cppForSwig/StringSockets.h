@@ -43,6 +43,13 @@ private:
       int content_length = -1;
       size_t header_len = 0;
 
+      void clear(void)
+      {
+         httpData.clear();
+         content_length = -1;
+         header_len = 0;
+      }
+
       void get_content_len(const string& header_str)
       {
          string err504("HTTP/1.1 504");
@@ -94,6 +101,15 @@ private:
       int endpacket = 0;
       size_t ptroffset = 0;
       uint16_t fcgiid = 0;
+
+      void clear(void)
+      {
+         fcgidata.clear();
+         httpData.clear();
+
+         endpacket = 0;
+         ptroffset = 0;
+      }
    };
 
 public:

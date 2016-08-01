@@ -31,6 +31,9 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////
 class BinarySocket
 {
+public:
+   typedef function<bool(vector<uint8_t>, exception_ptr)>  ReadCallback;
+
 protected:
    const size_t maxread_ = 4*1024*1024;
    
@@ -39,15 +42,13 @@ protected:
    const string port_;
 
 private:
-   void readFromSocketThread(SOCKET sockfd,
-      function<bool(vector<uint8_t>, bool)> callback);
+   void readFromSocketThread(SOCKET, ReadCallback);
 
 protected:   
    void closeSocket(SOCKET&);
-   void writeToSocket(SOCKET&, void*, size_t);
-   void readFromSocket(SOCKET& sockfd,
-      function<bool(vector<uint8_t>, bool)> callback);
-   void setBlocking(SOCKET&, bool);
+   void writeToSocket(SOCKET, void*, size_t);
+   void readFromSocket(SOCKET, ReadCallback);
+   void setBlocking(SOCKET, bool);
    
 public:
    SOCKET openSocket(bool blocking);
@@ -55,7 +56,7 @@ public:
    BinarySocket(const string& addr, const string& port);
    bool testConnection(void);
 
-   virtual string writeAndRead(const string&, SOCKET sock = SOCK_MAX)
+   virtual string writeAndRead(const string, SOCKET sock = SOCK_MAX)
    {
       throw SocketError("not implemened, use the protected method instead");
    }
@@ -86,7 +87,7 @@ public:
       BinarySocket::writeToSocket(sockfd_, data, len);
    }
 
-   void readFromSocket(function<bool(vector<uint8_t>, bool)> callback)
+   void readFromSocket(BinarySocket::ReadCallback callback)
    {
       BinarySocket::readFromSocket(sockfd_, callback);
    }

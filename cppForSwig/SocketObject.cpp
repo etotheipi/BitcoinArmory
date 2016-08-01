@@ -70,7 +70,7 @@ SOCKET BinarySocket::openSocket(bool blocking)
    }
    catch (SocketError &e)
    {
-      closesocket(sockfd);
+      closeSocket(sockfd);
       sockfd = SOCK_MAX;
    }
 
@@ -93,8 +93,7 @@ void BinarySocket::closeSocket(SOCKET& sockfd)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BinarySocket::writeToSocket(
-   SOCKET& sockfd, void* data, size_t size)
+void BinarySocket::writeToSocket(SOCKET sockfd, void* data, size_t size)
 {
    //don't return we have written and are write ready
    struct pollfd pfd;
@@ -130,12 +129,15 @@ void BinarySocket::writeToSocket(
       //exceptions
       if (pfd.revents & POLLERR)
       {
-         //grab socket error code
-
          //break out of poll loop
          LOGERR << "POLLERR in writeToSocket";
          throw SocketError("POLLERR in writeToSocket");
-         break;
+      }
+
+      if (pfd.revents & POLLNVAL)
+      {
+         LOGERR << "POLLNVAL in writeToSocket";
+         throw SocketError("POLLNVAL in writeToSocket");
       }
 
       if (pfd.revents & POLLOUT)
@@ -178,7 +180,7 @@ bool BinarySocket::testConnection(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BinarySocket::setBlocking(SOCKET& sock, bool setblocking)
+void BinarySocket::setBlocking(SOCKET sock, bool setblocking)
 {
    if (sock < 0)
       throw SocketError("invalid socket");
@@ -203,8 +205,7 @@ void BinarySocket::setBlocking(SOCKET& sock, bool setblocking)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::readFromSocket(SOCKET& sockfd,
-   function<bool(vector<uint8_t>, bool)> callback)
+void BinarySocket::readFromSocket(SOCKET sockfd, ReadCallback callback)
 {
    exception_ptr exceptptr = nullptr;
 
@@ -225,8 +226,7 @@ void BinarySocket::readFromSocket(SOCKET& sockfd,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BinarySocket::readFromSocketThread(SOCKET sockfd,
-   function<bool(vector<uint8_t>, bool)> callback)
+void BinarySocket::readFromSocketThread(SOCKET sockfd, ReadCallback callback)
 {
    size_t readIncrement = 8192;
    stringstream errorss;
@@ -344,7 +344,7 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
                readdata.resize(totalread);
 
                //callback with the new data, exit poll loop on true
-               if (callback(move(readdata), false))
+               if (callback(move(readdata), nullptr))
                   break;
             }
          }
@@ -363,9 +363,5 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd,
    closeSocket(sockfd);
    
    //mark read as completed
-   callback(vector<uint8_t>(), true);
-
-   //rethrow in case of exception
-   if (exceptptr != nullptr)
-      rethrow_exception(exceptptr);
+   callback(vector<uint8_t>(), exceptptr);
 }

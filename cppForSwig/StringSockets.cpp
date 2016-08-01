@@ -86,8 +86,6 @@ string HttpSocket::getBody(vector<uint8_t> msg)
 ///////////////////////////////////////////////////////////////////////////////
 string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-   if (sockfd == SOCK_MAX)
-      sockfd = openSocket(false);
 
    char* packet = nullptr;
    auto packetSize = makePacket(&packet, msg.c_str());
@@ -96,17 +94,34 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
 
    auto packetPtr = make_shared<packetData>();
 
-   auto readPromise = make_shared<promise<bool>>();
-   auto waitOnRead = readPromise->get_future();
-
-   auto processHttpPacket = [readPromise, packetPtr]
-      (vector<uint8_t> socketData, bool interrupt)->bool
+   while (1)
    {
+      if (sockfd == SOCK_MAX)
+         sockfd = openSocket(false);
+
+      if (sockfd == SOCK_MAX)
+         throw SocketError("failed to connect socket");
+
+      packetPtr->clear();
+
       try
       {
-         auto& httpData = packetPtr->httpData;
+         auto readPromise = make_shared<promise<bool>>();
+         auto waitOnRead = readPromise->get_future();
 
-         if (socketData.size() > 0)
+         auto processHttpPacket = [readPromise, packetPtr]
+            (vector<uint8_t> socketData, exception_ptr ePtr)->bool
+         {
+            try
+            {
+               auto& httpData = packetPtr->httpData;
+
+               if (socketData.size() == 0 && ePtr)
+               {
+                  readPromise->set_value(true);
+                  return true;
+               }
+
          {
             httpData.insert(
                httpData.end(), socketData.begin(), socketData.end());
@@ -153,43 +168,40 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
             done = true;
          }
 
-         if (interrupt)
+         if (ePtr != nullptr)
+         {
+            readPromise->set_exception(ePtr);
             done = true;
-
-         if (done)
+         }
+         else if (done)
+         {
             readPromise->set_value(true);
+         }
 
          return done;
+            }
+            catch (...)
+            {
+               readPromise->set_exception(current_exception());
+               return true;
+            }
+         };
+
+         writeToSocket(sockfd, packet, packetSize);
+         readFromSocket(sockfd, processHttpPacket);
+
+         waitOnRead.get();
+         break;
       }
-      catch (...)
+      catch (HttpError &e)
       {
-         readPromise->set_exception(current_exception());
-         return true;
+         LOGERR << "HttpSocket::writeAndRead HttpError: " << e.what();
+         continue;
       }
-   };
-
-   readFromSocket(sockfd, processHttpPacket);   
-   writeToSocket(sockfd, packet, packetSize);
-
-   try
-   {
-      waitOnRead.get();
-   }
-   catch (HttpError &e)
-   {
-      LOGERR << "HttpSocket::writeAndRead HttpError: " << e.what();
-   }
-   catch (IsEmpty&)
-   {
-      //nothing to do
-   }
-   catch (exception &e)
-   {
-      LOGERR << "HttpSocket::writeAndRead exception: " << e.what();
-   }
-   catch (...)
-   {
-      LOGERR << "HttpSocket::writeAndRead unknown exception";
+      catch (SocketError &e)
+      {
+         continue;
+      }
    }
 
    closeSocket(sockfd);
@@ -242,8 +254,6 @@ FcgiMessage FcgiSocket::makePacket(const char* msg)
 ///////////////////////////////////////////////////////////////////////////////
 string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-   if (sockfd == SOCK_MAX)
-      sockfd = openSocket(false);
 
    auto&& fcgiMsg = makePacket(msg.c_str());
    auto serdata = fcgiMsg.serialize();
@@ -252,130 +262,148 @@ string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
    auto packetPtr = make_shared<packetStruct>();
    packetPtr->fcgiid = fcgiMsg.id();
 
-   auto readPromise = make_shared<promise<bool>>();
-   auto waitOnRead = readPromise->get_future();
-
-   auto processFcgiPacket =
-      [readPromise, packetPtr](
-      vector<uint8_t> socketData, bool interrupt)->bool
+   while (1)
    {
+      packetPtr->clear();
+      
+      if (sockfd == SOCK_MAX)
+         sockfd = openSocket(false);
+
+      if (sockfd == SOCK_MAX)
+         throw SocketError("can't connect socket");
+
       try
       {
-         if (socketData.size() > 0)
+         auto readPromise = make_shared<promise<bool>>();
+         auto waitOnRead = readPromise->get_future();
+
+         auto processFcgiPacket =
+            [readPromise, packetPtr](
+            vector<uint8_t> socketData, exception_ptr ePtr)->bool
          {
-            packetPtr->fcgidata.insert(
-               packetPtr->fcgidata.end(), socketData.begin(), socketData.end());
-
-            while (packetPtr->ptroffset + FCGI_HEADER_LEN <= 
-               packetPtr->fcgidata.size())
+            try
             {
-               //grab fcgi header
-               auto* fcgiheader = &packetPtr->fcgidata[packetPtr->ptroffset];
-
-               packetPtr->ptroffset += FCGI_HEADER_LEN;
-
-               //make sure fcgi version and request id match
-               if (fcgiheader[0] != FCGI_VERSION_1)
-                  throw FcgiError("unexpected fcgi header version");
-
-               uint16_t requestid;
-               requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
-               if (requestid != packetPtr->fcgiid)
-                  throw FcgiError("request id mismatch");
-
-               //check packet type
-               bool abortParse = false;
-               switch (fcgiheader[1])
+               if (socketData.size() == 0 && ePtr == nullptr)
                {
-               case FCGI_END_REQUEST:
-               {
-                  packetPtr->endpacket++;
-                  break;
+                  readPromise->set_value(true);
+                  return true;
                }
 
-               case FCGI_STDOUT:
+               packetPtr->fcgidata.insert(
+                  packetPtr->fcgidata.end(), socketData.begin(), socketData.end());
+
+               while (packetPtr->ptroffset + FCGI_HEADER_LEN <=
+                  packetPtr->fcgidata.size())
                {
-                  //get packetsize and padding
-                  uint16_t packetsize = 0, padding;
+                  //grab fcgi header
+                  auto* fcgiheader = &packetPtr->fcgidata[packetPtr->ptroffset];
 
-                  packetsize |= (uint8_t)fcgiheader[5];
-                  packetsize |= (uint16_t)(fcgiheader[4] << 8);
-                  padding = (uint8_t)fcgiheader[6];
+                  packetPtr->ptroffset += FCGI_HEADER_LEN;
 
-                  if (packetsize > 0)
+                  //make sure fcgi version and request id match
+                  if (fcgiheader[0] != FCGI_VERSION_1)
+                     throw FcgiError("unexpected fcgi header version");
+
+                  uint16_t requestid;
+                  requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
+                  if (requestid != packetPtr->fcgiid)
+                     throw FcgiError("request id mismatch");
+
+                  //check packet type
+                  bool abortParse = false;
+                  switch (fcgiheader[1])
                   {
-                     //do not process this fcgi packet if we dont have enough
-                     //data in the read buffer to cover the advertized length
-                     if (packetsize + padding + packetPtr->ptroffset >
-                        packetPtr->fcgidata.size())
-                     {
-                        packetPtr->ptroffset -= FCGI_HEADER_LEN;
-                        abortParse = true;
-                        break;
-                     }
-
-                     //extract http data
-                     packetPtr->httpData.insert(packetPtr->httpData.end(),
-                        packetPtr->fcgidata.begin() + packetPtr->ptroffset,
-                        packetPtr->fcgidata.begin() + packetPtr->ptroffset + packetsize);
-
-                     //advance index to next header
-                     packetPtr->ptroffset += packetsize + padding;
+                  case FCGI_END_REQUEST:
+                  {
+                     packetPtr->endpacket++;
+                     break;
                   }
 
-                  break;
+                  case FCGI_STDOUT:
+                  {
+                     //get packetsize and padding
+                     uint16_t packetsize = 0, padding;
+
+                     packetsize |= (uint8_t)fcgiheader[5];
+                     packetsize |= (uint16_t)(fcgiheader[4] << 8);
+                     padding = (uint8_t)fcgiheader[6];
+
+                     if (packetsize > 0)
+                     {
+                        //do not process this fcgi packet if we dont have enough
+                        //data in the read buffer to cover the advertized length
+                        if (packetsize + padding + packetPtr->ptroffset >
+                           packetPtr->fcgidata.size())
+                        {
+                           packetPtr->ptroffset -= FCGI_HEADER_LEN;
+                           abortParse = true;
+                           break;
+                        }
+
+                        //extract http data
+                        packetPtr->httpData.insert(packetPtr->httpData.end(),
+                           packetPtr->fcgidata.begin() + packetPtr->ptroffset,
+                           packetPtr->fcgidata.begin() + packetPtr->ptroffset + packetsize);
+
+                        //advance index to next header
+                        packetPtr->ptroffset += packetsize + padding;
+                     }
+
+                     break;
+                  }
+
+                  case FCGI_ABORT_REQUEST:
+                     throw FcgiError("received FCGI_ABORT_REQUEST packet");
+
+                     //we do not handle the other request types as a client
+                  default:
+                     throw FcgiError("unknown fcgi header request byte");
+                  }
+
+                  if (packetPtr->endpacket >= 1 || abortParse)
+                     break;
                }
 
-               case FCGI_ABORT_REQUEST:
-                  throw FcgiError("received FCGI_ABORT_REQUEST packet");
-
-                  //we do not handle the other request types as a client
-               default:
-                  throw FcgiError("unknown fcgi header request byte");
+               if (ePtr != nullptr)
+               {
+                  readPromise->set_exception(ePtr);
+                  return true;
                }
 
-               if (packetPtr->endpacket >= 1 || abortParse)
-                  break;
+               if (packetPtr->endpacket >= 1)
+               {
+                  readPromise->set_value(true);
+                  return true;
+               }
+
+               return false;
             }
-         }
+            catch (...)
+            {
+               readPromise->set_exception(current_exception());
+               return true;
+            }
 
-         if (packetPtr->endpacket >= 1 || interrupt)
-         {
-            readPromise->set_value(true);
-            return true;
-         }
-         return false;
+         };
+
+         writeToSocket(sockfd, (char*)serdata, serdatalength);
+         readFromSocket(sockfd, processFcgiPacket);
+
+         waitOnRead.get();
+         
+         //if we got this far we're all good
+         break;
       }
-      catch (...)
+      catch (FcgiError &e)
       {
-         readPromise->set_exception(current_exception());
-         return true;
+         LOGERR << "FcgiSocket::writeAndRead FcgiError: " << e.what();
+      }
+      catch (SocketError &e)
+      {
+         //socket error, try again
       }
 
-   };
-
-   readFromSocket(sockfd, processFcgiPacket);
-   writeToSocket(sockfd, (char*)serdata, serdatalength);
-
-   try
-   {
-      waitOnRead.get();
-   }
-   catch (FcgiError &e)
-   {
-      LOGERR << "FcgiSocket::writeAndRead FcgiError: " << e.what();
-   }
-   catch (IsEmpty&)
-   {
-      //nothing to do
-   }
-   catch (exception &e)
-   {
-      LOGERR << "FcgiSocket::writeAndRead exception: " << e.what();
-   }
-   catch (...)
-   {
-      LOGERR << "FcgiSocket::writeAndRead unknown exception";
+      closeSocket(sockfd);
    }
 
    closeSocket(sockfd);

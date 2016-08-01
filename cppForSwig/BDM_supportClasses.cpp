@@ -1596,13 +1596,13 @@ void ZeroConfContainer::processInvTxThread(void)
          if (entry.invtype_ == Inv_Terminate)
             break;
 
-         auto&& payload = networkNode_->getTx(entry);
+         auto payload = networkNode_->getTx(entry);
 
 
          //push raw tx with current time
          pair<BinaryData, Tx> zcpair;
          zcpair.first = getNewZCkey();
-         auto& rawTx = payload.getRawTx();
+         auto& rawTx = payload->getRawTx();
          zcpair.second.unserialize(&rawTx[0], rawTx.size());
          zcpair.second.setTxTime(time(0));
 
