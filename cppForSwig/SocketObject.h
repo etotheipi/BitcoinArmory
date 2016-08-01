@@ -58,7 +58,7 @@ public:
 
    virtual string writeAndRead(const string, SOCKET sock = SOCK_MAX)
    {
-      throw SocketError("not implemened, use the protected method instead");
+      throw SocketError("not implemented, use the protected method instead");
    }
 
    virtual SocketType type(void) const { return SocketBinary; }

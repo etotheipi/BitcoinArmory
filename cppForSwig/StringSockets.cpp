@@ -84,7 +84,7 @@ string HttpSocket::getBody(vector<uint8_t> msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
+string HttpSocket::writeAndRead(const string msg, SOCKET sockfd)
 {
 
    char* packet = nullptr;
@@ -252,7 +252,7 @@ FcgiMessage FcgiSocket::makePacket(const char* msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
+string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
 {
 
    auto&& fcgiMsg = makePacket(msg.c_str());

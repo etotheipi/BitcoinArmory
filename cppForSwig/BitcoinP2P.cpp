@@ -907,6 +907,9 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
       case Inv_Msg_Tx:
          processInvTx(move(entryVec.second));
          break;
+
+      default:
+         continue;
       }
    }
 }
