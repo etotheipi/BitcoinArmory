@@ -632,6 +632,11 @@ void Clients::maintenanceThread(void) const
 
          return;
       }
+      catch (IsEmpty&)
+      {
+         LOGERR << "caught isEmpty in Clients maintenance loop";
+         continue;
+      }
 
       //trigger gc thread
       gcCommands_.push_back(true);

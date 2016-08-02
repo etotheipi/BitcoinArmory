@@ -65,11 +65,6 @@ struct BDV_Notification_NewBlock : public BDV_Notification
       const Blockchain::ReorganizationState& ref) :
       reorgState_(ref)
    {}
-
-   BDV_Notification_NewBlock(
-      Blockchain::ReorganizationState&& mv) :
-      reorgState_(move(mv))
-   {}
 };
 
 struct BDV_Notification_ZC : public BDV_Notification

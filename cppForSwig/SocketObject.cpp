@@ -263,6 +263,18 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd, ReadCallback callback)
             throw SocketError(errorss.str());
          }
 
+         if (pfd.revents & POLLNVAL)
+         {
+#ifndef _WIN32
+            int error = 0;
+            socklen_t errlen = sizeof(error);
+            getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void *)&error, &errlen);
+            LOGERR << "readFromSocketThread poll returned POLLNVAL, errnum: " <<
+               error << ", errmsg: " << strerror(error);                  
+#endif
+            throw SocketError("POLLNVAL in readFromSocketThread");
+         }
+
          //exceptions
          if (pfd.revents & POLLERR)
          {
