@@ -1022,12 +1022,26 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
          dbDir_ = move(newPath);
       }
 
+      if (access(dbDir_.c_str(), F_OK | R_OK | W_OK) != 0)
+      {
+#ifdef _WIN32
+         CreateDirectory(dbDir_.c_str());
+#else
+         mkdir(dbDir_.c_str(), 777);
+#endif
+      }
+
       if (blkFileLocation_.c_str()[0] == '~')
       {
          auto newPath = userPath;
          appendPath(newPath, blkFileLocation_.substr(1));
 
          blkFileLocation_ = move(newPath);
+      }
+
+      if (blkFileLocation_.substr(blkFileLocation_.length() - 7, 7) != "/blocks")
+      {
+         appendPath(blkFileLocation_, "/blocks");
       }
 
       logFilePath_ = dataDir_;
