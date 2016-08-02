@@ -211,7 +211,7 @@ try
    while(pimpl->run)
    {
       //register promise with p2p interface
-      shared_ptr<promise<bool>> newBlocksPromise;
+      auto newBlocksPromise = make_shared<promise<bool>>();
       auto newBlocksFuture = newBlocksPromise->get_future();
       
       auto newBlocksCallback = 
