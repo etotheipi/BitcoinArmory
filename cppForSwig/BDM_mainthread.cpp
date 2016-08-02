@@ -211,11 +211,11 @@ try
    while(pimpl->run)
    {
       //register promise with p2p interface
-      promise<bool> newBlocksPromise;
-      auto newBlocksFuture = newBlocksPromise.get_future();
+      shared_ptr<promise<bool>> newBlocksPromise;
+      auto newBlocksFuture = newBlocksPromise->get_future();
       
       auto newBlocksCallback = 
-         [&newBlocksPromise](const vector<InvEntry>& vecIE)->void
+         [newBlocksPromise](const vector<InvEntry>& vecIE)->void
       {
          for (auto& ie : vecIE)
          {
@@ -227,13 +227,13 @@ try
                }
                catch (...)
                {
-                  newBlocksPromise.set_exception(current_exception());
+                  newBlocksPromise->set_exception(current_exception());
                   return;
                }
             }
          }
 
-         newBlocksPromise.set_value(true);
+         newBlocksPromise->set_value(true);
       };
 
       try
