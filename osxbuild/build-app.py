@@ -16,36 +16,40 @@ from subprocess import Popen, PIPE
 from tempfile import mkstemp
 
 # Set some constants up front
-minOSXVer    = '10.7'
-osxName      = 'ElCapitan'
-pythonVer    = '2.7.11' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyMajorVer   = '2.7'
-setToolVer   = '20.1.1'
-pipVer       = '8.0.2'
-psutilVer    = '4.0.0'
-zopeVer      = '4.1.3'
-twistedVer   = '15.5.0'
-libpngVer    = '1.6.21'
-qtVer        = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
-                        # Possibly "sipFlags" below too.
-sipVer       = '4.17'   # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer      = '4.11.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev    = '191838'
-appNopeVer   = '0.1.0'
-LOGFILE      = 'build-app.log.txt'
-LOGPATH      = path.abspath( path.join(os.getcwd(), LOGFILE))
-ARMORYDIR    = '..'
-OBJCDIR      = path.join(os.getcwd(), 'objc_armory')
-WORKDIR      = path.join(os.getcwd(), 'workspace')
-APPDIR       = path.join(WORKDIR, 'Armory.app') # actually make it local
-DLDIR        = path.join(WORKDIR, 'downloads')
-UNPACKDIR    = path.join(WORKDIR, 'unpackandbuild')
-INSTALLDIR   = path.join(WORKDIR, 'install')
-PYPREFIX     = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
-PYSITEPKGS   = path.join(PYPREFIX, 'lib/python%s/site-packages' % pyMajorVer)
-MAKEFLAGS    = '-j4'
+minOSXVer     = '10.7'
+osxName       = 'ElCapitan'
+pythonVer     = '2.7.12' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyMajorVer    = '2.7'
+setToolVer    = '25.1.3'
+setToolSubdir = '46/db/baa571da945ff731f3739a119574e89b12add9b05c03842103bd641d0990'
+pipVer        = '8.1.2'
+pipSubdir     = 'e7/a8/7556133689add8d1a54c0b14aeff0acb03c64707ce100ecd53934da1aa13'
+psutilVer     = '4.3.0'
+psutilSubdir  = '22/a8/6ab3f0b3b74a36104785808ec874d24203c6a511ffd2732dd215cf32d689'
+zopeVer       = '4.2.0'
+zopeSubdir    = 'ea/a3/38bdc8e8bd068ea5b4d21a2d80eca1547cd8509318e8d7c875f7247abe43'
+twistedVer    = '16.3.0'
+libpngVer     = '1.6.23'
+qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
+                         # Possibly "sipFlags" below too.
+sipVer        = '4.18.1' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer       = '4.11.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
+webkitRev     = '202045'
+appNopeVer    = '0.1.0'
+LOGFILE       = 'build-app.log.txt'
+LOGPATH       = path.abspath( path.join(os.getcwd(), LOGFILE))
+ARMORYDIR     = '..'
+OBJCDIR       = path.join(os.getcwd(), 'objc_armory')
+WORKDIR       = path.join(os.getcwd(), 'workspace')
+APPDIR        = path.join(WORKDIR, 'Armory.app') # actually make it local
+DLDIR         = path.join(WORKDIR, 'downloads')
+UNPACKDIR     = path.join(WORKDIR, 'unpackandbuild')
+INSTALLDIR    = path.join(WORKDIR, 'install')
+PYPREFIX      = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
+PYSITEPKGS    = path.join(PYPREFIX, 'lib/python%s/site-packages' % pyMajorVer)
+MAKEFLAGS     = '-j4'
 
-QTBUILTFLAG = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
+QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
 #pypath_txt_template=""" PYTHON_INCLUDE=%s/include/python2.7/ PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a PYVER=python2.7 """
 pypathData  =   'PYTHON_INCLUDE=%s/include/python%s/' % (PYPREFIX, pyMajorVer)
@@ -59,6 +63,7 @@ parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option('--fromscratch',  dest='fromscratch', default=False, action='store_true', help='Remove all prev-downloaded: redownload and rebuild all')
 parser.add_option('--rebuildall',   dest='rebuildall',  default=False, action='store_true', help='Remove all prev-built; no redownload, only rebuild')
 parser.add_option('--compapponly',  dest='compapponly', default=False, action='store_true', help='Recompile Armory, not the 3rd party code')
+parser.add_option('--cleanupapp',   dest='cleanupapp',  default=False, action='store_true', help='Delete Python files in the compiled application')
 (CLIOPTS, CLIARGS) = parser.parse_args()
 
 ################################################################################
@@ -231,7 +236,7 @@ def getTarUnpackPath(tarName, inDir=None):
    if tarName == "Python-%s.tar.xz" % pythonVer:
       theDir = "Python-%s" % pythonVer
    elif tarName == "libpng-%s.tar.xz" % libpngVer:
-      theDir = "libpng-%s" % pythonVer
+      theDir = "libpng-%s" % libpngVer
    else:
       tar = tarfile.open(tarPath,'r')
       theDir = tar.next().name.split('/')[0]
@@ -321,33 +326,33 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "c3b8bbe3f084c4d4ea13ffb03d75a5e22f9756ff" ] )
+                    "05360b8ade117b35e266b2004a7f1f11250c6dcd" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
-                    "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
-                    "bb2774945cdbf1137772d81993b4d41d15e9a0a6" ] )
+                    "https://pypi.python.org/packages/%s/setuptools-%s.tar.gz" % (setToolSubdir, setToolVer), \
+                    "7b5dc4d1b1cbe42bc6c5bcaca7221148822d20c6" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
-                    "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
-                    "974a8c345d272b9d9072287f399aab8410067f7e" ] )
+                    "https://pypi.python.org/packages/%s/pip-%s.tar.gz" % (pipSubdir, pipVer), \
+                    "1c13c247967ec5bee6de5fd104c5d78ba30951c7" ] )
 
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
-                    "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
-                    "2a56200988040f6c0167b7d331555d937adac55b" ] )
+                    "https://pypi.python.org/packages/%s/psutil-%s.tar.gz" % (psutilSubdir, psutilVer), \
+                    "062fc6745a16f91aed159bb81381bd1cb84acb81" ] )
 
 distfiles.append( [ 'Twisted', \
                     "Twisted-%s.tar.bz2" % twistedVer, \
-                    "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
-                    "c7db4b949fc27794ca94677f66082f49be43f283" ] )
+                    "https://files.pythonhosted.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
+                    "b9f183ae63a49c99619f7d37d1ae3a368d6cf886" ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://dl.bintray.com/homebrew/mirror/libpng-%s.tar.xz" % libpngVer, \
-                    "978b2f4e007eda56032001493ddb97d20f0ab291" ] )
+                    "4857fb8dbd5ca7ddacc40c183e340b9ffa34a097" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -365,17 +370,17 @@ distfiles.append( [ "Qt", \
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterface%s.a" % osxName, \
                     "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "dea8ccead40a77b71887caaa58572577f467e584" ] )
+                    "d46135e7a5bcc9b6dc4dfe2eeed62f7d35951b0d" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    '1de4c10bcc809ecf9093c783d9530ff4403c8210' ] )
+                    'a4040e9fbb0e4c764e637c36fa8504722f0bfdf4' ] )
 
 distfiles.append( [ "zope", \
                     "zope.interface-%s.tar.gz" % zopeVer, \
-                    "https://pypi.python.org/packages/source/z/zope.interface/zope.interface-%s.tar.gz" % zopeVer, \
-                    '207161e27880d07679aff6d712ed12f55e3d91b6' ] )
+                    "https://pypi.python.org/packages/%s/zope.interface-%s.tar.gz" % (zopeSubdir, zopeVer), \
+                    '8b5f345d257d9d03cd782b9e332fc1c0928928f4' ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
@@ -458,7 +463,7 @@ def compile_libpng():
       pngDir = unpack(tarfilesToDL['libpng'])
       command = './configure'
       execAndWait(command, cwd=pngDir)
-      command = 'make'
+      command = 'make %s' % MAKEFLAGS
       execAndWait(command, cwd=pngDir)
       src = path.join(pngDir, '.libs', dylib)
       copyfile(src, target)
@@ -569,7 +574,7 @@ def compile_sip():
       command += ' --sipdir="%s/share/sip"' % PYPREFIX
       command += ' --deployment-target=%s' % minOSXVer
       execAndWait(command, cwd=sipPath)
-      execAndWait('make', cwd=sipPath)
+      execAndWait('make %s' % MAKEFLAGS, cwd=sipPath)
 
    # Must run "make install" again even if it was previously built (since
    # the APPDIR and INSTALLDIR are wiped every time the script is run)
@@ -649,17 +654,22 @@ def compile_armory():
 
    armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
    armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
+   armoryDB = path.join(APPDIR, 'Contents/MacOS/ArmoryDB')
    pydir = path.join(APPDIR, 'Contents/MacOS/py')
    currentDir = os.getcwd()
    os.chdir("..")
    execAndWait('python update_version.py')
    os.chdir(currentDir)
-   execAndWait('make all', cwd='..')
+   execAndWait('make all %s' % MAKEFLAGS, cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
    copyfile('armoryd-script.sh', armorydAppScript)
+   os.chdir("..")
+   copyfile('ArmoryDB', armoryDB)
+   os.chdir("osxbuild")
    execAndWait('chmod +x "%s"' % armoryAppScript)
    execAndWait('chmod +x "%s"' % armorydAppScript)
+   execAndWait('chmod +x "%s"' % armoryDB)
 
 ################################################################################
 def compile_objc_library():
@@ -678,7 +688,7 @@ def compile_objc_library():
    # mkspecs/unsupported/macx-clang-libc++/qmake.conf. Patch the output for now.
    execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), \
                cwd=OBJCDIR)
-   execAndWait('make', cwd=OBJCDIR)
+   execAndWait('make %s' % MAKEFLAGS, cwd=OBJCDIR)
 
 
 ################################################################################

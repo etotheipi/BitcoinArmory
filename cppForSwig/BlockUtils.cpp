@@ -702,7 +702,7 @@ private:
 ////
 ////////////////////////////////////////////////////////////////////////////////
 const string BlockDataManagerConfig::dbDirExtention_ = "/databases";
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32)
 const string BlockDataManagerConfig::defaultDataDir_ = "~/Armory";
 const string BlockDataManagerConfig::defaultBlkFileLocation_ = "~/Bitcoin/blocks";
 
@@ -711,6 +711,15 @@ const string BlockDataManagerConfig::defaultTestnetBlkFileLocation_ = "~/Bitcoin
 
 const string BlockDataManagerConfig::defaultRegtestDataDir_ = "~/Armory/regtest";
 const string BlockDataManagerConfig::defaultRegtestBlkFileLocation_ = "~/Bitcoin/regtest/blocks";
+#elif defined(__APPLE__)
+const string BlockDataManagerConfig::defaultDataDir_ = "~/Library/Application Support/Armory";
+const string BlockDataManagerConfig::defaultBlkFileLocation_ = "~/Library/Application Support/Bitcoin/blocks";
+
+const string BlockDataManagerConfig::defaultTestnetDataDir_ = "~/Library/Application Support/Armory/testnet3";
+const string BlockDataManagerConfig::defaultTestnetBlkFileLocation_ = "~/Library/Application Support/Bitcoin/testnet3/blocks";
+
+const string BlockDataManagerConfig::defaultRegtestDataDir_ = "~/Library/Application Support/Armory/regtest";
+const string BlockDataManagerConfig::defaultRegtestBlkFileLocation_ = "~/Library/Application Support/Bitcoin/regtest/blocks";
 #else
 const string BlockDataManagerConfig::defaultDataDir_ = "~/.armory";
 const string BlockDataManagerConfig::defaultBlkFileLocation_ = "~/.bitcoin/blocks";

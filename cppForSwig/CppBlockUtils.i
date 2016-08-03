@@ -36,10 +36,12 @@
 %typedef unsigned short     uint16_t;
 %typedef unsigned int       uint32_t;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__)
 %typedef unsigned long long uint64_t;
 #else
+#if defined(__GNUC__) // Linux
 %typedef long unsigned int uint64_t;
+#endif
 #endif
 
 %typedef char               int8_t;
